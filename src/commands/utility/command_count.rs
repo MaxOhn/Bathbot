@@ -6,6 +6,7 @@ use serenity::{
     prelude::Context,
 };
 use std::fmt::Write;
+use std::iter::FromIterator;
 
 #[command]
 #[bucket = "two_per_thirty_cooldown"]
@@ -15,8 +16,10 @@ fn commands(ctx: &mut Context, msg: &Message) -> CommandResult {
     let counter = data
         .get::<CommandCounter>()
         .expect("Expected CommandCounter in ShareMap.");
-    for (k, v) in counter {
-        let _ = write!(contents, "- {name}: {amount}\n", name = k, amount = v);
+    let mut vec: Vec<_> = Vec::from_iter(counter);
+    vec.sort_by(|&(_, a), &(_, b)| b.cmp(&a));
+    for (k, v) in vec {
+        let _ = writeln!(contents, "- `{name}`: {amount}", name = k, amount = v);
     }
     if let Err(why) = msg.channel_id.say(&ctx.http, &contents) {
         println!("Error sending message: {:?}", why);

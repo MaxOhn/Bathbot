@@ -5,11 +5,13 @@ authors = ["MaxOhn <ohn.m@hotmail.de>"]
 edition = "2018"
 
 [dependencies]
+rosu = { path = "../rosu" }
+roppai = { path = "../roppai" }
 env_logger = "0.6"
 kankyo = "0.2"
 log = "0.4"
 tokio = { version = "0.2.9", features = ["full"] }
 serenity = { version = "0.8", features = ["cache", "framework", "standard_framework", "rustls_backend"] }
-
-[dependencies.rosu]
-path = "../rosu"
+num-format = "0.4.0"
+chrono = "0.4"
+reqwest = "*"

@@ -1,16 +1,23 @@
 mod commands;
+mod messages;
 mod util;
 #[macro_use]
 mod macros;
 
-use commands::{osu::*, utility::*};
+#[allow(unused_imports)]
+#[macro_use]
+extern crate log;
+extern crate roppai;
+
+use commands::{osu::*, utility::*, streams::*, fun::*};
+pub use rosu;
 pub use util::Error;
 
-use log::{debug, error, info};
+use log::{error, info};
 use rosu::backend::Osu as OsuClient;
 use serenity::{
     framework::{standard::DispatchError, StandardFramework},
-    model::{event::ResumedEvent, gateway::Ready},
+    model::{channel::Channel, event::ResumedEvent, gateway::Ready},
     prelude::*,
 };
 use std::{
@@ -61,7 +68,12 @@ fn main() -> Result<(), Error> {
             })
             .help(&HELP)
             .group(&OSUGENERAL_GROUP)
-            .group(&OSUSTD_GROUP)
+            .group(&OSU_GROUP)
+            .group(&MANIA_GROUP)
+            .group(&TAIKO_GROUP)
+            .group(&CATCHTHEBEAT_GROUP)
+            .group(&STREAMS_GROUP)
+            .group(&FUN_GROUP)
             .group(&UTILITY_GROUP)
             .bucket("two_per_thirty_cooldown", |b| {
                 b.delay(5).time_span(30).limit(2)
@@ -70,7 +82,13 @@ fn main() -> Result<(), Error> {
                 let location = match msg.guild(&ctx) {
                     Some(guild) => {
                         let guild_name = guild.read().name.clone();
-                        let channel_name = msg.channel(&ctx).unwrap();
+                        let channel_name = if let Channel::Guild(channel) =
+                            msg.channel(&ctx).unwrap()
+                        {
+                            channel.read().name.clone()
+                        } else {
+                            panic!("Found non-Guild channel of msg despite msg being in a guild");
+                        };
                         format!("{}:{}", guild_name, channel_name)
                     }
                     None => "Private".to_owned(),
@@ -99,14 +117,14 @@ impl EventHandler for Handler {
     }
 
     fn resume(&self, _: Context, resume: ResumedEvent) {
-        debug!("Resumed; trace: {:?}", resume.trace);
+        info!("Resumed; trace: {:?}", resume.trace);
     }
 }
 
 pub struct CommandCounter;
 
 impl TypeMapKey for CommandCounter {
-    type Value = HashMap<String, u64>;
+    type Value = HashMap<String, u32>;
 }
 
 pub struct Osu;
