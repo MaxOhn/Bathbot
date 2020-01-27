@@ -16,6 +16,7 @@ use serenity::{builder::CreateEmbed, cache::CacheRwLock, utils::Colour};
 const HOMEPAGE: &str = "https://osu.ppy.sh/";
 const MAP_THUMB_URL: &str = "https://b.ppy.sh/thumb/";
 const AVATAR_URL: &str = "https://a.ppy.sh/";
+const FLAG_URL: &str = "https://osu.ppy.sh//images/flags/";
 
 pub struct BotEmbed {
     cache: CacheRwLock,
@@ -43,7 +44,7 @@ pub enum EmbedType {
     // user - map - scores of user on map
     UserScoreMulti(Box<User>, Box<Beatmap>, Vec<Score>),
     // user - (score-map) - score indices
-    UserMapMulti(Box<User>, Vec<(Score, Beatmap)>, Option<Vec<u32>>),
+    UserMapMulti(Box<User>, Vec<(Score, Beatmap)>, Option<Vec<usize>>),
     // user - (score-map)
     Profile(Box<User>, Vec<(Score, Beatmap)>),
     // score - map
@@ -67,7 +68,10 @@ impl EmbedType {
             UserScoreMulti(user, map, scores) => {
                 create_user_score_multi(e, user, mode, map, scores, cache)
             }
-            UserMapMulti(user, tuples, indices) => e,
+            UserMapMulti(user, tuples, indices) => {
+                let indices: Vec<usize> = indices.unwrap_or_else(|| (1..=tuples.len()).collect());
+                create_user_map_multi(e, user, mode, tuples, indices, cache)
+            }
             Profile(user, tuples) => e,
             SimulateScore(score, map) => e,
             UserLeaderboard(map, tuples) => e,
@@ -116,12 +120,11 @@ fn create_user_score_single(
     embed.title(title);
 
     // TODO: Handle GameMode's differently
-    let (oppai, max_pp) = match get_oppai(map.beatmap_id, &score, &score.enabled_mods, mode) {
+    let (oppai, max_pp) = match get_oppai(map.beatmap_id, &score, mode) {
         Ok(tuple) => tuple,
         Err(why) => panic!("Something went wrong while using oppai: {}", why),
     };
     let actual_pp = round(score.pp.unwrap_or_else(|| oppai.get_pp()));
-
     embed
         .url(format!("{}b/{}", HOMEPAGE, map.beatmap_id))
         .timestamp(date_to_string(score.date))
@@ -133,11 +136,11 @@ fn create_user_score_single(
         .fields(vec![
             (
                 "Grade",
-                util::get_grade_completion_mods(&score, mode, &score.enabled_mods, &map, cache),
+                util::get_grade_completion_mods(&score, mode, &map, cache),
                 true,
             ),
             ("Score", with_comma_u32(score.score), true),
-            ("Acc", util::get_acc(&score, mode, &map), true),
+            ("Acc", util::get_acc(&score, mode), true),
             ("PP", util::get_pp(actual_pp, round(max_pp)), true),
             ("Combo", util::get_combo(&score, &map), true),
             ("Hits", util::get_hits(&score, mode), true),
@@ -186,27 +189,25 @@ fn create_user_score_multi(
                 ))
         });
     for (i, score) in scores.into_iter().enumerate() {
+        // TODO: Handle GameMode's differently
+        let (mut oppai, max_pp) = match get_oppai(map.beatmap_id, &score, mode) {
+            Ok(tuple) => tuple,
+            Err(why) => panic!("Something went wrong while using oppai: {}", why),
+        };
+        let actual_pp = round(score.pp.unwrap_or_else(|| oppai.get_pp()));
         let mut name = format!(
             "**{idx}.** {grade} {mods}\t[{stars}]\t{score}\t({acc})",
             idx = (i + 1).to_string(),
-            grade = util::get_grade_completion_mods(&score, mode, &score.enabled_mods, &map, cache.clone()),
+            grade = util::get_grade_completion_mods(&score, mode, &map, cache.clone()),
             mods = util::get_mods(&score.enabled_mods),
-            stars = util::get_stars(&score.enabled_mods, &map),
+            stars = util::get_stars(&map, Some(oppai)),
             score = with_comma_u32(score.score),
-            acc = util::get_acc(&score, mode, &map),
+            acc = util::get_acc(&score, mode),
         );
         if mode == GameMode::MNA {
             name.push('\t');
             name.push_str(&util::get_keys(&score.enabled_mods, &map));
         }
-
-        // TODO: Handle GameMode's differently
-        let (oppai, max_pp) = match get_oppai(map.beatmap_id, &score, &score.enabled_mods, mode) {
-            Ok(tuple) => tuple,
-            Err(why) => panic!("Something went wrong while using oppai: {}", why),
-        };
-        let actual_pp = round(score.pp.unwrap_or_else(|| oppai.get_pp()));
-
         let value = format!(
             "{pp}\t[ {combo} ]\t {hits}\t{ago}",
             pp = util::get_pp(actual_pp, round(max_pp)),
@@ -217,4 +218,58 @@ fn create_user_score_multi(
         embed.field(name, value, false);
     }
     embed
+}
+
+fn create_user_map_multi(
+    embed: &mut CreateEmbed,
+    user: Box<User>,
+    mode: GameMode,
+    score_maps: Vec<(Score, Beatmap)>,
+    indices: Vec<usize>,
+    cache: CacheRwLock,
+) -> &mut CreateEmbed {
+    embed
+        .author(|a| {
+            a.icon_url(format!("{}{}.png", FLAG_URL, user.country))
+                .url(format!("{}u/{}", HOMEPAGE, user.user_id))
+                .name(format!(
+                    "{name}: {pp}pp (#{global} {country}{national})",
+                    name = user.username,
+                    pp = round_and_comma(user.pp_raw),
+                    global = user.pp_rank,
+                    country = user.country,
+                    national = user.pp_country_rank
+                ))
+        })
+        .thumbnail(format!("{}{}", AVATAR_URL, user.user_id));
+    let mut description = String::with_capacity(512);
+    for ((score, map), idx) in score_maps.iter().zip(indices.iter()) {
+        // TODO: Handle GameMode's differently
+        let (oppai, max_pp) = match get_oppai(map.beatmap_id, &score, mode) {
+            Ok(tuple) => tuple,
+            Err(why) => panic!("Something went wrong while using oppai: {}", why),
+        };
+        let actual_pp = round(score.pp.unwrap_or_else(|| oppai.get_pp()));
+        description.push_str(&format!(
+            "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
+             {grade} {pp} ~ ({acc}) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
+            idx = idx,
+            title = map.title,
+            version = map.version,
+            base = HOMEPAGE,
+            id = map.beatmap_id,
+            mods = util::get_mods(&score.enabled_mods),
+            stars = util::get_stars(&map, Some(oppai)),
+            grade = get_grade_emote(score.grade, cache.clone()),
+            pp = util::get_pp(actual_pp, max_pp),
+            acc = util::get_acc(&score, mode),
+            score = with_comma_u32(score.score),
+            combo = util::get_combo(&score, &map),
+            hits = util::get_hits(&score, mode),
+            ago = how_long_ago(&score.date),
+        ));
+        description.push('\n');
+    }
+    description.pop();
+    embed.description(description)
 }

@@ -90,24 +90,18 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
         (best_req, global_req)
     };
     let res = rt.block_on(async {
-        let best: Vec<Score> = match best_req.queue().await {
-            Ok(scores) => scores,
-            Err(why) => {
-                return Err(CommandError(format!(
-                    "Error while retrieving UserBest: {}",
-                    why
-                )));
-            }
-        };
-        let global: Vec<Score> = match global_req.queue().await {
-            Ok(scores) => scores,
-            Err(why) => {
-                return Err(CommandError(format!(
-                    "Error while retrieving Scores: {}",
-                    why
-                )));
-            }
-        };
+        let best = best_req.queue().await.or_else(|e| {
+            Err(CommandError(format!(
+                "Error while retrieving UserBest: {}",
+                e
+            )))
+        })?;
+        let global = global_req.queue().await.or_else(|e| {
+            Err(CommandError(format!(
+                "Error while retrieving Scores: {}",
+                e
+            )))
+        })?;
         Ok((best, global))
     });
     let (best, global) = match res {

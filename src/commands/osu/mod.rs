@@ -4,6 +4,7 @@ pub mod recent;
 pub mod scores;
 pub mod standard;
 pub mod taiko;
+pub mod top;
 
 pub use self::fruits::*;
 pub use self::mania::*;

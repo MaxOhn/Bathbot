@@ -1,6 +1,6 @@
 use crate::{util::globals::*, Error};
 use roppai::Oppai;
-use rosu::models::{GameMods, GameMode, Grade, Score};
+use rosu::models::{GameMode, Grade, Score};
 use serenity::{
     cache::CacheRwLock,
     model::{
@@ -13,10 +13,10 @@ use tokio::runtime::Runtime;
 
 const MAP_RETRIEVAL_URL: &str = "https://osu.ppy.sh/web/maps/";
 
-pub fn get_oppai(map_id: u32, score: &Score, mods: &impl GameMods, mode: GameMode) -> Result<(Oppai, f32), Error> {
+pub fn get_oppai(map_id: u32, score: &Score, mode: GameMode) -> Result<(Oppai, f32), Error> {
     let mut oppai = Oppai::new();
-    let mods = mods.get_bits();
-    oppai.set_mode(mode as u8).set_mods(mods);
+    let bits = score.enabled_mods.get_bits();
+    oppai.set_mode(mode as u8).set_mods(bits);
     let map_path = prepare_beatmap_file(map_id)?;
 
     // First calculate only the max pp of the map with the current mods

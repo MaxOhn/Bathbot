@@ -17,8 +17,8 @@ use tokio::runtime::Runtime;
 
 #[command]
 #[description = "Display scores for all mods that a user has on a map. \
-Beatmap can be given as url or just **mapid**. \
-If no beatmap is given, it will choose the map of a score in the channel's history"]
+                 Beatmap can be given as url or just **mapid**. \
+                 If no beatmap is given, it will choose the map of a score in the channel's history"]
 #[example = "2240404 badewanne3"]
 #[aliases("c", "compare")]
 fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
@@ -39,33 +39,22 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 
     // Retrieve map, user, and user's scores on the map
     let res = rt.block_on(async {
-        let scores = match score_req.queue().await {
-            Ok(scores) => scores,
-            Err(why) => {
-                return Err(CommandError(format!(
-                    "Error while retrieving Scores: {}",
-                    why
-                )));
-            }
-        };
-        let users = match user_req.queue().await {
-            Ok(users) => users,
-            Err(why) => {
-                return Err(CommandError(format!(
-                    "Error while retrieving Users: {}",
-                    why
-                )));
-            }
-        };
-        let maps = match map_req.queue().await {
-            Ok(maps) => maps,
-            Err(why) => {
-                return Err(CommandError(format!(
-                    "Error while retrieving Beatmaps: {}",
-                    why
-                )));
-            }
-        };
+        let users = user_req
+            .queue()
+            .await
+            .or_else(|e| Err(CommandError(format!("Error while retrieving Users: {}", e))))?;
+        let scores = score_req.queue().await.or_else(|e| {
+            Err(CommandError(format!(
+                "Error while retrieving Scores: {}",
+                e
+            )))
+        })?;
+        let maps = map_req.queue().await.or_else(|e| {
+            Err(CommandError(format!(
+                "Error while retrieving Beatmaps: {}",
+                e
+            )))
+        })?;
         Ok((scores, users, maps))
     });
     let (scores, user, map) = match res {

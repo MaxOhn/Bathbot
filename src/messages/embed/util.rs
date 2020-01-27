@@ -4,7 +4,8 @@ use crate::util::{
     numbers::{round, round_and_comma},
     osu::get_grade_emote,
 };
-use rosu::models::{Beatmap, GameMod, GameMods, GameMode, Grade, Score};
+use roppai::Oppai;
+use rosu::models::{Beatmap, GameMod, GameMode, GameMods, Grade, Score};
 use serenity::{
     cache::CacheRwLock,
     model::{
@@ -36,11 +37,7 @@ pub fn get_hits(score: &Score, mode: GameMode) -> String {
     hits
 }
 
-pub fn get_acc(score: &Score, mode: GameMode, map: &Beatmap) -> String {
-    let objects = match score.grade {
-        Grade::F => Some(map.count_objects()),
-        _ => None,
-    };
+pub fn get_acc(score: &Score, mode: GameMode) -> String {
     format!("{}%", round(score.get_accuracy(mode)))
 }
 
@@ -62,15 +59,13 @@ pub fn get_pp(actual: f32, max: f32) -> String {
     format!("**{}**/{}PP", round(actual), round(max))
 }
 
-pub fn get_mods(mods: &[GameMod]) -> String {
+pub fn get_mods(mods: &GameMods) -> String {
     if mods.is_empty() {
         String::new()
     } else {
         let mut res = String::new();
         res.push('+');
-        for m in mods {
-            res.push_str(&m.acronym());
-        }
+        res.push_str(&mods.to_string());
         res
     }
 }
@@ -78,26 +73,38 @@ pub fn get_mods(mods: &[GameMod]) -> String {
 pub fn get_keys(mods: &[GameMod], map: &Beatmap) -> String {
     for m in mods {
         if m.is_key_mod() {
-            return format!("[{}]", m.acronym());
+            return format!("[{}]", m);
         }
     }
     format!("[{}K]", map.diff_cs as u32)
 }
 
-pub fn get_stars(_mods: &[GameMod], map: &Beatmap) -> String {
-    format!("{}★", round(map.stars))
+pub fn get_stars(map: &Beatmap, oppai: Option<Oppai>) -> String {
+    let stars = if let Some(oppai) = oppai {
+        oppai.get_stars()
+    } else {
+        map.stars
+    };
+    format!("{}★", round(stars))
 }
 
-pub fn get_grade_completion_mods(score: &Score, mode: GameMode, mods: &impl GameMods, map: &Beatmap, cache: CacheRwLock) -> String {
+pub fn get_grade_completion_mods(
+    score: &Score,
+    mode: GameMode,
+    map: &Beatmap,
+    cache: CacheRwLock,
+) -> String {
     let mut res_string = get_grade_emote(score.grade, cache).to_string();
     let passed = score.get_amount_hits(mode);
     let total = map.count_objects();
     if passed < total {
-
+        res_string.push_str(" (");
+        res_string.push_str(&(100 * passed / total).to_string());
+        res_string.push_str("%)");
     }
     if !score.enabled_mods.is_empty() {
         res_string.push_str(" +");
-        res_string.push_str(&mods.to_string());
+        res_string.push_str(&score.enabled_mods.to_string());
     }
     res_string
 }

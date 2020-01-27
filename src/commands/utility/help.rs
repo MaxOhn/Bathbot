@@ -15,14 +15,15 @@ just pass the command as argument i.e. `<help command`.\n\
 Commands can also be usesd in private messages to me, \
 no need for any prefix in pms.\n\
 If you want to provide a command with a username that contains \
-spaces you must encapsulate the name with `\"` i.e. `\"nathan on osu\"`."]
+spaces you must encapsulate the name with `\"` i.e. `\"nathan on osu\"`.\n\
+Further help on the spreadsheet: http://bit.ly/badecoms"]
 #[command_not_found_text = "Could not find command: `{}`."]
 #[max_levenshtein_distance(3)]
-#[lacking_permissions = "Hide"]
-#[lacking_role = "Hide"]
+#[lacking_permissions = "strike"]
+#[lacking_role = "strike"]
 #[embed_success_colour("DARK_GREEN")]
-#[strikethrough_commands_tip_in_dm("Further help on the spreadsheet: http://bit.ly/badecoms")]
-#[strikethrough_commands_tip_in_guild("Further help on the spreadsheet: http://bit.ly/badecoms")]
+#[strikethrough_commands_tip_in_dm("`~~Strikethrough commands~~` can only be used by authorities")]
+#[strikethrough_commands_tip_in_guild("`~~Strikethrough commands~~` can only be used in servers")]
 fn help(
     context: &mut Context,
     msg: &Message,

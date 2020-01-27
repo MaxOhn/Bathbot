@@ -6,7 +6,7 @@ pub fn round(n: f32) -> f32 {
 }
 
 pub fn with_comma(n: f32) -> String {
-    let dec = (100.0 * n.fract()).round() as u32;
+    let dec = (100.0 * n.fract()).round() / 100.0;
     let int = n.trunc();
     assert!(int >= 0.0);
     let mut int = int as u32;
@@ -26,9 +26,9 @@ pub fn with_comma(n: f32) -> String {
         }
     }
     let mut writer: String = writer.chars().rev().collect();
-    if dec > 0 {
-        writer.push('.');
-        writer.push_str(&dec.to_string())
+    if dec > 0.0 {
+        let d = dec.to_string();
+        writer.push_str(&d[1..d.len()])
     }
     writer
 }
