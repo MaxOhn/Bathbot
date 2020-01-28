@@ -33,7 +33,7 @@ pub fn with_comma(n: f32) -> String {
     writer
 }
 
-pub fn with_comma_u32(n: u32) -> String {
+pub fn with_comma_u64(n: u64) -> String {
     let mut writer = String::new();
     writer.write_formatted(&n, &Locale::en).unwrap();
     writer
@@ -54,7 +54,7 @@ mod tests {
 
     #[test]
     fn test_with_comma_u32() {
-        assert_eq!(with_comma_u32(31415926), "31,415,926".to_owned());
+        assert_eq!(with_comma_u64(31415926), "31,415,926".to_owned());
     }
 
     #[test]

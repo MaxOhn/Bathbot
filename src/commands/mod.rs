@@ -1,4 +1,4 @@
-pub mod osu;
-pub mod utility;
-pub mod streams;
 pub mod fun;
+pub mod osu;
+pub mod streams;
+pub mod utility;

@@ -3,7 +3,7 @@ use chrono::{offset::TimeZone, DateTime, Utc};
 
 const DATE_FORMAT: &str = "%F %T";
 
-pub fn date_to_string(date: DateTime<Utc>) -> String {
+pub fn date_to_string(date: &DateTime<Utc>) -> String {
     date.format(DATE_FORMAT).to_string()
 }
 

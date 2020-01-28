@@ -45,7 +45,7 @@ pub fn prepare_beatmap_file(map_id: u32) -> Result<String, Error> {
         let download_url = format!("{}{}", MAP_RETRIEVAL_URL, map_id);
         let mut rt = Runtime::new().unwrap();
         let content = rt.block_on(async { reqwest::get(&download_url).await?.text().await })?;
-        file.write(content.as_bytes())?;
+        file.write_all(content.as_bytes())?;
         debug!("Downloaded {}.osu successfully", map_id);
     }
     Ok(map_path)

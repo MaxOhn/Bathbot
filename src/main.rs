@@ -9,7 +9,7 @@ mod macros;
 extern crate log;
 extern crate roppai;
 
-use commands::{osu::*, utility::*, streams::*, fun::*};
+use commands::{fun::*, osu::*, streams::*, utility::*};
 pub use rosu;
 pub use util::Error;
 
