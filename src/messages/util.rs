@@ -1,18 +1,7 @@
-use crate::util::{
-    datetime::sec_to_minsec,
-    globals::*,
-    numbers::{round, round_and_comma},
-    osu::get_grade_emote,
-};
+use crate::util::{datetime::sec_to_minsec, numbers::round, osu::get_grade_emote};
 use roppai::Oppai;
-use rosu::models::{Beatmap, GameMod, GameMode, GameMods, Grade, Score};
-use serenity::{
-    cache::CacheRwLock,
-    model::{
-        guild::Emoji,
-        id::{EmojiId, GuildId},
-    },
-};
+use rosu::models::{Beatmap, GameMod, GameMode, GameMods, Score};
+use serenity::cache::CacheRwLock;
 
 pub fn get_hits(score: &Score, mode: GameMode) -> String {
     let mut hits = String::from("{");

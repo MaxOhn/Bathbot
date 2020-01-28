@@ -1,5 +1,5 @@
 use crate::{
-    messages::{BotEmbed, MapMultiData},
+    messages::{BotEmbed, ProfileData},
     util::globals::OSU_API_ISSUE,
     Osu,
 };
@@ -15,7 +15,7 @@ use serenity::{
 };
 use tokio::runtime::Runtime;
 
-fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let name: String = args.single_quoted()?;
     let user_args = UserArgs::with_username(&name).mode(mode);
     let best_args = UserBestArgs::with_username(&name).mode(mode).limit(100);
@@ -52,7 +52,6 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) ->
                     return Ok(());
                 }
             };
-            let scores = scores[..5].to_vec();
             (user, scores)
         }
         Err(why) => {
@@ -61,6 +60,7 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) ->
         }
     };
 
+    // /!\ TODO: Try to get map from database, otherwise its 100 requests /!\
     // Retrieving each score's beatmap
     let res = rt.block_on(async move {
         let mut tuples = Vec::with_capacity(scores.len());
@@ -88,13 +88,11 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) ->
             return Err(why);
         }
     };
-    let indices: Vec<usize> = (1..=score_maps.len()).collect();
-
     // Accumulate all necessary data
-    let data = MapMultiData::new(Box::new(user), score_maps, indices, mode, ctx.cache.clone());
+    let data = ProfileData::new(Box::new(user), score_maps, mode, ctx.cache.clone());
 
     // Creating the embed
-    let embed = BotEmbed::UserMapMulti(data);
+    let embed = BotEmbed::Profile(data);
     let _ = msg
         .channel_id
         .send_message(&ctx.http, |m| m.embed(|e| embed.create(e)));
@@ -102,33 +100,33 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) ->
 }
 
 #[command]
-#[description = "Display a user's top plays"]
+#[description = "Display statistics of a user"]
 #[usage = "badewanne3"]
-#[aliases("topscores", "osutop")]
-pub fn top(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    top_send(GameMode::STD, ctx, msg, args)
+#[aliases("osu")]
+pub fn profile(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    profile_send(GameMode::STD, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display a user's top mania plays"]
+#[description = "Display statistics of a mania user"]
 #[usage = "badewanne3"]
-#[aliases("topm")]
-pub fn topmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    top_send(GameMode::MNA, ctx, msg, args)
+#[aliases("mania", "maniaprofile")]
+pub fn profilemania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    profile_send(GameMode::MNA, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display a user's top taiko plays"]
+#[description = "Display statistics of a taiko user"]
 #[usage = "badewanne3"]
-#[aliases("topt")]
-pub fn toptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    top_send(GameMode::TKO, ctx, msg, args)
+#[aliases("taiko", "taikoprofile")]
+pub fn profiletaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    profile_send(GameMode::TKO, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display a user's top ctb plays"]
+#[description = "Display statistics of ctb user"]
 #[usage = "badewanne3"]
-#[aliases("topc")]
-pub fn topctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    top_send(GameMode::CTB, ctx, msg, args)
+#[aliases("ctb", "ctbprofile")]
+pub fn profilectb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    profile_send(GameMode::CTB, ctx, msg, args)
 }

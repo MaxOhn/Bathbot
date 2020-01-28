@@ -1,5 +1,5 @@
 use crate::{
-    messages::{BotEmbed, EmbedType},
+    messages::{BotEmbed, ScoreMultiData},
     util::globals::OSU_API_ISSUE,
     Osu,
 };
@@ -85,12 +85,17 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
         }
     };
 
-    // Creating the embed
-    let embed = BotEmbed::new(
-        ctx.cache.clone(),
+    // Accumulate all necessary data
+    let data = ScoreMultiData::new(
         map.mode,
-        EmbedType::UserScoreMulti(Box::new(user), Box::new(map), scores),
+        Box::new(user),
+        Box::new(map),
+        scores,
+        ctx.cache.clone(),
     );
+
+    // Creating the embed
+    let embed = BotEmbed::UserScoreMulti(data);
     let _ = msg
         .channel_id
         .send_message(&ctx.http, |m| m.embed(|e| embed.create(e)));

@@ -1,5 +1,6 @@
 use crate::{
-    messages::{BotEmbed, EmbedType},
+    commands::osu::MINIMIZE_DELAY,
+    messages::{BotEmbed, ScoreSingleData},
     util::globals::OSU_API_ISSUE,
     Osu,
 };
@@ -13,6 +14,7 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
+use std::thread;
 use tokio::runtime::Runtime;
 
 fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
@@ -112,15 +114,27 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
         }
     };
 
-    // Creating the embed
-    let embed = BotEmbed::new(
-        ctx.cache.clone(),
+    // Accumulate all necessary data
+    let data = ScoreSingleData::new(
+        Box::new(user),
+        Box::new(score),
+        Box::new(map),
+        best,
+        global,
         mode,
-        EmbedType::UserScoreSingle(Box::new(user), Box::new(score), Box::new(map), best, global),
+        ctx.cache.clone(),
     );
-    let _ = msg
+
+    // Creating the embed
+    let embed = BotEmbed::UserScoreSingle(&data);
+    let mut msg = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| embed.create(e)));
+        .send_message(&ctx.http, |m| m.embed(|e| embed.create(e)))?;
+    let embed = BotEmbed::UserScoreSingleMini(data);
+    let _ = msg.edit(&ctx, |m| {
+        thread::sleep(MINIMIZE_DELAY);
+        m.embed(|e| embed.create(e))
+    })?;
     Ok(())
 }
 
