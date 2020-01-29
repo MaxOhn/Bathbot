@@ -1,5 +1,6 @@
 pub mod fruits;
 pub mod mania;
+pub mod pp;
 pub mod profile;
 pub mod recent;
 pub mod scores;

@@ -2,7 +2,7 @@
 #![allow(unused)]
 
 use crate::{
-    messages::{MapMultiData, ProfileData, ScoreMultiData, ScoreSingleData},
+    messages::{MapMultiData, PPMissingData, ProfileData, ScoreMultiData, ScoreSingleData},
     util::{
         datetime::{date_to_string, how_long_ago, sec_to_minsec},
         numbers::{round, round_and_comma, with_comma_u64},
@@ -26,6 +26,7 @@ pub enum BotEmbed<'d> {
     UserScoreMulti(ScoreMultiData),
     UserMapMulti(MapMultiData),
     Profile(ProfileData),
+    PPMissing(PPMissingData),
     //SimulateScore(Option<Box<Score>>, Box<Beatmap>),
     //UserLeaderboard(Box<Beatmap>, Vec<(User, Score)>),
     //ManiaRatio(Box<User>, Vec<Score>),
@@ -41,6 +42,7 @@ impl<'d, 'e> BotEmbed<'d> {
             BotEmbed::UserScoreMulti(data) => create_user_score_multi(e, data),
             BotEmbed::UserMapMulti(data) => create_user_map_multi(e, data),
             BotEmbed::Profile(data) => create_profile(e, data),
+            BotEmbed::PPMissing(data) => create_pp_missing(e, data),
             //BotEmbed::SimulateScore(data) => create_simulation(e, data),
             //BotEmbed::UserLeaderboard(data) => create_leaderboard(e, data),
             //BotEmbed::ManiaRatio(data) => create_ratio(e, data),
@@ -135,6 +137,18 @@ fn create_profile(embed: &mut CreateEmbed, data: ProfileData) -> &mut CreateEmbe
         })
         .thumbnail(data.thumbnail)
         .fields(data.fields)
+}
+
+fn create_pp_missing(embed: &mut CreateEmbed, data: PPMissingData) -> &mut CreateEmbed {
+    embed
+        .thumbnail(&data.thumbnail)
+        .description(&data.description)
+        .title(&data.title)
+        .author(|a| {
+            a.icon_url(data.author_icon)
+                .url(data.author_url)
+                .name(data.author_text)
+        })
 }
 
 // TODO
