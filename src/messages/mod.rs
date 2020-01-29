@@ -1,6 +1,6 @@
-mod embed;
-mod preparing;
+mod bot_embed;
+mod preparation;
 pub mod util;
 
-pub use embed::*;
-pub use preparing::*;
+pub use bot_embed::*;
+pub use preparation::*;
