@@ -1,4 +1,4 @@
-pub use crate::commands::osu::{profile::*, recent::*, top::*, pp::*};
+pub use crate::commands::osu::{pp::*, profile::*, recent::*, top::*};
 
 use serenity::framework::standard::macros::group;
 

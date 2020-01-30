@@ -62,7 +62,7 @@ fn pp_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> 
     };
 
     // Accumulate all necessary data
-    let data = PPMissingData::new(Box::new(user), scores, mode, pp);
+    let data = PPMissingData::new(Box::new(user), scores, pp);
 
     // Creating the embed
     let embed = BotEmbed::PPMissing(data);
@@ -73,33 +73,32 @@ fn pp_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> 
 }
 
 #[command]
-#[description = "Display a user's top plays"]
-#[usage = "badewanne3"]
-#[aliases("topscores", "osutop")]
+#[description = "Calculate what score a user is missing to reach the given total pp amount"]
+#[usage = "badewanne3 8000"]
 pub fn pp(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     pp_send(GameMode::STD, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display a user's top mania plays"]
-#[usage = "badewanne3"]
-#[aliases("topm")]
+#[description = "Calculate what score a mania user is missing to reach the given total pp amount"]
+#[usage = "badewanne3 8000"]
+#[aliases("ppm")]
 pub fn ppmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     pp_send(GameMode::MNA, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display a user's top taiko plays"]
-#[usage = "badewanne3"]
-#[aliases("topt")]
+#[description = "Calculate what score a taiko user is missing to reach the given total pp amount"]
+#[usage = "badewanne3 8000"]
+#[aliases("ppt")]
 pub fn pptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     pp_send(GameMode::TKO, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display a user's top ctb plays"]
-#[usage = "badewanne3"]
-#[aliases("topc")]
+#[description = "Calculate what score a ctb user is missing to reach the given total pp amount"]
+#[usage = "badewanne3 8000"]
+#[aliases("ppc")]
 pub fn ppctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     pp_send(GameMode::CTB, ctx, msg, args)
 }

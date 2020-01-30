@@ -5,7 +5,7 @@ use crate::{
     util::numbers::{round, round_and_comma},
 };
 
-use rosu::models::{GameMode, Score, User};
+use rosu::models::{Score, User};
 
 pub struct PPMissingData {
     pub author_icon: String,
@@ -17,7 +17,7 @@ pub struct PPMissingData {
 }
 
 impl PPMissingData {
-    pub fn new(user: Box<User>, scores: Vec<Score>, _mode: GameMode, pp: f32) -> Self {
+    pub fn new(user: Box<User>, scores: Vec<Score>, pp: f32) -> Self {
         let author_icon = format!("{}{}.png", FLAG_URL, user.country);
         let author_url = format!("{}u/{}", HOMEPAGE, user.user_id);
         let author_text = format!(
@@ -36,7 +36,8 @@ impl PPMissingData {
         let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
         let description = if user.pp_raw > pp {
             format!(
-                "{name} already has {pp_raw}pp which is more than {pp_given}pp.\nNo more scores are required.",
+                "{name} already has {pp_raw}pp which is more than {pp_given}pp.\n\
+                 No more scores are required.",
                 name = user.username,
                 pp_raw = round_and_comma(user.pp_raw),
                 pp_given = pp
@@ -73,7 +74,8 @@ impl PPMissingData {
                 required -= pp_values[size - 1] * 0.95_f32.powi(size as i32 - 1);
             }
             format!(
-                "To reach {pp}pp with one additional score, {user} needs to perform a **{required}pp** score which would be the top #{idx}",
+                "To reach {pp}pp with one additional score, {user} needs to perform \
+                 a **{required}pp** score which would be the top #{idx}",
                 pp = round(pp),
                 user = user.username,
                 required = round(required),
