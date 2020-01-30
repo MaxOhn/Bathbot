@@ -11,7 +11,7 @@ use std::iter::FromIterator;
 #[command]
 #[bucket = "two_per_thirty_cooldown"]
 fn commands(ctx: &mut Context, msg: &Message) -> CommandResult {
-    let mut contents = "Commands used:\n".to_string();
+    let mut contents = "Most popular commands:\n".to_string();
     let data = ctx.data.read();
     let counter = data
         .get::<CommandCounter>()

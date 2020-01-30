@@ -115,23 +115,15 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
     };
 
     // Accumulate all necessary data
-    let data = ScoreSingleData::new(
-        Box::new(user),
-        Box::new(score),
-        Box::new(map),
-        best,
-        global,
-        mode,
-        ctx.cache.clone(),
-    );
+    let data = ScoreSingleData::new(user, score, map, best, global, mode, ctx.cache.clone());
 
     // Creating the embed
     let embed = BotEmbed::UserScoreSingle(&data);
     let mut msg = msg
         .channel_id
         .send_message(&ctx.http, |m| m.embed(|e| embed.create(e)))?;
-    let embed = BotEmbed::UserScoreSingleMini(data);
-    let _ = msg.edit(&ctx, |m| {
+    let embed = BotEmbed::UserScoreSingleMini(Box::new(data));
+    msg.edit(&ctx, |m| {
         thread::sleep(MINIMIZE_DELAY);
         m.embed(|e| embed.create(e))
     })?;

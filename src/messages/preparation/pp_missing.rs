@@ -17,7 +17,7 @@ pub struct PPMissingData {
 }
 
 impl PPMissingData {
-    pub fn new(user: Box<User>, scores: Vec<Score>, pp: f32) -> Self {
+    pub fn new(user: User, scores: Vec<Score>, pp: f32) -> Self {
         let author_icon = format!("{}{}.png", FLAG_URL, user.country);
         let author_url = format!("{}u/{}", HOMEPAGE, user.user_id);
         let author_text = format!(

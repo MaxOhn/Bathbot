@@ -29,7 +29,8 @@ pub struct SimulateData {
     pub thumbnail: String,
 }
 
-impl ScoreSingleData {
+// TODO
+impl SimulateData {
     pub fn new(
         user: Box<User>,
         score: Box<Score>,

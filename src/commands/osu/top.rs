@@ -91,7 +91,7 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) ->
     let indices: Vec<usize> = (1..=score_maps.len()).collect();
 
     // Accumulate all necessary data
-    let data = MapMultiData::new(Box::new(user), score_maps, indices, mode, ctx.cache.clone());
+    let data = MapMultiData::new(user, score_maps, indices, mode, ctx.cache.clone());
 
     // Creating the embed
     let embed = BotEmbed::UserMapMulti(data);

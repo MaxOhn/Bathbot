@@ -89,7 +89,7 @@ fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args
         }
     };
     // Accumulate all necessary data
-    let data = ProfileData::new(Box::new(user), score_maps, mode, ctx.cache.clone());
+    let data = ProfileData::new(user, score_maps, mode, ctx.cache.clone());
 
     // Creating the embed
     let embed = BotEmbed::Profile(data);

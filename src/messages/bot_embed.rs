@@ -23,7 +23,7 @@ const FLAG_URL: &str = "https://osu.ppy.sh//images/flags/";
 
 pub enum BotEmbed<'d> {
     UserScoreSingle(&'d ScoreSingleData),
-    UserScoreMulti(ScoreMultiData),
+    UserScoreMulti(Box<ScoreMultiData>),
     UserMapMulti(MapMultiData),
     Profile(ProfileData),
     PPMissing(PPMissingData),
@@ -31,7 +31,7 @@ pub enum BotEmbed<'d> {
     //UserLeaderboard(Box<Beatmap>, Vec<(User, Score)>),
     //ManiaRatio(Box<User>, Vec<Score>),
     //UserCommonScores(Vec<User>, Vec<Beatmap>),
-    UserScoreSingleMini(ScoreSingleData),
+    UserScoreSingleMini(Box<ScoreSingleData>),
 }
 
 impl<'d, 'e> BotEmbed<'d> {
@@ -39,7 +39,7 @@ impl<'d, 'e> BotEmbed<'d> {
         e.color(Colour::DARK_GREEN);
         match self {
             BotEmbed::UserScoreSingle(data) => create_user_score_single(e, data),
-            BotEmbed::UserScoreMulti(data) => create_user_score_multi(e, data),
+            BotEmbed::UserScoreMulti(data) => create_user_score_multi(e, *data),
             BotEmbed::UserMapMulti(data) => create_user_map_multi(e, data),
             BotEmbed::Profile(data) => create_profile(e, data),
             BotEmbed::PPMissing(data) => create_pp_missing(e, data),
@@ -47,7 +47,7 @@ impl<'d, 'e> BotEmbed<'d> {
             //BotEmbed::UserLeaderboard(data) => create_leaderboard(e, data),
             //BotEmbed::ManiaRatio(data) => create_ratio(e, data),
             //BotEmbed::UserCommonScores(data) => create_common(e, data),
-            BotEmbed::UserScoreSingleMini(data) => create_user_score_single_mini(e, data),
+            BotEmbed::UserScoreSingleMini(data) => create_user_score_single_mini(e, *data),
         }
     }
 }
@@ -152,21 +152,21 @@ fn create_pp_missing(embed: &mut CreateEmbed, data: PPMissingData) -> &mut Creat
 }
 
 // TODO
-fn create_simulation<'d, 'e>(embed: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
+fn create_simulation(embed: &mut CreateEmbed) -> &mut CreateEmbed {
     embed
 }
 
 // TODO
-fn create_ratio<'d, 'e>(embed: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
+fn create_ratio(embed: &mut CreateEmbed) -> &mut CreateEmbed {
     embed
 }
 
 // TODO
-fn create_leaderboard<'d, 'e>(embed: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
+fn create_leaderboard(embed: &mut CreateEmbed) -> &mut CreateEmbed {
     embed
 }
 
 // TODO
-fn create_common<'d, 'e>(embed: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
+fn create_common(embed: &mut CreateEmbed) -> &mut CreateEmbed {
     embed
 }

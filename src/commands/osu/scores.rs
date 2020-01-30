@@ -86,16 +86,10 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     };
 
     // Accumulate all necessary data
-    let data = ScoreMultiData::new(
-        map.mode,
-        Box::new(user),
-        Box::new(map),
-        scores,
-        ctx.cache.clone(),
-    );
+    let data = ScoreMultiData::new(map.mode, user, map, scores, ctx.cache.clone());
 
     // Creating the embed
-    let embed = BotEmbed::UserScoreMulti(data);
+    let embed = BotEmbed::UserScoreMulti(Box::new(data));
     let _ = msg
         .channel_id
         .send_message(&ctx.http, |m| m.embed(|e| embed.create(e)));

@@ -36,16 +36,16 @@ pub struct ScoreSingleData {
 
 impl ScoreSingleData {
     pub fn new(
-        user: Box<User>,
-        score: Box<Score>,
-        map: Box<Beatmap>,
+        user: User,
+        score: Score,
+        map: Beatmap,
         personal: Vec<Score>,
         global: Vec<Score>,
         mode: GameMode,
         cache: CacheRwLock,
     ) -> Self {
-        let personal_idx = personal.into_iter().position(|s| s == *score);
-        let global_idx = global.into_iter().position(|s| s == *score);
+        let personal_idx = personal.into_iter().position(|s| s == score);
+        let global_idx = global.into_iter().position(|s| s == score);
         let description = if personal_idx.is_some() || global_idx.is_some() {
             let mut description = String::from("__**");
             if let Some(idx) = personal_idx {
@@ -65,7 +65,7 @@ impl ScoreSingleData {
             None
         };
         let title = if mode == GameMode::MNA {
-            format!("{} {}", util::get_keys(&score.enabled_mods, &*map), map)
+            format!("{} {}", util::get_keys(&score.enabled_mods, &map), map)
         } else {
             map.to_string()
         };
@@ -86,38 +86,27 @@ impl ScoreSingleData {
             Err(why) => panic!("Something went wrong while using oppai: {}", why),
         };
         let actual_pp = round(score.pp.unwrap_or_else(|| oppai.get_pp()));
-        let stars = util::get_stars(&map, Some(oppai));
         let grade_completion_mods = util::get_grade_completion_mods(&score, mode, &map, cache);
-        let score_points = with_comma_u64(score.score as u64);
-        let acc = util::get_acc(&score, mode);
-        let pp = util::get_pp(actual_pp, round(max_pp));
-        let combo = util::get_combo(&score, &map);
-        let hits = util::get_hits(&score, mode);
-        let map_info = util::get_map_info(&map);
-        let footer_url = format!("{}{}", AVATAR_URL, map.creator_id);
-        let footer_text = format!("{:?} map by {}", map.approval_status, map.creator);
-        let timestamp = date_to_string(&score.date);
-        let thumbnail = format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id);
         Self {
-            description: description,
+            description,
             title,
             title_url,
             author_icon,
             author_url,
             author_text,
-            stars,
             grade_completion_mods,
-            score: score_points,
-            acc,
+            stars: util::get_stars(&map, Some(oppai)),
+            score: with_comma_u64(score.score as u64),
+            acc: util::get_acc(&score, mode),
             ago: how_long_ago(&score.date),
-            pp,
-            combo,
-            hits,
-            map_info,
-            footer_url,
-            footer_text,
-            timestamp,
-            thumbnail,
+            pp: util::get_pp(actual_pp, round(max_pp)),
+            combo: util::get_combo(&score, &map),
+            hits: util::get_hits(&score, mode),
+            map_info: util::get_map_info(&map),
+            footer_url: format!("{}{}", AVATAR_URL, map.creator_id),
+            footer_text: format!("{:?} map by {}", map.approval_status, map.creator),
+            timestamp: date_to_string(&score.date),
+            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id),
         }
     }
 }

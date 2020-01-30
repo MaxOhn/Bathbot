@@ -62,7 +62,7 @@ fn pp_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> 
     };
 
     // Accumulate all necessary data
-    let data = PPMissingData::new(Box::new(user), scores, pp);
+    let data = PPMissingData::new(user, scores, pp);
 
     // Creating the embed
     let embed = BotEmbed::PPMissing(data);

@@ -22,7 +22,7 @@ pub struct MapMultiData {
 
 impl MapMultiData {
     pub fn new(
-        user: Box<User>,
+        user: User,
         score_maps: Vec<(Score, Beatmap)>,
         indices: Vec<usize>,
         mode: GameMode,

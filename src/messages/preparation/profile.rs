@@ -25,7 +25,7 @@ pub struct ProfileData {
 
 impl ProfileData {
     pub fn new(
-        user: Box<User>,
+        user: User,
         score_maps: Vec<(Score, Beatmap)>,
         mode: GameMode,
         cache: CacheRwLock,

@@ -27,8 +27,8 @@ pub struct ScoreMultiData {
 impl ScoreMultiData {
     pub fn new(
         mode: GameMode,
-        user: Box<User>,
-        map: Box<Beatmap>,
+        user: User,
+        map: Beatmap,
         scores: Vec<Score>,
         cache: CacheRwLock,
     ) -> Self {
