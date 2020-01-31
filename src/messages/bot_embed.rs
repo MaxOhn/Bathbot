@@ -2,7 +2,9 @@
 #![allow(unused)]
 
 use crate::{
-    messages::{MapMultiData, PPMissingData, ProfileData, ScoreMultiData, ScoreSingleData},
+    messages::{
+        MapMultiData, PPMissingData, ProfileData, ScoreMultiData, ScoreSingleData, WhatIfPPData,
+    },
     util::{
         datetime::{date_to_string, how_long_ago, sec_to_minsec},
         numbers::{round, round_and_comma, with_comma_u64},
@@ -32,6 +34,7 @@ pub enum BotEmbed<'d> {
     //ManiaRatio(Box<User>, Vec<Score>),
     //UserCommonScores(Vec<User>, Vec<Beatmap>),
     UserScoreSingleMini(Box<ScoreSingleData>),
+    WhatIfPP(WhatIfPPData),
 }
 
 impl<'d, 'e> BotEmbed<'d> {
@@ -48,6 +51,7 @@ impl<'d, 'e> BotEmbed<'d> {
             //BotEmbed::ManiaRatio(data) => create_ratio(e, data),
             //BotEmbed::UserCommonScores(data) => create_common(e, data),
             BotEmbed::UserScoreSingleMini(data) => create_user_score_single_mini(e, *data),
+            BotEmbed::WhatIfPP(data) => create_whatif_pp(e, data),
         }
     }
 }
@@ -169,4 +173,16 @@ fn create_leaderboard(embed: &mut CreateEmbed) -> &mut CreateEmbed {
 // TODO
 fn create_common(embed: &mut CreateEmbed) -> &mut CreateEmbed {
     embed
+}
+
+fn create_whatif_pp(embed: &mut CreateEmbed, data: WhatIfPPData) -> &mut CreateEmbed {
+    embed
+        .thumbnail(&data.thumbnail)
+        .description(&data.description)
+        .title(&data.title)
+        .author(|a| {
+            a.icon_url(data.author_icon)
+                .url(data.author_url)
+                .name(data.author_text)
+        })
 }
