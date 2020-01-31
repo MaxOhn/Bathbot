@@ -73,33 +73,33 @@ fn whatif_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
 }
 
 #[command]
-#[description = "Enter `<pp [number] [osu name]` to make me calculate what score is required for the player to have <number> total pp.
-If no player name is specified, your discord must be linked to an osu profile via `<link <osu name>`"]
-#[usage = "badewanne3"]
+#[description = "Calculate the gain in pp if the user were to get a score with the given pp value"]
+#[usage = "badewanne3 321.98"]
+#[aliases("wi")]
 pub fn whatif(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     whatif_send(GameMode::STD, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display a user's top mania plays"]
-#[usage = "badewanne3"]
-#[aliases("whatifm")]
+#[description = "Calculate the gain in pp if the mania user were to get a score with the given pp value"]
+#[usage = "badewanne3 321.98"]
+#[aliases("wim")]
 pub fn whatifmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     whatif_send(GameMode::MNA, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display a user's top taiko plays"]
-#[usage = "badewanne3"]
-#[aliases("whatift")]
+#[description = "Calculate the gain in pp if the taiko user were to get a score with the given pp value"]
+#[usage = "badewanne3 321.98"]
+#[aliases("wit")]
 pub fn whatiftaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     whatif_send(GameMode::TKO, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display a user's top ctb plays"]
-#[usage = "badewanne3"]
-#[aliases("whatifc")]
+#[description = "Calculate the gain in pp if the ctb user were to get a score with the given pp value"]
+#[usage = "badewanne3 321.98"]
+#[aliases("wic")]
 pub fn whatifctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     whatif_send(GameMode::CTB, ctx, msg, args)
 }

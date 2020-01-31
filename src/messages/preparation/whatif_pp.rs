@@ -46,33 +46,42 @@ impl WhatIfPPData {
                 name = user.username
             )
         } else {
+            /*
             let mut actual: f32 = 0.0;
             let mut factor: f32 = 1.0;
             for score in pp_values.iter() {
                 actual += score * factor;
                 factor *= 0.95;
             }
-            let bonus: f32 = user.pp_raw - actual;
-            let mut potential: f32 = 0.0;
-            let mut used: bool = false;
-            let mut new_pos: i32 = -1;
-            factor = 1.0;
+            */
+            let actual: f32 = pp_values
+                .iter()
+                .scan(1.0 / 0.95, |factor, &pp| {
+                    *factor *= 0.95;
+                    Some(*factor * pp)
+                })
+                .sum();
+            let bonus = user.pp_raw - actual;
+            let mut potential = 0.0;
+            let mut used = false;
+            let mut new_pos = None;
+            let mut factor = 1.0;
             for (i, pp_value) in pp_values.iter().enumerate().take(pp_values.len() - 1) {
                 if !used && *pp_value < pp {
                     used = true;
                     potential += pp * factor;
                     factor *= 0.95;
-                    new_pos = i as i32 + 1;
+                    new_pos = Some(i + 1);
                 }
                 potential += pp_value * factor;
                 factor *= 0.95;
             }
             format!(
                 "A {pp}pp play would be {name}'s #{num} best play.\n\
-                 Their pp would change by **{pp_change}** to **{new_pp}pp**.",
+                 Their pp would change by **+{pp_change}** to **{new_pp}pp**.",
                 pp = round(pp),
                 name = user.username,
-                num = new_pos,
+                num = new_pos.unwrap(),
                 pp_change = round(potential + bonus - user.pp_raw),
                 new_pp = round(potential + bonus)
             )
