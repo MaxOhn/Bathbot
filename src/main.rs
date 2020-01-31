@@ -3,14 +3,16 @@ mod messages;
 mod util;
 #[macro_use]
 mod macros;
+mod my_scraper;
 
 #[allow(unused_imports)]
 #[macro_use]
 extern crate log;
 extern crate roppai;
+extern crate rosu;
 
 use commands::{fun::*, osu::*, streams::*, utility::*};
-pub use rosu;
+use my_scraper::Scraper;
 pub use util::Error;
 
 use log::{error, info};
@@ -34,6 +36,7 @@ fn setup() -> Result<(String, String), Error> {
 fn main() -> Result<(), Error> {
     let (discord_token, osu_token) = setup()?;
     let osu = OsuClient::new(osu_token);
+    let scraper = Scraper::new();
     let mut discord = Client::new(&discord_token, Handler)?;
     let owners = match discord.cache_and_http.http.get_current_application_info() {
         Ok(info) => {
@@ -47,6 +50,7 @@ fn main() -> Result<(), Error> {
         let mut data = discord.data.write();
         data.insert::<CommandCounter>(HashMap::default());
         data.insert::<Osu>(osu);
+        data.insert::<Scraper>(scraper);
     }
     discord.with_framework(
         StandardFramework::new()
@@ -131,4 +135,8 @@ pub struct Osu;
 
 impl TypeMapKey for Osu {
     type Value = OsuClient;
+}
+
+impl TypeMapKey for Scraper {
+    type Value = Scraper;
 }
