@@ -17,7 +17,7 @@ pub struct WhatIfPPData {
 }
 
 impl WhatIfPPData {
-    pub fn new(user: Box<User>, scores: Vec<Score>, _mode: GameMode, pp: f32) -> Self {
+    pub fn new(user: User, scores: Vec<Score>, _mode: GameMode, pp: f32) -> Self {
         let author_icon = format!("{}{}.png", FLAG_URL, user.country);
         let author_url = format!("{}u/{}", HOMEPAGE, user.user_id);
         let author_text = format!(
@@ -40,7 +40,8 @@ impl WhatIfPPData {
             .collect();
         let description = if pp < pp_values[pp_values.len() - 1] {
             format!(
-                "A {pp_given}pp play wouldn't even be in {name}'s top 100 plays.\nThere would not be any significant pp change.",
+                "A {pp_given}pp play wouldn't even be in {name}'s top 100 plays.\n\
+                 There would not be any significant pp change.",
                 pp_given = pp,
                 name = user.username
             )
@@ -56,18 +57,19 @@ impl WhatIfPPData {
             let mut used: bool = false;
             let mut new_pos: i32 = -1;
             factor = 1.0;
-            for i in 0..pp_values.len() - 1 {
-                if !used && pp_values[i] < pp {
+            for (i, pp_value) in pp_values.iter().enumerate().take(pp_values.len() - 1) {
+                if !used && *pp_value < pp {
                     used = true;
                     potential += pp * factor;
                     factor *= 0.95;
                     new_pos = i as i32 + 1;
                 }
-                potential += pp_values[i] * factor;
+                potential += pp_value * factor;
                 factor *= 0.95;
             }
             format!(
-                "A {pp}pp play would be {name}'s #{num} best play.\nTheir pp would change by **{pp_change}** to **{new_pp}pp**.",
+                "A {pp}pp play would be {name}'s #{num} best play.\n\
+                 Their pp would change by **{pp_change}** to **{new_pp}pp**.",
                 pp = round(pp),
                 name = user.username,
                 num = new_pos,

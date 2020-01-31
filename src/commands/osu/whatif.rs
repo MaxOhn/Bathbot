@@ -62,7 +62,7 @@ fn whatif_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
     };
 
     // Accumulate all necessary data
-    let data = WhatIfPPData::new(Box::new(user), scores, mode, pp);
+    let data = WhatIfPPData::new(user, scores, mode, pp);
 
     // Creating the embed
     let embed = BotEmbed::WhatIfPP(data);
