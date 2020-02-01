@@ -23,4 +23,4 @@ use std::time::Duration;
 #[commands(scores)]
 struct OsuGeneral;
 
-pub const MINIMIZE_DELAY: Duration = Duration::from_millis(45_000);
+pub const MINIMIZE_DELAY: Duration = Duration::from_secs(45);
