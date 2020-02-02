@@ -23,8 +23,7 @@ pub struct MapMultiData {
 impl MapMultiData {
     pub fn new(
         user: User,
-        score_maps: Vec<(Score, Beatmap)>,
-        indices: Vec<usize>,
+        scores_data: Vec<(usize, Score, Beatmap)>,
         mode: GameMode,
         cache: CacheRwLock,
     ) -> Self {
@@ -40,7 +39,7 @@ impl MapMultiData {
         );
         let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
         let mut description = String::with_capacity(512);
-        for ((score, map), idx) in score_maps.iter().zip(indices.iter()) {
+        for (idx, score, map) in scores_data.iter() {
             // TODO: Handle GameMode's differently
             let (oppai, max_pp) = match get_oppai(map.beatmap_id, &score, mode) {
                 Ok(tuple) => tuple,
