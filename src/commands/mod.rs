@@ -1,4 +1,5 @@
 mod arguments;
+pub mod checks;
 pub mod fun;
 pub mod osu;
 pub mod streams;
