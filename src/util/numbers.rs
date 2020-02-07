@@ -53,17 +53,17 @@ mod tests {
     }
 
     #[test]
-    fn test_with_comma_u32() {
-        assert_eq!(with_comma_u64(31415926), "31,415,926".to_owned());
+    fn test_with_comma_u64() {
+        assert_eq!(with_comma_u64(31_415_926), "31,415,926".to_owned());
     }
 
     #[test]
-    fn test_with_comma() {
-        assert_eq!(with_comma(31415926.53), "31,415,926.53".to_owned());
+    fn test_with_comma_f32() {
+        assert_eq!(with_comma(31_925.53), "31,925.53".to_owned());
     }
 
     #[test]
     fn test_round_and_comma() {
-        assert_eq!(round_and_comma(31415926.535897), "31,415,926.54".to_owned());
+        assert_eq!(round_and_comma(31926.535897), "31,926.54".to_owned());
     }
 }

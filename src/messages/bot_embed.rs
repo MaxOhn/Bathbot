@@ -94,7 +94,7 @@ fn create_user_score_single_mini(
     data: ScoreSingleData,
 ) -> &mut CreateEmbed {
     let name = format!(
-        "{} {} ({}) {}",
+        "{}\t{}\t({})\t{}",
         data.grade_completion_mods, data.score, data.acc, data.ago
     );
     let value = format!("{} [ {} ] {}", data.pp, data.combo, data.hits);
@@ -103,6 +103,7 @@ fn create_user_score_single_mini(
         .field(name, value, false)
         .thumbnail(&data.thumbnail)
         .title(title)
+        .url(&data.title_url)
         .author(|a| {
             a.icon_url(data.author_icon)
                 .url(data.author_url)

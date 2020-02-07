@@ -19,7 +19,7 @@ use tokio::runtime::Runtime;
 
 fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let name: String = args.single_quoted()?;
-    let recent_args = UserRecentArgs::with_username(&name).mode(mode).limit(1);
+    let recent_args = UserRecentArgs::with_username(&name).mode(mode).limit(50);
     let recent_req: OsuRequest<Score> = {
         let data = ctx.data.read();
         let osu = data.get::<Osu>().expect("Could not get osu client");
@@ -27,19 +27,9 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
     };
     let mut rt = Runtime::new().unwrap();
 
-    // Retrieve the recent score
-    let score: Score = match rt.block_on(recent_req.queue()) {
-        Ok(mut scores) => {
-            if let Some(score) = scores.pop() {
-                score
-            } else {
-                msg.channel_id.say(
-                    &ctx.http,
-                    format!("No recent plays found for user `{}`", name),
-                )?;
-                return Ok(());
-            }
-        }
+    // Retrieve the recent scores
+    let scores: Vec<Score> = match rt.block_on(recent_req.queue()) {
+        Ok(scores) => scores,
         Err(why) => {
             msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
             return Err(CommandError(format!(
@@ -47,6 +37,15 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
                 why
             )));
         }
+    };
+    let score = if let Some(score) = scores.get(0) {
+        score.clone()
+    } else {
+        msg.channel_id.say(
+            &ctx.http,
+            format!("No recent plays found for user `{}`", name),
+        )?;
+        return Ok(());
     };
 
     // Retrieving the score's user and beatmap
@@ -115,13 +114,18 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
     };
 
     // Accumulate all necessary data
+    let tries = scores
+        .iter()
+        .take_while(|s| s.beatmap_id.unwrap() == map.beatmap_id)
+        .count();
     let data = ScoreSingleData::new(user, score, map, best, global, mode, ctx.cache.clone());
 
     // Creating the embed
     let embed = BotEmbed::UserScoreSingle(&data);
-    let mut msg = msg
-        .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| embed.create(e)))?;
+    let mut msg = msg.channel_id.send_message(&ctx.http, |m| {
+        m.content(format!("Try #{}", tries))
+            .embed(|e| embed.create(e))
+    })?;
     let embed = BotEmbed::UserScoreSingleMini(Box::new(data));
     msg.edit(&ctx, |m| {
         thread::sleep(MINIMIZE_DELAY);
