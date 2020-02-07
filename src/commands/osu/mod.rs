@@ -4,6 +4,7 @@ pub mod pp;
 pub mod profile;
 pub mod recent;
 pub mod scores;
+pub mod simulate_recent;
 pub mod standard;
 pub mod taiko;
 pub mod top;

@@ -1,6 +1,6 @@
 use crate::{util::globals::*, Error};
 use roppai::Oppai;
-use rosu::models::{GameMode, Grade, Score};
+use rosu::models::{Beatmap, GameMode, Grade, Score};
 use serenity::{
     cache::CacheRwLock,
     model::{
@@ -76,4 +76,34 @@ pub fn get_grade_emote(grade: Grade, cache: CacheRwLock) -> Emoji {
             )
         })
         .clone()
+}
+
+/// Assumes the mode to be STD, otherwise might not work as intended
+pub fn unchoke_score(score: &mut Score, map: &Beatmap) -> Result<(), Error> {
+    let max_combo = map
+        .max_combo
+        .unwrap_or_else(|| panic!("Max combo of beatmap not found"));
+    if score.max_combo == max_combo {
+        return Ok(());
+    }
+    let missing =
+        map.count_objects() - (score.count300 + score.count100 + score.count50 + score.count_miss);
+    let ratio = score.count300 as f32 / (score.count300 + score.count100 + score.count50) as f32;
+    let new300s = (ratio * missing as f32) as u32;
+    score.count300 += new300s;
+    score.count100 += missing - new300s;
+    score.max_combo = max_combo;
+    score.count_miss = 0;
+    score.recalculate_grade(GameMode::STD, None);
+    let mut oppai = Oppai::new();
+    let bits = score.enabled_mods.get_bits();
+    let map_path = prepare_beatmap_file(map.beatmap_id)?;
+    // TODO: Check if value is already calculated in database
+    let pp = oppai
+        .set_mods(bits)
+        .set_hits(score.count100, score.count50)
+        .calculate(Some(&map_path))?
+        .get_pp();
+    score.pp = Some(pp);
+    Ok(())
 }
