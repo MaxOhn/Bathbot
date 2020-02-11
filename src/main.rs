@@ -3,15 +3,18 @@ mod messages;
 mod util;
 #[macro_use]
 mod macros;
+mod database;
 mod my_scraper;
 
-#[allow(unused_imports)]
 #[macro_use]
 extern crate log;
 extern crate roppai;
 extern crate rosu;
+#[macro_use]
+extern crate diesel;
 
 use commands::{fun::*, osu::*, streams::*, utility::*};
+pub use database::MySQL;
 use my_scraper::Scraper;
 pub use util::Error;
 
@@ -27,17 +30,22 @@ use std::{
     env,
 };
 
-fn setup() -> Result<(String, String), Error> {
+fn setup() -> Result<(String, String, String), Error> {
     kankyo::load()?;
     env_logger::init();
-    Ok((env::var("DISCORD_TOKEN")?, env::var("OSU_TOKEN")?))
+    Ok((
+        env::var("DISCORD_TOKEN")?,
+        env::var("OSU_TOKEN")?,
+        env::var("DATABASE_URL")?,
+    ))
 }
 
 fn main() -> Result<(), Error> {
-    let (discord_token, osu_token) = setup()?;
+    let (discord_token, osu_token, database_url) = setup()?;
     let osu = OsuClient::new(osu_token);
     let scraper = Scraper::new();
     let mut discord = Client::new(&discord_token, Handler)?;
+    let mysql = MySQL::new(&database_url);
     let owners = match discord.cache_and_http.http.get_current_application_info() {
         Ok(info) => {
             let mut set = HashSet::new();
@@ -51,6 +59,7 @@ fn main() -> Result<(), Error> {
         data.insert::<CommandCounter>(HashMap::default());
         data.insert::<Osu>(osu);
         data.insert::<Scraper>(scraper);
+        data.insert::<MySQL>(mysql);
     }
     discord.with_framework(
         StandardFramework::new()
@@ -139,4 +148,8 @@ impl TypeMapKey for Osu {
 
 impl TypeMapKey for Scraper {
     type Value = Scraper;
+}
+
+impl TypeMapKey for MySQL {
+    type Value = MySQL;
 }

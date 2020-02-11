@@ -1,5 +1,6 @@
 use crate::{
     commands::osu::MINIMIZE_DELAY,
+    database::MySQL,
     messages::{BotEmbed, ScoreSingleData},
     util::globals::OSU_API_ISSUE,
     Osu,
@@ -7,7 +8,7 @@ use crate::{
 
 use rosu::{
     backend::requests::{OsuArgs, OsuRequest, ScoreArgs, UserBestArgs, UserRecentArgs},
-    models::{Beatmap, GameMode, Score, User},
+    models::{ApprovalStatus, GameMode, Grade, Score},
 };
 use serenity::{
     framework::standard::{macros::command, Args, CommandError, CommandResult},
@@ -48,41 +49,44 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
         return Ok(());
     };
 
-    // Retrieving the score's user and beatmap
-    let res = rt.block_on(async {
-        let user: User = match score.user.get(mode).await {
-            Ok(u) => u,
-            Err(why) => {
-                return Err(CommandError(format!(
-                    "Error while retrieving LazilyLoaded<User> of recent: {}",
-                    why
-                )));
-            }
-        };
-        let map: Beatmap = match score.beatmap.as_ref().unwrap().get(mode).await {
+    // Retrieving the score's user
+    let user = match rt.block_on(score.user.get(mode)) {
+        Ok(u) => u,
+        Err(why) => {
+            msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+            return Err(CommandError(format!(
+                "Error while retrieving LazilyLoaded<User> of recent: {}",
+                why
+            )));
+        }
+    };
+    let map_id = score.beatmap_id.unwrap();
+
+    // Retrieving the score's beatmap
+    let map = {
+        let data = ctx.data.read();
+        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        mysql.get_beatmap(map_id)
+    };
+    let (map, map_in_db) = if let Ok(Some(map)) = map {
+        (map, true)
+    } else {
+        let map = match rt.block_on(score.beatmap.as_ref().unwrap().get(mode)) {
             Ok(m) => m,
             Err(why) => {
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
                 return Err(CommandError(format!(
                     "Error while retrieving LazilyLoaded<Beatmap> of recent: {}",
                     why
                 )));
             }
         };
-        Ok((user, map))
-    });
-    let (user, map) = match res {
-        Ok(tuple) => tuple,
-        Err(why) => {
-            msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
-            return Err(why);
-        }
+        (map, false)
     };
 
     // Retrieving the user's top 100 and the map's global top 50
     let best_args = UserBestArgs::with_username(&name).mode(mode).limit(100);
-    let global_args = ScoreArgs::with_map_id(score.beatmap_id.unwrap())
-        .mode(mode)
-        .limit(50);
+    let global_args = ScoreArgs::with_map_id(map_id).mode(mode).limit(50);
     let (best_req, global_req) = {
         let data = ctx.data.read();
         let osu = data.get::<Osu>().expect("Could not get osu client");
@@ -91,18 +95,31 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
         (best_req, global_req)
     };
     let res = rt.block_on(async {
-        let best = best_req.queue().await.or_else(|e| {
-            Err(CommandError(format!(
-                "Error while retrieving UserBest: {}",
-                e
-            )))
-        })?;
-        let global = global_req.queue().await.or_else(|e| {
-            Err(CommandError(format!(
-                "Error while retrieving Scores: {}",
-                e
-            )))
-        })?;
+        if score.grade == Grade::F {
+            return Ok((Vec::new(), Vec::new()));
+        }
+        let best = if map.approval_status == ApprovalStatus::Ranked {
+            best_req.queue().await.or_else(|e| {
+                Err(CommandError(format!(
+                    "Error while retrieving UserBest: {}",
+                    e
+                )))
+            })?
+        } else {
+            Vec::new()
+        };
+        let global = match map.approval_status {
+            ApprovalStatus::Ranked
+            | ApprovalStatus::Loved
+            | ApprovalStatus::Qualified
+            | ApprovalStatus::Approved => global_req.queue().await.or_else(|e| {
+                Err(CommandError(format!(
+                    "Error while retrieving Scores: {}",
+                    e
+                )))
+            })?,
+            _ => Vec::new(),
+        };
         Ok((best, global))
     });
     let (best, global) = match res {
@@ -113,10 +130,12 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
         }
     };
 
+    let map_copy = if map_in_db { None } else { Some(map.clone()) };
+
     // Accumulate all necessary data
     let tries = scores
         .iter()
-        .take_while(|s| s.beatmap_id.unwrap() == map.beatmap_id)
+        .take_while(|s| s.beatmap_id.unwrap() == map_id)
         .count();
     let data = ScoreSingleData::new(user, score, map, best, global, mode, ctx.cache.clone());
 
@@ -126,6 +145,23 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
         m.content(format!("Try #{}", tries))
             .embed(|e| embed.create(e))
     })?;
+
+    // Add map to database if its not in already
+    if !map_in_db {
+        let map = map_copy.unwrap();
+        match map.approval_status {
+            ApprovalStatus::Ranked | ApprovalStatus::Loved => {
+                let data = ctx.data.read();
+                let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                if let Err(why) = mysql.insert_beatmap(&map) {
+                    warn!("Could not add map of recent command to database: {}", why);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // Minimize embed after delay
     let embed = BotEmbed::UserScoreSingleMini(Box::new(data));
     msg.edit(&ctx, |m| {
         thread::sleep(MINIMIZE_DELAY);

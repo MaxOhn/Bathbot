@@ -82,9 +82,9 @@ fn simulate_recent_send(
 
     // Creating the embed
     let embed = BotEmbed::SimulateScore(&data);
-    let mut msg = msg
-        .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| embed.create(e)))?;
+    let mut msg = msg.channel_id.send_message(&ctx.http, |m| {
+        m.content("Simulated score:").embed(|e| embed.create(e))
+    })?;
     let embed = BotEmbed::SimulateScoreMini(Box::new(data));
     msg.edit(&ctx, |m| {
         thread::sleep(MINIMIZE_DELAY);

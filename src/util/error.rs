@@ -17,6 +17,13 @@ pub enum Error {
     Osu(OsuError),
     Oppai(OppaiErr),
     Reqwest(reqwest::Error),
+    DieselError(diesel::result::Error),
+}
+
+impl From<diesel::result::Error> for Error {
+    fn from(e: diesel::result::Error) -> Self {
+        Self::DieselError(e)
+    }
 }
 
 impl From<CommandError> for Error {
@@ -86,6 +93,7 @@ impl fmt::Display for Error {
             Self::Osu(e) => write!(f, "{}", e),
             Self::Oppai(e) => write!(f, "{:?}", e),
             Self::Reqwest(e) => write!(f, "{:?}", e),
+            Self::DieselError(e) => write!(f, "{}", e),
         }
     }
 }

@@ -17,3 +17,4 @@ chrono = "0.4"
 reqwest = "*"
 itertools = "0.8.2"
 scraper = "0.11.0"
+diesel = { version = "1.4.3", features = ["mysql", "chrono", "r2d2"] }
