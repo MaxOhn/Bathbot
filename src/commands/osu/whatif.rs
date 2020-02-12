@@ -1,7 +1,7 @@
 use crate::{
     messages::{BotEmbed, WhatIfPPData},
     util::globals::OSU_API_ISSUE,
-    Osu,
+    DiscordLinks, Osu,
 };
 
 use rosu::{
@@ -16,8 +16,55 @@ use serenity::{
 use tokio::runtime::Runtime;
 
 fn whatif_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    let name: String = args.single_quoted()?;
-    let pp: f32 = args.single()?;
+    // Parse the name
+    let name: String = match args.len() {
+        0 => {
+            msg.channel_id.say(
+                &ctx.http,
+                "You need to provide a decimal number as argument",
+            )?;
+            return Ok(());
+        }
+        1 => {
+            let data = ctx.data.read();
+            let links = data
+                .get::<DiscordLinks>()
+                .expect("Could not get DiscordLinks");
+            match links.get(msg.author.id.as_u64()) {
+                Some(name) => name.clone(),
+                None => {
+                    msg.channel_id.say(
+                        &ctx.http,
+                        "Either specify an osu name or link your discord \
+                         to an osu profile via `<link osuname`",
+                    )?;
+                    return Ok(());
+                }
+            }
+        }
+        _ => args.single_quoted()?,
+    };
+
+    // Parse the pp
+    let pp = match args.single::<f32>() {
+        Ok(val) => val,
+        Err(_) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "If no osu name is provided, the first argument must be a decimal number. \
+                 If you want to give an osu name, do so as first argument. \
+                 The second argument should then be the decimal number",
+            )?;
+            return Ok(());
+        }
+    };
+    if pp < 0.0 {
+        msg.channel_id
+            .say(&ctx.http, "The pp number must be non-negative")?;
+        return Ok(());
+    }
+
+    // Prepare requests
     let user_args = UserArgs::with_username(&name).mode(mode);
     let best_args = UserBestArgs::with_username(&name).mode(mode).limit(100);
     let (user_req, best_req): (OsuRequest<User>, OsuRequest<Score>) = {
@@ -49,7 +96,7 @@ fn whatif_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
                 Some(user) => user,
                 None => {
                     msg.channel_id
-                        .say(&ctx.http, format!("User {} was not found", name))?;
+                        .say(&ctx.http, format!("User `{}` was not found", name))?;
                     return Ok(());
                 }
             };

@@ -60,6 +60,7 @@ impl MySQL {
         diesel::insert_into(maps::table)
             .values(&map)
             .execute(&conn)?;
+        info!("Inserted beatmap {} into database", map.beatmap_id);
         Ok(())
     }
 
@@ -74,6 +75,10 @@ impl MySQL {
         diesel::replace_into(schema::discord_users::table)
             .values(&entry)
             .execute(&conn)?;
+        info!(
+            "Discord user {} now linked to osu name {} in database",
+            discord_id, osu_name
+        );
         Ok(())
     }
 

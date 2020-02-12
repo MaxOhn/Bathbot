@@ -2,7 +2,7 @@ use crate::{
     commands::{ArgParser, ModSelection},
     messages::{BotEmbed, MapMultiData},
     util::globals::OSU_API_ISSUE,
-    Osu,
+    DiscordLinks, Osu,
 };
 
 use rosu::{
@@ -76,12 +76,24 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
     } else {
         None
     };
-    // TODO: Try retrieving from database link
-    let name = if let Some(name) = arg_parser.get_name() {
+    let name: String = if let Some(name) = arg_parser.get_name() {
         name
     } else {
-        msg.channel_id.say(&ctx.http, "Must specify a username")?;
-        return Err(CommandError("No username specified".to_owned()));
+        let data = ctx.data.read();
+        let links = data
+            .get::<DiscordLinks>()
+            .expect("Could not get DiscordLinks");
+        match links.get(msg.author.id.as_u64()) {
+            Some(name) => name.clone(),
+            None => {
+                msg.channel_id.say(
+                    &ctx.http,
+                    "Either specify an osu name or link your discord \
+                     to an osu profile via `<link osuname`",
+                )?;
+                return Ok(());
+            }
+        }
     };
     let user_args = UserArgs::with_username(&name).mode(mode);
     let best_args = UserBestArgs::with_username(&name).mode(mode).limit(100);

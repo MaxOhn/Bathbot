@@ -41,7 +41,7 @@ fn link(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
                 .get_mut::<DiscordLinks>()
                 .expect("Could not get DiscordLinks");
             let value = links.entry(id).or_insert_with(String::default);
-            value.push_str(&name);
+            *value = name.clone();
         }
         {
             let data = ctx.data.read();

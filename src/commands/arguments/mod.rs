@@ -1,6 +1,7 @@
 #![allow(dead_code)] // TODO: remove line once its used
 
 use serenity::framework::standard::Args;
+use std::str::FromStr;
 
 pub struct ArgParser {
     args: Args,
@@ -54,6 +55,9 @@ impl ArgParser {
     }
 
     fn get_option(&self, keywords: &[&str]) -> Option<String> {
+        if self.args.is_empty() {
+            return None;
+        }
         let args: Vec<&str> = self.args.raw_quoted().collect();
         for i in 0..args.len() - 1 {
             if keywords.contains(&args[i]) {
@@ -69,4 +73,9 @@ pub enum ModSelection {
     Includes,
     Excludes,
     Exact,
+}
+
+pub fn get_beatmap_id(val: String) -> Option<u32> {
+    // TODO: Regex here
+    Some(u32::from_str(&val).unwrap())
 }

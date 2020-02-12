@@ -1,7 +1,8 @@
 use crate::{
+    commands::arguments,
     messages::{BotEmbed, ScoreMultiData},
     util::globals::OSU_API_ISSUE,
-    Osu,
+    DiscordLinks, Osu,
 };
 
 use rosu::{
@@ -19,11 +20,51 @@ use tokio::runtime::Runtime;
 #[description = "Display scores for all mods that a user has on a map. \
                  Beatmap can be given as url or just **mapid**. \
                  If no beatmap is given, it will choose the map of a score in the channel's history"]
-#[example = "2240404 badewanne3"]
+#[example = "badewanne3 2240404"]
 #[aliases("c", "compare")]
 fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    let map_id: u32 = args.single()?;
-    let name: String = args.single_quoted()?;
+    // Parse the name
+    let name: String = match args.len() {
+        0 => {
+            msg.channel_id.say(
+                &ctx.http,
+                "You need to provide a decimal number as argument",
+            )?;
+            return Ok(());
+        }
+        1 => {
+            let data = ctx.data.read();
+            let links = data
+                .get::<DiscordLinks>()
+                .expect("Could not get DiscordLinks");
+            match links.get(msg.author.id.as_u64()) {
+                Some(name) => name.clone(),
+                None => {
+                    msg.channel_id.say(
+                        &ctx.http,
+                        "Either specify an osu name or link your discord \
+                         to an osu profile via `<link osuname`",
+                    )?;
+                    return Ok(());
+                }
+            }
+        }
+        _ => args.single_quoted()?,
+    };
+
+    // Parse the beatmap id
+    let map_id = if let Some(map_id) = arguments::get_beatmap_id(args.single::<String>()?) {
+        map_id
+    } else {
+        msg.channel_id.say(
+            &ctx.http,
+            "If no osu name is provided, the first argument must be a beatmap id. \
+             If you want to give an osu name, do so as first argument. \
+             The second argument should then be the beatmap id. \
+             The beatmap id can be given as number or as URL to the beatmap.",
+        )?;
+        return Ok(());
+    };
     let score_args = ScoreArgs::with_map_id(map_id).username(&name);
     let user_args = UserArgs::with_username(&name);
     let map_args = BeatmapArgs::new().map_id(map_id);
@@ -63,7 +104,7 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
                 Some(user) => user,
                 None => {
                     msg.channel_id
-                        .say(&ctx.http, format!("User {} was not found", name))?;
+                        .say(&ctx.http, format!("User `{}` was not found", name))?;
                     return Ok(());
                 }
             };

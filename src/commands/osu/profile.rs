@@ -1,7 +1,7 @@
 use crate::{
     messages::{BotEmbed, ProfileData},
     util::globals::OSU_API_ISSUE,
-    Osu,
+    DiscordLinks, Osu,
 };
 
 use rosu::{
@@ -16,7 +16,25 @@ use serenity::{
 use tokio::runtime::Runtime;
 
 fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    let name: String = args.single_quoted()?;
+    let name: String = if args.is_empty() {
+        let data = ctx.data.read();
+        let links = data
+            .get::<DiscordLinks>()
+            .expect("Could not get DiscordLinks");
+        match links.get(msg.author.id.as_u64()) {
+            Some(name) => name.clone(),
+            None => {
+                msg.channel_id.say(
+                    &ctx.http,
+                    "Either specify an osu name or link your discord \
+                     to an osu profile via `<link osuname`",
+                )?;
+                return Ok(());
+            }
+        }
+    } else {
+        args.single_quoted()?
+    };
     let user_args = UserArgs::with_username(&name).mode(mode);
     let best_args = UserBestArgs::with_username(&name).mode(mode).limit(100);
     let (user_req, best_req): (OsuRequest<User>, OsuRequest<Score>) = {
@@ -48,7 +66,7 @@ fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args
                 Some(user) => user,
                 None => {
                     msg.channel_id
-                        .say(&ctx.http, format!("User {} was not found", name))?;
+                        .say(&ctx.http, format!("User `{}` was not found", name))?;
                     return Ok(());
                 }
             };
