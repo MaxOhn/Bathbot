@@ -1,4 +1,5 @@
 use crate::{
+    database::MySQL,
     messages::{BotEmbed, ProfileData},
     util::globals::OSU_API_ISSUE,
     DiscordLinks, Osu,
@@ -6,13 +7,14 @@ use crate::{
 
 use rosu::{
     backend::requests::{OsuArgs, OsuRequest, UserArgs, UserBestArgs},
-    models::{GameMode, Score, User},
+    models::{Beatmap, GameMode, Score, User},
 };
 use serenity::{
     framework::standard::{macros::command, Args, CommandError, CommandResult},
     model::prelude::Message,
     prelude::Context,
 };
+use std::collections::HashMap;
 use tokio::runtime::Runtime;
 
 fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
@@ -78,29 +80,64 @@ fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args
         }
     };
 
-    // /!\ TODO: Try to get map from database, otherwise its 100 requests /!\
+    // Get all relevant maps from the database
+    let map_ids: Vec<u32> = scores.iter().map(|s| s.beatmap_id.unwrap()).collect();
+    let mut maps = {
+        let data = ctx.data.read();
+        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        mysql
+            .get_beatmaps(&map_ids)
+            .unwrap_or_else(|_| HashMap::default())
+    };
+    info!(
+        "Found {}/{} beatmaps in the database",
+        maps.len(),
+        scores.len()
+    );
+
     // Retrieving each score's beatmap
     let res = rt.block_on(async move {
         let mut tuples = Vec::with_capacity(scores.len());
-        for score in scores.into_iter() {
-            let map = score
-                .beatmap
-                .as_ref()
-                .unwrap()
-                .get(mode)
-                .await
-                .or_else(|e| {
-                    Err(CommandError(format!(
-                        "Error while retrieving LazilyLoaded<Beatmap> of best score: {}",
-                        e
-                    )))
-                })?;
+        let mut missing_indices = Vec::with_capacity(scores.len());
+        for (i, score) in scores.into_iter().enumerate() {
+            let map_id = score.beatmap_id.unwrap();
+            let map = if maps.contains_key(&map_id) {
+                maps.remove(&map_id).unwrap()
+            } else {
+                missing_indices.push(i);
+                score
+                    .beatmap
+                    .as_ref()
+                    .unwrap()
+                    .get(mode)
+                    .await
+                    .or_else(|e| {
+                        Err(CommandError(format!(
+                            "Error while retrieving LazilyLoaded<Beatmap> of best score: {}",
+                            e
+                        )))
+                    })?
+            };
             tuples.push((score, map));
         }
-        Ok(tuples)
+        Ok((tuples, missing_indices))
     });
-    let score_maps = match res {
-        Ok(tuple) => tuple,
+    let (score_maps, missing_maps): (Vec<_>, Option<Vec<Beatmap>>) = match res {
+        Ok((score_maps, missing_indices)) => {
+            let missing_maps = if missing_indices.is_empty() {
+                None
+            } else {
+                Some(
+                    score_maps
+                        .iter()
+                        .enumerate()
+                        .filter(|(i, _)| missing_indices.contains(i))
+                        .map(|(_, (_, map))| map.clone())
+                        .collect(),
+                )
+            };
+            (score_maps, missing_maps)
+        }
         Err(why) => {
             msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
             return Err(why);
@@ -114,6 +151,18 @@ fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args
     let _ = msg
         .channel_id
         .send_message(&ctx.http, |m| m.embed(|e| embed.create(e)));
+
+    // Add missing maps to database
+    if let Some(maps) = missing_maps {
+        let data = ctx.data.read();
+        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        if let Err(why) = mysql.insert_beatmaps(maps) {
+            warn!(
+                "Could not add missing maps of profile command to database: {}",
+                why
+            );
+        }
+    }
     Ok(())
 }
 

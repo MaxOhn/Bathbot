@@ -5,6 +5,7 @@ use std::convert::TryFrom;
 
 pub trait MapSplit {
     fn db_split(&self) -> (DBMap, DBMapSet);
+    fn into_db_split(self) -> (DBMap, DBMapSet);
 }
 
 impl MapSplit for Beatmap {
@@ -33,6 +34,39 @@ impl MapSplit for Beatmap {
             title: self.title.to_owned(),
             creator_id: self.creator_id,
             creator: self.creator.to_owned(),
+            genre: self.genre as u8,
+            language: self.language as u8,
+            approval_status: self.approval_status as i8,
+            approved_date: Some(self.approved_date.as_ref().unwrap().naive_utc()),
+        };
+        (map, mapset)
+    }
+
+    fn into_db_split(self) -> (DBMap, DBMapSet) {
+        let map = DBMap {
+            beatmap_id: self.beatmap_id,
+            beatmapset_id: self.beatmapset_id,
+            mode: self.mode as u8,
+            version: self.version,
+            seconds_drain: self.seconds_drain,
+            seconds_total: self.seconds_total,
+            bpm: self.bpm,
+            stars: self.stars,
+            diff_cs: self.diff_cs,
+            diff_od: self.diff_od,
+            diff_ar: self.diff_ar,
+            diff_hp: self.diff_hp,
+            count_circle: self.count_circle,
+            count_slider: self.count_slider,
+            count_spinner: self.count_spinner,
+            max_combo: self.max_combo,
+        };
+        let mapset = DBMapSet {
+            beatmapset_id: self.beatmapset_id,
+            artist: self.artist,
+            title: self.title,
+            creator_id: self.creator_id,
+            creator: self.creator,
             genre: self.genre as u8,
             language: self.language as u8,
             approval_status: self.approval_status as i8,
@@ -102,7 +136,7 @@ impl DBMap {
     }
 }
 
-#[derive(Identifiable, Queryable, Insertable, Associations)]
+#[derive(Identifiable, Queryable, Insertable, Associations, Clone)]
 #[table_name = "mapsets"]
 #[primary_key(beatmapset_id)]
 pub struct DBMapSet {

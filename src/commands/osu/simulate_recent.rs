@@ -1,5 +1,6 @@
 use crate::{
     commands::osu::MINIMIZE_DELAY,
+    database::MySQL,
     messages::{BotEmbed, SimulateData},
     util::globals::OSU_API_ISSUE,
     DiscordLinks, Osu,
@@ -7,7 +8,10 @@ use crate::{
 
 use rosu::{
     backend::requests::{OsuArgs, OsuRequest, UserRecentArgs},
-    models::{GameMode, Score},
+    models::{
+        ApprovalStatus::{Loved, Ranked},
+        GameMode, Score,
+    },
 };
 use serenity::{
     framework::standard::{macros::command, Args, CommandError, CommandResult},
@@ -73,29 +77,32 @@ fn simulate_recent_send(
     };
 
     // Retrieving the score's beatmap
-    let res = rt.block_on(async {
-        score
-            .beatmap
-            .as_ref()
-            .unwrap()
-            .get(mode)
-            .await
-            .map_err(|e| {
-                CommandError(format!(
+    let map = {
+        let data = ctx.data.read();
+        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        mysql.get_beatmap(score.beatmap_id.unwrap())
+    };
+    let (map_to_db, map) = if let Ok(map) = map {
+        (false, map)
+    } else {
+        let map = match rt.block_on(score.beatmap.as_ref().unwrap().get(mode)) {
+            Ok(m) => m,
+            Err(why) => {
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                return Err(CommandError(format!(
                     "Error while retrieving LazilyLoaded<Beatmap> of recent: {}",
-                    e
-                ))
-            })
-    });
-    let map = match res {
-        Ok(map) => map,
-        Err(why) => {
-            msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
-            return Err(why);
-        }
+                    why
+                )));
+            }
+        };
+        (
+            map.approval_status == Ranked || map.approval_status == Loved,
+            map,
+        )
     };
 
     // Accumulate all necessary data
+    let map_copy = if map_to_db { Some(map.clone()) } else { None };
     let data = SimulateData::new(Some(score), map, mode, ctx.cache.clone());
 
     // Creating the embed
@@ -103,6 +110,20 @@ fn simulate_recent_send(
     let mut msg = msg.channel_id.send_message(&ctx.http, |m| {
         m.content("Simulated score:").embed(|e| embed.create(e))
     })?;
+
+    // Add map to database if its not in already
+    if let Some(map) = map_copy {
+        let data = ctx.data.read();
+        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        if let Err(why) = mysql.insert_beatmap(&map) {
+            warn!(
+                "Could not add map of simulaterecent command to database: {}",
+                why
+            );
+        }
+    }
+
+    // Minimize embed after delay
     let embed = BotEmbed::SimulateScoreMini(Box::new(data));
     msg.edit(&ctx, |m| {
         thread::sleep(MINIMIZE_DELAY);

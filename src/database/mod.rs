@@ -47,6 +47,56 @@ impl MySQL {
         Ok(map.into_beatmap(mapset))
     }
 
+    pub fn get_beatmaps(&self, map_ids: &[u32]) -> Result<HashMap<u32, Beatmap>, Error> {
+        if map_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+        use schema::{
+            maps::{self, dsl::beatmap_id},
+            mapsets::{self, dsl::beatmapset_id},
+        };
+        let conn = self.get_connection()?;
+        // Retrieve all DBMap's
+        let mut maps: Vec<DBMap> = maps::table
+            .filter(beatmap_id.eq_any(map_ids))
+            .load::<DBMap>(&conn)?;
+        // Sort them by beatmapset_id
+        maps.sort_by(|a, b| a.beatmapset_id.cmp(&b.beatmapset_id));
+        // Check if all maps are from different mapsets by removing duplicates
+        let mut mapset_ids: Vec<_> = maps.iter().map(|m| m.beatmapset_id).collect();
+        mapset_ids.dedup();
+        // Retrieve all DBMapSet's
+        let mut mapsets: Vec<DBMapSet> = mapsets::table
+            .filter(beatmapset_id.eq_any(&mapset_ids))
+            .load::<DBMapSet>(&conn)?;
+        // If all maps have different mapsets
+        let beatmaps = if maps.len() == mapset_ids.len() {
+            // Sort DBMapSet's by beatmapset'd
+            mapsets.sort_by(|a, b| a.beatmapset_id.cmp(&b.beatmapset_id));
+            // Then zip them with the DBMap's
+            maps.into_iter()
+                .zip(mapsets.into_iter())
+                .map(|(m, ms)| (m.beatmap_id, m.into_beatmap(ms)))
+                .collect()
+        // Otherwise (some maps are from the same mapset)
+        } else {
+            // Collect mapsets into HashMap
+            let mapsets: HashMap<u32, DBMapSet> = mapsets
+                .into_iter()
+                .map(|ms| (ms.beatmapset_id, ms))
+                .collect();
+            // Clone mapset for each corresponding map
+            maps.into_iter()
+                .map(|m| {
+                    let mapset: DBMapSet = mapsets.get(&m.beatmapset_id).unwrap().clone();
+                    let map = m.into_beatmap(mapset);
+                    (map.beatmap_id, map)
+                })
+                .collect()
+        };
+        Ok(beatmaps)
+    }
+
     pub fn insert_beatmap<M>(&self, map: &M) -> Result<(), Error>
     where
         M: MapSplit,
@@ -61,6 +111,23 @@ impl MySQL {
             .values(&map)
             .execute(&conn)?;
         info!("Inserted beatmap {} into database", map.beatmap_id);
+        Ok(())
+    }
+
+    pub fn insert_beatmaps<M>(&self, maps: Vec<M>) -> Result<(), Error>
+    where
+        M: MapSplit,
+    {
+        use schema::{maps, mapsets};
+        let (maps, mapsets): (Vec<DBMap>, Vec<DBMapSet>) =
+            maps.into_iter().map(|m| m.into_db_split()).unzip();
+        let conn = self.get_connection()?;
+        diesel::insert_or_ignore_into(mapsets::table)
+            .values(&mapsets)
+            .execute(&conn)?;
+        diesel::insert_into(maps::table)
+            .values(&maps)
+            .execute(&conn)?;
         Ok(())
     }
 

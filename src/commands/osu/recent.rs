@@ -8,7 +8,10 @@ use crate::{
 
 use rosu::{
     backend::requests::{OsuArgs, OsuRequest, ScoreArgs, UserBestArgs, UserRecentArgs},
-    models::{ApprovalStatus, GameMode, Grade, Score},
+    models::{
+        ApprovalStatus::{Approved, Loved, Qualified, Ranked},
+        GameMode, Grade, Score,
+    },
 };
 use serenity::{
     framework::standard::{macros::command, Args, CommandError, CommandResult},
@@ -86,12 +89,8 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         mysql.get_beatmap(map_id)
     };
-    let (map_in_db, map) = if let Ok(map) = map {
-        (
-            map.approval_status == ApprovalStatus::Ranked
-                || map.approval_status == ApprovalStatus::Loved,
-            map,
-        )
+    let (map_to_db, map) = if let Ok(map) = map {
+        (false, map)
     } else {
         let map = match rt.block_on(score.beatmap.as_ref().unwrap().get(mode)) {
             Ok(m) => m,
@@ -103,7 +102,10 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
                 )));
             }
         };
-        (false, map)
+        (
+            map.approval_status == Ranked || map.approval_status == Loved,
+            map,
+        )
     };
 
     // Retrieving the user's top 100 and the map's global top 50
@@ -120,7 +122,7 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
         if score.grade == Grade::F {
             return Ok((Vec::new(), Vec::new()));
         }
-        let best = if map.approval_status == ApprovalStatus::Ranked {
+        let best = if map.approval_status == Ranked {
             best_req.queue().await.or_else(|e| {
                 Err(CommandError(format!(
                     "Error while retrieving UserBest: {}",
@@ -131,10 +133,7 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
             Vec::new()
         };
         let global = match map.approval_status {
-            ApprovalStatus::Ranked
-            | ApprovalStatus::Loved
-            | ApprovalStatus::Qualified
-            | ApprovalStatus::Approved => global_req.queue().await.or_else(|e| {
+            Ranked | Loved | Qualified | Approved => global_req.queue().await.or_else(|e| {
                 Err(CommandError(format!(
                     "Error while retrieving Scores: {}",
                     e
@@ -152,9 +151,8 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
         }
     };
 
-    let map_copy = if map_in_db { None } else { Some(map.clone()) };
-
     // Accumulate all necessary data
+    let map_copy = if map_to_db { Some(map.clone()) } else { None };
     let tries = scores
         .iter()
         .take_while(|s| s.beatmap_id.unwrap() == map_id)
@@ -169,10 +167,10 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
     })?;
 
     // Add map to database if its not in already
-    if !map_in_db {
+    if let Some(map) = map_copy {
         let data = ctx.data.read();
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-        if let Err(why) = mysql.insert_beatmap(&map_copy.unwrap()) {
+        if let Err(why) = mysql.insert_beatmap(&map) {
             warn!("Could not add map of recent command to database: {}", why);
         }
     }

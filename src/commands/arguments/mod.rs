@@ -76,6 +76,6 @@ pub enum ModSelection {
 }
 
 pub fn get_beatmap_id(val: String) -> Option<u32> {
-    // TODO: Regex here
-    Some(u32::from_str(&val).unwrap())
+    // TODO: Regex stuff here
+    u32::from_str(&val).ok()
 }

@@ -1,5 +1,6 @@
 use crate::{
     commands::{ArgParser, ModSelection},
+    database::MySQL,
     messages::{BotEmbed, MapMultiData},
     util::globals::OSU_API_ISSUE,
     DiscordLinks, Osu,
@@ -7,14 +8,14 @@ use crate::{
 
 use rosu::{
     backend::requests::{OsuArgs, OsuRequest, UserArgs, UserBestArgs},
-    models::{GameMode, GameMods, Grade, Score, User},
+    models::{Beatmap, GameMode, GameMods, Grade, Score, User},
 };
 use serenity::{
     framework::standard::{macros::command, Args, CommandError, CommandResult},
     model::prelude::Message,
     prelude::Context,
 };
-use std::{convert::TryFrom, str::FromStr};
+use std::{collections::HashMap, convert::TryFrom, str::FromStr};
 use tokio::runtime::Runtime;
 
 fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
@@ -169,28 +170,66 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
     scores_indices = scores_indices[..amount.min(5)].to_vec();
     scores_indices.iter_mut().for_each(|(i, _)| *i += 1);
 
+    // Get all relevant maps from the database
+    let map_ids: Vec<u32> = scores_indices
+        .iter()
+        .map(|(_, s)| s.beatmap_id.unwrap())
+        .collect();
+    let mut maps = {
+        let data = ctx.data.read();
+        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        mysql
+            .get_beatmaps(&map_ids)
+            .unwrap_or_else(|_| HashMap::default())
+    };
+    info!(
+        "Found {}/{} beatmaps in the database",
+        maps.len(),
+        scores_indices.len()
+    );
+
     // Retrieving each score's beatmap
     let res = rt.block_on(async move {
         let mut tuples = Vec::with_capacity(scores_indices.len());
+        let mut missing_indices = Vec::with_capacity(scores_indices.len());
         for (i, score) in scores_indices.into_iter() {
-            let map = score
-                .beatmap
-                .as_ref()
-                .unwrap()
-                .get(mode)
-                .await
-                .or_else(|e| {
-                    Err(CommandError(format!(
-                        "Error while retrieving LazilyLoaded<Beatmap> of best score: {}",
-                        e
-                    )))
-                })?;
+            let map_id = score.beatmap_id.unwrap();
+            let map = if maps.contains_key(&map_id) {
+                maps.remove(&map_id).unwrap()
+            } else {
+                missing_indices.push(i);
+                score
+                    .beatmap
+                    .as_ref()
+                    .unwrap()
+                    .get(mode)
+                    .await
+                    .or_else(|e| {
+                        Err(CommandError(format!(
+                            "Error while retrieving LazilyLoaded<Beatmap> of best score: {}",
+                            e
+                        )))
+                    })?
+            };
             tuples.push((i, score, map));
         }
-        Ok(tuples)
+        Ok((tuples, missing_indices))
     });
-    let scores_data = match res {
-        Ok(tuples) => tuples,
+    let (scores_data, missing_maps): (Vec<_>, Option<Vec<Beatmap>>) = match res {
+        Ok((scores_data, missing_indices)) => {
+            let missing_maps = if missing_indices.is_empty() {
+                None
+            } else {
+                Some(
+                    scores_data
+                        .iter()
+                        .filter(|(i, ..)| missing_indices.contains(i))
+                        .map(|(.., map)| map.clone())
+                        .collect(),
+                )
+            };
+            (scores_data, missing_maps)
+        }
         Err(why) => {
             msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
             return Err(why);
@@ -211,6 +250,18 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
         }
         m.content(content).embed(|e| embed.create(e))
     });
+
+    // Add missing maps to database
+    if let Some(maps) = missing_maps {
+        let data = ctx.data.read();
+        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        if let Err(why) = mysql.insert_beatmaps(maps) {
+            warn!(
+                "Could not add missing maps of top command to database: {}",
+                why
+            );
+        }
+    }
     Ok(())
 }
 
