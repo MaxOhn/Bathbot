@@ -1,3 +1,3 @@
 mod beatmap;
 
-pub use beatmap::DBBeatmap;
+pub use beatmap::{DBMap, DBMapSet, MapSplit};

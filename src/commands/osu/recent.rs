@@ -86,8 +86,12 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         mysql.get_beatmap(map_id)
     };
-    let (map, map_in_db) = if let Ok(Some(map)) = map {
-        (map, true)
+    let (map_in_db, map) = if let Ok(map) = map {
+        (
+            map.approval_status == ApprovalStatus::Ranked
+                || map.approval_status == ApprovalStatus::Loved,
+            map,
+        )
     } else {
         let map = match rt.block_on(score.beatmap.as_ref().unwrap().get(mode)) {
             Ok(m) => m,
@@ -99,7 +103,7 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
                 )));
             }
         };
-        (map, false)
+        (false, map)
     };
 
     // Retrieving the user's top 100 and the map's global top 50
@@ -166,16 +170,10 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
 
     // Add map to database if its not in already
     if !map_in_db {
-        let map = map_copy.unwrap();
-        match map.approval_status {
-            ApprovalStatus::Ranked | ApprovalStatus::Loved => {
-                let data = ctx.data.read();
-                let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-                if let Err(why) = mysql.insert_beatmap(&map) {
-                    warn!("Could not add map of recent command to database: {}", why);
-                }
-            }
-            _ => {}
+        let data = ctx.data.read();
+        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        if let Err(why) = mysql.insert_beatmap(&map_copy.unwrap()) {
+            warn!("Could not add map of recent command to database: {}", why);
         }
     }
 

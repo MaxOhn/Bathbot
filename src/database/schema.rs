@@ -1,13 +1,16 @@
 table! {
-    beatmaps (beatmap_id) {
+    discord_users (discord_id) {
+        discord_id -> Unsigned<Bigint>,
+        osu_name -> Varchar,
+    }
+}
+
+table! {
+    maps (beatmap_id) {
         beatmap_id -> Unsigned<Integer>,
         beatmapset_id -> Unsigned<Integer>,
         mode -> Unsigned<Tinyint>,
-        artist -> Varchar,
-        title -> Varchar,
         version -> Varchar,
-        creator_id -> Unsigned<Integer>,
-        creator -> Varchar,
         seconds_drain -> Unsigned<Integer>,
         seconds_total -> Unsigned<Integer>,
         bpm -> Float,
@@ -20,6 +23,16 @@ table! {
         count_slider -> Unsigned<Integer>,
         count_spinner -> Unsigned<Integer>,
         max_combo -> Nullable<Unsigned<Integer>>,
+    }
+}
+
+table! {
+    mapsets (beatmapset_id) {
+        beatmapset_id -> Unsigned<Integer>,
+        artist -> Varchar,
+        title -> Varchar,
+        creator_id -> Unsigned<Integer>,
+        creator -> Varchar,
         genre -> Unsigned<Tinyint>,
         language -> Unsigned<Tinyint>,
         approval_status -> Tinyint,
@@ -27,33 +40,10 @@ table! {
     }
 }
 
-table! {
-    beatmaps_pp (beatmap_id) {
-        beatmap_id -> Unsigned<Integer>,
-        NM -> Float,
-        HD -> Float,
-        HR -> Float,
-        DT -> Float,
-        EZ -> Float,
-        NF -> Float,
-        HDHR -> Float,
-        HDDT -> Float,
-    }
-}
+joinable!(maps -> mapsets (beatmapset_id));
 
-table! {
-    beatmaps_stars (beatmap_id) {
-        beatmap_id -> Unsigned<Integer>,
-        HR -> Float,
-        DT -> Float,
-    }
-}
-
-table! {
-    discord_users (discord_id) {
-        discord_id -> Unsigned<Bigint>,
-        osu_name -> Varchar,
-    }
-}
-
-allow_tables_to_appear_in_same_query!(beatmaps, beatmaps_pp, beatmaps_stars, discord_users,);
+allow_tables_to_appear_in_same_query!(
+    discord_users,
+    maps,
+    mapsets,
+);

@@ -1,12 +1,8 @@
-CREATE TABLE beatmaps (
-    beatmap_id INT UNSIGNED PRIMARY KEY,
+CREATE TABLE maps (
+    beatmap_id INT UNSIGNED NOT NULL,
     beatmapset_id INT UNSIGNED NOT NULL,
     mode TINYINT UNSIGNED NOT NULL,
-    artist VARCHAR(128) NOT NULL,
-    title VARCHAR(128) NOT NULL,
     version VARCHAR(128) NOT NULL,
-    creator_id INT UNSIGNED NOT NULL,
-    creator VARCHAR(32) NOT NULL,
     seconds_drain INT UNSIGNED NOT NULL,
     seconds_total INT UNSIGNED NOT NULL,
     bpm FLOAT NOT NULL,
@@ -19,8 +15,6 @@ CREATE TABLE beatmaps (
     count_slider INT UNSIGNED NOT NULL,
     count_spinner INT UNSIGNED NOT NULL,
     max_combo INT UNSIGNED,
-    genre TINYINT UNSIGNED NOT NULL,
-    language TINYINT UNSIGNED NOT NULL,
-    approval_status TINYINT NOT NULL,
-    approved_date TIMESTAMP NULL DEFAULT NULL
+    PRIMARY KEY (beatmap_id),
+    FOREIGN KEY (beatmapset_id) REFERENCES mapsets(beatmapset_id)
 )

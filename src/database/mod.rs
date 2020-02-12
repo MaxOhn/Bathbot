@@ -1,7 +1,7 @@
 mod models;
 mod schema;
 
-use models::DBBeatmap;
+use models::{DBMap, DBMapSet, MapSplit};
 
 use crate::util::Error;
 use diesel::{
@@ -33,25 +33,39 @@ impl MySQL {
         })
     }
 
-    pub fn insert_beatmap(&self, map: &Beatmap) -> Result<(), Error> {
-        let db_map = DBBeatmap::from(map);
+    // -------------------------------
+    // Table: maps / mapsets
+    // -------------------------------
+
+    pub fn get_beatmap(&self, map_id: u32) -> Result<Beatmap, Error> {
+        use schema::{maps, mapsets};
         let conn = self.get_connection()?;
-        diesel::insert_into(schema::beatmaps::table)
-            .values(&db_map)
+        let map = maps::table.find(map_id).first::<DBMap>(&conn)?;
+        let mapset = mapsets::table
+            .find(map.beatmapset_id)
+            .first::<DBMapSet>(&conn)?;
+        Ok(map.into_beatmap(mapset))
+    }
+
+    pub fn insert_beatmap<M>(&self, map: &M) -> Result<(), Error>
+    where
+        M: MapSplit,
+    {
+        use schema::{maps, mapsets};
+        let (map, mapset) = map.db_split();
+        let conn = self.get_connection()?;
+        diesel::insert_or_ignore_into(mapsets::table)
+            .values(&mapset)
+            .execute(&conn)?;
+        diesel::insert_into(maps::table)
+            .values(&map)
             .execute(&conn)?;
         Ok(())
     }
 
-    pub fn get_beatmap(&self, map_id: u32) -> Result<Option<Beatmap>, Error> {
-        use schema::beatmaps::dsl::beatmap_id;
-        let conn = self.get_connection()?;
-        let db_map = schema::beatmaps::table
-            .filter(beatmap_id.eq(map_id))
-            .load::<DBBeatmap>(&conn)?
-            .pop();
-        let map = db_map.map(|m| m.into());
-        Ok(map)
-    }
+    // -------------------------------
+    // Table: discord_users
+    // -------------------------------
 
     pub fn add_discord_link(&self, discord_id: u64, osu_name: &str) -> Result<(), Error> {
         use schema::discord_users::dsl::{discord_id as id, osu_name as name};
@@ -64,15 +78,16 @@ impl MySQL {
     }
 
     pub fn remove_discord_link(&self, discord_id: u64) -> Result<(), Error> {
-        use schema::discord_users::dsl::discord_id as id;
+        use schema::discord_users::{self, dsl::discord_id as id};
         let conn = self.get_connection()?;
-        diesel::delete(schema::discord_users::table.filter(id.eq(discord_id))).execute(&conn)?;
+        diesel::delete(discord_users::table.filter(id.eq(discord_id))).execute(&conn)?;
         Ok(())
     }
 
     pub fn get_discord_links(&self) -> Result<HashMap<u64, String>, Error> {
+        use schema::discord_users;
         let conn = self.get_connection()?;
-        let tuples = schema::discord_users::table.load::<(u64, String)>(&conn)?;
+        let tuples = discord_users::table.load::<(u64, String)>(&conn)?;
         let links: HashMap<u64, String> = tuples.into_iter().collect();
         Ok(links)
     }

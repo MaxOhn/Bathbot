@@ -1,5 +1,0 @@
-CREATE TABLE beatmaps_stars (
-    beatmap_id INT UNSIGNED PRIMARY KEY,
-    HR FLOAT NOT NULL,
-    DT FLOAT NOT NULL
-)
