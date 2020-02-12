@@ -3,7 +3,7 @@ use crate::{
     database::MySQL,
     messages::{BotEmbed, ScoreSingleData},
     util::globals::OSU_API_ISSUE,
-    Osu,
+    DiscordLinks, Osu,
 };
 
 use rosu::{
@@ -19,7 +19,25 @@ use std::thread;
 use tokio::runtime::Runtime;
 
 fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    let name: String = args.single_quoted()?;
+    let name: String = if args.is_empty() {
+        let data = ctx.data.read();
+        let links = data
+            .get::<DiscordLinks>()
+            .expect("Could not get DiscordLinks");
+        match links.get(msg.author.id.as_u64()) {
+            Some(name) => name.clone(),
+            None => {
+                msg.channel_id.say(
+                    &ctx.http,
+                    "Either specify an osu name or link your discord \
+                     to an osu profile via `<link osuname`",
+                )?;
+                return Ok(());
+            }
+        }
+    } else {
+        args.single_quoted()?
+    };
     let recent_args = UserRecentArgs::with_username(&name).mode(mode).limit(50);
     let recent_req: OsuRequest<Score> = {
         let data = ctx.data.read();

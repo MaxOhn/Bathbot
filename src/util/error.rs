@@ -1,4 +1,5 @@
 use chrono::format::ParseError as ParseChrono;
+use diesel::result::Error as DieselError;
 use reqwest;
 use roppai::OppaiErr;
 use rosu::backend::OsuError;
@@ -17,11 +18,12 @@ pub enum Error {
     Osu(OsuError),
     Oppai(OppaiErr),
     Reqwest(reqwest::Error),
-    DieselError(diesel::result::Error),
+    DieselError(DieselError),
+    MySQLConnection(String),
 }
 
-impl From<diesel::result::Error> for Error {
-    fn from(e: diesel::result::Error) -> Self {
+impl From<DieselError> for Error {
+    fn from(e: DieselError) -> Self {
         Self::DieselError(e)
     }
 }
@@ -94,6 +96,7 @@ impl fmt::Display for Error {
             Self::Oppai(e) => write!(f, "{:?}", e),
             Self::Reqwest(e) => write!(f, "{:?}", e),
             Self::DieselError(e) => write!(f, "{}", e),
+            Self::MySQLConnection(e) => write!(f, "{}", e),
         }
     }
 }

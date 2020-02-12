@@ -12,3 +12,4 @@ pub const EMOTE_D_ID: u64 = 515354674963021824;
 pub const EMOTE_F_ID: u64 = 515623098947600385;
 
 pub const OSU_API_ISSUE: &str = "Some issue with the osu api, blame bade";
+pub const DATABASE_ISSUE: &str = "Some issue while interacting with the database, blame bade";

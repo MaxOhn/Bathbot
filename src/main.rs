@@ -45,7 +45,8 @@ fn main() -> Result<(), Error> {
     let osu = OsuClient::new(osu_token);
     let scraper = Scraper::new();
     let mut discord = Client::new(&discord_token, Handler)?;
-    let mysql = MySQL::new(&database_url);
+    let mysql = MySQL::new(&database_url)?;
+    let discord_links = mysql.get_discord_links()?;
     let owners = match discord.cache_and_http.http.get_current_application_info() {
         Ok(info) => {
             let mut set = HashSet::new();
@@ -60,6 +61,7 @@ fn main() -> Result<(), Error> {
         data.insert::<Osu>(osu);
         data.insert::<Scraper>(scraper);
         data.insert::<MySQL>(mysql);
+        data.insert::<DiscordLinks>(discord_links);
     }
     discord.with_framework(
         StandardFramework::new()
@@ -152,4 +154,10 @@ impl TypeMapKey for Scraper {
 
 impl TypeMapKey for MySQL {
     type Value = MySQL;
+}
+
+pub struct DiscordLinks;
+
+impl TypeMapKey for DiscordLinks {
+    type Value = HashMap<u64, String>;
 }

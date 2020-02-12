@@ -51,14 +51,9 @@ table! {
 
 table! {
     discord_users (discord_id) {
-        discord_id -> Varchar,
+        discord_id -> Unsigned<Bigint>,
         osu_name -> Varchar,
     }
 }
 
-allow_tables_to_appear_in_same_query!(
-    beatmaps,
-    beatmaps_pp,
-    beatmaps_stars,
-    discord_users,
-);
+allow_tables_to_appear_in_same_query!(beatmaps, beatmaps_pp, beatmaps_stars, discord_users,);
