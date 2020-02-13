@@ -1,4 +1,5 @@
 mod map_multi;
+mod nochoke;
 mod pp_missing;
 mod profile;
 mod score_multi;
@@ -7,6 +8,7 @@ mod simulate;
 mod whatif_pp;
 
 pub use map_multi::MapMultiData;
+pub use nochoke::NoChokeData;
 pub use pp_missing::PPMissingData;
 pub use profile::ProfileData;
 pub use score_multi::ScoreMultiData;

@@ -3,8 +3,8 @@
 
 use crate::{
     messages::{
-        MapMultiData, PPMissingData, ProfileData, ScoreMultiData, ScoreSingleData, SimulateData,
-        WhatIfPPData,
+        MapMultiData, NoChokeData, PPMissingData, ProfileData, ScoreMultiData, ScoreSingleData,
+        SimulateData, WhatIfPPData,
     },
     util::{
         datetime::{date_to_string, how_long_ago, sec_to_minsec},
@@ -177,18 +177,6 @@ fn create_profile(embed: &mut CreateEmbed, data: ProfileData) -> &mut CreateEmbe
         .fields(data.fields)
 }
 
-fn create_pp_missing(embed: &mut CreateEmbed, data: PPMissingData) -> &mut CreateEmbed {
-    embed
-        .thumbnail(&data.thumbnail)
-        .description(&data.description)
-        .title(&data.title)
-        .author(|a| {
-            a.icon_url(data.author_icon)
-                .url(data.author_url)
-                .name(data.author_text)
-        })
-}
-
 // TODO
 fn create_ratio(embed: &mut CreateEmbed) -> &mut CreateEmbed {
     embed
@@ -205,6 +193,18 @@ fn create_common(embed: &mut CreateEmbed) -> &mut CreateEmbed {
 }
 
 fn create_whatif_pp(embed: &mut CreateEmbed, data: WhatIfPPData) -> &mut CreateEmbed {
+    embed
+        .thumbnail(&data.thumbnail)
+        .description(&data.description)
+        .title(&data.title)
+        .author(|a| {
+            a.icon_url(data.author_icon)
+                .url(data.author_url)
+                .name(data.author_text)
+        })
+}
+
+fn create_pp_missing(embed: &mut CreateEmbed, data: PPMissingData) -> &mut CreateEmbed {
     embed
         .thumbnail(&data.thumbnail)
         .description(&data.description)

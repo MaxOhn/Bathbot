@@ -19,6 +19,7 @@ use std::{collections::HashMap, convert::TryFrom, str::FromStr};
 use tokio::runtime::Runtime;
 
 fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    // Parse the name
     let mut arg_parser = ArgParser::new(args);
     let (mods, selection) = if let Some((m, s)) = arg_parser.get_mods() {
         let mods = match GameMods::try_from(m.as_ref()) {
@@ -127,7 +128,7 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
                 Some(user) => user,
                 None => {
                     msg.channel_id
-                        .say(&ctx.http, format!("User {} was not found", name))?;
+                        .say(&ctx.http, format!("User `{}` was not found", name))?;
                     return Ok(());
                 }
             };
@@ -188,7 +189,7 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
         scores_indices.len()
     );
 
-    // Retrieving each score's beatmap
+    // Retrieving all missing beatmaps
     let res = rt.block_on(async move {
         let mut tuples = Vec::with_capacity(scores_indices.len());
         let mut missing_indices = Vec::with_capacity(scores_indices.len());

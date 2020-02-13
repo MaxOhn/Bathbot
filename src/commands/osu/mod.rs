@@ -1,6 +1,7 @@
 pub mod fruits;
 mod link;
 pub mod mania;
+pub mod nochoke;
 pub mod pp;
 pub mod profile;
 pub mod recent;

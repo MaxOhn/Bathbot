@@ -65,6 +65,7 @@ impl MySQL {
         // Check if all maps are from different mapsets by removing duplicates
         let mut mapset_ids: Vec<_> = maps.iter().map(|m| m.beatmapset_id).collect();
         mapset_ids.dedup();
+        //println!("Mapset_ids ({}): {:?}", mapset_ids.len(), mapset_ids);
         // Retrieve all DBMapSet's
         let mut mapsets: Vec<DBMapSet> = mapsets::table
             .filter(beatmapset_id.eq_any(&mapset_ids))
@@ -107,7 +108,7 @@ impl MySQL {
         diesel::insert_or_ignore_into(mapsets::table)
             .values(&mapset)
             .execute(&conn)?;
-        diesel::insert_into(maps::table)
+        diesel::insert_or_ignore_into(maps::table)
             .values(&map)
             .execute(&conn)?;
         info!("Inserted beatmap {} into database", map.beatmap_id);
@@ -128,6 +129,8 @@ impl MySQL {
         diesel::insert_into(maps::table)
             .values(&maps)
             .execute(&conn)?;
+        let map_ids: Vec<u32> = maps.iter().map(|m| m.beatmap_id).collect();
+        info!("Inserted beatmaps {:?} into database", map_ids);
         Ok(())
     }
 

@@ -5,10 +5,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "ppgenerator",
+            "name": "bathbot",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/target/debug/ppgenerator.exe",
+            "program": "${workspaceFolder}/target/debug/bathbot.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

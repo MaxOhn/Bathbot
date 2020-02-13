@@ -131,8 +131,8 @@ impl EventHandler for Handler {
         info!("Connected as {}", ready.user.name);
     }
 
-    fn resume(&self, _: Context, resume: ResumedEvent) {
-        info!("Resumed; trace: {:?}", resume.trace);
+    fn resume(&self, _: Context, _: ResumedEvent) {
+        info!("Resumed connection");
     }
 }
 

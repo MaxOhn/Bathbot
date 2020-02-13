@@ -81,22 +81,22 @@ impl MapSplit for Beatmap {
 #[belongs_to(DBMapSet, foreign_key = "beatmapset_id")]
 #[primary_key(beatmap_id)]
 pub struct DBMap {
-    pub beatmap_id: u32,
+    pub beatmap_id: u32, // pub for debugging purposes
     pub beatmapset_id: u32,
-    pub mode: u8,
-    pub version: String,
-    pub seconds_drain: u32,
-    pub seconds_total: u32,
-    pub bpm: f32,
-    pub stars: f32,
-    pub diff_cs: f32,
-    pub diff_od: f32,
-    pub diff_ar: f32,
-    pub diff_hp: f32,
-    pub count_circle: u32,
-    pub count_slider: u32,
-    pub count_spinner: u32,
-    pub max_combo: Option<u32>,
+    mode: u8,
+    version: String,
+    seconds_drain: u32,
+    seconds_total: u32,
+    bpm: f32,
+    stars: f32,
+    diff_cs: f32,
+    diff_od: f32,
+    diff_ar: f32,
+    diff_hp: f32,
+    count_circle: u32,
+    count_slider: u32,
+    count_spinner: u32,
+    max_combo: Option<u32>,
 }
 
 impl DBMap {
@@ -140,13 +140,13 @@ impl DBMap {
 #[table_name = "mapsets"]
 #[primary_key(beatmapset_id)]
 pub struct DBMapSet {
-    pub beatmapset_id: u32,
-    pub artist: String,
-    pub title: String,
-    pub creator_id: u32,
-    pub creator: String,
-    pub genre: u8,
-    pub language: u8,
-    pub approval_status: i8,
-    pub approved_date: Option<NaiveDateTime>,
+    pub beatmapset_id: u32, // pub for debugging purposes
+    artist: String,
+    title: String,
+    creator_id: u32,
+    creator: String,
+    genre: u8,
+    language: u8,
+    approval_status: i8,
+    approved_date: Option<NaiveDateTime>,
 }

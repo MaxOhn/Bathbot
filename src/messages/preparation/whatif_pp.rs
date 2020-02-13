@@ -2,7 +2,7 @@
 
 use crate::{
     messages::{AVATAR_URL, FLAG_URL, HOMEPAGE},
-    util::numbers::{round, round_and_comma},
+    util::numbers::{round, round_and_comma, with_comma_u64},
 };
 
 use rosu::models::{GameMode, Score, User};
@@ -24,7 +24,7 @@ impl WhatIfPPData {
             "{name}: {pp}pp (#{global} {country}{national})",
             name = user.username,
             pp = round_and_comma(user.pp_raw),
-            global = user.pp_rank,
+            global = with_comma_u64(user.pp_rank as u64),
             country = user.country,
             national = user.pp_country_rank
         );
@@ -46,21 +46,12 @@ impl WhatIfPPData {
                 name = user.username
             )
         } else {
-            /*
             let mut actual: f32 = 0.0;
             let mut factor: f32 = 1.0;
             for score in pp_values.iter() {
                 actual += score * factor;
                 factor *= 0.95;
             }
-            */
-            let actual: f32 = pp_values
-                .iter()
-                .scan(1.0 / 0.95, |factor, &pp| {
-                    *factor *= 0.95;
-                    Some(*factor * pp)
-                })
-                .sum();
             let bonus = user.pp_raw - actual;
             let mut potential = 0.0;
             let mut used = false;

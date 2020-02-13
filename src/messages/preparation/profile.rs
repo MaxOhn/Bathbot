@@ -36,7 +36,7 @@ impl ProfileData {
             "{name}: {pp}pp (#{global} {country}{national})",
             name = user.username,
             pp = round_and_comma(user.pp_raw),
-            global = user.pp_rank,
+            global = with_comma_u64(user.pp_rank as u64),
             country = user.country,
             national = user.pp_country_rank
         );

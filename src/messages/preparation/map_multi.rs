@@ -1,5 +1,3 @@
-#![allow(clippy::too_many_arguments)]
-
 use crate::{
     messages::{util, AVATAR_URL, FLAG_URL, HOMEPAGE},
     util::{
@@ -33,7 +31,7 @@ impl MapMultiData {
             "{name}: {pp}pp (#{global} {country}{national})",
             name = user.username,
             pp = round_and_comma(user.pp_raw),
-            global = user.pp_rank,
+            global = with_comma_u64(user.pp_rank as u64),
             country = user.country,
             national = user.pp_country_rank
         );
@@ -48,7 +46,7 @@ impl MapMultiData {
             let actual_pp = round(score.pp.unwrap_or_else(|| oppai.get_pp()));
             description.push_str(&format!(
                 "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
-                 {grade} {pp} ~ ({acc}) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
+                 {grade} {pp} ~ ({acc}) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}\n",
                 idx = idx,
                 title = map.title,
                 version = map.version,
@@ -64,7 +62,6 @@ impl MapMultiData {
                 hits = util::get_hits(&score, mode),
                 ago = how_long_ago(&score.date),
             ));
-            description.push('\n');
         }
         description.pop();
         Self {

@@ -20,7 +20,6 @@ pub fn get_oppai(map_id: u32, score: &Score, mode: GameMode) -> Result<(Oppai, f
     let map_path = prepare_beatmap_file(map_id)?;
 
     // First calculate only the max pp of the map with the current mods
-    // TODO: Check if value is already calculated in database
     let max_pp = oppai.calculate(Some(&map_path))?.get_pp();
 
     // Then set all values corresponding to the score so that the
@@ -98,7 +97,6 @@ pub fn unchoke_score(score: &mut Score, map: &Beatmap) -> Result<(), Error> {
     let mut oppai = Oppai::new();
     let bits = score.enabled_mods.get_bits();
     let map_path = prepare_beatmap_file(map.beatmap_id)?;
-    // TODO: Check if value is already calculated in database
     let pp = oppai
         .set_mods(bits)
         .set_hits(score.count100, score.count50)
