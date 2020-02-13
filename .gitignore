@@ -1,3 +1,4 @@
+/src/database/schema.rs
 /target
 **/*.rs.bk
 .env

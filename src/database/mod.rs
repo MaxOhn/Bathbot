@@ -126,11 +126,15 @@ impl MySQL {
         diesel::insert_or_ignore_into(mapsets::table)
             .values(&mapsets)
             .execute(&conn)?;
-        diesel::insert_into(maps::table)
+        diesel::insert_or_ignore_into(maps::table)
             .values(&maps)
             .execute(&conn)?;
         let map_ids: Vec<u32> = maps.iter().map(|m| m.beatmap_id).collect();
-        info!("Inserted beatmaps {:?} into database", map_ids);
+        if map_ids.len() > 5 {
+            info!("Inserted beatmaps {:?} into database", map_ids);
+        } else {
+            info!("Inserted {} beatmaps into database", map_ids.len());
+        }
         Ok(())
     }
 
