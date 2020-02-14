@@ -14,6 +14,7 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
+use std::error::Error;
 use tokio::runtime::Runtime;
 
 #[command]
@@ -127,7 +128,16 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     };
 
     // Accumulate all necessary data
-    let data = ScoreMultiData::new(map.mode, user, map, scores, ctx.cache.clone());
+    let data = match ScoreMultiData::new(map.mode, user, map, scores, ctx.cache.clone()) {
+        Ok(data) => data,
+        Err(why) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "Some issue while calculating scores data, blame bade",
+            )?;
+            return Err(CommandError::from(why.description()));
+        }
+    };
 
     // Creating the embed
     let embed = BotEmbed::UserScoreMulti(Box::new(data));

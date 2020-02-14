@@ -36,16 +36,10 @@ impl RateLimiter {
         if self.allowance > self.rate {
             self.allowance = self.rate;
         }
-        /*
-        debug!(
-            "Accessing after {}s => allowance: {}",
-            elapsed, self.allowance
-        );
-        */
         if self.allowance < 1.0 {
             let secs_left = (1.0 - self.allowance) * (self.per_sec / self.rate) / self.throttle; // s
             let ms_left = (secs_left * 1000.0).ceil() as u64; // ms
-            debug!(" => Sleep {}ms", ms_left);
+            debug!("Sleep {}ms", ms_left);
             thread::sleep(Duration::from_millis(ms_left));
             self.allowance = 0.0;
         } else {

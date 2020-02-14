@@ -4,6 +4,7 @@ use crate::{
         datetime::how_long_ago,
         numbers::{round, round_and_comma, with_comma_u64},
         osu::{get_grade_emote, get_oppai},
+        Error,
     },
 };
 
@@ -24,7 +25,7 @@ impl MapMultiData {
         scores_data: Vec<(usize, Score, Beatmap)>,
         mode: GameMode,
         cache: CacheRwLock,
-    ) -> Self {
+    ) -> Result<Self, Error> {
         let author_icon = format!("{}{}.png", FLAG_URL, user.country);
         let author_url = format!("{}u/{}", HOMEPAGE, user.user_id);
         let author_text = format!(
@@ -41,7 +42,12 @@ impl MapMultiData {
             // TODO: Handle GameMode's differently
             let (oppai, max_pp) = match get_oppai(map.beatmap_id, &score, mode) {
                 Ok(tuple) => tuple,
-                Err(why) => panic!("Something went wrong while using oppai: {}", why),
+                Err(why) => {
+                    return Err(Error::Custom(format!(
+                        "Something went wrong while using oppai: {}",
+                        why
+                    )))
+                }
             };
             let actual_pp = round(score.pp.unwrap_or_else(|| oppai.get_pp()));
             description.push_str(&format!(
@@ -64,12 +70,12 @@ impl MapMultiData {
             ));
         }
         description.pop();
-        Self {
+        Ok(Self {
             author_icon,
             author_url,
             author_text,
             thumbnail,
             description,
-        }
+        })
     }
 }

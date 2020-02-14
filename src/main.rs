@@ -53,7 +53,12 @@ fn main() -> Result<(), Error> {
             set.insert(info.owner.id);
             set
         }
-        Err(why) => ret!("Couldn't get application info: {:?}", why),
+        Err(why) => {
+            return Err(Error::Custom(format!(
+                "Couldn't get application info: {:?}",
+                why
+            )))
+        }
     };
     {
         let mut data = discord.data.write();

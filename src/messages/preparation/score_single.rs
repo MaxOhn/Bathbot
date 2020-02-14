@@ -6,6 +6,7 @@ use crate::{
         datetime::{date_to_string, how_long_ago},
         numbers::{round, round_and_comma, with_comma_u64},
         osu::get_oppai,
+        Error,
     },
 };
 
@@ -43,7 +44,7 @@ impl ScoreSingleData {
         global: Vec<Score>,
         mode: GameMode,
         cache: CacheRwLock,
-    ) -> Self {
+    ) -> Result<Self, Error> {
         let personal_idx = personal.into_iter().position(|s| s == score);
         let global_idx = global.into_iter().position(|s| s == score);
         let description = if personal_idx.is_some() || global_idx.is_some() {
@@ -83,11 +84,16 @@ impl ScoreSingleData {
         // TODO: Handle GameMode's differently
         let (oppai, max_pp) = match get_oppai(map.beatmap_id, &score, mode) {
             Ok(tuple) => tuple,
-            Err(why) => panic!("Something went wrong while using oppai: {}", why),
+            Err(why) => {
+                return Err(Error::Custom(format!(
+                    "Something went wrong while using oppai: {}",
+                    why
+                )))
+            }
         };
         let actual_pp = round(score.pp.unwrap_or_else(|| oppai.get_pp()));
         let grade_completion_mods = util::get_grade_completion_mods(&score, mode, &map, cache);
-        Self {
+        Ok(Self {
             description,
             title,
             title_url,
@@ -107,6 +113,6 @@ impl ScoreSingleData {
             footer_text: format!("{:?} map by {}", map.approval_status, map.creator),
             timestamp: date_to_string(&score.date),
             thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id),
-        }
+        })
     }
 }

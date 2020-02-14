@@ -15,7 +15,7 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use std::{collections::HashMap, convert::TryFrom, str::FromStr};
+use std::{collections::HashMap, convert::TryFrom, error::Error, str::FromStr};
 use tokio::runtime::Runtime;
 
 fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
@@ -238,12 +238,25 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
     };
 
     // Accumulate all necessary data
-    let data = MapMultiData::new(user, scores_data, mode, ctx.cache.clone());
+    let data = match MapMultiData::new(user, scores_data, mode, ctx.cache.clone()) {
+        Ok(data) => data,
+        Err(why) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "Some issue while calculating top data, blame bade",
+            )?;
+            return Err(CommandError::from(why.description()));
+        }
+    };
 
     // Creating the embed
     let embed = BotEmbed::UserMapMulti(data);
     let _ = msg.channel_id.send_message(&ctx.http, |m| {
-        let mut content = format!("Found {} top scores with the specified properties", amount);
+        let mut content = format!(
+            "Found {num} top score{plural} with the specified properties",
+            num = amount,
+            plural = if amount != 1 { "s" } else { "" }
+        );
         if amount > 5 {
             content.push_str(", here's the top 5 of them:");
         } else {

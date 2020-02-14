@@ -3,6 +3,7 @@ use crate::{
     util::{
         numbers::{round, round_and_comma, with_comma_u64},
         osu::{self, get_grade_emote},
+        Error,
     },
 };
 
@@ -26,27 +27,26 @@ impl NoChokeData {
         user: User,
         scores_data: HashMap<usize, (Score, Beatmap)>,
         cache: CacheRwLock,
-    ) -> MapMultiData {
+    ) -> Result<MapMultiData, Error> {
         // 5 would be sufficient but 10 reduces error probability
         let mut index_10_pp: f32 = 0.0; // pp of 10th best unchoked score
 
         // BTreeMap to keep entries sorted by key
         let mut unchoked_scores: BTreeMap<F32T, (usize, Score)> = BTreeMap::new();
-        for (i, (s, m)) in scores_data.iter() {
-            let combo_ratio = s.max_combo as f32 / m.max_combo.unwrap() as f32;
+        for (idx, (score, map)) in scores_data.iter() {
+            let combo_ratio = score.max_combo as f32 / map.max_combo.unwrap() as f32;
             // If the score is an (almost) fc but already has too few pp, skip
-            if combo_ratio > 0.98 && s.pp.unwrap() < index_10_pp * 0.94 {
+            if combo_ratio > 0.98 && score.pp.unwrap() < index_10_pp * 0.94 {
                 continue;
             }
-            let mut score = s.clone();
-            if s.max_combo != m.max_combo.unwrap() {
-                if let Err(why) = osu::unchoke_score(&mut score, m) {
-                    panic!("Error while unchoking score: {}", why);
-                }
+            let mut unchoked = score.clone();
+            // If combo isn't max, unchoke the score
+            if score.max_combo != map.max_combo.unwrap() {
+                osu::unchoke_score(&mut unchoked, map)?;
             }
-            let pp = score.pp.unwrap();
+            let pp = unchoked.pp.unwrap();
             if pp > index_10_pp {
-                unchoked_scores.insert(F32T::new(pp), (*i, score));
+                unchoked_scores.insert(F32T::new(pp), (*idx, unchoked));
                 index_10_pp = unchoked_scores
                     .iter()
                     .rev() // BTreeMap stores entries in ascending order wrt the key
@@ -66,6 +66,8 @@ impl NoChokeData {
                 (i, unchoked_score, actual_score, map)
             })
             .collect();
+
+        // Done calculating, now preparing strings for message
         let author_icon = format!("{}{}.png", FLAG_URL, user.country);
         let author_url = format!("{}u/{}", HOMEPAGE, user.user_id);
         let author_text = format!(
@@ -108,14 +110,15 @@ impl NoChokeData {
                 plural = if actual.count_miss - unchoked.count_miss != 1 { "es" } else { "" }
             ));
         }
+        // Remove the last '\n'
         description.pop();
-        MapMultiData {
+        Ok(MapMultiData {
             author_icon,
             author_url,
             author_text,
             thumbnail,
             description,
-        }
+        })
     }
 }
 

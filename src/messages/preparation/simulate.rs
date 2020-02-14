@@ -5,6 +5,7 @@ use crate::{
     util::{
         numbers::round,
         osu::{get_oppai, unchoke_score},
+        Error,
     },
 };
 
@@ -27,7 +28,12 @@ pub struct SimulateData {
 }
 
 impl SimulateData {
-    pub fn new(score: Option<Score>, map: Beatmap, mode: GameMode, cache: CacheRwLock) -> Self {
+    pub fn new(
+        score: Option<Score>,
+        map: Beatmap,
+        mode: GameMode,
+        cache: CacheRwLock,
+    ) -> Result<Self, Error> {
         let title = map.to_string();
         let title_url = format!("{}b/{}", HOMEPAGE, map.beatmap_id);
         let got_score = score.is_some();
@@ -35,11 +41,19 @@ impl SimulateData {
         // TODO: Handle GameMode's differently
         let mut unchoked_score = score.unwrap_or_default();
         if let Err(e) = unchoke_score(&mut unchoked_score, &map) {
-            panic!("Something went wrong while unchoking a score: {}", e);
+            return Err(Error::Custom(format!(
+                "Something went wrong while unchoking a score: {}",
+                e
+            )));
         }
         let (oppai, max_pp) = match get_oppai(map.beatmap_id, &unchoked_score, mode) {
             Ok((oppai, max_pp)) => (oppai, round(max_pp)),
-            Err(why) => panic!("Something went wrong while using oppai: {}", why),
+            Err(why) => {
+                return Err(Error::Custom(format!(
+                    "Something went wrong while using oppai: {}",
+                    why
+                )))
+            }
         };
         let actual_pp = if got_score {
             round(oppai.get_pp())
@@ -61,13 +75,18 @@ impl SimulateData {
                 String::from("**-**/-"),
                 String::from("-%"),
             ),
-            _ => panic!("Cannot prepare simulate data of GameMode::{:?} score", mode),
+            _ => {
+                return Err(Error::Custom(format!(
+                    "Cannot prepare simulate data of GameMode::{:?} score",
+                    mode
+                )))
+            }
         };
         let map_info = util::get_map_info(&map);
         let footer_url = format!("{}{}", AVATAR_URL, map.creator_id);
         let footer_text = format!("{:?} map by {}", map.approval_status, map.creator);
         let thumbnail = format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id);
-        Self {
+        Ok(Self {
             title,
             title_url,
             stars,
@@ -80,6 +99,6 @@ impl SimulateData {
             footer_url,
             footer_text,
             thumbnail,
-        }
+        })
     }
 }

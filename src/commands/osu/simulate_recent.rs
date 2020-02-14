@@ -18,7 +18,7 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use std::thread;
+use std::{error::Error, thread};
 use tokio::runtime::Runtime;
 
 fn simulate_recent_send(
@@ -103,7 +103,16 @@ fn simulate_recent_send(
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = SimulateData::new(Some(score), map, mode, ctx.cache.clone());
+    let data = match SimulateData::new(Some(score), map, mode, ctx.cache.clone()) {
+        Ok(data) => data,
+        Err(why) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "Some issue while calculating simulaterecent data, blame bade",
+            )?;
+            return Err(CommandError::from(why.description()));
+        }
+    };
 
     // Creating the embed
     let embed = BotEmbed::SimulateScore(&data);

@@ -172,7 +172,16 @@ fn nochoke(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     msg.edit(&ctx, |m| m.content(msg_content))?;
 
     // Accumulate all necessary data
-    let data = NoChokeData::create(user, scores_data, ctx.cache.clone());
+    let data = match NoChokeData::create(user, scores_data, ctx.cache.clone()) {
+        Ok(data) => data,
+        Err(why) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "Some issue while calculating nochoke data, blame bade",
+            )?;
+            return Err(CommandError::from(why.description()));
+        }
+    };
 
     // Creating the embed
     let embed = BotEmbed::UserMapMulti(data);

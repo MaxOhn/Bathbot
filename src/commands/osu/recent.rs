@@ -18,7 +18,7 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use std::thread;
+use std::{error::Error, thread};
 use tokio::runtime::Runtime;
 
 fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
@@ -157,7 +157,16 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
         .iter()
         .take_while(|s| s.beatmap_id.unwrap() == map_id)
         .count();
-    let data = ScoreSingleData::new(user, score, map, best, global, mode, ctx.cache.clone());
+    let data = match ScoreSingleData::new(user, score, map, best, global, mode, ctx.cache.clone()) {
+        Ok(data) => data,
+        Err(why) => {
+            msg.channel_id.say(
+                &ctx.http,
+                "Some issue while calculating recent data, blame bade",
+            )?;
+            return Err(CommandError::from(why.description()));
+        }
+    };
 
     // Creating the embed
     let embed = BotEmbed::UserScoreSingle(&data);
