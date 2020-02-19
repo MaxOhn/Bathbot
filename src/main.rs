@@ -12,6 +12,7 @@ extern crate roppai;
 extern crate rosu;
 #[macro_use]
 extern crate diesel;
+extern crate image;
 
 use commands::{fun::*, osu::*, streams::*, utility::*};
 pub use database::MySQL;

@@ -1,3 +1,4 @@
+pub mod common;
 pub mod fruits;
 mod link;
 pub mod mania;

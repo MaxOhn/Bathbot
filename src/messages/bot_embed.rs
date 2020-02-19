@@ -3,8 +3,8 @@
 
 use crate::{
     messages::{
-        MapMultiData, NoChokeData, PPMissingData, ProfileData, ScoreMultiData, ScoreSingleData,
-        SimulateData, WhatIfPPData,
+        CommonData, MapMultiData, NoChokeData, PPMissingData, ProfileData, ScoreMultiData,
+        ScoreSingleData, SimulateData, WhatIfPPData,
     },
     util::{
         datetime::{date_to_string, how_long_ago, sec_to_minsec},
@@ -19,11 +19,6 @@ use rosu::models::{Beatmap, GameMod, GameMode, GameMods, Score, User};
 use serenity::{builder::CreateEmbed, cache::CacheRwLock, utils::Colour};
 use std::{cmp::Ordering::Equal, collections::HashMap, f32, u32};
 
-const HOMEPAGE: &str = "https://osu.ppy.sh/";
-const MAP_THUMB_URL: &str = "https://b.ppy.sh/thumb/";
-const AVATAR_URL: &str = "https://a.ppy.sh/";
-const FLAG_URL: &str = "https://osu.ppy.sh//images/flags/";
-
 pub enum BotEmbed<'d> {
     UserScoreSingle(&'d ScoreSingleData),
     UserScoreMulti(Box<ScoreMultiData>),
@@ -32,9 +27,9 @@ pub enum BotEmbed<'d> {
     PPMissing(PPMissingData),
     WhatIfPP(WhatIfPPData),
     SimulateScore(&'d SimulateData),
+    UserCommonScores(CommonData),
     //UserLeaderboard(Box<Beatmap>, Vec<(User, Score)>),
     //ManiaRatio(Box<User>, Vec<Score>),
-    //UserCommonScores(Vec<User>, Vec<Beatmap>),
     UserScoreSingleMini(Box<ScoreSingleData>),
     SimulateScoreMini(Box<SimulateData>),
 }
@@ -50,9 +45,9 @@ impl<'d, 'e> BotEmbed<'d> {
             BotEmbed::PPMissing(data) => create_pp_missing(e, data),
             BotEmbed::WhatIfPP(data) => create_whatif_pp(e, data),
             BotEmbed::SimulateScore(data) => create_simulation(e, data),
+            BotEmbed::UserCommonScores(data) => create_common(e, data),
             //BotEmbed::UserLeaderboard(data) => create_leaderboard(e, data),
             //BotEmbed::ManiaRatio(data) => create_ratio(e, data),
-            //BotEmbed::UserCommonScores(data) => create_common(e, data),
             BotEmbed::UserScoreSingleMini(data) => create_user_score_single_mini(e, *data),
             BotEmbed::SimulateScoreMini(data) => create_simulation_mini(e, *data),
         }
@@ -188,8 +183,10 @@ fn create_leaderboard(embed: &mut CreateEmbed) -> &mut CreateEmbed {
 }
 
 // TODO
-fn create_common(embed: &mut CreateEmbed) -> &mut CreateEmbed {
+fn create_common(embed: &mut CreateEmbed, data: CommonData) -> &mut CreateEmbed {
     embed
+        .description(data.description)
+        .thumbnail("attachment://avatar_fuse.png")
 }
 
 fn create_whatif_pp(embed: &mut CreateEmbed, data: WhatIfPPData) -> &mut CreateEmbed {

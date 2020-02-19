@@ -1,5 +1,6 @@
 use chrono::format::ParseError as ParseChrono;
 use diesel::result::Error as DieselError;
+use image::ImageError;
 use reqwest;
 use roppai::OppaiErr;
 use rosu::backend::OsuError;
@@ -20,6 +21,13 @@ pub enum Error {
     Reqwest(reqwest::Error),
     DieselError(DieselError),
     MySQLConnection(String),
+    ImageError(ImageError),
+}
+
+impl From<ImageError> for Error {
+    fn from(e: ImageError) -> Self {
+        Self::ImageError(e)
+    }
 }
 
 impl From<DieselError> for Error {
@@ -97,6 +105,7 @@ impl fmt::Display for Error {
             Self::Reqwest(e) => write!(f, "{:?}", e),
             Self::DieselError(e) => write!(f, "{}", e),
             Self::MySQLConnection(e) => write!(f, "{}", e),
+            Self::ImageError(e) => write!(f, "{}", e),
         }
     }
 }

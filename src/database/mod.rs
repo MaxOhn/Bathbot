@@ -131,9 +131,9 @@ impl MySQL {
             .execute(&conn)?;
         let map_ids: Vec<u32> = maps.iter().map(|m| m.beatmap_id).collect();
         if map_ids.len() > 5 {
-            info!("Inserted beatmaps {:?} into database", map_ids);
-        } else {
             info!("Inserted {} beatmaps into database", map_ids.len());
+        } else {
+            info!("Inserted beatmaps {:?} into database", map_ids);
         }
         Ok(())
     }

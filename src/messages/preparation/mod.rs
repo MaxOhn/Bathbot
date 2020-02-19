@@ -1,3 +1,4 @@
+mod common;
 mod map_multi;
 mod nochoke;
 mod pp_missing;
@@ -7,6 +8,7 @@ mod score_single;
 mod simulate;
 mod whatif_pp;
 
+pub use common::CommonData;
 pub use map_multi::MapMultiData;
 pub use nochoke::NoChokeData;
 pub use pp_missing::PPMissingData;

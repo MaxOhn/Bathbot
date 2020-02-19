@@ -10,11 +10,12 @@ roppai = { path = "../roppai" }
 env_logger = "0.6"
 kankyo = "0.2"
 log = "0.4"
-tokio = { version = "0.2.9", features = ["full"] }
+tokio = { version = "0.2", features = ["full"] }
 serenity = { version = "0.8", features = ["cache", "framework", "standard_framework", "rustls_backend"] }
-num-format = "0.4.0"
+num-format = "0.4"
 chrono = "0.4"
-reqwest = "*"
-itertools = "0.8.2"
-scraper = "0.11.0"
-diesel = { version = "1.4.3", features = ["mysql", "chrono", "r2d2"] }
+reqwest = "0.10"
+itertools = "0.8"
+scraper = "0.11"
+diesel = { version = "1.4", features = ["mysql", "chrono", "r2d2"] }
+image = "0.23"
