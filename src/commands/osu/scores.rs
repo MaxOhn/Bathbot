@@ -5,16 +5,12 @@ use crate::{
     DiscordLinks, Osu,
 };
 
-use rosu::{
-    backend::requests::{BeatmapArgs, OsuArgs, OsuRequest, ScoreArgs, UserArgs},
-    models::{Beatmap, Score, User},
-};
+use rosu::backend::requests::{BeatmapRequest, ScoreRequest, UserRequest};
 use serenity::{
     framework::standard::{macros::command, Args, CommandError, CommandResult},
     model::prelude::Message,
     prelude::Context,
 };
-use std::error::Error;
 use tokio::runtime::Runtime;
 
 #[command]
@@ -59,72 +55,60 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     } else {
         msg.channel_id.say(
             &ctx.http,
-            "If no osu name is provided, the first argument must be a beatmap id. \
-             If you want to give an osu name, do so as first argument. \
-             The second argument should then be the beatmap id. \
+            "If no osu name is provided, the first argument must be a beatmap id.\n\
+             If you want to give an osu name, do so as first argument.\n\
+             The second argument should then be the beatmap id.\n\
              The beatmap id can be given as number or as URL to the beatmap.",
         )?;
         return Ok(());
     };
-    let score_args = ScoreArgs::with_map_id(map_id).username(&name);
-    let user_args = UserArgs::with_username(&name);
-    let map_args = BeatmapArgs::new().map_id(map_id);
-    let (score_req, user_req, map_req): (OsuRequest<Score>, OsuRequest<User>, OsuRequest<Beatmap>) = {
+
+    // Retrieve user, map, and user's scores on the map
+    let (user, map, scores) = {
+        let mut rt = Runtime::new().unwrap();
+        let map_req = BeatmapRequest::new().map_id(map_id);
+        let score_req = ScoreRequest::with_map_id(map_id).username(&name);
         let data = ctx.data.read();
         let osu = data.get::<Osu>().expect("Could not get osu client");
-        let score_req = osu.create_request(OsuArgs::Scores(score_args));
-        let user_req = osu.create_request(OsuArgs::Users(user_args));
-        let map_req = osu.create_request(OsuArgs::Beatmaps(map_args));
-        (score_req, user_req, map_req)
-    };
-    let mut rt = Runtime::new().unwrap();
-
-    // Retrieve map, user, and user's scores on the map
-    let res = rt.block_on(async {
-        let users = user_req
-            .queue()
-            .await
-            .or_else(|e| Err(CommandError(format!("Error while retrieving Users: {}", e))))?;
-        let scores = score_req.queue().await.or_else(|e| {
-            Err(CommandError(format!(
-                "Error while retrieving Scores: {}",
-                e
-            )))
-        })?;
-        let maps = map_req.queue().await.or_else(|e| {
-            Err(CommandError(format!(
-                "Error while retrieving Beatmaps: {}",
-                e
-            )))
-        })?;
-        Ok((scores, users, maps))
-    });
-    let (scores, user, map) = match res {
-        Ok((scores, mut users, mut maps)) => {
-            let user = match users.pop() {
-                Some(user) => user,
-                None => {
-                    msg.channel_id
-                        .say(&ctx.http, format!("User `{}` was not found", name))?;
-                    return Ok(());
-                }
-            };
-            let map = match maps.pop() {
+        let map = match rt.block_on(map_req.queue_single(osu)) {
+            Ok(result) => match result {
                 Some(map) => map,
                 None => {
                     msg.channel_id.say(
                         &ctx.http,
-                        format!("Beatmap with id {} was not found", map_id),
+                        format!("Could not find beatmap with id `{}`", map_id),
                     )?;
                     return Ok(());
                 }
-            };
-            (scores, user, map)
-        }
-        Err(why) => {
-            msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
-            return Err(why);
-        }
+            },
+            Err(why) => {
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                return Err(CommandError::from(why.to_string()));
+            }
+        };
+        let scores = match rt.block_on(score_req.queue(osu)) {
+            Ok(scores) => scores,
+            Err(why) => {
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                return Err(CommandError::from(why.to_string()));
+            }
+        };
+        let user_req = UserRequest::with_username(&name).mode(map.mode);
+        let user = match rt.block_on(user_req.queue_single(osu)) {
+            Ok(result) => match result {
+                Some(user) => user,
+                None => {
+                    msg.channel_id
+                        .say(&ctx.http, format!("Could not find user `{}`", name))?;
+                    return Ok(());
+                }
+            },
+            Err(why) => {
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                return Err(CommandError::from(why.to_string()));
+            }
+        };
+        (user, map, scores)
     };
 
     // Accumulate all necessary data
@@ -135,7 +119,7 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
                 &ctx.http,
                 "Some issue while calculating scores data, blame bade",
             )?;
-            return Err(CommandError::from(why.description()));
+            return Err(CommandError::from(why.to_string()));
         }
     };
 

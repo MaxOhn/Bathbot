@@ -7,10 +7,10 @@ use crate::{
 };
 
 use rosu::{
-    backend::requests::{OsuArgs, OsuRequest, ScoreArgs, UserBestArgs, UserRecentArgs},
+    backend::requests::RecentRequest,
     models::{
         ApprovalStatus::{Approved, Loved, Qualified, Ranked},
-        GameMode, Grade, Score,
+        GameMode,
     },
 };
 use serenity::{
@@ -41,23 +41,19 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
     } else {
         args.single_quoted()?
     };
-    let recent_args = UserRecentArgs::with_username(&name).mode(mode).limit(50);
-    let recent_req: OsuRequest<Score> = {
-        let data = ctx.data.read();
-        let osu = data.get::<Osu>().expect("Could not get osu client");
-        osu.create_request(OsuArgs::Recent(recent_args))
-    };
     let mut rt = Runtime::new().unwrap();
 
     // Retrieve the recent scores
-    let scores: Vec<Score> = match rt.block_on(recent_req.queue()) {
-        Ok(scores) => scores,
-        Err(why) => {
-            msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
-            return Err(CommandError(format!(
-                "Error while retrieving UserRecent: {}",
-                why
-            )));
+    let scores = {
+        let request = RecentRequest::with_username(&name).mode(mode).limit(50);
+        let data = ctx.data.read();
+        let osu = data.get::<Osu>().expect("Could not get osu client");
+        match rt.block_on(request.queue(osu)) {
+            Ok(scores) => scores,
+            Err(why) => {
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                return Err(CommandError::from(why.to_string()));
+            }
         }
     };
     let score = if let Some(score) = scores.get(0) {
@@ -71,84 +67,66 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
     };
 
     // Retrieving the score's user
-    let user = match rt.block_on(score.user.get(mode)) {
-        Ok(u) => u,
-        Err(why) => {
-            msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
-            return Err(CommandError(format!(
-                "Error while retrieving LazilyLoaded<User> of recent: {}",
-                why
-            )));
+    let user = {
+        let data = ctx.data.read();
+        let osu = data.get::<Osu>().expect("Could not get osu client");
+        match rt.block_on(score.get_user(osu, mode)) {
+            Ok(u) => u,
+            Err(why) => {
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                return Err(CommandError::from(why.to_string()));
+            }
         }
     };
     let map_id = score.beatmap_id.unwrap();
 
     // Retrieving the score's beatmap
-    let map = {
+    let (map_to_db, map) = {
         let data = ctx.data.read();
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-        mysql.get_beatmap(map_id)
-    };
-    let (map_to_db, map) = if let Ok(map) = map {
-        (false, map)
-    } else {
-        let map = match rt.block_on(score.beatmap.as_ref().unwrap().get(mode)) {
-            Ok(m) => m,
-            Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
-                return Err(CommandError(format!(
-                    "Error while retrieving LazilyLoaded<Beatmap> of recent: {}",
-                    why
-                )));
+        match mysql.get_beatmap(map_id) {
+            Ok(map) => (false, map),
+            Err(_) => {
+                let osu = data.get::<Osu>().expect("Could not get osu client");
+                let map = match rt.block_on(score.get_beatmap(osu)) {
+                    Ok(m) => m,
+                    Err(why) => {
+                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                        return Err(CommandError::from(why.to_string()));
+                    }
+                };
+                (
+                    map.approval_status == Ranked || map.approval_status == Loved,
+                    map,
+                )
             }
-        };
-        (
-            map.approval_status == Ranked || map.approval_status == Loved,
-            map,
-        )
+        }
     };
 
     // Retrieving the user's top 100 and the map's global top 50
-    let best_args = UserBestArgs::with_username(&name).mode(mode).limit(100);
-    let global_args = ScoreArgs::with_map_id(map_id).mode(mode).limit(50);
-    let (best_req, global_req) = {
+    let (best, global) = {
         let data = ctx.data.read();
         let osu = data.get::<Osu>().expect("Could not get osu client");
-        let best_req = osu.create_request(OsuArgs::Best(best_args));
-        let global_req = osu.create_request(OsuArgs::Scores(global_args));
-        (best_req, global_req)
-    };
-    let res = rt.block_on(async {
-        if score.grade == Grade::F {
-            return Ok((Vec::new(), Vec::new()));
-        }
-        let best = if map.approval_status == Ranked {
-            best_req.queue().await.or_else(|e| {
-                Err(CommandError(format!(
-                    "Error while retrieving UserBest: {}",
-                    e
-                )))
-            })?
-        } else {
-            Vec::new()
+        let best = match rt.block_on(user.get_top_scores(osu, 100, mode)) {
+            Ok(scores) => scores,
+            Err(why) => {
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                return Err(CommandError::from(why.to_string()));
+            }
         };
         let global = match map.approval_status {
-            Ranked | Loved | Qualified | Approved => global_req.queue().await.or_else(|e| {
-                Err(CommandError(format!(
-                    "Error while retrieving Scores: {}",
-                    e
-                )))
-            })?,
+            Ranked | Loved | Qualified | Approved => {
+                match rt.block_on(map.get_global_leaderboard(osu, 50)) {
+                    Ok(scores) => scores,
+                    Err(why) => {
+                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                        return Err(CommandError::from(why.to_string()));
+                    }
+                }
+            }
             _ => Vec::new(),
         };
-        Ok((best, global))
-    });
-    let (best, global) = match res {
-        Ok(tuple) => tuple,
-        Err(why) => {
-            msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
-            return Err(why);
-        }
+        (best, global)
     };
 
     // Accumulate all necessary data

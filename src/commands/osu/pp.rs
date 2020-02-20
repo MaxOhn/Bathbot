@@ -5,7 +5,7 @@ use crate::{
 };
 
 use rosu::{
-    backend::requests::{OsuArgs, OsuRequest, UserArgs, UserBestArgs},
+    backend::requests::UserRequest,
     models::{GameMode, Score, User},
 };
 use serenity::{
@@ -44,6 +44,7 @@ fn pp_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> 
         }
         _ => args.single_quoted()?,
     };
+
     // Parse the pp
     let pp = match args.single::<f32>() {
         Ok(val) => val,
@@ -62,47 +63,35 @@ fn pp_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> 
             .say(&ctx.http, "The pp number must be non-negative")?;
         return Ok(());
     }
-    let user_args = UserArgs::with_username(&name).mode(mode);
-    let best_args = UserBestArgs::with_username(&name).mode(mode).limit(100);
-    let (user_req, best_req): (OsuRequest<User>, OsuRequest<Score>) = {
-        let data = ctx.data.read();
-        let osu = data.get::<Osu>().expect("Could not get osu client");
-        let user_req = osu.create_request(OsuArgs::Users(user_args));
-        let best_req = osu.create_request(OsuArgs::Best(best_args));
-        (user_req, best_req)
-    };
-    let mut rt = Runtime::new().unwrap();
 
     // Retrieve the user and its top scores
-    let res = rt.block_on(async {
-        let users = user_req
-            .queue()
-            .await
-            .or_else(|e| Err(CommandError(format!("Error while retrieving Users: {}", e))))?;
-        let scores = best_req.queue().await.or_else(|e| {
-            Err(CommandError(format!(
-                "Error while retrieving UserBest: {}",
-                e
-            )))
-        })?;
-        Ok((users, scores))
-    });
-    let (user, scores): (User, Vec<Score>) = match res {
-        Ok((mut users, scores)) => {
-            let user = match users.pop() {
+    let (user, scores): (User, Vec<Score>) = {
+        let user_req = UserRequest::with_username(&name).mode(mode);
+        let mut rt = Runtime::new().unwrap();
+        let data = ctx.data.read();
+        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let user = match rt.block_on(user_req.queue_single(&osu)) {
+            Ok(result) => match result {
                 Some(user) => user,
                 None => {
                     msg.channel_id
                         .say(&ctx.http, format!("User `{}` was not found", name))?;
                     return Ok(());
                 }
-            };
-            (user, scores)
-        }
-        Err(why) => {
-            msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
-            return Err(why);
-        }
+            },
+            Err(why) => {
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                return Err(CommandError::from(why.to_string()));
+            }
+        };
+        let scores = match rt.block_on(user.get_top_scores(&osu, 100, mode)) {
+            Ok(scores) => scores,
+            Err(why) => {
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                return Err(CommandError::from(why.to_string()));
+            }
+        };
+        (user, scores)
     };
 
     // Accumulate all necessary data

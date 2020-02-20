@@ -85,9 +85,9 @@ pub fn unchoke_score(score: &mut Score, map: &Beatmap) -> Result<(), Error> {
     if score.max_combo == max_combo {
         return Ok(());
     }
-    let missing =
-        map.count_objects() - (score.count300 + score.count100 + score.count50 + score.count_miss);
-    let ratio = score.count300 as f32 / (score.count300 + score.count100 + score.count50) as f32;
+    let count_hits = score.count300 + score.count100 + score.count50;
+    let missing = map.count_objects() - count_hits;
+    let ratio = score.count300 as f32 / count_hits as f32;
     let new300s = (ratio * missing as f32) as u32;
     score.count300 += new300s;
     score.count100 += missing - new300s;

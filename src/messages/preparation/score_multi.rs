@@ -62,10 +62,9 @@ impl ScoreMultiData {
             };
             let actual_pp = round(score.pp.unwrap_or_else(|| oppai.get_pp()));
             let mut name = format!(
-                "**{idx}.** {grade} {mods}\t[{stars}]\t{score}\t({acc})",
+                "**{idx}.** {grade}\t[{stars}]\t{score}\t({acc})",
                 idx = (i + 1).to_string(),
                 grade = util::get_grade_completion_mods(&score, mode, &map, cache.clone()),
-                mods = util::get_mods(&score.enabled_mods),
                 stars = util::get_stars(&map, Some(oppai)),
                 score = with_comma_u64(score.score as u64),
                 acc = util::get_acc(&score, mode),

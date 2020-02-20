@@ -1,12 +1,12 @@
 use crate::{
     database::MySQL,
-    messages::{BotEmbed, NoChokeData},
-    util::{globals::OSU_API_ISSUE, osu},
+    messages::{AuthorDescThumbData, BotEmbed},
+    util::globals::OSU_API_ISSUE,
     DiscordLinks, Osu,
 };
 
 use rosu::{
-    backend::requests::{OsuArgs, OsuRequest, UserArgs, UserBestArgs},
+    backend::requests::UserRequest,
     models::{Beatmap, GameMode, Score, User},
 };
 use serenity::{
@@ -41,47 +41,35 @@ fn nochoke(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     } else {
         args.single_quoted()?
     };
-    let user_args = UserArgs::with_username(&name);
-    let best_args = UserBestArgs::with_username(&name).limit(100);
-    let (user_req, best_req): (OsuRequest<User>, OsuRequest<Score>) = {
-        let data = ctx.data.read();
-        let osu = data.get::<Osu>().expect("Could not get osu client");
-        let user_req = osu.create_request(OsuArgs::Users(user_args));
-        let best_req = osu.create_request(OsuArgs::Best(best_args));
-        (user_req, best_req)
-    };
     let mut rt = Runtime::new().unwrap();
 
     // Retrieve the user and its top scores
-    let res = rt.block_on(async {
-        let users = user_req
-            .queue()
-            .await
-            .or_else(|e| Err(CommandError(format!("Error while retrieving Users: {}", e))))?;
-        let scores = best_req.queue().await.or_else(|e| {
-            Err(CommandError(format!(
-                "Error while retrieving UserBest: {}",
-                e
-            )))
-        })?;
-        Ok((users, scores))
-    });
-    let (user, scores): (User, Vec<Score>) = match res {
-        Ok((mut users, scores)) => {
-            let user = match users.pop() {
+    let (user, scores): (User, Vec<Score>) = {
+        let user_req = UserRequest::with_username(&name).mode(GameMode::STD);
+        let data = ctx.data.read();
+        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let user = match rt.block_on(user_req.queue_single(&osu)) {
+            Ok(result) => match result {
                 Some(user) => user,
                 None => {
                     msg.channel_id
                         .say(&ctx.http, format!("User `{}` was not found", name))?;
                     return Ok(());
                 }
-            };
-            (user, scores)
-        }
-        Err(why) => {
-            msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
-            return Err(why);
-        }
+            },
+            Err(why) => {
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                return Err(CommandError::from(why.to_string()));
+            }
+        };
+        let scores = match rt.block_on(user.get_top_scores(&osu, 100, GameMode::STD)) {
+            Ok(scores) => scores,
+            Err(why) => {
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                return Err(CommandError::from(why.to_string()));
+            }
+        };
+        (user, scores)
     };
 
     let mention = msg.author.mention();
@@ -112,67 +100,43 @@ fn nochoke(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
         msg.edit(&ctx, |m| m.content(&msg_content))?;
     }
 
-    // Retrieving all missing beatmaps
-    let res = rt.block_on(async move {
-        let mut data = HashMap::with_capacity(scores.len());
-        let mut missing_indices = Vec::with_capacity(scores.len());
+    // Further prepare data and retrieve missing maps
+    let (scores_data, missing_maps): (HashMap<usize, _>, Option<Vec<Beatmap>>) = {
+        let mut scores_data = HashMap::with_capacity(scores.len());
+        let mut missing_maps = Vec::new();
+        let data = ctx.data.read();
+        let osu = data.get::<Osu>().expect("Could not get osu client");
         for (i, score) in scores.into_iter().enumerate() {
             let map_id = score.beatmap_id.unwrap();
             let map = if maps.contains_key(&map_id) {
                 maps.remove(&map_id).unwrap()
             } else {
-                missing_indices.push(i + 1);
-                score
-                    .beatmap
-                    .as_ref()
-                    .unwrap()
-                    .get(GameMode::STD)
-                    .await
-                    .or_else(|e| {
-                        Err(CommandError(format!(
-                            "Error while retrieving LazilyLoaded<Beatmap> of best score: {}",
-                            e
-                        )))
-                    })?
+                let map = match rt.block_on(score.get_beatmap(osu)) {
+                    Ok(map) => map,
+                    Err(why) => {
+                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                        return Err(CommandError::from(why.to_string()));
+                    }
+                };
+                missing_maps.push(map.clone());
+                map
             };
-            data.insert(i + 1, (score, map));
+            scores_data.insert(i + 1, (score, map));
         }
-        Ok((data, missing_indices))
-    });
-    let (scores_data, missing_maps): (HashMap<usize, _>, Option<Vec<Beatmap>>) = match res {
-        Ok((score_maps, missing_indices)) => {
-            let missing_maps = if missing_indices.is_empty() {
+        (
+            scores_data,
+            if missing_maps.is_empty() {
                 None
             } else {
-                Some(
-                    score_maps
-                        .iter()
-                        .filter(|(i, ..)| missing_indices.contains(i))
-                        .map(|(_, (_, map))| map.clone())
-                        .collect(),
-                )
-            };
-            for (_, (_, map)) in score_maps.iter() {
-                if let Err(why) = osu::prepare_beatmap_file(map.beatmap_id) {
-                    msg.edit(&ctx, |m| {
-                        m.content("Something went wrong while downloading a beatmap, blame bade")
-                    })?;
-                    return Err(CommandError::from(why.description()));
-                }
-            }
-            (score_maps, missing_maps)
-        }
-        Err(why) => {
-            msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
-            return Err(why);
-        }
+                Some(missing_maps)
+            },
+        )
     };
-
     msg_content.push_str("\nAll data prepared, now calculating...");
     msg.edit(&ctx, |m| m.content(msg_content))?;
 
     // Accumulate all necessary data
-    let data = match NoChokeData::create(user, scores_data, ctx.cache.clone()) {
+    let data = match AuthorDescThumbData::create_nochoke(user, scores_data, ctx.cache.clone()) {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id.say(
@@ -184,7 +148,7 @@ fn nochoke(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     };
 
     // Creating the embed
-    let embed = BotEmbed::UserMapMulti(data);
+    let embed = BotEmbed::AuthorDescThumb(data);
     let msg_res = msg
         .channel_id
         .send_message(&ctx.http, |m| {

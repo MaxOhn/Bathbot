@@ -20,6 +20,8 @@ pub struct CommonData {
 }
 
 impl CommonData {
+    /// Returns a tuple containing a new `CommonData` object,
+    /// and a `Vec<u8>` representing the bytes of a png
     pub fn new(
         users: HashMap<u32, User>,
         all_scores: Vec<Vec<Score>>,
@@ -90,7 +92,7 @@ impl CommonData {
         let user_ids: Vec<u32> = users.keys().copied().collect();
         let thumbnail = get_thumbnail(&user_ids).unwrap_or_else(|e| {
             warn!("Error while combining avatars: {}", e);
-            Vec::new()
+            Vec::default()
         });
         (Self { description }, thumbnail)
     }

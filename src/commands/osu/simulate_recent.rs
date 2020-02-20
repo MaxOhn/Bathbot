@@ -7,10 +7,10 @@ use crate::{
 };
 
 use rosu::{
-    backend::requests::{OsuArgs, OsuRequest, UserRecentArgs},
+    backend::requests::RecentRequest,
     models::{
         ApprovalStatus::{Loved, Ranked},
-        GameMode, Score,
+        GameMode,
     },
 };
 use serenity::{
@@ -46,20 +46,23 @@ fn simulate_recent_send(
     } else {
         args.single_quoted()?
     };
-    let recent_args = UserRecentArgs::with_username(&name).mode(mode).limit(1);
-    let recent_req: OsuRequest<Score> = {
-        let data = ctx.data.read();
-        let osu = data.get::<Osu>().expect("Could not get osu client");
-        osu.create_request(OsuArgs::Recent(recent_args))
-    };
     let mut rt = Runtime::new().unwrap();
 
     // Retrieve the recent score
-    let score: Score = match rt.block_on(recent_req.queue()) {
-        Ok(mut scores) => {
-            if let Some(score) = scores.pop() {
-                score
-            } else {
+    let score = {
+        let request = RecentRequest::with_username(&name).mode(mode).limit(1);
+        let data = ctx.data.read();
+        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let mut scores = match rt.block_on(request.queue(osu)) {
+            Ok(scores) => scores,
+            Err(why) => {
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                return Err(CommandError::from(why.to_string()));
+            }
+        };
+        match scores.pop() {
+            Some(score) => score,
+            None => {
                 msg.channel_id.say(
                     &ctx.http,
                     format!("No recent plays found for user `{}`", name),
@@ -67,38 +70,29 @@ fn simulate_recent_send(
                 return Ok(());
             }
         }
-        Err(why) => {
-            msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
-            return Err(CommandError(format!(
-                "Error while retrieving UserRecent: {}",
-                why
-            )));
-        }
     };
 
     // Retrieving the score's beatmap
-    let map = {
+    let (map_to_db, map) = {
         let data = ctx.data.read();
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-        mysql.get_beatmap(score.beatmap_id.unwrap())
-    };
-    let (map_to_db, map) = if let Ok(map) = map {
-        (false, map)
-    } else {
-        let map = match rt.block_on(score.beatmap.as_ref().unwrap().get(mode)) {
-            Ok(m) => m,
-            Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
-                return Err(CommandError(format!(
-                    "Error while retrieving LazilyLoaded<Beatmap> of recent: {}",
-                    why
-                )));
+        match mysql.get_beatmap(score.beatmap_id.unwrap()) {
+            Ok(map) => (false, map),
+            Err(_) => {
+                let osu = data.get::<Osu>().expect("Could not get osu client");
+                let map = match rt.block_on(score.get_beatmap(osu)) {
+                    Ok(m) => m,
+                    Err(why) => {
+                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                        return Err(CommandError::from(why.to_string()));
+                    }
+                };
+                (
+                    map.approval_status == Ranked || map.approval_status == Loved,
+                    map,
+                )
             }
-        };
-        (
-            map.approval_status == Ranked || map.approval_status == Loved,
-            map,
-        )
+        }
     };
 
     // Accumulate all necessary data

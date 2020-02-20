@@ -2,11 +2,7 @@
 
 use crate::{
     messages::{util, AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
-    util::{
-        numbers::round,
-        osu::{get_oppai, unchoke_score},
-        Error,
-    },
+    util::{numbers::round, osu, Error},
 };
 
 use rosu::models::{Beatmap, GameMode, Score};
@@ -40,13 +36,13 @@ impl SimulateData {
 
         // TODO: Handle GameMode's differently
         let mut unchoked_score = score.unwrap_or_default();
-        if let Err(e) = unchoke_score(&mut unchoked_score, &map) {
+        if let Err(e) = osu::unchoke_score(&mut unchoked_score, &map) {
             return Err(Error::Custom(format!(
                 "Something went wrong while unchoking a score: {}",
                 e
             )));
         }
-        let (oppai, max_pp) = match get_oppai(map.beatmap_id, &unchoked_score, mode) {
+        let (oppai, max_pp) = match osu::get_oppai(map.beatmap_id, &unchoked_score, mode) {
             Ok((oppai, max_pp)) => (oppai, round(max_pp)),
             Err(why) => {
                 return Err(Error::Custom(format!(

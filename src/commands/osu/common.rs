@@ -2,12 +2,12 @@ use crate::{
     database::MySQL,
     messages::{BotEmbed, CommonData},
     util::globals::OSU_API_ISSUE,
-    DiscordLinks, Error, Osu,
+    DiscordLinks, Osu,
 };
 
 use itertools::Itertools;
 use rosu::{
-    backend::requests::{BeatmapArgs, OsuArgs, OsuRequest, UserArgs, UserBestArgs},
+    backend::requests::{BeatmapRequest, UserRequest},
     models::{Beatmap, GameMode, Score, User},
 };
 use serenity::{
@@ -54,74 +54,44 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
             }
         }
     }
-
-    // Prepare all requests
-    let mut args = HashMap::with_capacity(names.len());
-    for name in names.iter() {
-        args.insert(
-            name.clone(),
-            (
-                UserArgs::with_username(name).mode(mode),
-                UserBestArgs::with_username(name).mode(mode).limit(100),
-            ),
-        );
-    }
-    let reqs: HashMap<String, (OsuRequest<User>, OsuRequest<Score>)> = {
-        let data = ctx.data.read();
-        let osu = data.get::<Osu>().expect("Could not get osu client");
-        args.into_iter()
-            .map(|(name, (user_arg, best_arg))| {
-                (
-                    name,
-                    (
-                        osu.create_request(OsuArgs::Users(user_arg)),
-                        osu.create_request(OsuArgs::Best(best_arg)),
-                    ),
-                )
-            })
-            .collect()
-    };
     let mut rt = Runtime::new().unwrap();
 
-    // Retrieve users and their topscores
-    let res = rt.block_on(async {
-        let mut user_scores = HashMap::with_capacity(reqs.len());
-        for (name, (users_req, scores_req)) in reqs.into_iter() {
-            let users = users_req
-                .queue()
-                .await
-                .or_else(|e| Err(CommandError(format!("Error while retrieving Users: {}", e))))?;
-            let scores = scores_req.queue().await.or_else(|e| {
-                Err(CommandError(format!(
-                    "Error while retrieving UserBest: {}",
-                    e
-                )))
-            })?;
-            user_scores.insert(name, (users, scores));
-        }
-        Ok(user_scores)
-    });
-    let (users, mut all_scores): (HashMap<u32, User>, Vec<Vec<Score>>) = match res {
-        Ok(mut user_scores) => {
-            for (name, (users, _)) in user_scores.iter() {
-                if users.is_empty() {
-                    msg.channel_id
-                        .say(&ctx.http, format!("User `{}` was not found", name))?;
-                    return Ok(());
+    // Retrieve all users and their top scores
+    let requests: HashMap<String, UserRequest> = names
+        .iter()
+        .map(|name| (name.clone(), UserRequest::with_username(name).mode(mode)))
+        .collect();
+    let (users, mut all_scores): (HashMap<u32, User>, Vec<Vec<Score>>) = {
+        let data = ctx.data.read();
+        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let mut users = HashMap::with_capacity(requests.len());
+        let mut all_scores = Vec::with_capacity(requests.len());
+        for (name, request) in requests.into_iter() {
+            let user = match rt.block_on(request.queue_single(&osu)) {
+                Ok(result) => match result {
+                    Some(user) => user,
+                    None => {
+                        msg.channel_id
+                            .say(&ctx.http, format!("User `{}` was not found", name))?;
+                        return Ok(());
+                    }
+                },
+                Err(why) => {
+                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                    return Err(CommandError::from(why.to_string()));
                 }
-            }
-            user_scores
-                .drain()
-                .map(|(_, (mut users, scores))| {
-                    let user = users.pop().unwrap();
-                    ((user.user_id, user), scores)
-                })
-                .unzip()
+            };
+            let scores = match rt.block_on(user.get_top_scores(&osu, 100, mode)) {
+                Ok(scores) => scores,
+                Err(why) => {
+                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                    return Err(CommandError::from(why.to_string()));
+                }
+            };
+            users.insert(user.user_id, user);
+            all_scores.push(scores);
         }
-        Err(why) => {
-            msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
-            return Err(why);
-        }
+        (users, all_scores)
     };
 
     // Consider only scores on common maps
@@ -163,40 +133,31 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
 
     // Retrieve all missing maps from the API
     let missing_maps = if !map_ids.is_empty() {
-        let map_reqs: Vec<OsuRequest<Beatmap>> = {
-            let data = ctx.data.read();
-            let osu = data.get::<Osu>().expect("Could not get osu client");
-            map_ids
-                .iter()
-                .filter(|id| !maps.contains_key(id))
-                .map(|&id| osu.create_request(OsuArgs::Beatmaps(BeatmapArgs::new().map_id(id))))
-                .collect()
-        };
-        let res = rt.block_on(async {
-            let capacity = map_ids.len();
-            let mut missing_maps = Vec::with_capacity(capacity);
-            for req in map_reqs.into_iter() {
-                match req.queue().await?.pop() {
-                    Some(map) => missing_maps.push(map),
-                    None => {
-                        return Err(Error::Custom("Got zero elements from API".to_string()));
+        let data = ctx.data.read();
+        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let mut missing_maps = Vec::with_capacity(map_ids.len());
+        for id in map_ids {
+            let req = BeatmapRequest::new().map_id(id);
+            let map = match rt.block_on(req.queue_single(&osu)) {
+                Ok(result) => match result {
+                    Some(map) => {
+                        maps.insert(map.beatmap_id, map.clone());
+                        map
                     }
+                    None => {
+                        msg.channel_id
+                            .say(&ctx.http, "Unexpected response from the API, blame bade")?;
+                        return Ok(());
+                    }
+                },
+                Err(why) => {
+                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                    return Err(CommandError::from(why.to_string()));
                 }
-            }
-            Ok(missing_maps)
-        });
-        match res {
-            Ok(missing_maps) => {
-                for map in missing_maps.iter() {
-                    maps.insert(map.beatmap_id, map.clone());
-                }
-                Some(missing_maps)
-            }
-            Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
-                return Err(CommandError::from(why.to_string()));
-            }
+            };
+            missing_maps.push(map);
         }
+        Some(missing_maps)
     } else {
         None
     };

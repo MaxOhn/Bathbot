@@ -1,13 +1,13 @@
 use crate::{
     commands::{ArgParser, ModSelection},
     database::MySQL,
-    messages::{BotEmbed, MapMultiData},
+    messages::{AuthorDescThumbData, BotEmbed},
     util::globals::OSU_API_ISSUE,
     DiscordLinks, Osu,
 };
 
 use rosu::{
-    backend::requests::{OsuArgs, OsuRequest, UserArgs, UserBestArgs},
+    backend::requests::UserRequest,
     models::{Beatmap, GameMode, GameMods, Grade, Score, User},
 };
 use serenity::{
@@ -15,7 +15,7 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use std::{collections::HashMap, convert::TryFrom, error::Error, str::FromStr};
+use std::{collections::HashMap, convert::TryFrom, str::FromStr};
 use tokio::runtime::Runtime;
 
 fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
@@ -97,47 +97,35 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
             }
         }
     };
-    let user_args = UserArgs::with_username(&name).mode(mode);
-    let best_args = UserBestArgs::with_username(&name).mode(mode).limit(100);
-    let (user_req, best_req): (OsuRequest<User>, OsuRequest<Score>) = {
-        let data = ctx.data.read();
-        let osu = data.get::<Osu>().expect("Could not get osu client");
-        let user_req = osu.create_request(OsuArgs::Users(user_args));
-        let best_req = osu.create_request(OsuArgs::Best(best_args));
-        (user_req, best_req)
-    };
     let mut rt = Runtime::new().unwrap();
 
     // Retrieve the user and its top scores
-    let res = rt.block_on(async {
-        let users = user_req
-            .queue()
-            .await
-            .or_else(|e| Err(CommandError(format!("Error while retrieving Users: {}", e))))?;
-        let scores = best_req.queue().await.or_else(|e| {
-            Err(CommandError(format!(
-                "Error while retrieving UserBest: {}",
-                e
-            )))
-        })?;
-        Ok((users, scores))
-    });
-    let (user, scores): (User, Vec<Score>) = match res {
-        Ok((mut users, scores)) => {
-            let user = match users.pop() {
+    let (user, scores): (User, Vec<Score>) = {
+        let user_req = UserRequest::with_username(&name).mode(mode);
+        let data = ctx.data.read();
+        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let user = match rt.block_on(user_req.queue_single(&osu)) {
+            Ok(result) => match result {
                 Some(user) => user,
                 None => {
                     msg.channel_id
                         .say(&ctx.http, format!("User `{}` was not found", name))?;
                     return Ok(());
                 }
-            };
-            (user, scores)
-        }
-        Err(why) => {
-            msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
-            return Err(why);
-        }
+            },
+            Err(why) => {
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                return Err(CommandError::from(why.to_string()));
+            }
+        };
+        let scores = match rt.block_on(user.get_top_scores(&osu, 100, mode)) {
+            Ok(scores) => scores,
+            Err(why) => {
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                return Err(CommandError::from(why.to_string()));
+            }
+        };
+        (user, scores)
     };
 
     // Filter scores according to mods, combo, acc, and grade
@@ -190,27 +178,23 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
     );
 
     // Retrieving all missing beatmaps
-    let res = rt.block_on(async move {
+    let res = rt.block_on(async {
         let mut tuples = Vec::with_capacity(scores_indices.len());
         let mut missing_indices = Vec::with_capacity(scores_indices.len());
+        let data = ctx.data.read();
+        let osu = data.get::<Osu>().expect("Could not get osu client");
         for (i, score) in scores_indices.into_iter() {
             let map_id = score.beatmap_id.unwrap();
             let map = if maps.contains_key(&map_id) {
                 maps.remove(&map_id).unwrap()
             } else {
                 missing_indices.push(i);
-                score
-                    .beatmap
-                    .as_ref()
-                    .unwrap()
-                    .get(mode)
-                    .await
-                    .or_else(|e| {
-                        Err(CommandError(format!(
-                            "Error while retrieving LazilyLoaded<Beatmap> of best score: {}",
-                            e
-                        )))
-                    })?
+                score.get_beatmap(osu).await.or_else(|e| {
+                    Err(CommandError(format!(
+                        "Error while retrieving Beatmap of score: {}",
+                        e
+                    )))
+                })?
             };
             tuples.push((i, score, map));
         }
@@ -238,19 +222,19 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
     };
 
     // Accumulate all necessary data
-    let data = match MapMultiData::new(user, scores_data, mode, ctx.cache.clone()) {
+    let data = match AuthorDescThumbData::create_top(user, scores_data, mode, ctx.cache.clone()) {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id.say(
                 &ctx.http,
                 "Some issue while calculating top data, blame bade",
             )?;
-            return Err(CommandError::from(why.description()));
+            return Err(CommandError::from(why.to_string()));
         }
     };
 
     // Creating the embed
-    let embed = BotEmbed::UserMapMulti(data);
+    let embed = BotEmbed::AuthorDescThumb(data);
     let _ = msg.channel_id.send_message(&ctx.http, |m| {
         let mut content = format!(
             "Found {num} top score{plural} with the specified properties",

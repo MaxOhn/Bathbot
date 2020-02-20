@@ -3,7 +3,7 @@
 
 use crate::{
     messages::{
-        CommonData, MapMultiData, NoChokeData, PPMissingData, ProfileData, ScoreMultiData,
+        AuthorDescThumbData, CommonData, PPMissingData, ProfileData, ScoreMultiData,
         ScoreSingleData, SimulateData, WhatIfPPData,
     },
     util::{
@@ -22,14 +22,13 @@ use std::{cmp::Ordering::Equal, collections::HashMap, f32, u32};
 pub enum BotEmbed<'d> {
     UserScoreSingle(&'d ScoreSingleData),
     UserScoreMulti(Box<ScoreMultiData>),
-    UserMapMulti(MapMultiData),
+    AuthorDescThumb(AuthorDescThumbData),
     Profile(ProfileData),
     PPMissing(PPMissingData),
     WhatIfPP(WhatIfPPData),
     SimulateScore(&'d SimulateData),
     UserCommonScores(CommonData),
     //UserLeaderboard(Box<Beatmap>, Vec<(User, Score)>),
-    //ManiaRatio(Box<User>, Vec<Score>),
     UserScoreSingleMini(Box<ScoreSingleData>),
     SimulateScoreMini(Box<SimulateData>),
 }
@@ -40,14 +39,13 @@ impl<'d, 'e> BotEmbed<'d> {
         match self {
             BotEmbed::UserScoreSingle(data) => create_user_score_single(e, data),
             BotEmbed::UserScoreMulti(data) => create_user_score_multi(e, *data),
-            BotEmbed::UserMapMulti(data) => create_user_map_multi(e, data),
+            BotEmbed::AuthorDescThumb(data) => create_author_desc_thumb(e, data),
             BotEmbed::Profile(data) => create_profile(e, data),
             BotEmbed::PPMissing(data) => create_pp_missing(e, data),
             BotEmbed::WhatIfPP(data) => create_whatif_pp(e, data),
             BotEmbed::SimulateScore(data) => create_simulation(e, data),
             BotEmbed::UserCommonScores(data) => create_common(e, data),
             //BotEmbed::UserLeaderboard(data) => create_leaderboard(e, data),
-            //BotEmbed::ManiaRatio(data) => create_ratio(e, data),
             BotEmbed::UserScoreSingleMini(data) => create_user_score_single_mini(e, *data),
             BotEmbed::SimulateScoreMini(data) => create_simulation_mini(e, *data),
         }
@@ -149,7 +147,10 @@ fn create_user_score_multi(embed: &mut CreateEmbed, data: ScoreMultiData) -> &mu
         .fields(data.fields)
 }
 
-fn create_user_map_multi(embed: &mut CreateEmbed, data: MapMultiData) -> &mut CreateEmbed {
+fn create_author_desc_thumb(
+    embed: &mut CreateEmbed,
+    data: AuthorDescThumbData,
+) -> &mut CreateEmbed {
     embed
         .thumbnail(&data.thumbnail)
         .description(&data.description)
@@ -172,17 +173,6 @@ fn create_profile(embed: &mut CreateEmbed, data: ProfileData) -> &mut CreateEmbe
         .fields(data.fields)
 }
 
-// TODO
-fn create_ratio(embed: &mut CreateEmbed) -> &mut CreateEmbed {
-    embed
-}
-
-// TODO
-fn create_leaderboard(embed: &mut CreateEmbed) -> &mut CreateEmbed {
-    embed
-}
-
-// TODO
 fn create_common(embed: &mut CreateEmbed, data: CommonData) -> &mut CreateEmbed {
     embed
         .description(data.description)
@@ -211,4 +201,9 @@ fn create_pp_missing(embed: &mut CreateEmbed, data: PPMissingData) -> &mut Creat
                 .url(data.author_url)
                 .name(data.author_text)
         })
+}
+
+// TODO
+fn create_leaderboard(embed: &mut CreateEmbed) -> &mut CreateEmbed {
+    embed
 }
