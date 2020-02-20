@@ -19,6 +19,7 @@ pub use database::MySQL;
 use my_scraper::Scraper;
 pub use util::Error;
 
+use chrono::{DateTime, Utc};
 use log::{error, info};
 use rosu::backend::Osu as OsuClient;
 use serenity::{
@@ -61,6 +62,7 @@ fn main() -> Result<(), Error> {
             )))
         }
     };
+    let now = Utc::now();
     {
         let mut data = discord.data.write();
         data.insert::<CommandCounter>(HashMap::default());
@@ -68,6 +70,7 @@ fn main() -> Result<(), Error> {
         data.insert::<Scraper>(scraper);
         data.insert::<MySQL>(mysql);
         data.insert::<DiscordLinks>(discord_links);
+        data.insert::<BootTime>(now);
     }
     discord.with_framework(
         StandardFramework::new()
@@ -166,4 +169,10 @@ pub struct DiscordLinks;
 
 impl TypeMapKey for DiscordLinks {
     type Value = HashMap<u64, String>;
+}
+
+pub struct BootTime;
+
+impl TypeMapKey for BootTime {
+    type Value = DateTime<Utc>;
 }

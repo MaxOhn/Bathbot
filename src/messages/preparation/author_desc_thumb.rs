@@ -2,7 +2,7 @@ use crate::{
     messages::{util, AVATAR_URL, FLAG_URL, HOMEPAGE},
     util::{
         datetime::how_long_ago,
-        numbers::{round, round_and_comma, with_comma_u64},
+        numbers::{round, round_and_comma, round_precision, with_comma_u64},
         osu::{self, get_grade_emote},
         Error,
     },
@@ -89,8 +89,8 @@ impl AuthorDescThumbData {
     }
 
     pub fn create_ratio(user: User, scores: Vec<Score>) -> Result<Self, Error> {
-        let mut categories = BTreeMap::new();
-        for acc in [0, 90, 95, 97, 99, 100].iter() {
+        let mut categories: BTreeMap<u8, RatioCategory> = BTreeMap::new();
+        for &acc in [0, 90, 95, 97, 99, 100].iter() {
             categories.insert(acc, RatioCategory::default());
         }
         for score in scores {
@@ -115,27 +115,24 @@ impl AuthorDescThumbData {
         let (author_icon, author_url, author_text) = Self::get_user_author(&user);
         let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
         let mut description = String::with_capacity(256);
-        description.push_str("__**Acc: #Scores | Ratio | % misses:**__\n");
-        for (acc, c) in categories.iter().take(5) {
-            description.push_str(&format!(
-                "**>{acc}%:** {amount} | {ratio} | {misses}%\n",
-                acc = acc,
-                amount = c.scores,
-                ratio = c.get_ratio(),
-                misses = c.get_miss_percent(),
-            ));
+        description.push_str(
+            "```\n \
+             Acc: #Scores | Ratio | % misses\n\
+             --------------+-------+---------\n",
+        );
+        for (acc, c) in categories.into_iter() {
+            if c.scores > 0 {
+                description.push_str(&format!(
+                    "{}{:>2}%: {:>7} | {:>5} | {:>7}%\n",
+                    if acc < 100 { ">" } else { "" },
+                    acc,
+                    c.scores,
+                    c.get_ratio(),
+                    c.get_miss_percent(),
+                ));
+            }
         }
-        let c = categories.get(&100).unwrap();
-        if c.scores > 0 {
-            description.push_str(&format!(
-                "**100%:** {amount} | {ratio} | 0%",
-                amount = c.scores,
-                ratio = c.get_ratio(),
-            ))
-        } else {
-            // Remove last '\n'
-            description.pop();
-        }
+        description.push_str("```");
         Ok(Self {
             author_icon,
             author_url,
@@ -262,12 +259,19 @@ impl RatioCategory {
                 0.0
             }
         } else {
-            round(self.count_geki as f32 / self.count_300 as f32)
+            round_precision(self.count_geki as f32 / self.count_300 as f32, 3)
         }
     }
 
     fn get_miss_percent(&self) -> f32 {
-        round(100.0 * self.count_miss as f32 / self.count_objects as f32)
+        if self.count_objects > 0 {
+            round_precision(
+                100.0 * self.count_miss as f32 / self.count_objects as f32,
+                3,
+            )
+        } else {
+            0.0
+        }
     }
 }
 

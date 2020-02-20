@@ -143,8 +143,12 @@ fn create_user_score_multi(embed: &mut CreateEmbed, data: ScoreMultiData) -> &mu
         })
         .title(data.title)
         .thumbnail(data.thumbnail)
-        .url(data.title_url)
-        .fields(data.fields)
+        .url(data.title_url);
+    if data.fields.is_empty() {
+        embed.description("No scores found")
+    } else {
+        embed.fields(data.fields)
+    }
 }
 
 fn create_author_desc_thumb(

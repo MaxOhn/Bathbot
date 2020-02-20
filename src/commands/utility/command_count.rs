@@ -1,28 +1,51 @@
-use crate::CommandCounter;
+use crate::{BootTime, CommandCounter};
 
+use chrono::{DateTime, Utc};
 use serenity::{
     framework::standard::{macros::command, CommandResult},
     model::prelude::Message,
     prelude::Context,
+    utils::Colour,
 };
-use std::fmt::Write;
-use std::iter::FromIterator;
+use std::{fmt::Write, iter::FromIterator};
 
 #[command]
 #[bucket = "two_per_thirty_cooldown"]
 fn commands(ctx: &mut Context, msg: &Message) -> CommandResult {
-    let mut contents = "Most popular commands:\n".to_string();
+    let symbols = ["♔", "♕", "♖", "♗", "♘", "♙"];
+    let mut description = String::with_capacity(128);
+    description.push_str("```\n");
     let data = ctx.data.read();
     let counter = data
         .get::<CommandCounter>()
-        .expect("Expected CommandCounter in ShareMap.");
+        .expect("Could not get CommandCounter");
     let mut vec: Vec<_> = Vec::from_iter(counter);
     vec.sort_by(|&(_, a), &(_, b)| b.cmp(&a));
-    for (k, v) in vec {
-        let _ = writeln!(contents, "- `{name}`: {amount}", name = k, amount = v);
+    let len = vec
+        .iter()
+        .take(10)
+        .fold(0, |max, (name, _)| max.max(name.len()));
+    for (i, (name, amount)) in vec.into_iter().take(10).enumerate() {
+        let _ = writeln!(
+            description,
+            "{:>2} {:1} # {:<len$} => {}",
+            i + 1,
+            symbols.get(i).unwrap_or_else(|| &""),
+            name,
+            amount,
+            len = len
+        );
     }
-    if let Err(why) = msg.channel_id.say(&ctx.http, &contents) {
-        println!("Error sending message: {:?}", why);
-    }
+    description.push_str("```");
+    let boot_time: &DateTime<Utc> = data.get::<BootTime>().expect("Could not get BootTime");
+    msg.channel_id.send_message(&ctx.http, |m| {
+        m.embed(|e| {
+            e.footer(|f| f.text("I have been counting since"))
+                .timestamp(boot_time)
+                .color(Colour::DARK_GREEN)
+                .author(|a| a.name("Most popular commands:"))
+                .description(description)
+        })
+    })?;
     Ok(())
 }

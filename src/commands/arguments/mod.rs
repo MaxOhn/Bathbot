@@ -1,5 +1,6 @@
 #![allow(dead_code)] // TODO: remove line once its used
 
+use regex::Regex;
 use serenity::framework::standard::Args;
 use std::str::FromStr;
 
@@ -76,6 +77,12 @@ pub enum ModSelection {
 }
 
 pub fn get_beatmap_id(val: String) -> Option<u32> {
-    // TODO: Regex stuff here
-    u32::from_str(&val).ok()
+    match u32::from_str(&val) {
+        Ok(id) => Some(id),
+        Err(_) => {
+            let regex = Regex::new(r".*/([0-9]{1,8})").unwrap();
+            let caps = regex.captures(&val).unwrap();
+            caps.get(1).and_then(|id| u32::from_str(id.as_str()).ok())
+        }
+    }
 }

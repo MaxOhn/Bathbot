@@ -5,6 +5,11 @@ pub fn round(n: f32) -> f32 {
     (100.0 * n).round() / 100.0
 }
 
+pub fn round_precision(n: f32, precision: i32) -> f32 {
+    let adj = 10.0_f32.powi(precision);
+    (adj * n).round() / adj
+}
+
 pub fn with_comma(n: f32) -> String {
     let dec = (100.0 * n.fract()).round() / 100.0;
     let int = n.trunc();

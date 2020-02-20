@@ -76,7 +76,7 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
                 None => {
                     msg.channel_id.say(
                         &ctx.http,
-                        format!("Could not find beatmap with id `{}`", map_id),
+                        format!("Could not find beatmap with id `{}`. Did you give me a mapset id instead of a map id?", map_id),
                     )?;
                     return Ok(());
                 }
