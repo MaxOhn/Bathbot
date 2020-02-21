@@ -40,7 +40,7 @@ fn commands(ctx: &mut Context, msg: &Message) -> CommandResult {
     let boot_time: &DateTime<Utc> = data.get::<BootTime>().expect("Could not get BootTime");
     msg.channel_id.send_message(&ctx.http, |m| {
         m.embed(|e| {
-            e.footer(|f| f.text("I have been counting since"))
+            e.footer(|f| f.text("I've been counting since"))
                 .timestamp(boot_time)
                 .color(Colour::DARK_GREEN)
                 .author(|a| a.name("Most popular commands:"))

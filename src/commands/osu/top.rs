@@ -148,7 +148,7 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
                 return false;
             }
             let acc_bool = if acc > 0.0 {
-                s.get_accuracy(mode) >= acc
+                s.accuracy(mode) >= acc
             } else {
                 true
             };

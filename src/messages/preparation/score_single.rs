@@ -5,8 +5,7 @@ use crate::{
     util::{
         datetime::{date_to_string, how_long_ago},
         numbers::{round, round_and_comma, with_comma_u64},
-        osu::get_oppai,
-        Error,
+        osu, Error,
     },
 };
 
@@ -82,7 +81,7 @@ impl ScoreSingleData {
             national = user.pp_country_rank
         );
         // TODO: Handle GameMode's differently
-        let (oppai, max_pp) = match get_oppai(map.beatmap_id, &score, mode) {
+        let (oppai, max_pp) = match osu::oppai_max_pp(map.beatmap_id, &score, mode) {
             Ok(tuple) => tuple,
             Err(why) => {
                 return Err(Error::Custom(format!(

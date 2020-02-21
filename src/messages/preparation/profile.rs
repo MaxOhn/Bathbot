@@ -5,7 +5,7 @@ use crate::{
     util::{
         datetime::{date_to_string, how_long_ago, sec_to_minsec},
         numbers::{round, round_and_comma, with_comma_u64},
-        osu::get_grade_emote,
+        osu::grade_emote,
     },
 };
 
@@ -73,7 +73,7 @@ impl ProfileData {
             ),
             (
                 "Total hits:".to_owned(),
-                with_comma_u64(user.get_total_hits()),
+                with_comma_u64(user.total_hits()),
                 true,
             ),
             (
@@ -106,15 +106,15 @@ impl ProfileData {
                 "Grades:".to_owned(),
                 format!(
                     "{}{} {}{} {}{} {}{} {}{}",
-                    get_grade_emote(Grade::XH, cache.clone()),
+                    grade_emote(Grade::XH, cache.clone()),
                     user.count_ssh,
-                    get_grade_emote(Grade::X, cache.clone()),
+                    grade_emote(Grade::X, cache.clone()),
                     user.count_ss,
-                    get_grade_emote(Grade::SH, cache.clone()),
+                    grade_emote(Grade::SH, cache.clone()),
                     user.count_sh,
-                    get_grade_emote(Grade::S, cache.clone()),
+                    grade_emote(Grade::S, cache.clone()),
                     user.count_s,
-                    get_grade_emote(Grade::A, cache),
+                    grade_emote(Grade::A, cache),
                     user.count_a,
                 ),
                 false,
@@ -238,7 +238,7 @@ impl ProfileResult {
         let mut factor = 1.0;
         let mut mult_mods = false;
         for (score, map) in tuples {
-            let acc = score.get_accuracy(mode);
+            let acc = score.accuracy(mode);
             min_acc = min_acc.min(acc);
             max_acc = max_acc.max(acc);
             avg_acc += acc;

@@ -1,4 +1,4 @@
-use crate::util::{datetime::sec_to_minsec, numbers::round, osu::get_grade_emote};
+use crate::util::{datetime::sec_to_minsec, numbers::round, osu};
 use roppai::Oppai;
 use rosu::models::{Beatmap, GameMod, GameMode, GameMods, Score};
 use serenity::cache::CacheRwLock;
@@ -27,7 +27,7 @@ pub fn get_hits(score: &Score, mode: GameMode) -> String {
 }
 
 pub fn get_acc(score: &Score, mode: GameMode) -> String {
-    format!("{}%", round(score.get_accuracy(mode)))
+    format!("{}%", round(score.accuracy(mode)))
 }
 
 pub fn get_combo(score: &Score, map: &Beatmap) -> String {
@@ -83,8 +83,8 @@ pub fn get_grade_completion_mods(
     map: &Beatmap,
     cache: CacheRwLock,
 ) -> String {
-    let mut res_string = get_grade_emote(score.grade, cache).to_string();
-    let passed = score.get_amount_hits(mode);
+    let mut res_string = osu::grade_emote(score.grade, cache).to_string();
+    let passed = score.amount_hits(mode);
     let total = map.count_objects();
     if passed < total {
         res_string.push_str(" (");

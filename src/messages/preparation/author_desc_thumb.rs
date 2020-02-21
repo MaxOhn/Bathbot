@@ -3,12 +3,11 @@ use crate::{
     util::{
         datetime::how_long_ago,
         numbers::{round, round_and_comma, round_precision, with_comma_u64},
-        osu::{self, get_grade_emote},
-        Error,
+        osu, Error,
     },
 };
 
-use rosu::models::{Beatmap, GameMode, Score, User};
+use rosu::models::{Beatmap, GameMode, Grade, Score, User};
 use serenity::cache::CacheRwLock;
 use std::{
     cmp::Ordering,
@@ -49,7 +48,7 @@ impl AuthorDescThumbData {
         let mut description = String::with_capacity(512);
         for (idx, score, map) in scores_data.iter() {
             // TODO: Handle GameMode's differently
-            let (oppai, max_pp) = match osu::get_oppai(map.beatmap_id, &score, mode) {
+            let (oppai, max_pp) = match osu::oppai_max_pp(map.beatmap_id, &score, mode) {
                 Ok(tuple) => tuple,
                 Err(why) => {
                     return Err(Error::Custom(format!(
@@ -69,7 +68,7 @@ impl AuthorDescThumbData {
                 id = map.beatmap_id,
                 mods = util::get_mods(&score.enabled_mods),
                 stars = util::get_stars(&map, Some(oppai)),
-                grade = get_grade_emote(score.grade, cache.clone()),
+                grade = osu::grade_emote(score.grade, cache.clone()),
                 pp = util::get_pp(actual_pp, max_pp),
                 acc = util::get_acc(&score, mode),
                 score = with_comma_u64(score.score as u64),
@@ -89,28 +88,22 @@ impl AuthorDescThumbData {
     }
 
     pub fn create_ratio(user: User, scores: Vec<Score>) -> Result<Self, Error> {
+        let accs = [0, 90, 95, 97, 99];
         let mut categories: BTreeMap<u8, RatioCategory> = BTreeMap::new();
-        for &acc in [0, 90, 95, 97, 99, 100].iter() {
+        for &acc in accs.iter() {
             categories.insert(acc, RatioCategory::default());
         }
+        categories.insert(100, RatioCategory::default());
         for score in scores {
-            let acc = score.get_accuracy(GameMode::MNA);
-            if acc >= 99.999 {
+            let acc = score.accuracy(GameMode::MNA);
+            for &curr in accs.iter() {
+                if acc > curr as f32 {
+                    categories.get_mut(&curr).unwrap().add_score(&score);
+                }
+            }
+            if score.grade.eq_letter(Grade::X) {
                 categories.get_mut(&100).unwrap().add_score(&score);
             }
-            if acc > 99.0 {
-                categories.get_mut(&99).unwrap().add_score(&score);
-            }
-            if acc > 97.0 {
-                categories.get_mut(&97).unwrap().add_score(&score);
-            }
-            if acc > 95.0 {
-                categories.get_mut(&95).unwrap().add_score(&score);
-            }
-            if acc > 90.0 {
-                categories.get_mut(&90).unwrap().add_score(&score);
-            }
-            categories.get_mut(&0).unwrap().add_score(&score);
         }
         let (author_icon, author_url, author_text) = Self::get_user_author(&user);
         let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
@@ -192,7 +185,7 @@ impl AuthorDescThumbData {
         let mut description = String::with_capacity(512);
 
         for (idx, unchoked, actual, map) in unchoked_scores.into_iter() {
-            let (oppai, max_pp) = match osu::get_oppai(map.beatmap_id, actual, GameMode::STD) {
+            let (oppai, max_pp) = match osu::oppai_max_pp(map.beatmap_id, actual, GameMode::STD) {
                 Ok(tuple) => tuple,
                 Err(why) => panic!("Something went wrong while using oppai: {}", why),
             };
@@ -207,12 +200,12 @@ impl AuthorDescThumbData {
                 id = map.beatmap_id,
                 mods = util::get_mods(&actual.enabled_mods),
                 stars = util::get_stars(map, Some(oppai)),
-                grade = get_grade_emote(unchoked.grade, cache.clone()),
+                grade = osu::grade_emote(unchoked.grade, cache.clone()),
                 old_pp = round(actual.pp.unwrap()),
                 new_pp = round(unchoked.pp.unwrap()),
                 max_pp = round(max_pp),
-                old_acc = round(actual.get_accuracy(GameMode::STD)),
-                new_acc = round(unchoked.get_accuracy(GameMode::STD)),
+                old_acc = round(actual.accuracy(GameMode::STD)),
+                new_acc = round(unchoked.accuracy(GameMode::STD)),
                 old_combo = actual.max_combo,
                 new_combo = unchoked.max_combo,
                 max_combo = map.max_combo.unwrap(),

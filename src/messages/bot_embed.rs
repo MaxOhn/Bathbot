@@ -53,9 +53,27 @@ impl<'d, 'e> BotEmbed<'d> {
 }
 
 fn create_simulation_mini(embed: &mut CreateEmbed, data: SimulateData) -> &mut CreateEmbed {
-    let name = format!("{} ({})", data.grade_completion_mods, data.acc);
-    let value = format!("{} [ {} ] {}", data.pp, data.combo, data.hits);
+    let pp = if let Some(prev_pp) = data.prev_pp {
+        format!("{} → {}", prev_pp, data.pp)
+    } else {
+        data.pp
+    };
+    let combo = if let Some(prev_combo) = data.prev_combo {
+        format!("{} → {}", prev_combo, data.combo)
+    } else {
+        data.combo
+    };
     let title = format!("{} [{}]", data.title, data.stars);
+    let name = format!(
+        "{} ({}) [ {} ]",
+        data.grade_completion_mods, data.acc, combo
+    );
+    let mut value = format!("{} {}", pp, data.hits);
+    if let Some(misses) = data.removed_misses {
+        if misses > 0 {
+            value.push_str(&format!(" (+{}miss)", misses));
+        }
+    }
     embed
         .field(name, value, false)
         .thumbnail(&data.thumbnail)
@@ -67,6 +85,22 @@ fn create_simulation<'d, 'e>(
     embed: &'e mut CreateEmbed,
     data: &'d SimulateData,
 ) -> &'e mut CreateEmbed {
+    let pp = if let Some(prev_pp) = &data.prev_pp {
+        format!("{} → {}", prev_pp, data.pp)
+    } else {
+        data.pp.to_owned()
+    };
+    let combo = if let Some(prev_combo) = &data.prev_combo {
+        format!("{} → {}", prev_combo, data.combo)
+    } else {
+        data.combo.to_owned()
+    };
+    let hits = if let Some(prev_hits) = &data.prev_hits {
+        let len = data.hits.len().max(prev_hits.len());
+        format!("{} → {}", prev_hits, data.hits,)
+    } else {
+        data.hits.to_owned()
+    };
     embed
         .title(&data.title)
         .url(&data.title_url)
@@ -75,9 +109,9 @@ fn create_simulation<'d, 'e>(
         .fields(vec![
             ("Grade", &data.grade_completion_mods, true),
             ("Acc", &data.acc, true),
-            ("Combo", &data.combo, true),
-            ("PP", &data.pp, true),
-            ("Hits", &data.hits, true),
+            ("Combo", &combo, true),
+            ("PP", &pp, false),
+            ("Hits", &hits, false),
             ("Map Info", &data.map_info, false),
         ])
 }
