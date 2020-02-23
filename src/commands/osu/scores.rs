@@ -67,7 +67,6 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let (user, map, scores) = {
         let mut rt = Runtime::new().unwrap();
         let map_req = BeatmapRequest::new().map_id(map_id);
-        let score_req = ScoreRequest::with_map_id(map_id).username(&name);
         let data = ctx.data.read();
         let osu = data.get::<Osu>().expect("Could not get osu client");
         let map = match rt.block_on(map_req.queue_single(osu)) {
@@ -86,6 +85,9 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
                 return Err(CommandError::from(why.to_string()));
             }
         };
+        let score_req = ScoreRequest::with_map_id(map_id)
+            .username(&name)
+            .mode(map.mode);
         let scores = match rt.block_on(score_req.queue(osu)) {
             Ok(scores) => scores,
             Err(why) => {
@@ -112,7 +114,7 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     };
 
     // Accumulate all necessary data
-    let data = match ScoreMultiData::new(map.mode, user, map, scores, ctx.cache.clone()) {
+    let data = match ScoreMultiData::new(map.mode, user, map, scores, &ctx) {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id.say(

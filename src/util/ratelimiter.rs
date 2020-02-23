@@ -54,6 +54,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore]
     fn test_rate_limiter() {
         let mut ratelimiter = RateLimiter::new(10, 1);
         let start = Utc::now().timestamp_millis();

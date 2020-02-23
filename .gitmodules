@@ -1,0 +1,3 @@
+[submodule "osu-tools"]
+	path = osu-tools
+	url = https://github.com/ppy/osu-tools.git

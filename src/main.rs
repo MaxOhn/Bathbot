@@ -8,11 +8,8 @@ mod my_scraper;
 
 #[macro_use]
 extern crate log;
-extern crate roppai;
-extern crate rosu;
 #[macro_use]
 extern crate diesel;
-extern crate image;
 
 use commands::{fun::*, osu::*, streams::*, utility::*};
 pub use database::MySQL;
@@ -30,6 +27,7 @@ use serenity::{
 use std::{
     collections::{HashMap, HashSet},
     env,
+    sync::Arc,
 };
 
 fn setup() -> Result<(String, String, String), Error> {
@@ -71,6 +69,7 @@ fn main() -> Result<(), Error> {
         data.insert::<MySQL>(mysql);
         data.insert::<DiscordLinks>(discord_links);
         data.insert::<BootTime>(now);
+        data.insert::<PerformanceCalculatorLock>(Arc::new(Mutex::new(())));
     }
     discord.with_framework(
         StandardFramework::new()
@@ -175,4 +174,10 @@ pub struct BootTime;
 
 impl TypeMapKey for BootTime {
     type Value = DateTime<Utc>;
+}
+
+pub struct PerformanceCalculatorLock;
+
+impl TypeMapKey for PerformanceCalculatorLock {
+    type Value = Arc<Mutex<()>>;
 }

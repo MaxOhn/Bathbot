@@ -3,12 +3,14 @@ use crate::{
     util::{
         datetime::how_long_ago,
         numbers::{round, round_and_comma, round_precision, with_comma_u64},
-        osu, Error,
+        osu,
+        pp::PPProvider,
+        Error,
     },
 };
 
 use rosu::models::{Beatmap, GameMode, Grade, Score, User};
-use serenity::cache::CacheRwLock;
+use serenity::{cache::CacheRwLock, prelude::Context};
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap},
@@ -41,23 +43,21 @@ impl AuthorDescThumbData {
         user: User,
         scores_data: Vec<(usize, Score, Beatmap)>,
         mode: GameMode,
-        cache: CacheRwLock,
+        ctx: &Context,
     ) -> Result<Self, Error> {
         let (author_icon, author_url, author_text) = Self::get_user_author(&user);
         let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
         let mut description = String::with_capacity(512);
         for (idx, score, map) in scores_data.iter() {
-            // TODO: Handle GameMode's differently
-            let (oppai, max_pp) = match osu::oppai_max_pp(map.beatmap_id, &score, mode) {
-                Ok(tuple) => tuple,
+            let pp_provider = match PPProvider::new(score, map, Some(ctx)) {
+                Ok(provider) => provider,
                 Err(why) => {
                     return Err(Error::Custom(format!(
-                        "Something went wrong while using oppai: {}",
+                        "Something went wrong while creating PPProvider: {}",
                         why
                     )))
                 }
             };
-            let actual_pp = round(score.pp.unwrap_or_else(|| oppai.get_pp()));
             description.push_str(&format!(
                 "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
                  {grade} {pp} ~ ({acc}) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}\n",
@@ -67,9 +67,9 @@ impl AuthorDescThumbData {
                 base = HOMEPAGE,
                 id = map.beatmap_id,
                 mods = util::get_mods(&score.enabled_mods),
-                stars = util::get_stars(&map, Some(oppai)),
-                grade = osu::grade_emote(score.grade, cache.clone()),
-                pp = util::get_pp(actual_pp, max_pp),
+                stars = util::get_stars(&map, pp_provider.oppai()),
+                grade = osu::grade_emote(score.grade, ctx.cache.clone()),
+                pp = util::get_pp(score, &pp_provider, mode),
                 acc = util::get_acc(&score, mode),
                 score = with_comma_u64(score.score as u64),
                 combo = util::get_combo(&score, &map),
@@ -154,7 +154,7 @@ impl AuthorDescThumbData {
             let mut unchoked = score.clone();
             // If combo isn't max, unchoke the score
             if score.max_combo != map.max_combo.unwrap() {
-                osu::unchoke_score(&mut unchoked, map)?;
+                osu::unchoke_score(&mut unchoked, map, GameMode::STD)?;
             }
             let pp = unchoked.pp.unwrap();
             if pp > index_10_pp {
@@ -185,9 +185,14 @@ impl AuthorDescThumbData {
         let mut description = String::with_capacity(512);
 
         for (idx, unchoked, actual, map) in unchoked_scores.into_iter() {
-            let (oppai, max_pp) = match osu::oppai_max_pp(map.beatmap_id, actual, GameMode::STD) {
-                Ok(tuple) => tuple,
-                Err(why) => panic!("Something went wrong while using oppai: {}", why),
+            let pp_provider = match PPProvider::new(actual, map, None) {
+                Ok(provider) => provider,
+                Err(why) => {
+                    return Err(Error::Custom(format!(
+                        "Something went wrong while creating PPProvider: {}",
+                        why
+                    )))
+                }
             };
             description.push_str(&format!(
                 "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
@@ -199,11 +204,11 @@ impl AuthorDescThumbData {
                 base = HOMEPAGE,
                 id = map.beatmap_id,
                 mods = util::get_mods(&actual.enabled_mods),
-                stars = util::get_stars(map, Some(oppai)),
+                stars = util::get_stars(map, pp_provider.oppai()),
                 grade = osu::grade_emote(unchoked.grade, cache.clone()),
                 old_pp = round(actual.pp.unwrap()),
                 new_pp = round(unchoked.pp.unwrap()),
-                max_pp = round(max_pp),
+                max_pp = round(pp_provider.max_pp()),
                 old_acc = round(actual.accuracy(GameMode::STD)),
                 new_acc = round(unchoked.accuracy(GameMode::STD)),
                 old_combo = actual.max_combo,

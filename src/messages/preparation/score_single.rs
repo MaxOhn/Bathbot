@@ -4,13 +4,14 @@ use crate::{
     messages::{util, AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
     util::{
         datetime::{date_to_string, how_long_ago},
-        numbers::{round, round_and_comma, with_comma_u64},
-        osu, Error,
+        numbers::{round_and_comma, with_comma_u64},
+        pp::PPProvider,
+        Error,
     },
 };
 
 use rosu::models::{Beatmap, GameMode, Score, User};
-use serenity::cache::CacheRwLock;
+use serenity::prelude::Context;
 
 pub struct ScoreSingleData {
     pub description: Option<String>,
@@ -42,7 +43,7 @@ impl ScoreSingleData {
         personal: Vec<Score>,
         global: Vec<Score>,
         mode: GameMode,
-        cache: CacheRwLock,
+        ctx: &Context,
     ) -> Result<Self, Error> {
         let personal_idx = personal.into_iter().position(|s| s == score);
         let global_idx = global.into_iter().position(|s| s == score);
@@ -80,18 +81,17 @@ impl ScoreSingleData {
             country = user.country,
             national = user.pp_country_rank
         );
-        // TODO: Handle GameMode's differently
-        let (oppai, max_pp) = match osu::oppai_max_pp(map.beatmap_id, &score, mode) {
-            Ok(tuple) => tuple,
+        let pp_provider = match PPProvider::new(&score, &map, Some(ctx)) {
+            Ok(provider) => provider,
             Err(why) => {
                 return Err(Error::Custom(format!(
-                    "Something went wrong while using oppai: {}",
+                    "Something went wrong while creating PPProvider: {}",
                     why
                 )))
             }
         };
-        let actual_pp = round(score.pp.unwrap_or_else(|| oppai.get_pp()));
-        let grade_completion_mods = util::get_grade_completion_mods(&score, mode, &map, cache);
+        let grade_completion_mods =
+            util::get_grade_completion_mods(&score, mode, &map, ctx.cache.clone());
         Ok(Self {
             description,
             title,
@@ -100,11 +100,11 @@ impl ScoreSingleData {
             author_url,
             author_text,
             grade_completion_mods,
-            stars: util::get_stars(&map, Some(oppai)),
+            stars: util::get_stars(&map, pp_provider.oppai()),
             score: with_comma_u64(score.score as u64),
             acc: util::get_acc(&score, mode),
             ago: how_long_ago(&score.date),
-            pp: util::get_pp(actual_pp, round(max_pp)),
+            pp: util::get_pp(&score, &pp_provider, mode),
             combo: util::get_combo(&score, &map),
             hits: util::get_hits(&score, mode),
             map_info: util::get_map_info(&map),

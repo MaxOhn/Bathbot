@@ -97,7 +97,7 @@ fn simulate_recent_send(
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match SimulateData::new(Some(score), map, mode, ctx.cache.clone()) {
+    let data = match SimulateData::new(Some(score), map, mode, &ctx) {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id.say(

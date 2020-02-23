@@ -135,7 +135,7 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
         .iter()
         .take_while(|s| s.beatmap_id.unwrap() == map_id)
         .count();
-    let data = match ScoreSingleData::new(user, score, map, best, global, mode, ctx.cache.clone()) {
+    let data = match ScoreSingleData::new(user, score, map, best, global, mode, &ctx) {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id.say(

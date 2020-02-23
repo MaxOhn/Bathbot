@@ -1,4 +1,4 @@
-use crate::util::{datetime::sec_to_minsec, numbers::round, osu};
+use crate::util::{datetime::sec_to_minsec, numbers::round, osu, pp::PPProvider};
 use roppai::Oppai;
 use rosu::models::{Beatmap, GameMod, GameMode, GameMods, Score};
 use serenity::cache::CacheRwLock;
@@ -44,8 +44,22 @@ pub fn get_combo(score: &Score, map: &Beatmap) -> String {
     combo
 }
 
-pub fn get_pp(actual: f32, max: f32) -> String {
-    format!("**{}**/{}PP", round(actual), round(max))
+pub fn get_pp(score: &Score, pp_provider: &PPProvider, mode: GameMode) -> String {
+    let (actual, max) = if mode == GameMode::CTB {
+        let actual = score
+            .pp
+            .map_or_else(|| String::from("-"), |pp| round(pp).to_string());
+        (actual, String::from("-"))
+    } else {
+        let actual = if let Some(pp) = score.pp {
+            round(pp).to_string()
+        } else {
+            round(pp_provider.pp()).to_string()
+        };
+        let max = round(pp_provider.max_pp()).to_string();
+        (actual, max)
+    };
+    format!("**{}**/{}PP", actual, max)
 }
 
 pub fn get_mods(mods: &GameMods) -> String {
@@ -68,7 +82,7 @@ pub fn get_keys(mods: &[GameMod], map: &Beatmap) -> String {
     format!("[{}K]", map.diff_cs as u32)
 }
 
-pub fn get_stars(map: &Beatmap, oppai: Option<Oppai>) -> String {
+pub fn get_stars(map: &Beatmap, oppai: Option<&Oppai>) -> String {
     let stars = if let Some(oppai) = oppai {
         oppai.get_stars()
     } else {
@@ -84,7 +98,7 @@ pub fn get_grade_completion_mods(
     cache: CacheRwLock,
 ) -> String {
     let mut res_string = osu::grade_emote(score.grade, cache).to_string();
-    let passed = score.amount_hits(mode);
+    let passed = score.total_hits(mode);
     let total = map.count_objects();
     if passed < total {
         res_string.push_str(" (");

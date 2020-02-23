@@ -222,7 +222,7 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
     };
 
     // Accumulate all necessary data
-    let data = match AuthorDescThumbData::create_top(user, scores_data, mode, ctx.cache.clone()) {
+    let data = match AuthorDescThumbData::create_top(user, scores_data, mode, &ctx) {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id.say(

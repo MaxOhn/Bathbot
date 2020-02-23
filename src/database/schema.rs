@@ -40,10 +40,30 @@ table! {
     }
 }
 
+table! {
+    pp_mania_mods (beatmap_id) {
+        beatmap_id -> Unsigned<Integer>,
+        NM -> Nullable<Float>,
+        NF -> Nullable<Float>,
+        EZ -> Nullable<Float>,
+        DT -> Nullable<Float>,
+        HT -> Nullable<Float>,
+        NFEZ -> Nullable<Float>,
+        NFDT -> Nullable<Float>,
+        EZDT -> Nullable<Float>,
+        NFHT -> Nullable<Float>,
+        EZHT -> Nullable<Float>,
+        NFEZDT -> Nullable<Float>,
+        NFEZHT -> Nullable<Float>,
+    }
+}
+
 joinable!(maps -> mapsets (beatmapset_id));
+joinable!(pp_mania_mods -> maps (beatmap_id));
 
 allow_tables_to_appear_in_same_query!(
     discord_users,
     maps,
     mapsets,
+    pp_mania_mods,
 );

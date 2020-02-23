@@ -4,13 +4,14 @@ use crate::{
     messages::{util, AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
     util::{
         datetime::how_long_ago,
-        numbers::{round, round_and_comma, with_comma_u64},
-        osu, Error,
+        numbers::{round_and_comma, with_comma_u64},
+        pp::PPProvider,
+        Error,
     },
 };
 
 use rosu::models::{Beatmap, GameMode, Score, User};
-use serenity::cache::CacheRwLock;
+use serenity::prelude::Context;
 
 pub struct ScoreMultiData {
     pub title: String,
@@ -30,7 +31,7 @@ impl ScoreMultiData {
         user: User,
         map: Beatmap,
         scores: Vec<Score>,
-        cache: CacheRwLock,
+        ctx: &Context,
     ) -> Result<Self, Error> {
         let title = map.to_string();
         let title_url = format!("{}b/{}", HOMEPAGE, map.beatmap_id);
@@ -49,22 +50,20 @@ impl ScoreMultiData {
         let footer_text = format!("{:?} map by {}", map.approval_status, map.creator);
         let mut fields = Vec::new();
         for (i, score) in scores.into_iter().enumerate() {
-            // TODO: Handle GameMode's differently
-            let (oppai, max_pp) = match osu::oppai_max_pp(map.beatmap_id, &score, mode) {
-                Ok(tuple) => tuple,
+            let pp_provider = match PPProvider::new(&score, &map, Some(ctx)) {
+                Ok(provider) => provider,
                 Err(why) => {
                     return Err(Error::Custom(format!(
-                        "Something went wrong while using oppai: {}",
+                        "Something went wrong while creating PPProvider: {}",
                         why
                     )))
                 }
             };
-            let actual_pp = round(score.pp.unwrap_or_else(|| oppai.get_pp()));
             let mut name = format!(
                 "**{idx}.** {grade}\t[{stars}]\t{score}\t({acc})",
                 idx = (i + 1).to_string(),
-                grade = util::get_grade_completion_mods(&score, mode, &map, cache.clone()),
-                stars = util::get_stars(&map, Some(oppai)),
+                grade = util::get_grade_completion_mods(&score, mode, &map, ctx.cache.clone()),
+                stars = util::get_stars(&map, pp_provider.oppai()),
                 score = with_comma_u64(score.score as u64),
                 acc = util::get_acc(&score, mode),
             );
@@ -74,7 +73,7 @@ impl ScoreMultiData {
             }
             let value = format!(
                 "{pp}\t[ {combo} ]\t {hits}\t{ago}",
-                pp = util::get_pp(actual_pp, round(max_pp)),
+                pp = util::get_pp(&score, &pp_provider, mode),
                 combo = util::get_combo(&score, &map),
                 hits = util::get_hits(&score, mode),
                 ago = how_long_ago(&score.date)

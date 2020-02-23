@@ -5,7 +5,7 @@ authors = ["MaxOhn <ohn.m@hotmail.de>"]
 edition = "2018"
 
 [dependencies]
-rosu = { path = "../rosu" }
+rosu = "0.1"
 roppai = { path = "../roppai" }
 env_logger = "0.6"
 kankyo = "0.2"

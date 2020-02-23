@@ -1,7 +1,7 @@
 mod models;
 mod schema;
 
-use models::{DBMap, DBMapSet, MapSplit};
+use models::{DBMap, DBMapSet, ManiaPP, MapSplit};
 
 use crate::util::Error;
 use diesel::{
@@ -9,7 +9,7 @@ use diesel::{
     r2d2::{ConnectionManager, Pool, PooledConnection},
     MysqlConnection,
 };
-use rosu::models::Beatmap;
+use rosu::models::{Beatmap, GameMod, GameMods};
 use std::collections::HashMap;
 
 pub struct MySQL {
@@ -170,4 +170,51 @@ impl MySQL {
         let links: HashMap<u64, String> = tuples.into_iter().collect();
         Ok(links)
     }
+
+    // -------------------------------
+    // Table: pp_mania_mods
+    // -------------------------------
+
+    pub fn get_mania_mod_pp(&self, map_id: u32, mods: &GameMods) -> Result<Option<f32>, Error> {
+        let bits = mania_mod_bits(mods);
+        let conn = self.get_connection()?;
+        let data = schema::pp_mania_mods::table
+            .find(map_id)
+            .first::<ManiaPP>(&conn)?;
+        data.get(bits)
+    }
+
+    pub fn insert_mania_pp_map(&self, map_id: u32, mods: &GameMods, pp: f32) -> Result<(), Error> {
+        let bits = mania_mod_bits(mods);
+        let data = ManiaPP::new(map_id, bits, Some(pp))?;
+        let conn = self.get_connection()?;
+        diesel::insert_or_ignore_into(schema::pp_mania_mods::table)
+            .values(&data)
+            .execute(&conn)?;
+        info!("Inserted map id {} into pp_mania_mods table", map_id);
+        Ok(())
+    }
+
+    pub fn update_mania_pp_map(&self, map_id: u32, mods: &GameMods, pp: f32) -> Result<(), Error> {
+        let bits = mania_mod_bits(mods);
+        // TODO
+        warn!(
+            "Updating mania pp is a TODO (map: {}, mods: {}, pp: {})",
+            map_id, bits, pp
+        );
+        Ok(())
+    }
+}
+
+fn mania_mod_bits(mods: &GameMods) -> u32 {
+    use GameMod::{DoubleTime, Easy, HalfTime, NightCore, NoFail};
+    let mut bits = 0;
+    for &m in mods.iter() {
+        match m {
+            NightCore => bits += DoubleTime as u32,
+            DoubleTime | Easy | HalfTime | NoFail => bits += m as u32,
+            _ => {}
+        }
+    }
+    bits
 }

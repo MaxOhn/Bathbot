@@ -1,0 +1,1 @@
+DROP TABLE pp_mania_mods

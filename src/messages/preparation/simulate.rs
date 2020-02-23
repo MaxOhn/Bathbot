@@ -2,11 +2,11 @@
 
 use crate::{
     messages::{util, AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
-    util::{numbers::round, osu, Error},
+    util::{numbers::round, osu, pp::PPProvider, Error},
 };
 
 use rosu::models::{Beatmap, GameMode, Score};
-use serenity::cache::CacheRwLock;
+use serenity::prelude::Context;
 
 pub struct SimulateData {
     pub title: String,
@@ -32,56 +32,74 @@ impl SimulateData {
         score: Option<Score>,
         map: Beatmap,
         mode: GameMode,
-        cache: CacheRwLock,
+        ctx: &Context,
     ) -> Result<Self, Error> {
+        if mode == GameMode::TKO || mode == GameMode::CTB {
+            return Err(Error::Custom(format!(
+                "Can only simulate STD and MNA scores, not {:?}",
+                mode,
+            )));
+        }
         let title = map.to_string();
         let title_url = format!("{}b/{}", HOMEPAGE, map.beatmap_id);
-        let got_score = score.is_some();
-        let (prev_pp, prev_combo, prev_hits, removed_misses) = if let Some(score) = score.as_ref() {
-            // TODO: Handle GameMode's differently
-            let pp = if let Some(pp) = score.pp {
-                pp
-            } else {
-                osu::pp(map.beatmap_id, score, mode, None)?
+        let (prev_pp, prev_combo, prev_hits, misses, pp_provider) = if let Some(s) = score.as_ref()
+        {
+            let pp_provider = match PPProvider::new(&s, &map, Some(ctx)) {
+                Ok(provider) => provider,
+                Err(why) => {
+                    return Err(Error::Custom(format!(
+                        "Something went wrong while creating PPProvider: {}",
+                        why
+                    )))
+                }
             };
-            let prev_pp = Some(round(pp).to_string());
+            let prev_pp = Some(round(pp_provider.pp()).to_string());
             let prev_combo = if mode == GameMode::STD {
-                Some(score.max_combo.to_string())
+                Some(s.max_combo.to_string())
             } else {
                 None
             };
-            let prev_hits = Some(util::get_hits(&score, mode));
-            (prev_pp, prev_combo, prev_hits, Some(score.count_miss))
+            let prev_hits = Some(util::get_hits(&s, mode));
+            (
+                prev_pp,
+                prev_combo,
+                prev_hits,
+                Some(s.count_miss),
+                Some(pp_provider),
+            )
         } else {
-            (None, None, None, None)
+            (None, None, None, None, None)
         };
-
-        // TODO: Handle GameMode's differently
         let mut unchoked_score = score.unwrap_or_default();
-        if let Err(e) = osu::unchoke_score(&mut unchoked_score, &map) {
+        if let Err(e) = osu::unchoke_score(&mut unchoked_score, &map, mode) {
             return Err(Error::Custom(format!(
                 "Something went wrong while unchoking a score: {}",
                 e
             )));
         }
-        let (oppai, max_pp) = match osu::oppai_max_pp(map.beatmap_id, &unchoked_score, mode) {
-            Ok((oppai, max_pp)) => (oppai, round(max_pp)),
-            Err(why) => {
+        let pp_provider = if let Some(mut pp_provider) = pp_provider {
+            if let Err(e) = pp_provider.recalculate(&unchoked_score, mode) {
                 return Err(Error::Custom(format!(
-                    "Something went wrong while using oppai: {}",
-                    why
-                )))
+                    "Something went wrong while recalculating PPProvider for unchoked score: {}",
+                    e
+                )));
+            }
+            pp_provider
+        } else {
+            match PPProvider::new(&unchoked_score, &map, Some(ctx)) {
+                Ok(provider) => provider,
+                Err(why) => {
+                    return Err(Error::Custom(format!(
+                        "Something went wrong while creating PPProvider: {}",
+                        why
+                    )))
+                }
             }
         };
-        let actual_pp = if got_score {
-            round(oppai.get_pp())
-        } else {
-            max_pp
-        };
-        let stars = util::get_stars(&map, Some(oppai));
+        let stars = util::get_stars(&map, pp_provider.oppai());
         let grade_completion_mods =
-            util::get_grade_completion_mods(&unchoked_score, mode, &map, cache);
-        let pp = util::get_pp(actual_pp, round(max_pp));
+            util::get_grade_completion_mods(&unchoked_score, mode, &map, ctx.cache.clone());
+        let pp = util::get_pp(&unchoked_score, &pp_provider, mode);
         let (hits, combo, acc) = match mode {
             GameMode::STD => (
                 util::get_hits(&unchoked_score, mode),
@@ -116,7 +134,7 @@ impl SimulateData {
             combo,
             prev_hits,
             hits,
-            removed_misses,
+            removed_misses: misses,
             map_info,
             footer_url,
             footer_text,
