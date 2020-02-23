@@ -21,11 +21,10 @@ pub use link::*;
 pub use scores::*;
 
 use serenity::framework::standard::macros::group;
-use std::time::Duration;
 
 #[group]
 #[description = "Commands for all osu! modes"]
 #[commands(scores, link)]
 struct OsuGeneral;
 
-pub const MINIMIZE_DELAY: Duration = Duration::from_secs(45);
+pub const MINIMIZE_DELAY: i64 = 45;

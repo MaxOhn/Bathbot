@@ -3,7 +3,7 @@ use crate::{
     database::MySQL,
     messages::{BotEmbed, ScoreSingleData},
     util::globals::OSU_API_ISSUE,
-    DiscordLinks, Osu,
+    DiscordLinks, Osu, SchedulerKey,
 };
 
 use rosu::{
@@ -18,8 +18,9 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use std::{error::Error, thread};
+use std::error::Error;
 use tokio::runtime::Runtime;
+use white_rabbit::{DateResult, Duration, Utc};
 
 fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let name: String = if args.is_empty() {
@@ -147,10 +148,10 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
     };
 
     // Creating the embed
-    let embed = BotEmbed::UserScoreSingle(&data);
+    let embed = BotEmbed::UserScoreSingle(Box::new(data));
     let mut msg = msg.channel_id.send_message(&ctx.http, |m| {
         m.content(format!("Try #{}", tries))
-            .embed(|e| embed.create(e))
+            .embed(|e| embed.create_full(e))
     })?;
 
     // Add map to database if its not in already
@@ -163,11 +164,29 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
     }
 
     // Minimize embed after delay
-    let embed = BotEmbed::UserScoreSingleMini(Box::new(data));
-    msg.edit(&ctx, |m| {
-        thread::sleep(MINIMIZE_DELAY);
-        m.embed(|e| embed.create(e))
-    })?;
+    let scheduler = {
+        let mut data = ctx.data.write();
+        data.get_mut::<SchedulerKey>()
+            .expect("Could not get SchedulerKey")
+            .clone()
+    };
+    let mut scheduler = scheduler.write();
+    let http = ctx.http.clone();
+    let cache = ctx.cache.clone();
+    let mut retries = 5;
+    scheduler.add_task_duration(Duration::seconds(MINIMIZE_DELAY), move |_| {
+        if let Err(why) = msg.edit((&cache, &*http), |m| m.embed(|e| embed.minimize(e))) {
+            if retries == 0 {
+                warn!("Error while trying to minimize recent msg: {}", why);
+                DateResult::Done
+            } else {
+                retries -= 1;
+                DateResult::Repeat(Utc::now() + Duration::seconds(5))
+            }
+        } else {
+            DateResult::Done
+        }
+    });
     Ok(())
 }
 

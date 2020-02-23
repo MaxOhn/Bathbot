@@ -29,6 +29,7 @@ use std::{
     env,
     sync::Arc,
 };
+use white_rabbit::Scheduler;
 
 fn setup() -> Result<(String, String, String), Error> {
     kankyo::load()?;
@@ -60,6 +61,7 @@ fn main() -> Result<(), Error> {
             )))
         }
     };
+    let scheduler = Scheduler::new(4);
     let now = Utc::now();
     {
         let mut data = discord.data.write();
@@ -70,6 +72,7 @@ fn main() -> Result<(), Error> {
         data.insert::<DiscordLinks>(discord_links);
         data.insert::<BootTime>(now);
         data.insert::<PerformanceCalculatorLock>(Arc::new(Mutex::new(())));
+        data.insert::<SchedulerKey>(Arc::new(RwLock::new(scheduler)));
     }
     discord.with_framework(
         StandardFramework::new()
@@ -180,4 +183,9 @@ pub struct PerformanceCalculatorLock;
 
 impl TypeMapKey for PerformanceCalculatorLock {
     type Value = Arc<Mutex<()>>;
+}
+
+pub struct SchedulerKey;
+impl TypeMapKey for SchedulerKey {
+    type Value = Arc<RwLock<Scheduler>>;
 }

@@ -20,3 +20,4 @@ scraper = "0.11"
 diesel = { version = "1.4", features = ["mysql", "chrono", "r2d2"] }
 image = "0.23"
 regex = "1.3"
+white_rabbit = "0.1"

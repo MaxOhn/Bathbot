@@ -196,11 +196,33 @@ impl MySQL {
     }
 
     pub fn update_mania_pp_map(&self, map_id: u32, mods: &GameMods, pp: f32) -> Result<(), Error> {
+        use schema::pp_mania_mods::{self, columns::*};
         let bits = mania_mod_bits(mods);
-        // TODO
-        warn!(
-            "Updating mania pp is a TODO (map: {}, mods: {}, pp: {})",
-            map_id, bits, pp
+        let conn = self.get_connection()?;
+        let query = diesel::update(pp_mania_mods::table.filter(beatmap_id.eq(map_id)));
+        match bits {
+            0 => query.set(NM.eq(pp)).execute(&conn)?,
+            1 => query.set(NF.eq(pp)).execute(&conn)?,
+            2 => query.set(EZ.eq(pp)).execute(&conn)?,
+            3 => query.set(NFEZ.eq(pp)).execute(&conn)?,
+            64 => query.set(DT.eq(pp)).execute(&conn)?,
+            65 => query.set(NFDT.eq(pp)).execute(&conn)?,
+            66 => query.set(EZDT.eq(pp)).execute(&conn)?,
+            67 => query.set(NFEZDT.eq(pp)).execute(&conn)?,
+            256 => query.set(HT.eq(pp)).execute(&conn)?,
+            257 => query.set(NFHT.eq(pp)).execute(&conn)?,
+            258 => query.set(EZHT.eq(pp)).execute(&conn)?,
+            259 => query.set(NFEZHT.eq(pp)).execute(&conn)?,
+            _ => {
+                return Err(Error::Custom(format!(
+                    "{} are no valid mod bits for the mania pp table",
+                    bits
+                )));
+            }
+        };
+        info!(
+            "Updated map id {} with mods {} in pp_mania_mods table",
+            map_id, mods
         );
         Ok(())
     }

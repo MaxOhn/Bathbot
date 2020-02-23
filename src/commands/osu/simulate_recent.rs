@@ -3,7 +3,7 @@ use crate::{
     database::MySQL,
     messages::{BotEmbed, SimulateData},
     util::globals::OSU_API_ISSUE,
-    DiscordLinks, Osu,
+    DiscordLinks, Osu, SchedulerKey,
 };
 
 use rosu::{
@@ -18,8 +18,9 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use std::{error::Error, thread};
+use std::error::Error;
 use tokio::runtime::Runtime;
+use white_rabbit::{DateResult, Duration, Utc};
 
 fn simulate_recent_send(
     mode: GameMode,
@@ -109,9 +110,10 @@ fn simulate_recent_send(
     };
 
     // Creating the embed
-    let embed = BotEmbed::SimulateScore(&data);
+    let embed = BotEmbed::SimulateScore(Box::new(data));
     let mut msg = msg.channel_id.send_message(&ctx.http, |m| {
-        m.content("Simulated score:").embed(|e| embed.create(e))
+        m.content("Simulated score:")
+            .embed(|e| embed.create_full(e))
     })?;
 
     // Add map to database if its not in already
@@ -127,11 +129,38 @@ fn simulate_recent_send(
     }
 
     // Minimize embed after delay
+    let scheduler = {
+        let mut data = ctx.data.write();
+        data.get_mut::<SchedulerKey>()
+            .expect("Could not get SchedulerKey")
+            .clone()
+    };
+    let mut scheduler = scheduler.write();
+    let http = ctx.http.clone();
+    let cache = ctx.cache.clone();
+    let mut retries = 5;
+    scheduler.add_task_duration(Duration::seconds(MINIMIZE_DELAY), move |_| {
+        if let Err(why) = msg.edit((&cache, &*http), |m| m.embed(|e| embed.minimize(e))) {
+            if retries == 0 {
+                warn!("Error while trying to minimize simulate msg: {}", why);
+                DateResult::Done
+            } else {
+                retries -= 1;
+                DateResult::Repeat(Utc::now() + Duration::seconds(5))
+            }
+        } else {
+            DateResult::Done
+        }
+    });
+
+    /*
+    // Minimize embed after delay
     let embed = BotEmbed::SimulateScoreMini(Box::new(data));
     msg.edit(&ctx, |m| {
         thread::sleep(MINIMIZE_DELAY);
         m.embed(|e| embed.create(e))
     })?;
+    */
     Ok(())
 }
 

@@ -13,7 +13,7 @@ const PP_MANIA_CMD: &str =
     "dotnet run --project osu-tools/PerformanceCalculator/ -- simulate mania ";
 
 pub enum PPProvider {
-    #[allow(dead_code)] // Bug in rust compiler, remove when bug is fixed
+    #[allow(dead_code)] // Bug in rust compiler, remove when bug is fixed [22.2.2020]
     Oppai { oppai: Oppai, pp: f32, max_pp: f32 },
     #[allow(dead_code)]
     Mania { pp: f32, max_pp: f32 },
@@ -87,10 +87,12 @@ impl PPProvider {
                 };
                 // If max pp were found, get them
                 let max_pp = if let Some(max_pp) = max_pp {
+                    /*
                     debug!(
                         "Found max pp for map id {} and mods {}",
                         map.beatmap_id, score.enabled_mods
                     );
+                    */
                     mem::drop(lock);
                     max_pp
                 // Otherwise start calculating them in new thread

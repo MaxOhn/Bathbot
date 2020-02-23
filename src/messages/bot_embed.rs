@@ -1,67 +1,72 @@
-#![allow(clippy::too_many_arguments)]
-#![allow(unused)]
-
-use crate::{
-    messages::{
-        AuthorDescThumbData, CommonData, PPMissingData, ProfileData, ScoreMultiData,
-        ScoreSingleData, SimulateData, WhatIfPPData,
-    },
-    util::{
-        datetime::{date_to_string, how_long_ago, sec_to_minsec},
-        numbers::{round, round_and_comma, with_comma_u64},
-        osu::*,
-    },
+use crate::messages::{
+    AuthorDescThumbData, CommonData, PPMissingData, ProfileData, ScoreMultiData, ScoreSingleData,
+    SimulateData, WhatIfPPData,
 };
 
-use itertools::Itertools;
-use roppai::Oppai;
-use rosu::models::{Beatmap, GameMod, GameMode, GameMods, Score, User};
-use serenity::{builder::CreateEmbed, cache::CacheRwLock, utils::Colour};
-use std::{cmp::Ordering::Equal, collections::HashMap, f32, u32};
+use serenity::{builder::CreateEmbed, utils::Colour};
 
-pub enum BotEmbed<'d> {
-    UserScoreSingle(&'d ScoreSingleData),
+pub enum BotEmbed {
+    UserScoreSingle(Box<ScoreSingleData>),
     UserScoreMulti(Box<ScoreMultiData>),
     AuthorDescThumb(AuthorDescThumbData),
     Profile(ProfileData),
     PPMissing(PPMissingData),
     WhatIfPP(WhatIfPPData),
-    SimulateScore(&'d SimulateData),
+    SimulateScore(Box<SimulateData>),
     UserCommonScores(CommonData),
-    //UserLeaderboard(Box<Beatmap>, Vec<(User, Score)>),
-    UserScoreSingleMini(Box<ScoreSingleData>),
-    SimulateScoreMini(Box<SimulateData>),
 }
 
-impl<'d, 'e> BotEmbed<'d> {
-    pub fn create(self, e: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
+impl BotEmbed {
+    pub fn create(self, e: &mut CreateEmbed) -> &mut CreateEmbed {
         e.color(Colour::DARK_GREEN);
         match self {
-            BotEmbed::UserScoreSingle(data) => create_user_score_single(e, data),
             BotEmbed::UserScoreMulti(data) => create_user_score_multi(e, *data),
             BotEmbed::AuthorDescThumb(data) => create_author_desc_thumb(e, data),
             BotEmbed::Profile(data) => create_profile(e, data),
             BotEmbed::PPMissing(data) => create_pp_missing(e, data),
             BotEmbed::WhatIfPP(data) => create_whatif_pp(e, data),
-            BotEmbed::SimulateScore(data) => create_simulation(e, data),
             BotEmbed::UserCommonScores(data) => create_common(e, data),
-            //BotEmbed::UserLeaderboard(data) => create_leaderboard(e, data),
-            BotEmbed::UserScoreSingleMini(data) => create_user_score_single_mini(e, *data),
-            BotEmbed::SimulateScoreMini(data) => create_simulation_mini(e, *data),
+            BotEmbed::UserScoreSingle(_) => panic!(
+                "Don't use 'create' for UserScoreSingle, use 'create_full' or 'minimize' instead"
+            ),
+            BotEmbed::SimulateScore(_) => panic!(
+                "Don't use 'create' for SimulateScore, use 'create_full' or 'minimize' instead"
+            ),
+        }
+    }
+
+    pub fn create_full<'s, 'e>(&'s self, e: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
+        e.color(Colour::DARK_GREEN);
+        match self {
+            BotEmbed::UserScoreSingle(data) => create_user_score_single(e, &data),
+            BotEmbed::SimulateScore(data) => create_simulation(e, &data),
+            _ => e,
+        }
+    }
+
+    pub fn minimize<'s, 'e>(&'s self, e: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
+        e.color(Colour::DARK_GREEN);
+        match self {
+            BotEmbed::UserScoreSingle(data) => create_user_score_single_mini(e, data),
+            BotEmbed::SimulateScore(data) => create_simulation_mini(e, data),
+            _ => e,
         }
     }
 }
 
-fn create_simulation_mini(embed: &mut CreateEmbed, data: SimulateData) -> &mut CreateEmbed {
-    let pp = if let Some(prev_pp) = data.prev_pp {
+fn create_simulation_mini<'d, 'e>(
+    embed: &'e mut CreateEmbed,
+    data: &'d SimulateData,
+) -> &'e mut CreateEmbed {
+    let pp = if let Some(prev_pp) = &data.prev_pp {
         format!("{} → {}", prev_pp, data.pp)
     } else {
-        data.pp
+        data.pp.clone()
     };
-    let combo = if let Some(prev_combo) = data.prev_combo {
+    let combo = if let Some(prev_combo) = &data.prev_combo {
         format!("{} → {}", prev_combo, data.combo)
     } else {
-        data.combo
+        data.combo.clone()
     };
     let title = format!("{} [{}]", data.title, data.stars);
     let name = format!(
@@ -81,6 +86,28 @@ fn create_simulation_mini(embed: &mut CreateEmbed, data: SimulateData) -> &mut C
         .title(title)
 }
 
+fn create_user_score_single_mini<'d, 'e>(
+    embed: &'e mut CreateEmbed,
+    data: &'d ScoreSingleData,
+) -> &'e mut CreateEmbed {
+    let name = format!(
+        "{}\t{}\t({})\t{}",
+        data.grade_completion_mods, data.score, data.acc, data.ago
+    );
+    let value = format!("{} [ {} ] {}", data.pp, data.combo, data.hits);
+    let title = format!("{} [{}]", data.title, data.stars);
+    embed
+        .field(name, value, false)
+        .thumbnail(&data.thumbnail)
+        .title(title)
+        .url(&data.title_url)
+        .author(|a| {
+            a.icon_url(&data.author_icon)
+                .url(&data.author_url)
+                .name(&data.author_text)
+        })
+}
+
 fn create_simulation<'d, 'e>(
     embed: &'e mut CreateEmbed,
     data: &'d SimulateData,
@@ -96,7 +123,6 @@ fn create_simulation<'d, 'e>(
         data.combo.to_owned()
     };
     let hits = if let Some(prev_hits) = &data.prev_hits {
-        let len = data.hits.len().max(prev_hits.len());
         format!("{} → {}", prev_hits, data.hits,)
     } else {
         data.hits.to_owned()
@@ -114,28 +140,6 @@ fn create_simulation<'d, 'e>(
             ("Hits", &hits, false),
             ("Map Info", &data.map_info, false),
         ])
-}
-
-fn create_user_score_single_mini(
-    embed: &mut CreateEmbed,
-    data: ScoreSingleData,
-) -> &mut CreateEmbed {
-    let name = format!(
-        "{}\t{}\t({})\t{}",
-        data.grade_completion_mods, data.score, data.acc, data.ago
-    );
-    let value = format!("{} [ {} ] {}", data.pp, data.combo, data.hits);
-    let title = format!("{} [{}]", data.title, data.stars);
-    embed
-        .field(name, value, false)
-        .thumbnail(&data.thumbnail)
-        .title(title)
-        .url(&data.title_url)
-        .author(|a| {
-            a.icon_url(data.author_icon)
-                .url(data.author_url)
-                .name(data.author_text)
-        })
 }
 
 fn create_user_score_single<'d, 'e>(
@@ -239,9 +243,4 @@ fn create_pp_missing(embed: &mut CreateEmbed, data: PPMissingData) -> &mut Creat
                 .url(data.author_url)
                 .name(data.author_text)
         })
-}
-
-// TODO
-fn create_leaderboard(embed: &mut CreateEmbed) -> &mut CreateEmbed {
-    embed
 }
