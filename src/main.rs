@@ -4,16 +4,16 @@ mod util;
 #[macro_use]
 mod macros;
 mod database;
-mod my_scraper;
+mod scraper;
 
 #[macro_use]
 extern crate log;
 #[macro_use]
 extern crate diesel;
 
+use crate::scraper::Scraper;
 use commands::{fun::*, osu::*, streams::*, utility::*};
 pub use database::MySQL;
-use my_scraper::Scraper;
 pub use util::Error;
 
 use chrono::{DateTime, Utc};
@@ -44,7 +44,8 @@ fn setup() -> Result<(String, String, String), Error> {
 fn main() -> Result<(), Error> {
     let (discord_token, osu_token, database_url) = setup()?;
     let osu = OsuClient::new(osu_token);
-    let scraper = Scraper::new();
+    let mut rt = tokio::runtime::Runtime::new().expect("Could not create runtime");
+    let scraper = rt.block_on(Scraper::new())?;
     let mut discord = Client::new(&discord_token, Handler)?;
     let mysql = MySQL::new(&database_url)?;
     let discord_links = mysql.get_discord_links()?;

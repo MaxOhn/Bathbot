@@ -152,15 +152,6 @@ fn simulate_recent_send(
             DateResult::Done
         }
     });
-
-    /*
-    // Minimize embed after delay
-    let embed = BotEmbed::SimulateScoreMini(Box::new(data));
-    msg.edit(&ctx, |m| {
-        thread::sleep(MINIMIZE_DELAY);
-        m.embed(|e| embed.create(e))
-    })?;
-    */
     Ok(())
 }
 
@@ -172,13 +163,10 @@ pub fn simulaterecent(ctx: &mut Context, msg: &Message, args: Args) -> CommandRe
     simulate_recent_send(GameMode::STD, ctx, msg, args)
 }
 
-/*
-// TODO
 #[command]
-#[description = "Display an unchoked version of user's most recent mania play"]
+#[description = "Display a perfect play on a user's most recently played mania map"]
 #[usage = "badewanne3"]
 #[aliases("srm")]
 pub fn simulaterecentmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     simulate_recent_send(GameMode::MNA, ctx, msg, args)
 }
-*/

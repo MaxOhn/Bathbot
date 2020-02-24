@@ -1,6 +1,6 @@
 use crate::util::{datetime::sec_to_minsec, numbers::round, osu, pp::PPProvider};
 use roppai::Oppai;
-use rosu::models::{Beatmap, GameMod, GameMode, GameMods, Score};
+use rosu::models::{Beatmap, GameMode, GameMods, Score};
 use serenity::cache::CacheRwLock;
 
 pub fn get_hits(score: &Score, mode: GameMode) -> String {
@@ -73,8 +73,8 @@ pub fn get_mods(mods: &GameMods) -> String {
     }
 }
 
-pub fn get_keys(mods: &[GameMod], map: &Beatmap) -> String {
-    for m in mods {
+pub fn get_keys(mods: &GameMods, map: &Beatmap) -> String {
+    for m in mods.iter() {
         if m.is_key_mod() {
             return format!("[{}]", m);
         }

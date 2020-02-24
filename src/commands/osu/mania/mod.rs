@@ -2,7 +2,9 @@ mod ratios;
 
 pub use ratios::*;
 
-pub use crate::commands::osu::{common::*, pp::*, profile::*, recent::*, top::*, whatif::*};
+pub use crate::commands::osu::{
+    common::*, pp::*, profile::*, recent::*, recent_lb::*, top::*, whatif::*,
+};
 
 use serenity::framework::standard::macros::group;
 
@@ -15,6 +17,7 @@ use serenity::framework::standard::macros::group;
     ppmania,
     whatifmania,
     commonmania,
-    ratios
+    ratios,
+    recentmanialeaderboard
 )]
 pub struct Mania;

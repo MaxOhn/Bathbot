@@ -1,20 +1,20 @@
-mod author_desc_thumb;
+mod auth_desc_thumb;
+mod auth_desc_thumb_title;
 mod common;
-mod pp_missing;
+mod leaderboard;
 mod profile;
 mod score_multi;
 mod score_single;
 mod simulate;
-mod whatif_pp;
 
-pub use author_desc_thumb::AuthorDescThumbData;
+pub use auth_desc_thumb::AuthorDescThumbData;
+pub use auth_desc_thumb_title::AuthorDescThumbTitleData;
 pub use common::CommonData;
-pub use pp_missing::PPMissingData;
+pub use leaderboard::LeaderboardData;
 pub use profile::ProfileData;
 pub use score_multi::ScoreMultiData;
 pub use score_single::ScoreSingleData;
 pub use simulate::SimulateData;
-pub use whatif_pp::WhatIfPPData;
 
 pub const HOMEPAGE: &str = "https://osu.ppy.sh/";
 pub const MAP_THUMB_URL: &str = "https://b.ppy.sh/thumb/";

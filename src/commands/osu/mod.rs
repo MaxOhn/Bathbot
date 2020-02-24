@@ -6,6 +6,7 @@ pub mod nochoke;
 pub mod pp;
 pub mod profile;
 pub mod recent;
+pub mod recent_lb;
 mod scores;
 pub mod simulate_recent;
 pub mod standard;

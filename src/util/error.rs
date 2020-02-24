@@ -4,6 +4,7 @@ use image::ImageError;
 use reqwest;
 use roppai::OppaiErr;
 use rosu::backend::OsuError;
+use serde_json::error::Error as SerdeError;
 use serenity::{framework::standard::CommandError, Error as SerenityError};
 use std::{env, fmt, io, num};
 
@@ -22,6 +23,13 @@ pub enum Error {
     DieselError(DieselError),
     MySQLConnection(String),
     ImageError(ImageError),
+    Serde(SerdeError),
+}
+
+impl From<SerdeError> for Error {
+    fn from(e: SerdeError) -> Self {
+        Self::Serde(e)
+    }
 }
 
 impl From<ImageError> for Error {
@@ -106,6 +114,7 @@ impl fmt::Display for Error {
             Self::DieselError(e) => write!(f, "{}", e),
             Self::MySQLConnection(e) => write!(f, "{}", e),
             Self::ImageError(e) => write!(f, "{}", e),
+            Self::Serde(e) => write!(f, "{}", e),
         }
     }
 }

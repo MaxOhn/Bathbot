@@ -1,5 +1,5 @@
 use crate::{
-    messages::{BotEmbed, WhatIfPPData},
+    messages::{AuthorDescThumbTitleData, BotEmbed},
     util::globals::OSU_API_ISSUE,
     DiscordLinks, Osu,
 };
@@ -95,10 +95,10 @@ fn whatif_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
     };
 
     // Accumulate all necessary data
-    let data = WhatIfPPData::new(user, scores, mode, pp);
+    let data = AuthorDescThumbTitleData::create_whatif(user, scores, mode, pp);
 
     // Creating the embed
-    let embed = BotEmbed::WhatIfPP(data);
+    let embed = BotEmbed::AuthorDescThumbTitle(data);
     let _ = msg
         .channel_id
         .send_message(&ctx.http, |m| m.embed(|e| embed.create(e)));

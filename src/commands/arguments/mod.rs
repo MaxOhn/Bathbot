@@ -36,17 +36,22 @@ impl ArgParser {
 
     /// Search for `-c` or `-combo` and return the succeeding argument
     pub fn get_combo(&self) -> Option<String> {
-        self.get_option(&["-c", "-combo"])
+        self.get_parameter(&["-c", "-combo"])
     }
 
     /// Search for `-a` or `-acc` and return the succeeding argument
     pub fn get_acc(&self) -> Option<String> {
-        self.get_option(&["-a", "-acc"])
+        self.get_parameter(&["-a", "-acc"])
     }
 
     /// Search for `-grade` and return the succeeding argument
     pub fn get_grade(&self) -> Option<String> {
-        self.get_option(&["-grade"])
+        self.get_parameter(&["-grade"])
+    }
+
+    /// Check if `-g` or `--global` is in the arguments
+    pub fn get_global(&self) -> bool {
+        self.get_option("-g") || self.get_option("--global")
     }
 
     /// Name __must__ be the first argument
@@ -55,7 +60,7 @@ impl ArgParser {
         self.args.trimmed().single_quoted().ok()
     }
 
-    fn get_option(&self, keywords: &[&str]) -> Option<String> {
+    fn get_parameter(&self, keywords: &[&str]) -> Option<String> {
         if self.args.is_empty() {
             return None;
         }
@@ -67,8 +72,14 @@ impl ArgParser {
         }
         None
     }
+
+    fn get_option(&self, option: &str) -> bool {
+        let args: Vec<&str> = self.args.raw_quoted().collect();
+        args.contains(&option)
+    }
 }
 
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum ModSelection {
     None,
     Includes,

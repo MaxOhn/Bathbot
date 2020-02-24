@@ -1,5 +1,3 @@
-#![allow(clippy::too_many_arguments)]
-
 use crate::{
     messages::{util, AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
     util::{

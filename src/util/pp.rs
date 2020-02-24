@@ -1,7 +1,7 @@
-use crate::{database::MySQL, util::osu, Error, PerformanceCalculatorLock};
+use crate::{database::MySQL, scraper::ScraperScore, util::osu, Error, PerformanceCalculatorLock};
 
 use roppai::Oppai;
-use rosu::models::{Beatmap, GameMode, GameMods, Score};
+use rosu::models::{Beatmap, GameMod, GameMode, GameMods, Grade, Score};
 use serenity::prelude::Context;
 use std::{
     mem,
@@ -22,6 +22,7 @@ pub enum PPProvider {
 }
 
 impl PPProvider {
+    /// ctx is only required for mania
     pub fn new(score: &Score, map: &Beatmap, ctx: Option<&Context>) -> Result<Self, Error> {
         match map.mode {
             GameMode::STD | GameMode::TKO => {
@@ -53,12 +54,18 @@ impl PPProvider {
                 } else {
                     None
                 };
+                let half_score = half_score(&score.enabled_mods);
                 // Start calculating pp of the score in new thread
                 let (pp_child, lock) = if score.pp.is_none() {
-                    let lock = mutex.as_ref().unwrap().lock();
-                    let child =
-                        start_pp_calc(map.beatmap_id, &score.enabled_mods, Some(score.score))?;
-                    (Some(child), Some(lock))
+                    // If its a fail or below half score, it's gonna be 0pp anyway
+                    if score.grade == Grade::F || score.score < half_score as u32 {
+                        (None, None)
+                    } else {
+                        let lock = mutex.as_ref().unwrap().lock();
+                        let child =
+                            start_pp_calc(map.beatmap_id, &score.enabled_mods, Some(score.score))?;
+                        (Some(child), Some(lock))
+                    }
                 } else {
                     (None, None)
                 };
@@ -82,17 +89,13 @@ impl PPProvider {
                 // Wait for score pp calculation to finish
                 let pp = if let Some(pp_child) = pp_child {
                     parse_pp_calc(pp_child)?
+                } else if score.grade == Grade::F || score.score < half_score as u32 {
+                    0.0
                 } else {
                     score.pp.unwrap()
                 };
                 // If max pp were found, get them
                 let max_pp = if let Some(max_pp) = max_pp {
-                    /*
-                    debug!(
-                        "Found max pp for map id {} and mods {}",
-                        map.beatmap_id, score.enabled_mods
-                    );
-                    */
                     mem::drop(lock);
                     max_pp
                 // Otherwise start calculating them in new thread
@@ -113,6 +116,109 @@ impl PPProvider {
                 Ok(Self::Mania { pp, max_pp })
             }
             GameMode::CTB => Ok(Self::Fruits),
+        }
+    }
+
+    pub fn calculate_oppai_pp(score: &ScraperScore, map: &Beatmap) -> Result<f32, Error> {
+        let mut oppai = Oppai::new();
+        if !score.enabled_mods.is_empty() {
+            let bits = score.enabled_mods.as_bits();
+            oppai.set_mods(bits);
+        }
+        let map_path = osu::prepare_beatmap_file(map.beatmap_id)?;
+        oppai
+            .set_miss_count(score.count_miss)
+            .set_hits(score.count100, score.count50)
+            .set_end_index(score.total_hits())
+            .set_combo(score.max_combo)
+            .calculate(Some(&map_path))?;
+        Ok(oppai.get_pp())
+    }
+
+    pub fn calculate_mania_pp(
+        score: &ScraperScore,
+        map: &Beatmap,
+        ctx: &Context,
+    ) -> Result<f32, Error> {
+        let mods = &score.enabled_mods;
+        let half_score = half_score(mods);
+        if score.grade == Grade::F || score.score < half_score {
+            Ok(0.0)
+        } else {
+            let mutex = {
+                let data = ctx.data.read();
+                data.get::<PerformanceCalculatorLock>()
+                    .expect("Could not get PerformanceCalculatorLock")
+                    .clone()
+            };
+            let _ = mutex.lock();
+            let child = start_pp_calc(map.beatmap_id, mods, Some(score.score))?;
+            parse_pp_calc(child)
+        }
+    }
+
+    pub fn calculate_max(
+        map: &Beatmap,
+        mods: &GameMods,
+        ctx: Option<&Context>,
+    ) -> Result<f32, Error> {
+        match map.mode {
+            GameMode::STD | GameMode::TKO => {
+                let mut oppai = Oppai::new();
+                if !mods.is_empty() {
+                    let bits = mods.as_bits();
+                    oppai.set_mods(bits);
+                }
+                let map_path = osu::prepare_beatmap_file(map.beatmap_id)?;
+                Ok(oppai.calculate(Some(&map_path))?.get_pp())
+            }
+            GameMode::MNA => {
+                let ctx = ctx.unwrap();
+                // Try retrieving max pp of the map from database
+                let (max_pp, map_in_db) = {
+                    let data = ctx.data.read();
+                    let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                    match mysql.get_mania_mod_pp(map.beatmap_id, &mods) {
+                        Ok(result) => (result, true),
+                        Err(why) => {
+                            if let Error::Custom(_) = why {
+                                warn!(
+                                    "Some mod bit error for mods {} in pp_mania_mods table",
+                                    mods
+                                );
+                            }
+                            (None, false)
+                        }
+                    }
+                };
+                // If max pp were found, get them
+                if let Some(max_pp) = max_pp {
+                    Ok(max_pp)
+                // Otherwise start calculating them in new thread
+                } else {
+                    let max_pp = {
+                        let mutex = {
+                            let data = ctx.data.read();
+                            data.get::<PerformanceCalculatorLock>()
+                                .expect("Could not get PerformanceCalculatorLock")
+                                .clone()
+                        };
+                        let _ = mutex.lock();
+                        let max_pp_child = start_pp_calc(map.beatmap_id, mods, None)?;
+                        parse_pp_calc(max_pp_child)?
+                    };
+                    // Insert max pp value into database
+                    let data = ctx.data.read();
+                    let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                    if map_in_db {
+                        mysql.update_mania_pp_map(map.beatmap_id, &mods, max_pp)?;
+                    } else {
+                        mysql.insert_mania_pp_map(map.beatmap_id, &mods, max_pp)?;
+                    }
+                    Ok(max_pp)
+                }
+            }
+            GameMode::CTB => Err(Error::Custom("Cannot calculate max ctb pp".to_string())),
         }
     }
 
@@ -195,4 +301,18 @@ fn parse_pp_calc(child: Child) -> Result<f32, Error> {
             .map_err(|_| Error::Custom("Could not read stderr string".to_string()))?;
         Err(Error::Custom(error_msg))
     }
+}
+
+fn half_score(mods: &GameMods) -> u32 {
+    let mut half_score = 500_000.0;
+    if mods.contains(&GameMod::NoFail) {
+        half_score /= 2.0;
+    }
+    if mods.contains(&GameMod::Easy) {
+        half_score /= 2.0;
+    }
+    if mods.contains(&GameMod::HalfTime) {
+        half_score /= 2.0;
+    }
+    half_score as u32
 }

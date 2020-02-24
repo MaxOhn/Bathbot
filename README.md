@@ -2,6 +2,8 @@
 Work in progress discord bot port for the game [osu!](https://osu.ppy.sh/home) from [PP-Generator](https://github.com/MaxOhn/PP-Generator) to rust
 
 ## Setup
+- Clone this repo __with submodules__ via `git clone --recurse-submodules https://github.com/MaxOhn/Bathbot.git`
+    - if the repo is already cloned, update the submodules via `git submodule update --init --recursive`
 - [roppai](https://github.com/MaxOhn/roppai) must be cloned into the same directory as this repo (be sure roppai can be built by following its Readme)
 - Be sure there is a MySQL server runnning which the application can access
   - In case MySQL is missing, [download](https://dev.mysql.com/downloads/installer/) it
@@ -10,6 +12,4 @@ Work in progress discord bot port for the game [osu!](https://osu.ppy.sh/home) f
 - Create a new database on the MySQL server and add its path to the `.env` file e.g. `mysql://username:password@localhost/db_name`
 - Add [diesel](https://diesel.rs/)'s CLI tool via `cargo install diesel_cli --no-default-features --features mysql` (in the directory of this repo)
 - Create all required tables for the database via `diesel migration run` (in the directory of this repo)
-- Add [osu-tools](https://github.com/ppy/osu-tools) as submodule by typing `git submodule add https://github.com/ppy/osu-tools.git` (in the directory of this repo)
-- Clone osu-tools' submodules by typing `git submodule update --init --recursive`
 - Done

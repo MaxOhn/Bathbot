@@ -199,27 +199,10 @@ impl MySQL {
         use schema::pp_mania_mods::{self, columns::*};
         let bits = mania_mod_bits(mods);
         let conn = self.get_connection()?;
-        let query = diesel::update(pp_mania_mods::table.filter(beatmap_id.eq(map_id)));
-        match bits {
-            0 => query.set(NM.eq(pp)).execute(&conn)?,
-            1 => query.set(NF.eq(pp)).execute(&conn)?,
-            2 => query.set(EZ.eq(pp)).execute(&conn)?,
-            3 => query.set(NFEZ.eq(pp)).execute(&conn)?,
-            64 => query.set(DT.eq(pp)).execute(&conn)?,
-            65 => query.set(NFDT.eq(pp)).execute(&conn)?,
-            66 => query.set(EZDT.eq(pp)).execute(&conn)?,
-            67 => query.set(NFEZDT.eq(pp)).execute(&conn)?,
-            256 => query.set(HT.eq(pp)).execute(&conn)?,
-            257 => query.set(NFHT.eq(pp)).execute(&conn)?,
-            258 => query.set(EZHT.eq(pp)).execute(&conn)?,
-            259 => query.set(NFEZHT.eq(pp)).execute(&conn)?,
-            _ => {
-                return Err(Error::Custom(format!(
-                    "{} are no valid mod bits for the mania pp table",
-                    bits
-                )));
-            }
-        };
+        let data = ManiaPP::new(map_id, bits, Some(pp))?;
+        diesel::update(pp_mania_mods::table.filter(beatmap_id.eq(map_id)))
+            .set(&data)
+            .execute(&conn)?;
         info!(
             "Updated map id {} with mods {} in pp_mania_mods table",
             map_id, mods

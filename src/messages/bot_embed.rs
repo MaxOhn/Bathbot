@@ -1,6 +1,6 @@
 use crate::messages::{
-    AuthorDescThumbData, CommonData, PPMissingData, ProfileData, ScoreMultiData, ScoreSingleData,
-    SimulateData, WhatIfPPData,
+    AuthorDescThumbData, AuthorDescThumbTitleData, CommonData, LeaderboardData, ProfileData,
+    ScoreMultiData, ScoreSingleData, SimulateData,
 };
 
 use serenity::{builder::CreateEmbed, utils::Colour};
@@ -10,10 +10,10 @@ pub enum BotEmbed {
     UserScoreMulti(Box<ScoreMultiData>),
     AuthorDescThumb(AuthorDescThumbData),
     Profile(ProfileData),
-    PPMissing(PPMissingData),
-    WhatIfPP(WhatIfPPData),
+    AuthorDescThumbTitle(AuthorDescThumbTitleData),
     SimulateScore(Box<SimulateData>),
     UserCommonScores(CommonData),
+    Leaderboard(LeaderboardData),
 }
 
 impl BotEmbed {
@@ -23,9 +23,9 @@ impl BotEmbed {
             BotEmbed::UserScoreMulti(data) => create_user_score_multi(e, *data),
             BotEmbed::AuthorDescThumb(data) => create_author_desc_thumb(e, data),
             BotEmbed::Profile(data) => create_profile(e, data),
-            BotEmbed::PPMissing(data) => create_pp_missing(e, data),
-            BotEmbed::WhatIfPP(data) => create_whatif_pp(e, data),
+            BotEmbed::AuthorDescThumbTitle(data) => create_author_desc_title_thumb(e, data),
             BotEmbed::UserCommonScores(data) => create_common(e, data),
+            BotEmbed::Leaderboard(data) => create_leaderboard(e, data),
             BotEmbed::UserScoreSingle(_) => panic!(
                 "Don't use 'create' for UserScoreSingle, use 'create_full' or 'minimize' instead"
             ),
@@ -221,7 +221,10 @@ fn create_common(embed: &mut CreateEmbed, data: CommonData) -> &mut CreateEmbed 
         .thumbnail("attachment://avatar_fuse.png")
 }
 
-fn create_whatif_pp(embed: &mut CreateEmbed, data: WhatIfPPData) -> &mut CreateEmbed {
+fn create_author_desc_title_thumb(
+    embed: &mut CreateEmbed,
+    data: AuthorDescThumbTitleData,
+) -> &mut CreateEmbed {
     embed
         .thumbnail(&data.thumbnail)
         .description(&data.description)
@@ -233,14 +236,14 @@ fn create_whatif_pp(embed: &mut CreateEmbed, data: WhatIfPPData) -> &mut CreateE
         })
 }
 
-fn create_pp_missing(embed: &mut CreateEmbed, data: PPMissingData) -> &mut CreateEmbed {
+fn create_leaderboard(embed: &mut CreateEmbed, data: LeaderboardData) -> &mut CreateEmbed {
     embed
-        .thumbnail(&data.thumbnail)
-        .description(&data.description)
-        .title(&data.title)
+        .footer(|f| f.icon_url(&data.footer_url).text(&data.footer_text))
         .author(|a| {
-            a.icon_url(data.author_icon)
-                .url(data.author_url)
-                .name(data.author_text)
+            a.icon_url(&data.author_icon)
+                .url(&data.author_url)
+                .name(&data.author_text)
         })
+        .thumbnail(data.thumbnail)
+        .description(data.description)
 }
