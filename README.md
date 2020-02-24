@@ -13,3 +13,26 @@ Work in progress discord bot port for the game [osu!](https://osu.ppy.sh/home) f
 - Add [diesel](https://diesel.rs/)'s CLI tool via `cargo install diesel_cli --no-default-features --features mysql` (in the directory of this repo)
 - Create all required tables for the database via `diesel migration run` (in the directory of this repo)
 - Done
+
+## Todos
+- Numbered commands i.e. `<recent7`
+- Map id retrieval through channel history (e.g. for `<c` or `<lb`)
+- Stream notifications (Twitch & Mixer)
+- Kick unchecked users after x days
+- Distribute `Top` role automatically
+- Server join notification / setup
+- `In VC` role distribution (generalized?)
+- (Mania star calculation)
+- Improve `<help`, command descriptions, examples, ...
+  ### Commands
+   - `<matchcosts`
+   - `<leaderboard`
+   - `<rank`
+   - `<reach`
+   - `<recentbest`
+   - `<sotarks` (generalized?)
+   ---
+   - `<bg`
+   - `<rollassign`
+   - `<authorities`
+   - Lyrics
