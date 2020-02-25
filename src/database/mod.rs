@@ -164,9 +164,8 @@ impl MySQL {
     }
 
     pub fn get_discord_links(&self) -> Result<HashMap<u64, String>, Error> {
-        use schema::discord_users;
         let conn = self.get_connection()?;
-        let tuples = discord_users::table.load::<(u64, String)>(&conn)?;
+        let tuples = schema::discord_users::table.load::<(u64, String)>(&conn)?;
         let links: HashMap<u64, String> = tuples.into_iter().collect();
         Ok(links)
     }
@@ -207,6 +206,41 @@ impl MySQL {
             "Updated map id {} with mods {} in pp_mania_mods table",
             map_id, mods
         );
+        Ok(())
+    }
+
+    // -------------------------------
+    // Table: role_assign
+    // -------------------------------
+
+    pub fn get_role_assigns(&self) -> Result<HashMap<(u64, u64, u64), u64>, Error> {
+        let conn = self.get_connection()?;
+        let tuples = schema::role_assign::table.load::<(u32, u64, u64, u64, u64)>(&conn)?;
+        let map = tuples
+            .into_iter()
+            .map(|(_, g, c, m, r)| ((g, c, m), r))
+            .collect();
+        Ok(map)
+    }
+
+    pub fn add_role_assign(
+        &self,
+        guild_id: u64,
+        channel_id: u64,
+        message_id: u64,
+        role_id: u64,
+    ) -> Result<(), Error> {
+        use schema::role_assign::dsl::{channel, guild, message, role};
+        let conn = self.get_connection()?;
+        diesel::insert_into(schema::role_assign::table)
+            .values((
+                guild.eq(guild_id),
+                channel.eq(channel_id),
+                message.eq(message_id),
+                role.eq(role_id),
+            ))
+            .execute(&conn)?;
+        info!("Inserted into role_assign table");
         Ok(())
     }
 }

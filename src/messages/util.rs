@@ -91,14 +91,9 @@ pub fn get_stars(map: &Beatmap, oppai: Option<&Oppai>) -> String {
     format!("{}★", round(stars))
 }
 
-pub fn get_grade_completion_mods(
-    score: &Score,
-    mode: GameMode,
-    map: &Beatmap,
-    cache: CacheRwLock,
-) -> String {
+pub fn get_grade_completion_mods(score: &Score, map: &Beatmap, cache: CacheRwLock) -> String {
     let mut res_string = osu::grade_emote(score.grade, cache).to_string();
-    let passed = score.total_hits(mode);
+    let passed = score.total_hits(map.mode);
     let total = map.count_objects();
     if passed < total {
         res_string.push_str(" (");

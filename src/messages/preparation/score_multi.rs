@@ -24,13 +24,7 @@ pub struct ScoreMultiData {
 }
 
 impl ScoreMultiData {
-    pub fn new(
-        mode: GameMode,
-        user: User,
-        map: Beatmap,
-        scores: Vec<Score>,
-        ctx: &Context,
-    ) -> Result<Self, Error> {
+    pub fn new(user: User, map: Beatmap, scores: Vec<Score>, ctx: &Context) -> Result<Self, Error> {
         let title = map.to_string();
         let title_url = format!("{}b/{}", HOMEPAGE, map.beatmap_id);
         let author_icon = format!("{}{}", AVATAR_URL, user.user_id);
@@ -60,20 +54,20 @@ impl ScoreMultiData {
             let mut name = format!(
                 "**{idx}.** {grade}\t[{stars}]\t{score}\t({acc})",
                 idx = (i + 1).to_string(),
-                grade = util::get_grade_completion_mods(&score, mode, &map, ctx.cache.clone()),
+                grade = util::get_grade_completion_mods(&score, &map, ctx.cache.clone()),
                 stars = util::get_stars(&map, pp_provider.oppai()),
                 score = with_comma_u64(score.score as u64),
-                acc = util::get_acc(&score, mode),
+                acc = util::get_acc(&score, map.mode),
             );
-            if mode == GameMode::MNA {
+            if map.mode == GameMode::MNA {
                 name.push('\t');
                 name.push_str(&util::get_keys(&score.enabled_mods, &map));
             }
             let value = format!(
                 "{pp}\t[ {combo} ]\t {hits}\t{ago}",
-                pp = util::get_pp(&score, &pp_provider, mode),
+                pp = util::get_pp(&score, &pp_provider, map.mode),
                 combo = util::get_combo(&score, &map),
-                hits = util::get_hits(&score, mode),
+                hits = util::get_hits(&score, map.mode),
                 ago = how_long_ago(&score.date)
             );
             fields.push((name, value, false));

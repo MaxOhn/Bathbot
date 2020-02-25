@@ -42,7 +42,6 @@ impl ScoreSingleData {
         map: Beatmap,
         personal: Vec<Score>,
         global: Vec<Score>,
-        mode: GameMode,
         ctx: &Context,
     ) -> Result<Self, Error> {
         let personal_idx = personal.into_iter().position(|s| s == score);
@@ -65,7 +64,7 @@ impl ScoreSingleData {
         } else {
             None
         };
-        let title = if mode == GameMode::MNA {
+        let title = if map.mode == GameMode::MNA {
             format!("{} {}", util::get_keys(&score.enabled_mods, &map), map)
         } else {
             map.to_string()
@@ -91,7 +90,7 @@ impl ScoreSingleData {
             }
         };
         let grade_completion_mods =
-            util::get_grade_completion_mods(&score, mode, &map, ctx.cache.clone());
+            util::get_grade_completion_mods(&score, &map, ctx.cache.clone());
         Ok(Self {
             description,
             title,
@@ -102,11 +101,11 @@ impl ScoreSingleData {
             grade_completion_mods,
             stars: util::get_stars(&map, pp_provider.oppai()),
             score: with_comma_u64(score.score as u64),
-            acc: util::get_acc(&score, mode),
+            acc: util::get_acc(&score, map.mode),
             ago: how_long_ago(&score.date),
-            pp: util::get_pp(&score, &pp_provider, mode),
+            pp: util::get_pp(&score, &pp_provider, map.mode),
             combo: util::get_combo(&score, &map),
-            hits: util::get_hits(&score, mode),
+            hits: util::get_hits(&score, map.mode),
             map_info: util::get_map_info(&map),
             footer_url: format!("{}{}", AVATAR_URL, map.creator_id),
             footer_text: format!("{:?} map by {}", map.approval_status, map.creator),

@@ -98,7 +98,7 @@ fn simulate_recent_send(
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match SimulateData::new(Some(score), map, mode, &ctx) {
+    let data = match SimulateData::new(Some(score), map, &ctx) {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id.say(
@@ -142,7 +142,10 @@ fn simulate_recent_send(
     scheduler.add_task_duration(Duration::seconds(MINIMIZE_DELAY), move |_| {
         if let Err(why) = msg.edit((&cache, &*http), |m| m.embed(|e| embed.minimize(e))) {
             if retries == 0 {
-                warn!("Error while trying to minimize simulate msg: {}", why);
+                warn!(
+                    "Error while trying to minimize simulate recent msg: {}",
+                    why
+                );
                 DateResult::Done
             } else {
                 retries -= 1;

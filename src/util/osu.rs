@@ -57,8 +57,8 @@ pub fn grade_emote(grade: Grade, cache: CacheRwLock) -> Emoji {
 }
 
 /// Assumes the mode to be STD, otherwise might not work as intended
-pub fn unchoke_score(score: &mut Score, map: &Beatmap, mode: GameMode) -> Result<(), Error> {
-    match mode {
+pub fn unchoke_score(score: &mut Score, map: &Beatmap) -> Result<(), Error> {
+    match map.mode {
         GameMode::STD => {
             let max_combo = map
                 .max_combo
@@ -97,7 +97,7 @@ pub fn unchoke_score(score: &mut Score, map: &Beatmap, mode: GameMode) -> Result
         }
         _ => Err(Error::Custom(format!(
             "Can only unchoke STD and MNA scores, not {:?}",
-            mode,
+            map.mode,
         ))),
     }
 }

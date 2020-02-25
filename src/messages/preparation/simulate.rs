@@ -28,16 +28,11 @@ pub struct SimulateData {
 }
 
 impl SimulateData {
-    pub fn new(
-        score: Option<Score>,
-        map: Beatmap,
-        mode: GameMode,
-        ctx: &Context,
-    ) -> Result<Self, Error> {
-        if mode == GameMode::TKO || mode == GameMode::CTB {
+    pub fn new(score: Option<Score>, map: Beatmap, ctx: &Context) -> Result<Self, Error> {
+        if map.mode == GameMode::TKO || map.mode == GameMode::CTB {
             return Err(Error::Custom(format!(
                 "Can only simulate STD and MNA scores, not {:?}",
-                mode,
+                map.mode,
             )));
         }
         let title = map.to_string();
@@ -54,12 +49,12 @@ impl SimulateData {
                 }
             };
             let prev_pp = Some(round(pp_provider.pp()).to_string());
-            let prev_combo = if mode == GameMode::STD {
+            let prev_combo = if map.mode == GameMode::STD {
                 Some(s.max_combo.to_string())
             } else {
                 None
             };
-            let prev_hits = Some(util::get_hits(&s, mode));
+            let prev_hits = Some(util::get_hits(&s, map.mode));
             (
                 prev_pp,
                 prev_combo,
@@ -71,14 +66,14 @@ impl SimulateData {
             (None, None, None, None, None)
         };
         let mut unchoked_score = score.unwrap_or_default();
-        if let Err(e) = osu::unchoke_score(&mut unchoked_score, &map, mode) {
+        if let Err(e) = osu::unchoke_score(&mut unchoked_score, &map) {
             return Err(Error::Custom(format!(
                 "Something went wrong while unchoking a score: {}",
                 e
             )));
         }
         let pp_provider = if let Some(mut pp_provider) = pp_provider {
-            if let Err(e) = pp_provider.recalculate(&unchoked_score, mode) {
+            if let Err(e) = pp_provider.recalculate(&unchoked_score, map.mode) {
                 return Err(Error::Custom(format!(
                     "Something went wrong while recalculating PPProvider for unchoked score: {}",
                     e
@@ -98,23 +93,19 @@ impl SimulateData {
         };
         let stars = util::get_stars(&map, pp_provider.oppai());
         let grade_completion_mods =
-            util::get_grade_completion_mods(&unchoked_score, mode, &map, ctx.cache.clone());
-        let pp = util::get_pp(&unchoked_score, &pp_provider, mode);
-        let (hits, combo, acc) = match mode {
+            util::get_grade_completion_mods(&unchoked_score, &map, ctx.cache.clone());
+        let pp = util::get_pp(&unchoked_score, &pp_provider, map.mode);
+        let hits = util::get_hits(&unchoked_score, map.mode);
+        let (combo, acc) = match map.mode {
             GameMode::STD => (
-                util::get_hits(&unchoked_score, mode),
                 util::get_combo(&unchoked_score, &map),
-                util::get_acc(&unchoked_score, mode),
+                util::get_acc(&unchoked_score, map.mode),
             ),
-            GameMode::MNA => (
-                String::from("{ - }"),
-                String::from("**-**/-"),
-                String::from("-%"),
-            ),
+            GameMode::MNA => (String::from("**-**/-"), String::from("100%")),
             _ => {
                 return Err(Error::Custom(format!(
                     "Cannot prepare simulate data of GameMode::{:?} score",
-                    mode
+                    map.mode
                 )))
             }
         };

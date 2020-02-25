@@ -1,11 +1,15 @@
 use crate::{
     commands::arguments,
+    database::MySQL,
     messages::{BotEmbed, ScoreMultiData},
     util::globals::OSU_API_ISSUE,
     DiscordLinks, Osu,
 };
 
-use rosu::backend::requests::{BeatmapRequest, ScoreRequest, UserRequest};
+use rosu::{
+    backend::requests::{BeatmapRequest, ScoreRequest, UserRequest},
+    models::ApprovalStatus::{Loved, Ranked},
+};
 use serenity::{
     framework::standard::{macros::command, Args, CommandError, CommandResult},
     model::prelude::Message,
@@ -25,7 +29,7 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
         0 => {
             msg.channel_id.say(
                 &ctx.http,
-                "You need to provide a decimal number as argument",
+                "You need to provide a beatmap, either as map id or as url",
             )?;
             return Ok(());
         }
@@ -62,29 +66,45 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
         )?;
         return Ok(());
     };
+    let mut rt = Runtime::new().unwrap();
 
-    // Retrieve user, map, and user's scores on the map
+    // Retrieving the beatmap
+    let (map_to_db, map) = {
+        let data = ctx.data.read();
+        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        match mysql.get_beatmap(map_id) {
+            Ok(map) => (false, map),
+            Err(_) => {
+                let map_req = BeatmapRequest::new().map_id(map_id);
+                let osu = data.get::<Osu>().expect("Could not get osu client");
+                let map = match rt.block_on(map_req.queue_single(&osu)) {
+                    Ok(result) => match result {
+                        Some(map) => map,
+                        None => {
+                            msg.channel_id.say(
+                                &ctx.http,
+                                format!("Could not find beatmap with id `{}`. Did you give me a mapset id instead of a map id?", map_id),
+                            )?;
+                            return Ok(());
+                        }
+                    },
+                    Err(why) => {
+                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                        return Err(CommandError::from(why.to_string()));
+                    }
+                };
+                (
+                    map.approval_status == Ranked || map.approval_status == Loved,
+                    map,
+                )
+            }
+        }
+    };
+
+    // Retrieve user and user's scores on the map
     let (user, map, scores) = {
-        let mut rt = Runtime::new().unwrap();
-        let map_req = BeatmapRequest::new().map_id(map_id);
         let data = ctx.data.read();
         let osu = data.get::<Osu>().expect("Could not get osu client");
-        let map = match rt.block_on(map_req.queue_single(osu)) {
-            Ok(result) => match result {
-                Some(map) => map,
-                None => {
-                    msg.channel_id.say(
-                        &ctx.http,
-                        format!("Could not find beatmap with id `{}`. Did you give me a mapset id instead of a map id?", map_id),
-                    )?;
-                    return Ok(());
-                }
-            },
-            Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
-                return Err(CommandError::from(why.to_string()));
-            }
-        };
         let score_req = ScoreRequest::with_map_id(map_id)
             .username(&name)
             .mode(map.mode);
@@ -114,7 +134,8 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     };
 
     // Accumulate all necessary data
-    let data = match ScoreMultiData::new(map.mode, user, map, scores, &ctx) {
+    let map_copy = if map_to_db { Some(map.clone()) } else { None };
+    let data = match ScoreMultiData::new(user, map, scores, &ctx) {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id.say(
@@ -130,5 +151,14 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let _ = msg
         .channel_id
         .send_message(&ctx.http, |m| m.embed(|e| embed.create(e)));
+
+    // Add map to database if its not in already
+    if let Some(map) = map_copy {
+        let data = ctx.data.read();
+        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        if let Err(why) = mysql.insert_beatmap(&map) {
+            warn!("Could not add map of compare command to database: {}", why);
+        }
+    }
     Ok(())
 }

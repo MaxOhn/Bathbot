@@ -8,6 +8,7 @@ pub mod profile;
 pub mod recent;
 pub mod recent_lb;
 mod scores;
+mod simulate;
 pub mod simulate_recent;
 pub mod standard;
 pub mod taiko;
@@ -20,12 +21,13 @@ pub use self::standard::*;
 pub use self::taiko::*;
 pub use link::*;
 pub use scores::*;
+pub use simulate::*;
 
 use serenity::framework::standard::macros::group;
 
 #[group]
 #[description = "Commands for all osu! modes"]
-#[commands(scores, link)]
+#[commands(scores, link, simulate)]
 struct OsuGeneral;
 
 pub const MINIMIZE_DELAY: i64 = 45;

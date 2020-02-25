@@ -21,7 +21,14 @@ use log::{error, info};
 use rosu::backend::Osu as OsuClient;
 use serenity::{
     framework::{standard::DispatchError, StandardFramework},
-    model::{channel::Channel, event::ResumedEvent, gateway::Ready},
+    model::{
+        channel::{Channel, Reaction},
+        event::ResumedEvent,
+        gateway::Ready,
+        guild::Guild,
+        id::{ChannelId, GuildId, MessageId, RoleId},
+        voice::VoiceState,
+    },
     prelude::*,
 };
 use std::{
@@ -42,6 +49,10 @@ fn setup() -> Result<(String, String, String), Error> {
 }
 
 fn main() -> Result<(), Error> {
+    // -----------------
+    // Data preparations
+    // -----------------
+
     let (discord_token, osu_token, database_url) = setup()?;
     let osu = OsuClient::new(osu_token);
     let mut rt = tokio::runtime::Runtime::new().expect("Could not create runtime");
@@ -75,6 +86,11 @@ fn main() -> Result<(), Error> {
         data.insert::<PerformanceCalculatorLock>(Arc::new(Mutex::new(())));
         data.insert::<SchedulerKey>(Arc::new(RwLock::new(scheduler)));
     }
+
+    // ---------------
+    // Framework setup
+    // ---------------
+
     discord.with_framework(
         StandardFramework::new()
             .configure(|c| {
@@ -123,7 +139,7 @@ fn main() -> Result<(), Error> {
                 info!("[{}] {}: {}", location, msg.author.name, msg.content,);
                 match ctx.data.write().get_mut::<CommandCounter>() {
                     Some(counter) => *counter.entry(cmd_name.to_owned()).or_insert(0) += 1,
-                    None => error!("Expected CommandCounter in ShareMap."),
+                    None => error!("Could not get CommandCounter"),
                 }
                 true
             })
@@ -136,8 +152,11 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 
-struct Handler;
+// --------------
+// Event handling
+// --------------
 
+struct Handler;
 impl EventHandler for Handler {
     fn ready(&self, _: Context, ready: Ready) {
         info!("Connected as {}", ready.user.name);
@@ -146,16 +165,158 @@ impl EventHandler for Handler {
     fn resume(&self, _: Context, _: ResumedEvent) {
         info!("Resumed connection");
     }
+
+    fn guild_create(&self, _: Context, guild: Guild, is_new: bool) {
+        if is_new {
+            info!("'guild_create' triggered for new server '{}'", guild.name);
+        }
+    }
+
+    fn voice_state_update(
+        &self,
+        _ctx: Context,
+        _guild: Option<GuildId>,
+        _old: Option<VoiceState>,
+        _new: VoiceState,
+    ) {
+        // TODO
+    }
+
+    fn cache_ready(&self, ctx: Context, guilds: Vec<GuildId>) {
+        let reaction_tracker: HashMap<_, _> = match ctx.data.read().get::<MySQL>() {
+            Some(mysql) => mysql
+                .get_role_assigns()
+                .expect("Could not get role assigns")
+                .into_iter()
+                .filter(|((guild, ..), _)| {
+                    if guilds.iter().any(|g| g.as_u64() == guild) {
+                        true
+                    } else {
+                        warn!("Guild {} was not in cache for role assign", guild);
+                        false
+                    }
+                })
+                .map(|((_, c, m), r)| ((ChannelId(c), MessageId(m)), RoleId(r)))
+                .collect(),
+            None => panic!("Could not get MySQL"),
+        };
+        {
+            let mut data = ctx.data.write();
+            data.insert::<ReactionTracker>(reaction_tracker);
+        }
+    }
+
+    fn reaction_add(&self, ctx: Context, reaction: Reaction) {
+        let key = (reaction.channel_id, reaction.message_id);
+        let role: Option<RoleId> = match ctx.data.read().get::<ReactionTracker>() {
+            Some(tracker) => {
+                if tracker.contains_key(&key) {
+                    Some(*tracker.get(&key).unwrap())
+                } else {
+                    None
+                }
+            }
+            None => {
+                error!("Could not get ReactionTracker");
+                return;
+            }
+        };
+        if let Some(role) = role {
+            let channel = match reaction.channel(&ctx) {
+                Ok(channel) => channel,
+                Err(why) => {
+                    error!("Could not get Channel from reaction: {}", why);
+                    return;
+                }
+            };
+            let guild_lock = match channel.guild() {
+                Some(guild_channel) => match guild_channel.read().guild(&ctx) {
+                    Some(guild) => guild.clone(),
+                    None => {
+                        error!("Could not get Guild from reaction");
+                        return;
+                    }
+                },
+                None => {
+                    error!("Could not get GuildChannel from reaction");
+                    return;
+                }
+            };
+            let guild = guild_lock.read();
+            let mut member = match guild.member(&ctx, reaction.user_id) {
+                Ok(member) => member,
+                Err(why) => {
+                    error!("Could not get Member from reaction: {}", why);
+                    return;
+                }
+            };
+            if let Err(why) = member.add_role(&ctx.http, role) {
+                error!("Could not add role to member for reaction: {}", why);
+            }
+        }
+    }
+
+    fn reaction_remove(&self, ctx: Context, reaction: Reaction) {
+        let key = (reaction.channel_id, reaction.message_id);
+        let role: Option<RoleId> = match ctx.data.read().get::<ReactionTracker>() {
+            Some(tracker) => {
+                if tracker.contains_key(&key) {
+                    Some(*tracker.get(&key).unwrap())
+                } else {
+                    None
+                }
+            }
+            None => {
+                error!("Could not get ReactionTracker");
+                return;
+            }
+        };
+        if let Some(role) = role {
+            let channel = match reaction.channel(&ctx) {
+                Ok(channel) => channel,
+                Err(why) => {
+                    error!("Could not get Channel from reaction: {}", why);
+                    return;
+                }
+            };
+            let guild_lock = match channel.guild() {
+                Some(guild_channel) => match guild_channel.read().guild(&ctx) {
+                    Some(guild) => guild.clone(),
+                    None => {
+                        error!("Could not get Guild from reaction");
+                        return;
+                    }
+                },
+                None => {
+                    error!("Could not get GuildChannel from reaction");
+                    return;
+                }
+            };
+            let guild = guild_lock.read();
+            let mut member = match guild.member(&ctx, reaction.user_id) {
+                Ok(member) => member,
+                Err(why) => {
+                    error!("Could not get Member from reaction: {}", why);
+                    return;
+                }
+            };
+            if let Err(why) = member.remove_role(&ctx.http, role) {
+                error!("Could not remove role from member for reaction: {}", why);
+            }
+        }
+    }
 }
 
-pub struct CommandCounter;
+// ------------------
+// Struct definitions
+// ------------------
 
+pub struct CommandCounter;
 impl TypeMapKey for CommandCounter {
     type Value = HashMap<String, u32>;
 }
 
 pub struct Osu;
-
 impl TypeMapKey for Osu {
     type Value = OsuClient;
 }
@@ -169,19 +330,16 @@ impl TypeMapKey for MySQL {
 }
 
 pub struct DiscordLinks;
-
 impl TypeMapKey for DiscordLinks {
     type Value = HashMap<u64, String>;
 }
 
 pub struct BootTime;
-
 impl TypeMapKey for BootTime {
     type Value = DateTime<Utc>;
 }
 
 pub struct PerformanceCalculatorLock;
-
 impl TypeMapKey for PerformanceCalculatorLock {
     type Value = Arc<Mutex<()>>;
 }
@@ -189,4 +347,9 @@ impl TypeMapKey for PerformanceCalculatorLock {
 pub struct SchedulerKey;
 impl TypeMapKey for SchedulerKey {
     type Value = Arc<RwLock<Scheduler>>;
+}
+
+pub struct ReactionTracker;
+impl TypeMapKey for ReactionTracker {
+    type Value = HashMap<(ChannelId, MessageId), RoleId>;
 }
