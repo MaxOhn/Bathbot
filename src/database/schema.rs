@@ -61,7 +61,6 @@ table! {
 table! {
     role_assign (id) {
         id -> Unsigned<Integer>,
-        guild -> Unsigned<Bigint>,
         channel -> Unsigned<Bigint>,
         message -> Unsigned<Bigint>,
         role -> Unsigned<Bigint>,
@@ -71,4 +70,10 @@ table! {
 joinable!(maps -> mapsets (beatmapset_id));
 joinable!(pp_mania_mods -> maps (beatmap_id));
 
-allow_tables_to_appear_in_same_query!(discord_users, maps, mapsets, pp_mania_mods, role_assign,);
+allow_tables_to_appear_in_same_query!(
+    discord_users,
+    maps,
+    mapsets,
+    pp_mania_mods,
+    role_assign,
+);

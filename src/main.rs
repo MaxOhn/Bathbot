@@ -182,21 +182,13 @@ impl EventHandler for Handler {
         // TODO
     }
 
-    fn cache_ready(&self, ctx: Context, guilds: Vec<GuildId>) {
+    fn cache_ready(&self, ctx: Context, _: Vec<GuildId>) {
         let reaction_tracker: HashMap<_, _> = match ctx.data.read().get::<MySQL>() {
             Some(mysql) => mysql
                 .get_role_assigns()
                 .expect("Could not get role assigns")
                 .into_iter()
-                .filter(|((guild, ..), _)| {
-                    if guilds.iter().any(|g| g.as_u64() == guild) {
-                        true
-                    } else {
-                        warn!("Guild {} was not in cache for role assign", guild);
-                        false
-                    }
-                })
-                .map(|((_, c, m), r)| ((ChannelId(c), MessageId(m)), RoleId(r)))
+                .map(|((c, m), r)| ((ChannelId(c), MessageId(m)), RoleId(r)))
                 .collect(),
             None => panic!("Could not get MySQL"),
         };
@@ -250,15 +242,25 @@ impl EventHandler for Handler {
                     return;
                 }
             };
+            let role_name = role
+                .to_role_cached(&ctx.cache)
+                .expect("Role not found in cache")
+                .name;
             if let Err(why) = member.add_role(&ctx.http, role) {
                 error!("Could not add role to member for reaction: {}", why);
+            } else {
+                info!(
+                    "Assigned role '{}' to member {}",
+                    role_name,
+                    member.user.read().name
+                );
             }
         }
     }
 
     fn reaction_remove(&self, ctx: Context, reaction: Reaction) {
         let key = (reaction.channel_id, reaction.message_id);
-        let role: Option<RoleId> = match ctx.data.read().get::<ReactionTracker>() {
+        let role = match ctx.data.read().get::<ReactionTracker>() {
             Some(tracker) => {
                 if tracker.contains_key(&key) {
                     Some(*tracker.get(&key).unwrap())
@@ -300,8 +302,18 @@ impl EventHandler for Handler {
                     return;
                 }
             };
+            let role_name = role
+                .to_role_cached(&ctx.cache)
+                .expect("Role not found in cache")
+                .name;
             if let Err(why) = member.remove_role(&ctx.http, role) {
                 error!("Could not remove role from member for reaction: {}", why);
+            } else {
+                info!(
+                    "Removed role '{}' from member {}",
+                    role_name,
+                    member.user.read().name
+                );
             }
         }
     }

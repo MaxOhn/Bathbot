@@ -1,7 +1,10 @@
-#![allow(dead_code)] // TODO: remove line once its used
+#![allow(dead_code)]
 
 use regex::Regex;
-use serenity::framework::standard::Args;
+use serenity::{
+    framework::standard::Args,
+    model::id::{ChannelId, RoleId},
+};
 use std::str::FromStr;
 
 pub struct ArgParser {
@@ -58,6 +61,45 @@ impl ArgParser {
     pub fn get_name(&mut self) -> Option<String> {
         self.args.restore();
         self.args.trimmed().single_quoted().ok()
+    }
+
+    /// Check if the next argument can be interpreted as ChannelId and return it
+    pub fn get_next_channel(&mut self) -> Option<ChannelId> {
+        if let Ok(val) = self.args.single::<String>() {
+            if let Ok(id) = u64::from_str(&val) {
+                Some(ChannelId(id))
+            } else {
+                let regex = Regex::new(r"<#([0-9]*)>$").unwrap();
+                let caps = regex.captures(&val).unwrap();
+                caps.get(1)
+                    .and_then(|id| u64::from_str(id.as_str()).ok())
+                    .map(|id| ChannelId(id))
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Check if the next argument can be interpreted as u64 and return it
+    pub fn get_next_u64(&mut self) -> Option<u64> {
+        self.args.single().ok()
+    }
+
+    /// Check if the next argument can be interpreted as RoleId and return it
+    pub fn get_next_role(&mut self) -> Option<RoleId> {
+        if let Ok(val) = self.args.single::<String>() {
+            if let Ok(id) = u64::from_str(&val) {
+                Some(RoleId(id))
+            } else {
+                let regex = Regex::new(r"<@&([0-9]*)>$").unwrap();
+                let caps = regex.captures(&val).unwrap();
+                caps.get(1)
+                    .and_then(|id| u64::from_str(id.as_str()).ok())
+                    .map(|id| RoleId(id))
+            }
+        } else {
+            None
+        }
     }
 
     fn get_parameter(&self, keywords: &[&str]) -> Option<String> {

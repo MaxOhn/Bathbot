@@ -1,4 +1,4 @@
-#![allow(dead_code)] // remove once its used
+#![allow(unused_imports)]
 
 mod score;
 
@@ -23,6 +23,7 @@ impl Scraper {
     pub async fn new() -> Result<Self, Error> {
         // Initialize client
         let client = Client::builder().cookie_store(true).build()?;
+        /*
         // Prepare osu login
         let form = Form::new()
             .text("username", env::var("OSU_LOGIN_USERNAME")?)
@@ -43,6 +44,8 @@ impl Scraper {
             ));
         }
         info!("Scraper successfully logged into osu!");
+        */
+        info!("Skipping Scraper login into osu!");
         let osu_limiter = Mutex::new(RateLimiter::new(2, 1));
         Ok(Self {
             client,
@@ -90,6 +93,7 @@ impl Scraper {
         Ok(scores.get())
     }
 
+    #[allow(dead_code)]
     pub async fn get_userid_of_rank(
         &self,
         rank: usize,
@@ -165,6 +169,7 @@ impl Scraper {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn get_top50_names(
         &self,
         country_acrynom: &str,

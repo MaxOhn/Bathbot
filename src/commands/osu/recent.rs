@@ -18,7 +18,6 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use std::error::Error;
 use tokio::runtime::Runtime;
 use white_rabbit::{DateResult, Duration, Utc};
 
@@ -143,7 +142,7 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
                 &ctx.http,
                 "Some issue while calculating recent data, blame bade",
             )?;
-            return Err(CommandError::from(why.description()));
+            return Err(CommandError::from(why.to_string()));
         }
     };
 

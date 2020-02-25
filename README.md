@@ -20,7 +20,6 @@ Work in progress discord bot port for the game [osu!](https://osu.ppy.sh/home) f
 - Stream notifications (Twitch & Mixer)
 - Kick unchecked users after x days
 - Distribute `Top` role automatically
-- Server join notification / setup
 - `In VC` role distribution (generalized?)
 - (Mania star calculation)
 - Improve `<help`, command descriptions, examples, ...
@@ -33,6 +32,5 @@ Work in progress discord bot port for the game [osu!](https://osu.ppy.sh/home) f
    - `<sotarks` (generalized?)
    ---
    - `<bg`
-   - `<rollassign`
    - `<authorities`
    - Lyrics
