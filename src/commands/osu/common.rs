@@ -1,8 +1,5 @@
 use crate::{
-    database::MySQL,
-    messages::{BotEmbed, CommonData},
-    util::globals::OSU_API_ISSUE,
-    DiscordLinks, Osu,
+    database::MySQL, messages::BasicEmbedData, util::globals::OSU_API_ISSUE, DiscordLinks, Osu,
 };
 
 use itertools::Itertools;
@@ -181,16 +178,15 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
             content.push(':');
         }
     }
-    let (data, thumbnail) = CommonData::new(users, all_scores, maps);
+    let (data, thumbnail) = BasicEmbedData::create_common(users, all_scores, maps);
 
     // Creating the embed
-    let embed = BotEmbed::UserCommonScores(data);
     let _ = msg.channel_id.send_message(&ctx.http, |m| {
         if !thumbnail.is_empty() {
             let bytes: &[u8] = &thumbnail;
             m.add_file((bytes, "avatar_fuse.png"));
         }
-        m.content(content).embed(|e| embed.create(e))
+        m.content(content).embed(|e| data.build(e))
     });
 
     // Add missing maps to database

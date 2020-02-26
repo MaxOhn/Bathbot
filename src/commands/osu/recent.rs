@@ -1,6 +1,6 @@
 use crate::{
     database::MySQL,
-    messages::{BotEmbed, ScoreSingleData},
+    messages::RecentData,
     util::globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
     DiscordLinks, Osu, SchedulerKey,
 };
@@ -134,7 +134,7 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
         .iter()
         .take_while(|s| s.beatmap_id.unwrap() == map_id)
         .count();
-    let data = match ScoreSingleData::new(user, score, map, best, global, &ctx) {
+    let data = match RecentData::new(user, score, map, best, global, &ctx) {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id.say(
@@ -146,10 +146,9 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
     };
 
     // Creating the embed
-    let embed = BotEmbed::UserScoreSingle(Box::new(data));
     let mut msg = msg.channel_id.send_message(&ctx.http, |m| {
         m.content(format!("Try #{}", tries))
-            .embed(|e| embed.create_full(e))
+            .embed(|e| data.build(e))
     })?;
 
     // Add map to database if its not in already
@@ -173,7 +172,7 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
     let cache = ctx.cache.clone();
     let mut retries = 5;
     scheduler.add_task_duration(Duration::seconds(MINIMIZE_DELAY), move |_| {
-        if let Err(why) = msg.edit((&cache, &*http), |m| m.embed(|e| embed.minimize(e))) {
+        if let Err(why) = msg.edit((&cache, &*http), |m| m.embed(|e| data.minimize(e))) {
             if retries == 0 {
                 warn!("Error while trying to minimize recent msg: {}", why);
                 DateResult::Done

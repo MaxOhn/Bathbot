@@ -1,7 +1,7 @@
 use crate::{
     commands::{ArgParser, ModSelection},
     database::MySQL,
-    messages::{AuthorDescThumbData, BotEmbed},
+    messages::BasicEmbedData,
     util::globals::OSU_API_ISSUE,
     DiscordLinks, Osu,
 };
@@ -21,19 +21,9 @@ use tokio::runtime::Runtime;
 fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     // Parse the name
     let mut arg_parser = ArgParser::new(args);
-    let (mods, selection) = if let Some((m, s)) = arg_parser.get_mods() {
-        let mods = match GameMods::try_from(m.as_ref()) {
-            Ok(mods) => mods,
-            Err(_) => {
-                msg.channel_id
-                    .say(&ctx.http, "Could not parse given mods")?;
-                return Ok(());
-            }
-        };
-        (mods, s)
-    } else {
-        (GameMods::default(), ModSelection::None)
-    };
+    let (mods, selection) = arg_parser
+        .get_mods()
+        .unwrap_or_else(|| (GameMods::default(), ModSelection::None));
     let combo = if let Some(combo) = arg_parser.get_combo() {
         match u32::from_str(&combo) {
             Ok(val) => val,
@@ -222,7 +212,7 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
     };
 
     // Accumulate all necessary data
-    let data = match AuthorDescThumbData::create_top(user, scores_data, mode, &ctx) {
+    let data = match BasicEmbedData::create_top(user, scores_data, mode, &ctx) {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id.say(
@@ -234,7 +224,6 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
     };
 
     // Creating the embed
-    let embed = BotEmbed::AuthorDescThumb(data);
     let _ = msg.channel_id.send_message(&ctx.http, |m| {
         let mut content = format!(
             "Found {num} top score{plural} with the specified properties",
@@ -246,7 +235,7 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
         } else {
             content.push(':');
         }
-        m.content(content).embed(|e| embed.create(e))
+        m.content(content).embed(|e| data.build(e))
     });
 
     // Add missing maps to database

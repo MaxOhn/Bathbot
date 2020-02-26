@@ -1,18 +1,14 @@
-#![allow(clippy::too_many_arguments)]
-
-use crate::{
-    messages::util,
-    util::{
-        globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
-        numbers::round,
-        osu,
-        pp::PPProvider,
-        Error,
-    },
+use super::util;
+use crate::util::{
+    globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
+    numbers::round,
+    osu,
+    pp::PPProvider,
+    Error,
 };
 
 use rosu::models::{Beatmap, GameMode, Score};
-use serenity::prelude::Context;
+use serenity::{builder::CreateEmbed, prelude::Context};
 
 pub struct SimulateData {
     pub title: String,
@@ -34,6 +30,66 @@ pub struct SimulateData {
 }
 
 impl SimulateData {
+    pub fn build<'d, 'e>(&'d self, embed: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
+        let pp = if let Some(prev_pp) = &self.prev_pp {
+            format!("{} → {}", prev_pp, self.pp)
+        } else {
+            self.pp.to_owned()
+        };
+        let combo = if let Some(prev_combo) = &self.prev_combo {
+            format!("{} → {}", prev_combo, self.combo)
+        } else {
+            self.combo.to_owned()
+        };
+        let hits = if let Some(prev_hits) = &self.prev_hits {
+            format!("{} → {}", prev_hits, self.hits,)
+        } else {
+            self.hits.to_owned()
+        };
+        embed
+            .title(&self.title)
+            .url(&self.title_url)
+            .thumbnail(&self.thumbnail)
+            .footer(|f| f.icon_url(&self.footer_url).text(&self.footer_text))
+            .fields(vec![
+                ("Grade", &self.grade_completion_mods, true),
+                ("Acc", &self.acc, true),
+                ("Combo", &combo, true),
+                ("PP", &pp, false),
+                ("Hits", &hits, false),
+                ("Map Info", &self.map_info, false),
+            ])
+    }
+
+    pub fn minimize<'d, 'e>(&'d self, embed: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
+        let pp = if let Some(prev_pp) = &self.prev_pp {
+            format!("{} → {}", prev_pp, self.pp)
+        } else {
+            self.pp.clone()
+        };
+        let combo = if let Some(prev_combo) = &self.prev_combo {
+            format!("{} → {}", prev_combo, self.combo)
+        } else {
+            self.combo.clone()
+        };
+        let title = format!("{} [{}]", self.title, self.stars);
+        let name = format!(
+            "{} ({}) [ {} ]",
+            self.grade_completion_mods, self.acc, combo
+        );
+        let mut value = format!("{} {}", pp, self.hits);
+        if let Some(misses) = self.removed_misses {
+            if misses > 0 {
+                value.push_str(&format!(" (+{}miss)", misses));
+            }
+        }
+        embed
+            .field(name, value, false)
+            .thumbnail(&self.thumbnail)
+            .url(&self.title_url)
+            .title(title)
+    }
+
     pub fn new(score: Option<Score>, map: Beatmap, ctx: &Context) -> Result<Self, Error> {
         if map.mode == GameMode::TKO || map.mode == GameMode::CTB {
             return Err(Error::Custom(format!(

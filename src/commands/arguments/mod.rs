@@ -1,11 +1,12 @@
 #![allow(dead_code)]
 
 use regex::Regex;
+use rosu::models::GameMods;
 use serenity::{
     framework::standard::Args,
     model::id::{ChannelId, RoleId},
 };
-use std::str::FromStr;
+use std::{convert::TryFrom, str::FromStr};
 
 pub struct ArgParser {
     args: Args,
@@ -17,20 +18,29 @@ impl ArgParser {
     }
 
     /// Search for `+mods` (included), `+mods!` (exact), or `-mods!` (excluded)
-    pub fn get_mods(&mut self) -> Option<(String, ModSelection)> {
+    pub fn get_mods(&mut self) -> Option<(GameMods, ModSelection)> {
         for arg in self.args.trimmed().iter::<String>() {
             if let Ok(arg) = arg {
                 if arg.starts_with('+') {
                     if arg.ends_with('!') {
-                        return Some((arg[1..arg.len() - 1].to_owned(), ModSelection::Exact));
+                        let mods = match GameMods::try_from(&arg[1..arg.len() - 1]) {
+                            Ok(mods) => mods,
+                            Err(_) => return None,
+                        };
+                        return Some((mods, ModSelection::Exact));
                     } else {
-                        return Some((
-                            arg.trim_start_matches('+').to_owned(),
-                            ModSelection::Includes,
-                        ));
+                        let mods = match GameMods::try_from(&arg[1..]) {
+                            Ok(mods) => mods,
+                            Err(_) => return None,
+                        };
+                        return Some((mods, ModSelection::Includes));
                     }
                 } else if arg.starts_with('-') && arg.ends_with('!') {
-                    return Some((arg[1..arg.len() - 1].to_owned(), ModSelection::Excludes));
+                    let mods = match GameMods::try_from(&arg[1..arg.len() - 1]) {
+                        Ok(mods) => mods,
+                        Err(_) => return None,
+                    };
+                    return Some((mods, ModSelection::Excludes));
                 }
             }
         }
@@ -73,7 +83,7 @@ impl ArgParser {
                 let caps = regex.captures(&val).unwrap();
                 caps.get(1)
                     .and_then(|id| u64::from_str(id.as_str()).ok())
-                    .map(|id| ChannelId(id))
+                    .map(ChannelId)
             }
         } else {
             None
@@ -95,7 +105,7 @@ impl ArgParser {
                 let caps = regex.captures(&val).unwrap();
                 caps.get(1)
                     .and_then(|id| u64::from_str(id.as_str()).ok())
-                    .map(|id| RoleId(id))
+                    .map(RoleId)
             }
         } else {
             None

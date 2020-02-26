@@ -1,8 +1,4 @@
-use crate::{
-    messages::{AuthorDescThumbTitleData, BotEmbed},
-    util::globals::OSU_API_ISSUE,
-    DiscordLinks, Osu,
-};
+use crate::{messages::BasicEmbedData, util::globals::OSU_API_ISSUE, DiscordLinks, Osu};
 
 use rosu::{
     backend::requests::UserRequest,
@@ -95,13 +91,12 @@ fn pp_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> 
     };
 
     // Accumulate all necessary data
-    let data = AuthorDescThumbTitleData::create_ppmissing(user, scores, pp);
+    let data = BasicEmbedData::create_ppmissing(user, scores, pp);
 
     // Creating the embed
-    let embed = BotEmbed::AuthorDescThumbTitle(data);
     let _ = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| embed.create(e)));
+        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)));
     Ok(())
 }
 

@@ -1,8 +1,5 @@
 use crate::{
-    commands::arguments,
-    database::MySQL,
-    messages::{BotEmbed, ScoreMultiData},
-    util::globals::OSU_API_ISSUE,
+    commands::arguments, database::MySQL, messages::BasicEmbedData, util::globals::OSU_API_ISSUE,
     DiscordLinks, Osu,
 };
 
@@ -135,7 +132,7 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match ScoreMultiData::new(user, map, scores, &ctx) {
+    let data = match BasicEmbedData::create_scores(user, map, scores, &ctx) {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id.say(
@@ -146,11 +143,10 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
         }
     };
 
-    // Creating the embed
-    let embed = BotEmbed::UserScoreMulti(Box::new(data));
-    let _ = msg
+    // Sending the embed
+    let result = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| embed.create(e)));
+        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)));
 
     // Add map to database if its not in already
     if let Some(map) = map_copy {
@@ -160,5 +156,6 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
             warn!("Could not add map of compare command to database: {}", why);
         }
     }
+    result?;
     Ok(())
 }

@@ -223,7 +223,7 @@ impl EventHandler for Handler {
             };
             let guild_lock = match channel.guild() {
                 Some(guild_channel) => match guild_channel.read().guild(&ctx) {
-                    Some(guild) => guild.clone(),
+                    Some(guild) => guild,
                     None => {
                         error!("Could not get Guild from reaction");
                         return;
@@ -283,7 +283,7 @@ impl EventHandler for Handler {
             };
             let guild_lock = match channel.guild() {
                 Some(guild_channel) => match guild_channel.read().guild(&ctx) {
-                    Some(guild) => guild.clone(),
+                    Some(guild) => guild,
                     None => {
                         error!("Could not get Guild from reaction");
                         return;

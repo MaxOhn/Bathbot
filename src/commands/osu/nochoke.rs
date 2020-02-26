@@ -1,8 +1,5 @@
 use crate::{
-    database::MySQL,
-    messages::{AuthorDescThumbData, BotEmbed},
-    util::globals::OSU_API_ISSUE,
-    DiscordLinks, Osu,
+    database::MySQL, messages::BasicEmbedData, util::globals::OSU_API_ISSUE, DiscordLinks, Osu,
 };
 
 use rosu::{
@@ -138,7 +135,7 @@ fn nochoke(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let _ = msg.channel_id.broadcast_typing(&ctx.http);
 
     // Accumulate all necessary data
-    let data = match AuthorDescThumbData::create_nochoke(user, scores_data, ctx.cache.clone()) {
+    let data = match BasicEmbedData::create_nochoke(user, scores_data, ctx.cache.clone()) {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id.say(
@@ -150,12 +147,11 @@ fn nochoke(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     };
 
     // Creating the embed
-    let embed = BotEmbed::AuthorDescThumb(data);
     let msg_res = msg
         .channel_id
         .send_message(&ctx.http, |m| {
             m.content(format!("{} No-choke top scores for `{}`:", mention, name))
-                .embed(|e| embed.create(e))
+                .embed(|e| data.build(e))
         })
         .and(msg.delete(&ctx));
 

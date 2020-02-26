@@ -1,7 +1,7 @@
 use crate::{
     commands::arguments,
     database::MySQL,
-    messages::{BotEmbed, SimulateData},
+    messages::SimulateData,
     util::globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
     Osu, SchedulerKey,
 };
@@ -96,10 +96,9 @@ fn simulate(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     };
 
     // Creating the embed
-    let embed = BotEmbed::SimulateScore(Box::new(data));
     let mut msg = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| embed.create_full(e)))?;
+        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))?;
 
     // Add map to database if its not in already
     if let Some(map) = map_copy {
@@ -125,7 +124,7 @@ fn simulate(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let cache = ctx.cache.clone();
     let mut retries = 5;
     scheduler.add_task_duration(Duration::seconds(MINIMIZE_DELAY), move |_| {
-        if let Err(why) = msg.edit((&cache, &*http), |m| m.embed(|e| embed.minimize(e))) {
+        if let Err(why) = msg.edit((&cache, &*http), |m| m.embed(|e| data.minimize(e))) {
             if retries == 0 {
                 warn!("Error while trying to minimize simulate msg: {}", why);
                 DateResult::Done

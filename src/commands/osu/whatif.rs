@@ -1,8 +1,4 @@
-use crate::{
-    messages::{AuthorDescThumbTitleData, BotEmbed},
-    util::globals::OSU_API_ISSUE,
-    DiscordLinks, Osu,
-};
+use crate::{messages::BasicEmbedData, util::globals::OSU_API_ISSUE, DiscordLinks, Osu};
 
 use rosu::{
     backend::requests::UserRequest,
@@ -95,13 +91,11 @@ fn whatif_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
     };
 
     // Accumulate all necessary data
-    let data = AuthorDescThumbTitleData::create_whatif(user, scores, mode, pp);
+    let data = BasicEmbedData::create_whatif(user, scores, mode, pp);
 
-    // Creating the embed
-    let embed = BotEmbed::AuthorDescThumbTitle(data);
-    let _ = msg
-        .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| embed.create(e)));
+    // Sending the embed
+    msg.channel_id
+        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))?;
     Ok(())
 }
 

@@ -1,6 +1,6 @@
 use crate::{
     database::MySQL,
-    messages::{BotEmbed, SimulateData},
+    messages::SimulateData,
     util::globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
     DiscordLinks, Osu, SchedulerKey,
 };
@@ -109,10 +109,8 @@ fn simulate_recent_send(
     };
 
     // Creating the embed
-    let embed = BotEmbed::SimulateScore(Box::new(data));
     let mut msg = msg.channel_id.send_message(&ctx.http, |m| {
-        m.content("Simulated score:")
-            .embed(|e| embed.create_full(e))
+        m.content("Simulated score:").embed(|e| data.build(e))
     })?;
 
     // Add map to database if its not in already
@@ -139,7 +137,7 @@ fn simulate_recent_send(
     let cache = ctx.cache.clone();
     let mut retries = 5;
     scheduler.add_task_duration(Duration::seconds(MINIMIZE_DELAY), move |_| {
-        if let Err(why) = msg.edit((&cache, &*http), |m| m.embed(|e| embed.minimize(e))) {
+        if let Err(why) = msg.edit((&cache, &*http), |m| m.embed(|e| data.minimize(e))) {
             if retries == 0 {
                 warn!(
                     "Error while trying to minimize simulate recent msg: {}",

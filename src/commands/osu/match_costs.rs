@@ -1,9 +1,4 @@
-use crate::{
-    commands::arguments,
-    messages::{BotEmbed, TitleDescThumbData},
-    util::globals::OSU_API_ISSUE,
-    Osu,
-};
+use crate::{commands::arguments, messages::BasicEmbedData, util::globals::OSU_API_ISSUE, Osu};
 
 use rosu::backend::requests::{MatchRequest, UserRequest};
 use serenity::{
@@ -54,6 +49,7 @@ fn matchcosts(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
         let data = ctx.data.read();
         let osu = data.get::<Osu>().expect("Could not get osu client");
         for game in osu_match.games.iter() {
+            #[allow(clippy::map_entry)]
             for score in game.scores.iter() {
                 if !users.contains_key(&score.user_id) {
                     let req = UserRequest::with_user_id(score.user_id);
@@ -75,10 +71,9 @@ fn matchcosts(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
     };
 
     // Accumulate all necessary data
-    let data = TitleDescThumbData::create_match_costs(users, osu_match, warmups);
+    let data = BasicEmbedData::create_match_costs(users, osu_match, warmups);
 
     // Creating the embed
-    let embed = BotEmbed::TitleDescThumb(data);
     msg.channel_id.send_message(&ctx.http, |m| {
         if warmups > 0 {
             let mut content = String::from("Ignoring the first ");
@@ -90,7 +85,7 @@ fn matchcosts(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
             content.push_str(" as warmup:");
             m.content(content);
         }
-        m.embed(|e| embed.create(e))
+        m.embed(|e| data.build(e))
     })?;
     Ok(())
 }

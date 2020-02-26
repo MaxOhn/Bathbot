@@ -1,7 +1,7 @@
 use crate::{
     commands::{ArgParser, ModSelection},
     database::MySQL,
-    messages::{BotEmbed, LeaderboardData},
+    messages::BasicEmbedData,
     scraper::Scraper,
     util::globals::OSU_API_ISSUE,
     DiscordLinks, Osu,
@@ -19,24 +19,13 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use std::convert::TryFrom;
 use tokio::runtime::Runtime;
 
 fn recent_lb_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let mut arg_parser = ArgParser::new(args);
-    let (mods, selection) = if let Some((m, s)) = arg_parser.get_mods() {
-        let mods = match GameMods::try_from(m.as_ref()) {
-            Ok(mods) => mods,
-            Err(_) => {
-                msg.channel_id
-                    .say(&ctx.http, "Could not parse given mods")?;
-                return Ok(());
-            }
-        };
-        (mods, s)
-    } else {
-        (GameMods::default(), ModSelection::None)
-    };
+    let (mods, selection) = arg_parser
+        .get_mods()
+        .unwrap_or_else(|| (GameMods::default(), ModSelection::None));
     let national = !arg_parser.get_global();
     let author_name = {
         let data = ctx.data.read();
@@ -135,7 +124,8 @@ fn recent_lb_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) 
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match LeaderboardData::new(author_name, map, scores, &ctx) {
+    let _ = msg.channel_id.broadcast_typing(&ctx.http);
+    let data = match BasicEmbedData::create_leaderboard(author_name, map, scores, &ctx) {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id.say(
@@ -147,8 +137,6 @@ fn recent_lb_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) 
     };
 
     // Creating the embed
-    let _ = msg.channel_id.broadcast_typing(&ctx.http);
-    let embed = BotEmbed::Leaderboard(data);
     msg.channel_id.send_message(&ctx.http, |m| {
         let mut content = format!(
             "I found {} scores with the specified mods on the map's leaderboard",
@@ -159,7 +147,7 @@ fn recent_lb_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) 
         } else {
             content.push(':');
         }
-        m.content(content).embed(|e| embed.create(e))
+        m.content(content).embed(|e| data.build(e))
     })?;
 
     // Add map to database if its not in already

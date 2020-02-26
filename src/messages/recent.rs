@@ -1,20 +1,16 @@
-#![allow(clippy::too_many_arguments)]
-
-use crate::{
-    messages::util,
-    util::{
-        datetime::{date_to_string, how_long_ago},
-        globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
-        numbers::{round_and_comma, with_comma_u64},
-        pp::PPProvider,
-        Error,
-    },
+use super::util;
+use crate::util::{
+    datetime::{date_to_string, how_long_ago},
+    globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
+    numbers::{round_and_comma, with_comma_u64},
+    pp::PPProvider,
+    Error,
 };
 
 use rosu::models::{Beatmap, GameMode, Score, User};
-use serenity::prelude::Context;
+use serenity::{builder::CreateEmbed, prelude::Context};
 
-pub struct ScoreSingleData {
+pub struct RecentData {
     pub description: Option<String>,
     pub title: String,
     pub title_url: String,
@@ -36,7 +32,52 @@ pub struct ScoreSingleData {
     pub thumbnail: String,
 }
 
-impl ScoreSingleData {
+impl RecentData {
+    pub fn minimize<'d, 'e>(&'d self, embed: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
+        let name = format!(
+            "{}\t{}\t({})\t{}",
+            self.grade_completion_mods, self.score, self.acc, self.ago
+        );
+        let value = format!("{} [ {} ] {}", self.pp, self.combo, self.hits);
+        let title = format!("{} [{}]", self.title, self.stars);
+        embed
+            .field(name, value, false)
+            .thumbnail(&self.thumbnail)
+            .title(title)
+            .url(&self.title_url)
+            .author(|a| {
+                a.icon_url(&self.author_icon)
+                    .url(&self.author_url)
+                    .name(&self.author_text)
+            })
+    }
+
+    pub fn build<'d, 'e>(&'d self, embed: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
+        if self.description.is_some() {
+            embed.description(&self.description.as_ref().unwrap());
+        }
+        embed
+            .title(&self.title)
+            .url(&self.title_url)
+            .timestamp(self.timestamp.clone())
+            .thumbnail(&self.thumbnail)
+            .footer(|f| f.icon_url(&self.footer_url).text(&self.footer_text))
+            .fields(vec![
+                ("Grade", &self.grade_completion_mods, true),
+                ("Score", &self.score, true),
+                ("Acc", &self.acc, true),
+                ("PP", &self.pp, true),
+                ("Combo", &self.combo, true),
+                ("Hits", &self.hits, true),
+                ("Map Info", &self.map_info, false),
+            ])
+            .author(|a| {
+                a.icon_url(&self.author_icon)
+                    .url(&self.author_url)
+                    .name(&self.author_text)
+            })
+    }
+
     pub fn new(
         user: User,
         score: Score,

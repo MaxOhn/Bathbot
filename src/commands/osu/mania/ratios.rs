@@ -1,8 +1,4 @@
-use crate::{
-    messages::{AuthorDescThumbData, BotEmbed},
-    util::globals::OSU_API_ISSUE,
-    DiscordLinks, Osu,
-};
+use crate::{messages::BasicEmbedData, util::globals::OSU_API_ISSUE, DiscordLinks, Osu};
 
 use rosu::{
     backend::requests::UserRequest,
@@ -72,7 +68,7 @@ pub fn ratios(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
     };
 
     // Accumulate all necessary data
-    let data = match AuthorDescThumbData::create_ratio(user, scores) {
+    let data = match BasicEmbedData::create_ratio(user, scores) {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id.say(
@@ -84,10 +80,9 @@ pub fn ratios(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
     };
 
     // Creating the embed
-    let embed = BotEmbed::AuthorDescThumb(data);
     let _ = msg.channel_id.send_message(&ctx.http, |m| {
         let content = format!("Average ratios of `{}`'s top 100 in mania:", name);
-        m.content(content).embed(|e| embed.create(e))
+        m.content(content).embed(|e| data.build(e))
     });
     Ok(())
 }

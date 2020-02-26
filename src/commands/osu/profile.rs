@@ -1,8 +1,5 @@
 use crate::{
-    database::MySQL,
-    messages::{BotEmbed, ProfileData},
-    util::globals::OSU_API_ISSUE,
-    DiscordLinks, Osu,
+    database::MySQL, messages::BasicEmbedData, util::globals::OSU_API_ISSUE, DiscordLinks, Osu,
 };
 
 use rosu::{
@@ -130,13 +127,11 @@ fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args
     };
 
     // Accumulate all necessary data
-    let data = ProfileData::new(user, score_maps, mode, ctx.cache.clone());
+    let data = BasicEmbedData::create_profile(user, score_maps, mode, ctx.cache.clone());
 
-    // Creating the embed
-    let embed = BotEmbed::Profile(data);
-    let _ = msg
-        .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| embed.create(e)));
+    // Send the embed
+    msg.channel_id
+        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))?;
 
     // Add missing maps to database
     if let Some(maps) = missing_maps {

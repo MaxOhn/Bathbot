@@ -119,30 +119,32 @@ impl PPProvider {
         }
     }
 
-    pub fn calculate_oppai_pp(score: &ScraperScore, map: &Beatmap) -> Result<f32, Error> {
+    pub fn calculate_oppai_pp<S>(score: &S, map: &Beatmap) -> Result<f32, Error>
+    where
+        S: SubScore,
+    {
         let mut oppai = Oppai::new();
-        if !score.enabled_mods.is_empty() {
-            let bits = score.enabled_mods.as_bits();
+        if !score.mods().is_empty() {
+            let bits = score.mods().as_bits();
             oppai.set_mods(bits);
         }
         let map_path = osu::prepare_beatmap_file(map.beatmap_id)?;
         oppai
-            .set_miss_count(score.count_miss)
-            .set_hits(score.count100, score.count50)
-            .set_end_index(score.total_hits())
-            .set_combo(score.max_combo)
+            .set_miss_count(score.miss())
+            .set_hits(score.c100(), score.c50())
+            .set_end_index(score.hits(map.mode))
+            .set_combo(score.combo())
             .calculate(Some(&map_path))?;
         Ok(oppai.get_pp())
     }
 
-    pub fn calculate_mania_pp(
-        score: &ScraperScore,
-        map: &Beatmap,
-        ctx: &Context,
-    ) -> Result<f32, Error> {
-        let mods = &score.enabled_mods;
+    pub fn calculate_mania_pp<S>(score: &S, map: &Beatmap, ctx: &Context) -> Result<f32, Error>
+    where
+        S: SubScore,
+    {
+        let mods = &score.mods();
         let half_score = half_score(mods);
-        if score.grade == Grade::F || score.score < half_score {
+        if score.grade() == Grade::F || score.score() < half_score {
             Ok(0.0)
         } else {
             let mutex = {
@@ -152,7 +154,7 @@ impl PPProvider {
                     .clone()
             };
             let _ = mutex.lock();
-            let child = start_pp_calc(map.beatmap_id, mods, Some(score.score))?;
+            let child = start_pp_calc(map.beatmap_id, mods, Some(score.score()))?;
             parse_pp_calc(child)
         }
     }
@@ -315,4 +317,76 @@ fn half_score(mods: &GameMods) -> u32 {
         half_score /= 2.0;
     }
     half_score as u32
+}
+
+pub trait SubScore {
+    fn miss(&self) -> u32;
+    fn c50(&self) -> u32;
+    fn c100(&self) -> u32;
+    fn c300(&self) -> u32;
+    fn combo(&self) -> u32;
+    fn mods(&self) -> &GameMods;
+    fn hits(&self, mode: GameMode) -> u32;
+    fn grade(&self) -> Grade;
+    fn score(&self) -> u32;
+}
+
+impl SubScore for Score {
+    fn miss(&self) -> u32 {
+        self.count_miss
+    }
+    fn c50(&self) -> u32 {
+        self.count50
+    }
+    fn c100(&self) -> u32 {
+        self.count100
+    }
+    fn c300(&self) -> u32 {
+        self.count300
+    }
+    fn combo(&self) -> u32 {
+        self.max_combo
+    }
+    fn mods(&self) -> &GameMods {
+        &self.enabled_mods
+    }
+    fn hits(&self, mode: GameMode) -> u32 {
+        self.total_hits(mode)
+    }
+    fn grade(&self) -> Grade {
+        self.grade
+    }
+    fn score(&self) -> u32 {
+        self.score
+    }
+}
+
+impl SubScore for ScraperScore {
+    fn miss(&self) -> u32 {
+        self.count_miss
+    }
+    fn c50(&self) -> u32 {
+        self.count50
+    }
+    fn c100(&self) -> u32 {
+        self.count100
+    }
+    fn c300(&self) -> u32 {
+        self.count300
+    }
+    fn combo(&self) -> u32 {
+        self.max_combo
+    }
+    fn mods(&self) -> &GameMods {
+        &self.enabled_mods
+    }
+    fn hits(&self, _: GameMode) -> u32 {
+        self.total_hits()
+    }
+    fn grade(&self) -> Grade {
+        self.grade
+    }
+    fn score(&self) -> u32 {
+        self.score
+    }
 }
