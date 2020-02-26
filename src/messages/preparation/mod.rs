@@ -6,6 +6,7 @@ mod profile;
 mod score_multi;
 mod score_single;
 mod simulate;
+mod title_desc_thumb;
 
 pub use auth_desc_thumb::AuthorDescThumbData;
 pub use auth_desc_thumb_title::AuthorDescThumbTitleData;
@@ -15,8 +16,4 @@ pub use profile::ProfileData;
 pub use score_multi::ScoreMultiData;
 pub use score_single::ScoreSingleData;
 pub use simulate::SimulateData;
-
-pub const HOMEPAGE: &str = "https://osu.ppy.sh/";
-pub const MAP_THUMB_URL: &str = "https://b.ppy.sh/thumb/";
-pub const AVATAR_URL: &str = "https://a.ppy.sh/";
-pub const FLAG_URL: &str = "https://osu.ppy.sh//images/flags/";
+pub use title_desc_thumb::TitleDescThumbData;

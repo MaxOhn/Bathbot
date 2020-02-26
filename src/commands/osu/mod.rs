@@ -2,6 +2,7 @@ pub mod common;
 pub mod fruits;
 mod link;
 pub mod mania;
+mod match_costs;
 pub mod nochoke;
 pub mod pp;
 pub mod profile;
@@ -20,6 +21,7 @@ pub use self::mania::*;
 pub use self::standard::*;
 pub use self::taiko::*;
 pub use link::*;
+pub use match_costs::*;
 pub use scores::*;
 pub use simulate::*;
 
@@ -27,7 +29,5 @@ use serenity::framework::standard::macros::group;
 
 #[group]
 #[description = "Commands for all osu! modes"]
-#[commands(scores, link, simulate)]
+#[commands(scores, link, simulate, matchcosts)]
 struct OsuGeneral;
-
-pub const MINIMIZE_DELAY: i64 = 45;

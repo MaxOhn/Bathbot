@@ -54,7 +54,7 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     };
 
     // Parse the beatmap id
-    let map_id = if let Some(map_id) = arguments::get_beatmap_id(args.single::<String>()?) {
+    let map_id = if let Some(map_id) = arguments::get_regex_id(args.single::<String>()?) {
         map_id
     } else {
         msg.channel_id.say(

@@ -1,8 +1,7 @@
 use crate::{
-    commands::osu::MINIMIZE_DELAY,
     database::MySQL,
     messages::{BotEmbed, ScoreSingleData},
-    util::globals::OSU_API_ISSUE,
+    util::globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
     DiscordLinks, Osu, SchedulerKey,
 };
 

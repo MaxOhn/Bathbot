@@ -1,8 +1,14 @@
 #![allow(clippy::too_many_arguments)]
 
 use crate::{
-    messages::{util, AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
-    util::{numbers::round, osu, pp::PPProvider, Error},
+    messages::util,
+    util::{
+        globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
+        numbers::round,
+        osu,
+        pp::PPProvider,
+        Error,
+    },
 };
 
 use rosu::models::{Beatmap, GameMode, Score};

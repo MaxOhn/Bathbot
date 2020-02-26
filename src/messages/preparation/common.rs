@@ -1,8 +1,10 @@
 #![allow(clippy::too_many_arguments)]
 
 use crate::{
-    messages::{AVATAR_URL, HOMEPAGE},
-    util::numbers::round,
+    util::{
+        globals::{AVATAR_URL, HOMEPAGE},
+        numbers::round,
+    },
     Error,
 };
 

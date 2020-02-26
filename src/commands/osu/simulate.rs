@@ -1,8 +1,8 @@
 use crate::{
-    commands::{arguments, osu::MINIMIZE_DELAY},
+    commands::arguments,
     database::MySQL,
     messages::{BotEmbed, SimulateData},
-    util::globals::OSU_API_ISSUE,
+    util::globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
     Osu, SchedulerKey,
 };
 
@@ -33,7 +33,7 @@ fn simulate(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
             return Ok(());
         }
         _ => {
-            if let Some(map_id) = arguments::get_beatmap_id(args.single::<String>()?) {
+            if let Some(map_id) = arguments::get_regex_id(args.single::<String>()?) {
                 map_id
             } else {
                 msg.channel_id.say(

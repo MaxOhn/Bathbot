@@ -1,7 +1,3 @@
-// Alternative response from the API, currently unused since requests cannot
-// contain custom cookies for now
-#![allow(dead_code)]
-
 use chrono::{DateTime, Utc};
 use rosu::models::{ApprovalStatus, GameMod, GameMode, GameMods, Grade};
 use serde::{de, Deserialize, Deserializer};

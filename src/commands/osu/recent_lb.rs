@@ -117,7 +117,6 @@ fn recent_lb_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) 
         let scores_future = scraper.get_leaderboard(
             map_id,
             national,
-            // TODO: fix mods
             match selection {
                 ModSelection::Excludes | ModSelection::None => None,
                 _ => Some(&mods),
@@ -148,6 +147,7 @@ fn recent_lb_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) 
     };
 
     // Creating the embed
+    let _ = msg.channel_id.broadcast_typing(&ctx.http);
     let embed = BotEmbed::Leaderboard(data);
     msg.channel_id.send_message(&ctx.http, |m| {
         let mut content = format!(

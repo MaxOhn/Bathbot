@@ -1,12 +1,10 @@
 #![allow(clippy::too_many_arguments)]
 
-use crate::{
-    messages::{AVATAR_URL, FLAG_URL, HOMEPAGE},
-    util::{
-        datetime::{date_to_string, how_long_ago, sec_to_minsec},
-        numbers::{round, round_and_comma, with_comma_u64},
-        osu::grade_emote,
-    },
+use crate::util::{
+    datetime::{date_to_string, how_long_ago, sec_to_minsec},
+    globals::{AVATAR_URL, HOMEPAGE},
+    numbers::{round, round_and_comma, with_comma_u64},
+    osu::grade_emote,
 };
 
 use itertools::Itertools;
@@ -30,7 +28,7 @@ impl ProfileData {
         mode: GameMode,
         cache: CacheRwLock,
     ) -> Self {
-        let author_icon = format!("{}{}.png", FLAG_URL, user.country);
+        let author_icon = format!("{}/images/flags/{}.png", HOMEPAGE, user.country);
         let author_url = format!("{}u/{}", HOMEPAGE, user.user_id);
         let author_text = format!(
             "{name}: {pp}pp (#{global} {country}{national})",

@@ -1,10 +1,9 @@
+use crate::util::globals::AUTHORITY_ROLES;
 use serenity::{
     framework::standard::{macros::check, Args, CheckResult, CommandOptions},
     model::prelude::Message,
     prelude::Context,
 };
-
-const AUTHORITY_ROLES: [&str; 3] = ["admin", "mod", "moderator"];
 
 #[check]
 #[name = "Authority"]

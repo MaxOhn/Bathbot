@@ -1,7 +1,8 @@
 use crate::{
-    messages::{util, AVATAR_URL, FLAG_URL, HOMEPAGE},
+    messages::util,
     util::{
         datetime::how_long_ago,
+        globals::{AVATAR_URL, HOMEPAGE},
         numbers::{round, round_and_comma, round_precision, with_comma_u64},
         osu,
         pp::PPProvider,
@@ -26,7 +27,7 @@ pub struct AuthorDescThumbData {
 
 impl AuthorDescThumbData {
     fn get_user_author(user: &User) -> (String, String, String) {
-        let icon = format!("{}{}.png", FLAG_URL, user.country);
+        let icon = format!("{}/images/flags/{}.png", HOMEPAGE, user.country);
         let url = format!("{}u/{}", HOMEPAGE, user.user_id);
         let text = format!(
             "{name}: {pp}pp (#{global} {country}{national})",

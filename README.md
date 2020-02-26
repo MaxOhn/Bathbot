@@ -24,7 +24,6 @@ Work in progress discord bot port for the game [osu!](https://osu.ppy.sh/home) f
 - (Mania star calculation)
 - Improve `<help`, command descriptions, examples, ...
   ### Commands
-   - `<matchcosts`
    - `<leaderboard`
    - `<rank`
    - `<reach`

@@ -1,8 +1,8 @@
 use crate::{
-    messages::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
     scraper::ScraperScore,
     util::{
         datetime::how_long_ago,
+        globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
         numbers::{round, with_comma_u64},
         osu,
         pp::PPProvider,

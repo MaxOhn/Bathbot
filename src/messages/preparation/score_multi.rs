@@ -1,7 +1,8 @@
 use crate::{
-    messages::{util, AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
+    messages::util,
     util::{
         datetime::how_long_ago,
+        globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
         numbers::{round_and_comma, with_comma_u64},
         pp::PPProvider,
         Error,

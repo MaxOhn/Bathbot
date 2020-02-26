@@ -5,14 +5,11 @@ mod score;
 use score::ScraperScores;
 pub use score::{ScraperBeatmap, ScraperScore};
 
-use crate::util::{Error, RateLimiter};
+use crate::util::{globals::HOMEPAGE, Error, RateLimiter};
 use reqwest::{multipart::Form, Client, Response};
 use rosu::models::{GameMode, GameMods};
 use scraper::{Html, Node, Selector};
 use std::{env, sync::Mutex};
-
-const COUNTRY_LEADERBOARD_BASE: &str = "http://osu.ppy.sh/rankings/";
-const MAP_LEADERBOARD_BASE: &str = "http://osu.ppy.sh/beatmaps/";
 
 pub struct Scraper {
     client: Client,
@@ -70,11 +67,7 @@ impl Scraper {
         national: bool,
         mods: Option<&GameMods>,
     ) -> Result<Vec<ScraperScore>, Error> {
-        let mut url = format!(
-            "{base}{id}/scores?",
-            base = MAP_LEADERBOARD_BASE,
-            id = map_id
-        );
+        let mut url = format!("{base}beatmaps/{id}/scores?", base = HOMEPAGE, id = map_id);
         if national {
             url.push_str("type=country");
         }
@@ -108,8 +101,8 @@ impl Scraper {
         }
         let mode = get_mode_str(mode);
         let mut url = format!(
-            "{base}{mode}/performance?",
-            base = COUNTRY_LEADERBOARD_BASE,
+            "{base}rankings/{mode}/performance?",
+            base = HOMEPAGE,
             mode = mode,
         );
         if let Some(country) = country_acronym {
@@ -177,8 +170,8 @@ impl Scraper {
     ) -> Result<Vec<String>, Error> {
         let mode = get_mode_str(mode);
         let url = format!(
-            "{base}{mode}/performance?country={country}",
-            base = COUNTRY_LEADERBOARD_BASE,
+            "{base}rankings/{mode}/performance?country={country}",
+            base = HOMEPAGE,
             mode = mode,
             country = country_acrynom
         );

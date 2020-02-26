@@ -1,4 +1,7 @@
-use crate::{database::MySQL, scraper::ScraperScore, util::osu, Error, PerformanceCalculatorLock};
+use crate::{
+    database::MySQL, scraper::ScraperScore, util::globals::PP_MANIA_CMD, util::osu, Error,
+    PerformanceCalculatorLock,
+};
 
 use roppai::Oppai;
 use rosu::models::{Beatmap, GameMod, GameMode, GameMods, Grade, Score};
@@ -8,9 +11,6 @@ use std::{
     process::{Child, Command, Stdio},
     str::FromStr,
 };
-
-const PP_MANIA_CMD: &str =
-    "dotnet run --project osu-tools/PerformanceCalculator/ -- simulate mania ";
 
 pub enum PPProvider {
     #[allow(dead_code)] // Bug in rust compiler, remove when bug is fixed [22.2.2020]

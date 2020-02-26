@@ -1,6 +1,6 @@
 use crate::messages::{
     AuthorDescThumbData, AuthorDescThumbTitleData, CommonData, LeaderboardData, ProfileData,
-    ScoreMultiData, ScoreSingleData, SimulateData,
+    ScoreMultiData, ScoreSingleData, SimulateData, TitleDescThumbData,
 };
 
 use serenity::{builder::CreateEmbed, utils::Colour};
@@ -8,9 +8,10 @@ use serenity::{builder::CreateEmbed, utils::Colour};
 pub enum BotEmbed {
     UserScoreSingle(Box<ScoreSingleData>),
     UserScoreMulti(Box<ScoreMultiData>),
+    TitleDescThumb(TitleDescThumbData),
     AuthorDescThumb(AuthorDescThumbData),
-    Profile(ProfileData),
     AuthorDescThumbTitle(AuthorDescThumbTitleData),
+    Profile(ProfileData),
     SimulateScore(Box<SimulateData>),
     UserCommonScores(CommonData),
     Leaderboard(LeaderboardData),
@@ -21,9 +22,10 @@ impl BotEmbed {
         e.color(Colour::DARK_GREEN);
         match self {
             BotEmbed::UserScoreMulti(data) => create_user_score_multi(e, *data),
+            BotEmbed::TitleDescThumb(data) => create_title_desc_thumb(e, data),
             BotEmbed::AuthorDescThumb(data) => create_author_desc_thumb(e, data),
-            BotEmbed::Profile(data) => create_profile(e, data),
             BotEmbed::AuthorDescThumbTitle(data) => create_author_desc_title_thumb(e, data),
+            BotEmbed::Profile(data) => create_profile(e, data),
             BotEmbed::UserCommonScores(data) => create_common(e, data),
             BotEmbed::Leaderboard(data) => create_leaderboard(e, data),
             BotEmbed::UserScoreSingle(_) => panic!(
@@ -189,6 +191,16 @@ fn create_user_score_multi(embed: &mut CreateEmbed, data: ScoreMultiData) -> &mu
     }
 }
 
+fn create_title_desc_thumb(embed: &mut CreateEmbed, data: TitleDescThumbData) -> &mut CreateEmbed {
+    if let Some(thumbnail) = data.thumbnail {
+        embed.thumbnail(thumbnail);
+    }
+    embed
+        .description(data.description)
+        .title(data.title_text)
+        .url(data.title_url)
+}
+
 fn create_author_desc_thumb(
     embed: &mut CreateEmbed,
     data: AuthorDescThumbData,
@@ -196,6 +208,21 @@ fn create_author_desc_thumb(
     embed
         .thumbnail(&data.thumbnail)
         .description(&data.description)
+        .author(|a| {
+            a.icon_url(data.author_icon)
+                .url(data.author_url)
+                .name(data.author_text)
+        })
+}
+
+fn create_author_desc_title_thumb(
+    embed: &mut CreateEmbed,
+    data: AuthorDescThumbTitleData,
+) -> &mut CreateEmbed {
+    embed
+        .thumbnail(&data.thumbnail)
+        .description(&data.description)
+        .title(&data.title)
         .author(|a| {
             a.icon_url(data.author_icon)
                 .url(data.author_url)
@@ -219,21 +246,6 @@ fn create_common(embed: &mut CreateEmbed, data: CommonData) -> &mut CreateEmbed 
     embed
         .description(data.description)
         .thumbnail("attachment://avatar_fuse.png")
-}
-
-fn create_author_desc_title_thumb(
-    embed: &mut CreateEmbed,
-    data: AuthorDescThumbTitleData,
-) -> &mut CreateEmbed {
-    embed
-        .thumbnail(&data.thumbnail)
-        .description(&data.description)
-        .title(&data.title)
-        .author(|a| {
-            a.icon_url(data.author_icon)
-                .url(data.author_url)
-                .name(data.author_text)
-        })
 }
 
 fn create_leaderboard(embed: &mut CreateEmbed, data: LeaderboardData) -> &mut CreateEmbed {

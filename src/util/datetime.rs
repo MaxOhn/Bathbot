@@ -1,7 +1,6 @@
 use super::Error;
+use crate::util::globals::DATE_FORMAT;
 use chrono::{offset::TimeZone, DateTime, Utc};
-
-const DATE_FORMAT: &str = "%F %T";
 
 pub fn date_to_string(date: &DateTime<Utc>) -> String {
     date.format(DATE_FORMAT).to_string()

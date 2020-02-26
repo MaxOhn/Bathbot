@@ -1,4 +1,7 @@
-use crate::{util::globals::*, Error};
+use crate::{
+    util::globals::{emotes::*, DEV_GUILD_ID, HOMEPAGE},
+    Error,
+};
 use rosu::models::{Beatmap, GameMod, GameMode, Grade, Score};
 use serenity::{
     cache::CacheRwLock,
@@ -10,8 +13,6 @@ use serenity::{
 use std::{env, fs::File, io::Write, path::Path};
 use tokio::runtime::Runtime;
 
-const MAP_RETRIEVAL_URL: &str = "https://osu.ppy.sh/web/maps/";
-
 pub fn prepare_beatmap_file(map_id: u32) -> Result<String, Error> {
     let map_path = format!(
         "{base}{id}.osu",
@@ -20,7 +21,7 @@ pub fn prepare_beatmap_file(map_id: u32) -> Result<String, Error> {
     );
     if !Path::new(&map_path).exists() {
         let mut file = File::create(&map_path)?;
-        let download_url = format!("{}{}", MAP_RETRIEVAL_URL, map_id);
+        let download_url = format!("{}web/maps/{}", HOMEPAGE, map_id);
         let mut rt = Runtime::new().unwrap();
         let content = rt.block_on(async { reqwest::get(&download_url).await?.text().await })?;
         file.write_all(content.as_bytes())?;
