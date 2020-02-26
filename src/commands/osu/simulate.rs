@@ -33,7 +33,7 @@ fn simulate(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
             return Ok(());
         }
         _ => {
-            if let Some(map_id) = arguments::get_regex_id(args.single::<String>()?) {
+            if let Some(map_id) = arguments::get_regex_id(&args.single::<String>()?) {
                 map_id
             } else {
                 msg.channel_id.say(

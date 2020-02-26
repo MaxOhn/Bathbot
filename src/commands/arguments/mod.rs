@@ -139,13 +139,14 @@ pub enum ModSelection {
     Exact,
 }
 
-pub fn get_regex_id(val: String) -> Option<u32> {
-    match u32::from_str(&val) {
+pub fn get_regex_id(val: &str) -> Option<u32> {
+    match u32::from_str(val) {
         Ok(id) => Some(id),
         Err(_) => {
             let regex = Regex::new(r".*/([0-9]{1,9})").unwrap();
-            let caps = regex.captures(&val).unwrap();
-            caps.get(1).and_then(|id| u32::from_str(id.as_str()).ok())
+            regex
+                .captures(val)
+                .and_then(|caps| caps.get(1).and_then(|id| u32::from_str(id.as_str()).ok()))
         }
     }
 }

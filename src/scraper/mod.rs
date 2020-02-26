@@ -18,31 +18,34 @@ pub struct Scraper {
 
 impl Scraper {
     pub async fn new() -> Result<Self, Error> {
+        #[allow(non_snake_case)]
+        let WITH_SCRAPER = true;
         // Initialize client
         let client = Client::builder().cookie_store(true).build()?;
-        /*
-        // Prepare osu login
-        let form = Form::new()
-            .text("username", env::var("OSU_LOGIN_USERNAME")?)
-            .text("password", env::var("OSU_LOGIN_PASSWORD")?);
-        // Retrieve osu_session cookie by logging in
-        let response = client
-            .post("https://osu.ppy.sh/session")
-            .multipart(form)
-            .send()
-            .await?;
-        // Check if the cookie was received
-        let success = response
-            .cookies()
-            .any(|cookie| cookie.name() == "osu_session");
-        if !success {
-            return Err(Error::Custom(
-                "No osu_session cookie in scraper response".to_string(),
-            ));
+        if WITH_SCRAPER {
+            // Prepare osu login
+            let form = Form::new()
+                .text("username", env::var("OSU_LOGIN_USERNAME")?)
+                .text("password", env::var("OSU_LOGIN_PASSWORD")?);
+            // Retrieve osu_session cookie by logging in
+            let response = client
+                .post("https://osu.ppy.sh/session")
+                .multipart(form)
+                .send()
+                .await?;
+            // Check if the cookie was received
+            let success = response
+                .cookies()
+                .any(|cookie| cookie.name() == "osu_session");
+            if !success {
+                return Err(Error::Custom(
+                    "No osu_session cookie in scraper response".to_string(),
+                ));
+            }
+            info!("Scraper successfully logged into osu!");
+        } else {
+            info!("Skipping Scraper login into osu!");
         }
-        info!("Scraper successfully logged into osu!");
-        */
-        info!("Skipping Scraper login into osu!");
         let osu_limiter = Mutex::new(RateLimiter::new(2, 1));
         Ok(Self {
             client,

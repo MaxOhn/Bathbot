@@ -52,15 +52,12 @@ impl BasicEmbedData {
         if self.author_icon.is_some() || self.author_url.is_some() || self.author_text.is_some() {
             e.author(|a| {
                 if let Some(author_icon) = self.author_icon.as_ref() {
-                    println!("author icon: {}", author_icon);
                     a.icon_url(author_icon);
                 }
                 if let Some(author_url) = self.author_url.as_ref() {
-                    println!("author url: {}", author_url);
                     a.url(author_url);
                 }
                 if let Some(author_text) = self.author_text.as_ref() {
-                    println!("author text: {}", author_text);
                     a.name(author_text);
                 }
                 a

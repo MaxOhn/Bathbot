@@ -15,7 +15,7 @@ use tokio::runtime::Runtime;
 #[aliases("mc", "matchcost")]
 fn matchcosts(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     // Parse the match id
-    let match_id = if let Some(match_id) = arguments::get_regex_id(args.single::<String>()?) {
+    let match_id = if let Some(match_id) = arguments::get_regex_id(&args.single::<String>()?) {
         match_id
     } else {
         msg.channel_id.say(

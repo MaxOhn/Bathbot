@@ -21,12 +21,17 @@ use serenity::{
 };
 use tokio::runtime::Runtime;
 
-fn recent_lb_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+fn recent_lb_send(
+    mode: GameMode,
+    national: bool,
+    ctx: &mut Context,
+    msg: &Message,
+    args: Args,
+) -> CommandResult {
     let mut arg_parser = ArgParser::new(args);
     let (mods, selection) = arg_parser
         .get_mods()
         .unwrap_or_else(|| (GameMods::default(), ModSelection::None));
-    let national = !arg_parser.get_global();
     let author_name = {
         let data = ctx.data.read();
         let links = data
@@ -136,7 +141,7 @@ fn recent_lb_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) 
         }
     };
 
-    // Creating the embed
+    // Sending the embed
     msg.channel_id.send_message(&ctx.http, |m| {
         let mut content = format!(
             "I found {} scores with the specified mods on the map's leaderboard",
@@ -162,33 +167,65 @@ fn recent_lb_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) 
 }
 
 #[command]
-#[description = "Display the leaderboard of a map that a user recently played"]
+#[description = "Display the national leaderboard of a map that a user recently played"]
 #[usage = "badewanne3"]
 #[aliases("rlb")]
 pub fn recentleaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    recent_lb_send(GameMode::STD, ctx, msg, args)
+    recent_lb_send(GameMode::STD, true, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display the leaderboard of a map that a mania user recently played"]
+#[description = "Display the national leaderboard of a map that a mania user recently played"]
 #[usage = "badewanne3"]
 #[aliases("rmlb")]
 pub fn recentmanialeaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    recent_lb_send(GameMode::MNA, ctx, msg, args)
+    recent_lb_send(GameMode::MNA, true, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display the leaderboard of a map that a taiko user recently played"]
+#[description = "Display the national leaderboard of a map that a taiko user recently played"]
 #[usage = "badewanne3"]
 #[aliases("rtlb")]
 pub fn recenttaikoleaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    recent_lb_send(GameMode::TKO, ctx, msg, args)
+    recent_lb_send(GameMode::TKO, true, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display the leaderboard of a map that a ctb user recently played"]
+#[description = "Display the national leaderboard of a map that a ctb user recently played"]
 #[usage = "badewanne3"]
 #[aliases("rclb")]
 pub fn recentctbleaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    recent_lb_send(GameMode::CTB, ctx, msg, args)
+    recent_lb_send(GameMode::CTB, true, ctx, msg, args)
+}
+
+#[command]
+#[description = "Display the global leaderboard of a map that a user recently played"]
+#[usage = "badewanne3"]
+#[aliases("rglb")]
+pub fn recentgloballeaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    recent_lb_send(GameMode::STD, false, ctx, msg, args)
+}
+
+#[command]
+#[description = "Display the global leaderboard of a map that a mania user recently played"]
+#[usage = "badewanne3"]
+#[aliases("rmglb")]
+pub fn recentmaniagloballeaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    recent_lb_send(GameMode::MNA, false, ctx, msg, args)
+}
+
+#[command]
+#[description = "Display the global leaderboard of a map that a taiko user recently played"]
+#[usage = "badewanne3"]
+#[aliases("rtglb")]
+pub fn recenttaikogloballeaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    recent_lb_send(GameMode::TKO, false, ctx, msg, args)
+}
+
+#[command]
+#[description = "Display the global leaderboard of a map that a ctb user recently played"]
+#[usage = "badewanne3"]
+#[aliases("rcglb")]
+pub fn recentctbgloballeaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    recent_lb_send(GameMode::CTB, false, ctx, msg, args)
 }

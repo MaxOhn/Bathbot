@@ -1,14 +1,19 @@
 use crate::{
     commands::arguments,
+    commands::{ArgParser, ModSelection},
     database::MySQL,
     messages::BasicEmbedData,
+    scraper::Scraper,
     util::{globals::OSU_API_ISSUE, osu},
     DiscordLinks, Osu,
 };
 
 use rosu::{
-    backend::requests::{BeatmapRequest, ScoreRequest, UserRequest},
-    models::ApprovalStatus::{Loved, Ranked},
+    backend::requests::BeatmapRequest,
+    models::{
+        ApprovalStatus::{Loved, Ranked},
+        GameMods,
+    },
 };
 use serenity::{
     framework::standard::{macros::command, Args, CommandError, CommandResult},
@@ -17,13 +22,19 @@ use serenity::{
 };
 use tokio::runtime::Runtime;
 
-#[command]
-#[description = "Display scores for all mods that a user has on a map. \
-                 Beatmap can be given as url or just **mapid**. \
-                 If no beatmap is given, it will choose the map of a score in the channel's history"]
-#[example = "2240404 badewanne3"]
-#[aliases("c", "compare")]
-fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+fn leaderboard_send(
+    national: bool,
+    ctx: &mut Context,
+    msg: &Message,
+    mut args: Args,
+) -> CommandResult {
+    let author_name = {
+        let data = ctx.data.read();
+        let links = data
+            .get::<DiscordLinks>()
+            .expect("Could not get DiscordLinks");
+        links.get(msg.author.id.as_u64()).cloned()
+    };
     // Parse the beatmap id
     let map_id = if args.is_empty() {
         let msgs = msg
@@ -41,38 +52,30 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
             }
         }
     } else {
-        if let Some(id) = arguments::get_regex_id(&args.single::<String>()?) {
+        let first_str = args.single::<String>()?;
+        if let Some(id) = arguments::get_regex_id(&first_str) {
             id
         } else {
-            msg.channel_id.say(
-                &ctx.http,
-                "Could not parse beatmap id. Make sure your first argument is \
-                 either the url to a beatmap or just a beatmap id.",
-            )?;
-            return Ok(());
-        }
-    };
-    // Parse the name
-    let name = match args.single_quoted::<String>() {
-        Ok(name) => name,
-        Err(_) => {
-            let data = ctx.data.read();
-            let links = data
-                .get::<DiscordLinks>()
-                .expect("Could not get DiscordLinks");
-            match links.get(msg.author.id.as_u64()) {
-                Some(name) => name.clone(),
+            let msgs = msg
+                .channel_id
+                .messages(&ctx.http, |retriever| retriever.limit(50))?;
+            match osu::map_id_from_history(msgs, ctx.cache.clone()) {
+                Some(id) => id,
                 None => {
                     msg.channel_id.say(
                         &ctx.http,
-                        "Either specify an osu name as last argument or link \
-                         your discord to an osu profile via `<link osuname`",
+                        "No beatmap specified and none found in recent channel history. \
+                         Try specifying a map either by url to the map, or just by map id.",
                     )?;
                     return Ok(());
                 }
             }
         }
     };
+    let mut arg_parser = ArgParser::new(args);
+    let (mods, selection) = arg_parser
+        .get_mods()
+        .unwrap_or_else(|| (GameMods::default(), ModSelection::None));
     let mut rt = Runtime::new().unwrap();
 
     // Retrieving the beatmap
@@ -108,64 +111,80 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
         }
     };
 
-    // Retrieve user and user's scores on the map
-    let (user, map, scores) = {
+    // Retrieve the map's leaderboard
+    let scores = {
         let data = ctx.data.read();
-        let osu = data.get::<Osu>().expect("Could not get osu client");
-        let score_req = ScoreRequest::with_map_id(map_id)
-            .username(&name)
-            .mode(map.mode);
-        let scores = match rt.block_on(score_req.queue(osu)) {
+        let scraper = data.get::<Scraper>().expect("Could not get Scraper");
+        let scores_future = scraper.get_leaderboard(
+            map_id,
+            national,
+            match selection {
+                ModSelection::Excludes | ModSelection::None => None,
+                _ => Some(&mods),
+            },
+        );
+        match rt.block_on(scores_future) {
             Ok(scores) => scores,
             Err(why) => {
                 msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
                 return Err(CommandError::from(why.to_string()));
             }
-        };
-        let user_req = UserRequest::with_username(&name).mode(map.mode);
-        let user = match rt.block_on(user_req.queue_single(osu)) {
-            Ok(result) => match result {
-                Some(user) => user,
-                None => {
-                    msg.channel_id
-                        .say(&ctx.http, format!("Could not find user `{}`", name))?;
-                    return Ok(());
-                }
-            },
-            Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
-                return Err(CommandError::from(why.to_string()));
-            }
-        };
-        (user, map, scores)
+        }
     };
+    let amount = scores.len();
+    let scores: Vec<_> = scores.into_iter().take(10).collect();
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match BasicEmbedData::create_scores(user, map, scores, &ctx) {
+    let _ = msg.channel_id.broadcast_typing(&ctx.http);
+    let data = match BasicEmbedData::create_leaderboard(author_name, map, scores, &ctx) {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id.say(
                 &ctx.http,
-                "Some issue while calculating scores data, blame bade",
+                "Some issue while calculating leaderboard data, blame bade",
             )?;
             return Err(CommandError::from(why.to_string()));
         }
     };
 
     // Sending the embed
-    let result = msg
-        .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)));
+    msg.channel_id.send_message(&ctx.http, |m| {
+        let mut content = format!(
+            "I found {} scores with the specified mods on the map's leaderboard",
+            amount
+        );
+        if amount > 10 {
+            content.push_str(", here's the top 10 of them:");
+        } else {
+            content.push(':');
+        }
+        m.content(content).embed(|e| data.build(e))
+    })?;
 
     // Add map to database if its not in already
     if let Some(map) = map_copy {
         let data = ctx.data.read();
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         if let Err(why) = mysql.insert_beatmap(&map) {
-            warn!("Could not add map of compare command to database: {}", why);
+            warn!("Could not add map of recent command to database: {}", why);
         }
     }
-    result?;
     Ok(())
+}
+
+#[command]
+#[description = "Display the national leaderboard of a map"]
+#[example = "2240404"]
+#[aliases("lb")]
+pub fn leaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    leaderboard_send(true, ctx, msg, args)
+}
+
+#[command]
+#[description = "Display the global leaderboard of a map"]
+#[example = "2240404"]
+#[aliases("glb")]
+pub fn globalleaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    leaderboard_send(false, ctx, msg, args)
 }
