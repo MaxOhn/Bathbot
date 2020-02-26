@@ -8,7 +8,7 @@ use crate::util::{
 };
 
 use rosu::models::{Beatmap, GameMode, Score};
-use serenity::{builder::CreateEmbed, prelude::Context};
+use serenity::{builder::CreateEmbed, prelude::Context, utils::Colour};
 
 pub struct SimulateData {
     pub title: String,
@@ -47,6 +47,7 @@ impl SimulateData {
             self.hits.to_owned()
         };
         embed
+            .color(Colour::DARK_GREEN)
             .title(&self.title)
             .url(&self.title_url)
             .thumbnail(&self.thumbnail)
@@ -84,6 +85,7 @@ impl SimulateData {
             }
         }
         embed
+            .color(Colour::DARK_GREEN)
             .field(name, value, false)
             .thumbnail(&self.thumbnail)
             .url(&self.title_url)

@@ -16,7 +16,6 @@ Work in progress discord bot port for the game [osu!](https://osu.ppy.sh/home) f
 
 ## Todos
 - Numbered commands i.e. `<recent7`
-- Map id retrieval through channel history (e.g. for `<c` or `<lb`)
 - Stream notifications (Twitch & Mixer)
 - Kick unchecked users after x days
 - Distribute `Top` role automatically

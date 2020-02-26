@@ -2,16 +2,69 @@ use crate::{
     util::globals::{emotes::*, DEV_GUILD_ID, HOMEPAGE},
     Error,
 };
+use regex::Regex;
 use rosu::models::{Beatmap, GameMod, GameMode, Grade, Score};
 use serenity::{
     cache::CacheRwLock,
     model::{
+        channel::{EmbedField, Message},
         guild::Emoji,
         id::{EmojiId, GuildId},
     },
 };
-use std::{env, fs::File, io::Write, path::Path};
+use std::{env, fs::File, io::Write, path::Path, str::FromStr};
 use tokio::runtime::Runtime;
+
+pub fn map_id_from_history(msgs: Vec<Message>, cache: CacheRwLock) -> Option<u32> {
+    let url_regex = Regex::new(r".*/([0-9]{1,9})").unwrap();
+    let field_regex = Regex::new(r".*\{(\d+/){2,}\d+}.*").unwrap();
+    let check_field = |url: &str, field: &EmbedField| {
+        if field_regex.is_match(&field.value) {
+            let caps = url_regex.captures(url).unwrap();
+            if let Some(cap) = caps.get(1) {
+                if let Ok(id) = u32::from_str(cap.as_str()) {
+                    return Some(id);
+                }
+            }
+        }
+        None
+    };
+    for msg in msgs {
+        if !msg.is_own(&cache) {
+            continue;
+        }
+        for embed in msg.embeds {
+            if let Some(author) = embed.author {
+                if let Some(url) = author.url {
+                    if url.contains("/b/") {
+                        let caps = url_regex.captures(&url).unwrap();
+                        if let Some(cap) = caps.get(1) {
+                            if let Ok(id) = u32::from_str(cap.as_str()) {
+                                return Some(id);
+                            }
+                        }
+                    }
+                }
+            }
+            if embed.fields.is_empty() {
+                continue;
+            }
+            if let Some(url) = embed.url {
+                if let Some(field) = embed.fields.first() {
+                    if let Some(id) = check_field(&url, &field) {
+                        return Some(id);
+                    }
+                }
+                if let Some(field) = embed.fields.get(5) {
+                    if let Some(id) = check_field(&url, &field) {
+                        return Some(id);
+                    }
+                }
+            }
+        }
+    }
+    None
+}
 
 pub fn prepare_beatmap_file(map_id: u32) -> Result<String, Error> {
     let map_path = format!(

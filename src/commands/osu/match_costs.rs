@@ -25,7 +25,7 @@ fn matchcosts(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
         return Ok(());
     };
     // Parse amount of warmups
-    let warmups = args.single::<usize>().unwrap_or_default();
+    let warmups = args.single::<usize>().unwrap_or(2);
 
     let mut rt = Runtime::new().unwrap();
 

@@ -8,7 +8,7 @@ use crate::util::{
 };
 
 use rosu::models::{Beatmap, GameMode, Score, User};
-use serenity::{builder::CreateEmbed, prelude::Context};
+use serenity::{builder::CreateEmbed, prelude::Context, utils::Colour};
 
 pub struct RecentData {
     pub description: Option<String>,
@@ -41,6 +41,7 @@ impl RecentData {
         let value = format!("{} [ {} ] {}", self.pp, self.combo, self.hits);
         let title = format!("{} [{}]", self.title, self.stars);
         embed
+            .color(Colour::DARK_GREEN)
             .field(name, value, false)
             .thumbnail(&self.thumbnail)
             .title(title)
@@ -57,6 +58,7 @@ impl RecentData {
             embed.description(&self.description.as_ref().unwrap());
         }
         embed
+            .color(Colour::DARK_GREEN)
             .title(&self.title)
             .url(&self.title_url)
             .timestamp(self.timestamp.clone())
