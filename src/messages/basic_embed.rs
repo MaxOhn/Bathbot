@@ -470,10 +470,7 @@ impl BasicEmbedData {
                 pp_given = pp
             )
         } else {
-            let pp_values: Vec<f32> = scores
-                .iter()
-                .map(|score| *score.pp.as_ref().unwrap())
-                .collect();
+            let pp_values: Vec<f32> = scores.into_iter().map(|score| score.pp.unwrap()).collect();
             let size: usize = pp_values.len();
             let mut idx: usize = size - 1;
             let mut factor: f32 = 0.95_f32.powi(idx as i32);
@@ -683,6 +680,89 @@ impl BasicEmbedData {
         result.thumbnail = Some(thumbnail);
         result.footer_text = Some(footer_text);
         result.fields = Some(fields);
+        result
+    }
+
+    //
+    // rank
+    //
+    pub fn create_rank(
+        user: User,
+        scores: Option<Vec<Score>>,
+        rank: usize,
+        country: Option<String>,
+        rank_holder: User,
+    ) -> Self {
+        let mut result = Self::default();
+        let (author_icon, author_url, author_text) = get_user_author(&user);
+        let country = country.unwrap_or_default();
+        let title = format!(
+            "How many pp is {name} missing to reach rank {country}{rank}?",
+            name = user.username,
+            country = country,
+            rank = rank
+        );
+        let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
+        let description = if user.pp_raw > rank_holder.pp_raw {
+            format!(
+                "Rank {country}{rank} is currently held by {holder_name} with \
+                 **{holder_pp}pp**, so {name} is with **{pp}pp** already above that.",
+                country = country,
+                rank = rank,
+                holder_name = rank_holder.username,
+                holder_pp = round_and_comma(rank_holder.pp_raw),
+                name = user.username,
+                pp = round_and_comma(user.pp_raw)
+            )
+        } else {
+            let pp_values: Vec<f32> = scores
+                .unwrap_or_else(|| panic!("Got None for scores in create_rank"))
+                .into_iter()
+                .map(|score| score.pp.unwrap())
+                .collect();
+            let size: usize = pp_values.len();
+            let mut idx: usize = size - 1;
+            let mut factor: f32 = 0.95_f32.powi(idx as i32);
+            let mut top: f32 = user.pp_raw;
+            let mut bot: f32 = 0.0;
+            let mut current: f32 = pp_values[idx];
+            while top + bot < rank_holder.pp_raw {
+                top -= current * factor;
+                if idx == 0 {
+                    break;
+                }
+                current = pp_values[idx - 1];
+                bot += current * factor;
+                factor /= 0.95;
+                idx -= 1;
+            }
+            let mut required: f32 = rank_holder.pp_raw - top - bot;
+            if top + bot >= rank_holder.pp_raw {
+                factor *= 0.95;
+                required = (required + factor * pp_values[idx]) / factor;
+            }
+            if size < 100 {
+                required -= pp_values[size - 1] * 0.95_f32.powi(size as i32 - 1);
+            }
+            format!(
+                "Rank {country}{rank} is currently held by {holder_name} with \
+                 **{holder_pp}pp**, so {name} is missing **{missing}** raw pp, \
+                 achievable by a single score worth **{pp}pp**.",
+                country = country,
+                rank = rank,
+                holder_name = rank_holder.username,
+                holder_pp = round_and_comma(rank_holder.pp_raw),
+                name = user.username,
+                missing = round_and_comma(rank_holder.pp_raw - user.pp_raw),
+                pp = round_and_comma(required),
+            )
+        };
+        result.author_icon = Some(author_icon);
+        result.author_url = Some(author_url);
+        result.author_text = Some(author_text);
+        result.thumbnail = Some(thumbnail);
+        result.title_text = Some(title);
+        result.description = Some(description);
         result
     }
 

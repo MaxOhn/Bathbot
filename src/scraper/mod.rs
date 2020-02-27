@@ -89,16 +89,15 @@ impl Scraper {
         Ok(scores.get())
     }
 
-    #[allow(dead_code)]
     pub async fn get_userid_of_rank(
         &self,
         rank: usize,
         mode: GameMode,
         country_acronym: Option<&str>,
     ) -> Result<u32, Error> {
-        if rank < 1 || 50 < rank {
+        if rank < 1 || 10_000 < rank {
             return Err(Error::Custom(format!(
-                "Rank must be between 1 and 50, got {}",
+                "Rank must be between 1 and 10_000, got {}",
                 rank
             )));
         }

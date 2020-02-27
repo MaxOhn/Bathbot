@@ -1,6 +1,6 @@
 pub use crate::commands::osu::{
-    common::*, nochoke::*, pp::*, profile::*, recent::*, recent_lb::*, simulate_recent::*, top::*,
-    whatif::*,
+    common::*, nochoke::*, pp::*, profile::*, rank::*, recent::*, recent_lb::*, simulate_recent::*,
+    top::*, whatif::*,
 };
 
 use serenity::framework::standard::macros::group;
@@ -16,6 +16,7 @@ use serenity::framework::standard::macros::group;
     simulaterecent,
     nochoke,
     common,
-    recentleaderboard
+    recentleaderboard,
+    rank
 )]
 pub struct Osu;

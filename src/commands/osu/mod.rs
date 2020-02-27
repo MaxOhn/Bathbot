@@ -7,6 +7,7 @@ mod match_costs;
 pub mod nochoke;
 pub mod pp;
 pub mod profile;
+pub mod rank;
 pub mod recent;
 pub mod recent_lb;
 mod scores;

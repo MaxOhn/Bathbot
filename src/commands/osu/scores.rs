@@ -40,17 +40,15 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
                 return Ok(());
             }
         }
+    } else if let Some(id) = arguments::get_regex_id(&args.single::<String>()?) {
+        id
     } else {
-        if let Some(id) = arguments::get_regex_id(&args.single::<String>()?) {
-            id
-        } else {
-            msg.channel_id.say(
-                &ctx.http,
-                "Could not parse beatmap id. Make sure your first argument is \
-                 either the url to a beatmap or just a beatmap id.",
-            )?;
-            return Ok(());
-        }
+        msg.channel_id.say(
+            &ctx.http,
+            "Could not parse beatmap id. Make sure your first argument is \
+             either the url to a beatmap or just a beatmap id.",
+        )?;
+        return Ok(());
     };
     // Parse the name
     let name = match args.single_quoted::<String>() {

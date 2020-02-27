@@ -20,11 +20,12 @@ pub fn map_id_from_history(msgs: Vec<Message>, cache: CacheRwLock) -> Option<u32
     let field_regex = Regex::new(r".*\{(\d+/){2,}\d+}.*").unwrap();
     let check_field = |url: &str, field: &EmbedField| {
         if field_regex.is_match(&field.value) {
-            let caps = url_regex.captures(url).expect("1234");
-            if let Some(cap) = caps.get(1) {
-                if let Ok(id) = u32::from_str(cap.as_str()) {
-                    return Some(id);
-                }
+            let result = url_regex
+                .captures(url)
+                .and_then(|caps| caps.get(1))
+                .and_then(|cap| u32::from_str(cap.as_str()).ok());
+            if result.is_some() {
+                return result;
             }
         }
         None
@@ -37,11 +38,12 @@ pub fn map_id_from_history(msgs: Vec<Message>, cache: CacheRwLock) -> Option<u32
             if let Some(author) = embed.author {
                 if let Some(url) = author.url {
                     if url.contains("/b/") {
-                        let caps = url_regex.captures(&url).expect("9876");
-                        if let Some(cap) = caps.get(1) {
-                            if let Ok(id) = u32::from_str(cap.as_str()) {
-                                return Some(id);
-                            }
+                        let result = url_regex
+                            .captures(&url)
+                            .and_then(|caps| caps.get(1))
+                            .and_then(|cap| u32::from_str(cap.as_str()).ok());
+                        if result.is_some() {
+                            return result;
                         }
                     }
                 }

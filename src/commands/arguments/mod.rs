@@ -64,7 +64,7 @@ impl ArgParser {
 
     /// Check if `-g` or `--global` is in the arguments
     pub fn get_global(&self) -> bool {
-        self.get_option("-g") || self.get_option("--global")
+        self.contains_any(&["-g", "-global"])
     }
 
     /// Name __must__ be the first argument
@@ -125,9 +125,14 @@ impl ArgParser {
         None
     }
 
-    fn get_option(&self, option: &str) -> bool {
+    fn contains_any(&self, words: &[&str]) -> bool {
         let args: Vec<&str> = self.args.raw_quoted().collect();
-        args.contains(&option)
+        for word in words {
+            if args.contains(word) {
+                return true;
+            }
+        }
+        false
     }
 }
 
