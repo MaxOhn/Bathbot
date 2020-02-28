@@ -1,6 +1,10 @@
+mod nochoke;
+
+pub use nochoke::*;
+
 pub use crate::commands::osu::{
-    common::*, nochoke::*, pp::*, profile::*, rank::*, recent::*, recent_lb::*, simulate_recent::*,
-    top::*, whatif::*,
+    common::*, pp::*, profile::*, rank::*, recent::*, recent_lb::*, simulate_recent::*, top::*,
+    whatif::*,
 };
 
 use serenity::framework::standard::macros::group;
@@ -13,10 +17,10 @@ use serenity::framework::standard::macros::group;
     profile,
     pp,
     whatif,
-    simulaterecent,
     common,
     recentleaderboard,
     rank,
+    simulaterecent,
     nochoke
 )]
 pub struct Osu;

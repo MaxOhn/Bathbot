@@ -12,7 +12,8 @@ use std::{thread, time::Duration};
 #[description = "Optionally provide a number to delete this \
                  many of the latest messages of a channel, defaults to 1. \
                  Amount must be between 1 and 99."]
-#[usage = "3"]
+#[usage = "[number]"]
+#[example = "3"]
 #[aliases("purge")]
 fn prune(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let amount = if args.remaining() > 0 {

@@ -13,7 +13,8 @@ use tokio::runtime::Runtime;
 
 #[command]
 #[description = "Calculate the average ratios of a mania user's top 100"]
-#[usage = "badewanne3"]
+#[usage = "[username]"]
+#[example = "badewanne3"]
 #[aliases("ratio")]
 pub fn ratios(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     // Parse the name

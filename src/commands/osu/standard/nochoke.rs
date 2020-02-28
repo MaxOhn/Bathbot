@@ -15,8 +15,10 @@ use std::{collections::HashMap, error::Error as StdError};
 use tokio::runtime::Runtime;
 
 #[command]
-#[description = "Display a user's top plays if no score in their top 100 would be a choke"]
-#[usage = "badewanne3"]
+#[description = "Display a user's top plays if no score in their top 100 \
+                 would be a choke"]
+#[usage = "[username]"]
+#[example = "badewanne3"]
 #[aliases("nc", "nochokes")]
 fn nochoke(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let _ = msg.channel_id.broadcast_typing(&ctx.http);

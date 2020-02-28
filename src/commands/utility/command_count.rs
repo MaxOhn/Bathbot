@@ -10,6 +10,8 @@ use serenity::{
 use std::{fmt::Write, iter::FromIterator};
 
 #[command]
+#[description = "Let me show you my most popular commands \
+                 since my last reboot"]
 #[bucket = "two_per_thirty_cooldown"]
 fn commands(ctx: &mut Context, msg: &Message) -> CommandResult {
     let symbols = ["♔", "♕", "♖", "♗", "♘", "♙"];

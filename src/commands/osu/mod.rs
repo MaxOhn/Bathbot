@@ -4,7 +4,6 @@ mod leaderboard;
 mod link;
 pub mod mania;
 mod match_costs;
-pub mod nochoke;
 pub mod pp;
 pub mod profile;
 pub mod rank;

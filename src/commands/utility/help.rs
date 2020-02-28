@@ -8,14 +8,15 @@ use serenity::{
 use std::collections::HashSet;
 
 #[help]
-#[individual_command_tip = "**[HEAVY WIP BOT VERSION]**\n\
-Prefix: `<` or `!!`\n\
+#[individual_command_tip = "Prefix: `<` or `!!`\n\
 If you want more information about a specific command, \
 just pass the command as argument i.e. `<help command`.\n\
 Commands can also be used in private messages to me, \
 no need for any prefix in pms.\n\
-If you want to provide a command with a username that contains \
-spaces, you must encapsulate the name with `\"` i.e. `\"nathan on osu\"`.\n\
+If you want to specify a username that contains spaces, \
+you must encapsulate the name with `\"` i.e. `\"nathan on osu\"`.\n\
+Many commands allow you to specify mods. You can do so with `+mods` \
+for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods.
 Further help on the spreadsheet: http://bit.ly/badecoms"]
 #[command_not_found_text = "Could not find command: `{}`."]
 #[max_levenshtein_distance(3)]

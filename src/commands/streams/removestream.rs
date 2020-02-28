@@ -14,7 +14,8 @@ use serenity::{
 #[checks(Authority)]
 #[description = "Let me no longer notify this channel when the given stream comes online"]
 #[aliases("streamremove")]
-#[usage = "twitch/mixer [stream name]"]
+#[usage = "[twitch / mixer] [stream name]"]
+#[example = "twitch loltyler1"]
 fn removestream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     // Parse the platform and stream name
     let result = if args.len() < 2 {

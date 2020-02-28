@@ -9,7 +9,8 @@ use serenity::{
 #[description = "Link your discord account to an osu name. \
                  If no arguments are provided, I will unlink \
                  your discord account from any osu name."]
-#[usage = "badewanne3"]
+#[usage = "[username]"]
+#[example = "badewanne3"]
 fn link(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let id = *msg.author.id.as_u64();
     if args.is_empty() {

@@ -189,7 +189,8 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
 
 #[command]
 #[description = "Display a user's most recent play"]
-#[usage = "badewanne3"]
+#[usage = "[username]"]
+#[example = "badewanne3"]
 #[aliases("r", "rs")]
 pub fn recent(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     recent_send(GameMode::STD, ctx, msg, args)
@@ -197,7 +198,8 @@ pub fn recent(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 
 #[command]
 #[description = "Display a user's most recent mania play"]
-#[usage = "badewanne3"]
+#[usage = "[username]"]
+#[example = "badewanne3"]
 #[aliases("rm")]
 pub fn recentmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     recent_send(GameMode::MNA, ctx, msg, args)
@@ -205,7 +207,8 @@ pub fn recentmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResul
 
 #[command]
 #[description = "Display a user's most recent taiko play"]
-#[usage = "badewanne3"]
+#[usage = "[username]"]
+#[example = "badewanne3"]
 #[aliases("rt")]
 pub fn recenttaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     recent_send(GameMode::TKO, ctx, msg, args)
@@ -213,7 +216,8 @@ pub fn recenttaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResul
 
 #[command]
 #[description = "Display a user's most recent ctb play"]
-#[usage = "badewanne3"]
+#[usage = "[username]"]
+#[example = "badewanne3"]
 #[aliases("rc")]
 pub fn recentctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     recent_send(GameMode::CTB, ctx, msg, args)

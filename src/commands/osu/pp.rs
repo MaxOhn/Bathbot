@@ -101,31 +101,39 @@ fn pp_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> 
 }
 
 #[command]
-#[description = "Calculate what score a user is missing to reach the given total pp amount"]
-#[usage = "badewanne3 8000"]
+#[description = "Calculate what score a user is missing to \
+                 reach the given total pp amount"]
+#[usage = "[username] [number]"]
+#[example = "badewanne3 8000"]
 pub fn pp(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     pp_send(GameMode::STD, ctx, msg, args)
 }
 
 #[command]
-#[description = "Calculate what score a mania user is missing to reach the given total pp amount"]
-#[usage = "badewanne3 8000"]
+#[description = "Calculate what score a mania user is missing to \
+                 reach the given total pp amount"]
+#[usage = "[username] [number]"]
+#[example = "badewanne3 8000"]
 #[aliases("ppm")]
 pub fn ppmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     pp_send(GameMode::MNA, ctx, msg, args)
 }
 
 #[command]
-#[description = "Calculate what score a taiko user is missing to reach the given total pp amount"]
-#[usage = "badewanne3 8000"]
+#[description = "Calculate what score a taiko user is missing to \
+                 reach the given total pp amount"]
+#[usage = "[username] [number]"]
+#[example = "badewanne3 8000"]
 #[aliases("ppt")]
 pub fn pptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     pp_send(GameMode::TKO, ctx, msg, args)
 }
 
 #[command]
-#[description = "Calculate what score a ctb user is missing to reach the given total pp amount"]
-#[usage = "badewanne3 8000"]
+#[description = "Calculate what score a ctb user is missing to \
+                 reach the given total pp amount"]
+#[usage = "[username] [number]"]
+#[example = "badewanne3 8000"]
 #[aliases("ppc")]
 pub fn ppctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     pp_send(GameMode::CTB, ctx, msg, args)

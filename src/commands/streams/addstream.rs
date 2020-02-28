@@ -15,7 +15,8 @@ use tokio::runtime::Runtime;
 #[checks(Authority)]
 #[description = "Let me notify this channel whenever the given stream comes online"]
 #[aliases("streamadd")]
-#[usage = "twitch/mixer [stream name]"]
+#[usage = "[twitch / mixer] [stream name]"]
+#[example = "twitch loltyler1"]
 fn addstream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     // Parse the platform and stream name
     let (platform, name) = if args.len() < 2 {

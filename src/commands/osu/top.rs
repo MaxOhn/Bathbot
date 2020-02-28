@@ -253,32 +253,48 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
 }
 
 #[command]
-#[description = "Display a user's top plays"]
-#[usage = "badewanne3"]
+#[description = "Display a user's top plays. \
+                 Mods can be specified, aswell as minimal acc \
+                 with `-a`, combo with `-c`, and a grade with `-grade`"]
+#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods]"]
+#[example = "badewanne3 -a 97.34 -grade A +hdhr"]
+#[example = "vaxei -c 1234 -dt!"]
 #[aliases("topscores", "osutop")]
 pub fn top(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     top_send(GameMode::STD, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display a user's top mania plays"]
-#[usage = "badewanne3"]
+#[description = "Display a user's top mania plays. \
+                 Mods can be specified, aswell as minimal acc \
+                 with `-a`, combo with `-c`, and a grade with `-grade`"]
+#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods]"]
+#[example = "badewanne3 -a 97.34 -grade A +hdhr"]
+#[example = "vaxei -c 1234 -dt!"]
 #[aliases("topm")]
 pub fn topmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     top_send(GameMode::MNA, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display a user's top taiko plays"]
-#[usage = "badewanne3"]
+#[description = "Display a user's top taiko plays. \
+                 Mods can be specified, aswell as minimal acc \
+                 with `-a`, combo with `-c`, and a grade with `-grade`"]
+#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods]"]
+#[example = "badewanne3 -a 97.34 -grade A +hdhr"]
+#[example = "vaxei -c 1234 -dt!"]
 #[aliases("topt")]
 pub fn toptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     top_send(GameMode::TKO, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display a user's top ctb plays"]
-#[usage = "badewanne3"]
+#[description = "Display a user's top ctb plays. \
+                 Mods can be specified, aswell as minimal acc \
+                 with `-a`, combo with `-c`, and a grade with `-grade`"]
+#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods]"]
+#[example = "badewanne3 -a 97.34 -grade A +hdhr"]
+#[example = "vaxei -c 1234 -dt!"]
 #[aliases("topc")]
 pub fn topctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     top_send(GameMode::CTB, ctx, msg, args)

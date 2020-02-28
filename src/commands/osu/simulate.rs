@@ -19,7 +19,11 @@ use tokio::runtime::Runtime;
 use white_rabbit::{DateResult, Duration, Utc};
 
 #[command]
-#[description = "Simulate a (perfect) score on the given map"]
+#[description = "Simulate a (perfect) score on the given map. \
+                 If no map is given, I will choose the last map \
+                 I can find in my embeds of this channel"]
+#[usage = "[map url / map id]"]
+#[example = "1980365"]
 #[example = "https://osu.ppy.sh/beatmapsets/948199#osu/1980365"]
 #[aliases("s")]
 fn simulate(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {

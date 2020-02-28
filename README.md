@@ -20,10 +20,10 @@ Work in progress discord bot port for the game [osu!](https://osu.ppy.sh/home) f
 - Kick unchecked users after x days
 - Distribute `Top` role automatically
 - `In VC` role distribution (generalized?)
-- Improve `<help`, command descriptions, usage, examples, ...
+- Mod (/acc/combo/score) support for `<s` and `<sr`
 - (Mania star calculation)
   ### Commands
-   - `<reach`
+   - (`<reach`)
    - `<recentbest`
    - `<sotarks` (generalized?)
    ---
@@ -31,6 +31,5 @@ Work in progress discord bot port for the game [osu!](https://osu.ppy.sh/home) f
    - `<authorities`
    - Lyrics
    ---
-   - `<removestream`
-   - `trackedstreams`
-   - `<allstreams`
+   - (`trackedstreams`)
+   - (`<allstreams`)

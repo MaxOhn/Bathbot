@@ -167,64 +167,80 @@ fn recent_lb_send(
 }
 
 #[command]
-#[description = "Display the national leaderboard of a map that a user recently played"]
-#[usage = "badewanne3"]
+#[description = "Display the belgian leaderboard of a map \
+                 that a user recently played. Mods can be specified"]
+#[usage = "[username] [+mods]"]
+#[example = "badewanne3 +hdhr"]
 #[aliases("rlb")]
 pub fn recentleaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     recent_lb_send(GameMode::STD, true, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display the national leaderboard of a map that a mania user recently played"]
-#[usage = "badewanne3"]
+#[description = "Display the belgian leaderboard of a map \
+                 that a mania user recently played. Mods can be specified"]
+#[usage = "[username] [+mods]"]
+#[example = "badewanne3 +hdhr"]
 #[aliases("rmlb")]
 pub fn recentmanialeaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     recent_lb_send(GameMode::MNA, true, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display the national leaderboard of a map that a taiko user recently played"]
-#[usage = "badewanne3"]
+#[description = "Display the belgian leaderboard of a map \
+                 that a taiko user recently played. Mods can be specified"]
+#[usage = "[username] [+mods]"]
+#[example = "badewanne3 +hdhr"]
 #[aliases("rtlb")]
 pub fn recenttaikoleaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     recent_lb_send(GameMode::TKO, true, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display the national leaderboard of a map that a ctb user recently played"]
-#[usage = "badewanne3"]
+#[description = "Display the belgian leaderboard of a map \
+                 that a ctb user recently played. Mods can be specified"]
+#[usage = "[username] [+mods]"]
+#[example = "badewanne3 +hdhr"]
 #[aliases("rclb")]
 pub fn recentctbleaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     recent_lb_send(GameMode::CTB, true, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display the global leaderboard of a map that a user recently played"]
-#[usage = "badewanne3"]
+#[description = "Display the global leaderboard of a map \
+                 that a user recently played. Mods can be specified"]
+#[usage = "[username] [+mods]"]
+#[example = "badewanne3 +hdhr"]
 #[aliases("rglb")]
 pub fn recentgloballeaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     recent_lb_send(GameMode::STD, false, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display the global leaderboard of a map that a mania user recently played"]
-#[usage = "badewanne3"]
+#[description = "Display the global leaderboard of a map \
+                 that a mania user recently played. Mods can be specified"]
+#[usage = "[username] [+mods]"]
+#[example = "badewanne3 +hdhr"]
 #[aliases("rmglb")]
 pub fn recentmaniagloballeaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     recent_lb_send(GameMode::MNA, false, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display the global leaderboard of a map that a taiko user recently played"]
-#[usage = "badewanne3"]
+#[description = "Display the global leaderboard of a map \
+                 that a taiko user recently played. Mods can be specified"]
+#[usage = "[username] [+mods]"]
+#[example = "badewanne3 +hdhr"]
 #[aliases("rtglb")]
 pub fn recenttaikogloballeaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     recent_lb_send(GameMode::TKO, false, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display the global leaderboard of a map that a ctb user recently played"]
-#[usage = "badewanne3"]
+#[description = "Display the global leaderboard of a map \
+                 that a ctb user recently played. Mods can be specified"]
+#[usage = "[username] [+mods]"]
+#[example = "badewanne3 +hdhr"]
 #[aliases("rcglb")]
 pub fn recentctbgloballeaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     recent_lb_send(GameMode::CTB, false, ctx, msg, args)

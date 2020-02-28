@@ -43,6 +43,9 @@ use strfmt::strfmt;
 use tokio::runtime::Runtime;
 use white_rabbit::{DateResult, Duration, Scheduler, Utc as UtcWR};
 
+pub const WITH_STREAM_TRACK: bool = false;
+pub const WITH_SCRAPER: bool = false;
+
 fn setup() -> Result<(), Error> {
     kankyo::load()?;
     env_logger::init();
@@ -210,8 +213,6 @@ impl EventHandler for Handler {
 
     fn cache_ready(&self, ctx: Context, _: Vec<GuildId>) {
         // Tracking streams
-        #[allow(non_snake_case)]
-        let WITH_STREAM_TRACK = true;
         if WITH_STREAM_TRACK {
             let track_delay = 10;
             let scheduler = {
@@ -310,6 +311,9 @@ impl EventHandler for Handler {
                 //debug!("Stream track check done");
                 DateResult::Repeat(UtcWR::now() + Duration::seconds(track_delay))
             });
+            info!("Stream tracking started");
+        } else {
+            info!("Stream tracking skipped");
         }
 
         // Tracking reactions

@@ -157,7 +157,8 @@ fn simulate_recent_send(
 
 #[command]
 #[description = "Display an unchoked version of user's most recent play"]
-#[usage = "badewanne3"]
+#[usage = "[username]"]
+#[example = "badewanne3"]
 #[aliases("sr")]
 pub fn simulaterecent(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     simulate_recent_send(GameMode::STD, ctx, msg, args)
@@ -165,7 +166,8 @@ pub fn simulaterecent(ctx: &mut Context, msg: &Message, args: Args) -> CommandRe
 
 #[command]
 #[description = "Display a perfect play on a user's most recently played mania map"]
-#[usage = "badewanne3"]
+#[usage = "[username]"]
+#[example = "badewanne3"]
 #[aliases("srm")]
 pub fn simulaterecentmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     simulate_recent_send(GameMode::MNA, ctx, msg, args)

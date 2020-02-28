@@ -5,7 +5,10 @@ mod score;
 use score::ScraperScores;
 pub use score::{ScraperBeatmap, ScraperScore};
 
-use crate::util::{globals::HOMEPAGE, Error, RateLimiter};
+use crate::{
+    util::{globals::HOMEPAGE, Error, RateLimiter},
+    WITH_SCRAPER,
+};
 use reqwest::{multipart::Form, Client, Response};
 use rosu::models::{GameMode, GameMods};
 use scraper::{Html, Node, Selector};
@@ -18,8 +21,6 @@ pub struct Scraper {
 
 impl Scraper {
     pub async fn new() -> Result<Self, Error> {
-        #[allow(non_snake_case)]
-        let WITH_SCRAPER = false;
         // Initialize client
         let client = Client::builder().cookie_store(true).build()?;
         if WITH_SCRAPER {

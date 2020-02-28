@@ -100,32 +100,40 @@ fn whatif_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
 }
 
 #[command]
-#[description = "Calculate the gain in pp if the user were to get a score with the given pp value"]
-#[usage = "badewanne3 321.98"]
+#[description = "Calculate the gain in pp if the user were \
+                 to get a score with the given pp value"]
+#[usage = "[username] [number]"]
+#[example = "badewanne3 321.98"]
 #[aliases("wi")]
 pub fn whatif(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     whatif_send(GameMode::STD, ctx, msg, args)
 }
 
 #[command]
-#[description = "Calculate the gain in pp if the mania user were to get a score with the given pp value"]
-#[usage = "badewanne3 321.98"]
+#[description = "Calculate the gain in pp if the mania user were \
+                 to get a score with the given pp value"]
+#[usage = "[username] [number]"]
+#[example = "badewanne3 321.98"]
 #[aliases("wim")]
 pub fn whatifmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     whatif_send(GameMode::MNA, ctx, msg, args)
 }
 
 #[command]
-#[description = "Calculate the gain in pp if the taiko user were to get a score with the given pp value"]
-#[usage = "badewanne3 321.98"]
+#[description = "Calculate the gain in pp if the taiko user were \
+                 to get a score with the given pp value"]
+#[usage = "[username] [number]"]
+#[example = "badewanne3 321.98"]
 #[aliases("wit")]
 pub fn whatiftaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     whatif_send(GameMode::TKO, ctx, msg, args)
 }
 
 #[command]
-#[description = "Calculate the gain in pp if the ctb user were to get a score with the given pp value"]
-#[usage = "badewanne3 321.98"]
+#[description = "Calculate the gain in pp if the ctb user were \
+                 to get a score with the given pp value"]
+#[usage = "[username] [number]"]
+#[example = "badewanne3 321.98"]
 #[aliases("wic")]
 pub fn whatifctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     whatif_send(GameMode::CTB, ctx, msg, args)

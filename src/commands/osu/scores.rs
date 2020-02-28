@@ -18,10 +18,13 @@ use serenity::{
 use tokio::runtime::Runtime;
 
 #[command]
-#[description = "Display scores for all mods that a user has on a map. \
-                 Beatmap can be given as url or just **mapid**. \
-                 If no beatmap is given, it will choose the map of a score in the channel's history"]
+#[description = "Display a user's top score for each mod on a given map. \
+                 If no map is given, I will choose the last map \
+                 I can find in my embeds of this channel"]
+#[usage = "[map url / map id] [username]"]
+#[example = "badewanne3"]
 #[example = "2240404 badewanne3"]
+#[example = "https://osu.ppy.sh/beatmapsets/902425#osu/2240404 badewanne3"]
 #[aliases("c", "compare")]
 fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     // Parse the beatmap id

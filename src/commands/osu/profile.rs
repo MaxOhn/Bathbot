@@ -149,7 +149,8 @@ fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args
 
 #[command]
 #[description = "Display statistics of a user"]
-#[usage = "badewanne3"]
+#[usage = "[username]"]
+#[example = "badewanne3"]
 #[aliases("osu")]
 pub fn profile(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     profile_send(GameMode::STD, ctx, msg, args)
@@ -157,7 +158,8 @@ pub fn profile(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 
 #[command]
 #[description = "Display statistics of a mania user"]
-#[usage = "badewanne3"]
+#[usage = "[username]"]
+#[example = "badewanne3"]
 #[aliases("mania", "maniaprofile")]
 pub fn profilemania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     profile_send(GameMode::MNA, ctx, msg, args)
@@ -165,7 +167,8 @@ pub fn profilemania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
 
 #[command]
 #[description = "Display statistics of a taiko user"]
-#[usage = "badewanne3"]
+#[usage = "[username]"]
+#[example = "badewanne3"]
 #[aliases("taiko", "taikoprofile")]
 pub fn profiletaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     profile_send(GameMode::TKO, ctx, msg, args)
@@ -173,7 +176,8 @@ pub fn profiletaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
 
 #[command]
 #[description = "Display statistics of ctb user"]
-#[usage = "badewanne3"]
+#[usage = "[username]"]
+#[example = "badewanne3"]
 #[aliases("ctb", "ctbprofile")]
 pub fn profilectb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     profile_send(GameMode::CTB, ctx, msg, args)

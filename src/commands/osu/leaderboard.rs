@@ -174,16 +174,24 @@ fn leaderboard_send(
 }
 
 #[command]
-#[description = "Display the national leaderboard of a map"]
+#[description = "Display the national leaderboard of a given map. \
+                 If no map is given, I will choose the last map \
+                 I can find in my embeds of this channel"]
+#[usage = "[map url / map id]"]
 #[example = "2240404"]
+#[example = "https://osu.ppy.sh/beatmapsets/902425#osu/2240404"]
 #[aliases("lb")]
 pub fn leaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     leaderboard_send(true, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display the global leaderboard of a map"]
+#[description = "Display the global leaderboard of a given map. \
+                 If no map is given, I will choose the last map \
+                 I can find in my embeds of this channel"]
+#[usage = "[map url / map id]"]
 #[example = "2240404"]
+#[example = "https://osu.ppy.sh/beatmapsets/902425#osu/2240404"]
 #[aliases("glb")]
 pub fn globalleaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     leaderboard_send(false, ctx, msg, args)

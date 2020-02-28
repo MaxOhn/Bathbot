@@ -21,6 +21,8 @@ use serenity::{
                  when anyone reacts to that message, the member will \
                  gain that role and and if they remove a reaction, \
                  they lose the role"]
+#[usage = "[channel mention / channel id] [message id] [role mention / role id]"]
+#[example = "#general 681871156168753193 @Meetup"]
 fn roleassign(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let mut arg_parser = ArgParser::new(args);
     let channel = match arg_parser.get_next_channel() {

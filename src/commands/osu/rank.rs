@@ -160,31 +160,40 @@ fn rank_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -
 }
 
 #[command]
-#[description = "Calculate how many more pp a player requires to reach a given rank"]
-#[usage = "badewanne3 be10"]
+#[description = "Calculate how many more pp a player requires to \
+                 reach a given rank"]
+#[usage = "[username] [[country]number]"]
+#[example = "badewanne3 be50"]
+#[example = "badewanne3 123"]
 pub fn rank(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     rank_send(GameMode::STD, ctx, msg, args)
 }
 
 #[command]
-#[description = "Calculate how many more pp a mania player requires to reach a given rank"]
-#[usage = "badewanne3 be10"]
+#[description = "Calculate how many more pp a mania player requires to \
+                 reach a given rank"]
+#[example = "badewanne3 be50"]
+#[example = "badewanne3 123"]
 #[aliases("rankm")]
 pub fn rankmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     rank_send(GameMode::MNA, ctx, msg, args)
 }
 
 #[command]
-#[description = "Calculate how many more pp a taiko player requires to reach a given rank"]
-#[usage = "badewanne3 be10"]
+#[description = "Calculate how many more pp a taiko player requires to \
+                 reach a given rank"]
+#[example = "badewanne3 be50"]
+#[example = "badewanne3 123"]
 #[aliases("rankt")]
 pub fn ranktaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     rank_send(GameMode::TKO, ctx, msg, args)
 }
 
 #[command]
-#[description = "Calculate how many more pp a ctb player requires to reach a given rank"]
-#[usage = "badewanne3 be10"]
+#[description = "Calculate how many more pp a ctb player requires to \
+                 reach a given rank"]
+#[example = "badewanne3 be50"]
+#[example = "badewanne3 123"]
 #[aliases("rankc")]
 pub fn rankctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     rank_send(GameMode::CTB, ctx, msg, args)

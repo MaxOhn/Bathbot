@@ -29,7 +29,7 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
         return Ok(());
     }
     let mut names = Vec::with_capacity(args.len());
-    while !args.is_empty() {
+    while !args.is_empty() && names.len() < 10 {
         names.push(args.trimmed().single_quoted::<String>()?);
     }
     if names.len() == 1 {
@@ -204,31 +204,39 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
 }
 
 #[command]
-#[description = "Compare the users' top 100 and check which maps appear in each top list"]
-#[usage = "badewanne3 \"nathan on osu\" idke"]
+#[description = "Compare the users' top 100 and check which \
+                 maps appear in each top list (up to 10 users)"]
+#[usage = "[name1] [name2] ..."]
+#[example = "badewanne3 \"nathan on osu\" idke"]
 pub fn common(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     common_send(GameMode::STD, ctx, msg, args)
 }
 
 #[command]
-#[description = "Compare the mania users' top 100 and check which maps appear in each top list"]
-#[usage = "badewanne3 \"nathan on osu\" idke"]
+#[description = "Compare the mania users' top 100 and check which \
+                 maps appear in each top list (up to 10 users)"]
+#[usage = "[name1] [name2] ..."]
+#[example = "badewanne3 \"nathan on osu\" idke"]
 #[aliases("commonm")]
 pub fn commonmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     common_send(GameMode::MNA, ctx, msg, args)
 }
 
 #[command]
-#[description = "Compare the taiko users' top 100 and check which maps appear in each top list"]
-#[usage = "badewanne3 \"nathan on osu\" idke"]
+#[description = "Compare the taiko users' top 100 and check which \
+                 maps appear in each top list (up to 10 users)"]
+#[usage = "[name1] [name2] ..."]
+#[example = "badewanne3 \"nathan on osu\" idke"]
 #[aliases("commont")]
 pub fn commontaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     common_send(GameMode::TKO, ctx, msg, args)
 }
 
 #[command]
-#[description = "Compare the ctb users' top 100 and check which maps appear in each top list"]
-#[usage = "badewanne3 \"nathan on osu\" idke"]
+#[description = "Compare the ctb users' top 100 and check which \
+                 maps appear in each top list (up to 10 users)"]
+#[usage = "[name1] [name2] ..."]
+#[example = "badewanne3 \"nathan on osu\" idke"]
 #[aliases("commonc")]
 pub fn commonctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     common_send(GameMode::CTB, ctx, msg, args)
