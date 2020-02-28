@@ -15,6 +15,7 @@ use serenity::{
 };
 
 #[command]
+#[only_in("guild")]
 #[checks(Authority)]
 #[description = "Assign a message and its channel to a role such that \
                  when anyone reacts to that message, the member will \

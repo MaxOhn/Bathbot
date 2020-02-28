@@ -14,9 +14,9 @@ use serenity::framework::standard::macros::group;
     pp,
     whatif,
     simulaterecent,
-    nochoke,
     common,
     recentleaderboard,
-    rank
+    rank,
+    nochoke
 )]
 pub struct Osu;

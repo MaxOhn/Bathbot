@@ -280,6 +280,19 @@ impl MySQL {
         let tracks = tracks.into_iter().map(StreamTrackDB::into).collect();
         Ok(tracks)
     }
+
+    pub fn remove_stream_track(&self, channel: u64, user: u64, pf: Platform) -> Result<(), Error> {
+        use schema::stream_tracks::columns;
+        let conn = self.get_connection()?;
+        diesel::delete(
+            schema::stream_tracks::table
+                .filter(columns::channel_id.eq(channel))
+                .filter(columns::user_id.eq(user))
+                .filter(columns::platform.eq(pf as u8)),
+        )
+        .execute(&conn)?;
+        Ok(())
+    }
 }
 
 fn mania_mod_bits(mods: &GameMods) -> u32 {

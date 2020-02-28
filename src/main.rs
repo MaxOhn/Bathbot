@@ -271,8 +271,8 @@ impl EventHandler for Handler {
                         // Filter streams whether its already known they're live
                         streams.retain(|stream| !online_streams.contains(&stream.user_id));
                         let mut fmt_data = HashMap::new();
-                        fmt_data.insert(String::from("width"), String::from("240"));
-                        fmt_data.insert(String::from("height"), String::from("120"));
+                        fmt_data.insert(String::from("width"), String::from("360"));
+                        fmt_data.insert(String::from("height"), String::from("180"));
 
                         // Put streams into a more suitable data type and process the thumbnail url
                         let streams: HashMap<u64, TwitchStream> = streams

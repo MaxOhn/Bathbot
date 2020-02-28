@@ -883,6 +883,9 @@ impl BasicEmbedData {
         Ok(result)
     }
 
+    //
+    // twitch notification
+    //
     pub fn create_twitch_stream_notif(stream: &TwitchStream) -> Self {
         let mut result = Self::default();
         result.author_text = Some(String::from("Now live on twitch:"));

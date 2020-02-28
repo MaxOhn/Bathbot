@@ -17,8 +17,8 @@ use serenity::framework::standard::macros::group;
     ppmania,
     whatifmania,
     commonmania,
-    ratios,
     recentmanialeaderboard,
-    rankmania
+    rankmania,
+    ratios
 )]
 pub struct Mania;

@@ -1,47 +1,47 @@
 use crate::{
+    commands::checks::*,
     database::{Platform, StreamTrack},
-    util::globals::DATABASE_ISSUE,
     MySQL, StreamTracks, Twitch, TwitchUsers,
 };
 
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::prelude::Message,
     prelude::Context,
 };
 use tokio::runtime::Runtime;
 
 #[command]
-#[description = "Calculate what score a user is missing to reach the given total pp amount"]
+#[checks(Authority)]
+#[description = "Let me notify this channel whenever the given stream comes online"]
 #[aliases("streamadd")]
 #[usage = "twitch/mixer [stream name]"]
 fn addstream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     // Parse the platform and stream name
-    let (platform, name) = match args.len() {
-        0 | 1 => {
-            msg.channel_id.say(
-                &ctx.http,
-                "The first argument must be either `twitch` or `mixer`. \
-                 The next argument must be the name of the stream.",
-            )?;
-            return Ok(());
-        }
-        _ => {
-            let platform = match args.single::<String>()?.to_lowercase().as_str() {
-                "twitch" => Platform::Twitch,
-                "mixer" => Platform::Mixer,
-                _ => {
-                    msg.channel_id.say(
-                        &ctx.http,
-                        "The first argument must be either `twitch` or `mixer`. \
-                         The next argument must be the name of the stream.",
-                    )?;
-                    return Ok(());
-                }
-            };
-            let name = args.single::<String>()?.to_lowercase();
-            {
-                // TODO: Distinguish between twitch and mixer
+    let (platform, name) = if args.len() < 2 {
+        msg.channel_id.say(
+            &ctx.http,
+            "The first argument must be either `twitch` or `mixer`. \
+             The next argument must be the name of the stream.",
+        )?;
+        return Ok(());
+    } else {
+        let platform = match args.single::<String>()?.to_lowercase().as_str() {
+            "twitch" => Platform::Twitch,
+            "mixer" => Platform::Mixer,
+            _ => {
+                msg.channel_id.say(
+                    &ctx.http,
+                    "The first argument must be either `twitch` or `mixer`. \
+                     The next argument must be the name of the stream.",
+                )?;
+                return Ok(());
+            }
+        };
+        let name = args.single::<String>()?.to_lowercase();
+        match platform {
+            Platform::Mixer => (platform, "TODO".to_string()),
+            Platform::Twitch => {
                 let (twitch_id, insert) = {
                     let data = ctx.data.read();
                     let twitch_users = data
@@ -54,9 +54,12 @@ fn addstream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult 
                         let mut rt = Runtime::new().unwrap();
                         let twitch_id = match rt.block_on(twitch.get_user(&name)) {
                             Ok(user) => user.user_id,
-                            Err(why) => {
-                                msg.channel_id.say(&ctx.http, DATABASE_ISSUE)?;
-                                return Err(CommandError::from(why.to_string()));
+                            Err(_) => {
+                                msg.channel_id.say(
+                                    &ctx.http,
+                                    format!("Twitch user `{}` was not found", name),
+                                )?;
+                                return Ok(());
                             }
                         };
                         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
@@ -84,18 +87,18 @@ fn addstream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult 
                         warn!("Error while adding stream track: {}", why);
                     }
                 }
+                (platform, name)
             }
-            (platform, name)
         }
     };
 
-    // Creating the embed
-    let _ = msg.channel_id.say(
+    // Sending the msg
+    msg.channel_id.say(
         &ctx.http,
         format!(
-            "I'm now tracking {}'s {:?} stream in this channel",
+            "I'm now tracking `{}`'s {:?} stream in this channel",
             name, platform
         ),
-    );
+    )?;
     Ok(())
 }
