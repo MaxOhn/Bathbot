@@ -224,7 +224,7 @@ impl EventHandler for Handler {
             let http = ctx.http.clone();
             let data = ctx.data.clone();
             scheduler.add_task_duration(Duration::seconds(track_delay), move |_| {
-                debug!("Checking stream tracks...");
+                //debug!("Checking stream tracks...");
                 let now_online = {
                     let reading = data.read();
 
@@ -265,7 +265,7 @@ impl EventHandler for Handler {
 
                     // If there was no activity change since last time, don't do anything
                     if &now_online == online_streams {
-                        debug!("No activity change");
+                        //debug!("No activity change");
                         None
                     } else {
                         // Filter streams whether its already known they're live
@@ -307,7 +307,7 @@ impl EventHandler for Handler {
                         online_twitch.insert(id);
                     }
                 }
-                debug!("Stream track check done");
+                //debug!("Stream track check done");
                 DateResult::Repeat(UtcWR::now() + Duration::seconds(track_delay))
             });
         }
@@ -498,12 +498,12 @@ impl TypeMapKey for ReactionTracker {
 
 pub struct TwitchUsers;
 impl TypeMapKey for TwitchUsers {
-    type Value = HashMap<u64, String>;
+    type Value = HashMap<String, u64>;
 }
 
 pub struct StreamTracks;
 impl TypeMapKey for StreamTracks {
-    type Value = Vec<StreamTrack>;
+    type Value = HashSet<StreamTrack>;
 }
 
 pub struct OnlineTwitch;

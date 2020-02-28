@@ -33,13 +33,8 @@ impl Twitch {
             twitch_limiter: Mutex::new(RateLimiter::new(5, 1)),
         })
     }
-
-    #[allow(dead_code)]
-    pub async fn get_users(&self, usernames: &[&str]) -> Result<Vec<TwitchUser>, Error> {
-        if usernames.len() > 100 {
-            panic!("usernames len must be at most 100, got {}", usernames.len());
-        }
-        let data: Vec<_> = usernames.iter().map(|&name| ("login", name)).collect();
+    pub async fn get_user(&self, name: &str) -> Result<TwitchUser, Error> {
+        let data = vec![("login", name)];
         {
             self.twitch_limiter
                 .lock()
@@ -52,13 +47,24 @@ impl Twitch {
             .query(&data)
             .send()
             .await?;
-        let users: TwitchUsers = serde_json::from_slice(&response.bytes().await?)?;
-        Ok(users.data)
+        let mut users: TwitchUsers = serde_json::from_slice(&response.bytes().await?)?;
+        match users.data.pop() {
+            Some(user) => Ok(user),
+            None => Err(Error::Custom(format!(
+                "Twitch API gave no results for username {}",
+                name
+            ))),
+        }
     }
 
     pub async fn get_streams(&self, user_ids: &[u64]) -> Result<Vec<TwitchStream>, Error> {
-        if user_ids.len() > 100 {
-            panic!("user_ids len must be at most 100, got {}", user_ids.len());
+        if user_ids.is_empty() {
+            return Ok(Vec::new());
+        } else if user_ids.len() > 100 {
+            return Err(Error::Custom(format!(
+                "user_ids len must be at most 100, got {}",
+                user_ids.len()
+            )));
         }
         let mut data = vec![("first", user_ids.len().to_string())];
         for &id in user_ids {

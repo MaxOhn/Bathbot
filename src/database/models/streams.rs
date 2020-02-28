@@ -59,21 +59,45 @@ impl From<u8> for Platform {
 }
 
 #[derive(Insertable, Queryable, Identifiable, Debug, PartialEq, Associations)]
+#[table_name = "stream_tracks"]
 #[belongs_to(TwitchUser, foreign_key = "user_id")]
-pub struct StreamTrack {
+pub struct StreamTrackDB {
     id: u32,
-    pub channel_id: u64,
-    pub user_id: u64,
-    pub platform: Platform,
+    channel_id: u64,
+    user_id: u64,
+    platform: Platform,
 }
 
-impl StreamTrack {
+impl StreamTrackDB {
     pub fn new(id: u32, channel_id: u64, user_id: u64, platform: impl Into<Platform>) -> Self {
         Self {
             id,
             channel_id,
             user_id,
             platform: platform.into(),
+        }
+    }
+}
+
+impl Into<StreamTrack> for StreamTrackDB {
+    fn into(self) -> StreamTrack {
+        StreamTrack::new(self.channel_id, self.user_id, self.platform)
+    }
+}
+
+#[derive(PartialEq, Eq, Hash)]
+pub struct StreamTrack {
+    pub channel_id: u64,
+    pub user_id: u64,
+    pub platform: Platform,
+}
+
+impl StreamTrack {
+    pub fn new(channel_id: u64, user_id: u64, platform: Platform) -> Self {
+        Self {
+            channel_id,
+            user_id,
+            platform,
         }
     }
 }

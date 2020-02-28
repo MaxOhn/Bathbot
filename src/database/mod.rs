@@ -2,7 +2,7 @@ mod models;
 mod schema;
 
 use models::{DBMap, DBMapSet, ManiaPP, MapSplit};
-pub use models::{Platform, StreamTrack, TwitchUser};
+pub use models::{Platform, StreamTrack, StreamTrackDB, TwitchUser};
 
 use crate::util::Error;
 use diesel::{
@@ -11,7 +11,7 @@ use diesel::{
     MysqlConnection,
 };
 use rosu::models::{Beatmap, GameMod, GameMods};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub struct MySQL {
     pool: Pool<ConnectionManager<MysqlConnection>>,
@@ -66,7 +66,6 @@ impl MySQL {
         // Check if all maps are from different mapsets by removing duplicates
         let mut mapset_ids: Vec<_> = maps.iter().map(|m| m.beatmapset_id).collect();
         mapset_ids.dedup();
-        //println!("Mapset_ids ({}): {:?}", mapset_ids.len(), mapset_ids);
         // Retrieve all DBMapSet's
         let mut mapsets: Vec<DBMapSet> = mapsets::table
             .filter(beatmapset_id.eq_any(&mapset_ids))
@@ -244,11 +243,11 @@ impl MySQL {
     // Table: stream_tracks / twitch_users
     // -----------------------------------
 
-    pub fn add_twitch_user(&self, user: u64, username: String) -> Result<(), Error> {
+    pub fn add_twitch_user(&self, id: u64, username: &str) -> Result<(), Error> {
         use schema::twitch_users::dsl::{name, user_id};
         let conn = self.get_connection()?;
         diesel::insert_into(schema::twitch_users::table)
-            .values((user_id.eq(user), name.eq(username)))
+            .values((user_id.eq(id), name.eq(username)))
             .execute(&conn)?;
         info!("Inserted into twitch_users table");
         Ok(())
@@ -268,16 +267,17 @@ impl MySQL {
         Ok(())
     }
 
-    pub fn get_twitch_users(&self) -> Result<HashMap<u64, String>, Error> {
+    pub fn get_twitch_users(&self) -> Result<HashMap<String, u64>, Error> {
         let conn = self.get_connection()?;
         let tuples = schema::twitch_users::table.load::<(u64, String)>(&conn)?;
-        let users: HashMap<u64, String> = tuples.into_iter().collect();
+        let users: HashMap<_, _> = tuples.into_iter().map(|(id, name)| (name, id)).collect();
         Ok(users)
     }
 
-    pub fn get_stream_tracks(&self) -> Result<Vec<StreamTrack>, Error> {
+    pub fn get_stream_tracks(&self) -> Result<HashSet<StreamTrack>, Error> {
         let conn = self.get_connection()?;
-        let tracks = schema::stream_tracks::table.load::<StreamTrack>(&conn)?;
+        let tracks = schema::stream_tracks::table.load::<StreamTrackDB>(&conn)?;
+        let tracks = tracks.into_iter().map(StreamTrackDB::into).collect();
         Ok(tracks)
     }
 }
