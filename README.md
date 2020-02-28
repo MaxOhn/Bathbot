@@ -20,6 +20,7 @@ Work in progress discord bot port for the game [osu!](https://osu.ppy.sh/home) f
 - Kick unchecked users after x days
 - Distribute `Top` role automatically
 - `In VC` role distribution (generalized?)
+- `Authority` checked commands are only available in guilds
 - (Mania star calculation)
 - Improve `<help`, command descriptions, examples, ...
   ### Commands

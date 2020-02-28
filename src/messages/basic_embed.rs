@@ -1,9 +1,10 @@
 use super::util;
 use crate::{
     scraper::ScraperScore,
+    streams::TwitchStream,
     util::{
         datetime::{date_to_string, how_long_ago, sec_to_minsec},
-        globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
+        globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL, TWITCH_BASE},
         numbers::{round, round_and_comma, round_precision, with_comma_u64},
         osu,
         pp::PPProvider,
@@ -41,6 +42,7 @@ pub struct BasicEmbedData {
     pub footer_text: Option<String>,
     pub footer_icon: Option<String>,
     pub description: Option<String>,
+    pub image_url: Option<String>,
     pub fields: Option<Vec<(String, String, bool)>>,
 }
 
@@ -85,6 +87,9 @@ impl BasicEmbedData {
         }
         if let Some(description) = self.description.as_ref() {
             e.description(description);
+        }
+        if let Some(image_url) = self.image_url.as_ref() {
+            e.image(image_url);
         }
         if let Some(fields) = self.fields {
             e.fields(fields);
@@ -876,6 +881,16 @@ impl BasicEmbedData {
         result.thumbnail = Some(thumbnail);
         result.fields = Some(fields);
         Ok(result)
+    }
+
+    pub fn create_twitch_stream_notif(stream: &TwitchStream) -> Self {
+        let mut result = Self::default();
+        result.author_text = Some(String::from("Now live on twitch:"));
+        result.title_text = Some(stream.username.clone());
+        result.title_url = Some(format!("{}{}", TWITCH_BASE, stream.username));
+        result.image_url = Some(stream.thumbnail_url.clone());
+        result.description = Some(stream.title.clone());
+        result
     }
 
     //

@@ -19,7 +19,7 @@ pub struct Scraper {
 impl Scraper {
     pub async fn new() -> Result<Self, Error> {
         #[allow(non_snake_case)]
-        let WITH_SCRAPER = true;
+        let WITH_SCRAPER = false;
         // Initialize client
         let client = Client::builder().cookie_store(true).build()?;
         if WITH_SCRAPER {

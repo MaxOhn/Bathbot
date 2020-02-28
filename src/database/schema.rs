@@ -67,8 +67,25 @@ table! {
     }
 }
 
+table! {
+    stream_tracks (id) {
+        id -> Unsigned<Integer>,
+        channel_id -> Unsigned<Bigint>,
+        user_id -> Unsigned<Bigint>,
+        platform -> Unsigned<Tinyint>,
+    }
+}
+
+table! {
+    twitch_users (user_id) {
+        user_id -> Unsigned<Bigint>,
+        name -> Varchar,
+    }
+}
+
 joinable!(maps -> mapsets (beatmapset_id));
 joinable!(pp_mania_mods -> maps (beatmap_id));
+joinable!(stream_tracks -> twitch_users (user_id));
 
 allow_tables_to_appear_in_same_query!(
     discord_users,
@@ -76,4 +93,6 @@ allow_tables_to_appear_in_same_query!(
     mapsets,
     pp_mania_mods,
     role_assign,
+    stream_tracks,
+    twitch_users,
 );

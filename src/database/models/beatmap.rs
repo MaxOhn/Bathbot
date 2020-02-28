@@ -76,7 +76,7 @@ impl MapSplit for Beatmap {
     }
 }
 
-#[derive(Identifiable, Queryable, Insertable, Associations)]
+#[derive(Identifiable, Debug, Queryable, Insertable, Associations)]
 #[table_name = "maps"]
 #[belongs_to(DBMapSet, foreign_key = "beatmapset_id")]
 #[primary_key(beatmap_id)]
@@ -136,7 +136,7 @@ impl DBMap {
     }
 }
 
-#[derive(Identifiable, Queryable, Insertable, Associations, Clone)]
+#[derive(Identifiable, Debug, Queryable, Insertable, Associations, Clone)]
 #[table_name = "mapsets"]
 #[primary_key(beatmapset_id)]
 pub struct DBMapSet {

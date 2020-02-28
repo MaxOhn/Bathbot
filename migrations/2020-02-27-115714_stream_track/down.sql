@@ -1,0 +1,1 @@
+DROP TABLE stream_tracks

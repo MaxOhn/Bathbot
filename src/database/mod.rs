@@ -2,6 +2,7 @@ mod models;
 mod schema;
 
 use models::{DBMap, DBMapSet, ManiaPP, MapSplit};
+pub use models::{Platform, StreamTrack, TwitchUser};
 
 use crate::util::Error;
 use diesel::{
@@ -33,9 +34,9 @@ impl MySQL {
         })
     }
 
-    // -------------------------------
+    // ---------------------
     // Table: maps / mapsets
-    // -------------------------------
+    // ---------------------
 
     pub fn get_beatmap(&self, map_id: u32) -> Result<Beatmap, Error> {
         use schema::{maps, mapsets};
@@ -138,9 +139,9 @@ impl MySQL {
         Ok(())
     }
 
-    // -------------------------------
+    // --------------------
     // Table: discord_users
-    // -------------------------------
+    // --------------------
 
     pub fn add_discord_link(&self, discord_id: u64, osu_name: &str) -> Result<(), Error> {
         use schema::discord_users::dsl::{discord_id as id, osu_name as name};
@@ -170,9 +171,9 @@ impl MySQL {
         Ok(links)
     }
 
-    // -------------------------------
+    // --------------------
     // Table: pp_mania_mods
-    // -------------------------------
+    // --------------------
 
     pub fn get_mania_mod_pp(&self, map_id: u32, mods: &GameMods) -> Result<Option<f32>, Error> {
         let bits = mania_mod_bits(mods);
@@ -209,9 +210,9 @@ impl MySQL {
         Ok(())
     }
 
-    // -------------------------------
+    // ------------------
     // Table: role_assign
-    // -------------------------------
+    // ------------------
 
     pub fn get_role_assigns(&self) -> Result<HashMap<(u64, u64), u64>, Error> {
         let conn = self.get_connection()?;
@@ -237,6 +238,47 @@ impl MySQL {
             .execute(&conn)?;
         info!("Inserted into role_assign table");
         Ok(())
+    }
+
+    // -----------------------------------
+    // Table: stream_tracks / twitch_users
+    // -----------------------------------
+
+    pub fn add_twitch_user(&self, user: u64, username: String) -> Result<(), Error> {
+        use schema::twitch_users::dsl::{name, user_id};
+        let conn = self.get_connection()?;
+        diesel::insert_into(schema::twitch_users::table)
+            .values((user_id.eq(user), name.eq(username)))
+            .execute(&conn)?;
+        info!("Inserted into twitch_users table");
+        Ok(())
+    }
+
+    pub fn add_stream_track(&self, channel: u64, user: u64, pf: Platform) -> Result<(), Error> {
+        use schema::stream_tracks::dsl::{channel_id, platform, user_id};
+        let conn = self.get_connection()?;
+        diesel::insert_into(schema::stream_tracks::table)
+            .values((
+                channel_id.eq(channel),
+                user_id.eq(user),
+                platform.eq(pf as u8),
+            ))
+            .execute(&conn)?;
+        info!("Inserted into stream_tracks table");
+        Ok(())
+    }
+
+    pub fn get_twitch_users(&self) -> Result<HashMap<u64, String>, Error> {
+        let conn = self.get_connection()?;
+        let tuples = schema::twitch_users::table.load::<(u64, String)>(&conn)?;
+        let users: HashMap<u64, String> = tuples.into_iter().collect();
+        Ok(users)
+    }
+
+    pub fn get_stream_tracks(&self) -> Result<Vec<StreamTrack>, Error> {
+        let conn = self.get_connection()?;
+        let tracks = schema::stream_tracks::table.load::<StreamTrack>(&conn)?;
+        Ok(tracks)
     }
 }
 

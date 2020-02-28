@@ -1,0 +1,4 @@
+CREATE TABLE twitch_users (
+    user_id BIGINT UNSIGNED PRIMARY KEY,
+    name VARCHAR(32) NOT NULL
+)
