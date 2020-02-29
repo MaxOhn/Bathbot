@@ -2,7 +2,7 @@ use crate::{
     commands::{ArgParser, ModSelection},
     database::MySQL,
     messages::BasicEmbedData,
-    util::globals::OSU_API_ISSUE,
+    util::{discord, globals::OSU_API_ISSUE},
     DiscordLinks, Osu,
 };
 
@@ -224,7 +224,7 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
     };
 
     // Creating the embed
-    let _ = msg.channel_id.send_message(&ctx.http, |m| {
+    let response = msg.channel_id.send_message(&ctx.http, |m| {
         let mut content = format!(
             "Found {num} top score{plural} with the specified properties",
             num = amount,
@@ -249,6 +249,9 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
             );
         }
     }
+
+    // Save the response owner
+    discord::save_response_owner(response?.id, msg.author.id, ctx.data.clone());
     Ok(())
 }
 

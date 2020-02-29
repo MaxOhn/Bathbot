@@ -1,4 +1,8 @@
-use crate::{database::MySQL, util::globals::DATABASE_ISSUE, DiscordLinks};
+use crate::{
+    database::MySQL,
+    util::{discord, globals::DATABASE_ISSUE},
+    DiscordLinks,
+};
 use serenity::{
     framework::standard::{macros::command, Args, CommandError, CommandResult},
     model::prelude::Message,
@@ -55,13 +59,16 @@ fn link(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
                 )));
             }
         }
-        msg.channel_id.say(
+        let response = msg.channel_id.say(
             &ctx.http,
             format!(
                 "I linked discord's `{}` with osu's `{}`",
                 msg.author.name, name
             ),
         )?;
+
+        // Save the response owner
+        discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
         Ok(())
     }
 }

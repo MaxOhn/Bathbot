@@ -3,7 +3,7 @@ use crate::{
     database::MySQL,
     messages::BasicEmbedData,
     scraper::Scraper,
-    util::globals::OSU_API_ISSUE,
+    util::{discord, globals::OSU_API_ISSUE},
     DiscordLinks, Osu,
 };
 
@@ -142,7 +142,7 @@ fn recent_lb_send(
     };
 
     // Sending the embed
-    msg.channel_id.send_message(&ctx.http, |m| {
+    let response = msg.channel_id.send_message(&ctx.http, |m| {
         let mut content = format!(
             "I found {} scores with the specified mods on the map's leaderboard",
             amount
@@ -153,7 +153,7 @@ fn recent_lb_send(
             content.push(':');
         }
         m.content(content).embed(|e| data.build(e))
-    })?;
+    });
 
     // Add map to database if its not in already
     if let Some(map) = map_copy {
@@ -163,6 +163,9 @@ fn recent_lb_send(
             warn!("Could not add map of recent command to database: {}", why);
         }
     }
+
+    // Save the response owner
+    discord::save_response_owner(response?.id, msg.author.id, ctx.data.clone());
     Ok(())
 }
 

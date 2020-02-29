@@ -1,7 +1,10 @@
 use crate::{
     database::MySQL,
     messages::RecentData,
-    util::globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
+    util::{
+        discord,
+        globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
+    },
     DiscordLinks, Osu, SchedulerKey,
 };
 
@@ -146,7 +149,7 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
     };
 
     // Creating the embed
-    let mut msg = msg.channel_id.send_message(&ctx.http, |m| {
+    let mut response = msg.channel_id.send_message(&ctx.http, |m| {
         m.content(format!("Try #{}", tries))
             .embed(|e| data.build(e))
     })?;
@@ -160,6 +163,9 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
         }
     }
 
+    // Save the response owner
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+
     // Minimize embed after delay
     let scheduler = {
         let mut data = ctx.data.write();
@@ -172,7 +178,7 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
     let cache = ctx.cache.clone();
     let mut retries = 5;
     scheduler.add_task_duration(Duration::seconds(MINIMIZE_DELAY), move |_| {
-        if let Err(why) = msg.edit((&cache, &*http), |m| m.embed(|e| data.minimize(e))) {
+        if let Err(why) = response.edit((&cache, &*http), |m| m.embed(|e| data.minimize(e))) {
             if retries == 0 {
                 warn!("Error while trying to minimize recent msg: {}", why);
                 DateResult::Done

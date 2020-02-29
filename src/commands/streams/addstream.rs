@@ -1,6 +1,7 @@
 use crate::{
     commands::checks::*,
     database::{Platform, StreamTrack},
+    util::discord,
     MySQL, StreamTracks, Twitch, TwitchUsers,
 };
 
@@ -94,12 +95,15 @@ fn addstream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult 
     };
 
     // Sending the msg
-    msg.channel_id.say(
+    let response = msg.channel_id.say(
         &ctx.http,
         format!(
             "I'm now tracking `{}`'s {:?} stream in this channel",
             name, platform
         ),
     )?;
+
+    // Save the response owner
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
     Ok(())
 }

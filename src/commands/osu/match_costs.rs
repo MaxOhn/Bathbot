@@ -1,4 +1,9 @@
-use crate::{commands::arguments, messages::BasicEmbedData, util::globals::OSU_API_ISSUE, Osu};
+use crate::{
+    commands::arguments,
+    messages::BasicEmbedData,
+    util::{discord, globals::OSU_API_ISSUE},
+    Osu,
+};
 
 use rosu::backend::requests::{MatchRequest, UserRequest};
 use serenity::{
@@ -79,7 +84,7 @@ fn matchcosts(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
     let data = BasicEmbedData::create_match_costs(users, osu_match, warmups);
 
     // Creating the embed
-    msg.channel_id.send_message(&ctx.http, |m| {
+    let response = msg.channel_id.send_message(&ctx.http, |m| {
         if warmups > 0 {
             let mut content = String::from("Ignoring the first ");
             if warmups == 1 {
@@ -92,5 +97,8 @@ fn matchcosts(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
         }
         m.embed(|e| data.build(e))
     })?;
+
+    // Save the response owner
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
     Ok(())
 }

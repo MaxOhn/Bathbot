@@ -1,4 +1,8 @@
-use crate::{messages::BasicEmbedData, util::globals::OSU_API_ISSUE, DiscordLinks, Osu};
+use crate::{
+    messages::BasicEmbedData,
+    util::{discord, globals::OSU_API_ISSUE},
+    DiscordLinks, Osu,
+};
 
 use rosu::{
     backend::requests::UserRequest,
@@ -94,8 +98,12 @@ fn whatif_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
     let data = BasicEmbedData::create_whatif(user, scores, mode, pp);
 
     // Sending the embed
-    msg.channel_id
+    let response = msg
+        .channel_id
         .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))?;
+
+    // Save the response owner
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
     Ok(())
 }
 

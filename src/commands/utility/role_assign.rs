@@ -1,6 +1,7 @@
 use crate::{
     commands::{arguments::ArgParser, checks::*},
     database::MySQL,
+    util::discord,
     ReactionTracker,
 };
 
@@ -86,6 +87,9 @@ fn roleassign(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
         .role(role)
         .push(" role!")
         .build();
-    msg.channel_id.say(&ctx.http, content)?;
+    let response = msg.channel_id.say(&ctx.http, content)?;
+
+    // Save the response owner
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
     Ok(())
 }

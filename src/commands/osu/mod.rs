@@ -31,5 +31,5 @@ use serenity::framework::standard::macros::group;
 
 #[group]
 #[description = "Commands for all osu! modes"]
-#[commands(scores, link, simulate, matchcosts, leaderboard, globalleaderboard)]
+#[commands(link, scores, simulate, matchcosts, leaderboard, globalleaderboard)]
 struct OsuGeneral;

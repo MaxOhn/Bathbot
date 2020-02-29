@@ -2,7 +2,7 @@ use crate::{
     commands::arguments,
     database::MySQL,
     messages::BasicEmbedData,
-    util::{globals::OSU_API_ISSUE, osu},
+    util::{discord, globals::OSU_API_ISSUE},
     DiscordLinks, Osu,
 };
 
@@ -32,7 +32,7 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
         let msgs = msg
             .channel_id
             .messages(&ctx.http, |retriever| retriever.limit(50))?;
-        match osu::map_id_from_history(msgs, ctx.cache.clone()) {
+        match discord::map_id_from_history(msgs, ctx.cache.clone()) {
             Some(id) => id,
             None => {
                 msg.channel_id.say(
@@ -155,7 +155,7 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     };
 
     // Sending the embed
-    let result = msg
+    let response = msg
         .channel_id
         .send_message(&ctx.http, |m| m.embed(|e| data.build(e)));
 
@@ -167,6 +167,8 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
             warn!("Could not add map of compare command to database: {}", why);
         }
     }
-    result?;
+
+    // Save the response owner
+    discord::save_response_owner(response?.id, msg.author.id, ctx.data.clone());
     Ok(())
 }

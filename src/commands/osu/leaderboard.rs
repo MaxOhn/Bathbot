@@ -4,7 +4,7 @@ use crate::{
     database::MySQL,
     messages::BasicEmbedData,
     scraper::Scraper,
-    util::{globals::OSU_API_ISSUE, osu},
+    util::{discord, globals::OSU_API_ISSUE},
     DiscordLinks, Osu,
 };
 
@@ -40,7 +40,7 @@ fn leaderboard_send(
         let msgs = msg
             .channel_id
             .messages(&ctx.http, |retriever| retriever.limit(50))?;
-        match osu::map_id_from_history(msgs, ctx.cache.clone()) {
+        match discord::map_id_from_history(msgs, ctx.cache.clone()) {
             Some(id) => id,
             None => {
                 msg.channel_id.say(
@@ -59,7 +59,7 @@ fn leaderboard_send(
             let msgs = msg
                 .channel_id
                 .messages(&ctx.http, |retriever| retriever.limit(50))?;
-            match osu::map_id_from_history(msgs, ctx.cache.clone()) {
+            match discord::map_id_from_history(msgs, ctx.cache.clone()) {
                 Some(id) => id,
                 None => {
                     msg.channel_id.say(
@@ -149,7 +149,7 @@ fn leaderboard_send(
     };
 
     // Sending the embed
-    msg.channel_id.send_message(&ctx.http, |m| {
+    let response = msg.channel_id.send_message(&ctx.http, |m| {
         let mut content = format!(
             "I found {} scores with the specified mods on the map's leaderboard",
             amount
@@ -160,7 +160,7 @@ fn leaderboard_send(
             content.push(':');
         }
         m.content(content).embed(|e| data.build(e))
-    })?;
+    });
 
     // Add map to database if its not in already
     if let Some(map) = map_copy {
@@ -170,6 +170,9 @@ fn leaderboard_send(
             warn!("Could not add map of recent command to database: {}", why);
         }
     }
+
+    // Save the response owner
+    discord::save_response_owner(response?.id, msg.author.id, ctx.data.clone());
     Ok(())
 }
 

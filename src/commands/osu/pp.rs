@@ -1,4 +1,8 @@
-use crate::{messages::BasicEmbedData, util::globals::OSU_API_ISSUE, DiscordLinks, Osu};
+use crate::{
+    messages::BasicEmbedData,
+    util::{discord, globals::OSU_API_ISSUE},
+    DiscordLinks, Osu,
+};
 
 use rosu::{
     backend::requests::UserRequest,
@@ -94,9 +98,12 @@ fn pp_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> 
     let data = BasicEmbedData::create_ppmissing(user, scores, pp);
 
     // Creating the embed
-    let _ = msg
+    let response = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)));
+        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))?;
+
+    // Save the response owner
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
     Ok(())
 }
 

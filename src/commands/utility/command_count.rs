@@ -1,4 +1,4 @@
-use crate::{BootTime, CommandCounter};
+use crate::{util::discord, BootTime, CommandCounter};
 
 use chrono::{DateTime, Utc};
 use serenity::{
@@ -40,7 +40,7 @@ fn commands(ctx: &mut Context, msg: &Message) -> CommandResult {
     }
     description.push_str("```");
     let boot_time: &DateTime<Utc> = data.get::<BootTime>().expect("Could not get BootTime");
-    msg.channel_id.send_message(&ctx.http, |m| {
+    let response = msg.channel_id.send_message(&ctx.http, |m| {
         m.embed(|e| {
             e.footer(|f| f.text("I've been counting since"))
                 .timestamp(boot_time)
@@ -49,5 +49,8 @@ fn commands(ctx: &mut Context, msg: &Message) -> CommandResult {
                 .description(description)
         })
     })?;
+
+    // Save the response owner
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
     Ok(())
 }

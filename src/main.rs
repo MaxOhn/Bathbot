@@ -25,17 +25,17 @@ use rosu::backend::Osu as OsuClient;
 use serenity::{
     framework::{standard::DispatchError, StandardFramework},
     model::{
-        channel::{Channel, Reaction},
+        channel::{Channel, Reaction, ReactionType},
         event::ResumedEvent,
         gateway::Ready,
-        guild::Guild,
-        id::{ChannelId, GuildId, MessageId, RoleId},
+        guild::{Guild, Member},
+        id::{ChannelId, GuildId, MessageId, RoleId, UserId},
         voice::VoiceState,
     },
     prelude::*,
 };
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     env,
     sync::Arc,
 };
@@ -114,6 +114,7 @@ fn main() -> Result<(), Error> {
         data.insert::<StreamTracks>(stream_tracks);
         data.insert::<OnlineTwitch>(HashSet::new());
         data.insert::<Twitch>(twitch);
+        data.insert::<ResponseOwner>((VecDeque::new(), HashMap::new()));
     }
 
     // ---------------
@@ -211,6 +212,10 @@ impl EventHandler for Handler {
         // TODO
     }
 
+    fn guild_member_addition(&self, _ctx: Context, _guild_id: GuildId, _new_member: Member) {
+        // TODO
+    }
+
     fn cache_ready(&self, ctx: Context, _: Vec<GuildId>) {
         // Tracking streams
         if WITH_STREAM_TRACK {
@@ -251,7 +256,7 @@ impl EventHandler for Handler {
                         Err(why) => {
                             warn!("Error while retrieving streams: {}", why);
                             return DateResult::Repeat(
-                                UtcWR::now() + Duration::seconds(track_delay),
+                                UtcWR::now() + Duration::minutes(track_delay),
                             );
                         }
                     };
@@ -309,7 +314,7 @@ impl EventHandler for Handler {
                     }
                 }
                 //debug!("Stream track check done");
-                DateResult::Repeat(UtcWR::now() + Duration::seconds(track_delay))
+                DateResult::Repeat(UtcWR::now() + Duration::minutes(track_delay))
             });
             info!("Stream tracking started");
         } else {
@@ -333,6 +338,29 @@ impl EventHandler for Handler {
     }
 
     fn reaction_add(&self, ctx: Context, reaction: Reaction) {
+        // Check if the reacting user wants a bot response to be deleted
+        if let ReactionType::Unicode(emote) = &reaction.emoji {
+            if emote.as_str() == "❌" {
+                let data = ctx.data.read();
+                let (_, owners) = data
+                    .get::<ResponseOwner>()
+                    .expect("Could not get ResponseOwner");
+                let is_owner = owners
+                    .get(&reaction.message_id)
+                    .map_or(false, |owner| owner == &reaction.user_id);
+                if is_owner {
+                    if let Err(why) = reaction
+                        .channel_id
+                        .delete_message(&ctx.http, reaction.message_id)
+                    {
+                        warn!("Could not delete message after owner's reaction: {}", why);
+                    } else {
+                        info!("Deleted message upon owner's reaction");
+                    }
+                }
+            }
+        }
+        // Check if the reacting user now gets a role
         let key = (reaction.channel_id, reaction.message_id);
         let role: Option<RoleId> = match ctx.data.read().get::<ReactionTracker>() {
             Some(tracker) => {
@@ -393,6 +421,7 @@ impl EventHandler for Handler {
     }
 
     fn reaction_remove(&self, ctx: Context, reaction: Reaction) {
+        // Check if the reacting user now loses a role
         let key = (reaction.channel_id, reaction.message_id);
         let role = match ctx.data.read().get::<ReactionTracker>() {
             Some(tracker) => {
@@ -517,4 +546,9 @@ impl TypeMapKey for OnlineTwitch {
 
 impl TypeMapKey for Twitch {
     type Value = Twitch;
+}
+
+pub struct ResponseOwner;
+impl TypeMapKey for ResponseOwner {
+    type Value = (VecDeque<MessageId>, HashMap<MessageId, UserId>);
 }

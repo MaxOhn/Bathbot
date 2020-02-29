@@ -1,4 +1,5 @@
 pub mod datetime;
+pub mod discord;
 mod error;
 pub mod globals;
 pub mod numbers;

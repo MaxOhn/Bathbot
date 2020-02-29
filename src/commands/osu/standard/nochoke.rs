@@ -1,5 +1,8 @@
 use crate::{
-    database::MySQL, messages::BasicEmbedData, util::globals::OSU_API_ISSUE, DiscordLinks, Osu,
+    database::MySQL,
+    messages::BasicEmbedData,
+    util::{discord, globals::OSU_API_ISSUE},
+    DiscordLinks, Osu,
 };
 
 use rosu::{
@@ -149,13 +152,11 @@ fn nochoke(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     };
 
     // Creating the embed
-    let msg_res = msg
-        .channel_id
-        .send_message(&ctx.http, |m| {
-            m.content(format!("{} No-choke top scores for `{}`:", mention, name))
-                .embed(|e| data.build(e))
-        })
-        .and(msg.delete(&ctx));
+    let response = msg.channel_id.send_message(&ctx.http, |m| {
+        m.content(format!("{} No-choke top scores for `{}`:", mention, name))
+            .embed(|e| data.build(e))
+    });
+    let _ = msg.delete(&ctx);
 
     // Add missing maps to database
     if let Some(maps) = missing_maps {
@@ -168,6 +169,8 @@ fn nochoke(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
             );
         }
     }
-    msg_res?;
+
+    // Save the response owner
+    discord::save_response_owner(response?.id, msg.author.id, ctx.data.clone());
     Ok(())
 }

@@ -1,5 +1,8 @@
 use crate::{
-    messages::BasicEmbedData, scraper::Scraper, util::globals::OSU_API_ISSUE, DiscordLinks, Osu,
+    messages::BasicEmbedData,
+    scraper::Scraper,
+    util::{discord, globals::OSU_API_ISSUE},
+    DiscordLinks, Osu,
 };
 
 use rosu::{
@@ -153,9 +156,12 @@ fn rank_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -
     let data = BasicEmbedData::create_rank(user, scores, rank, country, rank_holder);
 
     // Creating the embed
-    let _ = msg
+    let response = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)));
+        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))?;
+
+    // Save the response owner
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
     Ok(())
 }
 

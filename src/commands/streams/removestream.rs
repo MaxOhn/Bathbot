@@ -1,6 +1,7 @@
 use crate::{
     commands::checks::*,
     database::{Platform, StreamTrack},
+    util::discord,
     MySQL, StreamTracks, TwitchUsers,
 };
 
@@ -75,10 +76,13 @@ fn removestream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResu
             name, platform
         )
     } else {
-        format!("That stream wasn't tracked anyway")
+        "That stream wasn't tracked anyway".to_string()
     };
 
     // Sending the msg
-    msg.channel_id.say(&ctx.http, content)?;
+    let response = msg.channel_id.say(&ctx.http, content)?;
+
+    // Save the response owner
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
     Ok(())
 }

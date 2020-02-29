@@ -1,5 +1,8 @@
 use crate::{
-    database::MySQL, messages::BasicEmbedData, util::globals::OSU_API_ISSUE, DiscordLinks, Osu,
+    database::MySQL,
+    messages::BasicEmbedData,
+    util::{discord, globals::OSU_API_ISSUE},
+    DiscordLinks, Osu,
 };
 
 use itertools::Itertools;
@@ -181,7 +184,7 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
     let (data, thumbnail) = BasicEmbedData::create_common(users, all_scores, maps);
 
     // Creating the embed
-    let _ = msg.channel_id.send_message(&ctx.http, |m| {
+    let response = msg.channel_id.send_message(&ctx.http, |m| {
         if !thumbnail.is_empty() {
             let bytes: &[u8] = &thumbnail;
             m.add_file((bytes, "avatar_fuse.png"));
@@ -200,6 +203,9 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
             );
         }
     }
+
+    // Save the response owner
+    discord::save_response_owner(response?.id, msg.author.id, ctx.data.clone());
     Ok(())
 }
 

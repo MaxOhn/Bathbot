@@ -16,7 +16,8 @@ no need for any prefix in pms.\n\
 If you want to specify a username that contains spaces, \
 you must encapsulate the name with `\"` i.e. `\"nathan on osu\"`.\n\
 Many commands allow you to specify mods. You can do so with `+mods` \
-for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods.
+for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods.\n\
+If you react with :x: to my response to your command, I will delete it.
 Further help on the spreadsheet: http://bit.ly/badecoms"]
 #[command_not_found_text = "Could not find command: `{}`."]
 #[max_levenshtein_distance(3)]

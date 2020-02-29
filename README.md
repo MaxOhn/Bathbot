@@ -21,6 +21,7 @@ Work in progress discord bot port for the game [osu!](https://osu.ppy.sh/home) f
 - Distribute `Top` role automatically
 - `In VC` role distribution (generalized?)
 - Mod (/acc/combo/score) support for `<s` and `<sr`
+- `<r` should contain the `<sr` pp value
 - (Mania star calculation)
   ### Commands
    - (`<reach`)

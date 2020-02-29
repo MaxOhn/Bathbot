@@ -2,7 +2,10 @@ use crate::{
     commands::arguments,
     database::MySQL,
     messages::SimulateData,
-    util::globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
+    util::{
+        discord,
+        globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
+    },
     Osu, SchedulerKey,
 };
 
@@ -100,7 +103,7 @@ fn simulate(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     };
 
     // Creating the embed
-    let mut msg = msg
+    let mut response = msg
         .channel_id
         .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))?;
 
@@ -116,6 +119,9 @@ fn simulate(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
         }
     }
 
+    // Save the response owner
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+
     // Minimize embed after delay
     let scheduler = {
         let mut data = ctx.data.write();
@@ -128,7 +134,7 @@ fn simulate(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let cache = ctx.cache.clone();
     let mut retries = 5;
     scheduler.add_task_duration(Duration::seconds(MINIMIZE_DELAY), move |_| {
-        if let Err(why) = msg.edit((&cache, &*http), |m| m.embed(|e| data.minimize(e))) {
+        if let Err(why) = response.edit((&cache, &*http), |m| m.embed(|e| data.minimize(e))) {
             if retries == 0 {
                 warn!("Error while trying to minimize simulate msg: {}", why);
                 DateResult::Done

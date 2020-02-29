@@ -1,4 +1,8 @@
-use crate::{messages::BasicEmbedData, util::globals::OSU_API_ISSUE, DiscordLinks, Osu};
+use crate::{
+    messages::BasicEmbedData,
+    util::{discord, globals::OSU_API_ISSUE},
+    DiscordLinks, Osu,
+};
 
 use rosu::{
     backend::requests::UserRequest,
@@ -81,9 +85,12 @@ pub fn ratios(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
     };
 
     // Creating the embed
-    let _ = msg.channel_id.send_message(&ctx.http, |m| {
+    let response = msg.channel_id.send_message(&ctx.http, |m| {
         let content = format!("Average ratios of `{}`'s top 100 in mania:", name);
         m.content(content).embed(|e| data.build(e))
-    });
+    })?;
+
+    // Save the response owner
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
     Ok(())
 }
