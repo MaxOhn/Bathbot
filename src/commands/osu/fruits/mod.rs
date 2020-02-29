@@ -9,6 +9,7 @@ use serenity::framework::standard::macros::group;
 #[commands(
     recentctb,
     topctb,
+    recentbestctb,
     profilectb,
     ppctb,
     whatifctb,

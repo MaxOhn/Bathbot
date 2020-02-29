@@ -9,6 +9,7 @@ use serenity::framework::standard::macros::group;
 #[commands(
     recenttaiko,
     toptaiko,
+    recentbesttaiko,
     profiletaiko,
     pptaiko,
     whatiftaiko,

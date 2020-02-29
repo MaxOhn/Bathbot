@@ -14,6 +14,7 @@ use serenity::framework::standard::macros::group;
 #[commands(
     recent,
     top,
+    recentbest,
     profile,
     pp,
     whatif,
@@ -21,6 +22,7 @@ use serenity::framework::standard::macros::group;
     recentleaderboard,
     rank,
     simulaterecent,
-    nochoke
+    nochoke,
+    sotarks
 )]
 pub struct Osu;

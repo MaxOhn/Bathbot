@@ -18,7 +18,13 @@ use serenity::{
 use std::{collections::HashMap, convert::TryFrom, str::FromStr};
 use tokio::runtime::Runtime;
 
-fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+fn top_send(
+    mode: GameMode,
+    top_type: TopType,
+    ctx: &mut Context,
+    msg: &Message,
+    args: Args,
+) -> CommandResult {
     // Parse the name
     let mut arg_parser = ArgParser::new(args);
     let (mods, selection) = arg_parser
@@ -60,7 +66,7 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
                 msg.channel_id.say(
                     &ctx.http,
                     "Could not parse given grade, \
-                     try SS, S, A, B, C, D, or F",
+                     try SS, S, A, B, C, or D",
                 )?;
                 return Ok(());
             }
@@ -145,8 +151,14 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
             acc_bool && s.max_combo >= combo
         })
         .collect();
-    let amount = scores_indices.len();
-    scores_indices = scores_indices[..amount.min(5)].to_vec();
+    let mut amount = scores_indices.len();
+    if top_type != TopType::Sotarks {
+        if top_type == TopType::Recent {
+            scores_indices.sort_by(|(_, a), (_, b)| b.date.cmp(&a.date));
+            amount = scores_indices.len().min(5);
+        }
+        scores_indices = scores_indices[..amount.min(5)].to_vec();
+    }
     scores_indices.iter_mut().for_each(|(i, _)| *i += 1);
 
     // Get all relevant maps from the database
@@ -169,6 +181,7 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
 
     // Retrieving all missing beatmaps
     let res = rt.block_on(async {
+        let dont_filter_sotarks = top_type != TopType::Sotarks;
         let mut tuples = Vec::with_capacity(scores_indices.len());
         let mut missing_indices = Vec::with_capacity(scores_indices.len());
         let data = ctx.data.read();
@@ -186,13 +199,15 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
                     )))
                 })?
             };
-            tuples.push((i, score, map));
+            if dont_filter_sotarks || &map.creator == "Sotarks" {
+                tuples.push((i, score, map));
+            }
         }
         Ok((tuples, missing_indices))
     });
-    let (scores_data, missing_maps): (Vec<_>, Option<Vec<Beatmap>>) = match res {
+    let (mut scores_data, missing_maps): (Vec<_>, Option<Vec<Beatmap>>) = match res {
         Ok((scores_data, missing_indices)) => {
-            let missing_maps = if missing_indices.is_empty() {
+            let missing_maps = if missing_indices.is_empty() || scores_data.is_empty() {
                 None
             } else {
                 Some(
@@ -212,6 +227,46 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
     };
 
     // Accumulate all necessary data
+    let content = match top_type {
+        TopType::Top => {
+            let mut content = format!(
+                "Found {num} top score{plural} with the specified properties",
+                num = amount,
+                plural = if amount != 1 { "s" } else { "" }
+            );
+            if amount > 5 {
+                content.push_str(", here's the top 5 of them:");
+            } else {
+                content.push(':');
+            }
+            content
+        }
+        TopType::Recent => format!(
+            "Here are the {num} most recent scores in `{name}`'s top 100",
+            num = scores_data.len(),
+            name = name,
+        ),
+        TopType::Sotarks => {
+            let amount = scores_data.len();
+            let mut content = format!(
+                "I found {amount} Sotarks map{plural} in `{name}`'s top 100",
+                amount = amount,
+                plural = if amount != 1 { "s" } else { "" },
+                name = name
+            );
+            match amount {
+                0 => content.push_str(", proud of you \\:)"),
+                n if n <= 5 => content.push_str(", kinda sad \\:/"),
+                n if n <= 10 => content.push_str(", pretty sad \\:("),
+                _ => content.push_str(", so sad \\:'("),
+            }
+            if amount > 5 {
+                content.push_str("\nHere are the top 5:");
+            }
+            scores_data = scores_data[..amount.min(5)].to_vec();
+            content
+        }
+    };
     let data = match BasicEmbedData::create_top(user, scores_data, mode, &ctx) {
         Ok(data) => data,
         Err(why) => {
@@ -224,19 +279,9 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
     };
 
     // Creating the embed
-    let response = msg.channel_id.send_message(&ctx.http, |m| {
-        let mut content = format!(
-            "Found {num} top score{plural} with the specified properties",
-            num = amount,
-            plural = if amount != 1 { "s" } else { "" }
-        );
-        if amount > 5 {
-            content.push_str(", here's the top 5 of them:");
-        } else {
-            content.push(':');
-        }
-        m.content(content).embed(|e| data.build(e))
-    });
+    let response = msg
+        .channel_id
+        .send_message(&ctx.http, |m| m.content(content).embed(|e| data.build(e)));
 
     // Add missing maps to database
     if let Some(maps) = missing_maps {
@@ -264,7 +309,7 @@ fn top_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Com
 #[example = "vaxei -c 1234 -dt!"]
 #[aliases("topscores", "osutop")]
 pub fn top(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    top_send(GameMode::STD, ctx, msg, args)
+    top_send(GameMode::STD, TopType::Top, ctx, msg, args)
 }
 
 #[command]
@@ -276,7 +321,7 @@ pub fn top(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[example = "vaxei -c 1234 -dt!"]
 #[aliases("topm")]
 pub fn topmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    top_send(GameMode::MNA, ctx, msg, args)
+    top_send(GameMode::MNA, TopType::Top, ctx, msg, args)
 }
 
 #[command]
@@ -288,7 +333,7 @@ pub fn topmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[example = "vaxei -c 1234 -dt!"]
 #[aliases("topt")]
 pub fn toptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    top_send(GameMode::TKO, ctx, msg, args)
+    top_send(GameMode::TKO, TopType::Top, ctx, msg, args)
 }
 
 #[command]
@@ -300,5 +345,68 @@ pub fn toptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[example = "vaxei -c 1234 -dt!"]
 #[aliases("topc")]
 pub fn topctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    top_send(GameMode::CTB, ctx, msg, args)
+    top_send(GameMode::CTB, TopType::Top, ctx, msg, args)
+}
+
+#[command]
+#[description = "Display a user's most recent top plays. \
+                 Mods can be specified, aswell as minimal acc \
+                 with `-a`, combo with `-c`, and a grade with `-grade`"]
+#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods]"]
+#[example = "badewanne3 -a 97.34 -grade A +hdhr"]
+#[example = "vaxei -c 1234 -dt!"]
+#[aliases("rb")]
+pub fn recentbest(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    top_send(GameMode::STD, TopType::Recent, ctx, msg, args)
+}
+
+#[command]
+#[description = "Display a user's most recent top mania plays. \
+                 Mods can be specified, aswell as minimal acc \
+                 with `-a`, combo with `-c`, and a grade with `-grade`"]
+#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods]"]
+#[example = "badewanne3 -a 97.34 -grade A +hdhr"]
+#[example = "vaxei -c 1234 -dt!"]
+#[aliases("rbm")]
+pub fn recentbestmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    top_send(GameMode::MNA, TopType::Recent, ctx, msg, args)
+}
+
+#[command]
+#[description = "Display a user's most recent top taiko plays. \
+                 Mods can be specified, aswell as minimal acc \
+                 with `-a`, combo with `-c`, and a grade with `-grade`"]
+#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods]"]
+#[example = "badewanne3 -a 97.34 -grade A +hdhr"]
+#[example = "vaxei -c 1234 -dt!"]
+#[aliases("rbt")]
+pub fn recentbesttaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    top_send(GameMode::TKO, TopType::Recent, ctx, msg, args)
+}
+
+#[command]
+#[description = "Display a user's most recent top ctb plays. \
+                 Mods can be specified, aswell as minimal acc \
+                 with `-a`, combo with `-c`, and a grade with `-grade`"]
+#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods]"]
+#[example = "badewanne3 -a 97.34 -grade A +hdhr"]
+#[example = "vaxei -c 1234 -dt!"]
+#[aliases("rbc")]
+pub fn recentbestctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    top_send(GameMode::CTB, TopType::Recent, ctx, msg, args)
+}
+
+#[command]
+#[description = "Display how many top play maps of a user are made by Sotarks"]
+#[usage = "[username]"]
+#[example = "badewanne3"]
+pub fn sotarks(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    top_send(GameMode::STD, TopType::Sotarks, ctx, msg, args)
+}
+
+#[derive(Eq, PartialEq)]
+enum TopType {
+    Top,
+    Recent,
+    Sotarks,
 }

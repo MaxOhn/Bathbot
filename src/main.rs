@@ -17,7 +17,7 @@ use commands::{fun::*, osu::*, streams::*, utility::*};
 use database::{MySQL, Platform, StreamTrack};
 use messages::BasicEmbedData;
 use streams::{Twitch, TwitchStream};
-pub use util::Error;
+pub use util::{globals::MSG_MEMORY, Error};
 
 use chrono::{DateTime, Utc};
 use log::{error, info};
@@ -114,7 +114,10 @@ fn main() -> Result<(), Error> {
         data.insert::<StreamTracks>(stream_tracks);
         data.insert::<OnlineTwitch>(HashSet::new());
         data.insert::<Twitch>(twitch);
-        data.insert::<ResponseOwner>((VecDeque::new(), HashMap::new()));
+        data.insert::<ResponseOwner>((
+            VecDeque::with_capacity(MSG_MEMORY),
+            HashMap::with_capacity(MSG_MEMORY),
+        ));
     }
 
     // ---------------
@@ -171,6 +174,7 @@ fn main() -> Result<(), Error> {
                     Some(counter) => *counter.entry(cmd_name.to_owned()).or_insert(0) += 1,
                     None => error!("Could not get CommandCounter"),
                 }
+                let _ = msg.channel_id.broadcast_typing(&ctx.http);
                 true
             })
             .after(|_, _, cmd_name, error| match error {

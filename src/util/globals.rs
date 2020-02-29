@@ -14,6 +14,8 @@ pub mod emotes {
 
 pub const DEV_GUILD_ID: u64 = 297072529426612224;
 
+pub const MSG_MEMORY: usize = 1000;
+
 pub const OSU_API_ISSUE: &str = "Some issue with the osu api, blame bade";
 pub const DATABASE_ISSUE: &str = "Some issue while interacting with the database, blame bade";
 

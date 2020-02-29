@@ -14,6 +14,7 @@ use serenity::framework::standard::macros::group;
 #[commands(
     recentmania,
     topmania,
+    recentbestmania,
     profilemania,
     ppmania,
     whatifmania,

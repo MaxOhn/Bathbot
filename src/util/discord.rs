@@ -1,4 +1,4 @@
-use crate::ResponseOwner;
+use crate::{util::globals::MSG_MEMORY, ResponseOwner};
 
 use regex::Regex;
 use serenity::{
@@ -69,10 +69,10 @@ pub fn save_response_owner(msg_id: MessageId, author_id: UserId, data: Arc<RwLoc
     let (queue, owners) = data
         .get_mut::<ResponseOwner>()
         .expect("Could not get ResponseOwner");
-    owners.insert(msg_id, author_id);
     queue.push_front(msg_id);
-    if queue.len() > 1000 {
+    if queue.len() > MSG_MEMORY {
         let oldest = queue.pop_back().unwrap();
         owners.remove(&oldest);
     }
+    owners.insert(msg_id, author_id);
 }

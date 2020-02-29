@@ -24,7 +24,6 @@ use tokio::runtime::Runtime;
 #[example = "badewanne3"]
 #[aliases("nc", "nochokes")]
 fn nochoke(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    let _ = msg.channel_id.broadcast_typing(&ctx.http);
     let name: String = if args.is_empty() {
         let data = ctx.data.read();
         let links = data
@@ -137,7 +136,6 @@ fn nochoke(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     };
     msg_content.push_str("\nAll data prepared, now calculating...");
     msg.edit(&ctx, |m| m.content(msg_content))?;
-    let _ = msg.channel_id.broadcast_typing(&ctx.http);
 
     // Accumulate all necessary data
     let data = match BasicEmbedData::create_nochoke(user, scores_data, ctx.cache.clone()) {

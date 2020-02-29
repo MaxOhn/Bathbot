@@ -129,7 +129,6 @@ fn recent_lb_send(
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let _ = msg.channel_id.broadcast_typing(&ctx.http);
     let data = match BasicEmbedData::create_leaderboard(author_name, map, scores, &ctx) {
         Ok(data) => data,
         Err(why) => {
