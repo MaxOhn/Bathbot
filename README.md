@@ -28,7 +28,6 @@ Work in progress discord bot port for the game [osu!](https://osu.ppy.sh/home) f
    - (`<reach`)
    ---
    - `<bg`
-   - `<authorities`
    - Lyrics
    ---
    - (`<trackedstreams`)

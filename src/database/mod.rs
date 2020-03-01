@@ -340,6 +340,17 @@ impl MySQL {
         info!("Updated lyrics for guild id {}", guild);
         Ok(())
     }
+
+    pub fn update_guild_authorities(&self, guild: u64, auths: String) -> Result<(), Error> {
+        use schema::guilds::columns::{authorities, guild_id};
+        let conn = self.get_connection()?;
+        let target = schema::guilds::table.filter(guild_id.eq(guild));
+        diesel::update(target)
+            .set(authorities.eq(auths))
+            .execute(&conn)?;
+        info!("Updated authorities for guild id {}", guild);
+        Ok(())
+    }
 }
 
 fn mania_mod_bits(mods: &GameMods) -> u32 {

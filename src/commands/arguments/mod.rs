@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use regex::Regex;
 use rosu::models::GameMods;
 use serenity::{
@@ -62,6 +60,7 @@ impl ArgParser {
         self.get_parameter(&["-grade"])
     }
 
+    #[allow(dead_code)]
     /// Check if `-g` or `--global` is in the arguments
     pub fn get_global(&self) -> bool {
         self.contains_any(&["-g", "-global"])
@@ -125,6 +124,7 @@ impl ArgParser {
         None
     }
 
+    #[allow(dead_code)]
     fn contains_any(&self, words: &[&str]) -> bool {
         let args: Vec<&str> = self.args.raw_quoted().collect();
         for word in words {
