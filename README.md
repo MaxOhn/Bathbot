@@ -22,6 +22,7 @@ Work in progress discord bot port for the game [osu!](https://osu.ppy.sh/home) f
 - Mod (/acc/combo/score) support for `<s` and `<sr`
 - `<r` should contain the `<sr` pp value
 - Fix `<top -a 99` arg parser
+- Mix DT and NC scores of national score retrieval
 - (Mania star calculation)
   ### Commands
    - (`<reach`)

@@ -45,13 +45,11 @@ fn vcrole(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                         value.vc_role = Some(role);
                         true
                     }
+                } else if value.vc_role.is_some() {
+                    value.vc_role = None;
+                    true
                 } else {
-                    if value.vc_role.is_some() {
-                        value.vc_role = None;
-                        true
-                    } else {
-                        false
-                    }
+                    false
                 }
             }
             Entry::Vacant(_) => {

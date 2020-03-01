@@ -320,13 +320,24 @@ impl MySQL {
     }
 
     pub fn update_guild_vc_role(&self, guild: u64, role_id: Option<u64>) -> Result<(), Error> {
-        use schema::guilds::columns::*;
+        use schema::guilds::columns::{guild_id, vc_role};
         let conn = self.get_connection()?;
         let target = schema::guilds::table.filter(guild_id.eq(guild));
         diesel::update(target)
             .set(vc_role.eq(role_id))
             .execute(&conn)?;
         info!("Updated VC role for guild id {}", guild);
+        Ok(())
+    }
+
+    pub fn update_guild_lyrics(&self, guild: u64, lyrics: bool) -> Result<(), Error> {
+        use schema::guilds::columns::{guild_id, with_lyrics};
+        let conn = self.get_connection()?;
+        let target = schema::guilds::table.filter(guild_id.eq(guild));
+        diesel::update(target)
+            .set(with_lyrics.eq(lyrics))
+            .execute(&conn)?;
+        info!("Updated lyrics for guild id {}", guild);
         Ok(())
     }
 }
