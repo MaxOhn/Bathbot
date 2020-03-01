@@ -22,8 +22,8 @@ use tokio::runtime::Runtime;
                  would be a choke"]
 #[usage = "[username]"]
 #[example = "badewanne3"]
-#[aliases("nc", "nochokes")]
-fn nochoke(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+#[aliases("nc", "nochoke")]
+fn nochokes(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let name: String = if args.is_empty() {
         let data = ctx.data.read();
         let links = data

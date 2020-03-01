@@ -152,9 +152,9 @@ fn main() -> Result<(), Error> {
             .group(&MANIA_GROUP)
             .group(&TAIKO_GROUP)
             .group(&CATCHTHEBEAT_GROUP)
+            .group(&UTILITY_GROUP)
             .group(&STREAMTRACKING_GROUP)
             .group(&FUN_GROUP)
-            .group(&UTILITY_GROUP)
             .bucket("two_per_thirty_cooldown", |b| {
                 b.delay(5).time_span(30).limit(2)
             })

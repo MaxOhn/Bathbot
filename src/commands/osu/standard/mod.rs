@@ -22,7 +22,7 @@ use serenity::framework::standard::macros::group;
     recentleaderboard,
     rank,
     simulaterecent,
-    nochoke,
+    nochokes,
     sotarks
 )]
 pub struct Osu;

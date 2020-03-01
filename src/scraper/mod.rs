@@ -10,9 +10,9 @@ use crate::{
     WITH_SCRAPER,
 };
 use reqwest::{multipart::Form, Client, Response};
-use rosu::models::{GameMode, GameMods};
+use rosu::models::{GameMod, GameMode, GameMods};
 use scraper::{Html, Node, Selector};
-use std::{env, sync::Mutex};
+use std::{collections::HashSet, convert::TryFrom, env, sync::Mutex};
 
 pub struct Scraper {
     client: Client,
@@ -66,6 +66,38 @@ impl Scraper {
     }
 
     pub async fn get_leaderboard(
+        &self,
+        map_id: u32,
+        national: bool,
+        mods: Option<&GameMods>,
+    ) -> Result<Vec<ScraperScore>, Error> {
+        let mut scores = self._get_leaderboard(map_id, national, mods).await?;
+        let mods = mods.and_then(|mods| {
+            let dt = GameMod::DoubleTime;
+            let nc = GameMod::NightCore;
+            if mods.contains(&GameMod::DoubleTime) {
+                let mods = mods.as_bits() - dt as u32 + nc as u32;
+                Some(GameMods::try_from(mods).unwrap())
+            } else if mods.contains(&GameMod::NightCore) {
+                let mods = mods.as_bits() - nc as u32 + dt as u32;
+                Some(GameMods::try_from(mods).unwrap())
+            } else {
+                None
+            }
+        });
+        if mods.is_some() {
+            let mut new_scores = self
+                ._get_leaderboard(map_id, national, mods.as_ref())
+                .await?;
+            scores.append(&mut new_scores);
+            scores.sort_by(|a, b| b.score.cmp(&a.score));
+            let mut uniques = HashSet::with_capacity(50);
+            scores.retain(|s| uniques.insert(s.user_id));
+        }
+        Ok(scores)
+    }
+
+    async fn _get_leaderboard(
         &self,
         map_id: u32,
         national: bool,
