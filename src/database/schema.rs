@@ -6,6 +6,15 @@ table! {
 }
 
 table! {
+    guilds (guild_id) {
+        guild_id -> Unsigned<Bigint>,
+        with_lyrics -> Bool,
+        authorities -> Varchar,
+        vc_role -> Nullable<Unsigned<Bigint>>,
+    }
+}
+
+table! {
     maps (beatmap_id) {
         beatmap_id -> Unsigned<Integer>,
         beatmapset_id -> Unsigned<Integer>,
@@ -89,6 +98,7 @@ joinable!(stream_tracks -> twitch_users (user_id));
 
 allow_tables_to_appear_in_same_query!(
     discord_users,
+    guilds,
     maps,
     mapsets,
     pp_mania_mods,

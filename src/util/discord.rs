@@ -5,9 +5,10 @@ use serenity::{
     cache::CacheRwLock,
     model::{
         channel::{EmbedField, Message},
-        id::{MessageId, UserId},
+        guild::Member,
+        id::{ChannelId, MessageId, UserId},
     },
-    prelude::{RwLock, ShareMap},
+    prelude::{Context, RwLock, ShareMap},
 };
 use std::{str::FromStr, sync::Arc};
 
@@ -75,4 +76,12 @@ pub fn save_response_owner(msg_id: MessageId, author_id: UserId, data: Arc<RwLoc
         owners.remove(&oldest);
     }
     owners.insert(msg_id, author_id);
+}
+
+pub fn get_member(ctx: &Context, channel_id: ChannelId, user_id: UserId) -> Option<Member> {
+    channel_id
+        .to_channel(ctx)
+        .ok()
+        .and_then(|channel| channel.guild())
+        .and_then(|guild_channel| guild_channel.read().guild_id.member(ctx, user_id).ok())
 }

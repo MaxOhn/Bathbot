@@ -9,4 +9,4 @@ use serenity::framework::standard::macros::group;
 #[group]
 #[description = "Commands for tracking Twitch and Mixer streams"]
 #[commands(addstream, removestream)]
-struct Streams;
+struct StreamTracking;

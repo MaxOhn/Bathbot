@@ -1,8 +1,8 @@
 mod models;
 mod schema;
 
-use models::{DBMap, DBMapSet, ManiaPP, MapSplit};
-pub use models::{Platform, StreamTrack, StreamTrackDB, TwitchUser};
+use models::{DBMap, DBMapSet, GuildDB, ManiaPP, MapSplit, StreamTrackDB};
+pub use models::{Guild, Platform, StreamTrack, TwitchUser};
 
 use crate::util::Error;
 use diesel::{
@@ -11,6 +11,7 @@ use diesel::{
     MysqlConnection,
 };
 use rosu::models::{Beatmap, GameMod, GameMods};
+use serenity::model::id::GuildId;
 use std::collections::{HashMap, HashSet};
 
 pub struct MySQL {
@@ -292,6 +293,20 @@ impl MySQL {
         )
         .execute(&conn)?;
         Ok(())
+    }
+
+    // -----------------------------------
+    // Table: stream_tracks / twitch_users
+    // -----------------------------------
+
+    pub fn get_guilds(&self) -> Result<HashMap<GuildId, Guild>, Error> {
+        let conn = self.get_connection()?;
+        let guilds = schema::guilds::table.load::<GuildDB>(&conn)?;
+        let guilds = guilds
+            .into_iter()
+            .map(|g| (GuildId(g.guild_id), g.into()))
+            .collect();
+        Ok(guilds)
     }
 }
 

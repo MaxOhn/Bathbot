@@ -14,10 +14,10 @@ extern crate diesel;
 
 use crate::scraper::Scraper;
 use commands::{fun::*, osu::*, streams::*, utility::*};
-use database::{MySQL, Platform, StreamTrack};
+use database::{Guild as GuildDB, MySQL, Platform, StreamTrack};
 use messages::BasicEmbedData;
 use streams::{Twitch, TwitchStream};
-pub use util::{globals::MSG_MEMORY, Error};
+pub use util::{discord::get_member, globals::MSG_MEMORY, Error};
 
 use chrono::{DateTime, Utc};
 use log::{error, info};
@@ -82,6 +82,9 @@ fn main() -> Result<(), Error> {
     let twitch_token = env::var("TWITCH_TOKEN")?;
     let twitch = Twitch::new(&twitch_client_id, &twitch_token)?;
 
+    // Individual guild settings
+    let guilds = mysql.get_guilds()?;
+
     // General
     let owners = match discord.cache_and_http.http.get_current_application_info() {
         Ok(info) => {
@@ -118,6 +121,7 @@ fn main() -> Result<(), Error> {
             VecDeque::with_capacity(MSG_MEMORY),
             HashMap::with_capacity(MSG_MEMORY),
         ));
+        data.insert::<Guilds>(guilds);
     }
 
     // ---------------
@@ -148,7 +152,7 @@ fn main() -> Result<(), Error> {
             .group(&MANIA_GROUP)
             .group(&TAIKO_GROUP)
             .group(&CATCHTHEBEAT_GROUP)
-            .group(&STREAMS_GROUP)
+            .group(&STREAMTRACKING_GROUP)
             .group(&FUN_GROUP)
             .group(&UTILITY_GROUP)
             .bucket("two_per_thirty_cooldown", |b| {
@@ -208,12 +212,74 @@ impl EventHandler for Handler {
 
     fn voice_state_update(
         &self,
-        _ctx: Context,
-        _guild: Option<GuildId>,
-        _old: Option<VoiceState>,
-        _new: VoiceState,
+        ctx: Context,
+        guild: Option<GuildId>,
+        old: Option<VoiceState>,
+        new: VoiceState,
     ) {
-        // TODO
+        // Try assigning the server's VC role to the member
+        if let Some(guild_id) = guild {
+            let role = {
+                let data = ctx.data.read();
+                data.get::<Guilds>()
+                    .and_then(|guilds| guilds.get(&guild_id))
+                    .and_then(|guild| guild.vc_role)
+            };
+            // If the server has configured such a role
+            if let Some(role) = role {
+                // Get the event's member
+                let mut member = match guild_id.member(&ctx, new.user_id) {
+                    Ok(member) => member,
+                    Err(why) => {
+                        warn!("Could not get member for VC update: {}", why);
+                        return;
+                    }
+                };
+                let role_name = role
+                    .to_role_cached(&ctx.cache)
+                    .expect("Role not found in cache")
+                    .name;
+                // If either the member left VC, or joined the afk channel
+                let remove_role = new.channel_id.map_or(true, |channel| {
+                    channel
+                        .name(&ctx.cache)
+                        .map_or(false, |name| &name.to_lowercase() == "afk")
+                });
+                if remove_role {
+                    // Remove role
+                    if let Err(why) = member.remove_role(&ctx.http, role) {
+                        error!("Could not remove role from member for VC update: {}", why);
+                    } else {
+                        info!(
+                            "Removed role '{}' from member {}",
+                            role_name,
+                            member.user.read().name
+                        );
+                    }
+                } else {
+                    // Add role if the member is either coming from the afk channel
+                    // or hasn't been in a VC before
+                    let add_role = old.map_or(true, |old_state| {
+                        old_state
+                            .channel_id
+                            .unwrap()
+                            .name(&ctx.cache)
+                            .map_or(true, |name| &name.to_lowercase() == "afk")
+                    });
+                    if add_role {
+                        if let Err(why) = member.add_role(&ctx.http, role) {
+                            error!("Could not add role to member for VC update: {}", why);
+                        } else {
+                            info!(
+                                "Assigned role '{}' to member {}",
+                                role_name,
+                                member.user.read().name
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fn guild_member_addition(&self, _ctx: Context, _guild_id: GuildId, _new_member: Member) {
@@ -380,46 +446,20 @@ impl EventHandler for Handler {
             }
         };
         if let Some(role) = role {
-            let channel = match reaction.channel(&ctx) {
-                Ok(channel) => channel,
-                Err(why) => {
-                    error!("Could not get Channel from reaction: {}", why);
-                    return;
+            if let Some(mut member) = get_member(&ctx, reaction.channel_id, reaction.user_id) {
+                let role_name = role
+                    .to_role_cached(&ctx.cache)
+                    .expect("Role not found in cache")
+                    .name;
+                if let Err(why) = member.add_role(&ctx.http, role) {
+                    error!("Could not add role to member for reaction: {}", why);
+                } else {
+                    info!(
+                        "Assigned role '{}' to member {}",
+                        role_name,
+                        member.user.read().name
+                    );
                 }
-            };
-            let guild_lock = match channel.guild() {
-                Some(guild_channel) => match guild_channel.read().guild(&ctx) {
-                    Some(guild) => guild,
-                    None => {
-                        error!("Could not get Guild from reaction");
-                        return;
-                    }
-                },
-                None => {
-                    error!("Could not get GuildChannel from reaction");
-                    return;
-                }
-            };
-            let guild = guild_lock.read();
-            let mut member = match guild.member(&ctx, reaction.user_id) {
-                Ok(member) => member,
-                Err(why) => {
-                    error!("Could not get Member from reaction: {}", why);
-                    return;
-                }
-            };
-            let role_name = role
-                .to_role_cached(&ctx.cache)
-                .expect("Role not found in cache")
-                .name;
-            if let Err(why) = member.add_role(&ctx.http, role) {
-                error!("Could not add role to member for reaction: {}", why);
-            } else {
-                info!(
-                    "Assigned role '{}' to member {}",
-                    role_name,
-                    member.user.read().name
-                );
             }
         }
     }
@@ -441,46 +481,20 @@ impl EventHandler for Handler {
             }
         };
         if let Some(role) = role {
-            let channel = match reaction.channel(&ctx) {
-                Ok(channel) => channel,
-                Err(why) => {
-                    error!("Could not get Channel from reaction: {}", why);
-                    return;
+            if let Some(mut member) = get_member(&ctx, reaction.channel_id, reaction.user_id) {
+                let role_name = role
+                    .to_role_cached(&ctx.cache)
+                    .expect("Role not found in cache")
+                    .name;
+                if let Err(why) = member.remove_role(&ctx.http, role) {
+                    error!("Could not remove role from member for reaction: {}", why);
+                } else {
+                    info!(
+                        "Removed role '{}' from member {}",
+                        role_name,
+                        member.user.read().name
+                    );
                 }
-            };
-            let guild_lock = match channel.guild() {
-                Some(guild_channel) => match guild_channel.read().guild(&ctx) {
-                    Some(guild) => guild,
-                    None => {
-                        error!("Could not get Guild from reaction");
-                        return;
-                    }
-                },
-                None => {
-                    error!("Could not get GuildChannel from reaction");
-                    return;
-                }
-            };
-            let guild = guild_lock.read();
-            let mut member = match guild.member(&ctx, reaction.user_id) {
-                Ok(member) => member,
-                Err(why) => {
-                    error!("Could not get Member from reaction: {}", why);
-                    return;
-                }
-            };
-            let role_name = role
-                .to_role_cached(&ctx.cache)
-                .expect("Role not found in cache")
-                .name;
-            if let Err(why) = member.remove_role(&ctx.http, role) {
-                error!("Could not remove role from member for reaction: {}", why);
-            } else {
-                info!(
-                    "Removed role '{}' from member {}",
-                    role_name,
-                    member.user.read().name
-                );
             }
         }
     }
@@ -555,4 +569,9 @@ impl TypeMapKey for Twitch {
 pub struct ResponseOwner;
 impl TypeMapKey for ResponseOwner {
     type Value = (VecDeque<MessageId>, HashMap<MessageId, UserId>);
+}
+
+pub struct Guilds;
+impl TypeMapKey for Guilds {
+    type Value = HashMap<GuildId, GuildDB>;
 }
