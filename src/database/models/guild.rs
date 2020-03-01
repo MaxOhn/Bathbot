@@ -14,6 +14,22 @@ pub struct GuildDB {
     vc_role: Option<u64>,
 }
 
+impl GuildDB {
+    pub fn new(
+        guild_id: u64,
+        with_lyrics: bool,
+        authorities: String,
+        vc_role: Option<u64>,
+    ) -> Self {
+        Self {
+            guild_id,
+            with_lyrics,
+            authorities,
+            vc_role,
+        }
+    }
+}
+
 impl Into<Guild> for GuildDB {
     fn into(self) -> Guild {
         let mut authorities = Vec::new();

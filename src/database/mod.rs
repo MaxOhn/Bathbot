@@ -4,7 +4,7 @@ mod schema;
 use models::{DBMap, DBMapSet, GuildDB, ManiaPP, MapSplit, StreamTrackDB};
 pub use models::{Guild, Platform, StreamTrack, TwitchUser};
 
-use crate::util::Error;
+use crate::util::{globals::AUTHORITY_ROLES, Error};
 use diesel::{
     prelude::*,
     r2d2::{ConnectionManager, Pool, PooledConnection},
@@ -307,6 +307,27 @@ impl MySQL {
             .map(|g| (GuildId(g.guild_id), g.into()))
             .collect();
         Ok(guilds)
+    }
+
+    pub fn insert_guild(&self, guild_id: u64) -> Result<Guild, Error> {
+        let guild = GuildDB::new(guild_id, true, AUTHORITY_ROLES.to_string(), None);
+        let conn = self.get_connection()?;
+        diesel::insert_or_ignore_into(schema::guilds::table)
+            .values(&guild)
+            .execute(&conn)?;
+        info!("Inserted new guild id {} into database", guild_id);
+        Ok(guild.into())
+    }
+
+    pub fn update_guild_vc_role(&self, guild: u64, role_id: Option<u64>) -> Result<(), Error> {
+        use schema::guilds::columns::*;
+        let conn = self.get_connection()?;
+        let target = schema::guilds::table.filter(guild_id.eq(guild));
+        diesel::update(target)
+            .set(vc_role.eq(role_id))
+            .execute(&conn)?;
+        info!("Updated VC role for guild id {}", guild);
+        Ok(())
     }
 }
 

@@ -204,9 +204,30 @@ impl EventHandler for Handler {
         info!("Resumed connection");
     }
 
-    fn guild_create(&self, _: Context, guild: Guild, is_new: bool) {
+    fn guild_create(&self, ctx: Context, guild: Guild, is_new: bool) {
         if is_new {
-            info!("'guild_create' triggered for new server '{}'", guild.name);
+            let guild = {
+                let data = ctx.data.read();
+                let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                match mysql.insert_guild(guild.id.0) {
+                    Ok(g) => {
+                        info!("Inserted new guild {} to database", guild.name);
+                        Some(g)
+                    }
+                    Err(why) => {
+                        error!(
+                            "Could not insert new guild '{}' to database: {}",
+                            guild.name, why
+                        );
+                        None
+                    }
+                }
+            };
+            if let Some(guild) = guild {
+                let mut data = ctx.data.write();
+                let guilds = data.get_mut::<Guilds>().expect("Could not get Guilds");
+                guilds.insert(guild.guild_id, guild);
+            }
         }
     }
 

@@ -1,6 +1,6 @@
 use crate::{
     database::MySQL,
-    util::{discord, globals::DATABASE_ISSUE},
+    util::{discord, globals::GENERAL_ISSUE},
     DiscordLinks,
 };
 use serenity::{
@@ -29,7 +29,7 @@ fn link(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
             let data = ctx.data.read();
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
             if let Err(why) = mysql.remove_discord_link(id) {
-                msg.channel_id.say(&ctx.http, DATABASE_ISSUE)?;
+                msg.channel_id.say(&ctx.http, GENERAL_ISSUE)?;
                 return Err(CommandError(format!(
                     "Error while removing discord link from database: {}",
                     why
@@ -52,7 +52,7 @@ fn link(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
             let data = ctx.data.read();
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
             if let Err(why) = mysql.add_discord_link(id, &name) {
-                msg.channel_id.say(&ctx.http, DATABASE_ISSUE)?;
+                msg.channel_id.say(&ctx.http, GENERAL_ISSUE)?;
                 return Err(CommandError(format!(
                     "Error while adding discord link to database: {}",
                     why

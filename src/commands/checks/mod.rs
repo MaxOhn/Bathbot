@@ -1,4 +1,4 @@
-use crate::util::globals::AUTHORITY_ROLES;
+use crate::Guilds;
 use serenity::{
     framework::standard::{macros::check, Args, CheckResult, CommandOptions},
     model::prelude::Message,
@@ -24,7 +24,16 @@ fn authority_check(
                 // Does it have authority role
                 for role_id in member.roles {
                     if let Some(role) = role_id.to_role_cached(&ctx.cache) {
-                        if AUTHORITY_ROLES.contains(&role.name.to_lowercase().as_ref()) {
+                        let role_name = role.name.to_lowercase();
+                        let data = ctx.data.read();
+                        let guilds = data.get::<Guilds>().expect("Could not get Guilds");
+                        let guild_id = msg.guild_id.unwrap();
+                        let contains_authority = guilds
+                            .get(&guild_id)
+                            .unwrap_or_else(|| panic!("GuildId {} not found in Guilds", guild_id.0))
+                            .authorities
+                            .contains(&role_name);
+                        if contains_authority {
                             return CheckResult::Success;
                         }
                     }
