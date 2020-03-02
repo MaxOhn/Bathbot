@@ -58,7 +58,7 @@ pub fn grade_emote(grade: Grade, cache: CacheRwLock) -> Emoji {
         .clone()
 }
 
-pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) -> Result<(), Error> {
+pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
     if let Some((mods, selection)) = args.mods {
         if selection == ModSelection::Exact || selection == ModSelection::Includes {
             score.enabled_mods = mods;
@@ -89,7 +89,6 @@ pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) -> R
             score.count_miss = miss;
             score.max_combo = combo;
             score.recalculate_grade(GameMode::STD, Some(acc * 100.0));
-            Ok(())
         }
         GameMode::MNA => {
             score.max_combo = 0;
@@ -105,7 +104,6 @@ pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) -> R
             } else {
                 Grade::X
             };
-            Ok(())
         }
         GameMode::TKO => {
             let acc = args.acc.unwrap_or(0.0) / 100.0;
@@ -122,20 +120,19 @@ pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) -> R
             }
             score.count_miss = miss;
             score.recalculate_grade(GameMode::TKO, Some(acc * 100.0));
-            Ok(())
         }
-        GameMode::CTB => Err(Error::Custom("Can not simulate CTB scores".to_string())),
+        GameMode::CTB => panic!("Can not simulate CTB scores"),
     }
 }
 
-pub fn unchoke_score(score: &mut Score, map: &Beatmap) -> Result<(), Error> {
+pub fn unchoke_score(score: &mut Score, map: &Beatmap) {
     match map.mode {
         GameMode::STD => {
             let max_combo = map
                 .max_combo
                 .unwrap_or_else(|| panic!("Max combo of beatmap not found"));
             if score.max_combo == max_combo {
-                return Ok(());
+                return;
             }
             let total_objects = map.count_objects();
             let passed_objects = score.total_hits(GameMode::STD);
@@ -148,7 +145,6 @@ pub fn unchoke_score(score: &mut Score, map: &Beatmap) -> Result<(), Error> {
             score.max_combo = max_combo;
             score.count_miss = 0;
             score.recalculate_grade(GameMode::STD, None);
-            Ok(())
         }
         GameMode::MNA => {
             score.max_combo = 0;
@@ -164,11 +160,7 @@ pub fn unchoke_score(score: &mut Score, map: &Beatmap) -> Result<(), Error> {
             } else {
                 Grade::X
             };
-            Ok(())
         }
-        _ => Err(Error::Custom(format!(
-            "Can only unchoke STD and MNA scores, not {:?}",
-            map.mode,
-        ))),
+        _ => panic!("Can only unchoke STD and MNA scores, not {:?}", map.mode,),
     }
 }

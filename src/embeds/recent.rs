@@ -3,6 +3,7 @@ use crate::util::{
     datetime::{date_to_string, how_long_ago},
     globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
     numbers::{round_and_comma, with_comma_u64},
+    osu,
     pp::PPProvider,
     Error,
 };
@@ -25,6 +26,7 @@ pub struct RecentData {
     pub pp: String,
     pub combo: String,
     pub hits: String,
+    pub if_fc: Option<(String, String, String)>,
     pub map_info: String,
     pub footer_url: String,
     pub footer_text: String,
@@ -71,13 +73,18 @@ impl RecentData {
                 ("PP", &self.pp, true),
                 ("Combo", &self.combo, true),
                 ("Hits", &self.hits, true),
-                ("Map Info", &self.map_info, false),
             ])
             .author(|a| {
                 a.icon_url(&self.author_icon)
                     .url(&self.author_url)
                     .name(&self.author_text)
-            })
+            });
+        if let Some((pp, combo, hits)) = &self.if_fc {
+            embed.field("**If FC**: PP", &pp, true);
+            embed.field("Combo", &combo, true);
+            embed.field("Hits", &hits, true);
+        }
+        embed.field("Map Info", &self.map_info, false)
     }
 
     pub fn new(
@@ -124,7 +131,7 @@ impl RecentData {
             country = user.country,
             national = user.pp_country_rank
         );
-        let pp_provider = match PPProvider::new(&score, &map, Some(ctx)) {
+        let mut pp_provider = match PPProvider::new(&score, &map, Some(ctx)) {
             Ok(provider) => provider,
             Err(why) => {
                 return Err(Error::Custom(format!(
@@ -135,6 +142,26 @@ impl RecentData {
         };
         let grade_completion_mods =
             util::get_grade_completion_mods(&score, &map, ctx.cache.clone());
+        let (pp, combo, hits) = (
+            util::get_pp(&score, &pp_provider, map.mode),
+            util::get_combo(&score, &map),
+            util::get_hits(&score, map.mode),
+        );
+        let if_fc = if map.mode == GameMode::STD && score.max_combo < map.max_combo.unwrap() {
+            let mut unchoked = score.clone();
+            osu::unchoke_score(&mut unchoked, &map);
+            if let Err(why) = pp_provider.recalculate(&mut unchoked, GameMode::STD) {
+                warn!("Error while unchoking score for <recent: {}", why);
+                None
+            } else {
+                let pp = util::get_pp(&unchoked, &pp_provider, map.mode);
+                let combo = util::get_combo(&unchoked, &map);
+                let hits = util::get_hits(&unchoked, map.mode);
+                Some((pp, combo, hits))
+            }
+        } else {
+            None
+        };
         Ok(Self {
             description,
             title,
@@ -147,14 +174,15 @@ impl RecentData {
             score: with_comma_u64(score.score as u64),
             acc: util::get_acc(&score, map.mode),
             ago: how_long_ago(&score.date),
-            pp: util::get_pp(&score, &pp_provider, map.mode),
-            combo: util::get_combo(&score, &map),
-            hits: util::get_hits(&score, map.mode),
+            pp,
+            combo,
+            hits,
             map_info: util::get_map_info(&map),
             footer_url: format!("{}{}", AVATAR_URL, map.creator_id),
             footer_text: format!("{:?} map by {}", map.approval_status, map.creator),
             timestamp: date_to_string(&score.date),
             thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id),
+            if_fc,
         })
     }
 }

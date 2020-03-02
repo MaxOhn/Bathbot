@@ -17,9 +17,8 @@ Work in progress discord bot port for the game [osu!](https://osu.ppy.sh/home) f
 ## Todos
 - Kick unchecked users after x days
 - Distribute `Top` role automatically
-- `<r` should contain the `<sr` pp value
-- Numbered commands i.e. `<recent7`
-- Stream notifications (Mixer)
+- (Mixer notifications)
+- (Numbered commands i.e. `<recent7`)
 - (Mania star calculation)
   ### Commands
    - `<bg`

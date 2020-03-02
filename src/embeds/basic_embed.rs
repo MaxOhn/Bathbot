@@ -376,7 +376,7 @@ impl BasicEmbedData {
             let mut unchoked = score.clone();
             // If combo isn't max, unchoke the score
             if score.max_combo != map.max_combo.unwrap() {
-                osu::unchoke_score(&mut unchoked, map)?;
+                osu::unchoke_score(&mut unchoked, map);
                 let pp = PPProvider::calculate_oppai_pp(&unchoked, &map)?;
                 unchoked.pp = Some(pp);
             }

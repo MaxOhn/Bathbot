@@ -154,19 +154,9 @@ impl SimulateData {
         };
         let mut unchoked_score = score.unwrap_or_default();
         if is_some {
-            if let Err(e) = osu::simulate_score(&mut unchoked_score, &map, args) {
-                return Err(Error::Custom(format!(
-                    "Something went wrong while simulating a score: {}",
-                    e
-                )));
-            }
+            osu::simulate_score(&mut unchoked_score, &map, args);
         } else {
-            if let Err(e) = osu::unchoke_score(&mut unchoked_score, &map) {
-                return Err(Error::Custom(format!(
-                    "Something went wrong while unchoking a score: {}",
-                    e
-                )));
-            }
+            osu::unchoke_score(&mut unchoked_score, &map);
         }
         let pp_provider = if let Some(mut pp_provider) = pp_provider {
             if let Err(e) = pp_provider.recalculate(&unchoked_score, map.mode) {
