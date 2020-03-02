@@ -1,7 +1,7 @@
 use crate::{
-    commands::arguments,
+    arguments::NameMapArgs,
     database::MySQL,
-    messages::BasicEmbedData,
+    embeds::BasicEmbedData,
     util::{discord, globals::OSU_API_ISSUE},
     DiscordLinks, Osu,
 };
@@ -21,14 +21,16 @@ use tokio::runtime::Runtime;
 #[description = "Display a user's top score for each mod on a given map. \
                  If no map is given, I will choose the last map \
                  I can find in my embeds of this channel"]
-#[usage = "[map url / map id] [username]"]
+#[usage = "[username] [map url / map id]"]
 #[example = "badewanne3"]
-#[example = "2240404 badewanne3"]
-#[example = "https://osu.ppy.sh/beatmapsets/902425#osu/2240404 badewanne3"]
+#[example = "badewanne3 2240404"]
+#[example = "badewanne3 https://osu.ppy.sh/beatmapsets/902425#osu/2240404"]
 #[aliases("c", "compare")]
-fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    // Parse the beatmap id
-    let map_id = if args.is_empty() {
+fn scores(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let args = NameMapArgs::new(args);
+    let map_id = if let Some(map_id) = args.map_id {
+        map_id
+    } else {
         let msgs = msg
             .channel_id
             .messages(&ctx.http, |retriever| retriever.limit(50))?;
@@ -38,39 +40,29 @@ fn scores(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
                 msg.channel_id.say(
                     &ctx.http,
                     "No map embed found in this channel's recent history.\n\
-                     Try specifying a map either by url to the map, or just by map id.",
+                     Try specifying a map as last argument either by url to the map, \
+                     or just by map id.",
                 )?;
                 return Ok(());
             }
         }
-    } else if let Some(id) = arguments::get_regex_id(&args.single::<String>()?) {
-        id
-    } else {
-        msg.channel_id.say(
-            &ctx.http,
-            "Could not parse beatmap id. Make sure your first argument is \
-             either the url to a beatmap or just a beatmap id.",
-        )?;
-        return Ok(());
     };
-    // Parse the name
-    let name = match args.single_quoted::<String>() {
-        Ok(name) => name,
-        Err(_) => {
-            let data = ctx.data.read();
-            let links = data
-                .get::<DiscordLinks>()
-                .expect("Could not get DiscordLinks");
-            match links.get(msg.author.id.as_u64()) {
-                Some(name) => name.clone(),
-                None => {
-                    msg.channel_id.say(
-                        &ctx.http,
-                        "Either specify an osu name as last argument or link \
-                         your discord to an osu profile via `<link osuname`",
-                    )?;
-                    return Ok(());
-                }
+    let name = if let Some(name) = args.name {
+        name
+    } else {
+        let data = ctx.data.read();
+        let links = data
+            .get::<DiscordLinks>()
+            .expect("Could not get DiscordLinks");
+        match links.get(msg.author.id.as_u64()) {
+            Some(name) => name.clone(),
+            None => {
+                msg.channel_id.say(
+                    &ctx.http,
+                    "Either specify an osu name or link your discord \
+                     to an osu profile via `<link osuname`",
+                )?;
+                return Ok(());
             }
         }
     };

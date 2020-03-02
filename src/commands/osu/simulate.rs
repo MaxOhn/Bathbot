@@ -1,7 +1,7 @@
 use crate::{
-    commands::arguments,
+    arguments::SimulateMapArgs,
     database::MySQL,
-    messages::SimulateData,
+    embeds::SimulateData,
     util::{
         discord,
         globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
@@ -29,26 +29,29 @@ use white_rabbit::{DateResult, Duration, Utc};
 #[example = "1980365"]
 #[example = "https://osu.ppy.sh/beatmapsets/948199#osu/1980365"]
 #[aliases("s")]
-fn simulate(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    // Parse the beatmap id
-    let map_id = match args.len() {
-        0 => {
-            msg.channel_id.say(
-                &ctx.http,
-                "You need to provide a beatmap, either as map id or as url",
-            )?;
+fn simulate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let args = match SimulateMapArgs::new(args) {
+        Ok(args) => args,
+        Err(err_msg) => {
+            let response = msg.channel_id.say(&ctx.http, err_msg)?;
+            discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
             return Ok(());
         }
-        _ => {
-            if let Some(map_id) = arguments::get_regex_id(&args.single::<String>()?) {
-                map_id
-            } else {
+    };
+    let map_id = if let Some(map_id) = args.map_id {
+        map_id
+    } else {
+        let msgs = msg
+            .channel_id
+            .messages(&ctx.http, |retriever| retriever.limit(50))?;
+        match discord::map_id_from_history(msgs, ctx.cache.clone()) {
+            Some(id) => id,
+            None => {
                 msg.channel_id.say(
                     &ctx.http,
-                    "If no osu name is provided, the first argument must be a beatmap id.\n\
-                     If you want to give an osu name, do so as first argument.\n\
-                     The second argument should then be the beatmap id.\n\
-                     The beatmap id can be given as number or as URL to the beatmap.",
+                    "No map embed found in this channel's recent history.\n\
+                     Try specifying a map either by url to the map, \
+                     or just by map id.",
                 )?;
                 return Ok(());
             }
@@ -91,12 +94,12 @@ fn simulate(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match SimulateData::new(None, map, &ctx) {
+    let data = match SimulateData::new(None, map, args.into(), &ctx) {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id.say(
                 &ctx.http,
-                "Some issue while calculating scores data, blame bade",
+                "Some issue while calculating simulate data, blame bade",
             )?;
             return Err(CommandError::from(why.to_string()));
         }

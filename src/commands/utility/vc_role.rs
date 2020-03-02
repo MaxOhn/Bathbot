@@ -1,5 +1,6 @@
 use crate::{
-    commands::{arguments::ArgParser, checks::*},
+    arguments::RoleArgs,
+    commands::checks::*,
     database::MySQL,
     util::{discord, globals::GENERAL_ISSUE},
     Guilds,
@@ -16,16 +17,16 @@ use std::collections::hash_map::Entry;
 #[only_in("guild")]
 #[checks(Authority)]
 #[description = "Assign one of this server's roles to be the VC role. \
-                Whenever a member joins a VC channel other than the afk \
-                channel I will give them the VC role. When they leave VC \
-                or swap to the afk channel, I will remove the role again. \
-                If no role is given as argument, I will not consider any \
-                role to be this server's VC role."]
+                 Whenever a member joins a VC channel other than the afk \
+                 channel I will give them the VC role. When they leave VC \
+                 or swap to the afk channel, I will remove the role again. \
+                 If no role is given as argument, I will not consider any \
+                 role to be this server's VC role."]
 #[usage = "[role mention / role id]"]
 #[example = "@In VC"]
 fn vcrole(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let mut arg_parser = ArgParser::new(args);
-    let role = arg_parser.get_next_role();
+    let args = RoleArgs::new(args);
+    let role = args.role_id;
     let guild_id = msg.guild_id.unwrap();
     let changed = {
         let mut data = ctx.data.write();

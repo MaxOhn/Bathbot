@@ -15,19 +15,15 @@ Work in progress discord bot port for the game [osu!](https://osu.ppy.sh/home) f
 - Done
 
 ## Todos
-- Numbered commands i.e. `<recent7`
-- Stream notifications (Mixer)
 - Kick unchecked users after x days
 - Distribute `Top` role automatically
-- Mod (/acc/combo/score) support for `<s` and `<sr`
 - `<r` should contain the `<sr` pp value
-- Fix `<top -a 99` arg parser
+- Numbered commands i.e. `<recent7`
+- Stream notifications (Mixer)
 - (Mania star calculation)
   ### Commands
-   - (`<reach`)
-   ---
    - `<bg`
    - Lyrics
-   ---
+   - (`<reach`)
    - (`<trackedstreams`)
    - (`<allstreams`)

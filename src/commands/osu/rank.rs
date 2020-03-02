@@ -1,5 +1,6 @@
 use crate::{
-    messages::BasicEmbedData,
+    arguments::RankArgs,
+    embeds::BasicEmbedData,
     scraper::Scraper,
     util::{discord, globals::OSU_API_ISSUE},
     DiscordLinks, Osu,
@@ -14,75 +15,37 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use std::str::FromStr;
 use tokio::runtime::Runtime;
 
-fn rank_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    // Parse the name
-    let name: String = match args.len() {
-        0 => {
-            msg.channel_id.say(
-                &ctx.http,
-                "You need to provide a rank, either just as positive number \
-                 or as country acronym with positive number e.g. `be10`",
-            )?;
+fn rank_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let args = match RankArgs::new(args) {
+        Ok(args) => args,
+        Err(err_msg) => {
+            msg.channel_id.say(&ctx.http, err_msg)?;
             return Ok(());
         }
-        1 => {
-            let data = ctx.data.read();
-            let links = data
-                .get::<DiscordLinks>()
-                .expect("Could not get DiscordLinks");
-            match links.get(msg.author.id.as_u64()) {
-                Some(name) => name.clone(),
-                None => {
-                    msg.channel_id.say(
-                        &ctx.http,
-                        "Either specify an osu name or link your discord \
-                         to an osu profile via `<link osuname`",
-                    )?;
-                    return Ok(());
-                }
-            }
-        }
-        _ => args.single_quoted()?,
     };
-
-    // Parse the rank
-    let (country, rank) = match args.single::<String>() {
-        Ok(mut val) => {
-            if let Ok(num) = usize::from_str(&val) {
-                (None, num)
-            } else if val.len() < 3 {
+    let name = if let Some(name) = args.name {
+        name
+    } else {
+        let data = ctx.data.read();
+        let links = data
+            .get::<DiscordLinks>()
+            .expect("Could not get DiscordLinks");
+        match links.get(msg.author.id.as_u64()) {
+            Some(name) => name.clone(),
+            None => {
                 msg.channel_id.say(
                     &ctx.http,
-                    "Could not parse rank. Provide it either as positive number or \
-                     as country acronym followed by a positive number e.g. `be10`.",
+                    "Either specify an osu name or link your discord \
+                     to an osu profile via `<link osuname`",
                 )?;
                 return Ok(());
-            } else {
-                let num = val.split_off(2);
-                if let Ok(num) = usize::from_str(&num) {
-                    (Some(val.to_uppercase()), num)
-                } else {
-                    msg.channel_id.say(
-                        &ctx.http,
-                        "Could not parse rank. Provide it either as positive number or \
-                         as country acronym followed by a positive number e.g. `be10`.",
-                    )?;
-                    return Ok(());
-                }
             }
         }
-        Err(_) => {
-            msg.channel_id.say(
-                &ctx.http,
-                "No rank argument found. Provide it either as positive number or \
-                 as country acronym followed by a positive number e.g. `be10`.",
-            )?;
-            return Ok(());
-        }
     };
+    let country = args.country;
+    let rank = args.rank;
     let mut rt = Runtime::new().unwrap();
 
     // Retrieve the rank holding user
@@ -171,6 +134,7 @@ fn rank_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -
 #[usage = "[username] [[country]number]"]
 #[example = "badewanne3 be50"]
 #[example = "badewanne3 123"]
+#[aliases("reach")]
 pub fn rank(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     rank_send(GameMode::STD, ctx, msg, args)
 }
@@ -180,7 +144,7 @@ pub fn rank(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                  reach a given rank"]
 #[example = "badewanne3 be50"]
 #[example = "badewanne3 123"]
-#[aliases("rankm")]
+#[aliases("rankm", "reachmania", "reachm")]
 pub fn rankmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     rank_send(GameMode::MNA, ctx, msg, args)
 }
@@ -190,7 +154,7 @@ pub fn rankmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult 
                  reach a given rank"]
 #[example = "badewanne3 be50"]
 #[example = "badewanne3 123"]
-#[aliases("rankt")]
+#[aliases("rankt", "reachtaiko", "reacht")]
 pub fn ranktaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     rank_send(GameMode::TKO, ctx, msg, args)
 }
@@ -200,7 +164,7 @@ pub fn ranktaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult 
                  reach a given rank"]
 #[example = "badewanne3 be50"]
 #[example = "badewanne3 123"]
-#[aliases("rankc")]
+#[aliases("rankc", "reachctb", "reachc")]
 pub fn rankctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     rank_send(GameMode::CTB, ctx, msg, args)
 }

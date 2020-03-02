@@ -1,6 +1,6 @@
 use crate::{
-    commands::arguments,
-    messages::BasicEmbedData,
+    arguments::MatchArgs,
+    embeds::BasicEmbedData,
     util::{discord, globals::OSU_API_ISSUE},
     Osu,
 };
@@ -23,20 +23,16 @@ use tokio::runtime::Runtime;
 #[example = "58320988 1"]
 #[example = "https://osu.ppy.sh/community/matches/58320988"]
 #[aliases("mc", "matchcost")]
-fn matchcosts(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    // Parse the match id
-    let match_id = if let Some(match_id) = arguments::get_regex_id(&args.single::<String>()?) {
-        match_id
-    } else {
-        msg.channel_id.say(
-            &ctx.http,
-            "The first argument must be either a match id or the multiplayer link to a match",
-        )?;
-        return Ok(());
+fn matchcosts(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let args = match MatchArgs::new(args) {
+        Ok(args) => args,
+        Err(err_msg) => {
+            msg.channel_id.say(&ctx.http, err_msg)?;
+            return Ok(());
+        }
     };
-    // Parse amount of warmups
-    let warmups = args.single::<usize>().unwrap_or(2);
-
+    let match_id = args.match_id;
+    let warmups = args.warmups;
     let mut rt = Runtime::new().unwrap();
 
     // Retrieve the match

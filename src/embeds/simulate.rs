@@ -1,10 +1,13 @@
 use super::util;
-use crate::util::{
-    globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
-    numbers::round,
-    osu,
-    pp::PPProvider,
-    Error,
+use crate::{
+    arguments::SimulateArgs,
+    util::{
+        globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
+        numbers::{round, with_comma_u64},
+        osu,
+        pp::PPProvider,
+        Error,
+    },
 };
 
 use rosu::models::{Beatmap, GameMode, Score};
@@ -19,6 +22,7 @@ pub struct SimulateData {
     pub prev_pp: Option<String>,
     pub pp: String,
     pub prev_combo: Option<String>,
+    pub score: Option<String>,
     pub combo: String,
     pub prev_hits: Option<String>,
     pub hits: String,
@@ -56,10 +60,15 @@ impl SimulateData {
                 ("Grade", &self.grade_completion_mods, true),
                 ("Acc", &self.acc, true),
                 ("Combo", &combo, true),
-                ("PP", &pp, false),
-                ("Hits", &hits, false),
-                ("Map Info", &self.map_info, false),
-            ])
+            ]);
+        if let Some(score) = &self.score {
+            embed.field("PP", &pp, true).field("Score", &score, true);
+        } else {
+            embed.field("PP", &pp, false);
+        }
+        embed
+            .field("Hits", &hits, false)
+            .field("Map Info", &self.map_info, false)
     }
 
     pub fn minimize<'d, 'e>(&'d self, embed: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
@@ -74,9 +83,17 @@ impl SimulateData {
             self.combo.clone()
         };
         let title = format!("{} [{}]", self.title, self.stars);
+        let score = if let Some(score) = &self.score {
+            format!("{} ", score)
+        } else {
+            String::new()
+        };
         let name = format!(
-            "{} ({}) [ {} ]",
-            self.grade_completion_mods, self.acc, combo
+            "{grade} {score}({acc}) [ {combo} ]",
+            grade = self.grade_completion_mods,
+            score = score,
+            acc = self.acc,
+            combo = combo
         );
         let mut value = format!("{} {}", pp, self.hits);
         if let Some(misses) = self.removed_misses {
@@ -92,8 +109,14 @@ impl SimulateData {
             .title(title)
     }
 
-    pub fn new(score: Option<Score>, map: Beatmap, ctx: &Context) -> Result<Self, Error> {
-        if map.mode == GameMode::TKO || map.mode == GameMode::CTB {
+    pub fn new(
+        score: Option<Score>,
+        map: Beatmap,
+        args: SimulateArgs,
+        ctx: &Context,
+    ) -> Result<Self, Error> {
+        let is_some = args.is_some();
+        if map.mode == GameMode::CTB || (!is_some && map.mode == GameMode::TKO) {
             return Err(Error::Custom(format!(
                 "Can only simulate STD and MNA scores, not {:?}",
                 map.mode,
@@ -130,11 +153,20 @@ impl SimulateData {
             (None, None, None, None, None)
         };
         let mut unchoked_score = score.unwrap_or_default();
-        if let Err(e) = osu::unchoke_score(&mut unchoked_score, &map) {
-            return Err(Error::Custom(format!(
-                "Something went wrong while unchoking a score: {}",
-                e
-            )));
+        if is_some {
+            if let Err(e) = osu::simulate_score(&mut unchoked_score, &map, args) {
+                return Err(Error::Custom(format!(
+                    "Something went wrong while simulating a score: {}",
+                    e
+                )));
+            }
+        } else {
+            if let Err(e) = osu::unchoke_score(&mut unchoked_score, &map) {
+                return Err(Error::Custom(format!(
+                    "Something went wrong while unchoking a score: {}",
+                    e
+                )));
+            }
         }
         let pp_provider = if let Some(mut pp_provider) = pp_provider {
             if let Err(e) = pp_provider.recalculate(&unchoked_score, map.mode) {
@@ -166,6 +198,21 @@ impl SimulateData {
                 util::get_acc(&unchoked_score, map.mode),
             ),
             GameMode::MNA => (String::from("**-**/-"), String::from("100%")),
+            m if m == GameMode::TKO && is_some => {
+                let acc = unchoked_score.accuracy(GameMode::TKO);
+                let combo = unchoked_score.max_combo;
+                (
+                    format!(
+                        "**{}**/-",
+                        if combo == 0 {
+                            "-".to_string()
+                        } else {
+                            combo.to_string()
+                        }
+                    ),
+                    format!("{}%", round(acc)),
+                )
+            }
             _ => {
                 return Err(Error::Custom(format!(
                     "Cannot prepare simulate data of GameMode::{:?} score",
@@ -177,12 +224,18 @@ impl SimulateData {
         let footer_url = format!("{}{}", AVATAR_URL, map.creator_id);
         let footer_text = format!("{:?} map by {}", map.approval_status, map.creator);
         let thumbnail = format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id);
+        let score = if map.mode == GameMode::MNA {
+            Some(with_comma_u64(unchoked_score.score as u64))
+        } else {
+            None
+        };
         Ok(Self {
             title,
             title_url,
             stars,
             grade_completion_mods,
             acc,
+            score,
             prev_pp,
             pp,
             prev_combo,

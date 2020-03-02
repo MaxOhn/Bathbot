@@ -1,6 +1,7 @@
 use crate::{
+    arguments::NameArgs,
     database::MySQL,
-    messages::BasicEmbedData,
+    embeds::BasicEmbedData,
     util::{discord, globals::OSU_API_ISSUE},
     DiscordLinks, Osu,
 };
@@ -17,9 +18,11 @@ use serenity::{
 use std::collections::HashMap;
 use tokio::runtime::Runtime;
 
-fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    // Parse the name
-    let name: String = if args.is_empty() {
+fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let args = NameArgs::new(args);
+    let name = if let Some(name) = args.name {
+        name
+    } else {
         let data = ctx.data.read();
         let links = data
             .get::<DiscordLinks>()
@@ -35,8 +38,6 @@ fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args
                 return Ok(());
             }
         }
-    } else {
-        args.single_quoted()?
     };
     let mut rt = Runtime::new().unwrap();
 

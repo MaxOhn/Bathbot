@@ -1,6 +1,13 @@
-use crate::{util::globals::MSG_MEMORY, ResponseOwner};
+use crate::{
+    util::globals::{AVATAR_URL, MSG_MEMORY},
+    Error, ResponseOwner,
+};
 
+use image::{
+    imageops::FilterType, png::PNGEncoder, ColorType, DynamicImage, GenericImage, GenericImageView,
+};
 use regex::Regex;
+use reqwest::Client;
 use serenity::{
     cache::CacheRwLock,
     model::{
@@ -11,6 +18,32 @@ use serenity::{
     prelude::{Context, RwLock, ShareMap},
 };
 use std::{str::FromStr, sync::Arc};
+use tokio::runtime::Runtime;
+
+pub fn get_thumbnail(user_ids: &[u32]) -> Result<Vec<u8>, Error> {
+    let mut combined = DynamicImage::new_rgba8(128, 128);
+    let amount = user_ids.len() as u32;
+    let w = 128 / amount;
+    let client = Client::new();
+    let mut rt = Runtime::new().unwrap();
+    for (i, id) in user_ids.iter().enumerate() {
+        let url = format!("{}{}", AVATAR_URL, id);
+        let res = rt.block_on(async { client.get(&url).send().await?.bytes().await })?;
+        let img =
+            image::load_from_memory(res.as_ref())?.resize_exact(128, 128, FilterType::Lanczos3);
+        let x = i as u32 * 128 / amount;
+        for i in 0..w {
+            for j in 0..128 {
+                let pixel = img.get_pixel(x + i, j);
+                combined.put_pixel(x + i, j, pixel);
+            }
+        }
+    }
+    let mut png_bytes: Vec<u8> = Vec::with_capacity(16_384); // 2^14 = 128x128
+    let png_encoder = PNGEncoder::new(&mut png_bytes);
+    png_encoder.encode(&combined.to_bytes(), 128, 128, ColorType::Rgba8)?;
+    Ok(png_bytes)
+}
 
 pub fn map_id_from_history(msgs: Vec<Message>, cache: CacheRwLock) -> Option<u32> {
     let url_regex = Regex::new(r".*/([0-9]{1,9})").unwrap();

@@ -4,6 +4,7 @@ use crate::{
     streams::TwitchStream,
     util::{
         datetime::{date_to_string, how_long_ago, sec_to_minsec},
+        discord,
         globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL, TWITCH_BASE},
         numbers::{round, round_and_comma, round_precision, with_comma_u64},
         osu,
@@ -12,11 +13,7 @@ use crate::{
     },
 };
 
-use image::{
-    imageops::FilterType, png::PNGEncoder, ColorType, DynamicImage, GenericImage, GenericImageView,
-};
 use itertools::Itertools;
-use reqwest::Client;
 use rosu::models::{
     Beatmap, GameMod, GameMode, GameMods, Grade, Match, Score, Team, TeamType, User,
 };
@@ -29,7 +26,6 @@ use std::{
     fmt::Write,
     u32,
 };
-use tokio::runtime::Runtime;
 
 #[derive(Default)]
 pub struct BasicEmbedData {
@@ -172,7 +168,7 @@ impl BasicEmbedData {
         }
         // Keys have no strict order, hence inconsistent result
         let user_ids: Vec<u32> = users.keys().copied().collect();
-        let thumbnail = get_thumbnail(&user_ids).unwrap_or_else(|e| {
+        let thumbnail = discord::get_thumbnail(&user_ids).unwrap_or_else(|e| {
             warn!("Error while combining avatars: {}", e);
             Vec::default()
         });
@@ -1015,31 +1011,6 @@ impl BasicEmbedData {
 // -------------------
 // Auxiliary functions
 // -------------------
-
-fn get_thumbnail(user_ids: &[u32]) -> Result<Vec<u8>, Error> {
-    let mut combined = DynamicImage::new_rgba8(128, 128);
-    let amount = user_ids.len() as u32;
-    let w = 128 / amount;
-    let client = Client::new();
-    let mut rt = Runtime::new().unwrap();
-    for (i, id) in user_ids.iter().enumerate() {
-        let url = format!("{}{}", AVATAR_URL, id);
-        let res = rt.block_on(async { client.get(&url).send().await?.bytes().await })?;
-        let img =
-            image::load_from_memory(res.as_ref())?.resize_exact(128, 128, FilterType::Lanczos3);
-        let x = i as u32 * 128 / amount;
-        for i in 0..w {
-            for j in 0..128 {
-                let pixel = img.get_pixel(x + i, j);
-                combined.put_pixel(x + i, j, pixel);
-            }
-        }
-    }
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(16_384); // 2^14 = 128x128
-    let png_encoder = PNGEncoder::new(&mut png_bytes);
-    png_encoder.encode(&combined.to_bytes(), 128, 128, ColorType::Rgba8)?;
-    Ok(png_bytes)
-}
 
 fn get_user_author(user: &User) -> (String, String, String) {
     let icon = format!("{}/images/flags/{}.png", HOMEPAGE, user.country);

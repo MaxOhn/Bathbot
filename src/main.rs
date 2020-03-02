@@ -1,8 +1,9 @@
 mod commands;
-mod messages;
+mod embeds;
 pub mod util;
 #[macro_use]
 mod macros;
+mod arguments;
 pub mod database;
 mod scraper;
 mod streams;
@@ -15,7 +16,7 @@ extern crate diesel;
 use crate::scraper::Scraper;
 use commands::{fun::*, osu::*, streams::*, utility::*};
 use database::{Guild as GuildDB, MySQL, Platform, StreamTrack};
-use messages::BasicEmbedData;
+use embeds::BasicEmbedData;
 use streams::{Twitch, TwitchStream};
 pub use util::{discord::get_member, globals::MSG_MEMORY, Error};
 

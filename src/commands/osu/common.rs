@@ -1,6 +1,7 @@
 use crate::{
+    arguments::MultNameArgs,
     database::MySQL,
-    messages::BasicEmbedData,
+    embeds::BasicEmbedData,
     util::{discord, globals::OSU_API_ISSUE},
     DiscordLinks, Osu,
 };
@@ -21,39 +22,39 @@ use std::{
 };
 use tokio::runtime::Runtime;
 
-fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    // Parse the names
-    if args.is_empty() {
-        msg.channel_id.say(
-            &ctx.http,
-            "You need to specify at least one osu username. \
-             If you're not linked, you must specify at least two names.",
-        )?;
-        return Ok(());
-    }
-    let mut names = Vec::with_capacity(args.len());
-    while !args.is_empty() && names.len() < 10 {
-        names.push(args.trimmed().single_quoted::<String>()?);
-    }
-    if names.len() == 1 {
-        let data = ctx.data.read();
-        let links = data
-            .get::<DiscordLinks>()
-            .expect("Could not get DiscordLinks");
-        match links.get(msg.author.id.as_u64()) {
-            Some(name) => {
-                names.push(name.clone());
-            }
-            None => {
-                msg.channel_id.say(
-                    &ctx.http,
-                    "You need to specify at least one osu username. \
-                     If you're not linked, you must specify at least two names.",
-                )?;
-                return Ok(());
-            }
+fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let mut args = MultNameArgs::new(args, 10);
+    let names = match args.names.len() {
+        0 => {
+            msg.channel_id.say(
+                &ctx.http,
+                "You need to specify at least one osu username. \
+                 If you're not linked, you must specify at least two names.",
+            )?;
+            return Ok(());
         }
-    }
+        1 => {
+            let data = ctx.data.read();
+            let links = data
+                .get::<DiscordLinks>()
+                .expect("Could not get DiscordLinks");
+            match links.get(msg.author.id.as_u64()) {
+                Some(name) => {
+                    args.names.push(name.clone());
+                }
+                None => {
+                    msg.channel_id.say(
+                        &ctx.http,
+                        "Since you're not linked via `<link`, \
+                         you must specify at least two names.",
+                    )?;
+                    return Ok(());
+                }
+            }
+            args.names
+        }
+        _ => args.names,
+    };
     let mut rt = Runtime::new().unwrap();
 
     // Retrieve all users and their top scores

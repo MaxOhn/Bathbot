@@ -1,5 +1,6 @@
 use crate::{
-    messages::BasicEmbedData,
+    arguments::NameArgs,
+    embeds::BasicEmbedData,
     util::{discord, globals::OSU_API_ISSUE},
     DiscordLinks, Osu,
 };
@@ -20,9 +21,11 @@ use tokio::runtime::Runtime;
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("ratio")]
-pub fn ratios(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    // Parse the name
-    let name: String = if args.is_empty() {
+pub fn ratios(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let args = NameArgs::new(args);
+    let name = if let Some(name) = args.name {
+        name
+    } else {
         let data = ctx.data.read();
         let links = data
             .get::<DiscordLinks>()
@@ -38,8 +41,6 @@ pub fn ratios(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
                 return Ok(());
             }
         }
-    } else {
-        args.single_quoted()?
     };
 
     // Retrieve the user and its top scores

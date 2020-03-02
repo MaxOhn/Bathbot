@@ -1,7 +1,7 @@
 use crate::{
-    commands::{ArgParser, ModSelection},
+    arguments::{ModSelection, NameModArgs},
     database::MySQL,
-    messages::BasicEmbedData,
+    embeds::BasicEmbedData,
     scraper::Scraper,
     util::{discord, globals::OSU_API_ISSUE},
     DiscordLinks, Osu,
@@ -28,10 +28,6 @@ fn recent_lb_send(
     msg: &Message,
     args: Args,
 ) -> CommandResult {
-    let mut arg_parser = ArgParser::new(args);
-    let (mods, selection) = arg_parser
-        .get_mods()
-        .unwrap_or_else(|| (GameMods::default(), ModSelection::None));
     let author_name = {
         let data = ctx.data.read();
         let links = data
@@ -39,10 +35,18 @@ fn recent_lb_send(
             .expect("Could not get DiscordLinks");
         links.get(msg.author.id.as_u64()).cloned()
     };
-    let name: String = if let Some(name) = arg_parser.get_name() {
+    let args = NameModArgs::new(args);
+    let (mods, selection) = args
+        .mods
+        .unwrap_or_else(|| (GameMods::default(), ModSelection::None));
+    let name = if let Some(name) = args.name {
         name
     } else {
-        match author_name.as_ref() {
+        let data = ctx.data.read();
+        let links = data
+            .get::<DiscordLinks>()
+            .expect("Could not get DiscordLinks");
+        match links.get(msg.author.id.as_u64()) {
             Some(name) => name.clone(),
             None => {
                 msg.channel_id.say(

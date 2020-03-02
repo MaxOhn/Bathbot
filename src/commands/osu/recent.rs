@@ -1,6 +1,7 @@
 use crate::{
+    arguments::NameArgs,
     database::MySQL,
-    messages::RecentData,
+    embeds::RecentData,
     util::{
         discord,
         globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
@@ -23,8 +24,11 @@ use serenity::{
 use tokio::runtime::Runtime;
 use white_rabbit::{DateResult, Duration, Utc};
 
-fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    let name: String = if args.is_empty() {
+fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let args = NameArgs::new(args);
+    let name = if let Some(name) = args.name {
+        name
+    } else {
         let data = ctx.data.read();
         let links = data
             .get::<DiscordLinks>()
@@ -40,8 +44,6 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args)
                 return Ok(());
             }
         }
-    } else {
-        args.single_quoted()?
     };
     let mut rt = Runtime::new().unwrap();
 

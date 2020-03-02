@@ -15,6 +15,7 @@ use serenity::framework::standard::macros::group;
     whatiftaiko,
     commontaiko,
     recenttaikoleaderboard,
+    recenttaikogloballeaderboard,
     ranktaiko
 )]
 pub struct Taiko;

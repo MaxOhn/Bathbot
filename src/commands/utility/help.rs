@@ -13,8 +13,8 @@ If you want more information about a specific command, \
 just pass the command as argument i.e. `<help command`.\n\
 Commands can also be used in private messages to me, \
 no need for any prefix in pms.\n\
-If you want to specify a username that contains spaces, \
-you must encapsulate the name with `\"` i.e. `\"nathan on osu\"`.\n\
+If you want to specify an argument, e.g. a username, that contains \
+spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
 Many commands allow you to specify mods. You can do so with `+mods` \
 for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods.\n\
 If you react with :x: to my response, I will delete it.

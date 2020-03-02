@@ -1,5 +1,6 @@
 use crate::{
-    messages::BasicEmbedData,
+    arguments::NameFloatArgs,
+    embeds::BasicEmbedData,
     util::{discord, globals::OSU_API_ISSUE},
     DiscordLinks, Osu,
 };
@@ -15,49 +16,34 @@ use serenity::{
 };
 use tokio::runtime::Runtime;
 
-fn whatif_send(mode: GameMode, ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    // Parse the name
-    let name: String = match args.len() {
-        0 => {
-            msg.channel_id.say(
-                &ctx.http,
-                "You need to provide a decimal number as argument",
-            )?;
+fn whatif_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let args = match NameFloatArgs::new(args) {
+        Ok(args) => args,
+        Err(err_msg) => {
+            msg.channel_id.say(&ctx.http, err_msg)?;
             return Ok(());
         }
-        1 => {
-            let data = ctx.data.read();
-            let links = data
-                .get::<DiscordLinks>()
-                .expect("Could not get DiscordLinks");
-            match links.get(msg.author.id.as_u64()) {
-                Some(name) => name.clone(),
-                None => {
-                    msg.channel_id.say(
-                        &ctx.http,
-                        "Either specify an osu name or link your discord \
-                         to an osu profile via `<link osuname`",
-                    )?;
-                    return Ok(());
-                }
+    };
+    let name = if let Some(name) = args.name {
+        name
+    } else {
+        let data = ctx.data.read();
+        let links = data
+            .get::<DiscordLinks>()
+            .expect("Could not get DiscordLinks");
+        match links.get(msg.author.id.as_u64()) {
+            Some(name) => name.clone(),
+            None => {
+                msg.channel_id.say(
+                    &ctx.http,
+                    "Either specify an osu name or link your discord \
+                     to an osu profile via `<link osuname`",
+                )?;
+                return Ok(());
             }
         }
-        _ => args.single_quoted()?,
     };
-
-    // Parse the pp
-    let pp = match args.single::<f32>() {
-        Ok(val) => val,
-        Err(_) => {
-            msg.channel_id.say(
-                &ctx.http,
-                "If no osu name is provided, the first argument must be a decimal number. \
-                 If you want to give an osu name, do so as first argument. \
-                 The second argument should then be the decimal number",
-            )?;
-            return Ok(());
-        }
-    };
+    let pp = args.float;
     if pp < 0.0 {
         msg.channel_id
             .say(&ctx.http, "The pp number must be non-negative")?;

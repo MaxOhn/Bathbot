@@ -18,11 +18,11 @@ use std::{collections::hash_map::Entry, str::FromStr};
 #[only_in("guild")]
 #[checks(Authority)]
 #[description = "Decide which roles should be considered authority roles. \
-Authority roles enable the usage of certain commands like \
-`<addstream` or `<roleassign`. Roles can be given as \
-mention, as role name, or as role id (up to 10 roles possible).\n\
-If you want to see the current authority roles, just pass \
-`-show` as argument"]
+                 Authority roles enable the usage of certain commands like \
+                 `<addstream` or `<roleassign`. Roles can be given as \
+                 mention, as role name, or as role id (up to 10 roles possible).\n\
+                 If you want to see the current authority roles, just pass \
+                 `-show` as argument"]
 #[usage = "[role1] [role2] ..."]
 #[example = "-show"]
 #[example = "mod \"bot commander\" moderator"]
@@ -121,14 +121,13 @@ fn authorities(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
             .roles(&ctx.cache)
             .unwrap()
             .iter()
-            .filter(|role| new_auth.contains(&role.id))
-            .next()
+            .find(|role| new_auth.contains(&role.id))
             == None;
     if invalid_auths {
         msg.channel_id.say(
             &ctx.http,
             "You cannot set authority roles to something \
-            that would make you lose authority status.",
+             that would make you lose authority status.",
         )?;
         return Ok(());
     }

@@ -1,8 +1,7 @@
 use crate::{
-    commands::arguments,
-    commands::{ArgParser, ModSelection},
+    arguments::{MapModArgs, ModSelection},
     database::MySQL,
-    messages::BasicEmbedData,
+    embeds::BasicEmbedData,
     scraper::Scraper,
     util::{discord, globals::OSU_API_ISSUE},
     DiscordLinks, Osu,
@@ -22,12 +21,7 @@ use serenity::{
 };
 use tokio::runtime::Runtime;
 
-fn leaderboard_send(
-    national: bool,
-    ctx: &mut Context,
-    msg: &Message,
-    mut args: Args,
-) -> CommandResult {
+fn leaderboard_send(national: bool, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let author_name = {
         let data = ctx.data.read();
         let links = data
@@ -35,8 +29,10 @@ fn leaderboard_send(
             .expect("Could not get DiscordLinks");
         links.get(msg.author.id.as_u64()).cloned()
     };
-    // Parse the beatmap id
-    let map_id = if args.is_empty() {
+    let args = MapModArgs::new(args);
+    let map_id = if let Some(id) = args.map_id {
+        id
+    } else {
         let msgs = msg
             .channel_id
             .messages(&ctx.http, |retriever| retriever.limit(50))?;
@@ -45,36 +41,15 @@ fn leaderboard_send(
             None => {
                 msg.channel_id.say(
                     &ctx.http,
-                    "No map embed found in this channel's recent history.\n\
+                    "No beatmap specified and none found in recent channel history. \
                      Try specifying a map either by url to the map, or just by map id.",
                 )?;
                 return Ok(());
             }
         }
-    } else {
-        let first_str = args.single::<String>()?;
-        if let Some(id) = arguments::get_regex_id(&first_str) {
-            id
-        } else {
-            let msgs = msg
-                .channel_id
-                .messages(&ctx.http, |retriever| retriever.limit(50))?;
-            match discord::map_id_from_history(msgs, ctx.cache.clone()) {
-                Some(id) => id,
-                None => {
-                    msg.channel_id.say(
-                        &ctx.http,
-                        "No beatmap specified and none found in recent channel history. \
-                         Try specifying a map either by url to the map, or just by map id.",
-                    )?;
-                    return Ok(());
-                }
-            }
-        }
     };
-    let mut arg_parser = ArgParser::new(args);
-    let (mods, selection) = arg_parser
-        .get_mods()
+    let (mods, selection) = args
+        .mods
         .unwrap_or_else(|| (GameMods::default(), ModSelection::None));
     let mut rt = Runtime::new().unwrap();
 

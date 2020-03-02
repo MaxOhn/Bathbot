@@ -1,6 +1,7 @@
 use crate::{
+    arguments::SimulateNameArgs,
     database::MySQL,
-    messages::SimulateData,
+    embeds::SimulateData,
     util::{
         discord,
         globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
@@ -28,9 +29,19 @@ fn simulate_recent_send(
     mode: GameMode,
     ctx: &mut Context,
     msg: &Message,
-    mut args: Args,
+    args: Args,
 ) -> CommandResult {
-    let name: String = if args.is_empty() {
+    let args = match SimulateNameArgs::new(args) {
+        Ok(args) => args,
+        Err(err_msg) => {
+            let response = msg.channel_id.say(&ctx.http, err_msg)?;
+            discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+            return Ok(());
+        }
+    };
+    let name = if let Some(name) = args.name.as_ref() {
+        name.clone()
+    } else {
         let data = ctx.data.read();
         let links = data
             .get::<DiscordLinks>()
@@ -46,8 +57,6 @@ fn simulate_recent_send(
                 return Ok(());
             }
         }
-    } else {
-        args.single_quoted()?
     };
     let mut rt = Runtime::new().unwrap();
 
@@ -100,7 +109,7 @@ fn simulate_recent_send(
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match SimulateData::new(Some(score), map, &ctx) {
+    let data = match SimulateData::new(Some(score), map, args.into(), &ctx) {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id.say(

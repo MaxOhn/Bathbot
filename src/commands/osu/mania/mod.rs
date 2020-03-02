@@ -20,6 +20,7 @@ use serenity::framework::standard::macros::group;
     whatifmania,
     commonmania,
     recentmanialeaderboard,
+    recentmaniagloballeaderboard,
     rankmania,
     simulaterecentmania,
     ratios

@@ -1,8 +1,5 @@
 use crate::{
-    commands::{arguments::ArgParser, checks::*},
-    database::MySQL,
-    util::discord,
-    ReactionTracker,
+    arguments::RoleAssignArgs, commands::checks::*, database::MySQL, util::discord, ReactionTracker,
 };
 
 use serenity::{
@@ -25,37 +22,17 @@ use serenity::{
 #[usage = "[channel mention / channel id] [message id] [role mention / role id]"]
 #[example = "#general 681871156168753193 @Meetup"]
 fn roleassign(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let mut arg_parser = ArgParser::new(args);
-    let channel = match arg_parser.get_next_channel() {
-        Some(channel) => channel,
-        None => {
-            msg.channel_id.say(
-                &ctx.http,
-                "The first argument must be either a channel \
-                 id or just a mention of a channel",
-            )?;
+    let args = match RoleAssignArgs::new(args) {
+        Ok(args) => args,
+        Err(err_msg) => {
+            let response = msg.channel_id.say(&ctx.http, err_msg)?;
+            discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
             return Ok(());
         }
     };
-    let message = match arg_parser.get_next_u64() {
-        Some(id) => MessageId(id),
-        None => {
-            msg.channel_id
-                .say(&ctx.http, "The second argument must be the id of a message")?;
-            return Ok(());
-        }
-    };
-    let role = match arg_parser.get_next_role() {
-        Some(role) => role,
-        None => {
-            msg.channel_id.say(
-                &ctx.http,
-                "The third argument must be either a role \
-                 id or just a mention of a role",
-            )?;
-            return Ok(());
-        }
-    };
+    let channel = args.channel_id;
+    let message = args.message_id;
+    let role = args.role_id;
     {
         let data = ctx.data.read();
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");

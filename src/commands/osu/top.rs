@@ -1,21 +1,21 @@
 use crate::{
-    commands::{ArgParser, ModSelection},
+    arguments::{ModSelection, TopArgs},
     database::MySQL,
-    messages::BasicEmbedData,
+    embeds::BasicEmbedData,
     util::{discord, globals::OSU_API_ISSUE},
     DiscordLinks, Osu,
 };
 
 use rosu::{
     backend::requests::UserRequest,
-    models::{Beatmap, GameMode, GameMods, Grade, Score, User},
+    models::{Beatmap, GameMode, GameMods, Score, User},
 };
 use serenity::{
     framework::standard::{macros::command, Args, CommandError, CommandResult},
     model::prelude::Message,
     prelude::Context,
 };
-use std::{collections::HashMap, convert::TryFrom, str::FromStr};
+use std::collections::HashMap;
 use tokio::runtime::Runtime;
 
 fn top_send(
@@ -25,56 +25,21 @@ fn top_send(
     msg: &Message,
     args: Args,
 ) -> CommandResult {
-    // Parse the name
-    let mut arg_parser = ArgParser::new(args);
-    let (mods, selection) = arg_parser
-        .get_mods()
+    let args = match TopArgs::new(args) {
+        Ok(args) => args,
+        Err(err_msg) => {
+            let response = msg.channel_id.say(&ctx.http, err_msg)?;
+            discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+            return Ok(());
+        }
+    };
+    let (mods, selection) = args
+        .mods
         .unwrap_or_else(|| (GameMods::default(), ModSelection::None));
-    let combo = if let Some(combo) = arg_parser.get_combo() {
-        match u32::from_str(&combo) {
-            Ok(val) => val,
-            Err(_) => {
-                msg.channel_id.say(
-                    &ctx.http,
-                    "Could not parse given combo, try a non-negative integer",
-                )?;
-                return Ok(());
-            }
-        }
-    } else {
-        0
-    };
-    let acc = if let Some(acc) = arg_parser.get_acc() {
-        match f32::from_str(&acc) {
-            Ok(val) => val,
-            Err(_) => {
-                msg.channel_id.say(
-                    &ctx.http,
-                    "Could not parse given accuracy, \
-                     try a decimal number between 0 and 100",
-                )?;
-                return Ok(());
-            }
-        }
-    } else {
-        0.0
-    };
-    let grade = if let Some(grade) = arg_parser.get_grade() {
-        match Grade::try_from(grade.as_ref()) {
-            Ok(grade) => Some(grade),
-            Err(_) => {
-                msg.channel_id.say(
-                    &ctx.http,
-                    "Could not parse given grade, \
-                     try SS, S, A, B, C, or D",
-                )?;
-                return Ok(());
-            }
-        }
-    } else {
-        None
-    };
-    let name: String = if let Some(name) = arg_parser.get_name() {
+    let combo = args.combo.unwrap_or(0);
+    let acc = args.acc.unwrap_or(0.0);
+    let grade = args.grade;
+    let name = if let Some(name) = args.name {
         name
     } else {
         let data = ctx.data.read();

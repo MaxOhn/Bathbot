@@ -20,6 +20,7 @@ use serenity::framework::standard::macros::group;
     whatif,
     common,
     recentleaderboard,
+    recentgloballeaderboard,
     rank,
     simulaterecent,
     nochokes,
