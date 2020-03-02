@@ -5,13 +5,14 @@ use models::{DBMap, DBMapSet, GuildDB, ManiaPP, MapSplit, StreamTrackDB};
 pub use models::{Guild, Platform, StreamTrack, TwitchUser};
 
 use crate::util::{globals::AUTHORITY_ROLES, Error};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use diesel::{
     prelude::*,
     r2d2::{ConnectionManager, Pool, PooledConnection},
     MysqlConnection,
 };
 use rosu::models::{Beatmap, GameMod, GameMods};
-use serenity::model::id::GuildId;
+use serenity::model::id::{GuildId, UserId};
 use std::collections::{HashMap, HashSet};
 
 pub struct MySQL {
@@ -19,9 +20,10 @@ pub struct MySQL {
 }
 
 type ConnectionResult = Result<PooledConnection<ConnectionManager<MysqlConnection>>, Error>;
+type DBResult<T> = Result<T, Error>;
 
 impl MySQL {
-    pub fn new(database_url: &str) -> Result<Self, Error> {
+    pub fn new(database_url: &str) -> DBResult<Self> {
         let manager = ConnectionManager::new(database_url);
         let pool = Pool::builder()
             .build(manager)
@@ -39,7 +41,7 @@ impl MySQL {
     // Table: maps / mapsets
     // ---------------------
 
-    pub fn get_beatmap(&self, map_id: u32) -> Result<Beatmap, Error> {
+    pub fn get_beatmap(&self, map_id: u32) -> DBResult<Beatmap> {
         use schema::{maps, mapsets};
         let conn = self.get_connection()?;
         let map = maps::table.find(map_id).first::<DBMap>(&conn)?;
@@ -49,7 +51,7 @@ impl MySQL {
         Ok(map.into_beatmap(mapset))
     }
 
-    pub fn get_beatmaps(&self, map_ids: &[u32]) -> Result<HashMap<u32, Beatmap>, Error> {
+    pub fn get_beatmaps(&self, map_ids: &[u32]) -> DBResult<HashMap<u32, Beatmap>> {
         if map_ids.is_empty() {
             return Ok(HashMap::new());
         }
@@ -99,7 +101,7 @@ impl MySQL {
         Ok(beatmaps)
     }
 
-    pub fn insert_beatmap<M>(&self, map: &M) -> Result<(), Error>
+    pub fn insert_beatmap<M>(&self, map: &M) -> DBResult<()>
     where
         M: MapSplit,
     {
@@ -116,7 +118,7 @@ impl MySQL {
         Ok(())
     }
 
-    pub fn insert_beatmaps<M>(&self, maps: Vec<M>) -> Result<(), Error>
+    pub fn insert_beatmaps<M>(&self, maps: Vec<M>) -> DBResult<()>
     where
         M: MapSplit,
     {
@@ -143,7 +145,7 @@ impl MySQL {
     // Table: discord_users
     // --------------------
 
-    pub fn add_discord_link(&self, discord_id: u64, osu_name: &str) -> Result<(), Error> {
+    pub fn add_discord_link(&self, discord_id: u64, osu_name: &str) -> DBResult<()> {
         use schema::discord_users::dsl::{discord_id as id, osu_name as name};
         let entry = vec![(id.eq(discord_id), name.eq(osu_name))];
         let conn = self.get_connection()?;
@@ -175,7 +177,7 @@ impl MySQL {
     // Table: pp_mania_mods
     // --------------------
 
-    pub fn get_mania_mod_pp(&self, map_id: u32, mods: &GameMods) -> Result<Option<f32>, Error> {
+    pub fn get_mania_mod_pp(&self, map_id: u32, mods: &GameMods) -> DBResult<Option<f32>> {
         let bits = mania_mod_bits(mods);
         let conn = self.get_connection()?;
         let data = schema::pp_mania_mods::table
@@ -184,7 +186,7 @@ impl MySQL {
         data.get(bits)
     }
 
-    pub fn insert_mania_pp_map(&self, map_id: u32, mods: &GameMods, pp: f32) -> Result<(), Error> {
+    pub fn insert_mania_pp_map(&self, map_id: u32, mods: &GameMods, pp: f32) -> DBResult<()> {
         let bits = mania_mod_bits(mods);
         let data = ManiaPP::new(map_id, bits, Some(pp))?;
         let conn = self.get_connection()?;
@@ -195,7 +197,7 @@ impl MySQL {
         Ok(())
     }
 
-    pub fn update_mania_pp_map(&self, map_id: u32, mods: &GameMods, pp: f32) -> Result<(), Error> {
+    pub fn update_mania_pp_map(&self, map_id: u32, mods: &GameMods, pp: f32) -> DBResult<()> {
         use schema::pp_mania_mods::{self, columns::*};
         let bits = mania_mod_bits(mods);
         let conn = self.get_connection()?;
@@ -214,19 +216,14 @@ impl MySQL {
     // Table: role_assign
     // ------------------
 
-    pub fn get_role_assigns(&self) -> Result<HashMap<(u64, u64), u64>, Error> {
+    pub fn get_role_assigns(&self) -> DBResult<HashMap<(u64, u64), u64>> {
         let conn = self.get_connection()?;
         let tuples = schema::role_assign::table.load::<(u32, u64, u64, u64)>(&conn)?;
         let map = tuples.into_iter().map(|(_, c, m, r)| ((c, m), r)).collect();
         Ok(map)
     }
 
-    pub fn add_role_assign(
-        &self,
-        channel_id: u64,
-        message_id: u64,
-        role_id: u64,
-    ) -> Result<(), Error> {
+    pub fn add_role_assign(&self, channel_id: u64, message_id: u64, role_id: u64) -> DBResult<()> {
         use schema::role_assign::dsl::{channel, message, role};
         let conn = self.get_connection()?;
         diesel::insert_into(schema::role_assign::table)
@@ -244,7 +241,7 @@ impl MySQL {
     // Table: stream_tracks / twitch_users
     // -----------------------------------
 
-    pub fn add_twitch_user(&self, id: u64, username: &str) -> Result<(), Error> {
+    pub fn add_twitch_user(&self, id: u64, username: &str) -> DBResult<()> {
         use schema::twitch_users::dsl::{name, user_id};
         let conn = self.get_connection()?;
         diesel::insert_into(schema::twitch_users::table)
@@ -254,7 +251,7 @@ impl MySQL {
         Ok(())
     }
 
-    pub fn add_stream_track(&self, channel: u64, user: u64, pf: Platform) -> Result<(), Error> {
+    pub fn add_stream_track(&self, channel: u64, user: u64, pf: Platform) -> DBResult<()> {
         use schema::stream_tracks::dsl::{channel_id, platform, user_id};
         let conn = self.get_connection()?;
         diesel::insert_into(schema::stream_tracks::table)
@@ -268,21 +265,21 @@ impl MySQL {
         Ok(())
     }
 
-    pub fn get_twitch_users(&self) -> Result<HashMap<String, u64>, Error> {
+    pub fn get_twitch_users(&self) -> DBResult<HashMap<String, u64>> {
         let conn = self.get_connection()?;
         let tuples = schema::twitch_users::table.load::<(u64, String)>(&conn)?;
         let users: HashMap<_, _> = tuples.into_iter().map(|(id, name)| (name, id)).collect();
         Ok(users)
     }
 
-    pub fn get_stream_tracks(&self) -> Result<HashSet<StreamTrack>, Error> {
+    pub fn get_stream_tracks(&self) -> DBResult<HashSet<StreamTrack>> {
         let conn = self.get_connection()?;
         let tracks = schema::stream_tracks::table.load::<StreamTrackDB>(&conn)?;
         let tracks = tracks.into_iter().map(StreamTrackDB::into).collect();
         Ok(tracks)
     }
 
-    pub fn remove_stream_track(&self, channel: u64, user: u64, pf: Platform) -> Result<(), Error> {
+    pub fn remove_stream_track(&self, channel: u64, user: u64, pf: Platform) -> DBResult<()> {
         use schema::stream_tracks::columns;
         let conn = self.get_connection()?;
         diesel::delete(
@@ -299,7 +296,7 @@ impl MySQL {
     // Table: stream_tracks / twitch_users
     // -----------------------------------
 
-    pub fn get_guilds(&self) -> Result<HashMap<GuildId, Guild>, Error> {
+    pub fn get_guilds(&self) -> DBResult<HashMap<GuildId, Guild>> {
         let conn = self.get_connection()?;
         let guilds = schema::guilds::table.load::<GuildDB>(&conn)?;
         let guilds = guilds
@@ -309,7 +306,7 @@ impl MySQL {
         Ok(guilds)
     }
 
-    pub fn insert_guild(&self, guild_id: u64) -> Result<Guild, Error> {
+    pub fn insert_guild(&self, guild_id: u64) -> DBResult<Guild> {
         let guild = GuildDB::new(guild_id, true, AUTHORITY_ROLES.to_string(), None);
         let conn = self.get_connection()?;
         diesel::insert_or_ignore_into(schema::guilds::table)
@@ -319,7 +316,7 @@ impl MySQL {
         Ok(guild.into())
     }
 
-    pub fn update_guild_vc_role(&self, guild: u64, role_id: Option<u64>) -> Result<(), Error> {
+    pub fn update_guild_vc_role(&self, guild: u64, role_id: Option<u64>) -> DBResult<()> {
         use schema::guilds::columns::{guild_id, vc_role};
         let conn = self.get_connection()?;
         let target = schema::guilds::table.filter(guild_id.eq(guild));
@@ -330,7 +327,7 @@ impl MySQL {
         Ok(())
     }
 
-    pub fn update_guild_lyrics(&self, guild: u64, lyrics: bool) -> Result<(), Error> {
+    pub fn update_guild_lyrics(&self, guild: u64, lyrics: bool) -> DBResult<()> {
         use schema::guilds::columns::{guild_id, with_lyrics};
         let conn = self.get_connection()?;
         let target = schema::guilds::table.filter(guild_id.eq(guild));
@@ -341,7 +338,7 @@ impl MySQL {
         Ok(())
     }
 
-    pub fn update_guild_authorities(&self, guild: u64, auths: String) -> Result<(), Error> {
+    pub fn update_guild_authorities(&self, guild: u64, auths: String) -> DBResult<()> {
         use schema::guilds::columns::{authorities, guild_id};
         let conn = self.get_connection()?;
         let target = schema::guilds::table.filter(guild_id.eq(guild));
@@ -349,6 +346,38 @@ impl MySQL {
             .set(authorities.eq(auths))
             .execute(&conn)?;
         info!("Updated authorities for guild id {}", guild);
+        Ok(())
+    }
+
+    // ------------------------
+    // Table: unchecked_members
+    // ------------------------
+
+    pub fn get_unchecked_members(&self) -> DBResult<HashMap<UserId, DateTime<Utc>>> {
+        let conn = self.get_connection()?;
+        let members = schema::unchecked_members::table.load::<(u64, NaiveDateTime)>(&conn)?;
+        let members = members
+            .into_iter()
+            .map(|(id, date)| (UserId(id), DateTime::from_utc(date, Utc)))
+            .collect();
+        Ok(members)
+    }
+
+    pub fn insert_unchecked_member(&self, user: u64, date: DateTime<Utc>) -> DBResult<()> {
+        use schema::unchecked_members::columns::{joined, user_id};
+        let conn = self.get_connection()?;
+        diesel::insert_into(schema::unchecked_members::table)
+            .values((user_id.eq(user), joined.eq(date.naive_utc())))
+            .execute(&conn)?;
+        info!("Inserted unchecked member {} into database", user);
+        Ok(())
+    }
+
+    pub fn remove_unchecked_member(&self, user: u64) -> DBResult<()> {
+        use schema::unchecked_members::{self, columns::user_id};
+        let conn = self.get_connection()?;
+        diesel::delete(unchecked_members::table.filter(user_id.eq(user))).execute(&conn)?;
+        info!("Removed unchecked member {} from database", user);
         Ok(())
     }
 }

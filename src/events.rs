@@ -3,10 +3,14 @@ use crate::{
     embeds::BasicEmbedData,
     streams::{Twitch, TwitchStream},
     structs::{Guilds, OnlineTwitch, ReactionTracker, ResponseOwner, SchedulerKey, StreamTracks},
-    util::discord::get_member,
-    WITH_STREAM_TRACK,
+    util::{
+        discord::get_member,
+        globals::{MAIN_GUILD_ID, WELCOME_CHANNEL},
+    },
+    WITH_CUSTOM_EVENTS, WITH_STREAM_TRACK,
 };
 
+use chrono::{Duration as ChronoDur, Utc};
 use log::{error, info};
 use serenity::{
     model::{
@@ -25,6 +29,7 @@ use tokio::runtime::Runtime;
 use white_rabbit::{DateResult, Duration, Utc as UtcWR};
 
 pub struct Handler;
+
 impl EventHandler for Handler {
     fn ready(&self, _: Context, ready: Ready) {
         info!("Connected as {}", ready.user.name);
@@ -133,11 +138,82 @@ impl EventHandler for Handler {
         }
     }
 
-    fn guild_member_addition(&self, _ctx: Context, _guild_id: GuildId, _new_member: Member) {
-        // TODO
+    fn guild_member_addition(&self, ctx: Context, guild_id: GuildId, new_member: Member) {
+        if guild_id.0 == MAIN_GUILD_ID {
+            let data = ctx.data.read();
+            let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+            if let Err(why) = mysql.insert_unchecked_member(new_member.user_id().0, Utc::now()) {
+                error!("Could not insert unchecked member into database: {}", why);
+            }
+            let _ = ChannelId(WELCOME_CHANNEL).say(
+                &ctx.http,
+                format!(
+                    "{} just joined the server, awaiting approval",
+                    new_member.mention()
+                ),
+            );
+        }
     }
 
     fn cache_ready(&self, ctx: Context, _: Vec<GuildId>) {
+        // Custom events
+        if WITH_CUSTOM_EVENTS {
+            let track_delay = 1;
+            let day_limit = 10;
+            let scheduler = {
+                let mut data = ctx.data.write();
+                data.get_mut::<SchedulerKey>()
+                    .expect("Could not get SchedulerKey")
+                    .clone()
+            };
+            let mut scheduler = scheduler.write();
+            let http = ctx.http.clone();
+            let data = ctx.data.clone();
+            let cache = ctx.cache.clone();
+            scheduler.add_task_duration(Duration::days(track_delay), move |_| {
+                let data = data.read();
+                let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                match mysql.get_unchecked_members() {
+                    Ok(members) => {
+                        let limit_date = Utc::now() - ChronoDur::days(day_limit);
+                        let guild_id = GuildId(MAIN_GUILD_ID);
+                        for (user_id, join_date) in members {
+                            if limit_date > join_date {
+                                if let Err(why) = guild_id.kick(&http, user_id) {
+                                    warn!(
+                                        "Could not kick member {} who joined {}: {}",
+                                        user_id, join_date, why
+                                    );
+                                } else {
+                                    info!(
+                                        "Kicked member {} for being unchecked for {} days",
+                                        user_id, day_limit
+                                    );
+                                    let member = guild_id
+                                        .member((&cache, &*http), user_id)
+                                        .ok()
+                                        .map_or_else(
+                                            || format!("id {}", user_id),
+                                            |member| member.mention(),
+                                        );
+                                    let _ = ChannelId(WELCOME_CHANNEL).say(
+                                        &http,
+                                        format!(
+                                            "Kicking member {} for being unchecked for {} days",
+                                            member, day_limit,
+                                        ),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    Err(why) => warn!("Could not get unchecked members from database: {}", why),
+                }
+                DateResult::Repeat(UtcWR::now() + Duration::days(track_delay))
+            });
+            // TODO: Handle Top role
+        }
+
         // Tracking streams
         if WITH_STREAM_TRACK {
             let track_delay = 10;
@@ -345,6 +421,41 @@ impl EventHandler for Handler {
                         role_name,
                         member.user.read().name
                     );
+                }
+            }
+        }
+    }
+
+    fn guild_member_update(&self, ctx: Context, old_if_available: Option<Member>, new: Member) {
+        // If member loses the "Not checked" role, they gets removed from
+        // unchecked_members database table and greeted in #general chat
+        if new.guild_id.0 == MAIN_GUILD_ID {
+            if let Some(old) = old_if_available {
+                // Member lost a role
+                if new.roles.len() < old.roles.len() {
+                    // Get the lost role
+                    let role = old
+                        .roles
+                        .iter()
+                        .find(|role| !new.roles.contains(role))
+                        .and_then(|id| id.to_role_cached(&ctx.cache));
+                    if let Some(role) = role {
+                        // Is it the right role?
+                        if &role.name.to_lowercase() == "not checked" {
+                            let data = ctx.data.read();
+                            let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                            // Mark user as checked by removing him from unchecked database
+                            if let Err(why) = mysql.remove_unchecked_member(new.user_id().0) {
+                                warn!("Could not remove unchecked member from database: {}", why);
+                            } else {
+                                info!("Member {} lost the 'Not checked' role", new.display_name());
+                                let _ = ChannelId(MAIN_GUILD_ID).say(
+                                    &ctx.http,
+                                    format!("welcome {}, enjoy ur stay o/", new.display_name()),
+                                );
+                            }
+                        }
+                    }
                 }
             }
         }

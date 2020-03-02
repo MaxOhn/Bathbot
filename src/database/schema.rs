@@ -92,6 +92,13 @@ table! {
     }
 }
 
+table! {
+    unchecked_members (user_id) {
+        user_id -> Unsigned<Bigint>,
+        joined -> Timestamp,
+    }
+}
+
 joinable!(maps -> mapsets (beatmapset_id));
 joinable!(pp_mania_mods -> maps (beatmap_id));
 joinable!(stream_tracks -> twitch_users (user_id));
@@ -105,4 +112,5 @@ allow_tables_to_appear_in_same_query!(
     role_assign,
     stream_tracks,
     twitch_users,
+    unchecked_members,
 );

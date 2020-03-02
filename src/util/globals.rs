@@ -13,6 +13,8 @@ pub mod emotes {
 }
 
 pub const DEV_GUILD_ID: u64 = 297072529426612224;
+pub const MAIN_GUILD_ID: u64 = 277469642908237826; // also ChannelId of General
+pub const WELCOME_CHANNEL: u64 = 438410203977744394;
 
 pub const MSG_MEMORY: usize = 1000;
 

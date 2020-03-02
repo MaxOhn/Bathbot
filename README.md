@@ -15,7 +15,6 @@ Work in progress discord bot port for the game [osu!](https://osu.ppy.sh/home) f
 - Done
 
 ## Todos
-- Kick unchecked users after x days
 - Distribute `Top` role automatically
 - (Mixer notifications)
 - (Numbered commands i.e. `<recent7`)

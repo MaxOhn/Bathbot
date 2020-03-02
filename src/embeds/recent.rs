@@ -150,7 +150,7 @@ impl RecentData {
         let if_fc = if map.mode == GameMode::STD && score.max_combo < map.max_combo.unwrap() {
             let mut unchoked = score.clone();
             osu::unchoke_score(&mut unchoked, &map);
-            if let Err(why) = pp_provider.recalculate(&mut unchoked, GameMode::STD) {
+            if let Err(why) = pp_provider.recalculate(&unchoked, GameMode::STD) {
                 warn!("Error while unchoking score for <recent: {}", why);
                 None
             } else {
