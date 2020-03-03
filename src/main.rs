@@ -171,7 +171,7 @@ fn main() -> Result<(), Error> {
                     }
                     None => "Private".to_owned(),
                 };
-                info!("[{}] {}: {}", location, msg.author.name, msg.content,);
+                info!("[{}] {}: {}", location, msg.author.name, msg.content);
                 match ctx.data.write().get_mut::<CommandCounter>() {
                     Some(counter) => *counter.entry(cmd_name.to_owned()).or_insert(0) += 1,
                     None => error!("Could not get CommandCounter"),

@@ -65,6 +65,8 @@ impl Scraper {
         self.client.get(&url).send().await
     }
 
+    // Retrieve the leaderboard of a map (national / global)
+    // If mods contain DT / NC, it will do another request for the opposite
     pub async fn get_leaderboard(
         &self,
         map_id: u32,
@@ -97,6 +99,7 @@ impl Scraper {
         Ok(scores)
     }
 
+    // Retrieve the leaderboard of a map (national / global)
     async fn _get_leaderboard(
         &self,
         map_id: u32,
@@ -197,7 +200,6 @@ impl Scraper {
         }
     }
 
-    #[allow(dead_code)]
     pub async fn get_top50_names(
         &self,
         country_acrynom: &str,

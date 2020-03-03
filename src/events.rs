@@ -1,17 +1,19 @@
 use crate::{
     database::{MySQL, Platform},
     embeds::BasicEmbedData,
+    scraper::Scraper,
     streams::{Twitch, TwitchStream},
     structs::{Guilds, OnlineTwitch, ReactionTracker, ResponseOwner, SchedulerKey, StreamTracks},
     util::{
         discord::get_member,
-        globals::{MAIN_GUILD_ID, WELCOME_CHANNEL},
+        globals::{MAIN_GUILD_ID, TOP_ROLE_ID, UNCHECKED_ROLE_ID, WELCOME_CHANNEL},
     },
     WITH_CUSTOM_EVENTS, WITH_STREAM_TRACK,
 };
 
 use chrono::{Duration as ChronoDur, Utc};
 use log::{error, info};
+use rosu::models::GameMode;
 use serenity::{
     model::{
         channel::{Reaction, ReactionType},
@@ -170,9 +172,10 @@ impl EventHandler for Handler {
             let http = ctx.http.clone();
             let data = ctx.data.clone();
             let cache = ctx.cache.clone();
-            scheduler.add_task_duration(Duration::days(track_delay), move |_| {
+            scheduler.add_task_duration(Duration::minutes(10), move |_| {
                 let data = data.read();
                 let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                // Handle Not Checked role
                 match mysql.get_unchecked_members() {
                     Ok(members) => {
                         let limit_date = Utc::now() - ChronoDur::days(day_limit);
@@ -209,9 +212,95 @@ impl EventHandler for Handler {
                     }
                     Err(why) => warn!("Could not get unchecked members from database: {}", why),
                 }
+                // Handle Top role
+                let mut rt = Runtime::new().unwrap();
+                let scraper = data.get::<Scraper>().expect("Could not get Scraper");
+                let (std, tko, ctb, mna) = rt.block_on(async {
+                    let std = scraper.get_top50_names("be", GameMode::STD);
+                    let tko = scraper.get_top50_names("be", GameMode::TKO);
+                    let ctb = scraper.get_top50_names("be", GameMode::CTB);
+                    let mna = scraper.get_top50_names("be", GameMode::MNA);
+                    (std.await, tko.await, ctb.await, mna.await)
+                });
+                // Top 10 std
+                let mut all = std.map_or_else(
+                    |why| {
+                        warn!("Could not get top 50 for std: {}", why);
+                        Vec::new()
+                    },
+                    |m| m.into_iter().take(10).collect(),
+                );
+                // Top 3 tko
+                let mut tko = tko.map_or_else(
+                    |why| {
+                        warn!("Could not get top 50 for tko: {}", why);
+                        Vec::new()
+                    },
+                    |m| m.into_iter().take(3).collect(),
+                );
+                // Top 3 ctb
+                let mut ctb = ctb.map_or_else(
+                    |why| {
+                        warn!("Could not get top 50 for ctb: {}", why);
+                        Vec::new()
+                    },
+                    |m| m.into_iter().take(3).collect(),
+                );
+                // Top 5 mna
+                let mut mna = mna.map_or_else(
+                    |why| {
+                        warn!("Could not get top 50 for mna: {}", why);
+                        Vec::new()
+                    },
+                    |m| m.into_iter().take(5).collect(),
+                );
+                all.append(&mut tko);
+                all.append(&mut ctb);
+                all.append(&mut mna);
+                match mysql.get_manual_links() {
+                    Ok(links) => {
+                        let guild_id = GuildId(MAIN_GUILD_ID);
+                        let role = RoleId(TOP_ROLE_ID);
+                        let members = guild_id.members(&http, None, None).unwrap_or_else(|why| {
+                            warn!("Could not get guild members for top role: {}", why);
+                            Vec::new()
+                        });
+                        for mut member in members {
+                            let name = links.get(&member.user_id().0);
+                            if let Some(osu_name) = name {
+                                if member.roles.contains(&role) {
+                                    if !all.contains(&osu_name) {
+                                        if let Err(why) = member.remove_role(&http, role) {
+                                            error!(
+                                                "Could not remove top role from member: {}",
+                                                why
+                                            );
+                                        } else {
+                                            info!(
+                                                "Removed 'Top' role from member {}",
+                                                member.user.read().name
+                                            );
+                                        }
+                                    }
+                                } else {
+                                    if all.contains(&osu_name) {
+                                        if let Err(why) = member.add_role(&http, role) {
+                                            error!("Could not add top role to member: {}", why);
+                                        } else {
+                                            info!(
+                                                "Added 'Top' role to member {}",
+                                                member.user.read().name
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Err(why) => warn!("Could not get manual links from database: {}", why),
+                }
                 DateResult::Repeat(UtcWR::now() + Duration::days(track_delay))
             });
-            // TODO: Handle Top role
         }
 
         // Tracking streams
@@ -438,22 +527,20 @@ impl EventHandler for Handler {
                         .roles
                         .iter()
                         .find(|role| !new.roles.contains(role))
-                        .and_then(|id| id.to_role_cached(&ctx.cache));
-                    if let Some(role) = role {
-                        // Is it the right role?
-                        if &role.name.to_lowercase() == "not checked" {
-                            let data = ctx.data.read();
-                            let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-                            // Mark user as checked by removing him from unchecked database
-                            if let Err(why) = mysql.remove_unchecked_member(new.user_id().0) {
-                                warn!("Could not remove unchecked member from database: {}", why);
-                            } else {
-                                info!("Member {} lost the 'Not checked' role", new.display_name());
-                                let _ = ChannelId(MAIN_GUILD_ID).say(
-                                    &ctx.http,
-                                    format!("welcome {}, enjoy ur stay o/", new.display_name()),
-                                );
-                            }
+                        .map(|id| id.0 == UNCHECKED_ROLE_ID);
+                    // Is it the right role?
+                    if let Some(true) = role {
+                        let data = ctx.data.read();
+                        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                        // Mark user as checked by removing him from unchecked database
+                        if let Err(why) = mysql.remove_unchecked_member(new.user_id().0) {
+                            warn!("Could not remove unchecked member from database: {}", why);
+                        } else {
+                            info!("Member {} lost the 'Not checked' role", new.display_name());
+                            let _ = ChannelId(MAIN_GUILD_ID).say(
+                                &ctx.http,
+                                format!("welcome {}, enjoy ur stay o/", new.display_name()),
+                            );
                         }
                     }
                 }

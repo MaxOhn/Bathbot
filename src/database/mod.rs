@@ -380,6 +380,17 @@ impl MySQL {
         info!("Removed unchecked member {} from database", user);
         Ok(())
     }
+
+    // ------------------------
+    // Table: manual_links
+    // ------------------------
+
+    pub fn get_manual_links(&self) -> Result<HashMap<u64, String>, Error> {
+        let conn = self.get_connection()?;
+        let tuples = schema::manual_links::table.load::<(u64, String)>(&conn)?;
+        let links: HashMap<u64, String> = tuples.into_iter().collect();
+        Ok(links)
+    }
 }
 
 fn mania_mod_bits(mods: &GameMods) -> u32 {
