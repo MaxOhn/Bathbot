@@ -57,11 +57,19 @@ fn main() -> Result<(), Error> {
     // -----------------
 
     // Discord
-    let discord_token = env::var("DISCORD_TOKEN")?;
+    let discord_token = if cfg!(debug_assertions) {
+        env::var("DISCORD_TOKEN_DEV")
+    } else {
+        env::var("DISCORD_TOKEN_RELEASE")
+    }?;
     let mut discord = Client::new(&discord_token, Handler)?;
 
     // Database
-    let database_url = env::var("DATABASE_URL")?;
+    let database_url = if cfg!(debug_assertions) {
+        env::var("DATABASE_URL_DEV")
+    } else {
+        env::var("DATABASE_URL_RELEASE")
+    }?;
     let mysql = MySQL::new(&database_url)?;
 
     // Osu

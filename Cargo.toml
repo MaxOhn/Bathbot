@@ -25,6 +25,3 @@ serde_json = "1.0"
 serde_derive = "1.0"
 serde = "1.0"
 strfmt = "0.1.6"
-
-[target.armv7-unknown-linux-gnueabihf]
-linker = "arm-linux-gnueabihf-gcc-4.7"
