@@ -6,6 +6,7 @@ mod macros;
 mod arguments;
 pub mod database;
 mod events;
+pub mod roppai;
 mod scraper;
 mod streams;
 pub mod structs;
@@ -45,7 +46,7 @@ pub const WITH_SCRAPER: bool = false;
 pub const WITH_CUSTOM_EVENTS: bool = false;
 
 fn setup() -> Result<(), Error> {
-    kankyo::load()?;
+    kankyo::load_from_path("C:/Users/Max/Desktop/Coding/Rust/bathbot/.env", true)?;
     env_logger::init();
     Ok(())
 }
@@ -57,19 +58,11 @@ fn main() -> Result<(), Error> {
     // -----------------
 
     // Discord
-    let discord_token = if cfg!(debug_assertions) {
-        env::var("DISCORD_TOKEN_DEV")
-    } else {
-        env::var("DISCORD_TOKEN_RELEASE")
-    }?;
+    let discord_token = env::var("DISCORD_TOKEN")?;
     let mut discord = Client::new(&discord_token, Handler)?;
 
     // Database
-    let database_url = if cfg!(debug_assertions) {
-        env::var("DATABASE_URL_DEV")
-    } else {
-        env::var("DATABASE_URL_RELEASE")
-    }?;
+    let database_url = env::var("DATABASE_URL")?;
     let mysql = MySQL::new(&database_url)?;
 
     // Osu

@@ -27,9 +27,6 @@ pub const DATE_FORMAT: &str = "%F %T";
 
 pub const MINIMIZE_DELAY: i64 = 45;
 
-pub const PP_MANIA_CMD: &str =
-    "dotnet run --project osu-tools/PerformanceCalculator/ -- simulate mania ";
-
 pub const AUTHORITY_ROLES: &str = "admin mod moderator";
 
 pub const HOMEPAGE: &str = "https://osu.ppy.sh/";

@@ -4,13 +4,16 @@ version = "0.1.0"
 authors = ["MaxOhn <ohn.m@hotmail.de>"]
 edition = "2018"
 
+[build-dependencies]
+bindgen = "0.53"
+cc = { version = "1.0", features = ["parallel"] }
+
 [dependencies]
 rosu = "0.1.1"
-roppai = { path = "../roppai" }
 env_logger = "0.6"
-kankyo = "0.2"
+kankyo = "0.3"
 log = "0.4"
-tokio = { version = "0.2", features = ["full"] }
+tokio = { version = "0.2.13", features = ["full"] }
 serenity = { version = "0.8", features = ["cache", "framework", "standard_framework", "rustls_backend"] }
 num-format = "0.4"
 chrono = "0.4"

@@ -1,13 +1,12 @@
 use crate::{
-    database::MySQL, scraper::ScraperScore, util::globals::PP_MANIA_CMD, util::osu, Error,
+    database::MySQL, roppai::Oppai, scraper::ScraperScore, util::osu, Error,
     PerformanceCalculatorLock,
 };
 
-use roppai::Oppai;
 use rosu::models::{Beatmap, GameMod, GameMode, GameMods, Grade, Score};
 use serenity::prelude::Context;
 use std::{
-    mem,
+    env, mem,
     process::{Child, Command, Stdio},
     str::FromStr,
 };
@@ -271,7 +270,11 @@ impl PPProvider {
 
 fn start_pp_calc(map_id: u32, mods: &GameMods, score: Option<u32>) -> Result<Child, Error> {
     let map_path = osu::prepare_beatmap_file(map_id)?;
-    let cmd_str = format!("{}{}", PP_MANIA_CMD, map_path);
+    let cmd_str = format!(
+        "dotnet {} simulate mania {}",
+        env::var("PERF_CALC").unwrap(),
+        map_path
+    );
     let mut cmd = Command::new("cmd");
     cmd.arg("/C").arg(cmd_str);
     for &m in mods.iter() {

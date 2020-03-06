@@ -2,8 +2,7 @@
 Work in progress discord bot port for the game [osu!](https://osu.ppy.sh/home) from [PP-Generator](https://github.com/MaxOhn/PP-Generator) to rust
 
 ## Setup
-- Clone this repo __with submodules__ via `git clone --recurse-submodules https://github.com/MaxOhn/Bathbot.git`
-    - if the repo is already cloned, update the submodules via `git submodule update --init --recursive`
+- Clone this repo via `git clone https://github.com/MaxOhn/Bathbot.git`
 - [roppai](https://github.com/MaxOhn/roppai) must be cloned into the same directory as this repo (be sure roppai can be built by following its Readme)
 - Be sure there is a MySQL server runnning which the application can access
   - In case MySQL is missing, [download](https://dev.mysql.com/downloads/installer/) it

@@ -1,5 +1,8 @@
-use crate::util::{datetime::sec_to_minsec, numbers::round, osu, pp::PPProvider};
-use roppai::Oppai;
+use crate::{
+    roppai::Oppai,
+    util::{datetime::sec_to_minsec, numbers::round, osu, pp::PPProvider},
+};
+
 use rosu::models::{Beatmap, GameMode, GameMods, Score};
 use serenity::cache::CacheRwLock;
 

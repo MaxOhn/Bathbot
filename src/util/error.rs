@@ -1,8 +1,9 @@
+use crate::roppai::OppaiErr;
+
 use chrono::format::ParseError as ParseChrono;
 use diesel::result::Error as DieselError;
 use image::ImageError;
 use reqwest;
-use roppai::OppaiErr;
 use rosu::backend::OsuError;
 use serde_json::error::Error as SerdeError;
 use serenity::{framework::standard::CommandError, Error as SerenityError};

@@ -32,6 +32,7 @@ pub struct RecentData {
     pub footer_text: String,
     pub timestamp: String,
     pub thumbnail: String,
+    pub image: String,
 }
 
 impl RecentData {
@@ -64,7 +65,8 @@ impl RecentData {
             .title(&self.title)
             .url(&self.title_url)
             .timestamp(self.timestamp.clone())
-            .thumbnail(&self.thumbnail)
+            //.thumbnail(&self.thumbnail)
+            .image(&self.image)
             .footer(|f| f.icon_url(&self.footer_url).text(&self.footer_text))
             .fields(vec![
                 ("Grade", &self.grade_completion_mods, true),
@@ -182,6 +184,10 @@ impl RecentData {
             footer_text: format!("{:?} map by {}", map.approval_status, map.creator),
             timestamp: date_to_string(&score.date),
             thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id),
+            image: format!(
+                "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
+                map.beatmapset_id
+            ),
             if_fc,
         })
     }

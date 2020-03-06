@@ -17,11 +17,7 @@ use tokio::runtime::Runtime;
 pub fn prepare_beatmap_file(map_id: u32) -> Result<String, Error> {
     let map_path = format!(
         "{base}{id}.osu",
-        base = if cfg!(debug_assertions) {
-            env::var("BEATMAP_PATH_DEV")
-        } else {
-            env::var("BEATMAP_PATH_RELEASE")
-        }?,
+        base = env::var("BEATMAP_PATH")?,
         id = map_id
     );
     if !Path::new(&map_path).exists() {
