@@ -1,7 +1,7 @@
 use super::util;
 use crate::{
     scraper::ScraperScore,
-    streams::TwitchStream,
+    streams::{TwitchStream, TwitchUser},
     util::{
         datetime::{date_to_string, how_long_ago, sec_to_minsec},
         discord,
@@ -882,12 +882,13 @@ impl BasicEmbedData {
     //
     // twitch notification
     //
-    pub fn create_twitch_stream_notif(stream: &TwitchStream) -> Self {
+    pub fn create_twitch_stream_notif(stream: &TwitchStream, user: &TwitchUser) -> Self {
         let mut result = Self::default();
         result.author_text = Some(String::from("Now live on twitch:"));
         result.title_text = Some(stream.username.clone());
         result.title_url = Some(format!("{}{}", TWITCH_BASE, stream.username));
         result.image_url = Some(stream.thumbnail_url.clone());
+        result.thumbnail = Some(user.image_url.clone());
         result.description = Some(stream.title.clone());
         result
     }

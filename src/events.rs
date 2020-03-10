@@ -357,11 +357,22 @@ impl EventHandler for Handler {
 
                     // If there was no activity change since last time, don't do anything
                     if &now_online == online_streams {
-                        //debug!("No activity change");
                         None
                     } else {
                         // Filter streams whether its already known they're live
                         streams.retain(|stream| !online_streams.contains(&stream.user_id));
+
+                        let ids: Vec<_> = streams.iter().map(|s| s.user_id).collect();
+                        let users: HashMap<_, _> = match rt.block_on(twitch.get_users(&ids)) {
+                            Ok(users) => users.into_iter().map(|u| (u.user_id, u)).collect(),
+                            Err(why) => {
+                                warn!("Error while retrieving twitch users: {}", why);
+                                return DateResult::Repeat(
+                                    UtcWR::now() + Duration::minutes(track_delay),
+                                );
+                            }
+                        };
+
                         let mut fmt_data = HashMap::new();
                         fmt_data.insert(String::from("width"), String::from("360"));
                         fmt_data.insert(String::from("height"), String::from("180"));
@@ -381,7 +392,10 @@ impl EventHandler for Handler {
                         for track in stream_tracks {
                             if streams.contains_key(&track.user_id) {
                                 let stream = streams.get(&track.user_id).unwrap();
-                                let data = BasicEmbedData::create_twitch_stream_notif(stream);
+                                let data = BasicEmbedData::create_twitch_stream_notif(
+                                    stream,
+                                    users.get(&stream.user_id).unwrap(),
+                                );
                                 let _ = ChannelId(track.channel_id)
                                     .send_message(&http, |m| m.embed(|e| data.build(e)));
                             }
@@ -399,7 +413,6 @@ impl EventHandler for Handler {
                         online_twitch.insert(id);
                     }
                 }
-                //debug!("Stream track check done");
                 DateResult::Repeat(UtcWR::now() + Duration::minutes(track_delay))
             });
             info!("Stream tracking started");

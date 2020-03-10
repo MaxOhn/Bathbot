@@ -7,8 +7,9 @@ pub struct TwitchUser {
     #[serde(rename = "id", deserialize_with = "str_to_u64")]
     pub user_id: u64,
     #[serde(rename = "login")]
-    pub login_name: String,
     pub display_name: String,
+    #[serde(rename = "profile_image_url")]
+    pub image_url: String,
 }
 
 #[derive(DeserializeDerive)]
