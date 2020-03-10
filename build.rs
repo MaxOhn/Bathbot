@@ -5,8 +5,8 @@ use std::{env, path::PathBuf};
 fn main() {
     // Compile oppai
     cc::Build::new()
+        .file("oppai-ng/oppai.c")
         .define("OPPAI_IMPLEMENTATION", None)
-        .files(&["oppai-ng/oppai.c"])
         .compile("oppai");
     // Link to compiled oppai
     println!("cargo:rustc-link-lib=oppai");

@@ -26,6 +26,7 @@ use structs::*;
 pub use util::{discord::get_member, globals::MSG_MEMORY, Error};
 
 use chrono::Utc;
+use dotenv;
 use log::{error, info};
 use rosu::backend::Osu as OsuClient;
 use serenity::{
@@ -45,14 +46,15 @@ pub const WITH_STREAM_TRACK: bool = false;
 pub const WITH_SCRAPER: bool = false;
 pub const WITH_CUSTOM_EVENTS: bool = false;
 
-fn setup() -> Result<(), Error> {
-    kankyo::load_from_path("C:/Users/Max/Desktop/Coding/Rust/bathbot/.env", true)?;
+fn setup() {
+    if let Err(why) = dotenv::dotenv() {
+        panic!("dotenv Error: {}", why);
+    }
     env_logger::init();
-    Ok(())
 }
 
 fn main() -> Result<(), Error> {
-    setup()?;
+    setup();
     // -----------------
     // Data preparations
     // -----------------

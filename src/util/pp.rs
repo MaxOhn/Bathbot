@@ -275,8 +275,16 @@ fn start_pp_calc(map_id: u32, mods: &GameMods, score: Option<u32>) -> Result<Chi
         env::var("PERF_CALC").unwrap(),
         map_path
     );
-    let mut cmd = Command::new("cmd");
-    cmd.arg("/C").arg(cmd_str);
+    let mut cmd = if cfg!(target_os = "windows") {
+        let mut cmd = Command::new("cmd");
+        cmd.arg("/C");
+        cmd
+    } else {
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c");
+        cmd
+    };
+    cmd.arg(cmd_str);
     for &m in mods.iter() {
         cmd.arg("-m").arg(m.to_string());
     }

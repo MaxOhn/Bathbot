@@ -190,7 +190,8 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
             let bytes: &[u8] = &thumbnail;
             m.add_file((bytes, "avatar_fuse.png"));
         }
-        m.content(content).embed(|e| data.build(e))
+        m.content(content)
+            .embed(|e| data.build(e).thumbnail("attachment://avatar_fuse.png"))
     });
 
     // Add missing maps to database
