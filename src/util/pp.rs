@@ -270,28 +270,17 @@ impl PPProvider {
 
 fn start_pp_calc(map_id: u32, mods: &GameMods, score: Option<u32>) -> Result<Child, Error> {
     let map_path = osu::prepare_beatmap_file(map_id)?;
-    let cmd_str = format!(
-        "dotnet {} simulate mania {}",
-        env::var("PERF_CALC").unwrap(),
-        map_path
-    );
-    let mut cmd = if cfg!(target_os = "windows") {
-        let mut cmd = Command::new("cmd");
-        cmd.arg("/C");
-        cmd
-    } else {
-        let mut cmd = Command::new("sh");
-        cmd.arg("-c");
-        cmd
-    };
-    cmd.arg(cmd_str);
+    let mut cmd = Command::new("dotnet");
+    cmd.arg(env::var("PERF_CALC").unwrap())
+        .arg("simulate")
+        .arg("mania")
+        .arg(map_path);
     for &m in mods.iter() {
         cmd.arg("-m").arg(m.to_string());
     }
     if let Some(score) = score {
         cmd.arg("-s").arg(score.to_string());
     }
-    //println!("cmd: {:?}", cmd);
     cmd.stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
