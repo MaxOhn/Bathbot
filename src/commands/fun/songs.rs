@@ -1,3 +1,5 @@
+use crate::Guilds;
+
 use serenity::{
     framework::standard::{macros::command, CommandResult},
     model::prelude::Message,
@@ -6,11 +8,35 @@ use serenity::{
 use std::{thread, time::Duration};
 
 fn song_send(lyrics: &[&str], delay: u64, ctx: &mut Context, msg: &Message) -> CommandResult {
-    let delay = Duration::from_millis(delay);
-    msg.channel_id.say(&ctx.http, lyrics[0])?;
-    for line in lyrics.iter().skip(1) {
-        thread::sleep(delay);
-        msg.channel_id.say(&ctx.http, format!("♫ {} ♫", line))?;
+    let allow = {
+        let data = ctx.data.read();
+        let guilds = data.get::<Guilds>().expect("Could not get Guilds");
+        if let Some(guild_id) = msg.guild_id {
+            match guilds.get(&guild_id) {
+                Some(guild) => guild.with_lyrics,
+                None => {
+                    warn!("Guild {} not in Guilds data", guild_id);
+                    true
+                }
+            }
+        } else {
+            true
+        }
+    };
+    if allow {
+        let delay = Duration::from_millis(delay);
+        msg.channel_id
+            .say(&ctx.http, format!("♫ {} ♫", lyrics[0]))?;
+        for line in lyrics.iter().skip(1) {
+            thread::sleep(delay);
+            msg.channel_id.say(&ctx.http, format!("♫ {} ♫", line))?;
+        }
+    } else {
+        msg.channel_id.say(
+            &ctx.http,
+            "The server's big boys disabled song commands. \
+            Server authorities can reenable them by typing `<lyrics`",
+        )?;
     }
     Ok(())
 }
@@ -28,7 +54,7 @@ pub fn bombsaway(ctx: &mut Context, msg: &Message) -> CommandResult {
         "Tick tick tock and it's bombs awayyyy",
         "Now we're falling -- now we're falling doooown",
     ];
-    song_send(lyrics, 3000, ctx, msg)
+    song_send(lyrics, 2500, ctx, msg)
 }
 
 #[command]
@@ -41,7 +67,7 @@ pub fn catchit(ctx: &mut Context, msg: &Message) -> CommandResult {
         "If it does, then you can't blame me",
         "Just like I said - too catchy",
     ];
-    song_send(lyrics, 3500, ctx, msg)
+    song_send(lyrics, 3000, ctx, msg)
 }
 
 #[command]
@@ -58,7 +84,7 @@ pub fn ding(ctx: &mut Context, msg: &Message) -> CommandResult {
         "Wenn ich dich seh', dann muss ich sing'n:",
         "Tingalingaling, you pretty thing!",
     ];
-    song_send(lyrics, 3000, ctx, msg)
+    song_send(lyrics, 2500, ctx, msg)
 }
 
 #[command]
@@ -71,7 +97,7 @@ pub fn fireandflames(ctx: &mut Context, msg: &Message) -> CommandResult {
         "We feel the pain of a lifetime lost in a thousand days",
         "Through the fire and the flames we carry ooooooon",
     ];
-    song_send(lyrics, 3500, ctx, msg)
+    song_send(lyrics, 3000, ctx, msg)
 }
 
 #[command]
@@ -86,7 +112,7 @@ pub fn fireflies(ctx: &mut Context, msg: &Message) -> CommandResult {
         "And leave teardrops everywhere",
         "You'd think me rude, but I would just stand and -- stare",
     ];
-    song_send(lyrics, 3000, ctx, msg)
+    song_send(lyrics, 2500, ctx, msg)
 }
 
 #[command]
@@ -112,7 +138,7 @@ pub fn pretender(ctx: &mut Context, msg: &Message) -> CommandResult {
         "You're the pretender",
         "What if I say that I will never surrender?",
     ];
-    song_send(lyrics, 3500, ctx, msg)
+    song_send(lyrics, 3000, ctx, msg)
 }
 
 #[command]

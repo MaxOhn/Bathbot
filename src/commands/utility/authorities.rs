@@ -43,13 +43,10 @@ fn authorities(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
             };
 
             // Send the message
-            let response = msg.channel_id.say(
+            msg.channel_id.say(
                 &ctx.http,
                 format!("Current authority roles for this server: {}", content),
             )?;
-
-            // Save the response owner
-            discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
             return Ok(());
         } else {
             msg.channel_id.say(&ctx.http, GENERAL_ISSUE)?;

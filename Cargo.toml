@@ -1,30 +1,31 @@
 [package]
-name = "bathbot"
+name    = "bathbot"
 version = "0.1.0"
 authors = ["MaxOhn <ohn.m@hotmail.de>"]
 edition = "2018"
 
 [build-dependencies]
 bindgen = "0.53"
-cc = { version = "1.0", features = ["parallel"] }
+cc      = { version = "1.0", features = ["parallel"] }
 
 [dependencies]
-rosu = "0.1.2"
-env_logger = "0.6"
-dotenv = "0.15"
-log = "0.4"
-tokio = { version = "0.2.13", features = ["full"] }
-serenity = { version = "0.8", features = ["cache", "client", "framework", "standard_framework", "rustls_backend"] }
-num-format = "0.4"
-chrono = "0.4"
-reqwest = { version = "0.10", features = ["cookies"] }
-itertools = "0.8"
-scraper = "0.11"
-diesel = { version = "1.4", features = ["mysql", "chrono", "r2d2"] }
-image = "0.23"
-regex = "1.3"
+rosu         = "0.1.2"
+env_logger   = "0.6"
+dotenv       = "0.15"
+log          = "0.4"
+tokio        = { version = "0.2.13", features = ["full"] }
+serenity     = { version = "0.8", features = ["cache", "client", "framework", "standard_framework", "rustls_backend"] }
+num-format   = "0.4"
+chrono       = "0.4"
+reqwest      = { version = "0.10", features = ["cookies"] }
+itertools    = "0.8"
+scraper      = "0.11"
+diesel       = { version = "1.4", features = ["mysql", "chrono", "r2d2"] }
+image        = "0.23"
+regex        = "1.3"
 white_rabbit = "0.1"
-serde_json = "1.0"
+serde_json   = "1.0"
 serde_derive = "1.0"
-serde = "1.0"
-strfmt = "0.1.6"
+serde        = "1.0"
+strfmt       = "0.1.6"
+sysinfo      = "0.11"
