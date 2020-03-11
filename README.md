@@ -39,10 +39,11 @@ In case you want to get the bot running yourself to either modify a custom insta
 
 ## Todos
 - Mixer stream tracking
+- Improve `<nc` by ignoring >5 misses (?)
 - Numbered commands i.e. `<recent7`
 - Mania star calculation
   ### Commands
    - `<bg`
    - `<reach`
-   - `<trackedstreams`
    - `<allstreams`
+   - `<recentlist` for 5 last recent plays

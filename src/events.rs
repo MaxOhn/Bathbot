@@ -18,7 +18,7 @@ use serenity::{
     model::{
         channel::{Reaction, ReactionType},
         event::ResumedEvent,
-        gateway::Ready,
+        gateway::{Activity, Ready},
         guild::{Guild, Member},
         id::{ChannelId, GuildId, MessageId, RoleId},
         voice::VoiceState,
@@ -33,7 +33,7 @@ use white_rabbit::{DateResult, Duration, Utc as UtcWR};
 pub struct Handler;
 
 impl EventHandler for Handler {
-    fn ready(&self, _: Context, ready: Ready) {
+    fn ready(&self, ctx: Context, ready: Ready) {
         if let Some(shard) = ready.shard {
             info!(
                 "{} is connected on shard {}/{}",
@@ -42,6 +42,7 @@ impl EventHandler for Handler {
         } else {
             info!("Connected as {}", ready.user.name);
         }
+        ctx.set_activity(Activity::playing("osu! (<help)"));
     }
 
     fn resume(&self, _: Context, _: ResumedEvent) {
@@ -272,9 +273,12 @@ impl EventHandler for Handler {
                             warn!("Could not get guild members for top role: {}", why);
                             Vec::new()
                         });
+                        // Check all guild's members
                         for mut member in members {
                             let name = links.get(&member.user_id().0);
+                            // If name is contained in manual links
                             if let Some(osu_name) = name {
+                                // If member already has top role, check if it remains
                                 if member.roles.contains(&role) {
                                     if !all.contains(&osu_name) {
                                         if let Err(why) = member.remove_role(&http, role) {
@@ -289,16 +293,15 @@ impl EventHandler for Handler {
                                             );
                                         }
                                     }
-                                } else {
-                                    if all.contains(&osu_name) {
-                                        if let Err(why) = member.add_role(&http, role) {
-                                            error!("Could not add top role to member: {}", why);
-                                        } else {
-                                            info!(
-                                                "Added 'Top' role to member {}",
-                                                member.user.read().name
-                                            );
-                                        }
+                                // Member does not have top role yet, 'all' contains the name
+                                } else if all.contains(&osu_name) {
+                                    if let Err(why) = member.add_role(&http, role) {
+                                        error!("Could not add top role to member: {}", why);
+                                    } else {
+                                        info!(
+                                            "Added 'Top' role to member {}",
+                                            member.user.read().name
+                                        );
                                     }
                                 }
                             }

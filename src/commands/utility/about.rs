@@ -1,5 +1,9 @@
 use crate::{
-    util::{datetime::how_long_ago, discord},
+    util::{
+        datetime::how_long_ago,
+        discord,
+        numbers::{round, with_comma_u64},
+    },
     BootTime,
 };
 
@@ -21,15 +25,15 @@ fn about(ctx: &mut Context, msg: &Message) -> CommandResult {
     let system = System::new_all();
     let pid = get_current_pid()?;
     let process = system.get_process(pid).unwrap();
-    let cpu_usage = (process.cpu_usage() * 100.0).round() / 100.0;
+    let cpu_usage = round(process.cpu_usage());
     let memory = process.memory() / 1000;
 
     let cache = &ctx.cache.read();
     let name = cache.user.name.clone();
     let avatar = cache.user.avatar_url().unwrap();
-    let users = cache.users.len().to_string();
-    let guilds = cache.guilds.len().to_string();
-    let channels = cache.channels.len().to_string();
+    let users = with_comma_u64(cache.users.len() as u64);
+    let guilds = with_comma_u64(cache.guilds.len() as u64);
+    let channels = with_comma_u64(cache.channels.len() as u64);
 
     let response = {
         let data = ctx.data.read();

@@ -95,13 +95,18 @@ fn addstream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult 
     };
 
     // Sending the msg
-    let response = msg.channel_id.say(
-        &ctx.http,
-        format!(
-            "I'm now tracking `{}`'s {:?} stream in this channel",
-            name, platform
-        ),
-    )?;
+    let response = if platform == Platform::Mixer {
+        msg.channel_id
+            .say(&ctx.http, "Mixer is not yet supported, soon:tm:")?
+    } else {
+        msg.channel_id.say(
+            &ctx.http,
+            format!(
+                "I'm now tracking `{}`'s {:?} stream in this channel",
+                name, platform
+            ),
+        )?
+    };
 
     // Save the response owner
     discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());

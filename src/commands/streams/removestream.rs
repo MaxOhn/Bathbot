@@ -41,7 +41,7 @@ fn removestream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResu
         };
         let name = args.single::<String>()?.to_lowercase();
         match platform {
-            Platform::Mixer => Some((platform, "TODO".to_string())),
+            Platform::Mixer => Some((platform, name)),
             Platform::Twitch => {
                 let data = ctx.data.read();
                 let twitch_users = data
@@ -72,7 +72,7 @@ fn removestream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResu
     };
     let content = if let Some((platform, name)) = result {
         format!(
-            "I'm no longer tracking {}'s {:?} stream in this channel",
+            "I'm no longer tracking `{}`'s {:?} stream in this channel",
             name, platform
         )
     } else {
