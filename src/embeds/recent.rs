@@ -43,6 +43,9 @@ impl RecentData {
         );
         let value = format!("{} [ {} ] {}", self.pp, self.combo, self.hits);
         let title = format!("{} [{}]", self.title, self.stars);
+        if self.description.is_some() {
+            embed.description(&self.description.as_ref().unwrap());
+        }
         embed
             .color(Colour::DARK_GREEN)
             .field(name, value, false)
@@ -65,7 +68,6 @@ impl RecentData {
             .title(&self.title)
             .url(&self.title_url)
             .timestamp(self.timestamp.clone())
-            //.thumbnail(&self.thumbnail)
             .image(&self.image)
             .footer(|f| f.icon_url(&self.footer_url).text(&self.footer_text))
             .fields(vec![

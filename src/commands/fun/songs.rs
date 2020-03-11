@@ -10,7 +10,7 @@ fn song_send(lyrics: &[&str], delay: u64, ctx: &mut Context, msg: &Message) -> C
     msg.channel_id.say(&ctx.http, lyrics[0])?;
     for line in lyrics.iter().skip(1) {
         thread::sleep(delay);
-        msg.channel_id.say(&ctx.http, line)?;
+        msg.channel_id.say(&ctx.http, format!("♫ {} ♫", line))?;
     }
     Ok(())
 }

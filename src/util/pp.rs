@@ -291,6 +291,7 @@ fn start_pp_calc(map_id: u32, mods: &GameMods, score: Option<u32>) -> Result<Chi
     if let Some(score) = score {
         cmd.arg("-s").arg(score.to_string());
     }
+    //println!("cmd: {:?}", cmd);
     cmd.stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()

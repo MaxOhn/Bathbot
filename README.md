@@ -3,7 +3,7 @@ Fully fledged discord bot with functionalities all around [osu!](https://osu.ppy
 With the bot's osu! commands you can
 - check recent plays (`<recent`)
 - display the personal topscores (with specified min acc, combo, or grade) (`<top`)
-- compare your scores with a previously embedded score in the channel (`<score`)
+- compare your scores with a previously embedded score in the channel (`<scores`)
 - compare top scores between players (`<common`)
 - check the global or even belgian leaderboards of maps (`<glb`, `<lb`)
 - calculate a performance rating for players of a multiplayer match (`<mc`) credits to [dain98](https://github.com/dain98/Minccino)
@@ -38,13 +38,11 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Assign all other variables of the `.env.example` file into your `.env` file
 
 ## Todos
-- Keep Personal / Global description for minimized recent
 - Mixer stream tracking
 - Numbered commands i.e. `<recent7`
 - Mania star calculation
   ### Commands
    - `<bg`
-   - Lyrics
    - `<reach`
    - `<trackedstreams`
    - `<allstreams`

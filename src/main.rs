@@ -156,7 +156,7 @@ fn main() -> Result<(), Error> {
             .group(&FUN_GROUP)
             .group(&UTILITY_GROUP)
             .group(&STREAMTRACKING_GROUP)
-            .bucket("songs", |b| b.delay(10).time_span(10).limit(1))
+            .bucket("songs", |b| b.delay(20).time_span(20).limit(1))
             .before(|ctx, msg, cmd_name| {
                 let location = match msg.guild(&ctx) {
                     Some(guild) => {

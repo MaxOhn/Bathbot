@@ -51,10 +51,17 @@ pub struct NameMapArgs {
 impl NameMapArgs {
     pub fn new(mut args: Args) -> Self {
         let mut args = arguments::first_n(&mut args, 2);
-        let map_id = args.pop().and_then(|arg| arguments::get_regex_id(&arg));
-        Self {
-            name: args.pop(),
-            map_id,
-        }
+        let (name, map_id) = match args.pop() {
+            Some(arg) => {
+                let id = arguments::get_regex_id(&arg);
+                if id.is_some() {
+                    (args.pop(), id)
+                } else {
+                    (Some(arg), None)
+                }
+            }
+            None => (None, None),
+        };
+        Self { name, map_id }
     }
 }
