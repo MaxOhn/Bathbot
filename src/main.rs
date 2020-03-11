@@ -42,7 +42,7 @@ use std::{
 use tokio::runtime::Runtime;
 use white_rabbit::Scheduler;
 
-pub const WITH_STREAM_TRACK: bool = true;
+pub const WITH_STREAM_TRACK: bool = false;
 pub const WITH_SCRAPER: bool = false;
 pub const WITH_CUSTOM_EVENTS: bool = false;
 
@@ -153,12 +153,10 @@ fn main() -> Result<(), Error> {
             .group(&MANIA_GROUP)
             .group(&TAIKO_GROUP)
             .group(&CATCHTHEBEAT_GROUP)
+            .group(&FUN_GROUP)
             .group(&UTILITY_GROUP)
             .group(&STREAMTRACKING_GROUP)
-            .group(&FUN_GROUP)
-            .bucket("two_per_thirty_cooldown", |b| {
-                b.delay(5).time_span(30).limit(2)
-            })
+            .bucket("songs", |b| b.delay(10).time_span(10).limit(1))
             .before(|ctx, msg, cmd_name| {
                 let location = match msg.guild(&ctx) {
                     Some(guild) => {

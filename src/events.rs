@@ -34,7 +34,14 @@ pub struct Handler;
 
 impl EventHandler for Handler {
     fn ready(&self, _: Context, ready: Ready) {
-        info!("Connected as {}", ready.user.name);
+        if let Some(shard) = ready.shard {
+            info!(
+                "{} is connected on shard {}/{}",
+                ready.user.name, shard[0], shard[1],
+            );
+        } else {
+            info!("Connected as {}", ready.user.name);
+        }
     }
 
     fn resume(&self, _: Context, _: ResumedEvent) {

@@ -14,7 +14,7 @@ env_logger = "0.6"
 dotenv = "0.15"
 log = "0.4"
 tokio = { version = "0.2.13", features = ["full"] }
-serenity = { version = "0.8", features = ["cache", "framework", "standard_framework", "rustls_backend"] }
+serenity = { version = "0.8", features = ["cache", "client", "framework", "standard_framework", "rustls_backend"] }
 num-format = "0.4"
 chrono = "0.4"
 reqwest = { version = "0.10", features = ["cookies"] }

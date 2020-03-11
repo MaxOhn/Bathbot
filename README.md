@@ -9,7 +9,7 @@ With the bot's osu! commands you can
 - calculate a performance rating for players of a multiplayer match (`<mc`) credits to [dain98](https://github.com/dain98/Minccino)
 - simulate scores with arbitrary acc, combo, amount 300s, ... (`<simulate`)
 - display a bunch of statistics all around a users osu profile (`<osu`, `<taiko`, ...)
-- recalculate the personal top 100 if all scores were unchoked
+- recalculate the personal top 100 if all scores were unchoked (`<nochokes`)
 - and a bunch more
 
 Moreover, I tried my best to keep all commands accessible for **all** gamemodes.
@@ -38,6 +38,7 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Assign all other variables of the `.env.example` file into your `.env` file
 
 ## Todos
+- Keep Personal / Global description for minimized recent
 - Mixer stream tracking
 - Numbered commands i.e. `<recent7`
 - Mania star calculation
