@@ -193,7 +193,7 @@ impl MySQL {
         diesel::insert_or_ignore_into(schema::pp_mania_mods::table)
             .values(&data)
             .execute(&conn)?;
-        info!("Inserted map id {} into pp_mania_mods table", map_id);
+        info!("Inserted beatmap {} into pp_mania_mods table", map_id);
         Ok(())
     }
 
@@ -292,9 +292,9 @@ impl MySQL {
         Ok(())
     }
 
-    // -----------------------------------
-    // Table: stream_tracks / twitch_users
-    // -----------------------------------
+    // -------------
+    // Table: guilds
+    // -------------
 
     pub fn get_guilds(&self) -> DBResult<HashMap<GuildId, Guild>> {
         let conn = self.get_connection()?;

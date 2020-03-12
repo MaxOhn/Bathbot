@@ -17,7 +17,10 @@ use itertools::Itertools;
 use rosu::models::{
     Beatmap, GameMod, GameMode, GameMods, Grade, Match, Score, Team, TeamType, User,
 };
-use serenity::{builder::CreateEmbed, cache::CacheRwLock, prelude::Context, utils::Colour};
+use serenity::{
+    builder::CreateEmbed, cache::CacheRwLock, model::gateway::Presence, prelude::Context,
+    utils::Colour,
+};
 use std::{
     cmp::Ordering,
     cmp::Ordering::Equal,
@@ -91,6 +94,133 @@ impl BasicEmbedData {
             e.fields(fields);
         }
         e.color(Colour::DARK_GREEN)
+    }
+
+    //
+    // allstreams
+    //
+    pub fn create_allstreams(presences: Vec<Presence>, total: usize, thumbnail: String) -> Self {
+        let mut result = Self::default();
+        result.thumbnail = Some(thumbnail);
+        result.title_text = Some(format!("{} current streamers on this server:", total));
+        // No streamers -> Simple message
+        let description = if presences.is_empty() {
+            "No one is currently streaming".to_string()
+        // Less than 20 streamers -> Descriptive single column
+        } else if presences.len() <= 20 {
+            let mut description = String::with_capacity(512);
+            for p in presences {
+                let activity = p.activity.unwrap();
+                let _ = write!(
+                    description,
+                    "- {name} playing {game}",
+                    name = p.user.unwrap().read().name,
+                    game = activity.name
+                );
+                if let Some(title) = activity.details {
+                    if let Some(url) = activity.url {
+                        let _ = writeln!(description, ": [{}]({})", title, url);
+                    } else {
+                        let _ = writeln!(description, ": {}", title);
+                    }
+                } else {
+                    description.push('\n');
+                }
+            }
+            description
+        // Less than 40 streamers -> Two simple columns
+        } else if presences.len() <= 40 {
+            let mut description = String::with_capacity(768);
+            for chunk in presences.into_iter().chunks(2).into_iter() {
+                let mut chunk = chunk.into_iter();
+                // First
+                let first: Presence = chunk.next().unwrap();
+                let activity = first.activity.unwrap();
+                let _ = write!(
+                    description,
+                    "- {name}: ",
+                    name = first.user.unwrap().read().name,
+                );
+                if let Some(url) = activity.url {
+                    let _ = write!(description, "[{}]({})", activity.name, url);
+                } else {
+                    description.push_str(&activity.name);
+                }
+                // Second
+                if let Some(second) = chunk.next() {
+                    let _ = write!(
+                        description,
+                        " ~ {name}: ",
+                        name = second.user.unwrap().read().name
+                    );
+                    let activity = second.activity.unwrap();
+                    if let Some(url) = activity.url {
+                        let _ = write!(description, "[{}]({})", activity.name, url);
+                    } else {
+                        description.push_str(&activity.name);
+                    }
+                    description.push('\n');
+                }
+            }
+            description
+        // 40+ Streamers -> Three simple columns
+        } else {
+            if presences.len() == 60 {
+                result.title_text = Some(format!(
+                    "60 out of {} current streamers of this server:",
+                    total
+                ));
+            }
+            let mut description = String::with_capacity(1024);
+            for chunk in presences.into_iter().chunks(3).into_iter() {
+                let mut chunk = chunk.into_iter();
+                // First
+                let first: Presence = chunk.next().unwrap();
+                let activity = first.activity.unwrap();
+                let _ = write!(
+                    description,
+                    "- {name}: ",
+                    name = first.user.unwrap().read().name,
+                );
+                if let Some(url) = activity.url {
+                    let _ = write!(description, "[{}]({})", activity.name, url);
+                } else {
+                    description.push_str(&activity.name);
+                }
+                // Second
+                if let Some(second) = chunk.next() {
+                    let _ = write!(
+                        description,
+                        " ~ {name}: ",
+                        name = second.user.unwrap().read().name
+                    );
+                    let activity = second.activity.unwrap();
+                    if let Some(url) = activity.url {
+                        let _ = write!(description, "[{}]({})", activity.name, url);
+                    } else {
+                        description.push_str(&activity.name);
+                    }
+                    // Third
+                    if let Some(third) = chunk.next() {
+                        let _ = write!(
+                            description,
+                            " ~ {name}: ",
+                            name = third.user.unwrap().read().name
+                        );
+                        let activity = third.activity.unwrap();
+                        if let Some(url) = activity.url {
+                            let _ = write!(description, "[{}]({})", activity.name, url);
+                        } else {
+                            description.push_str(&activity.name);
+                        }
+                        description.push('\n');
+                    }
+                }
+            }
+            description
+        };
+        result.description = Some(description);
+        result
     }
 
     //

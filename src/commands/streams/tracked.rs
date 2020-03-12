@@ -1,4 +1,4 @@
-use crate::{commands::checks::*, database::Platform, util::discord, StreamTracks, TwitchUsers};
+use crate::{database::Platform, util::discord, StreamTracks, TwitchUsers};
 
 use itertools::Itertools;
 use serenity::{
@@ -8,7 +8,6 @@ use serenity::{
 };
 
 #[command]
-#[checks(Authority)]
 #[description = "List all streams that are tracked in this channel"]
 #[aliases("tracked")]
 fn trackedstreams(ctx: &mut Context, msg: &Message) -> CommandResult {

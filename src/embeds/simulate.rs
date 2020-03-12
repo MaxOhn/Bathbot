@@ -27,6 +27,7 @@ pub struct SimulateData {
     pub prev_hits: Option<String>,
     pub hits: String,
     pub removed_misses: Option<u32>,
+    pub image: String,
     pub map_info: String,
     pub footer_url: String,
     pub footer_text: String,
@@ -54,7 +55,7 @@ impl SimulateData {
             .color(Colour::DARK_GREEN)
             .title(&self.title)
             .url(&self.title_url)
-            .thumbnail(&self.thumbnail)
+            .image(&self.image)
             .footer(|f| f.icon_url(&self.footer_url).text(&self.footer_text))
             .fields(vec![
                 ("Grade", &self.grade_completion_mods, true),
@@ -233,6 +234,10 @@ impl SimulateData {
             prev_hits,
             hits,
             removed_misses: misses,
+            image: format!(
+                "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
+                map.beatmapset_id
+            ),
             map_info,
             footer_url,
             footer_text,
