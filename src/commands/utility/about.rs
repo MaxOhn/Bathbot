@@ -65,6 +65,18 @@ fn about(ctx: &mut Context, msg: &Message) -> CommandResult {
                         ("Boot time", how_long_ago(&boot_time), true),
                         ("Process RAM", format!("{} MB", process_ram), true),
                         ("Total RAM", format!("{}/{} MB", used_ram, total_ram), true),
+                        (
+                            "Github",
+                            "https://github.com/MaxOhn/Bathbot".to_string(),
+                            false,
+                        ),
+                        (
+                            "Invite link (admin permission)",
+                            "https://discordapp.com/api/oauth2/authorize?client_id=\
+                            297073686916366336&permissions=8&scope=bot"
+                                .to_string(),
+                            false,
+                        ),
                     ])
                     .footer(|f| {
                         f.text(format!("Owner: {}", owner.tag()))

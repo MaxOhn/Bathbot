@@ -32,9 +32,9 @@ In case you want to get the bot running yourself to either modify a custom insta
   - Create all required tables for the database via `diesel migration run` (in the directory of this repo)
 - Handling osu-tools
   - If you can't use the command `dotnet` in the CLI, [download it](https://dotnet.microsoft.com/download) so you can compile C# code
-  - Mania PP calculation is done via [osu-tools](https://github.com/ppy/osu-tools) so this must be cloned somewhere
-  - Build osu-tools via `dotnet build --configuration Release`
-  - Assign the variable `PERF_CALC` in the `.env` file to `PerformanceCalculator.dll` e.g. `/path/to/osu-tools/PerformanceCalculator/bin/Release/netcoreapp2.0/PerformanceCalculator.dll`
+  - Mania PP calculation is done via [osu-tools](https://github.com/MaxOhn/osu-tools) so clone it anywhere via `git clone https://github.com/MaxOhn/osu-tools.git`
+  - Build osu-tools via `dotnet build -c Release`
+  - Assign the variable `PERF_CALC` in the `.env` file to `PerformanceCalculator.dll` e.g. `/path/to/osu-tools/PerformanceCalculator/bin/Release/netcoreapp3.1/PerformanceCalculator.dll`
 - Assign all other variables of the `.env.example` file into your `.env` file
 
 ## Todos
