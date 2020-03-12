@@ -178,7 +178,7 @@ impl SimulateData {
                 }
             }
         };
-        let stars = util::get_stars(&map, pp_provider.oppai());
+        let stars = util::get_stars(pp_provider.stars());
         let grade_completion_mods =
             util::get_grade_completion_mods(&unchoked_score, &map, ctx.cache.clone());
         let pp = util::get_pp(&unchoked_score, &pp_provider, map.mode);

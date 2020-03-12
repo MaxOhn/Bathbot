@@ -212,6 +212,59 @@ impl MySQL {
         Ok(())
     }
 
+    // -----------------------
+    // Table: stars_mania_mods
+    // -----------------------
+
+    pub fn get_mania_mod_stars(&self, map_id: u32, mods: &GameMods) -> DBResult<Option<f32>> {
+        let conn = self.get_connection()?;
+        let data = schema::stars_mania_mods::table
+            .find(map_id)
+            .first::<(u32, Option<f32>, Option<f32>)>(&conn)?;
+        if mods.contains(&GameMod::DoubleTime) || mods.contains(&GameMod::NightCore) {
+            Ok(data.1)
+        } else if mods.contains(&GameMod::HalfTime) {
+            Ok(data.2)
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn insert_mania_stars_map(&self, map_id: u32, mods: &GameMods, pp: f32) -> DBResult<()> {
+        use schema::stars_mania_mods::columns::{beatmap_id, DT, HT};
+        use GameMod::{DoubleTime, HalfTime, NightCore};
+        let data = if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+            (beatmap_id.eq(map_id), DT.eq(Some(pp)), HT.eq(None))
+        } else if mods.contains(&HalfTime) {
+            (beatmap_id.eq(map_id), DT.eq(None), HT.eq(Some(pp)))
+        } else {
+            (beatmap_id.eq(map_id), DT.eq(None), HT.eq(None))
+        };
+        let conn = self.get_connection()?;
+        diesel::insert_or_ignore_into(schema::stars_mania_mods::table)
+            .values(&data)
+            .execute(&conn)?;
+        info!("Inserted beatmap {} into stars_mania_mods table", map_id);
+        Ok(())
+    }
+
+    pub fn update_mania_stars_map(&self, map_id: u32, mods: &GameMods, pp: f32) -> DBResult<()> {
+        use schema::stars_mania_mods::columns::{beatmap_id, DT, HT};
+        use GameMod::{DoubleTime, HalfTime, NightCore};
+        let conn = self.get_connection()?;
+        let update = diesel::update(schema::stars_mania_mods::table.filter(beatmap_id.eq(map_id)));
+        if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+            update.set(DT.eq(Some(pp))).execute(&conn)?;
+        } else if mods.contains(&HalfTime) {
+            update.set(HT.eq(Some(pp))).execute(&conn)?;
+        };
+        info!(
+            "Updated map id {} with mods {} in stars_mania_mods table",
+            map_id, mods
+        );
+        Ok(())
+    }
+
     // ------------------
     // Table: role_assign
     // ------------------

@@ -3,7 +3,7 @@ use crate::{
     PerformanceCalculatorLock,
 };
 
-use rosu::models::{Beatmap, GameMod, GameMode, GameMods, Grade, Score};
+use rosu::models::{ApprovalStatus, Beatmap, GameMod, GameMode, GameMods, Grade, Score};
 use serenity::prelude::Context;
 use std::{
     env, mem,
@@ -12,12 +12,20 @@ use std::{
 };
 
 pub enum PPProvider {
-    #[allow(dead_code)] // Bug in rust compiler, remove when bug is fixed [22.2.2020]
-    Oppai { oppai: Oppai, pp: f32, max_pp: f32 },
-    #[allow(dead_code)]
-    Mania { pp: f32, max_pp: f32 },
-    #[allow(dead_code)]
-    Fruits,
+    Oppai {
+        oppai: Oppai,
+        pp: f32,
+        max_pp: f32,
+        stars: f32,
+    },
+    Mania {
+        pp: f32,
+        max_pp: f32,
+        stars: f32,
+    },
+    Fruits {
+        stars: f32,
+    },
 }
 
 impl PPProvider {
@@ -39,7 +47,17 @@ impl PPProvider {
                     .set_combo(score.max_combo)
                     .calculate(None)?;
                 let pp = oppai.get_pp();
-                Ok(Self::Oppai { oppai, pp, max_pp })
+                let stars = if score.enabled_mods.changes_stars(map.mode) {
+                    oppai.get_stars()
+                } else {
+                    map.stars
+                };
+                Ok(Self::Oppai {
+                    oppai,
+                    pp,
+                    max_pp,
+                    stars,
+                })
             }
             GameMode::MNA => {
                 let ctx = ctx.unwrap();
@@ -54,6 +72,22 @@ impl PPProvider {
                     None
                 };
                 let half_score = half_score(&score.enabled_mods);
+                let (stars, stars_in_db) = if score.enabled_mods.changes_stars(GameMode::MNA) {
+                    // Try retrieving stars from database
+                    let data = ctx.data.read();
+                    let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                    match mysql.get_mania_mod_stars(map.beatmap_id, &score.enabled_mods) {
+                        Ok(result) => (result, true),
+                        Err(why) => {
+                            if let Error::Custom(_) = why {
+                                warn!("Error while retrieving from stars_mania_mods: {}", why);
+                            }
+                            (None, false)
+                        }
+                    }
+                } else {
+                    (Some(map.stars), true)
+                };
                 // Start calculating pp of the score in new thread
                 let (pp_child, lock) = if score.pp.is_none() {
                     // If its a fail or below half score, it's gonna be 0pp anyway
@@ -95,26 +129,63 @@ impl PPProvider {
                 };
                 // If max pp were found, get them
                 let max_pp = if let Some(max_pp) = max_pp {
-                    mem::drop(lock);
                     max_pp
                 // Otherwise start calculating them in new thread
                 } else {
                     let max_pp_child = start_pp_calc(map.beatmap_id, &score.enabled_mods, None)?;
                     let max_pp = parse_pp_calc(max_pp_child)?;
-                    mem::drop(lock);
-                    // Insert max pp value into database
-                    let data = ctx.data.read();
-                    let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-                    if map_in_db {
-                        mysql.update_mania_pp_map(map.beatmap_id, &score.enabled_mods, max_pp)?;
-                    } else {
-                        mysql.insert_mania_pp_map(map.beatmap_id, &score.enabled_mods, max_pp)?;
+                    if map.approval_status == ApprovalStatus::Ranked
+                        || map.approval_status == ApprovalStatus::Loved
+                    {
+                        // Insert max pp value into database
+                        let data = ctx.data.read();
+                        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                        if map_in_db {
+                            mysql.update_mania_pp_map(
+                                map.beatmap_id,
+                                &score.enabled_mods,
+                                max_pp,
+                            )?;
+                        } else {
+                            mysql.insert_mania_pp_map(
+                                map.beatmap_id,
+                                &score.enabled_mods,
+                                max_pp,
+                            )?;
+                        }
                     }
                     max_pp
                 };
-                Ok(Self::Mania { pp, max_pp })
+                let stars = if let Some(stars) = stars {
+                    stars
+                } else {
+                    let stars = calc_stars(map.beatmap_id, &score.enabled_mods)?;
+                    mem::drop(lock);
+                    if map.approval_status == ApprovalStatus::Ranked
+                        || map.approval_status == ApprovalStatus::Loved
+                    {
+                        // Insert stars value into database
+                        let data = ctx.data.read();
+                        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                        if stars_in_db {
+                            mysql.update_mania_stars_map(
+                                map.beatmap_id,
+                                &score.enabled_mods,
+                                max_pp,
+                            )?;
+                        } else {
+                            mysql.insert_mania_stars_map(
+                                map.beatmap_id,
+                                &score.enabled_mods,
+                                max_pp,
+                            )?;
+                        }
+                    }
+                    stars
+                };
+                Ok(Self::Mania { pp, max_pp, stars })
             }
-            GameMode::CTB => Ok(Self::Fruits),
+            GameMode::CTB => Ok(Self::Fruits { stars: map.stars }),
         }
     }
 
@@ -240,7 +311,7 @@ impl PPProvider {
                 Ok(())
             }
             Self::Mania { .. } => Err(Error::Custom("Cannot recalculate mania pp".to_string())),
-            Self::Fruits => Err(Error::Custom("Cannot recalculate ctb pp".to_string())),
+            Self::Fruits { .. } => Err(Error::Custom("Cannot recalculate ctb pp".to_string())),
         }
     }
 
@@ -248,7 +319,7 @@ impl PPProvider {
         match self {
             Self::Oppai { pp, .. } => *pp,
             Self::Mania { pp, .. } => *pp,
-            Self::Fruits => panic!("Don't call pp on ctb maps!"),
+            Self::Fruits { .. } => panic!("Don't call pp on ctb maps!"),
         }
     }
 
@@ -256,7 +327,15 @@ impl PPProvider {
         match self {
             Self::Oppai { max_pp, .. } => *max_pp,
             Self::Mania { max_pp, .. } => *max_pp,
-            Self::Fruits => panic!("Don't call pp_max on ctb maps!"),
+            Self::Fruits { .. } => panic!("Don't call pp_max on ctb maps!"),
+        }
+    }
+
+    pub fn stars(&self) -> f32 {
+        match self {
+            Self::Oppai { stars, .. } => *stars,
+            Self::Mania { stars, .. } => *stars,
+            Self::Fruits { stars, .. } => *stars,
         }
     }
 
@@ -295,12 +374,30 @@ fn parse_pp_calc(child: Child) -> Result<f32, Error> {
     if output.status.success() {
         let result = String::from_utf8(output.stdout)
             .map_err(|_| Error::Custom("Could not read stdout string".to_string()))?;
-        let line = result
-            .lines()
-            .last()
-            .ok_or_else(|| Error::Custom("stdout string was empty".to_string()))?;
-        f32::from_str(line.split(':').last().unwrap().trim()).map_err(|_| {
-            Error::Custom("Right side of last line did not contain an f32".to_string())
+        f32::from_str(&result.trim())
+            .map_err(|_| Error::Custom("PerfCalc result could not be parsed into pp".to_string()))
+    } else {
+        let error_msg = String::from_utf8(output.stderr)
+            .map_err(|_| Error::Custom("Could not read stderr string".to_string()))?;
+        Err(Error::Custom(error_msg))
+    }
+}
+
+fn calc_stars(map_id: u32, mods: &GameMods) -> Result<f32, Error> {
+    let map_path = osu::prepare_beatmap_file(map_id)?;
+    let mut cmd = Command::new("dotnet");
+    cmd.arg(env::var("PERF_CALC").unwrap())
+        .arg("difficulty")
+        .arg(map_path);
+    for &m in mods.iter() {
+        cmd.arg("-m").arg(m.to_string());
+    }
+    let output = cmd.output()?;
+    if output.status.success() {
+        let result = String::from_utf8(output.stdout)
+            .map_err(|_| Error::Custom("Could not read stdout string".to_string()))?;
+        f32::from_str(&result.trim()).map_err(|_| {
+            Error::Custom("PerfCalc result could not be parsed into stars".to_string())
         })
     } else {
         let error_msg = String::from_utf8(output.stderr)

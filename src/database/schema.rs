@@ -84,6 +84,14 @@ table! {
 }
 
 table! {
+    stars_mania_mods (beatmap_id) {
+        beatmap_id -> Unsigned<Integer>,
+        DT -> Nullable<Float>,
+        HT -> Nullable<Float>,
+    }
+}
+
+table! {
     stream_tracks (id) {
         id -> Unsigned<Integer>,
         channel_id -> Unsigned<Bigint>,
@@ -108,6 +116,7 @@ table! {
 
 joinable!(maps -> mapsets (beatmapset_id));
 joinable!(pp_mania_mods -> maps (beatmap_id));
+joinable!(stars_mania_mods -> maps (beatmap_id));
 joinable!(stream_tracks -> twitch_users (user_id));
 
 allow_tables_to_appear_in_same_query!(
@@ -118,6 +127,7 @@ allow_tables_to_appear_in_same_query!(
     mapsets,
     pp_mania_mods,
     role_assign,
+    stars_mania_mods,
     stream_tracks,
     twitch_users,
     unchecked_members,

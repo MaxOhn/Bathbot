@@ -36,29 +36,6 @@ pub struct RecentData {
 }
 
 impl RecentData {
-    pub fn minimize<'d, 'e>(&'d self, embed: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
-        let name = format!(
-            "{}\t{}\t({})\t{}",
-            self.grade_completion_mods, self.score, self.acc, self.ago
-        );
-        let value = format!("{} [ {} ] {}", self.pp, self.combo, self.hits);
-        let title = format!("{} [{}]", self.title, self.stars);
-        if self.description.is_some() {
-            embed.description(&self.description.as_ref().unwrap());
-        }
-        embed
-            .color(Colour::DARK_GREEN)
-            .field(name, value, false)
-            .thumbnail(&self.thumbnail)
-            .title(title)
-            .url(&self.title_url)
-            .author(|a| {
-                a.icon_url(&self.author_icon)
-                    .url(&self.author_url)
-                    .name(&self.author_text)
-            })
-    }
-
     pub fn build<'d, 'e>(&'d self, embed: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
         if self.description.is_some() {
             embed.description(&self.description.as_ref().unwrap());
@@ -94,6 +71,29 @@ impl RecentData {
             embed.field("Hits", &hits, true);
         }
         embed.field("Map Info", &self.map_info, false)
+    }
+
+    pub fn minimize<'d, 'e>(&'d self, embed: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
+        let name = format!(
+            "{}\t{}\t({})\t{}",
+            self.grade_completion_mods, self.score, self.acc, self.ago
+        );
+        let value = format!("{} [ {} ] {}", self.pp, self.combo, self.hits);
+        let title = format!("{} [{}]", self.title, self.stars);
+        if self.description.is_some() {
+            embed.description(&self.description.as_ref().unwrap());
+        }
+        embed
+            .color(Colour::DARK_GREEN)
+            .field(name, value, false)
+            .thumbnail(&self.thumbnail)
+            .title(title)
+            .url(&self.title_url)
+            .author(|a| {
+                a.icon_url(&self.author_icon)
+                    .url(&self.author_url)
+                    .name(&self.author_text)
+            })
     }
 
     pub fn new(
@@ -184,7 +184,7 @@ impl RecentData {
             author_url,
             author_text,
             grade_completion_mods,
-            stars: util::get_stars(&map, pp_provider.oppai()),
+            stars: util::get_stars(pp_provider.stars()),
             score: with_comma_u64(score.score as u64),
             acc: util::get_acc(&score, map.mode),
             ago: how_long_ago(&score.date),

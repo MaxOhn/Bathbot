@@ -1,7 +1,4 @@
-use crate::{
-    roppai::Oppai,
-    util::{datetime::sec_to_minsec, numbers::round, osu, pp::PPProvider},
-};
+use crate::util::{datetime::sec_to_minsec, numbers::round, osu, pp::PPProvider};
 
 use rosu::models::{Beatmap, GameMode, GameMods, Score};
 use serenity::cache::CacheRwLock;
@@ -85,12 +82,7 @@ pub fn get_keys(mods: &GameMods, map: &Beatmap) -> String {
     format!("[{}K]", map.diff_cs as u32)
 }
 
-pub fn get_stars(map: &Beatmap, oppai: Option<&Oppai>) -> String {
-    let stars = if let Some(oppai) = oppai {
-        oppai.get_stars()
-    } else {
-        map.stars
-    };
+pub fn get_stars(stars: f32) -> String {
     format!("{}★", round(stars))
 }
 
