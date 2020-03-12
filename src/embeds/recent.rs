@@ -2,7 +2,7 @@ use super::util;
 use crate::util::{
     datetime::{date_to_string, how_long_ago},
     globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
-    numbers::{round_and_comma, with_comma_u64},
+    numbers::{round, round_and_comma, with_comma_u64},
     osu,
     pp::PPProvider,
     Error,
@@ -75,14 +75,19 @@ impl RecentData {
                 ("Score", &self.score, true),
                 ("Acc", &self.acc, true),
                 ("PP", &self.pp, true),
-                ("Combo", &self.combo, true),
-                ("Hits", &self.hits, true),
             ])
             .author(|a| {
                 a.icon_url(&self.author_icon)
                     .url(&self.author_url)
                     .name(&self.author_text)
             });
+        let mania = self.hits.chars().filter(|&c| c == '/').count() == 5;
+        embed.field(
+            if mania { "Combo / Ratio" } else { "Combo" },
+            &self.combo,
+            true,
+        );
+        embed.field("Hits", &self.hits, true);
         if let Some((pp, combo, hits)) = &self.if_fc {
             embed.field("**If FC**: PP", &pp, true);
             embed.field("Combo", &combo, true);
@@ -148,7 +153,12 @@ impl RecentData {
             util::get_grade_completion_mods(&score, &map, ctx.cache.clone());
         let (pp, combo, hits) = (
             util::get_pp(&score, &pp_provider, map.mode),
-            util::get_combo(&score, &map),
+            if map.mode == GameMode::MNA {
+                let ratio = score.count_geki as f32 / score.count300 as f32;
+                format!("**{}x** / {}", &score.max_combo, round(ratio))
+            } else {
+                util::get_combo(&score, &map)
+            },
             util::get_hits(&score, map.mode),
         );
         let if_fc = if map.mode == GameMode::STD && score.max_combo < map.max_combo.unwrap() {

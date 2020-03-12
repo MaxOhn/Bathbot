@@ -131,8 +131,7 @@ impl BasicEmbedData {
         // Less than 40 streamers -> Two simple columns
         } else if presences.len() <= 40 {
             let mut description = String::with_capacity(768);
-            for chunk in presences.into_iter().chunks(2).into_iter() {
-                let mut chunk = chunk.into_iter();
+            for mut chunk in presences.into_iter().chunks(2).into_iter() {
                 // First
                 let first: Presence = chunk.next().unwrap();
                 let activity = first.activity.unwrap();
@@ -172,8 +171,7 @@ impl BasicEmbedData {
                 ));
             }
             let mut description = String::with_capacity(1024);
-            for chunk in presences.into_iter().chunks(3).into_iter() {
-                let mut chunk = chunk.into_iter();
+            for mut chunk in presences.into_iter().chunks(3).into_iter() {
                 // First
                 let first: Presence = chunk.next().unwrap();
                 let activity = first.activity.unwrap();

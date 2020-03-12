@@ -278,8 +278,11 @@ fn start_pp_calc(map_id: u32, mods: &GameMods, score: Option<u32>) -> Result<Chi
     for &m in mods.iter() {
         cmd.arg("-m").arg(m.to_string());
     }
+    cmd.arg("-s");
     if let Some(score) = score {
-        cmd.arg("-s").arg(score.to_string());
+        cmd.arg(score.to_string());
+    } else {
+        cmd.arg(max_score(mods).to_string());
     }
     cmd.stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -306,18 +309,25 @@ fn parse_pp_calc(child: Child) -> Result<f32, Error> {
     }
 }
 
-fn half_score(mods: &GameMods) -> u32 {
-    let mut half_score = 500_000.0;
+fn adjusted_score(mut score: f32, mods: &GameMods) -> u32 {
     if mods.contains(&GameMod::NoFail) {
-        half_score /= 2.0;
+        score /= 2.0;
     }
     if mods.contains(&GameMod::Easy) {
-        half_score /= 2.0;
+        score /= 2.0;
     }
     if mods.contains(&GameMod::HalfTime) {
-        half_score /= 2.0;
+        score /= 2.0;
     }
-    half_score as u32
+    score as u32
+}
+
+fn half_score(mods: &GameMods) -> u32 {
+    adjusted_score(500_000.0, mods)
+}
+
+fn max_score(mods: &GameMods) -> u32 {
+    adjusted_score(1_000_000.0, mods)
 }
 
 pub trait SubScore {
