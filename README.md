@@ -44,4 +44,3 @@ In case you want to get the bot running yourself to either modify a custom insta
   ### Commands
    - `<bg`
    - `<reach`
-   - `<recentlist` for 5 last recent plays

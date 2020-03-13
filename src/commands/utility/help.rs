@@ -23,6 +23,8 @@ Further help on the spreadsheet: http://bit.ly/badecoms"]
 #[max_levenshtein_distance(3)]
 #[lacking_permissions = "strike"]
 #[lacking_role = "strike"]
+#[usage_label("How to use")]
+#[usage_sample_label("Example")]
 #[embed_success_colour("DARK_GREEN")]
 #[strikethrough_commands_tip_in_dm(
     "~~`Strikethrough commands`~~ indicate you're lacking permissions or roles"

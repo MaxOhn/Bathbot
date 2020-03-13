@@ -948,6 +948,73 @@ impl BasicEmbedData {
     }
 
     //
+    // recentlist
+    //
+    pub fn create_recentlist(
+        user: User,
+        scores: Vec<Score>,
+        maps: HashMap<u32, Beatmap>,
+        best: Vec<Score>,
+        mode: GameMode,
+        ctx: &Context,
+    ) -> Result<Self, Error> {
+        let mut result = Self::default();
+        let (author_icon, author_url, author_text) = get_user_author(&user);
+        let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
+        let mut description = String::with_capacity(512);
+        for (idx, score) in scores.into_iter().enumerate() {
+            let map = maps.get(&score.beatmap_id.unwrap()).unwrap();
+            let pp_provider = match PPProvider::new(&score, &map, Some(ctx)) {
+                Ok(provider) => provider,
+                Err(why) => {
+                    return Err(Error::Custom(format!(
+                        "Something went wrong while creating PPProvider: {}",
+                        why
+                    )))
+                }
+            };
+            let _ = writeln!(
+                description,
+                "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]",
+                idx = idx + 1,
+                title = map.title,
+                version = map.version,
+                base = HOMEPAGE,
+                id = map.beatmap_id,
+                mods = util::get_mods(&score.enabled_mods),
+                stars = util::get_stars(pp_provider.stars()),
+            );
+            let _ = writeln!(
+                description,
+                "{grade} {pp} ~ ({acc}) ~ {score}",
+                grade = osu::grade_emote(score.grade, ctx.cache.clone()),
+                pp = util::get_pp(&score, &pp_provider, mode),
+                acc = util::get_acc(&score, mode),
+                score = with_comma_u64(score.score as u64),
+            );
+            let best_idx = best.iter().position(|s| s == &score);
+            let _ = writeln!(
+                description,
+                "[ {combo} ] ~ {hits}{pb}",
+                combo = util::get_combo(&score, map),
+                hits = util::get_hits(&score, mode),
+                pb = if let Some(idx) = best_idx {
+                    format!(" ~ Personal Best **#{}**", idx + 1)
+                } else {
+                    String::new()
+                },
+            );
+        }
+        description.pop();
+        result.author_icon = Some(author_icon);
+        result.author_text = Some(author_text);
+        result.author_url = Some(author_url);
+        result.thumbnail = Some(thumbnail);
+        result.description = Some(description);
+        Ok(result)
+    }
+
+    //
     // scores
     //
     pub fn create_scores(
@@ -963,6 +1030,9 @@ impl BasicEmbedData {
         let thumbnail = format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id);
         let footer_url = format!("{}{}", AVATAR_URL, map.creator_id);
         let footer_text = format!("{:?} map by {}", map.approval_status, map.creator);
+        if scores.is_empty() {
+            result.description = Some("No scores found".to_string());
+        }
         let mut fields = Vec::new();
         for (i, score) in scores.into_iter().enumerate() {
             let pp_provider = match PPProvider::new(&score, &map, Some(ctx)) {
@@ -976,7 +1046,7 @@ impl BasicEmbedData {
             };
             let mut name = format!(
                 "**{idx}.** {grade}\t[{stars}]\t{score}\t({acc})",
-                idx = (i + 1).to_string(),
+                idx = i + 1,
                 grade = util::get_grade_completion_mods(&score, &map, ctx.cache.clone()),
                 stars = util::get_stars(pp_provider.stars()),
                 score = with_comma_u64(score.score as u64),

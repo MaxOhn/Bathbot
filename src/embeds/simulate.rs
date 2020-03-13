@@ -125,8 +125,7 @@ impl SimulateData {
         }
         let title = map.to_string();
         let title_url = format!("{}b/{}", HOMEPAGE, map.beatmap_id);
-        let (prev_pp, prev_combo, prev_hits, misses, pp_provider) = if let Some(s) = score.as_ref()
-        {
+        let (prev_pp, prev_combo, prev_hits, misses) = if let Some(s) = score.as_ref() {
             let pp_provider = match PPProvider::new(&s, &map, Some(ctx)) {
                 Ok(provider) => provider,
                 Err(why) => {
@@ -143,15 +142,9 @@ impl SimulateData {
                 None
             };
             let prev_hits = Some(util::get_hits(&s, map.mode));
-            (
-                prev_pp,
-                prev_combo,
-                prev_hits,
-                Some(s.count_miss),
-                Some(pp_provider),
-            )
+            (prev_pp, prev_combo, prev_hits, Some(s.count_miss))
         } else {
-            (None, None, None, None, None)
+            (None, None, None, None)
         };
         let mut unchoked_score = score.unwrap_or_default();
         if is_some {
@@ -159,23 +152,13 @@ impl SimulateData {
         } else {
             osu::unchoke_score(&mut unchoked_score, &map);
         }
-        let pp_provider = if let Some(mut pp_provider) = pp_provider {
-            if let Err(e) = pp_provider.recalculate(&unchoked_score, map.mode) {
+        let pp_provider = match PPProvider::new(&unchoked_score, &map, Some(ctx)) {
+            Ok(provider) => provider,
+            Err(why) => {
                 return Err(Error::Custom(format!(
-                    "Something went wrong while recalculating PPProvider for unchoked score: {}",
-                    e
-                )));
-            }
-            pp_provider
-        } else {
-            match PPProvider::new(&unchoked_score, &map, Some(ctx)) {
-                Ok(provider) => provider,
-                Err(why) => {
-                    return Err(Error::Custom(format!(
-                        "Something went wrong while creating PPProvider: {}",
-                        why
-                    )))
-                }
+                    "Something went wrong while creating PPProvider: {}",
+                    why
+                )))
             }
         };
         let stars = util::get_stars(pp_provider.stars());

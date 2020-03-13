@@ -9,6 +9,7 @@ pub mod profile;
 pub mod rank;
 pub mod recent;
 pub mod recent_lb;
+pub mod recent_list;
 mod scores;
 mod simulate;
 pub mod simulate_recent;

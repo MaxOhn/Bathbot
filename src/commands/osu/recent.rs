@@ -120,7 +120,7 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
         };
         let global = match map.approval_status {
             Ranked | Loved | Qualified | Approved => {
-                match rt.block_on(map.get_global_leaderboard(osu, 50)) {
+                match rt.block_on(map.get_global_leaderboard(osu, 100)) {
                     Ok(scores) => scores,
                     Err(why) => {
                         msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;

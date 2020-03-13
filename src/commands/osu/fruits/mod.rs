@@ -1,5 +1,6 @@
 pub use crate::commands::osu::{
-    common::*, pp::*, profile::*, rank::*, recent::*, recent_lb::*, top::*, whatif::*,
+    common::*, pp::*, profile::*, rank::*, recent::*, recent_lb::*, recent_list::*, top::*,
+    whatif::*,
 };
 
 use serenity::framework::standard::macros::group;
@@ -10,6 +11,7 @@ use serenity::framework::standard::macros::group;
     recentctb,
     topctb,
     recentbestctb,
+    recentlistctb,
     profilectb,
     ppctb,
     whatifctb,
