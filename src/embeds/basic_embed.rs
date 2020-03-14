@@ -961,17 +961,50 @@ impl BasicEmbedData {
         let mut result = Self::default();
         let (author_icon, author_url, author_text) = get_user_author(&user);
         let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
+        let mut map_mods = HashMap::with_capacity(5);
         let mut description = String::with_capacity(512);
         for (idx, score) in scores.into_iter().enumerate() {
             let map = maps.get(&score.beatmap_id.unwrap()).unwrap();
-            let pp_provider = match PPProvider::new(&score, &map, Some(ctx)) {
-                Ok(provider) => provider,
-                Err(why) => {
-                    return Err(Error::Custom(format!(
-                        "Something went wrong while creating PPProvider: {}",
-                        why
-                    )))
-                }
+            let key = (map.beatmap_id, score.enabled_mods.as_bits());
+            #[allow(clippy::map_entry)]
+            let (actual, max_pp, stars) = if map_mods.contains_key(&key) {
+                let (max, stars) = *map_mods.get(&key).unwrap();
+                let actual_result = match mode {
+                    GameMode::STD | GameMode::TKO => {
+                        PPProvider::calculate_oppai_pp(&score, &map).map(Some)
+                    }
+                    GameMode::MNA => PPProvider::calculate_mania_pp(&score, &map, &ctx).map(Some),
+                    GameMode::CTB => Ok(None),
+                };
+                let actual = match actual_result {
+                    Ok(pp) => pp,
+                    Err(why) => {
+                        return Err(Error::Custom(format!(
+                            "Something went wrong while calculating PP: {}",
+                            why
+                        )))
+                    }
+                };
+                (actual, Some(max), stars)
+            } else {
+                let pp_provider = match PPProvider::new(&score, &map, Some(ctx)) {
+                    Ok(provider) => provider,
+                    Err(why) => {
+                        return Err(Error::Custom(format!(
+                            "Something went wrong while creating PPProvider: {}",
+                            why
+                        )))
+                    }
+                };
+                let actual = if mode == GameMode::CTB {
+                    None
+                } else {
+                    Some(pp_provider.pp())
+                };
+                let max = pp_provider.max_pp();
+                let stars = pp_provider.stars();
+                map_mods.insert(key, (max, stars));
+                (actual, Some(max), stars)
             };
             let _ = writeln!(
                 description,
@@ -982,13 +1015,13 @@ impl BasicEmbedData {
                 base = HOMEPAGE,
                 id = map.beatmap_id,
                 mods = util::get_mods(&score.enabled_mods),
-                stars = util::get_stars(pp_provider.stars()),
+                stars = util::get_stars(stars),
             );
             let _ = writeln!(
                 description,
                 "{grade} {pp} ~ ({acc}) ~ {score}",
                 grade = osu::grade_emote(score.grade, ctx.cache.clone()),
-                pp = util::get_pp(&score, &pp_provider, mode),
+                pp = util::_get_pp(actual, max_pp),
                 acc = util::get_acc(&score, mode),
                 score = with_comma_u64(score.score as u64),
             );

@@ -46,19 +46,18 @@ pub fn get_combo(score: &Score, map: &Beatmap) -> String {
 
 pub fn get_pp(score: &Score, pp_provider: &PPProvider, mode: GameMode) -> String {
     let (actual, max) = if mode == GameMode::CTB {
-        let actual = score
-            .pp
-            .map_or_else(|| String::from("-"), |pp| round(pp).to_string());
-        (actual, String::from("-"))
+        (score.pp, None)
     } else {
-        let actual = if let Some(pp) = score.pp {
-            round(pp).to_string()
-        } else {
-            round(pp_provider.pp()).to_string()
-        };
-        let max = round(pp_provider.max_pp()).to_string();
-        (actual, max)
+        let actual = score.pp.or_else(|| Some(pp_provider.pp()));
+        let max = pp_provider.max_pp();
+        (actual, Some(max))
     };
+    _get_pp(actual, max)
+}
+
+pub fn _get_pp(actual: Option<f32>, max: Option<f32>) -> String {
+    let actual = actual.map_or_else(|| String::from("-"), |pp| round(pp).to_string());
+    let max = max.map_or_else(|| String::from("-"), |pp| round(pp).to_string());
     format!("**{}**/{}PP", actual, max)
 }
 

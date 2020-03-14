@@ -75,11 +75,17 @@ pub struct NameModArgs {
 
 impl NameModArgs {
     pub fn new(mut args: Args) -> Self {
-        let mut args = arguments::first_n(&mut args, 2);
-        let mods = args.pop().and_then(|arg| arguments::parse_mods(&arg));
-        Self {
-            name: args.pop(),
-            mods,
+        let args = arguments::first_n(&mut args, 2);
+        let mut name = None;
+        let mut mods = None;
+        for arg in args {
+            let res = arguments::parse_mods(&arg);
+            if res.is_some() {
+                mods = res;
+            } else {
+                name = Some(arg);
+            }
         }
+        Self { name, mods }
     }
 }

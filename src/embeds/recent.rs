@@ -154,7 +154,10 @@ impl RecentData {
         let (pp, combo, hits) = (
             util::get_pp(&score, &pp_provider, map.mode),
             if map.mode == GameMode::MNA {
-                let ratio = score.count_geki as f32 / score.count300 as f32;
+                let mut ratio = score.count_geki as f32;
+                if score.count300 > 0 {
+                    ratio /= score.count300 as f32
+                }
                 format!("**{}x** / {}", &score.max_combo, round(ratio))
             } else {
                 util::get_combo(&score, &map)
