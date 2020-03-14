@@ -43,4 +43,3 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Numbered commands i.e. `<recent7`
   ### Commands
    - `<bg`
-   - `<reach`

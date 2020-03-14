@@ -18,7 +18,10 @@ use rosu::models::{
     Beatmap, GameMod, GameMode, GameMods, Grade, Match, Score, Team, TeamType, User,
 };
 use serenity::{
-    builder::CreateEmbed, cache::CacheRwLock, model::gateway::Presence, prelude::Context,
+    builder::CreateEmbed,
+    cache::CacheRwLock,
+    model::{gateway::Presence, id::UserId},
+    prelude::Context,
     utils::Colour,
 };
 use std::{
@@ -99,9 +102,14 @@ impl BasicEmbedData {
     //
     // allstreams
     //
-    pub fn create_allstreams(presences: Vec<Presence>, total: usize, thumbnail: String) -> Self {
+    pub fn create_allstreams(
+        presences: Vec<Presence>,
+        users: HashMap<UserId, String>,
+        total: usize,
+        thumbnail: Option<String>,
+    ) -> Self {
         let mut result = Self::default();
-        result.thumbnail = Some(thumbnail);
+        result.thumbnail = thumbnail;
         result.title_text = Some(format!("{} current streamers on this server:", total));
         // No streamers -> Simple message
         let description = if presences.is_empty() {
@@ -110,12 +118,14 @@ impl BasicEmbedData {
         } else if presences.len() <= 20 {
             let mut description = String::with_capacity(512);
             for p in presences {
-                let activity = p.activity.unwrap();
+                let activity = p.activity.expect("activity");
                 let _ = write!(
                     description,
                     "- {name} playing {game}",
-                    name = p.user.unwrap().read().name,
-                    game = activity.name
+                    name = users.get(&p.user_id).unwrap(),
+                    game = activity
+                        .state
+                        .unwrap_or_else(|| panic!("Could not get state of activity"))
                 );
                 if let Some(title) = activity.details {
                     if let Some(url) = activity.url {
@@ -138,25 +148,31 @@ impl BasicEmbedData {
                 let _ = write!(
                     description,
                     "- {name}: ",
-                    name = first.user.unwrap().read().name,
+                    name = users.get(&first.user_id).unwrap(),
                 );
+                let game = activity
+                    .state
+                    .unwrap_or_else(|| panic!("Could not get state of activity"));
                 if let Some(url) = activity.url {
-                    let _ = write!(description, "[{}]({})", activity.name, url);
+                    let _ = write!(description, "[{}]({})", game, url);
                 } else {
-                    description.push_str(&activity.name);
+                    description.push_str(&game);
                 }
                 // Second
                 if let Some(second) = chunk.next() {
                     let _ = write!(
                         description,
                         " ~ {name}: ",
-                        name = second.user.unwrap().read().name
+                        name = users.get(&second.user_id).unwrap()
                     );
                     let activity = second.activity.unwrap();
+                    let game = activity
+                        .state
+                        .unwrap_or_else(|| panic!("Could not get state of activity"));
                     if let Some(url) = activity.url {
-                        let _ = write!(description, "[{}]({})", activity.name, url);
+                        let _ = write!(description, "[{}]({})", game, url);
                     } else {
-                        description.push_str(&activity.name);
+                        description.push_str(&game);
                     }
                     description.push('\n');
                 }
@@ -178,38 +194,47 @@ impl BasicEmbedData {
                 let _ = write!(
                     description,
                     "- {name}: ",
-                    name = first.user.unwrap().read().name,
+                    name = users.get(&first.user_id).unwrap(),
                 );
+                let game = activity
+                    .state
+                    .unwrap_or_else(|| panic!("Could not get state of activity"));
                 if let Some(url) = activity.url {
-                    let _ = write!(description, "[{}]({})", activity.name, url);
+                    let _ = write!(description, "[{}]({})", game, url);
                 } else {
-                    description.push_str(&activity.name);
+                    description.push_str(&game);
                 }
                 // Second
                 if let Some(second) = chunk.next() {
                     let _ = write!(
                         description,
                         " ~ {name}: ",
-                        name = second.user.unwrap().read().name
+                        name = users.get(&second.user_id).unwrap()
                     );
                     let activity = second.activity.unwrap();
+                    let game = activity
+                        .state
+                        .unwrap_or_else(|| panic!("Could not get state of activity"));
                     if let Some(url) = activity.url {
-                        let _ = write!(description, "[{}]({})", activity.name, url);
+                        let _ = write!(description, "[{}]({})", game, url);
                     } else {
-                        description.push_str(&activity.name);
+                        description.push_str(&game);
                     }
                     // Third
                     if let Some(third) = chunk.next() {
                         let _ = write!(
                             description,
                             " ~ {name}: ",
-                            name = third.user.unwrap().read().name
+                            name = users.get(&third.user_id).unwrap()
                         );
                         let activity = third.activity.unwrap();
+                        let game = activity
+                            .state
+                            .unwrap_or_else(|| panic!("Could not get state of activity"));
                         if let Some(url) = activity.url {
-                            let _ = write!(description, "[{}]({})", activity.name, url);
+                            let _ = write!(description, "[{}]({})", game, url);
                         } else {
-                            description.push_str(&activity.name);
+                            description.push_str(&game);
                         }
                         description.push('\n');
                     }
