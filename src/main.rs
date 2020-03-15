@@ -27,6 +27,7 @@ pub use util::{discord::get_member, globals::MSG_MEMORY, Error};
 
 use chrono::Utc;
 use dotenv;
+use hey_listen::sync::ParallelDispatcher as Dispatcher;
 use log::{error, info};
 use rosu::backend::Osu as OsuClient;
 use serenity::{
@@ -46,15 +47,10 @@ pub const WITH_STREAM_TRACK: bool = false;
 pub const WITH_SCRAPER: bool = false;
 pub const WITH_CUSTOM_EVENTS: bool = false;
 
-fn setup() {
-    if let Err(why) = dotenv::dotenv() {
-        panic!("dotenv Error: {}", why);
-    }
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    dotenv::dotenv()?;
     env_logger::init();
-}
 
-fn main() -> Result<(), Error> {
-    setup();
     // -----------------
     // Data preparations
     // -----------------
@@ -94,14 +90,18 @@ fn main() -> Result<(), Error> {
             set
         }
         Err(why) => {
-            return Err(Error::Custom(format!(
+            return Err(Box::new(Error::Custom(format!(
                 "Couldn't get application info: {:?}",
                 why
-            )))
+            ))))
         }
     };
     let scheduler = Scheduler::new(4);
     let now = Utc::now();
+    let mut dispatcher: Dispatcher<DispatchEvent> = Dispatcher::default();
+    dispatcher
+        .num_threads(4)
+        .expect("Could not construct threadpool");
 
     // Insert everything
     {
@@ -123,6 +123,8 @@ fn main() -> Result<(), Error> {
             HashMap::with_capacity(MSG_MEMORY),
         ));
         data.insert::<Guilds>(guilds);
+        data.insert::<DispatcherKey>(Arc::new(RwLock::new(dispatcher)));
+        data.insert::<BgListenerKey>(HashMap::new());
     }
 
     // ---------------

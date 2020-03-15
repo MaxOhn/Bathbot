@@ -35,8 +35,7 @@ fn allstreams(ctx: &mut Context, msg: &Message) -> CommandResult {
         .to_guild_cached(&ctx.cache)
         .unwrap_or_else(|| panic!("Guild {} not found in cache", guild_id))
         .read()
-        .icon_url()
-        .clone();
+        .icon_url();
     let users: HashMap<_, _> = presences
         .iter()
         .map(|p| (p.user_id, p.user_id.to_user(&ctx).unwrap().name))

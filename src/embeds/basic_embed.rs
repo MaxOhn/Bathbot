@@ -354,9 +354,9 @@ impl BasicEmbedData {
             let author_icon = format!("{}{}", AVATAR_URL, scores.get(0).unwrap().user_id);
             let mut mod_map = HashMap::new();
             let mut description = String::with_capacity(256);
+            let author_name = init_name.map_or_else(String::new, |n| n.to_lowercase());
             for (i, score) in scores.into_iter().enumerate() {
-                let found_author =
-                    init_name.is_some() && init_name.as_ref().unwrap() == &score.username;
+                let found_author = author_name == score.username.to_lowercase();
                 let mut username = String::with_capacity(32);
                 if found_author {
                     username.push_str("__");
