@@ -140,9 +140,9 @@ impl DBMap {
 #[table_name = "mapsets"]
 #[primary_key(beatmapset_id)]
 pub struct DBMapSet {
-    pub beatmapset_id: u32, // pub for debugging purposes
-    artist: String,
-    title: String,
+    pub beatmapset_id: u32,
+    pub artist: String,
+    pub title: String,
     creator_id: u32,
     creator: String,
     genre: u8,

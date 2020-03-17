@@ -4,8 +4,8 @@ use crate::{
     scraper::Scraper,
     streams::{Twitch, TwitchStream},
     structs::{
-        DispatchEvent, DispatcherKey, Guilds, OnlineTwitch, ReactionTracker, ResponseOwner,
-        SchedulerKey, StreamTracks,
+        BgGameKey, DispatchEvent, DispatcherKey, Guilds, OnlineTwitch, ReactionTracker,
+        ResponseOwner, SchedulerKey, StreamTracks,
     },
     util::{
         discord::get_member,
@@ -54,20 +54,31 @@ impl EventHandler for Handler {
 
     fn message(&self, ctx: Context, msg: Message) {
         if !msg.author.bot {
-            let dispatcher = {
-                let mut context = ctx.data.write();
-                context
-                    .get_mut::<DispatcherKey>()
-                    .expect("Could not get DispatcherKey")
-                    .clone()
+            if msg.content.starts_with('<') || msg.content.starts_with("!!") {
+                return;
+            }
+            let active_bg = {
+                let data = ctx.data.read();
+                data.get::<BgGameKey>()
+                    .expect("Could not get BgGameKey")
+                    .len()
             };
-            dispatcher
-                .write()
-                .dispatch_event(&DispatchEvent::BgMsgEvent {
-                    channel: msg.channel_id,
-                    user: msg.author.id,
-                    content: msg.content,
-                });
+            if active_bg > 0 {
+                let dispatcher = {
+                    let mut context = ctx.data.write();
+                    context
+                        .get_mut::<DispatcherKey>()
+                        .expect("Could not get DispatcherKey")
+                        .clone()
+                };
+                dispatcher
+                    .write()
+                    .dispatch_event(&DispatchEvent::BgMsgEvent {
+                        channel: msg.channel_id,
+                        user: msg.author.id,
+                        content: msg.content,
+                    });
+            }
         }
     }
 

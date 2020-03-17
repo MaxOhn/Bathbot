@@ -1,5 +1,5 @@
 use crate::{
-    commands::fun::BgListener,
+    commands::fun::BackGroundGame,
     database::{Guild as GuildDB, MySQL, StreamTrack},
     scraper::Scraper,
     streams::Twitch,
@@ -128,7 +128,7 @@ impl TypeMapKey for DispatcherKey {
     type Value = Arc<RwLock<Dispatcher<DispatchEvent>>>;
 }
 
-pub struct BgListenerKey;
-impl TypeMapKey for BgListenerKey {
-    type Value = HashMap<ChannelId, Arc<HlRwLock<BgListener>>>;
+pub struct BgGameKey;
+impl TypeMapKey for BgGameKey {
+    type Value = HashMap<ChannelId, Arc<HlRwLock<BackGroundGame>>>;
 }

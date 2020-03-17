@@ -124,7 +124,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ));
         data.insert::<Guilds>(guilds);
         data.insert::<DispatcherKey>(Arc::new(RwLock::new(dispatcher)));
-        data.insert::<BgListenerKey>(HashMap::new());
+        data.insert::<BgGameKey>(HashMap::new());
     }
 
     // ---------------
