@@ -464,7 +464,18 @@ impl EventHandler for Handler {
                     {
                         warn!("Could not delete message after owner's reaction: {}", why);
                     } else {
-                        info!("Deleted message upon owner's reaction");
+                        let name = reaction.channel_id.name(&ctx.cache);
+                        let user = reaction.user_id.to_user((&ctx.cache, &*ctx.http));
+                        if let Ok(user) = user {
+                            if let Some(channel_name) = name {
+                                info!(
+                                    "Deleted message from {} in channel {} after their reaction",
+                                    user.name, channel_name
+                                );
+                            }
+                        } else {
+                            info!("Deleted message upon owner's reaction");
+                        }
                     }
                 }
             }

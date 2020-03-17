@@ -39,8 +39,11 @@ In case you want to get the bot running yourself to either modify a custom insta
 
 ## Todos
 - Mixer stream tracking
+- Handle `<common` with the same names
 - Improve `<nc` by ignoring >5 misses (?)
+- Try rayon for performance improvement
+- Allow username provision via discord user mention
 - Numbered commands i.e. `<recent7`
   ### Commands
    - `<bg`
-   - `<reach`
+   - `<minesweeper`

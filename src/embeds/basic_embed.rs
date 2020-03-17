@@ -824,7 +824,7 @@ impl BasicEmbedData {
     ) -> Self {
         let mut result = Self::default();
         let (author_icon, author_url, author_text) = get_user_author(&user);
-        let country = country.unwrap_or_default();
+        let country = country.unwrap_or_else(|| '#'.to_string());
         let title = format!(
             "How many pp is {name} missing to reach rank {country}{rank}?",
             name = user.username,
