@@ -36,9 +36,17 @@ pub struct MapModArgs {
 impl MapModArgs {
     pub fn new(mut args: Args) -> Self {
         let args = arguments::first_n(&mut args, 2);
-        let mut iter = args.into_iter();
-        let map_id = iter.next().and_then(|arg| arguments::get_regex_id(&arg));
-        let mods = iter.next().and_then(|arg| arguments::parse_mods(&arg));
+        let mut map_id = None;
+        let mut mods = None;
+        for arg in args {
+            let maybe_map_id = arguments::get_regex_id(&arg);
+            let maybe_mods = maybe_map_id.map_or_else(|| arguments::parse_mods(&arg), |_| None);
+            if map_id.is_none() && maybe_map_id.is_some() {
+                map_id = maybe_map_id;
+            } else if mods.is_none() && maybe_mods.is_some() {
+                mods = maybe_mods;
+            }
+        }
         Self { map_id, mods }
     }
 }
