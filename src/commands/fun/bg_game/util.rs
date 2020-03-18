@@ -4,14 +4,19 @@ use rand::RngCore;
 use rosu::backend::BeatmapRequest;
 use serenity::prelude::{RwLock, ShareMap};
 use std::{
+    collections::VecDeque,
     fs,
     ops::{Index, IndexMut},
     path::PathBuf,
+    str::FromStr,
     sync::Arc,
 };
 use tokio::runtime::Runtime;
 
-pub fn get_random_filename(path: &PathBuf) -> Result<String, Error> {
+pub fn get_random_filename(
+    previous_ids: &mut VecDeque<u32>,
+    path: &PathBuf,
+) -> Result<String, Error> {
     let mut files: Vec<String> = Vec::new();
     let dir_entries = fs::read_dir(path)?;
     for entry in dir_entries {
@@ -23,10 +28,17 @@ pub fn get_random_filename(path: &PathBuf) -> Result<String, Error> {
     }
     let mut rng = rand::thread_rng();
     let len = files.len();
-    Ok(files
-        .into_iter()
-        .nth(rng.next_u32() as usize % len)
-        .unwrap())
+    loop {
+        let file = files.remove(rng.next_u32() as usize % len);
+        let id = u32::from_str(file.split(' ').next().unwrap()).unwrap();
+        if !previous_ids.contains(&id) {
+            previous_ids.push_front(id);
+            if previous_ids.len() > 50 {
+                previous_ids.pop_back();
+            }
+            return Ok(file);
+        }
+    }
 }
 
 pub fn get_title_artist(
