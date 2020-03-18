@@ -7,7 +7,7 @@ pub use game::BackGroundGame;
 use hints::Hints;
 use img_reveal::ImageReveal;
 
-use crate::{util::discord, BgGameKey, DispatchEvent, DispatcherKey, Error};
+use crate::{util::discord, BgGameKey, DispatchEvent, DispatcherKey, Error, MySQL};
 
 use hey_listen::RwLock;
 use serenity::{
@@ -25,16 +25,18 @@ Then you have to guess the **title** of the map's song.\n\
 With `<bg hint` I will give you some tips (repeatable).\n\
 With `<bg bigger` I will increase the size of the revealed part.\n\
 With `<bg resolve` I will show you the solution.\n\
-With `<bg stop` I will stop the game in this channel."]
+With `<bg stop` I will stop the game in this channel.\n\
+With `<bg stats` you can check on how many maps you guessed."]
 #[aliases("bg")]
-#[sub_commands("start", "hint", "bigger", "stop")]
+#[sub_commands("start", "hint", "bigger", "stop", "stats")]
 fn backgroundgame(ctx: &mut Context, msg: &Message) -> CommandResult {
     msg.channel_id.say(
         &ctx.http,
         "Use `<bg s` to (re)start the game, \
         `<bg b` to increase the image, \
         `<bg h` to get a hint, \
-        or `<bg stop` to stop the game",
+        `<bg stop` to stop the game, \
+        or `<bg stats` to check your correct guesses",
     )?;
     Ok(())
 }
@@ -121,13 +123,12 @@ fn hint(ctx: &mut Context, msg: &Message) -> CommandResult {
             .get(&msg.channel_id)
             .map(|game| game.write().hint())
     };
-    let response = if let Some(hint) = hint {
+    let _ = if let Some(hint) = hint {
         msg.channel_id.say(&ctx.http, hint)?
     } else {
         msg.channel_id
             .say(&ctx.http, "There is no running game in this channel")?
     };
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
     Ok(())
 }
 
@@ -150,5 +151,20 @@ fn bigger(ctx: &mut Context, msg: &Message) -> CommandResult {
         msg.channel_id
             .say(&ctx.http, "There is no running game in this channel")?;
     }
+    Ok(())
+}
+
+#[command]
+fn stats(ctx: &mut Context, msg: &Message) -> CommandResult {
+    let score = {
+        let data = ctx.data.read();
+        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        mysql.get_bggame_score(msg.author.id.0)?
+    };
+    let response = msg.reply(
+        (&ctx.cache, &*ctx.http),
+        format!("You've guessed {} backgrounds correctly!", score),
+    )?;
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
     Ok(())
 }

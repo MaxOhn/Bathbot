@@ -1,5 +1,5 @@
 use super::{util, Hints, ImageReveal};
-use crate::{DispatchEvent, Error};
+use crate::{DispatchEvent, Error, MySQL};
 
 use hey_listen::sync::{
     ParallelDispatcherRequest as DispatcherRequest, ParallelListener as Listener,
@@ -101,6 +101,11 @@ impl BackGroundGame {
         );
         if let Err(why) = self.resolve(Some(winner_msg)) {
             error!("Error while resolving game: {:?}", why);
+        }
+        {
+            let data = self.data.read();
+            let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+            let _ = mysql.increment_bggame_score(winner.0);
         }
         if let Err(why) = self.restart() {
             error!("Error while restarting game: {:?}", why);

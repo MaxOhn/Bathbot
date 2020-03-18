@@ -445,6 +445,31 @@ impl MySQL {
     // Table: manual_links
     // ------------------------
 
+    pub fn increment_bggame_score(&self, user: u64) -> DBResult<()> {
+        let conn = self.get_connection()?;
+        let query = format!(
+            "INSERT INTO bggame_stats(discord_id, score) values ({}, 1) \
+            on duplicate key update score = score + 1",
+            user
+        );
+        if let Err(why) = diesel::sql_query(query).execute(&conn) {
+            error!("Error while increment bggame score: {}", why);
+        }
+        Ok(())
+    }
+
+    pub fn get_bggame_score(&self, user: u64) -> Result<u32, Error> {
+        let conn = self.get_connection()?;
+        let data = schema::bggame_stats::table
+            .find(user)
+            .first::<(u64, u32)>(&conn)?;
+        Ok(data.1)
+    }
+
+    // ------------------------
+    // Table: manual_links
+    // ------------------------
+
     pub fn get_manual_links(&self) -> Result<HashMap<u64, String>, Error> {
         let conn = self.get_connection()?;
         let tuples = schema::manual_links::table.load::<(u64, String)>(&conn)?;

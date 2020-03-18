@@ -30,7 +30,7 @@ pub fn get_random_filename(
     let len = files.len();
     loop {
         let file = files.remove(rng.next_u32() as usize % len);
-        let id = u32::from_str(file.split(' ').next().unwrap()).unwrap();
+        let id = u32::from_str(file.split('.').next().unwrap()).unwrap();
         if !previous_ids.contains(&id) {
             previous_ids.push_front(id);
             if previous_ids.len() > 50 {

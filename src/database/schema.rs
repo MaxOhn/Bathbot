@@ -1,4 +1,11 @@
 table! {
+    bggame_stats (discord_id) {
+        discord_id -> Unsigned<Bigint>,
+        score -> Unsigned<Integer>,
+    }
+}
+
+table! {
     discord_users (discord_id) {
         discord_id -> Unsigned<Bigint>,
         osu_name -> Varchar,
@@ -120,6 +127,7 @@ joinable!(stars_mania_mods -> maps (beatmap_id));
 joinable!(stream_tracks -> twitch_users (user_id));
 
 allow_tables_to_appear_in_same_query!(
+    bggame_stats,
     discord_users,
     guilds,
     manual_links,
