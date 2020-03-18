@@ -11,7 +11,7 @@ use crate::{util::discord, BgGameKey, DispatchEvent, DispatcherKey, Error};
 
 use hey_listen::RwLock;
 use serenity::{
-    framework::standard::{macros::command, Args, CommandResult},
+    framework::standard::{macros::command, CommandResult},
     model::prelude::Message,
     prelude::Context,
 };
@@ -27,66 +27,73 @@ With `<bg bigger` I will increase the size of the revealed part.\n\
 With `<bg resolve` I will show you the solution.\n\
 With `<bg stop` I will stop the game in this channel."]
 #[aliases("bg")]
-#[sub_commands("start", "hint", "bigger", "resolve", "stop")]
-fn backgroundgame(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    start(ctx, msg, args)
+#[sub_commands("start", "hint", "bigger", "stop")]
+fn backgroundgame(ctx: &mut Context, msg: &Message) -> CommandResult {
+    msg.channel_id.say(
+        &ctx.http,
+        "Use `<bg s` to (re)start the game, \
+        `<bg b` to increase the image, \
+        `<bg h` to get a hint, \
+        or `<bg stop` to stop the game",
+    )?;
+    Ok(())
 }
 
 #[command]
-#[aliases("s")]
+#[aliases("s", "resolve", "r")]
 fn start(ctx: &mut Context, msg: &Message) -> CommandResult {
-    let game_running = {
+    let game_exists = {
         let data = ctx.data.read();
         data.get::<BgGameKey>()
             .expect("Could not get BgGameKey")
             .contains_key(&msg.channel_id)
     };
-    if game_running {
-        resolve_only(ctx, msg)?;
-    }
-    let game = BackGroundGame::new(ctx, msg.channel_id, Arc::clone(&ctx.http))?;
-    let game = Arc::new(RwLock::new(game));
-    let dispatcher = {
+    if !game_exists {
+        let game = BackGroundGame::new(ctx, msg.channel_id);
+        let game = Arc::new(RwLock::new(game));
         let mut data = ctx.data.write();
-        let games = data
-            .get_mut::<BgGameKey>()
-            .expect("Could not get BgGameKey");
-        games.insert(msg.channel_id, Arc::clone(&game));
-        data.get_mut::<DispatcherKey>()
+        data.get_mut::<BgGameKey>()
+            .expect("Could not get BgGameKey")
+            .insert(msg.channel_id, Arc::clone(&game));
+        let dispatcher = data
+            .get_mut::<DispatcherKey>()
             .expect("Could not get DispatcherKey")
+            .clone();
+        dispatcher.write().add_listener(
+            DispatchEvent::BgMsgEvent {
+                channel: msg.channel_id,
+                user: msg.author.id,    // irrelevant
+                content: String::new(), // irrelevant
+            },
+            &game,
+        );
+    }
+    let game = {
+        let mut data = ctx.data.write();
+        data.get_mut::<BgGameKey>()
+            .expect("Could not get BgGamekey")
+            .get(&msg.channel_id)
+            .unwrap()
             .clone()
     };
-    dispatcher.write().add_listener(
-        DispatchEvent::BgMsgEvent {
-            channel: msg.channel_id,
-            user: msg.author.id,    // irrelevant
-            content: String::new(), // irrelevant
-        },
-        &game,
-    );
-    let img = game.read().sub_image()?;
-    let response = msg.channel_id.send_message(&ctx.http, |m| {
-        let bytes: &[u8] = &img;
-        m.content("Here's the next one:")
-            .add_file((bytes, "bg_img.png"))
-    })?;
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+    game.write().restart()?;
     Ok(())
 }
 
 #[command]
 fn stop(ctx: &mut Context, msg: &Message) -> CommandResult {
     let removing = {
-        let present = {
-            let data = ctx.data.read();
-            data.get::<BgGameKey>()
-                .expect("Could not get BgGameKey")
-                .contains_key(&msg.channel_id)
-        };
-        if present {
-            resolve_only(ctx, msg)?;
+        let mut data = ctx.data.write();
+        let game = data
+            .get_mut::<BgGameKey>()
+            .expect("Could not get BgGameKey")
+            .get_mut(&msg.channel_id);
+        if let Some(game) = game {
+            game.write().resolve(None)?;
+            true
+        } else {
+            false
         }
-        present
     };
     if removing {
         let mut data = ctx.data.write();
@@ -94,14 +101,13 @@ fn stop(ctx: &mut Context, msg: &Message) -> CommandResult {
             .expect("Could not get BgGameKey")
             .remove(&msg.channel_id);
     };
-    let response = if removing {
+    if removing {
         msg.channel_id
-            .say(&ctx.http, "End of game, see you next time o/")?
+            .say(&ctx.http, "End of game, see you next time o/")?;
     } else {
         msg.channel_id
-            .say(&ctx.http, "There was no running game in this channel")?
-    };
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+            .say(&ctx.http, "There was no running game in this channel")?;
+    }
     Ok(())
 }
 
@@ -128,98 +134,21 @@ fn hint(ctx: &mut Context, msg: &Message) -> CommandResult {
 #[command]
 #[aliases("b", "enhance")]
 fn bigger(ctx: &mut Context, msg: &Message) -> CommandResult {
-    let increased_radius = {
+    let img: Option<Result<Vec<u8>, Error>> = {
         let mut data = ctx.data.write();
         data.get_mut::<BgGameKey>()
             .expect("Could not get BgGameKey")
-            .get(&msg.channel_id)
-            .map(|game| {
-                game.write().increase_radius();
-                true
-            })
-            .is_some()
+            .get_mut(&msg.channel_id)
+            .map(|game| game.write().increase_sub_image())
     };
-    let response = if increased_radius {
-        let img: Option<Result<Vec<u8>, Error>> = {
-            let data = ctx.data.read();
-            data.get::<BgGameKey>()
-                .expect("Could not get BgGameKey")
-                .get(&msg.channel_id)
-                .map(|game| game.read().sub_image())
-        };
-        if let Some(Ok(img)) = img {
-            Some(msg.channel_id.send_message(&ctx.http, |m| {
-                let bytes: &[u8] = &img;
-                m.add_file((bytes, "bg_img.png"))
-            })?)
-        } else {
-            None
-        }
+    if let Some(Ok(img)) = img {
+        msg.channel_id.send_message(&ctx.http, |m| {
+            let bytes: &[u8] = &img;
+            m.add_file((bytes, "bg_img.png"))
+        })?;
     } else {
-        Some(
-            msg.channel_id
-                .say(&ctx.http, "There is no running game in this channel")?,
-        )
-    };
-    if let Some(response) = response {
-        discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
-    }
-    Ok(())
-}
-
-#[command]
-#[aliases("solve", "r")]
-fn resolve(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    resolve_only(ctx, msg)?;
-    start(ctx, msg, args)
-}
-
-fn resolve_only(ctx: &mut Context, msg: &Message) -> CommandResult {
-    let game_running = {
-        let data = ctx.data.read();
-        data.get::<BgGameKey>()
-            .expect("Could not get BgGameKey")
-            .contains_key(&msg.channel_id)
-    };
-    let response = if game_running {
-        let result: Option<(Vec<u8>, u32)> = {
-            let data = ctx.data.read();
-            if let Some(game) = data
-                .get::<BgGameKey>()
-                .expect("Could not get BgGameKey")
-                .get(&msg.channel_id)
-            {
-                let game = game.read();
-                Some((game.reveal()?, game.mapset_id))
-            } else {
-                None
-            }
-        };
-        {
-            let mut data = ctx.data.write();
-            data.get_mut::<BgGameKey>()
-                .expect("Could not get BgGameKey")
-                .remove(&msg.channel_id);
-        }
-        if let Some((img, mapset_id)) = result {
-            Some(msg.channel_id.send_message(&ctx.http, |m| {
-                let bytes: &[u8] = &img;
-                m.add_file((bytes, "bg_img.png")).content(format!(
-                    "Full background: https://osu.ppy.sh/beatmapsets/{}",
-                    mapset_id
-                ))
-            })?)
-        } else {
-            None
-        }
-    } else {
-        Some(
-            msg.channel_id
-                .say(&ctx.http, "There is no running game in this channel")?,
-        )
-    };
-    if let Some(response) = response {
-        discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+        msg.channel_id
+            .say(&ctx.http, "There is no running game in this channel")?;
     }
     Ok(())
 }

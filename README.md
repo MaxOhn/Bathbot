@@ -40,6 +40,9 @@ In case you want to get the bot running yourself to either modify a custom insta
 ## Todos
 - Mixer stream tracking
 - Improve `<nc` by ignoring >5 misses (?)
+- Add VecDeque for previous bg maps
+- Add scheduled end for bg
+- Add user score for bg game
 - Numbered commands i.e. `<recent7`
   ### Commands
-   - `<bg`
+   - None as of now

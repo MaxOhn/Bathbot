@@ -52,3 +52,15 @@ impl ImageReveal {
         Ok(png_bytes)
     }
 }
+
+impl Default for ImageReveal {
+    fn default() -> Self {
+        let original = DynamicImage::new_rgba8(1, 1);
+        Self {
+            original,
+            x: 0,
+            y: 0,
+            radius: 0,
+        }
+    }
+}

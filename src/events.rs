@@ -76,7 +76,7 @@ impl EventHandler for Handler {
                     .dispatch_event(&DispatchEvent::BgMsgEvent {
                         channel: msg.channel_id,
                         user: msg.author.id,
-                        content: msg.content,
+                        content: msg.content.to_lowercase(),
                     });
             }
         }

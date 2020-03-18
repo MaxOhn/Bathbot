@@ -1,5 +1,6 @@
 use rand::seq::SliceRandom;
 
+#[derive(Default)]
 pub struct Hints {
     hint_level: u8,
     title_mask: Vec<bool>,

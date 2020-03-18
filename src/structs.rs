@@ -91,7 +91,7 @@ impl TypeMapKey for Guilds {
     type Value = HashMap<GuildId, GuildDB>;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum DispatchEvent {
     BgMsgEvent {
         channel: ChannelId,
