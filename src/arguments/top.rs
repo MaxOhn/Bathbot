@@ -9,6 +9,7 @@ pub struct TopArgs {
     pub acc: Option<f32>,
     pub combo: Option<u32>,
     pub grade: Option<Grade>,
+    pub reverse: bool,
 }
 
 impl TopArgs {
@@ -18,6 +19,7 @@ impl TopArgs {
         let combo = arguments::combo(&mut args)?;
         let grade = arguments::grade(&mut args)?;
         let mods = arguments::mods(&mut args);
+        let reverse = arguments::keywords(&mut args, &["-rev", "-reverse", "-last"]);
         let name = args.into_iter().rev().next();
         Ok(Self {
             name,
@@ -25,6 +27,7 @@ impl TopArgs {
             acc,
             combo,
             grade,
+            reverse,
         })
     }
 }

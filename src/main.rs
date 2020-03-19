@@ -44,7 +44,7 @@ use tokio::runtime::Runtime;
 use white_rabbit::Scheduler;
 
 pub const WITH_STREAM_TRACK: bool = false;
-pub const WITH_SCRAPER: bool = true;
+pub const WITH_SCRAPER: bool = false;
 pub const WITH_CUSTOM_EVENTS: bool = false;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

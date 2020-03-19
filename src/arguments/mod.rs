@@ -237,3 +237,13 @@ fn miss(args: &mut Vec<String>) -> Result<Option<u32>, String> {
         Ok(None)
     }
 }
+
+fn keywords(args: &mut Vec<String>, keys: &[&str]) -> bool {
+    for (i, arg) in args.iter().enumerate() {
+        if keys.contains(&arg.as_str()) {
+            args.remove(i);
+            return true;
+        }
+    }
+    false
+}

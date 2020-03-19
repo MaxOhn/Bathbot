@@ -55,6 +55,11 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
         }
         _ => args.names,
     };
+    if names.iter().collect::<HashSet<_>>().len() == 1 {
+        msg.channel_id
+            .say(&ctx.http, "Give at least two different names.")?;
+        return Ok(());
+    }
     let mut rt = Runtime::new().unwrap();
 
     // Retrieve all users and their top scores
