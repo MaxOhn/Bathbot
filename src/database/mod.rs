@@ -1,8 +1,8 @@
 mod models;
 mod schema;
 
-use models::{DBMap, DBMapSet, GuildDB, ManiaPP, MapSplit, StreamTrackDB};
-pub use models::{Guild, Platform, StreamTrack, TwitchUser};
+use models::{DBMap, GuildDB, ManiaPP, MapSplit, StreamTrackDB};
+pub use models::{DBMapSet, Guild, Platform, StreamTrack, TwitchUser};
 
 use crate::util::{globals::AUTHORITY_ROLES, Error};
 use chrono::{DateTime, NaiveDateTime, Utc};
@@ -49,6 +49,13 @@ impl MySQL {
             .find(map.beatmapset_id)
             .first::<DBMapSet>(&conn)?;
         Ok(map.into_beatmap(mapset))
+    }
+
+    pub fn get_beatmapset(&self, mapset_id: u32) -> DBResult<DBMapSet> {
+        use schema::mapsets;
+        let conn = self.get_connection()?;
+        let mapset = mapsets::table.find(mapset_id).first::<DBMapSet>(&conn)?;
+        Ok(mapset)
     }
 
     pub fn get_beatmaps(&self, map_ids: &[u32]) -> DBResult<HashMap<u32, Beatmap>> {
@@ -432,6 +439,31 @@ impl MySQL {
         diesel::delete(unchecked_members::table.filter(user_id.eq(user))).execute(&conn)?;
         info!("Removed unchecked member {} from database", user);
         Ok(())
+    }
+
+    // ------------------------
+    // Table: manual_links
+    // ------------------------
+
+    pub fn increment_bggame_score(&self, user: u64) -> DBResult<()> {
+        let conn = self.get_connection()?;
+        let query = format!(
+            "INSERT INTO bggame_stats(discord_id, score) values ({}, 1) \
+            on duplicate key update score = score + 1",
+            user
+        );
+        if let Err(why) = diesel::sql_query(query).execute(&conn) {
+            error!("Error while increment bggame score: {}", why);
+        }
+        Ok(())
+    }
+
+    pub fn get_bggame_score(&self, user: u64) -> Result<u32, Error> {
+        let conn = self.get_connection()?;
+        let data = schema::bggame_stats::table
+            .find(user)
+            .first::<(u64, u32)>(&conn)?;
+        Ok(data.1)
     }
 
     // ------------------------

@@ -171,13 +171,13 @@ impl PPProvider {
                             mysql.update_mania_stars_map(
                                 map.beatmap_id,
                                 &score.enabled_mods,
-                                max_pp,
+                                stars,
                             )?;
                         } else {
                             mysql.insert_mania_stars_map(
                                 map.beatmap_id,
                                 &score.enabled_mods,
-                                max_pp,
+                                stars,
                             )?;
                         }
                     }

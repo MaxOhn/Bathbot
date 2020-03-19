@@ -1,0 +1,4 @@
+CREATE TABLE bggame_stats (
+    discord_id BIGINT UNSIGNED PRIMARY KEY,
+    score INT UNSIGNED NOT NULL
+)

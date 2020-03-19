@@ -8,7 +8,7 @@ use crate::util::{
     Error,
 };
 
-use rosu::models::{Beatmap, GameMode, Score, User};
+use rosu::models::{Beatmap, GameMode, Grade, Score, User};
 use serenity::{builder::CreateEmbed, prelude::Context, utils::Colour};
 
 pub struct RecentData {
@@ -164,7 +164,13 @@ impl RecentData {
             },
             util::get_hits(&score, map.mode),
         );
-        let if_fc = if map.mode == GameMode::STD && score.max_combo < map.max_combo.unwrap() {
+        let got_s = match score.grade {
+            Grade::S | Grade::SH | Grade::X | Grade::XH => true,
+            _ => false,
+        };
+        let if_fc = if map.mode == GameMode::STD
+            && (!got_s || score.max_combo < map.max_combo.unwrap() - 5)
+        {
             let mut unchoked = score.clone();
             osu::unchoke_score(&mut unchoked, &map);
             if let Err(why) = pp_provider.recalculate(&unchoked, GameMode::STD) {

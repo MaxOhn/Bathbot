@@ -68,7 +68,11 @@ fn leaderboard_send(national: bool, ctx: &mut Context, msg: &Message, args: Args
                         None => {
                             msg.channel_id.say(
                                 &ctx.http,
-                                format!("Could not find beatmap with id `{}`. Did you give me a mapset id instead of a map id?", map_id),
+                                format!(
+                                    "Could not find beatmap with id `{}`. \
+                                Did you give me a mapset id instead of a map id?",
+                                    map_id
+                                ),
                             )?;
                             return Ok(());
                         }

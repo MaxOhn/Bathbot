@@ -3,7 +3,10 @@ use crate::{
     embeds::BasicEmbedData,
     scraper::Scraper,
     streams::{Twitch, TwitchStream},
-    structs::{Guilds, OnlineTwitch, ReactionTracker, ResponseOwner, SchedulerKey, StreamTracks},
+    structs::{
+        BgGameKey, DispatchEvent, DispatcherKey, Guilds, OnlineTwitch, ReactionTracker,
+        ResponseOwner, SchedulerKey, StreamTracks,
+    },
     util::{
         discord::get_member,
         globals::{MAIN_GUILD_ID, TOP_ROLE_ID, UNCHECKED_ROLE_ID, WELCOME_CHANNEL},
@@ -16,7 +19,7 @@ use log::{error, info};
 use rosu::models::GameMode;
 use serenity::{
     model::{
-        channel::{Reaction, ReactionType},
+        channel::{Message, Reaction, ReactionType},
         event::ResumedEvent,
         gateway::{Activity, Ready},
         guild::{Guild, Member},
@@ -47,6 +50,36 @@ impl EventHandler for Handler {
 
     fn resume(&self, _: Context, _: ResumedEvent) {
         info!("Resumed connection");
+    }
+
+    fn message(&self, ctx: Context, msg: Message) {
+        if !msg.author.bot {
+            if msg.content.starts_with('<') || msg.content.starts_with("!!") {
+                return;
+            }
+            let active_bg = {
+                let data = ctx.data.read();
+                data.get::<BgGameKey>()
+                    .expect("Could not get BgGameKey")
+                    .len()
+            };
+            if active_bg > 0 {
+                let dispatcher = {
+                    let mut context = ctx.data.write();
+                    context
+                        .get_mut::<DispatcherKey>()
+                        .expect("Could not get DispatcherKey")
+                        .clone()
+                };
+                dispatcher
+                    .write()
+                    .dispatch_event(&DispatchEvent::BgMsgEvent {
+                        channel: msg.channel_id,
+                        user: msg.author.id,
+                        content: msg.content.to_lowercase(),
+                    });
+            }
+        }
     }
 
     fn guild_create(&self, ctx: Context, guild: Guild, is_new: bool) {
