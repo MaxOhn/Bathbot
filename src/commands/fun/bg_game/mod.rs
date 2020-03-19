@@ -12,8 +12,9 @@ use crate::{util::discord, BgGameKey, DispatchEvent, DispatcherKey, Error, MySQL
 use hey_listen::RwLock;
 use serenity::{
     framework::standard::{macros::command, CommandResult},
-    model::prelude::Message,
-    prelude::Context,
+    http::client::Http,
+    model::{id::ChannelId, prelude::Message},
+    prelude::{Context, RwLock as SRwLock, ShareMap},
 };
 use std::sync::Arc;
 
@@ -84,31 +85,35 @@ fn start(ctx: &mut Context, msg: &Message) -> CommandResult {
 
 #[command]
 fn stop(ctx: &mut Context, msg: &Message) -> CommandResult {
+    _stop(
+        &Arc::clone(&ctx.data),
+        &Arc::clone(&ctx.http),
+        msg.channel_id,
+    )
+}
+
+fn _stop(data: &Arc<SRwLock<ShareMap>>, http: &Arc<Http>, channel: ChannelId) -> CommandResult {
     let removing = {
-        let mut data = ctx.data.write();
+        let data = data.read();
         let game = data
-            .get_mut::<BgGameKey>()
+            .get::<BgGameKey>()
             .expect("Could not get BgGameKey")
-            .get_mut(&msg.channel_id);
+            .get(&channel);
         if let Some(game) = game {
-            game.write().resolve(None)?;
-            true
-        } else {
-            false
+            game.read().resolve(None)?;
         }
+        game.is_some()
     };
     if removing {
-        let mut data = ctx.data.write();
+        let mut data = data.write();
         data.get_mut::<BgGameKey>()
             .expect("Could not get BgGameKey")
-            .remove(&msg.channel_id);
+            .remove(&channel);
     };
     if removing {
-        msg.channel_id
-            .say(&ctx.http, "End of game, see you next time o/")?;
+        channel.say(&http, "End of game, see you next time o/")?;
     } else {
-        msg.channel_id
-            .say(&ctx.http, "There was no running game in this channel")?;
+        channel.say(&http, "There was no running game in this channel")?;
     }
     Ok(())
 }

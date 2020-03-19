@@ -13,11 +13,13 @@ use serenity::{
     prelude::{Context, RwLock as SRwLock, ShareMap},
 };
 use std::{collections::VecDeque, env, fs, path::PathBuf, str::FromStr, sync::Arc};
+use white_rabbit::{DateResult, Duration, Scheduler};
 
 pub struct BackGroundGame {
     game: GameData,
     previous_ids: VecDeque<u32>,
     channel: ChannelId,
+    scheduler: Option<Scheduler>,
     http: Arc<Http>,
     data: Arc<SRwLock<ShareMap>>,
     cache: CacheRwLock,
@@ -29,6 +31,7 @@ impl BackGroundGame {
             game: GameData::default(),
             previous_ids: VecDeque::with_capacity(10),
             channel,
+            scheduler: None,
             http: Arc::clone(&ctx.http),
             data: Arc::clone(&ctx.data),
             cache: ctx.cache.clone(),
@@ -44,11 +47,13 @@ impl BackGroundGame {
             m.content("Here's the next one:")
                 .add_file((bytes, "bg_img.png"))
         })?;
+        self.add_deadline();
         Ok(())
     }
 
     pub fn increase_sub_image(&mut self) -> Result<Vec<u8>, Error> {
         self.game.reveal.increase_radius();
+        self.add_deadline();
         self.game.reveal.sub_image()
     }
 
@@ -57,10 +62,11 @@ impl BackGroundGame {
     }
 
     pub fn hint(&mut self) -> String {
+        self.add_deadline();
         self.game.hints.get(&self.game.title, &self.game.artist)
     }
 
-    pub fn resolve(&mut self, winner_msg: Option<String>) -> CommandResult {
+    pub fn resolve(&self, winner_msg: Option<String>) -> CommandResult {
         if self.game.mapset_id == 0 {
             return Ok(());
         };
@@ -71,7 +77,6 @@ impl BackGroundGame {
             )
         });
         let bytes: &[u8] = &self.reveal()?;
-        self.game.mapset_id = 0;
         let _ = self.channel.send_message(&self.http, |m| {
             m.add_file((bytes, "bg_img.png")).content(content)
         })?;
@@ -102,6 +107,7 @@ impl BackGroundGame {
         if let Err(why) = self.resolve(Some(winner_msg)) {
             error!("Error while resolving game: {:?}", why);
         }
+        self.game.mapset_id = 0;
         {
             let data = self.data.read();
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
@@ -111,6 +117,18 @@ impl BackGroundGame {
             error!("Error while restarting game: {:?}", why);
         }
         None
+    }
+
+    fn add_deadline(&mut self) {
+        let mut scheduler = Scheduler::new(1);
+        let data = Arc::clone(&self.data);
+        let http = Arc::clone(&self.http);
+        let channel = self.channel;
+        scheduler.add_task_duration(Duration::minutes(3), move |_| {
+            let _ = super::_stop(&data, &http, channel);
+            DateResult::Done
+        });
+        self.scheduler = Some(scheduler);
     }
 }
 
