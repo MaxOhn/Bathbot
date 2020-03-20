@@ -17,6 +17,7 @@ use white_rabbit::{DateResult, Duration, Scheduler};
 
 pub struct BackGroundGame {
     game: GameData,
+    osu_std: bool,
     previous_ids: VecDeque<u32>,
     channel: ChannelId,
     scheduler: Option<Scheduler>,
@@ -26,9 +27,10 @@ pub struct BackGroundGame {
 }
 
 impl BackGroundGame {
-    pub fn new(ctx: &Context, channel: ChannelId) -> Self {
+    pub fn new(ctx: &Context, channel: ChannelId, osu_std: bool) -> Self {
         Self {
             game: GameData::default(),
+            osu_std,
             previous_ids: VecDeque::with_capacity(10),
             channel,
             scheduler: None,
@@ -40,7 +42,7 @@ impl BackGroundGame {
 
     pub fn restart(&mut self) -> CommandResult {
         self.resolve(None)?;
-        self.game = GameData::new(Arc::clone(&self.data), &mut self.previous_ids)?;
+        self.game = GameData::new(Arc::clone(&self.data), &mut self.previous_ids, self.osu_std)?;
         let img = self.game.reveal.sub_image()?;
         self.channel.send_message(&self.http, |m| {
             let bytes: &[u8] = &img;
@@ -207,8 +209,15 @@ struct GameData {
 }
 
 impl GameData {
-    fn new(data: Arc<SRwLock<ShareMap>>, previous_ids: &mut VecDeque<u32>) -> Result<Self, Error> {
+    fn new(
+        data: Arc<SRwLock<ShareMap>>,
+        previous_ids: &mut VecDeque<u32>,
+        osu_std: bool,
+    ) -> Result<Self, Error> {
         let mut path = PathBuf::from(env::var("BG_PATH")?);
+        if !osu_std {
+            path.push("mania");
+        }
         let file_name = util::get_random_filename(previous_ids, &path)?;
         let mut split = file_name.split('.');
         let mapset_id = u32::from_str(split.next().unwrap()).unwrap();

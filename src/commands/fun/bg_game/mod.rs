@@ -10,6 +10,7 @@ use img_reveal::ImageReveal;
 use crate::{util::discord, BgGameKey, DispatchEvent, DispatcherKey, Error, MySQL};
 
 use hey_listen::RwLock;
+use rosu::models::GameMode;
 use serenity::{
     framework::standard::{macros::command, CommandResult},
     http::client::Http,
@@ -19,7 +20,7 @@ use serenity::{
 use std::sync::Arc;
 
 #[command]
-#[description = "Play the background game!\
+#[description = "Play the background game!\n\
 With `<bg start` you can start the game in a channel \
 which makes me post a piece of some map's background. \
 Then you have to guess the **title** of the map's song.\n\
@@ -27,7 +28,9 @@ With `<bg hint` I will give you some tips (repeatable).\n\
 With `<bg bigger` I will increase the size of the revealed part.\n\
 With `<bg resolve` I will show you the solution.\n\
 With `<bg stop` I will stop the game in this channel.\n\
-With `<bg stats` you can check on how many maps you guessed."]
+With `<bg stats` you can check on how many maps you guessed.\n\
+Subcommands can be abbreviated with `s, h, b, r`, e.g. `<bg h` for hints.\n\
+With `<bg start mania` (`<bg s m`) I will give mania backgrounds to guess."]
 #[aliases("bg")]
 #[sub_commands("start", "hint", "bigger", "stop", "stats")]
 fn backgroundgame(ctx: &mut Context, msg: &Message) -> CommandResult {
@@ -37,14 +40,27 @@ fn backgroundgame(ctx: &mut Context, msg: &Message) -> CommandResult {
         `<bg b` to increase the image, \
         `<bg h` to get a hint, \
         `<bg stop` to stop the game, \
-        or `<bg stats` to check your correct guesses",
+        or `<bg stats` to check your correct guesses.\n\
+        For mania backgrounds use `<bg start mania` (`<bg s m`) instead of `<bg start`, \
+        everything else stays the same",
     )?;
     Ok(())
 }
 
 #[command]
 #[aliases("s", "resolve", "r")]
+#[sub_commands("mania")]
 fn start(ctx: &mut Context, msg: &Message) -> CommandResult {
+    _start(GameMode::STD, ctx, msg)
+}
+
+#[command]
+#[aliases("m")]
+fn mania(ctx: &mut Context, msg: &Message) -> CommandResult {
+    _start(GameMode::MNA, ctx, msg)
+}
+
+fn _start(mode: GameMode, ctx: &mut Context, msg: &Message) -> CommandResult {
     let game_exists = {
         let data = ctx.data.read();
         data.get::<BgGameKey>()
@@ -52,7 +68,7 @@ fn start(ctx: &mut Context, msg: &Message) -> CommandResult {
             .contains_key(&msg.channel_id)
     };
     if !game_exists {
-        let game = BackGroundGame::new(ctx, msg.channel_id);
+        let game = BackGroundGame::new(ctx, msg.channel_id, mode == GameMode::STD);
         let game = Arc::new(RwLock::new(game));
         let mut data = ctx.data.write();
         data.get_mut::<BgGameKey>()
