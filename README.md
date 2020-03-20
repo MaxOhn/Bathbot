@@ -1,9 +1,11 @@
 # Bathbot
 Fully fledged discord bot with functionalities all around [osu!](https://osu.ppy.sh/home), aswell as some general utility and stream tracking.
+
 With the bot's osu! commands you can
 - check recent plays (`<r`)
+- a background guessing game (`<bg`)
 - display the personal topscores (with specified min acc, combo, or grade) (`<top`)
-- compare your scores with a previously embedded score in the channel (`<c`)
+- show you best score with each mod combination on a map (`<scores`)
 - compare top scores between players (`<common`)
 - check the global or even belgian leaderboards of maps (`<glb`, `<lb`)
 - calculate a performance rating for players of a multiplayer match (`<mc`) credits to [dain98](https://github.com/dain98/Minccino)
@@ -44,4 +46,4 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Allow username provision via discord user mention
 - Numbered commands i.e. `<recent7`
   ### Commands
-   - `<minesweeper`
+   - None as of now

@@ -1,16 +1,9 @@
-use crate::{Error, MySQL, Osu};
+use crate::{util::Matrix, Error, MySQL, Osu};
 
 use rand::RngCore;
 use rosu::backend::BeatmapRequest;
 use serenity::prelude::{RwLock, ShareMap};
-use std::{
-    collections::VecDeque,
-    fs,
-    ops::{Index, IndexMut},
-    path::PathBuf,
-    str::FromStr,
-    sync::Arc,
-};
+use std::{collections::VecDeque, fs, path::PathBuf, str::FromStr, sync::Arc};
 use tokio::runtime::Runtime;
 
 pub fn get_random_filename(
@@ -87,7 +80,7 @@ fn levenshtein_distance(word_a: &str, word_b: &str) -> usize {
     } else if len_b == 0 {
         return len_a;
     }
-    let mut matrix = Matrix::new(len_b + 1, len_a + 1);
+    let mut matrix: Matrix<usize> = Matrix::new(len_b + 1, len_a + 1);
     for x in 0..len_a {
         matrix[(x + 1, 0)] = matrix[(x, 0)] + 1;
     }
@@ -102,32 +95,4 @@ fn levenshtein_distance(word_a: &str, word_b: &str) -> usize {
         }
     }
     matrix[(len_a, len_b)]
-}
-
-struct Matrix {
-    vec: Vec<usize>,
-    width: usize,
-}
-
-impl Matrix {
-    fn new(columns: usize, rows: usize) -> Matrix {
-        Matrix {
-            vec: vec![0; columns * rows],
-            width: rows,
-        }
-    }
-}
-
-impl Index<(usize, usize)> for Matrix {
-    type Output = usize;
-
-    fn index(&self, matrix_entry: (usize, usize)) -> &usize {
-        &self.vec[matrix_entry.1 * self.width + matrix_entry.0]
-    }
-}
-
-impl IndexMut<(usize, usize)> for Matrix {
-    fn index_mut(&mut self, matrix_entry: (usize, usize)) -> &mut usize {
-        &mut self.vec[matrix_entry.1 * self.width + matrix_entry.0]
-    }
 }
