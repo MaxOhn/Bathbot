@@ -136,7 +136,6 @@ impl Listener<DispatchEvent> for BackGroundGame {
     fn on_event(&mut self, event: &DispatchEvent) -> Option<DispatcherRequest> {
         match event {
             DispatchEvent::BgMsgEvent { user, content, .. } => {
-                println!("> Content: {}", content);
                 // Guessed the title exactly?
                 if content == &self.game.title {
                     return self.process_winner(*user, true);

@@ -15,7 +15,7 @@ use serenity::{
     model::{misc::Mentionable, prelude::Message},
     prelude::Context,
 };
-use std::{collections::HashMap, error::Error as StdError};
+use std::collections::HashMap;
 use tokio::runtime::Runtime;
 
 #[command]
@@ -147,7 +147,7 @@ fn nochokes(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                 &ctx.http,
                 "Some issue while calculating nochoke data, blame bade",
             )?;
-            return Err(CommandError::from(why.description()));
+            return Err(CommandError::from(why.to_string()));
         }
     };
 

@@ -44,4 +44,4 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Allow username provision via discord user mention
 - Numbered commands i.e. `<recent7`
   ### Commands
-   - `<minesweeper`
+   - None as of now

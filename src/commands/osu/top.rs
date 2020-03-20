@@ -117,14 +117,14 @@ fn top_send(
             acc_bool && s.max_combo >= combo
         })
         .collect();
-    if reverse {
-        scores_indices = scores_indices.into_iter().rev().collect();
-    }
     let mut amount = scores_indices.len();
     if top_type != TopType::Sotarks {
         if top_type == TopType::Recent {
             scores_indices.sort_by(|(_, a), (_, b)| b.date.cmp(&a.date));
             amount = scores_indices.len().min(5);
+        }
+        if reverse {
+            scores_indices = scores_indices.into_iter().rev().collect();
         }
         scores_indices = scores_indices[..amount.min(5)].to_vec();
     }
