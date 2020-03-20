@@ -1,6 +1,7 @@
 use crate::{util::Matrix, Error, MySQL, Osu};
 
 use rand::RngCore;
+use rayon::prelude::*;
 use rosu::backend::BeatmapRequest;
 use serenity::prelude::{RwLock, ShareMap};
 use std::{collections::VecDeque, fs, path::PathBuf, str::FromStr, sync::Arc};
@@ -10,15 +11,22 @@ pub fn get_random_filename(
     previous_ids: &mut VecDeque<u32>,
     path: &PathBuf,
 ) -> Result<String, Error> {
-    let mut files: Vec<String> = Vec::new();
-    let dir_entries = fs::read_dir(path)?;
-    for entry in dir_entries {
-        if let Ok(entry) = entry {
-            if let Ok(true) = entry.file_type().map(|ft| ft.is_file()) {
-                files.push(entry.file_name().into_string().unwrap());
+    let mut files: Vec<String> = fs::read_dir(path)?
+        .into_iter()
+        .collect::<Vec<_>>()
+        .into_par_iter()
+        .map(|entry| {
+            // consider only files and no directories
+            if let Ok(entry) = entry {
+                if let Ok(true) = entry.file_type().map(|ft| ft.is_file()) {
+                    return Some(entry.file_name().into_string().unwrap());
+                }
             }
-        }
-    }
+            None
+        })
+        .filter(|entry| entry.is_some())
+        .map(|entry| entry.unwrap())
+        .collect();
     let mut rng = rand::thread_rng();
     let len = files.len();
     loop {

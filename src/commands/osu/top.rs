@@ -6,6 +6,7 @@ use crate::{
     DiscordLinks, Osu,
 };
 
+use rayon::prelude::*;
 use rosu::{
     backend::requests::UserRequest,
     models::{Beatmap, GameMode, GameMods, Score, User},
@@ -92,7 +93,7 @@ fn top_send(
 
     // Filter scores according to mods, combo, acc, and grade
     let mut scores_indices: Vec<(usize, Score)> = scores
-        .into_iter()
+        .into_par_iter()
         .enumerate()
         .filter(|(_, s)| {
             if let Some(grade) = grade {

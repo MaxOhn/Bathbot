@@ -6,6 +6,7 @@ use crate::{
     DiscordLinks, Osu,
 };
 
+use rayon::prelude::*;
 use rosu::{
     backend::requests::UserRequest,
     models::{Beatmap, GameMode, Score, User},
@@ -115,7 +116,7 @@ fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) ->
             } else {
                 Some(
                     score_maps
-                        .iter()
+                        .par_iter()
                         .enumerate()
                         .filter(|(i, _)| missing_indices.contains(i))
                         .map(|(_, (_, map))| map.clone())

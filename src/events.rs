@@ -16,6 +16,7 @@ use crate::{
 
 use chrono::{Duration as ChronoDur, Utc};
 use log::{error, info};
+use rayon::prelude::*;
 use rosu::models::GameMode;
 use serenity::{
     model::{
@@ -307,7 +308,7 @@ impl EventHandler for Handler {
                             Vec::new()
                         });
                         // Check all guild's members
-                        for mut member in members {
+                        members.into_par_iter().for_each(|mut member| {
                             let name = links.get(&member.user_id().0);
                             // If name is contained in manual links
                             if let Some(osu_name) = name {
@@ -338,10 +339,11 @@ impl EventHandler for Handler {
                                     }
                                 }
                             }
-                        }
+                        });
                     }
                     Err(why) => warn!("Could not get manual links from database: {}", why),
                 }
+                info!("Handled unchecked members and top role distribution");
                 DateResult::Repeat(UtcWR::now() + Duration::days(track_delay))
             });
         }
@@ -422,7 +424,7 @@ impl EventHandler for Handler {
 
                         // Put streams into a more suitable data type and process the thumbnail url
                         let streams: HashMap<u64, TwitchStream> = streams
-                            .into_iter()
+                            .into_par_iter()
                             .map(|mut stream| {
                                 if let Ok(thumbnail) = strfmt(&stream.thumbnail_url, &fmt_data) {
                                     stream.thumbnail_url = thumbnail;
@@ -432,7 +434,7 @@ impl EventHandler for Handler {
                             .collect();
 
                         // Process each tracking by notifying corresponding channels
-                        for track in stream_tracks {
+                        stream_tracks.par_iter().for_each(|track| {
                             if streams.contains_key(&track.user_id) {
                                 let stream = streams.get(&track.user_id).unwrap();
                                 let data = BasicEmbedData::create_twitch_stream_notif(
@@ -442,7 +444,7 @@ impl EventHandler for Handler {
                                 let _ = ChannelId(track.channel_id)
                                     .send_message(&http, |m| m.embed(|e| data.build(e)));
                             }
-                        }
+                        });
                         Some(now_online)
                     }
                 };

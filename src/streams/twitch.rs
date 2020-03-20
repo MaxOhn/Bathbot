@@ -4,6 +4,7 @@ use crate::util::{
     Error, RateLimiter,
 };
 
+use rayon::prelude::*;
 use reqwest::{
     header::{self, HeaderMap, HeaderName},
     Client,
@@ -67,7 +68,7 @@ impl Twitch {
                 user_ids.len()
             )));
         }
-        let data: Vec<_> = user_ids.iter().map(|&id| ("id", id)).collect();
+        let data: Vec<_> = user_ids.par_iter().map(|&id| ("id", id)).collect();
         {
             self.twitch_limiter
                 .lock()
@@ -93,10 +94,8 @@ impl Twitch {
                 user_ids.len()
             )));
         }
-        let mut data = vec![("first", user_ids.len().to_string())];
-        for &id in user_ids {
-            data.push(("user_id", id.to_string()));
-        }
+        let mut data: Vec<_> = user_ids.par_iter().map(|&id| ("user_id", id)).collect();
+        data.push(("first", user_ids.len() as u64));
         {
             self.twitch_limiter
                 .lock()

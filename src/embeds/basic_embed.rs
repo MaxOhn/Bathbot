@@ -14,6 +14,7 @@ use crate::{
 };
 
 use itertools::Itertools;
+use rayon::prelude::*;
 use rosu::models::{
     Beatmap, GameMod, GameMode, GameMods, Grade, Match, Score, Team, TeamType, User,
 };
@@ -267,13 +268,13 @@ impl BasicEmbedData {
             .map(|(map_id, scores)| (map_id, scores.collect()))
             .collect();
         // Sort each group by pp value, then take the best 3
-        all_scores.iter_mut().for_each(|(_, scores)| {
+        all_scores.par_iter_mut().for_each(|(_, scores)| {
             scores.sort_by(|s1, s2| s2.pp.unwrap().partial_cmp(&s1.pp.unwrap()).unwrap());
             scores.truncate(3);
         });
         // Consider only the top 10 maps with the highest avg pp among the users
         let mut pp_avg: Vec<(u32, f32)> = all_scores
-            .iter()
+            .par_iter()
             .map(|(&map_id, scores)| {
                 let sum = scores.iter().fold(0.0, |sum, next| sum + next.pp.unwrap());
                 (map_id, sum / scores.len() as f32)
@@ -321,7 +322,7 @@ impl BasicEmbedData {
         }
         // Keys have no strict order, hence inconsistent result
         let user_ids: Vec<u32> = users.keys().copied().collect();
-        let thumbnail = discord::get_thumbnail(&user_ids).unwrap_or_else(|e| {
+        let thumbnail = discord::get_combined_thumbnail(&user_ids).unwrap_or_else(|e| {
             warn!("Error while combining avatars: {}", e);
             Vec::default()
         });

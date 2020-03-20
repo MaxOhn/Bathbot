@@ -1,6 +1,7 @@
 use crate::{database::Platform, util::discord, StreamTracks, TwitchUsers};
 
 use itertools::Itertools;
+use rayon::prelude::*;
 use serenity::{
     framework::standard::{macros::command, CommandResult},
     model::prelude::Message,
@@ -20,7 +21,7 @@ fn trackedstreams(ctx: &mut Context, msg: &Message) -> CommandResult {
             .get::<StreamTracks>()
             .expect("Could not get StreamTracks");
         twitch_users
-            .iter()
+            .par_iter()
             .filter(|(_, &twitch_id)| {
                 tracks.iter().any(|track| {
                     track.user_id == twitch_id

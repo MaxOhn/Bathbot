@@ -20,7 +20,7 @@ use serenity::{
 use std::{str::FromStr, sync::Arc};
 use tokio::runtime::Runtime;
 
-pub fn get_thumbnail(user_ids: &[u32]) -> Result<Vec<u8>, Error> {
+pub fn get_combined_thumbnail(user_ids: &[u32]) -> Result<Vec<u8>, Error> {
     let mut combined = DynamicImage::new_rgba8(128, 128);
     let amount = user_ids.len() as u32;
     let w = 128 / amount;

@@ -1,11 +1,12 @@
 use crate::{embeds::BasicEmbedData, util::discord};
 
+use rayon::prelude::*;
 use serenity::{
     framework::standard::{macros::command, CommandResult},
     model::{gateway::ActivityType, prelude::Message},
     prelude::Context,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 #[command]
 #[only_in("guild")]
@@ -14,15 +15,17 @@ use std::collections::HashMap;
 fn allstreams(ctx: &mut Context, msg: &Message) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
     let presences: Vec<_> = {
-        let guild_lock = guild_id.to_guild_cached(&ctx.cache).unwrap();
+        let cache = ctx.cache.clone();
+        let http = Arc::clone(&ctx.http);
+        let guild_lock = guild_id.to_guild_cached(&cache).unwrap();
         let guild = guild_lock.read();
         guild
             .presences
-            .iter()
+            .par_iter()
             .filter(|(_, presence)| match &presence.activity {
                 Some(activity) => {
                     activity.kind == ActivityType::Streaming
-                        && !presence.user_id.to_user(&ctx).unwrap().bot
+                        && !presence.user_id.to_user((&cache, &*http)).unwrap().bot
                 }
                 None => false,
             })

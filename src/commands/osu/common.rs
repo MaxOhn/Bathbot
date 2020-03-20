@@ -7,6 +7,7 @@ use crate::{
 };
 
 use itertools::Itertools;
+use rayon::prelude::*;
 use rosu::{
     backend::requests::{BeatmapRequest, UserRequest},
     models::{Beatmap, GameMode, Score, User},
@@ -117,7 +118,7 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
             .all(|scores| scores.iter().any(|s| s.beatmap_id.unwrap() == id))
     });
     all_scores
-        .iter_mut()
+        .par_iter_mut()
         .for_each(|scores| scores.retain(|s| map_ids.contains(&s.beatmap_id.unwrap())));
 
     // Try retrieving all maps of common scores from the database
