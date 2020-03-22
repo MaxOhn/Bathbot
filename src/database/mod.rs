@@ -2,7 +2,7 @@ mod models;
 mod schema;
 
 use models::{DBMap, GuildDB, ManiaPP, MapSplit, StreamTrackDB};
-pub use models::{DBMapSet, Guild, Platform, StreamTrack, TwitchUser};
+pub use models::{DBMapSet, Guild, InsertableMessage, Platform, StreamTrack, TwitchUser};
 
 use crate::util::{globals::AUTHORITY_ROLES, Error};
 use chrono::{DateTime, NaiveDateTime, Utc};
@@ -12,7 +12,7 @@ use diesel::{
     MysqlConnection,
 };
 use rosu::models::{Beatmap, GameMod, GameMods};
-use serenity::model::id::{GuildId, UserId};
+use serenity::model::id::{ChannelId, GuildId, UserId};
 use std::collections::{HashMap, HashSet};
 
 pub struct MySQL {
@@ -441,9 +441,9 @@ impl MySQL {
         Ok(())
     }
 
-    // ------------------------
-    // Table: manual_links
-    // ------------------------
+    // -------------------
+    // Table: bggame_stats
+    // -------------------
 
     pub fn increment_bggame_score(&self, user: u64) -> DBResult<()> {
         let conn = self.get_connection()?;
@@ -458,12 +458,93 @@ impl MySQL {
         Ok(())
     }
 
-    pub fn get_bggame_score(&self, user: u64) -> Result<u32, Error> {
+    pub fn get_bggame_score(&self, user: u64) -> DBResult<u32> {
         let conn = self.get_connection()?;
         let data = schema::bggame_stats::table
             .find(user)
             .first::<(u64, u32)>(&conn)?;
         Ok(data.1)
+    }
+
+    // ---------------
+    // Table: messages
+    // ---------------
+
+    pub fn biggest_id_exists(&self, msg_id: u64) -> DBResult<bool> {
+        use schema::messages::dsl::*;
+        let conn = self.get_connection()?;
+        if let Ok(biggest_id_db_vec) = messages
+            .order(id.desc())
+            .select(id)
+            .limit(1)
+            .filter(id.eq(msg_id))
+            .load::<u64>(&conn)
+        {
+            Ok(!biggest_id_db_vec.is_empty())
+        } else {
+            Ok(false)
+        }
+    }
+
+    pub fn latest_id_for_channel(&self, channel: u64) -> Option<u64> {
+        use schema::messages::{self, dsl::*};
+        match self.get_connection() {
+            Ok(conn) => messages::table
+                .order(id.desc())
+                .select(id)
+                .limit(1)
+                .filter(channel_id.eq(channel))
+                .load::<u64>(&conn)
+                .ok()
+                .and_then(|mut vec| vec.pop()),
+            Err(_) => None,
+        }
+    }
+
+    pub fn insert_msgs(&self, message_vec: &[InsertableMessage]) -> DBResult<()> {
+        use schema::messages;
+        let conn = self.get_connection()?;
+        if let Err(why) = diesel::replace_into(messages::table)
+            .values(message_vec)
+            .execute(&conn)
+        {
+            error!("Error while inserting msgs: {}", why);
+        }
+        Ok(())
+    }
+
+    pub fn impersonate_strings(
+        &self,
+        user: Option<UserId>,
+        channel: Option<ChannelId>,
+    ) -> DBResult<Vec<String>> {
+        use diesel::dsl::not;
+        use schema::messages::columns::{author, channel_id, content};
+        let conn = self.get_connection()?;
+        no_arg_sql_function!(RAND, (), "sql RAND()");
+        let query = schema::messages::table
+            .select(content)
+            //.filter(not(content.like("%http://%")))
+            //.filter(not(content.like("%https://%")))
+            .filter(not(content.like("%<%")))
+            .filter(not(content.like("%>%")))
+            .filter(not(content.like("%!%")));
+        let strings = if let Some(UserId(id)) = user {
+            query
+                .filter(author.eq(id))
+                .limit(10_000)
+                .order(RAND)
+                .load::<String>(&conn)?
+        } else if let Some(ChannelId(id)) = channel {
+            query
+                .filter(channel_id.eq(id))
+                .limit(10_000)
+                .order(RAND)
+                .load::<String>(&conn)?
+        } else {
+            query.limit(10_000).order(RAND).load::<String>(&conn)?
+        };
+        Ok(strings)
     }
 
     // ------------------------

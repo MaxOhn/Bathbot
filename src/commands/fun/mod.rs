@@ -1,8 +1,12 @@
 mod bg_game;
+mod hivemind;
+mod impersonate;
 mod minesweeper;
 mod songs;
 
 pub use bg_game::*;
+pub use hivemind::*;
+pub use impersonate::*;
 pub use minesweeper::*;
 pub use songs::*;
 
@@ -13,11 +17,12 @@ use serenity::framework::standard::macros::group;
 #[commands(
     backgroundgame,
     minesweeper,
+    impersonate,
+    hivemind,
     bombsaway,
     catchit,
     ding,
     fireandflames,
-    fireflies,
     flamingo,
     pretender,
     rockefeller,

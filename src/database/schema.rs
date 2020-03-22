@@ -64,6 +64,16 @@ table! {
 }
 
 table! {
+    messages (id) {
+        id -> Unsigned<Bigint>,
+        channel_id -> Unsigned<Bigint>,
+        author -> Unsigned<Bigint>,
+        content -> Text,
+        timestamp -> Timestamp,
+    }
+}
+
+table! {
     pp_mania_mods (beatmap_id) {
         beatmap_id -> Unsigned<Integer>,
         NM -> Nullable<Float>,
@@ -133,6 +143,7 @@ allow_tables_to_appear_in_same_query!(
     manual_links,
     maps,
     mapsets,
+    messages,
     pp_mania_mods,
     role_assign,
     stars_mania_mods,
