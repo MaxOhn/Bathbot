@@ -82,6 +82,16 @@ impl EventHandler for Handler {
                     });
             }
         }
+        let msg_vec = vec![InsertableMessage {
+            id: msg.id.0,
+            channel_id: msg.channel_id.0,
+            author: msg.author.id.0,
+            content: msg.content,
+            timestamp: msg.timestamp.naive_utc(),
+        }];
+        let data = ctx.data.read();
+        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let _ = mysql.insert_msgs(&msg_vec);
     }
 
     fn guild_create(&self, ctx: Context, guild: Guild, is_new: bool) {
@@ -331,6 +341,12 @@ impl EventHandler for Handler {
                                             day_limit,
                                         ),
                                     );
+                                    if let Err(why) = mysql.remove_unchecked_member(user_id.0) {
+                                        warn!(
+                                            "Error while removing unchecked member from DB: {}",
+                                            why
+                                        );
+                                    }
                                 }
                             }
                         }

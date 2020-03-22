@@ -27,7 +27,9 @@ impl MarkovUserArgs {
             if arg.starts_with("<@!") && arg.ends_with('>') {
                 arg.remove(0);
                 arg.remove(0);
-                arg.remove(0);
+                if arg.contains('!') {
+                    arg.remove(0);
+                }
                 arg.pop();
                 if let Ok(id) = u64::from_str(&arg) {
                     UserId(id)
@@ -62,6 +64,12 @@ pub struct MarkovChannelArgs {
 
 impl MarkovChannelArgs {
     pub fn new(mut args: Args) -> Self {
+        if args.is_empty() {
+            return Self {
+                channel: None,
+                amount: 10,
+            };
+        }
         let mut args = arguments::first_n(&mut args, 2).into_iter();
         let mut arg = args.next().unwrap();
         let channel = if let Ok(id) = u64::from_str(&arg) {
