@@ -524,24 +524,27 @@ impl MySQL {
         no_arg_sql_function!(RAND, (), "sql RAND()");
         let query = schema::messages::table
             .select(content)
-            //.filter(not(content.like("%http://%")))
+            //.filter(not(content.like("%http://%"))) // filtering urls
             //.filter(not(content.like("%https://%")))
-            .filter(not(content.like("%<%")))
+            .filter(not(content.like("%<%"))) // filtering bot commands
             .filter(not(content.like("%>%")))
             .filter(not(content.like("%!%")));
         let strings = if let Some(UserId(id)) = user {
+            // user is specified
             query
                 .filter(author.eq(id))
-                .limit(10_000)
-                .order(RAND)
+                .limit(10_000) // consider the last 10k entries
+                .order(RAND) // sort them at random
                 .load::<String>(&conn)?
         } else if let Some(ChannelId(id)) = channel {
+            // channel is specified
             query
                 .filter(channel_id.eq(id))
                 .limit(10_000)
                 .order(RAND)
                 .load::<String>(&conn)?
         } else {
+            // consider ALL entries
             query.limit(10_000).order(RAND).load::<String>(&conn)?
         };
         Ok(strings)

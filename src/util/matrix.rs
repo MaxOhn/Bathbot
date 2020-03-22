@@ -28,12 +28,12 @@ where
     }
 
     pub fn count_neighbors(&self, x: usize, y: usize, n: T) -> u8 {
-        let w = self.width;
-        let h = self.height();
+        let width = self.width;
+        let height = self.height();
         let mut neighbors = 0;
         for cx in x.saturating_sub(1)..=x + 1 {
             for cy in y.saturating_sub(1)..=y + 1 {
-                if (cx != x || cy != y) && cx < w && cy < h && self[(cx, cy)] == n {
+                if (cx != x || cy != y) && cx < width && cy < height && self[(cx, cy)] == n {
                     neighbors += 1;
                 }
             }

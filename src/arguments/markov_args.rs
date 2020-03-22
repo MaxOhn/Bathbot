@@ -23,29 +23,27 @@ impl MarkovUserArgs {
         let mut arg = args.next().unwrap();
         let user = if let Ok(id) = u64::from_str(&arg) {
             UserId(id)
-        } else {
-            if arg.starts_with("<@!") && arg.ends_with('>') {
+        } else if arg.starts_with("<@!") && arg.ends_with('>') {
+            arg.remove(0);
+            arg.remove(0);
+            if arg.contains('!') {
                 arg.remove(0);
-                arg.remove(0);
-                if arg.contains('!') {
-                    arg.remove(0);
-                }
-                arg.pop();
-                if let Ok(id) = u64::from_str(&arg) {
-                    UserId(id)
-                } else {
-                    return Err("The first argument must be a user \
-                    as full discord tag, as user id, or just as mention"
-                        .to_string());
-                }
+            }
+            arg.pop();
+            if let Ok(id) = u64::from_str(&arg) {
+                UserId(id)
             } else {
-                let guild_arc = guild.to_guild_cached(&ctx.cache).unwrap();
-                let guild = guild_arc.read();
-                if let Some(member) = guild.member_named(&arg) {
-                    member.user.read().id
-                } else {
-                    return Err(format!("Could not get user from argument `{}`", arg));
-                }
+                return Err("The first argument must be a user \
+                    as full discord tag, as user id, or just as mention"
+                    .to_string());
+            }
+        } else {
+            let guild_arc = guild.to_guild_cached(&ctx.cache).unwrap();
+            let guild = guild_arc.read();
+            if let Some(member) = guild.member_named(&arg) {
+                member.user.read().id
+            } else {
+                return Err(format!("Could not get user from argument `{}`", arg));
             }
         };
         let amount = args
@@ -74,19 +72,17 @@ impl MarkovChannelArgs {
         let mut arg = args.next().unwrap();
         let channel = if let Ok(id) = u64::from_str(&arg) {
             Some(ChannelId(id))
-        } else {
-            if arg.starts_with("<#") && arg.ends_with('>') {
-                arg.remove(0);
-                arg.remove(0);
-                arg.pop();
-                if let Ok(id) = u64::from_str(&arg) {
-                    Some(ChannelId(id))
-                } else {
-                    None
-                }
+        } else if arg.starts_with("<#") && arg.ends_with('>') {
+            arg.remove(0);
+            arg.remove(0);
+            arg.pop();
+            if let Ok(id) = u64::from_str(&arg) {
+                Some(ChannelId(id))
             } else {
                 None
             }
+        } else {
+            None
         };
         let amount = args
             .next()

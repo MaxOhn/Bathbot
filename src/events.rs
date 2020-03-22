@@ -82,16 +82,21 @@ impl EventHandler for Handler {
                     });
             }
         }
-        let msg_vec = vec![InsertableMessage {
-            id: msg.id.0,
-            channel_id: msg.channel_id.0,
-            author: msg.author.id.0,
-            content: msg.content,
-            timestamp: msg.timestamp.naive_utc(),
-        }];
-        let data = ctx.data.read();
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-        let _ = mysql.insert_msgs(&msg_vec);
+        if !msg.content.starts_with('<')
+            && !msg.content.starts_with('!')
+            && !msg.content.starts_with('>')
+        {
+            let msg_vec = vec![InsertableMessage {
+                id: msg.id.0,
+                channel_id: msg.channel_id.0,
+                author: msg.author.id.0,
+                content: msg.content,
+                timestamp: msg.timestamp.naive_utc(),
+            }];
+            let data = ctx.data.read();
+            let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+            let _ = mysql.insert_msgs(&msg_vec);
+        }
     }
 
     fn guild_create(&self, ctx: Context, guild: Guild, is_new: bool) {
@@ -121,92 +126,7 @@ impl EventHandler for Handler {
                     guilds.insert(guild.guild_id, guild);
                 }
             }
-            // Download all messages inside the guild
-            let channels = match guild.channels(&ctx.http) {
-                Ok(channels) => channels,
-                Err(why) => {
-                    warn!("Could not get channels of server: {}", why);
-                    return;
-                }
-            };
-            let channels: Vec<GuildChannel> = channels
-                .into_iter()
-                .filter(|(_, guild_channel)| guild_channel.bitrate.is_none())
-                .filter(|(_, guild_channel)| guild_channel.last_message_id.is_some())
-                .map(|(_, guild_channel)| guild_channel)
-                .collect();
-            let data = ctx.data.read();
-            let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-            for channel in channels {
-                let mut channel_messages = Vec::new();
-                let channel_id = channel.id;
-                let biggest_id = channel.last_message_id.unwrap().0;
-                match mysql.biggest_id_exists(biggest_id) {
-                    Ok(false) => {}
-                    Ok(true) => continue,
-                    Err(why) => {
-                        error!("Error getting biggest_id_exists: {}", why);
-                        continue;
-                    }
-                }
-                if let Some(last_id) = mysql.latest_id_for_channel(channel_id.0) {
-                    match channel_id.messages(&ctx.http, |g| g.after(MessageId(last_id)).limit(100))
-                    {
-                        Ok(res) => channel_messages = res,
-                        Err(why) => warn!("Error getting messages: {}", why),
-                    }
-                } else {
-                    match channel_id.messages(&ctx.http, |g| g.after(0).limit(100)) {
-                        Ok(res) => channel_messages = res,
-                        Err(why) => warn!("Error getting messages: {}", why),
-                    }
-                }
-                while !channel_messages.is_empty() {
-                    let transformed_message_vec: Vec<_> = channel_messages
-                        .iter()
-                        .filter(|msg| msg.author.id.0 != 460234151057031168) // yentis' bot spammer
-                        .filter(|msg| !msg.content.starts_with('<'))
-                        .filter(|msg| !msg.content.starts_with('>'))
-                        .filter(|msg| !msg.content.starts_with('!'))
-                        .map(|msg| InsertableMessage {
-                            id: msg.id.0,
-                            channel_id: msg.channel_id.0,
-                            author: msg.author.id.0,
-                            content: msg.content.clone(),
-                            timestamp: msg.timestamp.naive_utc(),
-                        })
-                        .collect();
-                    if transformed_message_vec.is_empty() {
-                        break;
-                    }
-                    info!(
-                        "Storing {} messages from #{} on {}",
-                        transformed_message_vec.len(),
-                        channel.name,
-                        guild.name
-                    );
-                    let _ = mysql.insert_msgs(&transformed_message_vec);
-                    if let Some(last_id) = mysql.latest_id_for_channel(channel_id.0) {
-                        if last_id >= biggest_id {
-                            break;
-                        } else {
-                            let r#try = channel_id
-                                .messages(&ctx.http, |g| g.after(MessageId(last_id)).limit(100));
-                            match r#try {
-                                Err(why) => warn!("Error getting messages: {}", why),
-                                _ => channel_messages = r#try.unwrap(),
-                            }
-                        }
-                    } else {
-                        let r#try = channel_id.messages(&ctx.http, |g| g.after(0).limit(100));
-                        match r#try {
-                            Err(why) => warn!("Error getting messages: {}", why),
-                            _ => channel_messages = r#try.unwrap(),
-                        }
-                    }
-                }
-            }
-            info!("Downloaded all messages for guild {}", guild.name);
+            download_all_messages(&ctx, &guild);
         }
     }
 
@@ -715,4 +635,93 @@ impl EventHandler for Handler {
             }
         }
     }
+}
+
+// Download all messages inside the guild
+fn download_all_messages(ctx: &Context, guild: &Guild) {
+    let channels = match guild.channels(&ctx.http) {
+        Ok(channels) => channels,
+        Err(why) => {
+            warn!("Could not get channels of server: {}", why);
+            return;
+        }
+    };
+    let channels: Vec<GuildChannel> = channels
+        .into_iter()
+        .filter(|(_, guild_channel)| guild_channel.bitrate.is_none())
+        .filter(|(_, guild_channel)| guild_channel.last_message_id.is_some())
+        .map(|(_, guild_channel)| guild_channel)
+        .collect();
+    let data = ctx.data.read();
+    let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+    for channel in channels {
+        let mut channel_messages = Vec::new();
+        let channel_id = channel.id;
+        let biggest_id = channel.last_message_id.unwrap().0;
+        match mysql.biggest_id_exists(biggest_id) {
+            Ok(false) => {}
+            Ok(true) => continue,
+            Err(why) => {
+                error!("Error getting biggest_id_exists: {}", why);
+                continue;
+            }
+        }
+        if let Some(last_id) = mysql.latest_id_for_channel(channel_id.0) {
+            match channel_id.messages(&ctx.http, |g| g.after(MessageId(last_id)).limit(100)) {
+                Ok(res) => channel_messages = res,
+                Err(why) => warn!("Error getting messages: {}", why),
+            }
+        } else {
+            match channel_id.messages(&ctx.http, |g| g.after(0).limit(100)) {
+                Ok(res) => channel_messages = res,
+                Err(why) => warn!("Error getting messages: {}", why),
+            }
+        }
+        while !channel_messages.is_empty() {
+            #[allow(clippy::unreadable_literal)]
+            let transformed_message_vec: Vec<_> = channel_messages
+                .iter()
+                .filter(|msg| msg.author.id.0 != 460234151057031168) // yentis' bot spammer
+                .filter(|msg| !msg.content.starts_with('<'))
+                .filter(|msg| !msg.content.starts_with('>'))
+                .filter(|msg| !msg.content.starts_with('!'))
+                .map(|msg| InsertableMessage {
+                    id: msg.id.0,
+                    channel_id: msg.channel_id.0,
+                    author: msg.author.id.0,
+                    content: msg.content.clone(),
+                    timestamp: msg.timestamp.naive_utc(),
+                })
+                .collect();
+            if transformed_message_vec.is_empty() {
+                break;
+            }
+            info!(
+                "Storing {} messages from #{} on {}",
+                transformed_message_vec.len(),
+                channel.name,
+                guild.name
+            );
+            let _ = mysql.insert_msgs(&transformed_message_vec);
+            if let Some(last_id) = mysql.latest_id_for_channel(channel_id.0) {
+                if last_id >= biggest_id {
+                    break;
+                } else {
+                    let r#try =
+                        channel_id.messages(&ctx.http, |g| g.after(MessageId(last_id)).limit(100));
+                    match r#try {
+                        Err(why) => warn!("Error getting messages: {}", why),
+                        _ => channel_messages = r#try.unwrap(),
+                    }
+                }
+            } else {
+                let r#try = channel_id.messages(&ctx.http, |g| g.after(0).limit(100));
+                match r#try {
+                    Err(why) => warn!("Error getting messages: {}", why),
+                    _ => channel_messages = r#try.unwrap(),
+                }
+            }
+        }
+    }
+    info!("Downloaded all messages for guild {}", guild.name);
 }

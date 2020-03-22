@@ -76,24 +76,24 @@ struct Minesweeper {
 }
 
 impl Minesweeper {
-    fn new(w: usize, h: usize, mines: u8) -> Self {
-        let mut field = Matrix::new(w, h);
+    fn new(width: usize, height: usize, mines: u8) -> Self {
+        let mut field = Matrix::new(width, height);
         let mut rng = rand::thread_rng();
-        let size = w * h;
+        let size = width * height;
         let mut new_mines = mines;
         // Place mines
         while new_mines > 0 {
             let r = rng.next_u32() as usize % size;
-            let x = r % w;
-            let y = r / h;
+            let x = r % width;
+            let y = r / height;
             if field[(x, y)] == Cell::None {
                 field[(x, y)] = Cell::Mine;
                 new_mines -= 1;
             }
         }
         // Place numbers
-        for x in 0..w {
-            for y in 0..h {
+        for x in 0..width {
+            for y in 0..height {
                 if field[(x, y)] == Cell::None {
                     let mines = field.count_neighbors(x, y, Cell::Mine);
                     field[(x, y)] = Cell::Num(mines);

@@ -12,7 +12,6 @@ pub fn get_random_filename(
     path: &PathBuf,
 ) -> Result<String, Error> {
     let mut files: Vec<String> = fs::read_dir(path)?
-        .into_iter()
         .collect::<Vec<_>>()
         .into_par_iter()
         .map(|entry| {
