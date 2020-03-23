@@ -43,7 +43,6 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Mixer stream tracking
 - Improve `<nc` by ignoring >5 misses (?)
 - Allow username provision via discord user mention
-- Allow to ignore urls in `<impersonate`
 - Numbered commands i.e. `<recent7`
   ### Commands
-  - command to just say random old messages of a user
+  - None as of now

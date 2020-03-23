@@ -12,15 +12,18 @@ use serenity::{
 #[description = "Impersonate anyone's messages. \
 If a channel is specified, I will only consider data from that channel.\n\
 Credits to [Taha Hawa](https://gitlab.com/tahahawa/discord-markov-bot/)"]
-#[usage = "[channel id / mention] [amount of messages]"]
+#[usage = "[channel id / mention] [amount of messages] [no-urls]"]
 pub fn hivemind(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let args = MarkovChannelArgs::new(args);
     let amount = args.amount;
-    let strings = {
+    let mut strings = {
         let data = ctx.data.read();
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         mysql.impersonate_strings(None, args.channel)?
     };
+    if args.no_url {
+        strings.retain(|s| !s.starts_with("http"));
+    }
     if !strings.is_empty() {
         let mut chain: Chain<String> = Chain::new();
         let mut i = 0;

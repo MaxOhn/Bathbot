@@ -10,5 +10,5 @@ use serenity::framework::standard::macros::group;
 
 #[group]
 #[description = "Babbling (random) sentences"]
-#[commands(impersonate, hivemind, messagestats)]
+#[commands(impersonate, hivemind, messagestats, randomhistory)]
 struct MessagesFun;

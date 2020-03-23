@@ -613,7 +613,7 @@ impl MySQL {
 
         let author_msgs: Vec<_> = author_msgs
             .into_iter()
-            .filter(|msg| !msg.contains(' ') && !msg.is_empty())
+            .filter(|msg| !msg.contains(' '))
             .collect();
         let mut words = HashMap::with_capacity(128);
         for word in author_msgs {

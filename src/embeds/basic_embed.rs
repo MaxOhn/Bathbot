@@ -575,7 +575,7 @@ impl BasicEmbedData {
             format!("```\n{}```", field_text),
             false,
         ));
-        result.title_text = Some("Some statistics about the message database".to_string());
+        result.title_text = Some("Statistics about the message database".to_string());
         result.description = Some(description);
         result.fields = Some(fields);
         result

@@ -10,6 +10,7 @@ use std::str::FromStr;
 pub struct MarkovUserArgs {
     pub user: UserId,
     pub amount: usize,
+    pub no_url: bool,
 }
 
 impl MarkovUserArgs {
@@ -19,7 +20,7 @@ impl MarkovUserArgs {
             as user id, or just as mention"
                 .to_string());
         }
-        let mut args = arguments::first_n(&mut args, 2).into_iter();
+        let mut args = arguments::first_n(&mut args, 3).into_iter();
         let mut arg = args.next().unwrap();
         let user = if let Ok(id) = u64::from_str(&arg) {
             UserId(id)
@@ -46,18 +47,38 @@ impl MarkovUserArgs {
                 return Err(format!("Could not get user from argument `{}`", arg));
             }
         };
-        let amount = args
-            .next()
-            .and_then(|arg| usize::from_str(&arg).ok())
-            .unwrap_or(10)
-            .min(25);
-        Ok(Self { user, amount })
+        let mut no_url = None;
+        let amount = match args.next() {
+            Some(arg) => match usize::from_str(&arg) {
+                Ok(num) => num.min(25),
+                Err(_) => {
+                    let found_url_arg =
+                        ["-nourl", "-nourls", "-no-url", "-no-urls"].contains(&arg.as_str());
+                    if found_url_arg {
+                        no_url = Some(true);
+                    }
+                    10
+                }
+            },
+            None => 10,
+        };
+        let no_url = no_url.unwrap_or_else(|| {
+            args.next()
+                .map(|arg| ["-nourl", "-nourls", "-no-url", "-no-urls"].contains(&arg.as_str()))
+                .unwrap_or(false)
+        });
+        Ok(Self {
+            user,
+            amount,
+            no_url,
+        })
     }
 }
 
 pub struct MarkovChannelArgs {
     pub channel: Option<ChannelId>,
     pub amount: usize,
+    pub no_url: bool,
 }
 
 impl MarkovChannelArgs {
@@ -66,6 +87,7 @@ impl MarkovChannelArgs {
             return Self {
                 channel: None,
                 amount: 10,
+                no_url: false,
             };
         }
         let mut args = arguments::first_n(&mut args, 2).into_iter();
@@ -84,11 +106,30 @@ impl MarkovChannelArgs {
         } else {
             None
         };
-        let amount = args
-            .next()
-            .and_then(|arg| usize::from_str(&arg).ok())
-            .unwrap_or(10)
-            .min(25);
-        Self { channel, amount }
+        let mut no_url = None;
+        let amount = match args.next() {
+            Some(arg) => match usize::from_str(&arg) {
+                Ok(num) => num.min(25),
+                Err(_) => {
+                    let found_url_arg =
+                        ["-nourl", "-nourls", "-no-url", "-no-urls"].contains(&arg.as_str());
+                    if found_url_arg {
+                        no_url = Some(true);
+                    }
+                    10
+                }
+            },
+            None => 10,
+        };
+        let no_url = no_url.unwrap_or_else(|| {
+            args.next()
+                .map(|arg| ["-nourl", "-nourls", "-no-url", "-no-urls"].contains(&arg.as_str()))
+                .unwrap_or(false)
+        });
+        Self {
+            channel,
+            amount,
+            no_url,
+        }
     }
 }

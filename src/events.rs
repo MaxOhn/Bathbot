@@ -82,7 +82,8 @@ impl EventHandler for Handler {
                     });
             }
         }
-        if !msg.content.starts_with('<')
+        if !msg.content.is_empty()
+            && !msg.content.starts_with('<')
             && !msg.content.starts_with('!')
             && !msg.content.starts_with('>')
         {
@@ -682,6 +683,7 @@ fn download_all_messages(ctx: &Context, guild: &Guild) {
             let transformed_message_vec: Vec<_> = channel_messages
                 .iter()
                 .filter(|msg| msg.author.id.0 != 460234151057031168) // yentis' bot spammer
+                .filter(|msg| !msg.content.is_empty())
                 .filter(|msg| !msg.content.starts_with('<'))
                 .filter(|msg| !msg.content.starts_with('>'))
                 .filter(|msg| !msg.content.starts_with('!'))
