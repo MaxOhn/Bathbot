@@ -71,7 +71,7 @@ fn about(ctx: &mut Context, msg: &Message) -> CommandResult {
                             false,
                         ),
                         (
-                            "Invite link (admin permission)",
+                            "Invite link",
                             "https://discordapp.com/api/oauth2/authorize?scope=bot&\
                             client_id=297073686916366336&permissions=268823616"
                                 .to_string(),

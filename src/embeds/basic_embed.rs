@@ -1,5 +1,6 @@
 use super::util;
 use crate::{
+    commands::messages_fun::MessageStats,
     scraper::ScraperScore,
     streams::{TwitchStream, TwitchUser},
     util::{
@@ -504,6 +505,79 @@ impl BasicEmbedData {
         result.title_url = Some(title_url);
         result.thumbnail = thumbnail;
         result.description = Some(description);
+        result
+    }
+
+    //
+    // messagestats
+    //
+    pub fn create_messagestats(stats: MessageStats, author: &str) -> Self {
+        let mut result = Self::default();
+        let lines = vec![
+            (
+                "All saved messages",
+                with_comma_u64(stats.total_msgs as u64),
+            ),
+            (
+                "Messages of this guild",
+                with_comma_u64(stats.guild_msgs as u64),
+            ),
+            (
+                "Messages of this channel",
+                with_comma_u64(stats.channel_msgs as u64),
+            ),
+        ];
+        let max = lines.iter().map(|(_, num)| num.len()).max().unwrap();
+        let mut description = String::with_capacity(128);
+        for (text, num) in lines {
+            let _ = writeln!(
+                description,
+                "{:<24}: {:>max$}",
+                text = text,
+                num = num,
+                max = max,
+            );
+        }
+        let mut fields = Vec::with_capacity(3);
+        fields.push((
+            format!("Messages of `{}`", author),
+            with_comma_u64(stats.author_msgs as u64),
+            false,
+        ));
+        fields.push((
+            format!("Average length of `{}`'s messages", author),
+            round(stats.author_avg).to_string(),
+            false,
+        ));
+        let single_words: Vec<_> = stats
+            .single_words
+            .into_iter()
+            .map(|(word, amount)| (word, with_comma_u64(amount as u64)))
+            .collect();
+        let max_single_word = single_words
+            .iter()
+            .map(|(_, amount)| amount.len())
+            .max()
+            .unwrap();
+        let field_text = single_words
+            .into_iter()
+            .map(|(word, amount)| {
+                format!(
+                    "{:<max$} => {word}",
+                    amount = amount,
+                    max = max_single_word,
+                    word = word,
+                )
+            })
+            .join("\n");
+        fields.push((
+            format!("`{}`'s most common single word messages", author),
+            format!("```\n{}```", field_text),
+            false,
+        ));
+        result.title_text = Some("Some statistics about the message database".to_string());
+        result.description = Some(description);
+        result.fields = Some(fields);
         result
     }
 

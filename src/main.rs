@@ -17,7 +17,7 @@ extern crate log;
 extern crate diesel;
 
 use crate::scraper::Scraper;
-use commands::{fun::*, osu::*, streams::*, utility::*};
+use commands::{fun::*, messages_fun::*, osu::*, streams::*, utility::*};
 use database::MySQL;
 use events::Handler;
 use streams::Twitch;
@@ -156,6 +156,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .group(&TAIKO_GROUP)
             .group(&CATCHTHEBEAT_GROUP)
             .group(&FUN_GROUP)
+            .group(&MESSAGESFUN_GROUP)
             .group(&UTILITY_GROUP)
             .group(&STREAMTRACKING_GROUP)
             .bucket("songs", |b| b.delay(20).time_span(20).limit(1))

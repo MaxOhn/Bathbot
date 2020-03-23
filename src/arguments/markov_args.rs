@@ -14,16 +14,16 @@ pub struct MarkovUserArgs {
 
 impl MarkovUserArgs {
     pub fn new(mut args: Args, ctx: &Context, guild: GuildId) -> Result<Self, String> {
-        let mut args = arguments::first_n(&mut args, 2).into_iter();
-        if args.len() == 0 {
+        if args.is_empty() {
             return Err("You need to provide a user as full discord tag, \
             as user id, or just as mention"
                 .to_string());
         }
+        let mut args = arguments::first_n(&mut args, 2).into_iter();
         let mut arg = args.next().unwrap();
         let user = if let Ok(id) = u64::from_str(&arg) {
             UserId(id)
-        } else if arg.starts_with("<@!") && arg.ends_with('>') {
+        } else if arg.starts_with("<@") && arg.ends_with('>') {
             arg.remove(0);
             arg.remove(0);
             if arg.contains('!') {
