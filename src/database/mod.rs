@@ -2,7 +2,7 @@ mod models;
 mod schema;
 
 use models::{DBMap, GuildDB, ManiaPP, MapSplit, StreamTrackDB};
-pub use models::{DBMapSet, Guild, InsertableMessage, Platform, StreamTrack, TwitchUser};
+pub use models::{DBMapSet, Guild, InsertableMessage, Platform, Ratios, StreamTrack, TwitchUser};
 
 use crate::{
     commands::messages_fun::MessageStats,
@@ -10,7 +10,6 @@ use crate::{
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
 use diesel::{
-    // deserialize::QueryableByName,
     prelude::*,
     r2d2::{ConnectionManager, Pool, PooledConnection},
     MysqlConnection,
@@ -634,9 +633,46 @@ impl MySQL {
         ))
     }
 
-    // ------------------------
+    // ------------------
+    // Table: ratio_table
+    // ------------------
+
+    pub fn update_ratios(
+        &self,
+        osuname: &str,
+        all_scores: String,
+        all_ratios: String,
+        all_misses: String,
+    ) -> Option<Ratios> {
+        use schema::ratio_table::columns::{misses, name, ratios, scores};
+        let entry = vec![(
+            name.eq(osuname),
+            scores.eq(all_scores),
+            ratios.eq(all_ratios),
+            misses.eq(all_misses),
+        )];
+        let conn = if let Ok(conn) = self.get_connection() {
+            conn
+        } else {
+            return None;
+        };
+        let data = schema::ratio_table::table
+            .find(name)
+            .first::<Ratios>(&conn)
+            .ok();
+        match diesel::replace_into(schema::ratio_table::table)
+            .values(&entry)
+            .execute(&conn)
+        {
+            Ok(_) => info!("Updated ratios of '{}'", osuname),
+            Err(why) => warn!("Error while updating ratios: {}", why),
+        }
+        data
+    }
+
+    // -------------------
     // Table: manual_links
-    // ------------------------
+    // -------------------
 
     pub fn get_manual_links(&self) -> Result<HashMap<u64, String>, Error> {
         let conn = self.get_connection()?;

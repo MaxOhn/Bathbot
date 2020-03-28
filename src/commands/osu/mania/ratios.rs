@@ -74,7 +74,7 @@ pub fn ratios(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     };
 
     // Accumulate all necessary data
-    let data = match BasicEmbedData::create_ratio(user, scores) {
+    let data = match BasicEmbedData::create_ratio(user, scores, &ctx) {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id.say(

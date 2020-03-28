@@ -92,6 +92,15 @@ table! {
 }
 
 table! {
+    ratio_table (name) {
+        name -> Varchar,
+        scores -> Varchar,
+        ratios -> Varchar,
+        misses -> Varchar,
+    }
+}
+
+table! {
     role_assign (id) {
         id -> Unsigned<Integer>,
         channel -> Unsigned<Bigint>,
@@ -145,6 +154,7 @@ allow_tables_to_appear_in_same_query!(
     mapsets,
     messages,
     pp_mania_mods,
+    ratio_table,
     role_assign,
     stars_mania_mods,
     stream_tracks,

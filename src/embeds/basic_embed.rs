@@ -12,6 +12,7 @@ use crate::{
         pp::PPProvider,
         Error,
     },
+    MySQL,
 };
 
 use itertools::Itertools;
@@ -998,9 +999,9 @@ impl BasicEmbedData {
     //
     // ratio
     //
-    pub fn create_ratio(user: User, scores: Vec<Score>) -> Result<Self, Error> {
+    pub fn create_ratio(user: User, scores: Vec<Score>, ctx: &Context) -> Result<Self, Error> {
         let mut result = Self::default();
-        let accs = [0, 90, 95, 97, 99];
+        let mut accs = vec![0, 90, 95, 97, 99];
         let mut categories: BTreeMap<u8, RatioCategory> = BTreeMap::new();
         for &acc in accs.iter() {
             categories.insert(acc, RatioCategory::default());
@@ -1020,22 +1021,75 @@ impl BasicEmbedData {
         let (author_icon, author_url, author_text) = get_user_author(&user);
         let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
         let mut description = String::with_capacity(256);
-        description.push_str(
+        let _ = writeln!(
+            description,
             "```\n \
-             Acc: #Scores | Ratio | % misses\n\
-             --------------+-------+---------\n",
+        Acc: #Scores | Ratio | % misses\n\
+        --------------+-------+---------"
         );
+        let mut all_scores = Vec::with_capacity(6);
+        let mut all_ratios = Vec::with_capacity(6);
+        let mut all_misses = Vec::with_capacity(6);
         for (acc, c) in categories.into_iter() {
             if c.scores > 0 {
+                let scores = c.scores;
+                let ratio = c.ratio();
+                let misses = c.miss_percent();
                 let _ = writeln!(
                     description,
                     "{}{:>2}%: {:>7} | {:>5} | {:>7}%",
                     if acc < 100 { ">" } else { "" },
                     acc,
-                    c.scores,
-                    c.get_ratio(),
-                    c.get_miss_percent(),
+                    scores,
+                    ratio,
+                    misses,
                 );
+                all_scores.push(scores as i16);
+                all_ratios.push(ratio);
+                all_misses.push(misses);
+            }
+        }
+        let previous_ratios = {
+            let data = ctx.data.read();
+            let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+            mysql.update_ratios(
+                &user.username,
+                all_scores.iter().join(","),
+                all_ratios.iter().join(","),
+                all_misses.iter().join(","),
+            )
+        };
+        if let Some(ratios) = previous_ratios {
+            if ratios.scores != all_scores
+                || ratios.ratios != all_ratios
+                || ratios.misses != all_misses
+            {
+                let _ = writeln!(description, "--------------+-------+---------");
+                accs.push(100);
+                for (i, acc) in accs.iter().enumerate() {
+                    if ratios.scores.get(i).map(|&s| s > 0) == Some(true)
+                        || all_scores.get(i).is_some()
+                    {
+                        let _ = writeln!(
+                            description,
+                            "{}{:>2}%: {:>+7} | {:>+5} | {:>+7}%",
+                            if *acc < 100 { ">" } else { "" },
+                            acc,
+                            *all_scores.get(i).unwrap_or_else(|| &0)
+                                - *ratios.scores.get(i).unwrap_or_else(|| &0),
+                            round_precision(
+                                *all_ratios.get(i).unwrap_or_else(|| &0.0)
+                                    - *ratios.ratios.get(i).unwrap_or_else(|| &0.0),
+                                3
+                            ),
+                            round_precision(
+                                *all_misses.get(i).unwrap_or_else(|| &0.0)
+                                    - *ratios.misses.get(i).unwrap_or_else(|| &0.0),
+                                3
+                            ),
+                        );
+                    }
+                }
             }
         }
         description.push_str("```");
@@ -1447,19 +1501,15 @@ impl RatioCategory {
             s.count_geki + s.count300 + s.count_katu + s.count100 + s.count50 + s.count_miss;
     }
 
-    fn get_ratio(&self) -> f32 {
+    fn ratio(&self) -> f32 {
         if self.count_300 == 0 {
-            if self.count_geki > 0 {
-                1.0
-            } else {
-                0.0
-            }
+            self.count_geki as f32
         } else {
             round_precision(self.count_geki as f32 / self.count_300 as f32, 3)
         }
     }
 
-    fn get_miss_percent(&self) -> f32 {
+    fn miss_percent(&self) -> f32 {
         if self.count_objects > 0 {
             round_precision(
                 100.0 * self.count_miss as f32 / self.count_objects as f32,
