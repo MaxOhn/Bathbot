@@ -114,7 +114,7 @@ impl Scraper {
             if mods.is_empty() {
                 url.push_str("&mods[]=NM");
             } else {
-                for m in mods.as_ref() {
+                for (m, _) in mods.as_ref() {
                     url.push_str("&mods[]=");
                     url.push_str(&m.to_string());
                 }

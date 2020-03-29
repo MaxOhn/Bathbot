@@ -514,42 +514,14 @@ impl BasicEmbedData {
     //
     pub fn create_messagestats(stats: MessageStats, author: &str) -> Self {
         let mut result = Self::default();
-        let lines = vec![
-            (
-                "All saved messages",
-                with_comma_u64(stats.total_msgs as u64),
-            ),
-            (
-                "Messages of this guild",
-                with_comma_u64(stats.guild_msgs as u64),
-            ),
-            (
-                "Messages of this channel",
-                with_comma_u64(stats.channel_msgs as u64),
-            ),
-        ];
-        let max = lines.iter().map(|(_, num)| num.len()).max().unwrap();
-        let mut description = String::with_capacity(128);
-        for (text, num) in lines {
-            let _ = writeln!(
-                description,
-                "{:<24}: {:>max$}",
-                text = text,
-                num = num,
-                max = max,
-            );
-        }
-        let mut fields = Vec::with_capacity(3);
-        fields.push((
-            format!("Messages of `{}`", author),
-            with_comma_u64(stats.author_msgs as u64),
-            false,
-        ));
-        fields.push((
-            format!("Average length of `{}`'s messages", author),
-            round(stats.author_avg).to_string(),
-            false,
-        ));
+        let description = format!(
+            "All saved messages: {}\n\
+            Messages of this guild: {}\n\
+            Messages of this channel: {}",
+            with_comma_u64(stats.total_msgs as u64),
+            with_comma_u64(stats.guild_msgs as u64),
+            with_comma_u64(stats.channel_msgs as u64)
+        );
         let single_words: Vec<_> = stats
             .single_words
             .into_iter()
@@ -571,11 +543,23 @@ impl BasicEmbedData {
                 )
             })
             .join("\n");
-        fields.push((
-            format!("`{}`'s most common single word messages", author),
-            format!("```\n{}```", field_text),
-            false,
-        ));
+        let fields = vec![
+            (
+                format!("Messages of `{}`", author),
+                with_comma_u64(stats.author_msgs as u64),
+                false,
+            ),
+            (
+                format!("Average length of `{}`'s messages", author),
+                round(stats.author_avg).to_string(),
+                false,
+            ),
+            (
+                format!("`{}`'s most common single word messages", author),
+                format!("```\n{}```", field_text),
+                false,
+            ),
+        ];
         result.title_text = Some("Statistics about the message database".to_string());
         result.description = Some(description);
         result.fields = Some(fields);
