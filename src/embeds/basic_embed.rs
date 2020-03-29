@@ -1067,9 +1067,23 @@ impl BasicEmbedData {
                 let _ = writeln!(description, "--------------+-------+---------");
                 accs.push(100);
                 for (i, acc) in accs.iter().enumerate() {
-                    if ratios.scores.get(i).map(|&s| s > 0) == Some(true)
-                        || all_scores.get(i).is_some()
-                    {
+                    let any_changes = match (ratios.scores.get(i), all_scores.get(i)) {
+                        (Some(new), Some(old)) => new != old,
+                        (None, Some(_)) => true,
+                        (Some(_), None) => true,
+                        (None, None) => false,
+                    } || match (ratios.ratios.get(i), all_ratios.get(i)) {
+                        (Some(new), Some(old)) => (new - old).abs() >= 0.0005,
+                        (None, Some(_)) => true,
+                        (Some(_), None) => true,
+                        (None, None) => false,
+                    } || match (ratios.misses.get(i), all_misses.get(i)) {
+                        (Some(new), Some(old)) => (new - old).abs() >= 0.0005,
+                        (None, Some(_)) => true,
+                        (Some(_), None) => true,
+                        (None, None) => false,
+                    };
+                    if any_changes {
                         let _ = writeln!(
                             description,
                             "{}{:>2}%: {:>+7} | {:>+5} | {:>+7}%",
