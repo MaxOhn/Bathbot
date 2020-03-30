@@ -3,6 +3,7 @@ use super::super::schema::ratio_table;
 use diesel::{deserialize::Queryable, mysql::Mysql};
 use std::str::FromStr;
 
+#[derive(Debug)]
 pub struct Ratios {
     pub name: String,
     pub scores: Vec<i16>,

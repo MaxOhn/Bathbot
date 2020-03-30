@@ -1038,8 +1038,8 @@ impl BasicEmbedData {
         let _ = writeln!(
             description,
             "```\n \
-        Acc: #Scores | Ratio | % misses\n\
-        --------------+-------+---------"
+        Acc: #Scores |  Ratio | % misses\n\
+        --------------+--------+---------"
         );
         let mut all_scores = Vec::with_capacity(6);
         let mut all_ratios = Vec::with_capacity(6);
@@ -1051,7 +1051,7 @@ impl BasicEmbedData {
                 let misses = c.miss_percent();
                 let _ = writeln!(
                     description,
-                    "{}{:>2}%: {:>7} | {:>5} | {:>7}%",
+                    "{}{:>2}%: {:>7} | {:>6} | {:>7}%",
                     if acc < 100 { ">" } else { "" },
                     acc,
                     scores,
@@ -1078,7 +1078,7 @@ impl BasicEmbedData {
                 || ratios.ratios != all_ratios
                 || ratios.misses != all_misses
             {
-                let _ = writeln!(description, "--------------+-------+---------");
+                let _ = writeln!(description, "--------------+--------+---------");
                 accs.push(100);
                 for (i, acc) in accs.iter().enumerate() {
                     let any_changes = match (ratios.scores.get(i), all_scores.get(i)) {
@@ -1100,7 +1100,7 @@ impl BasicEmbedData {
                     if any_changes {
                         let _ = writeln!(
                             description,
-                            "{}{:>2}%: {:>+7} | {:>+5} | {:>+7}%",
+                            "{}{:>2}%: {:>+7} | {:>+6} | {:>+7}%",
                             if *acc < 100 { ">" } else { "" },
                             acc,
                             *all_scores.get(i).unwrap_or_else(|| &0)

@@ -657,7 +657,7 @@ impl MySQL {
             return None;
         };
         let data = schema::ratio_table::table
-            .find(name)
+            .find(osuname)
             .first::<Ratios>(&conn)
             .ok();
         match diesel::replace_into(schema::ratio_table::table)
