@@ -370,7 +370,7 @@ impl MySQL {
     }
 
     pub fn insert_guild(&self, guild_id: u64) -> DBResult<Guild> {
-        let guild = GuildDB::new(guild_id, true, AUTHORITY_ROLES.to_string(), None);
+        let guild = GuildDB::new(guild_id, true, AUTHORITY_ROLES.to_string(), None, false);
         let conn = self.get_connection()?;
         diesel::insert_or_ignore_into(schema::guilds::table)
             .values(&guild)
