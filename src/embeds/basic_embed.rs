@@ -1,7 +1,7 @@
 use super::util;
 use crate::{
     commands::messages_fun::MessageStats,
-    scraper::ScraperScore,
+    scraper::{MostPlayedMap, ScraperScore},
     streams::{TwitchStream, TwitchUser},
     util::{
         datetime::{date_to_string, how_long_ago, sec_to_minsec},
@@ -563,6 +563,36 @@ impl BasicEmbedData {
         result.title_text = Some("Statistics about the message database".to_string());
         result.description = Some(description);
         result.fields = Some(fields);
+        result
+    }
+
+    //
+    // mostplayed
+    //
+    pub fn create_mostplayed(user: User, maps: Vec<MostPlayedMap>) -> Self {
+        let mut result = Self::default();
+        let (author_icon, author_url, author_text) = get_user_author(&user);
+        let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
+        let mut description = String::with_capacity(maps.len() * 70);
+        for map in maps {
+            let _ = writeln!(
+                description,
+                "**[{count}]** [{title} - {artist} [{version}]]({base}b/{map_id}) [{stars}]",
+                count = map.count,
+                artist = map.artist,
+                title = map.title,
+                version = map.version,
+                base = HOMEPAGE,
+                map_id = map.beatmap_id,
+                stars = util::get_stars(map.stars),
+            );
+        }
+        result.author_icon = Some(author_icon);
+        result.author_url = Some(author_url);
+        result.author_text = Some(author_text);
+        result.title_text = Some("Most played maps:".to_string());
+        result.thumbnail = Some(thumbnail);
+        result.description = Some(description);
         result
     }
 

@@ -9,7 +9,7 @@ use serenity::{
     },
     prelude::Context,
 };
-use std::str::FromStr;
+use std::{iter::FromIterator, str::FromStr};
 
 pub struct DiscordUserArgs {
     pub user: User,
@@ -63,7 +63,7 @@ pub struct NameArgs {
 impl NameArgs {
     pub fn new(mut args: Args) -> Self {
         let mut args = arguments::first_n(&mut args, 1);
-        Self { name: args.pop() }
+        Self { name: args.next() }
     }
 }
 
@@ -95,7 +95,9 @@ pub struct MultNameArgs {
 impl MultNameArgs {
     pub fn new(mut args: Args, n: usize) -> Self {
         let args = arguments::first_n(&mut args, n);
-        Self { names: args }
+        Self {
+            names: Vec::from_iter(args),
+        }
     }
 }
 
@@ -107,14 +109,14 @@ pub struct NameFloatArgs {
 impl NameFloatArgs {
     pub fn new(mut args: Args) -> Result<Self, String> {
         let mut args = arguments::first_n(&mut args, 2);
-        let float = args.pop().and_then(|arg| f32::from_str(&arg).ok());
+        let float = args.next_back().and_then(|arg| f32::from_str(&arg).ok());
         if float.is_none() {
             return Err("You need to provide a decimal \
                         number as last argument"
                 .to_string());
         }
         Ok(Self {
-            name: args.pop(),
+            name: args.next(),
             float: float.unwrap(),
         })
     }

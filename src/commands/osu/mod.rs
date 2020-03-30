@@ -4,6 +4,7 @@ mod leaderboard;
 mod link;
 pub mod mania;
 mod match_costs;
+mod most_played;
 pub mod pp;
 pub mod profile;
 pub mod rank;
@@ -25,6 +26,7 @@ pub use self::taiko::*;
 pub use leaderboard::*;
 pub use link::*;
 pub use match_costs::*;
+pub use most_played::*;
 pub use scores::*;
 pub use simulate::*;
 
@@ -32,5 +34,13 @@ use serenity::framework::standard::macros::group;
 
 #[group]
 #[description = "Commands for all osu! modes"]
-#[commands(link, scores, simulate, matchcosts, leaderboard, globalleaderboard)]
+#[commands(
+    link,
+    scores,
+    simulate,
+    matchcosts,
+    mostplayed,
+    leaderboard,
+    globalleaderboard
+)]
 struct OsuGeneral;

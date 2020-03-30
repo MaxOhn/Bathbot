@@ -17,7 +17,7 @@ pub use top::*;
 use regex::Regex;
 use rosu::models::{GameMods, Grade};
 use serenity::framework::standard::Args;
-use std::{convert::TryFrom, str::FromStr};
+use std::{convert::TryFrom, str::FromStr, vec::IntoIter};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum ModSelection {
@@ -39,12 +39,12 @@ pub fn get_regex_id(val: &str) -> Option<u32> {
     }
 }
 
-fn first_n(args: &mut Args, n: usize) -> Vec<String> {
+fn first_n(args: &mut Args, n: usize) -> IntoIter<String> {
     let mut v = Vec::with_capacity(n);
     while !args.is_empty() && v.len() < n {
         v.push(args.trimmed().single_quoted::<String>().unwrap());
     }
-    v
+    v.into_iter()
 }
 
 fn parse_mods(arg: &str) -> Option<(GameMods, ModSelection)> {

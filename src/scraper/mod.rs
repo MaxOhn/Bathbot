@@ -1,7 +1,9 @@
 #![allow(unused_imports)]
 
+mod most_played;
 mod score;
 
+pub use most_played::MostPlayedMap;
 use score::ScraperScores;
 pub use score::{ScraperBeatmap, ScraperScore};
 
@@ -65,6 +67,23 @@ impl Scraper {
         self.client.get(&url).send().await
     }
 
+    // Retrieve the most played maps of a user
+    pub async fn get_most_played(
+        &self,
+        user_id: u32,
+        amount: u32,
+    ) -> Result<Vec<MostPlayedMap>, Error> {
+        let url = format!(
+            "{base}users/{id}/beatmapsets/most_played?limit={limit}",
+            base = HOMEPAGE,
+            id = user_id,
+            limit = amount,
+        );
+        let response = self.send_request(url).await?;
+        let maps: Vec<MostPlayedMap> = serde_json::from_slice(&response.bytes().await?)?;
+        Ok(maps)
+    }
+
     // Retrieve the leaderboard of a map (national / global)
     // If mods contain DT / NC, it will do another request for the opposite
     pub async fn get_leaderboard(
@@ -114,7 +133,7 @@ impl Scraper {
             if mods.is_empty() {
                 url.push_str("&mods[]=NM");
             } else {
-                for (m, _) in mods.as_ref() {
+                for m in mods.iter() {
                     url.push_str("&mods[]=");
                     url.push_str(&m.to_string());
                 }

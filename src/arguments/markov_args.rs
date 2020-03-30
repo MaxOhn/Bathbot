@@ -20,7 +20,7 @@ impl MarkovUserArgs {
             as user id, or just as mention"
                 .to_string());
         }
-        let mut args = arguments::first_n(&mut args, 3).into_iter();
+        let mut args = arguments::first_n(&mut args, 3);
         let mut arg = args.next().unwrap();
         let user = if let Ok(id) = u64::from_str(&arg) {
             UserId(id)
@@ -90,7 +90,7 @@ impl MarkovChannelArgs {
                 no_url: false,
             };
         }
-        let mut args = arguments::first_n(&mut args, 2).into_iter();
+        let mut args = arguments::first_n(&mut args, 2);
         let mut arg = args.next().unwrap();
         let channel = if let Ok(id) = u64::from_str(&arg) {
             Some(ChannelId(id))

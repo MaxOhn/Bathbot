@@ -43,6 +43,8 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Mixer stream tracking
 - Improve `<nc` by ignoring >5 misses (?)
 - Allow username provision via discord user mention
+- Provide option to opt-in to message tracking on guild
 - Numbered commands i.e. `<recent7`
   ### Commands
-  - None as of now
+  - `<bg scores` to show guild's top scorers
+  - `<mostplayed` to show osu user's most played maps

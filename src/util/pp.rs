@@ -3,7 +3,7 @@ use crate::{
     PerformanceCalculatorLock,
 };
 
-use rosu::models::{ApprovalStatus, Beatmap, GameMod, GameMode, GameMods, Grade, Score};
+use rosu::models::{ApprovalStatus, Beatmap, GameMode, GameMods, Grade, Score};
 use serenity::prelude::Context;
 use std::{
     env, mem,
@@ -71,7 +71,7 @@ impl PPProvider {
                 } else {
                     None
                 };
-                let half_score = half_score(&score.enabled_mods);
+                let half_score = 500_000.0 * score.enabled_mods.score_multiplier(GameMode::MNA);
                 let (stars, stars_in_db) = if score.enabled_mods.changes_stars(GameMode::MNA) {
                     // Try retrieving stars from database
                     let data = ctx.data.read();
@@ -213,8 +213,8 @@ impl PPProvider {
         S: SubScore,
     {
         let mods = &score.mods();
-        let half_score = half_score(mods);
-        if score.grade() == Grade::F || score.score() < half_score {
+        let half_score = 500_000.0 * mods.score_multiplier(GameMode::MNA);
+        if score.grade() == Grade::F || score.score() < half_score as u32 {
             Ok(0.0)
         } else {
             let mutex = {
@@ -361,7 +361,7 @@ fn start_pp_calc(map_id: u32, mods: &GameMods, score: Option<u32>) -> Result<Chi
     if let Some(score) = score {
         cmd.arg(score.to_string());
     } else {
-        cmd.arg(max_score(mods).to_string());
+        cmd.arg(((1_000_000.0 * mods.score_multiplier(GameMode::MNA)) as u32).to_string());
     }
     cmd.stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -404,27 +404,6 @@ fn calc_stars(map_id: u32, mods: &GameMods) -> Result<f32, Error> {
             .map_err(|_| Error::Custom("Could not read stderr string".to_string()))?;
         Err(Error::Custom(error_msg))
     }
-}
-
-fn adjusted_score(mut score: f32, mods: &GameMods) -> u32 {
-    if mods.contains(&GameMod::NoFail) {
-        score /= 2.0;
-    }
-    if mods.contains(&GameMod::Easy) {
-        score /= 2.0;
-    }
-    if mods.contains(&GameMod::HalfTime) {
-        score /= 2.0;
-    }
-    score as u32
-}
-
-fn half_score(mods: &GameMods) -> u32 {
-    adjusted_score(500_000.0, mods)
-}
-
-fn max_score(mods: &GameMods) -> u32 {
-    adjusted_score(1_000_000.0, mods)
 }
 
 pub trait SubScore {

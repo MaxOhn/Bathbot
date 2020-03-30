@@ -2,6 +2,7 @@ use crate::arguments::{self, ModSelection};
 
 use rosu::models::GameMods;
 use serenity::framework::standard::Args;
+use std::iter::FromIterator;
 
 pub struct SimulateArgs {
     pub mods: Option<(GameMods, ModSelection)>,
@@ -83,7 +84,7 @@ pub struct SimulateNameArgs {
 
 impl SimulateMapArgs {
     pub fn new(mut args: Args) -> Result<Self, String> {
-        let mut args = arguments::first_n(&mut args, 16);
+        let mut args = Vec::from_iter(arguments::first_n(&mut args, 16));
         let mods = arguments::mods(&mut args);
         let acc = arguments::acc(&mut args)?;
         let combo = arguments::combo(&mut args)?;
@@ -109,7 +110,7 @@ impl SimulateMapArgs {
 
 impl SimulateNameArgs {
     pub fn new(mut args: Args) -> Result<Self, String> {
-        let mut args = arguments::first_n(&mut args, 16);
+        let mut args = Vec::from_iter(arguments::first_n(&mut args, 16));
         let mods = arguments::mods(&mut args);
         let acc = arguments::acc(&mut args)?;
         let combo = arguments::combo(&mut args)?;

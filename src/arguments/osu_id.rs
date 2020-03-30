@@ -11,16 +11,15 @@ pub struct MatchArgs {
 
 impl MatchArgs {
     pub fn new(mut args: Args) -> Result<Self, String> {
-        let args = arguments::first_n(&mut args, 2);
-        let mut iter = args.iter();
-        let match_id = if let Some(id) = iter.next().and_then(|arg| arguments::get_regex_id(&arg)) {
+        let mut args = arguments::first_n(&mut args, 2);
+        let match_id = if let Some(id) = args.next().and_then(|arg| arguments::get_regex_id(&arg)) {
             id
         } else {
             return Err("The first argument must be either a match \
                         id or the multiplayer link to a match"
                 .to_string());
         };
-        let warmups = iter
+        let warmups = args
             .next()
             .and_then(|num| usize::from_str(&num).ok())
             .unwrap_or(2);
@@ -59,11 +58,11 @@ pub struct NameMapArgs {
 impl NameMapArgs {
     pub fn new(mut args: Args) -> Self {
         let mut args = arguments::first_n(&mut args, 2);
-        let (name, map_id) = match args.pop() {
+        let (name, map_id) = match args.next_back() {
             Some(arg) => {
                 let id = arguments::get_regex_id(&arg);
                 if id.is_some() {
-                    (args.pop(), id)
+                    (args.next(), id)
                 } else {
                     (Some(arg), None)
                 }

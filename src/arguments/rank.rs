@@ -12,7 +12,7 @@ pub struct RankArgs {
 impl RankArgs {
     pub fn new(mut args: Args) -> Result<Self, String> {
         let mut args = arguments::first_n(&mut args, 2);
-        let (country, rank) = if let Some(mut arg) = args.pop() {
+        let (country, rank) = if let Some(mut arg) = args.next_back() {
             if let Ok(num) = usize::from_str(&arg) {
                 (None, num)
             } else if arg.len() < 3 {
@@ -39,7 +39,7 @@ impl RankArgs {
             );
         };
         Ok(Self {
-            name: args.pop(),
+            name: args.next(),
             country,
             rank,
         })
