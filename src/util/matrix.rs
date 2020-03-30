@@ -49,6 +49,11 @@ where
     type Output = T;
 
     fn index(&self, matrix_entry: (usize, usize)) -> &T {
+        println!(
+            "index: {} ({})",
+            matrix_entry.1 * self.width + matrix_entry.0,
+            self.vec.len()
+        );
         &self.vec[matrix_entry.1 * self.width + matrix_entry.0]
     }
 }
@@ -58,6 +63,11 @@ where
     T: Default + Copy,
 {
     fn index_mut(&mut self, matrix_entry: (usize, usize)) -> &mut T {
+        println!(
+            "index_mut: {} ({})",
+            matrix_entry.1 * self.width + matrix_entry.0,
+            self.vec.len()
+        );
         &mut self.vec[matrix_entry.1 * self.width + matrix_entry.0]
     }
 }

@@ -47,4 +47,3 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Numbered commands i.e. `<recent7`
   ### Commands
   - `<bg scores` to show guild's top scorers
-  - `<mostplayed` to show osu user's most played maps

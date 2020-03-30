@@ -42,8 +42,28 @@ impl BackGroundGame {
 
     pub fn restart(&mut self) -> CommandResult {
         self.resolve(None)?;
-        self.game = GameData::new(Arc::clone(&self.data), &mut self.previous_ids, self.osu_std)?;
-        let img = self.game.reveal.sub_image()?;
+        let img;
+        loop {
+            self.game =
+                match GameData::new(Arc::clone(&self.data), &mut self.previous_ids, self.osu_std) {
+                    Ok(game) => game,
+                    Err(why) => {
+                        warn!("Error creating bg game: {}", why);
+                        continue;
+                    }
+                };
+            img = match self.game.reveal.sub_image() {
+                Ok(img) => img,
+                Err(why) => {
+                    warn!(
+                        "Could not create initial bg image for id {}: {}",
+                        self.game.mapset_id, why
+                    );
+                    continue;
+                }
+            };
+            break;
+        }
         self.channel.send_message(&self.http, |m| {
             let bytes: &[u8] = &img;
             m.content("Here's the next one:")
@@ -221,6 +241,7 @@ impl GameData {
         let file_name = util::get_random_filename(previous_ids, &path)?;
         let mut split = file_name.split('.');
         let mapset_id = u32::from_str(split.next().unwrap()).unwrap();
+        info!("Next BG mapset id: {}", mapset_id);
         let (title, artist) = util::get_title_artist(mapset_id, data)?;
         let file_type = match split.next().unwrap() {
             "png" => ImageFormat::Png,

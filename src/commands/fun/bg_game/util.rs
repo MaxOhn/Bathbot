@@ -80,8 +80,31 @@ pub fn similarity(word_a: &str, word_b: &str) -> f32 {
 }
 
 fn levenshtein_distance(word_a: &str, word_b: &str) -> usize {
-    let len_a = word_a.chars().count();
-    let len_b = word_b.chars().count();
+    let (word_a, word_b) = if word_a.len() > word_b.len() {
+        (word_b, word_a)
+    } else {
+        (word_a, word_b)
+    };
+    let mut costs: Vec<usize> = (0..=word_b.len()).collect();
+    for (i, a) in (1..=word_a.len()).zip(word_a.chars()) {
+        let mut last_val = i;
+        for (j, b) in (1..=word_b.len()).zip(word_b.chars()) {
+            let new_val = if a == b {
+                costs[j - 1]
+            } else {
+                costs[j - 1].min(last_val).min(costs[j]) + 1
+            };
+            costs[j - 1] = last_val;
+            last_val = new_val;
+        }
+        costs[word_b.len()] = last_val;
+    }
+    *costs.last().unwrap()
+}
+
+fn _levenshtein_distance(word_a: &str, word_b: &str) -> usize {
+    let len_a = word_a.len();
+    let len_b = word_b.len();
     if len_a == 0 {
         return len_b;
     } else if len_b == 0 {
