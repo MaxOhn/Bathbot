@@ -84,12 +84,12 @@ impl EventHandler for Handler {
             }
         }
         // Message saving
-        if !msg.content.is_empty()
-            && !(msg.content.starts_with('<')
-                || msg.content.starts_with('!')
-                || msg.content.starts_with('>')
-                || msg.content.starts_with('&')
-                || msg.content.starts_with('$'))
+        if !(msg.content.is_empty()
+            || msg.content.starts_with('<')
+            || msg.content.starts_with('!')
+            || msg.content.starts_with('>')
+            || msg.content.starts_with('&')
+            || msg.content.starts_with('$'))
         {
             let msg_vec = vec![InsertableMessage {
                 id: msg.id.0,
@@ -118,29 +118,27 @@ impl EventHandler for Handler {
     fn guild_create(&self, ctx: Context, guild: Guild, is_new: bool) {
         if is_new {
             // Insert basic guild info into database
-            {
-                let guild = {
-                    let data = ctx.data.read();
-                    let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-                    match mysql.insert_guild(guild.id.0) {
-                        Ok(g) => {
-                            info!("Inserted new guild {} to database", guild.name);
-                            Some(g)
-                        }
-                        Err(why) => {
-                            error!(
-                                "Could not insert new guild '{}' to database: {}",
-                                guild.name, why
-                            );
-                            None
-                        }
+            let guild = {
+                let data = ctx.data.read();
+                let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                match mysql.insert_guild(guild.id.0) {
+                    Ok(g) => {
+                        info!("Inserted new guild {} to database", guild.name);
+                        Some(g)
                     }
-                };
-                if let Some(guild) = guild {
-                    let mut data = ctx.data.write();
-                    let guilds = data.get_mut::<Guilds>().expect("Could not get Guilds");
-                    guilds.insert(guild.guild_id, guild);
+                    Err(why) => {
+                        error!(
+                            "Could not insert new guild '{}' to database: {}",
+                            guild.name, why
+                        );
+                        None
+                    }
                 }
+            };
+            if let Some(guild) = guild {
+                let mut data = ctx.data.write();
+                let guilds = data.get_mut::<Guilds>().expect("Could not get Guilds");
+                guilds.insert(guild.guild_id, guild);
             }
         }
     }

@@ -1,4 +1,4 @@
-use crate::{arguments::MarkovChannelArgs, MySQL};
+use crate::{arguments::MarkovChannelArgs, Guilds, MySQL};
 use markov::Chain;
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
@@ -14,6 +14,18 @@ If a channel is specified, I will only consider data from that channel.\n\
 Credits to [Taha Hawa](https://gitlab.com/tahahawa/discord-markov-bot/)"]
 #[usage = "[channel id / mention] [amount of messages] [no-urls]"]
 pub fn hivemind(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    {
+        let data = ctx.data.read();
+        let guilds = data.get::<Guilds>().expect("Could not get Guilds");
+        if !guilds.get(&msg.guild_id.unwrap()).unwrap().message_tracking {
+            msg.channel_id.say(
+                &ctx.http,
+                "No messages tracked on this guild yet. \
+                To enable message tracking, use the `<enabletracking` command first.",
+            )?;
+            return Ok(());
+        }
+    }
     let args = MarkovChannelArgs::new(args);
     let amount = args.amount;
     let mut strings = {

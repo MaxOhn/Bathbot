@@ -18,6 +18,7 @@ table! {
         with_lyrics -> Bool,
         authorities -> Varchar,
         vc_role -> Nullable<Unsigned<Bigint>>,
+        message_tracking -> Bool,
     }
 }
 
