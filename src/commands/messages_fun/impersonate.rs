@@ -1,4 +1,4 @@
-use crate::{arguments::MarkovUserArgs, MySQL};
+use crate::{arguments::MarkovUserArgs, Guilds, MySQL};
 
 use itertools::Itertools;
 use markov::Chain;
@@ -15,6 +15,18 @@ pub fn impersonate_send(
     msg: &Message,
     args: Args,
 ) -> CommandResult {
+    {
+        let data = ctx.data.read();
+        let guilds = data.get::<Guilds>().expect("Could not get Guilds");
+        if !guilds.get(&msg.guild_id.unwrap()).unwrap().message_tracking {
+            msg.channel_id.say(
+                &ctx.http,
+                "No messages tracked on this guild yet. \
+                To enable message tracking, use the `<enabletracking` command first.",
+            )?;
+            return Ok(());
+        }
+    }
     let args = match MarkovUserArgs::new(args, ctx, msg.guild_id.unwrap()) {
         Ok(args) => args,
         Err(err_msg) => {

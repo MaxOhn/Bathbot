@@ -18,6 +18,7 @@ table! {
         with_lyrics -> Bool,
         authorities -> Varchar,
         vc_role -> Nullable<Unsigned<Bigint>>,
+        message_tracking -> Bool,
     }
 }
 
@@ -127,6 +128,12 @@ table! {
 }
 
 table! {
+    test (val) {
+        val -> Varchar,
+    }
+}
+
+table! {
     twitch_users (user_id) {
         user_id -> Unsigned<Bigint>,
         name -> Varchar,
@@ -158,6 +165,7 @@ allow_tables_to_appear_in_same_query!(
     role_assign,
     stars_mania_mods,
     stream_tracks,
+    test,
     twitch_users,
     unchecked_members,
 );

@@ -370,7 +370,7 @@ impl MySQL {
     }
 
     pub fn insert_guild(&self, guild_id: u64) -> DBResult<Guild> {
-        let guild = GuildDB::new(guild_id, true, AUTHORITY_ROLES.to_string(), None);
+        let guild = GuildDB::new(guild_id, true, AUTHORITY_ROLES.to_string(), None, false);
         let conn = self.get_connection()?;
         diesel::insert_or_ignore_into(schema::guilds::table)
             .values(&guild)
@@ -398,6 +398,17 @@ impl MySQL {
             .set(with_lyrics.eq(lyrics))
             .execute(&conn)?;
         info!("Updated lyrics for guild id {}", guild);
+        Ok(())
+    }
+
+    pub fn update_guild_tracking(&self, guild: u64, tracking: bool) -> DBResult<()> {
+        use schema::guilds::columns::{guild_id, message_tracking};
+        let conn = self.get_connection()?;
+        let target = schema::guilds::table.filter(guild_id.eq(guild));
+        diesel::update(target)
+            .set(message_tracking.eq(tracking))
+            .execute(&conn)?;
+        info!("Updated message_tracking for guild id {}", guild);
         Ok(())
     }
 
@@ -472,6 +483,19 @@ impl MySQL {
     // ---------------
     // Table: messages
     // ---------------
+
+    pub fn remove_channel_msgs(&self, channels: &[u64]) -> DBResult<()> {
+        use schema::messages::{self, columns::channel_id};
+        let conn = self.get_connection()?;
+        let amount =
+            diesel::delete(messages::table.filter(channel_id.eq_any(channels))).execute(&conn)?;
+        info!(
+            "Removed {} messages from {} channels from the database",
+            amount,
+            channels.len()
+        );
+        Ok(())
+    }
 
     pub fn biggest_id_exists(&self, msg_id: u64) -> DBResult<bool> {
         use schema::messages::dsl::*;

@@ -1,4 +1,4 @@
-use crate::{arguments::DiscordUserArgs, embeds::BasicEmbedData, util::discord, MySQL};
+use crate::{arguments::DiscordUserArgs, embeds::BasicEmbedData, util::discord, Guilds, MySQL};
 
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
@@ -10,6 +10,18 @@ use serenity::{
 #[only_in("guild")]
 #[description = "Display some stats about the message database"]
 pub fn messagestats(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    {
+        let data = ctx.data.read();
+        let guilds = data.get::<Guilds>().expect("Could not get Guilds");
+        if !guilds.get(&msg.guild_id.unwrap()).unwrap().message_tracking {
+            msg.channel_id.say(
+                &ctx.http,
+                "No messages tracked on this guild yet. \
+                To enable message tracking, use the `<enabletracking` command first.",
+            )?;
+            return Ok(());
+        }
+    }
     let user = match DiscordUserArgs::new(args, &ctx, msg.guild_id.unwrap()) {
         Ok(args) => args.user,
         Err(_) => msg.author.clone(),
