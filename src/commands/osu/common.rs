@@ -41,7 +41,7 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
                 .expect("Could not get DiscordLinks");
             match links.get(msg.author.id.as_u64()) {
                 Some(name) => {
-                    args.names.push(name.clone());
+                    args.names.insert(name.clone());
                 }
                 None => {
                     msg.channel_id.say(
@@ -170,8 +170,11 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
     };
 
     // Accumulate all necessary data
+    let len = names.len();
     let names_join = names
-        .chunks(names.len() - 1)
+        .into_iter()
+        .collect::<Vec<_>>()
+        .chunks(len - 1)
         .map(|chunk| chunk.join("`, `"))
         .join("` and `");
     let mut content = format!("`{}`", names_join);
@@ -179,8 +182,9 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
         content.push_str(" have no common scores");
     } else {
         content.push_str(&format!(
-            " have {} common beatmaps in their top 100",
-            amount_common
+            " have {} common beatmap{} in their top 100",
+            amount_common,
+            if amount_common > 1 { "s" } else { "" }
         ));
         if amount_common > 10 {
             content.push_str(", here's the top 10 of them:");

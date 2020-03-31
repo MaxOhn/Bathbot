@@ -9,7 +9,7 @@ use serenity::{
     },
     prelude::Context,
 };
-use std::{iter::FromIterator, str::FromStr};
+use std::{collections::HashSet, iter::FromIterator, str::FromStr};
 
 pub struct DiscordUserArgs {
     pub user: User,
@@ -89,14 +89,14 @@ impl NamePassArgs {
 }
 
 pub struct MultNameArgs {
-    pub names: Vec<String>,
+    pub names: HashSet<String>,
 }
 
 impl MultNameArgs {
     pub fn new(mut args: Args, n: usize) -> Self {
         let args = arguments::first_n(&mut args, n);
         Self {
-            names: Vec::from_iter(args),
+            names: HashSet::from_iter(args),
         }
     }
 }

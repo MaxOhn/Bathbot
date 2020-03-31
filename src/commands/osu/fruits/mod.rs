@@ -15,9 +15,9 @@ use serenity::framework::standard::macros::group;
     profilectb,
     ppctb,
     whatifctb,
+    rankctb,
     commonctb,
     recentctbleaderboard,
-    recentctbgloballeaderboard,
-    rankctb
+    recentctbgloballeaderboard
 )]
 pub struct CatchTheBeat;

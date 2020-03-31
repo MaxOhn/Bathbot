@@ -19,7 +19,7 @@ use rosu::models::{GameMods, Grade};
 use serenity::framework::standard::Args;
 use std::{convert::TryFrom, str::FromStr, vec::IntoIter};
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ModSelection {
     None,
     Includes,

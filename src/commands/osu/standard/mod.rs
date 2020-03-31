@@ -19,10 +19,10 @@ use serenity::framework::standard::macros::group;
     profile,
     pp,
     whatif,
+    rank,
     common,
     recentleaderboard,
     recentgloballeaderboard,
-    rank,
     simulaterecent,
     nochokes,
     sotarks

@@ -700,7 +700,7 @@ impl BasicEmbedData {
         let mut result = Self::default();
         let (author_icon, author_url, author_text) = get_user_author(&user);
         let title = format!(
-            "What score is missing for {name} to reach {pp_given}pp?",
+            "What score is {name} missing to reach {pp_given}pp?",
             name = user.username,
             pp_given = pp
         );

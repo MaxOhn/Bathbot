@@ -9,7 +9,7 @@ use crate::{
 use rayon::prelude::*;
 use rosu::{
     backend::requests::UserRequest,
-    models::{Beatmap, GameMode, GameMods, Score, User},
+    models::{Beatmap, GameMod, GameMode, GameMods, Score, User},
 };
 use serenity::{
     framework::standard::{macros::command, Args, CommandError, CommandResult},
@@ -34,7 +34,7 @@ fn top_send(
             return Ok(());
         }
     };
-    let (mods, selection) = args
+    let (mut mods, selection) = args
         .mods
         .unwrap_or_else(|| (GameMods::default(), ModSelection::None));
     let combo = args.combo.unwrap_or(0);
@@ -89,6 +89,7 @@ fn top_send(
         };
         (user, scores)
     };
+    let contains_nm = mods.remove(&GameMod::NoMod).is_some();
 
     // Filter scores according to mods, combo, acc, and grade
     let mut scores_indices: Vec<(usize, Score)> = scores
@@ -102,9 +103,27 @@ fn top_send(
             }
             let mod_bool = match selection {
                 ModSelection::None => true,
-                ModSelection::Exact => mods == s.enabled_mods,
-                ModSelection::Includes => mods.iter().all(|m| s.enabled_mods.contains(&m)),
-                ModSelection::Excludes => mods.iter().all(|m| !s.enabled_mods.contains(&m)),
+                ModSelection::Exact => {
+                    if contains_nm {
+                        s.enabled_mods.is_empty()
+                    } else {
+                        mods == s.enabled_mods
+                    }
+                }
+                ModSelection::Includes => {
+                    if contains_nm {
+                        s.enabled_mods.is_empty()
+                    } else {
+                        mods.iter().all(|m| s.enabled_mods.contains(m))
+                    }
+                }
+                ModSelection::Excludes => {
+                    if contains_nm && s.enabled_mods.is_empty() {
+                        false
+                    } else {
+                        mods.iter().all(|m| !s.enabled_mods.contains(m))
+                    }
+                }
             };
             if !mod_bool {
                 return false;
@@ -298,9 +317,8 @@ fn top_send(
                  Mods can be specified, aswell as minimal acc \
                  with `-a`, combo with `-c`, and a grade with `-grade`.\n\
                  With `-reverse` I will reverse the resulting list, \
-                 with `--acc` I will sort by accuracy \
-                 and with `--combo` I will sort by combo."]
-#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [--acc/--combo] [-reverse]"]
+                 with `--a` I will sort by accuracy and with `--c` I will sort by combo."]
+#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [--a/--c] [-reverse]"]
 #[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
 #[example = "vaxei -c 1234 -dt! --a"]
 #[aliases("topscores", "osutop")]
@@ -313,9 +331,8 @@ pub fn top(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                  Mods can be specified, aswell as minimal acc \
                  with `-a`, combo with `-c`, and a grade with `-grade`. \
                  With `-reverse` I will reverse the resulting list, \
-                 with `--acc` I will sort by accuracy \
-                 and with `--combo` I will sort by combo."]
-#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [--acc/--combo] [-reverse]"]
+                 with `--a` I will sort by accuracy and with `--c` I will sort by combo."]
+#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [--a/--c] [-reverse]"]
 #[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
 #[example = "vaxei -c 1234 -dt! --a"]
 #[aliases("topm")]
@@ -328,9 +345,8 @@ pub fn topmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                  Mods can be specified, aswell as minimal acc \
                  with `-a`, combo with `-c`, and a grade with `-grade`. \
                  With `-reverse` I will reverse the resulting list, \
-                 with `--acc` I will sort by accuracy \
-                 and with `--combo` I will sort by combo."]
-#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [--acc/--combo] [-reverse]"]
+                 with `--a` I will sort by accuracy and with `--c` I will sort by combo."]
+#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [--a/--c] [-reverse]"]
 #[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
 #[example = "vaxei -c 1234 -dt! --a"]
 #[aliases("topt")]
@@ -343,9 +359,8 @@ pub fn toptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                  Mods can be specified, aswell as minimal acc \
                  with `-a`, combo with `-c`, and a grade with `-grade`. \
                  With `-reverse` I will reverse the resulting list, \
-                 with `--acc` I will sort by accuracy \
-                 and with `--combo` I will sort by combo."]
-#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [--acc/--combo] [-reverse]"]
+                 with `--a` I will sort by accuracy and with `--c` I will sort by combo."]
+#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [--a/--c] [-reverse]"]
 #[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
 #[example = "vaxei -c 1234 -dt! --a"]
 #[aliases("topc")]

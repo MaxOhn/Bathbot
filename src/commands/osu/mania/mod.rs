@@ -19,10 +19,10 @@ use serenity::framework::standard::macros::group;
     profilemania,
     ppmania,
     whatifmania,
+    rankmania,
     commonmania,
     recentmanialeaderboard,
     recentmaniagloballeaderboard,
-    rankmania,
     simulaterecentmania,
     ratios
 )]
