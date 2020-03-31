@@ -16,7 +16,7 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use std::collections::HashMap;
+use std::{cmp::Ordering, collections::HashMap};
 use tokio::runtime::Runtime;
 
 fn top_send(
@@ -59,7 +59,6 @@ fn top_send(
             }
         }
     };
-    let reverse = args.reverse;
     let mut rt = Runtime::new().unwrap();
 
     // Retrieve the user and its top scores
@@ -119,12 +118,29 @@ fn top_send(
         })
         .collect();
     let mut amount = scores_indices.len();
+    match args.sort_by {
+        TopSortBy::Acc => {
+            let acc_cache: HashMap<_, _> = scores_indices
+                .iter()
+                .map(|(i, s)| (*i, s.accuracy(mode)))
+                .collect();
+            scores_indices.sort_by(|(a, _), (b, _)| {
+                acc_cache
+                    .get(&b)
+                    .unwrap()
+                    .partial_cmp(acc_cache.get(&a).unwrap())
+                    .unwrap_or(Ordering::Equal)
+            });
+        }
+        TopSortBy::Combo => scores_indices.sort_by(|(_, a), (_, b)| b.max_combo.cmp(&a.max_combo)),
+        TopSortBy::None => {}
+    }
     if top_type != TopType::Sotarks {
         if top_type == TopType::Recent {
             scores_indices.sort_by(|(_, a), (_, b)| b.date.cmp(&a.date));
             amount = scores_indices.len().min(5);
         }
-        if reverse {
+        if args.reverse {
             scores_indices = scores_indices.into_iter().rev().collect();
         }
         scores_indices = scores_indices[..amount.min(5)].to_vec();
@@ -207,7 +223,7 @@ fn top_send(
             if amount > 5 {
                 content.push_str(&format!(
                     ", here's the {} 5 of them:",
-                    if reverse { "last" } else { "top" }
+                    if args.reverse { "last" } else { "top" }
                 ));
             } else {
                 content.push(':');
@@ -217,7 +233,7 @@ fn top_send(
         TopType::Recent => format!(
             "Here are the {num} {adj} recent scores in `{name}`'s top 100",
             num = scores_data.len(),
-            adj = if reverse { "least" } else { "most" },
+            adj = if args.reverse { "least" } else { "most" },
             name = name,
         ),
         TopType::Sotarks => {
@@ -237,7 +253,7 @@ fn top_send(
             if amount > 5 {
                 content.push_str(&format!(
                     "\nHere are the {} 5:",
-                    if reverse { "last" } else { "top" }
+                    if args.reverse { "last" } else { "top" }
                 ));
             }
             scores_data = scores_data[..amount.min(5)].to_vec();
@@ -278,59 +294,67 @@ fn top_send(
 }
 
 #[command]
-#[description = "Display a user's top plays. \
+#[description = "Display a user's top plays.\n\
                  Mods can be specified, aswell as minimal acc \
-                 with `-a`, combo with `-c`, and a grade with `-grade`. \
-                 With `-reverse` I will reverse the resulting list."]
-#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [-reverse]"]
-#[example = "badewanne3 -a 97.34 -grade A +hdhr"]
-#[example = "vaxei -c 1234 -dt!"]
+                 with `-a`, combo with `-c`, and a grade with `-grade`.\n\
+                 With `-reverse` I will reverse the resulting list, \
+                 with `--acc` I will sort by accuracy \
+                 and with `--combo` I will sort by combo."]
+#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [--acc/--combo] [-reverse]"]
+#[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
+#[example = "vaxei -c 1234 -dt! --a"]
 #[aliases("topscores", "osutop")]
 pub fn top(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     top_send(GameMode::STD, TopType::Top, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display a user's top mania plays. \
+#[description = "Display a user's top mania plays.\n\
                  Mods can be specified, aswell as minimal acc \
                  with `-a`, combo with `-c`, and a grade with `-grade`. \
-                 With `-reverse` I will reverse the resulting list."]
-#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [-reverse]"]
-#[example = "badewanne3 -a 97.34 -grade A +hdhr"]
-#[example = "vaxei -c 1234 -dt!"]
+                 With `-reverse` I will reverse the resulting list, \
+                 with `--acc` I will sort by accuracy \
+                 and with `--combo` I will sort by combo."]
+#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [--acc/--combo] [-reverse]"]
+#[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
+#[example = "vaxei -c 1234 -dt! --a"]
 #[aliases("topm")]
 pub fn topmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     top_send(GameMode::MNA, TopType::Top, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display a user's top taiko plays. \
+#[description = "Display a user's top taiko plays.\n\
                  Mods can be specified, aswell as minimal acc \
                  with `-a`, combo with `-c`, and a grade with `-grade`. \
-                 With `-reverse` I will reverse the resulting list."]
-#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [-reverse]"]
-#[example = "badewanne3 -a 97.34 -grade A +hdhr"]
-#[example = "vaxei -c 1234 -dt!"]
+                 With `-reverse` I will reverse the resulting list, \
+                 with `--acc` I will sort by accuracy \
+                 and with `--combo` I will sort by combo."]
+#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [--acc/--combo] [-reverse]"]
+#[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
+#[example = "vaxei -c 1234 -dt! --a"]
 #[aliases("topt")]
 pub fn toptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     top_send(GameMode::TKO, TopType::Top, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display a user's top ctb plays. \
+#[description = "Display a user's top ctb plays.\n\
                  Mods can be specified, aswell as minimal acc \
                  with `-a`, combo with `-c`, and a grade with `-grade`. \
-                 With `-reverse` I will reverse the resulting list."]
-#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [-reverse]"]
-#[example = "badewanne3 -a 97.34 -grade A +hdhr"]
-#[example = "vaxei -c 1234 -dt!"]
+                 With `-reverse` I will reverse the resulting list, \
+                 with `--acc` I will sort by accuracy \
+                 and with `--combo` I will sort by combo."]
+#[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [--acc/--combo] [-reverse]"]
+#[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
+#[example = "vaxei -c 1234 -dt! --a"]
 #[aliases("topc")]
 pub fn topctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     top_send(GameMode::CTB, TopType::Top, ctx, msg, args)
 }
 
 #[command]
-#[description = "Display a user's most recent top plays. \
+#[description = "Display a user's most recent top plays.\n\
                  Mods can be specified, aswell as minimal acc \
                  with `-a`, combo with `-c`, and a grade with `-grade`. \
                  With `-reverse` I will reverse the resulting list."]
@@ -343,7 +367,7 @@ pub fn recentbest(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
 }
 
 #[command]
-#[description = "Display a user's most recent top mania plays. \
+#[description = "Display a user's most recent top mania plays.\n\
                  Mods can be specified, aswell as minimal acc \
                  with `-a`, combo with `-c`, and a grade with `-grade`. \
                  With `-reverse` I will reverse the resulting list."]
@@ -356,7 +380,7 @@ pub fn recentbestmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandR
 }
 
 #[command]
-#[description = "Display a user's most recent top taiko plays. \
+#[description = "Display a user's most recent top taiko plays.\n\
                  Mods can be specified, aswell as minimal acc \
                  with `-a`, combo with `-c`, and a grade with `-grade`. \
                  With `-reverse` I will reverse the resulting list."]
@@ -369,7 +393,7 @@ pub fn recentbesttaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandR
 }
 
 #[command]
-#[description = "Display a user's most recent top ctb plays. \
+#[description = "Display a user's most recent top ctb plays.\n\
                  Mods can be specified, aswell as minimal acc \
                  with `-a`, combo with `-c`, and a grade with `-grade`. \
                  With `-reverse` I will reverse the resulting list."]
@@ -394,4 +418,10 @@ enum TopType {
     Top,
     Recent,
     Sotarks,
+}
+
+pub enum TopSortBy {
+    None,
+    Acc,
+    Combo,
 }
