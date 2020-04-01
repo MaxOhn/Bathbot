@@ -11,29 +11,30 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use tokio::runtime::Runtime;
 
 #[command]
 #[description = "Display the 10 most played maps of a user"]
 #[usage = "[username]"]
 #[example = "badewanne3"]
-fn mostplayed(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn mostplayed(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let args = NameArgs::new(args);
     let name = if let Some(name) = args.name {
         name
     } else {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let links = data
             .get::<DiscordLinks>()
             .expect("Could not get DiscordLinks");
         match links.get(msg.author.id.as_u64()) {
             Some(name) => name.clone(),
             None => {
-                msg.channel_id.say(
-                    &ctx.http,
-                    "Either specify an osu name or link your discord \
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        "Either specify an osu name or link your discord \
                      to an osu profile via `<link osuname`",
-                )?;
+                    )
+                    .await?;
                 return Ok(());
             }
         }
@@ -42,31 +43,31 @@ fn mostplayed(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     // Retrieve the user
     let (user, maps) = {
         let user_req = UserRequest::with_username(&name);
-        let mut rt = Runtime::new().unwrap();
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let user = {
             let osu = data.get::<Osu>().expect("Could not get osu client");
-            match rt.block_on(user_req.queue_single(&osu)) {
+            match user_req.queue_single(&osu).await {
                 Ok(result) => match result {
                     Some(user) => user,
                     None => {
                         msg.channel_id
-                            .say(&ctx.http, format!("User `{}` was not found", name))?;
+                            .say(&ctx.http, format!("User `{}` was not found", name))
+                            .await?;
                         return Ok(());
                     }
                 },
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                     return Err(CommandError::from(why.to_string()));
                 }
             }
         };
         let maps = {
             let scraper = data.get::<Scraper>().expect("Could not get Scraper");
-            match rt.block_on(scraper.get_most_played(user.user_id, 10)) {
+            match scraper.get_most_played(user.user_id, 10).await {
                 Ok(maps) => maps,
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                     return Err(CommandError::from(why.to_string()));
                 }
             }
@@ -80,9 +81,10 @@ fn mostplayed(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     // Creating the embed
     let response = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))?;
+        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
+        .await?;
 
     // Save the response owner
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
     Ok(())
 }

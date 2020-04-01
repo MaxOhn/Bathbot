@@ -33,36 +33,38 @@ Subcommands can be abbreviated with `s, h, b, r`, e.g. `<bg h` for hints.\n\
 With `<bg start mania` (`<bg s m`) I will give mania backgrounds to guess."]
 #[aliases("bg")]
 #[sub_commands("start", "hint", "bigger", "stop", "stats")]
-fn backgroundgame(ctx: &mut Context, msg: &Message) -> CommandResult {
-    msg.channel_id.say(
-        &ctx.http,
-        "Use `<bg s` to (re)start the game, \
+async fn backgroundgame(ctx: &mut Context, msg: &Message) -> CommandResult {
+    msg.channel_id
+        .say(
+            &ctx.http,
+            "Use `<bg s` to (re)start the game, \
         `<bg b` to increase the image, \
         `<bg h` to get a hint, \
         `<bg stop` to stop the game, \
         or `<bg stats` to check your correct guesses.\n\
         For mania backgrounds use `<bg start mania` (`<bg s m`) instead of `<bg start`, \
         everything else stays the same",
-    )?;
+        )
+        .await?;
     Ok(())
 }
 
 #[command]
 #[aliases("s", "resolve", "r")]
 #[sub_commands("mania")]
-fn start(ctx: &mut Context, msg: &Message) -> CommandResult {
-    _start(GameMode::STD, ctx, msg)
+async fn start(ctx: &mut Context, msg: &Message) -> CommandResult {
+    _start(GameMode::STD, ctx, msg).await
 }
 
 #[command]
 #[aliases("m")]
-fn mania(ctx: &mut Context, msg: &Message) -> CommandResult {
-    _start(GameMode::MNA, ctx, msg)
+async fn mania(ctx: &mut Context, msg: &Message) -> CommandResult {
+    _start(GameMode::MNA, ctx, msg).await
 }
 
-fn _start(mode: GameMode, ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn _start(mode: GameMode, ctx: &mut Context, msg: &Message) -> CommandResult {
     let game_exists = {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         data.get::<BgGameKey>()
             .expect("Could not get BgGameKey")
             .contains_key(&msg.channel_id)
@@ -70,7 +72,7 @@ fn _start(mode: GameMode, ctx: &mut Context, msg: &Message) -> CommandResult {
     if !game_exists {
         let game = BackGroundGame::new(ctx, msg.channel_id, mode == GameMode::STD);
         let game = Arc::new(RwLock::new(game));
-        let mut data = ctx.data.write();
+        let mut data = ctx.data.write().await;
         data.get_mut::<BgGameKey>()
             .expect("Could not get BgGameKey")
             .insert(msg.channel_id, Arc::clone(&game));
@@ -78,7 +80,7 @@ fn _start(mode: GameMode, ctx: &mut Context, msg: &Message) -> CommandResult {
             .get_mut::<DispatcherKey>()
             .expect("Could not get DispatcherKey")
             .clone();
-        dispatcher.write().add_listener(
+        dispatcher.write().await.add_listener(
             DispatchEvent::BgMsgEvent {
                 channel: msg.channel_id,
                 user: msg.author.id,    // irrelevant
@@ -88,104 +90,121 @@ fn _start(mode: GameMode, ctx: &mut Context, msg: &Message) -> CommandResult {
         );
     }
     let game = {
-        let mut data = ctx.data.write();
+        let mut data = ctx.data.write().await;
         data.get_mut::<BgGameKey>()
             .expect("Could not get BgGamekey")
             .get(&msg.channel_id)
             .unwrap()
             .clone()
     };
-    game.write().restart()?;
+    let restart_future = { game.write().restart() };
+    restart_future.await?;
     Ok(())
 }
 
 #[command]
-fn stop(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn stop(ctx: &mut Context, msg: &Message) -> CommandResult {
     _stop(
         &Arc::clone(&ctx.data),
         &Arc::clone(&ctx.http),
         msg.channel_id,
     )
+    .await
 }
 
-fn _stop(data: &Arc<SRwLock<ShareMap>>, http: &Arc<Http>, channel: ChannelId) -> CommandResult {
+async fn _stop(
+    data: &Arc<SRwLock<ShareMap>>,
+    http: &Arc<Http>,
+    channel: ChannelId,
+) -> CommandResult {
     let removing = {
-        let data = data.read();
+        let data = data.read().await;
         let game = data
             .get::<BgGameKey>()
             .expect("Could not get BgGameKey")
             .get(&channel);
         if let Some(game) = game {
-            game.read().resolve(None)?;
+            let resolve_future = { game.read().resolve(None) };
+            resolve_future.await?;
         }
         game.is_some()
     };
     if removing {
-        let mut data = data.write();
+        let mut data = data.write().await;
         data.get_mut::<BgGameKey>()
             .expect("Could not get BgGameKey")
             .remove(&channel);
     };
     if removing {
-        channel.say(&http, "End of game, see you next time o/")?;
+        channel
+            .say(&http, "End of game, see you next time o/")
+            .await?;
     } else {
-        channel.say(&http, "There was no running game in this channel")?;
+        channel
+            .say(&http, "There was no running game in this channel")
+            .await?;
     }
     Ok(())
 }
 
 #[command]
 #[aliases("h")]
-fn hint(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn hint(ctx: &mut Context, msg: &Message) -> CommandResult {
     let hint = {
-        let mut data = ctx.data.write();
+        let mut data = ctx.data.write().await;
         data.get_mut::<BgGameKey>()
             .expect("Could not get BgGameKey")
             .get(&msg.channel_id)
             .map(|game| game.write().hint())
     };
     let _ = if let Some(hint) = hint {
-        msg.channel_id.say(&ctx.http, hint)?
+        msg.channel_id.say(&ctx.http, hint).await?
     } else {
         msg.channel_id
-            .say(&ctx.http, "There is no running game in this channel")?
+            .say(&ctx.http, "There is no running game in this channel")
+            .await?
     };
     Ok(())
 }
 
 #[command]
 #[aliases("b", "enhance")]
-fn bigger(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn bigger(ctx: &mut Context, msg: &Message) -> CommandResult {
     let img: Option<Result<Vec<u8>, Error>> = {
-        let mut data = ctx.data.write();
+        let mut data = ctx.data.write().await;
         data.get_mut::<BgGameKey>()
             .expect("Could not get BgGameKey")
             .get_mut(&msg.channel_id)
             .map(|game| game.write().increase_sub_image())
     };
     if let Some(Ok(img)) = img {
-        msg.channel_id.send_message(&ctx.http, |m| {
-            let bytes: &[u8] = &img;
-            m.add_file((bytes, "bg_img.png"))
-        })?;
+        msg.channel_id
+            .send_message(&ctx.http, |m| {
+                let bytes: &[u8] = &img;
+                m.add_file((bytes, "bg_img.png"))
+            })
+            .await?;
     } else {
         msg.channel_id
-            .say(&ctx.http, "There is no running game in this channel")?;
+            .say(&ctx.http, "There is no running game in this channel")
+            .await?;
     }
     Ok(())
 }
 
 #[command]
-fn stats(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn stats(ctx: &mut Context, msg: &Message) -> CommandResult {
     let score = {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         mysql.get_bggame_score(msg.author.id.0)?
     };
-    let response = msg.reply(
-        (&ctx.cache, &*ctx.http),
-        format!("You've guessed {} backgrounds correctly!", score),
-    )?;
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+    let response = msg
+        .reply(
+            (&ctx.cache, &*ctx.http),
+            format!("You've guessed {} backgrounds correctly!", score),
+        )
+        .await?;
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
     Ok(())
 }

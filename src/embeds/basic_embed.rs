@@ -254,7 +254,7 @@ impl BasicEmbedData {
     //
     /// Returns a tuple containing a new `BasicEmbedData` object,
     /// and a `Vec<u8>` representing the bytes of a png
-    pub fn create_common(
+    pub async fn create_common(
         users: HashMap<u32, User>,
         all_scores: Vec<Vec<Score>>,
         maps: HashMap<u32, Beatmap>,
@@ -324,10 +324,12 @@ impl BasicEmbedData {
         }
         // Keys have no strict order, hence inconsistent result
         let user_ids: Vec<u32> = users.keys().copied().collect();
-        let thumbnail = discord::get_combined_thumbnail(&user_ids).unwrap_or_else(|e| {
-            warn!("Error while combining avatars: {}", e);
-            Vec::default()
-        });
+        let thumbnail = discord::get_combined_thumbnail(&user_ids)
+            .await
+            .unwrap_or_else(|e| {
+                warn!("Error while combining avatars: {}", e);
+                Vec::default()
+            });
         result.description = Some(description);
         (result, thumbnail)
     }
@@ -335,7 +337,7 @@ impl BasicEmbedData {
     //
     // leaderboard
     //
-    pub fn create_leaderboard(
+    pub async fn create_leaderboard(
         init_name: Option<String>,
         map: Beatmap,
         scores: Vec<ScraperScore>,
@@ -376,7 +378,9 @@ impl BasicEmbedData {
                     "**{idx}.** {emote} **{name}**: {score} [ {combo} ]{mods}\n\
                      - {pp} ~ {acc}% ~ {ago}\n",
                     idx = i + 1,
-                    emote = osu::grade_emote(score.grade, ctx.cache.clone()).to_string(),
+                    emote = osu::grade_emote(score.grade, ctx.cache.clone())
+                        .await
+                        .to_string(),
                     name = username,
                     score = with_comma_u64(score.score as u64),
                     combo = get_combo(&score, &map),
@@ -385,7 +389,7 @@ impl BasicEmbedData {
                     } else {
                         format!(" **+{}**", score.enabled_mods)
                     },
-                    pp = get_pp(&mut mod_map, &score, &map, ctx)?,
+                    pp = get_pp(&mut mod_map, &score, &map, ctx).await?,
                     acc = round(score.accuracy),
                     ago = how_long_ago(&score.date),
                 ));
@@ -599,7 +603,7 @@ impl BasicEmbedData {
     //
     // nochoke
     //
-    pub fn create_nochoke(
+    pub async fn create_nochoke(
         user: User,
         scores_data: HashMap<usize, (Score, Beatmap)>,
         cache: CacheRwLock,
@@ -650,40 +654,47 @@ impl BasicEmbedData {
         let (author_icon, author_url, author_text) = get_user_author(&user);
         let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
         let mut description = String::with_capacity(512);
-
         for (idx, unchoked, actual, map) in unchoked_scores.into_iter() {
-            let pp_provider = match PPProvider::new(actual, map, None) {
-                Ok(provider) => provider,
-                Err(why) => {
-                    return Err(Error::Custom(format!(
+            let (stars, max_pp) = {
+                let pp_provider = PPProvider::new(actual, map, None).await.map_err(|why| {
+                    Error::Custom(format!(
                         "Something went wrong while creating PPProvider: {}",
                         why
-                    )))
-                }
+                    ))
+                })?;
+                (
+                    util::get_stars(pp_provider.stars()),
+                    round(pp_provider.max_pp()),
+                )
             };
-            description.push_str(&format!(
+            let _ = writeln!(
+                description,
                 "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
-                 {grade} {old_pp} → **{new_pp}pp**/{max_pp}PP ~ ({old_acc} → **{new_acc}%**)\n\
-                 [ {old_combo} → **{new_combo}x**/{max_combo}x ] ~ *Removed {misses} miss{plural}*\n",
+                {grade} {old_pp} → **{new_pp}pp**/{max_pp}PP ~ ({old_acc} → **{new_acc}%**)\n\
+                [ {old_combo} → **{new_combo}x**/{max_combo}x ] ~ *Removed {misses} miss{plural}*\n",
                 idx = idx,
                 title = map.title,
                 version = map.version,
                 base = HOMEPAGE,
                 id = map.beatmap_id,
                 mods = util::get_mods(&actual.enabled_mods),
-                stars = util::get_stars(pp_provider.stars()),
-                grade = osu::grade_emote(unchoked.grade, cache.clone()),
+                stars = stars,
+                grade = osu::grade_emote(unchoked.grade, cache.clone()).await,
                 old_pp = round(actual.pp.unwrap()),
                 new_pp = round(unchoked.pp.unwrap()),
-                max_pp = round(pp_provider.max_pp()),
+                max_pp = max_pp,
                 old_acc = round(actual.accuracy(GameMode::STD)),
                 new_acc = round(unchoked.accuracy(GameMode::STD)),
                 old_combo = actual.max_combo,
                 new_combo = unchoked.max_combo,
                 max_combo = map.max_combo.unwrap(),
                 misses = actual.count_miss - unchoked.count_miss,
-                plural = if actual.count_miss - unchoked.count_miss != 1 { "es" } else { "" }
-            ));
+                plural = if actual.count_miss - unchoked.count_miss != 1 {
+                    "es"
+                } else {
+                    ""
+                }
+            );
         }
         result.author_icon = Some(author_icon);
         result.author_url = Some(author_url);
@@ -762,7 +773,7 @@ impl BasicEmbedData {
     //
     // profile
     //
-    pub fn create_profile(
+    pub async fn create_profile(
         user: User,
         score_maps: Vec<(Score, Beatmap)>,
         mode: GameMode,
@@ -836,15 +847,15 @@ impl BasicEmbedData {
                 "Grades:".to_owned(),
                 format!(
                     "{}{} {}{} {}{} {}{} {}{}",
-                    osu::grade_emote(Grade::XH, cache.clone()),
+                    osu::grade_emote(Grade::XH, cache.clone()).await,
                     user.count_ssh,
-                    osu::grade_emote(Grade::X, cache.clone()),
+                    osu::grade_emote(Grade::X, cache.clone()).await,
                     user.count_ss,
-                    osu::grade_emote(Grade::SH, cache.clone()),
+                    osu::grade_emote(Grade::SH, cache.clone()).await,
                     user.count_sh,
-                    osu::grade_emote(Grade::S, cache.clone()),
+                    osu::grade_emote(Grade::S, cache.clone()).await,
                     user.count_s,
-                    osu::grade_emote(Grade::A, cache),
+                    osu::grade_emote(Grade::A, cache).await,
                     user.count_a,
                 ),
                 false,
@@ -1013,7 +1024,11 @@ impl BasicEmbedData {
     //
     // ratio
     //
-    pub fn create_ratio(user: User, scores: Vec<Score>, ctx: &Context) -> Result<Self, Error> {
+    pub async fn create_ratio(
+        user: User,
+        scores: Vec<Score>,
+        ctx: &Context,
+    ) -> Result<Self, Error> {
         let mut result = Self::default();
         let mut accs = vec![0, 90, 95, 97, 99];
         let mut categories: BTreeMap<u8, RatioCategory> = BTreeMap::new();
@@ -1064,7 +1079,7 @@ impl BasicEmbedData {
             }
         }
         let previous_ratios = {
-            let data = ctx.data.read();
+            let data = ctx.data.read().await;
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
             mysql.update_ratios(
                 &user.username,
@@ -1132,7 +1147,7 @@ impl BasicEmbedData {
     //
     // recentlist
     //
-    pub fn create_recentlist(
+    pub async fn create_recentlist(
         user: User,
         scores: Vec<Score>,
         maps: HashMap<u32, Beatmap>,
@@ -1155,29 +1170,28 @@ impl BasicEmbedData {
                     GameMode::STD | GameMode::TKO => {
                         PPProvider::calculate_oppai_pp(&score, &map).map(Some)
                     }
-                    GameMode::MNA => PPProvider::calculate_mania_pp(&score, &map, &ctx).map(Some),
+                    GameMode::MNA => PPProvider::calculate_mania_pp(&score, &map, &ctx)
+                        .await
+                        .map(Some),
                     GameMode::CTB => Ok(None),
                 };
-                let actual = match actual_result {
-                    Ok(pp) => pp,
-                    Err(why) => {
-                        return Err(Error::Custom(format!(
-                            "Something went wrong while calculating PP: {}",
-                            why
-                        )))
-                    }
-                };
+                let actual = actual_result.map_err(|why| {
+                    Error::Custom(format!(
+                        "Something went wrong while calculating PP: {}",
+                        why
+                    ))
+                })?;
                 (actual, Some(max), stars)
             } else {
-                let pp_provider = match PPProvider::new(&score, &map, Some(ctx)) {
-                    Ok(provider) => provider,
-                    Err(why) => {
-                        return Err(Error::Custom(format!(
-                            "Something went wrong while creating PPProvider: {}",
-                            why
-                        )))
-                    }
-                };
+                let pp_provider =
+                    PPProvider::new(&score, &map, Some(ctx))
+                        .await
+                        .map_err(|why| {
+                            Error::Custom(format!(
+                                "Something went wrong while creating PPProvider: {}",
+                                why
+                            ))
+                        })?;
                 let actual = if mode == GameMode::CTB {
                     None
                 } else {
@@ -1202,7 +1216,7 @@ impl BasicEmbedData {
             let _ = writeln!(
                 description,
                 "{grade} {pp} ~ ({acc}) ~ {score}",
-                grade = osu::grade_emote(score.grade, ctx.cache.clone()),
+                grade = osu::grade_emote(score.grade, ctx.cache.clone()).await,
                 pp = util::_get_pp(actual, max_pp),
                 acc = util::get_acc(&score, mode),
                 score = with_comma_u64(score.score as u64),
@@ -1232,7 +1246,7 @@ impl BasicEmbedData {
     //
     // scores
     //
-    pub fn create_scores(
+    pub async fn create_scores(
         user: User,
         map: Beatmap,
         scores: Vec<Score>,
@@ -1250,20 +1264,26 @@ impl BasicEmbedData {
         }
         let mut fields = Vec::new();
         for (i, score) in scores.into_iter().enumerate() {
-            let pp_provider = match PPProvider::new(&score, &map, Some(ctx)) {
-                Ok(provider) => provider,
-                Err(why) => {
-                    return Err(Error::Custom(format!(
-                        "Something went wrong while creating PPProvider: {}",
-                        why
-                    )))
-                }
+            let (stars, pp) = {
+                let pp_provider = match PPProvider::new(&score, &map, Some(ctx)).await {
+                    Ok(provider) => provider,
+                    Err(why) => {
+                        return Err(Error::Custom(format!(
+                            "Something went wrong while creating PPProvider: {}",
+                            why
+                        )))
+                    }
+                };
+                (
+                    util::get_stars(pp_provider.stars()),
+                    util::get_pp(&score, &pp_provider, map.mode),
+                )
             };
             let mut name = format!(
                 "**{idx}.** {grade}\t[{stars}]\t{score}\t({acc})",
                 idx = i + 1,
-                grade = util::get_grade_completion_mods(&score, &map, ctx.cache.clone()),
-                stars = util::get_stars(pp_provider.stars()),
+                grade = util::get_grade_completion_mods(&score, &map, ctx.cache.clone()).await,
+                stars = stars,
                 score = with_comma_u64(score.score as u64),
                 acc = util::get_acc(&score, map.mode),
             );
@@ -1273,7 +1293,7 @@ impl BasicEmbedData {
             }
             let value = format!(
                 "{pp}\t[ {combo} ]\t {hits}\t{ago}",
-                pp = util::get_pp(&score, &pp_provider, map.mode),
+                pp = pp,
                 combo = util::get_combo(&score, &map),
                 hits = util::get_hits(&score, map.mode),
                 ago = how_long_ago(&score.date)
@@ -1309,7 +1329,7 @@ impl BasicEmbedData {
     //
     // top
     //
-    pub fn create_top(
+    pub async fn create_top(
         user: User,
         scores_data: Vec<(usize, Score, Beatmap)>,
         mode: GameMode,
@@ -1320,14 +1340,20 @@ impl BasicEmbedData {
         let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
         let mut description = String::with_capacity(512);
         for (idx, score, map) in scores_data.iter() {
-            let pp_provider = match PPProvider::new(score, map, Some(ctx)) {
-                Ok(provider) => provider,
-                Err(why) => {
-                    return Err(Error::Custom(format!(
-                        "Something went wrong while creating PPProvider: {}",
-                        why
-                    )))
-                }
+            let (stars, pp) = {
+                let pp_provider = match PPProvider::new(score, map, Some(ctx)).await {
+                    Ok(provider) => provider,
+                    Err(why) => {
+                        return Err(Error::Custom(format!(
+                            "Something went wrong while creating PPProvider: {}",
+                            why
+                        )))
+                    }
+                };
+                (
+                    util::get_stars(pp_provider.stars()),
+                    util::get_pp(score, &pp_provider, mode),
+                )
             };
             description.push_str(&format!(
                 "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
@@ -1338,9 +1364,9 @@ impl BasicEmbedData {
                 base = HOMEPAGE,
                 id = map.beatmap_id,
                 mods = util::get_mods(&score.enabled_mods),
-                stars = util::get_stars(pp_provider.stars()),
-                grade = osu::grade_emote(score.grade, ctx.cache.clone()),
-                pp = util::get_pp(score, &pp_provider, mode),
+                stars = stars,
+                grade = osu::grade_emote(score.grade, ctx.cache.clone()).await,
+                pp = pp,
                 acc = util::get_acc(&score, mode),
                 score = with_comma_u64(score.score as u64),
                 combo = util::get_combo(&score, &map),
@@ -1455,7 +1481,7 @@ fn add_team(description: &mut String, team: Vec<(String, f32)>, with_mvp: bool) 
     }
 }
 
-pub fn get_pp(
+pub async fn get_pp(
     mod_map: &mut HashMap<u32, f32>,
     score: &ScraperScore,
     map: &Beatmap,
@@ -1468,7 +1494,7 @@ pub fn get_pp(
         match map.mode {
             GameMode::CTB => None,
             GameMode::STD | GameMode::TKO => Some(PPProvider::calculate_oppai_pp(score, map)?),
-            GameMode::MNA => Some(PPProvider::calculate_mania_pp(score, map, ctx)?),
+            GameMode::MNA => Some(PPProvider::calculate_mania_pp(score, map, ctx).await?),
         }
     };
     #[allow(clippy::map_entry)]
@@ -1477,7 +1503,7 @@ pub fn get_pp(
     } else if map.mode == GameMode::CTB {
         None
     } else {
-        let max = PPProvider::calculate_max(&map, &score.enabled_mods, Some(ctx))?;
+        let max = PPProvider::calculate_max(&map, &score.enabled_mods, Some(ctx)).await?;
         mod_map.insert(bits, max);
         Some(max)
     };

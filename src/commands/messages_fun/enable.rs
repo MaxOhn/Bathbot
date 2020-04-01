@@ -15,15 +15,17 @@ memorize them and also add all new future messages in the database.\n\
 Since processing this command might take a very long time (maybe hours), \
 you have to give a simple `yes` as argument.\n\
 This command will enable commands such as `impersonate`, `hivemind`, ..."]
-pub fn enabletracking(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+pub async fn enabletracking(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let guilds = data.get::<Guilds>().expect("Could not get Guilds");
         if guilds.get(&msg.guild_id.unwrap()).unwrap().message_tracking {
-            msg.channel_id.say(
-                &ctx.http,
-                "Message tracking is already enabled for this server.",
-            )?;
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    "Message tracking is already enabled for this server.",
+                )
+                .await?;
             return Ok(());
         }
     }
@@ -35,25 +37,29 @@ pub fn enabletracking(ctx: &mut Context, msg: &Message, mut args: Args) -> Comma
         {
             let guild = guild_id
                 .to_guild_cached(&ctx.cache)
+                .await
                 .expect("Guild not found")
                 .read()
+                .await
                 .clone();
-            msg.channel_id.say(
-                &ctx.http,
-                "Downloading all server messages...\n\
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    "Downloading all server messages...\n\
             I will ping you when I'm done.",
-            )?;
+                )
+                .await?;
             download_all_messages(&ctx, &guild);
         }
         {
-            let data = ctx.data.read();
+            let data = ctx.data.read().await;
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
             if let Err(why) = mysql.update_guild_tracking(guild_id.0, true) {
                 warn!("Error while updating message_tracking: {}", why);
             }
         }
         {
-            let mut data = ctx.data.write();
+            let mut data = ctx.data.write().await;
             let guilds = data.get_mut::<Guilds>().expect("Could not get Guilds");
             guilds
                 .get_mut(&guild_id)
@@ -64,23 +70,27 @@ pub fn enabletracking(ctx: &mut Context, msg: &Message, mut args: Args) -> Comma
             (&ctx.cache, &*ctx.http),
             "Downloading of messages is done!\n\
             You can now use commands like `<messagestats`, `<impersonate`, `<hivemind`, ...",
-        )?;
+        )
+        .await?;
     } else {
-        let response = msg.channel_id.say(
-            &ctx.http,
-            "To enable message tracking on this server you must provide \
+        let response = msg
+            .channel_id
+            .say(
+                &ctx.http,
+                "To enable message tracking on this server you must provide \
             `yes` as argument,\ni.e.`<enabletracking yes`, to indicate \
             you are sure you want start downloading all messages of this server \
             which might take a long time (maybe hours).",
-        )?;
-        discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+            )
+            .await?;
+        discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
     }
     Ok(())
 }
 
 // Download all messages inside the guild
-fn download_all_messages(ctx: &Context, guild: &Guild) {
-    let channels = match guild.channels(&ctx.http) {
+async fn download_all_messages(ctx: &Context, guild: &Guild) {
+    let channels = match guild.channels(&ctx.http).await {
         Ok(channels) => channels,
         Err(why) => {
             warn!("Could not get channels of server: {}", why);
@@ -98,7 +108,7 @@ fn download_all_messages(ctx: &Context, guild: &Guild) {
         let channel_id = channel.id;
         let biggest_id = channel.last_message_id.unwrap().0;
         {
-            let data = ctx.data.read();
+            let data = ctx.data.read().await;
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
             match mysql.biggest_id_exists(biggest_id) {
                 Ok(false) => {}
@@ -109,7 +119,10 @@ fn download_all_messages(ctx: &Context, guild: &Guild) {
                 }
             }
             if let Some(last_id) = mysql.latest_id_for_channel(channel_id.0) {
-                match channel_id.messages(&ctx.http, |g| g.after(MessageId(last_id)).limit(100)) {
+                match channel_id
+                    .messages(&ctx.http, |g| g.after(MessageId(last_id)).limit(100))
+                    .await
+                {
                     Ok(res) => channel_messages = res,
                     Err(why) => {
                         warn!("Error getting messages: {}", why);
@@ -117,7 +130,10 @@ fn download_all_messages(ctx: &Context, guild: &Guild) {
                     }
                 }
             } else {
-                match channel_id.messages(&ctx.http, |g| g.after(0).limit(100)) {
+                match channel_id
+                    .messages(&ctx.http, |g| g.after(0).limit(100))
+                    .await
+                {
                     Ok(res) => channel_messages = res,
                     Err(why) => {
                         warn!("Error getting messages: {}", why);
@@ -153,7 +169,7 @@ fn download_all_messages(ctx: &Context, guild: &Guild) {
                 guild.name
             );
             let last_id = {
-                let data = ctx.data.read();
+                let data = ctx.data.read().await;
                 let mysql = data.get::<MySQL>().expect("Could not get MySQL");
                 let _ = mysql.insert_msgs(&transformed_message_vec);
                 mysql.latest_id_for_channel(channel_id.0)
@@ -165,6 +181,7 @@ fn download_all_messages(ctx: &Context, guild: &Guild) {
                     loop {
                         match channel_id
                             .messages(&ctx.http, |g| g.after(MessageId(last_id)).limit(100))
+                            .await
                         {
                             Ok(msgs) => {
                                 channel_messages = msgs;
@@ -179,7 +196,10 @@ fn download_all_messages(ctx: &Context, guild: &Guild) {
                 }
             } else {
                 loop {
-                    match channel_id.messages(&ctx.http, |g| g.after(0).limit(100)) {
+                    match channel_id
+                        .messages(&ctx.http, |g| g.after(0).limit(100))
+                        .await
+                    {
                         Ok(msgs) => {
                             channel_messages = msgs;
                             break;

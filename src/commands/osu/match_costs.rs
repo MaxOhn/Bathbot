@@ -12,7 +12,6 @@ use serenity::{
     prelude::Context,
 };
 use std::collections::HashMap;
-use tokio::runtime::Runtime;
 
 #[command]
 #[description = "Calculate a performance rating for each player \
@@ -23,27 +22,26 @@ use tokio::runtime::Runtime;
 #[example = "58320988 1"]
 #[example = "https://osu.ppy.sh/community/matches/58320988"]
 #[aliases("mc", "matchcost")]
-fn matchcosts(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn matchcosts(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let args = match MatchArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
-            msg.channel_id.say(&ctx.http, err_msg)?;
+            msg.channel_id.say(&ctx.http, err_msg).await?;
             return Ok(());
         }
     };
     let match_id = args.match_id;
     let warmups = args.warmups;
-    let mut rt = Runtime::new().unwrap();
 
     // Retrieve the match
     let osu_match = {
         let match_req = MatchRequest::with_match_id(match_id);
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let osu = data.get::<Osu>().expect("Could not get osu client");
-        match rt.block_on(match_req.queue_single(&osu)) {
+        match match_req.queue_single(&osu).await {
             Ok(osu_match) => osu_match,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                 return Err(CommandError::from(why.to_string()));
             }
         }
@@ -52,20 +50,20 @@ fn matchcosts(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     // Retrieve all usernames of the match
     let users: HashMap<u32, String> = {
         let mut users = HashMap::new();
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let osu = data.get::<Osu>().expect("Could not get osu client");
         for game in osu_match.games.iter() {
             #[allow(clippy::map_entry)]
             for score in game.scores.iter() {
                 if !users.contains_key(&score.user_id) {
                     let req = UserRequest::with_user_id(score.user_id);
-                    let name = match rt.block_on(req.queue_single(&osu)) {
+                    let name = match req.queue_single(&osu).await {
                         Ok(result) => match result {
                             Some(user) => user.username,
                             None => score.user_id.to_string(),
                         },
                         Err(why) => {
-                            msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                            msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                             return Err(CommandError::from(why.to_string()));
                         }
                     };
@@ -80,21 +78,24 @@ fn matchcosts(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let data = BasicEmbedData::create_match_costs(users, osu_match, warmups);
 
     // Creating the embed
-    let response = msg.channel_id.send_message(&ctx.http, |m| {
-        if warmups > 0 {
-            let mut content = String::from("Ignoring the first ");
-            if warmups == 1 {
-                content.push_str("map");
-            } else {
-                content.push_str(&format!("{} maps", warmups));
+    let response = msg
+        .channel_id
+        .send_message(&ctx.http, |m| {
+            if warmups > 0 {
+                let mut content = String::from("Ignoring the first ");
+                if warmups == 1 {
+                    content.push_str("map");
+                } else {
+                    content.push_str(&format!("{} maps", warmups));
+                }
+                content.push_str(" as warmup:");
+                m.content(content);
             }
-            content.push_str(" as warmup:");
-            m.content(content);
-        }
-        m.embed(|e| data.build(e))
-    })?;
+            m.embed(|e| data.build(e))
+        })
+        .await?;
 
     // Save the response owner
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
     Ok(())
 }

@@ -9,33 +9,35 @@ use serenity::{
     utils::{content_safe, ContentSafeOptions},
 };
 
-pub fn impersonate_send(
+pub async fn impersonate_send(
     with_markov: bool,
     ctx: &mut Context,
     msg: &Message,
     args: Args,
 ) -> CommandResult {
     {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let guilds = data.get::<Guilds>().expect("Could not get Guilds");
         if !guilds.get(&msg.guild_id.unwrap()).unwrap().message_tracking {
-            msg.channel_id.say(
-                &ctx.http,
-                "No messages tracked on this guild yet. \
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    "No messages tracked on this guild yet. \
                 To enable message tracking, use the `<enabletracking` command first.",
-            )?;
+                )
+                .await?;
             return Ok(());
         }
     }
-    let args = match MarkovUserArgs::new(args, ctx, msg.guild_id.unwrap()) {
+    let args = match MarkovUserArgs::new(args, ctx, msg.guild_id.unwrap()).await {
         Ok(args) => args,
         Err(err_msg) => {
-            msg.channel_id.say(&ctx.http, err_msg)?;
+            msg.channel_id.say(&ctx.http, err_msg).await?;
             return Ok(());
         }
     };
     let mut strings = {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         mysql.impersonate_strings(Some(args.user), None)?
     };
@@ -58,20 +60,25 @@ pub fn impersonate_send(
             }
             let _ = msg.channel_id.broadcast_typing(&ctx.http);
             for line in chain.str_iter_for(args.amount) {
-                let _ = msg.channel_id.say(
-                    &ctx.http,
-                    content_safe(&ctx.cache, &line, &ContentSafeOptions::default()),
-                );
+                let _ = msg
+                    .channel_id
+                    .say(
+                        &ctx.http,
+                        content_safe(&ctx.cache, &line, &ContentSafeOptions::default()).await,
+                    )
+                    .await;
             }
         } else {
             msg.channel_id
-                .say(&ctx.http, strings.into_iter().take(args.amount).join("\n"))?;
+                .say(&ctx.http, strings.into_iter().take(args.amount).join("\n"))
+                .await?;
         }
     } else {
-        let _ = msg.reply(
+        msg.reply(
             &ctx,
             "Either they've never said anything, or I haven't seen them",
-        );
+        )
+        .await?;
     }
     Ok(())
 }
@@ -81,8 +88,8 @@ pub fn impersonate_send(
 #[description = "Impersonate someone's messages.\n\
 Credits to [Taha Hawa](https://gitlab.com/tahahawa/discord-markov-bot/)"]
 #[usage = "[user id / mention] [amount of messages] [-no-urls]"]
-pub fn impersonate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    impersonate_send(true, ctx, msg, args)
+pub async fn impersonate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    impersonate_send(true, ctx, msg, args).await
 }
 
 #[command]
@@ -90,6 +97,6 @@ pub fn impersonate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResul
 #[description = "Repeat random messages that the user said at some point"]
 #[usage = "[user id / mention] [amount of messages] [-no-urls]"]
 #[aliases("rh")]
-pub fn randomhistory(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    impersonate_send(false, ctx, msg, args)
+pub async fn randomhistory(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    impersonate_send(false, ctx, msg, args).await
 }

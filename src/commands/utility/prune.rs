@@ -15,25 +15,29 @@ use std::{thread, time::Duration};
 #[usage = "[number]"]
 #[example = "3"]
 #[aliases("purge")]
-fn prune(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn prune(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let amount = if args.remaining() > 0 {
         match args.trimmed().single::<u64>() {
             Ok(val) => {
                 if val < 1 || val > 99 {
-                    msg.channel_id.say(
-                        &ctx.http,
-                        "First argument must be an integer between 1 and 99",
-                    )?;
+                    msg.channel_id
+                        .say(
+                            &ctx.http,
+                            "First argument must be an integer between 1 and 99",
+                        )
+                        .await?;
                     return Ok(());
                 } else {
                     val + 1
                 }
             }
             Err(_) => {
-                msg.channel_id.say(
-                    &ctx.http,
-                    "First argument must be a number between 1 and 99",
-                )?;
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        "First argument must be a number between 1 and 99",
+                    )
+                    .await?;
                 return Ok(());
             }
         }
@@ -42,12 +46,16 @@ fn prune(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     };
     let messages = msg
         .channel_id
-        .messages(&ctx.http, |retriever| retriever.limit(amount))?;
-    msg.channel_id.delete_messages(&ctx.http, messages)?;
-    let msg = msg.channel_id.send_message(&ctx.http, |m| {
-        m.content(format!("Deleted the last {} messages", amount - 1))
-    })?;
+        .messages(&ctx.http, |retriever| retriever.limit(amount))
+        .await?;
+    msg.channel_id.delete_messages(&ctx.http, messages).await?;
+    let msg = msg
+        .channel_id
+        .send_message(&ctx.http, |m| {
+            m.content(format!("Deleted the last {} messages", amount - 1))
+        })
+        .await?;
     thread::sleep(Duration::from_secs(6));
-    msg.delete(&ctx)?;
+    msg.delete(&ctx).await?;
     Ok(())
 }

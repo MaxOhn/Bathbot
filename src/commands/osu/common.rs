@@ -21,21 +21,27 @@ use std::{
     collections::{HashMap, HashSet},
     convert::From,
 };
-use tokio::runtime::Runtime;
 
-fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn common_send(
+    mode: GameMode,
+    ctx: &mut Context,
+    msg: &Message,
+    args: Args,
+) -> CommandResult {
     let mut args = MultNameArgs::new(args, 10);
     let names = match args.names.len() {
         0 => {
-            msg.channel_id.say(
-                &ctx.http,
-                "You need to specify at least one osu username. \
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    "You need to specify at least one osu username. \
                  If you're not linked, you must specify at least two names.",
-            )?;
+                )
+                .await?;
             return Ok(());
         }
         1 => {
-            let data = ctx.data.read();
+            let data = ctx.data.read().await;
             let links = data
                 .get::<DiscordLinks>()
                 .expect("Could not get DiscordLinks");
@@ -44,11 +50,13 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
                     args.names.insert(name.clone());
                 }
                 None => {
-                    msg.channel_id.say(
-                        &ctx.http,
-                        "Since you're not linked via `<link`, \
+                    msg.channel_id
+                        .say(
+                            &ctx.http,
+                            "Since you're not linked via `<link`, \
                          you must specify at least two names.",
-                    )?;
+                        )
+                        .await?;
                     return Ok(());
                 }
             }
@@ -58,10 +66,10 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
     };
     if names.iter().collect::<HashSet<_>>().len() == 1 {
         msg.channel_id
-            .say(&ctx.http, "Give at least two different names.")?;
+            .say(&ctx.http, "Give at least two different names.")
+            .await?;
         return Ok(());
     }
-    let mut rt = Runtime::new().unwrap();
 
     // Retrieve all users and their top scores
     let requests: HashMap<String, UserRequest> = names
@@ -69,29 +77,30 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
         .map(|name| (name.clone(), UserRequest::with_username(name).mode(mode)))
         .collect();
     let (users, mut all_scores): (HashMap<u32, User>, Vec<Vec<Score>>) = {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let osu = data.get::<Osu>().expect("Could not get osu client");
         let mut users = HashMap::with_capacity(requests.len());
         let mut all_scores = Vec::with_capacity(requests.len());
         for (name, request) in requests.into_iter() {
-            let user = match rt.block_on(request.queue_single(&osu)) {
+            let user = match request.queue_single(&osu).await {
                 Ok(result) => match result {
                     Some(user) => user,
                     None => {
                         msg.channel_id
-                            .say(&ctx.http, format!("User `{}` was not found", name))?;
+                            .say(&ctx.http, format!("User `{}` was not found", name))
+                            .await?;
                         return Ok(());
                     }
                 },
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                     return Err(CommandError::from(why.to_string()));
                 }
             };
-            let scores = match rt.block_on(user.get_top_scores(&osu, 100, mode)) {
+            let scores = match user.get_top_scores(&osu, 100, mode).await {
                 Ok(scores) => scores,
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                     return Err(CommandError::from(why.to_string()));
                 }
             };
@@ -124,7 +133,7 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
     // Try retrieving all maps of common scores from the database
     let mut maps: HashMap<u32, Beatmap> = {
         let map_ids: Vec<u32> = map_ids.iter().copied().collect();
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         mysql
             .get_beatmaps(&map_ids)
@@ -140,12 +149,12 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
 
     // Retrieve all missing maps from the API
     let missing_maps = if !map_ids.is_empty() {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let osu = data.get::<Osu>().expect("Could not get osu client");
         let mut missing_maps = Vec::with_capacity(map_ids.len());
         for id in map_ids {
             let req = BeatmapRequest::new().map_id(id);
-            let map = match rt.block_on(req.queue_single(&osu)) {
+            let map = match req.queue_single(&osu).await {
                 Ok(result) => match result {
                     Some(map) => {
                         maps.insert(map.beatmap_id, map.clone());
@@ -153,12 +162,13 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
                     }
                     None => {
                         msg.channel_id
-                            .say(&ctx.http, "Unexpected response from the API, blame bade")?;
+                            .say(&ctx.http, "Unexpected response from the API, blame bade")
+                            .await?;
                         return Ok(());
                     }
                 },
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                     return Err(CommandError::from(why.to_string()));
                 }
             };
@@ -192,21 +202,24 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
             content.push(':');
         }
     }
-    let (data, thumbnail) = BasicEmbedData::create_common(users, all_scores, maps);
+    let (data, thumbnail) = BasicEmbedData::create_common(users, all_scores, maps).await;
 
     // Creating the embed
-    let response = msg.channel_id.send_message(&ctx.http, |m| {
-        if !thumbnail.is_empty() {
-            let bytes: &[u8] = &thumbnail;
-            m.add_file((bytes, "avatar_fuse.png"));
-        }
-        m.content(content)
-            .embed(|e| data.build(e).thumbnail("attachment://avatar_fuse.png"))
-    });
+    let response = msg
+        .channel_id
+        .send_message(&ctx.http, |m| {
+            if !thumbnail.is_empty() {
+                let bytes: &[u8] = &thumbnail;
+                m.add_file((bytes, "avatar_fuse.png"));
+            }
+            m.content(content)
+                .embed(|e| data.build(e).thumbnail("attachment://avatar_fuse.png"))
+        })
+        .await;
 
     // Add missing maps to database
     if let Some(maps) = missing_maps {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         if let Err(why) = mysql.insert_beatmaps(maps) {
             warn!(
@@ -217,7 +230,7 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
     }
 
     // Save the response owner
-    discord::save_response_owner(response?.id, msg.author.id, ctx.data.clone());
+    discord::save_response_owner(response?.id, msg.author.id, ctx.data.clone()).await;
     Ok(())
 }
 
@@ -226,8 +239,8 @@ fn common_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
                  maps appear in each top list (up to 10 users)"]
 #[usage = "[name1] [name2] ..."]
 #[example = "badewanne3 \"nathan on osu\" idke"]
-pub fn common(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    common_send(GameMode::STD, ctx, msg, args)
+pub async fn common(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    common_send(GameMode::STD, ctx, msg, args).await
 }
 
 #[command]
@@ -236,8 +249,8 @@ pub fn common(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[usage = "[name1] [name2] ..."]
 #[example = "badewanne3 \"nathan on osu\" idke"]
 #[aliases("commonm")]
-pub fn commonmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    common_send(GameMode::MNA, ctx, msg, args)
+pub async fn commonmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    common_send(GameMode::MNA, ctx, msg, args).await
 }
 
 #[command]
@@ -246,8 +259,8 @@ pub fn commonmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResul
 #[usage = "[name1] [name2] ..."]
 #[example = "badewanne3 \"nathan on osu\" idke"]
 #[aliases("commont")]
-pub fn commontaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    common_send(GameMode::TKO, ctx, msg, args)
+pub async fn commontaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    common_send(GameMode::TKO, ctx, msg, args).await
 }
 
 #[command]
@@ -256,6 +269,6 @@ pub fn commontaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResul
 #[usage = "[name1] [name2] ..."]
 #[example = "badewanne3 \"nathan on osu\" idke"]
 #[aliases("commonc")]
-pub fn commonctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    common_send(GameMode::CTB, ctx, msg, args)
+pub async fn commonctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    common_send(GameMode::CTB, ctx, msg, args).await
 }

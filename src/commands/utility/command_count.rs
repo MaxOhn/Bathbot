@@ -12,12 +12,12 @@ use std::{fmt::Write, iter::FromIterator};
 #[command]
 #[description = "Let me show you my most popular commands \
                  since my last reboot"]
-fn commands(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn commands(ctx: &mut Context, msg: &Message) -> CommandResult {
     let response = {
         let symbols = ["♔", "♕", "♖", "♗", "♘", "♙"];
         let mut description = String::with_capacity(128);
         description.push_str("```\n");
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let counter = data
             .get::<CommandCounter>()
             .expect("Could not get CommandCounter");
@@ -40,15 +40,17 @@ fn commands(ctx: &mut Context, msg: &Message) -> CommandResult {
         }
         description.push_str("```");
         let boot_time: &DateTime<Utc> = data.get::<BootTime>().expect("Could not get BootTime");
-        msg.channel_id.send_message(&ctx.http, |m| {
-            m.embed(|e| {
-                e.footer(|f| f.text("I've been counting since"))
-                    .timestamp(boot_time)
-                    .color(Colour::DARK_GREEN)
-                    .author(|a| a.name("Most popular commands:"))
-                    .description(description)
+        msg.channel_id
+            .send_message(&ctx.http, |m| {
+                m.embed(|e| {
+                    e.footer(|f| f.text("I've been counting since"))
+                        .timestamp(boot_time)
+                        .color(Colour::DARK_GREEN)
+                        .author(|a| a.name("Most popular commands:"))
+                        .description(description)
+                })
             })
-        })?
+            .await?
     };
 
     // Save the response owner

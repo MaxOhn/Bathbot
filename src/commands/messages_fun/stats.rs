@@ -9,40 +9,44 @@ use serenity::{
 #[command]
 #[only_in("guild")]
 #[description = "Display some stats about the message database"]
-pub fn messagestats(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn messagestats(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let guilds = data.get::<Guilds>().expect("Could not get Guilds");
         if !guilds.get(&msg.guild_id.unwrap()).unwrap().message_tracking {
-            msg.channel_id.say(
-                &ctx.http,
-                "No messages tracked on this guild yet. \
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    "No messages tracked on this guild yet. \
                 To enable message tracking, use the `<enabletracking` command first.",
-            )?;
+                )
+                .await?;
             return Ok(());
         }
     }
-    let user = match DiscordUserArgs::new(args, &ctx, msg.guild_id.unwrap()) {
+    let user = match DiscordUserArgs::new(args, &ctx, msg.guild_id.unwrap()).await {
         Ok(args) => args.user,
         Err(_) => msg.author.clone(),
     };
     let channels: Vec<_> = msg
         .guild_id
         .unwrap()
-        .channels(&ctx.http)?
+        .channels(&ctx.http)
+        .await?
         .keys()
         .map(|id| id.0)
         .collect();
     let stats = {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         mysql.message_stats(&channels, msg.channel_id.0, user.id.0)?
     };
     let data = BasicEmbedData::create_messagestats(stats, &user.name);
     let response = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))?;
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
+        .await?;
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
     Ok(())
 }
 

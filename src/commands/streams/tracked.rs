@@ -11,9 +11,9 @@ use serenity::{
 #[command]
 #[description = "List all streams that are tracked in this channel"]
 #[aliases("tracked")]
-fn trackedstreams(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn trackedstreams(ctx: &mut Context, msg: &Message) -> CommandResult {
     let mut twitch_users: Vec<_> = {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let twitch_users = data
             .get::<TwitchUsers>()
             .expect("Could not get TwitchUsers");
@@ -40,17 +40,20 @@ fn trackedstreams(ctx: &mut Context, msg: &Message) -> CommandResult {
     };
 
     // Sending the msg
-    let response = msg.channel_id.say(
-        &ctx.http,
-        format!(
-            "Tracked streams in this channel:\n\
+    let response = msg
+        .channel_id
+        .say(
+            &ctx.http,
+            format!(
+                "Tracked streams in this channel:\n\
             Twitch: `{}`\n\
             Mixer: `None`",
-            user_str
-        ),
-    )?;
+                user_str
+            ),
+        )
+        .await?;
 
     // Save the response owner
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
     Ok(())
 }

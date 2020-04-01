@@ -19,11 +19,15 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use tokio::runtime::Runtime;
 
-fn leaderboard_send(national: bool, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn leaderboard_send(
+    national: bool,
+    ctx: &mut Context,
+    msg: &Message,
+    args: Args,
+) -> CommandResult {
     let author_name = {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let links = data
             .get::<DiscordLinks>()
             .expect("Could not get DiscordLinks");
@@ -35,15 +39,18 @@ fn leaderboard_send(national: bool, ctx: &mut Context, msg: &Message, args: Args
     } else {
         let msgs = msg
             .channel_id
-            .messages(&ctx.http, |retriever| retriever.limit(50))?;
-        match discord::map_id_from_history(msgs, ctx.cache.clone()) {
+            .messages(&ctx.http, |retriever| retriever.limit(50))
+            .await?;
+        match discord::map_id_from_history(msgs, ctx.cache.clone()).await {
             Some(id) => id,
             None => {
-                msg.channel_id.say(
-                    &ctx.http,
-                    "No beatmap specified and none found in recent channel history. \
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        "No beatmap specified and none found in recent channel history. \
                      Try specifying a map either by url to the map, or just by map id.",
-                )?;
+                    )
+                    .await?;
                 return Ok(());
             }
         }
@@ -51,34 +58,35 @@ fn leaderboard_send(national: bool, ctx: &mut Context, msg: &Message, args: Args
     let (mods, selection) = args
         .mods
         .unwrap_or_else(|| (GameMods::default(), ModSelection::None));
-    let mut rt = Runtime::new().unwrap();
 
     // Retrieving the beatmap
     let (map_to_db, map) = {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         match mysql.get_beatmap(map_id) {
             Ok(map) => (false, map),
             Err(_) => {
                 let map_req = BeatmapRequest::new().map_id(map_id);
                 let osu = data.get::<Osu>().expect("Could not get osu client");
-                let map = match rt.block_on(map_req.queue_single(&osu)) {
+                let map = match map_req.queue_single(&osu).await {
                     Ok(result) => match result {
                         Some(map) => map,
                         None => {
-                            msg.channel_id.say(
-                                &ctx.http,
-                                format!(
-                                    "Could not find beatmap with id `{}`. \
+                            msg.channel_id
+                                .say(
+                                    &ctx.http,
+                                    format!(
+                                        "Could not find beatmap with id `{}`. \
                                 Did you give me a mapset id instead of a map id?",
-                                    map_id
-                                ),
-                            )?;
+                                        map_id
+                                    ),
+                                )
+                                .await?;
                             return Ok(());
                         }
                     },
                     Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                         return Err(CommandError::from(why.to_string()));
                     }
                 };
@@ -92,7 +100,7 @@ fn leaderboard_send(national: bool, ctx: &mut Context, msg: &Message, args: Args
 
     // Retrieve the map's leaderboard
     let scores = {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let scraper = data.get::<Scraper>().expect("Could not get Scraper");
         let scores_future = scraper.get_leaderboard(
             map_id,
@@ -102,10 +110,10 @@ fn leaderboard_send(national: bool, ctx: &mut Context, msg: &Message, args: Args
                 _ => Some(&mods),
             },
         );
-        match rt.block_on(scores_future) {
+        match scores_future.await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                 return Err(CommandError::from(why.to_string()));
             }
         }
@@ -115,34 +123,39 @@ fn leaderboard_send(national: bool, ctx: &mut Context, msg: &Message, args: Args
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match BasicEmbedData::create_leaderboard(author_name, map, scores, &ctx) {
+    let data = match BasicEmbedData::create_leaderboard(author_name, map, scores, &ctx).await {
         Ok(data) => data,
         Err(why) => {
-            msg.channel_id.say(
-                &ctx.http,
-                "Some issue while calculating leaderboard data, blame bade",
-            )?;
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    "Some issue while calculating leaderboard data, blame bade",
+                )
+                .await?;
             return Err(CommandError::from(why.to_string()));
         }
     };
 
     // Sending the embed
-    let response = msg.channel_id.send_message(&ctx.http, |m| {
-        let mut content = format!(
-            "I found {} scores with the specified mods on the map's leaderboard",
-            amount
-        );
-        if amount > 10 {
-            content.push_str(", here's the top 10 of them:");
-        } else {
-            content.push(':');
-        }
-        m.content(content).embed(|e| data.build(e))
-    });
+    let response = msg
+        .channel_id
+        .send_message(&ctx.http, |m| {
+            let mut content = format!(
+                "I found {} scores with the specified mods on the map's leaderboard",
+                amount
+            );
+            if amount > 10 {
+                content.push_str(", here's the top 10 of them:");
+            } else {
+                content.push(':');
+            }
+            m.content(content).embed(|e| data.build(e))
+        })
+        .await;
 
     // Add map to database if its not in already
     if let Some(map) = map_copy {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         if let Err(why) = mysql.insert_beatmap(&map) {
             warn!("Could not add map of recent command to database: {}", why);
@@ -150,7 +163,7 @@ fn leaderboard_send(national: bool, ctx: &mut Context, msg: &Message, args: Args
     }
 
     // Save the response owner
-    discord::save_response_owner(response?.id, msg.author.id, ctx.data.clone());
+    discord::save_response_owner(response?.id, msg.author.id, ctx.data.clone()).await;
     Ok(())
 }
 
@@ -162,8 +175,8 @@ fn leaderboard_send(national: bool, ctx: &mut Context, msg: &Message, args: Args
 #[example = "2240404"]
 #[example = "https://osu.ppy.sh/beatmapsets/902425#osu/2240404"]
 #[aliases("lb")]
-pub fn leaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    leaderboard_send(true, ctx, msg, args)
+pub async fn leaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    leaderboard_send(true, ctx, msg, args).await
 }
 
 #[command]
@@ -174,6 +187,6 @@ pub fn leaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResul
 #[example = "2240404"]
 #[example = "https://osu.ppy.sh/beatmapsets/902425#osu/2240404"]
 #[aliases("glb")]
-pub fn globalleaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    leaderboard_send(false, ctx, msg, args)
+pub async fn globalleaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    leaderboard_send(false, ctx, msg, args).await
 }

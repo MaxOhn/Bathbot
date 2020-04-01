@@ -12,37 +12,46 @@ use std::{collections::HashMap, sync::Arc};
 #[only_in("guild")]
 #[description = "List all members of this server that are currently streaming"]
 #[aliases("allstreamers", "streams")]
-fn allstreams(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn allstreams(ctx: &mut Context, msg: &Message) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
     let presences: Vec<_> = {
         let cache = ctx.cache.clone();
         let http = Arc::clone(&ctx.http);
-        let guild_lock = guild_id.to_guild_cached(&cache).unwrap();
-        let guild = guild_lock.read();
-        guild
-            .presences
-            .par_iter()
-            .filter(|(_, presence)| match &presence.activity {
-                Some(activity) => {
-                    activity.kind == ActivityType::Streaming
-                        && !presence.user_id.to_user((&cache, &*http)).unwrap().bot
+        let guild_lock = guild_id.to_guild_cached(&cache).await.unwrap();
+        let guild = guild_lock.read().await;
+        let mut presences = Vec::with_capacity(guild.presences.len());
+        for (_, presence) in guild.presences {
+            if let Some(activity) = presence.activity {
+                if activity.kind == ActivityType::Streaming
+                    && !presence
+                        .user_id
+                        .to_user((&cache, &*http))
+                        .await
+                        .unwrap()
+                        .bot
+                {
+                    presences.push(presence);
                 }
-                None => false,
-            })
-            .map(|(_, presence)| presence.clone())
-            .collect()
+            }
+        }
+        presences
     };
     let total = presences.len();
     let presences: Vec<_> = presences.into_iter().take(60).collect();
     let avatar = guild_id
         .to_guild_cached(&ctx.cache)
+        .await
         .unwrap_or_else(|| panic!("Guild {} not found in cache", guild_id))
         .read()
+        .await
         .icon_url();
-    let users: HashMap<_, _> = presences
-        .iter()
-        .map(|p| (p.user_id, p.user_id.to_user(&ctx).unwrap().name))
-        .collect();
+    let mut users = HashMap::with_capacity(presences.len());
+    for presence in presences.iter() {
+        users.insert(
+            presence.user_id,
+            presence.user_id.to_user(&ctx).await.unwrap().name,
+        );
+    }
 
     // Accumulate all necessary data
     let data = BasicEmbedData::create_allstreams(presences, users, total, avatar);
@@ -50,9 +59,10 @@ fn allstreams(ctx: &mut Context, msg: &Message) -> CommandResult {
     // Creating the embed
     let response = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))?;
+        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
+        .await?;
 
     // Save the response owner
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
     Ok(())
 }

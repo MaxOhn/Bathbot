@@ -14,31 +14,32 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use tokio::runtime::Runtime;
 
-fn pp_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn pp_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let args = match NameFloatArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
-            msg.channel_id.say(&ctx.http, err_msg)?;
+            msg.channel_id.say(&ctx.http, err_msg).await?;
             return Ok(());
         }
     };
     let name = if let Some(name) = args.name {
         name
     } else {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let links = data
             .get::<DiscordLinks>()
             .expect("Could not get DiscordLinks");
         match links.get(msg.author.id.as_u64()) {
             Some(name) => name.clone(),
             None => {
-                msg.channel_id.say(
-                    &ctx.http,
-                    "Either specify an osu name or link your discord \
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        "Either specify an osu name or link your discord \
                      to an osu profile via `<link osuname`",
-                )?;
+                    )
+                    .await?;
                 return Ok(());
             }
         }
@@ -46,34 +47,35 @@ fn pp_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Comm
     let pp = args.float;
     if pp < 0.0 {
         msg.channel_id
-            .say(&ctx.http, "The pp number must be non-negative")?;
+            .say(&ctx.http, "The pp number must be non-negative")
+            .await?;
         return Ok(());
     }
 
     // Retrieve the user and its top scores
     let (user, scores): (User, Vec<Score>) = {
         let user_req = UserRequest::with_username(&name).mode(mode);
-        let mut rt = Runtime::new().unwrap();
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let osu = data.get::<Osu>().expect("Could not get osu client");
-        let user = match rt.block_on(user_req.queue_single(&osu)) {
+        let user = match user_req.queue_single(&osu).await {
             Ok(result) => match result {
                 Some(user) => user,
                 None => {
                     msg.channel_id
-                        .say(&ctx.http, format!("User `{}` was not found", name))?;
+                        .say(&ctx.http, format!("User `{}` was not found", name))
+                        .await?;
                     return Ok(());
                 }
             },
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                 return Err(CommandError::from(why.to_string()));
             }
         };
-        let scores = match rt.block_on(user.get_top_scores(&osu, 100, mode)) {
+        let scores = match user.get_top_scores(&osu, 100, mode).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                 return Err(CommandError::from(why.to_string()));
             }
         };
@@ -86,10 +88,11 @@ fn pp_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Comm
     // Creating the embed
     let response = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))?;
+        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
+        .await?;
 
     // Save the response owner
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
     Ok(())
 }
 
@@ -98,8 +101,8 @@ fn pp_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> Comm
                  reach the given total pp amount"]
 #[usage = "[username] [number]"]
 #[example = "badewanne3 8000"]
-pub fn pp(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    pp_send(GameMode::STD, ctx, msg, args)
+pub async fn pp(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    pp_send(GameMode::STD, ctx, msg, args).await
 }
 
 #[command]
@@ -108,8 +111,8 @@ pub fn pp(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[usage = "[username] [number]"]
 #[example = "badewanne3 8000"]
 #[aliases("ppm")]
-pub fn ppmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    pp_send(GameMode::MNA, ctx, msg, args)
+pub async fn ppmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    pp_send(GameMode::MNA, ctx, msg, args).await
 }
 
 #[command]
@@ -118,8 +121,8 @@ pub fn ppmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[usage = "[username] [number]"]
 #[example = "badewanne3 8000"]
 #[aliases("ppt")]
-pub fn pptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    pp_send(GameMode::TKO, ctx, msg, args)
+pub async fn pptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    pp_send(GameMode::TKO, ctx, msg, args).await
 }
 
 #[command]
@@ -128,6 +131,6 @@ pub fn pptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[usage = "[username] [number]"]
 #[example = "badewanne3 8000"]
 #[aliases("ppc")]
-pub fn ppctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    pp_send(GameMode::CTB, ctx, msg, args)
+pub async fn ppctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    pp_send(GameMode::CTB, ctx, msg, args).await
 }

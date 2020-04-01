@@ -18,17 +18,15 @@ use serenity::{
     prelude::{Context, RwLock, ShareMap},
 };
 use std::{str::FromStr, sync::Arc};
-use tokio::runtime::Runtime;
 
-pub fn get_combined_thumbnail(user_ids: &[u32]) -> Result<Vec<u8>, Error> {
+pub async fn get_combined_thumbnail(user_ids: &[u32]) -> Result<Vec<u8>, Error> {
     let mut combined = DynamicImage::new_rgba8(128, 128);
     let amount = user_ids.len() as u32;
     let w = 128 / amount;
     let client = Client::new();
-    let mut rt = Runtime::new().unwrap();
     for (i, id) in user_ids.iter().enumerate() {
         let url = format!("{}{}", AVATAR_URL, id);
-        let res = rt.block_on(async { client.get(&url).send().await?.bytes().await })?;
+        let res = client.get(&url).send().await?.bytes().await?;
         let img =
             image::load_from_memory(res.as_ref())?.resize_exact(128, 128, FilterType::Lanczos3);
         let x = i as u32 * 128 / amount;
@@ -45,7 +43,7 @@ pub fn get_combined_thumbnail(user_ids: &[u32]) -> Result<Vec<u8>, Error> {
     Ok(png_bytes)
 }
 
-pub fn map_id_from_history(msgs: Vec<Message>, cache: CacheRwLock) -> Option<u32> {
+pub async fn map_id_from_history(msgs: Vec<Message>, cache: CacheRwLock) -> Option<u32> {
     let url_regex = Regex::new(r".*/([0-9]{1,9})").unwrap();
     let field_regex = Regex::new(r".*\{(\d+/){2,}\d+}.*").unwrap();
     let check_field = |url: &str, field: &EmbedField| {
@@ -61,7 +59,7 @@ pub fn map_id_from_history(msgs: Vec<Message>, cache: CacheRwLock) -> Option<u32
         None
     };
     for msg in msgs {
-        if !msg.is_own(&cache) {
+        if !msg.is_own(&cache).await {
             continue;
         }
         for embed in msg.embeds {
@@ -98,8 +96,8 @@ pub fn map_id_from_history(msgs: Vec<Message>, cache: CacheRwLock) -> Option<u32
     None
 }
 
-pub fn save_response_owner(msg_id: MessageId, author_id: UserId, data: Arc<RwLock<ShareMap>>) {
-    let mut data = data.write();
+pub async fn save_response_owner(msg_id: MessageId, author: UserId, data: Arc<RwLock<ShareMap>>) {
+    let mut data = data.write().await;
     let (queue, owners) = data
         .get_mut::<ResponseOwner>()
         .expect("Could not get ResponseOwner");
@@ -108,13 +106,23 @@ pub fn save_response_owner(msg_id: MessageId, author_id: UserId, data: Arc<RwLoc
         let oldest = queue.pop_back().unwrap();
         owners.remove(&oldest);
     }
-    owners.insert(msg_id, author_id);
+    owners.insert(msg_id, author);
 }
 
-pub fn get_member(ctx: &Context, channel_id: ChannelId, user_id: UserId) -> Option<Member> {
-    channel_id
+pub async fn get_member(ctx: &Context, channel_id: ChannelId, user_id: UserId) -> Option<Member> {
+    match channel_id
         .to_channel(ctx)
+        .await
         .ok()
         .and_then(|channel| channel.guild())
-        .and_then(|guild_channel| guild_channel.read().guild_id.member(ctx, user_id).ok())
+    {
+        Some(guild_channel) => guild_channel
+            .read()
+            .await
+            .guild_id
+            .member(ctx, user_id)
+            .await
+            .ok(),
+        None => None,
+    }
 }

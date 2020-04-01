@@ -31,7 +31,7 @@ pub fn prepare_beatmap_file(map_id: u32) -> Result<String, Error> {
     Ok(map_path)
 }
 
-pub fn grade_emote(grade: Grade, cache: CacheRwLock) -> Emoji {
+pub async fn grade_emote(grade: Grade, cache: CacheRwLock) -> Emoji {
     let emoji_id = match grade {
         Grade::XH => EmojiId(EMOTE_XH_ID),
         Grade::X => EmojiId(EMOTE_X_ID),
@@ -43,10 +43,11 @@ pub fn grade_emote(grade: Grade, cache: CacheRwLock) -> Emoji {
         Grade::D => EmojiId(EMOTE_D_ID),
         Grade::F => EmojiId(EMOTE_F_ID),
     };
-    let guild = GuildId(DEV_GUILD_ID).to_guild_cached(cache);
+    let guild = GuildId(DEV_GUILD_ID).to_guild_cached(cache).await;
     guild
         .unwrap()
         .read()
+        .await
         .emojis
         .get(&emoji_id)
         .unwrap_or_else(|| {

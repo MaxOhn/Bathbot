@@ -21,41 +21,46 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use tokio::runtime::Runtime;
 use white_rabbit::{DateResult, Duration, Utc};
 
-fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn recent_send(
+    mode: GameMode,
+    ctx: &mut Context,
+    msg: &Message,
+    args: Args,
+) -> CommandResult {
     let args = NameArgs::new(args);
     let name = if let Some(name) = args.name {
         name
     } else {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let links = data
             .get::<DiscordLinks>()
             .expect("Could not get DiscordLinks");
         match links.get(msg.author.id.as_u64()) {
             Some(name) => name.clone(),
             None => {
-                msg.channel_id.say(
-                    &ctx.http,
-                    "Either specify an osu name or link your discord \
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        "Either specify an osu name or link your discord \
                      to an osu profile via `<link osuname`",
-                )?;
+                    )
+                    .await?;
                 return Ok(());
             }
         }
     };
-    let mut rt = Runtime::new().unwrap();
 
     // Retrieve the recent scores
     let scores = {
         let request = RecentRequest::with_username(&name).mode(mode).limit(50);
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let osu = data.get::<Osu>().expect("Could not get osu client");
-        match rt.block_on(request.queue(osu)) {
+        match request.queue(osu).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                 return Err(CommandError::from(why.to_string()));
             }
         }
@@ -63,21 +68,23 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
     let score = if let Some(score) = scores.get(0) {
         score.clone()
     } else {
-        msg.channel_id.say(
-            &ctx.http,
-            format!("No recent plays found for user `{}`", name),
-        )?;
+        msg.channel_id
+            .say(
+                &ctx.http,
+                format!("No recent plays found for user `{}`", name),
+            )
+            .await?;
         return Ok(());
     };
 
     // Retrieving the score's user
     let user = {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let osu = data.get::<Osu>().expect("Could not get osu client");
-        match rt.block_on(score.get_user(osu, mode)) {
+        match score.get_user(osu, mode).await {
             Ok(u) => u,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                 return Err(CommandError::from(why.to_string()));
             }
         }
@@ -86,16 +93,16 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
 
     // Retrieving the score's beatmap
     let (map_to_db, map) = {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         match mysql.get_beatmap(map_id) {
             Ok(map) => (false, map),
             Err(_) => {
                 let osu = data.get::<Osu>().expect("Could not get osu client");
-                let map = match rt.block_on(score.get_beatmap(osu)) {
+                let map = match score.get_beatmap(osu).await {
                     Ok(m) => m,
                     Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                         return Err(CommandError::from(why.to_string()));
                     }
                 };
@@ -109,21 +116,21 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
 
     // Retrieving the user's top 100 and the map's global top 50
     let (best, global) = {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let osu = data.get::<Osu>().expect("Could not get osu client");
-        let best = match rt.block_on(user.get_top_scores(osu, 100, mode)) {
+        let best = match user.get_top_scores(osu, 100, mode).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                 return Err(CommandError::from(why.to_string()));
             }
         };
         let global = match map.approval_status {
             Ranked | Loved | Qualified | Approved => {
-                match rt.block_on(map.get_global_leaderboard(osu, 100)) {
+                match map.get_global_leaderboard(osu, 100).await {
                     Ok(scores) => scores,
                     Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                         return Err(CommandError::from(why.to_string()));
                     }
                 }
@@ -139,26 +146,31 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
         .iter()
         .take_while(|s| s.beatmap_id.unwrap() == map_id)
         .count();
-    let data = match RecentData::new(user, score, map, best, global, &ctx) {
+    let data = match RecentData::new(user, score, map, best, global, &ctx).await {
         Ok(data) => data,
         Err(why) => {
-            msg.channel_id.say(
-                &ctx.http,
-                "Some issue while calculating recent data, blame bade",
-            )?;
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    "Some issue while calculating recent data, blame bade",
+                )
+                .await?;
             return Err(CommandError::from(why.to_string()));
         }
     };
 
     // Creating the embed
-    let mut response = msg.channel_id.send_message(&ctx.http, |m| {
-        m.content(format!("Try #{}", tries))
-            .embed(|e| data.build(e))
-    })?;
+    let mut response = msg
+        .channel_id
+        .send_message(&ctx.http, |m| {
+            m.content(format!("Try #{}", tries))
+                .embed(|e| data.build(e))
+        })
+        .await;
 
     // Add map to database if its not in already
     if let Some(map) = map_copy {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         if let Err(why) = mysql.insert_beatmap(&map) {
             warn!("Could not add map of recent command to database: {}", why);
@@ -166,11 +178,11 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
     }
 
     // Save the response owner
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+    discord::save_response_owner(response?.id, msg.author.id, ctx.data.clone()).await;
 
     // Minimize embed after delay
     let scheduler = {
-        let mut data = ctx.data.write();
+        let mut data = ctx.data.write().await;
         data.get_mut::<SchedulerKey>()
             .expect("Could not get SchedulerKey")
             .clone()
@@ -200,8 +212,8 @@ fn recent_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> 
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("r", "rs")]
-pub fn recent(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    recent_send(GameMode::STD, ctx, msg, args)
+pub async fn recent(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    recent_send(GameMode::STD, ctx, msg, args).await
 }
 
 #[command]
@@ -209,8 +221,8 @@ pub fn recent(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("rm")]
-pub fn recentmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    recent_send(GameMode::MNA, ctx, msg, args)
+pub async fn recentmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    recent_send(GameMode::MNA, ctx, msg, args).await
 }
 
 #[command]
@@ -218,8 +230,8 @@ pub fn recentmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResul
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("rt")]
-pub fn recenttaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    recent_send(GameMode::TKO, ctx, msg, args)
+pub async fn recenttaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    recent_send(GameMode::TKO, ctx, msg, args).await
 }
 
 #[command]
@@ -227,6 +239,6 @@ pub fn recenttaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResul
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("rc")]
-pub fn recentctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    recent_send(GameMode::CTB, ctx, msg, args)
+pub async fn recentctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    recent_send(GameMode::CTB, ctx, msg, args).await
 }

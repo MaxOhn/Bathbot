@@ -11,17 +11,20 @@ use serenity::{
 #[description = "Play a game of minesweeper"]
 #[aliases("ms")]
 #[usage = "[Easy/Medium/Hard]"]
-fn minesweeper(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn minesweeper(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let game = if let Ok(difficulty) = args.trimmed().single_quoted::<String>() {
         match difficulty.to_lowercase().as_str() {
             "easy" => Difficulty::Easy.create(),
             "medium" => Difficulty::Medium.create(),
             "hard" => Difficulty::Hard.create(),
             _ => {
-                let response = msg.channel_id.say(
-                    &ctx.http,
-                    "The argument must be either `Easy`, `Medium`, or `Hard`",
-                )?;
+                let response = msg
+                    .channel_id
+                    .say(
+                        &ctx.http,
+                        "The argument must be either `Easy`, `Medium`, or `Hard`",
+                    )
+                    .await?;
                 discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
                 return Ok(());
             }
@@ -39,18 +42,21 @@ fn minesweeper(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
         field.push('\n');
     }
     field.pop();
-    let response = msg.channel_id.say(
-        &ctx.http,
-        format!(
-            "Here's a {}x{} game with {} mines:\n{}",
-            game.width(),
-            game.height(),
-            game.mines,
-            field
-        ),
-    )?;
+    let response = msg
+        .channel_id
+        .say(
+            &ctx.http,
+            format!(
+                "Here's a {}x{} game with {} mines:\n{}",
+                game.width(),
+                game.height(),
+                game.mines,
+                field
+            ),
+        )
+        .await?;
     // Save the response owner
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
     Ok(())
 }
 

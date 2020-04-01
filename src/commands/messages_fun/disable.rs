@@ -12,15 +12,17 @@ use serenity::{
 this will disable it **and remove all memoized messages of the server**.\n\
 Since reversing this effect is rather expensive, you have to give a simple `yes` as argument.\n\
 This command will disable commands such as `impersonate`, `hivemind`, ..."]
-pub fn disabletracking(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+pub async fn disabletracking(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let guilds = data.get::<Guilds>().expect("Could not get Guilds");
         if !guilds.get(&msg.guild_id.unwrap()).unwrap().message_tracking {
-            msg.channel_id.say(
-                &ctx.http,
-                "Message tracking is already disabled for this server.",
-            )?;
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    "Message tracking is already disabled for this server.",
+                )
+                .await?;
             return Ok(());
         }
     }
@@ -30,7 +32,7 @@ pub fn disabletracking(ctx: &mut Context, msg: &Message, mut args: Args) -> Comm
     if let Ok(true) = yes {
         let guild_id = msg.guild_id.unwrap();
         {
-            let mut data = ctx.data.write();
+            let mut data = ctx.data.write().await;
             let guilds = data.get_mut::<Guilds>().expect("Could not get Guilds");
             guilds
                 .get_mut(&guild_id)
@@ -39,14 +41,17 @@ pub fn disabletracking(ctx: &mut Context, msg: &Message, mut args: Args) -> Comm
         }
         let channels: Vec<_> = guild_id
             .to_guild_cached(&ctx.cache)
+            .await
             .expect("Guild not found")
             .read()
-            .channels(&ctx.http)?
+            .await
+            .channels(&ctx.http)
+            .await?
             .into_iter()
             .map(|(id, _)| id.0)
             .collect();
         {
-            let data = ctx.data.read();
+            let data = ctx.data.read().await;
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
             if let Err(why) = mysql.update_guild_tracking(guild_id.0, false) {
                 warn!("Error while updating message_tracking: {}", why);
@@ -56,13 +61,16 @@ pub fn disabletracking(ctx: &mut Context, msg: &Message, mut args: Args) -> Comm
             }
         }
     } else {
-        let response = msg.channel_id.say(
-            &ctx.http,
-            "To disable message tracking on this server you must provide \
+        let response = msg
+            .channel_id
+            .say(
+                &ctx.http,
+                "To disable message tracking on this server you must provide \
             `yes` as argument,\ni.e. `<disabletracking yes`, to indicate \
             you are sure you want do delete my message memory of this server.",
-        )?;
-        discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+            )
+            .await?;
+        discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
     }
     Ok(())
 }

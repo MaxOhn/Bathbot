@@ -18,7 +18,6 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use tokio::runtime::Runtime;
 use white_rabbit::{DateResult, Duration, Utc};
 
 #[command]
@@ -29,11 +28,11 @@ use white_rabbit::{DateResult, Duration, Utc};
 #[example = "1980365"]
 #[example = "https://osu.ppy.sh/beatmapsets/948199#osu/1980365"]
 #[aliases("s")]
-fn simulate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn simulate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let args = match SimulateMapArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
-            let response = msg.channel_id.say(&ctx.http, err_msg)?;
+            let response = msg.channel_id.say(&ctx.http, err_msg).await?;
             discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
             return Ok(());
         }
@@ -43,16 +42,19 @@ fn simulate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     } else {
         let msgs = msg
             .channel_id
-            .messages(&ctx.http, |retriever| retriever.limit(50))?;
-        match discord::map_id_from_history(msgs, ctx.cache.clone()) {
+            .messages(&ctx.http, |retriever| retriever.limit(50))
+            .await?;
+        match discord::map_id_from_history(msgs, ctx.cache.clone()).await {
             Some(id) => id,
             None => {
-                msg.channel_id.say(
-                    &ctx.http,
-                    "No map embed found in this channel's recent history.\n\
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        "No map embed found in this channel's recent history.\n\
                      Try specifying a map either by url to the map, \
                      or just by map id.",
-                )?;
+                    )
+                    .await?;
                 return Ok(());
             }
         }
@@ -60,27 +62,26 @@ fn simulate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 
     // Retrieving the beatmap
     let (map_to_db, map) = {
-        let mut rt = Runtime::new().expect("Could not create runtime");
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         match mysql.get_beatmap(map_id) {
             Ok(map) => (false, map),
             Err(_) => {
                 let map_req = BeatmapRequest::new().map_id(map_id);
                 let osu = data.get::<Osu>().expect("Could not get osu client");
-                let map = match rt.block_on(map_req.queue_single(&osu)) {
+                let map = match map_req.queue_single(&osu).await {
                     Ok(result) => match result {
                         Some(map) => map,
                         None => {
                             msg.channel_id.say(
                                 &ctx.http,
                                 format!("Could not find beatmap with id `{}`. Did you give me a mapset id instead of a map id?", map_id),
-                            )?;
+                            ).await?;
                             return Ok(());
                         }
                     },
                     Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                         return Err(CommandError::from(why.to_string()));
                     }
                 };
@@ -94,13 +95,15 @@ fn simulate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match SimulateData::new(None, map, args.into(), &ctx) {
+    let data = match SimulateData::new(None, map, args.into(), &ctx).await {
         Ok(data) => data,
         Err(why) => {
-            msg.channel_id.say(
-                &ctx.http,
-                "Some issue while calculating simulate data, blame bade",
-            )?;
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    "Some issue while calculating simulate data, blame bade",
+                )
+                .await?;
             return Err(CommandError::from(why.to_string()));
         }
     };
@@ -108,11 +111,12 @@ fn simulate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     // Creating the embed
     let mut response = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))?;
+        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
+        .await?;
 
     // Add map to database if its not in already
     if let Some(map) = map_copy {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         if let Err(why) = mysql.insert_beatmap(&map) {
             warn!(
@@ -123,11 +127,11 @@ fn simulate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     }
 
     // Save the response owner
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
 
     // Minimize embed after delay
     let scheduler = {
-        let mut data = ctx.data.write();
+        let mut data = ctx.data.write().await;
         data.get_mut::<SchedulerKey>()
             .expect("Could not get SchedulerKey")
             .clone()

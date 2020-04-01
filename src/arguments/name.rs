@@ -16,7 +16,7 @@ pub struct DiscordUserArgs {
 }
 
 impl DiscordUserArgs {
-    pub fn new(mut args: Args, ctx: &Context, guild: GuildId) -> Result<Self, String> {
+    pub async fn new(mut args: Args, ctx: &Context, guild: GuildId) -> Result<Self, String> {
         if args.is_empty() {
             return Err("You need to provide a user as full discord tag, \
                         as user id, or just as mention"
@@ -26,6 +26,7 @@ impl DiscordUserArgs {
         let user = if let Ok(id) = u64::from_str(&arg) {
             UserId(id)
                 .to_user(ctx)
+                .await
                 .map_err(|_| "Error while retrieving user")?
         } else if arg.starts_with("<@") && arg.ends_with('>') {
             arg.remove(0);
@@ -37,6 +38,7 @@ impl DiscordUserArgs {
             if let Ok(id) = u64::from_str(&arg) {
                 UserId(id)
                     .to_user(ctx)
+                    .await
                     .map_err(|_| "Error while retrieving user")?
             } else {
                 return Err("The first argument must be a user \
@@ -44,10 +46,10 @@ impl DiscordUserArgs {
                     .to_string());
             }
         } else {
-            let guild_arc = guild.to_guild_cached(&ctx.cache).unwrap();
-            let guild = guild_arc.read();
-            if let Some(member) = guild.member_named(&arg) {
-                member.user.read().clone()
+            let guild_arc = guild.to_guild_cached(&ctx.cache).await.unwrap();
+            let guild = guild_arc.read().await;
+            if let Some(member) = guild.member_named(&arg).await {
+                member.user.read().await.clone()
             } else {
                 return Err(format!("Could not get user from argument `{}`", arg));
             }

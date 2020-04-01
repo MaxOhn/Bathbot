@@ -9,23 +9,23 @@ use serenity::{
 #[name = "Authority"]
 #[check_in_help(true)]
 #[display_in_help(true)]
-fn authority_check(
+async fn authority_check(
     ctx: &mut Context,
     msg: &Message,
     _: &mut Args,
     _: &CommandOptions,
 ) -> CheckResult {
-    if let Some(member) = msg.member(&ctx.cache) {
-        if let Ok(permissions) = member.permissions(&ctx.cache) {
+    if let Some(member) = msg.member(&ctx.cache).await {
+        if let Ok(permissions) = member.permissions(&ctx.cache).await {
             // Does it have admin permission
             if permissions.administrator() {
                 return CheckResult::Success;
             } else {
                 // Does it have authority role
                 for role_id in member.roles {
-                    if let Some(role) = role_id.to_role_cached(&ctx.cache) {
+                    if let Some(role) = role_id.to_role_cached(&ctx.cache).await {
                         let role_name = role.name.to_lowercase();
-                        let data = ctx.data.read();
+                        let data = ctx.data.read().await;
                         let guilds = data.get::<Guilds>().expect("Could not get Guilds");
                         let guild_id = msg.guild_id.unwrap();
                         let contains_authority = guilds

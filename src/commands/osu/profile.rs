@@ -17,54 +17,60 @@ use serenity::{
     prelude::Context,
 };
 use std::collections::HashMap;
-use tokio::runtime::Runtime;
 
-fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn profile_send(
+    mode: GameMode,
+    ctx: &mut Context,
+    msg: &Message,
+    args: Args,
+) -> CommandResult {
     let args = NameArgs::new(args);
     let name = if let Some(name) = args.name {
         name
     } else {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let links = data
             .get::<DiscordLinks>()
             .expect("Could not get DiscordLinks");
         match links.get(msg.author.id.as_u64()) {
             Some(name) => name.clone(),
             None => {
-                msg.channel_id.say(
-                    &ctx.http,
-                    "Either specify an osu name or link your discord \
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        "Either specify an osu name or link your discord \
                      to an osu profile via `<link osuname`",
-                )?;
+                    )
+                    .await?;
                 return Ok(());
             }
         }
     };
-    let mut rt = Runtime::new().unwrap();
 
     // Retrieve the user and its top scores
     let (user, scores): (User, Vec<Score>) = {
         let user_req = UserRequest::with_username(&name).mode(mode);
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let osu = data.get::<Osu>().expect("Could not get osu client");
-        let user = match rt.block_on(user_req.queue_single(&osu)) {
+        let user = match user_req.queue_single(&osu).await {
             Ok(result) => match result {
                 Some(user) => user,
                 None => {
                     msg.channel_id
-                        .say(&ctx.http, format!("User `{}` was not found", name))?;
+                        .say(&ctx.http, format!("User `{}` was not found", name))
+                        .await?;
                     return Ok(());
                 }
             },
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                 return Err(CommandError::from(why.to_string()));
             }
         };
-        let scores = match rt.block_on(user.get_top_scores(&osu, 100, mode)) {
+        let scores = match user.get_top_scores(&osu, 100, mode).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                 return Err(CommandError::from(why.to_string()));
             }
         };
@@ -74,7 +80,7 @@ fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) ->
     // Get all relevant maps from the database
     let map_ids: Vec<u32> = scores.iter().map(|s| s.beatmap_id.unwrap()).collect();
     let mut maps = {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         mysql
             .get_beatmaps(&map_ids)
@@ -87,10 +93,10 @@ fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) ->
     );
 
     // Retrieving all missing beatmaps
-    let res = rt.block_on(async {
+    let res = {
         let mut tuples = Vec::with_capacity(scores.len());
         let mut missing_indices = Vec::with_capacity(scores.len());
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let osu = data.get::<Osu>().expect("Could not get osu client");
         for (i, score) in scores.into_iter().enumerate() {
             let map_id = score.beatmap_id.unwrap();
@@ -108,7 +114,7 @@ fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) ->
             tuples.push((score, map));
         }
         Ok((tuples, missing_indices))
-    });
+    };
     let (score_maps, missing_maps): (Vec<_>, Option<Vec<Beatmap>>) = match res {
         Ok((score_maps, missing_indices)) => {
             let missing_maps = if missing_indices.is_empty() {
@@ -126,22 +132,23 @@ fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) ->
             (score_maps, missing_maps)
         }
         Err(why) => {
-            msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+            msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
             return Err(why);
         }
     };
 
     // Accumulate all necessary data
-    let data = BasicEmbedData::create_profile(user, score_maps, mode, ctx.cache.clone());
+    let data = BasicEmbedData::create_profile(user, score_maps, mode, ctx.cache.clone()).await;
 
     // Send the embed
     let response = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)));
+        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
+        .await;
 
     // Add missing maps to database
     if let Some(maps) = missing_maps {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         if let Err(why) = mysql.insert_beatmaps(maps) {
             warn!(
@@ -152,7 +159,7 @@ fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) ->
     }
 
     // Save the response owner
-    discord::save_response_owner(response?.id, msg.author.id, ctx.data.clone());
+    discord::save_response_owner(response?.id, msg.author.id, ctx.data.clone()).await;
     Ok(())
 }
 
@@ -161,8 +168,8 @@ fn profile_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) ->
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("osu")]
-pub fn profile(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    profile_send(GameMode::STD, ctx, msg, args)
+pub async fn profile(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    profile_send(GameMode::STD, ctx, msg, args).await
 }
 
 #[command]
@@ -170,8 +177,8 @@ pub fn profile(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("mania", "maniaprofile")]
-pub fn profilemania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    profile_send(GameMode::MNA, ctx, msg, args)
+pub async fn profilemania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    profile_send(GameMode::MNA, ctx, msg, args).await
 }
 
 #[command]
@@ -179,8 +186,8 @@ pub fn profilemania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("taiko", "taikoprofile")]
-pub fn profiletaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    profile_send(GameMode::TKO, ctx, msg, args)
+pub async fn profiletaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    profile_send(GameMode::TKO, ctx, msg, args).await
 }
 
 #[command]
@@ -188,6 +195,6 @@ pub fn profiletaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("ctb", "ctbprofile")]
-pub fn profilectb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    profile_send(GameMode::CTB, ctx, msg, args)
+pub async fn profilectb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    profile_send(GameMode::CTB, ctx, msg, args).await
 }

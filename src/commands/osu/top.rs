@@ -17,9 +17,8 @@ use serenity::{
     prelude::Context,
 };
 use std::{cmp::Ordering, collections::HashMap};
-use tokio::runtime::Runtime;
 
-fn top_send(
+async fn top_send(
     mode: GameMode,
     top_type: TopType,
     ctx: &mut Context,
@@ -29,8 +28,8 @@ fn top_send(
     let args = match TopArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
-            let response = msg.channel_id.say(&ctx.http, err_msg)?;
-            discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+            let response = msg.channel_id.say(&ctx.http, err_msg).await?;
+            discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
             return Ok(());
         }
     };
@@ -43,47 +42,49 @@ fn top_send(
     let name = if let Some(name) = args.name {
         name
     } else {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let links = data
             .get::<DiscordLinks>()
             .expect("Could not get DiscordLinks");
         match links.get(msg.author.id.as_u64()) {
             Some(name) => name.clone(),
             None => {
-                msg.channel_id.say(
-                    &ctx.http,
-                    "Either specify an osu name or link your discord \
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        "Either specify an osu name or link your discord \
                      to an osu profile via `<link osuname`",
-                )?;
+                    )
+                    .await?;
                 return Ok(());
             }
         }
     };
-    let mut rt = Runtime::new().unwrap();
 
     // Retrieve the user and its top scores
     let (user, scores): (User, Vec<Score>) = {
         let user_req = UserRequest::with_username(&name).mode(mode);
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let osu = data.get::<Osu>().expect("Could not get osu client");
-        let user = match rt.block_on(user_req.queue_single(&osu)) {
+        let user = match user_req.queue_single(&osu).await {
             Ok(result) => match result {
                 Some(user) => user,
                 None => {
                     msg.channel_id
-                        .say(&ctx.http, format!("User `{}` was not found", name))?;
+                        .say(&ctx.http, format!("User `{}` was not found", name))
+                        .await?;
                     return Ok(());
                 }
             },
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                 return Err(CommandError::from(why.to_string()));
             }
         };
-        let scores = match rt.block_on(user.get_top_scores(&osu, 100, mode)) {
+        let scores = match user.get_top_scores(&osu, 100, mode).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                 return Err(CommandError::from(why.to_string()));
             }
         };
@@ -172,7 +173,7 @@ fn top_send(
         .map(|(_, s)| s.beatmap_id.unwrap())
         .collect();
     let mut maps = {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         mysql
             .get_beatmaps(&map_ids)
@@ -185,11 +186,11 @@ fn top_send(
     );
 
     // Retrieving all missing beatmaps
-    let res = rt.block_on(async {
+    let res = {
         let dont_filter_sotarks = top_type != TopType::Sotarks;
         let mut tuples = Vec::with_capacity(scores_indices.len());
         let mut missing_indices = Vec::with_capacity(scores_indices.len());
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let osu = data.get::<Osu>().expect("Could not get osu client");
         for (i, score) in scores_indices.into_iter() {
             let map_id = score.beatmap_id.unwrap();
@@ -209,7 +210,7 @@ fn top_send(
             }
         }
         Ok((tuples, missing_indices))
-    });
+    };
     let (mut scores_data, missing_maps): (Vec<_>, Option<Vec<Beatmap>>) = match res {
         Ok((scores_data, missing_indices)) => {
             let missing_maps = if missing_indices.is_empty() || scores_data.is_empty() {
@@ -226,7 +227,7 @@ fn top_send(
             (scores_data, missing_maps)
         }
         Err(why) => {
-            msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+            msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
             return Err(why);
         }
     };
@@ -279,13 +280,15 @@ fn top_send(
             content
         }
     };
-    let data = match BasicEmbedData::create_top(user, scores_data, mode, &ctx) {
+    let data = match BasicEmbedData::create_top(user, scores_data, mode, &ctx).await {
         Ok(data) => data,
         Err(why) => {
-            msg.channel_id.say(
-                &ctx.http,
-                "Some issue while calculating top data, blame bade",
-            )?;
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    "Some issue while calculating top data, blame bade",
+                )
+                .await?;
             return Err(CommandError::from(why.to_string()));
         }
     };
@@ -293,11 +296,12 @@ fn top_send(
     // Creating the embed
     let response = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.content(content).embed(|e| data.build(e)));
+        .send_message(&ctx.http, |m| m.content(content).embed(|e| data.build(e)))
+        .await;
 
     // Add missing maps to database
     if let Some(maps) = missing_maps {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         if let Err(why) = mysql.insert_beatmaps(maps) {
             warn!(
@@ -308,7 +312,7 @@ fn top_send(
     }
 
     // Save the response owner
-    discord::save_response_owner(response?.id, msg.author.id, ctx.data.clone());
+    discord::save_response_owner(response?.id, msg.author.id, ctx.data.clone()).await;
     Ok(())
 }
 
@@ -322,8 +326,8 @@ fn top_send(
 #[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
 #[example = "vaxei -c 1234 -dt! --a"]
 #[aliases("topscores", "osutop")]
-pub fn top(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    top_send(GameMode::STD, TopType::Top, ctx, msg, args)
+pub async fn top(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    top_send(GameMode::STD, TopType::Top, ctx, msg, args).await
 }
 
 #[command]
@@ -336,8 +340,8 @@ pub fn top(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
 #[example = "vaxei -c 1234 -dt! --a"]
 #[aliases("topm")]
-pub fn topmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    top_send(GameMode::MNA, TopType::Top, ctx, msg, args)
+pub async fn topmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    top_send(GameMode::MNA, TopType::Top, ctx, msg, args).await
 }
 
 #[command]
@@ -350,8 +354,8 @@ pub fn topmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
 #[example = "vaxei -c 1234 -dt! --a"]
 #[aliases("topt")]
-pub fn toptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    top_send(GameMode::TKO, TopType::Top, ctx, msg, args)
+pub async fn toptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    top_send(GameMode::TKO, TopType::Top, ctx, msg, args).await
 }
 
 #[command]
@@ -364,8 +368,8 @@ pub fn toptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
 #[example = "vaxei -c 1234 -dt! --a"]
 #[aliases("topc")]
-pub fn topctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    top_send(GameMode::CTB, TopType::Top, ctx, msg, args)
+pub async fn topctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    top_send(GameMode::CTB, TopType::Top, ctx, msg, args).await
 }
 
 #[command]
@@ -377,8 +381,8 @@ pub fn topctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[example = "badewanne3 -a 97.34 -grade A +hdhr"]
 #[example = "vaxei -c 1234 -dt!"]
 #[aliases("rb")]
-pub fn recentbest(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    top_send(GameMode::STD, TopType::Recent, ctx, msg, args)
+pub async fn recentbest(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    top_send(GameMode::STD, TopType::Recent, ctx, msg, args).await
 }
 
 #[command]
@@ -390,8 +394,8 @@ pub fn recentbest(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
 #[example = "badewanne3 -a 97.34 -grade A +hdhr"]
 #[example = "vaxei -c 1234 -dt!"]
 #[aliases("rbm")]
-pub fn recentbestmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    top_send(GameMode::MNA, TopType::Recent, ctx, msg, args)
+pub async fn recentbestmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    top_send(GameMode::MNA, TopType::Recent, ctx, msg, args).await
 }
 
 #[command]
@@ -403,8 +407,8 @@ pub fn recentbestmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandR
 #[example = "badewanne3 -a 97.34 -grade A +hdhr"]
 #[example = "vaxei -c 1234 -dt!"]
 #[aliases("rbt")]
-pub fn recentbesttaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    top_send(GameMode::TKO, TopType::Recent, ctx, msg, args)
+pub async fn recentbesttaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    top_send(GameMode::TKO, TopType::Recent, ctx, msg, args).await
 }
 
 #[command]
@@ -416,16 +420,16 @@ pub fn recentbesttaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandR
 #[example = "badewanne3 -a 97.34 -grade A +hdhr"]
 #[example = "vaxei -c 1234 -dt!"]
 #[aliases("rbc")]
-pub fn recentbestctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    top_send(GameMode::CTB, TopType::Recent, ctx, msg, args)
+pub async fn recentbestctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    top_send(GameMode::CTB, TopType::Recent, ctx, msg, args).await
 }
 
 #[command]
 #[description = "Display how many top play maps of a user are made by Sotarks"]
 #[usage = "[username]"]
 #[example = "badewanne3"]
-pub fn sotarks(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    top_send(GameMode::STD, TopType::Sotarks, ctx, msg, args)
+pub async fn sotarks(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    top_send(GameMode::STD, TopType::Sotarks, ctx, msg, args).await
 }
 
 #[derive(Eq, PartialEq)]

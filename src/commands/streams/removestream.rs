@@ -17,25 +17,29 @@ use serenity::{
 #[aliases("streamremove")]
 #[usage = "[twitch / mixer] [stream name]"]
 #[example = "twitch loltyler1"]
-fn removestream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn removestream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     // Parse the platform and stream name
     let result = if args.len() < 2 {
-        msg.channel_id.say(
-            &ctx.http,
-            "The first argument must be either `twitch` or `mixer`. \
+        msg.channel_id
+            .say(
+                &ctx.http,
+                "The first argument must be either `twitch` or `mixer`. \
              The next argument must be the name of the stream.",
-        )?;
+            )
+            .await?;
         return Ok(());
     } else {
         let platform = match args.single::<String>()?.to_lowercase().as_str() {
             "twitch" => Platform::Twitch,
             "mixer" => Platform::Mixer,
             _ => {
-                msg.channel_id.say(
-                    &ctx.http,
-                    "The first argument must be either `twitch` or `mixer`. \
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        "The first argument must be either `twitch` or `mixer`. \
                      The next argument must be the name of the stream.",
-                )?;
+                    )
+                    .await?;
                 return Ok(());
             }
         };
@@ -43,14 +47,14 @@ fn removestream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResu
         match platform {
             Platform::Mixer => Some((platform, name)),
             Platform::Twitch => {
-                let data = ctx.data.read();
+                let data = ctx.data.read().await;
                 let twitch_users = data
                     .get::<TwitchUsers>()
                     .expect("Could not get TwitchUsers");
                 if twitch_users.contains_key(&name) {
                     let twitch_id = *twitch_users.get(&name).unwrap();
                     std::mem::drop(data);
-                    let mut data = ctx.data.write();
+                    let mut data = ctx.data.write().await;
                     let stream_tracks = data
                         .get_mut::<StreamTracks>()
                         .expect("Could not get StreamTracks");
@@ -80,9 +84,9 @@ fn removestream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResu
     };
 
     // Sending the msg
-    let response = msg.channel_id.say(&ctx.http, content)?;
+    let response = msg.channel_id.say(&ctx.http, content).await?;
 
     // Save the response owner
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
     Ok(())
 }

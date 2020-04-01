@@ -30,13 +30,13 @@ Further help on the spreadsheet: http://bit.ly/badecoms"]
     "~~`Strikethrough commands`~~ indicate you're lacking permissions or roles"
 )]
 #[strikethrough_commands_tip_in_guild("~~`Strikethrough commands`~~ can only be used in servers")]
-fn help(
-    context: &mut Context,
+async fn help(
+    ctx: &mut Context,
     msg: &Message,
     args: Args,
     help_options: &'static HelpOptions,
     groups: &[&'static CommandGroup],
     owners: HashSet<UserId>,
 ) -> CommandResult {
-    help_commands::with_embeds(context, msg, args, help_options, groups, owners)
+    help_commands::with_embeds(ctx, msg, args, help_options, groups, owners).await
 }

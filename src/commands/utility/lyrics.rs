@@ -17,10 +17,10 @@ use std::collections::hash_map::Entry;
 #[checks(Authority)]
 #[description = "Toggle whether song commands can be used in this server. \
 Defaults to `true`"]
-fn lyrics(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn lyrics(ctx: &mut Context, msg: &Message) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
     let new_bool = {
-        let mut data = ctx.data.write();
+        let mut data = ctx.data.write().await;
         let guilds = data.get_mut::<Guilds>().expect("Could not get Guilds");
         match guilds.entry(guild_id) {
             Entry::Occupied(mut entry) => {
@@ -29,7 +29,7 @@ fn lyrics(ctx: &mut Context, msg: &Message) -> CommandResult {
                 new_bool
             }
             Entry::Vacant(_) => {
-                msg.channel_id.say(&ctx.http, GENERAL_ISSUE)?;
+                msg.channel_id.say(&ctx.http, GENERAL_ISSUE).await?;
                 return Err(CommandError(format!(
                     "GuildId {} not found in Guilds",
                     guild_id.0
@@ -38,7 +38,7 @@ fn lyrics(ctx: &mut Context, msg: &Message) -> CommandResult {
         }
     };
     {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         if let Err(why) = mysql.update_guild_lyrics(guild_id.0, new_bool) {
             warn!("Could not set lyrics of guild: {}", why);
@@ -50,9 +50,9 @@ fn lyrics(ctx: &mut Context, msg: &Message) -> CommandResult {
     } else {
         "Song commands can no longer be used in this server".to_string()
     };
-    let response = msg.channel_id.say(&ctx.http, content)?;
+    let response = msg.channel_id.say(&ctx.http, content).await?;
 
     // Save the response owner
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
     Ok(())
 }

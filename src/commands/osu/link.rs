@@ -15,33 +15,35 @@ use serenity::{
                  your discord account from any osu name."]
 #[usage = "[username]"]
 #[example = "badewanne3"]
-fn link(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn link(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let id = *msg.author.id.as_u64();
     if args.is_empty() {
         {
-            let mut data = ctx.data.write();
+            let mut data = ctx.data.write().await;
             let links = data
                 .get_mut::<DiscordLinks>()
                 .expect("Could not get DiscordLinks");
             links.remove_entry(&id);
         }
         {
-            let data = ctx.data.read();
+            let data = ctx.data.read().await;
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
             if let Err(why) = mysql.remove_discord_link(id) {
-                msg.channel_id.say(&ctx.http, GENERAL_ISSUE)?;
+                msg.channel_id.say(&ctx.http, GENERAL_ISSUE).await?;
                 return Err(CommandError(format!(
                     "Error while removing discord link from database: {}",
                     why
                 )));
             }
         }
-        msg.channel_id.say(&ctx.http, "You are no longer linked")?;
+        msg.channel_id
+            .say(&ctx.http, "You are no longer linked")
+            .await?;
         Ok(())
     } else {
         let name = args.single_quoted::<String>()?;
         {
-            let mut data = ctx.data.write();
+            let mut data = ctx.data.write().await;
             let links = data
                 .get_mut::<DiscordLinks>()
                 .expect("Could not get DiscordLinks");
@@ -49,26 +51,29 @@ fn link(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
             *value = name.clone();
         }
         {
-            let data = ctx.data.read();
+            let data = ctx.data.read().await;
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
             if let Err(why) = mysql.add_discord_link(id, &name) {
-                msg.channel_id.say(&ctx.http, GENERAL_ISSUE)?;
+                msg.channel_id.say(&ctx.http, GENERAL_ISSUE).await?;
                 return Err(CommandError(format!(
                     "Error while adding discord link to database: {}",
                     why
                 )));
             }
         }
-        let response = msg.channel_id.say(
-            &ctx.http,
-            format!(
-                "I linked discord's `{}` with osu's `{}`",
-                msg.author.name, name
-            ),
-        )?;
+        let response = msg
+            .channel_id
+            .say(
+                &ctx.http,
+                format!(
+                    "I linked discord's `{}` with osu's `{}`",
+                    msg.author.name, name
+                ),
+            )
+            .await?;
 
         // Save the response owner
-        discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+        discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
         Ok(())
     }
 }

@@ -18,25 +18,29 @@ use tokio::runtime::Runtime;
 #[aliases("streamadd")]
 #[usage = "[twitch / mixer] [stream name]"]
 #[example = "twitch loltyler1"]
-fn addstream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn addstream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     // Parse the platform and stream name
     let (platform, name) = if args.len() < 2 {
-        msg.channel_id.say(
-            &ctx.http,
-            "The first argument must be either `twitch` or `mixer`. \
+        msg.channel_id
+            .say(
+                &ctx.http,
+                "The first argument must be either `twitch` or `mixer`. \
              The next argument must be the name of the stream.",
-        )?;
+            )
+            .await?;
         return Ok(());
     } else {
         let platform = match args.single::<String>()?.to_lowercase().as_str() {
             "twitch" => Platform::Twitch,
             "mixer" => Platform::Mixer,
             _ => {
-                msg.channel_id.say(
-                    &ctx.http,
-                    "The first argument must be either `twitch` or `mixer`. \
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        "The first argument must be either `twitch` or `mixer`. \
                      The next argument must be the name of the stream.",
-                )?;
+                    )
+                    .await?;
                 return Ok(());
             }
         };
@@ -45,7 +49,7 @@ fn addstream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult 
             Platform::Mixer => (platform, "TODO".to_string()),
             Platform::Twitch => {
                 let (twitch_id, insert) = {
-                    let data = ctx.data.read();
+                    let data = ctx.data.read().await;
                     let twitch_users = data
                         .get::<TwitchUsers>()
                         .expect("Could not get TwitchUsers");
@@ -57,10 +61,9 @@ fn addstream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult 
                         let twitch_id = match rt.block_on(twitch.get_user(&name)) {
                             Ok(user) => user.user_id,
                             Err(_) => {
-                                msg.channel_id.say(
-                                    &ctx.http,
-                                    format!("Twitch user `{}` was not found", name),
-                                )?;
+                                msg.channel_id
+                                    .say(&ctx.http, format!("Twitch user `{}` was not found", name))
+                                    .await?;
                                 return Ok(());
                             }
                         };
@@ -71,7 +74,7 @@ fn addstream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult 
                         (twitch_id, true)
                     }
                 };
-                let mut data = ctx.data.write();
+                let mut data = ctx.data.write().await;
                 if insert {
                     let twitch_users = data
                         .get_mut::<TwitchUsers>()
@@ -97,15 +100,18 @@ fn addstream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult 
     // Sending the msg
     let response = if platform == Platform::Mixer {
         msg.channel_id
-            .say(&ctx.http, "Mixer is not yet supported, soon:tm:")?
+            .say(&ctx.http, "Mixer is not yet supported, soon:tm:")
+            .await?
     } else {
-        msg.channel_id.say(
-            &ctx.http,
-            format!(
-                "I'm now tracking `{}`'s {:?} stream in this channel",
-                name, platform
-            ),
-        )?
+        msg.channel_id
+            .say(
+                &ctx.http,
+                format!(
+                    "I'm now tracking `{}`'s {:?} stream in this channel",
+                    name, platform
+                ),
+            )
+            .await?
     };
 
     // Save the response owner

@@ -14,30 +14,31 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use tokio::runtime::Runtime;
 
 #[command]
 #[description = "Calculate the average ratios of a mania user's top 100"]
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("ratio")]
-pub fn ratios(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn ratios(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let args = NameArgs::new(args);
     let name = if let Some(name) = args.name {
         name
     } else {
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let links = data
             .get::<DiscordLinks>()
             .expect("Could not get DiscordLinks");
         match links.get(msg.author.id.as_u64()) {
             Some(name) => name.clone(),
             None => {
-                msg.channel_id.say(
-                    &ctx.http,
-                    "Either specify an osu name or link your discord \
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        "Either specify an osu name or link your discord \
                      to an osu profile via `<link osuname`",
-                )?;
+                    )
+                    .await?;
                 return Ok(());
             }
         }
@@ -46,27 +47,27 @@ pub fn ratios(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     // Retrieve the user and its top scores
     let (user, scores): (User, Vec<Score>) = {
         let user_req = UserRequest::with_username(&name).mode(GameMode::MNA);
-        let mut rt = Runtime::new().unwrap();
-        let data = ctx.data.read();
+        let data = ctx.data.read().await;
         let osu = data.get::<Osu>().expect("Could not get osu client");
-        let user = match rt.block_on(user_req.queue_single(&osu)) {
+        let user = match user_req.queue_single(&osu).await {
             Ok(result) => match result {
                 Some(user) => user,
                 None => {
                     msg.channel_id
-                        .say(&ctx.http, format!("User `{}` was not found", name))?;
+                        .say(&ctx.http, format!("User `{}` was not found", name))
+                        .await?;
                     return Ok(());
                 }
             },
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                 return Err(CommandError::from(why.to_string()));
             }
         };
-        let scores = match rt.block_on(user.get_top_scores(&osu, 100, GameMode::MNA)) {
+        let scores = match user.get_top_scores(&osu, 100, GameMode::MNA).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE)?;
+                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                 return Err(CommandError::from(why.to_string()));
             }
         };
@@ -74,24 +75,29 @@ pub fn ratios(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     };
 
     // Accumulate all necessary data
-    let data = match BasicEmbedData::create_ratio(user, scores, &ctx) {
+    let data = match BasicEmbedData::create_ratio(user, scores, &ctx).await {
         Ok(data) => data,
         Err(why) => {
-            msg.channel_id.say(
-                &ctx.http,
-                "Some issue while calculating ratio data, blame bade",
-            )?;
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    "Some issue while calculating ratio data, blame bade",
+                )
+                .await?;
             return Err(CommandError::from(why.to_string()));
         }
     };
 
     // Creating the embed
-    let response = msg.channel_id.send_message(&ctx.http, |m| {
-        let content = format!("Average ratios of `{}`'s top 100 in mania:", name);
-        m.content(content).embed(|e| data.build(e))
-    })?;
+    let response = msg
+        .channel_id
+        .send_message(&ctx.http, |m| {
+            let content = format!("Average ratios of `{}`'s top 100 in mania:", name);
+            m.content(content).embed(|e| data.build(e))
+        })
+        .await?;
 
     // Save the response owner
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
     Ok(())
 }

@@ -96,7 +96,7 @@ impl RecentData {
             })
     }
 
-    pub fn new(
+    pub async fn new(
         user: User,
         score: Score,
         map: Beatmap,
@@ -140,7 +140,7 @@ impl RecentData {
             country = user.country,
             national = user.pp_country_rank
         );
-        let mut pp_provider = match PPProvider::new(&score, &map, Some(ctx)) {
+        let mut pp_provider = match PPProvider::new(&score, &map, Some(ctx)).await {
             Ok(provider) => provider,
             Err(why) => {
                 return Err(Error::Custom(format!(
@@ -150,7 +150,7 @@ impl RecentData {
             }
         };
         let grade_completion_mods =
-            util::get_grade_completion_mods(&score, &map, ctx.cache.clone());
+            util::get_grade_completion_mods(&score, &map, ctx.cache.clone()).await;
         let (pp, combo, hits) = (
             util::get_pp(&score, &pp_provider, map.mode),
             if map.mode == GameMode::MNA {

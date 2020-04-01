@@ -19,6 +19,7 @@ use log::{error, info};
 use rayon::prelude::*;
 use rosu::models::GameMode;
 use serenity::{
+    async_trait,
     model::{
         channel::{Message, Reaction, ReactionType},
         event::ResumedEvent,
@@ -37,8 +38,9 @@ use white_rabbit::{DateResult, Duration, Utc as UtcWR};
 
 pub struct Handler;
 
+#[async_trait]
 impl EventHandler for Handler {
-    fn ready(&self, ctx: Context, ready: Ready) {
+    async fn ready(&self, ctx: Context, ready: Ready) {
         if let Some(shard) = ready.shard {
             info!(
                 "{} is connected on shard {}/{}",
@@ -50,25 +52,25 @@ impl EventHandler for Handler {
         ctx.set_activity(Activity::playing("osu! (<help)"));
     }
 
-    fn resume(&self, _: Context, _: ResumedEvent) {
+    async fn resume(&self, _: Context, _: ResumedEvent) {
         info!("Resumed connection");
     }
 
-    fn message(&self, ctx: Context, msg: Message) {
+    async fn message(&self, ctx: Context, msg: Message) {
         if !msg.author.bot {
             // BG game dispatching
             if msg.content.starts_with('<') || msg.content.starts_with("!!") {
                 return;
             }
             let active_bg = {
-                let data = ctx.data.read();
+                let data = ctx.data.read().await;
                 data.get::<BgGameKey>()
                     .expect("Could not get BgGameKey")
                     .len()
             };
             if active_bg > 0 {
                 let dispatcher = {
-                    let mut context = ctx.data.write();
+                    let mut context = ctx.data.write().await;
                     context
                         .get_mut::<DispatcherKey>()
                         .expect("Could not get DispatcherKey")
@@ -76,6 +78,7 @@ impl EventHandler for Handler {
                 };
                 dispatcher
                     .write()
+                    .await
                     .dispatch_event(&DispatchEvent::BgMsgEvent {
                         channel: msg.channel_id,
                         user: msg.author.id,
@@ -98,7 +101,7 @@ impl EventHandler for Handler {
                 content: msg.content,
                 timestamp: msg.timestamp.naive_utc(),
             }];
-            let data = ctx.data.read();
+            let data = ctx.data.read().await;
             let with_tracking = msg
                 .guild_id
                 .and_then(|guild_id| {
@@ -115,11 +118,11 @@ impl EventHandler for Handler {
         }
     }
 
-    fn guild_create(&self, ctx: Context, guild: Guild, is_new: bool) {
+    async fn guild_create(&self, ctx: Context, guild: Guild, is_new: bool) {
         if is_new {
             // Insert basic guild info into database
             let guild = {
-                let data = ctx.data.read();
+                let data = ctx.data.read().await;
                 let mysql = data.get::<MySQL>().expect("Could not get MySQL");
                 match mysql.insert_guild(guild.id.0) {
                     Ok(g) => {
@@ -136,14 +139,14 @@ impl EventHandler for Handler {
                 }
             };
             if let Some(guild) = guild {
-                let mut data = ctx.data.write();
+                let mut data = ctx.data.write().await;
                 let guilds = data.get_mut::<Guilds>().expect("Could not get Guilds");
                 guilds.insert(guild.guild_id, guild);
             }
         }
     }
 
-    fn voice_state_update(
+    async fn voice_state_update(
         &self,
         ctx: Context,
         guild: Option<GuildId>,
@@ -153,7 +156,7 @@ impl EventHandler for Handler {
         // Try assigning the server's VC role to the member
         if let Some(guild_id) = guild {
             let role = {
-                let data = ctx.data.read();
+                let data = ctx.data.read().await;
                 data.get::<Guilds>()
                     .and_then(|guilds| guilds.get(&guild_id))
                     .and_then(|guild| guild.vc_role)
@@ -161,7 +164,7 @@ impl EventHandler for Handler {
             // If the server has configured such a role
             if let Some(role) = role {
                 // Get the event's member
-                let mut member = match guild_id.member(&ctx, new.user_id) {
+                let mut member = match guild_id.member(&ctx, new.user_id).await {
                     Ok(member) => member,
                     Err(why) => {
                         warn!("Could not get member for VC update: {}", why);
@@ -170,43 +173,48 @@ impl EventHandler for Handler {
                 };
                 let role_name = role
                     .to_role_cached(&ctx.cache)
+                    .await
                     .expect("Role not found in cache")
                     .name;
                 // If either the member left VC, or joined the afk channel
-                let remove_role = new.channel_id.map_or(true, |channel| {
-                    channel
+                let remove_role = match new.channel_id {
+                    None => true,
+                    Some(channel) => channel
                         .name(&ctx.cache)
-                        .map_or(false, |name| &name.to_lowercase() == "afk")
-                });
+                        .await
+                        .map_or(false, |name| &name.to_lowercase() == "afk"),
+                };
                 if remove_role {
                     // Remove role
-                    if let Err(why) = member.remove_role(&ctx.http, role) {
+                    if let Err(why) = member.remove_role(&ctx.http, role).await {
                         error!("Could not remove role from member for VC update: {}", why);
                     } else {
                         info!(
                             "Removed role '{}' from member {}",
                             role_name,
-                            member.user.read().name
+                            member.user.read().await.name
                         );
                     }
                 } else {
                     // Add role if the member is either coming from the afk channel
                     // or hasn't been in a VC before
-                    let add_role = old.map_or(true, |old_state| {
-                        old_state
+                    let add_role = match old {
+                        None => true,
+                        Some(old_state) => old_state
                             .channel_id
                             .unwrap()
                             .name(&ctx.cache)
-                            .map_or(true, |name| &name.to_lowercase() == "afk")
-                    });
+                            .await
+                            .map_or(true, |name| &name.to_lowercase() == "afk"),
+                    };
                     if add_role {
-                        if let Err(why) = member.add_role(&ctx.http, role) {
+                        if let Err(why) = member.add_role(&ctx.http, role).await {
                             error!("Could not add role to member for VC update: {}", why);
                         } else {
                             info!(
                                 "Assigned role '{}' to member {}",
                                 role_name,
-                                member.user.read().name
+                                member.user.read().await.name
                             );
                         }
                     }
@@ -215,30 +223,32 @@ impl EventHandler for Handler {
         }
     }
 
-    fn guild_member_addition(&self, ctx: Context, guild_id: GuildId, new_member: Member) {
+    async fn guild_member_addition(&self, ctx: Context, guild_id: GuildId, new_member: Member) {
         if guild_id.0 == MAIN_GUILD_ID {
-            let data = ctx.data.read();
+            let data = ctx.data.read().await;
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-            if let Err(why) = mysql.insert_unchecked_member(new_member.user_id().0, Utc::now()) {
+            if let Err(why) =
+                mysql.insert_unchecked_member(new_member.user_id().await.0, Utc::now())
+            {
                 error!("Could not insert unchecked member into database: {}", why);
             }
             let _ = ChannelId(WELCOME_CHANNEL).say(
                 &ctx.http,
                 format!(
                     "{} just joined the server, awaiting approval",
-                    new_member.mention()
+                    new_member.mention().await
                 ),
             );
         }
     }
 
-    fn cache_ready(&self, ctx: Context, _: Vec<GuildId>) {
+    async fn cache_ready(&self, ctx: Context, _: Vec<GuildId>) {
         // Custom events
         if WITH_CUSTOM_EVENTS {
             let track_delay = 1;
             let day_limit = 10;
             let scheduler = {
-                let mut data = ctx.data.write();
+                let mut data = ctx.data.write().await;
                 data.get_mut::<SchedulerKey>()
                     .expect("Could not get SchedulerKey")
                     .clone()
@@ -384,7 +394,7 @@ impl EventHandler for Handler {
         if WITH_STREAM_TRACK {
             let track_delay = 10;
             let scheduler = {
-                let mut data = ctx.data.write();
+                let mut data = ctx.data.write().await;
                 data.get_mut::<SchedulerKey>()
                     .expect("Could not get SchedulerKey")
                     .clone()
@@ -498,7 +508,7 @@ impl EventHandler for Handler {
         }
 
         // Tracking reactions
-        let reaction_tracker: HashMap<_, _> = match ctx.data.read().get::<MySQL>() {
+        let reaction_tracker: HashMap<_, _> = match ctx.data.read().await.get::<MySQL>() {
             Some(mysql) => mysql
                 .get_role_assigns()
                 .expect("Could not get role assigns")
@@ -508,16 +518,16 @@ impl EventHandler for Handler {
             None => panic!("Could not get MySQL"),
         };
         {
-            let mut data = ctx.data.write();
+            let mut data = ctx.data.write().await;
             data.insert::<ReactionTracker>(reaction_tracker);
         }
     }
 
-    fn reaction_add(&self, ctx: Context, reaction: Reaction) {
+    async fn reaction_add(&self, ctx: Context, reaction: Reaction) {
         // Check if the reacting user wants a bot response to be deleted
         if let ReactionType::Unicode(emote) = &reaction.emoji {
             if emote.as_str() == "❌" {
-                let data = ctx.data.read();
+                let data = ctx.data.read().await;
                 let (_, owners) = data
                     .get::<ResponseOwner>()
                     .expect("Could not get ResponseOwner");
@@ -528,11 +538,12 @@ impl EventHandler for Handler {
                     if let Err(why) = reaction
                         .channel_id
                         .delete_message(&ctx.http, reaction.message_id)
+                        .await
                     {
                         warn!("Could not delete message after owner's reaction: {}", why);
                     } else {
-                        let name = reaction.channel_id.name(&ctx.cache);
-                        let user = reaction.user_id.to_user((&ctx.cache, &*ctx.http));
+                        let name = reaction.channel_id.name(&ctx.cache).await;
+                        let user = reaction.user_id.to_user((&ctx.cache, &*ctx.http)).await;
                         if let Ok(user) = user {
                             if let Some(channel_name) = name {
                                 info!(
@@ -549,7 +560,7 @@ impl EventHandler for Handler {
         }
         // Check if the reacting user now gets a role
         let key = (reaction.channel_id, reaction.message_id);
-        let role: Option<RoleId> = match ctx.data.read().get::<ReactionTracker>() {
+        let role: Option<RoleId> = match ctx.data.read().await.get::<ReactionTracker>() {
             Some(tracker) => {
                 if tracker.contains_key(&key) {
                     Some(*tracker.get(&key).unwrap())
@@ -566,25 +577,26 @@ impl EventHandler for Handler {
             if let Some(mut member) = get_member(&ctx, reaction.channel_id, reaction.user_id) {
                 let role_name = role
                     .to_role_cached(&ctx.cache)
+                    .await
                     .expect("Role not found in cache")
                     .name;
-                if let Err(why) = member.add_role(&ctx.http, role) {
+                if let Err(why) = member.add_role(&ctx.http, role).await {
                     error!("Could not add role to member for reaction: {}", why);
                 } else {
                     info!(
                         "Assigned role '{}' to member {}",
                         role_name,
-                        member.user.read().name
+                        member.user.read().await.name
                     );
                 }
             }
         }
     }
 
-    fn reaction_remove(&self, ctx: Context, reaction: Reaction) {
+    async fn reaction_remove(&self, ctx: Context, reaction: Reaction) {
         // Check if the reacting user now loses a role
         let key = (reaction.channel_id, reaction.message_id);
-        let role = match ctx.data.read().get::<ReactionTracker>() {
+        let role = match ctx.data.read().await.get::<ReactionTracker>() {
             Some(tracker) => {
                 if tracker.contains_key(&key) {
                     Some(*tracker.get(&key).unwrap())
@@ -601,22 +613,28 @@ impl EventHandler for Handler {
             if let Some(mut member) = get_member(&ctx, reaction.channel_id, reaction.user_id) {
                 let role_name = role
                     .to_role_cached(&ctx.cache)
+                    .await
                     .expect("Role not found in cache")
                     .name;
-                if let Err(why) = member.remove_role(&ctx.http, role) {
+                if let Err(why) = member.remove_role(&ctx.http, role).await {
                     error!("Could not remove role from member for reaction: {}", why);
                 } else {
                     info!(
                         "Removed role '{}' from member {}",
                         role_name,
-                        member.user.read().name
+                        member.user.read().await.name
                     );
                 }
             }
         }
     }
 
-    fn guild_member_update(&self, ctx: Context, old_if_available: Option<Member>, new: Member) {
+    async fn guild_member_update(
+        &self,
+        ctx: Context,
+        old_if_available: Option<Member>,
+        new: Member,
+    ) {
         // If member loses the "Not checked" role, they gets removed from
         // unchecked_members database table and greeted in #general chat
         if new.guild_id.0 == MAIN_GUILD_ID {
@@ -631,16 +649,17 @@ impl EventHandler for Handler {
                         .map(|id| id.0 == UNCHECKED_ROLE_ID);
                     // Is it the right role?
                     if let Some(true) = role {
-                        let data = ctx.data.read();
+                        let data = ctx.data.read().await;
                         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
                         // Mark user as checked by removing him from unchecked database
-                        if let Err(why) = mysql.remove_unchecked_member(new.user_id().0) {
+                        if let Err(why) = mysql.remove_unchecked_member(new.user_id().await.0) {
                             warn!("Could not remove unchecked member from database: {}", why);
                         } else {
-                            info!("Member {} lost the 'Not checked' role", new.display_name());
+                            let display_name = new.display_name().await;
+                            info!("Member {} lost the 'Not checked' role", display_name);
                             let _ = ChannelId(MAIN_GUILD_ID).say(
                                 &ctx.http,
-                                format!("welcome {}, enjoy ur stay o/", new.display_name()),
+                                format!("welcome {}, enjoy ur stay o/", display_name),
                             );
                         }
                     }

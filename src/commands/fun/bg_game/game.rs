@@ -40,12 +40,14 @@ impl BackGroundGame {
         }
     }
 
-    pub fn restart(&mut self) -> CommandResult {
-        self.resolve(None)?;
+    pub async fn restart(&mut self) -> CommandResult {
+        self.resolve(None).await?;
         let img;
         loop {
             self.game =
-                match GameData::new(Arc::clone(&self.data), &mut self.previous_ids, self.osu_std) {
+                match GameData::new(Arc::clone(&self.data), &mut self.previous_ids, self.osu_std)
+                    .await
+                {
                     Ok(game) => game,
                     Err(why) => {
                         warn!("Error creating bg game: {}", why);
@@ -64,11 +66,13 @@ impl BackGroundGame {
             };
             break;
         }
-        self.channel.send_message(&self.http, |m| {
-            let bytes: &[u8] = &img;
-            m.content("Here's the next one:")
-                .add_file((bytes, "bg_img.png"))
-        })?;
+        self.channel
+            .send_message(&self.http, |m| {
+                let bytes: &[u8] = &img;
+                m.content("Here's the next one:")
+                    .add_file((bytes, "bg_img.png"))
+            })
+            .await?;
         self.add_deadline();
         Ok(())
     }
@@ -88,7 +92,7 @@ impl BackGroundGame {
         self.game.hints.get(&self.game.title, &self.game.artist)
     }
 
-    pub fn resolve(&self, winner_msg: Option<String>) -> CommandResult {
+    pub async fn resolve(&self, winner_msg: Option<String>) -> CommandResult {
         if self.game.mapset_id == 0 {
             return Ok(());
         };
@@ -99,22 +103,27 @@ impl BackGroundGame {
             )
         });
         let bytes: &[u8] = &self.reveal()?;
-        let _ = self.channel.send_message(&self.http, |m| {
-            m.add_file((bytes, "bg_img.png")).content(content)
-        })?;
+        let _ = self
+            .channel
+            .send_message(&self.http, |m| {
+                m.add_file((bytes, "bg_img.png")).content(content)
+            })
+            .await?;
         Ok(())
     }
 
-    fn user_name(&self, user_id: UserId) -> Option<String> {
+    async fn user_name(&self, user_id: UserId) -> Option<String> {
         user_id
             .to_user((&self.cache, &*self.http))
+            .await
             .ok()
             .map(|user| user.name)
     }
 
-    fn process_winner(&mut self, winner: UserId, exact: bool) -> Option<DispatcherRequest> {
+    async fn process_winner(&mut self, winner: UserId, exact: bool) -> Option<DispatcherRequest> {
         let winner_name = self
             .user_name(winner)
+            .await
             .map_or_else(String::new, |name| format!(" `{}`", name));
         let mut winner_msg = if exact {
             format!("Gratz{}, you guessed it", winner_name)
@@ -126,16 +135,16 @@ impl BackGroundGame {
             Mapset: https://osu.ppy.sh/beatmapsets/{}",
             winner_msg, self.game.mapset_id
         );
-        if let Err(why) = self.resolve(Some(winner_msg)) {
+        if let Err(why) = self.resolve(Some(winner_msg)).await {
             error!("Error while resolving game: {:?}", why);
         }
         self.game.mapset_id = 0;
         {
-            let data = self.data.read();
+            let data = self.data.read().await;
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
             let _ = mysql.increment_bggame_score(winner.0);
         }
-        if let Err(why) = self.restart() {
+        if let Err(why) = self.restart().await {
             error!("Error while restarting game: {:?}", why);
         }
         None
@@ -229,7 +238,7 @@ struct GameData {
 }
 
 impl GameData {
-    fn new(
+    async fn new(
         data: Arc<SRwLock<ShareMap>>,
         previous_ids: &mut VecDeque<u32>,
         osu_std: bool,
@@ -242,7 +251,7 @@ impl GameData {
         let mut split = file_name.split('.');
         let mapset_id = u32::from_str(split.next().unwrap()).unwrap();
         info!("Next BG mapset id: {}", mapset_id);
-        let (title, artist) = util::get_title_artist(mapset_id, data)?;
+        let (title, artist) = util::get_title_artist(mapset_id, data).await?;
         let file_type = match split.next().unwrap() {
             "png" => ImageFormat::Png,
             "jpg" | "jpeg" => ImageFormat::Jpeg,

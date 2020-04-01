@@ -14,7 +14,7 @@ pub struct MarkovUserArgs {
 }
 
 impl MarkovUserArgs {
-    pub fn new(mut args: Args, ctx: &Context, guild: GuildId) -> Result<Self, String> {
+    pub async fn new(mut args: Args, ctx: &Context, guild: GuildId) -> Result<Self, String> {
         if args.is_empty() {
             return Err("You need to provide a user as full discord tag, \
             as user id, or just as mention"
@@ -39,10 +39,10 @@ impl MarkovUserArgs {
                     .to_string());
             }
         } else {
-            let guild_arc = guild.to_guild_cached(&ctx.cache).unwrap();
-            let guild = guild_arc.read();
-            if let Some(member) = guild.member_named(&arg) {
-                member.user.read().id
+            let guild_arc = guild.to_guild_cached(&ctx.cache).await.unwrap();
+            let guild = guild_arc.read().await;
+            if let Some(member) = guild.member_named(&arg).await {
+                member.user.read().await.id
             } else {
                 return Err(format!("Could not get user from argument `{}`", arg));
             }

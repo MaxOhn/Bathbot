@@ -5,7 +5,6 @@ use rayon::prelude::*;
 use rosu::backend::BeatmapRequest;
 use serenity::prelude::{RwLock, ShareMap};
 use std::{collections::VecDeque, fs, path::PathBuf, str::FromStr, sync::Arc};
-use tokio::runtime::Runtime;
 
 pub fn get_random_filename(
     previous_ids: &mut VecDeque<u32>,
@@ -41,20 +40,19 @@ pub fn get_random_filename(
     }
 }
 
-pub fn get_title_artist(
+pub async fn get_title_artist(
     mapset_id: u32,
     data: Arc<RwLock<ShareMap>>,
 ) -> Result<(String, String), Error> {
     let (mut title, artist) = {
-        let data = data.read();
+        let data = data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         if let Ok(mapset) = mysql.get_beatmapset(mapset_id) {
             Ok((mapset.title, mapset.artist))
         } else {
             let request = BeatmapRequest::new().mapset_id(mapset_id);
-            let mut rt = Runtime::new().unwrap();
             let osu = data.get::<Osu>().expect("Could not get Osu");
-            match rt.block_on(request.queue_single(&osu)) {
+            match request.queue_single(&osu).await {
                 Ok(Some(map)) => Ok((map.title, map.artist)),
                 _ => Err(Error::Custom(
                     "Could not retrieve map from osu API".to_string(),
