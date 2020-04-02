@@ -536,7 +536,7 @@ impl EventHandler for Handler {
                         if let Ok(user) = user {
                             if let Some(channel_name) = name {
                                 info!(
-                                    "Deleted message from {} in channel {} after their reaction",
+                                    "Deleted message from {} in channel #{} after their reaction",
                                     user.name, channel_name
                                 );
                             }

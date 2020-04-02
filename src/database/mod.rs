@@ -5,7 +5,7 @@ use models::{DBMap, GuildDB, ManiaPP, MapSplit, StreamTrackDB};
 pub use models::{DBMapSet, Guild, InsertableMessage, Platform, Ratios, StreamTrack, TwitchUser};
 
 use crate::{
-    commands::messages_fun::MessageStats,
+    commands::messages_fun::{MessageActivity, MessageStats},
     util::{globals::AUTHORITY_ROLES, Error},
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
@@ -604,6 +604,63 @@ impl MySQL {
         //          TABLE_SCHEMA = \"bathbotDB\"\
         //          AND TABLE_NAME = \"messages\"";
         // let table_size = diesel::sql_query(query).load::<TableSize>(&conn)?;
+
+        let total_msgs: i64 = messages::table.select(count_star()).first(&conn)?;
+        let total_msgs = total_msgs as usize;
+
+        let guild_msgs: i64 = messages::table
+            .filter(channel_id.eq_any(guild_channels))
+            .select(count_star())
+            .first(&conn)?;
+        let guild_msgs = guild_msgs as usize;
+
+        let channel_msgs: i64 = messages::table
+            .filter(channel_id.eq(channel))
+            .select(count_star())
+            .first(&conn)?;
+        let channel_msgs = channel_msgs as usize;
+
+        let author_msg: i64 = messages::table
+            .filter(author.eq(user))
+            .select(count_star())
+            .first(&conn)?;
+        let author_msg = author_msg as usize;
+
+        let author_msgs = messages::table
+            .filter(author.eq(user))
+            .select(content)
+            //.limit(10_000)
+            .load::<String>(&conn)?;
+        let author_avg = author_msgs.iter().map(|msg| msg.len()).sum::<usize>() as f32
+            / author_msgs.len() as f32;
+
+        let author_msgs: Vec<_> = author_msgs
+            .into_iter()
+            .filter(|msg| !msg.contains(' '))
+            .collect();
+        let mut words = HashMap::with_capacity(128);
+        for word in author_msgs {
+            *words.entry(word).or_insert(0) += 1;
+        }
+        let mut words: Vec<_> = words.into_iter().collect();
+        words.sort_by(|(_, n1), (_, n2)| n2.cmp(&n1));
+        let single_words = words.into_iter().take(10).collect();
+
+        Ok(MessageStats::new(
+            //table_size,
+            total_msgs,
+            guild_msgs,
+            channel_msgs,
+            author_msg,
+            author_avg,
+            single_words,
+        ))
+    }
+
+    pub fn activity_amount(&self, channel: Option<u64>) -> DBResult<MessageActivity> {
+        use diesel::dsl::count_star;
+        use schema::messages::{self, author, channel_id, content};
+        let conn = self.get_connection()?;
 
         let total_msgs: i64 = messages::table.select(count_star()).first(&conn)?;
         let total_msgs = total_msgs as usize;
