@@ -43,6 +43,10 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Mixer stream tracking
 - Improve `<nc` by ignoring >5 misses (?)
 - Allow username provision via discord user mention
+- Write `<nc`'s intermediat msg for `<profile`
+- Add pagination for `<top`
 - Numbered commands i.e. `<recent7`
   ### Commands
   - `<bg scores` to show guild's top scorers
+  - `<avatar` to give discord users pfp
+  - `<activity (#channel)`

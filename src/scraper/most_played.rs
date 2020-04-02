@@ -1,6 +1,7 @@
 use rosu::models::GameMode;
 use serde::{de, Deserialize, Deserializer};
 use serde_derive::Deserialize as DeserializeDerive;
+use std::hash::{Hash, Hasher};
 
 #[derive(Debug)]
 pub struct MostPlayedMap {
@@ -12,6 +13,20 @@ pub struct MostPlayedMap {
     pub version: String,
     pub stars: f32,
 }
+
+impl Hash for MostPlayedMap {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.beatmap_id.hash(state);
+    }
+}
+
+impl PartialEq for MostPlayedMap {
+    fn eq(&self, other: &Self) -> bool {
+        self.beatmap_id == other.beatmap_id
+    }
+}
+
+impl Eq for MostPlayedMap {}
 
 impl<'de> Deserialize<'de> for MostPlayedMap {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
