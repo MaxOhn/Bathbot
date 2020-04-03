@@ -1,6 +1,6 @@
 use super::util;
 use crate::{
-    commands::messages_fun::MessageStats,
+    commands::messages_fun::{MessageActivity, MessageStats},
     scraper::{MostPlayedMap, ScraperScore},
     streams::{TwitchStream, TwitchUser},
     util::{
@@ -100,6 +100,74 @@ impl BasicEmbedData {
             e.fields(fields);
         }
         e.color(Colour::DARK_GREEN)
+    }
+
+    //
+    // activity
+    //
+    pub fn create_activity(activity: MessageActivity, name: String, channel: bool) -> Self {
+        let mut result = Self::default();
+        let title = format!(
+            "Message activity in {} {}{}:",
+            if channel { "channel" } else { "server" },
+            if channel { "#" } else { "" },
+            name
+        );
+        let month_str = with_comma_u64(activity.hour as u64);
+        let amount_len = 9.max(month_str.len());
+        let mut description = String::with_capacity(128);
+        let _ = writeln!(description, "```");
+        let _ = writeln!(
+            description,
+            " Last | {:>len$} |   Total | Activity",
+            "#Messages",
+            len = amount_len
+        );
+        let _ = writeln!(
+            description,
+            "------+-{:->len$}-+---------+---------",
+            "-",
+            len = amount_len
+        );
+        let activity_hour = round((100 * 24 * 30 * activity.hour) as f32 / activity.month as f32);
+        let activity_day = round((100 * 30 * activity.day) as f32 / activity.month as f32);
+        let activity_week = round(100.0 * 4.286 * activity.week as f32 / activity.month as f32);
+        let _ = writeln!(
+            description,
+            " Hour | {:>len$} | {:>6}% | {:>7}%",
+            with_comma_u64(activity.hour as u64),
+            round(100.0 * activity.hour as f32 / activity.month as f32),
+            activity_hour,
+            len = amount_len
+        );
+        let _ = writeln!(
+            description,
+            "  Day | {:>len$} | {:>6}% | {:>7}%",
+            with_comma_u64(activity.day as u64),
+            round(100.0 * activity.day as f32 / activity.month as f32),
+            activity_day,
+            len = amount_len
+        );
+        let _ = writeln!(
+            description,
+            " Week | {:>len$} | {:>6}% | {:>7}%",
+            with_comma_u64(activity.week as u64),
+            round(100.0 * activity.week as f32 / activity.month as f32),
+            activity_week,
+            len = amount_len
+        );
+        let _ = writeln!(
+            description,
+            "Month | {:>len$} | {:>6}% | {:>7}%",
+            with_comma_u64(activity.month as u64),
+            100,
+            100,
+            len = amount_len
+        );
+        let _ = write!(description, "```");
+        result.title_text = Some(title);
+        result.description = Some(description);
+        result
     }
 
     //

@@ -49,4 +49,3 @@ In case you want to get the bot running yourself to either modify a custom insta
   ### Commands
   - `<bg scores` to show guild's top scorers
   - `<avatar` to give discord users pfp
-  - `<activity (#channel)`
