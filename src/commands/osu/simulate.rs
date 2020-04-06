@@ -6,7 +6,7 @@ use crate::{
         discord,
         globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
     },
-    Osu, SchedulerKey,
+    Osu,
 };
 
 use rosu::{
@@ -18,7 +18,7 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use white_rabbit::{DateResult, Duration, Utc};
+use tokio::time::{self, Duration};
 
 #[command]
 #[description = "Simulate a (perfect) score on the given map. \
@@ -33,7 +33,7 @@ async fn simulate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
         Ok(args) => args,
         Err(err_msg) => {
             let response = msg.channel_id.say(&ctx.http, err_msg).await?;
-            discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+            discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
             return Ok(());
         }
     };
@@ -130,28 +130,15 @@ async fn simulate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
     discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
 
     // Minimize embed after delay
-    let scheduler = {
-        let mut data = ctx.data.write().await;
-        data.get_mut::<SchedulerKey>()
-            .expect("Could not get SchedulerKey")
-            .clone()
-    };
-    let mut scheduler = scheduler.write();
-    let http = ctx.http.clone();
-    let cache = ctx.cache.clone();
-    let mut retries = 5;
-    scheduler.add_task_duration(Duration::seconds(MINIMIZE_DELAY), move |_| {
-        if let Err(why) = response.edit((&cache, &*http), |m| m.embed(|e| data.minimize(e))) {
-            if retries == 0 {
+    for _ in 0..5usize {
+        time::delay_for(Duration::from_secs(MINIMIZE_DELAY)).await;
+        match response.edit(&ctx, |m| m.embed(|e| data.minimize(e))).await {
+            Ok(_) => break,
+            Err(why) => {
                 warn!("Error while trying to minimize simulate msg: {}", why);
-                DateResult::Done
-            } else {
-                retries -= 1;
-                DateResult::Repeat(Utc::now() + Duration::seconds(5))
+                time::delay_for(Duration::from_secs(5)).await;
             }
-        } else {
-            DateResult::Done
         }
-    });
+    }
     Ok(())
 }

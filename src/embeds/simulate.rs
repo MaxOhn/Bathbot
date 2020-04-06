@@ -152,6 +152,8 @@ impl SimulateData {
         } else {
             osu::unchoke_score(&mut unchoked_score, &map);
         }
+        let grade_completion_mods =
+            util::get_grade_completion_mods(&unchoked_score, &map, ctx.cache.clone()).await;
         let pp_provider = match PPProvider::new(&unchoked_score, &map, Some(ctx)).await {
             Ok(provider) => provider,
             Err(why) => {
@@ -162,8 +164,6 @@ impl SimulateData {
             }
         };
         let stars = util::get_stars(pp_provider.stars());
-        let grade_completion_mods =
-            util::get_grade_completion_mods(&unchoked_score, &map, ctx.cache.clone()).await;
         let pp = util::get_pp(&unchoked_score, &pp_provider, map.mode);
         let hits = util::get_hits(&unchoked_score, map.mode);
         let (combo, acc) = match map.mode {

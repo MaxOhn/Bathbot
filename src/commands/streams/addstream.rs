@@ -115,6 +115,6 @@ async fn addstream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandR
     };
 
     // Save the response owner
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
     Ok(())
 }

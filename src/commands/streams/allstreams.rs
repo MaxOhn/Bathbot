@@ -1,6 +1,5 @@
 use crate::{embeds::BasicEmbedData, util::discord};
 
-use rayon::prelude::*;
 use serenity::{
     framework::standard::{macros::command, CommandResult},
     model::{gateway::ActivityType, prelude::Message},
@@ -20,8 +19,8 @@ async fn allstreams(ctx: &mut Context, msg: &Message) -> CommandResult {
         let guild_lock = guild_id.to_guild_cached(&cache).await.unwrap();
         let guild = guild_lock.read().await;
         let mut presences = Vec::with_capacity(guild.presences.len());
-        for (_, presence) in guild.presences {
-            if let Some(activity) = presence.activity {
+        for (_, presence) in guild.presences.iter() {
+            if let Some(activity) = presence.activity.as_ref() {
                 if activity.kind == ActivityType::Streaming
                     && !presence
                         .user_id
@@ -30,7 +29,7 @@ async fn allstreams(ctx: &mut Context, msg: &Message) -> CommandResult {
                         .unwrap()
                         .bot
                 {
-                    presences.push(presence);
+                    presences.push(presence.clone());
                 }
             }
         }

@@ -44,7 +44,6 @@ use std::{
     env,
     sync::Arc,
 };
-use white_rabbit::Scheduler;
 
 pub const WITH_STREAM_TRACK: bool = false;
 pub const WITH_SCRAPER: bool = false;
@@ -106,7 +105,6 @@ async fn main() {
         }
         Err(why) => panic!("Could not access application info: {:?}", why),
     };
-    let scheduler = Scheduler::new(4);
     let now = Utc::now();
     let mut dispatcher: Dispatcher<DispatchEvent> = Dispatcher::default();
     dispatcher
@@ -156,7 +154,6 @@ async fn main() {
         data.insert::<DiscordLinks>(discord_links);
         data.insert::<BootTime>(now);
         data.insert::<PerformanceCalculatorLock>(Arc::new(Mutex::new(())));
-        data.insert::<SchedulerKey>(Arc::new(RwLock::new(scheduler)));
         data.insert::<TwitchUsers>(twitch_users);
         data.insert::<StreamTracks>(stream_tracks);
         data.insert::<OnlineTwitch>(HashSet::new());
@@ -167,7 +164,7 @@ async fn main() {
         ));
         data.insert::<Guilds>(guilds);
         data.insert::<DispatcherKey>(Arc::new(RwLock::new(dispatcher)));
-        data.insert::<BgGameKey>(HashMap::new());
+        data.insert::<BgGames>(HashMap::new());
     }
 
     // Boot it all up
@@ -193,7 +190,7 @@ async fn before(ctx: &mut Context, msg: &Message, cmd_name: &str) -> bool {
     info!("[{}] {}: {}", location, msg.author.name, msg.content);
     match ctx.data.write().await.get_mut::<CommandCounter>() {
         Some(counter) => *counter.entry(cmd_name.to_owned()).or_insert(0) += 1,
-        None => error!("Could not get CommandCounter"),
+        None => warn!("Could not get CommandCounter"),
     }
     let _ = msg.channel_id.broadcast_typing(&ctx.http);
     true

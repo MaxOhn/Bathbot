@@ -26,7 +26,7 @@ async fn roleassign(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
         Ok(args) => args,
         Err(err_msg) => {
             let response = msg.channel_id.say(&ctx.http, err_msg).await?;
-            discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+            discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
             return Ok(());
         }
     };
@@ -71,6 +71,6 @@ async fn roleassign(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
     let response = msg.channel_id.say(&ctx.http, content).await?;
 
     // Save the response owner
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
     Ok(())
 }

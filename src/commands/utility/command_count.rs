@@ -54,6 +54,6 @@ async fn commands(ctx: &mut Context, msg: &Message) -> CommandResult {
     };
 
     // Save the response owner
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
     Ok(())
 }

@@ -6,7 +6,7 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use hey_listen::{sync::ParallelDispatcher as Dispatcher, RwLock as HlRwLock};
+use hey_listen::sync::ParallelDispatcher as Dispatcher;
 use rosu::backend::Osu as OsuClient;
 use serenity::{
     model::id::{ChannelId, GuildId, MessageId, RoleId, UserId},
@@ -17,7 +17,6 @@ use std::{
     hash::{Hash, Hasher},
     sync::Arc,
 };
-use white_rabbit::Scheduler;
 
 pub struct CommandCounter;
 impl TypeMapKey for CommandCounter {
@@ -50,11 +49,6 @@ impl TypeMapKey for BootTime {
 pub struct PerformanceCalculatorLock;
 impl TypeMapKey for PerformanceCalculatorLock {
     type Value = Arc<Mutex<()>>;
-}
-
-pub struct SchedulerKey;
-impl TypeMapKey for SchedulerKey {
-    type Value = Arc<RwLock<Scheduler>>;
 }
 
 pub struct ReactionTracker;
@@ -128,7 +122,7 @@ impl TypeMapKey for DispatcherKey {
     type Value = Arc<RwLock<Dispatcher<DispatchEvent>>>;
 }
 
-pub struct BgGameKey;
-impl TypeMapKey for BgGameKey {
-    type Value = HashMap<ChannelId, Arc<HlRwLock<BackGroundGame>>>;
+pub struct BgGames;
+impl TypeMapKey for BgGames {
+    type Value = HashMap<ChannelId, BackGroundGame>;
 }

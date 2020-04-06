@@ -49,7 +49,7 @@ pub async fn enabletracking(ctx: &mut Context, msg: &Message, mut args: Args) ->
             I will ping you when I'm done.",
                 )
                 .await?;
-            download_all_messages(&ctx, &guild);
+            download_all_messages(&ctx, &guild).await;
         }
         {
             let data = ctx.data.read().await;

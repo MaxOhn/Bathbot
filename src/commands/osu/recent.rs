@@ -6,7 +6,7 @@ use crate::{
         discord,
         globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
     },
-    DiscordLinks, Osu, SchedulerKey,
+    DiscordLinks, Osu,
 };
 
 use rosu::{
@@ -21,7 +21,7 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use white_rabbit::{DateResult, Duration, Utc};
+use tokio::time::{self, Duration};
 
 async fn recent_send(
     mode: GameMode,
@@ -160,7 +160,7 @@ async fn recent_send(
     };
 
     // Creating the embed
-    let mut response = msg
+    let response = msg
         .channel_id
         .send_message(&ctx.http, |m| {
             m.content(format!("Try #{}", tries))
@@ -178,32 +178,20 @@ async fn recent_send(
     }
 
     // Save the response owner
-    discord::save_response_owner(response?.id, msg.author.id, ctx.data.clone()).await;
+    let mut response = response?;
+    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
 
     // Minimize embed after delay
-    let scheduler = {
-        let mut data = ctx.data.write().await;
-        data.get_mut::<SchedulerKey>()
-            .expect("Could not get SchedulerKey")
-            .clone()
-    };
-    let mut scheduler = scheduler.write();
-    let http = ctx.http.clone();
-    let cache = ctx.cache.clone();
-    let mut retries = 5;
-    scheduler.add_task_duration(Duration::seconds(MINIMIZE_DELAY), move |_| {
-        if let Err(why) = response.edit((&cache, &*http), |m| m.embed(|e| data.minimize(e))) {
-            if retries == 0 {
+    for _ in 0..5usize {
+        time::delay_for(Duration::from_secs(MINIMIZE_DELAY)).await;
+        match response.edit(&ctx, |m| m.embed(|e| data.minimize(e))).await {
+            Ok(_) => break,
+            Err(why) => {
                 warn!("Error while trying to minimize recent msg: {}", why);
-                DateResult::Done
-            } else {
-                retries -= 1;
-                DateResult::Repeat(Utc::now() + Duration::seconds(5))
+                time::delay_for(Duration::from_secs(5)).await;
             }
-        } else {
-            DateResult::Done
         }
-    });
+    }
     Ok(())
 }
 

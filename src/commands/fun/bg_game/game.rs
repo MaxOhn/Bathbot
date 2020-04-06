@@ -1,234 +1,181 @@
+#![allow(unused_imports)]
+
 use super::{util, Hints, ImageReveal};
 use crate::{DispatchEvent, Error, MySQL};
 
-use hey_listen::sync::{
-    ParallelDispatcherRequest as DispatcherRequest, ParallelListener as Listener,
-};
 use image::{imageops::FilterType, GenericImageView, ImageFormat};
 use serenity::{
     cache::CacheRwLock,
+    collector::MessageCollector,
     framework::standard::CommandResult,
     http::client::Http,
     model::id::{ChannelId, UserId},
-    prelude::{Context, RwLock as SRwLock, ShareMap},
+    prelude::{Context, RwLock, ShareMap},
 };
-use std::{collections::VecDeque, env, fs, path::PathBuf, str::FromStr, sync::Arc};
-use white_rabbit::{DateResult, Duration, Scheduler};
+use std::{
+    collections::VecDeque, env, fmt::Write, fs, path::PathBuf, str::FromStr, sync::Arc,
+    time::Duration,
+};
+use tokio::task::{self, JoinHandle};
 
 pub struct BackGroundGame {
-    game: GameData,
-    osu_std: bool,
     previous_ids: VecDeque<u32>,
     channel: ChannelId,
-    scheduler: Option<Scheduler>,
+    osu_std: bool,
+    collector: MessageCollector,
+    game: GameData,
     http: Arc<Http>,
-    data: Arc<SRwLock<ShareMap>>,
-    cache: CacheRwLock,
+    data: Arc<RwLock<ShareMap>>,
 }
 
 impl BackGroundGame {
-    pub fn new(ctx: &Context, channel: ChannelId, osu_std: bool) -> Self {
-        Self {
-            game: GameData::default(),
-            osu_std,
-            previous_ids: VecDeque::with_capacity(10),
+    pub async fn new(
+        ctx: &Context,
+        collector: MessageCollector,
+        channel: ChannelId,
+        osu_std: bool,
+    ) -> Result<Self, Error> {
+        let mut previous_ids = VecDeque::with_capacity(10);
+        let http = Arc::clone(&ctx.http);
+        let data = Arc::clone(&ctx.data);
+        let game = GameData::new(Arc::clone(&data), &mut previous_ids, osu_std).await?;
+        Ok(Self {
+            previous_ids,
             channel,
-            scheduler: None,
-            http: Arc::clone(&ctx.http),
-            data: Arc::clone(&ctx.data),
-            cache: ctx.cache.clone(),
-        }
+            osu_std,
+            game,
+            http,
+            data,
+        })
     }
 
-    pub async fn restart(&mut self) -> CommandResult {
-        self.resolve(None).await?;
-        let img;
-        loop {
-            self.game =
-                match GameData::new(Arc::clone(&self.data), &mut self.previous_ids, self.osu_std)
-                    .await
-                {
-                    Ok(game) => game,
-                    Err(why) => {
-                        warn!("Error creating bg game: {}", why);
-                        continue;
-                    }
-                };
-            img = match self.game.reveal.sub_image() {
-                Ok(img) => img,
-                Err(why) => {
-                    warn!(
-                        "Could not create initial bg image for id {}: {}",
-                        self.game.mapset_id, why
-                    );
-                    continue;
+    async fn restart(&mut self) -> CommandResult {
+        // TODO
+        Ok(())
+    }
+
+    async fn run(collector: MessageCollector, data: Arc<RwLock<ShareMap>>) {
+        task::spawn(async {
+            loop {
+                let (game, img) =
+                    new_data(Arc::clone(&self.data), &mut self.previous_ids, self.osu_std).await;
+                let _ = self
+                    .channel
+                    .send_message(&self.http, |m| {
+                        let bytes: &[u8] = &img;
+                        m.content("Here's the next one:")
+                            .add_file((bytes, "bg_img.png"))
+                    })
+                    .await;
+                while let Some(msg) = self.collector.receive_one().await {
+                    debug!("Received: {}", msg.content);
                 }
-            };
-            break;
-        }
-        self.channel
-            .send_message(&self.http, |m| {
-                let bytes: &[u8] = &img;
-                m.content("Here's the next one:")
-                    .add_file((bytes, "bg_img.png"))
-            })
-            .await?;
-        self.add_deadline();
-        Ok(())
-    }
-
-    pub fn increase_sub_image(&mut self) -> Result<Vec<u8>, Error> {
-        self.game.reveal.increase_radius();
-        self.add_deadline();
-        self.game.reveal.sub_image()
-    }
-
-    pub fn reveal(&self) -> Result<Vec<u8>, Error> {
-        self.game.reveal.full()
-    }
-
-    pub fn hint(&mut self) -> String {
-        self.add_deadline();
-        self.game.hints.get(&self.game.title, &self.game.artist)
-    }
-
-    pub async fn resolve(&self, winner_msg: Option<String>) -> CommandResult {
-        if self.game.mapset_id == 0 {
-            return Ok(());
-        };
-        let content = winner_msg.unwrap_or_else(|| {
-            format!(
-                "Full background: https://osu.ppy.sh/beatmapsets/{}",
-                self.game.mapset_id
-            )
+            }
         });
-        let bytes: &[u8] = &self.reveal()?;
-        let _ = self
-            .channel
-            .send_message(&self.http, |m| {
-                m.add_file((bytes, "bg_img.png")).content(content)
-            })
-            .await?;
-        Ok(())
-    }
-
-    async fn user_name(&self, user_id: UserId) -> Option<String> {
-        user_id
-            .to_user((&self.cache, &*self.http))
-            .await
-            .ok()
-            .map(|user| user.name)
-    }
-
-    async fn process_winner(&mut self, winner: UserId, exact: bool) -> Option<DispatcherRequest> {
-        let winner_name = self
-            .user_name(winner)
-            .await
-            .map_or_else(String::new, |name| format!(" `{}`", name));
-        let mut winner_msg = if exact {
-            format!("Gratz{}, you guessed it", winner_name)
-        } else {
-            format!("You were close enough{}, gratz", winner_name)
-        };
-        winner_msg = format!(
-            "{} \\:)\n\
-            Mapset: https://osu.ppy.sh/beatmapsets/{}",
-            winner_msg, self.game.mapset_id
-        );
-        if let Err(why) = self.resolve(Some(winner_msg)).await {
-            error!("Error while resolving game: {:?}", why);
-        }
-        self.game.mapset_id = 0;
-        {
-            let data = self.data.read().await;
-            let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-            let _ = mysql.increment_bggame_score(winner.0);
-        }
-        if let Err(why) = self.restart().await {
-            error!("Error while restarting game: {:?}", why);
-        }
-        None
-    }
-
-    fn add_deadline(&mut self) {
-        let mut scheduler = Scheduler::new(1);
-        let data = Arc::clone(&self.data);
-        let http = Arc::clone(&self.http);
-        let channel = self.channel;
-        scheduler.add_task_duration(Duration::minutes(3), move |_| {
-            let _ = super::_stop(&data, &http, channel);
-            DateResult::Done
-        });
-        self.scheduler = Some(scheduler);
     }
 }
 
-impl Listener<DispatchEvent> for BackGroundGame {
-    fn on_event(&mut self, event: &DispatchEvent) -> Option<DispatcherRequest> {
-        match event {
-            DispatchEvent::BgMsgEvent { user, content, .. } => {
-                // Guessed the title exactly?
-                if content == &self.game.title {
-                    return self.process_winner(*user, true);
-                }
-                // Guessed sufficiently many words of the title?
-                if self.game.title.contains(&" ") {
-                    let mut same_word_len = 0;
-                    for title_word in self.game.title.split(' ') {
-                        for content_word in content.split(' ') {
-                            if title_word == content_word {
-                                same_word_len += title_word.len();
-                                if same_word_len > 8 {
-                                    return self.process_winner(*user, false);
-                                }
-                            }
-                        }
+// async fn process_result(
+//     result: ContentResult,
+//     channel: ChannelId,
+//     http: &Arc<Http>,
+//     game: &GameData,
+// ) {
+//     let content = match result {
+//         ContentResult::Title { name, exact } => {
+//             let mut content = if exact {
+//                 format!("Gratz {}, you guessed it", name)
+//             } else {
+//                 format!("You were close enough {}, gratz", name)
+//             };
+//             let _ = write!(
+//                 content,
+//                 " \\:)\nMapset: https://osu.ppy.sh/beatmapsets/{}",
+//                 game.mapset_id
+//             );
+//             content
+//         }
+//         ContentResult::Artist { name, exact } => {
+//             if exact {
+//                 format!(
+//                     "That's the correct artist `{}`, can you get the title too?",
+//                     name
+//                 )
+//             } else {
+//                 format!(
+//                     "`{}` got the artist almost correct, \
+//                         it's actually `{}` but can you get the title?",
+//                     name, game.artist
+//                 )
+//             }
+//         }
+//     };
+//     let _ = channel.say(http, content).await;
+// }
+
+enum ContentResult {
+    Title { exact: bool },
+    Artist { exact: bool },
+    None,
+}
+
+fn check_msg_content(content: &str, game: &GameData) -> ContentResult {
+    // Guessed the title exactly?
+    if content == &game.title {
+        return ContentResult::Title { exact: true };
+    }
+    // Guessed sufficiently many words of the title?
+    if game.title.contains(&" ") {
+        let mut same_word_len = 0;
+        for title_word in game.title.split(' ') {
+            for content_word in content.split(' ') {
+                if title_word == content_word {
+                    same_word_len += title_word.len();
+                    if same_word_len > 8 {
+                        return ContentResult::Title { exact: false };
                     }
                 }
-                // Similar enough to the title?
-                let similarity = util::similarity(content, &self.game.title);
-                if similarity > 0.5 {
-                    return self.process_winner(*user, false);
-                }
-                if !self.game.artist_guessed {
-                    // Guessed the artist exactly?
-                    if content == &self.game.artist {
-                        if let Some(user_name) = self.user_name(*user) {
-                            let _ = self.channel.say(
-                                &self.http,
-                                format!(
-                                    "That's the correct artist `{}`, can you get the title too?",
-                                    user_name
-                                ),
-                            );
-                            self.game.artist_guessed = true;
-                            return None;
-                        }
-                    // Similar enough to the artist?
-                    } else if similarity < 0.3 && util::similarity(content, &self.game.artist) > 0.5
-                    {
-                        if let Some(user_name) = self.user_name(*user) {
-                            let _ = self.channel.say(
-                                &self.http,
-                                format!(
-                                    "`{}` got the artist almost correct, \
-                                    it's actually `{}` but can you get the title?",
-                                    user_name, self.game.artist
-                                ),
-                            );
-                            self.game.artist_guessed = true;
-                            return None;
-                        }
-                    }
-                }
-                None
             }
+        }
+    }
+    // Similar enough to the title?
+    let similarity = util::similarity(content, &game.title);
+    if similarity > 0.5 {
+        return ContentResult::Title { exact: false };
+    }
+    if !game.artist_guessed {
+        // Guessed the artist exactly?
+        if content == &game.artist {
+            return ContentResult::Artist { exact: true };
+        // Similar enough to the artist?
+        } else if similarity < 0.3 && util::similarity(content, &game.artist) > 0.5 {
+            return ContentResult::Artist { exact: false };
+        }
+    }
+    ContentResult::None
+}
+
+async fn new_data(
+    data: Arc<RwLock<ShareMap>>,
+    previous_ids: &mut VecDeque<u32>,
+    osu_std: bool,
+) -> (GameData, Vec<u8>) {
+    loop {
+        match GameData::new(Arc::clone(&data), previous_ids, osu_std).await {
+            Ok(game) => match game.reveal.sub_image() {
+                Ok(img) => return (game, img),
+                Err(why) => warn!(
+                    "Could not create initial bg image for id {}: {}",
+                    game.mapset_id, why
+                ),
+            },
+            Err(why) => warn!("Error creating bg game: {}", why),
         }
     }
 }
 
 #[derive(Default)]
-struct GameData {
+pub struct GameData {
     pub title: String,
     pub artist: String,
     pub artist_guessed: bool,
@@ -238,8 +185,8 @@ struct GameData {
 }
 
 impl GameData {
-    async fn new(
-        data: Arc<SRwLock<ShareMap>>,
+    pub async fn new(
+        data: Arc<RwLock<ShareMap>>,
         previous_ids: &mut VecDeque<u32>,
         osu_std: bool,
     ) -> Result<Self, Error> {

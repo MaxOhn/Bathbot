@@ -25,7 +25,7 @@ pub const OSU_API_ISSUE: &str = "Some issue with the osu api, blame bade";
 
 pub const DATE_FORMAT: &str = "%F %T";
 
-pub const MINIMIZE_DELAY: i64 = 45;
+pub const MINIMIZE_DELAY: u64 = 45;
 
 pub const AUTHORITY_ROLES: &str = "admin mod moderator";
 

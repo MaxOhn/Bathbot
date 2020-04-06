@@ -25,7 +25,7 @@ async fn minesweeper(ctx: &mut Context, msg: &Message, mut args: Args) -> Comman
                         "The argument must be either `Easy`, `Medium`, or `Hard`",
                     )
                     .await?;
-                discord::save_response_owner(response.id, msg.author.id, ctx.data.clone());
+                discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
                 return Ok(());
             }
         }
