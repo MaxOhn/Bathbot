@@ -23,9 +23,10 @@ use tokio::time::{self, Duration};
 #[command]
 #[description = "Simulate a (perfect) score on the given map. \
                  If no map is given, I will choose the last map \
-                 I can find in my embeds of this channel"]
-#[usage = "[map url / map id]"]
-#[example = "1980365"]
+                 I can find in my embeds of this channel.\n\
+                 The `-s` argument is only relevant for mania."]
+#[usage = "[map url / map id] [-a acc%] [-300 #300s] [-100 #100s] [-50 #50s] [-m #misses] [-s score]"]
+#[example = "1980365 -a 99.3 -300 1422 -m 1"]
 #[example = "https://osu.ppy.sh/beatmapsets/948199#osu/1980365"]
 #[aliases("s")]
 async fn simulate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {

@@ -624,7 +624,7 @@ impl BasicEmbedData {
             // If combo isn't max, unchoke the score
             if score.max_combo != map.max_combo.unwrap() {
                 osu::unchoke_score(&mut unchoked, map);
-                let pp = PPProvider::calculate_oppai_pp(&unchoked, &map)?;
+                let pp = PPProvider::calculate_oppai_pp(&unchoked, &map).await?;
                 unchoked.pp = Some(pp);
             }
             let pp = unchoked.pp.unwrap();
@@ -1168,7 +1168,7 @@ impl BasicEmbedData {
                 let (max, stars) = *map_mods.get(&key).unwrap();
                 let actual_result = match mode {
                     GameMode::STD | GameMode::TKO => {
-                        PPProvider::calculate_oppai_pp(&score, &map).map(Some)
+                        PPProvider::calculate_oppai_pp(&score, &map).await.map(Some)
                     }
                     GameMode::MNA => PPProvider::calculate_mania_pp(&score, &map, &ctx)
                         .await
@@ -1329,19 +1329,23 @@ impl BasicEmbedData {
     //
     // top
     //
-    pub async fn create_top(
-        user: User,
-        scores_data: Vec<(usize, Score, Beatmap)>,
+    pub async fn create_top<'i, S>(
+        user: &User,
+        scores_data: S,
         mode: GameMode,
         ctx: &Context,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, Error>
+    where
+        S: Iterator<Item = &'i (usize, Score, Beatmap)>,
+    {
         let mut result = Self::default();
-        let (author_icon, author_url, author_text) = get_user_author(&user);
+        let (author_icon, author_url, author_text) = get_user_author(user);
         let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
         let mut description = String::with_capacity(512);
-        for (idx, score, map) in scores_data.iter() {
+        for (idx, score, map) in scores_data {
+            let grade = { osu::grade_emote(score.grade, ctx.cache.clone()).await };
             let (stars, pp) = {
-                let pp_provider = match PPProvider::new(score, map, Some(ctx)).await {
+                let pp_provider = match PPProvider::new(&score, &map, Some(ctx)).await {
                     Ok(provider) => provider,
                     Err(why) => {
                         return Err(Error::Custom(format!(
@@ -1365,7 +1369,7 @@ impl BasicEmbedData {
                 id = map.beatmap_id,
                 mods = util::get_mods(&score.enabled_mods),
                 stars = stars,
-                grade = osu::grade_emote(score.grade, ctx.cache.clone()).await,
+                grade = grade,
                 pp = pp,
                 acc = util::get_acc(&score, mode),
                 score = with_comma_u64(score.score as u64),
@@ -1493,7 +1497,9 @@ pub async fn get_pp(
     } else {
         match map.mode {
             GameMode::CTB => None,
-            GameMode::STD | GameMode::TKO => Some(PPProvider::calculate_oppai_pp(score, map)?),
+            GameMode::STD | GameMode::TKO => {
+                Some(PPProvider::calculate_oppai_pp(score, map).await?)
+            }
             GameMode::MNA => Some(PPProvider::calculate_mania_pp(score, map, ctx).await?),
         }
     };

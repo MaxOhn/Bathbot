@@ -5,7 +5,7 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use std::{thread, time::Duration};
+use tokio::time::{self, Duration};
 
 #[command]
 #[checks(Authority)]
@@ -55,7 +55,7 @@ async fn prune(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
             m.content(format!("Deleted the last {} messages", amount - 1))
         })
         .await?;
-    thread::sleep(Duration::from_secs(6));
+    time::delay_for(Duration::from_secs(6)).await;
     msg.delete(&ctx).await?;
     Ok(())
 }

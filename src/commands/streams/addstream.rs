@@ -10,7 +10,6 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use tokio::runtime::Runtime;
 
 #[command]
 #[checks(Authority)]
@@ -57,8 +56,7 @@ async fn addstream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandR
                         (*twitch_users.get(&name).unwrap(), false)
                     } else {
                         let twitch = data.get::<Twitch>().expect("Could not get Twitch");
-                        let mut rt = Runtime::new().unwrap();
-                        let twitch_id = match rt.block_on(twitch.get_user(&name)) {
+                        let twitch_id = match twitch.get_user(&name).await {
                             Ok(user) => user.user_id,
                             Err(_) => {
                                 msg.channel_id

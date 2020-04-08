@@ -28,13 +28,13 @@ pub enum PPProvider {
     },
 }
 
-fn new_oppai(score: &Score, map: &Beatmap) -> Result<PPProvider, Error> {
+async fn new_oppai(score: &Score, map: &Beatmap) -> Result<PPProvider, Error> {
+    let map_path = osu::prepare_beatmap_file(map.beatmap_id).await?;
     let mut oppai = Oppai::new();
     if !score.enabled_mods.is_empty() {
         let bits = score.enabled_mods.as_bits();
         oppai.set_mods(bits);
     }
-    let map_path = osu::prepare_beatmap_file(map.beatmap_id)?;
     let max_pp = oppai.calculate(Some(&map_path))?.get_pp();
     oppai
         .set_miss_count(score.count_miss)
@@ -91,7 +91,8 @@ async fn new_mania(score: &Score, map: &Beatmap, ctx: &Context) -> Result<PPProv
             (None, None)
         } else {
             let lock = mutex.as_ref().unwrap().lock();
-            let child = start_pp_calc(map.beatmap_id, &score.enabled_mods, Some(score.score))?;
+            let child =
+                start_pp_calc(map.beatmap_id, &score.enabled_mods, Some(score.score)).await?;
             (Some(child), Some(lock))
         }
     } else {
@@ -127,7 +128,7 @@ async fn new_mania(score: &Score, map: &Beatmap, ctx: &Context) -> Result<PPProv
         max_pp
     // Otherwise start calculating them in new thread
     } else {
-        let max_pp_child = start_pp_calc(map.beatmap_id, &score.enabled_mods, None)?;
+        let max_pp_child = start_pp_calc(map.beatmap_id, &score.enabled_mods, None).await?;
         let max_pp = parse_pp_calc(max_pp_child)?;
         if map.approval_status == ApprovalStatus::Ranked
             || map.approval_status == ApprovalStatus::Loved
@@ -146,7 +147,7 @@ async fn new_mania(score: &Score, map: &Beatmap, ctx: &Context) -> Result<PPProv
     let stars = if let Some(stars) = stars {
         stars
     } else {
-        let stars = calc_stars(map.beatmap_id, &score.enabled_mods)?;
+        let stars = calc_stars(map.beatmap_id, &score.enabled_mods).await?;
         mem::drop(lock);
         if map.approval_status == ApprovalStatus::Ranked
             || map.approval_status == ApprovalStatus::Loved
@@ -169,7 +170,7 @@ impl PPProvider {
     /// ctx is only required for mania
     pub async fn new(score: &Score, map: &Beatmap, ctx: Option<&Context>) -> Result<Self, Error> {
         match map.mode {
-            GameMode::STD | GameMode::TKO => new_oppai(score, map),
+            GameMode::STD | GameMode::TKO => new_oppai(score, map).await,
             GameMode::MNA => match ctx {
                 Some(ctx) => new_mania(score, map, ctx).await,
                 None => Err(Error::Custom(
@@ -180,16 +181,16 @@ impl PPProvider {
         }
     }
 
-    pub fn calculate_oppai_pp<S>(score: &S, map: &Beatmap) -> Result<f32, Error>
+    pub async fn calculate_oppai_pp<S>(score: &S, map: &Beatmap) -> Result<f32, Error>
     where
         S: SubScore,
     {
+        let map_path = osu::prepare_beatmap_file(map.beatmap_id).await?;
         let mut oppai = Oppai::new();
         if !score.mods().is_empty() {
             let bits = score.mods().as_bits();
             oppai.set_mods(bits);
         }
-        let map_path = osu::prepare_beatmap_file(map.beatmap_id)?;
         oppai
             .set_miss_count(score.miss())
             .set_hits(score.c100(), score.c50())
@@ -219,7 +220,7 @@ impl PPProvider {
                     .clone()
             };
             let _ = mutex.lock();
-            let child = start_pp_calc(map.beatmap_id, mods, Some(score.score()))?;
+            let child = start_pp_calc(map.beatmap_id, mods, Some(score.score())).await?;
             parse_pp_calc(child)
         }
     }
@@ -231,12 +232,12 @@ impl PPProvider {
     ) -> Result<f32, Error> {
         match map.mode {
             GameMode::STD | GameMode::TKO => {
+                let map_path = osu::prepare_beatmap_file(map.beatmap_id).await?;
                 let mut oppai = Oppai::new();
                 if !mods.is_empty() {
                     let bits = mods.as_bits();
                     oppai.set_mods(bits);
                 }
-                let map_path = osu::prepare_beatmap_file(map.beatmap_id)?;
                 Ok(oppai.calculate(Some(&map_path))?.get_pp())
             }
             GameMode::MNA => {
@@ -271,7 +272,7 @@ impl PPProvider {
                                 .clone()
                         };
                         let _ = mutex.lock();
-                        let max_pp_child = start_pp_calc(map.beatmap_id, mods, None)?;
+                        let max_pp_child = start_pp_calc(map.beatmap_id, mods, None).await?;
                         parse_pp_calc(max_pp_child)?
                     };
                     // Insert max pp value into database
@@ -342,8 +343,8 @@ impl PPProvider {
     }
 }
 
-fn start_pp_calc(map_id: u32, mods: &GameMods, score: Option<u32>) -> Result<Child, Error> {
-    let map_path = osu::prepare_beatmap_file(map_id)?;
+async fn start_pp_calc(map_id: u32, mods: &GameMods, score: Option<u32>) -> Result<Child, Error> {
+    let map_path = osu::prepare_beatmap_file(map_id).await?;
     let mut cmd = Command::new("dotnet");
     cmd.arg(env::var("PERF_CALC").unwrap())
         .arg("simulate")
@@ -378,8 +379,8 @@ fn parse_pp_calc(child: Child) -> Result<f32, Error> {
     }
 }
 
-fn calc_stars(map_id: u32, mods: &GameMods) -> Result<f32, Error> {
-    let map_path = osu::prepare_beatmap_file(map_id)?;
+async fn calc_stars(map_id: u32, mods: &GameMods) -> Result<f32, Error> {
+    let map_path = osu::prepare_beatmap_file(map_id).await?;
     let mut cmd = Command::new("dotnet");
     cmd.arg(env::var("PERF_CALC").unwrap())
         .arg("difficulty")

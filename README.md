@@ -45,7 +45,6 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Allow username provision via discord user mention
 - Write `<nc`'s intermediate msg for `<profile`
 - Update `<simulate` help
-- Add pagination for `<top`
 - Numbered commands i.e. `<recent7`
   ### Commands
   - `<bg scores` to show guild's top scorers

@@ -3,14 +3,7 @@ use crate::{
     embeds::BasicEmbedData,
     scraper::Scraper,
     streams::{Twitch, TwitchStream},
-    structs::{
-        //BgGameKey, DispatchEvent, DispatcherKey,
-        Guilds,
-        OnlineTwitch,
-        ReactionTracker,
-        ResponseOwner,
-        StreamTracks,
-    },
+    structs::{Guilds, OnlineTwitch, ReactionTracker, StreamTracks},
     util::{
         discord::get_member,
         globals::{MAIN_GUILD_ID, TOP_ROLE_ID, UNCHECKED_ROLE_ID, WELCOME_CHANNEL},
@@ -26,7 +19,7 @@ use serenity::{
     async_trait,
     http::Http,
     model::{
-        channel::{Message, Reaction, ReactionType},
+        channel::{Message, Reaction},
         event::ResumedEvent,
         gateway::{Activity, Ready},
         guild::{Guild, Member},
@@ -278,8 +271,6 @@ impl EventHandler for Handler {
     }
 
     async fn reaction_add(&self, ctx: Context, reaction: Reaction) {
-        // Check if the reacting user wants a bot response to be deleted
-        reaction_deletion(&ctx, &reaction).await;
         // Check if the reacting user now gets a role
         role_assignment(&ctx, &reaction).await;
     }
@@ -589,43 +580,6 @@ async fn _check_streams(http: &Http, data: Arc<RwLock<ShareMap>>) {
         online_twitch.clear();
         for id in now_online {
             online_twitch.insert(id);
-        }
-    }
-}
-
-async fn reaction_deletion(ctx: &Context, reaction: &Reaction) {
-    // Check if the reacting user wants a bot response to be deleted
-    if let ReactionType::Unicode(emote) = &reaction.emoji {
-        if emote.as_str() == "❌" {
-            let data = ctx.data.read().await;
-            let (_, owners) = data
-                .get::<ResponseOwner>()
-                .expect("Could not get ResponseOwner");
-            let is_owner = owners
-                .get(&reaction.message_id)
-                .map_or(false, |owner| owner == &reaction.user_id);
-            if is_owner {
-                if let Err(why) = reaction
-                    .channel_id
-                    .delete_message(&ctx.http, reaction.message_id)
-                    .await
-                {
-                    warn!("Could not delete message after owner's reaction: {}", why);
-                } else {
-                    let name = reaction.channel_id.name(&ctx.cache).await;
-                    let user = reaction.user_id.to_user((&ctx.cache, &*ctx.http)).await;
-                    if let Ok(user) = user {
-                        if let Some(channel_name) = name {
-                            info!(
-                                "Deleted message from {} in channel {} after their reaction",
-                                user.name, channel_name
-                            );
-                        }
-                    } else {
-                        info!("Deleted message upon owner's reaction");
-                    }
-                }
-            }
         }
     }
 }

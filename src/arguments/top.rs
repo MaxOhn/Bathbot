@@ -14,17 +14,15 @@ pub struct TopArgs {
     pub combo: Option<u32>,
     pub grade: Option<Grade>,
     pub sort_by: TopSortBy,
-    pub reverse: bool,
 }
 
 impl TopArgs {
     pub fn new(mut args: Args) -> Result<Self, String> {
-        let mut args = Vec::from_iter(arguments::first_n(&mut args, 9));
+        let mut args = Vec::from_iter(arguments::first_n(&mut args, 8));
         let acc = arguments::acc(&mut args)?;
         let combo = arguments::combo(&mut args)?;
         let grade = arguments::grade(&mut args)?;
         let mods = arguments::mods(&mut args);
-        let reverse = arguments::keywords(&mut args, &["-rev", "-reverse", "-last"]);
         let sort_by = if arguments::keywords(&mut args, &["--a", "--acc"]) {
             TopSortBy::Acc
         } else if arguments::keywords(&mut args, &["--c", "--combo"]) {
@@ -40,7 +38,6 @@ impl TopArgs {
             combo,
             grade,
             sort_by,
-            reverse,
         })
     }
 }
