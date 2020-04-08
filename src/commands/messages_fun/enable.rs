@@ -88,6 +88,7 @@ pub async fn enabletracking(ctx: &mut Context, msg: &Message, mut args: Args) ->
     Ok(())
 }
 
+#[allow(clippy::cognitive_complexity)]
 // Download all messages inside the guild
 async fn download_all_messages(ctx: &Context, guild: &Guild) {
     let channels = match guild.channels(&ctx.http).await {

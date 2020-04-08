@@ -18,6 +18,7 @@ use serenity::{
 };
 use std::{cmp::Ordering, collections::HashMap};
 
+#[allow(clippy::cognitive_complexity)]
 async fn top_send(
     mode: GameMode,
     top_type: TopType,

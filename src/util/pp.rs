@@ -28,163 +28,154 @@ pub enum PPProvider {
     },
 }
 
+fn new_oppai(score: &Score, map: &Beatmap) -> Result<PPProvider, Error> {
+    let mut oppai = Oppai::new();
+    if !score.enabled_mods.is_empty() {
+        let bits = score.enabled_mods.as_bits();
+        oppai.set_mods(bits);
+    }
+    let map_path = osu::prepare_beatmap_file(map.beatmap_id)?;
+    let max_pp = oppai.calculate(Some(&map_path))?.get_pp();
+    oppai
+        .set_miss_count(score.count_miss)
+        .set_hits(score.count100, score.count50)
+        .set_end_index(score.total_hits(map.mode))
+        .set_combo(score.max_combo)
+        .calculate(None)?;
+    let pp = oppai.get_pp();
+    let stars = if score.enabled_mods.changes_stars(map.mode) {
+        oppai.get_stars()
+    } else {
+        map.stars
+    };
+    Ok(PPProvider::Oppai {
+        oppai,
+        pp,
+        max_pp,
+        stars,
+    })
+}
+
+async fn new_mania(score: &Score, map: &Beatmap, ctx: &Context) -> Result<PPProvider, Error> {
+    let mutex = if score.pp.is_none() {
+        let data = ctx.data.read().await;
+        Some(
+            data.get::<PerformanceCalculatorLock>()
+                .expect("Could not get PerformanceCalculatorLock")
+                .clone(),
+        )
+    } else {
+        None
+    };
+    let half_score = 500_000.0 * score.enabled_mods.score_multiplier(GameMode::MNA);
+    let (stars, stars_in_db) = if score.enabled_mods.changes_stars(GameMode::MNA) {
+        // Try retrieving stars from database
+        let data = ctx.data.read().await;
+        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        match mysql.get_mania_mod_stars(map.beatmap_id, &score.enabled_mods) {
+            Ok(result) => (result, true),
+            Err(why) => {
+                if let Error::Custom(_) = why {
+                    warn!("Error while retrieving from stars_mania_mods: {}", why);
+                }
+                (None, false)
+            }
+        }
+    } else {
+        (Some(map.stars), true)
+    };
+    // Start calculating pp of the score in new thread
+    let (pp_child, lock) = if score.pp.is_none() {
+        // If its a fail or below half score, it's gonna be 0pp anyway
+        if score.grade == Grade::F || score.score < half_score as u32 {
+            (None, None)
+        } else {
+            let lock = mutex.as_ref().unwrap().lock();
+            let child = start_pp_calc(map.beatmap_id, &score.enabled_mods, Some(score.score))?;
+            (Some(child), Some(lock))
+        }
+    } else {
+        (None, None)
+    };
+    // Try retrieving max pp of the map from database
+    let (max_pp, map_in_db) = {
+        let data = ctx.data.read().await;
+        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        match mysql.get_mania_mod_pp(map.beatmap_id, &score.enabled_mods) {
+            Ok(result) => (result, true),
+            Err(why) => {
+                if let Error::Custom(_) = why {
+                    warn!(
+                        "Some mod bit error for mods {} in pp_mania_mods table",
+                        score.enabled_mods
+                    );
+                }
+                (None, false)
+            }
+        }
+    };
+    // Wait for score pp calculation to finish
+    let pp = if let Some(pp_child) = pp_child {
+        parse_pp_calc(pp_child)?
+    } else if score.grade == Grade::F || score.score < half_score as u32 {
+        0.0
+    } else {
+        score.pp.unwrap()
+    };
+    // If max pp were found, get them
+    let max_pp = if let Some(max_pp) = max_pp {
+        max_pp
+    // Otherwise start calculating them in new thread
+    } else {
+        let max_pp_child = start_pp_calc(map.beatmap_id, &score.enabled_mods, None)?;
+        let max_pp = parse_pp_calc(max_pp_child)?;
+        if map.approval_status == ApprovalStatus::Ranked
+            || map.approval_status == ApprovalStatus::Loved
+        {
+            // Insert max pp value into database
+            let data = ctx.data.read().await;
+            let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+            if map_in_db {
+                mysql.update_mania_pp_map(map.beatmap_id, &score.enabled_mods, max_pp)?;
+            } else {
+                mysql.insert_mania_pp_map(map.beatmap_id, &score.enabled_mods, max_pp)?;
+            }
+        }
+        max_pp
+    };
+    let stars = if let Some(stars) = stars {
+        stars
+    } else {
+        let stars = calc_stars(map.beatmap_id, &score.enabled_mods)?;
+        mem::drop(lock);
+        if map.approval_status == ApprovalStatus::Ranked
+            || map.approval_status == ApprovalStatus::Loved
+        {
+            // Insert stars value into database
+            let data = ctx.data.read().await;
+            let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+            if stars_in_db {
+                mysql.update_mania_stars_map(map.beatmap_id, &score.enabled_mods, stars)?;
+            } else {
+                mysql.insert_mania_stars_map(map.beatmap_id, &score.enabled_mods, stars)?;
+            }
+        }
+        stars
+    };
+    Ok(PPProvider::Mania { pp, max_pp, stars })
+}
+
 impl PPProvider {
     /// ctx is only required for mania
     pub async fn new(score: &Score, map: &Beatmap, ctx: Option<&Context>) -> Result<Self, Error> {
         match map.mode {
-            GameMode::STD | GameMode::TKO => {
-                let mut oppai = Oppai::new();
-                if !score.enabled_mods.is_empty() {
-                    let bits = score.enabled_mods.as_bits();
-                    oppai.set_mods(bits);
-                }
-                let map_path = osu::prepare_beatmap_file(map.beatmap_id)?;
-                let max_pp = oppai.calculate(Some(&map_path))?.get_pp();
-                oppai
-                    .set_miss_count(score.count_miss)
-                    .set_hits(score.count100, score.count50)
-                    .set_end_index(score.total_hits(map.mode))
-                    .set_combo(score.max_combo)
-                    .calculate(None)?;
-                let pp = oppai.get_pp();
-                let stars = if score.enabled_mods.changes_stars(map.mode) {
-                    oppai.get_stars()
-                } else {
-                    map.stars
-                };
-                Ok(Self::Oppai {
-                    oppai,
-                    pp,
-                    max_pp,
-                    stars,
-                })
-            }
-            GameMode::MNA => {
-                let ctx = ctx.unwrap();
-                let mutex = if score.pp.is_none() {
-                    let data = ctx.data.read().await;
-                    Some(
-                        data.get::<PerformanceCalculatorLock>()
-                            .expect("Could not get PerformanceCalculatorLock")
-                            .clone(),
-                    )
-                } else {
-                    None
-                };
-                let half_score = 500_000.0 * score.enabled_mods.score_multiplier(GameMode::MNA);
-                let (stars, stars_in_db) = if score.enabled_mods.changes_stars(GameMode::MNA) {
-                    // Try retrieving stars from database
-                    let data = ctx.data.read().await;
-                    let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-                    match mysql.get_mania_mod_stars(map.beatmap_id, &score.enabled_mods) {
-                        Ok(result) => (result, true),
-                        Err(why) => {
-                            if let Error::Custom(_) = why {
-                                warn!("Error while retrieving from stars_mania_mods: {}", why);
-                            }
-                            (None, false)
-                        }
-                    }
-                } else {
-                    (Some(map.stars), true)
-                };
-                // Start calculating pp of the score in new thread
-                let (pp_child, lock) = if score.pp.is_none() {
-                    // If its a fail or below half score, it's gonna be 0pp anyway
-                    if score.grade == Grade::F || score.score < half_score as u32 {
-                        (None, None)
-                    } else {
-                        let lock = mutex.as_ref().unwrap().lock();
-                        let child =
-                            start_pp_calc(map.beatmap_id, &score.enabled_mods, Some(score.score))?;
-                        (Some(child), Some(lock))
-                    }
-                } else {
-                    (None, None)
-                };
-                // Try retrieving max pp of the map from database
-                let (max_pp, map_in_db) = {
-                    let data = ctx.data.read().await;
-                    let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-                    match mysql.get_mania_mod_pp(map.beatmap_id, &score.enabled_mods) {
-                        Ok(result) => (result, true),
-                        Err(why) => {
-                            if let Error::Custom(_) = why {
-                                warn!(
-                                    "Some mod bit error for mods {} in pp_mania_mods table",
-                                    score.enabled_mods
-                                );
-                            }
-                            (None, false)
-                        }
-                    }
-                };
-                // Wait for score pp calculation to finish
-                let pp = if let Some(pp_child) = pp_child {
-                    parse_pp_calc(pp_child)?
-                } else if score.grade == Grade::F || score.score < half_score as u32 {
-                    0.0
-                } else {
-                    score.pp.unwrap()
-                };
-                // If max pp were found, get them
-                let max_pp = if let Some(max_pp) = max_pp {
-                    max_pp
-                // Otherwise start calculating them in new thread
-                } else {
-                    let max_pp_child = start_pp_calc(map.beatmap_id, &score.enabled_mods, None)?;
-                    let max_pp = parse_pp_calc(max_pp_child)?;
-                    if map.approval_status == ApprovalStatus::Ranked
-                        || map.approval_status == ApprovalStatus::Loved
-                    {
-                        // Insert max pp value into database
-                        let data = ctx.data.read().await;
-                        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-                        if map_in_db {
-                            mysql.update_mania_pp_map(
-                                map.beatmap_id,
-                                &score.enabled_mods,
-                                max_pp,
-                            )?;
-                        } else {
-                            mysql.insert_mania_pp_map(
-                                map.beatmap_id,
-                                &score.enabled_mods,
-                                max_pp,
-                            )?;
-                        }
-                    }
-                    max_pp
-                };
-                let stars = if let Some(stars) = stars {
-                    stars
-                } else {
-                    let stars = calc_stars(map.beatmap_id, &score.enabled_mods)?;
-                    mem::drop(lock);
-                    if map.approval_status == ApprovalStatus::Ranked
-                        || map.approval_status == ApprovalStatus::Loved
-                    {
-                        // Insert stars value into database
-                        let data = ctx.data.read().await;
-                        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-                        if stars_in_db {
-                            mysql.update_mania_stars_map(
-                                map.beatmap_id,
-                                &score.enabled_mods,
-                                stars,
-                            )?;
-                        } else {
-                            mysql.insert_mania_stars_map(
-                                map.beatmap_id,
-                                &score.enabled_mods,
-                                stars,
-                            )?;
-                        }
-                    }
-                    stars
-                };
-                Ok(Self::Mania { pp, max_pp, stars })
-            }
+            GameMode::STD | GameMode::TKO => new_oppai(score, map),
+            GameMode::MNA => match ctx {
+                Some(ctx) => new_mania(score, map, ctx).await,
+                None => Err(Error::Custom(
+                    "Cannot calculate mania pp without &Context".to_string(),
+                )),
+            },
             GameMode::CTB => Ok(Self::Fruits { stars: map.stars }),
         }
     }

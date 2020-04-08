@@ -22,6 +22,7 @@ use std::{
     convert::From,
 };
 
+#[allow(clippy::cognitive_complexity)]
 async fn common_send(
     mode: GameMode,
     ctx: &mut Context,

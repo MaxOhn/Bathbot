@@ -20,6 +20,7 @@ use serenity::{
 };
 use std::collections::{HashMap, HashSet};
 
+#[allow(clippy::cognitive_complexity)]
 async fn recentlist_send(
     mode: GameMode,
     ctx: &mut Context,

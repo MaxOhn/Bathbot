@@ -99,28 +99,3 @@ fn levenshtein_distance(word_a: &str, word_b: &str) -> usize {
     }
     *costs.last().unwrap()
 }
-
-fn _levenshtein_distance(word_a: &str, word_b: &str) -> usize {
-    let len_a = word_a.len();
-    let len_b = word_b.len();
-    if len_a == 0 {
-        return len_b;
-    } else if len_b == 0 {
-        return len_a;
-    }
-    let mut matrix: Matrix<usize> = Matrix::new(len_b + 1, len_a + 1);
-    for x in 0..len_a {
-        matrix[(x + 1, 0)] = matrix[(x, 0)] + 1;
-    }
-    for y in 0..len_b {
-        matrix[(0, y + 1)] = matrix[(0, y)] + 1;
-    }
-    for (x, char_a) in word_a.chars().enumerate() {
-        for (y, char_b) in word_b.chars().enumerate() {
-            matrix[(x + 1, y + 1)] = (matrix[(x, y + 1)] + 1)
-                .min(matrix[(x + 1, y)] + 1)
-                .min(matrix[(x, y)] + if char_a == char_b { 0 } else { 1 });
-        }
-    }
-    matrix[(len_a, len_b)]
-}

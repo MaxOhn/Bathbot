@@ -59,7 +59,9 @@ impl EventHandler for Handler {
                 let day_limit = 10;
                 let mut interval = time::interval(time::Duration::from_secs(track_delay * 86_400));
                 loop {
-                    _custom_events(&http, Arc::clone(&data), *&day_limit).await;
+                    _not_checked_role(&http, Arc::clone(&data), day_limit).await;
+                    _top_role(&http, Arc::clone(&data)).await;
+                    info!("Handled unchecked members and top role distribution");
                     interval.tick().await;
                 }
             });
@@ -119,35 +121,6 @@ impl EventHandler for Handler {
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
-        if !msg.author.bot {
-            // BG game dispatching
-            // if msg.content.starts_with('<') || msg.content.starts_with("!!") {
-            //     return;
-            // }
-            // let active_bg = {
-            //     let data = ctx.data.read().await;
-            //     data.get::<BgGameKey>()
-            //         .expect("Could not get BgGameKey")
-            //         .len()
-            // };
-            // if active_bg > 0 {
-            //     let dispatcher = {
-            //         let mut context = ctx.data.write().await;
-            //         context
-            //             .get_mut::<DispatcherKey>()
-            //             .expect("Could not get DispatcherKey")
-            //             .clone()
-            //     };
-            //     dispatcher
-            //         .write()
-            //         .await
-            //         .dispatch_event(&DispatchEvent::BgMsgEvent {
-            //             channel: msg.channel_id,
-            //             user: msg.author.id,
-            //             content: msg.content.to_lowercase(),
-            //         });
-            // }
-        }
         // Message saving
         if !(msg.content.is_empty()
             || msg.content.starts_with('<')
@@ -306,73 +279,9 @@ impl EventHandler for Handler {
 
     async fn reaction_add(&self, ctx: Context, reaction: Reaction) {
         // Check if the reacting user wants a bot response to be deleted
-        if let ReactionType::Unicode(emote) = &reaction.emoji {
-            if emote.as_str() == "❌" {
-                let data = ctx.data.read().await;
-                let (_, owners) = data
-                    .get::<ResponseOwner>()
-                    .expect("Could not get ResponseOwner");
-                let is_owner = owners
-                    .get(&reaction.message_id)
-                    .map_or(false, |owner| owner == &reaction.user_id);
-                if is_owner {
-                    if let Err(why) = reaction
-                        .channel_id
-                        .delete_message(&ctx.http, reaction.message_id)
-                        .await
-                    {
-                        warn!("Could not delete message after owner's reaction: {}", why);
-                    } else {
-                        let name = reaction.channel_id.name(&ctx.cache).await;
-                        let user = reaction.user_id.to_user((&ctx.cache, &*ctx.http)).await;
-                        if let Ok(user) = user {
-                            if let Some(channel_name) = name {
-                                info!(
-                                    "Deleted message from {} in channel {} after their reaction",
-                                    user.name, channel_name
-                                );
-                            }
-                        } else {
-                            info!("Deleted message upon owner's reaction");
-                        }
-                    }
-                }
-            }
-        }
+        reaction_deletion(&ctx, &reaction).await;
         // Check if the reacting user now gets a role
-        let key = (reaction.channel_id, reaction.message_id);
-        let role: Option<RoleId> = match ctx.data.read().await.get::<ReactionTracker>() {
-            Some(tracker) => {
-                if tracker.contains_key(&key) {
-                    Some(*tracker.get(&key).unwrap())
-                } else {
-                    None
-                }
-            }
-            None => {
-                error!("Could not get ReactionTracker");
-                return;
-            }
-        };
-        if let Some(role) = role {
-            if let Some(mut member) = get_member(&ctx, reaction.channel_id, reaction.user_id).await
-            {
-                let role_name = role
-                    .to_role_cached(&ctx.cache)
-                    .await
-                    .expect("Role not found in cache")
-                    .name;
-                if let Err(why) = member.add_role(&ctx.http, role).await {
-                    error!("Could not add role to member for reaction: {}", why);
-                } else {
-                    info!(
-                        "Assigned role '{}' to member {}",
-                        role_name,
-                        member.user.read().await.name
-                    );
-                }
-            }
-        }
+        role_assignment(&ctx, &reaction).await;
     }
 
     async fn reaction_remove(&self, ctx: Context, reaction: Reaction) {
@@ -452,7 +361,7 @@ impl EventHandler for Handler {
     }
 }
 
-async fn _custom_events(http: &Http, data: Arc<RwLock<ShareMap>>, day_limit: i64) {
+async fn _not_checked_role(http: &Http, data: Arc<RwLock<ShareMap>>, day_limit: i64) {
     let data = data.read().await;
     let mysql = data.get::<MySQL>().expect("Could not get MySQL");
     // Handle Not Checked role
@@ -491,6 +400,11 @@ async fn _custom_events(http: &Http, data: Arc<RwLock<ShareMap>>, day_limit: i64
         }
         Err(why) => warn!("Could not get unchecked members from database: {}", why),
     }
+}
+
+async fn _top_role(http: &Http, data: Arc<RwLock<ShareMap>>) {
+    let data = data.read().await;
+    let mysql = data.get::<MySQL>().expect("Could not get MySQL");
     // Handle Top role
     let scraper = data.get::<Scraper>().expect("Could not get Scraper");
     // Top 10 std
@@ -584,7 +498,6 @@ async fn _custom_events(http: &Http, data: Arc<RwLock<ShareMap>>, day_limit: i64
         }
         Err(why) => warn!("Could not get manual links from database: {}", why),
     }
-    info!("Handled unchecked members and top role distribution");
 }
 
 async fn _check_streams(http: &Http, data: Arc<RwLock<ShareMap>>) {
@@ -676,6 +589,79 @@ async fn _check_streams(http: &Http, data: Arc<RwLock<ShareMap>>) {
         online_twitch.clear();
         for id in now_online {
             online_twitch.insert(id);
+        }
+    }
+}
+
+async fn reaction_deletion(ctx: &Context, reaction: &Reaction) {
+    // Check if the reacting user wants a bot response to be deleted
+    if let ReactionType::Unicode(emote) = &reaction.emoji {
+        if emote.as_str() == "❌" {
+            let data = ctx.data.read().await;
+            let (_, owners) = data
+                .get::<ResponseOwner>()
+                .expect("Could not get ResponseOwner");
+            let is_owner = owners
+                .get(&reaction.message_id)
+                .map_or(false, |owner| owner == &reaction.user_id);
+            if is_owner {
+                if let Err(why) = reaction
+                    .channel_id
+                    .delete_message(&ctx.http, reaction.message_id)
+                    .await
+                {
+                    warn!("Could not delete message after owner's reaction: {}", why);
+                } else {
+                    let name = reaction.channel_id.name(&ctx.cache).await;
+                    let user = reaction.user_id.to_user((&ctx.cache, &*ctx.http)).await;
+                    if let Ok(user) = user {
+                        if let Some(channel_name) = name {
+                            info!(
+                                "Deleted message from {} in channel {} after their reaction",
+                                user.name, channel_name
+                            );
+                        }
+                    } else {
+                        info!("Deleted message upon owner's reaction");
+                    }
+                }
+            }
+        }
+    }
+}
+
+async fn role_assignment(ctx: &Context, reaction: &Reaction) {
+    // Check if the reacting user now gets a role
+    let key = (reaction.channel_id, reaction.message_id);
+    let role: Option<RoleId> = match ctx.data.read().await.get::<ReactionTracker>() {
+        Some(tracker) => {
+            if tracker.contains_key(&key) {
+                Some(*tracker.get(&key).unwrap())
+            } else {
+                None
+            }
+        }
+        None => {
+            error!("Could not get ReactionTracker");
+            return;
+        }
+    };
+    if let Some(role) = role {
+        if let Some(mut member) = get_member(&ctx, reaction.channel_id, reaction.user_id).await {
+            let role_name = role
+                .to_role_cached(&ctx.cache)
+                .await
+                .expect("Role not found in cache")
+                .name;
+            if let Err(why) = member.add_role(&ctx.http, role).await {
+                error!("Could not add role to member for reaction: {}", why);
+            } else {
+                info!(
+                    "Assigned role '{}' to member {}",
+                    role_name,
+                    member.user.read().await.name
+                );
+            }
         }
     }
 }

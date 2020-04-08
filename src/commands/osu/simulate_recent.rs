@@ -23,6 +23,7 @@ use serenity::{
 };
 use tokio::time::{self, Duration};
 
+#[allow(clippy::cognitive_complexity)]
 async fn simulate_recent_send(
     mode: GameMode,
     ctx: &mut Context,

@@ -20,6 +20,7 @@ use serenity::{
     prelude::Context,
 };
 
+#[allow(clippy::cognitive_complexity)]
 async fn recent_lb_send(
     mode: GameMode,
     national: bool,
