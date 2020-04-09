@@ -123,6 +123,24 @@ async fn recent_send(
         None
     };
 
+    let first_score = scores.first().unwrap();
+    let first_id = first_score.beatmap_id.unwrap();
+    #[allow(clippy::map_entry)]
+    {
+        if !maps.contains_key(&first_id) {
+            let data = ctx.data.read().await;
+            let osu = data.get::<Osu>().expect("Could not get osu client");
+            let map = match first_score.get_beatmap(osu).await {
+                Ok(map) => map,
+                Err(why) => {
+                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                    return Err(CommandError::from(why.to_string()));
+                }
+            };
+            maps.insert(first_id, map);
+        }
+    }
+
     // Retrieving all missing beatmaps
     let mut missing_ids = Vec::with_capacity(map_ids.len());
     #[allow(clippy::map_entry)]
@@ -160,10 +178,8 @@ async fn recent_send(
             }
         }
     };
-    let mut global = HashMap::with_capacity(50);
-    let first_score = scores.first().unwrap();
-    let first_id = first_score.beatmap_id.unwrap();
     let first_map = maps.get(&first_id).unwrap();
+    let mut global = HashMap::with_capacity(50);
     {
         let data = ctx.data.read().await;
         let osu = data.get::<Osu>().expect("Could not get osu client");
@@ -267,7 +283,7 @@ async fn recent_send(
                         &mut idx,
                         &user,
                         &scores,
-                        &maps,
+                        &mut maps,
                         &best,
                         &mut global,
                         &cache,
@@ -326,7 +342,7 @@ async fn reaction_data(
     idx: &mut usize,
     user: &User,
     scores: &[Score],
-    maps: &HashMap<u32, Beatmap>,
+    maps: &mut HashMap<u32, Beatmap>,
     best: &[Score],
     global: &mut HashMap<u32, Vec<Score>>,
     cache: &CacheRwLock,
@@ -334,74 +350,38 @@ async fn reaction_data(
 ) -> Result<ReactionData, OsuError> {
     let amount = scores.len();
     let data = match reaction {
-        "❌" => ReactionData::Delete,
+        "❌" => return Ok(ReactionData::Delete),
         "⏮️" => {
             if *idx > 0 {
                 *idx = 0;
                 let score = scores.first().unwrap();
-                let map = maps.get(&score.beatmap_id.unwrap()).unwrap();
+                let map = map(score, maps, &data).await?;
                 let global_lb = global_lb(data, map, global).await?;
-                RecentData::new(&user, score, map, best, global_lb, (cache, data))
-                    .await
-                    .map(|data| ReactionData::Data {
-                        data: Box::new(data),
-                        idx: *idx,
-                    })
-                    .unwrap_or_else(|why| {
-                        warn!(
-                            "Error editing recent data at idx {}/{}: {}",
-                            idx, amount, why
-                        );
-                        ReactionData::None
-                    })
+                RecentData::new(&user, score, map, best, global_lb, (cache, data)).await
             } else {
-                ReactionData::None
+                return Ok(ReactionData::None);
             }
         }
         "⏪" => {
             if *idx > 0 {
                 *idx = idx.saturating_sub(5);
                 let score = scores.get(*idx).unwrap();
-                let map = maps.get(&score.beatmap_id.unwrap()).unwrap();
+                let map = map(score, maps, &data).await?;
                 let global_lb = global_lb(data, map, global).await?;
-                RecentData::new(&user, score, map, best, global_lb, (cache, data))
-                    .await
-                    .map(|data| ReactionData::Data {
-                        data: Box::new(data),
-                        idx: *idx,
-                    })
-                    .unwrap_or_else(|why| {
-                        warn!(
-                            "Error editing recent data at idx {}/{}: {}",
-                            idx, amount, why
-                        );
-                        ReactionData::None
-                    })
+                RecentData::new(&user, score, map, best, global_lb, (cache, data)).await
             } else {
-                ReactionData::None
+                return Ok(ReactionData::None);
             }
         }
         "◀️" => {
             if *idx > 0 {
                 *idx = idx.saturating_sub(1);
                 let score = scores.get(*idx).unwrap();
-                let map = maps.get(&score.beatmap_id.unwrap()).unwrap();
+                let map = map(score, maps, &data).await?;
                 let global_lb = global_lb(data, map, global).await?;
-                RecentData::new(&user, score, map, best, global_lb, (cache, data))
-                    .await
-                    .map(|data| ReactionData::Data {
-                        data: Box::new(data),
-                        idx: *idx,
-                    })
-                    .unwrap_or_else(|why| {
-                        warn!(
-                            "Error editing recent data at idx {}/{}: {}",
-                            idx, amount, why
-                        );
-                        ReactionData::None
-                    })
+                RecentData::new(&user, score, map, best, global_lb, (cache, data)).await
             } else {
-                ReactionData::None
+                return Ok(ReactionData::None);
             }
         }
         "▶️" => {
@@ -409,76 +389,68 @@ async fn reaction_data(
             if *idx < limit {
                 *idx = limit.min(*idx + 1);
                 let score = scores.get(*idx).unwrap();
-                let map = maps.get(&score.beatmap_id.unwrap()).unwrap();
+                let map = map(score, maps, &data).await?;
                 let global_lb = global_lb(data, map, global).await?;
-                RecentData::new(&user, score, map, best, global_lb, (cache, data))
-                    .await
-                    .map(|data| ReactionData::Data {
-                        data: Box::new(data),
-                        idx: *idx,
-                    })
-                    .unwrap_or_else(|why| {
-                        warn!(
-                            "Error editing recent data at idx {}/{}: {}",
-                            idx, amount, why
-                        );
-                        ReactionData::None
-                    })
+                RecentData::new(&user, score, map, best, global_lb, (cache, data)).await
             } else {
-                ReactionData::None
+                return Ok(ReactionData::None);
             }
         }
         "⏩" => {
-            let limit = amount.saturating_sub(5);
+            let limit = amount.saturating_sub(1);
             if *idx < limit {
                 *idx = limit.min(*idx + 5);
                 let score = scores.get(*idx).unwrap();
-                let map = maps.get(&score.beatmap_id.unwrap()).unwrap();
+                let map = map(score, maps, &data).await?;
                 let global_lb = global_lb(data, map, global).await?;
-                RecentData::new(&user, score, map, best, global_lb, (cache, data))
-                    .await
-                    .map(|data| ReactionData::Data {
-                        data: Box::new(data),
-                        idx: *idx,
-                    })
-                    .unwrap_or_else(|why| {
-                        warn!(
-                            "Error editing recent data at idx {}/{}: {}",
-                            idx, amount, why
-                        );
-                        ReactionData::None
-                    })
+                RecentData::new(&user, score, map, best, global_lb, (cache, data)).await
             } else {
-                ReactionData::None
+                return Ok(ReactionData::None);
             }
         }
         "⏭️" => {
-            let limit = amount.saturating_sub(5);
+            let limit = amount.saturating_sub(1);
             if *idx < limit {
                 *idx = limit;
                 let score = scores.get(*idx).unwrap();
-                let map = maps.get(&score.beatmap_id.unwrap()).unwrap();
+                let map = map(score, maps, &data).await?;
                 let global_lb = global_lb(data, map, global).await?;
-                RecentData::new(&user, score, map, best, global_lb, (cache, data))
-                    .await
-                    .map(|data| ReactionData::Data {
-                        data: Box::new(data),
-                        idx: *idx,
-                    })
-                    .unwrap_or_else(|why| {
-                        warn!(
-                            "Error editing recent data at idx {}/{}: {}",
-                            idx, amount, why
-                        );
-                        ReactionData::None
-                    })
+                RecentData::new(&user, score, map, best, global_lb, (cache, data)).await
             } else {
-                ReactionData::None
+                return Ok(ReactionData::None);
             }
         }
-        _ => ReactionData::None,
+        _ => return Ok(ReactionData::None),
     };
+    let data = data
+        .map(|data| ReactionData::Data {
+            data: Box::new(data),
+            idx: *idx,
+        })
+        .unwrap_or_else(|why| {
+            warn!(
+                "Error editing recent data at idx {}/{}: {}",
+                idx, amount, why
+            );
+            ReactionData::None
+        });
     Ok(data)
+}
+
+#[allow(clippy::map_entry)]
+async fn map<'m>(
+    score: &Score,
+    maps: &'m mut HashMap<u32, Beatmap>,
+    data: &Arc<RwLock<ShareMap>>,
+) -> Result<&'m Beatmap, OsuError> {
+    let map_id = score.beatmap_id.unwrap();
+    if !maps.contains_key(&map_id) {
+        let data = data.read().await;
+        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let map = score.get_beatmap(osu).await?;
+        maps.insert(map_id, map);
+    }
+    Ok(maps.get(&map_id).unwrap())
 }
 
 #[allow(clippy::map_entry)]

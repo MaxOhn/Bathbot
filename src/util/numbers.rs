@@ -48,6 +48,14 @@ pub fn round_and_comma(n: f32) -> String {
     with_comma(round(n))
 }
 
+pub fn div_euclid(group: usize, total: usize) -> usize {
+    if total % group == 0 && total > 0 {
+        total / group
+    } else {
+        total.div_euclid(group) + 1
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

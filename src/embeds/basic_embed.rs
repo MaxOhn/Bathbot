@@ -338,13 +338,16 @@ impl BasicEmbedData {
     //
     // leaderboard
     //
-    pub async fn create_leaderboard<D>(
-        init_name: Option<String>,
-        map: Beatmap,
-        scores: Vec<ScraperScore>,
+    pub async fn create_leaderboard<'i, S, D>(
+        init_name: &Option<&str>,
+        map: &Beatmap,
+        scores: Option<S>,
+        author_icon: &Option<String>,
+        idx: usize,
         cache_data: D,
     ) -> Result<Self, Error>
     where
+        S: Iterator<Item = &'i ScraperScore>,
         D: CacheData,
     {
         let mut result = Self::default();
@@ -357,14 +360,11 @@ impl BasicEmbedData {
         let thumbnail = format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id);
         let footer_url = format!("{}{}", AVATAR_URL, map.creator_id);
         let footer_text = format!("{:?} map by {}", map.approval_status, map.creator);
-        let (description, author_icon) = if scores.is_empty() {
-            ("No scores found".to_string(), String::default())
-        } else {
-            let author_icon = format!("{}{}", AVATAR_URL, scores.get(0).unwrap().user_id);
+        let description = if let Some(scores) = scores {
             let mut mod_map = HashMap::new();
             let mut description = String::with_capacity(256);
-            let author_name = init_name.map_or_else(String::new, |n| n.to_lowercase());
-            for (i, score) in scores.into_iter().enumerate() {
+            let author_name = init_name.unwrap_or_else(|| "");
+            for (i, score) in scores.enumerate() {
                 let found_author = author_name == score.username.to_lowercase();
                 let mut username = String::with_capacity(32);
                 if found_author {
@@ -383,7 +383,7 @@ impl BasicEmbedData {
                 description.push_str(&format!(
                     "**{idx}.** {emote} **{name}**: {score} [ {combo} ]{mods}\n\
                      - {pp} ~ {acc}% ~ {ago}\n",
-                    idx = i + 1,
+                    idx = idx + i + 1,
                     emote = osu::grade_emote(score.grade, cache).await.to_string(),
                     name = username,
                     score = with_comma_u64(score.score as u64),
@@ -398,10 +398,12 @@ impl BasicEmbedData {
                     ago = how_long_ago(&score.date),
                 ));
             }
-            (description, author_icon)
+            description
+        } else {
+            "No scores found".to_string()
         };
         result.thumbnail = Some(thumbnail);
-        result.author_icon = Some(author_icon);
+        result.author_icon = author_icon.clone();
         result.author_text = Some(author_text);
         result.author_url = Some(author_url);
         result.description = Some(description);
@@ -577,11 +579,14 @@ impl BasicEmbedData {
     //
     // mostplayed
     //
-    pub fn create_mostplayed(user: User, maps: Vec<MostPlayedMap>) -> Self {
+    pub fn create_mostplayed<'m, M>(user: &User, maps: M, pages: (usize, usize)) -> Self
+    where
+        M: Iterator<Item = &'m MostPlayedMap>,
+    {
         let mut result = Self::default();
         let (author_icon, author_url, author_text) = get_user_author(&user);
         let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
-        let mut description = String::with_capacity(maps.len() * 70);
+        let mut description = String::with_capacity(10 * 70);
         for map in maps {
             let _ = writeln!(
                 description,
@@ -601,6 +606,7 @@ impl BasicEmbedData {
         result.title_text = Some("Most played maps:".to_string());
         result.thumbnail = Some(thumbnail);
         result.description = Some(description);
+        result.footer_text = Some(format!("Page {}/{}", pages.0, pages.1));
         result
     }
 
@@ -1243,6 +1249,7 @@ impl BasicEmbedData {
         user: &User,
         scores_data: S,
         mode: GameMode,
+        pages: (usize, usize),
         cache_data: D,
     ) -> Result<Self, Error>
     where
@@ -1292,11 +1299,13 @@ impl BasicEmbedData {
             ));
         }
         description.pop();
+        let footer_text = format!("Page {}/{}", pages.0, pages.1);
         result.author_icon = Some(author_icon);
         result.author_url = Some(author_url);
         result.author_text = Some(author_text);
         result.thumbnail = Some(thumbnail);
         result.description = Some(description);
+        result.footer_text = Some(footer_text);
         Ok(result)
     }
 

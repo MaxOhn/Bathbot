@@ -2,7 +2,7 @@ use crate::{
     arguments::{ModSelection, TopArgs},
     database::MySQL,
     embeds::BasicEmbedData,
-    util::{discord, globals::OSU_API_ISSUE},
+    util::{discord, globals::OSU_API_ISSUE, numbers},
     DiscordLinks, Osu,
 };
 
@@ -260,19 +260,22 @@ async fn top_send(
             content
         }
     };
-    let data = match BasicEmbedData::create_top(&user, scores_data.iter().take(5), mode, &ctx).await
-    {
-        Ok(data) => data,
-        Err(why) => {
-            msg.channel_id
-                .say(
-                    &ctx.http,
-                    "Some issue while calculating top data, blame bade",
-                )
-                .await?;
-            return Err(CommandError::from(why.to_string()));
-        }
-    };
+    let pages = numbers::div_euclid(5, amount);
+    let data =
+        match BasicEmbedData::create_top(&user, scores_data.iter().take(5), mode, (1, pages), &ctx)
+            .await
+        {
+            Ok(data) => data,
+            Err(why) => {
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        "Some issue while calculating top data, blame bade",
+                    )
+                    .await?;
+                return Err(CommandError::from(why.to_string()));
+            }
+        };
 
     if let Some(msg) = retrieving_msg {
         msg.delete(&ctx.http).await?;
@@ -371,18 +374,25 @@ async fn reaction_data(
     data: &Arc<RwLock<ShareMap>>,
 ) -> ReactionData {
     let amount = scores.len();
+    let pages = numbers::div_euclid(5, amount);
     match reaction {
         "❌" => ReactionData::Delete,
         "⏮️" => {
             if *idx > 0 {
                 *idx = 0;
-                BasicEmbedData::create_top(&user, scores.iter().take(5), mode, (cache, data))
-                    .await
-                    .map(|data| ReactionData::Data(Box::new(data)))
-                    .unwrap_or_else(|why| {
-                        warn!("Error editing top data at idx {}/{}: {}", idx, amount, why);
-                        ReactionData::None
-                    })
+                BasicEmbedData::create_top(
+                    &user,
+                    scores.iter().take(5),
+                    mode,
+                    (*idx / 5 + 1, pages),
+                    (cache, data),
+                )
+                .await
+                .map(|data| ReactionData::Data(Box::new(data)))
+                .unwrap_or_else(|why| {
+                    warn!("Error editing top data at idx {}/{}: {}", idx, amount, why);
+                    ReactionData::None
+                })
             } else {
                 ReactionData::None
             }
@@ -394,6 +404,7 @@ async fn reaction_data(
                     &user,
                     scores.iter().skip(*idx).take(5),
                     mode,
+                    (*idx / 5 + 1, pages),
                     (cache, data),
                 )
                 .await
@@ -407,13 +418,18 @@ async fn reaction_data(
             }
         }
         "⏩" => {
-            let limit = amount.saturating_sub(5);
+            let limit = if amount % 5 == 0 {
+                amount - 5
+            } else {
+                amount - amount % 5
+            };
             if *idx < limit {
                 *idx = limit.min(*idx + 5);
                 BasicEmbedData::create_top(
                     &user,
                     scores.iter().skip(*idx).take(5),
                     mode,
+                    (*idx / 5 + 1, pages),
                     (cache, data),
                 )
                 .await
@@ -427,13 +443,18 @@ async fn reaction_data(
             }
         }
         "⏭️" => {
-            let limit = amount.saturating_sub(5);
+            let limit = if amount % 5 == 0 {
+                amount - 5
+            } else {
+                amount - amount % 5
+            };
             if *idx < limit {
                 *idx = limit;
                 BasicEmbedData::create_top(
                     &user,
                     scores.iter().skip(*idx).take(5),
                     mode,
+                    (*idx / 5 + 1, pages),
                     (cache, data),
                 )
                 .await

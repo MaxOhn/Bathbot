@@ -2,8 +2,8 @@ use crate::{
     arguments::{ModSelection, NameModArgs},
     database::MySQL,
     embeds::BasicEmbedData,
-    scraper::Scraper,
-    util::{discord, globals::OSU_API_ISSUE},
+    scraper::{Scraper, ScraperScore},
+    util::globals::{AVATAR_URL, OSU_API_ISSUE},
     DiscordLinks, Osu,
 };
 
@@ -11,14 +11,17 @@ use rosu::{
     backend::requests::RecentRequest,
     models::{
         ApprovalStatus::{Loved, Ranked},
-        GameMode, GameMods,
+        Beatmap, GameMode, GameMods,
     },
 };
 use serenity::{
+    cache::CacheRwLock,
+    collector::{ReactionAction, ReactionCollectorBuilder},
     framework::standard::{macros::command, Args, CommandError, CommandResult},
-    model::prelude::Message,
-    prelude::Context,
+    model::channel::{Message, ReactionType},
+    prelude::{Context, RwLock, ShareMap},
 };
+use std::{sync::Arc, time::Duration};
 
 #[allow(clippy::cognitive_complexity)]
 async fn recent_lb_send(
@@ -28,7 +31,7 @@ async fn recent_lb_send(
     msg: &Message,
     args: Args,
 ) -> CommandResult {
-    let author_name = {
+    let init_name = {
         let data = ctx.data.read().await;
         let links = data
             .get::<DiscordLinks>()
@@ -132,11 +135,26 @@ async fn recent_lb_send(
         }
     };
     let amount = scores.len();
-    let scores: Vec<_> = scores.into_iter().take(10).collect();
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match BasicEmbedData::create_leaderboard(author_name, map, scores, &ctx).await {
+    let author_icon = scores
+        .first()
+        .map(|s| format!("{}{}", AVATAR_URL, s.user_id));
+    let data = match BasicEmbedData::create_leaderboard(
+        &init_name.as_deref(),
+        &map,
+        if scores.is_empty() {
+            None
+        } else {
+            Some(scores.iter().take(10))
+        },
+        &author_icon,
+        0,
+        &ctx,
+    )
+    .await
+    {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id
@@ -174,9 +192,173 @@ async fn recent_lb_send(
             warn!("Could not add map of recent command to database: {}", why);
         }
     }
+    let mut response = response?;
 
-    discord::reaction_deletion(&ctx, response?, msg.author.id);
+    // Collect reactions of author on the response
+    let mut collector = ReactionCollectorBuilder::new(&ctx)
+        .author_id(msg.author.id)
+        .message_id(response.id)
+        .timeout(Duration::from_secs(60))
+        .await;
+    let mut idx = 0;
+
+    // Add initial reactions
+    let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
+    for &reaction in reactions.iter() {
+        response.react(&ctx.http, reaction).await?;
+    }
+
+    // Check if the author wants to edit the response
+    let http = Arc::clone(&ctx.http);
+    let cache = ctx.cache.clone();
+    let data = Arc::clone(&ctx.data);
+    tokio::spawn(async move {
+        let author_name = init_name.as_deref();
+        while let Some(reaction) = collector.receive_one().await {
+            if let ReactionAction::Added(reaction) = &*reaction {
+                if let ReactionType::Unicode(reaction_name) = &reaction.emoji {
+                    if reaction_name.as_str() == "❌" {
+                        response.delete((&cache, &*http)).await?;
+                    } else if !scores.is_empty() {
+                        let reaction_data = reaction_data(
+                            reaction_name.as_str(),
+                            &mut idx,
+                            &map,
+                            &scores,
+                            &author_name,
+                            &author_icon,
+                            &cache,
+                            &data,
+                        );
+                        match reaction_data.await {
+                            ReactionData::None => {}
+                            ReactionData::Data(data) => {
+                                response
+                                    .edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
+                                    .await?
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for &reaction in reactions.iter() {
+            response
+                .channel_id
+                .delete_reaction(&http, response.id, None, reaction)
+                .await?;
+        }
+        Ok::<_, serenity::Error>(())
+    });
     Ok(())
+}
+
+enum ReactionData {
+    Data(Box<BasicEmbedData>),
+    None,
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn reaction_data(
+    reaction: &str,
+    idx: &mut usize,
+    map: &Beatmap,
+    scores: &[ScraperScore],
+    author_name: &Option<&str>,
+    author_icon: &Option<String>,
+    cache: &CacheRwLock,
+    data: &Arc<RwLock<ShareMap>>,
+) -> ReactionData {
+    let amount = scores.len();
+    match reaction {
+        "⏮️" => {
+            if *idx > 0 {
+                *idx = 0;
+                BasicEmbedData::create_leaderboard(
+                    author_name,
+                    map,
+                    Some(scores.iter().take(10)),
+                    author_icon,
+                    *idx,
+                    (cache, data),
+                )
+                .await
+                .map(|data| ReactionData::Data(Box::new(data)))
+                .unwrap_or_else(|why| {
+                    warn!("Error editing rlb data at idx {}/{}: {}", idx, amount, why);
+                    ReactionData::None
+                })
+            } else {
+                ReactionData::None
+            }
+        }
+        "⏪" => {
+            if *idx > 0 {
+                *idx = idx.saturating_sub(10);
+                BasicEmbedData::create_leaderboard(
+                    author_name,
+                    map,
+                    Some(scores.iter().skip(*idx).take(10)),
+                    author_icon,
+                    *idx,
+                    (cache, data),
+                )
+                .await
+                .map(|data| ReactionData::Data(Box::new(data)))
+                .unwrap_or_else(|why| {
+                    warn!("Error editing rlb data at idx {}/{}: {}", idx, amount, why);
+                    ReactionData::None
+                })
+            } else {
+                ReactionData::None
+            }
+        }
+        "⏩" => {
+            let limit = amount.saturating_sub(10);
+            if *idx < limit {
+                *idx = limit.min(*idx + 10);
+                BasicEmbedData::create_leaderboard(
+                    author_name,
+                    map,
+                    Some(scores.iter().skip(*idx).take(10)),
+                    author_icon,
+                    *idx,
+                    (cache, data),
+                )
+                .await
+                .map(|data| ReactionData::Data(Box::new(data)))
+                .unwrap_or_else(|why| {
+                    warn!("Error editing rlb data at idx {}/{}: {}", idx, amount, why);
+                    ReactionData::None
+                })
+            } else {
+                ReactionData::None
+            }
+        }
+        "⏭️" => {
+            let limit = amount.saturating_sub(10);
+            if *idx < limit {
+                *idx = limit;
+                BasicEmbedData::create_leaderboard(
+                    author_name,
+                    map,
+                    Some(scores.iter().skip(*idx).take(10)),
+                    author_icon,
+                    *idx,
+                    (cache, data),
+                )
+                .await
+                .map(|data| ReactionData::Data(Box::new(data)))
+                .unwrap_or_else(|why| {
+                    warn!("Error editing rlb data at idx {}/{}: {}", idx, amount, why);
+                    ReactionData::None
+                })
+            } else {
+                ReactionData::None
+            }
+        }
+        _ => ReactionData::None,
+    }
 }
 
 #[command]

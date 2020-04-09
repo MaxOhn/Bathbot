@@ -5,7 +5,7 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use std::{thread, time::Duration};
+use tokio::time::{self, Duration};
 
 async fn song_send(lyrics: &[&str], delay: u64, ctx: &mut Context, msg: &Message) -> CommandResult {
     let allow = {
@@ -29,7 +29,7 @@ async fn song_send(lyrics: &[&str], delay: u64, ctx: &mut Context, msg: &Message
             .say(&ctx.http, format!("♫ {} ♫", lyrics[0]))
             .await?;
         for line in lyrics.iter().skip(1) {
-            thread::sleep(delay);
+            time::delay_for(delay).await;
             msg.channel_id
                 .say(&ctx.http, format!("♫ {} ♫", line))
                 .await?;
