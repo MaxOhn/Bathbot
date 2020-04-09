@@ -93,7 +93,7 @@ async fn recent_send(
     };
 
     // Get all relevant maps from the database
-    let map_ids: HashSet<u32> = scores.iter().map(|s| s.beatmap_id.unwrap()).collect();
+    let mut map_ids: HashSet<u32> = scores.iter().map(|s| s.beatmap_id.unwrap()).collect();
     let mut maps = {
         let dedubed_ids: Vec<u32> = map_ids.iter().copied().collect();
         let data = ctx.data.read().await;
@@ -107,6 +107,9 @@ async fn recent_send(
         maps.len(),
         map_ids.len()
     );
+
+    // Memoize which maps are already in the DB
+    map_ids.retain(|id| maps.contains_key(&id));
 
     let first_score = scores.first().unwrap();
     let first_id = first_score.beatmap_id.unwrap();
@@ -123,31 +126,6 @@ async fn recent_send(
                 }
             };
             maps.insert(first_id, map);
-        }
-    }
-
-    // Retrieving all missing beatmaps
-    let mut missing_ids = Vec::with_capacity(map_ids.len());
-    #[allow(clippy::map_entry)]
-    {
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
-        for score in scores.iter() {
-            let map_id = score.beatmap_id.unwrap();
-            if !maps.contains_key(&map_id) {
-                let map = match score.get_beatmap(osu).await {
-                    Ok(map) => map,
-                    Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                        return Err(CommandError::from(why.to_string()));
-                    }
-                };
-                match map.approval_status {
-                    Ranked | Loved => missing_ids.push(map_id),
-                    _ => {}
-                }
-                maps.insert(map_id, map);
-            };
         }
     }
 
@@ -212,30 +190,13 @@ async fn recent_send(
     };
 
     // Creating the embed
-    let response = msg
+    let mut response = msg
         .channel_id
         .send_message(&ctx.http, |m| {
             m.content(format!("Try #{}", tries))
                 .embed(|e| embed_data.build(e))
         })
-        .await;
-
-    // Add missing maps to database
-    if !missing_ids.is_empty() {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-        let missing_maps: Vec<Beatmap> = missing_ids
-            .into_iter()
-            .map(|id| maps.get(&id).unwrap().clone())
-            .collect();
-        if let Err(why) = mysql.insert_beatmaps(missing_maps) {
-            warn!(
-                "Could not add missing maps of top command to database: {}",
-                why
-            );
-        }
-    }
-    let mut response = response?;
+        .await?;
 
     // Collect reactions of author on the response
     let mut collector = ReactionCollectorBuilder::new(&ctx)
@@ -306,6 +267,20 @@ async fn recent_send(
         response
             .edit((&cache, &*http), |m| m.embed(|e| embed_data.minimize(e)))
             .await?;
+
+        // Put missing maps into DB
+        if maps.len() > map_ids.len() {
+            let maps: Vec<Beatmap> = maps
+                .into_iter()
+                .filter(|(id, _)| !map_ids.contains(&id))
+                .map(|(_, map)| map)
+                .collect();
+            let data = data.read().await;
+            let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+            if let Err(why) = mysql.insert_beatmaps(maps) {
+                warn!("Error while adding maps to DB: {}", why);
+            }
+        }
         Ok(())
     });
     Ok(())

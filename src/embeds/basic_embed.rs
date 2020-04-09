@@ -1400,7 +1400,7 @@ fn add_team(description: &mut String, team: Vec<(String, f32)>, with_mvp: bool) 
             idx = i + 1,
             name = name,
             base = HOMEPAGE,
-            name_r = name.replace(" ", "+"),
+            name_r = name.replace(" ", "%20"),
             cost = round(cost),
             crown = if i == 0 && with_mvp { " :crown:" } else { "" },
         );

@@ -34,7 +34,7 @@ use std::{
     sync::Arc,
 };
 use strfmt::strfmt;
-use tokio::{task, time};
+use tokio::time;
 
 pub struct Handler;
 
@@ -45,9 +45,7 @@ impl EventHandler for Handler {
         if WITH_CUSTOM_EVENTS {
             let http = ctx.http.clone();
             let data = ctx.data.clone();
-            let _ = task::spawn(async move {
-                let http = http;
-                let data = data;
+            let _ = tokio::spawn(async move {
                 let track_delay = 1;
                 let day_limit = 10;
                 let mut interval = time::interval(time::Duration::from_secs(track_delay * 86_400));
@@ -65,11 +63,11 @@ impl EventHandler for Handler {
         if WITH_STREAM_TRACK {
             let http = ctx.http.clone();
             let data = ctx.data.clone();
-            let _ = task::spawn(async {
-                let http = http;
-                let data = data;
+            let _ = tokio::spawn(async move {
                 let track_delay = 10;
-                let mut interval = time::interval(time::Duration::from_secs(track_delay * 60));
+                // let mut interval = time::interval(time::Duration::from_secs(track_delay * 60));
+                let mut interval = time::interval(time::Duration::from_secs(track_delay));
+                interval.tick().await;
                 loop {
                     _check_streams(&http, Arc::clone(&data).clone()).await;
                     interval.tick().await;
@@ -559,7 +557,7 @@ async fn _check_streams(http: &Http, data: Arc<RwLock<ShareMap>>) {
                 .collect();
 
             // Process each tracking by notifying corresponding channels
-            stream_tracks.par_iter().for_each(|track| {
+            for track in stream_tracks {
                 if streams.contains_key(&track.user_id) {
                     let stream = streams.get(&track.user_id).unwrap();
                     let data = BasicEmbedData::create_twitch_stream_notif(
@@ -567,9 +565,10 @@ async fn _check_streams(http: &Http, data: Arc<RwLock<ShareMap>>) {
                         users.get(&stream.user_id).unwrap(),
                     );
                     let _ = ChannelId(track.channel_id)
-                        .send_message(http, |m| m.embed(|e| data.build(e)));
+                        .send_message(http, |m| m.embed(|e| data.build(e)))
+                        .await;
                 }
-            });
+            }
             Some(now_online)
         }
     };
