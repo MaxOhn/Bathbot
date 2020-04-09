@@ -107,21 +107,6 @@ async fn recent_send(
         maps.len(),
         map_ids.len()
     );
-    let retrieving_msg = if scores.len() - maps.len() > 15 {
-        Some(
-            msg.channel_id
-                .say(
-                    &ctx.http,
-                    format!(
-                        "Retrieving {} maps from the api...",
-                        map_ids.len() - maps.len()
-                    ),
-                )
-                .await?,
-        )
-    } else {
-        None
-    };
 
     let first_score = scores.first().unwrap();
     let first_id = first_score.beatmap_id.unwrap();
@@ -225,10 +210,6 @@ async fn recent_send(
             return Err(CommandError::from(why.to_string()));
         }
     };
-
-    if let Some(msg) = retrieving_msg {
-        msg.delete(&ctx.http).await?;
-    }
 
     // Creating the embed
     let response = msg
