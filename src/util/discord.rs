@@ -13,7 +13,7 @@ use serenity::{
         guild::Member,
         id::{ChannelId, UserId},
     },
-    prelude::Context,
+    prelude::{Context, RwLock, ShareMap},
 };
 use std::{str::FromStr, sync::Arc, time::Duration};
 
@@ -133,4 +133,54 @@ pub fn reaction_deletion(ctx: &Context, msg: Message, owner: UserId) {
             }
         }
     });
+}
+
+pub trait CacheData {
+    fn cache(&self) -> &CacheRwLock;
+    fn data(&self) -> &Arc<RwLock<ShareMap>>;
+}
+
+impl CacheData for &Context {
+    fn cache(&self) -> &CacheRwLock {
+        &self.cache
+    }
+    fn data(&self) -> &Arc<RwLock<ShareMap>> {
+        &self.data
+    }
+}
+
+impl CacheData for &mut Context {
+    fn cache(&self) -> &CacheRwLock {
+        &self.cache
+    }
+    fn data(&self) -> &Arc<RwLock<ShareMap>> {
+        &self.data
+    }
+}
+
+impl CacheData for &&mut Context {
+    fn cache(&self) -> &CacheRwLock {
+        &self.cache
+    }
+    fn data(&self) -> &Arc<RwLock<ShareMap>> {
+        &self.data
+    }
+}
+
+impl CacheData for (CacheRwLock, Arc<RwLock<ShareMap>>) {
+    fn cache(&self) -> &CacheRwLock {
+        &self.0
+    }
+    fn data(&self) -> &Arc<RwLock<ShareMap>> {
+        &self.1
+    }
+}
+
+impl CacheData for (&CacheRwLock, &Arc<RwLock<ShareMap>>) {
+    fn cache(&self) -> &CacheRwLock {
+        self.0
+    }
+    fn data(&self) -> &Arc<RwLock<ShareMap>> {
+        self.1
+    }
 }

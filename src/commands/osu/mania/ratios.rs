@@ -75,7 +75,7 @@ async fn ratios(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     };
 
     // Accumulate all necessary data
-    let data = match BasicEmbedData::create_ratio(user, scores, &ctx).await {
+    let data = match BasicEmbedData::create_ratio(user, scores, ctx.data.clone()).await {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id

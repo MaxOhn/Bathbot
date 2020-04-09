@@ -4,11 +4,12 @@ use crate::{
 };
 
 use rosu::models::{ApprovalStatus, Beatmap, GameMode, GameMods, Grade, Score};
-use serenity::prelude::Context;
+use serenity::prelude::{RwLock, ShareMap};
 use std::{
     env, mem,
     process::{Child, Command, Stdio},
     str::FromStr,
+    sync::Arc,
 };
 
 pub enum PPProvider {
@@ -57,9 +58,13 @@ async fn new_oppai(score: &Score, map: &Beatmap) -> Result<PPProvider, Error> {
 }
 
 #[allow(clippy::cognitive_complexity)]
-async fn new_mania(score: &Score, map: &Beatmap, ctx: &Context) -> Result<PPProvider, Error> {
+async fn new_mania(
+    score: &Score,
+    map: &Beatmap,
+    data: Arc<RwLock<ShareMap>>,
+) -> Result<PPProvider, Error> {
     let mutex = if score.pp.is_none() {
-        let data = ctx.data.read().await;
+        let data = data.read().await;
         Some(
             data.get::<PerformanceCalculatorLock>()
                 .expect("Could not get PerformanceCalculatorLock")
@@ -71,7 +76,7 @@ async fn new_mania(score: &Score, map: &Beatmap, ctx: &Context) -> Result<PPProv
     let half_score = 500_000.0 * score.enabled_mods.score_multiplier(GameMode::MNA);
     let (stars, stars_in_db) = if score.enabled_mods.changes_stars(GameMode::MNA) {
         // Try retrieving stars from database
-        let data = ctx.data.read().await;
+        let data = data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         match mysql.get_mania_mod_stars(map.beatmap_id, &score.enabled_mods) {
             Ok(result) => (result, true),
@@ -101,7 +106,7 @@ async fn new_mania(score: &Score, map: &Beatmap, ctx: &Context) -> Result<PPProv
     };
     // Try retrieving max pp of the map from database
     let (max_pp, map_in_db) = {
-        let data = ctx.data.read().await;
+        let data = data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         match mysql.get_mania_mod_pp(map.beatmap_id, &score.enabled_mods) {
             Ok(result) => (result, true),
@@ -135,7 +140,7 @@ async fn new_mania(score: &Score, map: &Beatmap, ctx: &Context) -> Result<PPProv
             || map.approval_status == ApprovalStatus::Loved
         {
             // Insert max pp value into database
-            let data = ctx.data.read().await;
+            let data = data.read().await;
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
             if map_in_db {
                 mysql.update_mania_pp_map(map.beatmap_id, &score.enabled_mods, max_pp)?;
@@ -154,7 +159,7 @@ async fn new_mania(score: &Score, map: &Beatmap, ctx: &Context) -> Result<PPProv
             || map.approval_status == ApprovalStatus::Loved
         {
             // Insert stars value into database
-            let data = ctx.data.read().await;
+            let data = data.read().await;
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
             if stars_in_db {
                 mysql.update_mania_stars_map(map.beatmap_id, &score.enabled_mods, stars)?;
@@ -169,11 +174,15 @@ async fn new_mania(score: &Score, map: &Beatmap, ctx: &Context) -> Result<PPProv
 
 impl PPProvider {
     /// ctx is only required for mania
-    pub async fn new(score: &Score, map: &Beatmap, ctx: Option<&Context>) -> Result<Self, Error> {
+    pub async fn new(
+        score: &Score,
+        map: &Beatmap,
+        data: Option<Arc<RwLock<ShareMap>>>,
+    ) -> Result<Self, Error> {
         match map.mode {
             GameMode::STD | GameMode::TKO => new_oppai(score, map).await,
-            GameMode::MNA => match ctx {
-                Some(ctx) => new_mania(score, map, ctx).await,
+            GameMode::MNA => match data {
+                Some(data) => new_mania(score, map, data).await,
                 None => Err(Error::Custom(
                     "Cannot calculate mania pp without &Context".to_string(),
                 )),
@@ -204,7 +213,7 @@ impl PPProvider {
     pub async fn calculate_mania_pp<S>(
         score: &S,
         map: &Beatmap,
-        ctx: &Context,
+        data: Arc<RwLock<ShareMap>>,
     ) -> Result<f32, Error>
     where
         S: SubScore,
@@ -215,7 +224,7 @@ impl PPProvider {
             Ok(0.0)
         } else {
             let mutex = {
-                let data = ctx.data.read().await;
+                let data = data.read().await;
                 data.get::<PerformanceCalculatorLock>()
                     .expect("Could not get PerformanceCalculatorLock")
                     .clone()
@@ -229,7 +238,7 @@ impl PPProvider {
     pub async fn calculate_max(
         map: &Beatmap,
         mods: &GameMods,
-        ctx: Option<&Context>,
+        data: Option<Arc<RwLock<ShareMap>>>,
     ) -> Result<f32, Error> {
         match map.mode {
             GameMode::STD | GameMode::TKO => {
@@ -242,10 +251,10 @@ impl PPProvider {
                 Ok(oppai.calculate(Some(&map_path))?.get_pp())
             }
             GameMode::MNA => {
-                let ctx = ctx.unwrap();
+                let data = data.unwrap();
                 // Try retrieving max pp of the map from database
                 let (max_pp, map_in_db) = {
-                    let data = ctx.data.read().await;
+                    let data = data.read().await;
                     let mysql = data.get::<MySQL>().expect("Could not get MySQL");
                     match mysql.get_mania_mod_pp(map.beatmap_id, &mods) {
                         Ok(result) => (result, true),
@@ -267,7 +276,7 @@ impl PPProvider {
                 } else {
                     let max_pp = {
                         let mutex = {
-                            let data = ctx.data.read().await;
+                            let data = data.read().await;
                             data.get::<PerformanceCalculatorLock>()
                                 .expect("Could not get PerformanceCalculatorLock")
                                 .clone()
@@ -277,7 +286,7 @@ impl PPProvider {
                         parse_pp_calc(max_pp_child)?
                     };
                     // Insert max pp value into database
-                    let data = ctx.data.read().await;
+                    let data = data.read().await;
                     let mysql = data.get::<MySQL>().expect("Could not get MySQL");
                     if map_in_db {
                         mysql.update_mania_pp_map(map.beatmap_id, &mods, max_pp)?;

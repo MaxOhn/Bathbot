@@ -51,6 +51,7 @@ impl EventHandler for Handler {
                 let track_delay = 1;
                 let day_limit = 10;
                 let mut interval = time::interval(time::Duration::from_secs(track_delay * 86_400));
+                interval.tick().await;
                 loop {
                     _not_checked_role(&http, Arc::clone(&data), day_limit).await;
                     _top_role(&http, Arc::clone(&data)).await;

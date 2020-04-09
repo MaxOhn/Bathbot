@@ -12,12 +12,16 @@ use rosu::{
     OsuError,
 };
 use serenity::{
+    cache::CacheRwLock,
     collector::{ReactionAction, ReactionCollectorBuilder},
     framework::standard::{macros::command, Args, CommandError, CommandResult},
     model::channel::{Message, ReactionType},
-    prelude::Context,
+    prelude::{Context, RwLock, ShareMap},
 };
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 use tokio::time::Duration;
 
 #[allow(clippy::cognitive_complexity)]
@@ -240,7 +244,7 @@ async fn recent_send(
     let mut collector = ReactionCollectorBuilder::new(&ctx)
         .author_id(msg.author.id)
         .message_id(response.id)
-        .timeout(Duration::from_secs(60))
+        .timeout(Duration::from_secs(45))
         .await;
     let mut idx = 0;
 
@@ -251,48 +255,62 @@ async fn recent_send(
     }
 
     // Check if the author wants to edit the response
-    while let Some(reaction) = collector.receive_one().await {
-        if let ReactionAction::Added(reaction) = &*reaction {
-            if let ReactionType::Unicode(reaction_name) = &reaction.emoji {
-                let reaction_data = reaction_data(
-                    reaction_name.as_str(),
-                    &mut idx,
-                    &user,
-                    &scores,
-                    &maps,
-                    &best,
-                    &mut global,
-                    &ctx,
-                );
-                match reaction_data.await {
-                    Ok(ReactionData::None) => {}
-                    Ok(ReactionData::Delete) => response.delete(&ctx).await?,
-                    Ok(ReactionData::Data { data, idx }) => {
-                        let content = format!("Recent score #{}", idx + 1);
-                        embed_data = *data;
-                        response
-                            .edit(&ctx, |m| m.content(content).embed(|e| embed_data.build(e)))
-                            .await?
-                    }
-                    Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                        return Err(CommandError::from(why.to_string()));
+    let http = Arc::clone(&ctx.http);
+    let cache = ctx.cache.clone();
+    let data = Arc::clone(&ctx.data);
+    tokio::spawn(async move {
+        while let Some(reaction) = collector.receive_one().await {
+            if let ReactionAction::Added(reaction) = &*reaction {
+                if let ReactionType::Unicode(reaction_name) = &reaction.emoji {
+                    let reaction_data = reaction_data(
+                        reaction_name.as_str(),
+                        &mut idx,
+                        &user,
+                        &scores,
+                        &maps,
+                        &best,
+                        &mut global,
+                        &cache,
+                        &data,
+                    );
+                    match reaction_data.await {
+                        Ok(ReactionData::None) => {}
+                        Ok(ReactionData::Delete) => {
+                            response.delete((&cache, &*http)).await?;
+                            return Ok(());
+                        }
+                        Ok(ReactionData::Data { data, idx }) => {
+                            let content = format!("Recent score #{}", idx + 1);
+                            embed_data = *data;
+                            response
+                                .edit((&cache, &*http), |m| {
+                                    m.content(content).embed(|e| embed_data.build(e))
+                                })
+                                .await?
+                        }
+                        Err(why) => {
+                            response.channel_id.say(&http, OSU_API_ISSUE).await?;
+                            return Err(CommandError::from(why.to_string()));
+                        }
                     }
                 }
             }
         }
-    }
-    for &reaction in reactions.iter() {
-        response
-            .channel_id
-            .delete_reaction(&ctx.http, response.id, None, reaction)
-            .await?;
-    }
 
-    // Minimize embed
-    response
-        .edit(&ctx, |m| m.embed(|e| embed_data.minimize(e)))
-        .await?;
+        // Remove initial reactions
+        for &reaction in reactions.iter() {
+            response
+                .channel_id
+                .delete_reaction(&http, response.id, None, reaction)
+                .await?;
+        }
+
+        // Minimize embed
+        response
+            .edit((&cache, &*http), |m| m.embed(|e| embed_data.minimize(e)))
+            .await?;
+        Ok(())
+    });
     Ok(())
 }
 
@@ -311,7 +329,8 @@ async fn reaction_data(
     maps: &HashMap<u32, Beatmap>,
     best: &[Score],
     global: &mut HashMap<u32, Vec<Score>>,
-    ctx: &Context,
+    cache: &CacheRwLock,
+    data: &Arc<RwLock<ShareMap>>,
 ) -> Result<ReactionData, OsuError> {
     let amount = scores.len();
     let data = match reaction {
@@ -321,8 +340,8 @@ async fn reaction_data(
                 *idx = 0;
                 let score = scores.first().unwrap();
                 let map = maps.get(&score.beatmap_id.unwrap()).unwrap();
-                let global_lb = global_lb(ctx, map, global).await?;
-                RecentData::new(&user, score, map, best, global_lb, ctx)
+                let global_lb = global_lb(data, map, global).await?;
+                RecentData::new(&user, score, map, best, global_lb, (cache, data))
                     .await
                     .map(|data| ReactionData::Data {
                         data: Box::new(data),
@@ -344,8 +363,8 @@ async fn reaction_data(
                 *idx = idx.saturating_sub(5);
                 let score = scores.get(*idx).unwrap();
                 let map = maps.get(&score.beatmap_id.unwrap()).unwrap();
-                let global_lb = global_lb(ctx, map, global).await?;
-                RecentData::new(&user, score, map, best, global_lb, ctx)
+                let global_lb = global_lb(data, map, global).await?;
+                RecentData::new(&user, score, map, best, global_lb, (cache, data))
                     .await
                     .map(|data| ReactionData::Data {
                         data: Box::new(data),
@@ -367,8 +386,8 @@ async fn reaction_data(
                 *idx = idx.saturating_sub(1);
                 let score = scores.get(*idx).unwrap();
                 let map = maps.get(&score.beatmap_id.unwrap()).unwrap();
-                let global_lb = global_lb(ctx, map, global).await?;
-                RecentData::new(&user, score, map, best, global_lb, ctx)
+                let global_lb = global_lb(data, map, global).await?;
+                RecentData::new(&user, score, map, best, global_lb, (cache, data))
                     .await
                     .map(|data| ReactionData::Data {
                         data: Box::new(data),
@@ -391,8 +410,8 @@ async fn reaction_data(
                 *idx = limit.min(*idx + 1);
                 let score = scores.get(*idx).unwrap();
                 let map = maps.get(&score.beatmap_id.unwrap()).unwrap();
-                let global_lb = global_lb(ctx, map, global).await?;
-                RecentData::new(&user, score, map, best, global_lb, ctx)
+                let global_lb = global_lb(data, map, global).await?;
+                RecentData::new(&user, score, map, best, global_lb, (cache, data))
                     .await
                     .map(|data| ReactionData::Data {
                         data: Box::new(data),
@@ -415,8 +434,8 @@ async fn reaction_data(
                 *idx = limit.min(*idx + 5);
                 let score = scores.get(*idx).unwrap();
                 let map = maps.get(&score.beatmap_id.unwrap()).unwrap();
-                let global_lb = global_lb(ctx, map, global).await?;
-                RecentData::new(&user, score, map, best, global_lb, ctx)
+                let global_lb = global_lb(data, map, global).await?;
+                RecentData::new(&user, score, map, best, global_lb, (cache, data))
                     .await
                     .map(|data| ReactionData::Data {
                         data: Box::new(data),
@@ -439,8 +458,8 @@ async fn reaction_data(
                 *idx = limit;
                 let score = scores.get(*idx).unwrap();
                 let map = maps.get(&score.beatmap_id.unwrap()).unwrap();
-                let global_lb = global_lb(ctx, map, global).await?;
-                RecentData::new(&user, score, map, best, global_lb, ctx)
+                let global_lb = global_lb(data, map, global).await?;
+                RecentData::new(&user, score, map, best, global_lb, (cache, data))
                     .await
                     .map(|data| ReactionData::Data {
                         data: Box::new(data),
@@ -464,12 +483,12 @@ async fn reaction_data(
 
 #[allow(clippy::map_entry)]
 async fn global_lb<'g>(
-    ctx: &Context,
+    data: &Arc<RwLock<ShareMap>>,
     map: &Beatmap,
     global: &'g mut HashMap<u32, Vec<Score>>,
 ) -> Result<&'g [Score], OsuError> {
     if !global.contains_key(&map.beatmap_id) {
-        let data = ctx.data.read().await;
+        let data = data.read().await;
         let osu = data.get::<Osu>().expect("Could not get Osu");
         let global_lb = map.get_global_leaderboard(&osu, 50).await?;
         global.insert(map.beatmap_id, global_lb);

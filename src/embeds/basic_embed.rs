@@ -5,7 +5,7 @@ use crate::{
     streams::{TwitchStream, TwitchUser},
     util::{
         datetime::{date_to_string, how_long_ago, sec_to_minsec},
-        discord,
+        discord::{self, CacheData},
         globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL, TWITCH_BASE},
         numbers::{round, round_and_comma, round_precision, with_comma_u64},
         osu,
@@ -24,7 +24,7 @@ use serenity::{
     builder::CreateEmbed,
     cache::CacheRwLock,
     model::{gateway::Presence, id::UserId},
-    prelude::Context,
+    prelude::{RwLock, ShareMap},
     utils::Colour,
 };
 use std::{
@@ -33,6 +33,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     f32,
     fmt::Write,
+    sync::Arc,
     u32,
 };
 
@@ -337,12 +338,15 @@ impl BasicEmbedData {
     //
     // leaderboard
     //
-    pub async fn create_leaderboard(
+    pub async fn create_leaderboard<D>(
         init_name: Option<String>,
         map: Beatmap,
         scores: Vec<ScraperScore>,
-        ctx: &Context,
-    ) -> Result<Self, Error> {
+        cache_data: D,
+    ) -> Result<Self, Error>
+    where
+        D: CacheData,
+    {
         let mut result = Self::default();
         let mut author_text = String::with_capacity(16);
         if map.mode == GameMode::MNA {
@@ -374,13 +378,13 @@ impl BasicEmbedData {
                 if found_author {
                     username.push_str("__");
                 }
+                let cache = cache_data.cache().clone();
+                let data = Arc::clone(cache_data.data());
                 description.push_str(&format!(
                     "**{idx}.** {emote} **{name}**: {score} [ {combo} ]{mods}\n\
                      - {pp} ~ {acc}% ~ {ago}\n",
                     idx = i + 1,
-                    emote = osu::grade_emote(score.grade, ctx.cache.clone())
-                        .await
-                        .to_string(),
+                    emote = osu::grade_emote(score.grade, cache).await.to_string(),
                     name = username,
                     score = with_comma_u64(score.score as u64),
                     combo = get_combo(&score, &map),
@@ -389,7 +393,7 @@ impl BasicEmbedData {
                     } else {
                         format!(" **+{}**", score.enabled_mods)
                     },
-                    pp = get_pp(&mut mod_map, &score, &map, ctx).await?,
+                    pp = get_pp(&mut mod_map, &score, &map, data).await?,
                     acc = round(score.accuracy),
                     ago = how_long_ago(&score.date),
                 ));
@@ -1027,7 +1031,7 @@ impl BasicEmbedData {
     pub async fn create_ratio(
         user: User,
         scores: Vec<Score>,
-        ctx: &Context,
+        data: Arc<RwLock<ShareMap>>,
     ) -> Result<Self, Error> {
         let mut result = Self::default();
         let mut accs = vec![0, 90, 95, 97, 99];
@@ -1079,7 +1083,7 @@ impl BasicEmbedData {
             }
         }
         let previous_ratios = {
-            let data = ctx.data.read().await;
+            let data = data.read().await;
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
             mysql.update_ratios(
                 &user.username,
@@ -1147,12 +1151,15 @@ impl BasicEmbedData {
     //
     // scores
     //
-    pub async fn create_scores(
+    pub async fn create_scores<D>(
         user: User,
         map: Beatmap,
         scores: Vec<Score>,
-        ctx: &Context,
-    ) -> Result<Self, Error> {
+        cache_data: D,
+    ) -> Result<Self, Error>
+    where
+        D: CacheData,
+    {
         let mut result = Self::default();
         let title = map.to_string();
         let title_url = format!("{}b/{}", HOMEPAGE, map.beatmap_id);
@@ -1166,7 +1173,8 @@ impl BasicEmbedData {
         let mut fields = Vec::new();
         for (i, score) in scores.into_iter().enumerate() {
             let (stars, pp) = {
-                let pp_provider = match PPProvider::new(&score, &map, Some(ctx)).await {
+                let data = Arc::clone(cache_data.data());
+                let pp_provider = match PPProvider::new(&score, &map, Some(data)).await {
                     Ok(provider) => provider,
                     Err(why) => {
                         return Err(Error::Custom(format!(
@@ -1180,10 +1188,11 @@ impl BasicEmbedData {
                     util::get_pp(&score, &pp_provider, map.mode),
                 )
             };
+            let cache = cache_data.cache().clone();
             let mut name = format!(
                 "**{idx}.** {grade}\t[{stars}]\t{score}\t({acc})",
                 idx = i + 1,
-                grade = util::get_grade_completion_mods(&score, &map, ctx.cache.clone()).await,
+                grade = util::get_grade_completion_mods(&score, &map, cache).await,
                 stars = stars,
                 score = with_comma_u64(score.score as u64),
                 acc = util::get_acc(&score, map.mode),
@@ -1230,23 +1239,26 @@ impl BasicEmbedData {
     //
     // top
     //
-    pub async fn create_top<'i, S>(
+    pub async fn create_top<'i, S, D>(
         user: &User,
         scores_data: S,
         mode: GameMode,
-        ctx: &Context,
+        cache_data: D,
     ) -> Result<Self, Error>
     where
         S: Iterator<Item = &'i (usize, Score, Beatmap)>,
+        D: CacheData,
     {
         let mut result = Self::default();
         let (author_icon, author_url, author_text) = get_user_author(user);
         let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
         let mut description = String::with_capacity(512);
         for (idx, score, map) in scores_data {
-            let grade = { osu::grade_emote(score.grade, ctx.cache.clone()).await };
+            let cache = cache_data.cache().clone();
+            let grade = { osu::grade_emote(score.grade, cache).await };
             let (stars, pp) = {
-                let pp_provider = match PPProvider::new(&score, &map, Some(ctx)).await {
+                let data = Arc::clone(cache_data.data());
+                let pp_provider = match PPProvider::new(&score, &map, Some(data)).await {
                     Ok(provider) => provider,
                     Err(why) => {
                         return Err(Error::Custom(format!(
@@ -1390,7 +1402,7 @@ pub async fn get_pp(
     mod_map: &mut HashMap<u32, f32>,
     score: &ScraperScore,
     map: &Beatmap,
-    ctx: &Context,
+    data: Arc<RwLock<ShareMap>>,
 ) -> Result<String, Error> {
     let bits = score.enabled_mods.as_bits();
     let actual = if score.pp.is_some() {
@@ -1401,7 +1413,9 @@ pub async fn get_pp(
             GameMode::STD | GameMode::TKO => {
                 Some(PPProvider::calculate_oppai_pp(score, map).await?)
             }
-            GameMode::MNA => Some(PPProvider::calculate_mania_pp(score, map, ctx).await?),
+            GameMode::MNA => {
+                Some(PPProvider::calculate_mania_pp(score, map, Arc::clone(&data)).await?)
+            }
         }
     };
     #[allow(clippy::map_entry)]
@@ -1410,7 +1424,7 @@ pub async fn get_pp(
     } else if map.mode == GameMode::CTB {
         None
     } else {
-        let max = PPProvider::calculate_max(&map, &score.enabled_mods, Some(ctx)).await?;
+        let max = PPProvider::calculate_max(&map, &score.enabled_mods, Some(data)).await?;
         mod_map.insert(bits, max);
         Some(max)
     };

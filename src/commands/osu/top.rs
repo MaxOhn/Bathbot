@@ -12,12 +12,13 @@ use rosu::{
     models::{Beatmap, GameMod, GameMode, GameMods, Score, User},
 };
 use serenity::{
+    cache::CacheRwLock,
     collector::{ReactionAction, ReactionCollectorBuilder},
     framework::standard::{macros::command, Args, CommandError, CommandResult},
     model::channel::{Message, ReactionType},
-    prelude::Context,
+    prelude::{Context, RwLock, ShareMap},
 };
-use std::{cmp::Ordering, collections::HashMap, time::Duration};
+use std::{cmp::Ordering, collections::HashMap, sync::Arc, time::Duration};
 
 #[allow(clippy::cognitive_complexity)]
 async fn top_send(
@@ -304,7 +305,7 @@ async fn top_send(
     let mut collector = ReactionCollectorBuilder::new(&ctx)
         .author_id(msg.author.id)
         .message_id(response.id)
-        .timeout(Duration::from_secs(120))
+        .timeout(Duration::from_secs(90))
         .await;
     let mut idx = 0;
 
@@ -315,33 +316,42 @@ async fn top_send(
     }
 
     // Check if the author wants to edit the response
-    while let Some(reaction) = collector.receive_one().await {
-        if let ReactionAction::Added(reaction) = &*reaction {
-            if let ReactionType::Unicode(reaction_name) = &reaction.emoji {
-                let reaction_data = reaction_data(
-                    reaction_name.as_str(),
-                    &mut idx,
-                    &user,
-                    &scores_data,
-                    mode,
-                    &ctx,
-                );
-                match reaction_data.await {
-                    ReactionData::None => {}
-                    ReactionData::Delete => response.delete(&ctx).await?,
-                    ReactionData::Data(data) => {
-                        response.edit(&ctx, |m| m.embed(|e| data.build(e))).await?
+    let http = Arc::clone(&ctx.http);
+    let cache = ctx.cache.clone();
+    let data = Arc::clone(&ctx.data);
+    tokio::spawn(async move {
+        while let Some(reaction) = collector.receive_one().await {
+            if let ReactionAction::Added(reaction) = &*reaction {
+                if let ReactionType::Unicode(reaction_name) = &reaction.emoji {
+                    let reaction_data = reaction_data(
+                        reaction_name.as_str(),
+                        &mut idx,
+                        &user,
+                        &scores_data,
+                        mode,
+                        &cache,
+                        &data,
+                    );
+                    match reaction_data.await {
+                        ReactionData::None => {}
+                        ReactionData::Delete => response.delete((&cache, &*http)).await?,
+                        ReactionData::Data(data) => {
+                            response
+                                .edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
+                                .await?
+                        }
                     }
                 }
             }
         }
-    }
-    for &reaction in reactions.iter() {
-        response
-            .channel_id
-            .delete_reaction(&ctx.http, response.id, None, reaction)
-            .await?;
-    }
+        for &reaction in reactions.iter() {
+            response
+                .channel_id
+                .delete_reaction(&http, response.id, None, reaction)
+                .await?;
+        }
+        Ok::<_, serenity::Error>(())
+    });
     Ok(())
 }
 
@@ -357,7 +367,8 @@ async fn reaction_data(
     user: &User,
     scores: &[(usize, Score, Beatmap)],
     mode: GameMode,
-    ctx: &Context,
+    cache: &CacheRwLock,
+    data: &Arc<RwLock<ShareMap>>,
 ) -> ReactionData {
     let amount = scores.len();
     match reaction {
@@ -365,7 +376,7 @@ async fn reaction_data(
         "⏮️" => {
             if *idx > 0 {
                 *idx = 0;
-                BasicEmbedData::create_top(&user, scores.iter().take(5), mode, ctx)
+                BasicEmbedData::create_top(&user, scores.iter().take(5), mode, (cache, data))
                     .await
                     .map(|data| ReactionData::Data(Box::new(data)))
                     .unwrap_or_else(|why| {
@@ -379,13 +390,18 @@ async fn reaction_data(
         "⏪" => {
             if *idx > 0 {
                 *idx = idx.saturating_sub(5);
-                BasicEmbedData::create_top(&user, scores.iter().skip(*idx).take(5), mode, &ctx)
-                    .await
-                    .map(|data| ReactionData::Data(Box::new(data)))
-                    .unwrap_or_else(|why| {
-                        warn!("Error editing top data at idx {}/{}: {}", idx, amount, why);
-                        ReactionData::None
-                    })
+                BasicEmbedData::create_top(
+                    &user,
+                    scores.iter().skip(*idx).take(5),
+                    mode,
+                    (cache, data),
+                )
+                .await
+                .map(|data| ReactionData::Data(Box::new(data)))
+                .unwrap_or_else(|why| {
+                    warn!("Error editing top data at idx {}/{}: {}", idx, amount, why);
+                    ReactionData::None
+                })
             } else {
                 ReactionData::None
             }
@@ -394,13 +410,18 @@ async fn reaction_data(
             let limit = amount.saturating_sub(5);
             if *idx < limit {
                 *idx = limit.min(*idx + 5);
-                BasicEmbedData::create_top(&user, scores.iter().skip(*idx).take(5), mode, &ctx)
-                    .await
-                    .map(|data| ReactionData::Data(Box::new(data)))
-                    .unwrap_or_else(|why| {
-                        warn!("Error editing top data at idx {}/{}: {}", idx, amount, why);
-                        ReactionData::None
-                    })
+                BasicEmbedData::create_top(
+                    &user,
+                    scores.iter().skip(*idx).take(5),
+                    mode,
+                    (cache, data),
+                )
+                .await
+                .map(|data| ReactionData::Data(Box::new(data)))
+                .unwrap_or_else(|why| {
+                    warn!("Error editing top data at idx {}/{}: {}", idx, amount, why);
+                    ReactionData::None
+                })
             } else {
                 ReactionData::None
             }
@@ -409,13 +430,18 @@ async fn reaction_data(
             let limit = amount.saturating_sub(5);
             if *idx < limit {
                 *idx = limit;
-                BasicEmbedData::create_top(&user, scores.iter().skip(*idx).take(5), mode, &ctx)
-                    .await
-                    .map(|data| ReactionData::Data(Box::new(data)))
-                    .unwrap_or_else(|why| {
-                        warn!("Error editing top data at idx {}/{}: {}", idx, amount, why);
-                        ReactionData::None
-                    })
+                BasicEmbedData::create_top(
+                    &user,
+                    scores.iter().skip(*idx).take(5),
+                    mode,
+                    (cache, data),
+                )
+                .await
+                .map(|data| ReactionData::Data(Box::new(data)))
+                .unwrap_or_else(|why| {
+                    warn!("Error editing top data at idx {}/{}: {}", idx, amount, why);
+                    ReactionData::None
+                })
             } else {
                 ReactionData::None
             }

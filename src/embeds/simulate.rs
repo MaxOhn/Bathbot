@@ -2,6 +2,7 @@ use super::util;
 use crate::{
     arguments::SimulateArgs,
     util::{
+        discord::CacheData,
         globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
         numbers::{round, with_comma_u64},
         osu,
@@ -11,7 +12,8 @@ use crate::{
 };
 
 use rosu::models::{Beatmap, GameMode, Score};
-use serenity::{builder::CreateEmbed, prelude::Context, utils::Colour};
+use serenity::{builder::CreateEmbed, utils::Colour};
+use std::sync::Arc;
 
 pub struct SimulateData {
     pub title: String,
@@ -110,12 +112,15 @@ impl SimulateData {
             .title(title)
     }
 
-    pub async fn new(
+    pub async fn new<D>(
         score: Option<Score>,
         map: Beatmap,
         args: SimulateArgs,
-        ctx: &Context,
-    ) -> Result<Self, Error> {
+        cache_data: D,
+    ) -> Result<Self, Error>
+    where
+        D: CacheData,
+    {
         let is_some = args.is_some();
         if map.mode == GameMode::CTB || (!is_some && map.mode == GameMode::TKO) {
             return Err(Error::Custom(format!(
@@ -126,7 +131,8 @@ impl SimulateData {
         let title = map.to_string();
         let title_url = format!("{}b/{}", HOMEPAGE, map.beatmap_id);
         let (prev_pp, prev_combo, prev_hits, misses) = if let Some(s) = score.as_ref() {
-            let pp_provider = match PPProvider::new(&s, &map, Some(ctx)).await {
+            let data = Arc::clone(cache_data.data());
+            let pp_provider = match PPProvider::new(&s, &map, Some(Arc::clone(&data))).await {
                 Ok(provider) => provider,
                 Err(why) => {
                     return Err(Error::Custom(format!(
@@ -152,9 +158,11 @@ impl SimulateData {
         } else {
             osu::unchoke_score(&mut unchoked_score, &map);
         }
+        let cache = cache_data.cache().clone();
         let grade_completion_mods =
-            util::get_grade_completion_mods(&unchoked_score, &map, ctx.cache.clone()).await;
-        let pp_provider = match PPProvider::new(&unchoked_score, &map, Some(ctx)).await {
+            util::get_grade_completion_mods(&unchoked_score, &map, cache).await;
+        let data = Arc::clone(cache_data.data());
+        let pp_provider = match PPProvider::new(&unchoked_score, &map, Some(data)).await {
             Ok(provider) => provider,
             Err(why) => {
                 return Err(Error::Custom(format!(

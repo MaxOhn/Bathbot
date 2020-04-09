@@ -1,6 +1,7 @@
 use super::util;
 use crate::util::{
     datetime::{date_to_string, how_long_ago},
+    discord::CacheData,
     globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
     numbers::{round, round_and_comma, with_comma_u64},
     osu,
@@ -9,7 +10,8 @@ use crate::util::{
 };
 
 use rosu::models::{Beatmap, GameMode, Grade, Score, User};
-use serenity::{builder::CreateEmbed, prelude::Context, utils::Colour};
+use serenity::{builder::CreateEmbed, utils::Colour};
+use std::sync::Arc;
 
 pub struct RecentData {
     pub description: Option<String>,
@@ -96,14 +98,17 @@ impl RecentData {
             })
     }
 
-    pub async fn new(
+    pub async fn new<D>(
         user: &User,
         score: &Score,
         map: &Beatmap,
         personal: &[Score],
         global: &[Score],
-        ctx: &Context,
-    ) -> Result<Self, Error> {
+        cache_data: D,
+    ) -> Result<Self, Error>
+    where
+        D: CacheData,
+    {
         let personal_idx = personal.iter().position(|s| s == score);
         let global_idx = global.iter().position(|s| s == score);
         let description = if personal_idx.is_some() || global_idx.is_some() {
@@ -140,9 +145,10 @@ impl RecentData {
             country = user.country,
             national = user.pp_country_rank
         );
-        let grade_completion_mods =
-            util::get_grade_completion_mods(&score, &map, ctx.cache.clone()).await;
-        let mut pp_provider = match PPProvider::new(&score, &map, Some(ctx)).await {
+        let cache = cache_data.cache().clone();
+        let grade_completion_mods = util::get_grade_completion_mods(&score, &map, cache).await;
+        let data = Arc::clone(cache_data.data());
+        let mut pp_provider = match PPProvider::new(&score, &map, Some(data)).await {
             Ok(provider) => provider,
             Err(why) => {
                 return Err(Error::Custom(format!(
