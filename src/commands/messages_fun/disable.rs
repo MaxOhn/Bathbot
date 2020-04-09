@@ -70,7 +70,7 @@ pub async fn disabletracking(ctx: &mut Context, msg: &Message, mut args: Args) -
             you are sure you want do delete my message memory of this server.",
             )
             .await?;
-        discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
+        discord::reaction_deletion(&ctx, response, msg.author.id);
     }
     Ok(())
 }

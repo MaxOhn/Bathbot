@@ -18,8 +18,6 @@ pub const WELCOME_CHANNEL: u64 = 438410203977744394;
 pub const UNCHECKED_ROLE_ID: u64 = 326390404620746752;
 pub const TOP_ROLE_ID: u64 = 438450781142908929;
 
-pub const MSG_MEMORY: usize = 1000;
-
 pub const GENERAL_ISSUE: &str = "Something went wrong, blame bade";
 pub const OSU_API_ISSUE: &str = "Some issue with the osu api, blame bade";
 

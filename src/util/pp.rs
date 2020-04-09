@@ -56,6 +56,7 @@ async fn new_oppai(score: &Score, map: &Beatmap) -> Result<PPProvider, Error> {
     })
 }
 
+#[allow(clippy::cognitive_complexity)]
 async fn new_mania(score: &Score, map: &Beatmap, ctx: &Context) -> Result<PPProvider, Error> {
     let mutex = if score.pp.is_none() {
         let data = ctx.data.read().await;

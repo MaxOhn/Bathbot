@@ -34,7 +34,7 @@ async fn simulate_recent_send(
         Ok(args) => args,
         Err(err_msg) => {
             let response = msg.channel_id.say(&ctx.http, err_msg).await?;
-            discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
+            discord::reaction_deletion(&ctx, response, msg.author.id);
             return Ok(());
         }
     };
@@ -144,8 +144,7 @@ async fn simulate_recent_send(
         }
     }
 
-    // Save the response owner
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
+    discord::reaction_deletion(&ctx, response.clone(), msg.author.id);
 
     // Minimize embed after delay
     for _ in 0..5usize {

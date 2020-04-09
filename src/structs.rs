@@ -6,15 +6,13 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use hey_listen::sync::ParallelDispatcher as Dispatcher;
 use rosu::backend::Osu as OsuClient;
 use serenity::{
-    model::id::{ChannelId, GuildId, MessageId, RoleId, UserId},
+    model::id::{ChannelId, GuildId, MessageId, RoleId},
     prelude::*,
 };
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    hash::{Hash, Hasher},
+    collections::{HashMap, HashSet},
     sync::Arc,
 };
 
@@ -75,51 +73,9 @@ impl TypeMapKey for Twitch {
     type Value = Twitch;
 }
 
-pub struct ResponseOwner;
-impl TypeMapKey for ResponseOwner {
-    type Value = (VecDeque<MessageId>, HashMap<MessageId, UserId>);
-}
-
 pub struct Guilds;
 impl TypeMapKey for Guilds {
     type Value = HashMap<GuildId, GuildDB>;
-}
-
-#[derive(Clone)]
-pub enum DispatchEvent {
-    BgMsgEvent {
-        channel: ChannelId,
-        user: UserId,
-        content: String,
-    },
-}
-
-impl PartialEq for DispatchEvent {
-    fn eq(&self, other: &DispatchEvent) -> bool {
-        match (self, other) {
-            (
-                DispatchEvent::BgMsgEvent {
-                    channel: self_channel,
-                    ..
-                },
-                DispatchEvent::BgMsgEvent {
-                    channel: other_channel,
-                    ..
-                },
-            ) => self_channel == other_channel,
-        }
-    }
-}
-
-impl Eq for DispatchEvent {}
-
-impl Hash for DispatchEvent {
-    fn hash<H: Hasher>(&self, _state: &mut H) {}
-}
-
-pub struct DispatcherKey;
-impl TypeMapKey for DispatcherKey {
-    type Value = Arc<RwLock<Dispatcher<DispatchEvent>>>;
 }
 
 pub struct BgGames;

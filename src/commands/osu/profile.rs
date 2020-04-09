@@ -18,6 +18,7 @@ use serenity::{
 };
 use std::collections::HashMap;
 
+#[allow(clippy::cognitive_complexity)]
 async fn profile_send(
     mode: GameMode,
     ctx: &mut Context,
@@ -92,6 +93,22 @@ async fn profile_send(
         scores.len()
     );
 
+    let retrieving_msg = if scores.len() - maps.len() > 15 {
+        Some(
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    format!(
+                        "Retrieving {} maps from the api...",
+                        scores.len() - maps.len()
+                    ),
+                )
+                .await?,
+        )
+    } else {
+        None
+    };
+
     // Retrieving all missing beatmaps
     let res = {
         let mut tuples = Vec::with_capacity(scores.len());
@@ -140,6 +157,10 @@ async fn profile_send(
     // Accumulate all necessary data
     let data = BasicEmbedData::create_profile(user, score_maps, mode, ctx.cache.clone()).await;
 
+    if let Some(msg) = retrieving_msg {
+        msg.delete(&ctx.http).await?;
+    }
+
     // Send the embed
     let response = msg
         .channel_id
@@ -158,8 +179,7 @@ async fn profile_send(
         }
     }
 
-    // Save the response owner
-    discord::save_response_owner(response?.id, msg.author.id, ctx.data.clone()).await;
+    discord::reaction_deletion(&ctx, response?, msg.author.id);
     Ok(())
 }
 

@@ -23,11 +23,10 @@ use events::Handler;
 use streams::Twitch;
 use structs::Osu;
 use structs::*;
-pub use util::{discord::get_member, globals::MSG_MEMORY, Error};
+pub use util::{discord::get_member, Error};
 
 use chrono::Utc;
 use dotenv;
-use hey_listen::sync::ParallelDispatcher as Dispatcher;
 use log::{error, info};
 use rosu::backend::Osu as OsuClient;
 use serenity::{
@@ -40,7 +39,7 @@ use serenity::{
     prelude::*,
 };
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashMap, HashSet},
     env,
     sync::Arc,
 };
@@ -106,10 +105,6 @@ async fn main() {
         Err(why) => panic!("Could not access application info: {:?}", why),
     };
     let now = Utc::now();
-    let mut dispatcher: Dispatcher<DispatchEvent> = Dispatcher::default();
-    dispatcher
-        .num_threads(4)
-        .expect("Could not construct threadpool");
 
     // ---------------
     // Framework setup
@@ -158,12 +153,7 @@ async fn main() {
         data.insert::<StreamTracks>(stream_tracks);
         data.insert::<OnlineTwitch>(HashSet::new());
         data.insert::<Twitch>(twitch);
-        data.insert::<ResponseOwner>((
-            VecDeque::with_capacity(MSG_MEMORY),
-            HashMap::with_capacity(MSG_MEMORY),
-        ));
         data.insert::<Guilds>(guilds);
-        data.insert::<DispatcherKey>(Arc::new(RwLock::new(dispatcher)));
         data.insert::<BgGames>(HashMap::new());
     }
 

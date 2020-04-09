@@ -90,8 +90,6 @@ async fn about(ctx: &mut Context, msg: &Message) -> CommandResult {
             })
             .await?
     };
-
-    // Save the response owner
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
+    discord::reaction_deletion(&ctx, response, msg.author.id);
     Ok(())
 }

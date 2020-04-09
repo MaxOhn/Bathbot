@@ -97,15 +97,15 @@ impl RecentData {
     }
 
     pub async fn new(
-        user: User,
-        score: Score,
-        map: Beatmap,
-        personal: Vec<Score>,
-        global: Vec<Score>,
+        user: &User,
+        score: &Score,
+        map: &Beatmap,
+        personal: &[Score],
+        global: &[Score],
         ctx: &Context,
     ) -> Result<Self, Error> {
-        let personal_idx = personal.into_iter().position(|s| s == score);
-        let global_idx = global.into_iter().position(|s| s == score);
+        let personal_idx = personal.iter().position(|s| s == score);
+        let global_idx = global.iter().position(|s| s == score);
         let description = if personal_idx.is_some() || global_idx.is_some() {
             let mut description = String::from("__**");
             if let Some(idx) = personal_idx {

@@ -86,7 +86,6 @@ async fn removestream(ctx: &mut Context, msg: &Message, mut args: Args) -> Comma
     // Sending the msg
     let response = msg.channel_id.say(&ctx.http, content).await?;
 
-    // Save the response owner
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
+    discord::reaction_deletion(&ctx, response, msg.author.id);
     Ok(())
 }

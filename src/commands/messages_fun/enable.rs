@@ -83,7 +83,7 @@ pub async fn enabletracking(ctx: &mut Context, msg: &Message, mut args: Args) ->
             which might take a long time (maybe hours).",
             )
             .await?;
-        discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
+        discord::reaction_deletion(&ctx, response, msg.author.id);
     }
     Ok(())
 }

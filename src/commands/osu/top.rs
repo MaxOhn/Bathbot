@@ -14,7 +14,7 @@ use rosu::{
 use serenity::{
     collector::{ReactionAction, ReactionCollectorBuilder},
     framework::standard::{macros::command, Args, CommandError, CommandResult},
-    model::{channel::ReactionType, prelude::Message},
+    model::channel::{Message, ReactionType},
     prelude::Context,
 };
 use std::{cmp::Ordering, collections::HashMap, time::Duration};
@@ -31,7 +31,7 @@ async fn top_send(
         Ok(args) => args,
         Err(err_msg) => {
             let response = msg.channel_id.say(&ctx.http, err_msg).await?;
-            discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
+            discord::reaction_deletion(&ctx, response, msg.author.id);
             return Ok(());
         }
     };
@@ -196,10 +196,10 @@ async fn top_send(
     };
 
     // Retrieving all missing beatmaps
-    let res = {
+    let mut scores_data = Vec::with_capacity(scores_indices.len());
+    let mut missing_indices = Vec::with_capacity(scores_indices.len());
+    {
         let dont_filter_sotarks = top_type != TopType::Sotarks;
-        let mut tuples = Vec::with_capacity(scores_indices.len());
-        let mut missing_indices = Vec::with_capacity(scores_indices.len());
         let data = ctx.data.read().await;
         let osu = data.get::<Osu>().expect("Could not get osu client");
         for (i, score) in scores_indices.into_iter() {
@@ -208,38 +208,29 @@ async fn top_send(
                 maps.remove(&map_id).unwrap()
             } else {
                 missing_indices.push(i);
-                score.get_beatmap(osu).await.or_else(|e| {
-                    Err(CommandError(format!(
-                        "Error while retrieving Beatmap of score: {}",
-                        e
-                    )))
-                })?
+                match score.get_beatmap(osu).await {
+                    Ok(map) => map,
+                    Err(why) => {
+                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                        return Err(CommandError::from(why.to_string()));
+                    }
+                }
             };
             if dont_filter_sotarks || &map.creator == "Sotarks" {
-                tuples.push((i, score, map));
+                scores_data.push((i, score, map));
             }
         }
-        Ok((tuples, missing_indices))
-    };
-    let (scores_data, missing_maps): (Vec<_>, Option<Vec<Beatmap>>) = match res {
-        Ok((scores_data, missing_indices)) => {
-            let missing_maps = if missing_indices.is_empty() || scores_data.is_empty() {
-                None
-            } else {
-                Some(
-                    scores_data
-                        .iter()
-                        .filter(|(i, ..)| missing_indices.contains(i))
-                        .map(|(.., map)| map.clone())
-                        .collect(),
-                )
-            };
-            (scores_data, missing_maps)
-        }
-        Err(why) => {
-            msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-            return Err(why);
-        }
+    }
+    let missing_maps = if missing_indices.is_empty() || scores_data.is_empty() {
+        None
+    } else {
+        Some(
+            scores_data
+                .iter()
+                .filter(|(i, ..)| missing_indices.contains(i))
+                .map(|(.., map)| map.clone())
+                .collect(),
+        )
     };
 
     // Accumulate all necessary data
@@ -355,7 +346,7 @@ async fn top_send(
 }
 
 enum ReactionData {
-    Data(BasicEmbedData),
+    Data(Box<BasicEmbedData>),
     Delete,
     None,
 }
@@ -376,7 +367,7 @@ async fn reaction_data(
                 *idx = 0;
                 BasicEmbedData::create_top(&user, scores.iter().take(5), mode, ctx)
                     .await
-                    .map(ReactionData::Data)
+                    .map(|data| ReactionData::Data(Box::new(data)))
                     .unwrap_or_else(|why| {
                         warn!("Error editing top data at idx {}/{}: {}", idx, amount, why);
                         ReactionData::None
@@ -390,7 +381,7 @@ async fn reaction_data(
                 *idx = idx.saturating_sub(5);
                 BasicEmbedData::create_top(&user, scores.iter().skip(*idx).take(5), mode, &ctx)
                     .await
-                    .map(ReactionData::Data)
+                    .map(|data| ReactionData::Data(Box::new(data)))
                     .unwrap_or_else(|why| {
                         warn!("Error editing top data at idx {}/{}: {}", idx, amount, why);
                         ReactionData::None
@@ -405,7 +396,7 @@ async fn reaction_data(
                 *idx = limit.min(*idx + 5);
                 BasicEmbedData::create_top(&user, scores.iter().skip(*idx).take(5), mode, &ctx)
                     .await
-                    .map(ReactionData::Data)
+                    .map(|data| ReactionData::Data(Box::new(data)))
                     .unwrap_or_else(|why| {
                         warn!("Error editing top data at idx {}/{}: {}", idx, amount, why);
                         ReactionData::None
@@ -420,7 +411,7 @@ async fn reaction_data(
                 *idx = limit;
                 BasicEmbedData::create_top(&user, scores.iter().skip(*idx).take(5), mode, &ctx)
                     .await
-                    .map(ReactionData::Data)
+                    .map(|data| ReactionData::Data(Box::new(data)))
                     .unwrap_or_else(|why| {
                         warn!("Error editing top data at idx {}/{}: {}", idx, amount, why);
                         ReactionData::None
@@ -436,8 +427,8 @@ async fn reaction_data(
 #[command]
 #[description = "Display a user's top plays.\n\
                  Mods can be specified, aswell as minimal acc \
-                 with `-a`, combo with `-c`, and a grade with `-grade`, \
-                 with `--a` I will sort by accuracy and with `--c` I will sort by combo."]
+                 with `-a`, combo with `-c`, and a grade with `-grade`.\n\
+                 Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."]
 #[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [--a/--c]"]
 #[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
 #[example = "vaxei -c 1234 -dt! --a"]
@@ -449,8 +440,8 @@ pub async fn top(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult 
 #[command]
 #[description = "Display a user's top mania plays.\n\
                  Mods can be specified, aswell as minimal acc \
-                 with `-a`, combo with `-c`, and a grade with `-grade`, \
-                 with `--a` I will sort by accuracy and with `--c` I will sort by combo."]
+                 with `-a`, combo with `-c`, and a grade with `-grade`.\n\
+                 Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."]
 #[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [--a/--c]"]
 #[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
 #[example = "vaxei -c 1234 -dt! --a"]
@@ -462,8 +453,8 @@ pub async fn topmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandRe
 #[command]
 #[description = "Display a user's top taiko plays.\n\
                  Mods can be specified, aswell as minimal acc \
-                 with `-a`, combo with `-c`, and a grade with `-grade`, \
-                 with `--a` I will sort by accuracy and with `--c` I will sort by combo."]
+                 with `-a`, combo with `-c`, and a grade with `-grade`.\n\
+                 Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."]
 #[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [--a/--c]"]
 #[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
 #[example = "vaxei -c 1234 -dt! --a"]
@@ -475,8 +466,8 @@ pub async fn toptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandRe
 #[command]
 #[description = "Display a user's top ctb plays.\n\
                  Mods can be specified, aswell as minimal acc \
-                 with `-a`, combo with `-c`, and a grade with `-grade`, \
-                 with `--a` I will sort by accuracy and with `--c` I will sort by combo."]
+                 with `-a`, combo with `-c`, and a grade with `-grade`.\n\
+                 Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."]
 #[usage = "[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [+mods] [--a/--c]"]
 #[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
 #[example = "vaxei -c 1234 -dt! --a"]

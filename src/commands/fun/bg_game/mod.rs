@@ -9,9 +9,8 @@ pub use game::BackGroundGame;
 use hints::Hints;
 use img_reveal::ImageReveal;
 
-use crate::{util::discord, BgGames, DispatchEvent, DispatcherKey, Error, MySQL};
+use crate::{util::discord, BgGames, Error, MySQL};
 
-use hey_listen::RwLock;
 use rosu::models::GameMode;
 use serenity::{
     collector::MessageCollectorBuilder,
@@ -39,7 +38,7 @@ With `<bg start mania` (`<bg s m`) I will give mania backgrounds to guess."]
 async fn backgroundgame(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     if !args.is_empty() {
         let arg = args.single_quoted::<String>()?;
-        if !(arg.starts_with("s") || arg.starts_with("r")) {
+        if !(arg.starts_with('s') || arg.starts_with('r')) {
             basic_msg(&ctx.http, msg.channel_id).await?;
         }
     } else {
@@ -175,6 +174,6 @@ async fn stats(ctx: &mut Context, msg: &Message) -> CommandResult {
             format!("You've guessed {} backgrounds correctly!", score),
         )
         .await?;
-    discord::save_response_owner(response.id, msg.author.id, ctx.data.clone()).await;
+    discord::reaction_deletion(&ctx, response, msg.author.id);
     Ok(())
 }

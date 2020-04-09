@@ -69,27 +69,6 @@ impl NameArgs {
     }
 }
 
-pub struct NamePassArgs {
-    pub name: Option<String>,
-    pub pass: bool,
-}
-
-impl NamePassArgs {
-    pub fn new(mut args: Args) -> Self {
-        let args = arguments::first_n(&mut args, 2);
-        let mut name = None;
-        let mut pass = false;
-        for arg in args {
-            if arg.as_str() == "-pass" || arg.as_str() == "-passes" {
-                pass = true;
-            } else {
-                name = Some(arg)
-            }
-        }
-        Self { name, pass }
-    }
-}
-
 pub struct MultNameArgs {
     pub names: HashSet<String>,
 }

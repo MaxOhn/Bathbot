@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 
 use super::{util, Hints, ImageReveal};
-use crate::{BgGames, DispatchEvent, Error, MySQL};
+use crate::{BgGames, Error, MySQL};
 
 use image::{imageops::FilterType, GenericImageView, ImageFormat};
 use serenity::{
@@ -104,6 +104,7 @@ impl BackGroundGame {
                             .get_mut::<BgGames>()
                             .expect("Could not get BgGames")
                             .remove(&channel);
+                        collector.stop();
                         break;
                     }
                     _ => {}

@@ -1,7 +1,4 @@
-use crate::{
-    util::globals::{AVATAR_URL, MSG_MEMORY},
-    Error, ResponseOwner,
-};
+use crate::{util::globals::AVATAR_URL, Error};
 
 use image::{
     imageops::FilterType, png::PNGEncoder, ColorType, DynamicImage, GenericImage, GenericImageView,
@@ -10,14 +7,15 @@ use regex::Regex;
 use reqwest::Client;
 use serenity::{
     cache::CacheRwLock,
+    collector::{ReactionAction, ReactionCollectorBuilder},
     model::{
-        channel::{EmbedField, Message},
+        channel::{EmbedField, Message, ReactionType},
         guild::Member,
-        id::{ChannelId, MessageId, UserId},
+        id::{ChannelId, UserId},
     },
-    prelude::{Context, RwLock, ShareMap},
+    prelude::Context,
 };
-use std::{str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc, time::Duration};
 
 pub async fn get_combined_thumbnail(user_ids: &[u32]) -> Result<Vec<u8>, Error> {
     let mut combined = DynamicImage::new_rgba8(128, 128);
@@ -96,19 +94,6 @@ pub async fn map_id_from_history(msgs: Vec<Message>, cache: CacheRwLock) -> Opti
     None
 }
 
-pub async fn save_response_owner(msg_id: MessageId, author: UserId, data: Arc<RwLock<ShareMap>>) {
-    let mut data = data.write().await;
-    let (queue, owners) = data
-        .get_mut::<ResponseOwner>()
-        .expect("Could not get ResponseOwner");
-    queue.push_front(msg_id);
-    if queue.len() > MSG_MEMORY {
-        let oldest = queue.pop_back().unwrap();
-        owners.remove(&oldest);
-    }
-    owners.insert(msg_id, author);
-}
-
 pub async fn get_member(ctx: &Context, channel_id: ChannelId, user_id: UserId) -> Option<Member> {
     match channel_id
         .to_channel(ctx)
@@ -125,4 +110,27 @@ pub async fn get_member(ctx: &Context, channel_id: ChannelId, user_id: UserId) -
             .ok(),
         None => None,
     }
+}
+
+pub fn reaction_deletion(ctx: &Context, msg: Message, owner: UserId) {
+    let collector = ReactionCollectorBuilder::new(ctx)
+        .author_id(owner)
+        .timeout(Duration::from_secs(60));
+    let http = Arc::clone(&ctx.http);
+    tokio::spawn(async move {
+        let mut collector = collector.await;
+        while let Some(reaction) = collector.receive_one().await {
+            if let ReactionAction::Added(reaction) = &*reaction {
+                if let ReactionType::Unicode(reaction_name) = &reaction.emoji {
+                    if reaction_name == "❌" {
+                        if let Err(why) = msg.delete(&http).await {
+                            warn!("Error while deleting msg after reaction: {}", why);
+                        }
+                        collector.stop();
+                        return;
+                    }
+                }
+            }
+        }
+    });
 }
