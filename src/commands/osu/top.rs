@@ -2,6 +2,7 @@ use crate::{
     arguments::{ModSelection, TopArgs},
     database::MySQL,
     embeds::BasicEmbedData,
+    pagination::{Pagination, ReactionData},
     util::{discord, globals::OSU_API_ISSUE, numbers},
     DiscordLinks, Osu,
 };
@@ -9,14 +10,13 @@ use crate::{
 use rayon::prelude::*;
 use rosu::{
     backend::requests::UserRequest,
-    models::{Beatmap, GameMod, GameMode, GameMods, Score, User},
+    models::{GameMod, GameMode, GameMods, Score, User},
 };
 use serenity::{
-    cache::CacheRwLock,
     collector::{ReactionAction, ReactionCollectorBuilder},
     framework::standard::{macros::command, Args, CommandError, CommandResult},
     model::channel::{Message, ReactionType},
-    prelude::{Context, RwLock, ShareMap},
+    prelude::Context,
 };
 use std::{cmp::Ordering, collections::HashMap, sync::Arc, time::Duration};
 
@@ -310,7 +310,6 @@ async fn top_send(
         .message_id(response.id)
         .timeout(Duration::from_secs(90))
         .await;
-    let mut idx = 0;
 
     // Add initial reactions
     let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
@@ -323,26 +322,22 @@ async fn top_send(
     let cache = ctx.cache.clone();
     let data = Arc::clone(&ctx.data);
     tokio::spawn(async move {
+        let mut pagination =
+            Pagination::top(user, scores_data, mode, cache.clone(), Arc::clone(&data));
         while let Some(reaction) = collector.receive_one().await {
             if let ReactionAction::Added(reaction) = &*reaction {
-                if let ReactionType::Unicode(reaction_name) = &reaction.emoji {
-                    let reaction_data = reaction_data(
-                        reaction_name.as_str(),
-                        &mut idx,
-                        &user,
-                        &scores_data,
-                        mode,
-                        &cache,
-                        &data,
-                    );
-                    match reaction_data.await {
-                        ReactionData::None => {}
-                        ReactionData::Delete => response.delete((&cache, &*http)).await?,
-                        ReactionData::Data(data) => {
-                            response
-                                .edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
-                                .await?
-                        }
+                if let ReactionType::Unicode(reaction) = &reaction.emoji {
+                    match pagination.next_reaction(reaction.as_str()).await {
+                        Ok(data) => match data {
+                            ReactionData::Delete => response.delete((&cache, &*http)).await?,
+                            ReactionData::None => {}
+                            _ => {
+                                response
+                                    .edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
+                                    .await?
+                            }
+                        },
+                        Err(why) => warn!("Error while using paginator for top: {}", why),
                     }
                 }
             }
@@ -356,119 +351,6 @@ async fn top_send(
         Ok::<_, serenity::Error>(())
     });
     Ok(())
-}
-
-enum ReactionData {
-    Data(Box<BasicEmbedData>),
-    Delete,
-    None,
-}
-
-async fn reaction_data(
-    reaction: &str,
-    idx: &mut usize,
-    user: &User,
-    scores: &[(usize, Score, Beatmap)],
-    mode: GameMode,
-    cache: &CacheRwLock,
-    data: &Arc<RwLock<ShareMap>>,
-) -> ReactionData {
-    let amount = scores.len();
-    let pages = numbers::div_euclid(5, amount);
-    match reaction {
-        "❌" => ReactionData::Delete,
-        "⏮️" => {
-            if *idx > 0 {
-                *idx = 0;
-                BasicEmbedData::create_top(
-                    &user,
-                    scores.iter().take(5),
-                    mode,
-                    (*idx / 5 + 1, pages),
-                    (cache, data),
-                )
-                .await
-                .map(|data| ReactionData::Data(Box::new(data)))
-                .unwrap_or_else(|why| {
-                    warn!("Error editing top data at idx {}/{}: {}", idx, amount, why);
-                    ReactionData::None
-                })
-            } else {
-                ReactionData::None
-            }
-        }
-        "⏪" => {
-            if *idx > 0 {
-                *idx = idx.saturating_sub(5);
-                BasicEmbedData::create_top(
-                    &user,
-                    scores.iter().skip(*idx).take(5),
-                    mode,
-                    (*idx / 5 + 1, pages),
-                    (cache, data),
-                )
-                .await
-                .map(|data| ReactionData::Data(Box::new(data)))
-                .unwrap_or_else(|why| {
-                    warn!("Error editing top data at idx {}/{}: {}", idx, amount, why);
-                    ReactionData::None
-                })
-            } else {
-                ReactionData::None
-            }
-        }
-        "⏩" => {
-            let limit = if amount % 5 == 0 {
-                amount - 5
-            } else {
-                amount - amount % 5
-            };
-            if *idx < limit {
-                *idx = limit.min(*idx + 5);
-                BasicEmbedData::create_top(
-                    &user,
-                    scores.iter().skip(*idx).take(5),
-                    mode,
-                    (*idx / 5 + 1, pages),
-                    (cache, data),
-                )
-                .await
-                .map(|data| ReactionData::Data(Box::new(data)))
-                .unwrap_or_else(|why| {
-                    warn!("Error editing top data at idx {}/{}: {}", idx, amount, why);
-                    ReactionData::None
-                })
-            } else {
-                ReactionData::None
-            }
-        }
-        "⏭️" => {
-            let limit = if amount % 5 == 0 {
-                amount - 5
-            } else {
-                amount - amount % 5
-            };
-            if *idx < limit {
-                *idx = limit;
-                BasicEmbedData::create_top(
-                    &user,
-                    scores.iter().skip(*idx).take(5),
-                    mode,
-                    (*idx / 5 + 1, pages),
-                    (cache, data),
-                )
-                .await
-                .map(|data| ReactionData::Data(Box::new(data)))
-                .unwrap_or_else(|why| {
-                    warn!("Error editing top data at idx {}/{}: {}", idx, amount, why);
-                    ReactionData::None
-                })
-            } else {
-                ReactionData::None
-            }
-        }
-        _ => ReactionData::None,
-    }
 }
 
 #[command]

@@ -65,8 +65,7 @@ impl EventHandler for Handler {
             let data = ctx.data.clone();
             let _ = tokio::spawn(async move {
                 let track_delay = 10;
-                // let mut interval = time::interval(time::Duration::from_secs(track_delay * 60));
-                let mut interval = time::interval(time::Duration::from_secs(track_delay));
+                let mut interval = time::interval(time::Duration::from_secs(track_delay * 60));
                 interval.tick().await;
                 loop {
                     _check_streams(&http, Arc::clone(&data).clone()).await;

@@ -2,7 +2,8 @@ use crate::{
     arguments::{MapModArgs, ModSelection},
     database::MySQL,
     embeds::BasicEmbedData,
-    scraper::{Scraper, ScraperScore},
+    pagination::{Pagination, ReactionData},
+    scraper::Scraper,
     util::{
         discord,
         globals::{AVATAR_URL, OSU_API_ISSUE},
@@ -14,15 +15,14 @@ use rosu::{
     backend::requests::BeatmapRequest,
     models::{
         ApprovalStatus::{Loved, Ranked},
-        Beatmap, GameMods,
+        GameMods,
     },
 };
 use serenity::{
-    cache::CacheRwLock,
     collector::{ReactionAction, ReactionCollectorBuilder},
     framework::standard::{macros::command, Args, CommandError, CommandResult},
     model::channel::{Message, ReactionType},
-    prelude::{Context, RwLock, ShareMap},
+    prelude::Context,
 };
 use std::{sync::Arc, time::Duration};
 
@@ -33,7 +33,7 @@ async fn leaderboard_send(
     msg: &Message,
     args: Args,
 ) -> CommandResult {
-    let init_name = {
+    let author_name = {
         let data = ctx.data.read().await;
         let links = data
             .get::<DiscordLinks>()
@@ -129,18 +129,18 @@ async fn leaderboard_send(
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let author_icon = scores
+    let first_place_icon = scores
         .first()
         .map(|s| format!("{}{}", AVATAR_URL, s.user_id));
     let data = match BasicEmbedData::create_leaderboard(
-        &init_name.as_deref(),
+        &author_name.as_deref(),
         &map,
         if scores.is_empty() {
             None
         } else {
             Some(scores.iter().take(10))
         },
-        &author_icon,
+        &first_place_icon,
         0,
         &ctx,
     )
@@ -191,7 +191,6 @@ async fn leaderboard_send(
         .message_id(response.id)
         .timeout(Duration::from_secs(60))
         .await;
-    let mut idx = 0;
 
     // Add initial reactions
     let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
@@ -204,31 +203,28 @@ async fn leaderboard_send(
     let cache = ctx.cache.clone();
     let data = Arc::clone(&ctx.data);
     tokio::spawn(async move {
-        let author_name = init_name.as_deref();
+        let mut pagination = Pagination::leaderboard(
+            map,
+            scores,
+            author_name,
+            first_place_icon,
+            cache.clone(),
+            Arc::clone(&data),
+        );
         while let Some(reaction) = collector.receive_one().await {
             if let ReactionAction::Added(reaction) = &*reaction {
-                if let ReactionType::Unicode(reaction_name) = &reaction.emoji {
-                    if reaction_name.as_str() == "❌" {
-                        response.delete((&cache, &*http)).await?;
-                    } else if !scores.is_empty() {
-                        let reaction_data = reaction_data(
-                            reaction_name.as_str(),
-                            &mut idx,
-                            &map,
-                            &scores,
-                            &author_name,
-                            &author_icon,
-                            &cache,
-                            &data,
-                        );
-                        match reaction_data.await {
+                if let ReactionType::Unicode(reaction) = &reaction.emoji {
+                    match pagination.next_reaction(reaction.as_str()).await {
+                        Ok(data) => match data {
+                            ReactionData::Delete => response.delete((&cache, &*http)).await?,
                             ReactionData::None => {}
-                            ReactionData::Data(data) => {
+                            _ => {
                                 response
                                     .edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
                                     .await?
                             }
-                        }
+                        },
+                        Err(why) => warn!("Error while using paginator for leaderboard: {}", why),
                     }
                 }
             }
@@ -242,126 +238,6 @@ async fn leaderboard_send(
         Ok::<_, serenity::Error>(())
     });
     Ok(())
-}
-
-enum ReactionData {
-    Data(Box<BasicEmbedData>),
-    None,
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn reaction_data(
-    reaction: &str,
-    idx: &mut usize,
-    map: &Beatmap,
-    scores: &[ScraperScore],
-    author_name: &Option<&str>,
-    author_icon: &Option<String>,
-    cache: &CacheRwLock,
-    data: &Arc<RwLock<ShareMap>>,
-) -> ReactionData {
-    let amount = scores.len();
-    match reaction {
-        "⏮️" => {
-            if *idx > 0 {
-                *idx = 0;
-                BasicEmbedData::create_leaderboard(
-                    author_name,
-                    map,
-                    Some(scores.iter().take(10)),
-                    author_icon,
-                    *idx,
-                    (cache, data),
-                )
-                .await
-                .map(|data| ReactionData::Data(Box::new(data)))
-                .unwrap_or_else(|why| {
-                    warn!(
-                        "Error editing leaderboard data at idx {}/{}: {}",
-                        idx, amount, why
-                    );
-                    ReactionData::None
-                })
-            } else {
-                ReactionData::None
-            }
-        }
-        "⏪" => {
-            if *idx > 0 {
-                *idx = idx.saturating_sub(10);
-                BasicEmbedData::create_leaderboard(
-                    author_name,
-                    map,
-                    Some(scores.iter().skip(*idx).take(10)),
-                    author_icon,
-                    *idx,
-                    (cache, data),
-                )
-                .await
-                .map(|data| ReactionData::Data(Box::new(data)))
-                .unwrap_or_else(|why| {
-                    warn!(
-                        "Error editing leaderboard data at idx {}/{}: {}",
-                        idx, amount, why
-                    );
-                    ReactionData::None
-                })
-            } else {
-                ReactionData::None
-            }
-        }
-        "⏩" => {
-            let limit = amount.saturating_sub(10);
-            if *idx < limit {
-                *idx = limit.min(*idx + 10);
-                BasicEmbedData::create_leaderboard(
-                    author_name,
-                    map,
-                    Some(scores.iter().skip(*idx).take(10)),
-                    author_icon,
-                    *idx,
-                    (cache, data),
-                )
-                .await
-                .map(|data| ReactionData::Data(Box::new(data)))
-                .unwrap_or_else(|why| {
-                    warn!(
-                        "Error editing leaderboard data at idx {}/{}: {}",
-                        idx, amount, why
-                    );
-                    ReactionData::None
-                })
-            } else {
-                ReactionData::None
-            }
-        }
-        "⏭️" => {
-            let limit = amount.saturating_sub(10);
-            if *idx < limit {
-                *idx = limit;
-                BasicEmbedData::create_leaderboard(
-                    author_name,
-                    map,
-                    Some(scores.iter().skip(*idx).take(10)),
-                    author_icon,
-                    *idx,
-                    (cache, data),
-                )
-                .await
-                .map(|data| ReactionData::Data(Box::new(data)))
-                .unwrap_or_else(|why| {
-                    warn!(
-                        "Error editing leaderboard data at idx {}/{}: {}",
-                        idx, amount, why
-                    );
-                    ReactionData::None
-                })
-            } else {
-                ReactionData::None
-            }
-        }
-        _ => ReactionData::None,
-    }
 }
 
 #[command]

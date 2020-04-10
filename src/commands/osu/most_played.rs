@@ -1,12 +1,12 @@
 use crate::{
     arguments::NameArgs,
     embeds::BasicEmbedData,
-    scraper::MostPlayedMap,
+    pagination::{Pagination, ReactionData},
     util::{globals::OSU_API_ISSUE, numbers},
     DiscordLinks, Osu, Scraper,
 };
 
-use rosu::{backend::requests::UserRequest, models::User};
+use rosu::backend::requests::UserRequest;
 use serenity::{
     collector::{ReactionAction, ReactionCollectorBuilder},
     framework::standard::{macros::command, Args, CommandError, CommandResult},
@@ -94,7 +94,6 @@ async fn mostplayed(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
         .message_id(response.id)
         .timeout(Duration::from_secs(60))
         .await;
-    let mut idx = 0;
 
     // Add initial reactions
     let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
@@ -106,18 +105,21 @@ async fn mostplayed(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
     let http = Arc::clone(&ctx.http);
     let cache = ctx.cache.clone();
     tokio::spawn(async move {
+        let mut pagination = Pagination::most_played(user, maps);
         while let Some(reaction) = collector.receive_one().await {
             if let ReactionAction::Added(reaction) = &*reaction {
                 if let ReactionType::Unicode(reaction) = &reaction.emoji {
-                    let reaction_data = reaction_data(reaction.as_str(), &mut idx, &user, &maps);
-                    match reaction_data.await {
-                        ReactionData::None => {}
-                        ReactionData::Delete => response.delete((&cache, &*http)).await?,
-                        ReactionData::Data(data) => {
-                            response
-                                .edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
-                                .await?
-                        }
+                    match pagination.next_reaction(reaction.as_str()).await {
+                        Ok(data) => match data {
+                            ReactionData::Delete => response.delete((&cache, &*http)).await?,
+                            ReactionData::None => {}
+                            _ => {
+                                response
+                                    .edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
+                                    .await?
+                            }
+                        },
+                        Err(why) => warn!("Error while using paginator for mostplayed: {}", why),
                     }
                 }
             }
@@ -131,83 +133,4 @@ async fn mostplayed(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
         Ok::<_, serenity::Error>(())
     });
     Ok(())
-}
-
-enum ReactionData {
-    Data(Box<BasicEmbedData>),
-    Delete,
-    None,
-}
-
-async fn reaction_data(
-    reaction: &str,
-    idx: &mut usize,
-    user: &User,
-    maps: &[MostPlayedMap],
-) -> ReactionData {
-    let amount = maps.len();
-    let pages = numbers::div_euclid(10, amount);
-    let data = match reaction {
-        "❌" => return ReactionData::Delete,
-        "⏮️" => {
-            if *idx > 0 {
-                *idx = 0;
-                BasicEmbedData::create_mostplayed(
-                    &user,
-                    maps.iter().skip(*idx).take(10),
-                    (*idx / 10 + 1, pages),
-                )
-            } else {
-                return ReactionData::None;
-            }
-        }
-        "⏪" => {
-            if *idx > 0 {
-                *idx = idx.saturating_sub(10);
-                BasicEmbedData::create_mostplayed(
-                    &user,
-                    maps.iter().skip(*idx).take(10),
-                    (*idx / 10 + 1, pages),
-                )
-            } else {
-                return ReactionData::None;
-            }
-        }
-        "⏩" => {
-            let limit = if amount % 10 == 0 {
-                amount - 10
-            } else {
-                amount - amount % 10
-            };
-            if *idx < limit {
-                *idx = limit.min(*idx + 10);
-                BasicEmbedData::create_mostplayed(
-                    &user,
-                    maps.iter().skip(*idx).take(10),
-                    (*idx / 10 + 1, pages),
-                )
-            } else {
-                return ReactionData::None;
-            }
-        }
-        "⏭️" => {
-            let limit = if amount % 10 == 0 {
-                amount - 10
-            } else {
-                amount - amount % 10
-            };
-            if *idx < limit {
-                *idx = limit;
-                BasicEmbedData::create_mostplayed(
-                    &user,
-                    maps.iter().skip(*idx).take(10),
-                    (*idx / 10 + 1, pages),
-                )
-            } else {
-                return ReactionData::None;
-            }
-        }
-        _ => return ReactionData::None,
-    };
-    ReactionData::Data(Box::new(data))
 }

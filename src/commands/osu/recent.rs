@@ -1,5 +1,9 @@
 use crate::{
-    arguments::NameArgs, database::MySQL, embeds::RecentData, util::globals::OSU_API_ISSUE,
+    arguments::NameArgs,
+    database::MySQL,
+    embeds::RecentData,
+    pagination::{Pagination, ReactionData},
+    util::globals::OSU_API_ISSUE,
     DiscordLinks, Osu,
 };
 
@@ -7,16 +11,14 @@ use rosu::{
     backend::requests::{RecentRequest, UserRequest},
     models::{
         ApprovalStatus::{Approved, Loved, Qualified, Ranked},
-        Beatmap, GameMode, Score, User,
+        Beatmap, GameMode,
     },
-    OsuError,
 };
 use serenity::{
-    cache::CacheRwLock,
     collector::{ReactionAction, ReactionCollectorBuilder},
     framework::standard::{macros::command, Args, CommandError, CommandResult},
     model::channel::{Message, ReactionType},
-    prelude::{Context, RwLock, ShareMap},
+    prelude::Context,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -204,7 +206,6 @@ async fn recent_send(
         .message_id(response.id)
         .timeout(Duration::from_secs(45))
         .await;
-    let mut idx = 0;
 
     // Add initial reactions
     let reactions = ["⏮️", "⏪", "◀️", "▶️", "⏩", "⏭️"];
@@ -217,39 +218,33 @@ async fn recent_send(
     let cache = ctx.cache.clone();
     let data = Arc::clone(&ctx.data);
     tokio::spawn(async move {
+        let mut pagination = Pagination::recent(
+            user,
+            scores,
+            maps,
+            best,
+            global,
+            cache.clone(),
+            Arc::clone(&data),
+        );
         while let Some(reaction) = collector.receive_one().await {
             if let ReactionAction::Added(reaction) = &*reaction {
-                if let ReactionType::Unicode(reaction_name) = &reaction.emoji {
-                    let reaction_data = reaction_data(
-                        reaction_name.as_str(),
-                        &mut idx,
-                        &user,
-                        &scores,
-                        &mut maps,
-                        &best,
-                        &mut global,
-                        &cache,
-                        &data,
-                    );
-                    match reaction_data.await {
-                        Ok(ReactionData::None) => {}
-                        Ok(ReactionData::Delete) => {
-                            response.delete((&cache, &*http)).await?;
-                            return Ok(());
-                        }
-                        Ok(ReactionData::Data { data, idx }) => {
-                            let content = format!("Recent score #{}", idx + 1);
-                            embed_data = *data;
-                            response
-                                .edit((&cache, &*http), |m| {
-                                    m.content(content).embed(|e| embed_data.build(e))
-                                })
-                                .await?
-                        }
-                        Err(why) => {
-                            response.channel_id.say(&http, OSU_API_ISSUE).await?;
-                            return Err(CommandError::from(why.to_string()));
-                        }
+                if let ReactionType::Unicode(reaction) = &reaction.emoji {
+                    match pagination.next_reaction(reaction.as_str()).await {
+                        Ok(data) => match data {
+                            ReactionData::Delete => response.delete((&cache, &*http)).await?,
+                            ReactionData::None => {}
+                            _ => {
+                                let content = format!("Recent score #{}", pagination.index + 1);
+                                embed_data = data.recent_data();
+                                response
+                                    .edit((&cache, &*http), |m| {
+                                        m.content(content).embed(|e| embed_data.build(e))
+                                    })
+                                    .await?
+                            }
+                        },
+                        Err(why) => warn!("Error while using paginator for recent: {}", why),
                     }
                 }
             }
@@ -269,6 +264,7 @@ async fn recent_send(
             .await?;
 
         // Put missing maps into DB
+        let maps = pagination.recent_maps();
         if maps.len() > map_ids.len() {
             let maps: Vec<Beatmap> = maps
                 .into_iter()
@@ -281,147 +277,9 @@ async fn recent_send(
                 warn!("Error while adding maps to DB: {}", why);
             }
         }
-        Ok(())
+        Ok::<_, serenity::Error>(())
     });
     Ok(())
-}
-
-enum ReactionData {
-    Data { data: Box<RecentData>, idx: usize },
-    Delete,
-    None,
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn reaction_data(
-    reaction: &str,
-    idx: &mut usize,
-    user: &User,
-    scores: &[Score],
-    maps: &mut HashMap<u32, Beatmap>,
-    best: &[Score],
-    global: &mut HashMap<u32, Vec<Score>>,
-    cache: &CacheRwLock,
-    data: &Arc<RwLock<ShareMap>>,
-) -> Result<ReactionData, OsuError> {
-    let amount = scores.len();
-    let data = match reaction {
-        "❌" => return Ok(ReactionData::Delete),
-        "⏮️" => {
-            if *idx > 0 {
-                *idx = 0;
-                let score = scores.first().unwrap();
-                let map = map(score, maps, &data).await?;
-                let global_lb = global_lb(data, map, global).await?;
-                RecentData::new(&user, score, map, best, global_lb, (cache, data)).await
-            } else {
-                return Ok(ReactionData::None);
-            }
-        }
-        "⏪" => {
-            if *idx > 0 {
-                *idx = idx.saturating_sub(5);
-                let score = scores.get(*idx).unwrap();
-                let map = map(score, maps, &data).await?;
-                let global_lb = global_lb(data, map, global).await?;
-                RecentData::new(&user, score, map, best, global_lb, (cache, data)).await
-            } else {
-                return Ok(ReactionData::None);
-            }
-        }
-        "◀️" => {
-            if *idx > 0 {
-                *idx = idx.saturating_sub(1);
-                let score = scores.get(*idx).unwrap();
-                let map = map(score, maps, &data).await?;
-                let global_lb = global_lb(data, map, global).await?;
-                RecentData::new(&user, score, map, best, global_lb, (cache, data)).await
-            } else {
-                return Ok(ReactionData::None);
-            }
-        }
-        "▶️" => {
-            let limit = amount.saturating_sub(1);
-            if *idx < limit {
-                *idx = limit.min(*idx + 1);
-                let score = scores.get(*idx).unwrap();
-                let map = map(score, maps, &data).await?;
-                let global_lb = global_lb(data, map, global).await?;
-                RecentData::new(&user, score, map, best, global_lb, (cache, data)).await
-            } else {
-                return Ok(ReactionData::None);
-            }
-        }
-        "⏩" => {
-            let limit = amount.saturating_sub(1);
-            if *idx < limit {
-                *idx = limit.min(*idx + 5);
-                let score = scores.get(*idx).unwrap();
-                let map = map(score, maps, &data).await?;
-                let global_lb = global_lb(data, map, global).await?;
-                RecentData::new(&user, score, map, best, global_lb, (cache, data)).await
-            } else {
-                return Ok(ReactionData::None);
-            }
-        }
-        "⏭️" => {
-            let limit = amount.saturating_sub(1);
-            if *idx < limit {
-                *idx = limit;
-                let score = scores.get(*idx).unwrap();
-                let map = map(score, maps, &data).await?;
-                let global_lb = global_lb(data, map, global).await?;
-                RecentData::new(&user, score, map, best, global_lb, (cache, data)).await
-            } else {
-                return Ok(ReactionData::None);
-            }
-        }
-        _ => return Ok(ReactionData::None),
-    };
-    let data = data
-        .map(|data| ReactionData::Data {
-            data: Box::new(data),
-            idx: *idx,
-        })
-        .unwrap_or_else(|why| {
-            warn!(
-                "Error editing recent data at idx {}/{}: {}",
-                idx, amount, why
-            );
-            ReactionData::None
-        });
-    Ok(data)
-}
-
-#[allow(clippy::map_entry)]
-async fn map<'m>(
-    score: &Score,
-    maps: &'m mut HashMap<u32, Beatmap>,
-    data: &Arc<RwLock<ShareMap>>,
-) -> Result<&'m Beatmap, OsuError> {
-    let map_id = score.beatmap_id.unwrap();
-    if !maps.contains_key(&map_id) {
-        let data = data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
-        let map = score.get_beatmap(osu).await?;
-        maps.insert(map_id, map);
-    }
-    Ok(maps.get(&map_id).unwrap())
-}
-
-#[allow(clippy::map_entry)]
-async fn global_lb<'g>(
-    data: &Arc<RwLock<ShareMap>>,
-    map: &Beatmap,
-    global: &'g mut HashMap<u32, Vec<Score>>,
-) -> Result<&'g [Score], OsuError> {
-    if !global.contains_key(&map.beatmap_id) {
-        let data = data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get Osu");
-        let global_lb = map.get_global_leaderboard(&osu, 50).await?;
-        global.insert(map.beatmap_id, global_lb);
-    };
-    Ok(global.get(&map.beatmap_id).unwrap())
 }
 
 #[command]

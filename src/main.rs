@@ -6,6 +6,7 @@ mod macros;
 mod arguments;
 pub mod database;
 mod events;
+pub mod pagination;
 pub mod roppai;
 mod scraper;
 mod streams;
@@ -44,8 +45,8 @@ use std::{
     sync::Arc,
 };
 
-pub const WITH_STREAM_TRACK: bool = true;
-pub const WITH_SCRAPER: bool = false;
+pub const WITH_STREAM_TRACK: bool = false;
+pub const WITH_SCRAPER: bool = true;
 pub const WITH_CUSTOM_EVENTS: bool = false;
 
 #[tokio::main]

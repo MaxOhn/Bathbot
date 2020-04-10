@@ -184,3 +184,12 @@ impl CacheData for (&CacheRwLock, &Arc<RwLock<ShareMap>>) {
         self.1
     }
 }
+
+impl CacheData for (&mut CacheRwLock, &mut Arc<RwLock<ShareMap>>) {
+    fn cache(&self) -> &CacheRwLock {
+        self.0
+    }
+    fn data(&self) -> &Arc<RwLock<ShareMap>> {
+        self.1
+    }
+}
