@@ -26,10 +26,10 @@ use structs::Osu;
 use structs::*;
 pub use util::{discord::get_member, Error};
 
-use chrono::Utc;
+use chrono::{Local, Utc};
 use dotenv;
 use fern::colors::{Color, ColoredLevelConfig};
-use log::{error, info};
+use log::{error, info, LevelFilter};
 use rosu::backend::Osu as OsuClient;
 use serenity::{
     framework::{
@@ -62,14 +62,13 @@ async fn main() {
         .format(move |out, message, record| {
             out.finish(format_args!(
                 "{}[{}] {}",
-                chrono::Local::now().format("[%m-%d %H:%M:%S]"),
+                Local::now().format("[%m-%d %H:%M:%S]"),
                 colors.color(record.level()),
                 message
             ))
         })
-        .level(log::LevelFilter::Info)
-        .level_for("bathbot", log::LevelFilter::Debug)
-        .level_for("rosu", log::LevelFilter::Debug)
+        .level(LevelFilter::Info)
+        .level_for("bathbot", LevelFilter::Debug)
         .chain(std::io::stdout())
         .chain(fern::log_file("logs.log").expect("Could prepare logs.log file"))
         .apply()
@@ -78,11 +77,6 @@ async fn main() {
     // -----------------
     // Data preparations
     // -----------------
-
-    warn!("Warning here");
-    debug!("Debug here");
-    error!("Error here");
-    info!("Info here");
 
     // Discord
     let discord_token = env::var("DISCORD_TOKEN").expect("Could not load DISCORD_TOKEN");

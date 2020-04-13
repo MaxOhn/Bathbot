@@ -363,7 +363,7 @@ impl BasicEmbedData {
         let description = if let Some(scores) = scores {
             let mut mod_map = HashMap::new();
             let mut description = String::with_capacity(256);
-            let author_name = init_name.unwrap_or_else(|| "");
+            let author_name = init_name.map_or_else(String::new, |n| n.to_lowercase());
             for (i, score) in scores.enumerate() {
                 let found_author = author_name == score.username.to_lowercase();
                 let mut username = String::with_capacity(32);
@@ -681,7 +681,7 @@ impl BasicEmbedData {
                 description,
                 "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
                 {grade} {old_pp} → **{new_pp}pp**/{max_pp}PP ~ ({old_acc} → **{new_acc}%**)\n\
-                [ {old_combo} → **{new_combo}x**/{max_combo}x ] ~ *Removed {misses} miss{plural}*\n",
+                [ {old_combo} → **{new_combo}x**/{max_combo}x ] ~ *Removed {misses} miss{plural}*",
                 idx = idx,
                 title = map.title,
                 version = map.version,

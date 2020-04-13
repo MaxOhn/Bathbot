@@ -78,7 +78,7 @@ async fn nochokes(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
     };
 
     let mut msg_content = format!("Gathering data for `{}`, I'll ping you when I'm done", name);
-    let mut msg = msg
+    let mut msg_wait = msg
         .channel_id
         .send_message(&ctx.http, |m| m.content(&msg_content))
         .await?;
@@ -102,7 +102,7 @@ async fn nochokes(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
             "\nRetrieving {} maps from the API...",
             scores.len() - maps.len()
         ));
-        msg.edit(&ctx, |m| m.content(&msg_content)).await?;
+        msg_wait.edit(&ctx, |m| m.content(&msg_content)).await?;
     }
 
     // Further prepare data and retrieve missing maps
@@ -119,7 +119,7 @@ async fn nochokes(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
                 let map = match score.get_beatmap(osu).await {
                     Ok(map) => map,
                     Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                        msg_wait.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                         return Err(CommandError::from(why.to_string()));
                     }
                 };
@@ -138,13 +138,14 @@ async fn nochokes(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
         )
     };
     msg_content.push_str("\nAll data prepared, now calculating...");
-    msg.edit(&ctx, |m| m.content(msg_content)).await?;
+    msg_wait.edit(&ctx, |m| m.content(msg_content)).await?;
 
     // Accumulate all necessary data
     let data = match BasicEmbedData::create_nochoke(user, scores_data, ctx.cache.clone()).await {
         Ok(data) => data,
         Err(why) => {
-            msg.channel_id
+            msg_wait
+                .channel_id
                 .say(
                     &ctx.http,
                     "Some issue while calculating nochoke data, blame bade",
@@ -156,14 +157,14 @@ async fn nochokes(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
     let mention = msg.author.mention().await;
 
     // Creating the embed
-    let response = msg
+    let response = msg_wait
         .channel_id
         .send_message(&ctx.http, |m| {
             m.content(format!("{} No-choke top scores for `{}`:", mention, name))
                 .embed(|e| data.build(e))
         })
         .await;
-    let _ = msg.delete(&ctx).await;
+    let _ = msg_wait.delete(&ctx).await;
 
     // Add missing maps to database
     if let Some(maps) = missing_maps {
