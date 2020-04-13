@@ -28,6 +28,7 @@ pub use util::{discord::get_member, Error};
 
 use chrono::Utc;
 use dotenv;
+use fern::colors::{Color, ColoredLevelConfig};
 use log::{error, info};
 use rosu::backend::Osu as OsuClient;
 use serenity::{
@@ -46,17 +47,42 @@ use std::{
 };
 
 pub const WITH_STREAM_TRACK: bool = false;
-pub const WITH_SCRAPER: bool = true;
+pub const WITH_SCRAPER: bool = false;
 pub const WITH_CUSTOM_EVENTS: bool = false;
 
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().expect("Could not load .env file");
-    env_logger::init();
+    let colors = ColoredLevelConfig::new()
+        .info(Color::Green)
+        .debug(Color::Blue)
+        .warn(Color::Yellow)
+        .error(Color::Red);
+    fern::Dispatch::new()
+        .format(move |out, message, record| {
+            out.finish(format_args!(
+                "{}[{}] {}",
+                chrono::Local::now().format("[%m-%d %H:%M:%S]"),
+                colors.color(record.level()),
+                message
+            ))
+        })
+        .level(log::LevelFilter::Info)
+        .level_for("bathbot", log::LevelFilter::Debug)
+        .level_for("rosu", log::LevelFilter::Debug)
+        .chain(std::io::stdout())
+        .chain(fern::log_file("logs.log").expect("Could prepare logs.log file"))
+        .apply()
+        .expect("Could not prepare fern-logger");
 
     // -----------------
     // Data preparations
     // -----------------
+
+    warn!("Warning here");
+    debug!("Debug here");
+    error!("Error here");
+    info!("Info here");
 
     // Discord
     let discord_token = env::var("DISCORD_TOKEN").expect("Could not load DISCORD_TOKEN");
