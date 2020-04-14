@@ -31,51 +31,55 @@ use serenity::{
 };
 use std::{
     collections::{HashMap, HashSet},
-    sync::Arc,
+    sync::{Arc, Once},
 };
 use strfmt::strfmt;
 use tokio::time;
 
 pub struct Handler;
 
+static START: Once = Once::new();
+
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
-        // Custom events
-        if WITH_CUSTOM_EVENTS {
-            let http = ctx.http.clone();
-            let data = ctx.data.clone();
-            let _ = tokio::spawn(async move {
-                let track_delay = 1;
-                let day_limit = 10;
-                let mut interval = time::interval(time::Duration::from_secs(track_delay * 86_400));
-                interval.tick().await;
-                loop {
-                    _not_checked_role(&http, Arc::clone(&data), day_limit).await;
-                    _top_role(&http, Arc::clone(&data)).await;
-                    info!("Handled unchecked members and top role distribution");
+        START.call_once(|| {
+            // Custom events
+            if WITH_CUSTOM_EVENTS {
+                let http = ctx.http.clone();
+                let data = ctx.data.clone();
+                let _ = tokio::spawn(async move {
+                    let track_delay = 1;
+                    let day_limit = 10;
+                    let mut interval =
+                        time::interval(time::Duration::from_secs(track_delay * 86_400));
                     interval.tick().await;
-                }
-            });
-        }
-
-        // Tracking streams
-        if WITH_STREAM_TRACK {
-            let http = ctx.http.clone();
-            let data = ctx.data.clone();
-            let _ = tokio::spawn(async move {
-                let track_delay = 10;
-                let mut interval = time::interval(time::Duration::from_secs(track_delay * 60));
-                interval.tick().await;
-                loop {
-                    _check_streams(&http, Arc::clone(&data).clone()).await;
+                    loop {
+                        _not_checked_role(&http, Arc::clone(&data), day_limit).await;
+                        _top_role(&http, Arc::clone(&data)).await;
+                        info!("Handled unchecked members and top role distribution");
+                        interval.tick().await;
+                    }
+                });
+            }
+            // Tracking streams
+            if WITH_STREAM_TRACK {
+                let http = ctx.http.clone();
+                let data = ctx.data.clone();
+                let _ = tokio::spawn(async move {
+                    let track_delay = 10;
+                    let mut interval = time::interval(time::Duration::from_secs(track_delay * 60));
                     interval.tick().await;
-                }
-            });
-            info!("Stream tracking started");
-        } else {
-            info!("Stream tracking skipped");
-        }
+                    loop {
+                        _check_streams(&http, Arc::clone(&data).clone()).await;
+                        interval.tick().await;
+                    }
+                });
+                info!("Stream tracking started");
+            } else {
+                info!("Stream tracking skipped");
+            }
+        });
 
         // Tracking reactions
         {
