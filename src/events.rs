@@ -262,13 +262,15 @@ impl EventHandler for Handler {
             {
                 error!("Could not insert unchecked member into database: {}", why);
             }
-            let _ = ChannelId(WELCOME_CHANNEL).say(
-                &ctx.http,
-                format!(
-                    "{} just joined the server, awaiting approval",
-                    new_member.mention().await
-                ),
-            );
+            let _ = ChannelId(WELCOME_CHANNEL)
+                .say(
+                    &ctx.http,
+                    format!(
+                        "{} just joined the server, awaiting approval",
+                        new_member.mention().await
+                    ),
+                )
+                .await;
         }
     }
 
@@ -342,10 +344,12 @@ impl EventHandler for Handler {
                         } else {
                             let display_name = new.display_name().await;
                             info!("Member {} lost the 'Not checked' role", display_name);
-                            let _ = ChannelId(MAIN_GUILD_ID).say(
-                                &ctx.http,
-                                format!("welcome {}, enjoy ur stay o/", display_name),
-                            );
+                            let _ = ChannelId(MAIN_GUILD_ID)
+                                .say(
+                                    &ctx.http,
+                                    format!("welcome {}, enjoy ur stay o/", display_name),
+                                )
+                                .await;
                         }
                     }
                 }

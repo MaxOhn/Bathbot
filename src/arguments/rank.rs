@@ -38,6 +38,11 @@ impl RankArgs {
                     .to_string(),
             );
         };
+        if rank > 10_000 {
+            return Err(
+                "Unfortunately I can only provide data for ranks up to 10,000 :(".to_string(),
+            );
+        }
         Ok(Self {
             name: args.next(),
             country,

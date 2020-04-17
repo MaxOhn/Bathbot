@@ -6,6 +6,7 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
+use std::fmt::Write;
 
 #[command]
 #[description = "Play a game of minesweeper"]
@@ -37,7 +38,7 @@ async fn minesweeper(ctx: &mut Context, msg: &Message, mut args: Args) -> Comman
     let mut field = String::with_capacity(w * h * 9);
     for x in 0..w {
         for y in 0..h {
-            field.push_str(&format!("||:{}:||", game.field[(x, y)].text()));
+            let _ = write!(field, "||:{}:||", game.field[(x, y)].text());
         }
         field.push('\n');
     }
