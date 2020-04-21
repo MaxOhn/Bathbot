@@ -189,7 +189,7 @@ async fn recent_lb_send(
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         if let Err(why) = mysql.insert_beatmap(&map) {
-            warn!("Could not add map of recent command to database: {}", why);
+            warn!("Could not add map of recent command to DB: {}", why);
         }
     }
     let mut response = response?;

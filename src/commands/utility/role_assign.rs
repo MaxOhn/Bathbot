@@ -40,10 +40,7 @@ async fn roleassign(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
             Ok(_) => debug!("Inserted into role_assign table"),
             Err(why) => {
                 msg.channel_id
-                    .say(
-                        &ctx.http,
-                        "Some issue while inserting into database, blame bade",
-                    )
+                    .say(&ctx.http, "Some issue while inserting into DB, blame bade")
                     .await?;
                 return Err(CommandError::from(why.to_string()));
             }

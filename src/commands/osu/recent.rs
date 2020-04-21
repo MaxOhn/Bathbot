@@ -104,11 +104,7 @@ async fn recent_send(
             .get_beatmaps(&dedubed_ids)
             .unwrap_or_else(|_| HashMap::default())
     };
-    info!(
-        "Found {}/{} beatmaps in the database",
-        maps.len(),
-        map_ids.len()
-    );
+    debug!("Found {}/{} beatmaps in DB", maps.len(), map_ids.len());
 
     // Memoize which maps are already in the DB
     map_ids.retain(|id| maps.contains_key(&id));

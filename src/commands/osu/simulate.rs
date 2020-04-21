@@ -120,10 +120,7 @@ async fn simulate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         if let Err(why) = mysql.insert_beatmap(&map) {
-            warn!(
-                "Could not add map of simulaterecent command to database: {}",
-                why
-            );
+            warn!("Could not add map of simulaterecent command to DB: {}", why);
         }
     }
 

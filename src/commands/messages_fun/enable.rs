@@ -164,7 +164,7 @@ async fn download_all_messages(ctx: &Context, guild: &Guild) {
             if transformed_message_vec.is_empty() {
                 break;
             }
-            info!(
+            debug!(
                 "Storing {} messages from #{} on {}",
                 transformed_message_vec.len(),
                 channel.name,

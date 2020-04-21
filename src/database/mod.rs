@@ -124,7 +124,7 @@ impl MySQL {
         diesel::insert_or_ignore_into(maps::table)
             .values(&map)
             .execute(&conn)?;
-        debug!("Inserted beatmap {} into database", map.beatmap_id);
+        debug!("Inserted beatmap {} into DB", map.beatmap_id);
         Ok(())
     }
 
@@ -144,9 +144,9 @@ impl MySQL {
             .execute(&conn)?;
         let map_ids: Vec<u32> = maps.iter().map(|m| m.beatmap_id).collect();
         if map_ids.len() > 5 {
-            debug!("Inserted {} beatmaps into database", map_ids.len());
+            debug!("Inserted {} beatmaps into DB", map_ids.len());
         } else {
-            debug!("Inserted beatmaps {:?} into database", map_ids);
+            debug!("Inserted beatmaps {:?} into DB", map_ids);
         }
         Ok(())
     }
@@ -424,11 +424,12 @@ impl MySQL {
         Ok(())
     }
 
-    pub fn remove_unchecked_member(&self, user: u64) -> DBResult<()> {
+    pub fn remove_unchecked_member(&self, user: u64) -> DBResult<bool> {
         use schema::unchecked_members::{self, columns::user_id};
         let conn = self.get_connection()?;
-        diesel::delete(unchecked_members::table.filter(user_id.eq(user))).execute(&conn)?;
-        Ok(())
+        let amount =
+            diesel::delete(unchecked_members::table.filter(user_id.eq(user))).execute(&conn)?;
+        Ok(amount > 0)
     }
 
     // -------------------

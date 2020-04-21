@@ -59,7 +59,7 @@ pub async fn disabletracking(ctx: &mut Context, msg: &Message, mut args: Args) -
             }
             match mysql.remove_channel_msgs(&channels) {
                 Ok(amount) => debug!(
-                    "Removed {} messages from {} channels from the database",
+                    "Removed {} messages from {} channels from DB",
                     amount,
                     channels.len()
                 ),

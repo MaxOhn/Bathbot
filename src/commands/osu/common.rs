@@ -141,11 +141,7 @@ async fn common_send(
             .unwrap_or_else(|_| HashMap::default())
     };
     let amount_common = map_ids.len();
-    info!(
-        "Found {}/{} beatmaps in the database",
-        maps.len(),
-        amount_common
-    );
+    debug!("Found {}/{} beatmaps in DB", maps.len(), amount_common);
     map_ids.retain(|id| !maps.contains_key(id));
 
     // Retrieve all missing maps from the API
@@ -224,7 +220,7 @@ async fn common_send(
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         if let Err(why) = mysql.insert_beatmaps(maps) {
             warn!(
-                "Could not add missing maps of common command to database: {}",
+                "Could not add missing maps of common command to DB: {}",
                 why
             );
         }

@@ -87,11 +87,7 @@ async fn profile_send(
             .get_beatmaps(&map_ids)
             .unwrap_or_else(|_| HashMap::default())
     };
-    info!(
-        "Found {}/{} beatmaps in the database",
-        maps.len(),
-        scores.len()
-    );
+    debug!("Found {}/{} beatmaps in DB", maps.len(), scores.len());
 
     let retrieving_msg = if scores.len() - maps.len() > 15 {
         Some(
@@ -173,7 +169,7 @@ async fn profile_send(
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
         if let Err(why) = mysql.insert_beatmaps(maps) {
             warn!(
-                "Could not add missing maps of profile command to database: {}",
+                "Could not add missing maps of profile command to DB: {}",
                 why
             );
         }

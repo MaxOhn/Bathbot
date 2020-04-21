@@ -47,7 +47,7 @@ impl Scraper {
             }
             info!("Scraper successfully logged into osu!");
         } else {
-            info!("Skipping Scraper login into osu!");
+            debug!("Skipping Scraper login into osu!");
         }
         let osu_limiter = Mutex::new(RateLimiter::new(2, 1));
         Ok(Self {
