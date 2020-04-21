@@ -40,8 +40,9 @@ async fn lyrics(ctx: &mut Context, msg: &Message) -> CommandResult {
     {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-        if let Err(why) = mysql.update_guild_lyrics(guild_id.0, new_bool) {
-            warn!("Could not set lyrics of guild: {}", why);
+        match mysql.update_guild_lyrics(guild_id.0, new_bool) {
+            Ok(_) => debug!("Updated lyrics for guild id {}", guild_id.0),
+            Err(why) => warn!("Could not set lyrics of guild: {}", why),
         }
     }
 

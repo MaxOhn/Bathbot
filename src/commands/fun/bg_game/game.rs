@@ -107,7 +107,13 @@ impl BackGroundGame {
                         collector.stop();
                         break;
                     }
-                    _ => {}
+                    Ok(LoopResult::Winner(user_id)) => {
+                        let data = data.read().await;
+                        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                        if let Err(why) = mysql.increment_bggame_score(user_id) {
+                            error!("Error while incrementing bggame score: {}", why);
+                        }
+                    }
                 }
             }
         });
@@ -115,7 +121,7 @@ impl BackGroundGame {
 }
 
 enum LoopResult {
-    Winner,
+    Winner(u64),
     Restart,
     Stop,
 }
@@ -163,7 +169,7 @@ async fn game_loop(
                 );
                 // Send message
                 let _ = game.resolve(&http, channel, content).await;
-                return LoopResult::Winner;
+                return LoopResult::Winner(msg.author.id.0);
             }
             // Artist correct?
             ContentResult::Artist { exact } => {
@@ -256,7 +262,7 @@ impl GameData {
         let file_name = util::get_random_filename(previous_ids, &path)?;
         let mut split = file_name.split('.');
         let mapset_id = u32::from_str(split.next().unwrap()).unwrap();
-        info!("Next BG mapset id: {}", mapset_id);
+        debug!("Next BG mapset id: {}", mapset_id);
         let (title, artist) = util::get_title_artist(mapset_id, Arc::clone(&data)).await?;
         let file_type = match split.next().unwrap() {
             "png" => ImageFormat::Png,

@@ -69,7 +69,6 @@ async fn main() {
         })
         .level(LevelFilter::Info)
         .level_for("bathbot", LevelFilter::Debug)
-        .level_for("rosu", LevelFilter::Debug)
         .chain(std::io::stdout())
         .chain(fern::log_file("logs.log").expect("Could prepare logs.log file"))
         .apply()

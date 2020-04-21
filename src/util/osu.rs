@@ -65,7 +65,14 @@ pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
     }
     match map.mode {
         GameMode::STD => {
-            let acc = args.acc.unwrap_or(0.0) / 100.0;
+            let acc = args.acc.unwrap_or_else(|| {
+                let acc = score.accuracy(map.mode);
+                if acc == 0.0 {
+                    100.0
+                } else {
+                    acc
+                }
+            }) / 100.0;
             let n50 = args.n50.unwrap_or(0);
             let n100 = args.n100.unwrap_or(0);
             let miss = args.miss.unwrap_or(0);
@@ -105,7 +112,14 @@ pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
             };
         }
         GameMode::TKO => {
-            let acc = args.acc.unwrap_or(0.0) / 100.0;
+            let acc = args.acc.unwrap_or_else(|| {
+                let acc = score.accuracy(map.mode);
+                if acc == 0.0 {
+                    100.0
+                } else {
+                    acc
+                }
+            }) / 100.0;
             let n100 = args.n100.unwrap_or(0);
             let miss = args.miss.unwrap_or(0);
             let total_objects = map.count_objects();

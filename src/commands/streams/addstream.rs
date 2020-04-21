@@ -66,8 +66,9 @@ async fn addstream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandR
                             }
                         };
                         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-                        if let Err(why) = mysql.add_twitch_user(twitch_id, &name) {
-                            warn!("Error while adding twitch user: {}", why);
+                        match mysql.add_twitch_user(twitch_id, &name) {
+                            Ok(_) => debug!("Inserted into twitch_users table"),
+                            Err(why) => warn!("Error while adding twitch user: {}", why),
                         }
                         (twitch_id, true)
                     }
@@ -85,9 +86,9 @@ async fn addstream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandR
                 let track = StreamTrack::new(msg.channel_id.0, twitch_id, platform);
                 if stream_tracks.insert(track) {
                     let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-                    if let Err(why) = mysql.add_stream_track(msg.channel_id.0, twitch_id, platform)
-                    {
-                        warn!("Error while adding stream track: {}", why);
+                    match mysql.add_stream_track(msg.channel_id.0, twitch_id, platform) {
+                        Ok(_) => debug!("Inserted into stream_tracks table"),
+                        Err(why) => warn!("Error while adding stream track: {}", why),
                     }
                 }
                 (platform, name)

@@ -143,9 +143,27 @@ async fn new_mania(
             let data = data.read().await;
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
             if map_in_db {
-                mysql.update_mania_pp_map(map.beatmap_id, &score.enabled_mods, max_pp)?;
+                match mysql.update_mania_pp_map(map.beatmap_id, &score.enabled_mods, max_pp) {
+                    Ok(_) => debug!(
+                        "Updated map id {} with mods {} in pp_mania_mods table",
+                        map.beatmap_id, score.enabled_mods
+                    ),
+                    Err(why) => {
+                        error!("Error while updating mania pp: {}", why);
+                        return Err(why);
+                    }
+                }
             } else {
-                mysql.insert_mania_pp_map(map.beatmap_id, &score.enabled_mods, max_pp)?;
+                match mysql.insert_mania_pp_map(map.beatmap_id, &score.enabled_mods, max_pp) {
+                    Ok(_) => debug!(
+                        "Inserted beatmap {} into pp_mania_mods table",
+                        map.beatmap_id
+                    ),
+                    Err(why) => {
+                        error!("Error while inserting mania pp: {}", why);
+                        return Err(why);
+                    }
+                }
             }
         }
         max_pp
@@ -162,9 +180,27 @@ async fn new_mania(
             let data = data.read().await;
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
             if stars_in_db {
-                mysql.update_mania_stars_map(map.beatmap_id, &score.enabled_mods, stars)?;
+                match mysql.update_mania_stars_map(map.beatmap_id, &score.enabled_mods, stars) {
+                    Ok(_) => debug!(
+                        "Updated map id {} with mods {} in stars_mania_mods table",
+                        map.beatmap_id, score.enabled_mods
+                    ),
+                    Err(why) => {
+                        error!("Error while updating mania stars: {}", why);
+                        return Err(why);
+                    }
+                }
             } else {
-                mysql.insert_mania_stars_map(map.beatmap_id, &score.enabled_mods, stars)?;
+                match mysql.insert_mania_stars_map(map.beatmap_id, &score.enabled_mods, stars) {
+                    Ok(_) => debug!(
+                        "Inserted beatmap {} into stars_mania_mods table",
+                        map.beatmap_id
+                    ),
+                    Err(why) => {
+                        error!("Error while inserting mania stars: {}", why);
+                        return Err(why);
+                    }
+                }
             }
         }
         stars

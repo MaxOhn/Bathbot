@@ -168,8 +168,9 @@ async fn authorities(ctx: &mut Context, msg: &Message, mut args: Args) -> Comman
         let auth_string = auth_strings.iter().join(" ");
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-        if let Err(why) = mysql.update_guild_authorities(guild_id.0, auth_string) {
-            error!("Could not update authorities of guild: {}", why);
+        match mysql.update_guild_authorities(guild_id.0, auth_string) {
+            Ok(_) => debug!("Updated authorities for guild id {}", guild_id.0),
+            Err(why) => error!("Could not update authorities of guild: {}", why),
         }
     }
 

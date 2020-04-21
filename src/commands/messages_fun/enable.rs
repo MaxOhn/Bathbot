@@ -54,8 +54,9 @@ pub async fn enabletracking(ctx: &mut Context, msg: &Message, mut args: Args) ->
         {
             let data = ctx.data.read().await;
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-            if let Err(why) = mysql.update_guild_tracking(guild_id.0, true) {
-                warn!("Error while updating message_tracking: {}", why);
+            match mysql.update_guild_tracking(guild_id.0, true) {
+                Ok(_) => debug!("Updated message_tracking for guild id {}", guild_id.0),
+                Err(why) => warn!("Error while updating message_tracking: {}", why),
             }
         }
         {
@@ -172,7 +173,9 @@ async fn download_all_messages(ctx: &Context, guild: &Guild) {
             let last_id = {
                 let data = ctx.data.read().await;
                 let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-                let _ = mysql.insert_msgs(&transformed_message_vec);
+                if let Err(why) = mysql.insert_msgs(&transformed_message_vec) {
+                    error!("Error while inserting msgs: {}", why);
+                }
                 mysql.latest_id_for_channel(channel_id.0)
             };
             if let Some(last_id) = last_id {

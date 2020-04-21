@@ -53,11 +53,17 @@ pub async fn disabletracking(ctx: &mut Context, msg: &Message, mut args: Args) -
         {
             let data = ctx.data.read().await;
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-            if let Err(why) = mysql.update_guild_tracking(guild_id.0, false) {
-                warn!("Error while updating message_tracking: {}", why);
+            match mysql.update_guild_tracking(guild_id.0, true) {
+                Ok(_) => debug!("Updated message_tracking for guild id {}", guild_id.0),
+                Err(why) => warn!("Error while updating message_tracking: {}", why),
             }
-            if let Err(why) = mysql.remove_channel_msgs(&channels) {
-                warn!("Error while removing messages from channels: {}", why);
+            match mysql.remove_channel_msgs(&channels) {
+                Ok(amount) => debug!(
+                    "Removed {} messages from {} channels from the database",
+                    amount,
+                    channels.len()
+                ),
+                Err(why) => warn!("Error while removing messages from channels: {}", why),
             }
         }
     } else {

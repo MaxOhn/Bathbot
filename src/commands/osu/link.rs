@@ -53,12 +53,18 @@ async fn link(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
         {
             let data = ctx.data.read().await;
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-            if let Err(why) = mysql.add_discord_link(id, &name) {
-                msg.channel_id.say(&ctx.http, GENERAL_ISSUE).await?;
-                return Err(CommandError(format!(
-                    "Error while adding discord link to database: {}",
-                    why
-                )));
+            match mysql.add_discord_link(id, &name) {
+                Ok(_) => debug!(
+                    "Discord user {} now linked to osu name {} in database",
+                    id, name
+                ),
+                Err(why) => {
+                    msg.channel_id.say(&ctx.http, GENERAL_ISSUE).await?;
+                    return Err(CommandError(format!(
+                        "Error while adding discord link to database: {}",
+                        why
+                    )));
+                }
             }
         }
         let response = msg

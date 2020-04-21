@@ -141,9 +141,10 @@ impl EventHandler for Handler {
                 .map(|guild_db| guild_db.message_tracking)
                 .unwrap_or_else(|| false);
             if with_tracking {
-                let _ = data
-                    .get::<MySQL>()
-                    .and_then(|mysql| mysql.insert_msgs(&msg_vec).ok());
+                let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                if let Err(why) = mysql.insert_msgs(&msg_vec) {
+                    error!("Error while inserting msgs: {}", why);
+                }
             }
         }
     }
@@ -257,10 +258,10 @@ impl EventHandler for Handler {
         if guild_id.0 == MAIN_GUILD_ID {
             let data = ctx.data.read().await;
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-            if let Err(why) =
-                mysql.insert_unchecked_member(new_member.user_id().await.0, Utc::now())
-            {
-                error!("Could not insert unchecked member into database: {}", why);
+            let user_id = new_member.user_id().await.0;
+            match mysql.insert_unchecked_member(user_id, Utc::now()) {
+                Ok(_) => info!("Inserted unchecked member {} into database", user_id),
+                Err(why) => error!("Could not insert unchecked member into database: {}", why),
             }
             let _ = ChannelId(WELCOME_CHANNEL)
                 .say(
@@ -339,9 +340,11 @@ impl EventHandler for Handler {
                         let data = ctx.data.read().await;
                         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
                         // Mark user as checked by removing him from unchecked database
-                        if let Err(why) = mysql.remove_unchecked_member(new.user_id().await.0) {
+                        let user_id = new.user_id().await.0;
+                        if let Err(why) = mysql.remove_unchecked_member(user_id) {
                             warn!("Could not remove unchecked member from database: {}", why);
                         } else {
+                            debug!("Removed unchecked member {} from database", user_id);
                             let display_name = new.display_name().await;
                             info!("Member {} lost the 'Not checked' role", display_name);
                             let _ = ChannelId(MAIN_GUILD_ID)
@@ -388,8 +391,11 @@ async fn _not_checked_role(http: &Http, data: Arc<RwLock<ShareMap>>, day_limit: 
                                 ),
                             )
                             .await;
-                        if let Err(why) = mysql.remove_unchecked_member(user_id.0) {
-                            warn!("Error while removing unchecked member from DB: {}", why);
+                        match mysql.remove_unchecked_member(user_id.0) {
+                            Ok(_) => debug!("Removed unchecked member {} from database", user_id.0),
+                            Err(why) => {
+                                warn!("Error while removing unchecked member from DB: {}", why)
+                            }
                         }
                     }
                 }

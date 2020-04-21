@@ -8,11 +8,10 @@ use serenity::{
 use std::collections::HashSet;
 
 #[help]
-#[individual_command_tip = "Prefix: `<` or `!!`\n\
-If you want more information about a specific command, \
+#[individual_command_tip = "Prefix: `<` or `!!` (none required in DMs)\n\
+Most commands have (shorter) alternative aliases, e.g. `<rm` instead of `<recentmania`, \
+so to check those out or get more information about a command in general, \
 just pass the command as argument i.e. `<help command`.\n\
-Commands can also be used in private messages to me, \
-no need for any prefix in pms.\n\
 If you want to specify an argument, e.g. a username, that contains \
 spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
 Many commands allow you to specify mods. You can do so with `+mods` \

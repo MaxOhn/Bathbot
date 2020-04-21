@@ -66,8 +66,9 @@ async fn vcrole(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     if changed {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-        if let Err(why) = mysql.update_guild_vc_role(guild_id.0, role.map(|r| r.0)) {
-            error!("Error while updating guild vc role: {}", why);
+        match mysql.update_guild_vc_role(guild_id.0, role.map(|r| r.0)) {
+            Ok(_) => debug!("Updated VC role for guild id {}", guild_id.0),
+            Err(why) => error!("Error while updating guild vc role: {}", why),
         }
     }
 

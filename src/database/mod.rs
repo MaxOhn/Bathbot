@@ -124,7 +124,7 @@ impl MySQL {
         diesel::insert_or_ignore_into(maps::table)
             .values(&map)
             .execute(&conn)?;
-        info!("Inserted beatmap {} into database", map.beatmap_id);
+        debug!("Inserted beatmap {} into database", map.beatmap_id);
         Ok(())
     }
 
@@ -144,9 +144,9 @@ impl MySQL {
             .execute(&conn)?;
         let map_ids: Vec<u32> = maps.iter().map(|m| m.beatmap_id).collect();
         if map_ids.len() > 5 {
-            info!("Inserted {} beatmaps into database", map_ids.len());
+            debug!("Inserted {} beatmaps into database", map_ids.len());
         } else {
-            info!("Inserted beatmaps {:?} into database", map_ids);
+            debug!("Inserted beatmaps {:?} into database", map_ids);
         }
         Ok(())
     }
@@ -162,10 +162,6 @@ impl MySQL {
         diesel::replace_into(schema::discord_users::table)
             .values(&entry)
             .execute(&conn)?;
-        info!(
-            "Discord user {} now linked to osu name {} in database",
-            discord_id, osu_name
-        );
         Ok(())
     }
 
@@ -203,7 +199,6 @@ impl MySQL {
         diesel::insert_or_ignore_into(schema::pp_mania_mods::table)
             .values(&data)
             .execute(&conn)?;
-        info!("Inserted beatmap {} into pp_mania_mods table", map_id);
         Ok(())
     }
 
@@ -215,10 +210,6 @@ impl MySQL {
         diesel::update(pp_mania_mods::table.filter(beatmap_id.eq(map_id)))
             .set(&data)
             .execute(&conn)?;
-        info!(
-            "Updated map id {} with mods {} in pp_mania_mods table",
-            map_id, mods
-        );
         Ok(())
     }
 
@@ -254,7 +245,6 @@ impl MySQL {
         diesel::insert_or_ignore_into(schema::stars_mania_mods::table)
             .values(&data)
             .execute(&conn)?;
-        info!("Inserted beatmap {} into stars_mania_mods table", map_id);
         Ok(())
     }
 
@@ -268,10 +258,6 @@ impl MySQL {
         } else if mods.contains(&HalfTime) {
             update.set(HT.eq(Some(pp))).execute(&conn)?;
         };
-        info!(
-            "Updated map id {} with mods {} in stars_mania_mods table",
-            map_id, mods
-        );
         Ok(())
     }
 
@@ -296,7 +282,6 @@ impl MySQL {
                 role.eq(role_id),
             ))
             .execute(&conn)?;
-        info!("Inserted into role_assign table");
         Ok(())
     }
 
@@ -310,7 +295,6 @@ impl MySQL {
         diesel::insert_into(schema::twitch_users::table)
             .values((user_id.eq(id), name.eq(username)))
             .execute(&conn)?;
-        info!("Inserted into twitch_users table");
         Ok(())
     }
 
@@ -324,7 +308,6 @@ impl MySQL {
                 platform.eq(pf as u8),
             ))
             .execute(&conn)?;
-        info!("Inserted into stream_tracks table");
         Ok(())
     }
 
@@ -375,7 +358,6 @@ impl MySQL {
         diesel::insert_or_ignore_into(schema::guilds::table)
             .values(&guild)
             .execute(&conn)?;
-        info!("Inserted new guild id {} into database", guild_id);
         Ok(guild.into())
     }
 
@@ -386,7 +368,6 @@ impl MySQL {
         diesel::update(target)
             .set(vc_role.eq(role_id))
             .execute(&conn)?;
-        info!("Updated VC role for guild id {}", guild);
         Ok(())
     }
 
@@ -397,7 +378,6 @@ impl MySQL {
         diesel::update(target)
             .set(with_lyrics.eq(lyrics))
             .execute(&conn)?;
-        info!("Updated lyrics for guild id {}", guild);
         Ok(())
     }
 
@@ -408,7 +388,6 @@ impl MySQL {
         diesel::update(target)
             .set(message_tracking.eq(tracking))
             .execute(&conn)?;
-        info!("Updated message_tracking for guild id {}", guild);
         Ok(())
     }
 
@@ -419,7 +398,6 @@ impl MySQL {
         diesel::update(target)
             .set(authorities.eq(auths))
             .execute(&conn)?;
-        info!("Updated authorities for guild id {}", guild);
         Ok(())
     }
 
@@ -443,7 +421,6 @@ impl MySQL {
         diesel::insert_into(schema::unchecked_members::table)
             .values((user_id.eq(user), joined.eq(date.naive_utc())))
             .execute(&conn)?;
-        info!("Inserted unchecked member {} into database", user);
         Ok(())
     }
 
@@ -451,7 +428,6 @@ impl MySQL {
         use schema::unchecked_members::{self, columns::user_id};
         let conn = self.get_connection()?;
         diesel::delete(unchecked_members::table.filter(user_id.eq(user))).execute(&conn)?;
-        info!("Removed unchecked member {} from database", user);
         Ok(())
     }
 
@@ -466,9 +442,7 @@ impl MySQL {
             on duplicate key update score = score + 1",
             user
         );
-        if let Err(why) = diesel::sql_query(query).execute(&conn) {
-            error!("Error while increment bggame score: {}", why);
-        }
+        diesel::sql_query(query).execute(&conn)?;
         Ok(())
     }
 
@@ -484,17 +458,12 @@ impl MySQL {
     // Table: messages
     // ---------------
 
-    pub fn remove_channel_msgs(&self, channels: &[u64]) -> DBResult<()> {
+    pub fn remove_channel_msgs(&self, channels: &[u64]) -> DBResult<usize> {
         use schema::messages::{self, columns::channel_id};
         let conn = self.get_connection()?;
         let amount =
             diesel::delete(messages::table.filter(channel_id.eq_any(channels))).execute(&conn)?;
-        info!(
-            "Removed {} messages from {} channels from the database",
-            amount,
-            channels.len()
-        );
-        Ok(())
+        Ok(amount)
     }
 
     pub fn biggest_id_exists(&self, msg_id: u64) -> DBResult<bool> {
@@ -531,12 +500,9 @@ impl MySQL {
     pub fn insert_msgs(&self, message_vec: &[InsertableMessage]) -> DBResult<()> {
         use schema::messages;
         let conn = self.get_connection()?;
-        if let Err(why) = diesel::replace_into(messages::table)
+        diesel::replace_into(messages::table)
             .values(message_vec)
-            .execute(&conn)
-        {
-            error!("Error while inserting msgs: {}", why);
-        }
+            .execute(&conn)?;
         Ok(())
     }
 
@@ -551,8 +517,6 @@ impl MySQL {
         no_arg_sql_function!(RAND, (), "sql RAND()");
         let query = schema::messages::table
             .select(content)
-            //.filter(not(content.like("%http://%"))) // filtering urls
-            //.filter(not(content.like("%https://%")))
             .filter(not(content.like("%<%"))) // filtering bot commands
             .filter(not(content.like("%>%")))
             .filter(not(content.like("%!%")));
@@ -587,24 +551,6 @@ impl MySQL {
         use schema::messages::{self, author, channel_id, content};
         let conn = self.get_connection()?;
 
-        // TODO: Add table size
-
-        // use diesel::sql_types::Integer;
-        // #[derive(QueryableByName, PartialEq)]
-        // struct TableSize {
-        //     #[sql_type = "Integer"]
-        //     size: usize,
-        // }
-        // let query = "\
-        //     SELECT\
-        //          ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024) as `size`\
-        //      FROM\
-        //          information_schema.TABLES\
-        //      WHERE\
-        //          TABLE_SCHEMA = \"bathbotDB\"\
-        //          AND TABLE_NAME = \"messages\"";
-        // let table_size = diesel::sql_query(query).load::<TableSize>(&conn)?;
-
         let total_msgs: i64 = messages::table.select(count_star()).first(&conn)?;
         let total_msgs = total_msgs as usize;
 
@@ -629,7 +575,6 @@ impl MySQL {
         let author_msgs = messages::table
             .filter(author.eq(user))
             .select(content)
-            //.limit(10_000)
             .load::<String>(&conn)?;
         let author_avg = author_msgs.iter().map(|msg| msg.len()).sum::<usize>() as f32
             / author_msgs.len() as f32;
@@ -647,7 +592,6 @@ impl MySQL {
         let single_words = words.into_iter().take(10).collect();
 
         Ok(MessageStats::new(
-            //table_size,
             total_msgs,
             guild_msgs,
             channel_msgs,
@@ -688,7 +632,7 @@ impl MySQL {
             .values(&entry)
             .execute(&conn)
         {
-            Ok(_) => info!("Updated ratios of '{}'", osuname),
+            Ok(_) => debug!("Updated ratios of '{}'", osuname),
             Err(why) => warn!("Error while updating ratios: {}", why),
         }
         data

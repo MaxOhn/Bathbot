@@ -36,14 +36,17 @@ async fn roleassign(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
     {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-        if let Err(why) = mysql.add_role_assign(channel.0, message.0, role.0) {
-            msg.channel_id
-                .say(
-                    &ctx.http,
-                    "Some issue while inserting into database, blame bade",
-                )
-                .await?;
-            return Err(CommandError::from(why.to_string()));
+        match mysql.add_role_assign(channel.0, message.0, role.0) {
+            Ok(_) => debug!("Inserted into role_assign table"),
+            Err(why) => {
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        "Some issue while inserting into database, blame bade",
+                    )
+                    .await?;
+                return Err(CommandError::from(why.to_string()));
+            }
         }
     }
     {

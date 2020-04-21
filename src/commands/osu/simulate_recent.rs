@@ -147,18 +147,12 @@ async fn simulate_recent_send(
     discord::reaction_deletion(&ctx, response.clone(), msg.author.id);
 
     // Minimize embed after delay
-    for _ in 0..5usize {
-        time::delay_for(Duration::from_secs(MINIMIZE_DELAY)).await;
-        match response.edit(&ctx, |m| m.embed(|e| data.minimize(e))).await {
-            Ok(_) => break,
-            Err(why) => {
-                warn!(
-                    "Error while trying to minimize simulate recent msg: {}",
-                    why
-                );
-                time::delay_for(Duration::from_secs(5)).await;
-            }
-        }
+    time::delay_for(Duration::from_secs(MINIMIZE_DELAY)).await;
+    if let Err(why) = response.edit(&ctx, |m| m.embed(|e| data.minimize(e))).await {
+        warn!(
+            "Error while trying to minimize simulate recent msg: {}",
+            why
+        );
     }
     Ok(())
 }
