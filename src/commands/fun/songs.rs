@@ -5,7 +5,7 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use tokio::time::{self, Duration};
+use tokio::time;
 
 async fn song_send(lyrics: &[&str], delay: u64, ctx: &mut Context, msg: &Message) -> CommandResult {
     let allow = {
@@ -24,22 +24,20 @@ async fn song_send(lyrics: &[&str], delay: u64, ctx: &mut Context, msg: &Message
         }
     };
     if allow {
-        let delay = Duration::from_millis(delay);
-        msg.channel_id
-            .say(&ctx.http, format!("♫ {} ♫", lyrics[0]))
-            .await?;
-        for line in lyrics.iter().skip(1) {
-            time::delay_for(delay).await;
+        let mut interval = time::interval(time::Duration::from_millis(delay));
+        interval.tick().await;
+        for line in lyrics {
             msg.channel_id
                 .say(&ctx.http, format!("♫ {} ♫", line))
                 .await?;
+            interval.tick().await;
         }
     } else {
         msg.channel_id
             .say(
                 &ctx.http,
                 "The server's big boys disabled song commands. \
-            Server authorities can reenable them by typing `<lyrics`",
+            Server authorities can re-enable them by typing `<lyrics`",
             )
             .await?;
     }
@@ -152,10 +150,10 @@ pub async fn pretender(ctx: &mut Context, msg: &Message) -> CommandResult {
 #[aliases("1273")]
 pub async fn rockefeller(ctx: &mut Context, msg: &Message) -> CommandResult {
     let lyrics = &[
-        "1 - 2 - 7 - 3,",
+        "1 - 2 - 7 - 3",
         "down the Rockefeller street.",
         "Life is marchin' on, do you feel that?",
-        "1 - 2 - 7 - 3,",
+        "1 - 2 - 7 - 3",
         "down the Rockefeller street.",
         "Everything is more than surreal",
     ];

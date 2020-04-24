@@ -260,7 +260,7 @@ async fn top_send(
             content
         }
     };
-    let pages = numbers::div_euclid(5, amount);
+    let pages = numbers::div_euclid(5, scores_data.len());
     let data =
         match BasicEmbedData::create_top(&user, scores_data.iter().take(5), mode, (1, pages), &ctx)
             .await

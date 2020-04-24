@@ -8,7 +8,8 @@ use serenity::{
 };
 
 #[command]
-#[description = "Displaying the current latency to the discord servers"]
+#[description = "Displaying the current latency between the bot and the discord servers \
+(has nothing to do with your own internet connection)"]
 #[aliases("p")]
 async fn ping(ctx: &mut Context, msg: &Message) -> CommandResult {
     let start = Utc::now().timestamp_millis();

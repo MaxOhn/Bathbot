@@ -192,7 +192,7 @@ pub async fn profile(ctx: &mut Context, msg: &Message, args: Args) -> CommandRes
 #[description = "Display statistics of a mania user"]
 #[usage = "[username]"]
 #[example = "badewanne3"]
-#[aliases("mania", "maniaprofile")]
+#[aliases("mania", "maniaprofile", "profilem")]
 pub async fn profilemania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     profile_send(GameMode::MNA, ctx, msg, args).await
 }
@@ -201,7 +201,7 @@ pub async fn profilemania(ctx: &mut Context, msg: &Message, args: Args) -> Comma
 #[description = "Display statistics of a taiko user"]
 #[usage = "[username]"]
 #[example = "badewanne3"]
-#[aliases("taiko", "taikoprofile")]
+#[aliases("taiko", "taikoprofile", "profilet")]
 pub async fn profiletaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     profile_send(GameMode::TKO, ctx, msg, args).await
 }
@@ -210,7 +210,7 @@ pub async fn profiletaiko(ctx: &mut Context, msg: &Message, args: Args) -> Comma
 #[description = "Display statistics of ctb user"]
 #[usage = "[username]"]
 #[example = "badewanne3"]
-#[aliases("ctb", "ctbprofile")]
+#[aliases("ctb", "ctbprofile", "profilec")]
 pub async fn profilectb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     profile_send(GameMode::CTB, ctx, msg, args).await
 }

@@ -11,7 +11,7 @@ use std::collections::HashSet;
 #[individual_command_tip = "Prefix: `<` or `!!` (none required in DMs)\n\
 Most commands have (shorter) alternative aliases, e.g. `<rm` instead of `<recentmania`, \
 so to check those out or get more information about a command in general, \
-just pass the command as argument i.e. `<help command`.\n\
+just pass the command as argument i.e. __**`<help recentmania`**__.\n\
 If you want to specify an argument, e.g. a username, that contains \
 spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
 Many commands allow you to specify mods. You can do so with `+mods` \

@@ -153,6 +153,7 @@ async fn download_all_messages(ctx: &Context, guild: &Guild) {
                 .filter(|msg| !msg.content.starts_with('<'))
                 .filter(|msg| !msg.content.starts_with('>'))
                 .filter(|msg| !msg.content.starts_with('!'))
+                .filter(|msg| !msg.content.starts_with('$'))
                 .map(|msg| InsertableMessage {
                     id: msg.id.0,
                     channel_id: msg.channel_id.0,
