@@ -67,7 +67,7 @@ pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
         GameMode::STD => {
             let acc = args.acc.unwrap_or_else(|| {
                 let acc = score.accuracy(map.mode);
-                if acc == 0.0 {
+                if acc.is_nan() {
                     100.0
                 } else {
                     acc
@@ -114,7 +114,7 @@ pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
         GameMode::TKO => {
             let acc = args.acc.unwrap_or_else(|| {
                 let acc = score.accuracy(map.mode);
-                if acc == 0.0 {
+                if acc.is_nan() {
                     100.0
                 } else {
                     acc
