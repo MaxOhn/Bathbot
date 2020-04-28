@@ -1,4 +1,4 @@
-use super::str_to_u64;
+use super::{str_to_maybe_u64, str_to_u64};
 use serde::{Deserialize, Deserializer};
 use serde_derive::Deserialize as DeserializeDerive;
 
@@ -19,8 +19,8 @@ pub struct TwitchUsers {
 
 #[derive(DeserializeDerive, Debug)]
 pub struct TwitchStream {
-    #[serde(rename = "game_id", deserialize_with = "str_to_u64")]
-    pub game_id: u64,
+    #[serde(rename = "game_id", deserialize_with = "str_to_maybe_u64")]
+    pub game_id: Option<u64>,
     #[serde(rename = "id", deserialize_with = "str_to_u64")]
     pub stream_id: u64,
     pub thumbnail_url: String,
