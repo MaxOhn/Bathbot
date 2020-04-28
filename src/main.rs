@@ -203,7 +203,7 @@ async fn before(ctx: &mut Context, msg: &Message, cmd_name: &str) -> bool {
         Some(counter) => *counter.entry(cmd_name.to_owned()).or_insert(0) += 1,
         None => warn!("Could not get CommandCounter"),
     }
-    let _ = msg.channel_id.broadcast_typing(&ctx.http);
+    let _ = msg.channel_id.broadcast_typing(&ctx.http).await;
     true
 }
 

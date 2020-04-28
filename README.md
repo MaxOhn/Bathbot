@@ -46,4 +46,3 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Update spreadsheet (`<mostplayed`, `pagination`, ...)
   ### Commands
   - `<bg scores` to show guild's top scorers
-  - `<complete [sentence beginning]`

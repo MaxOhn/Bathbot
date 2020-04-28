@@ -52,7 +52,7 @@ pub async fn impersonate_send(
             for s in strings {
                 chain.feed_str(&s);
                 if i == len / 4 {
-                    let _ = msg.channel_id.broadcast_typing(&ctx.http);
+                    let _ = msg.channel_id.broadcast_typing(&ctx.http).await;
                     i = 0;
                 } else {
                     i += 1;

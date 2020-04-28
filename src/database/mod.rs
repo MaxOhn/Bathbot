@@ -12,6 +12,7 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use diesel::{
     prelude::*,
     r2d2::{ConnectionManager, Pool, PooledConnection},
+    sql_types::Text,
     MysqlConnection,
 };
 use rosu::models::{Beatmap, GameMod, GameMods};
@@ -542,6 +543,18 @@ impl MySQL {
         Ok(strings)
     }
 
+    pub fn contain_string(&self, s: &str) -> DBResult<Vec<String>> {
+        use schema::messages::columns::content;
+        let conn = self.get_connection()?;
+        let strings = schema::messages::table
+            .select(content)
+            .filter(content.like(&format!("%{}%", s)))
+            .order(length(content).desc())
+            .limit(2500)
+            .load::<String>(&conn)?;
+        Ok(strings)
+    }
+
     pub fn message_stats(
         &self,
         guild_channels: &[u64],
@@ -662,4 +675,8 @@ fn mania_mod_bits(mods: &GameMods) -> u32 {
         }
     }
     bits
+}
+
+sql_function! {
+    fn length(t: Text) -> Integer;
 }
