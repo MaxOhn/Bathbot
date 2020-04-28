@@ -166,14 +166,21 @@ async fn stats(ctx: &mut Context, msg: &Message) -> CommandResult {
     let score = {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-        mysql.get_bggame_score(msg.author.id.0)?
+        mysql.get_bggame_score(msg.author.id.0).ok()
     };
-    let response = msg
-        .reply(
+    let response = if let Some(score) = score {
+        msg.reply(
             (&ctx.cache, &*ctx.http),
             format!("You've guessed {} backgrounds correctly!", score),
         )
-        .await?;
+        .await?
+    } else {
+        msg.reply(
+            (&ctx.cache, &*ctx.http),
+            format!("Looks like you haven't guessed any backgrounds yet"),
+        )
+        .await?
+    };
     discord::reaction_deletion(&ctx, response, msg.author.id);
     Ok(())
 }

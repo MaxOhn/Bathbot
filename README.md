@@ -43,7 +43,6 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Mixer stream tracking
 - Improve `<nc` by ignoring >5 misses (?)
 - Allow username provision via discord user mention
-- Handle `<bg stats` for players who haven't won yet
 - Update spreadsheet (`<mostplayed`, `pagination`, ...)
   ### Commands
   - `<bg scores` to show guild's top scorers
