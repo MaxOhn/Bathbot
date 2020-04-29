@@ -175,7 +175,7 @@ async fn profile_send(
         }
     }
 
-    discord::reaction_deletion(&ctx, response?, msg.author.id);
+    discord::reaction_deletion(&ctx, response?, msg.author.id).await;
     Ok(())
 }
 

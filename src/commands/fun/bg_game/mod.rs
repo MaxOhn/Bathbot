@@ -17,7 +17,7 @@ use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
     http::client::Http,
     model::{id::ChannelId, prelude::Message},
-    prelude::{Context, RwLock as SRwLock, ShareMap},
+    prelude::{Context, RwLock as SRwLock, TypeMap},
 };
 use std::{collections::VecDeque, fmt::Write, sync::Arc, time::Duration};
 
@@ -177,10 +177,10 @@ async fn stats(ctx: &mut Context, msg: &Message) -> CommandResult {
     } else {
         msg.reply(
             (&ctx.cache, &*ctx.http),
-            format!("Looks like you haven't guessed any backgrounds yet"),
+            "Looks like you haven't guessed any backgrounds yet".to_string(),
         )
         .await?
     };
-    discord::reaction_deletion(&ctx, response, msg.author.id);
+    discord::reaction_deletion(&ctx, response, msg.author.id).await;
     Ok(())
 }

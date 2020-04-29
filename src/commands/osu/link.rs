@@ -75,7 +75,7 @@ async fn link(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
             )
             .await?;
 
-        discord::reaction_deletion(&ctx, response, msg.author.id);
+        discord::reaction_deletion(&ctx, response, msg.author.id).await;
         Ok(())
     }
 }

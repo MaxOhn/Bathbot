@@ -1,5 +1,6 @@
 use crate::{util::globals::AVATAR_URL, Error};
 
+use futures::StreamExt;
 use image::{
     imageops::FilterType, png::PNGEncoder, ColorType, DynamicImage, GenericImage, GenericImageView,
 };
@@ -7,13 +8,12 @@ use regex::Regex;
 use reqwest::Client;
 use serenity::{
     cache::CacheRwLock,
-    collector::{ReactionAction, ReactionCollectorBuilder},
     model::{
         channel::{EmbedField, Message, ReactionType},
         guild::Member,
         id::{ChannelId, UserId},
     },
-    prelude::{Context, RwLock, ShareMap},
+    prelude::{Context, RwLock, TypeMap},
 };
 use std::{str::FromStr, sync::Arc, time::Duration};
 
@@ -101,35 +101,30 @@ pub async fn get_member(ctx: &Context, channel_id: ChannelId, user_id: UserId) -
         .ok()
         .and_then(|channel| channel.guild())
     {
-        Some(guild_channel) => guild_channel
-            .read()
-            .await
-            .guild_id
-            .member(ctx, user_id)
-            .await
-            .ok(),
+        Some(guild_channel) => guild_channel.guild_id.member(ctx, user_id).await.ok(),
         None => None,
     }
 }
 
-pub fn reaction_deletion(ctx: &Context, msg: Message, owner: UserId) {
-    let collector = ReactionCollectorBuilder::new(ctx)
+pub async fn reaction_deletion(ctx: &Context, msg: Message, owner: UserId) {
+    let mut collector = msg
+        .await_reactions(ctx)
+        .timeout(Duration::from_secs(60))
         .author_id(owner)
-        .timeout(Duration::from_secs(60));
+        .filter(|reaction| {
+            if let ReactionType::Unicode(reaction_name) = &reaction.emoji {
+                reaction_name == "❌"
+            } else {
+                false
+            }
+        })
+        .await;
     let http = Arc::clone(&ctx.http);
     tokio::spawn(async move {
-        let mut collector = collector.await;
-        while let Some(reaction) = collector.receive_one().await {
-            if let ReactionAction::Added(reaction) = &*reaction {
-                if let ReactionType::Unicode(reaction_name) = &reaction.emoji {
-                    if reaction_name == "❌" {
-                        if let Err(why) = msg.delete(&http).await {
-                            warn!("Error while deleting msg after reaction: {}", why);
-                        }
-                        collector.stop();
-                        return;
-                    }
-                }
+        let delete_reaction = collector.next().await;
+        if delete_reaction.is_some() {
+            if let Err(why) = msg.delete(&http).await {
+                warn!("Error while deleting msg after reaction: {}", why);
             }
         }
     });
@@ -137,14 +132,14 @@ pub fn reaction_deletion(ctx: &Context, msg: Message, owner: UserId) {
 
 pub trait CacheData {
     fn cache(&self) -> &CacheRwLock;
-    fn data(&self) -> &Arc<RwLock<ShareMap>>;
+    fn data(&self) -> &Arc<RwLock<TypeMap>>;
 }
 
 impl CacheData for &Context {
     fn cache(&self) -> &CacheRwLock {
         &self.cache
     }
-    fn data(&self) -> &Arc<RwLock<ShareMap>> {
+    fn data(&self) -> &Arc<RwLock<TypeMap>> {
         &self.data
     }
 }
@@ -153,7 +148,7 @@ impl CacheData for &mut Context {
     fn cache(&self) -> &CacheRwLock {
         &self.cache
     }
-    fn data(&self) -> &Arc<RwLock<ShareMap>> {
+    fn data(&self) -> &Arc<RwLock<TypeMap>> {
         &self.data
     }
 }
@@ -162,34 +157,34 @@ impl CacheData for &&mut Context {
     fn cache(&self) -> &CacheRwLock {
         &self.cache
     }
-    fn data(&self) -> &Arc<RwLock<ShareMap>> {
+    fn data(&self) -> &Arc<RwLock<TypeMap>> {
         &self.data
     }
 }
 
-impl CacheData for (CacheRwLock, Arc<RwLock<ShareMap>>) {
+impl CacheData for (CacheRwLock, Arc<RwLock<TypeMap>>) {
     fn cache(&self) -> &CacheRwLock {
         &self.0
     }
-    fn data(&self) -> &Arc<RwLock<ShareMap>> {
+    fn data(&self) -> &Arc<RwLock<TypeMap>> {
         &self.1
     }
 }
 
-impl CacheData for (&CacheRwLock, &Arc<RwLock<ShareMap>>) {
+impl CacheData for (&CacheRwLock, &Arc<RwLock<TypeMap>>) {
     fn cache(&self) -> &CacheRwLock {
         self.0
     }
-    fn data(&self) -> &Arc<RwLock<ShareMap>> {
+    fn data(&self) -> &Arc<RwLock<TypeMap>> {
         self.1
     }
 }
 
-impl CacheData for (&mut CacheRwLock, &mut Arc<RwLock<ShareMap>>) {
+impl CacheData for (&mut CacheRwLock, &mut Arc<RwLock<TypeMap>>) {
     fn cache(&self) -> &CacheRwLock {
         self.0
     }
-    fn data(&self) -> &Arc<RwLock<ShareMap>> {
+    fn data(&self) -> &Arc<RwLock<TypeMap>> {
         self.1
     }
 }

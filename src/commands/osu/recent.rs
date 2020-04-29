@@ -7,6 +7,7 @@ use crate::{
     DiscordLinks, Osu,
 };
 
+use futures::StreamExt;
 use rosu::{
     backend::requests::{RecentRequest, UserRequest},
     models::{
@@ -15,7 +16,7 @@ use rosu::{
     },
 };
 use serenity::{
-    collector::{ReactionAction, ReactionCollectorBuilder},
+    collector::ReactionAction,
     framework::standard::{macros::command, Args, CommandError, CommandResult},
     model::channel::{Message, ReactionType},
     prelude::Context,
@@ -197,10 +198,10 @@ async fn recent_send(
         .await?;
 
     // Collect reactions of author on the response
-    let mut collector = ReactionCollectorBuilder::new(&ctx)
-        .author_id(msg.author.id)
-        .message_id(response.id)
+    let mut collector = response
+        .await_reactions(&ctx)
         .timeout(Duration::from_secs(45))
+        .author_id(msg.author.id)
         .await;
 
     // Add initial reactions
@@ -223,7 +224,7 @@ async fn recent_send(
             cache.clone(),
             Arc::clone(&data),
         );
-        while let Some(reaction) = collector.receive_one().await {
+        while let Some(reaction) = collector.next().await {
             if let ReactionAction::Added(reaction) = &*reaction {
                 if let ReactionType::Unicode(reaction) = &reaction.emoji {
                     match pagination.next_reaction(reaction.as_str()).await {

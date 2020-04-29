@@ -49,7 +49,7 @@ impl DiscordUserArgs {
             let guild_arc = guild.to_guild_cached(&ctx.cache).await.unwrap();
             let guild = guild_arc.read().await;
             if let Some(member) = guild.member_named(&arg).await {
-                member.user.read().await.clone()
+                member.user.clone()
             } else {
                 return Err(format!("Could not get user from argument `{}`", arg));
             }

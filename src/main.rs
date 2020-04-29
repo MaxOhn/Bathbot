@@ -190,7 +190,7 @@ async fn before(ctx: &mut Context, msg: &Message, cmd_name: &str) -> bool {
         Some(guild) => {
             let guild_name = guild.read().await.name.clone();
             let channel_name = if let Channel::Guild(channel) = msg.channel(&ctx).await.unwrap() {
-                channel.read().await.name.clone()
+                channel.name
             } else {
                 panic!("Found non-Guild channel of msg despite msg being in a guild");
             };

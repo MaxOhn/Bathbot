@@ -167,6 +167,6 @@ async fn scores(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
         }
     }
 
-    discord::reaction_deletion(&ctx, response?, msg.author.id);
+    discord::reaction_deletion(&ctx, response?, msg.author.id).await;
     Ok(())
 }

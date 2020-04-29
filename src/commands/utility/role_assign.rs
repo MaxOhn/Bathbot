@@ -26,7 +26,7 @@ async fn roleassign(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
         Ok(args) => args,
         Err(err_msg) => {
             let response = msg.channel_id.say(&ctx.http, err_msg).await?;
-            discord::reaction_deletion(&ctx, response, msg.author.id);
+            discord::reaction_deletion(&ctx, response, msg.author.id).await;
             return Ok(());
         }
     };
@@ -57,19 +57,14 @@ async fn roleassign(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
 
     let content = MessageBuilder::new()
         .push_line("Whoever reacts on the message")
-        .push_line("---")
-        .push_line_safe(&message.content) // TODO: try as quoted once its fixed in serenity
-        .push_line("---")
+        .push_quote_safe(&message.content)
         .push("in ")
         .channel(channel)
-        .await
         .push(" will be assigned the ")
         .role(role)
-        .await
         .push(" role!")
         .build();
     let response = msg.channel_id.say(&ctx.http, content).await?;
-
-    discord::reaction_deletion(&ctx, response, msg.author.id);
+    discord::reaction_deletion(&ctx, response, msg.author.id).await;
     Ok(())
 }

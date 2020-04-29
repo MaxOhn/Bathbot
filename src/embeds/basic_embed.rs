@@ -24,7 +24,7 @@ use serenity::{
     builder::CreateEmbed,
     cache::CacheRwLock,
     model::{gateway::Presence, id::UserId},
-    prelude::{RwLock, ShareMap},
+    prelude::{RwLock, TypeMap},
     utils::Colour,
 };
 use std::{
@@ -1037,7 +1037,7 @@ impl BasicEmbedData {
     pub async fn create_ratio(
         user: User,
         scores: Vec<Score>,
-        data: Arc<RwLock<ShareMap>>,
+        data: Arc<RwLock<TypeMap>>,
     ) -> Result<Self, Error> {
         let mut result = Self::default();
         let mut accs = vec![0, 90, 95, 97, 99];
@@ -1411,7 +1411,7 @@ pub async fn get_pp(
     mod_map: &mut HashMap<u32, f32>,
     score: &ScraperScore,
     map: &Beatmap,
-    data: Arc<RwLock<ShareMap>>,
+    data: Arc<RwLock<TypeMap>>,
 ) -> Result<String, Error> {
     let bits = score.enabled_mods.as_bits();
     let actual = if score.pp.is_some() {

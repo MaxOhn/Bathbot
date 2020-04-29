@@ -150,7 +150,7 @@ async fn nochokes(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
             return Err(CommandError::from(why.to_string()));
         }
     };
-    let mention = msg.author.mention().await;
+    let mention = msg.author.mention();
 
     // Creating the embed
     let response = msg_wait
@@ -174,6 +174,6 @@ async fn nochokes(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
         }
     }
 
-    discord::reaction_deletion(&ctx, response?, msg.author.id);
+    discord::reaction_deletion(&ctx, response?, msg.author.id).await;
     Ok(())
 }

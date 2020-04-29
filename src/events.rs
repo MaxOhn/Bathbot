@@ -220,8 +220,7 @@ impl EventHandler for Handler {
                     } else {
                         info!(
                             "Removed role '{}' from member {}",
-                            role_name,
-                            member.user.read().await.name
+                            role_name, member.user.name
                         );
                     }
                 } else {
@@ -242,8 +241,7 @@ impl EventHandler for Handler {
                         } else {
                             info!(
                                 "Assigned role '{}' to member {}",
-                                role_name,
-                                member.user.read().await.name
+                                role_name, member.user.name
                             );
                         }
                     }
@@ -256,7 +254,7 @@ impl EventHandler for Handler {
         if guild_id.0 == MAIN_GUILD_ID {
             let data = ctx.data.read().await;
             let mysql = data.get::<MySQL>().expect("Could not get MySQL");
-            let user_id = new_member.user_id().await.0;
+            let user_id = new_member.user.id.0;
             match mysql.insert_unchecked_member(user_id, Utc::now()) {
                 Ok(_) => debug!("Inserted unchecked member {} into DB", user_id),
                 Err(why) => error!("Could not insert unchecked member into DB: {}", why),
@@ -266,7 +264,7 @@ impl EventHandler for Handler {
                     &ctx.http,
                     format!(
                         "{} just joined the server, awaiting approval",
-                        new_member.mention().await
+                        new_member.mention()
                     ),
                 )
                 .await;
@@ -325,8 +323,7 @@ impl EventHandler for Handler {
                 } else {
                     info!(
                         "Removed role '{}' from member {}",
-                        role_name,
-                        member.user.read().await.name
+                        role_name, member.user.name
                     );
                 }
             }
@@ -356,11 +353,11 @@ impl EventHandler for Handler {
                         let data = ctx.data.read().await;
                         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
                         // Mark user as checked by removing him from unchecked database
-                        let user_id = new.user_id().await.0;
+                        let user_id = new.user.id.0;
                         if let Err(why) = mysql.remove_unchecked_member(user_id) {
                             warn!("Could not remove unchecked member from DB: {}", why);
                         } else {
-                            let display_name = new.display_name().await;
+                            let display_name = new.display_name();
                             debug!(
                                 "Member {} lost the 'Not checked' role, removed from DB",
                                 display_name
@@ -379,7 +376,7 @@ impl EventHandler for Handler {
     }
 }
 
-async fn _not_checked_role(http: &Http, data: Arc<RwLock<ShareMap>>, day_limit: i64) {
+async fn _not_checked_role(http: &Http, data: Arc<RwLock<TypeMap>>, day_limit: i64) {
     let data = data.read().await;
     let mysql = data.get::<MySQL>().expect("Could not get MySQL");
     // Handle Not Checked role
@@ -400,7 +397,7 @@ async fn _not_checked_role(http: &Http, data: Arc<RwLock<ShareMap>>, day_limit: 
                                 &http,
                                 format!(
                                     "Kicking member {} for being unchecked for {} days",
-                                    user_id.mention().await,
+                                    user_id.mention(),
                                     day_limit,
                                 ),
                             )
@@ -413,7 +410,7 @@ async fn _not_checked_role(http: &Http, data: Arc<RwLock<ShareMap>>, day_limit: 
     }
 }
 
-async fn _top_role(http: &Http, data: Arc<RwLock<ShareMap>>) {
+async fn _top_role(http: &Http, data: Arc<RwLock<TypeMap>>) {
     let data = data.read().await;
     let mysql = data.get::<MySQL>().expect("Could not get MySQL");
     // Handle Top role
@@ -478,7 +475,7 @@ async fn _top_role(http: &Http, data: Arc<RwLock<ShareMap>>) {
                 });
             // Check all guild's members
             for mut member in members {
-                let name = links.get(&member.user_id().await.0);
+                let name = links.get(&member.user.id.0);
                 // If name is contained in manual links
                 if let Some(osu_name) = name {
                     // If member already has top role, check if it remains
@@ -487,10 +484,7 @@ async fn _top_role(http: &Http, data: Arc<RwLock<ShareMap>>) {
                             if let Err(why) = member.remove_role(http, role).await {
                                 error!("Could not remove top role from member: {}", why);
                             } else {
-                                info!(
-                                    "Removed 'Top' role from member {}",
-                                    member.user.read().await.name
-                                );
+                                info!("Removed 'Top' role from member {}", member.user.name);
                             }
                         }
                     // Member does not have top role yet, 'all' contains the name
@@ -498,10 +492,7 @@ async fn _top_role(http: &Http, data: Arc<RwLock<ShareMap>>) {
                         if let Err(why) = member.add_role(http, role).await {
                             error!("Could not add top role to member: {}", why);
                         } else {
-                            info!(
-                                "Added 'Top' role to member {}",
-                                member.user.read().await.name
-                            );
+                            info!("Added 'Top' role to member {}", member.user.name);
                         }
                     }
                 }
@@ -511,7 +502,7 @@ async fn _top_role(http: &Http, data: Arc<RwLock<ShareMap>>) {
     }
 }
 
-async fn _check_streams(http: &Http, data: Arc<RwLock<ShareMap>>) {
+async fn _check_streams(http: &Http, data: Arc<RwLock<TypeMap>>) {
     let now_online = {
         let reading = data.read().await;
 
@@ -633,8 +624,7 @@ async fn role_assignment(ctx: &Context, reaction: &Reaction) {
             } else {
                 info!(
                     "Assigned role '{}' to member {}",
-                    role_name,
-                    member.user.read().await.name
+                    role_name, member.user.name
                 );
             }
         }

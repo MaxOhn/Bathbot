@@ -113,6 +113,6 @@ async fn addstream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandR
             .await?
     };
 
-    discord::reaction_deletion(&ctx, response, msg.author.id);
+    discord::reaction_deletion(&ctx, response, msg.author.id).await;
     Ok(())
 }

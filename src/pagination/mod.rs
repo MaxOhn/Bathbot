@@ -9,7 +9,7 @@ use rosu::models::{Beatmap, GameMode, Score, User};
 use serenity::{
     builder::CreateEmbed,
     cache::CacheRwLock,
-    prelude::{RwLock, ShareMap},
+    prelude::{RwLock, TypeMap},
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -25,14 +25,14 @@ pub enum PaginationType {
         best: Vec<Score>,
         global: HashMap<u32, Vec<Score>>,
         cache: CacheRwLock,
-        data: Arc<RwLock<ShareMap>>,
+        data: Arc<RwLock<TypeMap>>,
     },
     Top {
         user: Box<User>,
         scores: Vec<(usize, Score, Beatmap)>,
         mode: GameMode,
         cache: CacheRwLock,
-        data: Arc<RwLock<ShareMap>>,
+        data: Arc<RwLock<TypeMap>>,
     },
     Leaderboard {
         map: Box<Beatmap>,
@@ -40,7 +40,7 @@ pub enum PaginationType {
         author_name: Option<String>,
         first_place_icon: Option<String>,
         cache: CacheRwLock,
-        data: Arc<RwLock<ShareMap>>,
+        data: Arc<RwLock<TypeMap>>,
     },
 }
 
@@ -107,7 +107,7 @@ impl Pagination {
         best: Vec<Score>,
         global: HashMap<u32, Vec<Score>>,
         cache: CacheRwLock,
-        data: Arc<RwLock<ShareMap>>,
+        data: Arc<RwLock<TypeMap>>,
     ) -> Self {
         let total_pages = scores.len();
         let pagination = PaginationType::Recent {
@@ -133,7 +133,7 @@ impl Pagination {
         scores: Vec<(usize, Score, Beatmap)>,
         mode: GameMode,
         cache: CacheRwLock,
-        data: Arc<RwLock<ShareMap>>,
+        data: Arc<RwLock<TypeMap>>,
     ) -> Self {
         let amount = scores.len();
         let per_page = 5;
@@ -159,7 +159,7 @@ impl Pagination {
         author_name: Option<String>,
         first_place_icon: Option<String>,
         cache: CacheRwLock,
-        data: Arc<RwLock<ShareMap>>,
+        data: Arc<RwLock<TypeMap>>,
     ) -> Self {
         let amount = scores.len();
         let per_page = 10;

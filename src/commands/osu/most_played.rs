@@ -6,9 +6,10 @@ use crate::{
     DiscordLinks, Osu, Scraper,
 };
 
+use futures::StreamExt;
 use rosu::backend::requests::UserRequest;
 use serenity::{
-    collector::{ReactionAction, ReactionCollectorBuilder},
+    collector::ReactionAction,
     framework::standard::{macros::command, Args, CommandError, CommandResult},
     model::channel::{Message, ReactionType},
     prelude::Context,
@@ -89,10 +90,10 @@ async fn mostplayed(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
         .await?;
 
     // Collect reactions of author on the response
-    let mut collector = ReactionCollectorBuilder::new(&ctx)
+    let mut collector = response
+        .await_reactions(&ctx)
+        .timeout(Duration::from_secs(90))
         .author_id(msg.author.id)
-        .message_id(response.id)
-        .timeout(Duration::from_secs(60))
         .await;
 
     // Add initial reactions
@@ -106,7 +107,7 @@ async fn mostplayed(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
     let cache = ctx.cache.clone();
     tokio::spawn(async move {
         let mut pagination = Pagination::most_played(user, maps);
-        while let Some(reaction) = collector.receive_one().await {
+        while let Some(reaction) = collector.next().await {
             if let ReactionAction::Added(reaction) = &*reaction {
                 if let ReactionType::Unicode(reaction) = &reaction.emoji {
                     match pagination.next_reaction(reaction.as_str()).await {

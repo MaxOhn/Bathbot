@@ -3,7 +3,7 @@ use crate::{util::Matrix, Error, MySQL, Osu};
 use rand::RngCore;
 use rayon::prelude::*;
 use rosu::backend::BeatmapRequest;
-use serenity::prelude::{RwLock, ShareMap};
+use serenity::prelude::{RwLock, TypeMap};
 use std::{collections::VecDeque, fs, path::PathBuf, str::FromStr, sync::Arc};
 
 pub fn get_random_filename(
@@ -42,7 +42,7 @@ pub fn get_random_filename(
 
 pub async fn get_title_artist(
     mapset_id: u32,
-    data: Arc<RwLock<ShareMap>>,
+    data: Arc<RwLock<TypeMap>>,
 ) -> Result<(String, String), Error> {
     let (mut title, artist) = {
         let data = data.read().await;

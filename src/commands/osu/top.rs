@@ -7,13 +7,14 @@ use crate::{
     DiscordLinks, Osu,
 };
 
+use futures::StreamExt;
 use rayon::prelude::*;
 use rosu::{
     backend::requests::UserRequest,
     models::{GameMod, GameMode, GameMods, Score, User},
 };
 use serenity::{
-    collector::{ReactionAction, ReactionCollectorBuilder},
+    collector::ReactionAction,
     framework::standard::{macros::command, Args, CommandError, CommandResult},
     model::channel::{Message, ReactionType},
     prelude::Context,
@@ -32,7 +33,7 @@ async fn top_send(
         Ok(args) => args,
         Err(err_msg) => {
             let response = msg.channel_id.say(&ctx.http, err_msg).await?;
-            discord::reaction_deletion(&ctx, response, msg.author.id);
+            discord::reaction_deletion(&ctx, response, msg.author.id).await;
             return Ok(());
         }
     };
@@ -302,10 +303,10 @@ async fn top_send(
     let mut response = response?;
 
     // Collect reactions of author on the response
-    let mut collector = ReactionCollectorBuilder::new(&ctx)
-        .author_id(msg.author.id)
-        .message_id(response.id)
+    let mut collector = response
+        .await_reactions(&ctx)
         .timeout(Duration::from_secs(90))
+        .author_id(msg.author.id)
         .await;
 
     // Add initial reactions
@@ -321,7 +322,7 @@ async fn top_send(
     tokio::spawn(async move {
         let mut pagination =
             Pagination::top(user, scores_data, mode, cache.clone(), Arc::clone(&data));
-        while let Some(reaction) = collector.receive_one().await {
+        while let Some(reaction) = collector.next().await {
             if let ReactionAction::Added(reaction) = &*reaction {
                 if let ReactionType::Unicode(reaction) = &reaction.emoji {
                     match pagination.next_reaction(reaction.as_str()).await {

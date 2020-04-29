@@ -34,7 +34,7 @@ async fn simulate_recent_send(
         Ok(args) => args,
         Err(err_msg) => {
             let response = msg.channel_id.say(&ctx.http, err_msg).await?;
-            discord::reaction_deletion(&ctx, response, msg.author.id);
+            discord::reaction_deletion(&ctx, response, msg.author.id).await;
             return Ok(());
         }
     };
@@ -141,7 +141,7 @@ async fn simulate_recent_send(
         }
     }
 
-    discord::reaction_deletion(&ctx, response.clone(), msg.author.id);
+    discord::reaction_deletion(&ctx, response.clone(), msg.author.id).await;
 
     // Minimize embed after delay
     time::delay_for(Duration::from_secs(MINIMIZE_DELAY)).await;

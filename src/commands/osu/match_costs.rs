@@ -95,6 +95,6 @@ async fn matchcosts(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
         })
         .await?;
 
-    discord::reaction_deletion(&ctx, response, msg.author.id);
+    discord::reaction_deletion(&ctx, response, msg.author.id).await;
     Ok(())
 }

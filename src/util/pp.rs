@@ -4,7 +4,7 @@ use crate::{
 };
 
 use rosu::models::{ApprovalStatus, Beatmap, GameMode, GameMods, Grade, Score};
-use serenity::prelude::{RwLock, ShareMap};
+use serenity::prelude::{RwLock, TypeMap};
 use std::{
     env, mem,
     process::{Child, Command, Stdio},
@@ -61,7 +61,7 @@ async fn new_oppai(score: &Score, map: &Beatmap) -> Result<PPProvider, Error> {
 async fn new_mania(
     score: &Score,
     map: &Beatmap,
-    data: Arc<RwLock<ShareMap>>,
+    data: Arc<RwLock<TypeMap>>,
 ) -> Result<PPProvider, Error> {
     let mutex = if score.pp.is_none() {
         let data = data.read().await;
@@ -213,7 +213,7 @@ impl PPProvider {
     pub async fn new(
         score: &Score,
         map: &Beatmap,
-        data: Option<Arc<RwLock<ShareMap>>>,
+        data: Option<Arc<RwLock<TypeMap>>>,
     ) -> Result<Self, Error> {
         match map.mode {
             GameMode::STD | GameMode::TKO => new_oppai(score, map).await,
@@ -249,7 +249,7 @@ impl PPProvider {
     pub async fn calculate_mania_pp<S>(
         score: &S,
         map: &Beatmap,
-        data: Arc<RwLock<ShareMap>>,
+        data: Arc<RwLock<TypeMap>>,
     ) -> Result<f32, Error>
     where
         S: SubScore,
@@ -274,7 +274,7 @@ impl PPProvider {
     pub async fn calculate_max(
         map: &Beatmap,
         mods: &GameMods,
-        data: Option<Arc<RwLock<ShareMap>>>,
+        data: Option<Arc<RwLock<TypeMap>>>,
     ) -> Result<f32, Error> {
         match map.mode {
             GameMode::STD | GameMode::TKO => {

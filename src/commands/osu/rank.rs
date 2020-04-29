@@ -130,7 +130,7 @@ async fn rank_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args)
         .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
         .await?;
 
-    discord::reaction_deletion(&ctx, response, msg.author.id);
+    discord::reaction_deletion(&ctx, response, msg.author.id).await;
     Ok(())
 }
 

@@ -26,7 +26,7 @@ async fn minesweeper(ctx: &mut Context, msg: &Message, mut args: Args) -> Comman
                         "The argument must be either `Easy`, `Medium`, or `Hard`",
                     )
                     .await?;
-                discord::reaction_deletion(&ctx, response, msg.author.id);
+                discord::reaction_deletion(&ctx, response, msg.author.id).await;
                 return Ok(());
             }
         }
@@ -56,7 +56,7 @@ async fn minesweeper(ctx: &mut Context, msg: &Message, mut args: Args) -> Comman
             ),
         )
         .await?;
-    discord::reaction_deletion(&ctx, response, msg.author.id);
+    discord::reaction_deletion(&ctx, response, msg.author.id).await;
     Ok(())
 }
 

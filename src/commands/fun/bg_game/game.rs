@@ -3,6 +3,7 @@
 use super::{util, Hints, ImageReveal};
 use crate::{BgGames, Error, MySQL};
 
+use futures::StreamExt;
 use image::{imageops::FilterType, GenericImageView, ImageFormat};
 use serenity::{
     cache::CacheRwLock,
@@ -10,7 +11,7 @@ use serenity::{
     framework::standard::CommandResult,
     http::client::Http,
     model::id::{ChannelId, UserId},
-    prelude::{Context, RwLock, ShareMap},
+    prelude::{Context, RwLock, TypeMap},
 };
 use std::{
     collections::VecDeque, env, fmt::Write, fs, path::PathBuf, str::FromStr, sync::Arc,
@@ -49,7 +50,7 @@ impl BackGroundGame {
         &self,
         mut collector: MessageCollector,
         channel: ChannelId,
-        data: Arc<RwLock<ShareMap>>,
+        data: Arc<RwLock<TypeMap>>,
         http: Arc<Http>,
     ) {
         let game_lock = Arc::clone(&self.game);
@@ -136,7 +137,7 @@ async fn game_loop(
     let invoke = &["bg", "backgroundgame"];
     let keyletter = &[" s", " r"];
     // Collect and evaluate messages
-    while let Some(msg) = collector.receive_one().await {
+    while let Some(msg) = collector.next().await {
         // Check if the game should be restarted
         // I wish I knew of a nicer way to handle this :(
         if prefix.iter().any(|p| msg.content.starts_with(p)) {
@@ -243,7 +244,7 @@ pub struct GameData {
     pub artist: String,
     pub artist_guessed: bool,
     pub mapset_id: u32,
-    discord_data: Option<Arc<RwLock<ShareMap>>>,
+    discord_data: Option<Arc<RwLock<TypeMap>>>,
     hints: Hints,
     reveal: ImageReveal,
 }
@@ -251,7 +252,7 @@ pub struct GameData {
 impl GameData {
     async fn restart(
         &mut self,
-        data: Arc<RwLock<ShareMap>>,
+        data: Arc<RwLock<TypeMap>>,
         previous_ids: &mut VecDeque<u32>,
         osu_std: bool,
     ) -> Result<(), Error> {
@@ -289,7 +290,7 @@ impl GameData {
 
     pub async fn restart_with_img(
         &mut self,
-        data: Arc<RwLock<ShareMap>>,
+        data: Arc<RwLock<TypeMap>>,
         previous_ids: &mut VecDeque<u32>,
         osu_std: bool,
     ) -> Vec<u8> {
