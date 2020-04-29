@@ -55,15 +55,16 @@ pub async fn complete(ctx: &mut Context, msg: &Message, args: Args) -> CommandRe
         let len = strings.len();
         for s in strings.iter() {
             let s = s.to_lowercase();
-            let idx = s.find(args).unwrap();
-            if s.len() > idx + args.len() {
-                let suffix: &str = &s[idx + args.len()..];
-                chain.feed_str(suffix);
-                if i == len / 4 {
-                    let _ = msg.channel_id.broadcast_typing(&ctx.http).await;
-                    i = 0;
-                } else {
-                    i += 1;
+            if let Some(idx) = s.find(args) {
+                if s.len() > idx + args.len() {
+                    let suffix: &str = &s[idx + args.len()..];
+                    chain.feed_str(suffix);
+                    if i == len / 4 {
+                        let _ = msg.channel_id.broadcast_typing(&ctx.http).await;
+                        i = 0;
+                    } else {
+                        i += 1;
+                    }
                 }
             }
         }

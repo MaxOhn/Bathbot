@@ -52,7 +52,7 @@ async fn basic_msg(http: &Http, channel: ChannelId) -> CommandResult {
         .say(
             http,
             "Use `<bg s` to (re)start the game, \
-            `<bg b` to increase the image, \
+            `<bg b` to increase the image size, \
             `<bg h` to get a hint, \
             `<bg stop` to stop the game, \
             or `<bg stats` to check your correct guesses.\n\
