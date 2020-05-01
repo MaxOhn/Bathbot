@@ -37,7 +37,7 @@ use std::{
     u32,
 };
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct BasicEmbedData {
     pub author_icon: Option<String>,
     pub author_url: Option<String>,
@@ -801,16 +801,6 @@ impl BasicEmbedData {
             (user.count_ssh + user.count_ss + user.count_sh + user.count_s + user.count_a) as i32,
         );
         let bonus_pp = (100.0 * 416.6667 * (1.0 - bonus_pow)).round() / 100.0;
-        let values = ProfileResult::calc(mode, score_maps);
-        let mut combo = String::from(&values.avg_combo.to_string());
-        match mode {
-            GameMode::STD | GameMode::CTB => {
-                combo.push('/');
-                combo.push_str(&values.map_combo.to_string());
-            }
-            _ => {}
-        }
-        combo.push_str(&format!(" [{} - {}]", values.min_combo, values.max_combo));
         let mut fields = vec![
             (
                 "Ranked score:".to_owned(),
@@ -843,102 +833,118 @@ impl BasicEmbedData {
                 format!("{}%", round(user.accuracy)),
                 true,
             ),
-            (
-                "Unweighted accuracy:".to_owned(),
-                format!(
-                    "{}% [{}% - {}%]",
-                    round(values.avg_acc),
-                    round(values.min_acc),
-                    round(values.max_acc)
-                ),
-                true,
-            ),
-            (
-                "Grades:".to_owned(),
-                format!(
-                    "{}{} {}{} {}{} {}{} {}{}",
-                    osu::grade_emote(Grade::XH, cache.clone()).await,
-                    user.count_ssh,
-                    osu::grade_emote(Grade::X, cache.clone()).await,
-                    user.count_ss,
-                    osu::grade_emote(Grade::SH, cache.clone()).await,
-                    user.count_sh,
-                    osu::grade_emote(Grade::S, cache.clone()).await,
-                    user.count_s,
-                    osu::grade_emote(Grade::A, cache).await,
-                    user.count_a,
-                ),
-                false,
-            ),
-            (
-                "Average PP:".to_owned(),
-                format!(
-                    "{}pp [{} - {}]",
-                    round(values.avg_pp),
-                    round(values.min_pp),
-                    round(values.max_pp)
-                ),
-                true,
-            ),
-            ("Average Combo:".to_owned(), combo, true),
         ];
-        if let Some(mod_combs_count) = values.mod_combs_count {
+        if score_maps.is_empty() {
+            result.description = Some("No Top scores".to_string());
+        } else {
+            let values = ProfileResult::calc(mode, score_maps);
+            let mut combo = String::from(&values.avg_combo.to_string());
+            match mode {
+                GameMode::STD | GameMode::CTB => {
+                    combo.push('/');
+                    combo.push_str(&values.map_combo.to_string());
+                }
+                _ => {}
+            }
+            combo.push_str(&format!(" [{} - {}]", values.min_combo, values.max_combo));
+            fields.extend(vec![
+                (
+                    "Unweighted accuracy:".to_owned(),
+                    format!(
+                        "{}% [{}% - {}%]",
+                        round(values.avg_acc),
+                        round(values.min_acc),
+                        round(values.max_acc)
+                    ),
+                    true,
+                ),
+                (
+                    "Grades:".to_owned(),
+                    format!(
+                        "{}{} {}{} {}{} {}{} {}{}",
+                        osu::grade_emote(Grade::XH, cache.clone()).await,
+                        user.count_ssh,
+                        osu::grade_emote(Grade::X, cache.clone()).await,
+                        user.count_ss,
+                        osu::grade_emote(Grade::SH, cache.clone()).await,
+                        user.count_sh,
+                        osu::grade_emote(Grade::S, cache.clone()).await,
+                        user.count_s,
+                        osu::grade_emote(Grade::A, cache).await,
+                        user.count_a,
+                    ),
+                    false,
+                ),
+                (
+                    "Average PP:".to_owned(),
+                    format!(
+                        "{}pp [{} - {}]",
+                        round(values.avg_pp),
+                        round(values.min_pp),
+                        round(values.max_pp)
+                    ),
+                    true,
+                ),
+                ("Average Combo:".to_owned(), combo, true),
+            ]);
+            if let Some(mod_combs_count) = values.mod_combs_count {
+                fields.push((
+                    "Favourite mod combinations:".to_owned(),
+                    mod_combs_count
+                        .into_iter()
+                        .map(|(mods, count)| format!("`{} {}%`", mods, count))
+                        .join(" > "),
+                    false,
+                ));
+            }
             fields.push((
-                "Favourite mod combinations:".to_owned(),
-                mod_combs_count
+                "Favourite mods:".to_owned(),
+                values
+                    .mods_count
                     .into_iter()
                     .map(|(mods, count)| format!("`{} {}%`", mods, count))
                     .join(" > "),
                 false,
             ));
-        }
-        fields.push((
-            "Favourite mods:".to_owned(),
-            values
-                .mods_count
-                .into_iter()
-                .map(|(mods, count)| format!("`{} {}%`", mods, count))
-                .join(" > "),
-            false,
-        ));
-        if let Some(mod_combs_pp) = values.mod_combs_pp {
+            if let Some(mod_combs_pp) = values.mod_combs_pp {
+                fields.push((
+                    "PP earned with mod combination:".to_owned(),
+                    mod_combs_pp
+                        .into_iter()
+                        .map(|(mods, pp)| format!("`{} {}pp`", mods, round(pp)))
+                        .join(" > "),
+                    false,
+                ));
+            }
             fields.push((
-                "PP earned with mod combination:".to_owned(),
-                mod_combs_pp
+                "PP earned with mod:".to_owned(),
+                values
+                    .mods_pp
                     .into_iter()
                     .map(|(mods, pp)| format!("`{} {}pp`", mods, round(pp)))
                     .join(" > "),
                 false,
             ));
+            fields.push((
+                "Mappers in top 100:".to_owned(),
+                values
+                    .mappers
+                    .into_iter()
+                    .map(|(name, count, pp)| format!("{}: {}pp ({})", name, round(pp), count))
+                    .join("\n"),
+                true,
+            ));
+            fields.push((
+                "Average map length:".to_owned(),
+                format!(
+                    "{} [{} - {}]",
+                    sec_to_minsec(values.avg_len),
+                    sec_to_minsec(values.min_len),
+                    sec_to_minsec(values.max_len)
+                ),
+                true,
+            ));
         }
-        fields.push((
-            "PP earned with mod:".to_owned(),
-            values
-                .mods_pp
-                .into_iter()
-                .map(|(mods, pp)| format!("`{} {}pp`", mods, round(pp)))
-                .join(" > "),
-            false,
-        ));
-        fields.push((
-            "Mappers in top 100:".to_owned(),
-            values
-                .mappers
-                .into_iter()
-                .map(|(name, count, pp)| format!("{}: {}pp ({})", name, round(pp), count))
-                .join("\n"),
-            true,
-        ));
-        fields.push((
-            "Average map length:".to_owned(),
-            format!(
-                "{} [{} - {}]",
-                sec_to_minsec(values.avg_len),
-                sec_to_minsec(values.min_len),
-                sec_to_minsec(values.max_len)
-            ),
-            true,
-        ));
         result.author_icon = Some(author_icon);
         result.author_url = Some(author_url);
         result.author_text = Some(author_text);
