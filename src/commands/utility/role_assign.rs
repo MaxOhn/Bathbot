@@ -1,24 +1,26 @@
 use crate::{
-    arguments::RoleAssignArgs, commands::checks::*, database::MySQL, util::discord, ReactionTracker,
+    arguments::RoleAssignArgs, commands::checks::*, database::MySQL, embeds::BasicEmbedData,
+    util::discord, ReactionTracker,
 };
 
 use serenity::{
     framework::standard::{macros::command, Args, CommandError, CommandResult},
     model::{
+        channel::Message,
         id::{ChannelId, MessageId, RoleId},
-        prelude::Message,
     },
     prelude::Context,
-    utils::MessageBuilder,
 };
 
 #[command]
 #[only_in("guild")]
 #[checks(Authority)]
-#[description = "Assign a message and its channel to a role such that \
+#[description = "Assign a message to a role such that \
                  when anyone reacts to that message, the member will \
                  gain that role and and if they remove a reaction, \
-                 they lose the role"]
+                 they lose the role\n\
+                 The first argument must be the channel that contains the message, \
+                 the second must be the message id, and the third must be the role."]
 #[usage = "[channel mention / channel id] [message id] [role mention / role id]"]
 #[example = "#general 681871156168753193 @Meetup"]
 async fn roleassign(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
@@ -54,17 +56,12 @@ async fn roleassign(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
         reaction_tracker.insert((ChannelId(channel.0), MessageId(message.0)), RoleId(role.0));
     }
     let message = channel.message(&ctx.http, message).await?;
-
-    let content = MessageBuilder::new()
-        .push_line("Whoever reacts on the message")
-        .push_quote_safe(&message.content)
-        .push("in ")
-        .channel(channel)
-        .push(" will be assigned the ")
-        .role(role)
-        .push(" role!")
-        .build();
-    let response = msg.channel_id.say(&ctx.http, content).await?;
+    let data =
+        BasicEmbedData::create_roleassign(message, msg.guild_id.unwrap(), role, &ctx.cache).await;
+    let response = msg
+        .channel_id
+        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
+        .await?;
     discord::reaction_deletion(&ctx, response, msg.author.id).await;
     Ok(())
 }

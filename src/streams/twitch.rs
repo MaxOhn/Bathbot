@@ -108,6 +108,9 @@ impl Twitch {
             .query(&data)
             .send()
             .await?;
+        // let json = response.text().await?;
+        // println!("{}", json);
+        // let streams: TwitchStreams = serde_json::from_str(&json)?;
         let streams: TwitchStreams = serde_json::from_slice(&response.bytes().await?)?;
         Ok(streams.data)
     }

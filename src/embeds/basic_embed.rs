@@ -23,9 +23,14 @@ use rosu::models::{
 use serenity::{
     builder::CreateEmbed,
     cache::CacheRwLock,
-    model::{gateway::Presence, id::UserId},
+    model::{
+        channel::Message,
+        gateway::Presence,
+        id::{GuildId, RoleId, UserId},
+        misc::Mentionable,
+    },
     prelude::{RwLock, TypeMap},
-    utils::Colour,
+    utils::{content_safe, Colour, ContentSafeOptions},
 };
 use std::{
     cmp::Ordering,
@@ -1158,6 +1163,33 @@ impl BasicEmbedData {
         result.thumbnail = Some(thumbnail);
         result.description = Some(description);
         Ok(result)
+    }
+
+    //
+    // roleassign
+    //
+    pub async fn create_roleassign(
+        msg: Message,
+        guild: GuildId,
+        role: RoleId,
+        cache: &CacheRwLock,
+    ) -> Self {
+        let mut result = Self::default();
+        let description = format!(
+            "Whoever reacts to {author}'s [message]\
+            (https://discordapp.com/channels/{guild}/{channel}/{msg})\n\
+            ```\n{content}\n```\n\
+            in {channel_mention} will be assigned the {role_mention} role!",
+            author = msg.author.mention(),
+            guild = guild,
+            channel = msg.channel_id,
+            msg = msg.id,
+            content = content_safe(cache, &msg.content, &ContentSafeOptions::default()).await,
+            channel_mention = msg.channel_id.mention(),
+            role_mention = role.mention(),
+        );
+        result.description = Some(description);
+        result
     }
 
     //
