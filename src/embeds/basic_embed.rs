@@ -450,7 +450,8 @@ impl BasicEmbedData {
             let mut teams = HashMap::new();
             let mut point_costs = HashMap::new();
             let team_vs = games.first().unwrap().team_type == TeamType::TeamVS;
-            for game in games {
+            for mut game in games {
+                game.scores = game.scores.into_iter().filter(|s| s.score > 0).collect();
                 let score_sum: u32 = game.scores.iter().map(|s| s.score).sum();
                 let avg = score_sum as f32 / game.scores.len() as f32;
                 for score in game.scores {

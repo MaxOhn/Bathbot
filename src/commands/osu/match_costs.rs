@@ -16,8 +16,8 @@ use std::{collections::HashMap, fmt::Write};
 #[command]
 #[description = "Calculate a performance rating for each player \
                  in the given multiplayer match. The optional second \
-                 argument is the amount of played warmups, defaults to 2.\
-                 Credits and more info over at https://github.com/dain98/Minccino#faq"]
+                 argument is the amount of played warmups, defaults to 2.\n\
+                 More info over at https://github.com/dain98/Minccino#faq"]
 #[usage = "[match url / match id] [amount of warmups]"]
 #[example = "58320988 1"]
 #[example = "https://osu.ppy.sh/community/matches/58320988"]

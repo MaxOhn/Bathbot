@@ -15,7 +15,7 @@ use serenity::{
     model::{misc::Mentionable, prelude::Message},
     prelude::Context,
 };
-use std::{collections::HashMap, fmt::Write};
+use std::collections::HashMap;
 
 #[command]
 #[description = "Display a user's top plays if no score in their top 100 \
@@ -77,12 +77,6 @@ async fn nochokes(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
         (user, scores)
     };
 
-    let mut msg_content = format!("Gathering data for `{}`, I'll ping you when I'm done", name);
-    let mut msg_wait = msg
-        .channel_id
-        .send_message(&ctx.http, |m| m.content(&msg_content))
-        .await?;
-
     // Get all relevant maps from the database
     let map_ids: Vec<u32> = scores.iter().map(|s| s.beatmap_id.unwrap()).collect();
     let mut maps = {
@@ -93,14 +87,22 @@ async fn nochokes(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
             .unwrap_or_else(|_| HashMap::default())
     };
     debug!("Found {}/{} beatmaps in DB", maps.len(), scores.len());
-    if maps.len() != scores.len() {
-        let _ = write!(
-            msg_content,
-            "\nRetrieving {} maps from the API...",
-            scores.len() - maps.len()
-        );
-        msg_wait.edit(&ctx, |m| m.content(&msg_content)).await?;
-    }
+
+    let retrieving_msg = if scores.len() - maps.len() > 15 {
+        Some(
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    format!(
+                        "Retrieving {} maps from the api...",
+                        scores.len() - maps.len()
+                    ),
+                )
+                .await?,
+        )
+    } else {
+        None
+    };
 
     // Further prepare data and retrieve missing maps
     let (scores_data, missing_maps): (HashMap<usize, _>, Option<Vec<Beatmap>>) = {
@@ -116,7 +118,7 @@ async fn nochokes(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
                 let map = match score.get_beatmap(osu).await {
                     Ok(map) => map,
                     Err(why) => {
-                        msg_wait.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
                         return Err(CommandError::from(why.to_string()));
                     }
                 };
@@ -134,15 +136,12 @@ async fn nochokes(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
             },
         )
     };
-    msg_content.push_str("\nAll data prepared, now calculating...");
-    msg_wait.edit(&ctx, |m| m.content(msg_content)).await?;
 
     // Accumulate all necessary data
     let data = match BasicEmbedData::create_nochoke(user, scores_data, ctx.cache.clone()).await {
         Ok(data) => data,
         Err(why) => {
-            msg_wait
-                .channel_id
+            msg.channel_id
                 .say(
                     &ctx.http,
                     "Some issue while calculating nochoke data, blame bade",
@@ -153,15 +152,18 @@ async fn nochokes(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
     };
     let mention = msg.author.mention();
 
+    if let Some(msg) = retrieving_msg {
+        msg.delete(&ctx.http).await?;
+    }
+
     // Creating the embed
-    let response = msg_wait
+    let response = msg
         .channel_id
         .send_message(&ctx.http, |m| {
             m.content(format!("{} No-choke top scores for `{}`:", mention, name))
                 .embed(|e| data.build(e))
         })
         .await;
-    let _ = msg_wait.delete(&ctx).await;
 
     // Add missing maps to database
     if let Some(maps) = missing_maps {
