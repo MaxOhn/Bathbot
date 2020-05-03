@@ -20,6 +20,7 @@ use serenity::{
 use std::{
     collections::{HashMap, HashSet},
     convert::From,
+    fmt::Write,
 };
 
 #[allow(clippy::cognitive_complexity)]
@@ -188,11 +189,12 @@ async fn common_send(
     if amount_common == 0 {
         content.push_str(" have no common scores");
     } else {
-        content.push_str(&format!(
+        let _ = write!(
+            content,
             " have {} common beatmap{} in their top 100",
             amount_common,
             if amount_common > 1 { "s" } else { "" }
-        ));
+        );
         if amount_common > 10 {
             content.push_str(", here's the top 10 of them:");
         } else {

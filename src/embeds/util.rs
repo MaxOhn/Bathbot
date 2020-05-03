@@ -2,27 +2,22 @@ use crate::util::{datetime::sec_to_minsec, numbers::round, osu, pp::PPProvider};
 
 use rosu::models::{Beatmap, GameMode, GameMods, Score};
 use serenity::cache::CacheRwLock;
+use std::fmt::Write;
 
 pub fn get_hits(score: &Score, mode: GameMode) -> String {
     let mut hits = String::from("{");
     if mode == GameMode::MNA {
-        hits.push_str(&score.count_geki.to_string());
-        hits.push('/');
+        let _ = write!(hits, "{}/", score.count_geki);
     }
-    hits.push_str(&score.count300.to_string());
-    hits.push('/');
+    let _ = write!(hits, "{}/", score.count300);
     if mode == GameMode::MNA {
-        hits.push_str(&score.count_katu.to_string());
-        hits.push('/');
+        let _ = write!(hits, "{}/", score.count_katu);
     }
-    hits.push_str(&score.count100.to_string());
-    hits.push('/');
+    let _ = write!(hits, "{}/", score.count100);
     if mode != GameMode::TKO {
-        hits.push_str(&score.count50.to_string());
-        hits.push('/');
+        let _ = write!(hits, "{}/", score.count50);
     }
-    hits.push_str(&score.count_miss.to_string());
-    hits.push('}');
+    let _ = write!(hits, "{}}}", score.count_miss);
     hits
 }
 
@@ -32,12 +27,10 @@ pub fn get_acc(score: &Score, mode: GameMode) -> String {
 
 pub fn get_combo(score: &Score, map: &Beatmap) -> String {
     let mut combo = String::from("**");
-    combo.push_str(&score.max_combo.to_string());
-    combo.push_str("x**/");
+    let _ = write!(combo, "{}x**/", score.max_combo);
     match map.max_combo {
         Some(amount) => {
-            combo.push_str(&amount.to_string());
-            combo.push('x');
+            let _ = write!(combo, "{}x", amount);
         }
         None => combo.push('-'),
     }
@@ -66,8 +59,7 @@ pub fn get_mods(mods: &GameMods) -> String {
         String::new()
     } else {
         let mut res = String::new();
-        res.push('+');
-        res.push_str(&mods.to_string());
+        let _ = write!(res, "+{}", mods);
         res
     }
 }
@@ -90,13 +82,10 @@ pub async fn get_grade_completion_mods(score: &Score, map: &Beatmap, cache: Cach
     let passed = score.total_hits(map.mode);
     let total = map.count_objects();
     if passed < total {
-        res_string.push_str(" (");
-        res_string.push_str(&(100 * passed / total).to_string());
-        res_string.push_str("%)");
+        let _ = write!(res_string, " ({}%)", 100 * passed / total);
     }
     if !score.enabled_mods.is_empty() {
-        res_string.push_str(" +");
-        res_string.push_str(&score.enabled_mods.to_string());
+        let _ = write!(res_string, " +{}", score.enabled_mods);
     }
     res_string
 }

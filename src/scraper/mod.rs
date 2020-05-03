@@ -14,7 +14,7 @@ use crate::{
 use reqwest::{multipart::Form, Client, Response};
 use rosu::models::{GameMod, GameMode, GameMods};
 use scraper::{Html, Node, Selector};
-use std::{collections::HashSet, convert::TryFrom, env, sync::Mutex};
+use std::{collections::HashSet, convert::TryFrom, env, fmt::Write, sync::Mutex};
 
 pub struct Scraper {
     client: Client,
@@ -134,8 +134,7 @@ impl Scraper {
                 url.push_str("&mods[]=NM");
             } else {
                 for m in mods.iter() {
-                    url.push_str("&mods[]=");
-                    url.push_str(&m.to_string());
+                    let _ = write!(url, "&mods[]={}", m);
                 }
             }
         }
@@ -163,16 +162,13 @@ impl Scraper {
             mode = mode,
         );
         if let Some(country) = country_acronym {
-            url.push_str("country=");
-            url.push_str(country);
-            url.push('&');
+            let _ = write!(url, "country={}&", country);
         }
         let mut page_idx = rank / 50;
         if rank % 50 != 0 {
             page_idx += 1;
         }
-        url.push_str("page=");
-        url.push_str(&page_idx.to_string());
+        let _ = write!(url, "page={}", page_idx);
         let response = self.send_request(url).await?;
         let body = match response.error_for_status() {
             Ok(res) => res.text().await?,

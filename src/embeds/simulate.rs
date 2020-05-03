@@ -13,7 +13,7 @@ use crate::{
 
 use rosu::models::{Beatmap, GameMode, Score};
 use serenity::{builder::CreateEmbed, utils::Colour};
-use std::sync::Arc;
+use std::{fmt::Write, sync::Arc};
 
 pub struct SimulateData {
     pub title: String,
@@ -101,7 +101,7 @@ impl SimulateData {
         let mut value = format!("{} {}", pp, self.hits);
         if let Some(misses) = self.removed_misses {
             if misses > 0 {
-                value.push_str(&format!(" (+{}miss)", misses));
+                let _ = write!(value, " (+{}miss)", misses);
             }
         }
         embed

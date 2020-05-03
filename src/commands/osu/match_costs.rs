@@ -11,7 +11,7 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Write};
 
 #[command]
 #[description = "Calculate a performance rating for each player \
@@ -86,7 +86,7 @@ async fn matchcosts(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
                 if warmups == 1 {
                     content.push_str("map");
                 } else {
-                    content.push_str(&format!("{} maps", warmups));
+                    let _ = write!(content, "{} maps", warmups);
                 }
                 content.push_str(" as warmup:");
                 m.content(content);

@@ -15,7 +15,7 @@ use serenity::{
     model::{misc::Mentionable, prelude::Message},
     prelude::Context,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Write};
 
 #[command]
 #[description = "Display a user's top plays if no score in their top 100 \
@@ -94,10 +94,11 @@ async fn nochokes(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
     };
     debug!("Found {}/{} beatmaps in DB", maps.len(), scores.len());
     if maps.len() != scores.len() {
-        msg_content.push_str(&format!(
+        let _ = write!(
+            msg_content,
             "\nRetrieving {} maps from the API...",
             scores.len() - maps.len()
-        ));
+        );
         msg_wait.edit(&ctx, |m| m.content(&msg_content)).await?;
     }
 

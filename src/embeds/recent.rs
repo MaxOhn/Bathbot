@@ -11,7 +11,7 @@ use crate::util::{
 
 use rosu::models::{Beatmap, GameMode, Grade, Score, User};
 use serenity::{builder::CreateEmbed, utils::Colour};
-use std::sync::Arc;
+use std::{fmt::Write, sync::Arc};
 
 pub struct RecentData {
     pub description: Option<String>,
@@ -114,15 +114,13 @@ impl RecentData {
         let description = if personal_idx.is_some() || global_idx.is_some() {
             let mut description = String::from("__**");
             if let Some(idx) = personal_idx {
-                description.push_str("Personal Best #");
-                description.push_str(&(idx + 1).to_string());
+                let _ = write!(description, "Personal Best #{}", idx + 1);
                 if global_idx.is_some() {
                     description.push_str(" and ");
                 }
             }
             if let Some(idx) = global_idx {
-                description.push_str("Global Top #");
-                description.push_str(&(idx + 1).to_string());
+                let _ = write!(description, "Global Top #{}", idx + 1);
             }
             description.push_str("**__");
             Some(description)

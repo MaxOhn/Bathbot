@@ -320,11 +320,12 @@ impl BasicEmbedData {
             if users.len() > 2 {
                 let third_score = scores.get(2).unwrap();
                 let third_user = users.get(&third_score.user_id).unwrap();
-                description.push_str(&format!(
+                let _ = write!(
+                    description,
                     " :third_place: `{}`: {}pp",
                     third_user.username,
                     round(third_score.pp.unwrap())
-                ));
+                );
             }
             description.push('\n');
         }
@@ -358,9 +359,9 @@ impl BasicEmbedData {
         let mut result = Self::default();
         let mut author_text = String::with_capacity(16);
         if map.mode == GameMode::MNA {
-            author_text.push_str(&format!("[{}K] ", map.diff_cs as u32));
+            let _ = write!(author_text, "[{}K] ", map.diff_cs as u32);
         }
-        author_text.push_str(&format!("{} [{}★]", map, round(map.stars)));
+        let _ = write!(author_text, "{} [{}★]", map, round(map.stars));
         let author_url = format!("{}b/{}", HOMEPAGE, map.beatmap_id);
         let thumbnail = format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id);
         let footer_url = format!("{}{}", AVATAR_URL, map.creator_id);
@@ -375,19 +376,21 @@ impl BasicEmbedData {
                 if found_author {
                     username.push_str("__");
                 }
-                username.push_str(&format!(
+                let _ = write!(
+                    username,
                     "[{name}](https://osu.ppy.sh/users/{id})",
                     name = score.username,
                     id = score.user_id
-                ));
+                );
                 if found_author {
                     username.push_str("__");
                 }
                 let cache = cache_data.cache().clone();
                 let data = Arc::clone(cache_data.data());
-                description.push_str(&format!(
+                let _ = writeln!(
+                    description,
                     "**{idx}.** {emote} **{name}**: {score} [ {combo} ]{mods}\n\
-                     - {pp} ~ {acc}% ~ {ago}\n",
+                    - {pp} ~ {acc}% ~ {ago}",
                     idx = idx + i + 1,
                     emote = osu::grade_emote(score.grade, cache).await.to_string(),
                     name = username,
@@ -401,7 +404,7 @@ impl BasicEmbedData {
                     pp = get_pp(&mut mod_map, &score, &map, data).await?,
                     acc = round(score.accuracy),
                     ago = how_long_ago(&score.date),
-                ));
+                );
             }
             description
         } else {
@@ -595,10 +598,10 @@ impl BasicEmbedData {
         for map in maps {
             let _ = writeln!(
                 description,
-                "**[{count}]** [{title} - {artist} [{version}]]({base}b/{map_id}) [{stars}]",
+                "**[{count}]** [{artist} - {title} [{version}]]({base}b/{map_id}) [{stars}]",
                 count = map.count,
-                artist = map.artist,
                 title = map.title,
+                artist = map.artist,
                 version = map.version,
                 base = HOMEPAGE,
                 map_id = map.beatmap_id,
@@ -846,12 +849,11 @@ impl BasicEmbedData {
             let mut combo = String::from(&values.avg_combo.to_string());
             match mode {
                 GameMode::STD | GameMode::CTB => {
-                    combo.push('/');
-                    combo.push_str(&values.map_combo.to_string());
+                    let _ = write!(combo, "/{}", values.map_combo);
                 }
                 _ => {}
             }
-            combo.push_str(&format!(" [{} - {}]", values.min_combo, values.max_combo));
+            let _ = write!(combo, " [{} - {}]", values.min_combo, values.max_combo);
             fields.extend(vec![
                 (
                     "Unweighted accuracy:".to_owned(),
@@ -1242,8 +1244,7 @@ impl BasicEmbedData {
                 acc = util::get_acc(&score, map.mode),
             );
             if map.mode == GameMode::MNA {
-                name.push('\t');
-                name.push_str(&util::get_keys(&score.enabled_mods, &map));
+                let _ = write!(name, "\t{}", util::get_keys(&score.enabled_mods, &map));
             }
             let value = format!(
                 "{pp}\t[ {combo} ]\t {hits}\t{ago}",
@@ -1317,9 +1318,10 @@ impl BasicEmbedData {
                     util::get_pp(score, &pp_provider, mode),
                 )
             };
-            description.push_str(&format!(
+            let _ = writeln!(
+                description,
                 "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
-                 {grade} {pp} ~ ({acc}) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}\n",
+                {grade} {pp} ~ ({acc}) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
                 idx = idx,
                 title = map.title,
                 version = map.version,
@@ -1333,8 +1335,8 @@ impl BasicEmbedData {
                 score = with_comma_u64(score.score as u64),
                 combo = util::get_combo(&score, &map),
                 hits = util::get_hits(&score, mode),
-                ago = how_long_ago(&score.date),
-            ));
+                ago = how_long_ago(&score.date)
+            );
         }
         description.pop();
         let footer_text = format!("Page {}/{}", pages.0, pages.1);
@@ -1483,20 +1485,17 @@ pub async fn get_pp(
 }
 
 pub fn get_combo(score: &ScraperScore, map: &Beatmap) -> String {
-    let mut combo = String::from("**");
-    combo.push_str(&score.max_combo.to_string());
-    combo.push_str("x**/");
-    match map.max_combo {
-        Some(amount) => {
-            combo.push_str(&amount.to_string());
-            combo.push('x');
-        }
-        None => combo.push_str(&format!(
+    let mut combo = format!("**{}x**/", score.max_combo.to_string());
+    let _ = if let Some(amount) = map.max_combo {
+        write!(combo, "{}x", amount)
+    } else {
+        write!(
+            combo,
             " {} miss{}",
             score.count_miss,
             if score.count_miss != 1 { "es" } else { "" }
-        )),
-    }
+        )
+    };
     combo
 }
 
