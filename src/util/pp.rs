@@ -3,7 +3,7 @@ use crate::{
     PerformanceCalculatorLock,
 };
 
-use rosu::models::{ApprovalStatus, Beatmap, GameMode, GameMods, Grade, Score};
+use rosu::models::{ApprovalStatus, Beatmap, GameMod, GameMode, GameMods, Grade, Score};
 use serenity::prelude::{RwLock, TypeMap};
 use std::{
     env, mem,
@@ -396,7 +396,7 @@ async fn start_pp_calc(map_id: u32, mods: &GameMods, score: Option<u32>) -> Resu
         .arg("simulate")
         .arg("mania")
         .arg(map_path);
-    for &m in mods.iter() {
+    for &m in mods.iter().filter(|&&m| m != GameMod::ScoreV2) {
         cmd.arg("-m").arg(m.to_string());
     }
     cmd.arg("-s");
@@ -431,7 +431,7 @@ async fn calc_stars(map_id: u32, mods: &GameMods) -> Result<f32, Error> {
     cmd.arg(env::var("PERF_CALC").unwrap())
         .arg("difficulty")
         .arg(map_path);
-    for &m in mods.iter() {
+    for &m in mods.iter().filter(|&&m| m != GameMod::ScoreV2) {
         cmd.arg("-m").arg(m.to_string());
     }
     let output = cmd.output()?;
