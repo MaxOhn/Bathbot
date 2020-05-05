@@ -456,6 +456,11 @@ impl MySQL {
         Ok(data.1)
     }
 
+    pub fn all_bggame_scores(&self) -> DBResult<Vec<(u64, u32)>> {
+        let conn = self.get_connection()?;
+        Ok(schema::bggame_stats::table.load(&conn)?)
+    }
+
     // ---------------
     // Table: messages
     // ---------------

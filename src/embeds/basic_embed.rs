@@ -256,6 +256,46 @@ impl BasicEmbedData {
     }
 
     //
+    // bg ranking
+    //
+    pub fn create_bg_ranking(
+        author_idx: Option<usize>,
+        list: Vec<(String, u32)>,
+        idx: usize,
+        pages: (usize, usize),
+    ) -> Self {
+        let symbols = ["♔", "♕", "♖", "♗", "♘", "♙"];
+        let mut result = Self::default();
+        let len = list.iter().fold(0, |max, (user, _)| max.max(user.len()));
+        let mut description = String::with_capacity(256);
+        description.push_str("```\n");
+        for (mut i, (user, score)) in list.into_iter().enumerate() {
+            i += idx;
+            let _ = writeln!(
+                description,
+                "{:>2} {:1} # {:<len$} => {}",
+                i,
+                if i < 6 { symbols.get(i).unwrap() } else { "" },
+                user,
+                score,
+                len = len
+            );
+        }
+        description.push_str("```");
+        let mut footer_text = format!("Page {}/{}", pages.0, pages.1);
+        if let Some(author_idx) = author_idx {
+            let _ = write!(
+                footer_text,
+                " ~ Your rank: {} (*️⃣ to skip to your page)",
+                author_idx + 1
+            );
+        }
+        result.footer_text = Some(footer_text);
+        result.description = Some(description);
+        result
+    }
+
+    //
     // common
     //
     /// Returns a tuple containing a new `BasicEmbedData` object,

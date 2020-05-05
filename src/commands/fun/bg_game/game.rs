@@ -146,7 +146,7 @@ async fn game_loop(
             {
                 if msg.content.contains("stop") {
                     return LoopResult::Stop;
-                } else if !msg.content.contains("stats") {
+                } else if !msg.content.contains("stats") && !msg.content.contains("ranking") {
                     return LoopResult::Restart;
                 }
             } else {

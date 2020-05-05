@@ -9,6 +9,8 @@ use rosu::models::{Beatmap, GameMode, Score, User};
 use serenity::{
     builder::CreateEmbed,
     cache::CacheRwLock,
+    http::client::Http,
+    model::id::UserId,
     prelude::{RwLock, TypeMap},
 };
 use std::{collections::HashMap, sync::Arc};
@@ -41,6 +43,13 @@ pub enum PaginationType {
         first_place_icon: Option<String>,
         cache: CacheRwLock,
         data: Arc<RwLock<TypeMap>>,
+    },
+    BgRanking {
+        author_idx: Option<usize>,
+        scores: Vec<(u64, u32)>,
+        usernames: HashMap<u64, String>,
+        http: Arc<Http>,
+        cache: CacheRwLock,
     },
 }
 
@@ -180,6 +189,30 @@ impl Pagination {
         }
     }
 
+    pub fn bg_ranking(
+        author_idx: Option<usize>,
+        scores: Vec<(u64, u32)>,
+        http: Arc<Http>,
+        cache: CacheRwLock,
+    ) -> Self {
+        let amount = scores.len();
+        let per_page = 15;
+        let pagination = PaginationType::BgRanking {
+            author_idx,
+            scores,
+            usernames: HashMap::with_capacity(per_page),
+            http,
+            cache,
+        };
+        Self {
+            index: 0,
+            per_page,
+            total_pages: numbers::div_euclid(per_page, amount),
+            last_index: last_multiple(per_page, amount),
+            pagination,
+        }
+    }
+
     pub async fn next_reaction(&mut self, reaction: &str) -> Result<ReactionData, Error> {
         let next_index = match reaction {
             // Move to start
@@ -194,6 +227,23 @@ impl Pagination {
             "⏪" => self.index.checked_sub(self.per_page),
             // Move one index left
             "◀️" => self.index.checked_sub(1),
+            // Move to user specific position
+            "*️⃣" => {
+                if let PaginationType::BgRanking {
+                    author_idx: Some(idx),
+                    ..
+                } = &self.pagination
+                {
+                    let i = last_multiple(self.per_page, *idx);
+                    if i != self.index {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
             // Move one index right
             "▶️" => {
                 if self.index < self.last_index {
@@ -311,6 +361,43 @@ impl Pagination {
                 )
                 .await?,
             )),
+            PaginationType::BgRanking {
+                scores,
+                author_idx,
+                usernames,
+                http,
+                cache,
+            } => {
+                let user_ids: Vec<u64> = scores
+                    .iter()
+                    .skip(self.index)
+                    .take(self.per_page)
+                    .map(|(id, _)| id)
+                    .copied()
+                    .collect();
+                for id in user_ids {
+                    if !usernames.contains_key(&id) {
+                        let name = if let Ok(user) = UserId(id).to_user((&*cache, &**http)).await {
+                            user.name
+                        } else {
+                            String::from("Unknown user")
+                        };
+                        usernames.insert(id, name);
+                    }
+                }
+                let scores = scores
+                    .iter()
+                    .skip(self.index)
+                    .take(self.per_page)
+                    .map(|(id, score)| (usernames.get(&id).unwrap().clone(), *score))
+                    .collect();
+                ReactionData::Basic(Box::new(BasicEmbedData::create_bg_ranking(
+                    *author_idx,
+                    scores,
+                    self.index + 1,
+                    (page, self.total_pages),
+                )))
+            }
         };
         Ok(result)
     }
