@@ -5,6 +5,7 @@ mod link;
 pub mod mania;
 mod match_costs;
 mod most_played;
+mod most_played_common;
 pub mod pp;
 pub mod profile;
 pub mod rank;
@@ -26,6 +27,7 @@ pub use leaderboard::*;
 pub use link::*;
 pub use match_costs::*;
 pub use most_played::*;
+pub use most_played_common::*;
 pub use scores::*;
 pub use simulate::*;
 
@@ -39,6 +41,7 @@ use serenity::framework::standard::macros::group;
     simulate,
     matchcosts,
     mostplayed,
+    mostplayedcommon,
     leaderboard,
     globalleaderboard
 )]

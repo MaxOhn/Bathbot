@@ -5,7 +5,7 @@ use models::{DBMap, GuildDB, ManiaPP, MapSplit, StreamTrackDB};
 pub use models::{DBMapSet, Guild, InsertableMessage, Platform, Ratios, StreamTrack, TwitchUser};
 
 use crate::{
-    commands::messages_fun::MessageStats,
+    commands::messages_fun::{MessageActivity, MessageStats},
     util::{globals::AUTHORITY_ROLES, Error},
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
@@ -618,6 +618,34 @@ impl MySQL {
             author_avg,
             single_words,
         ))
+    }
+
+    pub fn activity_amount(&self, channel: Option<u64>) -> DBResult<MessageActivity> {
+        use schema::messages::{self, channel_id, timestamp};
+
+        let hour = (Utc::now() - chrono::Duration::hours(1)).naive_utc();
+        let day = (Utc::now() - chrono::Duration::days(1)).naive_utc();
+        let week = (Utc::now() - chrono::Duration::weeks(1)).naive_utc();
+        let month = (Utc::now() - chrono::Duration::days(30)).naive_utc();
+        let conn = self.get_connection()?;
+
+        let query = messages::table
+            .select(timestamp)
+            .filter(timestamp.ge(month));
+
+        let mut msgs_amount: Vec<NaiveDateTime> = if let Some(id) = channel {
+            query.filter(channel_id.eq(id)).load(&conn)?
+        } else {
+            query.load(&conn)?
+        };
+        let month = msgs_amount.len();
+        msgs_amount.retain(|time| time >= &week);
+        let week = msgs_amount.len();
+        msgs_amount.retain(|time| time >= &day);
+        let day = msgs_amount.len();
+        msgs_amount.retain(|time| time >= &hour);
+        let hour = msgs_amount.len();
+        Ok(MessageActivity::new(hour, day, week, month))
     }
 
     // ------------------

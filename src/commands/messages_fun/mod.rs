@@ -1,3 +1,4 @@
+mod activity;
 mod complete;
 mod disable;
 mod enable;
@@ -5,6 +6,7 @@ mod hivemind;
 mod impersonate;
 mod stats;
 
+pub use activity::*;
 pub use complete::*;
 pub use disable::*;
 pub use enable::*;
@@ -23,6 +25,7 @@ use serenity::framework::standard::macros::group;
     hivemind,
     messagestats,
     randomhistory,
-    complete
+    complete,
+    activity
 )]
 struct MessagesFun;

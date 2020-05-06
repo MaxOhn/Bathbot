@@ -1,6 +1,9 @@
 use super::util;
 use crate::{
-    commands::messages_fun::MessageStats,
+    commands::{
+        messages_fun::{MessageActivity, MessageStats},
+        utility::AvatarUser,
+    },
     scraper::{MostPlayedMap, ScraperScore},
     streams::{TwitchStream, TwitchUser},
     util::{
@@ -106,6 +109,74 @@ impl BasicEmbedData {
             e.fields(fields);
         }
         e.color(Colour::DARK_GREEN)
+    }
+
+    //
+    // activity
+    //
+    pub fn create_activity(activity: MessageActivity, name: String, channel: bool) -> Self {
+        let mut result = Self::default();
+        let title = format!(
+            "Message activity in {} {}{}:",
+            if channel { "channel" } else { "server" },
+            if channel { "#" } else { "" },
+            name
+        );
+        let month_str = with_comma_u64(activity.hour as u64);
+        let amount_len = 9.max(month_str.len());
+        let mut description = String::with_capacity(128);
+        let _ = writeln!(description, "```");
+        let _ = writeln!(
+            description,
+            " Last | {:>len$} |   Total | Activity",
+            "#Messages",
+            len = amount_len
+        );
+        let _ = writeln!(
+            description,
+            "------+-{:->len$}-+---------+---------",
+            "-",
+            len = amount_len
+        );
+        let activity_hour = round((100 * 24 * 30 * activity.hour) as f32 / activity.month as f32);
+        let activity_day = round((100 * 30 * activity.day) as f32 / activity.month as f32);
+        let activity_week = round(100.0 * 4.286 * activity.week as f32 / activity.month as f32);
+        let _ = writeln!(
+            description,
+            " Hour | {:>len$} | {:>6}% | {:>7}%",
+            with_comma_u64(activity.hour as u64),
+            round(100.0 * activity.hour as f32 / activity.month as f32),
+            activity_hour,
+            len = amount_len
+        );
+        let _ = writeln!(
+            description,
+            "  Day | {:>len$} | {:>6}% | {:>7}%",
+            with_comma_u64(activity.day as u64),
+            round(100.0 * activity.day as f32 / activity.month as f32),
+            activity_day,
+            len = amount_len
+        );
+        let _ = writeln!(
+            description,
+            " Week | {:>len$} | {:>6}% | {:>7}%",
+            with_comma_u64(activity.week as u64),
+            round(100.0 * activity.week as f32 / activity.month as f32),
+            activity_week,
+            len = amount_len
+        );
+        let _ = writeln!(
+            description,
+            "Month | {:>len$} | {:>6}% | {:>7}%",
+            with_comma_u64(activity.month as u64),
+            100,
+            100,
+            len = amount_len
+        );
+        let _ = write!(description, "```");
+        result.title_text = Some(title);
+        result.description = Some(description);
+        result
     }
 
     //
@@ -343,6 +414,26 @@ impl BasicEmbedData {
         result.description = Some(description);
         result.footer_text = Some(footer_text);
         result.author_text = Some("Most popular commands:".to_string());
+        result
+    }
+
+    //
+    // avatar
+    //
+    pub fn create_avatar(user: AvatarUser) -> Self {
+        let mut result = Self::default();
+        let title_text = format!(
+            "{}'s {} avatar:",
+            user.name(),
+            if let AvatarUser::Discord { .. } = user {
+                "discord"
+            } else {
+                "osu!"
+            }
+        );
+        result.title_text = Some(title_text);
+        result.title_url = Some(user.url().to_string());
+        result.image_url = Some(user.url().to_string());
         result
     }
 
@@ -708,6 +799,87 @@ impl BasicEmbedData {
         result.description = Some(description);
         result.footer_text = Some(format!("Page {}/{}", pages.0, pages.1));
         result
+    }
+
+    //
+    // mostplayedcommon
+    //
+    /// Returns a tuple containing a new `BasicEmbedData` object,
+    /// and a `Vec<u8>` representing the bytes of a png
+    pub async fn create_mostplayedcommon(
+        users: HashMap<u32, User>,
+        mut maps: Vec<MostPlayedMap>,
+        users_count: HashMap<u32, HashMap<u32, u32>>,
+    ) -> (Self, Vec<u8>) {
+        let mut result = Self::default();
+        // Sort maps by sum of counts
+        let total_counts: HashMap<u32, u32> = users_count.iter().fold(
+            HashMap::with_capacity(maps.len()),
+            |mut counts, (_, user_entry)| {
+                for (map_id, count) in user_entry {
+                    *counts.entry(*map_id).or_insert(0) += count;
+                }
+                counts
+            },
+        );
+        maps.sort_by(|a, b| {
+            total_counts
+                .get(&b.beatmap_id)
+                .unwrap()
+                .cmp(total_counts.get(&a.beatmap_id).unwrap())
+        });
+        // Write msg
+        let mut description = String::with_capacity(512);
+        for (i, map) in maps.into_iter().enumerate() {
+            let _ = writeln!(
+                description,
+                "**{idx}.** [{title} [{version}]]({base}b/{id}) [{stars}]",
+                idx = i + 1,
+                title = map.title,
+                version = map.version,
+                base = HOMEPAGE,
+                id = map.beatmap_id,
+                stars = util::get_stars(map.stars),
+            );
+            let mut top_users: Vec<(u32, u32)> = users_count
+                .iter()
+                .map(|(user_id, entry)| (*user_id, *entry.get(&map.beatmap_id).unwrap()))
+                .collect();
+            top_users.sort_by(|a, b| b.1.cmp(&a.1));
+            let mut top_users = top_users.into_iter().take(3);
+            let (first_name, first_count) = top_users
+                .next()
+                .map(|(user_id, count)| (&users.get(&user_id).unwrap().username, count))
+                .unwrap();
+            let (second_name, second_count) = top_users
+                .next()
+                .map(|(user_id, count)| (&users.get(&user_id).unwrap().username, count))
+                .unwrap();
+            let _ = write!(
+                description,
+                "- :first_place: `{}`: **{}** :second_place: `{}`: **{}**",
+                first_name, first_count, second_name, second_count
+            );
+            if let Some((third_id, third_count)) = top_users.next() {
+                let third_name = &users.get(&third_id).unwrap().username;
+                let _ = write!(
+                    description,
+                    " :third_place: `{}`: **{}**",
+                    third_name, third_count
+                );
+            }
+            description.push('\n');
+        }
+        // Keys have no strict order, hence inconsistent result
+        let user_ids: Vec<u32> = users.keys().copied().collect();
+        let thumbnail = discord::get_combined_thumbnail(&user_ids)
+            .await
+            .unwrap_or_else(|e| {
+                warn!("Error while combining avatars: {}", e);
+                Vec::default()
+            });
+        result.description = Some(description);
+        (result, thumbnail)
     }
 
     //
