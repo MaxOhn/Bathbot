@@ -2,6 +2,7 @@ use rand::seq::SliceRandom;
 
 #[derive(Default)]
 pub struct Hints {
+    pub artist_guessed: bool,
     hint_level: u8,
     title_mask: Vec<bool>,
     indices: Vec<usize>,
@@ -25,6 +26,7 @@ impl Hints {
             title_mask.push(c == ' ');
         }
         Self {
+            artist_guessed: false,
             hint_level: 0,
             title_mask,
             indices,
@@ -44,7 +46,7 @@ impl Hints {
                     first = title.chars().next().unwrap(),
                 )
             }
-            2 => {
+            2 if !self.artist_guessed => {
                 let mut artist_hint = String::with_capacity(artist.len());
                 artist_hint.push(artist.chars().next().unwrap());
                 for c in artist.chars().skip(1) {

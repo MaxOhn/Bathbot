@@ -174,7 +174,7 @@ async fn game_loop(
             }
             // Artist correct?
             ContentResult::Artist { exact } => {
-                game.artist_guessed = true;
+                game.hints.artist_guessed = true;
                 let content = if exact {
                     format!(
                         "That's the correct artist `{}`, can you get the title too?",
@@ -226,7 +226,7 @@ fn check_msg_content(content: &str, game: &GameData) -> ContentResult {
     if similarity > 0.5 {
         return ContentResult::Title { exact: false };
     }
-    if !game.artist_guessed {
+    if !game.hints.artist_guessed {
         // Guessed the artist exactly?
         if content == game.artist {
             return ContentResult::Artist { exact: true };
@@ -242,7 +242,7 @@ fn check_msg_content(content: &str, game: &GameData) -> ContentResult {
 pub struct GameData {
     pub title: String,
     pub artist: String,
-    pub artist_guessed: bool,
+    // pub artist_guessed: bool,
     pub mapset_id: u32,
     discord_data: Option<Arc<RwLock<TypeMap>>>,
     hints: Hints,
@@ -281,7 +281,6 @@ impl GameData {
         self.hints = Hints::new(&title);
         self.title = title;
         self.artist = artist;
-        self.artist_guessed = false;
         self.mapset_id = mapset_id;
         self.reveal = ImageReveal::new(img);
         self.discord_data = Some(data);

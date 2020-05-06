@@ -143,7 +143,11 @@ async fn main() {
         .before(before)
         .after(after)
         .on_dispatch_error(dispatch_error)
-        .bucket("songs", |b| b.delay(20).time_span(20).limit(1))
+        .bucket("songs", |b| b.delay(20).limit(1))
+        .await
+        .bucket("bg_bigger", |b| b.time_span(10).limit(3))
+        .await
+        .bucket("bg_hint", |b| b.time_span(7).limit(3))
         .await
         .help(&HELP)
         .group(&OSUGENERAL_GROUP)

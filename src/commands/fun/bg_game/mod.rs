@@ -117,6 +117,7 @@ async fn _start(mode: GameMode, ctx: &mut Context, msg: &Message) -> CommandResu
 
 #[command]
 #[aliases("h")]
+#[bucket = "bg_hint"]
 async fn hint(ctx: &mut Context, msg: &Message) -> CommandResult {
     let hint = {
         let mut data = ctx.data.write().await;
@@ -146,6 +147,7 @@ async fn hint(ctx: &mut Context, msg: &Message) -> CommandResult {
 
 #[command]
 #[aliases("b", "enhance")]
+#[bucket = "bg_bigger"]
 async fn bigger(ctx: &mut Context, msg: &Message) -> CommandResult {
     let img: Option<Result<Vec<u8>, Error>> = {
         let mut data = ctx.data.write().await;
