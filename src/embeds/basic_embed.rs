@@ -260,7 +260,8 @@ impl BasicEmbedData {
     //
     pub fn create_bg_ranking(
         author_idx: Option<usize>,
-        list: Vec<(String, u32)>,
+        list: Vec<(&String, u32)>,
+        global: bool,
         idx: usize,
         pages: (usize, usize),
     ) -> Self {
@@ -275,7 +276,11 @@ impl BasicEmbedData {
                 description,
                 "{:>2} {:1} # {:<len$} => {}",
                 i,
-                if i < 6 { symbols.get(i).unwrap() } else { "" },
+                if i < 7 {
+                    symbols.get(i - 1).unwrap()
+                } else {
+                    ""
+                },
                 user,
                 score,
                 len = len
@@ -290,8 +295,54 @@ impl BasicEmbedData {
                 author_idx + 1
             );
         }
+        let author_text = format!(
+            "{} leaderboard for correct guesses:",
+            if global { "Global" } else { "Server" }
+        );
         result.footer_text = Some(footer_text);
         result.description = Some(description);
+        result.author_text = Some(author_text);
+        result
+    }
+
+    //
+    // command counter
+    //
+    pub fn create_command_counter(
+        list: Vec<(&String, u32)>,
+        booted_up: &str,
+        idx: usize,
+        pages: (usize, usize),
+    ) -> Self {
+        let symbols = ["♔", "♕", "♖", "♗", "♘", "♙"];
+        let mut result = Self::default();
+        let len = list.iter().fold(0, |max, (name, _)| max.max(name.len()));
+        let mut description = String::with_capacity(256);
+        description.push_str("```\n");
+        for (mut i, (name, amount)) in list.into_iter().enumerate() {
+            i += idx;
+            let _ = writeln!(
+                description,
+                "{:>2} {:1} # {:<len$} => {}",
+                i,
+                if i < 7 {
+                    symbols.get(i - 1).unwrap()
+                } else {
+                    ""
+                },
+                name,
+                amount,
+                len = len
+            );
+        }
+        description.push_str("```");
+        let footer_text = format!(
+            "Page {}/{} ~ Started counting {}",
+            pages.0, pages.1, booted_up
+        );
+        result.description = Some(description);
+        result.footer_text = Some(footer_text);
+        result.author_text = Some("Most popular commands:".to_string());
         result
     }
 

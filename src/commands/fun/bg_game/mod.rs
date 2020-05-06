@@ -23,9 +23,8 @@ use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
     http::client::Http,
     model::{
-        channel::ReactionType,
+        channel::{Message, ReactionType},
         id::{ChannelId, UserId},
-        prelude::Message,
     },
     prelude::{Context, RwLock as SRwLock, TypeMap},
 };
@@ -253,23 +252,17 @@ async fn ranking(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRes
     let initial_scores = scores
         .iter()
         .take(15)
-        .map(|(id, score)| (usernames.remove(&id).unwrap(), *score))
+        .map(|(id, score)| (usernames.get(&id).unwrap(), *score))
         .collect();
 
     // Prepare initial page
     let pages = numbers::div_euclid(15, scores.len());
-    let data = BasicEmbedData::create_bg_ranking(author_idx, initial_scores, 1, (1, pages));
+    let data = BasicEmbedData::create_bg_ranking(author_idx, initial_scores, global, 1, (1, pages));
 
     // Creating the embed
     let mut response = msg
         .channel_id
-        .send_message(&ctx.http, |m| {
-            m.content(format!(
-                "{} leaderboard for correct guesses:",
-                if global { "Global" } else { "Server" }
-            ))
-            .embed(|e| data.build(e))
-        })
+        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
         .await?;
 
     if scores.len() <= 15 {
@@ -280,7 +273,7 @@ async fn ranking(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRes
     // Collect reactions of author on the response
     let mut collector = response
         .await_reactions(&ctx)
-        .timeout(Duration::from_secs(90))
+        .timeout(Duration::from_secs(60))
         .author_id(msg.author.id)
         .await;
 
@@ -294,7 +287,7 @@ async fn ranking(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRes
     let cache = ctx.cache.clone();
     tokio::spawn(async move {
         let mut pagination =
-            Pagination::bg_ranking(author_idx, scores, Arc::clone(&http), cache.clone());
+            Pagination::bg_ranking(author_idx, scores, global, Arc::clone(&http), cache.clone());
         while let Some(reaction) = collector.next().await {
             if let ReactionAction::Added(reaction) = &*reaction {
                 if let ReactionType::Unicode(reaction) = &reaction.emoji {
@@ -304,13 +297,7 @@ async fn ranking(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRes
                             ReactionData::None => {}
                             _ => {
                                 response
-                                    .edit((&cache, &*http), |m| {
-                                        m.content(format!(
-                                            "{} leaderboard for correct guesses:",
-                                            if global { "Global" } else { "Server" }
-                                        ))
-                                        .embed(|e| data.build(e))
-                                    })
+                                    .edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
                                     .await?
                             }
                         },

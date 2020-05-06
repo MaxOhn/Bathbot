@@ -46,10 +46,15 @@ pub enum PaginationType {
     },
     BgRanking {
         author_idx: Option<usize>,
+        global: bool,
         scores: Vec<(u64, u32)>,
         usernames: HashMap<u64, String>,
         http: Arc<Http>,
         cache: CacheRwLock,
+    },
+    CommandCounter {
+        booted_up: String,
+        list: Vec<(String, u32)>,
     },
 }
 
@@ -192,6 +197,7 @@ impl Pagination {
     pub fn bg_ranking(
         author_idx: Option<usize>,
         scores: Vec<(u64, u32)>,
+        global: bool,
         http: Arc<Http>,
         cache: CacheRwLock,
     ) -> Self {
@@ -201,9 +207,23 @@ impl Pagination {
             author_idx,
             scores,
             usernames: HashMap::with_capacity(per_page),
+            global,
             http,
             cache,
         };
+        Self {
+            index: 0,
+            per_page,
+            total_pages: numbers::div_euclid(per_page, amount),
+            last_index: last_multiple(per_page, amount),
+            pagination,
+        }
+    }
+
+    pub fn command_counter(list: Vec<(String, u32)>, booted_up: String) -> Self {
+        let amount = list.len();
+        let per_page = 15;
+        let pagination = PaginationType::CommandCounter { list, booted_up };
         Self {
             index: 0,
             per_page,
@@ -365,35 +385,49 @@ impl Pagination {
                 scores,
                 author_idx,
                 usernames,
+                global,
                 http,
                 cache,
             } => {
-                let user_ids: Vec<u64> = scores
+                for id in scores
                     .iter()
                     .skip(self.index)
                     .take(self.per_page)
                     .map(|(id, _)| id)
-                    .copied()
-                    .collect();
-                for id in user_ids {
-                    if !usernames.contains_key(&id) {
-                        let name = if let Ok(user) = UserId(id).to_user((&*cache, &**http)).await {
+                {
+                    if !usernames.contains_key(id) {
+                        let name = if let Ok(user) = UserId(*id).to_user((&*cache, &**http)).await {
                             user.name
                         } else {
                             String::from("Unknown user")
                         };
-                        usernames.insert(id, name);
+                        usernames.insert(*id, name);
                     }
                 }
                 let scores = scores
                     .iter()
                     .skip(self.index)
                     .take(self.per_page)
-                    .map(|(id, score)| (usernames.get(&id).unwrap().clone(), *score))
+                    .map(|(id, score)| (usernames.get(&id).unwrap(), *score))
                     .collect();
                 ReactionData::Basic(Box::new(BasicEmbedData::create_bg_ranking(
                     *author_idx,
                     scores,
+                    *global,
+                    self.index + 1,
+                    (page, self.total_pages),
+                )))
+            }
+            PaginationType::CommandCounter { list, booted_up } => {
+                let sub_list: Vec<(&String, u32)> = list
+                    .iter()
+                    .skip(self.index)
+                    .take(self.per_page)
+                    .map(|(name, amount)| (name, *amount))
+                    .collect();
+                ReactionData::Basic(Box::new(BasicEmbedData::create_command_counter(
+                    sub_list,
+                    booted_up,
                     self.index + 1,
                     (page, self.total_pages),
                 )))
