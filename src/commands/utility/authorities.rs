@@ -27,7 +27,7 @@ use std::{collections::hash_map::Entry, str::FromStr};
 #[example = "-show"]
 #[example = "mod \"bot commander\" moderator"]
 #[aliases("authority", "setauthorities")]
-async fn authorities(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn authorities(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
 
     // Check if the user just wants to see the current authorities
@@ -114,7 +114,7 @@ async fn authorities(ctx: &mut Context, msg: &Message, mut args: Args) -> Comman
             }
         }
     }
-    let member = guild_id.member(&ctx, msg.author.id).await?;
+    let member = guild_id.member(ctx, msg.author.id).await?;
     let is_admin = member.permissions(&ctx.cache).await?.administrator();
     // If the new roles do not contain any of the members current roles
     let invalid_auths = !is_admin

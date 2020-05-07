@@ -15,12 +15,7 @@ use serenity::{
     prelude::Context,
 };
 
-async fn whatif_send(
-    mode: GameMode,
-    ctx: &mut Context,
-    msg: &Message,
-    args: Args,
-) -> CommandResult {
+async fn whatif_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = match NameFloatArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
@@ -106,7 +101,7 @@ async fn whatif_send(
 #[usage = "[username] [number]"]
 #[example = "badewanne3 321.98"]
 #[aliases("wi")]
-pub async fn whatif(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn whatif(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     whatif_send(GameMode::STD, ctx, msg, args).await
 }
 
@@ -116,7 +111,7 @@ pub async fn whatif(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
 #[usage = "[username] [number]"]
 #[example = "badewanne3 321.98"]
 #[aliases("wim")]
-pub async fn whatifmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn whatifmania(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     whatif_send(GameMode::MNA, ctx, msg, args).await
 }
 
@@ -126,7 +121,7 @@ pub async fn whatifmania(ctx: &mut Context, msg: &Message, args: Args) -> Comman
 #[usage = "[username] [number]"]
 #[example = "badewanne3 321.98"]
 #[aliases("wit")]
-pub async fn whatiftaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn whatiftaiko(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     whatif_send(GameMode::TKO, ctx, msg, args).await
 }
 
@@ -136,6 +131,6 @@ pub async fn whatiftaiko(ctx: &mut Context, msg: &Message, args: Args) -> Comman
 #[usage = "[username] [number]"]
 #[example = "badewanne3 321.98"]
 #[aliases("wic")]
-pub async fn whatifctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn whatifctb(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     whatif_send(GameMode::CTB, ctx, msg, args).await
 }

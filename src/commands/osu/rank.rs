@@ -16,7 +16,7 @@ use serenity::{
     prelude::Context,
 };
 
-async fn rank_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = match RankArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
@@ -141,7 +141,7 @@ async fn rank_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args)
 #[example = "badewanne3 be50"]
 #[example = "badewanne3 123"]
 #[aliases("reach")]
-pub async fn rank(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn rank(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     rank_send(GameMode::STD, ctx, msg, args).await
 }
 
@@ -151,7 +151,7 @@ pub async fn rank(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
 #[example = "badewanne3 be50"]
 #[example = "badewanne3 123"]
 #[aliases("rankm", "reachmania", "reachm")]
-pub async fn rankmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn rankmania(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     rank_send(GameMode::MNA, ctx, msg, args).await
 }
 
@@ -161,7 +161,7 @@ pub async fn rankmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandR
 #[example = "badewanne3 be50"]
 #[example = "badewanne3 123"]
 #[aliases("rankt", "reachtaiko", "reacht")]
-pub async fn ranktaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn ranktaiko(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     rank_send(GameMode::TKO, ctx, msg, args).await
 }
 
@@ -171,6 +171,6 @@ pub async fn ranktaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandR
 #[example = "badewanne3 be50"]
 #[example = "badewanne3 123"]
 #[aliases("rankc", "reachctb", "reachc")]
-pub async fn rankctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn rankctb(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     rank_send(GameMode::CTB, ctx, msg, args).await
 }

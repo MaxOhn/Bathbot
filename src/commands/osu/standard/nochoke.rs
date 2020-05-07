@@ -23,7 +23,7 @@ use std::collections::HashMap;
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("nc", "nochoke")]
-async fn nochokes(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = NameArgs::new(args);
     let name = if let Some(name) = args.name {
         name

@@ -15,7 +15,7 @@ memorize them and also add all new future messages in the database.\n\
 Since processing this command might take a very long time (maybe hours), \
 you have to give a simple `yes` as argument.\n\
 This command will enable commands such as `impersonate`, `hivemind`, ..."]
-pub async fn enabletracking(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+pub async fn enabletracking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     {
         let data = ctx.data.read().await;
         let guilds = data.get::<Guilds>().expect("Could not get Guilds");

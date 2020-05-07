@@ -19,12 +19,7 @@ use serenity::{
 use std::collections::HashMap;
 
 #[allow(clippy::cognitive_complexity)]
-async fn profile_send(
-    mode: GameMode,
-    ctx: &mut Context,
-    msg: &Message,
-    args: Args,
-) -> CommandResult {
+async fn profile_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = NameArgs::new(args);
     let name = if let Some(name) = args.name {
         name
@@ -184,7 +179,7 @@ async fn profile_send(
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("osu")]
-pub async fn profile(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn profile(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     profile_send(GameMode::STD, ctx, msg, args).await
 }
 
@@ -193,7 +188,7 @@ pub async fn profile(ctx: &mut Context, msg: &Message, args: Args) -> CommandRes
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("mania", "maniaprofile", "profilem")]
-pub async fn profilemania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn profilemania(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     profile_send(GameMode::MNA, ctx, msg, args).await
 }
 
@@ -202,7 +197,7 @@ pub async fn profilemania(ctx: &mut Context, msg: &Message, args: Args) -> Comma
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("taiko", "taikoprofile", "profilet")]
-pub async fn profiletaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn profiletaiko(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     profile_send(GameMode::TKO, ctx, msg, args).await
 }
 
@@ -211,6 +206,6 @@ pub async fn profiletaiko(ctx: &mut Context, msg: &Message, args: Args) -> Comma
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("ctb", "ctbprofile", "profilec")]
-pub async fn profilectb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn profilectb(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     profile_send(GameMode::CTB, ctx, msg, args).await
 }

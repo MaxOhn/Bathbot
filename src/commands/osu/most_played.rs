@@ -14,13 +14,13 @@ use serenity::{
     model::channel::{Message, ReactionType},
     prelude::Context,
 };
-use std::{sync::Arc, time::Duration};
+use std::{convert::TryFrom, sync::Arc, time::Duration};
 
 #[command]
 #[description = "Display the 10 most played maps of a user"]
 #[usage = "[username]"]
 #[example = "badewanne3"]
-async fn mostplayed(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = NameArgs::new(args);
     let name = if let Some(name) = args.name {
         name
@@ -99,7 +99,8 @@ async fn mostplayed(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
     // Add initial reactions
     let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
     for &reaction in reactions.iter() {
-        response.react(&ctx.http, reaction).await?;
+        let reaction_type = ReactionType::try_from(reaction).unwrap();
+        response.react(&ctx.http, reaction_type).await?;
     }
 
     // Check if the author wants to edit the response
@@ -126,9 +127,10 @@ async fn mostplayed(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
             }
         }
         for &reaction in reactions.iter() {
+            let reaction_type = ReactionType::try_from(reaction).unwrap();
             response
                 .channel_id
-                .delete_reaction(&http, response.id, None, reaction)
+                .delete_reaction(&http, response.id, None, reaction_type)
                 .await?;
         }
         Ok::<_, serenity::Error>(())

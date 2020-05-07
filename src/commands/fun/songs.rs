@@ -7,7 +7,7 @@ use serenity::{
 };
 use tokio::time;
 
-async fn song_send(lyrics: &[&str], delay: u64, ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn song_send(lyrics: &[&str], delay: u64, ctx: &Context, msg: &Message) -> CommandResult {
     let allow = {
         let data = ctx.data.read().await;
         let guilds = data.get::<Guilds>().expect("Could not get Guilds");
@@ -47,7 +47,7 @@ async fn song_send(lyrics: &[&str], delay: u64, ctx: &mut Context, msg: &Message
 #[command]
 #[description = "Making me sing https://youtu.be/xpkkakkDhN4?t=65"]
 #[bucket = "songs"]
-pub async fn bombsaway(ctx: &mut Context, msg: &Message) -> CommandResult {
+pub async fn bombsaway(ctx: &Context, msg: &Message) -> CommandResult {
     let lyrics = &[
         "Tick tick tock and it's bombs awayyyy",
         "Come ooon, it's the only way",
@@ -63,7 +63,7 @@ pub async fn bombsaway(ctx: &mut Context, msg: &Message) -> CommandResult {
 #[command]
 #[description = "Making me sing https://youtu.be/BjFWk0ncr70?t=12"]
 #[bucket = "songs"]
-pub async fn catchit(ctx: &mut Context, msg: &Message) -> CommandResult {
+pub async fn catchit(ctx: &Context, msg: &Message) -> CommandResult {
     let lyrics = &[
         "This song is one you won't forget",
         "It will get stuck -- in your head",
@@ -76,7 +76,7 @@ pub async fn catchit(ctx: &mut Context, msg: &Message) -> CommandResult {
 #[command]
 #[description = "Making me sing https://youtu.be/_yWU0lFghxU?t=54"]
 #[bucket = "songs"]
-pub async fn ding(ctx: &mut Context, msg: &Message) -> CommandResult {
+pub async fn ding(ctx: &Context, msg: &Message) -> CommandResult {
     let lyrics = &[
         "Oh-oh-oh, hübsches Ding",
         "Ich versteck' mein' Ehering",
@@ -93,7 +93,7 @@ pub async fn ding(ctx: &mut Context, msg: &Message) -> CommandResult {
 #[command]
 #[description = "Making me sing https://youtu.be/0jgrCKhxE1s?t=77"]
 #[bucket = "songs"]
-pub async fn fireandflames(ctx: &mut Context, msg: &Message) -> CommandResult {
+pub async fn fireandflames(ctx: &Context, msg: &Message) -> CommandResult {
     let lyrics = &[
         "So far away we wait for the day-yay",
         "For the lives all so wasted and gooone",
@@ -106,7 +106,7 @@ pub async fn fireandflames(ctx: &mut Context, msg: &Message) -> CommandResult {
 #[command]
 #[description = "Making me sing https://youtu.be/psuRGfAaju4?t=25"]
 #[bucket = "songs"]
-pub async fn fireflies(ctx: &mut Context, msg: &Message) -> CommandResult {
+pub async fn fireflies(ctx: &Context, msg: &Message) -> CommandResult {
     let lyrics = &[
         "You would not believe your eyes",
         "If ten million fireflies",
@@ -121,7 +121,7 @@ pub async fn fireflies(ctx: &mut Context, msg: &Message) -> CommandResult {
 #[command]
 #[description = "Making me sing https://youtu.be/la9C0n7jSsI"]
 #[bucket = "songs"]
-pub async fn flamingo(ctx: &mut Context, msg: &Message) -> CommandResult {
+pub async fn flamingo(ctx: &Context, msg: &Message) -> CommandResult {
     let lyrics = &[
         "How many shrimps do you have to eat",
         "before you make your skin turn pink?",
@@ -134,7 +134,7 @@ pub async fn flamingo(ctx: &mut Context, msg: &Message) -> CommandResult {
 #[command]
 #[description = "Making me sing https://youtu.be/SyJMQg3spck?t=43"]
 #[bucket = "songs"]
-pub async fn pretender(ctx: &mut Context, msg: &Message) -> CommandResult {
+pub async fn pretender(ctx: &Context, msg: &Message) -> CommandResult {
     let lyrics = &[
         "What if I say I'm not like the others?",
         "What if I say I'm not just another oooone of your plays?",
@@ -148,7 +148,7 @@ pub async fn pretender(ctx: &mut Context, msg: &Message) -> CommandResult {
 #[description = "Making me sing https://youtu.be/hjGZLnja1o8?t=41"]
 #[bucket = "songs"]
 #[aliases("1273")]
-pub async fn rockefeller(ctx: &mut Context, msg: &Message) -> CommandResult {
+pub async fn rockefeller(ctx: &Context, msg: &Message) -> CommandResult {
     let lyrics = &[
         "1 - 2 - 7 - 3",
         "down the Rockefeller street.",
@@ -163,7 +163,7 @@ pub async fn rockefeller(ctx: &mut Context, msg: &Message) -> CommandResult {
 #[command]
 #[description = "Making me sing https://youtu.be/DT6tpUbWOms?t=47"]
 #[bucket = "songs"]
-pub async fn tijdmachine(ctx: &mut Context, msg: &Message) -> CommandResult {
+pub async fn tijdmachine(ctx: &Context, msg: &Message) -> CommandResult {
     let lyrics = &[
         "Als ik denk aan al die dagen,",
         "dat ik mij zo heb misdragen.",

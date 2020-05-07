@@ -12,7 +12,7 @@ use std::fmt::Write;
 #[description = "Play a game of minesweeper"]
 #[aliases("ms")]
 #[usage = "[Easy/Medium/Hard]"]
-async fn minesweeper(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn minesweeper(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let game = if let Ok(difficulty) = args.trimmed().single_quoted::<String>() {
         match difficulty.to_lowercase().as_str() {
             "easy" => Difficulty::Easy.create(),

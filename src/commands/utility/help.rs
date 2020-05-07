@@ -30,7 +30,7 @@ Further help on the spreadsheet: http://bit.ly/badecoms"]
 )]
 #[strikethrough_commands_tip_in_guild("~~`Strikethrough commands`~~ can only be used in servers")]
 async fn help(
-    ctx: &mut Context,
+    ctx: &Context,
     msg: &Message,
     args: Args,
     help_options: &'static HelpOptions,

@@ -10,7 +10,7 @@ use serenity::{
 #[check_in_help(true)]
 #[display_in_help(true)]
 async fn authority_check(
-    ctx: &mut Context,
+    ctx: &Context,
     msg: &Message,
     _: &mut Args,
     _: &CommandOptions,

@@ -176,13 +176,13 @@ impl Scraper {
         };
         let html = Html::parse_document(&body);
         let ranking_page_table = Selector::parse(".ranking-page-table").unwrap();
-        let ranking_page_table = html.select(&ranking_page_table).nth(0).ok_or_else(|| {
+        let ranking_page_table = html.select(&ranking_page_table).next().ok_or_else(|| {
             Error::Custom("No class 'ranking-page-table' found in response".to_string())
         })?;
         let tbody = Selector::parse("tbody").unwrap();
         let tbody = ranking_page_table
             .select(&tbody)
-            .nth(0)
+            .next()
             .ok_or_else(|| Error::Custom("No 'tbody' element found in response".to_string()))?;
         let child = tbody
             .children()
@@ -234,13 +234,13 @@ impl Scraper {
         };
         let html = Html::parse_document(&body);
         let ranking_page_table = Selector::parse(".ranking-page-table").unwrap();
-        let ranking_page_table = html.select(&ranking_page_table).nth(0).ok_or_else(|| {
+        let ranking_page_table = html.select(&ranking_page_table).next().ok_or_else(|| {
             Error::Custom("No class 'ranking-page-table' found in response".to_string())
         })?;
         let tbody = Selector::parse("tbody").unwrap();
         let tbody = ranking_page_table
             .select(&tbody)
-            .nth(0)
+            .next()
             .ok_or_else(|| Error::Custom("No 'tbody' element found in response".to_string()))?;
         let children = tbody
             .children()
@@ -266,7 +266,7 @@ impl Scraper {
                     Error::Custom("Unwraping 3: Could not find fourth child".to_string())
                 })?
                 .children()
-                .nth(0)
+                .next()
                 .ok_or_else(|| {
                     Error::Custom("Unwraping 4: Could not find first child".to_string())
                 })?;

@@ -11,7 +11,7 @@ use serenity::{
 
 pub async fn impersonate_send(
     with_markov: bool,
-    ctx: &mut Context,
+    ctx: &Context,
     msg: &Message,
     args: Args,
 ) -> CommandResult {
@@ -75,7 +75,7 @@ pub async fn impersonate_send(
         }
     } else {
         msg.reply(
-            &ctx,
+            ctx,
             "Either they've never said anything, or I haven't seen them",
         )
         .await?;
@@ -88,7 +88,7 @@ pub async fn impersonate_send(
 #[description = "Impersonate someone's messages.\n\
 Credits to [Taha Hawa](https://gitlab.com/tahahawa/discord-markov-bot/)"]
 #[usage = "[user id / mention] [amount of messages] [-no-urls]"]
-pub async fn impersonate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn impersonate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     impersonate_send(true, ctx, msg, args).await
 }
 
@@ -97,6 +97,6 @@ pub async fn impersonate(ctx: &mut Context, msg: &Message, args: Args) -> Comman
 #[description = "Repeat random messages that the user said at some point"]
 #[usage = "[user id / mention] [amount of messages] [-no-urls]"]
 #[aliases("rh")]
-pub async fn randomhistory(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn randomhistory(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     impersonate_send(false, ctx, msg, args).await
 }

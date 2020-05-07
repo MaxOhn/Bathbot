@@ -17,7 +17,7 @@ use serenity::{
 #[aliases("streamremove")]
 #[usage = "[twitch / mixer] [stream name]"]
 #[example = "twitch loltyler1"]
-async fn removestream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn removestream(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     // Parse the platform and stream name
     let result = if args.len() < 2 {
         msg.channel_id

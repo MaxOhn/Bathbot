@@ -15,7 +15,7 @@ use tokio::time::{self, Duration};
 #[usage = "[number]"]
 #[example = "3"]
 #[aliases("purge")]
-async fn prune(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn prune(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let amount = if args.remaining() > 0 {
         match args.trimmed().single::<u64>() {
             Ok(val) => {
@@ -56,6 +56,6 @@ async fn prune(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
         })
         .await?;
     time::delay_for(Duration::from_secs(6)).await;
-    msg.delete(&ctx).await?;
+    msg.delete(ctx).await?;
     Ok(())
 }

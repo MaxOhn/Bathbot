@@ -17,7 +17,7 @@ use std::collections::hash_map::Entry;
 #[checks(Authority)]
 #[description = "Toggle whether song commands can be used in this server. \
 Defaults to `true`"]
-async fn lyrics(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn lyrics(ctx: &Context, msg: &Message) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
     let new_bool = {
         let mut data = ctx.data.write().await;

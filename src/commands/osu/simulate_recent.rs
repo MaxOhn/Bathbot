@@ -26,7 +26,7 @@ use tokio::time::{self, Duration};
 #[allow(clippy::cognitive_complexity)]
 async fn simulate_recent_send(
     mode: GameMode,
-    ctx: &mut Context,
+    ctx: &Context,
     msg: &Message,
     args: Args,
 ) -> CommandResult {
@@ -111,7 +111,7 @@ async fn simulate_recent_send(
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match SimulateData::new(Some(score), map, args.into(), &ctx).await {
+    let data = match SimulateData::new(Some(score), map, args.into(), ctx).await {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id
@@ -145,7 +145,7 @@ async fn simulate_recent_send(
 
     // Minimize embed after delay
     time::delay_for(Duration::from_secs(MINIMIZE_DELAY)).await;
-    if let Err(why) = response.edit(&ctx, |m| m.embed(|e| data.minimize(e))).await {
+    if let Err(why) = response.edit(ctx, |m| m.embed(|e| data.minimize(e))).await {
         warn!(
             "Error while trying to minimize simulate recent msg: {}",
             why
@@ -159,7 +159,7 @@ async fn simulate_recent_send(
 #[usage = "[username] [-a acc%] [-300 #300s] [-100 #100s] [-50 #50s] [-m #misses]"]
 #[example = "badewanne3 -a 99.3 -300 1422 -m 1"]
 #[aliases("sr")]
-pub async fn simulaterecent(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn simulaterecent(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     simulate_recent_send(GameMode::STD, ctx, msg, args).await
 }
 
@@ -168,6 +168,6 @@ pub async fn simulaterecent(ctx: &mut Context, msg: &Message, args: Args) -> Com
 #[usage = "[username] [-s score]"]
 #[example = "badewanne3 -s 8950000"]
 #[aliases("srm")]
-pub async fn simulaterecentmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn simulaterecentmania(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     simulate_recent_send(GameMode::MNA, ctx, msg, args).await
 }

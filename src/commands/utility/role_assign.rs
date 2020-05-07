@@ -23,7 +23,7 @@ use serenity::{
                  the second must be the message id, and the third must be the role."]
 #[usage = "[channel mention / channel id] [message id] [role mention / role id]"]
 #[example = "#general 681871156168753193 @Meetup"]
-async fn roleassign(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn roleassign(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = match RoleAssignArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {

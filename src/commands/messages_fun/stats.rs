@@ -9,7 +9,7 @@ use serenity::{
 #[command]
 #[only_in("guild")]
 #[description = "Display some stats about the message database"]
-pub async fn messagestats(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn messagestats(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     {
         let data = ctx.data.read().await;
         let guilds = data.get::<Guilds>().expect("Could not get Guilds");

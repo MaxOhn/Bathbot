@@ -24,7 +24,7 @@ use std::collections::hash_map::Entry;
                  role to be this server's VC role."]
 #[usage = "[role mention / role id]"]
 #[example = "@In VC"]
-async fn vcrole(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn vcrole(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = RoleArgs::new(args);
     let role = args.role_id;
     let guild_id = msg.guild_id.unwrap();

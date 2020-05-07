@@ -22,7 +22,7 @@ use std::{collections::HashMap, fmt::Write};
 #[example = "58320988 1"]
 #[example = "https://osu.ppy.sh/community/matches/58320988"]
 #[aliases("mc", "matchcost")]
-async fn matchcosts(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn matchcosts(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = match MatchArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {

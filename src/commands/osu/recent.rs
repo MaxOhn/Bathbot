@@ -23,17 +23,13 @@ use serenity::{
 };
 use std::{
     collections::{HashMap, HashSet},
+    convert::TryFrom,
     sync::Arc,
 };
 use tokio::time::Duration;
 
 #[allow(clippy::cognitive_complexity)]
-async fn recent_send(
-    mode: GameMode,
-    ctx: &mut Context,
-    msg: &Message,
-    args: Args,
-) -> CommandResult {
+async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = NameArgs::new(args);
     let name = if let Some(name) = args.name {
         name
@@ -172,7 +168,7 @@ async fn recent_send(
         first_map,
         &best,
         global.get(&first_map.beatmap_id).unwrap(),
-        &ctx,
+        ctx,
     )
     .await
     {
@@ -207,7 +203,8 @@ async fn recent_send(
     // Add initial reactions
     let reactions = ["⏮️", "⏪", "◀️", "▶️", "⏩", "⏭️"];
     for &reaction in reactions.iter() {
-        response.react(&ctx.http, reaction).await?;
+        let reaction_type = ReactionType::try_from(reaction).unwrap();
+        response.react(&ctx.http, reaction_type).await?;
     }
 
     // Check if the author wants to edit the response
@@ -249,9 +246,10 @@ async fn recent_send(
 
         // Remove initial reactions
         for &reaction in reactions.iter() {
+            let reaction_type = ReactionType::try_from(reaction).unwrap();
             response
                 .channel_id
-                .delete_reaction(&http, response.id, None, reaction)
+                .delete_reaction(&http, response.id, None, reaction_type)
                 .await?;
         }
 
@@ -284,7 +282,7 @@ async fn recent_send(
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("r", "rs")]
-pub async fn recent(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn recent(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     recent_send(GameMode::STD, ctx, msg, args).await
 }
 
@@ -293,7 +291,7 @@ pub async fn recent(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("rm")]
-pub async fn recentmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn recentmania(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     recent_send(GameMode::MNA, ctx, msg, args).await
 }
 
@@ -302,7 +300,7 @@ pub async fn recentmania(ctx: &mut Context, msg: &Message, args: Args) -> Comman
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("rt")]
-pub async fn recenttaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn recenttaiko(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     recent_send(GameMode::TKO, ctx, msg, args).await
 }
 
@@ -311,6 +309,6 @@ pub async fn recenttaiko(ctx: &mut Context, msg: &Message, args: Args) -> Comman
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("rc")]
-pub async fn recentctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn recentctb(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     recent_send(GameMode::CTB, ctx, msg, args).await
 }

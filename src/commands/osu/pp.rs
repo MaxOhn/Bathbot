@@ -15,7 +15,7 @@ use serenity::{
     prelude::Context,
 };
 
-async fn pp_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn pp_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = match NameFloatArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
@@ -100,7 +100,7 @@ async fn pp_send(mode: GameMode, ctx: &mut Context, msg: &Message, args: Args) -
                  reach the given total pp amount"]
 #[usage = "[username] [number]"]
 #[example = "badewanne3 8000"]
-pub async fn pp(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn pp(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     pp_send(GameMode::STD, ctx, msg, args).await
 }
 
@@ -110,7 +110,7 @@ pub async fn pp(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[usage = "[username] [number]"]
 #[example = "badewanne3 8000"]
 #[aliases("ppm")]
-pub async fn ppmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn ppmania(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     pp_send(GameMode::MNA, ctx, msg, args).await
 }
 
@@ -120,7 +120,7 @@ pub async fn ppmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandRes
 #[usage = "[username] [number]"]
 #[example = "badewanne3 8000"]
 #[aliases("ppt")]
-pub async fn pptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn pptaiko(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     pp_send(GameMode::TKO, ctx, msg, args).await
 }
 
@@ -130,6 +130,6 @@ pub async fn pptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandRes
 #[usage = "[username] [number]"]
 #[example = "badewanne3 8000"]
 #[aliases("ppc")]
-pub async fn ppctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn ppctb(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     pp_send(GameMode::CTB, ctx, msg, args).await
 }

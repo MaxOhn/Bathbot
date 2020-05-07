@@ -29,7 +29,7 @@ use tokio::time::{self, Duration};
 #[example = "1980365 -a 99.3 -300 1422 -m 1"]
 #[example = "https://osu.ppy.sh/beatmapsets/948199#osu/1980365"]
 #[aliases("s")]
-async fn simulate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = match SimulateMapArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
@@ -96,7 +96,7 @@ async fn simulate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match SimulateData::new(None, map, args.into(), &ctx).await {
+    let data = match SimulateData::new(None, map, args.into(), ctx).await {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id
@@ -129,7 +129,7 @@ async fn simulate(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult
     // Minimize embed after delay
     for _ in 0..5usize {
         time::delay_for(Duration::from_secs(MINIMIZE_DELAY)).await;
-        match response.edit(&ctx, |m| m.embed(|e| data.minimize(e))).await {
+        match response.edit(ctx, |m| m.embed(|e| data.minimize(e))).await {
             Ok(_) => break,
             Err(why) => {
                 warn!("Error while trying to minimize simulate msg: {}", why);

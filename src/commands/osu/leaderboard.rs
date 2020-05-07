@@ -25,12 +25,12 @@ use serenity::{
     model::channel::{Message, ReactionType},
     prelude::Context,
 };
-use std::{sync::Arc, time::Duration};
+use std::{convert::TryFrom, sync::Arc, time::Duration};
 
 #[allow(clippy::cognitive_complexity)]
 async fn leaderboard_send(
     national: bool,
-    ctx: &mut Context,
+    ctx: &Context,
     msg: &Message,
     args: Args,
 ) -> CommandResult {
@@ -143,7 +143,7 @@ async fn leaderboard_send(
         },
         &first_place_icon,
         0,
-        &ctx,
+        ctx,
     )
     .await
     {
@@ -196,7 +196,8 @@ async fn leaderboard_send(
     // Add initial reactions
     let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
     for &reaction in reactions.iter() {
-        response.react(&ctx.http, reaction).await?;
+        let reaction_type = ReactionType::try_from(reaction).unwrap();
+        response.react(&ctx.http, reaction_type).await?;
     }
 
     // Check if the author wants to edit the response
@@ -231,9 +232,10 @@ async fn leaderboard_send(
             }
         }
         for &reaction in reactions.iter() {
+            let reaction_type = ReactionType::try_from(reaction).unwrap();
             response
                 .channel_id
-                .delete_reaction(&http, response.id, None, reaction)
+                .delete_reaction(&http, response.id, None, reaction_type)
                 .await?;
         }
         Ok::<_, serenity::Error>(())
@@ -249,7 +251,7 @@ async fn leaderboard_send(
 #[example = "2240404"]
 #[example = "https://osu.ppy.sh/beatmapsets/902425#osu/2240404"]
 #[aliases("lb")]
-pub async fn leaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn leaderboard(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     leaderboard_send(true, ctx, msg, args).await
 }
 
@@ -261,6 +263,6 @@ pub async fn leaderboard(ctx: &mut Context, msg: &Message, args: Args) -> Comman
 #[example = "2240404"]
 #[example = "https://osu.ppy.sh/beatmapsets/902425#osu/2240404"]
 #[aliases("glb")]
-pub async fn globalleaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn globalleaderboard(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     leaderboard_send(false, ctx, msg, args).await
 }

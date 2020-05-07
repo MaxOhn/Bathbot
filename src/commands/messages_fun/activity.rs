@@ -9,7 +9,7 @@ use serenity::{
 #[command]
 #[only_in("guild")]
 #[description = "Display how active the server or channel has been in the last hour / day / week / month"]
-pub async fn activity(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn activity(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     {
         let data = ctx.data.read().await;
         let guilds = data.get::<Guilds>().expect("Could not get Guilds");

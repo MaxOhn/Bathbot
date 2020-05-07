@@ -15,7 +15,7 @@ use serenity::{
                  your discord account from any osu name."]
 #[usage = "[username]"]
 #[example = "badewanne3"]
-async fn link(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn link(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let id = *msg.author.id.as_u64();
     if args.is_empty() {
         {

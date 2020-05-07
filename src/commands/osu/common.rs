@@ -24,12 +24,7 @@ use std::{
 };
 
 #[allow(clippy::cognitive_complexity)]
-async fn common_send(
-    mode: GameMode,
-    ctx: &mut Context,
-    msg: &Message,
-    args: Args,
-) -> CommandResult {
+async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let mut args = MultNameArgs::new(args, 10);
     let names = match args.names.len() {
         0 => {
@@ -237,7 +232,7 @@ async fn common_send(
                  maps appear in each top list (up to 10 users)"]
 #[usage = "[name1] [name2] ..."]
 #[example = "badewanne3 \"nathan on osu\" idke"]
-pub async fn common(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn common(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     common_send(GameMode::STD, ctx, msg, args).await
 }
 
@@ -247,7 +242,7 @@ pub async fn common(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
 #[usage = "[name1] [name2] ..."]
 #[example = "badewanne3 \"nathan on osu\" idke"]
 #[aliases("commonm")]
-pub async fn commonmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn commonmania(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     common_send(GameMode::MNA, ctx, msg, args).await
 }
 
@@ -257,7 +252,7 @@ pub async fn commonmania(ctx: &mut Context, msg: &Message, args: Args) -> Comman
 #[usage = "[name1] [name2] ..."]
 #[example = "badewanne3 \"nathan on osu\" idke"]
 #[aliases("commont")]
-pub async fn commontaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn commontaiko(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     common_send(GameMode::TKO, ctx, msg, args).await
 }
 
@@ -267,6 +262,6 @@ pub async fn commontaiko(ctx: &mut Context, msg: &Message, args: Args) -> Comman
 #[usage = "[name1] [name2] ..."]
 #[example = "badewanne3 \"nathan on osu\" idke"]
 #[aliases("commonc")]
-pub async fn commonctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn commonctb(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     common_send(GameMode::CTB, ctx, msg, args).await
 }

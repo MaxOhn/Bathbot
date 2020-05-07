@@ -17,7 +17,7 @@ use serenity::{
 #[aliases("streamadd")]
 #[usage = "[twitch / mixer] [stream name]"]
 #[example = "twitch loltyler1"]
-async fn addstream(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn addstream(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     // Parse the platform and stream name
     let (platform, name) = if args.len() < 2 {
         msg.channel_id

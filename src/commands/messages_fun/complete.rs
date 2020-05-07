@@ -12,7 +12,7 @@ use serenity::{
 #[only_in("guild")]
 #[description = "Finishing the given sentence"]
 #[usage = "[the beginning of a sentence]"]
-pub async fn complete(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn complete(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     {
         let data = ctx.data.read().await;
         let guilds = data.get::<Guilds>().expect("Could not get Guilds");
@@ -45,7 +45,7 @@ pub async fn complete(ctx: &mut Context, msg: &Message, args: Args) -> CommandRe
     };
     if strings.is_empty() {
         msg.reply(
-            &ctx,
+            ctx,
             "I haven't seen any message containing this sequence of words yet",
         )
         .await?;

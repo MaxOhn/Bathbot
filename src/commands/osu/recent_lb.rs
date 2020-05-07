@@ -22,13 +22,13 @@ use serenity::{
     model::channel::{Message, ReactionType},
     prelude::Context,
 };
-use std::{sync::Arc, time::Duration};
+use std::{convert::TryFrom, sync::Arc, time::Duration};
 
 #[allow(clippy::cognitive_complexity)]
 async fn recent_lb_send(
     mode: GameMode,
     national: bool,
-    ctx: &mut Context,
+    ctx: &Context,
     msg: &Message,
     args: Args,
 ) -> CommandResult {
@@ -152,7 +152,7 @@ async fn recent_lb_send(
         },
         &first_place_icon,
         0,
-        &ctx,
+        ctx,
     )
     .await
     {
@@ -205,7 +205,8 @@ async fn recent_lb_send(
     // Add initial reactions
     let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
     for &reaction in reactions.iter() {
-        response.react(&ctx.http, reaction).await?;
+        let reaction_type = ReactionType::try_from(reaction).unwrap();
+        response.react(&ctx.http, reaction_type).await?;
     }
 
     // Check if the author wants to edit the response
@@ -240,9 +241,10 @@ async fn recent_lb_send(
             }
         }
         for &reaction in reactions.iter() {
+            let reaction_type = ReactionType::try_from(reaction).unwrap();
             response
                 .channel_id
-                .delete_reaction(&http, response.id, None, reaction)
+                .delete_reaction(&http, response.id, None, reaction_type)
                 .await?;
         }
         Ok::<_, serenity::Error>(())
@@ -256,7 +258,7 @@ async fn recent_lb_send(
 #[usage = "[username] [+mods]"]
 #[example = "badewanne3 +hdhr"]
 #[aliases("rlb")]
-pub async fn recentleaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn recentleaderboard(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     recent_lb_send(GameMode::STD, true, ctx, msg, args).await
 }
 
@@ -266,7 +268,7 @@ pub async fn recentleaderboard(ctx: &mut Context, msg: &Message, args: Args) -> 
 #[usage = "[username] [+mods]"]
 #[example = "badewanne3 +hdhr"]
 #[aliases("rmlb")]
-pub async fn recentmanialeaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn recentmanialeaderboard(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     recent_lb_send(GameMode::MNA, true, ctx, msg, args).await
 }
 
@@ -276,7 +278,7 @@ pub async fn recentmanialeaderboard(ctx: &mut Context, msg: &Message, args: Args
 #[usage = "[username] [+mods]"]
 #[example = "badewanne3 +hdhr"]
 #[aliases("rtlb")]
-pub async fn recenttaikoleaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn recenttaikoleaderboard(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     recent_lb_send(GameMode::TKO, true, ctx, msg, args).await
 }
 
@@ -286,7 +288,7 @@ pub async fn recenttaikoleaderboard(ctx: &mut Context, msg: &Message, args: Args
 #[usage = "[username] [+mods]"]
 #[example = "badewanne3 +hdhr"]
 #[aliases("rclb")]
-pub async fn recentctbleaderboard(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn recentctbleaderboard(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     recent_lb_send(GameMode::CTB, true, ctx, msg, args).await
 }
 
@@ -296,11 +298,7 @@ pub async fn recentctbleaderboard(ctx: &mut Context, msg: &Message, args: Args) 
 #[usage = "[username] [+mods]"]
 #[example = "badewanne3 +hdhr"]
 #[aliases("rglb")]
-pub async fn recentgloballeaderboard(
-    ctx: &mut Context,
-    msg: &Message,
-    args: Args,
-) -> CommandResult {
+pub async fn recentgloballeaderboard(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     recent_lb_send(GameMode::STD, false, ctx, msg, args).await
 }
 
@@ -311,7 +309,7 @@ pub async fn recentgloballeaderboard(
 #[example = "badewanne3 +hdhr"]
 #[aliases("rmglb")]
 pub async fn recentmaniagloballeaderboard(
-    ctx: &mut Context,
+    ctx: &Context,
     msg: &Message,
     args: Args,
 ) -> CommandResult {
@@ -325,7 +323,7 @@ pub async fn recentmaniagloballeaderboard(
 #[example = "badewanne3 +hdhr"]
 #[aliases("rtglb")]
 pub async fn recenttaikogloballeaderboard(
-    ctx: &mut Context,
+    ctx: &Context,
     msg: &Message,
     args: Args,
 ) -> CommandResult {
@@ -338,10 +336,6 @@ pub async fn recenttaikogloballeaderboard(
 #[usage = "[username] [+mods]"]
 #[example = "badewanne3 +hdhr"]
 #[aliases("rcglb")]
-pub async fn recentctbgloballeaderboard(
-    ctx: &mut Context,
-    msg: &Message,
-    args: Args,
-) -> CommandResult {
+pub async fn recentctbgloballeaderboard(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     recent_lb_send(GameMode::CTB, false, ctx, msg, args).await
 }

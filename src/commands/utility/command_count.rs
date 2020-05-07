@@ -14,12 +14,12 @@ use serenity::{
     model::channel::{Message, ReactionType},
     prelude::Context,
 };
-use std::{sync::Arc, time::Duration};
+use std::{convert::TryFrom, sync::Arc, time::Duration};
 
 #[command]
 #[description = "Let me show you my most popular commands \
                  since my last reboot"]
-async fn commands(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn commands(ctx: &Context, msg: &Message) -> CommandResult {
     let data = ctx.data.read().await;
     let counter = data
         .get::<CommandCounter>()
@@ -59,7 +59,8 @@ async fn commands(ctx: &mut Context, msg: &Message) -> CommandResult {
     // Add initial reactions
     let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
     for &reaction in reactions.iter() {
-        response.react(&ctx.http, reaction).await?;
+        let reaction_type = ReactionType::try_from(reaction).unwrap();
+        response.react(&ctx.http, reaction_type).await?;
     }
     // Check if the author wants to edit the response
     let http = Arc::clone(&ctx.http);
@@ -89,9 +90,10 @@ async fn commands(ctx: &mut Context, msg: &Message) -> CommandResult {
 
         // Remove initial reactions
         for &reaction in reactions.iter() {
+            let reaction_type = ReactionType::try_from(reaction).unwrap();
             response
                 .channel_id
-                .delete_reaction(&http, response.id, None, reaction)
+                .delete_reaction(&http, response.id, None, reaction_type)
                 .await?;
         }
         Ok::<_, serenity::Error>(())

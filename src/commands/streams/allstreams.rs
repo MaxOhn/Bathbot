@@ -11,7 +11,7 @@ use std::{collections::HashMap, sync::Arc};
 #[only_in("guild")]
 #[description = "List all members of this server that are currently streaming"]
 #[aliases("allstreamers", "streams")]
-async fn allstreams(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn allstreams(ctx: &Context, msg: &Message) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
     let presences: Vec<_> = {
         let cache = ctx.cache.clone();
@@ -48,7 +48,7 @@ async fn allstreams(ctx: &mut Context, msg: &Message) -> CommandResult {
     for presence in presences.iter() {
         users.insert(
             presence.user_id,
-            presence.user_id.to_user(&ctx).await.unwrap().name,
+            presence.user_id.to_user(ctx).await.unwrap().name,
         );
     }
 

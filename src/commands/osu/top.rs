@@ -19,13 +19,13 @@ use serenity::{
     model::channel::{Message, ReactionType},
     prelude::Context,
 };
-use std::{cmp::Ordering, collections::HashMap, sync::Arc, time::Duration};
+use std::{cmp::Ordering, collections::HashMap, convert::TryFrom, sync::Arc, time::Duration};
 
 #[allow(clippy::cognitive_complexity)]
 async fn top_send(
     mode: GameMode,
     top_type: TopType,
-    ctx: &mut Context,
+    ctx: &Context,
     msg: &Message,
     args: Args,
 ) -> CommandResult {
@@ -263,7 +263,7 @@ async fn top_send(
     };
     let pages = numbers::div_euclid(5, scores_data.len());
     let data =
-        match BasicEmbedData::create_top(&user, scores_data.iter().take(5), mode, (1, pages), &ctx)
+        match BasicEmbedData::create_top(&user, scores_data.iter().take(5), mode, (1, pages), ctx)
             .await
         {
             Ok(data) => data,
@@ -312,7 +312,8 @@ async fn top_send(
     // Add initial reactions
     let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
     for &reaction in reactions.iter() {
-        response.react(&ctx.http, reaction).await?;
+        let reaction_type = ReactionType::try_from(reaction).unwrap();
+        response.react(&ctx.http, reaction_type).await?;
     }
 
     // Check if the author wants to edit the response
@@ -341,9 +342,10 @@ async fn top_send(
             }
         }
         for &reaction in reactions.iter() {
+            let reaction_type = ReactionType::try_from(reaction).unwrap();
             response
                 .channel_id
-                .delete_reaction(&http, response.id, None, reaction)
+                .delete_reaction(&http, response.id, None, reaction_type)
                 .await?;
         }
         Ok::<_, serenity::Error>(())
@@ -360,7 +362,7 @@ async fn top_send(
 #[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
 #[example = "vaxei -c 1234 -dt! --a"]
 #[aliases("topscores", "osutop")]
-pub async fn top(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn top(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     top_send(GameMode::STD, TopType::Top, ctx, msg, args).await
 }
 
@@ -373,7 +375,7 @@ pub async fn top(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult 
 #[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
 #[example = "vaxei -c 1234 -dt! --a"]
 #[aliases("topm")]
-pub async fn topmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn topmania(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     top_send(GameMode::MNA, TopType::Top, ctx, msg, args).await
 }
 
@@ -386,7 +388,7 @@ pub async fn topmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandRe
 #[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
 #[example = "vaxei -c 1234 -dt! --a"]
 #[aliases("topt")]
-pub async fn toptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn toptaiko(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     top_send(GameMode::TKO, TopType::Top, ctx, msg, args).await
 }
 
@@ -399,7 +401,7 @@ pub async fn toptaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandRe
 #[example = "badewanne3 -a 97.34 -grade A +hdhr --c"]
 #[example = "vaxei -c 1234 -dt! --a"]
 #[aliases("topc")]
-pub async fn topctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn topctb(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     top_send(GameMode::CTB, TopType::Top, ctx, msg, args).await
 }
 
@@ -411,7 +413,7 @@ pub async fn topctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
 #[example = "badewanne3 -a 97.34 -grade A +hdhr"]
 #[example = "vaxei -c 1234 -dt!"]
 #[aliases("rb")]
-pub async fn recentbest(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn recentbest(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     top_send(GameMode::STD, TopType::Recent, ctx, msg, args).await
 }
 
@@ -423,7 +425,7 @@ pub async fn recentbest(ctx: &mut Context, msg: &Message, args: Args) -> Command
 #[example = "badewanne3 -a 97.34 -grade A +hdhr"]
 #[example = "vaxei -c 1234 -dt!"]
 #[aliases("rbm")]
-pub async fn recentbestmania(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn recentbestmania(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     top_send(GameMode::MNA, TopType::Recent, ctx, msg, args).await
 }
 
@@ -435,7 +437,7 @@ pub async fn recentbestmania(ctx: &mut Context, msg: &Message, args: Args) -> Co
 #[example = "badewanne3 -a 97.34 -grade A +hdhr"]
 #[example = "vaxei -c 1234 -dt!"]
 #[aliases("rbt")]
-pub async fn recentbesttaiko(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn recentbesttaiko(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     top_send(GameMode::TKO, TopType::Recent, ctx, msg, args).await
 }
 
@@ -447,7 +449,7 @@ pub async fn recentbesttaiko(ctx: &mut Context, msg: &Message, args: Args) -> Co
 #[example = "badewanne3 -a 97.34 -grade A +hdhr"]
 #[example = "vaxei -c 1234 -dt!"]
 #[aliases("rbc")]
-pub async fn recentbestctb(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn recentbestctb(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     top_send(GameMode::CTB, TopType::Recent, ctx, msg, args).await
 }
 
@@ -455,7 +457,7 @@ pub async fn recentbestctb(ctx: &mut Context, msg: &Message, args: Args) -> Comm
 #[description = "Display how many top play maps of a user are made by Sotarks"]
 #[usage = "[username]"]
 #[example = "badewanne3"]
-pub async fn sotarks(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn sotarks(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     top_send(GameMode::STD, TopType::Sotarks, ctx, msg, args).await
 }
 

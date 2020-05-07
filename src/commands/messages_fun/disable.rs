@@ -12,7 +12,7 @@ use serenity::{
 this will disable it **and remove all memoized messages of the server**.\n\
 Since reversing this effect is rather expensive, you have to give a simple `yes` as argument.\n\
 This command will disable commands such as `impersonate`, `hivemind`, ..."]
-pub async fn disabletracking(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+pub async fn disabletracking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     {
         let data = ctx.data.read().await;
         let guilds = data.get::<Guilds>().expect("Could not get Guilds");

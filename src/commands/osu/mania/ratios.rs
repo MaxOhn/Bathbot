@@ -20,7 +20,7 @@ use serenity::{
 #[usage = "[username]"]
 #[example = "badewanne3"]
 #[aliases("ratio")]
-async fn ratios(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn ratios(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = NameArgs::new(args);
     let name = if let Some(name) = args.name {
         name

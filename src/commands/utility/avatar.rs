@@ -25,7 +25,7 @@ use serenity::{
 #[example = "@Badewanne3"]
 #[example = "osu Badewanne3"]
 #[sub_commands("osu")]
-pub async fn avatar(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn avatar(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let user = match DiscordUserArgs::new(args, &ctx, msg.guild_id.unwrap()).await {
         Ok(args) => args.user,
         Err(err_msg) => {
@@ -36,7 +36,7 @@ pub async fn avatar(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
     let response = if let Some(url) = user.avatar_url() {
         let user = AvatarUser::Discord {
             name: user.tag(),
-            url: url,
+            url,
         };
         let data = BasicEmbedData::create_avatar(user);
         msg.channel_id
@@ -55,7 +55,7 @@ pub async fn avatar(ctx: &mut Context, msg: &Message, args: Args) -> CommandResu
 }
 
 #[command]
-pub async fn osu(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn osu(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let name = match NameArgs::new(args).name {
         Some(name) => name,
         None => {

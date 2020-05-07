@@ -13,7 +13,7 @@ use serenity::{
 If a channel is specified, I will only consider data from that channel.\n\
 Credits to [Taha Hawa](https://gitlab.com/tahahawa/discord-markov-bot/)"]
 #[usage = "[channel id / mention] [amount of messages] [no-urls]"]
-pub async fn hivemind(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn hivemind(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     {
         let data = ctx.data.read().await;
         let guilds = data.get::<Guilds>().expect("Could not get Guilds");

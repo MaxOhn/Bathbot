@@ -30,6 +30,7 @@ use serenity::{
 };
 use std::{
     collections::{HashMap, HashSet, VecDeque},
+    convert::TryFrom,
     fmt::Write,
     sync::Arc,
     time::Duration,
@@ -50,7 +51,7 @@ Subcommands can be abbreviated with `s, h, b, r`, e.g. `<bg h` for hints.\n\
 With `<bg start mania` (`<bg s m`) I will give mania backgrounds to guess."]
 #[aliases("bg")]
 #[sub_commands("start", "hint", "bigger", "stats", "ranking")]
-async fn backgroundgame(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn backgroundgame(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     if !args.is_empty() {
         let arg = args.single_quoted::<String>()?;
         if !(arg.starts_with('s') || arg.starts_with('r')) {
@@ -82,18 +83,18 @@ async fn basic_msg(http: &Http, channel: ChannelId) -> CommandResult {
 #[command]
 #[aliases("s")]
 #[sub_commands("mania")]
-async fn start(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn start(ctx: &Context, msg: &Message) -> CommandResult {
     _start(GameMode::STD, ctx, msg).await
 }
 
 #[command]
 #[aliases("m")]
-async fn mania(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn mania(ctx: &Context, msg: &Message) -> CommandResult {
     _start(GameMode::MNA, ctx, msg).await
 }
 
 #[allow(clippy::map_entry)]
-async fn _start(mode: GameMode, ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn _start(mode: GameMode, ctx: &Context, msg: &Message) -> CommandResult {
     let channel = msg.channel_id;
     let mut data = ctx.data.write().await;
     let games = data.get_mut::<BgGames>().expect("Could not get BgGames");
@@ -117,7 +118,7 @@ async fn _start(mode: GameMode, ctx: &mut Context, msg: &Message) -> CommandResu
 #[command]
 #[aliases("h")]
 #[bucket = "bg_hint"]
-async fn hint(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn hint(ctx: &Context, msg: &Message) -> CommandResult {
     let hint = {
         let mut data = ctx.data.write().await;
         let game = data
@@ -147,7 +148,7 @@ async fn hint(ctx: &mut Context, msg: &Message) -> CommandResult {
 #[command]
 #[aliases("b", "enhance")]
 #[bucket = "bg_bigger"]
-async fn bigger(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn bigger(ctx: &Context, msg: &Message) -> CommandResult {
     let img: Option<Result<Vec<u8>, Error>> = {
         let mut data = ctx.data.write().await;
         let game = data
@@ -180,7 +181,7 @@ async fn bigger(ctx: &mut Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
-async fn stats(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn stats(ctx: &Context, msg: &Message) -> CommandResult {
     let score = {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
@@ -204,7 +205,7 @@ async fn stats(ctx: &mut Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
-async fn ranking(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let global = args
         .single::<String>()
         .map(|arg| ["g", "global"].contains(&arg.as_str()))
@@ -242,7 +243,7 @@ async fn ranking(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRes
     // Gather usernames for initial page
     let mut usernames = HashMap::with_capacity(15);
     for &id in scores.iter().take(15).map(|(id, _)| id) {
-        let name = if let Ok(user) = UserId(id).to_user(&ctx).await {
+        let name = if let Ok(user) = UserId(id).to_user(ctx).await {
             user.name
         } else {
             String::from("Unknown user")
@@ -280,7 +281,8 @@ async fn ranking(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRes
     // Add initial reactions
     let reactions = ["⏮️", "⏪", "*️⃣", "⏩", "⏭️"];
     for &reaction in reactions.iter() {
-        response.react(&ctx.http, reaction).await?;
+        let reaction_type = ReactionType::try_from(reaction).unwrap();
+        response.react(&ctx.http, reaction_type).await?;
     }
     // Check if the author wants to edit the response
     let http = Arc::clone(&ctx.http);
@@ -309,9 +311,10 @@ async fn ranking(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandRes
 
         // Remove initial reactions
         for &reaction in reactions.iter() {
+            let reaction_type = ReactionType::try_from(reaction).unwrap();
             response
                 .channel_id
-                .delete_reaction(&http, response.id, None, reaction)
+                .delete_reaction(&http, response.id, None, reaction_type)
                 .await?;
         }
         Ok::<_, serenity::Error>(())

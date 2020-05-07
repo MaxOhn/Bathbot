@@ -25,7 +25,7 @@ use std::{
 #[usage = "[name1] [name2] ..."]
 #[example = "badewanne3 \"nathan on osu\" idke"]
 #[aliases("commonmostplayed", "mpc")]
-async fn mostplayedcommon(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let mut args = MultNameArgs::new(args, 10);
     let names = match args.names.len() {
         0 => {

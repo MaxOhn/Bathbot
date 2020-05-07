@@ -11,7 +11,7 @@ use serenity::{
 #[command]
 #[description = "List all streams that are tracked in this channel"]
 #[aliases("tracked")]
-async fn trackedstreams(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn trackedstreams(ctx: &Context, msg: &Message) -> CommandResult {
     let mut twitch_users: Vec<_> = {
         let data = ctx.data.read().await;
         let twitch_users = data

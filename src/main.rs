@@ -27,7 +27,6 @@ use structs::*;
 pub use util::{discord::get_member, Error};
 
 use chrono::{Local, Utc};
-use dotenv;
 use fern::colors::{Color, ColoredLevelConfig};
 use log::{error, info, LevelFilter};
 use rosu::backend::Osu as OsuClient;
@@ -167,7 +166,9 @@ async fn main() {
         .group(&UTILITY_GROUP)
         .group(&STREAMTRACKING_GROUP);
 
-    let mut discord = Client::new_with_framework(&discord_token, Handler, framework)
+    let mut discord = Client::new(&discord_token)
+        .event_handler(Handler)
+        .framework(framework)
         .await
         .expect("Could not create discord client");
 
@@ -198,7 +199,7 @@ async fn main() {
 }
 
 #[hook]
-async fn before(ctx: &mut Context, msg: &Message, cmd_name: &str) -> bool {
+async fn before(ctx: &Context, msg: &Message, cmd_name: &str) -> bool {
     let location = match msg.guild(&ctx).await {
         Some(guild) => {
             let guild_name = guild.read().await.name.clone();
@@ -221,7 +222,7 @@ async fn before(ctx: &mut Context, msg: &Message, cmd_name: &str) -> bool {
 }
 
 #[hook]
-async fn after(_ctx: &mut Context, _msg: &Message, cmd_name: &str, cmd_result: CommandResult) {
+async fn after(_ctx: &Context, _msg: &Message, cmd_name: &str, cmd_result: CommandResult) {
     match cmd_result {
         Ok(()) => info!("Processed command '{}'", cmd_name),
         Err(why) => error!("Command '{}' returned error {:?}", cmd_name, why),
@@ -229,7 +230,7 @@ async fn after(_ctx: &mut Context, _msg: &Message, cmd_name: &str, cmd_result: C
 }
 
 #[hook]
-async fn dispatch_error(ctx: &mut Context, msg: &Message, error: DispatchError) -> () {
+async fn dispatch_error(ctx: &Context, msg: &Message, error: DispatchError) -> () {
     if let DispatchError::Ratelimited(seconds) = error {
         let _ = msg
             .channel_id

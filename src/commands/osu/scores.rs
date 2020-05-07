@@ -25,7 +25,7 @@ use serenity::{
 #[example = "badewanne3 2240404"]
 #[example = "badewanne3 https://osu.ppy.sh/beatmapsets/902425#osu/2240404"]
 #[aliases("c", "compare")]
-async fn scores(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = NameMapArgs::new(args);
     let map_id = if let Some(map_id) = args.map_id {
         map_id
@@ -139,7 +139,7 @@ async fn scores(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match BasicEmbedData::create_scores(user, map, scores, &ctx).await {
+    let data = match BasicEmbedData::create_scores(user, map, scores, ctx).await {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id

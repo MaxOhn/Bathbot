@@ -19,7 +19,7 @@ use sysinfo::{get_current_pid, ProcessExt, ProcessorExt, System, SystemExt};
 #[command]
 #[description = "Displaying some information about this bot"]
 #[aliases("info")]
-async fn about(ctx: &mut Context, msg: &Message) -> CommandResult {
+async fn about(ctx: &Context, msg: &Message) -> CommandResult {
     let owner = ctx.http.get_current_application_info().await?.owner;
 
     let (process_cpu, process_ram, total_cpu, used_ram, total_ram) = {
