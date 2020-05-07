@@ -3,7 +3,7 @@ use crate::roppai::OppaiErr;
 use chrono::format::ParseError as ParseChrono;
 use diesel::result::Error as DieselError;
 use image::ImageError;
-use reqwest;
+use reqwest::{self, header::InvalidHeaderValue};
 use rosu::backend::OsuError;
 use serde_json::error::Error as SerdeError;
 use serenity::{framework::standard::CommandError, Error as SerenityError};
@@ -25,6 +25,13 @@ pub enum Error {
     MySQLConnection(String),
     ImageError(ImageError),
     Serde(SerdeError),
+    InvalidHeaderValue(InvalidHeaderValue),
+}
+
+impl From<InvalidHeaderValue> for Error {
+    fn from(e: InvalidHeaderValue) -> Self {
+        Self::InvalidHeaderValue(e)
+    }
 }
 
 impl From<SerdeError> for Error {
@@ -116,6 +123,7 @@ impl fmt::Display for Error {
             Self::MySQLConnection(e) => write!(f, "{}", e),
             Self::ImageError(e) => write!(f, "{}", e),
             Self::Serde(e) => write!(f, "{}", e),
+            Self::InvalidHeaderValue(e) => write!(f, "{}", e),
         }
     }
 }

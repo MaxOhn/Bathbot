@@ -108,8 +108,15 @@ async fn main() {
         .unwrap_or_else(|why| panic!("Could not get stream_tracks: {}", why));
     let twitch_client_id = env::var("TWITCH_CLIENT_ID").expect("Could not load TWITCH_CLIENT_ID");
     let twitch_token = env::var("TWITCH_TOKEN").expect("Could not load TWITCH_TOKEN");
-    let twitch = Twitch::new(&twitch_client_id, &twitch_token)
-        .unwrap_or_else(|why| panic!("Could not create Twitch: {}", why));
+    let twitch = if WITH_STREAM_TRACK {
+        Some(
+            Twitch::new(&twitch_client_id, &twitch_token)
+                .await
+                .unwrap_or_else(|why| panic!("Could not create Twitch: {}", why)),
+        )
+    } else {
+        None
+    };
 
     // Individual guild settings
     let guilds = mysql
@@ -177,7 +184,9 @@ async fn main() {
         data.insert::<TwitchUsers>(twitch_users);
         data.insert::<StreamTracks>(stream_tracks);
         data.insert::<OnlineTwitch>(HashSet::new());
-        data.insert::<Twitch>(twitch);
+        if let Some(twitch) = twitch {
+            data.insert::<Twitch>(twitch);
+        }
         data.insert::<Guilds>(guilds);
         data.insert::<BgGames>(HashMap::new());
     }

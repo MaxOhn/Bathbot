@@ -360,11 +360,7 @@ impl BasicEmbedData {
         description.push_str("```");
         let mut footer_text = format!("Page {}/{}", pages.0, pages.1);
         if let Some(author_idx) = author_idx {
-            let _ = write!(
-                footer_text,
-                " ~ Your rank: {} (*️⃣ to skip to your page)",
-                author_idx + 1
-            );
+            let _ = write!(footer_text, " ~ Your rank: {}", author_idx + 1);
         }
         let author_text = format!(
             "{} leaderboard for correct guesses:",

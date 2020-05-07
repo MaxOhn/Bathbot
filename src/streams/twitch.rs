@@ -6,49 +6,64 @@ use crate::util::{
 
 use rayon::prelude::*;
 use reqwest::{
-    header::{self, HeaderMap, HeaderName},
-    Client,
+    header::{HeaderMap, HeaderName, HeaderValue},
+    Client, Response,
 };
-use std::{convert::TryFrom, sync::Mutex};
+use serde::Serialize;
+use serde_derive::Deserialize;
+use std::{convert::TryFrom, fmt, sync::Mutex};
 
 pub struct Twitch {
     client: Client,
+    auth_token: OAuthToken,
     twitch_limiter: Mutex<RateLimiter>,
 }
 
 impl Twitch {
-    pub fn new(client_id: &str, token: &str) -> Result<Self, Error> {
+    pub async fn new(client_id: &str, token: &str) -> Result<Self, Error> {
         let mut headers = HeaderMap::new();
-        headers.insert(
-            header::AUTHORIZATION,
-            header::HeaderValue::from_str(token).unwrap(),
-        );
         let client_id_header = HeaderName::try_from("Client-ID").unwrap();
-        headers.insert(
-            client_id_header,
-            header::HeaderValue::from_str(client_id).unwrap(),
-        );
+        headers.insert(client_id_header, HeaderValue::from_str(client_id)?);
         let client = Client::builder().default_headers(headers).build()?;
+        let auth_response = client
+            .post("https://id.twitch.tv/oauth2/token")
+            .form(&[
+                ("grant_type", "client_credentials"),
+                ("client_id", client_id),
+                ("client_secret", token),
+            ])
+            .send()
+            .await?;
+        let auth_token = serde_json::from_slice(&auth_response.bytes().await?)?;
         Ok(Self {
             client,
+            auth_token,
             twitch_limiter: Mutex::new(RateLimiter::new(5, 1)),
         })
     }
 
-    pub async fn get_user(&self, name: &str) -> Result<TwitchUser, Error> {
-        let data = vec![("login", name)];
+    async fn send_request<T: Serialize + ?Sized>(
+        &self,
+        endpoint: &str,
+        data: &T,
+    ) -> Result<Response, reqwest::Error> {
         {
             self.twitch_limiter
                 .lock()
-                .expect("Could not lock twitch_limiter for users")
+                .unwrap_or_else(|why| panic!("Could not lock twitch_limiter: {}", why))
                 .await_access();
         }
-        let response = self
-            .client
-            .get(TWITCH_USERS_ENDPOINT)
-            .query(&data)
+        self.client
+            .get(endpoint)
+            .bearer_auth(&self.auth_token)
+            .query(data)
             .send()
-            .await?;
+            .await
+    }
+
+    pub async fn get_user(&self, name: &str) -> Result<TwitchUser, Error> {
+        let data = vec![("login", name)];
+        let response = self.send_request(TWITCH_USERS_ENDPOINT, &data).await?;
         let mut users: TwitchUsers = serde_json::from_slice(&response.bytes().await?)?;
         match users.data.pop() {
             Some(user) => Ok(user),
@@ -62,56 +77,43 @@ impl Twitch {
     pub async fn get_users(&self, user_ids: &[u64]) -> Result<Vec<TwitchUser>, Error> {
         if user_ids.is_empty() {
             return Ok(Vec::new());
-        } else if user_ids.len() > 100 {
-            return Err(Error::Custom(format!(
-                "user_ids len must be at most 100, got {}",
-                user_ids.len()
-            )));
         }
-        let data: Vec<_> = user_ids.par_iter().map(|&id| ("id", id)).collect();
-        {
-            self.twitch_limiter
-                .lock()
-                .expect("Could not lock twitch_limiter for users")
-                .await_access();
+        let mut users = Vec::with_capacity(user_ids.len());
+        for chunk in user_ids.chunks(100) {
+            let data: Vec<_> = chunk.par_iter().map(|&id| ("id", id)).collect();
+            let response = self.send_request(TWITCH_USERS_ENDPOINT, &data).await?;
+            let parsed_response: TwitchUsers = serde_json::from_slice(&response.bytes().await?)?;
+            users.extend(parsed_response.data);
         }
-        let response = self
-            .client
-            .get(TWITCH_USERS_ENDPOINT)
-            .query(&data)
-            .send()
-            .await?;
-        let users: TwitchUsers = serde_json::from_slice(&response.bytes().await?)?;
-        Ok(users.data)
+        Ok(users)
     }
 
     pub async fn get_streams(&self, user_ids: &[u64]) -> Result<Vec<TwitchStream>, Error> {
         if user_ids.is_empty() {
             return Ok(Vec::new());
-        } else if user_ids.len() > 100 {
-            return Err(Error::Custom(format!(
-                "user_ids len must be at most 100, got {}",
-                user_ids.len()
-            )));
         }
-        let mut data: Vec<_> = user_ids.par_iter().map(|&id| ("user_id", id)).collect();
-        data.push(("first", user_ids.len() as u64));
-        {
-            self.twitch_limiter
-                .lock()
-                .expect("Could not lock twitch_limiter for streams")
-                .await_access();
+        let mut streams = Vec::with_capacity(user_ids.len());
+        for chunk in user_ids.chunks(100) {
+            let mut data: Vec<_> = chunk.par_iter().map(|&id| ("user_id", id)).collect();
+            data.push(("first", user_ids.len() as u64));
+            let response = self.send_request(TWITCH_STREAM_ENDPOINT, &data).await?;
+            // let json = response.text().await?;
+            // println!("{}", json);
+            // let parsed_response: TwitchStreams = serde_json::from_str(&json)?;
+            let parsed_response: TwitchStreams = serde_json::from_slice(&response.bytes().await?)?;
+            streams.extend(parsed_response.data);
         }
-        let response = self
-            .client
-            .get(TWITCH_STREAM_ENDPOINT)
-            .query(&data)
-            .send()
-            .await?;
-        // let json = response.text().await?;
-        // println!("{}", json);
-        // let streams: TwitchStreams = serde_json::from_str(&json)?;
-        let streams: TwitchStreams = serde_json::from_slice(&response.bytes().await?)?;
-        Ok(streams.data)
+        Ok(streams)
+    }
+}
+
+#[derive(Deserialize)]
+struct OAuthToken {
+    access_token: String,
+}
+
+impl fmt::Display for OAuthToken {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.access_token)
     }
 }

@@ -242,7 +242,7 @@ async fn leaderboard_send(
 }
 
 #[command]
-#[description = "Display the national leaderboard of a given map. \
+#[description = "Display the belgian leaderboard of a given map. \
                  If no map is given, I will choose the last map \
                  I can find in my embeds of this channel"]
 #[usage = "[map url / map id]"]
