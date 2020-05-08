@@ -445,7 +445,7 @@ impl Pagination {
 }
 
 fn last_multiple(per_page: usize, total: usize) -> usize {
-    if total % per_page == 0 {
+    if per_page <= total && total % per_page == 0 {
         total - per_page
     } else {
         total - total % per_page

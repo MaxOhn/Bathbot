@@ -185,6 +185,10 @@ async fn leaderboard_send(
         }
     }
     let mut response = response?;
+    if scores.is_empty() {
+        discord::reaction_deletion(&ctx, response, msg.author.id).await;
+        return Ok(());
+    }
 
     // Collect reactions of author on the response
     let mut collector = response

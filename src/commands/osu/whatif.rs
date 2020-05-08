@@ -19,7 +19,8 @@ async fn whatif_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
     let args = match NameFloatArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
-            msg.channel_id.say(&ctx.http, err_msg).await?;
+            let response = msg.channel_id.say(&ctx.http, err_msg).await?;
+            discord::reaction_deletion(ctx, response, msg.author.id).await;
             return Ok(());
         }
     };
