@@ -36,7 +36,6 @@ use serenity::{
     utils::{content_safe, Colour, ContentSafeOptions},
 };
 use std::{
-    cmp::Ordering,
     cmp::Ordering::Equal,
     collections::{BTreeMap, HashMap},
     f32,
@@ -881,60 +880,24 @@ impl BasicEmbedData {
     //
     // nochoke
     //
-    pub async fn create_nochoke(
-        user: User,
-        scores_data: HashMap<usize, (Score, Beatmap)>,
-        cache: CacheRwLock,
-    ) -> Result<Self, Error> {
+    pub async fn create_nochoke<'i, S>(
+        user: &User,
+        scores_data: S,
+        unchoked_pp: f64,
+        pages: (usize, usize),
+        cache: &CacheRwLock,
+    ) -> Result<Self, Error>
+    where
+        S: Iterator<Item = &'i (usize, Score, Score, Beatmap)>,
+    {
         let mut result = Self::default();
-        // 5 would be sufficient but 10 reduces error probability
-        let mut index_10_pp: f32 = 0.0; // pp of 10th best unchoked score
-
-        // BTreeMap to keep entries sorted by key
-        let mut unchoked_scores: BTreeMap<F32T, (usize, Score)> = BTreeMap::new();
-        for (idx, (score, map)) in scores_data.iter() {
-            let combo_ratio = score.max_combo as f32 / map.max_combo.unwrap() as f32;
-            // If the score is an (almost) fc but already has too few pp, skip
-            if combo_ratio > 0.98 && score.pp.unwrap() < index_10_pp * 0.94 {
-                continue;
-            }
-            let mut unchoked = score.clone();
-            // If combo isn't max, unchoke the score
-            if score.max_combo != map.max_combo.unwrap() {
-                osu::unchoke_score(&mut unchoked, map);
-                let pp = PPProvider::calculate_oppai_pp(&unchoked, &map).await?;
-                unchoked.pp = Some(pp);
-            }
-            let pp = unchoked.pp.unwrap();
-            if pp > index_10_pp {
-                unchoked_scores.insert(F32T::new(pp), (*idx, unchoked));
-                index_10_pp = unchoked_scores
-                    .iter()
-                    .rev() // BTreeMap stores entries in ascending order wrt. the key
-                    .take(10)
-                    .last() // Get 10th entry
-                    .unwrap()
-                    .0 // Get the entry's key
-                    .to_f32(); // F32T to f32
-            }
-        }
-        let unchoked_scores: Vec<(usize, Score, &Score, &Beatmap)> = unchoked_scores
-            .into_iter()
-            .rev()
-            .take(5)
-            .map(|(_, (i, unchoked_score))| {
-                let (actual_score, map) = scores_data.get(&i).unwrap();
-                (i, unchoked_score, actual_score, map)
-            })
-            .collect();
-
-        // Done calculating, now preparing strings for message
-        let (author_icon, author_url, author_text) = get_user_author(&user);
+        let (author_icon, author_url, author_text) = get_user_author(user);
         let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
+        let pp_diff = (100.0 * (unchoked_pp - user.pp_raw as f64)).round() / 100.0;
         let mut description = String::with_capacity(512);
-        for (idx, unchoked, actual, map) in unchoked_scores.into_iter() {
+        for (idx, original, unchoked, map) in scores_data {
             let (stars, max_pp) = {
-                let pp_provider = PPProvider::new(actual, map, None).await.map_err(|why| {
+                let pp_provider = PPProvider::new(original, map, None).await.map_err(|why| {
                     Error::Custom(format!(
                         "Something went wrong while creating PPProvider: {}",
                         why
@@ -955,25 +918,30 @@ impl BasicEmbedData {
                 version = map.version,
                 base = HOMEPAGE,
                 id = map.beatmap_id,
-                mods = util::get_mods(&actual.enabled_mods),
+                mods = util::get_mods(&original.enabled_mods),
                 stars = stars,
                 grade = osu::grade_emote(unchoked.grade, cache.clone()).await,
-                old_pp = round(actual.pp.unwrap()),
+                old_pp = round(original.pp.unwrap()),
                 new_pp = round(unchoked.pp.unwrap()),
                 max_pp = max_pp,
-                old_acc = round(actual.accuracy(GameMode::STD)),
+                old_acc = round(original.accuracy(GameMode::STD)),
                 new_acc = round(unchoked.accuracy(GameMode::STD)),
-                old_combo = actual.max_combo,
+                old_combo = original.max_combo,
                 new_combo = unchoked.max_combo,
                 max_combo = map.max_combo.unwrap(),
-                misses = actual.count_miss - unchoked.count_miss,
-                plural = if actual.count_miss - unchoked.count_miss != 1 {
+                misses = original.count_miss - unchoked.count_miss,
+                plural = if original.count_miss - unchoked.count_miss != 1 {
                     "es"
                 } else {
                     ""
                 }
             );
         }
+        result.footer_text = Some(format!("Page {}/{}", pages.0, pages.1));
+        result.title_text = Some(format!(
+            "Total pp: {} -> **{}pp** (+{})",
+            user.pp_raw, unchoked_pp, pp_diff
+        ));
         result.author_icon = Some(author_icon);
         result.author_url = Some(author_url);
         result.author_text = Some(author_text);
@@ -1799,43 +1767,6 @@ impl RatioCategory {
         } else {
             0.0
         }
-    }
-}
-
-/// Providing a hashable, comparable alternative to f32 to put as key in a BTreeMap
-#[derive(Hash, Eq, PartialEq)]
-struct F32T {
-    integral: u32,
-    fractional: u32,
-}
-
-impl F32T {
-    fn new(val: f32) -> Self {
-        Self {
-            integral: val.trunc() as u32,
-            fractional: (val.fract() * 10_000.0) as u32,
-        }
-    }
-}
-
-impl F32T {
-    fn to_f32(&self) -> f32 {
-        self.integral as f32 + self.fractional as f32 / 10_000.0
-    }
-}
-
-impl Ord for F32T {
-    fn cmp(&self, other: &Self) -> Ordering {
-        match self.integral.cmp(&other.integral) {
-            Ordering::Equal => self.fractional.cmp(&other.fractional),
-            order => order,
-        }
-    }
-}
-
-impl PartialOrd for F32T {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
     }
 }
 

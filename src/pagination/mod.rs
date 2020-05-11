@@ -56,6 +56,12 @@ pub enum PaginationType {
         booted_up: String,
         list: Vec<(String, u32)>,
     },
+    NoChoke {
+        user: Box<User>,
+        scores_data: Vec<(usize, Score, Score, Beatmap)>,
+        unchoked_pp: f64,
+        cache: CacheRwLock,
+    },
 }
 
 /// Page data created upon reactions
@@ -233,6 +239,29 @@ impl Pagination {
         }
     }
 
+    pub fn nochoke(
+        user: User,
+        scores_data: Vec<(usize, Score, Score, Beatmap)>,
+        unchoked_pp: f64,
+        cache: CacheRwLock,
+    ) -> Self {
+        let amount = scores_data.len();
+        let per_page = 5;
+        let pagination = PaginationType::NoChoke {
+            user: Box::new(user),
+            scores_data,
+            unchoked_pp,
+            cache,
+        };
+        Self {
+            index: 0,
+            per_page,
+            total_pages: numbers::div_euclid(per_page, amount),
+            last_index: last_multiple(per_page, amount),
+            pagination,
+        }
+    }
+
     pub async fn next_reaction(&mut self, reaction: &str) -> Result<ReactionData, Error> {
         let next_index = match reaction {
             // Move to start
@@ -381,6 +410,7 @@ impl Pagination {
                 )
                 .await?,
             )),
+            // Background game ranking
             PaginationType::BgRanking {
                 scores,
                 author_idx,
@@ -418,6 +448,7 @@ impl Pagination {
                     (page, self.total_pages),
                 )))
             }
+            // Command counter
             PaginationType::CommandCounter { list, booted_up } => {
                 let sub_list: Vec<(&String, u32)> = list
                     .iter()
@@ -432,6 +463,22 @@ impl Pagination {
                     (page, self.total_pages),
                 )))
             }
+            // Nochoke
+            PaginationType::NoChoke {
+                user,
+                scores_data,
+                unchoked_pp,
+                cache,
+            } => ReactionData::Basic(Box::new(
+                BasicEmbedData::create_nochoke(
+                    user,
+                    scores_data.iter().skip(self.index).take(5),
+                    *unchoked_pp,
+                    (page, self.total_pages),
+                    cache,
+                )
+                .await?,
+            )),
         };
         Ok(result)
     }

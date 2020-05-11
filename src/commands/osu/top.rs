@@ -285,11 +285,7 @@ async fn top_send(
     // Creating the embed
     let response = msg
         .channel_id
-        .send_message(&ctx.http, |m| {
-            m.content(content)
-                // .reactions(reactions.iter().copied())
-                .embed(|e| data.build(e))
-        })
+        .send_message(&ctx.http, |m| m.content(content).embed(|e| data.build(e)))
         .await;
 
     // Add missing maps to database

@@ -103,6 +103,28 @@ impl NameFloatArgs {
     }
 }
 
+pub struct NameIntArgs {
+    pub name: Option<String>,
+    pub number: Option<u32>,
+}
+
+impl NameIntArgs {
+    pub fn new(mut args: Args) -> Self {
+        let args = arguments::first_n(&mut args, 2);
+        let mut name = None;
+        let mut number = None;
+        for arg in args {
+            let res = u32::from_str(&arg).ok();
+            if res.is_some() {
+                number = res;
+            } else {
+                name = Some(arg);
+            }
+        }
+        Self { name, number }
+    }
+}
+
 pub struct NameModArgs {
     pub name: Option<String>,
     pub mods: Option<(GameMods, ModSelection)>,
