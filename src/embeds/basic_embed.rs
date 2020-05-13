@@ -939,7 +939,7 @@ impl BasicEmbedData {
         }
         result.footer_text = Some(format!("Page {}/{}", pages.0, pages.1));
         result.title_text = Some(format!(
-            "Total pp: {} -> **{}pp** (+{})",
+            "Total pp: {} → **{}pp** (+{})",
             user.pp_raw, unchoked_pp, pp_diff
         ));
         result.author_icon = Some(author_icon);

@@ -11,7 +11,8 @@ use serenity::{
         id::{EmojiId, GuildId},
     },
 };
-use std::{env, fs::File, io::Write, path::Path};
+use std::{env, path::Path};
+use tokio::{fs::File, io::AsyncWriteExt};
 
 pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, Error> {
     let map_path = format!(
@@ -20,10 +21,10 @@ pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, Error> {
         id = map_id
     );
     if !Path::new(&map_path).exists() {
-        let mut file = File::create(&map_path)?;
+        let mut file = File::create(&map_path).await?;
         let download_url = format!("{}web/maps/{}", HOMEPAGE, map_id);
-        let content = reqwest::get(&download_url).await?.text().await?;
-        file.write_all(content.as_bytes())?;
+        let content = reqwest::get(&download_url).await?.bytes().await?;
+        file.write_all(&content).await?;
         debug!("Downloaded {}.osu successfully", map_id);
     }
     Ok(map_path)

@@ -97,9 +97,6 @@ impl Twitch {
             let mut data: Vec<_> = chunk.par_iter().map(|&id| ("user_id", id)).collect();
             data.push(("first", user_ids.len() as u64));
             let response = self.send_request(TWITCH_STREAM_ENDPOINT, &data).await?;
-            // let json = response.text().await?;
-            // println!("{}", json);
-            // let parsed_response: TwitchStreams = serde_json::from_str(&json)?;
             let parsed_response: TwitchStreams = serde_json::from_slice(&response.bytes().await?)?;
             streams.extend(parsed_response.data);
         }

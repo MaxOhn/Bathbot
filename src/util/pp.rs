@@ -5,11 +5,10 @@ use crate::{
 
 use rosu::models::{ApprovalStatus, Beatmap, GameMod, GameMode, GameMods, Grade, Score};
 use serenity::prelude::{RwLock, TypeMap};
-use std::{
-    env, mem,
-    process::{Child, Command, Stdio},
-    str::FromStr,
-    sync::Arc,
+use std::{env, mem, process::Stdio, str::FromStr, sync::Arc};
+use tokio::{
+    process::{Child, Command},
+    time::{self, Duration},
 };
 
 pub enum PPProvider {
@@ -90,7 +89,7 @@ async fn new_mania(
     } else {
         (Some(map.stars), true)
     };
-    // Start calculating pp of the score in new thread
+    // Start calculating pp of the score in new async worker
     let (pp_child, lock) = if score.pp.is_none() {
         // If its a fail or below half score, it's gonna be 0pp anyway
         if score.grade == Grade::F || score.score < half_score as u32 {
@@ -123,7 +122,7 @@ async fn new_mania(
     };
     // Wait for score pp calculation to finish
     let pp = if let Some(pp_child) = pp_child {
-        parse_pp_calc(pp_child)?
+        parse_pp_calc(pp_child).await?
     } else if score.grade == Grade::F || score.score < half_score as u32 {
         0.0
     } else {
@@ -135,7 +134,7 @@ async fn new_mania(
     // Otherwise start calculating them in new thread
     } else {
         let max_pp_child = start_pp_calc(map.beatmap_id, &score.enabled_mods, None).await?;
-        let max_pp = parse_pp_calc(max_pp_child)?;
+        let max_pp = parse_pp_calc(max_pp_child).await?;
         if map.approval_status == ApprovalStatus::Ranked
             || map.approval_status == ApprovalStatus::Loved
         {
@@ -209,7 +208,6 @@ async fn new_mania(
 }
 
 impl PPProvider {
-    /// ctx is only required for mania
     pub async fn new(
         score: &Score,
         map: &Beatmap,
@@ -267,7 +265,7 @@ impl PPProvider {
             };
             let _ = mutex.lock();
             let child = start_pp_calc(map.beatmap_id, mods, Some(score.score())).await?;
-            parse_pp_calc(child)
+            parse_pp_calc(child).await
         }
     }
 
@@ -319,7 +317,7 @@ impl PPProvider {
                         };
                         let _ = mutex.lock();
                         let max_pp_child = start_pp_calc(map.beatmap_id, mods, None).await?;
-                        parse_pp_calc(max_pp_child)?
+                        parse_pp_calc(max_pp_child).await?
                     };
                     // Insert max pp value into database
                     let data = data.read().await;
@@ -392,7 +390,8 @@ impl PPProvider {
 async fn start_pp_calc(map_id: u32, mods: &GameMods, score: Option<u32>) -> Result<Child, Error> {
     let map_path = osu::prepare_beatmap_file(map_id).await?;
     let mut cmd = Command::new("dotnet");
-    cmd.arg(env::var("PERF_CALC").unwrap())
+    cmd.kill_on_drop(true)
+        .arg(env::var("PERF_CALC").unwrap())
         .arg("simulate")
         .arg("mania")
         .arg(map_path);
@@ -411,8 +410,15 @@ async fn start_pp_calc(map_id: u32, mods: &GameMods, score: Option<u32>) -> Resu
         .map_err(Error::from)
 }
 
-fn parse_pp_calc(child: Child) -> Result<f32, Error> {
-    let output = child.wait_with_output()?;
+async fn parse_pp_calc(child: Child) -> Result<f32, Error> {
+    let output = match time::timeout(Duration::from_secs(10), child.wait_with_output()).await {
+        Ok(output) => output?,
+        Err(_) => {
+            return Err(Error::Custom(
+                "Timeout while waiting for pp output".to_string(),
+            ))
+        }
+    };
     if output.status.success() {
         let result = String::from_utf8(output.stdout)
             .map_err(|_| Error::Custom("Could not read stdout string".to_string()))?;
@@ -428,13 +434,21 @@ fn parse_pp_calc(child: Child) -> Result<f32, Error> {
 async fn calc_stars(map_id: u32, mods: &GameMods) -> Result<f32, Error> {
     let map_path = osu::prepare_beatmap_file(map_id).await?;
     let mut cmd = Command::new("dotnet");
-    cmd.arg(env::var("PERF_CALC").unwrap())
+    cmd.kill_on_drop(true)
+        .arg(env::var("PERF_CALC").unwrap())
         .arg("difficulty")
         .arg(map_path);
     for &m in mods.iter().filter(|&&m| m != GameMod::ScoreV2) {
         cmd.arg("-m").arg(m.to_string());
     }
-    let output = cmd.output()?;
+    let output = match time::timeout(Duration::from_secs(10), cmd.output()).await {
+        Ok(output) => output?,
+        Err(_) => {
+            return Err(Error::Custom(
+                "Timeout while waiting for stars output".to_string(),
+            ))
+        }
+    };
     if output.status.success() {
         let result = String::from_utf8(output.stdout)
             .map_err(|_| Error::Custom("Could not read stdout string".to_string()))?;
