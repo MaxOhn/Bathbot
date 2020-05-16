@@ -18,7 +18,7 @@ extern crate log;
 extern crate diesel;
 
 use crate::scraper::Scraper;
-use commands::{fun::*, messages_fun::*, osu::*, streams::*, utility::*};
+use commands::{fun::*, messages_fun::*, osu::*, osu_belgium::*, streams::*, utility::*};
 use database::MySQL;
 use events::Handler;
 use streams::Twitch;
@@ -164,7 +164,8 @@ async fn main() {
         .group(&FUN_GROUP)
         .group(&MESSAGESFUN_GROUP)
         .group(&UTILITY_GROUP)
-        .group(&STREAMTRACKING_GROUP);
+        .group(&STREAMTRACKING_GROUP)
+        .group(&OSUBELGIUM_GROUP);
 
     let mut discord = Client::new(&discord_token)
         .event_handler(Handler)
@@ -190,6 +191,8 @@ async fn main() {
         }
         data.insert::<Guilds>(guilds);
         data.insert::<BgGames>(HashMap::new());
+        data.insert::<TrackTime>(None);
+        data.insert::<TrackedUsers>(Vec::new());
     }
 
     // Boot it all up

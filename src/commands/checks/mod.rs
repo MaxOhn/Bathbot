@@ -1,9 +1,29 @@
-use crate::Guilds;
+use crate::{
+    util::globals::{DEV_GUILD_ID, MAIN_GUILD_ID},
+    Guilds,
+};
+
 use serenity::{
     framework::standard::{macros::check, Args, CheckResult, CommandOptions},
     model::prelude::Message,
     prelude::Context,
 };
+
+#[check]
+#[name = "MainGuild"]
+#[display_in_help(false)]
+async fn main_guild_check(
+    _: &Context,
+    msg: &Message,
+    _: &mut Args,
+    _: &CommandOptions,
+) -> CheckResult {
+    if let Some(guild_id) = msg.guild_id {
+        (guild_id == MAIN_GUILD_ID || guild_id == DEV_GUILD_ID).into()
+    } else {
+        false.into()
+    }
+}
 
 #[check]
 #[name = "Authority"]

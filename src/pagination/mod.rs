@@ -62,6 +62,10 @@ pub enum PaginationType {
         unchoked_pp: f64,
         cache: CacheRwLock,
     },
+    RankedScore {
+        next_update: String,
+        list: Vec<(String, u64)>,
+    },
 }
 
 /// Page data created upon reactions
@@ -262,6 +266,19 @@ impl Pagination {
         }
     }
 
+    pub fn ranked_score(next_update: String, list: Vec<(String, u64)>) -> Self {
+        let amount = list.len();
+        let per_page = 15;
+        let pagination = PaginationType::RankedScore { next_update, list };
+        Self {
+            index: 0,
+            per_page,
+            total_pages: numbers::div_euclid(per_page, amount),
+            last_index: last_multiple(per_page, amount),
+            pagination,
+        }
+    }
+
     pub async fn next_reaction(&mut self, reaction: &str) -> Result<ReactionData, Error> {
         let next_index = match reaction {
             // Move to start
@@ -384,7 +401,7 @@ impl Pagination {
             } => ReactionData::Basic(Box::new(
                 BasicEmbedData::create_top(
                     user,
-                    scores.iter().skip(self.index).take(5),
+                    scores.iter().skip(self.index).take(self.per_page),
                     *mode,
                     (page, self.total_pages),
                     (cache, data),
@@ -403,7 +420,7 @@ impl Pagination {
                 BasicEmbedData::create_leaderboard(
                     &author_name.as_deref(),
                     map,
-                    Some(scores.iter().skip(self.index).take(10)),
+                    Some(scores.iter().skip(self.index).take(self.per_page)),
                     first_place_icon,
                     self.index,
                     (cache, data),
@@ -472,13 +489,26 @@ impl Pagination {
             } => ReactionData::Basic(Box::new(
                 BasicEmbedData::create_nochoke(
                     user,
-                    scores_data.iter().skip(self.index).take(5),
+                    scores_data.iter().skip(self.index).take(self.per_page),
                     *unchoked_pp,
                     (page, self.total_pages),
                     cache,
                 )
                 .await?,
             )),
+            // RankedScore
+            PaginationType::RankedScore { next_update, list } => {
+                ReactionData::Basic(Box::new(BasicEmbedData::create_ranked_score(
+                    next_update,
+                    list.iter()
+                        .skip(self.index)
+                        .take(self.per_page)
+                        .map(|(name, score)| (name, *score))
+                        .collect(),
+                    self.index + 1,
+                    (page, self.total_pages),
+                )))
+            }
         };
         Ok(result)
     }

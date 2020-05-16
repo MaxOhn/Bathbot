@@ -34,3 +34,5 @@ pub const AVATAR_URL: &str = "https://a.ppy.sh/";
 pub const TWITCH_BASE: &str = "https://www.twitch.tv/";
 pub const TWITCH_STREAM_ENDPOINT: &str = "https://api.twitch.tv/helix/streams";
 pub const TWITCH_USERS_ENDPOINT: &str = "https://api.twitch.tv/helix/users";
+
+pub const SYMBOLS: [&str; 6] = ["♔", "♕", "♖", "♗", "♘", "♙"];

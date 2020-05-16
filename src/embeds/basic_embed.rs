@@ -9,7 +9,7 @@ use crate::{
     util::{
         datetime::{date_to_string, how_long_ago, sec_to_minsec},
         discord::{self, CacheData},
-        globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL, TWITCH_BASE},
+        globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL, SYMBOLS, TWITCH_BASE},
         numbers::{round, round_and_comma, round_precision, with_comma_u64},
         osu,
         pp::PPProvider,
@@ -326,6 +326,26 @@ impl BasicEmbedData {
     }
 
     //
+    // avatar
+    //
+    pub fn create_avatar(user: AvatarUser) -> Self {
+        let mut result = Self::default();
+        let title_text = format!(
+            "{}'s {} avatar:",
+            user.name(),
+            if let AvatarUser::Discord { .. } = user {
+                "discord"
+            } else {
+                "osu!"
+            }
+        );
+        result.title_text = Some(title_text);
+        result.title_url = Some(user.url().to_string());
+        result.image_url = Some(user.url().to_string());
+        result
+    }
+
+    //
     // bg ranking
     //
     pub fn create_bg_ranking(
@@ -335,7 +355,6 @@ impl BasicEmbedData {
         idx: usize,
         pages: (usize, usize),
     ) -> Self {
-        let symbols = ["♔", "♕", "♖", "♗", "♘", "♙"];
         let mut result = Self::default();
         let len = list.iter().fold(0, |max, (user, _)| max.max(user.len()));
         let mut description = String::with_capacity(256);
@@ -347,7 +366,7 @@ impl BasicEmbedData {
                 "{:>2} {:1} # {:<len$} => {}",
                 i,
                 if i < 7 {
-                    symbols.get(i - 1).unwrap()
+                    SYMBOLS.get(i - 1).unwrap()
                 } else {
                     ""
                 },
@@ -380,7 +399,6 @@ impl BasicEmbedData {
         idx: usize,
         pages: (usize, usize),
     ) -> Self {
-        let symbols = ["♔", "♕", "♖", "♗", "♘", "♙"];
         let mut result = Self::default();
         let len = list.iter().fold(0, |max, (name, _)| max.max(name.len()));
         let mut description = String::with_capacity(256);
@@ -392,7 +410,7 @@ impl BasicEmbedData {
                 "{:>2} {:1} # {:<len$} => {}",
                 i,
                 if i < 7 {
-                    symbols.get(i - 1).unwrap()
+                    SYMBOLS.get(i - 1).unwrap()
                 } else {
                     ""
                 },
@@ -409,26 +427,6 @@ impl BasicEmbedData {
         result.description = Some(description);
         result.footer_text = Some(footer_text);
         result.author_text = Some("Most popular commands:".to_string());
-        result
-    }
-
-    //
-    // avatar
-    //
-    pub fn create_avatar(user: AvatarUser) -> Self {
-        let mut result = Self::default();
-        let title_text = format!(
-            "{}'s {} avatar:",
-            user.name(),
-            if let AvatarUser::Discord { .. } = user {
-                "discord"
-            } else {
-                "osu!"
-            }
-        );
-        result.title_text = Some(title_text);
-        result.title_url = Some(user.url().to_string());
-        result.image_url = Some(user.url().to_string());
         result
     }
 
@@ -1269,6 +1267,50 @@ impl BasicEmbedData {
         result.thumbnail = Some(thumbnail);
         result.title_text = Some(title);
         result.description = Some(description);
+        result
+    }
+
+    //
+    // ranked score
+    //
+    pub fn create_ranked_score(
+        next_update: &str,
+        list: Vec<(&String, u64)>,
+        idx: usize,
+        pages: (usize, usize),
+    ) -> Self {
+        let mut result = Self::default();
+        let list: Vec<(&String, String)> = list
+            .into_iter()
+            .map(|(name, score)| (name, with_comma_u64(score)))
+            .collect();
+        let name_len = list.iter().fold(0, |max, (name, _)| max.max(name.len()));
+        let num_len = list.iter().fold(0, |max, (_, score)| max.max(score.len()));
+        let mut description = String::with_capacity(256);
+        description.push_str("```\n");
+        for (mut i, (name, score)) in list.into_iter().enumerate() {
+            i += idx;
+            let _ = writeln!(
+                description,
+                "{:>2} {:1} # {:<name_len$} => {:>num_len$}",
+                i,
+                if i < 7 {
+                    SYMBOLS.get(i - 1).unwrap()
+                } else {
+                    ""
+                },
+                name,
+                score,
+                name_len = name_len,
+                num_len = num_len
+            );
+        }
+        description.push_str("```");
+        result.description = Some(description);
+        let footer_text = format!("Page {}/{} ~ Updating in {}", pages.0, pages.1, next_update);
+        result.footer_text = Some(footer_text);
+        result.author_text = Some(String::from("Server leaderboard for ranked score:"));
+        result.thumbnail = Some(format!("{}/images/flags/BE.png", HOMEPAGE));
         result
     }
 

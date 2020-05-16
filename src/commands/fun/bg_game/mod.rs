@@ -206,10 +206,11 @@ async fn stats(ctx: &Context, msg: &Message) -> CommandResult {
 
 #[command]
 async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let global = args
-        .single::<String>()
-        .map(|arg| ["g", "global"].contains(&arg.as_str()))
-        .unwrap_or_else(|_| false);
+    let global = msg.guild_id.is_none()
+        || args
+            .single::<String>()
+            .map(|arg| ["g", "global"].contains(&arg.as_str()))
+            .unwrap_or_else(|_| false);
     let mut scores = {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");

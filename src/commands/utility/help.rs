@@ -21,15 +21,18 @@ If you react with :x: to my response, I will delete it.
 Further help on the spreadsheet: http://bit.ly/badecoms"]
 #[command_not_found_text = "Could not find command: `{}`."]
 #[max_levenshtein_distance(3)]
-#[lacking_permissions = "strike"]
-#[lacking_role = "strike"]
+#[lacking_conditions = "hide"]
+// #[lacking_permissions = "strike"]
+// #[lacking_role = "strike"]
 #[usage_label("How to use")]
 #[usage_sample_label("Example")]
 #[embed_success_colour("DARK_GREEN")]
-#[strikethrough_commands_tip_in_dm(
-    "~~`Strikethrough commands`~~ indicate you're lacking permissions or roles"
-)]
-#[strikethrough_commands_tip_in_guild("~~`Strikethrough commands`~~ can only be used in servers")]
+// #[strikethrough_commands_tip_in_dm(
+//     "~~`Strikethrough commands`~~ indicate you're lacking permissions or roles"
+// )]
+// #[strikethrough_commands_tip_in_guild("~~`Strikethrough commands`~~ can only be used in servers")]
+#[strikethrough_commands_tip_in_dm("")]
+#[strikethrough_commands_tip_in_guild("")]
 async fn help(
     ctx: &Context,
     msg: &Message,
