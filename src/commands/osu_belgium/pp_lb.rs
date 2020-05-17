@@ -21,7 +21,7 @@ async fn pplb(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     users.sort_by(|(_, a), (_, b)| b.partial_cmp(&a).unwrap_or_else(|| Ordering::Equal));
     let users: Vec<_> = users
         .into_iter()
-        .map(|(name, pp)| (name, numbers::round_and_comma(pp)))
+        .map(|(name, pp)| (name, numbers::round_and_comma(pp) + "pp"))
         .collect();
 
     // Send response

@@ -6,7 +6,10 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use rosu::{backend::Osu as OsuClient, models::User as OsuUser};
+use rosu::{
+    backend::Osu as OsuClient,
+    models::{GameMode, User as OsuUser},
+};
 use serenity::{
     model::id::{ChannelId, GuildId, MessageId, RoleId},
     prelude::*,
@@ -85,10 +88,10 @@ impl TypeMapKey for BgGames {
 
 pub struct TrackTime;
 impl TypeMapKey for TrackTime {
-    type Value = Option<DateTime<Utc>>;
+    type Value = HashMap<GameMode, Option<DateTime<Utc>>>;
 }
 
 pub struct TrackedUsers;
 impl TypeMapKey for TrackedUsers {
-    type Value = Vec<OsuUser>;
+    type Value = HashMap<GameMode, Vec<OsuUser>>;
 }

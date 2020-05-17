@@ -29,7 +29,7 @@ pub use util::{discord::get_member, Error};
 use chrono::{Local, Utc};
 use fern::colors::{Color, ColoredLevelConfig};
 use log::{error, info, LevelFilter};
-use rosu::backend::Osu as OsuClient;
+use rosu::{backend::Osu as OsuClient, models::GameMode};
 use serenity::{
     framework::{
         standard::{macros::hook, CommandResult, DispatchError},
@@ -92,6 +92,14 @@ async fn main() {
     let discord_links = mysql
         .get_discord_links()
         .unwrap_or_else(|why| panic!("Could not get discord_links: {}", why));
+
+    // Custom leaderboard cache
+    let mut track_times = HashMap::with_capacity(4);
+    let mut tracked_users = HashMap::with_capacity(4);
+    for mode in [GameMode::STD, GameMode::MNA, GameMode::TKO, GameMode::CTB].iter() {
+        track_times.insert(*mode, None);
+        tracked_users.insert(*mode, Vec::new());
+    }
 
     // Scraper
     let scraper = Scraper::new()
@@ -191,8 +199,8 @@ async fn main() {
         }
         data.insert::<Guilds>(guilds);
         data.insert::<BgGames>(HashMap::new());
-        data.insert::<TrackTime>(None);
-        data.insert::<TrackedUsers>(Vec::new());
+        data.insert::<TrackTime>(track_times);
+        data.insert::<TrackedUsers>(tracked_users);
     }
 
     // Boot it all up

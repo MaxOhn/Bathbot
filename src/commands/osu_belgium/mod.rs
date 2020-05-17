@@ -45,16 +45,12 @@ fn get_mode(mut args: Args) -> GameMode {
     if args.is_empty() {
         GameMode::STD
     } else {
-        let arg = args.single::<String>().unwrap();
-        println!("arg: {}", arg);
-        let mode = match arg.as_str() {
+        match args.single::<String>().unwrap().as_str() {
             "mania" | "mna" | "m" => GameMode::MNA,
             "taiko" | "tko" | "t" => GameMode::TKO,
             "fruits" | "ctb" | "c" => GameMode::CTB,
             _ => GameMode::STD,
-        };
-        println!("mode: {}", mode);
-        mode
+        }
     }
 }
 
@@ -67,7 +63,9 @@ pub async fn member_users(
         let data = ctx.data.read().await;
         let tracked_users = data
             .get::<TrackedUsers>()
-            .expect("Could not get TrackedUsers");
+            .expect("Could not get TrackedUsers")
+            .get(&mode)
+            .unwrap();
         if tracked_users.is_empty() {
             None
         } else {
@@ -115,14 +113,12 @@ pub async fn member_users(
         // Save user data
         {
             let mut data = ctx.data.write().await;
-            let tracked_users = data
-                .get_mut::<TrackedUsers>()
-                .expect("Could not get TrackedUsers");
-            *tracked_users = osu_users.clone();
-            let track_time = data
-                .get_mut::<TrackTime>()
-                .expect("Could not get TrackTime");
-            *track_time = Some(Utc::now());
+            data.get_mut::<TrackedUsers>()
+                .expect("Could not get TrackedUsers")
+                .insert(mode, osu_users.clone());
+            data.get_mut::<TrackTime>()
+                .expect("Could not get TrackTime")
+                .insert(mode, Some(Utc::now()));
         }
 
         // Clear data after an hour
@@ -132,6 +128,8 @@ pub async fn member_users(
             let mut data = data.write().await;
             data.get_mut::<TrackedUsers>()
                 .expect("Could not get TrackedUsers")
+                .get_mut(&mode)
+                .unwrap()
                 .clear();
         });
         users = Some(osu_users);
@@ -140,6 +138,8 @@ pub async fn member_users(
         let data = ctx.data.read().await;
         data.get::<TrackTime>()
             .expect("Could not get TrackTime")
+            .get(&mode)
+            .unwrap()
             .unwrap()
     };
     let update_interval = Duration::hours(1);
