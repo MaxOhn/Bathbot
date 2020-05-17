@@ -62,9 +62,9 @@ pub enum PaginationType {
         unchoked_pp: f64,
         cache: CacheRwLock,
     },
-    RankedScore {
+    BelgianLeaderboard {
         next_update: String,
-        list: Vec<(String, u64)>,
+        list: Vec<(String, String)>,
     },
 }
 
@@ -266,10 +266,10 @@ impl Pagination {
         }
     }
 
-    pub fn ranked_score(next_update: String, list: Vec<(String, u64)>) -> Self {
+    pub fn belgian_lb(next_update: String, list: Vec<(String, String)>) -> Self {
         let amount = list.len();
         let per_page = 15;
-        let pagination = PaginationType::RankedScore { next_update, list };
+        let pagination = PaginationType::BelgianLeaderboard { next_update, list };
         Self {
             index: 0,
             per_page,
@@ -497,13 +497,13 @@ impl Pagination {
                 .await?,
             )),
             // RankedScore
-            PaginationType::RankedScore { next_update, list } => {
-                ReactionData::Basic(Box::new(BasicEmbedData::create_ranked_score(
+            PaginationType::BelgianLeaderboard { next_update, list } => {
+                ReactionData::Basic(Box::new(BasicEmbedData::create_belgian_leaderboard(
                     next_update,
                     list.iter()
                         .skip(self.index)
                         .take(self.per_page)
-                        .map(|(name, score)| (name, *score))
+                        .map(|(name, score)| (name, score))
                         .collect(),
                     self.index + 1,
                     (page, self.total_pages),

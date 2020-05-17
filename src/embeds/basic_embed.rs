@@ -1273,17 +1273,13 @@ impl BasicEmbedData {
     //
     // ranked score
     //
-    pub fn create_ranked_score(
+    pub fn create_belgian_leaderboard(
         next_update: &str,
-        list: Vec<(&String, u64)>,
+        list: Vec<(&String, &String)>,
         idx: usize,
         pages: (usize, usize),
     ) -> Self {
         let mut result = Self::default();
-        let list: Vec<(&String, String)> = list
-            .into_iter()
-            .map(|(name, score)| (name, with_comma_u64(score)))
-            .collect();
         let name_len = list.iter().fold(0, |max, (name, _)| max.max(name.len()));
         let num_len = list.iter().fold(0, |max, (_, score)| max.max(score.len()));
         let mut description = String::with_capacity(256);
@@ -1309,7 +1305,7 @@ impl BasicEmbedData {
         result.description = Some(description);
         let footer_text = format!("Page {}/{} ~ Updating in {}", pages.0, pages.1, next_update);
         result.footer_text = Some(footer_text);
-        result.author_text = Some(String::from("Server leaderboard for ranked score:"));
+        result.author_text = Some(String::from("Server leaderboard for linked members:"));
         result.thumbnail = Some(format!("{}/images/flags/BE.png", HOMEPAGE));
         result
     }
