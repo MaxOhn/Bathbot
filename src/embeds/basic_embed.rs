@@ -1497,7 +1497,7 @@ impl BasicEmbedData {
                 };
                 (
                     util::get_stars(pp_provider.stars()),
-                    util::get_pp(&score, &pp_provider, map.mode),
+                    util::get_pp(&score, &pp_provider),
                 )
             };
             let cache = cache_data.cache().clone();
@@ -1581,7 +1581,7 @@ impl BasicEmbedData {
                 };
                 (
                     util::get_stars(pp_provider.stars()),
-                    util::get_pp(score, &pp_provider, mode),
+                    util::get_pp(score, &pp_provider),
                 )
             };
             let _ = writeln!(
@@ -1724,20 +1724,17 @@ pub async fn get_pp(
         score.pp
     } else {
         match map.mode {
-            GameMode::CTB => None,
             GameMode::STD | GameMode::TKO => {
                 Some(PPProvider::calculate_oppai_pp(score, map).await?)
             }
-            GameMode::MNA => {
-                Some(PPProvider::calculate_mania_pp(score, map, Arc::clone(&data)).await?)
+            GameMode::MNA | GameMode::CTB => {
+                Some(PPProvider::calculate_pp(score, map, Arc::clone(&data)).await?)
             }
         }
     };
     #[allow(clippy::map_entry)]
     let max = if mod_map.contains_key(&bits) {
         mod_map.get(&bits).copied()
-    } else if map.mode == GameMode::CTB {
-        None
     } else {
         let max = PPProvider::calculate_max(&map, &score.enabled_mods, Some(data)).await?;
         mod_map.insert(bits, max);

@@ -14,7 +14,8 @@ use std::cmp::Ordering;
 #[usage = "[mania / taiko / ctb]"]
 async fn acc(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let mode = super::get_mode(args);
-    let (users, next_update) = super::member_users(ctx, msg.guild_id.unwrap(), mode).await?;
+    let (users, next_update) =
+        super::member_users(ctx, msg.channel_id, msg.guild_id.unwrap(), mode).await?;
 
     // Map to accs, sort, then format
     let mut users: Vec<_> = users

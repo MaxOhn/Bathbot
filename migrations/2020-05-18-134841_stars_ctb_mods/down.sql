@@ -1,0 +1,1 @@
+DROP TABLE stars_ctb_mods

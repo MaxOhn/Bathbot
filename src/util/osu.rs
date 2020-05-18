@@ -112,30 +112,7 @@ pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
                 Grade::X
             };
         }
-        GameMode::TKO => {
-            let acc = args.acc.unwrap_or_else(|| {
-                let acc = score.accuracy(map.mode);
-                if acc.is_nan() {
-                    100.0
-                } else {
-                    acc
-                }
-            }) / 100.0;
-            let n100 = args.n100.unwrap_or(0);
-            let miss = args.miss.unwrap_or(0);
-            let total_objects = map.count_objects();
-            if n100 > 0 {
-                score.count300 = total_objects - n100 - miss;
-                score.count100 = n100;
-            } else {
-                let target_total = (acc * 2.0 * total_objects as f32) as u32;
-                score.count300 = target_total + miss - total_objects;
-                score.count100 = total_objects - score.count300 - miss;
-            }
-            score.count_miss = miss;
-            score.recalculate_grade(GameMode::TKO, Some(acc * 100.0));
-        }
-        GameMode::CTB => panic!("Can not simulate CTB scores"),
+        _ => panic!("Can only simulate STD and MNA scores, not {:?}", map.mode,),
     }
 }
 

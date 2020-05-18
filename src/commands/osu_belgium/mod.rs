@@ -29,7 +29,7 @@ use serenity::{
     framework::standard::{macros::group, Args, CommandResult},
     model::{
         channel::{Message, ReactionType},
-        id::GuildId,
+        id::{ChannelId, GuildId},
     },
     prelude::Context,
 };
@@ -56,6 +56,7 @@ fn get_mode(mut args: Args) -> GameMode {
 
 pub async fn member_users(
     ctx: &Context,
+    channel: ChannelId,
     guild_id: GuildId,
     mode: GameMode,
 ) -> Result<(Vec<User>, String), Error> {
@@ -96,6 +97,9 @@ pub async fn member_users(
         };
 
         // Request user data
+        let msg = channel
+            .say(ctx, format!("Requesting {} users...", names.len()))
+            .await?;
         debug!("Requesting users for ranked score leaderboard");
         let osu_users = {
             let data = ctx.data.read().await;
@@ -132,6 +136,7 @@ pub async fn member_users(
                 .unwrap()
                 .clear();
         });
+        let _ = msg.delete(ctx).await;
         users = Some(osu_users);
     }
     let track_time = {

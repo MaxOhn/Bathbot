@@ -75,6 +75,18 @@ table! {
 }
 
 table! {
+    pp_ctb_mods (beatmap_id) {
+        beatmap_id -> Unsigned<Integer>,
+        NM -> Nullable<Float>,
+        HD -> Nullable<Float>,
+        HR -> Nullable<Float>,
+        DT -> Nullable<Float>,
+        HDHR -> Nullable<Float>,
+        HDDT -> Nullable<Float>,
+    }
+}
+
+table! {
     pp_mania_mods (beatmap_id) {
         beatmap_id -> Unsigned<Integer>,
         NM -> Nullable<Float>,
@@ -111,6 +123,20 @@ table! {
 }
 
 table! {
+    stars_ctb_mods (beatmap_id) {
+        beatmap_id -> Unsigned<Integer>,
+        EZ -> Nullable<Float>,
+        HR -> Nullable<Float>,
+        DT -> Nullable<Float>,
+        HT -> Nullable<Float>,
+        EZDT -> Nullable<Float>,
+        HRDT -> Nullable<Float>,
+        EZHT -> Nullable<Float>,
+        HRHT -> Nullable<Float>,
+    }
+}
+
+table! {
     stars_mania_mods (beatmap_id) {
         beatmap_id -> Unsigned<Integer>,
         DT -> Nullable<Float>,
@@ -124,12 +150,6 @@ table! {
         channel_id -> Unsigned<Bigint>,
         user_id -> Unsigned<Bigint>,
         platform -> Unsigned<Tinyint>,
-    }
-}
-
-table! {
-    test (val) {
-        val -> Varchar,
     }
 }
 
@@ -148,7 +168,9 @@ table! {
 }
 
 joinable!(maps -> mapsets (beatmapset_id));
+joinable!(pp_ctb_mods -> maps (beatmap_id));
 joinable!(pp_mania_mods -> maps (beatmap_id));
+joinable!(stars_ctb_mods -> maps (beatmap_id));
 joinable!(stars_mania_mods -> maps (beatmap_id));
 joinable!(stream_tracks -> twitch_users (user_id));
 
@@ -160,12 +182,13 @@ allow_tables_to_appear_in_same_query!(
     maps,
     mapsets,
     messages,
+    pp_ctb_mods,
     pp_mania_mods,
     ratio_table,
     role_assign,
+    stars_ctb_mods,
     stars_mania_mods,
     stream_tracks,
-    test,
     twitch_users,
     unchecked_members,
 );

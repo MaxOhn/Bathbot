@@ -1,7 +1,7 @@
 mod models;
 mod schema;
 
-use models::{DBMap, GuildDB, ManiaPP, MapSplit, StreamTrackDB};
+use models::{CtbPP, DBMap, GuildDB, ManiaPP, MapSplit, StreamTrackDB};
 pub use models::{DBMapSet, Guild, InsertableMessage, Platform, Ratios, StreamTrack, TwitchUser};
 
 use crate::{
@@ -15,7 +15,7 @@ use diesel::{
     sql_types::Text,
     MysqlConnection,
 };
-use rosu::models::{Beatmap, GameMod, GameMods};
+use rosu::models::{Beatmap, GameMod, GameMode, GameMods};
 use serenity::model::id::{ChannelId, GuildId, UserId};
 use std::collections::{HashMap, HashSet};
 
@@ -180,84 +180,378 @@ impl MySQL {
         Ok(links)
     }
 
-    // --------------------
-    // Table: pp_mania_mods
-    // --------------------
+    // ----------------------------------
+    // Table: pp_mania_mods / pp_ctb_mods
+    // ----------------------------------
 
-    pub fn get_mania_mod_pp(&self, map_id: u32, mods: &GameMods) -> DBResult<Option<f32>> {
-        let bits = mania_mod_bits(mods);
+    pub fn get_mod_pp(
+        &self,
+        map_id: u32,
+        mode: GameMode,
+        mods: &GameMods,
+    ) -> DBResult<Option<f32>> {
         let conn = self.get_connection()?;
-        let data = schema::pp_mania_mods::table
-            .find(map_id)
-            .first::<ManiaPP>(&conn)?;
-        data.get(bits)
-    }
-
-    pub fn insert_mania_pp_map(&self, map_id: u32, mods: &GameMods, pp: f32) -> DBResult<()> {
-        let bits = mania_mod_bits(mods);
-        let data = ManiaPP::new(map_id, bits, Some(pp))?;
-        let conn = self.get_connection()?;
-        diesel::insert_or_ignore_into(schema::pp_mania_mods::table)
-            .values(&data)
-            .execute(&conn)?;
-        Ok(())
-    }
-
-    pub fn update_mania_pp_map(&self, map_id: u32, mods: &GameMods, pp: f32) -> DBResult<()> {
-        use schema::pp_mania_mods::{self, columns::*};
-        let bits = mania_mod_bits(mods);
-        let conn = self.get_connection()?;
-        let data = ManiaPP::new(map_id, bits, Some(pp))?;
-        diesel::update(pp_mania_mods::table.filter(beatmap_id.eq(map_id)))
-            .set(&data)
-            .execute(&conn)?;
-        Ok(())
-    }
-
-    // -----------------------
-    // Table: stars_mania_mods
-    // -----------------------
-
-    pub fn get_mania_mod_stars(&self, map_id: u32, mods: &GameMods) -> DBResult<Option<f32>> {
-        let conn = self.get_connection()?;
-        let data = schema::stars_mania_mods::table
-            .find(map_id)
-            .first::<(u32, Option<f32>, Option<f32>)>(&conn)?;
-        if mods.contains(&GameMod::DoubleTime) || mods.contains(&GameMod::NightCore) {
-            Ok(data.1)
-        } else if mods.contains(&GameMod::HalfTime) {
-            Ok(data.2)
+        if mode == GameMode::MNA {
+            let bits = mania_mod_bits(mods);
+            schema::pp_mania_mods::table
+                .find(map_id)
+                .first::<ManiaPP>(&conn)?
+                .get(bits)
         } else {
-            Ok(None)
+            use rosu::models::GameMod::{DoubleTime, HardRock, Hidden, NightCore};
+
+            let data = schema::pp_ctb_mods::table
+                .find(map_id)
+                .first::<CtbPP>(&conn)?;
+            if mods.is_empty() {
+                Ok(data.NM)
+            } else {
+                match mods.keys().collect::<Vec<_>>().as_slice() {
+                    &[Hidden] => Ok(data.HD),
+                    &[HardRock] => Ok(data.HR),
+                    &[DoubleTime] | &[NightCore] => Ok(data.DT),
+                    &[Hidden, HardRock] => Ok(data.HDHR),
+                    &[Hidden, DoubleTime] | &[Hidden, NightCore] => Ok(data.HDDT),
+                    _ => Ok(None),
+                }
+            }
         }
     }
 
-    pub fn insert_mania_stars_map(&self, map_id: u32, mods: &GameMods, pp: f32) -> DBResult<()> {
-        use schema::stars_mania_mods::columns::{beatmap_id, DT, HT};
-        use GameMod::{DoubleTime, HalfTime, NightCore};
-        let data = if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
-            (beatmap_id.eq(map_id), DT.eq(Some(pp)), HT.eq(None))
-        } else if mods.contains(&HalfTime) {
-            (beatmap_id.eq(map_id), DT.eq(None), HT.eq(Some(pp)))
-        } else {
-            (beatmap_id.eq(map_id), DT.eq(None), HT.eq(None))
-        };
+    pub fn insert_pp_map(
+        &self,
+        map_id: u32,
+        mode: GameMode,
+        mods: &GameMods,
+        pp: f32,
+    ) -> DBResult<()> {
         let conn = self.get_connection()?;
-        diesel::insert_or_ignore_into(schema::stars_mania_mods::table)
-            .values(&data)
-            .execute(&conn)?;
+        if mode == GameMode::MNA {
+            let bits = mania_mod_bits(mods);
+            let data = ManiaPP::new(map_id, bits, Some(pp))?;
+            diesel::insert_or_ignore_into(schema::pp_mania_mods::table)
+                .values(&data)
+                .execute(&conn)?;
+        } else {
+            use rosu::models::GameMod::{DoubleTime, HardRock, Hidden, NightCore};
+
+            let mut data = CtbPP::default();
+            data.beatmap_id = map_id;
+            if mods.is_empty() {
+                data.NM = Some(pp);
+            } else {
+                match mods.keys().collect::<Vec<_>>().as_slice() {
+                    &[Hidden] => data.HD = Some(pp),
+                    &[HardRock] => data.HR = Some(pp),
+                    &[DoubleTime] | &[NightCore] => data.DT = Some(pp),
+                    &[Hidden, HardRock] => data.HDHR = Some(pp),
+                    &[Hidden, DoubleTime] | &[Hidden, NightCore] => data.HDDT = Some(pp),
+                    _ => return Ok(()),
+                }
+            }
+            diesel::insert_or_ignore_into(schema::pp_ctb_mods::table)
+                .values(&data)
+                .execute(&conn)?;
+        };
         Ok(())
     }
 
-    pub fn update_mania_stars_map(&self, map_id: u32, mods: &GameMods, pp: f32) -> DBResult<()> {
-        use schema::stars_mania_mods::columns::{beatmap_id, DT, HT};
-        use GameMod::{DoubleTime, HalfTime, NightCore};
+    pub fn update_pp_map(
+        &self,
+        map_id: u32,
+        mode: GameMode,
+        mods: &GameMods,
+        pp: f32,
+    ) -> DBResult<()> {
         let conn = self.get_connection()?;
-        let update = diesel::update(schema::stars_mania_mods::table.filter(beatmap_id.eq(map_id)));
-        if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
-            update.set(DT.eq(Some(pp))).execute(&conn)?;
-        } else if mods.contains(&HalfTime) {
-            update.set(HT.eq(Some(pp))).execute(&conn)?;
+        if mode == GameMode::MNA {
+            use schema::pp_mania_mods::{self, columns::beatmap_id};
+            let bits = mania_mod_bits(mods);
+            let data = ManiaPP::new(map_id, bits, Some(pp))?;
+            diesel::update(pp_mania_mods::table.filter(beatmap_id.eq(map_id)))
+                .set(&data)
+                .execute(&conn)?;
+        } else {
+            use schema::pp_ctb_mods::{self, columns::beatmap_id};
+
+            let mut data = CtbPP::default();
+            data.beatmap_id = map_id;
+            if mods.is_empty() {
+                data.NM = Some(pp);
+            } else {
+                use rosu::models::GameMod::{DoubleTime, HardRock, Hidden, NightCore};
+
+                match mods.keys().collect::<Vec<_>>().as_slice() {
+                    &[Hidden] => data.HD = Some(pp),
+                    &[HardRock] => data.HR = Some(pp),
+                    &[DoubleTime] | &[NightCore] => data.DT = Some(pp),
+                    &[Hidden, HardRock] => data.HDHR = Some(pp),
+                    &[Hidden, DoubleTime] | &[Hidden, NightCore] => data.HDDT = Some(pp),
+                    _ => return Ok(()),
+                }
+            }
+            diesel::update(pp_ctb_mods::table.filter(beatmap_id.eq(map_id)))
+                .set(&data)
+                .execute(&conn)?;
+        }
+        Ok(())
+    }
+
+    // ----------------------------------------
+    // Table: stars_mania_mods / stars_ctb_mods
+    // ----------------------------------------
+
+    pub fn get_mod_stars(
+        &self,
+        map_id: u32,
+        mode: GameMode,
+        mods: &GameMods,
+    ) -> DBResult<Option<f32>> {
+        let conn = self.get_connection()?;
+        if mode == GameMode::MNA {
+            let data =
+                schema::stars_mania_mods::table
+                    .find(map_id)
+                    .first::<(u32, Option<f32>, Option<f32>)>(&conn)?;
+            if mods.contains(&GameMod::DoubleTime) || mods.contains(&GameMod::NightCore) {
+                Ok(data.1)
+            } else if mods.contains(&GameMod::HalfTime) {
+                Ok(data.2)
+            } else {
+                Ok(None)
+            }
+        } else {
+            use GameMod::{DoubleTime, Easy, HalfTime, HardRock, NightCore};
+
+            let data = schema::stars_ctb_mods::table.find(map_id).first::<(
+                u32,
+                Option<f32>,
+                Option<f32>,
+                Option<f32>,
+                Option<f32>,
+                Option<f32>,
+                Option<f32>,
+                Option<f32>,
+                Option<f32>,
+            )>(&conn)?;
+            if mods.contains(&Easy) {
+                if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+                    Ok(data.5)
+                } else if mods.contains(&HalfTime) {
+                    Ok(data.7)
+                } else {
+                    Ok(data.1)
+                }
+            } else if mods.contains(&HardRock) {
+                if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+                    Ok(data.6)
+                } else if mods.contains(&HalfTime) {
+                    Ok(data.8)
+                } else {
+                    Ok(data.2)
+                }
+            } else {
+                if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+                    Ok(data.3)
+                } else if mods.contains(&HalfTime) {
+                    Ok(data.4)
+                } else {
+                    panic!("Don't call update_stars_map with CtB on NoMod");
+                }
+            }
+        }
+    }
+
+    pub fn insert_stars_map(
+        &self,
+        map_id: u32,
+        mode: GameMode,
+        mods: &GameMods,
+        stars: f32,
+    ) -> DBResult<()> {
+        use schema::{
+            stars_ctb_mods::columns::{
+                beatmap_id as cID, DT as cDT, EZ as cEZ, EZDT as cEZDT, EZHT as cEZHT, HR as cHR,
+                HRDT as cHRDT, HRHT as cHRHT, HT as cHT,
+            },
+            stars_mania_mods::columns::{beatmap_id as mID, DT as mDT, HT as mHT},
+        };
+        use GameMod::{DoubleTime, Easy, HalfTime, HardRock, NightCore};
+        let conn = self.get_connection()?;
+        if mode == GameMode::MNA {
+            let data = if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+                (mID.eq(map_id), mDT.eq(Some(stars)), mHT.eq(None))
+            } else if mods.contains(&HalfTime) {
+                (mID.eq(map_id), mDT.eq(None), mHT.eq(Some(stars)))
+            } else {
+                (mID.eq(map_id), mDT.eq(None), mHT.eq(None))
+            };
+            diesel::insert_or_ignore_into(schema::stars_mania_mods::table)
+                .values(&data)
+                .execute(&conn)?;
+        } else {
+            let data = if mods.contains(&Easy) {
+                if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+                    (
+                        cID.eq(map_id),
+                        cEZ.eq(None),
+                        cHR.eq(None),
+                        cDT.eq(None),
+                        cHT.eq(None),
+                        cEZDT.eq(Some(stars)),
+                        cHRDT.eq(None),
+                        cEZHT.eq(None),
+                        cHRHT.eq(None),
+                    )
+                } else if mods.contains(&HalfTime) {
+                    (
+                        cID.eq(map_id),
+                        cEZ.eq(None),
+                        cHR.eq(None),
+                        cDT.eq(None),
+                        cHT.eq(None),
+                        cEZDT.eq(None),
+                        cHRDT.eq(None),
+                        cEZHT.eq(Some(stars)),
+                        cHRHT.eq(None),
+                    )
+                } else {
+                    (
+                        cID.eq(map_id),
+                        cEZ.eq(Some(stars)),
+                        cHR.eq(None),
+                        cDT.eq(None),
+                        cHT.eq(None),
+                        cEZDT.eq(None),
+                        cHRDT.eq(None),
+                        cEZHT.eq(None),
+                        cHRHT.eq(None),
+                    )
+                }
+            } else if mods.contains(&HardRock) {
+                if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+                    (
+                        cID.eq(map_id),
+                        cEZ.eq(None),
+                        cHR.eq(None),
+                        cDT.eq(None),
+                        cHT.eq(None),
+                        cEZDT.eq(None),
+                        cHRDT.eq(Some(stars)),
+                        cEZHT.eq(None),
+                        cHRHT.eq(None),
+                    )
+                } else if mods.contains(&HalfTime) {
+                    (
+                        cID.eq(map_id),
+                        cEZ.eq(None),
+                        cHR.eq(None),
+                        cDT.eq(None),
+                        cHT.eq(None),
+                        cEZDT.eq(None),
+                        cHRDT.eq(None),
+                        cEZHT.eq(None),
+                        cHRHT.eq(Some(stars)),
+                    )
+                } else {
+                    (
+                        cID.eq(map_id),
+                        cEZ.eq(None),
+                        cHR.eq(Some(stars)),
+                        cDT.eq(None),
+                        cHT.eq(None),
+                        cEZDT.eq(None),
+                        cHRDT.eq(None),
+                        cEZHT.eq(None),
+                        cHRHT.eq(None),
+                    )
+                }
+            } else {
+                if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+                    (
+                        cID.eq(map_id),
+                        cEZ.eq(None),
+                        cHR.eq(None),
+                        cDT.eq(Some(stars)),
+                        cHT.eq(None),
+                        cEZDT.eq(None),
+                        cHRDT.eq(None),
+                        cEZHT.eq(None),
+                        cHRHT.eq(None),
+                    )
+                } else if mods.contains(&HalfTime) {
+                    (
+                        cID.eq(map_id),
+                        cEZ.eq(None),
+                        cHR.eq(None),
+                        cDT.eq(None),
+                        cHT.eq(Some(stars)),
+                        cEZDT.eq(None),
+                        cHRDT.eq(None),
+                        cEZHT.eq(None),
+                        cHRHT.eq(None),
+                    )
+                } else {
+                    panic!("Don't call insert_stars_map with CtB on NoMod")
+                }
+            };
+            diesel::insert_or_ignore_into(schema::stars_ctb_mods::table)
+                .values(&data)
+                .execute(&conn)?;
+        }
+        Ok(())
+    }
+
+    pub fn update_stars_map(
+        &self,
+        map_id: u32,
+        mode: GameMode,
+        mods: &GameMods,
+        stars: f32,
+    ) -> DBResult<()> {
+        use schema::{
+            stars_ctb_mods::columns::{
+                beatmap_id as cID, DT as cDT, EZ as cEZ, EZDT as cEZDT, EZHT as cEZHT, HR as cHR,
+                HRDT as cHRDT, HRHT as cHRHT, HT as cHT,
+            },
+            stars_mania_mods::columns::{beatmap_id as mID, DT as mDT, HT as mHT},
+        };
+        use GameMod::{DoubleTime, Easy, HalfTime, HardRock, NightCore};
+        let conn = self.get_connection()?;
+        if mode == GameMode::MNA {
+            let update = diesel::update(schema::stars_mania_mods::table.filter(mID.eq(map_id)));
+            if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+                update.set(mDT.eq(Some(stars))).execute(&conn)?;
+            } else if mods.contains(&HalfTime) {
+                update.set(mHT.eq(Some(stars))).execute(&conn)?;
+            };
+        } else {
+            let update = diesel::update(schema::stars_ctb_mods::table.filter(cID.eq(map_id)));
+            if mods.contains(&Easy) {
+                if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+                    update.set(cEZDT.eq(Some(stars))).execute(&conn)?;
+                } else if mods.contains(&HalfTime) {
+                    update.set(cEZHT.eq(Some(stars))).execute(&conn)?;
+                } else {
+                    update.set(cEZ.eq(Some(stars))).execute(&conn)?;
+                }
+            } else if mods.contains(&HardRock) {
+                if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+                    update.set(cHRDT.eq(Some(stars))).execute(&conn)?;
+                } else if mods.contains(&HalfTime) {
+                    update.set(cHRHT.eq(Some(stars))).execute(&conn)?;
+                } else {
+                    update.set(cHR.eq(Some(stars))).execute(&conn)?;
+                }
+            } else {
+                if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+                    update.set(cDT.eq(Some(stars))).execute(&conn)?;
+                } else if mods.contains(&HalfTime) {
+                    update.set(cHT.eq(Some(stars))).execute(&conn)?;
+                } else {
+                    panic!("Don't call update_stars_map with CtB on NoMod");
+                }
+            }
         };
         Ok(())
     }

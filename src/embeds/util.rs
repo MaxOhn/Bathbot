@@ -37,14 +37,9 @@ pub fn get_combo(score: &Score, map: &Beatmap) -> String {
     combo
 }
 
-pub fn get_pp(score: &Score, pp_provider: &PPProvider, mode: GameMode) -> String {
-    let (actual, max) = if mode == GameMode::CTB {
-        (score.pp, None)
-    } else {
-        let actual = score.pp.or_else(|| Some(pp_provider.pp()));
-        let max = pp_provider.max_pp();
-        (actual, Some(max))
-    };
+pub fn get_pp(score: &Score, pp_provider: &PPProvider) -> String {
+    let actual = score.pp.or_else(|| Some(pp_provider.pp()));
+    let max = Some(pp_provider.max_pp());
     _get_pp(actual, max)
 }
 

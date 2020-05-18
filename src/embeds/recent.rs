@@ -156,7 +156,7 @@ impl RecentData {
             }
         };
         let (pp, combo, hits) = (
-            util::get_pp(&score, &pp_provider, map.mode),
+            util::get_pp(&score, &pp_provider),
             if map.mode == GameMode::MNA {
                 let mut ratio = score.count_geki as f32;
                 if score.count300 > 0 {
@@ -181,7 +181,7 @@ impl RecentData {
                 warn!("Error while unchoking score for <recent: {}", why);
                 None
             } else {
-                let pp = util::get_pp(&unchoked, &pp_provider, map.mode);
+                let pp = util::get_pp(&unchoked, &pp_provider);
                 let combo = util::get_combo(&unchoked, &map);
                 let hits = util::get_hits(&unchoked, map.mode);
                 Some((pp, combo, hits))

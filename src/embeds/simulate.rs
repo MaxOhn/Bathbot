@@ -122,12 +122,12 @@ impl SimulateData {
         D: CacheData,
     {
         let is_some = args.is_some();
-        if map.mode == GameMode::CTB || (!is_some && map.mode == GameMode::TKO) {
-            return Err(Error::Custom(format!(
-                "Can only simulate STD and MNA scores, not {:?}",
-                map.mode,
-            )));
-        }
+        // if !is_some && map.mode == GameMode::TKO {
+        //     return Err(Error::Custom(format!(
+        //         "Can only simulate STD and MNA scores, not {:?}",
+        //         map.mode,
+        //     )));
+        // }
         let title = map.to_string();
         let title_url = format!("{}b/{}", HOMEPAGE, map.beatmap_id);
         let (prev_pp, prev_combo, prev_hits, misses) = if let Some(s) = score.as_ref() {
@@ -172,7 +172,7 @@ impl SimulateData {
             }
         };
         let stars = util::get_stars(pp_provider.stars());
-        let pp = util::get_pp(&unchoked_score, &pp_provider, map.mode);
+        let pp = util::get_pp(&unchoked_score, &pp_provider);
         let hits = util::get_hits(&unchoked_score, map.mode);
         let (combo, acc) = match map.mode {
             GameMode::STD => (

@@ -11,7 +11,10 @@ use crate::{
 
 use rosu::{
     backend::requests::BeatmapRequest,
-    models::ApprovalStatus::{Loved, Ranked},
+    models::{
+        ApprovalStatus::{Loved, Ranked},
+        GameMode,
+    },
 };
 use serenity::{
     framework::standard::{macros::command, Args, CommandError, CommandResult},
@@ -94,6 +97,21 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         }
     };
 
+    match map.mode {
+        GameMode::TKO | GameMode::CTB => {
+            let response = msg
+                .channel_id
+                .say(
+                    ctx,
+                    format!("I can only simulate STD and MNA maps, not {}", map.mode),
+                )
+                .await?;
+            discord::reaction_deletion(ctx, response.clone(), msg.author.id).await;
+            return Ok(());
+        }
+        _ => {}
+    }
+
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
     let data = match SimulateData::new(None, map, args.into(), ctx).await {
@@ -124,7 +142,7 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         }
     }
 
-    discord::reaction_deletion(&ctx, response.clone(), msg.author.id).await;
+    discord::reaction_deletion(ctx, response.clone(), msg.author.id).await;
 
     // Minimize embed after delay
     for _ in 0..5usize {
