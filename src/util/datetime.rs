@@ -1,6 +1,6 @@
 use super::Error;
 use crate::util::globals::DATE_FORMAT;
-use chrono::{offset::TimeZone, DateTime, Utc};
+use chrono::{offset::TimeZone, DateTime, Datelike, Utc};
 
 pub fn date_to_string(date: &DateTime<Utc>) -> String {
     date.format(DATE_FORMAT).to_string()
@@ -16,7 +16,43 @@ pub fn sec_to_minsec(secs: u32) -> String {
     format!("{}:{:02}", secs / 60, secs % 60)
 }
 
+// thx saki :)
 pub fn how_long_ago(date: &DateTime<Utc>) -> String {
+    let now = Utc::now();
+    let diff_sec = now.timestamp() - date.timestamp();
+    assert!(diff_sec >= 0);
+    let one_day = 24 * 3600;
+    let one_week = 7 * one_day;
+    let (amount, unit) = {
+        if diff_sec < 60 {
+            (diff_sec, "second")
+        } else if diff_sec < 3600 {
+            (diff_sec / 60, "minute")
+        } else if diff_sec < one_day {
+            (diff_sec / 3600, "hour")
+        } else if diff_sec < one_week {
+            (diff_sec / one_day, "day")
+        } else {
+            let diff_month =
+                (12 * (now.year() - date.year()) as u32 + now.month() - date.month()) as i64;
+            if diff_month < 1 {
+                (diff_sec / one_week, "week")
+            } else if diff_month < 12 {
+                (diff_month, "month")
+            } else {
+                (diff_month / 12, "year")
+            }
+        }
+    };
+    format!(
+        "{amount} {unit}{plural} ago",
+        amount = amount,
+        unit = unit,
+        plural = if amount == 1 { "" } else { "s" }
+    )
+}
+
+pub fn _how_long_ago(date: &DateTime<Utc>) -> String {
     let now = Utc::now();
     let diff_sec = now.timestamp() - date.timestamp();
     assert!(diff_sec >= 0);
