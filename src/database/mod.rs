@@ -350,14 +350,12 @@ impl MySQL {
                 } else {
                     Ok(data.2)
                 }
+            } else if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+                Ok(data.3)
+            } else if mods.contains(&HalfTime) {
+                Ok(data.4)
             } else {
-                if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
-                    Ok(data.3)
-                } else if mods.contains(&HalfTime) {
-                    Ok(data.4)
-                } else {
-                    panic!("Don't call update_stars_map with CtB on NoMod");
-                }
+                panic!("Don't call update_stars_map with CtB on NoMod");
             }
         }
     }
@@ -466,34 +464,32 @@ impl MySQL {
                         cHRHT.eq(None),
                     )
                 }
+            } else if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+                (
+                    cID.eq(map_id),
+                    cEZ.eq(None),
+                    cHR.eq(None),
+                    cDT.eq(Some(stars)),
+                    cHT.eq(None),
+                    cEZDT.eq(None),
+                    cHRDT.eq(None),
+                    cEZHT.eq(None),
+                    cHRHT.eq(None),
+                )
+            } else if mods.contains(&HalfTime) {
+                (
+                    cID.eq(map_id),
+                    cEZ.eq(None),
+                    cHR.eq(None),
+                    cDT.eq(None),
+                    cHT.eq(Some(stars)),
+                    cEZDT.eq(None),
+                    cHRDT.eq(None),
+                    cEZHT.eq(None),
+                    cHRHT.eq(None),
+                )
             } else {
-                if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
-                    (
-                        cID.eq(map_id),
-                        cEZ.eq(None),
-                        cHR.eq(None),
-                        cDT.eq(Some(stars)),
-                        cHT.eq(None),
-                        cEZDT.eq(None),
-                        cHRDT.eq(None),
-                        cEZHT.eq(None),
-                        cHRHT.eq(None),
-                    )
-                } else if mods.contains(&HalfTime) {
-                    (
-                        cID.eq(map_id),
-                        cEZ.eq(None),
-                        cHR.eq(None),
-                        cDT.eq(None),
-                        cHT.eq(Some(stars)),
-                        cEZDT.eq(None),
-                        cHRDT.eq(None),
-                        cEZHT.eq(None),
-                        cHRHT.eq(None),
-                    )
-                } else {
-                    panic!("Don't call insert_stars_map with CtB on NoMod")
-                }
+                panic!("Don't call insert_stars_map with CtB on NoMod")
             };
             diesel::insert_or_ignore_into(schema::stars_ctb_mods::table)
                 .values(&data)
@@ -543,14 +539,12 @@ impl MySQL {
                 } else {
                     update.set(cHR.eq(Some(stars))).execute(&conn)?;
                 }
+            } else if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+                update.set(cDT.eq(Some(stars))).execute(&conn)?;
+            } else if mods.contains(&HalfTime) {
+                update.set(cHT.eq(Some(stars))).execute(&conn)?;
             } else {
-                if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
-                    update.set(cDT.eq(Some(stars))).execute(&conn)?;
-                } else if mods.contains(&HalfTime) {
-                    update.set(cHT.eq(Some(stars))).execute(&conn)?;
-                } else {
-                    panic!("Don't call update_stars_map with CtB on NoMod");
-                }
+                panic!("Don't call update_stars_map with CtB on NoMod");
             }
         };
         Ok(())

@@ -58,8 +58,8 @@ async fn new_oppai(score: &Score, map: &Beatmap) -> Result<PPProvider, Error> {
     })
 }
 
-async fn new_perf_calc(
-    score: &Score,
+async fn new_perf_calc<'a>(
+    score: &'a Score,
     map: &Beatmap,
     data: Arc<RwLock<TypeMap>>,
 ) -> Result<PPProvider, Error> {
@@ -101,8 +101,12 @@ async fn new_perf_calc(
             (None, None)
         } else {
             let lock = mutex.as_ref().unwrap().lock();
-            let child =
-                start_pp_calc(map.beatmap_id, mode, &score.enabled_mods, Some(score.score)).await?;
+            let params = if mode == GameMode::MNA {
+                CalcParam::mania(Some(score.score), &score.enabled_mods)
+            } else {
+                CalcParam::ctb(score)
+            };
+            let child = start_pp_calc(map.beatmap_id, params).await?;
             (Some(child), Some(lock))
         }
     } else {
@@ -141,7 +145,12 @@ async fn new_perf_calc(
         max_pp
     // Otherwise start calculating them in new async worker
     } else {
-        let max_pp_child = start_pp_calc(map.beatmap_id, mode, &score.enabled_mods, None).await?;
+        let params: CalcParam<'a, Score> = if mode == GameMode::MNA {
+            CalcParam::mania(None, &score.enabled_mods)
+        } else {
+            CalcParam::max_ctb(&score.enabled_mods)
+        };
+        let max_pp_child = start_pp_calc(map.beatmap_id, params).await?;
         let max_pp = parse_pp_calc(max_pp_child).await?;
         if map.approval_status == ApprovalStatus::Ranked
             || map.approval_status == ApprovalStatus::Loved
@@ -251,14 +260,19 @@ impl PPProvider {
                     .clone()
             };
             let _ = mutex.lock();
-            let child = start_pp_calc(map.beatmap_id, map.mode, mods, Some(score.score())).await?;
+            let params = if map.mode == GameMode::MNA {
+                CalcParam::mania(Some(score.score()), mods)
+            } else {
+                CalcParam::ctb(score)
+            };
+            let child = start_pp_calc(map.beatmap_id, params).await?;
             parse_pp_calc(child).await
         }
     }
 
-    pub async fn calculate_max(
+    pub async fn calculate_max<'a>(
         map: &Beatmap,
-        mods: &GameMods,
+        mods: &'a GameMods,
         data: Option<Arc<RwLock<TypeMap>>>,
     ) -> Result<f32, Error> {
         match map.mode {
@@ -300,8 +314,12 @@ impl PPProvider {
                                 .clone()
                         };
                         let _ = mutex.lock();
-                        let max_pp_child =
-                            start_pp_calc(map.beatmap_id, map.mode, mods, None).await?;
+                        let params: CalcParam<'a, Score> = if map.mode == GameMode::MNA {
+                            CalcParam::mania(None, mods)
+                        } else {
+                            CalcParam::max_ctb(mods)
+                        };
+                        let max_pp_child = start_pp_calc(map.beatmap_id, params).await?;
                         parse_pp_calc(max_pp_child).await?
                     };
                     // Insert max pp value into database
@@ -371,33 +389,36 @@ impl PPProvider {
     }
 }
 
-async fn start_pp_calc(
-    map_id: u32,
-    mode: GameMode,
-    mods: &GameMods,
-    score: Option<u32>,
-) -> Result<Child, Error> {
+async fn start_pp_calc<S: SubScore>(map_id: u32, params: CalcParam<'_, S>) -> Result<Child, Error> {
     let map_path = osu::prepare_beatmap_file(map_id).await?;
     let mut cmd = Command::new("dotnet");
     cmd.kill_on_drop(true)
         .arg(env::var("PERF_CALC").unwrap())
         .arg("simulate");
-    match mode {
+    match params.mode() {
         GameMode::MNA => cmd.arg("mania"),
         GameMode::CTB => cmd.arg("catch"),
-        _ => panic!("Only use start_pp_calc for mania or ctb, not {}", mode),
+        _ => panic!(
+            "Only use start_pp_calc for mania or ctb, not {}",
+            params.mode()
+        ),
     };
     cmd.arg(map_path);
-    for &m in mods.iter().filter(|&&m| m != GameMod::ScoreV2) {
+    for &m in params.mods().iter().filter(|&&m| m != GameMod::ScoreV2) {
         cmd.arg("-m").arg(m.to_string());
     }
-    if mode == GameMode::MNA {
+    if let CalcParam::MNA { score, mods } = params {
         cmd.arg("-s");
         if let Some(score) = score {
             cmd.arg(score.to_string());
         } else {
             cmd.arg(((1_000_000.0 * mods.score_multiplier(GameMode::MNA)) as u32).to_string());
         }
+    } else if let CalcParam::CTB { score } = params {
+        cmd.arg("-c").arg(score.combo().to_string());
+        cmd.arg("-X").arg(score.miss().to_string());
+        cmd.arg("-D").arg(score.c100().to_string());
+        cmd.arg("-T").arg(score.c50().to_string());
     }
     cmd.stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -508,6 +529,49 @@ fn f32_to_db(
         }
     }
     Ok(())
+}
+
+enum CalcParam<'a, S: SubScore> {
+    #[allow(dead_code)] // its not dead code rust...
+    MNA {
+        score: Option<u32>,
+        mods: &'a GameMods,
+    },
+    #[allow(dead_code)]
+    CTB { score: &'a S },
+    #[allow(dead_code)]
+    MaxCTB { mods: &'a GameMods },
+}
+
+impl<'a, S: SubScore> CalcParam<'a, S> {
+    fn mania(score: Option<u32>, mods: &'a GameMods) -> Self {
+        Self::MNA { score, mods }
+    }
+
+    fn ctb(score: &'a S) -> Self
+    where
+        S: SubScore,
+    {
+        Self::CTB { score }
+    }
+
+    fn max_ctb(mods: &'a GameMods) -> Self {
+        Self::MaxCTB { mods }
+    }
+
+    fn mode(&self) -> GameMode {
+        match self {
+            CalcParam::MNA { .. } => GameMode::MNA,
+            CalcParam::CTB { .. } | CalcParam::MaxCTB { .. } => GameMode::CTB,
+        }
+    }
+
+    fn mods(&self) -> &GameMods {
+        match self {
+            CalcParam::MNA { mods, .. } | CalcParam::MaxCTB { mods } => mods,
+            CalcParam::CTB { score, .. } => &score.mods(),
+        }
+    }
 }
 
 pub trait SubScore {
