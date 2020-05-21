@@ -478,6 +478,86 @@ async fn calc_stars(map_id: u32, mods: &GameMods) -> Result<f32, Error> {
     }
 }
 
+// Calculate CTB pp manually in case its useful at some point...
+fn _ctb_score_pp(score: &Score, map: &Beatmap, stars: f64) -> f32 {
+    let mods = &score.enabled_mods;
+    let fruits_hit = score.count300;
+    let ticks_hit = score.count100;
+    let misses = score.count_miss;
+
+    // let stars = if mods.contains(&GameMod::Easy)
+    //     || mods.contains(&GameMod::HardRock)
+    //     || mods.contains(&GameMod::DoubleTime)
+    //     || mods.contains(&GameMod::NightCore)
+    //     || mods.contains(&GameMod::HalfTime)
+    // {
+    //     todo!()
+    // } else {
+    //     map.stars as f64
+    // };
+
+    let num_total_hits = (misses + ticks_hit + fruits_hit) as f64;
+
+    let mut value = (5.0_f64 * 1.0_f64.max(stars / 0.0049) - 4.0).powi(2) / 100_000.0;
+
+    // Longer maps are worth more. "Longer" means how many hits there are which can contribute to combo
+    let mut length_bonus = 0.95_f64 + 0.3 * (num_total_hits / 2500.0).min(1.0);
+    if num_total_hits > 2_500.0 {
+        length_bonus += (num_total_hits / 2_500.0).log10() * 0.475;
+    }
+    value *= length_bonus;
+
+    // Penalize misses exponentially. This mainly fixes tag4 maps and the likes until a per-hitobject solution is available
+    value *= 0.97_f64.powi(misses as i32);
+
+    // Combo scaling
+    match map.max_combo {
+        Some(max_combo) if max_combo > 0 => {
+            value *= (score.max_combo as f64 / max_combo as f64)
+                .powf(0.8)
+                .min(1.0)
+        }
+        _ => {}
+    }
+
+    let mut ar_factor = 1.0_f64;
+    if map.diff_ar > 9.0 {
+        ar_factor += 0.1 * (map.diff_ar as f64 - 9.0); // 10% for each AR above 9
+    }
+    if map.diff_ar > 10.0 {
+        ar_factor += 0.1 * (map.diff_ar as f64 - 10.0); // Additional 10% at AR 11, 30% total
+    } else if map.diff_ar < 8.0 {
+        ar_factor += 0.025 * (8.0 - map.diff_ar as f64); // 2.5% for each AR below 8
+    }
+    value *= ar_factor;
+
+    if mods.contains(&GameMod::Hidden) {
+        value *= 1.05 + 0.075 * (10.0 - map.diff_ar.min(10.0) as f64); // 7.5% for each AR below 10
+
+        // Hiddens gives almost nothing on max approach rate, and more the lower it is
+        if map.diff_ar <= 10.0 {
+            value *= 1.05 + 0.075 * (10.0 - map.diff_ar as f64); // 7.5% for each AR below 10
+        } else if map.diff_ar > 10.0 {
+            value *= 1.01 + 0.04 * (11.0 - map.diff_ar.min(11.0) as f64); // 5% at AR 10, 1% at AR 11
+        }
+    }
+
+    // Apply length bonus again if flashlight is on simply because it becomes a lot harder on longer maps.
+    if mods.contains(&GameMod::Flashlight) {
+        value *= 1.35 * length_bonus;
+    }
+
+    // Scale the aim value with accuracy _slightly_
+    value *= (score.accuracy(GameMode::CTB) as f64).powf(5.5);
+
+    // Custom multipliers for NoFail. SpunOut is not applicable.
+    if mods.contains(&GameMod::NoFail) {
+        value *= 0.9;
+    }
+
+    value as f32
+}
+
 fn f32_to_db(
     in_db: bool,
     mysql: &MySQL,

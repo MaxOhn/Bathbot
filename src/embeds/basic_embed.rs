@@ -365,8 +365,8 @@ impl BasicEmbedData {
                 description,
                 "{:>2} {:1} # {:<len$} => {}",
                 i,
-                if i < 7 {
-                    SYMBOLS.get(i - 1).unwrap()
+                if i <= SYMBOLS.len() {
+                    SYMBOLS[i - 1]
                 } else {
                     ""
                 },
@@ -409,8 +409,8 @@ impl BasicEmbedData {
                 description,
                 "{:>2} {:1} # {:<len$} => {}",
                 i,
-                if i < 7 {
-                    SYMBOLS.get(i - 1).unwrap()
+                if i <= SYMBOLS.len() {
+                    SYMBOLS[i - 1]
                 } else {
                     ""
                 },
@@ -1061,7 +1061,7 @@ impl BasicEmbedData {
                 true,
             ),
             ("Level:".to_owned(), round(user.level).to_string(), true),
-            ("Bonus PP:".to_owned(), format!("~{}pp", bonus_pp), true),
+            ("Bonus PP:".to_owned(), format!("{}pp", bonus_pp), true),
             (
                 "Accuracy:".to_owned(),
                 format!("{}%", round(user.accuracy)),
@@ -1290,8 +1290,8 @@ impl BasicEmbedData {
                 description,
                 "{:>2} {:1} # {:<name_len$} => {:>num_len$}",
                 i,
-                if i < 7 {
-                    SYMBOLS.get(i - 1).unwrap()
+                if i <= SYMBOLS.len() {
+                    SYMBOLS[i - 1]
                 } else {
                     ""
                 },

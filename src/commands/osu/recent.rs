@@ -101,7 +101,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             .get_beatmaps(&dedubed_ids)
             .unwrap_or_else(|_| HashMap::default())
     };
-    debug!("Found {}/{} beatmaps in DB", maps.len(), map_ids.len());
+    // debug!("Found {}/{} beatmaps in DB", maps.len(), map_ids.len());
 
     // Memoize which maps are already in the DB
     map_ids.retain(|id| maps.contains_key(&id));
@@ -160,7 +160,9 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
     // Accumulate all necessary data
     let tries = scores
         .iter()
-        .take_while(|s| s.beatmap_id.unwrap() == first_id)
+        .take_while(|s| {
+            s.beatmap_id.unwrap() == first_id && s.enabled_mods == first_score.enabled_mods
+        })
         .count();
     let mut embed_data = match RecentData::new(
         &user,

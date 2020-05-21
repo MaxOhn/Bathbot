@@ -36,3 +36,4 @@ pub const TWITCH_STREAM_ENDPOINT: &str = "https://api.twitch.tv/helix/streams";
 pub const TWITCH_USERS_ENDPOINT: &str = "https://api.twitch.tv/helix/users";
 
 pub const SYMBOLS: [&str; 6] = ["♔", "♕", "♖", "♗", "♘", "♙"];
+// pub const SYMBOLS: [&str; 3] = ["🥇", "🥈", "🥉"];
