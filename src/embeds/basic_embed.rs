@@ -625,10 +625,12 @@ impl BasicEmbedData {
             let mut teams = HashMap::new();
             let mut point_costs = HashMap::new();
             let team_vs = games.first().unwrap().team_type == TeamType::TeamVS;
+            let mut match_scores = MatchScores(0, 0);
             for mut game in games {
                 game.scores = game.scores.into_iter().filter(|s| s.score > 0).collect();
                 let score_sum: u32 = game.scores.iter().map(|s| s.score).sum();
                 let avg = score_sum as f32 / game.scores.len() as f32;
+                let mut team_scores = HashMap::new();
                 for score in game.scores {
                     let point_cost = score.score as f32 / avg + 0.4;
                     point_costs
@@ -636,7 +638,18 @@ impl BasicEmbedData {
                         .or_insert_with(Vec::new)
                         .push(point_cost);
                     teams.entry(score.user_id).or_insert(score.team);
+                    team_scores.entry(score.team).or_insert(0).and_modify(|e| *e += score.score);
                 }
+                let winner_team = team_scores
+                    .into_iter()
+                    .fold((Team::None, 0), |winner, next| {
+                        if next.1 > winner.1 {
+                            next
+                        } else {
+                            winner
+                        }
+                    }).0;
+                match_scores.incr(winner_team);
             }
             let mut data = HashMap::new();
             let mut highest_cost = 0.0;
@@ -660,6 +673,14 @@ impl BasicEmbedData {
                 |a: &(String, f32), b: &(String, f32)| b.1.partial_cmp(&a.1).unwrap();
             let mut description = String::with_capacity(256);
             if team_vs {
+                let _ = writeln!(description,
+                    "**{} score:** :blue_circle: {blue_stars}{}{blue_stars} - {red_stars}{}{red_stars} :red_circle:",
+                    blue_stars = if match_scores.0 > match_scores.1 { "**" } else { "" },
+                    red_stars = if match_scores.0 < match_scores.1 { "**" } else { "" }, 
+                    if osu_match.end_time.is_some() { "Final" } else { "Current" },
+                    match_scores.0,
+                    match_scores.1,
+                );
                 let blue = match data.remove(&Team::Blue) {
                     Some(mut team) => {
                         team.sort_by(player_comparer);
@@ -701,6 +722,18 @@ impl BasicEmbedData {
         result.thumbnail = thumbnail;
         result.description = Some(description);
         result
+    }
+
+    struct MatchScores(u32, u32);
+
+    impl MatchScores {
+        fn incr(&mut self, team: Team) {
+            match team {
+                Team::Blue => self.0 += 1,
+                Team::Red => self.1 += 1,
+                Team::None => {},
+            }
+        }
     }
 
     //
