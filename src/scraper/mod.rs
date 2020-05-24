@@ -1,5 +1,3 @@
-#![allow(unused_imports)]
-
 mod most_played;
 mod score;
 
@@ -11,7 +9,10 @@ use crate::{
     util::{globals::HOMEPAGE, Error, RateLimiter},
     WITH_SCRAPER,
 };
-use reqwest::{multipart::Form, Client, Response};
+use reqwest::{
+    header::{HeaderMap, HeaderName, HeaderValue},
+    Client, Response,
+};
 use rosu::models::{GameMod, GameMode, GameMods};
 use scraper::{Html, Node, Selector};
 use std::{collections::HashSet, convert::TryFrom, env, fmt::Write, sync::Mutex};
@@ -24,31 +25,19 @@ pub struct Scraper {
 impl Scraper {
     pub async fn new() -> Result<Self, Error> {
         // Initialize client
-        let client = Client::builder().cookie_store(true).build()?;
+        let mut builder = Client::builder();
         if WITH_SCRAPER {
-            // Prepare osu login
-            let form = Form::new()
-                .text("username", env::var("OSU_LOGIN_USERNAME")?)
-                .text("password", env::var("OSU_LOGIN_PASSWORD")?);
-            // Retrieve osu_session cookie by logging in
-            let response = client
-                .post("https://osu.ppy.sh/session")
-                .multipart(form)
-                .send()
-                .await?;
-            // Check if the cookie was received
-            let success = response
-                .cookies()
-                .any(|cookie| cookie.name() == "osu_session");
-            if !success {
-                return Err(Error::Custom(
-                    "No osu_session cookie in scraper response".to_string(),
-                ));
-            }
-            info!("Scraper successfully logged into osu!");
+            let mut headers = HeaderMap::new();
+            let cookie_header = HeaderName::try_from("Cookie").unwrap();
+            let cookie_value =
+                HeaderValue::from_str(&format!("osu_session={}", env::var("OSU_SESSION")?))?;
+            headers.insert(cookie_header, cookie_value);
+            builder = builder.default_headers(headers);
+            info!("Login Scraper into osu! ...");
         } else {
             debug!("Skipping Scraper login into osu!");
         }
+        let client = builder.build()?;
         let osu_limiter = Mutex::new(RateLimiter::new(2, 1));
         Ok(Self {
             client,

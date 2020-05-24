@@ -1,5 +1,5 @@
 use rosu::models::GameMode;
-use serde::{de, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer};
 use serde_derive::Deserialize as DeserializeDerive;
 use std::hash::{Hash, Hasher};
 
