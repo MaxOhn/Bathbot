@@ -87,11 +87,11 @@ impl<'de> Deserialize<'de> for ScraperScore {
         #[derive(DeserializeDerive)]
         pub struct ScraperScoreStatistics {
             #[serde(default)]
-            count50: u32,
+            count_50: u32,
             #[serde(default)]
-            count100: u32,
+            count_100: u32,
             #[serde(default)]
-            count300: u32,
+            count_300: u32,
             #[serde(default)]
             count_geki: u32,
             #[serde(default)]
@@ -123,9 +123,9 @@ impl<'de> Deserialize<'de> for ScraperScore {
             mode: helper.mode_int,
             replay: helper.replay,
             beatmap: helper.beatmap,
-            count50: helper.statistics.count50,
-            count100: helper.statistics.count100,
-            count300: helper.statistics.count300,
+            count50: helper.statistics.count_50,
+            count100: helper.statistics.count_100,
+            count300: helper.statistics.count_300,
             count_geki: helper.statistics.count_geki,
             count_katu: helper.statistics.count_katu,
             count_miss: helper.statistics.count_miss,
