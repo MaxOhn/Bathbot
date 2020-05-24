@@ -1,6 +1,6 @@
 use crate::util::{datetime::sec_to_minsec, numbers::round, osu, pp::PPProvider};
 
-use rosu::models::{Beatmap, GameMode, GameMods, Score};
+use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score};
 use serenity::cache::CacheRwLock;
 use std::fmt::Write;
 

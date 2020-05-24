@@ -638,7 +638,10 @@ impl BasicEmbedData {
                         .or_insert_with(Vec::new)
                         .push(point_cost);
                     teams.entry(score.user_id).or_insert(score.team);
-                    team_scores.entry(score.team).or_insert(0).and_modify(|e| *e += score.score);
+                    team_scores
+                        .entry(score.team)
+                        .and_modify(|e| *e += score.score)
+                        .or_insert(score.score);
                 }
                 let winner_team = team_scores
                     .into_iter()
@@ -648,7 +651,8 @@ impl BasicEmbedData {
                         } else {
                             winner
                         }
-                    }).0;
+                    })
+                    .0;
                 match_scores.incr(winner_team);
             }
             let mut data = HashMap::new();
@@ -674,12 +678,12 @@ impl BasicEmbedData {
             let mut description = String::with_capacity(256);
             if team_vs {
                 let _ = writeln!(description,
-                    "**{} score:** :blue_circle: {blue_stars}{}{blue_stars} - {red_stars}{}{red_stars} :red_circle:",
+                    "**{word} score:** :blue_circle: {blue_stars}{blue_score}{blue_stars} - {red_stars}{red_score}{red_stars} :red_circle:\n",
+                    word = if osu_match.end_time.is_some() { "Final" } else { "Current" },
+                    blue_score = match_scores.0,
+                    red_score = match_scores.1,
                     blue_stars = if match_scores.0 > match_scores.1 { "**" } else { "" },
                     red_stars = if match_scores.0 < match_scores.1 { "**" } else { "" }, 
-                    if osu_match.end_time.is_some() { "Final" } else { "Current" },
-                    match_scores.0,
-                    match_scores.1,
                 );
                 let blue = match data.remove(&Team::Blue) {
                     Some(mut team) => {
@@ -722,18 +726,6 @@ impl BasicEmbedData {
         result.thumbnail = thumbnail;
         result.description = Some(description);
         result
-    }
-
-    struct MatchScores(u32, u32);
-
-    impl MatchScores {
-        fn incr(&mut self, team: Team) {
-            match team {
-                Team::Blue => self.0 += 1,
-                Team::Red => self.1 += 1,
-                Team::None => {},
-            }
-        }
     }
 
     //
@@ -1798,6 +1790,18 @@ pub fn get_combo(score: &ScraperScore, map: &Beatmap) -> String {
 // -----------------
 // Auxiliary structs
 // -----------------
+
+struct MatchScores(u32, u32);
+
+impl MatchScores {
+    fn incr(&mut self, team: Team) {
+        match team {
+            Team::Blue => self.0 += 1,
+            Team::Red => self.1 += 1,
+            Team::None => {}
+        }
+    }
+}
 
 #[derive(Default)]
 struct RatioCategory {
