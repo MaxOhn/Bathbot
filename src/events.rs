@@ -473,7 +473,7 @@ async fn _top_role(http: &Http, data: Arc<RwLock<TypeMap>>) {
             let guild_id = GuildId(MAIN_GUILD_ID);
             let role = RoleId(TOP_ROLE_ID);
             let members = guild_id
-                .members(http, None, None)
+                .members(http, Some(1000), None)
                 .await
                 .unwrap_or_else(|why| {
                     warn!("Could not get guild members for top role: {}", why);
