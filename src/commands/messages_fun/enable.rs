@@ -4,7 +4,7 @@ use serenity::{
     model::{channel::GuildChannel, prelude::*},
     prelude::*,
 };
-use std::{thread, time::Duration};
+use tokio::time::{self, Duration};
 
 #[command]
 #[only_in("guild")]
@@ -128,7 +128,7 @@ async fn download_all_messages(ctx: &Context, guild: &Guild) {
                     Ok(res) => channel_messages = res,
                     Err(why) => {
                         warn!("Error getting messages: {}", why);
-                        thread::sleep(Duration::from_millis(500));
+                        time::delay_for(Duration::from_millis(500)).await;
                     }
                 }
             } else {
@@ -139,11 +139,13 @@ async fn download_all_messages(ctx: &Context, guild: &Guild) {
                     Ok(res) => channel_messages = res,
                     Err(why) => {
                         warn!("Error getting messages: {}", why);
-                        thread::sleep(Duration::from_millis(500));
+                        time::delay_for(Duration::from_millis(500)).await;
                     }
                 }
             }
         }
+        let counter_reset = 10;
+        let mut error_counter: u32 = counter_reset;
         while !channel_messages.is_empty() {
             #[allow(clippy::unreadable_literal)]
             let transformed_message_vec: Vec<_> = channel_messages
@@ -190,11 +192,18 @@ async fn download_all_messages(ctx: &Context, guild: &Guild) {
                         {
                             Ok(msgs) => {
                                 channel_messages = msgs;
+                                error_counter = counter_reset;
                                 break;
                             }
                             Err(why) => {
                                 warn!("Error getting messages: {}", why);
-                                thread::sleep(Duration::from_secs(1));
+                                if error_counter == 0 {
+                                    channel_messages.clear();
+                                    debug!("... leaving download_all_messages channel iteration");
+                                    break;
+                                }
+                                error_counter -= 1;
+                                time::delay_for(Duration::from_secs(2)).await;
                             }
                         }
                     }
@@ -207,11 +216,18 @@ async fn download_all_messages(ctx: &Context, guild: &Guild) {
                     {
                         Ok(msgs) => {
                             channel_messages = msgs;
+                            error_counter = counter_reset;
                             break;
                         }
                         Err(why) => {
                             warn!("Error getting messages: {}", why);
-                            thread::sleep(Duration::from_secs(1));
+                            if error_counter == 0 {
+                                channel_messages.clear();
+                                debug!("... leaving download_all_messages channel iteration");
+                                break;
+                            }
+                            error_counter -= 1;
+                            time::delay_for(Duration::from_secs(2)).await;
                         }
                     }
                 }

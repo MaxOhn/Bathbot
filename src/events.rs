@@ -125,13 +125,6 @@ impl EventHandler for Handler {
             || msg.content.starts_with('&')
             || msg.content.starts_with('$'))
         {
-            let msg_vec = vec![InsertableMessage {
-                id: msg.id.0,
-                channel_id: msg.channel_id.0,
-                author: msg.author.id.0,
-                content: msg.content,
-                timestamp: msg.timestamp.naive_utc(),
-            }];
             let data = ctx.data.read().await;
             let with_tracking = msg
                 .guild_id
@@ -142,6 +135,13 @@ impl EventHandler for Handler {
                 .map(|guild_db| guild_db.message_tracking)
                 .unwrap_or_else(|| false);
             if with_tracking {
+                let msg_vec = vec![InsertableMessage {
+                    id: msg.id.0,
+                    channel_id: msg.channel_id.0,
+                    author: msg.author.id.0,
+                    content: msg.content,
+                    timestamp: msg.timestamp.naive_utc(),
+                }];
                 let mysql = data.get::<MySQL>().expect("Could not get MySQL");
                 if let Err(why) = mysql.insert_msgs(&msg_vec) {
                     error!("Error while inserting msgs: {}", why);
@@ -158,11 +158,17 @@ impl EventHandler for Handler {
                 let mysql = data.get::<MySQL>().expect("Could not get MySQL");
                 match mysql.insert_guild(guild.id.0) {
                     Ok(g) => {
-                        debug!("Inserted new guild {} to DB", guild.name);
+                        debug!(
+                            "Inserted new guild {} with id {} to DB",
+                            guild.name, guild.id
+                        );
                         Some(g)
                     }
                     Err(why) => {
-                        error!("Could not insert new guild '{}' to DB: {}", guild.name, why);
+                        error!(
+                            "Could not insert new guild {} with id {} to DB: {}",
+                            guild.name, guild.id, why
+                        );
                         None
                     }
                 }
