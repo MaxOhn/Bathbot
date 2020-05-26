@@ -74,8 +74,8 @@ pub fn get_stars(stars: f32) -> String {
 
 pub async fn get_grade_completion_mods(score: &Score, map: &Beatmap, cache: CacheRwLock) -> String {
     let mut res_string = osu::grade_emote(score.grade, cache).await.to_string();
-    if score.grade == Grade::F {
-        let passed = score.total_hits(map.mode);
+    if score.grade == Grade::F && map.mode != GameMode::CTB {
+        let passed = score.total_hits(map.mode) - score.count50;
         let total = map.count_objects();
         let _ = write!(res_string, " ({}%)", 100 * passed / total);
     }

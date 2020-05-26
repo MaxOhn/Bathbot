@@ -1,4 +1,4 @@
-use crate::{arguments::MarkovUserArgs, Guilds, MySQL};
+use crate::{arguments::MarkovUserArgs, util::discord, Guilds, MySQL};
 
 use itertools::Itertools;
 use markov::Chain;
@@ -19,23 +19,42 @@ pub async fn impersonate_send(
         let data = ctx.data.read().await;
         let guilds = data.get::<Guilds>().expect("Could not get Guilds");
         if !guilds.get(&msg.guild_id.unwrap()).unwrap().message_tracking {
-            msg.channel_id
+            let response = msg
+                .channel_id
                 .say(
                     &ctx.http,
                     "No messages tracked on this guild yet. \
-                To enable message tracking, use the `<enabletracking` command first.",
+                     To enable message tracking, use the `<enabletracking` command first.",
                 )
                 .await?;
+            discord::reaction_deletion(&ctx, response, msg.author.id).await;
             return Ok(());
         }
     }
     let args = match MarkovUserArgs::new(args, ctx, msg.guild_id.unwrap()).await {
         Ok(args) => args,
         Err(err_msg) => {
-            msg.channel_id.say(&ctx.http, err_msg).await?;
+            let response = msg.channel_id.say(&ctx.http, err_msg).await?;
+            discord::reaction_deletion(&ctx, response, msg.author.id).await;
             return Ok(());
         }
     };
+    {
+        let guild_lock = msg.guild(ctx).await.expect("Could not get guild of msg");
+        let guild = guild_lock.read().await;
+        if guild.members.keys().all(|id| id != &args.user) {
+            let response = msg
+                .channel_id
+                .say(
+                    ctx,
+                    "You can only use this command on members of this server. \
+                     The given member was not found.",
+                )
+                .await?;
+            discord::reaction_deletion(&ctx, response, msg.author.id).await;
+            return Ok(());
+        }
+    }
     let mut strings = {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
@@ -74,11 +93,13 @@ pub async fn impersonate_send(
                 .await?;
         }
     } else {
-        msg.reply(
-            ctx,
-            "Either they've never said anything, or I haven't seen them",
-        )
-        .await?;
+        let response = msg
+            .reply(
+                ctx,
+                "Either they've never said anything, or I haven't seen them",
+            )
+            .await?;
+        discord::reaction_deletion(&ctx, response, msg.author.id).await;
     }
     Ok(())
 }
