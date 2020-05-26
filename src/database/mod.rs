@@ -16,7 +16,7 @@ use diesel::{
     MysqlConnection,
 };
 use rosu::models::{Beatmap, GameMod, GameMode, GameMods};
-use serenity::model::id::{ChannelId, GuildId, UserId};
+use serenity::model::id::{GuildId, UserId};
 use std::collections::{HashMap, HashSet};
 
 pub struct MySQL {
@@ -804,7 +804,7 @@ impl MySQL {
     pub fn impersonate_strings(
         &self,
         user: Option<UserId>,
-        channel: Option<ChannelId>,
+        channels: Option<Vec<u64>>,
     ) -> DBResult<Vec<String>> {
         use diesel::dsl::not;
         use schema::messages::columns::{author, channel_id, content};
@@ -822,10 +822,10 @@ impl MySQL {
                 .limit(10_000) // consider the last 10k entries
                 .order(RAND) // sort them at random
                 .load::<String>(&conn)?
-        } else if let Some(ChannelId(id)) = channel {
+        } else if let Some(ids) = channels {
             // channel is specified
             query
-                .filter(channel_id.eq(id))
+                .filter(channel_id.eq_any(ids))
                 .limit(10_000)
                 .order(RAND)
                 .load::<String>(&conn)?

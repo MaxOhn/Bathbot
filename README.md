@@ -44,7 +44,6 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Allow username provision via discord user mention
 - Update spreadsheet (`<mostplayed`, `pagination`, ...)
 - Automize the bot setup via docker
-- Improve guild privacy for `MessagesFun` commands
 - Make `<common` paginated
   ### Commands
   - None as of now
