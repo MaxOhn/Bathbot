@@ -32,17 +32,17 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     } else {
         let msgs = msg
             .channel_id
-            .messages(&ctx.http, |retriever| retriever.limit(50))
+            .messages(ctx, |retriever| retriever.limit(50))
             .await?;
         match discord::map_id_from_history(msgs, ctx.cache.clone()).await {
             Some(id) => id,
             None => {
                 msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "No map embed found in this channel's recent history.\n\
-                     Try specifying a map as last argument either by url to the map, \
-                     or just by map id.",
+                         Try specifying a map as last argument either by url to the map, \
+                         or just by map id.",
                     )
                     .await?;
                 return Ok(());
@@ -61,9 +61,9 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             None => {
                 msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "Either specify an osu name or link your discord \
-                     to an osu profile via `<link osuname`",
+                         to an osu profile via `<link osuname`",
                     )
                     .await?;
                 return Ok(());
@@ -84,15 +84,21 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     Ok(result) => match result {
                         Some(map) => map,
                         None => {
-                            msg.channel_id.say(
-                                &ctx.http,
-                                format!("Could not find beatmap with id `{}`. Did you give me a mapset id instead of a map id?", map_id),
-                            ).await?;
+                            msg.channel_id
+                                .say(
+                                    ctx,
+                                    format!(
+                                        "Could not find beatmap with id `{}`. \
+                                         Did you give me a mapset id instead of a map id?",
+                                        map_id
+                                    ),
+                                )
+                                .await?;
                             return Ok(());
                         }
                     },
                     Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                        msg.channel_id.say(ctx, OSU_API_ISSUE).await?;
                         return Err(CommandError::from(why.to_string()));
                     }
                 };
@@ -114,7 +120,7 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         let scores = match score_req.queue(osu).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                msg.channel_id.say(ctx, OSU_API_ISSUE).await?;
                 return Err(CommandError::from(why.to_string()));
             }
         };
@@ -124,13 +130,13 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 Some(user) => user,
                 None => {
                     msg.channel_id
-                        .say(&ctx.http, format!("Could not find user `{}`", name))
+                        .say(ctx, format!("Could not find user `{}`", name))
                         .await?;
                     return Ok(());
                 }
             },
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                msg.channel_id.say(ctx, OSU_API_ISSUE).await?;
                 return Err(CommandError::from(why.to_string()));
             }
         };
@@ -143,10 +149,7 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id
-                .say(
-                    &ctx.http,
-                    "Some issue while calculating scores data, blame bade",
-                )
+                .say(ctx, "Some issue while calculating scores data, blame bade")
                 .await?;
             return Err(CommandError::from(why.to_string()));
         }
@@ -155,7 +158,7 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     // Sending the embed
     let response = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
+        .send_message(ctx, |m| m.embed(|e| data.build(e)))
         .await;
 
     // Add map to database if its not in already
