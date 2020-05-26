@@ -346,6 +346,47 @@ impl BasicEmbedData {
     }
 
     //
+    // belgian lb
+    //
+    pub fn create_belgian_leaderboard(
+        lb_type: &str,
+        next_update: &str,
+        list: Vec<(&String, &String)>,
+        idx: usize,
+        pages: (usize, usize),
+    ) -> Self {
+        let mut result = Self::default();
+        let name_len = list.iter().fold(0, |max, (name, _)| max.max(name.len()));
+        let num_len = list.iter().fold(0, |max, (_, score)| max.max(score.len()));
+        let mut description = String::with_capacity(256);
+        description.push_str("```\n");
+        for (mut i, (name, score)) in list.into_iter().enumerate() {
+            i += idx;
+            let _ = writeln!(
+                description,
+                "{:>2} {:1} # {:<name_len$} => {:>num_len$}",
+                i,
+                if i <= SYMBOLS.len() {
+                    SYMBOLS[i - 1]
+                } else {
+                    ""
+                },
+                name,
+                score,
+                name_len = name_len,
+                num_len = num_len
+            );
+        }
+        description.push_str("```");
+        result.description = Some(description);
+        let footer_text = format!("Page {}/{} ~ Updating in {}", pages.0, pages.1, next_update);
+        result.footer_text = Some(footer_text);
+        result.author_text = Some(format!("{} leaderboard for linked members:", lb_type));
+        result.thumbnail = Some(format!("{}/images/flags/BE.png", HOMEPAGE));
+        result
+    }
+
+    //
     // bg ranking
     //
     pub fn create_bg_ranking(
@@ -1292,46 +1333,6 @@ impl BasicEmbedData {
         result.thumbnail = Some(thumbnail);
         result.title_text = Some(title);
         result.description = Some(description);
-        result
-    }
-
-    //
-    // ranked score
-    //
-    pub fn create_belgian_leaderboard(
-        next_update: &str,
-        list: Vec<(&String, &String)>,
-        idx: usize,
-        pages: (usize, usize),
-    ) -> Self {
-        let mut result = Self::default();
-        let name_len = list.iter().fold(0, |max, (name, _)| max.max(name.len()));
-        let num_len = list.iter().fold(0, |max, (_, score)| max.max(score.len()));
-        let mut description = String::with_capacity(256);
-        description.push_str("```\n");
-        for (mut i, (name, score)) in list.into_iter().enumerate() {
-            i += idx;
-            let _ = writeln!(
-                description,
-                "{:>2} {:1} # {:<name_len$} => {:>num_len$}",
-                i,
-                if i <= SYMBOLS.len() {
-                    SYMBOLS[i - 1]
-                } else {
-                    ""
-                },
-                name,
-                score,
-                name_len = name_len,
-                num_len = num_len
-            );
-        }
-        description.push_str("```");
-        result.description = Some(description);
-        let footer_text = format!("Page {}/{} ~ Updating in {}", pages.0, pages.1, next_update);
-        result.footer_text = Some(footer_text);
-        result.author_text = Some(String::from("Server leaderboard for linked members:"));
-        result.thumbnail = Some(format!("{}/images/flags/BE.png", HOMEPAGE));
         result
     }
 

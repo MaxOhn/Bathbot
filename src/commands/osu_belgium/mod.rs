@@ -159,6 +159,7 @@ pub async fn member_users(
 
 pub async fn send_response(
     ctx: &Context,
+    lb_type: String,
     list: Vec<(String, String)>,
     next_update: String,
     msg: &Message,
@@ -170,8 +171,13 @@ pub async fn send_response(
         .map(|(name, score)| (name, score))
         .collect();
     let pages = numbers::div_euclid(15, list.len());
-    let data =
-        BasicEmbedData::create_belgian_leaderboard(&next_update, initial_data, 1, (1, pages));
+    let data = BasicEmbedData::create_belgian_leaderboard(
+        &lb_type,
+        &next_update,
+        initial_data,
+        1,
+        (1, pages),
+    );
 
     // Creating the embed
     let mut response = msg
@@ -196,7 +202,7 @@ pub async fn send_response(
     let http = Arc::clone(&ctx.http);
     let cache = ctx.cache.clone();
     tokio::spawn(async move {
-        let mut pagination = Pagination::belgian_lb(next_update, list);
+        let mut pagination = Pagination::belgian_lb(lb_type, next_update, list);
         while let Some(reaction) = collector.next().await {
             if let ReactionAction::Added(reaction) = &*reaction {
                 if let ReactionType::Unicode(reaction) = &reaction.emoji {

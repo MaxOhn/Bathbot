@@ -27,7 +27,8 @@ async fn acc(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         .into_iter()
         .map(|(name, acc)| (name, format!("{}%", numbers::round(acc))))
         .collect();
+    let lb_type = String::from("Accuracy");
 
     // Send response
-    super::send_response(ctx, users, next_update, msg).await
+    super::send_response(ctx, lb_type, users, next_update, msg).await
 }

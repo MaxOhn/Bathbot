@@ -63,6 +63,7 @@ pub enum PaginationType {
         cache: CacheRwLock,
     },
     BelgianLeaderboard {
+        lb_type: String,
         next_update: String,
         list: Vec<(String, String)>,
     },
@@ -266,10 +267,14 @@ impl Pagination {
         }
     }
 
-    pub fn belgian_lb(next_update: String, list: Vec<(String, String)>) -> Self {
+    pub fn belgian_lb(lb_type: String, next_update: String, list: Vec<(String, String)>) -> Self {
         let amount = list.len();
         let per_page = 15;
-        let pagination = PaginationType::BelgianLeaderboard { next_update, list };
+        let pagination = PaginationType::BelgianLeaderboard {
+            lb_type,
+            next_update,
+            list,
+        };
         Self {
             index: 0,
             per_page,
@@ -497,18 +502,21 @@ impl Pagination {
                 .await?,
             )),
             // RankedScore
-            PaginationType::BelgianLeaderboard { next_update, list } => {
-                ReactionData::Basic(Box::new(BasicEmbedData::create_belgian_leaderboard(
-                    next_update,
-                    list.iter()
-                        .skip(self.index)
-                        .take(self.per_page)
-                        .map(|(name, score)| (name, score))
-                        .collect(),
-                    self.index + 1,
-                    (page, self.total_pages),
-                )))
-            }
+            PaginationType::BelgianLeaderboard {
+                lb_type,
+                next_update,
+                list,
+            } => ReactionData::Basic(Box::new(BasicEmbedData::create_belgian_leaderboard(
+                lb_type,
+                next_update,
+                list.iter()
+                    .skip(self.index)
+                    .take(self.per_page)
+                    .map(|(name, score)| (name, score))
+                    .collect(),
+                self.index + 1,
+                (page, self.total_pages),
+            ))),
         };
         Ok(result)
     }

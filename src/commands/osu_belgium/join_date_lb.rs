@@ -24,7 +24,8 @@ async fn joindate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         .into_iter()
         .map(|(name, date)| (name, date.format("%F %T").to_string()))
         .collect();
+    let lb_type = String::from("Join date");
 
     // Send response
-    super::send_response(ctx, users, next_update, msg).await
+    super::send_response(ctx, lb_type, users, next_update, msg).await
 }

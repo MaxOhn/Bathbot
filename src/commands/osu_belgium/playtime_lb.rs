@@ -26,7 +26,8 @@ async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         .into_iter()
         .map(|(name, hours)| (name, numbers::with_comma_u64(hours as u64) + " hrs"))
         .collect();
+    let lb_type = String::from("Playtime");
 
     // Send response
-    super::send_response(ctx, users, next_update, msg).await
+    super::send_response(ctx, lb_type, users, next_update, msg).await
 }

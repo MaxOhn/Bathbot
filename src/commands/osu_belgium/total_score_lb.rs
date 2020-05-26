@@ -26,7 +26,8 @@ async fn totalscore(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         .into_iter()
         .map(|(name, score)| (name, numbers::with_comma_u64(score)))
         .collect();
+    let lb_type = String::from("Total score");
 
     // Send response
-    super::send_response(ctx, users, next_update, msg).await
+    super::send_response(ctx, lb_type, users, next_update, msg).await
 }

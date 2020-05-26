@@ -26,7 +26,8 @@ async fn playcount(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         .into_iter()
         .map(|(name, count)| (name, numbers::with_comma_u64(count as u64)))
         .collect();
+    let lb_type = String::from("Playcount");
 
     // Send response
-    super::send_response(ctx, users, next_update, msg).await
+    super::send_response(ctx, lb_type, users, next_update, msg).await
 }
