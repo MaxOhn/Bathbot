@@ -25,12 +25,10 @@ Further help on the spreadsheet: http://bit.ly/badecoms"]
 #[usage_label("How to use")]
 #[usage_sample_label("Example")]
 #[embed_success_colour("DARK_GREEN")]
-// #[strikethrough_commands_tip_in_dm(
-//     "~~`Strikethrough commands`~~ indicate you're lacking permissions or roles"
-// )]
-// #[strikethrough_commands_tip_in_guild("~~`Strikethrough commands`~~ can only be used in servers")]
-#[strikethrough_commands_tip_in_dm(" ")]
-#[strikethrough_commands_tip_in_guild(" ")]
+#[strikethrough_commands_tip_in_dm(
+    "~~`Strikethrough commands`~~ indicate you're lacking permissions or roles"
+)]
+#[strikethrough_commands_tip_in_guild("~~`Strikethrough commands`~~ can only be used in servers")]
 async fn help(
     ctx: &Context,
     msg: &Message,
