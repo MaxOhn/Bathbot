@@ -2,13 +2,9 @@ mod models;
 mod schema;
 
 use models::{CtbPP, DBMap, GuildDB, ManiaPP, MapSplit, StreamTrackDB};
-pub use models::{DBMapSet, Guild, InsertableMessage, Platform, Ratios, StreamTrack, TwitchUser};
+pub use models::{DBMapSet, Guild, Platform, Ratios, StreamTrack, TwitchUser};
 
-use crate::{
-    commands::messages_fun::{MessageActivity, MessageStats},
-    util::{globals::AUTHORITY_ROLES, Error},
-};
-use chrono::{DateTime, NaiveDateTime, Utc};
+use crate::util::{globals::AUTHORITY_ROLES, Error};
 use diesel::{
     prelude::*,
     r2d2::{ConnectionManager, Pool, PooledConnection},
@@ -16,7 +12,7 @@ use diesel::{
     MysqlConnection,
 };
 use rosu::models::{Beatmap, GameMod, GameMode, GameMods};
-use serenity::model::id::{GuildId, UserId};
+use serenity::model::id::GuildId;
 use std::collections::{HashMap, HashSet};
 
 pub struct MySQL {
@@ -690,37 +686,6 @@ impl MySQL {
         Ok(())
     }
 
-    // ------------------------
-    // Table: unchecked_members
-    // ------------------------
-
-    pub fn get_unchecked_members(&self) -> DBResult<HashMap<UserId, DateTime<Utc>>> {
-        let conn = self.get_connection()?;
-        let members = schema::unchecked_members::table.load::<(u64, NaiveDateTime)>(&conn)?;
-        let members = members
-            .into_iter()
-            .map(|(id, date)| (UserId(id), DateTime::from_utc(date, Utc)))
-            .collect();
-        Ok(members)
-    }
-
-    pub fn insert_unchecked_member(&self, user: u64, date: DateTime<Utc>) -> DBResult<()> {
-        use schema::unchecked_members::columns::{joined, user_id};
-        let conn = self.get_connection()?;
-        diesel::insert_into(schema::unchecked_members::table)
-            .values((user_id.eq(user), joined.eq(date.naive_utc())))
-            .execute(&conn)?;
-        Ok(())
-    }
-
-    pub fn remove_unchecked_member(&self, user: u64) -> DBResult<bool> {
-        use schema::unchecked_members::{self, columns::user_id};
-        let conn = self.get_connection()?;
-        let amount =
-            diesel::delete(unchecked_members::table.filter(user_id.eq(user))).execute(&conn)?;
-        Ok(amount > 0)
-    }
-
     // -------------------
     // Table: bggame_stats
     // -------------------
@@ -747,193 +712,6 @@ impl MySQL {
     pub fn all_bggame_scores(&self) -> DBResult<Vec<(u64, u32)>> {
         let conn = self.get_connection()?;
         Ok(schema::bggame_stats::table.load(&conn)?)
-    }
-
-    // ---------------
-    // Table: messages
-    // ---------------
-
-    pub fn remove_channel_msgs(&self, channels: &[u64]) -> DBResult<usize> {
-        use schema::messages::{self, columns::channel_id};
-        let conn = self.get_connection()?;
-        let amount =
-            diesel::delete(messages::table.filter(channel_id.eq_any(channels))).execute(&conn)?;
-        Ok(amount)
-    }
-
-    pub fn biggest_id_exists(&self, msg_id: u64) -> DBResult<bool> {
-        use schema::messages::dsl::*;
-        let conn = self.get_connection()?;
-        if let Ok(biggest_id_db_vec) = messages
-            .order(id.desc())
-            .select(id)
-            .limit(1)
-            .filter(id.eq(msg_id))
-            .load::<u64>(&conn)
-        {
-            Ok(!biggest_id_db_vec.is_empty())
-        } else {
-            Ok(false)
-        }
-    }
-
-    pub fn latest_id_for_channel(&self, channel: u64) -> Option<u64> {
-        use schema::messages::{self, dsl::*};
-        match self.get_connection() {
-            Ok(conn) => messages::table
-                .order(id.desc())
-                .select(id)
-                .limit(1)
-                .filter(channel_id.eq(channel))
-                .load::<u64>(&conn)
-                .ok()
-                .and_then(|mut vec| vec.pop()),
-            Err(_) => None,
-        }
-    }
-
-    pub fn insert_msgs(&self, message_vec: &[InsertableMessage]) -> DBResult<()> {
-        use schema::messages;
-        let conn = self.get_connection()?;
-        diesel::replace_into(messages::table)
-            .values(message_vec)
-            .execute(&conn)?;
-        Ok(())
-    }
-
-    pub fn impersonate_strings(
-        &self,
-        user: Option<UserId>,
-        channels: Option<Vec<u64>>,
-    ) -> DBResult<Vec<String>> {
-        use diesel::dsl::not;
-        use schema::messages::columns::{author, channel_id, content};
-        let conn = self.get_connection()?;
-        no_arg_sql_function!(RAND, (), "sql RAND()");
-        let query = schema::messages::table
-            .select(content)
-            .filter(not(content.like("%<%"))) // filtering bot commands
-            .filter(not(content.like("%>%")))
-            .filter(not(content.like("%!%")));
-        let strings = if let Some(UserId(id)) = user {
-            // user is specified
-            query
-                .filter(author.eq(id))
-                .limit(10_000) // consider the last 10k entries
-                .order(RAND) // sort them at random
-                .load::<String>(&conn)?
-        } else if let Some(ids) = channels {
-            // channel is specified
-            query
-                .filter(channel_id.eq_any(ids))
-                .limit(10_000)
-                .order(RAND)
-                .load::<String>(&conn)?
-        } else {
-            // consider ALL entries
-            query.limit(10_000).order(RAND).load::<String>(&conn)?
-        };
-        Ok(strings)
-    }
-
-    pub fn contain_string(&self, s: &str) -> DBResult<Vec<String>> {
-        use schema::messages::columns::content;
-        let conn = self.get_connection()?;
-        let strings = schema::messages::table
-            .select(content)
-            .filter(content.like(&format!("%{}%", s)))
-            .order(length(content).desc())
-            .limit(2500)
-            .load::<String>(&conn)?;
-        Ok(strings)
-    }
-
-    pub fn message_stats(
-        &self,
-        guild_channels: &[u64],
-        channel: u64,
-        user: u64,
-    ) -> DBResult<MessageStats> {
-        use diesel::dsl::count_star;
-        use schema::messages::{self, author, channel_id, content};
-        let conn = self.get_connection()?;
-
-        let total_msgs: i64 = messages::table.select(count_star()).first(&conn)?;
-        let total_msgs = total_msgs as usize;
-
-        let guild_msgs: i64 = messages::table
-            .filter(channel_id.eq_any(guild_channels))
-            .select(count_star())
-            .first(&conn)?;
-        let guild_msgs = guild_msgs as usize;
-
-        let channel_msgs: i64 = messages::table
-            .filter(channel_id.eq(channel))
-            .select(count_star())
-            .first(&conn)?;
-        let channel_msgs = channel_msgs as usize;
-
-        let author_msg: i64 = messages::table
-            .filter(author.eq(user))
-            .select(count_star())
-            .first(&conn)?;
-        let author_msg = author_msg as usize;
-
-        let author_msgs = messages::table
-            .filter(author.eq(user))
-            .select(content)
-            .load::<String>(&conn)?;
-        let author_avg = author_msgs.iter().map(|msg| msg.len()).sum::<usize>() as f32
-            / author_msgs.len() as f32;
-
-        let author_msgs: Vec<_> = author_msgs
-            .into_iter()
-            .filter(|msg| !msg.contains(' '))
-            .collect();
-        let mut words = HashMap::with_capacity(128);
-        for word in author_msgs {
-            *words.entry(word).or_insert(0) += 1;
-        }
-        let mut words: Vec<_> = words.into_iter().collect();
-        words.sort_by(|(_, n1), (_, n2)| n2.cmp(&n1));
-        let single_words = words.into_iter().take(10).collect();
-
-        Ok(MessageStats::new(
-            total_msgs,
-            guild_msgs,
-            channel_msgs,
-            author_msg,
-            author_avg,
-            single_words,
-        ))
-    }
-
-    pub fn activity_amount(&self, channel: Option<u64>) -> DBResult<MessageActivity> {
-        use schema::messages::{self, channel_id, timestamp};
-
-        let hour = (Utc::now() - chrono::Duration::hours(1)).naive_utc();
-        let day = (Utc::now() - chrono::Duration::days(1)).naive_utc();
-        let week = (Utc::now() - chrono::Duration::weeks(1)).naive_utc();
-        let month = (Utc::now() - chrono::Duration::days(30)).naive_utc();
-        let conn = self.get_connection()?;
-
-        let query = messages::table
-            .select(timestamp)
-            .filter(timestamp.ge(month));
-
-        let mut msgs_amount: Vec<NaiveDateTime> = if let Some(id) = channel {
-            query.filter(channel_id.eq(id)).load(&conn)?
-        } else {
-            query.load(&conn)?
-        };
-        let month = msgs_amount.len();
-        msgs_amount.retain(|time| time >= &week);
-        let week = msgs_amount.len();
-        msgs_amount.retain(|time| time >= &day);
-        let day = msgs_amount.len();
-        msgs_amount.retain(|time| time >= &hour);
-        let hour = msgs_amount.len();
-        Ok(MessageActivity::new(hour, day, week, month))
     }
 
     // ------------------
@@ -971,17 +749,6 @@ impl MySQL {
             Err(why) => warn!("Error while updating ratios: {}", why),
         }
         data
-    }
-
-    // -------------------
-    // Table: manual_links
-    // -------------------
-
-    pub fn get_manual_links(&self) -> Result<HashMap<u64, String>, Error> {
-        let conn = self.get_connection()?;
-        let tuples = schema::manual_links::table.load::<(u64, String)>(&conn)?;
-        let links: HashMap<u64, String> = tuples.into_iter().collect();
-        Ok(links)
     }
 }
 

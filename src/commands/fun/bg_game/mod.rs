@@ -1,5 +1,3 @@
-#![allow(unused_imports)]
-
 mod game;
 mod hints;
 mod img_reveal;
@@ -26,15 +24,9 @@ use serenity::{
         channel::{Message, ReactionType},
         id::{ChannelId, UserId},
     },
-    prelude::{Context, RwLock as SRwLock, TypeMap},
+    prelude::Context,
 };
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    convert::TryFrom,
-    fmt::Write,
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, convert::TryFrom, sync::Arc, time::Duration};
 
 #[command]
 #[description = "Play the background game!\n\

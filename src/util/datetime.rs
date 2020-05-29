@@ -6,7 +6,6 @@ pub fn date_to_string(date: &DateTime<Utc>) -> String {
     date.format(DATE_FORMAT).to_string()
 }
 
-#[allow(unused)]
 pub fn string_to_date(date: String) -> Result<DateTime<Utc>, Error> {
     Utc.datetime_from_str(&date, "%F %T")
         .map_err(Error::ParseChrono)

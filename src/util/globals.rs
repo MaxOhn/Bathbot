@@ -13,10 +13,6 @@ pub mod emotes {
 }
 
 pub const DEV_GUILD_ID: u64 = 297072529426612224;
-pub const MAIN_GUILD_ID: u64 = 277469642908237826; // also ChannelId of #general
-pub const WELCOME_CHANNEL: u64 = 438410203977744394;
-pub const UNCHECKED_ROLE_ID: u64 = 326390404620746752;
-pub const TOP_ROLE_ID: u64 = 438450781142908929;
 
 pub const GENERAL_ISSUE: &str = "Something went wrong, blame bade";
 pub const OSU_API_ISSUE: &str = "Some issue with the osu api, blame bade";

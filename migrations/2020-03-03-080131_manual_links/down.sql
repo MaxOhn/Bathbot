@@ -1,1 +1,0 @@
-DROP TABLE manual_links

@@ -1,26 +1,17 @@
-#![allow(unused_imports)]
-
 use super::{util, Hints, ImageReveal};
 use crate::{BgGames, Error, MySQL};
 
 use futures::StreamExt;
 use image::{imageops::FilterType, GenericImageView, ImageFormat};
 use serenity::{
-    cache::CacheRwLock,
     collector::MessageCollector,
     framework::standard::CommandResult,
     http::client::Http,
-    model::id::{ChannelId, UserId},
-    prelude::{Context, RwLock, TypeMap},
+    model::id::ChannelId,
+    prelude::{RwLock, TypeMap},
 };
-use std::{
-    collections::VecDeque, env, fmt::Write, fs, path::PathBuf, str::FromStr, sync::Arc,
-    time::Duration,
-};
-use tokio::{
-    task::{self, JoinHandle},
-    time,
-};
+use std::{collections::VecDeque, env, fmt::Write, fs, path::PathBuf, str::FromStr, sync::Arc};
+use tokio::time;
 
 // Everything in here is coded horribly :(
 pub struct BackGroundGame {
@@ -55,7 +46,7 @@ impl BackGroundGame {
     ) {
         let game_lock = Arc::clone(&self.game);
         let osu_std_lock = Arc::clone(&self.osu_std);
-        task::spawn(async move {
+        tokio::spawn(async move {
             let mut previous_ids = VecDeque::with_capacity(10);
             loop {
                 // Initialize game

@@ -45,5 +45,9 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Update spreadsheet (`<mostplayed`, `pagination`, ...)
 - Automize the bot setup via docker
 - Make `<common` paginated
+- Delete original msg of `<echo` before sending the response
+- Make authority commands strikethrough again
+- Remove DB tables after split has been completed
+- Fix `<pp`, ... if user has no top scores
   ### Commands
   - None as of now

@@ -23,13 +23,6 @@ table! {
 }
 
 table! {
-    manual_links (discord_id) {
-        discord_id -> Unsigned<Bigint>,
-        osu_name -> Varchar,
-    }
-}
-
-table! {
     maps (beatmap_id) {
         beatmap_id -> Unsigned<Integer>,
         beatmapset_id -> Unsigned<Integer>,
@@ -61,16 +54,6 @@ table! {
         language -> Unsigned<Tinyint>,
         approval_status -> Tinyint,
         approved_date -> Nullable<Timestamp>,
-    }
-}
-
-table! {
-    messages (id) {
-        id -> Unsigned<Bigint>,
-        channel_id -> Unsigned<Bigint>,
-        author -> Unsigned<Bigint>,
-        content -> Text,
-        timestamp -> Timestamp,
     }
 }
 
@@ -160,13 +143,6 @@ table! {
     }
 }
 
-table! {
-    unchecked_members (user_id) {
-        user_id -> Unsigned<Bigint>,
-        joined -> Timestamp,
-    }
-}
-
 joinable!(maps -> mapsets (beatmapset_id));
 joinable!(pp_ctb_mods -> maps (beatmap_id));
 joinable!(pp_mania_mods -> maps (beatmap_id));
@@ -178,10 +154,8 @@ allow_tables_to_appear_in_same_query!(
     bggame_stats,
     discord_users,
     guilds,
-    manual_links,
     maps,
     mapsets,
-    messages,
     pp_ctb_mods,
     pp_mania_mods,
     ratio_table,
@@ -190,5 +164,4 @@ allow_tables_to_appear_in_same_query!(
     stars_mania_mods,
     stream_tracks,
     twitch_users,
-    unchecked_members,
 );

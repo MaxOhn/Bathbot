@@ -1,9 +1,6 @@
 use super::util;
 use crate::{
-    commands::{
-        messages_fun::{MessageActivity, MessageStats},
-        utility::AvatarUser,
-    },
+    commands::utility::AvatarUser,
     scraper::{MostPlayedMap, ScraperScore},
     streams::{TwitchStream, TwitchUser},
     util::{
@@ -108,74 +105,6 @@ impl BasicEmbedData {
             e.fields(fields);
         }
         e.color(Colour::DARK_GREEN)
-    }
-
-    //
-    // activity
-    //
-    pub fn create_activity(activity: MessageActivity, name: String, channel: bool) -> Self {
-        let mut result = Self::default();
-        let title = format!(
-            "Message activity in {} {}{}:",
-            if channel { "channel" } else { "server" },
-            if channel { "#" } else { "" },
-            name
-        );
-        let month_str = with_comma_u64(activity.hour as u64);
-        let amount_len = 9.max(month_str.len());
-        let mut description = String::with_capacity(128);
-        let _ = writeln!(description, "```");
-        let _ = writeln!(
-            description,
-            " Last | {:>len$} |   Total | Activity",
-            "#Messages",
-            len = amount_len
-        );
-        let _ = writeln!(
-            description,
-            "------+-{:->len$}-+---------+---------",
-            "-",
-            len = amount_len
-        );
-        let activity_hour = round((100 * 24 * 30 * activity.hour) as f32 / activity.month as f32);
-        let activity_day = round((100 * 30 * activity.day) as f32 / activity.month as f32);
-        let activity_week = round(100.0 * 4.286 * activity.week as f32 / activity.month as f32);
-        let _ = writeln!(
-            description,
-            " Hour | {:>len$} | {:>6}% | {:>7}%",
-            with_comma_u64(activity.hour as u64),
-            round(100.0 * activity.hour as f32 / activity.month as f32),
-            activity_hour,
-            len = amount_len
-        );
-        let _ = writeln!(
-            description,
-            "  Day | {:>len$} | {:>6}% | {:>7}%",
-            with_comma_u64(activity.day as u64),
-            round(100.0 * activity.day as f32 / activity.month as f32),
-            activity_day,
-            len = amount_len
-        );
-        let _ = writeln!(
-            description,
-            " Week | {:>len$} | {:>6}% | {:>7}%",
-            with_comma_u64(activity.week as u64),
-            round(100.0 * activity.week as f32 / activity.month as f32),
-            activity_week,
-            len = amount_len
-        );
-        let _ = writeln!(
-            description,
-            "Month | {:>len$} | {:>6}% | {:>7}%",
-            with_comma_u64(activity.month as u64),
-            100,
-            100,
-            len = amount_len
-        );
-        let _ = write!(description, "```");
-        result.title_text = Some(title);
-        result.description = Some(description);
-        result
     }
 
     //
@@ -342,47 +271,6 @@ impl BasicEmbedData {
         result.title_text = Some(title_text);
         result.title_url = Some(user.url().to_string());
         result.image_url = Some(user.url().to_string());
-        result
-    }
-
-    //
-    // belgian lb
-    //
-    pub fn create_belgian_leaderboard(
-        lb_type: &str,
-        next_update: &str,
-        list: Vec<(&String, &String)>,
-        idx: usize,
-        pages: (usize, usize),
-    ) -> Self {
-        let mut result = Self::default();
-        let name_len = list.iter().fold(0, |max, (name, _)| max.max(name.len()));
-        let num_len = list.iter().fold(0, |max, (_, score)| max.max(score.len()));
-        let mut description = String::with_capacity(256);
-        description.push_str("```\n");
-        for (mut i, (name, score)) in list.into_iter().enumerate() {
-            i += idx;
-            let _ = writeln!(
-                description,
-                "{:>2} {:1} # {:<name_len$} => {:>num_len$}",
-                i,
-                if i <= SYMBOLS.len() {
-                    SYMBOLS[i - 1]
-                } else {
-                    ""
-                },
-                name,
-                score,
-                name_len = name_len,
-                num_len = num_len
-            );
-        }
-        description.push_str("```");
-        result.description = Some(description);
-        let footer_text = format!("Page {}/{} ~ Updating in {}", pages.0, pages.1, next_update);
-        result.footer_text = Some(footer_text);
-        result.author_text = Some(format!("{} leaderboard for linked members:", lb_type));
-        result.thumbnail = Some(format!("{}/images/flags/BE.png", HOMEPAGE));
         result
     }
 
@@ -766,63 +654,6 @@ impl BasicEmbedData {
         result.title_url = Some(title_url);
         result.thumbnail = thumbnail;
         result.description = Some(description);
-        result
-    }
-
-    //
-    // messagestats
-    //
-    pub fn create_messagestats(stats: MessageStats, author: &str) -> Self {
-        let mut result = Self::default();
-        let description = format!(
-            "All saved messages: {}\n\
-            Messages of this guild: {}\n\
-            Messages of this channel: {}",
-            with_comma_u64(stats.total_msgs as u64),
-            with_comma_u64(stats.guild_msgs as u64),
-            with_comma_u64(stats.channel_msgs as u64)
-        );
-        let single_words: Vec<_> = stats
-            .single_words
-            .into_iter()
-            .map(|(word, amount)| (word, with_comma_u64(amount as u64)))
-            .collect();
-        let max_single_word = single_words
-            .iter()
-            .map(|(_, amount)| amount.len())
-            .max()
-            .unwrap();
-        let field_text = single_words
-            .into_iter()
-            .map(|(word, amount)| {
-                format!(
-                    "{:<max$} => {word}",
-                    amount = amount,
-                    max = max_single_word,
-                    word = word,
-                )
-            })
-            .join("\n");
-        let fields = vec![
-            (
-                format!("Messages of `{}`", author),
-                with_comma_u64(stats.author_msgs as u64),
-                false,
-            ),
-            (
-                format!("Average length of `{}`'s messages", author),
-                round(stats.author_avg).to_string(),
-                false,
-            ),
-            (
-                format!("`{}`'s most common single word messages", author),
-                format!("```\n{}```", field_text),
-                false,
-            ),
-        ];
-        result.title_text = Some("Statistics about the message database".to_string());
-        result.description = Some(description);
-        result.fields = Some(fields);
         result
     }
 

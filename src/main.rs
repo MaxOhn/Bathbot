@@ -18,7 +18,7 @@ extern crate log;
 extern crate diesel;
 
 use crate::scraper::Scraper;
-use commands::{fun::*, messages_fun::*, osu::*, osu_belgium::*, streams::*, utility::*};
+use commands::{fun::*, osu::*, streams::*, utility::*};
 use database::MySQL;
 use events::Handler;
 use streams::Twitch;
@@ -28,8 +28,8 @@ pub use util::{discord::get_member, Error};
 
 use chrono::{Local, Utc};
 use fern::colors::{Color, ColoredLevelConfig};
-use log::{error, info, LevelFilter};
-use rosu::{backend::Osu as OsuClient, models::GameMode};
+use log::LevelFilter;
+use rosu::backend::Osu as OsuClient;
 use serenity::{
     framework::{
         standard::{macros::hook, CommandResult, DispatchError},
@@ -45,9 +45,10 @@ use std::{
     sync::Arc,
 };
 
+// Will create an async worker to regularly check for online twitch streams
 pub const WITH_STREAM_TRACK: bool = false;
+// Will make the scraper use the osu_session cookie of an osu! account
 pub const WITH_SCRAPER: bool = false;
-pub const WITH_CUSTOM_EVENTS: bool = false;
 
 #[tokio::main]
 async fn main() {
@@ -92,14 +93,6 @@ async fn main() {
     let discord_links = mysql
         .get_discord_links()
         .unwrap_or_else(|why| panic!("Could not get discord_links: {}", why));
-
-    // Custom leaderboard cache
-    let mut track_times = HashMap::with_capacity(4);
-    let mut tracked_users = HashMap::with_capacity(4);
-    for mode in [GameMode::STD, GameMode::MNA, GameMode::TKO, GameMode::CTB].iter() {
-        track_times.insert(*mode, None);
-        tracked_users.insert(*mode, Vec::new());
-    }
 
     // Scraper
     let scraper = Scraper::new()
@@ -170,10 +163,8 @@ async fn main() {
         .group(&TAIKO_GROUP)
         .group(&CATCHTHEBEAT_GROUP)
         .group(&FUN_GROUP)
-        .group(&MESSAGESFUN_GROUP)
         .group(&UTILITY_GROUP)
-        .group(&STREAMTRACKING_GROUP)
-        .group(&OSUBELGIUM_GROUP);
+        .group(&STREAMTRACKING_GROUP);
 
     let mut discord = Client::new(&discord_token)
         .event_handler(Handler)
@@ -199,8 +190,6 @@ async fn main() {
         }
         data.insert::<Guilds>(guilds);
         data.insert::<BgGames>(HashMap::new());
-        data.insert::<TrackTime>(track_times);
-        data.insert::<TrackedUsers>(tracked_users);
     }
 
     // Boot it all up

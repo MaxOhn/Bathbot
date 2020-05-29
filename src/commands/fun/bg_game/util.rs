@@ -1,4 +1,4 @@
-use crate::{util::Matrix, Error, MySQL, Osu};
+use crate::{Error, MySQL, Osu};
 
 use rand::RngCore;
 use rayon::prelude::*;
