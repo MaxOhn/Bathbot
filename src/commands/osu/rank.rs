@@ -89,7 +89,7 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
     };
 
     // Retrieve the user (and its top scores if user has more pp than rank_holder)
-    let (user, scores): (User, Option<Vec<Score>>) = {
+    let (user, scores): (User, Vec<Score>) = {
         let user_req = UserRequest::with_username(&name).mode(mode);
         let data = ctx.data.read().await;
         let osu = data.get::<Osu>().expect("Could not get osu client");
@@ -109,7 +109,7 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
             }
         };
         if user.pp_raw > rank_holder.pp_raw {
-            (user, None)
+            (user, Vec::with_capacity(0))
         } else {
             let scores = match user.get_top_scores(&osu, 100, mode).await {
                 Ok(scores) => scores,
@@ -118,7 +118,7 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
                     return Err(CommandError::from(why.to_string()));
                 }
             };
-            (user, Some(scores))
+            (user, scores)
         }
     };
 

@@ -857,7 +857,14 @@ impl BasicEmbedData {
             pp_given = pp
         );
         let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
-        let description = if user.pp_raw > pp {
+        let description = if scores.is_empty() {
+            format!(
+                "To reach {pp}pp with one additional score, {user} needs to perform \
+                 a **{pp}pp** score which would be the top #1",
+                pp = round(pp),
+                user = user.username,
+            )
+        } else if user.pp_raw > pp {
             format!(
                 "{name} already has {pp_raw}pp which is more than {pp_given}pp.\n\
                  No more scores are required.",
@@ -1089,7 +1096,7 @@ impl BasicEmbedData {
     //
     pub fn create_rank(
         user: User,
-        scores: Option<Vec<Score>>,
+        scores: Vec<Score>,
         rank: usize,
         country: Option<String>,
         rank_holder: User,
@@ -1115,12 +1122,19 @@ impl BasicEmbedData {
                 name = user.username,
                 pp = round_and_comma(user.pp_raw)
             )
+        } else if scores.is_empty() {
+            format!(
+                "Rank {country}{rank} is currently held by {holder_name} with \
+                 **{holder_pp}pp**, so {name} is missing **{holder_pp}** raw pp, \
+                 achievable by a single score worth **{holder_pp}pp**.",
+                country = country,
+                rank = rank,
+                holder_name = rank_holder.username,
+                holder_pp = round_and_comma(rank_holder.pp_raw),
+                name = user.username,
+            )
         } else {
-            let pp_values: Vec<f32> = scores
-                .unwrap_or_else(|| panic!("Got None for scores in create_rank"))
-                .into_iter()
-                .map(|score| score.pp.unwrap())
-                .collect();
+            let pp_values: Vec<f32> = scores.into_iter().map(|score| score.pp.unwrap()).collect();
             let size: usize = pp_values.len();
             let mut idx: usize = size - 1;
             let mut factor: f32 = 0.95_f32.powi(idx as i32);
@@ -1488,7 +1502,14 @@ impl BasicEmbedData {
             .iter()
             .map(|score| *score.pp.as_ref().unwrap())
             .collect();
-        let description = if pp < pp_values[pp_values.len() - 1] {
+        let description = if scores.is_empty() {
+            format!(
+                "A {pp}pp play would be {name}'s #1 best play.\n\
+                 Their pp would change by **+{pp}** to **{pp}pp**.",
+                pp = round(pp),
+                name = user.username,
+            )
+        } else if pp < pp_values[pp_values.len() - 1] {
             format!(
                 "A {pp_given}pp play wouldn't even be in {name}'s top 100 plays.\n\
                  There would not be any significant pp change.",
