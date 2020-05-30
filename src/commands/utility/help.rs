@@ -21,7 +21,7 @@ If you react with :x: to my response, I will delete it.
 Further help on the spreadsheet: http://bit.ly/badecoms"]
 #[command_not_found_text = "Could not find command: `{}`."]
 #[max_levenshtein_distance(3)]
-#[lacking_conditions = "hide"]
+#[lacking_conditions = "strike"]
 #[usage_label("How to use")]
 #[usage_sample_label("Example")]
 #[embed_success_colour("DARK_GREEN")]

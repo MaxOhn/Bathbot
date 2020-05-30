@@ -11,11 +11,11 @@ With the bot's osu! commands you can
 - calculate a performance rating for players of a multiplayer match (`<mc`) credits to [dain98](https://github.com/dain98/Minccino)
 - simulate scores with arbitrary acc, combo, amount 300s, ... (`<s`)
 - display a bunch of statistics all around a users osu profile (`<osu`, `<taiko`, ...)
-- recalculate the personal top 100 if all scores were unchoked (`<nochokes`)
+- recalculate the personal top 100 if all scores were unchoked (`<nochokes`, `<nc`)
 - and a bunch more
 
-Moreover, I tried my best to keep all commands accessible for **all** gamemodes.
-### To invite the bot to your server, use [this link](https://discordapp.com/api/oauth2/authorize?client_id=297073686916366336&permissions=8&scope=bot)
+Moreover, the majority of commands is accessible for **all** gamemodes.
+### To invite the bot to your server, use [this link](https://discordapp.com/api/oauth2/authorize?client_id=297073686916366336&permissions=268823616&scope=bot)
 A spreadsheet with all current commands can be found [here](http://bit.ly/badecoms) although I can't guarantee the sheet will stay up-to-date
 
 ## Setup
@@ -45,6 +45,5 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Update spreadsheet (`<mostplayed`, `pagination`, ...)
 - Automize the bot setup via docker
 - Make `<common` paginated
-- Remove DB tables after split has been completed
   ### Commands
   - None as of now
