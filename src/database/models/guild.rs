@@ -12,7 +12,6 @@ pub struct GuildDB {
     with_lyrics: bool,
     authorities: String,
     vc_role: Option<u64>,
-    message_tracking: bool,
 }
 
 impl GuildDB {
@@ -21,14 +20,12 @@ impl GuildDB {
         with_lyrics: bool,
         authorities: String,
         vc_role: Option<u64>,
-        message_tracking: bool,
     ) -> Self {
         Self {
             guild_id,
             with_lyrics,
             authorities,
             vc_role,
-            message_tracking,
         }
     }
 }
@@ -48,7 +45,6 @@ impl Into<Guild> for GuildDB {
             with_lyrics: self.with_lyrics,
             authorities,
             vc_role: self.vc_role.map(RoleId),
-            message_tracking: self.message_tracking,
         }
     }
 }
@@ -58,5 +54,4 @@ pub struct Guild {
     pub with_lyrics: bool,
     pub authorities: Vec<String>,
     pub vc_role: Option<RoleId>,
-    pub message_tracking: bool,
 }

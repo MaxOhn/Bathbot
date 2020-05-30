@@ -638,7 +638,7 @@ impl MySQL {
     }
 
     pub fn insert_guild(&self, guild_id: u64) -> DBResult<Guild> {
-        let guild = GuildDB::new(guild_id, true, AUTHORITY_ROLES.to_string(), None, false);
+        let guild = GuildDB::new(guild_id, true, AUTHORITY_ROLES.to_string(), None);
         let conn = self.get_connection()?;
         diesel::insert_or_ignore_into(schema::guilds::table)
             .values(&guild)
@@ -662,16 +662,6 @@ impl MySQL {
         let target = schema::guilds::table.filter(guild_id.eq(guild));
         diesel::update(target)
             .set(with_lyrics.eq(lyrics))
-            .execute(&conn)?;
-        Ok(())
-    }
-
-    pub fn update_guild_tracking(&self, guild: u64, tracking: bool) -> DBResult<()> {
-        use schema::guilds::columns::{guild_id, message_tracking};
-        let conn = self.get_connection()?;
-        let target = schema::guilds::table.filter(guild_id.eq(guild));
-        diesel::update(target)
-            .set(message_tracking.eq(tracking))
             .execute(&conn)?;
         Ok(())
     }
