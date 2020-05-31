@@ -19,10 +19,9 @@ use rosu::models::GameMode;
 use serenity::{
     collector::{MessageCollectorBuilder, ReactionAction},
     framework::standard::{macros::command, Args, CommandResult},
-    http::client::Http,
     model::{
         channel::{Message, ReactionType},
-        id::{ChannelId, UserId},
+        id::UserId,
     },
     prelude::Context,
 };
@@ -42,23 +41,11 @@ With `<bg ranking [global]` you can check the (global) leaderboard for correct g
 Subcommands can be abbreviated with `s, h, b, r`, e.g. `<bg h` for hints.\n\
 With `<bg start mania` (`<bg s m`) I will give mania backgrounds to guess."]
 #[aliases("bg")]
-#[sub_commands("start", "hint", "bigger", "stats", "ranking")]
-async fn backgroundgame(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    if !args.is_empty() {
-        let arg = args.single_quoted::<String>()?;
-        if !(arg.starts_with('s') || arg.starts_with('r')) {
-            basic_msg(&ctx.http, msg.channel_id).await?;
-        }
-    } else {
-        basic_msg(&ctx.http, msg.channel_id).await?;
-    }
-    Ok(())
-}
-
-async fn basic_msg(http: &Http, channel: ChannelId) -> CommandResult {
-    channel
+#[sub_commands("start", "hint", "bigger", "stop", "stats", "ranking")]
+async fn backgroundgame(ctx: &Context, msg: &Message) -> CommandResult {
+    msg.channel_id
         .say(
-            http,
+            ctx,
             "Use `<bg s` to (re)start the game, \
             `<bg b` to increase the image size, \
             `<bg h` to get a hint, \
@@ -73,7 +60,7 @@ async fn basic_msg(http: &Http, channel: ChannelId) -> CommandResult {
 }
 
 #[command]
-#[aliases("s")]
+#[aliases("s", "skip")]
 #[sub_commands("mania")]
 async fn start(ctx: &Context, msg: &Message) -> CommandResult {
     _start(GameMode::STD, ctx, msg).await
@@ -91,7 +78,7 @@ async fn _start(mode: GameMode, ctx: &Context, msg: &Message) -> CommandResult {
     let mut data = ctx.data.write().await;
     let games = data.get_mut::<BgGames>().expect("Could not get BgGames");
     if !games.contains_key(&channel) {
-        let game = BackGroundGame::new(mode == GameMode::STD);
+        let game = BackGroundGame::new(mode == GameMode::STD).await;
         let collector = MessageCollectorBuilder::new(&ctx)
             .channel_id(channel)
             .filter(|msg| !msg.author.bot)
@@ -103,6 +90,8 @@ async fn _start(mode: GameMode, ctx: &Context, msg: &Message) -> CommandResult {
             Arc::clone(&ctx.http),
         );
         games.insert(channel, game);
+    } else {
+        games.get_mut(&channel).unwrap().restart()?;
     }
     Ok(())
 }
@@ -168,6 +157,25 @@ async fn bigger(ctx: &Context, msg: &Message) -> CommandResult {
                 start one with `<bg s`",
             )
             .await?;
+    }
+    Ok(())
+}
+
+#[command]
+async fn stop(ctx: &Context, msg: &Message) -> CommandResult {
+    let channel = msg.channel_id;
+    let mut data = ctx.data.write().await;
+    let games = data.get_mut::<BgGames>().expect("Could not get BgGames");
+    if !games.contains_key(&channel) {
+        msg.channel_id
+            .say(
+                &ctx.http,
+                "There is no running game in this channel, \
+                start one with `<bg s`",
+            )
+            .await?;
+    } else {
+        games.get_mut(&channel).unwrap().stop()?;
     }
     Ok(())
 }

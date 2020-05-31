@@ -11,20 +11,43 @@ use serenity::{
     prelude::{RwLock, TypeMap},
 };
 use std::{collections::VecDeque, env, fmt::Write, fs, path::PathBuf, str::FromStr, sync::Arc};
-use tokio::time;
+use tokio::{
+    sync::watch::{channel, Receiver, Sender},
+    time,
+};
 
 // Everything in here is coded horribly :(
 pub struct BackGroundGame {
     pub game: Arc<RwLock<GameData>>,
-    pub osu_std: Arc<RwLock<bool>>,
+    pub osu_std: bool,
+    tx: Sender<LoopResult>,
+    rx: Receiver<LoopResult>,
 }
 
 impl BackGroundGame {
-    pub fn new(osu_std: bool) -> Self {
+    pub async fn new(osu_std: bool) -> Self {
+        let (tx, mut rx) = channel(LoopResult::Restart);
+        let _ = rx.recv().await; // zzz
         Self {
             game: Arc::new(RwLock::new(GameData::default())),
-            osu_std: Arc::new(RwLock::new(osu_std)),
+            osu_std,
+            tx,
+            rx,
         }
+    }
+
+    pub fn stop(&mut self) -> Result<(), Error> {
+        Ok(self
+            .tx
+            .broadcast(LoopResult::Stop)
+            .map_err(|_| Error::Custom("Could not send stop message".to_string()))?)
+    }
+
+    pub fn restart(&mut self) -> Result<(), Error> {
+        Ok(self
+            .tx
+            .broadcast(LoopResult::Restart)
+            .map_err(|_| Error::Custom("Could not send restart message".to_string()))?)
     }
 
     pub async fn sub_image(&self) -> Result<Vec<u8>, Error> {
@@ -45,15 +68,15 @@ impl BackGroundGame {
         http: Arc<Http>,
     ) {
         let game_lock = Arc::clone(&self.game);
-        let osu_std_lock = Arc::clone(&self.osu_std);
+        let osu_std = self.osu_std;
+        let mut rx = self.rx.clone();
         tokio::spawn(async move {
             let mut previous_ids = VecDeque::with_capacity(10);
             loop {
                 // Initialize game
                 let img = {
                     let mut game = game_lock.write().await;
-                    let osu_std = osu_std_lock.read().await;
-                    game.restart_with_img(Arc::clone(&data), &mut previous_ids, *osu_std)
+                    game.restart_with_img(Arc::clone(&data), &mut previous_ids, osu_std)
                         .await
                 };
                 let _ = channel
@@ -63,13 +86,19 @@ impl BackGroundGame {
                             .add_file((bytes, "bg_img.png"))
                     })
                     .await;
-                let game_loop = game_loop(&mut collector, &http, Arc::clone(&game_lock), channel);
-                let duration = time::Duration::from_secs(180);
-                // Let game run for up to 3 minutes
-                let result = time::timeout(duration, game_loop).await;
-                // Check if it finishes through a restart or a timeout
+
+                let result = tokio::select! {
+                    // Listen for stop or restart invokes
+                    option = rx.recv() => option.unwrap_or_else(|| LoopResult::Stop),
+                    // Let the game run
+                    result = game_loop(&mut collector, &http, Arc::clone(&game_lock), channel) => result,
+                    // Timeout after 3 minutes
+                    _ = time::delay_for(time::Duration::from_secs(180)) => LoopResult::Stop,
+                };
+
+                // Process the result
                 match result {
-                    Ok(LoopResult::Restart) => {
+                    LoopResult::Restart => {
                         // Send message
                         let game = game_lock.read().await;
                         let content = format!(
@@ -78,7 +107,7 @@ impl BackGroundGame {
                         );
                         let _ = game.resolve(&http, channel, content).await;
                     }
-                    Ok(LoopResult::Stop) | Err(_) => {
+                    LoopResult::Stop => {
                         // Send message
                         let game = game_lock.read().await;
                         let content = format!(
@@ -99,7 +128,7 @@ impl BackGroundGame {
                         collector.stop();
                         break;
                     }
-                    Ok(LoopResult::Winner(user_id)) => {
+                    LoopResult::Winner(user_id) => {
                         let data = data.read().await;
                         let mysql = data.get::<MySQL>().expect("Could not get MySQL");
                         if let Err(why) = mysql.increment_bggame_score(user_id) {
@@ -112,6 +141,7 @@ impl BackGroundGame {
     }
 }
 
+#[derive(Clone, Copy)]
 enum LoopResult {
     Winner(u64),
     Restart,
@@ -124,26 +154,8 @@ async fn game_loop(
     game_lock: Arc<RwLock<GameData>>,
     channel: ChannelId,
 ) -> LoopResult {
-    let prefix = &["<", "!!"];
-    let invoke = &["bg", "backgroundgame"];
-    let keyletter = &[" s", " r"];
     // Collect and evaluate messages
     while let Some(msg) = collector.next().await {
-        // Check if the game should be restarted
-        // I wish I knew of a nicer way to handle this :(
-        if prefix.iter().any(|p| msg.content.starts_with(p)) {
-            if invoke.iter().any(|i| msg.content.contains(i))
-                && keyletter.iter().any(|k| msg.content.contains(k))
-            {
-                if msg.content.contains("stop") {
-                    return LoopResult::Stop;
-                } else if !msg.content.contains("stats") && !msg.content.contains("ranking") {
-                    return LoopResult::Restart;
-                }
-            } else {
-                continue;
-            }
-        }
         let mut game = game_lock.write().await;
         let content_result = check_msg_content(&msg.content, &game);
         match content_result {
