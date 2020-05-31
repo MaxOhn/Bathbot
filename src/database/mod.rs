@@ -5,6 +5,7 @@ use models::{CtbPP, DBMap, GuildDB, ManiaPP, MapSplit, StreamTrackDB};
 pub use models::{DBMapSet, Guild, Platform, Ratios, StreamTrack, TwitchUser};
 
 use crate::util::{globals::AUTHORITY_ROLES, Error};
+
 use diesel::{
     prelude::*,
     r2d2::{ConnectionManager, Pool, PooledConnection},
@@ -27,7 +28,7 @@ impl MySQL {
         let manager = ConnectionManager::new(database_url);
         let pool = Pool::builder()
             .build(manager)
-            .map_err(|e| err!("Failed to create pool: {}", e))?;
+            .map_err(|e| Error::Custom(format!("Failed to create pool: {}", e)))?;
         Ok(Self { pool })
     }
 

@@ -1,16 +1,14 @@
-mod commands;
-mod embeds;
-pub mod util;
-#[macro_use]
-mod macros;
 mod arguments;
+mod commands;
 pub mod database;
+mod embeds;
 mod events;
 pub mod pagination;
 pub mod roppai;
 mod scraper;
 mod streams;
 pub mod structs;
+pub mod util;
 
 #[macro_use]
 extern crate log;
