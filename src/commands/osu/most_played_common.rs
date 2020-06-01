@@ -148,6 +148,10 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
             content.push(':');
         }
     }
+
+    // TODO: Paginate
+    let all_maps = all_maps.into_iter().take(10).collect();
+
     let (data, thumbnail) =
         BasicEmbedData::create_mostplayedcommon(users, all_maps, users_count).await;
 

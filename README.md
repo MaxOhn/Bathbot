@@ -45,5 +45,6 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Update spreadsheet (`<mostplayed`, `pagination`, ...)
 - Automize the bot setup via docker
 - Make `<common` paginated
+- Make `<mpc` paginated
   ### Commands
   - None as of now
