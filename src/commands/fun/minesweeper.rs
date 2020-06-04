@@ -11,19 +11,20 @@ use std::fmt::Write;
 #[command]
 #[description = "Play a game of minesweeper"]
 #[aliases("ms")]
-#[usage = "[Easy/Medium/Hard]"]
+#[usage = "[Easy/Medium/Hard/Extreme]"]
 async fn minesweeper(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let game = if let Ok(difficulty) = args.trimmed().single_quoted::<String>() {
         match difficulty.to_lowercase().as_str() {
             "easy" => Difficulty::Easy.create(),
             "medium" => Difficulty::Medium.create(),
             "hard" => Difficulty::Hard.create(),
+            "extreme" => Difficulty::Extreme.create(),
             _ => {
                 let response = msg
                     .channel_id
                     .say(
                         &ctx.http,
-                        "The argument must be either `Easy`, `Medium`, or `Hard`",
+                        "The argument must be either `Easy`, `Medium`, `Hard`, or `Extreme`",
                     )
                     .await?;
                 discord::reaction_deletion(&ctx, response, msg.author.id).await;
@@ -64,6 +65,7 @@ enum Difficulty {
     Easy,
     Medium,
     Hard,
+    Extreme,
 }
 
 impl Difficulty {
@@ -72,6 +74,7 @@ impl Difficulty {
             Difficulty::Easy => Minesweeper::new(6, 6, 6),
             Difficulty::Medium => Minesweeper::new(8, 8, 12),
             Difficulty::Hard => Minesweeper::new(10, 10, 20),
+            Difficulty::Extreme => Minesweeper::new(13, 13, 40),
         }
     }
 }
