@@ -78,7 +78,7 @@ async fn _start(mode: GameMode, ctx: &Context, msg: &Message) -> CommandResult {
     let mut data = ctx.data.write().await;
     let games = data.get_mut::<BgGames>().expect("Could not get BgGames");
     if !games.contains_key(&channel) {
-        let game = BackGroundGame::new(mode == GameMode::STD).await;
+        let game = BackGroundGame::new(mode).await;
         let collector = MessageCollectorBuilder::new(&ctx)
             .channel_id(channel)
             .filter(|msg| !msg.author.bot)

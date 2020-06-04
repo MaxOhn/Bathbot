@@ -3,6 +3,7 @@ use crate::{BgGames, Error, MySQL};
 
 use futures::StreamExt;
 use image::{imageops::FilterType, GenericImageView, ImageFormat};
+use rosu::models::GameMode;
 use serenity::{
     collector::MessageCollector,
     framework::standard::CommandResult,
@@ -19,18 +20,19 @@ use tokio::{
 // Everything in here is coded horribly :(
 pub struct BackGroundGame {
     pub game: Arc<RwLock<GameData>>,
-    pub osu_std: bool,
+    pub mode: GameMode,
+    // previous_ids: Arc<RwLock<VecDequeue<u32>>>,
     tx: Sender<LoopResult>,
     rx: Receiver<LoopResult>,
 }
 
 impl BackGroundGame {
-    pub async fn new(osu_std: bool) -> Self {
+    pub async fn new(mode: GameMode) -> Self {
         let (tx, mut rx) = channel(LoopResult::Restart);
         let _ = rx.recv().await; // zzz
         Self {
             game: Arc::new(RwLock::new(GameData::default())),
-            osu_std,
+            mode,
             tx,
             rx,
         }
@@ -68,15 +70,15 @@ impl BackGroundGame {
         http: Arc<Http>,
     ) {
         let game_lock = Arc::clone(&self.game);
-        let osu_std = self.osu_std;
+        let mode = self.mode;
         let mut rx = self.rx.clone();
         tokio::spawn(async move {
-            let mut previous_ids = VecDeque::with_capacity(10);
+            let mut previous_ids = VecDeque::with_capacity(100);
             loop {
                 // Initialize game
                 let img = {
                     let mut game = game_lock.write().await;
-                    game.restart_with_img(Arc::clone(&data), &mut previous_ids, osu_std)
+                    game.restart_with_img(Arc::clone(&data), &mut previous_ids, mode)
                         .await
                 };
                 let _ = channel
@@ -245,7 +247,6 @@ fn check_msg_content(content: &str, game: &GameData) -> ContentResult {
 pub struct GameData {
     pub title: String,
     pub artist: String,
-    // pub artist_guessed: bool,
     pub mapset_id: u32,
     discord_data: Option<Arc<RwLock<TypeMap>>>,
     hints: Hints,
@@ -257,13 +258,15 @@ impl GameData {
         &mut self,
         data: Arc<RwLock<TypeMap>>,
         previous_ids: &mut VecDeque<u32>,
-        osu_std: bool,
+        mode: GameMode,
     ) -> Result<(), Error> {
         let mut path = PathBuf::from(env::var("BG_PATH")?);
-        if !osu_std {
-            path.push("mania");
+        match mode {
+            GameMode::STD => {}
+            GameMode::MNA => path.push("mania"),
+            GameMode::TKO | GameMode::CTB => panic!("TKO and CTB not yet supported as bg game"),
         }
-        let file_name = util::get_random_filename(previous_ids, &path)?;
+        let file_name = util::get_random_filename(previous_ids, mode, &path)?;
         let mut split = file_name.split('.');
         let mapset_id = u32::from_str(split.next().unwrap()).unwrap();
         debug!("Next BG mapset id: {}", mapset_id);
@@ -294,10 +297,10 @@ impl GameData {
         &mut self,
         data: Arc<RwLock<TypeMap>>,
         previous_ids: &mut VecDeque<u32>,
-        osu_std: bool,
+        mode: GameMode,
     ) -> Vec<u8> {
         loop {
-            match self.restart(Arc::clone(&data), previous_ids, osu_std).await {
+            match self.restart(Arc::clone(&data), previous_ids, mode).await {
                 Ok(_) => match self.reveal.sub_image() {
                     Ok(img) => return img,
                     Err(why) => warn!(
