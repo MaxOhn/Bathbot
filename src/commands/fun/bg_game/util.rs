@@ -79,8 +79,9 @@ pub async fn get_title_artist(
 }
 
 pub fn similarity(word_a: &str, word_b: &str) -> f32 {
-    let len = word_a.len().max(word_b.len());
-    (len - levenshtein_distance(word_a, word_b)) as f32 / len as f32
+    let len = word_a.chars().count().max(word_b.chars().count());
+    let dist = levenshtein_distance(word_a, word_b);
+    (len - dist) as f32 / len as f32
 }
 
 fn levenshtein_distance(word_a: &str, word_b: &str) -> usize {
