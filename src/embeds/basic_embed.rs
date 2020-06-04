@@ -285,7 +285,9 @@ impl BasicEmbedData {
         pages: (usize, usize),
     ) -> Self {
         let mut result = Self::default();
-        let len = list.iter().fold(0, |max, (user, _)| max.max(user.len()));
+        let len = list
+            .iter()
+            .fold(0, |max, (user, _)| max.max(user.chars().count()));
         let mut description = String::with_capacity(256);
         description.push_str("```\n");
         for (mut i, (user, score)) in list.into_iter().enumerate() {
@@ -329,7 +331,9 @@ impl BasicEmbedData {
         pages: (usize, usize),
     ) -> Self {
         let mut result = Self::default();
-        let len = list.iter().fold(0, |max, (name, _)| max.max(name.len()));
+        let len = list
+            .iter()
+            .fold(0, |max, (name, _)| max.max(name.chars().count()));
         let mut description = String::with_capacity(256);
         description.push_str("```\n");
         for (mut i, (name, amount)) in list.into_iter().enumerate() {
