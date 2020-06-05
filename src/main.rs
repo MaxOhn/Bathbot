@@ -70,7 +70,7 @@ async fn main() {
         .chain(std::io::stdout())
         .chain(
             fern::log_file(&format!(
-                "log-{}.log",
+                "logs/log-{}.log",
                 Utc::now().format("%F-%H-%M-%S").to_string()
             ))
             .expect("Could prepare log file"),

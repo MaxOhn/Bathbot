@@ -47,6 +47,6 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Make `<common` paginated
 - Make `<mpc` paginated
 - Check on previous id buffer of bg game
-- Improve help msg of bg game
+- Check on ctb pp / stars table entry retrieval
   ### Commands
   - None as of now

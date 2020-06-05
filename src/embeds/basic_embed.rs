@@ -63,13 +63,13 @@ impl BasicEmbedData {
     pub fn build(self, e: &mut CreateEmbed) -> &mut CreateEmbed {
         if self.author_icon.is_some() || self.author_url.is_some() || self.author_text.is_some() {
             e.author(|a| {
-                if let Some(author_icon) = self.author_icon.as_ref() {
+                if let Some(ref author_icon) = self.author_icon {
                     a.icon_url(author_icon);
                 }
-                if let Some(author_url) = self.author_url.as_ref() {
+                if let Some(ref author_url) = self.author_url {
                     a.url(author_url);
                 }
-                if let Some(author_text) = self.author_text.as_ref() {
+                if let Some(ref author_text) = self.author_text {
                     a.name(author_text);
                 }
                 a
@@ -77,28 +77,28 @@ impl BasicEmbedData {
         }
         if self.footer_text.is_some() || self.footer_icon.is_some() {
             e.footer(|f| {
-                if let Some(footer_text) = self.footer_text.as_ref() {
+                if let Some(ref footer_text) = self.footer_text {
                     f.text(footer_text);
                 }
-                if let Some(footer_icon) = self.footer_icon.as_ref() {
+                if let Some(ref footer_icon) = self.footer_icon {
                     f.icon_url(footer_icon);
                 }
                 f
             });
         }
-        if let Some(title) = self.title_text.as_ref() {
+        if let Some(ref title) = self.title_text {
             e.title(title);
         }
-        if let Some(url) = self.title_url.as_ref() {
+        if let Some(ref url) = self.title_url {
             e.url(url);
         }
-        if let Some(thumbnail) = self.thumbnail.as_ref() {
+        if let Some(ref thumbnail) = self.thumbnail {
             e.thumbnail(thumbnail);
         }
-        if let Some(description) = self.description.as_ref() {
+        if let Some(ref description) = self.description {
             e.description(description);
         }
-        if let Some(image_url) = self.image_url.as_ref() {
+        if let Some(ref image_url) = self.image_url {
             e.image(image_url);
         }
         if let Some(fields) = self.fields {
@@ -271,6 +271,71 @@ impl BasicEmbedData {
         result.title_text = Some(title_text);
         result.title_url = Some(user.url().to_string());
         result.image_url = Some(user.url().to_string());
+        result
+    }
+
+    //
+    // bg help
+    //
+    pub fn create_bg_help() -> Self {
+        let mut result = Self::default();
+        result.title_text = Some("Background guessing game".to_string());
+        let description = "Given part of a map's background, \
+            try to guess the **title** of the map's song.\n\
+            Content in parentheses `(...)` or content after `ft.` or `feat.` \
+            will be removed from the title you need to guess.\n\
+            You don't need to guess spot on, it suffices to get close enough.\n\
+            Use these subcommands to initiate with the game:"
+            .to_owned();
+        result.description = Some(description);
+        let fields = vec![
+            (
+                "start / s / skip / resolve / r".to_owned(),
+                "Start the game in the current channel. \
+                If a game is already running, \
+                it will resolve the background and give a new one.\n\
+                For the mania version, **start** a game with \
+                the additional argument `mania` or just `m` e.g. `<bg s m`. \
+                Once the mania game is running, you can skip with `<bg s`.\n\
+                To go from STD to MNA or vice versa, make sure to `<bg stop` first."
+                    .to_owned(),
+                false,
+            ),
+            (
+                "hint / h / tip".to_owned(),
+                "Receive a hint (can be used multiple times)".to_owned(),
+                true,
+            ),
+            (
+                "bigger / b / enhance".to_owned(),
+                "Increase the radius of the displayed image \
+                (can be used multiple times)"
+                    .to_owned(),
+                true,
+            ),
+            (
+                "stats".to_owned(),
+                "Check out how many backgrounds you guessed correctly in total".to_owned(),
+                true,
+            ),
+            (
+                "ranking / leaderboard / lb".to_owned(),
+                "Check out the leaderboard of this server.\n\
+                Add the argument `global` or just `g` (e.g. `<bg lb g`) \
+                to get the leaderboard across all servers"
+                    .to_owned(),
+                true,
+            ),
+            (
+                "stop".to_owned(),
+                "Resolve the last background and stop the game in this channel.\n\
+                Not required to use since the game will end automatically \
+                if no one guessed the background after __3 minutes__."
+                    .to_owned(),
+                true,
+            ),
+        ];
+        result.fields = Some(fields);
         result
     }
 

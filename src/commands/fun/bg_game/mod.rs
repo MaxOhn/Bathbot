@@ -28,39 +28,30 @@ use serenity::{
 use std::{collections::HashMap, convert::TryFrom, sync::Arc, time::Duration};
 
 #[command]
-#[description = "Play the background game!\n\
-With `<bg start` you can start the game in a channel \
-which makes me post a piece of some map's background. \
-Then you have to guess the **title** of the map's song.\n\
-With `<bg hint` I will give you some tips (repeatable).\n\
-With `<bg bigger` I will increase the size of the revealed part.\n\
-With `<bg resolve` I will show you the solution.\n\
-With `<bg stop` I will stop the game in this channel.\n\
-With `<bg stats` you can check on how many maps you guessed.\n\
-With `<bg ranking [global]` you can check the (global) leaderboard for correct guesses.\n\
-Subcommands can be abbreviated with `s, h, b, r`, e.g. `<bg h` for hints.\n\
-With `<bg start mania` (`<bg s m`) I will give mania backgrounds to guess."]
+#[description = "Given part of a map's background, try to guess \
+the **title** of the map's song.\nCheck `<bg` for more help"]
 #[aliases("bg")]
 #[sub_commands("start", "hint", "bigger", "stop", "stats", "ranking")]
-async fn backgroundgame(ctx: &Context, msg: &Message) -> CommandResult {
-    msg.channel_id
-        .say(
-            ctx,
-            "Use `<bg s` to (re)start the game, \
-            `<bg b` to increase the image size, \
-            `<bg h` to get a hint, \
-            `<bg stop` to stop the game, \
-            `<bg stats` to check your correct guesses, \
-            or `<bg ranking [global]` to check the (global) leaderboard.\n\
-            For mania backgrounds use `<bg start mania` (`<bg s m`) instead of `<bg start`, \
-            everything else stays the same",
-        )
-        .await?;
+async fn backgroundgame(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let response = if args.is_empty() {
+        let data = BasicEmbedData::create_bg_help();
+        msg.channel_id
+            .send_message(ctx, |m| m.embed(|e| data.build(e)))
+            .await?
+    } else {
+        msg.channel_id
+            .say(
+                ctx,
+                "That's not a valid subcommand. Check `<bg` for more help.",
+            )
+            .await?
+    };
+    discord::reaction_deletion(&ctx, response, msg.author.id).await;
     Ok(())
 }
 
 #[command]
-#[aliases("s", "skip")]
+#[aliases("s", "skip", "resolve", "r")]
 #[sub_commands("mania")]
 async fn start(ctx: &Context, msg: &Message) -> CommandResult {
     _start(GameMode::STD, ctx, msg).await
@@ -97,7 +88,7 @@ async fn _start(mode: GameMode, ctx: &Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
-#[aliases("h")]
+#[aliases("h", "tip")]
 #[bucket = "bg_hint"]
 async fn hint(ctx: &Context, msg: &Message) -> CommandResult {
     let hint = {
@@ -205,6 +196,7 @@ async fn stats(ctx: &Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
+#[aliases("leaderboard", "lb")]
 async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let global = msg.guild_id.is_none()
         || args
