@@ -49,19 +49,6 @@ impl RoleAssignArgs {
     }
 }
 
-pub struct RoleArgs {
-    pub role_id: Option<RoleId>,
-}
-
-impl RoleArgs {
-    pub fn new(mut args: Args) -> Self {
-        let mut args = arguments::first_n(&mut args, 1);
-        let rgx = Regex::new(r"<@&([0-9]*)>$").unwrap();
-        let role_id = args.next().and_then(|arg| parse(&arg, &rgx)).map(RoleId);
-        Self { role_id }
-    }
-}
-
 fn parse(arg: &str, regex: &Regex) -> Option<u64> {
     u64::from_str(arg).ok().or_else(|| {
         regex

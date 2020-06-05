@@ -639,22 +639,12 @@ impl MySQL {
     }
 
     pub fn insert_guild(&self, guild_id: u64) -> DBResult<Guild> {
-        let guild = GuildDB::new(guild_id, true, AUTHORITY_ROLES.to_string(), None);
+        let guild = GuildDB::new(guild_id, true, AUTHORITY_ROLES.to_string());
         let conn = self.get_connection()?;
         diesel::insert_or_ignore_into(schema::guilds::table)
             .values(&guild)
             .execute(&conn)?;
         Ok(guild.into())
-    }
-
-    pub fn update_guild_vc_role(&self, guild: u64, role_id: Option<u64>) -> DBResult<()> {
-        use schema::guilds::columns::{guild_id, vc_role};
-        let conn = self.get_connection()?;
-        let target = schema::guilds::table.filter(guild_id.eq(guild));
-        diesel::update(target)
-            .set(vc_role.eq(role_id))
-            .execute(&conn)?;
-        Ok(())
     }
 
     pub fn update_guild_lyrics(&self, guild: u64, lyrics: bool) -> DBResult<()> {

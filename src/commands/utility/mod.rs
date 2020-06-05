@@ -8,11 +8,10 @@ mod lyrics;
 mod ping;
 mod prune;
 mod role_assign;
-mod vc_role;
 
 pub use self::{
     about::*, authorities::*, avatar::*, command_count::*, echo::*, help::*, lyrics::*, ping::*,
-    prune::*, role_assign::*, vc_role::*,
+    prune::*, role_assign::*,
 };
 
 use serenity::framework::standard::macros::group;
@@ -28,7 +27,6 @@ use serenity::framework::standard::macros::group;
     prune,
     authorities,
     roleassign,
-    vcrole,
     lyrics
 )]
 struct Utility;

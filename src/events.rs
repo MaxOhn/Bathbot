@@ -16,8 +16,7 @@ use serenity::{
         event::ResumedEvent,
         gateway::{Activity, Ready},
         guild::Guild,
-        id::{ChannelId, GuildId, MessageId, RoleId},
-        voice::VoiceState,
+        id::{ChannelId, MessageId, RoleId},
     },
     prelude::*,
 };
@@ -116,81 +115,6 @@ impl EventHandler for Handler {
                 let mut data = ctx.data.write().await;
                 let guilds = data.get_mut::<Guilds>().expect("Could not get Guilds");
                 guilds.insert(guild.guild_id, guild);
-            }
-        }
-    }
-
-    async fn voice_state_update(
-        &self,
-        ctx: Context,
-        guild: Option<GuildId>,
-        old: Option<VoiceState>,
-        new: VoiceState,
-    ) {
-        // Try assigning the server's VC role to the member
-        if let Some(guild_id) = guild {
-            let role = {
-                let data = ctx.data.read().await;
-                data.get::<Guilds>()
-                    .and_then(|guilds| guilds.get(&guild_id))
-                    .and_then(|guild| guild.vc_role)
-            };
-            // If the server has configured such a role
-            if let Some(role) = role {
-                // Get the event's member
-                let mut member = match guild_id.member(&ctx, new.user_id).await {
-                    Ok(member) => member,
-                    Err(why) => {
-                        warn!("Could not get member for VC update: {}", why);
-                        return;
-                    }
-                };
-                let role_name = role
-                    .to_role_cached(&ctx.cache)
-                    .await
-                    .expect("Role not found in cache")
-                    .name;
-                // If either the member left VC, or joined the afk channel
-                let remove_role = match new.channel_id {
-                    None => true,
-                    Some(channel) => channel
-                        .name(&ctx.cache)
-                        .await
-                        .map_or(false, |name| &name.to_lowercase() == "afk"),
-                };
-                if remove_role {
-                    // Remove role
-                    if let Err(why) = member.remove_role(&ctx.http, role).await {
-                        error!("Could not remove role from member for VC update: {}", why);
-                    } else {
-                        info!(
-                            "Removed role '{}' from member {}",
-                            role_name, member.user.name
-                        );
-                    }
-                } else {
-                    // Add role if the member is either coming from the afk channel
-                    // or hasn't been in a VC before
-                    let add_role = match old {
-                        None => true,
-                        Some(old_state) => old_state
-                            .channel_id
-                            .unwrap()
-                            .name(&ctx.cache)
-                            .await
-                            .map_or(true, |name| &name.to_lowercase() == "afk"),
-                    };
-                    if add_role {
-                        if let Err(why) = member.add_role(&ctx.http, role).await {
-                            error!("Could not add role to member for VC update: {}", why);
-                        } else {
-                            info!(
-                                "Assigned role '{}' to member {}",
-                                role_name, member.user.name
-                            );
-                        }
-                    }
-                }
             }
         }
     }

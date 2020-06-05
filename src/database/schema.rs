@@ -17,7 +17,6 @@ table! {
         guild_id -> Unsigned<Bigint>,
         with_lyrics -> Bool,
         authorities -> Varchar,
-        vc_role -> Nullable<Unsigned<Bigint>>,
     }
 }
 
