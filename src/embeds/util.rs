@@ -86,37 +86,17 @@ pub async fn get_grade_completion_mods(score: &Score, map: &Beatmap, cache: Cach
 }
 
 pub fn get_map_info(map: &Beatmap) -> String {
-    #![allow(clippy::float_cmp)]
     format!(
-        "Length: `{}` (`{}`) BPM: `{}` Objects: `{}`\nCS: `{}` AR: `{}` OD: `{}` HP: `{}` Stars: `{}`",
+        "Length: `{}` (`{}`) BPM: `{}` Objects: `{}`\n\
+        CS: `{}` AR: `{}` OD: `{}` HP: `{}` Stars: `{}`",
         sec_to_minsec(map.seconds_total),
         sec_to_minsec(map.seconds_drain),
-        if map.bpm == map.bpm.round() {
-            (map.bpm as u32).to_string()
-        } else {
-            round(map.bpm).to_string()
-        },
+        round(map.bpm).to_string(),
         map.count_objects(),
-        if map.diff_cs == map.diff_cs.round() {
-            (map.diff_cs as u32).to_string()
-        } else {
-            round(map.diff_cs).to_string()
-        },
-        if map.diff_ar == map.diff_ar.round() {
-            (map.diff_ar as u32).to_string()
-        } else {
-            round(map.diff_ar).to_string()
-        },
-        if map.diff_od == map.diff_od.round() {
-            (map.diff_od as u32).to_string()
-        } else {
-            round(map.diff_od).to_string()
-        },
-        if map.diff_hp == map.diff_hp.round() {
-            (map.diff_hp as u32).to_string()
-        } else {
-            round(map.diff_hp).to_string()
-        },
+        round(map.diff_cs).to_string(),
+        round(map.diff_ar).to_string(),
+        round(map.diff_od).to_string(),
+        round(map.diff_hp).to_string(),
         round(map.stars)
     )
 }

@@ -3,6 +3,7 @@ use crate::{
     PerformanceCalculatorLock,
 };
 
+use futures::future::TryFutureExt;
 use rosu::models::{ApprovalStatus, Beatmap, GameMod, GameMode, GameMods, Grade, Score};
 use serenity::prelude::{RwLock, TypeMap};
 use std::{env, mem, process::Stdio, str::FromStr, sync::Arc};
@@ -150,8 +151,9 @@ async fn new_perf_calc<'a>(
         } else {
             CalcParam::max_ctb(&score.enabled_mods)
         };
-        let max_pp_child = start_pp_calc(map.beatmap_id, params).await?;
-        let max_pp = parse_pp_calc(max_pp_child).await?;
+        let max_pp = start_pp_calc(map.beatmap_id, params)
+            .and_then(parse_pp_calc)
+            .await?;
         if map.approval_status == ApprovalStatus::Ranked
             || map.approval_status == ApprovalStatus::Loved
         {

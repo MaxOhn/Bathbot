@@ -10,11 +10,6 @@ mod streams;
 pub mod structs;
 pub mod util;
 
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate diesel;
-
 use crate::scraper::Scraper;
 use commands::{fun::*, osu::*, streams::*, utility::*};
 use database::MySQL;
@@ -23,6 +18,11 @@ use streams::Twitch;
 use structs::Osu;
 use structs::*;
 pub use util::{discord::get_member, Error};
+
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate diesel;
 
 use chrono::{Local, Utc};
 use fern::colors::{Color, ColoredLevelConfig};
@@ -221,7 +221,7 @@ async fn before(ctx: &Context, msg: &Message, cmd_name: &str) -> bool {
         Some(counter) => *counter.entry(cmd_name.to_owned()).or_insert(0) += 1,
         None => warn!("Could not get CommandCounter"),
     }
-    let _ = msg.channel_id.broadcast_typing(&ctx.http).await;
+    let _ = msg.channel_id.broadcast_typing(ctx).await;
     true
 }
 
@@ -239,8 +239,8 @@ async fn dispatch_error(ctx: &Context, msg: &Message, error: DispatchError) -> (
         let _ = msg
             .channel_id
             .say(
-                &ctx.http,
-                &format!("Command on cooldown, try again in {} seconds", seconds),
+                ctx,
+                format!("Command on cooldown, try again in {} seconds", seconds),
             )
             .await;
     };
