@@ -37,9 +37,7 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         name
     } else {
         let data = ctx.data.read().await;
-        let links = data
-            .get::<DiscordLinks>()
-            .expect("Could not get DiscordLinks");
+        let links = data.get::<DiscordLinks>().unwrap();
         match links.get(msg.author.id.as_u64()) {
             Some(name) => name.clone(),
             None => {
@@ -60,7 +58,7 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let (user, scores): (User, Vec<Score>) = {
         let user_req = UserRequest::with_username(&name).mode(GameMode::STD);
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let osu = data.get::<Osu>().unwrap();
         let user = match user_req.queue_single(&osu).await {
             Ok(result) => match result {
                 Some(user) => user,
@@ -90,7 +88,7 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let map_ids: Vec<u32> = scores.iter().map(|s| s.beatmap_id.unwrap()).collect();
     let mut maps = {
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         mysql
             .get_beatmaps(&map_ids)
             .unwrap_or_else(|_| HashMap::default())
@@ -118,7 +116,7 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         let mut scores_data = Vec::with_capacity(scores.len());
         let mut missing_maps = Vec::new();
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let osu = data.get::<Osu>().unwrap();
         for (i, score) in scores.into_iter().enumerate() {
             let map_id = score.beatmap_id.unwrap();
             let map = if maps.contains_key(&map_id) {
@@ -215,7 +213,7 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     // Add missing maps to database
     if let Some(maps) = missing_maps {
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         if let Err(why) = mysql.insert_beatmaps(maps) {
             warn!(
                 "Could not add missing maps of nochoke command to DB: {}",

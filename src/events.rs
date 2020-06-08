@@ -93,7 +93,7 @@ impl EventHandler for Handler {
             // Insert basic guild info into database
             let guild = {
                 let data = ctx.data.read().await;
-                let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                let mysql = data.get::<MySQL>().unwrap();
                 match mysql.insert_guild(guild.id.0) {
                     Ok(g) => {
                         debug!(
@@ -113,7 +113,7 @@ impl EventHandler for Handler {
             };
             if let Some(guild) = guild {
                 let mut data = ctx.data.write().await;
-                let guilds = data.get_mut::<Guilds>().expect("Could not get Guilds");
+                let guilds = data.get_mut::<Guilds>().unwrap();
                 guilds.insert(guild.guild_id, guild);
             }
         }
@@ -197,9 +197,7 @@ async fn _check_streams(http: &Http, data: Arc<RwLock<TypeMap>>) {
         let reading = data.read().await;
 
         // Get data about what needs to be tracked for which channel
-        let stream_tracks = reading
-            .get::<StreamTracks>()
-            .expect("Could not get StreamTracks");
+        let stream_tracks = reading.get::<StreamTracks>().unwrap();
         let user_ids: Vec<_> = stream_tracks
             .iter()
             .filter(|track| track.platform == Platform::Twitch)
@@ -211,7 +209,7 @@ async fn _check_streams(http: &Http, data: Arc<RwLock<TypeMap>>) {
         }
 
         // Get stream data about all streams that need to be tracked
-        let twitch = reading.get::<Twitch>().expect("Could not get Twitch");
+        let twitch = reading.get::<Twitch>().unwrap();
         let mut streams = match twitch.get_streams(&user_ids).await {
             Ok(streams) => streams,
             Err(why) => {
@@ -222,9 +220,7 @@ async fn _check_streams(http: &Http, data: Arc<RwLock<TypeMap>>) {
 
         // Filter streams whether they're live
         streams.retain(TwitchStream::is_live);
-        let online_streams = reading
-            .get::<OnlineTwitch>()
-            .expect("Could not get OnlineTwitch");
+        let online_streams = reading.get::<OnlineTwitch>().unwrap();
         let now_online: HashSet<_> = streams.iter().map(|stream| stream.user_id).collect();
 
         // If there was no activity change since last time, don't do anything
@@ -276,9 +272,7 @@ async fn _check_streams(http: &Http, data: Arc<RwLock<TypeMap>>) {
     };
     if let Some(now_online) = now_online {
         let mut writing = data.write().await;
-        let online_twitch = writing
-            .get_mut::<OnlineTwitch>()
-            .expect("Could not get OnlineTwitch");
+        let online_twitch = writing.get_mut::<OnlineTwitch>().unwrap();
         online_twitch.clear();
         for id in now_online {
             online_twitch.insert(id);

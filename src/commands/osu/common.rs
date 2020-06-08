@@ -39,9 +39,7 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
         }
         1 => {
             let data = ctx.data.read().await;
-            let links = data
-                .get::<DiscordLinks>()
-                .expect("Could not get DiscordLinks");
+            let links = data.get::<DiscordLinks>().unwrap();
             match links.get(msg.author.id.as_u64()) {
                 Some(name) => {
                     args.names.insert(name.clone());
@@ -75,7 +73,7 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
         .collect();
     let (users, mut all_scores): (HashMap<u32, User>, Vec<Vec<Score>>) = {
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let osu = data.get::<Osu>().unwrap();
         let mut users = HashMap::with_capacity(requests.len());
         let mut all_scores = Vec::with_capacity(requests.len());
         for (name, request) in requests.into_iter() {
@@ -131,7 +129,7 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
     let mut maps: HashMap<u32, Beatmap> = {
         let map_ids: Vec<u32> = map_ids.iter().copied().collect();
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         mysql
             .get_beatmaps(&map_ids)
             .unwrap_or_else(|_| HashMap::default())
@@ -143,7 +141,7 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
     // Retrieve all missing maps from the API
     let missing_maps = if !map_ids.is_empty() {
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let osu = data.get::<Osu>().unwrap();
         let mut missing_maps = Vec::with_capacity(map_ids.len());
         for id in map_ids {
             let req = BeatmapRequest::new().map_id(id);
@@ -214,7 +212,7 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
     // Add missing maps to database
     if let Some(maps) = missing_maps {
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         if let Err(why) = mysql.insert_beatmaps(maps) {
             warn!(
                 "Could not add missing maps of common command to DB: {}",

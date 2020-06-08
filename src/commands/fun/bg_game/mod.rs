@@ -67,7 +67,7 @@ async fn mania(ctx: &Context, msg: &Message) -> CommandResult {
 async fn _start(mode: GameMode, ctx: &Context, msg: &Message) -> CommandResult {
     let channel = msg.channel_id;
     let mut data = ctx.data.write().await;
-    let games = data.get_mut::<BgGames>().expect("Could not get BgGames");
+    let games = data.get_mut::<BgGames>().unwrap();
     if !games.contains_key(&channel) {
         let game = BackGroundGame::new(mode).await;
         let collector = MessageCollectorBuilder::new(&ctx)
@@ -95,8 +95,7 @@ async fn hint(ctx: &Context, msg: &Message) -> CommandResult {
         let mut data = ctx.data.write().await;
         let game = data
             .get_mut::<BgGames>()
-            .expect("Could not get BgGames")
-            .get(&msg.channel_id);
+            .and_then(|games| games.get(&msg.channel_id));
         if let Some(game) = game {
             Some(game.hint().await)
         } else {
@@ -123,10 +122,7 @@ async fn hint(ctx: &Context, msg: &Message) -> CommandResult {
 async fn bigger(ctx: &Context, msg: &Message) -> CommandResult {
     let img: Option<Result<Vec<u8>, Error>> = {
         let mut data = ctx.data.write().await;
-        let game = data
-            .get_mut::<BgGames>()
-            .expect("Could not get BgGames")
-            .get_mut(&msg.channel_id);
+        let game = data.get_mut::<BgGames>().unwrap().get_mut(&msg.channel_id);
         if let Some(game) = game {
             Some(game.sub_image().await)
         } else {
@@ -156,7 +152,7 @@ async fn bigger(ctx: &Context, msg: &Message) -> CommandResult {
 async fn stop(ctx: &Context, msg: &Message) -> CommandResult {
     let channel = msg.channel_id;
     let mut data = ctx.data.write().await;
-    let games = data.get_mut::<BgGames>().expect("Could not get BgGames");
+    let games = data.get_mut::<BgGames>().unwrap();
     if !games.contains_key(&channel) {
         msg.channel_id
             .say(
@@ -175,7 +171,7 @@ async fn stop(ctx: &Context, msg: &Message) -> CommandResult {
 async fn stats(ctx: &Context, msg: &Message) -> CommandResult {
     let score = {
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         mysql.get_bggame_score(msg.author.id.0).ok()
     };
     let response = if let Some(score) = score {
@@ -205,7 +201,7 @@ async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
             .unwrap_or_else(|_| false);
     let mut scores = {
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         mysql.all_bggame_scores()?
     };
     if !global && msg.guild_id.is_some() {

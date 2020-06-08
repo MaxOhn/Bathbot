@@ -36,10 +36,8 @@ async fn leaderboard_send(
 ) -> CommandResult {
     let author_name = {
         let data = ctx.data.read().await;
-        let links = data
-            .get::<DiscordLinks>()
-            .expect("Could not get DiscordLinks");
-        links.get(msg.author.id.as_u64()).cloned()
+        data.get::<DiscordLinks>()
+            .and_then(|links| links.get(msg.author.id.as_u64()).cloned())
     };
     let args = MapModArgs::new(args);
     let map_id = if let Some(id) = args.map_id {
@@ -70,12 +68,12 @@ async fn leaderboard_send(
     // Retrieving the beatmap
     let (map_to_db, map) = {
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         match mysql.get_beatmap(map_id) {
             Ok(map) => (false, map),
             Err(_) => {
                 let map_req = BeatmapRequest::new().map_id(map_id);
-                let osu = data.get::<Osu>().expect("Could not get osu client");
+                let osu = data.get::<Osu>().unwrap();
                 let map = match map_req.queue_single(&osu).await {
                     Ok(result) => match result {
                         Some(map) => map,
@@ -109,7 +107,7 @@ async fn leaderboard_send(
     // Retrieve the map's leaderboard
     let scores = {
         let data = ctx.data.read().await;
-        let scraper = data.get::<Scraper>().expect("Could not get Scraper");
+        let scraper = data.get::<Scraper>().unwrap();
         let scores_future = scraper.get_leaderboard(
             map_id,
             national,
@@ -179,7 +177,7 @@ async fn leaderboard_send(
     // Add map to database if its not in already
     if let Some(map) = map_copy {
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         if let Err(why) = mysql.insert_beatmap(&map) {
             warn!("Could not add map of recent command to DB: {}", why);
         }

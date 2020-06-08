@@ -67,12 +67,12 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     // Retrieving the beatmap
     let (map_to_db, map) = {
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         match mysql.get_beatmap(map_id) {
             Ok(map) => (false, map),
             Err(_) => {
                 let map_req = BeatmapRequest::new().map_id(map_id);
-                let osu = data.get::<Osu>().expect("Could not get osu client");
+                let osu = data.get::<Osu>().unwrap();
                 let map = match map_req.queue_single(&osu).await {
                     Ok(result) => match result {
                         Some(map) => map,
@@ -136,7 +136,7 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     // Add map to database if its not in already
     if let Some(map) = map_copy {
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         if let Err(why) = mysql.insert_beatmap(&map) {
             warn!("Could not add map of simulaterecent command to DB: {}", why);
         }

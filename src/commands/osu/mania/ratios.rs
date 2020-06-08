@@ -26,9 +26,7 @@ async fn ratios(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         name
     } else {
         let data = ctx.data.read().await;
-        let links = data
-            .get::<DiscordLinks>()
-            .expect("Could not get DiscordLinks");
+        let links = data.get::<DiscordLinks>().unwrap();
         match links.get(msg.author.id.as_u64()) {
             Some(name) => name.clone(),
             None => {
@@ -48,7 +46,7 @@ async fn ratios(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let (user, scores): (User, Vec<Score>) = {
         let user_req = UserRequest::with_username(&name).mode(GameMode::MNA);
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let osu = data.get::<Osu>().unwrap();
         let user = match user_req.queue_single(&osu).await {
             Ok(result) => match result {
                 Some(user) => user,

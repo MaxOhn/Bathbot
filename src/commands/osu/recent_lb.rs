@@ -34,9 +34,7 @@ async fn recent_lb_send(
 ) -> CommandResult {
     let author_name = {
         let data = ctx.data.read().await;
-        let links = data
-            .get::<DiscordLinks>()
-            .expect("Could not get DiscordLinks");
+        let links = data.get::<DiscordLinks>().unwrap();
         links.get(msg.author.id.as_u64()).cloned()
     };
     let args = NameModArgs::new(args);
@@ -47,9 +45,7 @@ async fn recent_lb_send(
         name
     } else {
         let data = ctx.data.read().await;
-        let links = data
-            .get::<DiscordLinks>()
-            .expect("Could not get DiscordLinks");
+        let links = data.get::<DiscordLinks>().unwrap();
         match links.get(msg.author.id.as_u64()) {
             Some(name) => name.clone(),
             None => {
@@ -69,7 +65,7 @@ async fn recent_lb_send(
     let score = {
         let request = RecentRequest::with_username(&name).mode(mode).limit(1);
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let osu = data.get::<Osu>().unwrap();
         match request.queue(osu).await {
             Ok(mut score) => {
                 if let Some(score) = score.pop() {
@@ -95,11 +91,11 @@ async fn recent_lb_send(
     // Retrieving the score's beatmap
     let (map_to_db, map) = {
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         match mysql.get_beatmap(map_id) {
             Ok(map) => (false, map),
             Err(_) => {
-                let osu = data.get::<Osu>().expect("Could not get osu client");
+                let osu = data.get::<Osu>().unwrap();
                 let map = match score.get_beatmap(osu).await {
                     Ok(m) => m,
                     Err(why) => {
@@ -118,7 +114,7 @@ async fn recent_lb_send(
     // Retrieve the map's leaderboard
     let scores = {
         let data = ctx.data.read().await;
-        let scraper = data.get::<Scraper>().expect("Could not get Scraper");
+        let scraper = data.get::<Scraper>().unwrap();
         let scores_future = scraper.get_leaderboard(
             map_id,
             national,
@@ -188,7 +184,7 @@ async fn recent_lb_send(
     // Add map to database if its not in already
     if let Some(map) = map_copy {
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         if let Err(why) = mysql.insert_beatmap(&map) {
             warn!("Could not add map of recent command to DB: {}", why);
         }

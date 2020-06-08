@@ -48,19 +48,15 @@ async fn removestream(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
             Platform::Mixer => Some((platform, name)),
             Platform::Twitch => {
                 let data = ctx.data.read().await;
-                let twitch_users = data
-                    .get::<TwitchUsers>()
-                    .expect("Could not get TwitchUsers");
+                let twitch_users = data.get::<TwitchUsers>().unwrap();
                 if twitch_users.contains_key(&name) {
                     let twitch_id = *twitch_users.get(&name).unwrap();
                     std::mem::drop(data);
                     let mut data = ctx.data.write().await;
-                    let stream_tracks = data
-                        .get_mut::<StreamTracks>()
-                        .expect("Could not get StreamTracks");
+                    let stream_tracks = data.get_mut::<StreamTracks>().unwrap();
                     let track = StreamTrack::new(msg.channel_id.0, twitch_id, platform);
                     if stream_tracks.remove(&track) {
-                        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                        let mysql = data.get::<MySQL>().unwrap();
                         if let Err(why) =
                             mysql.remove_stream_track(msg.channel_id.0, twitch_id, platform)
                         {

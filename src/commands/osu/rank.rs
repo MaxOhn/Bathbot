@@ -29,9 +29,7 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
         name
     } else {
         let data = ctx.data.read().await;
-        let links = data
-            .get::<DiscordLinks>()
-            .expect("Could not get DiscordLinks");
+        let links = data.get::<DiscordLinks>().unwrap();
         match links.get(msg.author.id.as_u64()) {
             Some(name) => name.clone(),
             None => {
@@ -52,7 +50,7 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
     // Retrieve the rank holding user
     let rank_holder_id = {
         let data = ctx.data.read().await;
-        let scraper = data.get::<Scraper>().expect("Could not get Scraper");
+        let scraper = data.get::<Scraper>().unwrap();
         match scraper
             .get_userid_of_rank(rank, mode, country.as_deref())
             .await
@@ -67,7 +65,7 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
     let rank_holder = {
         let user_req = UserRequest::with_user_id(rank_holder_id).mode(mode);
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let osu = data.get::<Osu>().unwrap();
         match user_req.queue_single(&osu).await {
             Ok(result) => match result {
                 Some(user) => user,
@@ -92,7 +90,7 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
     let (user, scores): (User, Vec<Score>) = {
         let user_req = UserRequest::with_username(&name).mode(mode);
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let osu = data.get::<Osu>().unwrap();
         let user = match user_req.queue_single(&osu).await {
             Ok(result) => match result {
                 Some(user) => user,

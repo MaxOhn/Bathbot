@@ -21,7 +21,7 @@ async fn lyrics(ctx: &Context, msg: &Message) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
     let new_bool = {
         let mut data = ctx.data.write().await;
-        let guilds = data.get_mut::<Guilds>().expect("Could not get Guilds");
+        let guilds = data.get_mut::<Guilds>().unwrap();
         match guilds.entry(guild_id) {
             Entry::Occupied(mut entry) => {
                 let new_bool = !entry.get().with_lyrics;
@@ -39,7 +39,7 @@ async fn lyrics(ctx: &Context, msg: &Message) -> CommandResult {
     };
     {
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         match mysql.update_guild_lyrics(guild_id.0, new_bool) {
             Ok(_) => debug!("Updated lyrics for guild id {}", guild_id.0),
             Err(why) => warn!("Could not set lyrics of guild: {}", why),

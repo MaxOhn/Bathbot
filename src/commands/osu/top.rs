@@ -47,9 +47,7 @@ async fn top_send(
         name
     } else {
         let data = ctx.data.read().await;
-        let links = data
-            .get::<DiscordLinks>()
-            .expect("Could not get DiscordLinks");
+        let links = data.get::<DiscordLinks>().unwrap();
         match links.get(msg.author.id.as_u64()) {
             Some(name) => name.clone(),
             None => {
@@ -69,7 +67,7 @@ async fn top_send(
     let (user, scores): (User, Vec<Score>) = {
         let user_req = UserRequest::with_username(&name).mode(mode);
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let osu = data.get::<Osu>().unwrap();
         let user = match user_req.queue_single(&osu).await {
             Ok(result) => match result {
                 Some(user) => user,
@@ -171,7 +169,7 @@ async fn top_send(
         .collect();
     let mut maps = {
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         mysql
             .get_beatmaps(&map_ids)
             .unwrap_or_else(|_| HashMap::default())
@@ -203,7 +201,7 @@ async fn top_send(
     {
         let dont_filter_sotarks = top_type != TopType::Sotarks;
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let osu = data.get::<Osu>().unwrap();
         for (i, score) in scores_indices.into_iter() {
             let map_id = score.beatmap_id.unwrap();
             let map = if maps.contains_key(&map_id) {
@@ -291,7 +289,7 @@ async fn top_send(
     // Add missing maps to database
     if let Some(maps) = missing_maps {
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         if let Err(why) = mysql.insert_beatmaps(maps) {
             warn!("Could not add missing maps of top command to DB: {}", why);
         }

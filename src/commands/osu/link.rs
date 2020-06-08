@@ -20,14 +20,12 @@ async fn link(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     if args.is_empty() {
         {
             let mut data = ctx.data.write().await;
-            let links = data
-                .get_mut::<DiscordLinks>()
-                .expect("Could not get DiscordLinks");
+            let links = data.get_mut::<DiscordLinks>().unwrap();
             links.remove_entry(&id);
         }
         {
             let data = ctx.data.read().await;
-            let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+            let mysql = data.get::<MySQL>().unwrap();
             if let Err(why) = mysql.remove_discord_link(id) {
                 msg.channel_id.say(&ctx.http, GENERAL_ISSUE).await?;
                 return Err(CommandError(format!(
@@ -44,15 +42,13 @@ async fn link(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let name = args.single_quoted::<String>()?;
         {
             let mut data = ctx.data.write().await;
-            let links = data
-                .get_mut::<DiscordLinks>()
-                .expect("Could not get DiscordLinks");
+            let links = data.get_mut::<DiscordLinks>().unwrap();
             let value = links.entry(id).or_insert_with(String::default);
             *value = name.clone();
         }
         {
             let data = ctx.data.read().await;
-            let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+            let mysql = data.get::<MySQL>().unwrap();
             match mysql.add_discord_link(id, &name) {
                 Ok(_) => debug!("Discord user {} now linked to osu name {} in DB", id, name),
                 Err(why) => {

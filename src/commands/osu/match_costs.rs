@@ -37,7 +37,7 @@ async fn matchcosts(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let osu_match = {
         let match_req = MatchRequest::with_match_id(match_id);
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let osu = data.get::<Osu>().unwrap();
         match match_req.queue_single(&osu).await {
             Ok(osu_match) => osu_match,
             Err(why) => {
@@ -51,7 +51,7 @@ async fn matchcosts(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let users: HashMap<u32, String> = {
         let mut users = HashMap::new();
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let osu = data.get::<Osu>().unwrap();
         for game in osu_match.games.iter() {
             #[allow(clippy::map_entry)]
             for score in game.scores.iter() {

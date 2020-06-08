@@ -52,7 +52,7 @@ async fn about(ctx: &Context, msg: &Message) -> CommandResult {
 
     let response = {
         let data = ctx.data.read().await;
-        let boot_time: &DateTime<Utc> = data.get::<BootTime>().expect("Could not get BootTime");
+        let boot_time: &DateTime<Utc> = data.get::<BootTime>().unwrap();
         msg.channel_id
             .send_message(&ctx.http, |m| {
                 m.embed(|e| {

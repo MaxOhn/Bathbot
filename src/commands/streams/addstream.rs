@@ -49,13 +49,11 @@ async fn addstream(ctx: &Context, msg: &Message, mut args: Args) -> CommandResul
             Platform::Twitch => {
                 let (twitch_id, insert) = {
                     let data = ctx.data.read().await;
-                    let twitch_users = data
-                        .get::<TwitchUsers>()
-                        .expect("Could not get TwitchUsers");
+                    let twitch_users = data.get::<TwitchUsers>().unwrap();
                     if twitch_users.contains_key(&name) {
                         (*twitch_users.get(&name).unwrap(), false)
                     } else {
-                        let twitch = data.get::<Twitch>().expect("Could not get Twitch");
+                        let twitch = data.get::<Twitch>().unwrap();
                         let twitch_id = match twitch.get_user(&name).await {
                             Ok(user) => user.user_id,
                             Err(_) => {
@@ -65,7 +63,7 @@ async fn addstream(ctx: &Context, msg: &Message, mut args: Args) -> CommandResul
                                 return Ok(());
                             }
                         };
-                        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                        let mysql = data.get::<MySQL>().unwrap();
                         match mysql.add_twitch_user(twitch_id, &name) {
                             Ok(_) => debug!("Inserted into twitch_users table"),
                             Err(why) => warn!("Error while adding twitch user: {}", why),
@@ -75,17 +73,13 @@ async fn addstream(ctx: &Context, msg: &Message, mut args: Args) -> CommandResul
                 };
                 let mut data = ctx.data.write().await;
                 if insert {
-                    let twitch_users = data
-                        .get_mut::<TwitchUsers>()
-                        .expect("Could not get TwitchUsers");
+                    let twitch_users = data.get_mut::<TwitchUsers>().unwrap();
                     twitch_users.insert(name.clone(), twitch_id);
                 }
-                let stream_tracks = data
-                    .get_mut::<StreamTracks>()
-                    .expect("Could not get StreamTracks");
+                let stream_tracks = data.get_mut::<StreamTracks>().unwrap();
                 let track = StreamTrack::new(msg.channel_id.0, twitch_id, platform);
                 if stream_tracks.insert(track) {
-                    let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                    let mysql = data.get::<MySQL>().unwrap();
                     match mysql.add_stream_track(msg.channel_id.0, twitch_id, platform) {
                         Ok(_) => debug!("Inserted into stream_tracks table"),
                         Err(why) => warn!("Error while adding stream track: {}", why),

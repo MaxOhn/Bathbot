@@ -37,7 +37,7 @@ async fn roleassign(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let role = args.role_id;
     {
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         match mysql.add_role_assign(channel.0, message.0, role.0) {
             Ok(_) => debug!("Inserted into role_assign table"),
             Err(why) => {
@@ -50,9 +50,7 @@ async fn roleassign(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     }
     {
         let mut data = ctx.data.write().await;
-        let reaction_tracker = data
-            .get_mut::<ReactionTracker>()
-            .expect("Could not get ReactionTracker");
+        let reaction_tracker = data.get_mut::<ReactionTracker>().unwrap();
         reaction_tracker.insert((ChannelId(channel.0), MessageId(message.0)), RoleId(role.0));
     }
     let message = channel.message(&ctx.http, message).await?;

@@ -68,7 +68,7 @@ pub async fn osu(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let user = {
         let req = UserRequest::with_username(&name);
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get Osu");
+        let osu = data.get::<Osu>().unwrap();
         match req.queue_single(&osu).await {
             Ok(user) => match user {
                 Some(user) => user,

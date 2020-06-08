@@ -14,12 +14,8 @@ use serenity::{
 async fn trackedstreams(ctx: &Context, msg: &Message) -> CommandResult {
     let mut twitch_users: Vec<_> = {
         let data = ctx.data.read().await;
-        let twitch_users = data
-            .get::<TwitchUsers>()
-            .expect("Could not get TwitchUsers");
-        let tracks = data
-            .get::<StreamTracks>()
-            .expect("Could not get StreamTracks");
+        let twitch_users = data.get::<TwitchUsers>().unwrap();
+        let tracks = data.get::<StreamTracks>().unwrap();
         twitch_users
             .par_iter()
             .filter(|(_, &twitch_id)| {

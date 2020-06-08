@@ -125,14 +125,14 @@ impl BackGroundGame {
                             .write()
                             .await
                             .get_mut::<BgGames>()
-                            .expect("Could not get BgGames")
+                            .unwrap()
                             .remove(&channel);
                         collector.stop();
                         break;
                     }
                     LoopResult::Winner(user_id) => {
                         let data = data.read().await;
-                        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                        let mysql = data.get::<MySQL>().unwrap();
                         if let Err(why) = mysql.increment_bggame_score(user_id) {
                             error!("Error while incrementing bggame score: {}", why);
                         }

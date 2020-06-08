@@ -26,9 +26,7 @@ async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         name
     } else {
         let data = ctx.data.read().await;
-        let links = data
-            .get::<DiscordLinks>()
-            .expect("Could not get DiscordLinks");
+        let links = data.get::<DiscordLinks>().unwrap();
         match links.get(msg.author.id.as_u64()) {
             Some(name) => name.clone(),
             None => {
@@ -49,7 +47,7 @@ async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         let user_req = UserRequest::with_username(&name);
         let data = ctx.data.read().await;
         let user = {
-            let osu = data.get::<Osu>().expect("Could not get osu client");
+            let osu = data.get::<Osu>().unwrap();
             match user_req.queue_single(&osu).await {
                 Ok(result) => match result {
                     Some(user) => user,
@@ -67,7 +65,7 @@ async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             }
         };
         let maps = {
-            let scraper = data.get::<Scraper>().expect("Could not get Scraper");
+            let scraper = data.get::<Scraper>().unwrap();
             match scraper.get_most_played(user.user_id, 50).await {
                 Ok(maps) => maps,
                 Err(why) => {

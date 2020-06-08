@@ -1309,7 +1309,7 @@ impl BasicEmbedData {
         }
         let previous_ratios = {
             let data = data.read().await;
-            let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+            let mysql = data.get::<MySQL>().unwrap();
             mysql.update_ratios(
                 &user.username,
                 all_scores.iter().join(","),

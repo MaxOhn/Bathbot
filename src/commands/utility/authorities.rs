@@ -33,7 +33,7 @@ async fn authorities(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
     // Check if the user just wants to see the current authorities
     if args.current().unwrap_or_default() == "-show" {
         let data = ctx.data.read().await;
-        let guilds = data.get::<Guilds>().expect("Could not get Guilds");
+        let guilds = data.get::<Guilds>().unwrap();
         if let Some(guild) = guilds.get(&guild_id) {
             let roles = &guild.authorities;
             let content = if roles.is_empty() {
@@ -150,7 +150,7 @@ async fn authorities(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
     // Save in Guilds data
     {
         let mut data = ctx.data.write().await;
-        let guilds = data.get_mut::<Guilds>().expect("Could not get Guilds");
+        let guilds = data.get_mut::<Guilds>().unwrap();
         match guilds.entry(guild_id) {
             Entry::Occupied(mut entry) => entry.get_mut().authorities = auth_strings.clone(),
             Entry::Vacant(_) => {
@@ -167,7 +167,7 @@ async fn authorities(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
     {
         let auth_string = auth_strings.iter().join(" ");
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         match mysql.update_guild_authorities(guild_id.0, auth_string) {
             Ok(_) => debug!("Updated authorities for guild id {}", guild_id.0),
             Err(why) => error!("Could not update authorities of guild: {}", why),

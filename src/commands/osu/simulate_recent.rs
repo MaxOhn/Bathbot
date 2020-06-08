@@ -42,9 +42,7 @@ async fn simulate_recent_send(
         name.clone()
     } else {
         let data = ctx.data.read().await;
-        let links = data
-            .get::<DiscordLinks>()
-            .expect("Could not get DiscordLinks");
+        let links = data.get::<DiscordLinks>().unwrap();
         match links.get(msg.author.id.as_u64()) {
             Some(name) => name.clone(),
             None => {
@@ -64,7 +62,7 @@ async fn simulate_recent_send(
     let score = {
         let request = RecentRequest::with_username(&name).mode(mode).limit(1);
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let osu = data.get::<Osu>().unwrap();
         let mut scores = match request.queue(osu).await {
             Ok(scores) => scores,
             Err(why) => {
@@ -89,11 +87,11 @@ async fn simulate_recent_send(
     // Retrieving the score's beatmap
     let (map_to_db, map) = {
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         match mysql.get_beatmap(score.beatmap_id.unwrap()) {
             Ok(map) => (false, map),
             Err(_) => {
-                let osu = data.get::<Osu>().expect("Could not get osu client");
+                let osu = data.get::<Osu>().unwrap();
                 let map = match score.get_beatmap(osu).await {
                     Ok(m) => m,
                     Err(why) => {
@@ -135,7 +133,7 @@ async fn simulate_recent_send(
     // Add map to database if its not in already
     if let Some(map) = map_copy {
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         if let Err(why) = mysql.insert_beatmap(&map) {
             warn!("Could not add map of simulaterecent command to DB: {}", why);
         }

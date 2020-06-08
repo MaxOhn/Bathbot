@@ -40,9 +40,7 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
         }
         1 => {
             let data = ctx.data.read().await;
-            let links = data
-                .get::<DiscordLinks>()
-                .expect("Could not get DiscordLinks");
+            let links = data.get::<DiscordLinks>().unwrap();
             match links.get(msg.author.id.as_u64()) {
                 Some(name) => {
                     args.names.insert(name.clone());
@@ -75,8 +73,8 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
     let mut all_maps: HashSet<MostPlayedMap> = HashSet::with_capacity(names.len() * 99);
     {
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get Osu");
-        let scraper = data.get::<Scraper>().expect("Could not get Scraper");
+        let osu = data.get::<Osu>().unwrap();
+        let scraper = data.get::<Scraper>().unwrap();
         for name in names.iter() {
             let req = UserRequest::with_username(&name);
             let user = match req.queue_single(&osu).await {

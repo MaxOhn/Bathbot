@@ -356,7 +356,7 @@ impl Pagination {
                 // Make sure map is ready
                 if !maps.contains_key(&map_id) {
                     let data = data.read().await;
-                    let osu = data.get::<Osu>().expect("Could not get osu client");
+                    let osu = data.get::<Osu>().unwrap();
                     let map = score.get_beatmap(osu).await?;
                     maps.insert(map_id, map);
                 }
@@ -364,7 +364,7 @@ impl Pagination {
                 // Make sure map leaderboard is ready
                 if !global.contains_key(&map.beatmap_id) {
                     let data = data.read().await;
-                    let osu = data.get::<Osu>().expect("Could not get Osu");
+                    let osu = data.get::<Osu>().unwrap();
                     let global_lb = map.get_global_leaderboard(&osu, 50).await?;
                     global.insert(map.beatmap_id, global_lb);
                 };

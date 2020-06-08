@@ -21,9 +21,7 @@ use std::{convert::TryFrom, sync::Arc, time::Duration};
                  since my last reboot"]
 async fn commands(ctx: &Context, msg: &Message) -> CommandResult {
     let data = ctx.data.read().await;
-    let counter = data
-        .get::<CommandCounter>()
-        .expect("Could not get CommandCounter");
+    let counter = data.get::<CommandCounter>().unwrap();
     let mut vec = Vec::with_capacity(counter.len());
     for (command, amount) in counter {
         vec.push((command.clone(), *amount));
@@ -32,7 +30,7 @@ async fn commands(ctx: &Context, msg: &Message) -> CommandResult {
 
     // Prepare embed data
     let boot_time = {
-        let boot_time: &DateTime<Utc> = data.get::<BootTime>().expect("Could not get BootTime");
+        let boot_time: &DateTime<Utc> = data.get::<BootTime>().unwrap();
         datetime::how_long_ago(boot_time)
     };
     let sub_vec = vec

@@ -28,7 +28,7 @@ async fn authority_check(
                         let role_name = role.name.to_lowercase();
                         let guild_id = msg.guild_id.unwrap();
                         let data = ctx.data.read().await;
-                        let guilds = data.get::<Guilds>().expect("Could not get Guilds");
+                        let guilds = data.get::<Guilds>().unwrap();
                         let contains_authority = guilds
                             .get(&guild_id)
                             .unwrap_or_else(|| panic!("GuildId {} not found in Guilds", guild_id.0))

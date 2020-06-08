@@ -52,12 +52,12 @@ pub async fn get_title_artist(
 ) -> Result<(String, String), Error> {
     let (mut title, artist) = {
         let data = data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         if let Ok(mapset) = mysql.get_beatmapset(mapset_id) {
             Ok((mapset.title, mapset.artist))
         } else {
             let request = BeatmapRequest::new().mapset_id(mapset_id);
-            let osu = data.get::<Osu>().expect("Could not get Osu");
+            let osu = data.get::<Osu>().unwrap();
             match request.queue_single(&osu).await {
                 Ok(Some(map)) => Ok((map.title, map.artist)),
                 _ => Err(Error::Custom(

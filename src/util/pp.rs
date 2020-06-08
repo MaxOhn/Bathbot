@@ -67,18 +67,14 @@ async fn new_perf_calc<'a>(
     let mode = map.mode;
     let mutex = if score.pp.is_none() {
         let data = data.read().await;
-        Some(
-            data.get::<PerformanceCalculatorLock>()
-                .expect("Could not get PerformanceCalculatorLock")
-                .clone(),
-        )
+        Some(data.get::<PerformanceCalculatorLock>().unwrap().clone())
     } else {
         None
     };
     let (stars, stars_in_db) = if score.enabled_mods.changes_stars(mode) {
         // Try retrieving stars from database
         let data = data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         match mysql.get_mod_stars(map.beatmap_id, mode, &score.enabled_mods) {
             Ok(result) => (result, true),
             Err(why) => {
@@ -116,7 +112,7 @@ async fn new_perf_calc<'a>(
     // Try retrieving max pp of the map from database
     let (max_pp, map_in_db) = {
         let data = data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         match mysql.get_mod_pp(map.beatmap_id, mode, &score.enabled_mods) {
             Ok(result) => (result, true),
             Err(why) => {
@@ -159,7 +155,7 @@ async fn new_perf_calc<'a>(
         {
             // Insert max pp value into database
             let data = data.read().await;
-            let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+            let mysql = data.get::<MySQL>().unwrap();
             f32_to_db(
                 map_in_db,
                 mysql,
@@ -182,7 +178,7 @@ async fn new_perf_calc<'a>(
         {
             // Insert stars value into database
             let data = data.read().await;
-            let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+            let mysql = data.get::<MySQL>().unwrap();
             f32_to_db(
                 stars_in_db,
                 mysql,
@@ -257,9 +253,7 @@ impl PPProvider {
         } else {
             let mutex = {
                 let data = data.read().await;
-                data.get::<PerformanceCalculatorLock>()
-                    .expect("Could not get PerformanceCalculatorLock")
-                    .clone()
+                data.get::<PerformanceCalculatorLock>().unwrap().clone()
             };
             let _ = mutex.lock();
             let params = if map.mode == GameMode::MNA {
@@ -292,7 +286,7 @@ impl PPProvider {
                 // Try retrieving max pp of the map from database
                 let (max_pp, map_in_db) = {
                     let data = data.read().await;
-                    let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                    let mysql = data.get::<MySQL>().unwrap();
                     match mysql.get_mod_pp(map.beatmap_id, map.mode, &mods) {
                         Ok(result) => (result, true),
                         Err(why) => {
@@ -311,9 +305,7 @@ impl PPProvider {
                     let max_pp = {
                         let mutex = {
                             let data = data.read().await;
-                            data.get::<PerformanceCalculatorLock>()
-                                .expect("Could not get PerformanceCalculatorLock")
-                                .clone()
+                            data.get::<PerformanceCalculatorLock>().unwrap().clone()
                         };
                         let _ = mutex.lock();
                         let params: CalcParam<'a, Score> = if map.mode == GameMode::MNA {
@@ -326,7 +318,7 @@ impl PPProvider {
                     };
                     // Insert max pp value into database
                     let data = data.read().await;
-                    let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+                    let mysql = data.get::<MySQL>().unwrap();
                     if map_in_db {
                         mysql.update_pp_map(map.beatmap_id, map.mode, &mods, max_pp)?;
                     } else {

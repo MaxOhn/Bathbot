@@ -35,9 +35,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
         name
     } else {
         let data = ctx.data.read().await;
-        let links = data
-            .get::<DiscordLinks>()
-            .expect("Could not get DiscordLinks");
+        let links = data.get::<DiscordLinks>().unwrap();
         match links.get(msg.author.id.as_u64()) {
             Some(name) => name.clone(),
             None => {
@@ -57,7 +55,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
     let scores = {
         let request = RecentRequest::with_username(&name).mode(mode).limit(50);
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let osu = data.get::<Osu>().unwrap();
         match request.queue(osu).await {
             Ok(scores) => scores,
             Err(why) => {
@@ -80,7 +78,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
     let user = {
         let req = UserRequest::with_username(&name).mode(mode);
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let osu = data.get::<Osu>().unwrap();
         match req.queue_single(&osu).await {
             Ok(Some(u)) => u,
             Ok(None) => unreachable!(),
@@ -96,7 +94,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
     let mut maps = {
         let dedubed_ids: Vec<u32> = map_ids.iter().copied().collect();
         let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+        let mysql = data.get::<MySQL>().unwrap();
         mysql
             .get_beatmaps(&dedubed_ids)
             .unwrap_or_else(|_| HashMap::default())
@@ -112,7 +110,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
     {
         if !maps.contains_key(&first_id) {
             let data = ctx.data.read().await;
-            let osu = data.get::<Osu>().expect("Could not get osu client");
+            let osu = data.get::<Osu>().unwrap();
             let map = match first_score.get_beatmap(osu).await {
                 Ok(map) => map,
                 Err(why) => {
@@ -127,7 +125,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
     // Retrieving the user's top 100 and the map's global top 50
     let best = {
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let osu = data.get::<Osu>().unwrap();
         match user.get_top_scores(osu, 100, mode).await {
             Ok(scores) => scores,
             Err(why) => {
@@ -140,7 +138,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
     let mut global = HashMap::with_capacity(50);
     {
         let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().expect("Could not get osu client");
+        let osu = data.get::<Osu>().unwrap();
         match first_map.approval_status {
             Ranked | Loved | Qualified | Approved => {
                 match first_map.get_global_leaderboard(osu, 50).await {
@@ -269,7 +267,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                 .map(|(_, map)| map)
                 .collect();
             let data = data.read().await;
-            let mysql = data.get::<MySQL>().expect("Could not get MySQL");
+            let mysql = data.get::<MySQL>().unwrap();
             if let Err(why) = mysql.insert_beatmaps(maps) {
                 warn!("Error while adding maps to DB: {}", why);
             }

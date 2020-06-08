@@ -10,7 +10,7 @@ use tokio::time;
 async fn song_send(lyrics: &[&str], delay: u64, ctx: &Context, msg: &Message) -> CommandResult {
     let allow = {
         let data = ctx.data.read().await;
-        let guilds = data.get::<Guilds>().expect("Could not get Guilds");
+        let guilds = data.get::<Guilds>().unwrap();
         if let Some(guild_id) = msg.guild_id {
             match guilds.get(&guild_id) {
                 Some(guild) => guild.with_lyrics,
