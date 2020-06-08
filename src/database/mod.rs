@@ -1,54 +1,47 @@
 mod models;
-mod schema;
+// mod schema;
 
 use models::{CtbPP, DBMap, GuildDB, ManiaPP, MapSplit, StreamTrackDB};
 pub use models::{DBMapSet, Guild, Platform, Ratios, StreamTrack, TwitchUser};
 
 use crate::util::{globals::AUTHORITY_ROLES, Error};
 
-use diesel::{
-    prelude::*,
-    r2d2::{ConnectionManager, Pool, PooledConnection},
-    sql_types::Text,
-    MysqlConnection,
-};
+// use diesel::{
+//     prelude::*,
+//     r2d2::{ConnectionManager, Pool, PooledConnection},
+//     sql_types::Text,
+//     MysqlConnection,
+// };
 use rosu::models::{Beatmap, GameMod, GameMode, GameMods};
 use serenity::model::id::GuildId;
+use sqlx::mysql::MySqlPool;
 use std::collections::{HashMap, HashSet};
 
 pub struct MySQL {
-    pool: Pool<ConnectionManager<MysqlConnection>>,
+    pool: MySqlPool,
 }
 
-type ConnectionResult = Result<PooledConnection<ConnectionManager<MysqlConnection>>, Error>;
 type DBResult<T> = Result<T, Error>;
 
 impl MySQL {
     pub fn new(database_url: &str) -> DBResult<Self> {
-        let manager = ConnectionManager::new(database_url);
-        let pool = Pool::builder()
-            .build(manager)
-            .map_err(|e| Error::Custom(format!("Failed to create pool: {}", e)))?;
+        let pool = MySqlPool::builder().max_size(20).build(database_url);
         Ok(Self { pool })
-    }
-
-    fn get_connection(&self) -> ConnectionResult {
-        self.pool.get().map_err(|e| {
-            Error::MySQLConnection(format!("Error while waiting for MySQL connection: {}", e))
-        })
     }
 
     // ---------------------
     // Table: maps / mapsets
     // ---------------------
 
-    pub fn get_beatmap(&self, map_id: u32) -> DBResult<Beatmap> {
-        use schema::{maps, mapsets};
-        let conn = self.get_connection()?;
-        let map = maps::table.find(map_id).first::<DBMap>(&conn)?;
-        let mapset = mapsets::table
-            .find(map.beatmapset_id)
-            .first::<DBMapSet>(&conn)?;
+    pub async fn get_beatmap(&self, map_id: u32) -> DBResult<Beatmap> {
+        let map = sqlx::query_as!(DBMap, "SELECT * FROM maps WHERE beatmap_id=?")
+            .bind(map_id)
+            .fetch_one(&self.pool)
+            .await?;
+        let mapset = sqlx::query_as!(DBMapSet, "SELECT * FROM mapsets WHERE beatmapset_id=?")
+            .bind(map.beatmapset_id)
+            .fetch_one(&self.pool)
+            .await?;
         Ok(map.into_beatmap(mapset))
     }
 

@@ -22,7 +22,7 @@ pub use util::{discord::get_member, Error};
 #[macro_use]
 extern crate log;
 #[macro_use]
-extern crate diesel;
+extern crate sqlx;
 
 use chrono::{Local, Utc};
 use fern::colors::{Color, ColoredLevelConfig};

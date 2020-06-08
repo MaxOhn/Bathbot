@@ -1,6 +1,6 @@
-use super::super::schema::{maps, mapsets};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use rosu::models::{ApprovalStatus, Beatmap, GameMode, Genre, Language};
+use sqlx::FromRow;
 use std::convert::TryFrom;
 
 pub trait MapSplit {
@@ -76,10 +76,7 @@ impl MapSplit for Beatmap {
     }
 }
 
-#[derive(Identifiable, Debug, Queryable, Insertable, Associations)]
-#[table_name = "maps"]
-#[belongs_to(DBMapSet, foreign_key = "beatmapset_id")]
-#[primary_key(beatmap_id)]
+#[derive(FromRow, Debug)]
 pub struct DBMap {
     pub beatmap_id: u32, // pub for debugging purposes
     pub beatmapset_id: u32,
@@ -136,9 +133,7 @@ impl DBMap {
     }
 }
 
-#[derive(Identifiable, Debug, Queryable, Insertable, Associations, Clone)]
-#[table_name = "mapsets"]
-#[primary_key(beatmapset_id)]
+#[derive(FromRow, Debug)]
 pub struct DBMapSet {
     pub beatmapset_id: u32,
     pub artist: String,

@@ -1,7 +1,6 @@
 use crate::roppai::OppaiErr;
 
 use chrono::format::ParseError as ParseChrono;
-use diesel::result::Error as DieselError;
 use image::ImageError;
 use reqwest::{self, header::InvalidHeaderValue};
 use rosu::backend::OsuError;
@@ -21,7 +20,6 @@ pub enum Error {
     Osu(OsuError),
     Oppai(OppaiErr),
     Reqwest(reqwest::Error),
-    DieselError(DieselError),
     MySQLConnection(String),
     ImageError(ImageError),
     Serde(SerdeError),
@@ -43,12 +41,6 @@ impl From<SerdeError> for Error {
 impl From<ImageError> for Error {
     fn from(e: ImageError) -> Self {
         Self::ImageError(e)
-    }
-}
-
-impl From<DieselError> for Error {
-    fn from(e: DieselError) -> Self {
-        Self::DieselError(e)
     }
 }
 
@@ -119,7 +111,6 @@ impl fmt::Display for Error {
             Self::Osu(e) => write!(f, "{}", e),
             Self::Oppai(e) => write!(f, "{:?}", e),
             Self::Reqwest(e) => write!(f, "{:?}", e),
-            Self::DieselError(e) => write!(f, "{}", e),
             Self::MySQLConnection(e) => write!(f, "{}", e),
             Self::ImageError(e) => write!(f, "{}", e),
             Self::Serde(e) => write!(f, "{}", e),

@@ -41,6 +41,7 @@ In case you want to get the bot running yourself to either modify a custom insta
 
 ## Todos
 - Mixer stream tracking
+- Move from diesel to sqlx
 - Allow username provision via discord user mention
 - Update spreadsheet (`<mostplayed`, `pagination`, ...)
 - Automize the bot setup via docker
@@ -49,5 +50,6 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Check on previous id buffer of bg game
 - Check on the bgs that don't work
 - Fix "Error while sending HTTP request." for `<c`
+- Try to optimize dependencies
   ### Commands
   - None as of now
