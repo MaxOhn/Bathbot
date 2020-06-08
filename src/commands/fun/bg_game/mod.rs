@@ -14,7 +14,6 @@ use crate::{
     BgGames, Error, MySQL,
 };
 
-use futures::StreamExt;
 use rosu::models::GameMode;
 use serenity::{
     collector::{MessageCollectorBuilder, ReactionAction},
@@ -26,6 +25,7 @@ use serenity::{
     prelude::Context,
 };
 use std::{collections::HashMap, convert::TryFrom, sync::Arc, time::Duration};
+use tokio::stream::StreamExt;
 
 #[command]
 #[description = "Given part of a map's background, try to guess \

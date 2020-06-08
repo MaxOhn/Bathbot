@@ -7,7 +7,6 @@ use crate::{
     DiscordLinks, Osu,
 };
 
-use futures::StreamExt;
 use rosu::{
     backend::requests::{RecentRequest, UserRequest},
     models::{
@@ -26,6 +25,7 @@ use std::{
     convert::TryFrom,
     sync::Arc,
 };
+use tokio::stream::StreamExt;
 use tokio::time::Duration;
 
 #[allow(clippy::cognitive_complexity)]

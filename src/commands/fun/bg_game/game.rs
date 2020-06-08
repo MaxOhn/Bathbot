@@ -1,7 +1,6 @@
 use super::{util, Hints, ImageReveal};
 use crate::{BgGames, Error, MySQL};
 
-use futures::StreamExt;
 use image::{imageops::FilterType, GenericImageView, ImageFormat};
 use rosu::models::GameMode;
 use serenity::{
@@ -13,6 +12,7 @@ use serenity::{
 };
 use std::{collections::VecDeque, env, fmt::Write, fs, path::PathBuf, str::FromStr, sync::Arc};
 use tokio::{
+    stream::StreamExt,
     sync::watch::{channel, Receiver, Sender},
     time,
 };

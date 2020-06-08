@@ -7,7 +7,6 @@ use crate::{
     DiscordLinks, Osu,
 };
 
-use futures::StreamExt;
 use rosu::{
     backend::requests::UserRequest,
     models::{Beatmap, GameMode, Score, User},
@@ -22,6 +21,7 @@ use serenity::{
     prelude::Context,
 };
 use std::{cmp::Ordering, collections::HashMap, convert::TryFrom, sync::Arc, time::Duration};
+use tokio::stream::StreamExt;
 
 #[command]
 #[description = "Display a user's top plays if no score in their top 100 \

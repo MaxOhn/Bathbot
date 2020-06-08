@@ -7,7 +7,6 @@ use crate::{
     DiscordLinks, Osu,
 };
 
-use futures::StreamExt;
 use rayon::prelude::*;
 use rosu::{
     backend::requests::UserRequest,
@@ -20,6 +19,7 @@ use serenity::{
     prelude::Context,
 };
 use std::{cmp::Ordering, collections::HashMap, convert::TryFrom, sync::Arc, time::Duration};
+use tokio::stream::StreamExt;
 
 #[allow(clippy::cognitive_complexity)]
 async fn top_send(

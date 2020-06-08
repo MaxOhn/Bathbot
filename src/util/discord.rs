@@ -1,6 +1,5 @@
 use crate::{util::globals::AVATAR_URL, Error};
 
-use futures::StreamExt;
 use image::{
     imageops::FilterType, png::PNGEncoder, ColorType, DynamicImage, GenericImage, GenericImageView,
 };
@@ -16,6 +15,7 @@ use serenity::{
     prelude::{Context, RwLock, TypeMap},
 };
 use std::{str::FromStr, sync::Arc, time::Duration};
+use tokio::stream::StreamExt;
 
 pub async fn get_combined_thumbnail(user_ids: &[u32]) -> Result<Vec<u8>, Error> {
     let mut combined = DynamicImage::new_rgba8(128, 128);
