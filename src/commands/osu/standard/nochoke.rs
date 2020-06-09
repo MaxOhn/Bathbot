@@ -91,6 +91,7 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         let mysql = data.get::<MySQL>().unwrap();
         mysql
             .get_beatmaps(&map_ids)
+            .await
             .unwrap_or_else(|_| HashMap::default())
     };
     debug!("Found {}/{} beatmaps in DB", maps.len(), scores.len());
@@ -214,7 +215,7 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     if let Some(maps) = missing_maps {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        if let Err(why) = mysql.insert_beatmaps(maps) {
+        if let Err(why) = mysql.insert_beatmaps(maps).await {
             warn!(
                 "Could not add missing maps of nochoke command to DB: {}",
                 why

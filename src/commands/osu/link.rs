@@ -26,7 +26,7 @@ async fn link(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         {
             let data = ctx.data.read().await;
             let mysql = data.get::<MySQL>().unwrap();
-            if let Err(why) = mysql.remove_discord_link(id) {
+            if let Err(why) = mysql.remove_discord_link(id).await {
                 msg.channel_id.say(&ctx.http, GENERAL_ISSUE).await?;
                 return Err(CommandError(format!(
                     "Error while removing discord link from DB: {}",
@@ -49,7 +49,7 @@ async fn link(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         {
             let data = ctx.data.read().await;
             let mysql = data.get::<MySQL>().unwrap();
-            match mysql.add_discord_link(id, &name) {
+            match mysql.add_discord_link(id, &name).await {
                 Ok(_) => debug!("Discord user {} now linked to osu name {} in DB", id, name),
                 Err(why) => {
                     msg.channel_id.say(&ctx.http, GENERAL_ISSUE).await?;

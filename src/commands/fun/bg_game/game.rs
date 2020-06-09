@@ -133,7 +133,7 @@ impl BackGroundGame {
                     LoopResult::Winner(user_id) => {
                         let data = data.read().await;
                         let mysql = data.get::<MySQL>().unwrap();
-                        if let Err(why) = mysql.increment_bggame_score(user_id) {
+                        if let Err(why) = mysql.increment_bggame_score(user_id).await {
                             error!("Error while incrementing bggame score: {}", why);
                         }
                     }

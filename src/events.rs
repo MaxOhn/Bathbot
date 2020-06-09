@@ -61,6 +61,7 @@ impl EventHandler for Handler {
                 Some(mysql) => {
                     let reaction_tracker: HashMap<_, _> = mysql
                         .get_role_assigns()
+                        .await
                         .expect("Could not get role assigns")
                         .into_iter()
                         .map(|((c, m), r)| ((ChannelId(c), MessageId(m)), RoleId(r)))
@@ -94,7 +95,7 @@ impl EventHandler for Handler {
             let guild = {
                 let data = ctx.data.read().await;
                 let mysql = data.get::<MySQL>().unwrap();
-                match mysql.insert_guild(guild.id.0) {
+                match mysql.insert_guild(guild.id.0).await {
                     Ok(g) => {
                         debug!(
                             "Inserted new guild {} with id {} to DB",

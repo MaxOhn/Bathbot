@@ -6,6 +6,7 @@ use reqwest::{self, header::InvalidHeaderValue};
 use rosu::backend::OsuError;
 use serde_json::error::Error as SerdeError;
 use serenity::{framework::standard::CommandError, Error as SerenityError};
+use sqlx::Error as SQLXError;
 use std::{env, fmt, io, num};
 
 #[derive(Debug)]
@@ -24,6 +25,13 @@ pub enum Error {
     ImageError(ImageError),
     Serde(SerdeError),
     InvalidHeaderValue(InvalidHeaderValue),
+    SQLX(SQLXError),
+}
+
+impl From<SQLXError> for Error {
+    fn from(e: SQLXError) -> Self {
+        Self::SQLX(e)
+    }
 }
 
 impl From<InvalidHeaderValue> for Error {
@@ -115,6 +123,7 @@ impl fmt::Display for Error {
             Self::ImageError(e) => write!(f, "{}", e),
             Self::Serde(e) => write!(f, "{}", e),
             Self::InvalidHeaderValue(e) => write!(f, "{}", e),
+            Self::SQLX(e) => write!(f, "{}", e),
         }
     }
 }

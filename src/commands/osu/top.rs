@@ -172,6 +172,7 @@ async fn top_send(
         let mysql = data.get::<MySQL>().unwrap();
         mysql
             .get_beatmaps(&map_ids)
+            .await
             .unwrap_or_else(|_| HashMap::default())
     };
     debug!(
@@ -290,7 +291,7 @@ async fn top_send(
     if let Some(maps) = missing_maps {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        if let Err(why) = mysql.insert_beatmaps(maps) {
+        if let Err(why) = mysql.insert_beatmaps(maps).await {
             warn!("Could not add missing maps of top command to DB: {}", why);
         }
     }

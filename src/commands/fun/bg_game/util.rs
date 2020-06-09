@@ -44,7 +44,7 @@ pub async fn get_title_artist(
     let (mut title, artist) = {
         let data = data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        if let Ok(mapset) = mysql.get_beatmapset(mapset_id) {
+        if let Ok(mapset) = mysql.get_beatmapset(mapset_id).await {
             Ok((mapset.title, mapset.artist))
         } else {
             let request = BeatmapRequest::new().mapset_id(mapset_id);

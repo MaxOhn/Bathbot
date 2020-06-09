@@ -74,7 +74,10 @@ async fn new_perf_calc<'a>(
         // Try retrieving stars from database
         let data = data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_mod_stars(map.beatmap_id, mode, &score.enabled_mods) {
+        match mysql
+            .get_mod_stars(map.beatmap_id, mode, &score.enabled_mods)
+            .await
+        {
             Ok(result) => (result, true),
             Err(why) => {
                 if let Error::Custom(_) = why {
@@ -112,7 +115,10 @@ async fn new_perf_calc<'a>(
     let (max_pp, map_in_db) = {
         let data = data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_mod_pp(map.beatmap_id, mode, &score.enabled_mods) {
+        match mysql
+            .get_mod_pp(map.beatmap_id, mode, &score.enabled_mods)
+            .await
+        {
             Ok(result) => (result, true),
             Err(why) => {
                 if let Error::Custom(_) = why {
@@ -162,7 +168,8 @@ async fn new_perf_calc<'a>(
                 &score.enabled_mods,
                 max_pp,
                 false,
-            )?;
+            )
+            .await?;
         }
         max_pp
     };
@@ -185,7 +192,8 @@ async fn new_perf_calc<'a>(
                 &score.enabled_mods,
                 stars,
                 true,
-            )?;
+            )
+            .await?;
         }
         stars
     };
@@ -285,7 +293,7 @@ impl PPProvider {
                 let (max_pp, map_in_db) = {
                     let data = data.read().await;
                     let mysql = data.get::<MySQL>().unwrap();
-                    match mysql.get_mod_pp(map.beatmap_id, map.mode, &mods) {
+                    match mysql.get_mod_pp(map.beatmap_id, map.mode, &mods).await {
                         Ok(result) => (result, true),
                         Err(why) => {
                             if let Error::Custom(_) = why {
@@ -318,9 +326,13 @@ impl PPProvider {
                     let data = data.read().await;
                     let mysql = data.get::<MySQL>().unwrap();
                     if map_in_db {
-                        mysql.update_pp_map(map.beatmap_id, map.mode, &mods, max_pp)?;
+                        mysql
+                            .update_pp_map(map.beatmap_id, map.mode, &mods, max_pp)
+                            .await?;
                     } else {
-                        mysql.insert_pp_map(map.beatmap_id, map.mode, &mods, max_pp)?;
+                        mysql
+                            .insert_pp_map(map.beatmap_id, map.mode, &mods, max_pp)
+                            .await?;
                     }
                     Ok(max_pp)
                 }
@@ -551,7 +563,7 @@ fn _ctb_score_pp(score: &Score, map: &Beatmap, stars: f64) -> f32 {
     value as f32
 }
 
-fn f32_to_db(
+async fn f32_to_db(
     in_db: bool,
     mysql: &MySQL,
     map_id: u32,
@@ -562,7 +574,7 @@ fn f32_to_db(
 ) -> Result<(), Error> {
     if in_db {
         if stars {
-            match mysql.update_stars_map(map_id, mode, mods, value) {
+            match mysql.update_stars_map(map_id, mode, mods, value).await {
                 Ok(_) => debug!(
                     "Updated map id {} with mods {} in {} stars table",
                     map_id, mods, mode
@@ -573,7 +585,7 @@ fn f32_to_db(
                 }
             }
         } else {
-            match mysql.update_pp_map(map_id, mode, mods, value) {
+            match mysql.update_pp_map(map_id, mode, mods, value).await {
                 Ok(_) => debug!(
                     "Updated map id {} with mods {} in {} pp table",
                     map_id, mods, mode
@@ -585,7 +597,7 @@ fn f32_to_db(
             }
         }
     } else if stars {
-        match mysql.insert_stars_map(map_id, mode, &mods, value) {
+        match mysql.insert_stars_map(map_id, mode, &mods, value).await {
             Ok(_) => debug!("Inserted beatmap {} into {} stars table", map_id, mode),
             Err(why) => {
                 error!("Error while inserting {} stars: {}", mode, why);
@@ -593,7 +605,7 @@ fn f32_to_db(
             }
         }
     } else {
-        match mysql.insert_pp_map(map_id, mode, mods, value) {
+        match mysql.insert_pp_map(map_id, mode, mods, value).await {
             Ok(_) => debug!("Inserted beatmap {} into {} pp table", map_id, mode),
             Err(why) => {
                 error!("Error while inserting {} pp: {}", mode, why);

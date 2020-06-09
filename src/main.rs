@@ -21,8 +21,6 @@ pub use util::{discord::get_member, Error};
 
 #[macro_use]
 extern crate log;
-#[macro_use]
-extern crate sqlx;
 
 use chrono::{Local, Utc};
 use fern::colors::{Color, ColoredLevelConfig};
@@ -88,14 +86,16 @@ async fn main() {
 
     // Database
     let database_url = env::var("DATABASE_URL").expect("Could not load DATABASE_URL");
-    let mysql =
-        MySQL::new(&database_url).unwrap_or_else(|why| panic!("Could not create MySQL: {}", why));
+    let mysql = MySQL::new(&database_url)
+        .await
+        .unwrap_or_else(|why| panic!("Could not create MySQL: {}", why));
 
     // Osu
     let osu_token = env::var("OSU_TOKEN").expect("Could not load OSU_TOKEN");
     let osu = OsuClient::new(osu_token);
     let discord_links = mysql
         .get_discord_links()
+        .await
         .unwrap_or_else(|why| panic!("Could not get discord_links: {}", why));
 
     // Scraper
@@ -106,9 +106,11 @@ async fn main() {
     // Stream tracking
     let twitch_users = mysql
         .get_twitch_users()
+        .await
         .unwrap_or_else(|why| panic!("Could not get twitch_users: {}", why));
     let stream_tracks = mysql
         .get_stream_tracks()
+        .await
         .unwrap_or_else(|why| panic!("Could not get stream_tracks: {}", why));
     let twitch_client_id = env::var("TWITCH_CLIENT_ID").expect("Could not load TWITCH_CLIENT_ID");
     let twitch_token = env::var("TWITCH_TOKEN").expect("Could not load TWITCH_TOKEN");
@@ -125,6 +127,7 @@ async fn main() {
     // Individual guild settings
     let guilds = mysql
         .get_guilds()
+        .await
         .unwrap_or_else(|why| panic!("Could not get Guilds: {}", why));
 
     // General

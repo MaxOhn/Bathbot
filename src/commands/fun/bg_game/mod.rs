@@ -172,7 +172,7 @@ async fn stats(ctx: &Context, msg: &Message) -> CommandResult {
     let score = {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        mysql.get_bggame_score(msg.author.id.0).ok()
+        mysql.get_bggame_score(msg.author.id.0).await.ok()
     };
     let response = if let Some(score) = score {
         msg.reply(
@@ -202,7 +202,7 @@ async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
     let mut scores = {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        mysql.all_bggame_scores()?
+        mysql.all_bggame_scores().await?
     };
     if !global && msg.guild_id.is_some() {
         let guild_id = msg.guild_id.unwrap();

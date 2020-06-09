@@ -1,84 +1,41 @@
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::NaiveDateTime;
 use rosu::models::{ApprovalStatus, Beatmap, GameMode, Genre, Language};
-use sqlx::FromRow;
+use sqlx::{mysql::MySqlRow, FromRow, Row};
 use std::convert::TryFrom;
 
-pub trait MapSplit {
-    fn db_split(&self) -> (DBMap, DBMapSet);
-    fn into_db_split(self) -> (DBMap, DBMapSet);
-}
-
-impl MapSplit for Beatmap {
-    fn db_split(&self) -> (DBMap, DBMapSet) {
-        let map = DBMap {
-            beatmap_id: self.beatmap_id,
-            beatmapset_id: self.beatmapset_id,
-            mode: self.mode as u8,
-            version: self.version.to_owned(),
-            seconds_drain: self.seconds_drain,
-            seconds_total: self.seconds_total,
-            bpm: self.bpm,
-            stars: self.stars,
-            diff_cs: self.diff_cs,
-            diff_od: self.diff_od,
-            diff_ar: self.diff_ar,
-            diff_hp: self.diff_hp,
-            count_circle: self.count_circle,
-            count_slider: self.count_slider,
-            count_spinner: self.count_spinner,
-            max_combo: self.max_combo,
-        };
-        let mapset = DBMapSet {
-            beatmapset_id: self.beatmapset_id,
-            artist: self.artist.to_owned(),
-            title: self.title.to_owned(),
-            creator_id: self.creator_id,
-            creator: self.creator.to_owned(),
-            genre: self.genre as u8,
-            language: self.language as u8,
-            approval_status: self.approval_status as i8,
-            approved_date: Some(self.approved_date.as_ref().unwrap().naive_utc()),
-        };
-        (map, mapset)
-    }
-
-    fn into_db_split(self) -> (DBMap, DBMapSet) {
-        let map = DBMap {
-            beatmap_id: self.beatmap_id,
-            beatmapset_id: self.beatmapset_id,
-            mode: self.mode as u8,
-            version: self.version,
-            seconds_drain: self.seconds_drain,
-            seconds_total: self.seconds_total,
-            bpm: self.bpm,
-            stars: self.stars,
-            diff_cs: self.diff_cs,
-            diff_od: self.diff_od,
-            diff_ar: self.diff_ar,
-            diff_hp: self.diff_hp,
-            count_circle: self.count_circle,
-            count_slider: self.count_slider,
-            count_spinner: self.count_spinner,
-            max_combo: self.max_combo,
-        };
-        let mapset = DBMapSet {
-            beatmapset_id: self.beatmapset_id,
-            artist: self.artist,
-            title: self.title,
-            creator_id: self.creator_id,
-            creator: self.creator,
-            genre: self.genre as u8,
-            language: self.language as u8,
-            approval_status: self.approval_status as i8,
-            approved_date: Some(self.approved_date.as_ref().unwrap().naive_utc()),
-        };
-        (map, mapset)
-    }
-}
+pub type MapTuple<'s> = (
+    u32,
+    u32,
+    u8,
+    &'s str,
+    u32,
+    u32,
+    f32,
+    f32,
+    f32,
+    f32,
+    f32,
+    f32,
+    u32,
+    u32,
+    u32,
+    Option<u32>,
+);
+pub type MapsetTuple<'s> = (
+    u32,
+    &'s str,
+    &'s str,
+    u32,
+    &'s str,
+    u8,
+    u8,
+    i8,
+    Option<NaiveDateTime>,
+);
 
 #[derive(FromRow, Debug)]
 pub struct DBMap {
-    pub beatmap_id: u32, // pub for debugging purposes
+    pub beatmap_id: u32,
     pub beatmapset_id: u32,
     mode: u8,
     version: String,
@@ -96,43 +53,6 @@ pub struct DBMap {
     max_combo: Option<u32>,
 }
 
-impl DBMap {
-    pub fn into_beatmap(self, mapset: DBMapSet) -> Beatmap {
-        let mut map = Beatmap::default();
-        map.beatmap_id = self.beatmap_id;
-        map.beatmapset_id = self.beatmapset_id;
-        map.artist = mapset.artist;
-        map.title = mapset.title;
-        map.version = self.version;
-        map.mode = GameMode::try_from(self.mode)
-            .unwrap_or_else(|e| panic!("Error parsing GameMode: {}", e));
-        map.creator = mapset.creator;
-        map.creator_id = mapset.creator_id;
-        map.seconds_drain = self.seconds_drain;
-        map.seconds_total = self.seconds_total;
-        map.bpm = self.bpm;
-        map.stars = self.stars;
-        map.diff_cs = self.diff_cs;
-        map.diff_ar = self.diff_ar;
-        map.diff_hp = self.diff_hp;
-        map.diff_od = self.diff_od;
-        map.count_circle = self.count_circle;
-        map.count_slider = self.count_slider;
-        map.count_spinner = self.count_spinner;
-        map.max_combo = self.max_combo;
-        map.genre =
-            Genre::try_from(mapset.genre).unwrap_or_else(|e| panic!("Error parsing Genre: {}", e));
-        map.language = Language::try_from(mapset.language)
-            .unwrap_or_else(|e| panic!("Error parsing Language: {}", e));
-        map.approval_status = ApprovalStatus::try_from(mapset.approval_status)
-            .unwrap_or_else(|e| panic!("Error parsing ApprovalStatus: {}", e));
-        map.approved_date = mapset
-            .approved_date
-            .map(|date| DateTime::from_utc(date, Utc));
-        map
-    }
-}
-
 #[derive(FromRow, Debug)]
 pub struct DBMapSet {
     pub beatmapset_id: u32,
@@ -144,4 +64,39 @@ pub struct DBMapSet {
     language: u8,
     approval_status: i8,
     approved_date: Option<NaiveDateTime>,
+}
+
+impl<'c> FromRow<'c, MySqlRow<'c>> for Beatmap {
+    fn from_row(row: &MySqlRow<'c>) -> Result<Beatmap, sqlx::Error> {
+        let mode: u8 = row.get("mode");
+        let genre: u8 = row.get("mode");
+        let language: u8 = row.get("mode");
+        let status: i8 = row.get("mode");
+        let mut map = Beatmap::default();
+        map.beatmap_id = row.get("beatmap_id");
+        map.beatmapset_id = row.get("beatmapset_id");
+        map.version = row.get("version");
+        map.seconds_drain = row.get("seconds_drain");
+        map.seconds_total = row.get("seconds_total");
+        map.bpm = row.get("bpm");
+        map.stars = row.get("stars");
+        map.diff_cs = row.get("diff_cs");
+        map.diff_ar = row.get("diff_ar");
+        map.diff_od = row.get("diff_od");
+        map.diff_hp = row.get("diff_hp");
+        map.count_circle = row.get("count_circle");
+        map.count_slider = row.get("count_slider");
+        map.count_spinner = row.get("count_spinner");
+        map.artist = row.get("artist");
+        map.title = row.get("title");
+        map.creator_id = row.get("creator_id");
+        map.creator = row.get("creator");
+        map.mode = GameMode::try_from(mode).unwrap();
+        map.max_combo = row.get("max_combo");
+        map.genre = Genre::try_from(genre).unwrap();
+        map.language = Language::try_from(language).unwrap();
+        map.approval_status = ApprovalStatus::try_from(status).unwrap();
+        map.approved_date = row.get("approved_date");
+        Ok(map)
+    }
 }

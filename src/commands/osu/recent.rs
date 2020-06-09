@@ -97,6 +97,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
         let mysql = data.get::<MySQL>().unwrap();
         mysql
             .get_beatmaps(&dedubed_ids)
+            .await
             .unwrap_or_else(|_| HashMap::default())
     };
     // debug!("Found {}/{} beatmaps in DB", maps.len(), map_ids.len());
@@ -268,7 +269,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                 .collect();
             let data = data.read().await;
             let mysql = data.get::<MySQL>().unwrap();
-            if let Err(why) = mysql.insert_beatmaps(maps) {
+            if let Err(why) = mysql.insert_beatmaps(maps).await {
                 warn!("Error while adding maps to DB: {}", why);
             }
         }
