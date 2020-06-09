@@ -1,31 +1,22 @@
 use crate::{Error, MySQL, Osu};
 
 use rand::RngCore;
-use rayon::prelude::*;
 use rosu::{backend::BeatmapRequest, models::GameMode};
 use serenity::prelude::{RwLock, TypeMap};
-use std::{collections::VecDeque, fs, path::PathBuf, str::FromStr, sync::Arc};
+use std::{collections::VecDeque, path::PathBuf, str::FromStr, sync::Arc};
+use tokio::{fs, stream::StreamExt};
 
-pub fn get_random_filename(
+pub async fn get_random_filename(
     previous_ids: &mut VecDeque<u32>,
     mode: GameMode,
     path: &PathBuf,
 ) -> Result<String, Error> {
-    let mut files: Vec<String> = fs::read_dir(path)?
+    let mut files: Vec<String> = fs::read_dir(path)
+        .await?
+        .filter_map(|entry| entry.ok())
+        .filter_map(|entry| entry.file_name().into_string().ok())
         .collect::<Vec<_>>()
-        .into_par_iter()
-        .map(|entry| {
-            // consider only files and no directories
-            if let Ok(entry) = entry {
-                if let Ok(true) = entry.file_type().map(|ft| ft.is_file()) {
-                    return Some(entry.file_name().into_string().unwrap());
-                }
-            }
-            None
-        })
-        .filter(|entry| entry.is_some())
-        .map(|entry| entry.unwrap())
-        .collect();
+        .await;
     let mut rng = rand::thread_rng();
     let buffer_size = match mode {
         GameMode::STD => 500,

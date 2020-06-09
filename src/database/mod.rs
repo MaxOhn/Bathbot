@@ -1,17 +1,10 @@
 mod models;
-// mod schema;
 
 use models::{CtbPP, DBMap, GuildDB, ManiaPP, MapSplit, StreamTrackDB};
 pub use models::{DBMapSet, Guild, Platform, Ratios, StreamTrack, TwitchUser};
 
 use crate::util::{globals::AUTHORITY_ROLES, Error};
 
-// use diesel::{
-//     prelude::*,
-//     r2d2::{ConnectionManager, Pool, PooledConnection},
-//     sql_types::Text,
-//     MysqlConnection,
-// };
 use rosu::models::{Beatmap, GameMod, GameMode, GameMods};
 use serenity::model::id::GuildId;
 use sqlx::mysql::MySqlPool;
@@ -34,21 +27,22 @@ impl MySQL {
     // ---------------------
 
     pub async fn get_beatmap(&self, map_id: u32) -> DBResult<Beatmap> {
-        let map = sqlx::query_as!(DBMap, "SELECT * FROM maps WHERE beatmap_id=?")
+        let map: DBMap = sqlx::query_as("SELECT * FROM maps WHERE beatmap_id=?")
             .bind(map_id)
             .fetch_one(&self.pool)
             .await?;
-        let mapset = sqlx::query_as!(DBMapSet, "SELECT * FROM mapsets WHERE beatmapset_id=?")
+        let mapset: DBMapSet = sqlx::query_as("SELECT * FROM mapsets WHERE beatmapset_id=?")
             .bind(map.beatmapset_id)
             .fetch_one(&self.pool)
             .await?;
         Ok(map.into_beatmap(mapset))
     }
 
-    pub fn get_beatmapset(&self, mapset_id: u32) -> DBResult<DBMapSet> {
-        use schema::mapsets;
-        let conn = self.get_connection()?;
-        let mapset = mapsets::table.find(mapset_id).first::<DBMapSet>(&conn)?;
+    pub async fn get_beatmapset(&self, mapset_id: u32) -> DBResult<DBMapSet> {
+        let mapset: DBMapSet = sqlx::query_as("SELECT * FROM mapsets WHERE beatmapset_id=?")
+            .bind(map.beatmapset_id)
+            .fetch_one(&self.pool)
+            .await?;
         Ok(mapset)
     }
 
@@ -163,10 +157,11 @@ impl MySQL {
         Ok(())
     }
 
-    pub fn get_discord_links(&self) -> Result<HashMap<u64, String>, Error> {
-        let conn = self.get_connection()?;
-        let tuples = schema::discord_users::table.load::<(u64, String)>(&conn)?;
-        let links: HashMap<u64, String> = tuples.into_iter().collect();
+    pub async fn get_discord_links(&self) -> Result<HashMap<u64, String>, Error> {
+        let links = sqlx::query_as("SELECT * FROM discord_users")
+            .fetch(&self.pool)
+            .collect::<HashMap<(u64, String)>>()
+            .await?;
         Ok(links)
     }
 
@@ -544,10 +539,12 @@ impl MySQL {
     // Table: role_assign
     // ------------------
 
-    pub fn get_role_assigns(&self) -> DBResult<HashMap<(u64, u64), u64>> {
-        let conn = self.get_connection()?;
-        let tuples = schema::role_assign::table.load::<(u32, u64, u64, u64)>(&conn)?;
-        let map = tuples.into_iter().map(|(_, c, m, r)| ((c, m), r)).collect();
+    pub async fn get_role_assigns(&self) -> DBResult<HashMap<(u64, u64), u64>> {
+        let map = sqlx::query_as("SELECT * FROM role_assign")
+            .map(|(_, c, m, r): (u32, u64, u64, u64)| ((c, m), r))
+            .fetch(&self.pool)
+            .collect::<HashMap<_, _>>()
+            .await?;
         Ok(map)
     }
 
@@ -590,17 +587,21 @@ impl MySQL {
         Ok(())
     }
 
-    pub fn get_twitch_users(&self) -> DBResult<HashMap<String, u64>> {
-        let conn = self.get_connection()?;
-        let tuples = schema::twitch_users::table.load::<(u64, String)>(&conn)?;
-        let users: HashMap<_, _> = tuples.into_iter().map(|(id, name)| (name, id)).collect();
+    pub async fn get_twitch_users(&self) -> DBResult<HashMap<String, u64>> {
+        let users = sqlx::query_as("SELECT * FROM twitch_users")
+            .map(|(id, name): (u64, String)| (name, id))
+            .fetch(&self.pool)
+            .collect::<HashMap<_, _>>()
+            .await?;
         Ok(users)
     }
 
-    pub fn get_stream_tracks(&self) -> DBResult<HashSet<StreamTrack>> {
-        let conn = self.get_connection()?;
-        let tracks = schema::stream_tracks::table.load::<StreamTrackDB>(&conn)?;
-        let tracks = tracks.into_iter().map(StreamTrackDB::into).collect();
+    pub async fn get_stream_tracks(&self) -> DBResult<HashSet<StreamTrack>> {
+        let tracks = sqlx::query_as("SELECT * FROM stream_tracks")
+            .map(|track: StreamTrackDB| track.into())
+            .fetch(&self.pool)
+            .collect::<HashSet<_>>()
+            .await?;
         Ok(tracks)
     }
 
@@ -621,13 +622,12 @@ impl MySQL {
     // Table: guilds
     // -------------
 
-    pub fn get_guilds(&self) -> DBResult<HashMap<GuildId, Guild>> {
-        let conn = self.get_connection()?;
-        let guilds = schema::guilds::table.load::<GuildDB>(&conn)?;
-        let guilds = guilds
-            .into_iter()
-            .map(|g| (GuildId(g.guild_id), g.into()))
-            .collect();
+    pub async fn get_guilds(&self) -> DBResult<HashMap<GuildId, Guild>> {
+        let guilds = sqlx::query_as("SELECT * FROM guilds")
+            .map(|g: GuildDB| (GuildId(g.guild_id), g.into()))
+            .fetch(&self.pool)
+            .collect::<HashMap<_, Guild>>()
+            .await?;
         Ok(guilds)
     }
 
@@ -675,17 +675,20 @@ impl MySQL {
         Ok(())
     }
 
-    pub fn get_bggame_score(&self, user: u64) -> DBResult<u32> {
-        let conn = self.get_connection()?;
-        let data = schema::bggame_stats::table
-            .find(user)
-            .first::<(u64, u32)>(&conn)?;
-        Ok(data.1)
+    pub async fn get_bggame_score(&self, user: u64) -> DBResult<u32> {
+        let (_, score): (u64, u32) =
+            sqlx::query_as("SELECT * FROM bggame_stats WHERE discord_id=?")
+                .bind(user)
+                .fetch_one(&self.pool)
+                .await?;
+        Ok(score)
     }
 
-    pub fn all_bggame_scores(&self) -> DBResult<Vec<(u64, u32)>> {
-        let conn = self.get_connection()?;
-        Ok(schema::bggame_stats::table.load(&conn)?)
+    pub async fn all_bggame_scores(&self) -> DBResult<Vec<(u64, u32)>> {
+        let scores = sqlx::query_as("SELECT * FROM bggame_stats")
+            .fetch_all(&self.pool)
+            .await?;
+        Ok(scores)
     }
 
     // ------------------

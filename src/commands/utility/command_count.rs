@@ -7,7 +7,6 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use futures::StreamExt;
 use serenity::{
     collector::ReactionAction,
     framework::standard::{macros::command, CommandResult},
@@ -15,6 +14,7 @@ use serenity::{
     prelude::Context,
 };
 use std::{convert::TryFrom, sync::Arc, time::Duration};
+use tokio::stream::StreamExt;
 
 #[command]
 #[description = "Let me show you my most popular commands \

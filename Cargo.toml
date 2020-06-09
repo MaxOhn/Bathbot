@@ -12,7 +12,6 @@ cc      = { version = "1.0", features = ["parallel"] }
 chrono       = "0.4"
 dotenv       = "0.15"
 fern         = { version = "0.6", features = ["colored"] }
-futures      = "0.3"
 image        = "0.23"
 itertools    = "0.9"
 log          = "0.4"
@@ -23,7 +22,6 @@ rayon        = "1.3"
 regex        = "1.3"
 reqwest      = { version = "0.10", features = ["cookies"] }
 rosu         = { path = "../rosu" }
-tokio        = { version = "0.2.13", features = ["full"] }
 scraper      = "0.11"
 serde        = "1.0"
 serde_derive = "1.0"
@@ -41,3 +39,7 @@ features = ["cache", "client", "framework", "standard_framework", "rustls_backen
 version          = "0.3"
 default-features = false
 features         = ["mysql", "runtime-tokio", "chrono", "macros"]
+
+[dependencies.tokio]
+version  = "0.2"
+features = ["rt-core", "rt-threaded", "time", "macros", "process", "sync", "stream", "fs"]

@@ -3,13 +3,12 @@ use crate::{
     PerformanceCalculatorLock,
 };
 
-use futures::future::TryFutureExt;
 use rosu::models::{ApprovalStatus, Beatmap, GameMod, GameMode, GameMods, Grade, Score};
 use serenity::prelude::{RwLock, TypeMap};
 use std::{env, mem, process::Stdio, str::FromStr, sync::Arc};
 use tokio::{
     process::{Child, Command},
-    time::{self, Duration},
+    time,
 };
 
 pub enum PPProvider {
@@ -147,9 +146,8 @@ async fn new_perf_calc<'a>(
         } else {
             CalcParam::max_ctb(&score.enabled_mods)
         };
-        let max_pp = start_pp_calc(map.beatmap_id, params)
-            .and_then(parse_pp_calc)
-            .await?;
+        let max_pp_child = start_pp_calc(map.beatmap_id, params).await?;
+        let max_pp = parse_pp_calc(max_pp_child).await?;
         if map.approval_status == ApprovalStatus::Ranked
             || map.approval_status == ApprovalStatus::Loved
         {
@@ -421,7 +419,8 @@ async fn start_pp_calc<S: SubScore>(map_id: u32, params: CalcParam<'_, S>) -> Re
 }
 
 async fn parse_pp_calc(child: Child) -> Result<f32, Error> {
-    let output = match time::timeout(Duration::from_secs(10), child.wait_with_output()).await {
+    let calculation = time::timeout(time::Duration::from_secs(10), child.wait_with_output());
+    let output = match calculation.await {
         Ok(output) => output?,
         Err(_) => {
             return Err(Error::Custom(
@@ -451,7 +450,7 @@ async fn calc_stars(map_id: u32, mods: &GameMods) -> Result<f32, Error> {
     for &m in mods.iter().filter(|&&m| m != GameMod::ScoreV2) {
         cmd.arg("-m").arg(m.to_string());
     }
-    let output = match time::timeout(Duration::from_secs(10), cmd.output()).await {
+    let output = match time::timeout(time::Duration::from_secs(10), cmd.output()).await {
         Ok(output) => output?,
         Err(_) => {
             return Err(Error::Custom(

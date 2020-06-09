@@ -1,7 +1,6 @@
 use super::{util, Hints, ImageReveal};
 use crate::{BgGames, Error, MySQL};
 
-use futures::StreamExt;
 use image::{imageops::FilterType, GenericImageView, ImageFormat};
 use rosu::models::GameMode;
 use serenity::{
@@ -13,6 +12,7 @@ use serenity::{
 };
 use std::{collections::VecDeque, env, fmt::Write, fs, path::PathBuf, str::FromStr, sync::Arc};
 use tokio::{
+    stream::StreamExt,
     sync::watch::{channel, Receiver, Sender},
     time,
 };
@@ -262,11 +262,11 @@ impl GameData {
     ) -> Result<(), Error> {
         let mut path = PathBuf::from(env::var("BG_PATH")?);
         match mode {
-            GameMode::STD => {}
+            GameMode::STD => path.push("osu"),
             GameMode::MNA => path.push("mania"),
             GameMode::TKO | GameMode::CTB => panic!("TKO and CTB not yet supported as bg game"),
         }
-        let file_name = util::get_random_filename(previous_ids, mode, &path)?;
+        let file_name = util::get_random_filename(previous_ids, mode, &path).await?;
         let mut split = file_name.split('.');
         let mapset_id = u32::from_str(split.next().unwrap()).unwrap();
         debug!("Next BG mapset id: {}", mapset_id);

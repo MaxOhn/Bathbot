@@ -6,7 +6,6 @@ use crate::{
     DiscordLinks, Osu, Scraper,
 };
 
-use futures::StreamExt;
 use rosu::backend::requests::UserRequest;
 use serenity::{
     collector::ReactionAction,
@@ -15,6 +14,7 @@ use serenity::{
     prelude::Context,
 };
 use std::{convert::TryFrom, sync::Arc, time::Duration};
+use tokio::stream::StreamExt;
 
 #[command]
 #[description = "Display the 10 most played maps of a user"]

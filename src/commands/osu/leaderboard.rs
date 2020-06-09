@@ -11,7 +11,6 @@ use crate::{
     DiscordLinks, Osu,
 };
 
-use futures::StreamExt;
 use rosu::{
     backend::requests::BeatmapRequest,
     models::{
@@ -26,6 +25,7 @@ use serenity::{
     prelude::Context,
 };
 use std::{convert::TryFrom, sync::Arc, time::Duration};
+use tokio::stream::StreamExt;
 
 #[allow(clippy::cognitive_complexity)]
 async fn leaderboard_send(
