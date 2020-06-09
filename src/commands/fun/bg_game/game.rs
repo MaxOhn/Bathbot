@@ -262,11 +262,11 @@ impl GameData {
     ) -> Result<(), Error> {
         let mut path = PathBuf::from(env::var("BG_PATH")?);
         match mode {
-            GameMode::STD => {}
+            GameMode::STD => path.push("osu"),
             GameMode::MNA => path.push("mania"),
             GameMode::TKO | GameMode::CTB => panic!("TKO and CTB not yet supported as bg game"),
         }
-        let file_name = util::get_random_filename(previous_ids, mode, &path)?;
+        let file_name = util::get_random_filename(previous_ids, mode, &path).await?;
         let mut split = file_name.split('.');
         let mapset_id = u32::from_str(split.next().unwrap()).unwrap();
         debug!("Next BG mapset id: {}", mapset_id);

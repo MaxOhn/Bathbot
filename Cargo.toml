@@ -37,5 +37,5 @@ branch   = "await"
 features = ["cache", "client", "framework", "standard_framework", "rustls_backend", "collector"]
 
 [dependencies.tokio]
-version = "0.2"
-features = ["rt-core", "rt-threaded", "time", "macros", "process", "sync", "stream"]
+version  = "0.2"
+features = ["rt-core", "rt-threaded", "time", "macros", "process", "sync", "stream", "fs"]
