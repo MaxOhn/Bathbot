@@ -17,9 +17,7 @@ use crate::{
 
 use itertools::Itertools;
 use rayon::prelude::*;
-use rosu::models::{
-    Beatmap, GameMod, GameMode, GameMods, Grade, Match, Score, Team, TeamType, User,
-};
+use rosu::models::{Beatmap, GameMode, GameMods, Grade, Match, Score, Team, TeamType, User};
 use serenity::{
     builder::CreateEmbed,
     cache::CacheRwLock,
@@ -1683,7 +1681,7 @@ pub async fn get_pp(
     let max = if mod_map.contains_key(&bits) {
         mod_map.get(&bits).copied()
     } else {
-        let max = PPProvider::calculate_max(&map, &score.enabled_mods, Some(data)).await?;
+        let max = PPProvider::calculate_max(&map, score.enabled_mods, Some(data)).await?;
         mod_map.insert(bits, max);
         Some(max)
     };
@@ -1786,8 +1784,8 @@ struct ProfileResult {
 
     mod_combs_count: Option<Vec<(GameMods, u32)>>,
     mod_combs_pp: Option<Vec<(GameMods, f32)>>,
-    mods_count: Vec<(GameMod, u32)>,
-    mods_pp: Vec<(GameMod, f32)>,
+    mods_count: Vec<(GameMods, u32)>,
+    mods_pp: Vec<(GameMods, f32)>,
 }
 
 impl ProfileResult {
@@ -1839,7 +1837,7 @@ impl ProfileResult {
                 mod_comb.1 += weighted_pp;
             }
             if score.enabled_mods.is_empty() {
-                let mut nm = mods.entry(GameMod::NoMod).or_insert((0, 0.0));
+                let mut nm = mods.entry(GameMods::NoMod).or_insert((0, 0.0));
                 nm.0 += 1;
                 nm.1 += weighted_pp;
             } else {

@@ -10,7 +10,7 @@ use crate::{
 use rayon::prelude::*;
 use rosu::{
     backend::requests::UserRequest,
-    models::{GameMod, GameMode, GameMods, Score, User},
+    models::{GameMode, GameMods, Score, User},
 };
 use serenity::{
     collector::ReactionAction,
@@ -37,7 +37,7 @@ async fn top_send(
             return Ok(());
         }
     };
-    let (mut mods, selection) = args
+    let (mods, selection) = args
         .mods
         .unwrap_or_else(|| (GameMods::default(), ModSelection::None));
     let combo = args.combo.unwrap_or(0);
@@ -92,7 +92,7 @@ async fn top_send(
         };
         (user, scores)
     };
-    let contains_nm = mods.remove(&GameMod::NoMod).is_some();
+    let contains_nm = mods.is_empty();
 
     // Filter scores according to mods, combo, acc, and grade
     let mut scores_indices: Vec<(usize, Score)> = scores

@@ -3,7 +3,7 @@ use crate::{
     PerformanceCalculatorLock,
 };
 
-use rosu::models::{ApprovalStatus, Beatmap, GameMod, GameMode, GameMods, Grade, Score};
+use rosu::models::{ApprovalStatus, Beatmap, GameMode, GameMods, Grade, Score};
 use serenity::prelude::{RwLock, TypeMap};
 use std::{env, mem, process::Stdio, str::FromStr, sync::Arc};
 use tokio::{
@@ -74,7 +74,7 @@ async fn new_perf_calc<'a>(
         // Try retrieving stars from database
         let data = data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_mod_stars(map.beatmap_id, mode, &score.enabled_mods) {
+        match mysql.get_mod_stars(map.beatmap_id, mode, score.enabled_mods) {
             Ok(result) => (result, true),
             Err(why) => {
                 if let Error::Custom(_) = why {
@@ -98,7 +98,7 @@ async fn new_perf_calc<'a>(
         } else {
             let lock = mutex.as_ref().unwrap().lock();
             let params = if mode == GameMode::MNA {
-                CalcParam::mania(Some(score.score), &score.enabled_mods)
+                CalcParam::mania(Some(score.score), score.enabled_mods)
             } else {
                 CalcParam::ctb(score)
             };
@@ -112,7 +112,7 @@ async fn new_perf_calc<'a>(
     let (max_pp, map_in_db) = {
         let data = data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_mod_pp(map.beatmap_id, mode, &score.enabled_mods) {
+        match mysql.get_mod_pp(map.beatmap_id, mode, score.enabled_mods) {
             Ok(result) => (result, true),
             Err(why) => {
                 if let Error::Custom(_) = why {
@@ -142,9 +142,9 @@ async fn new_perf_calc<'a>(
     // Otherwise start calculating them in new async worker
     } else {
         let params: CalcParam<'a, Score> = if mode == GameMode::MNA {
-            CalcParam::mania(None, &score.enabled_mods)
+            CalcParam::mania(None, score.enabled_mods)
         } else {
-            CalcParam::max_ctb(&score.enabled_mods)
+            CalcParam::max_ctb(score.enabled_mods)
         };
         let max_pp_child = start_pp_calc(map.beatmap_id, params).await?;
         let max_pp = parse_pp_calc(max_pp_child).await?;
@@ -159,7 +159,7 @@ async fn new_perf_calc<'a>(
                 mysql,
                 map.beatmap_id,
                 mode,
-                &score.enabled_mods,
+                score.enabled_mods,
                 max_pp,
                 false,
             )?;
@@ -182,7 +182,7 @@ async fn new_perf_calc<'a>(
                 mysql,
                 map.beatmap_id,
                 mode,
-                &score.enabled_mods,
+                score.enabled_mods,
                 stars,
                 true,
             )?;
@@ -242,7 +242,7 @@ impl PPProvider {
     where
         S: SubScore,
     {
-        let mods = &score.mods();
+        let mods = score.mods();
         if score.grade() == Grade::F
             || (map.mode == GameMode::MNA
                 && score.score() < (500_000.0 * mods.score_multiplier(map.mode)) as u32)
@@ -266,7 +266,7 @@ impl PPProvider {
 
     pub async fn calculate_max<'a>(
         map: &Beatmap,
-        mods: &'a GameMods,
+        mods: GameMods,
         data: Option<Arc<RwLock<TypeMap>>>,
     ) -> Result<f32, Error> {
         match map.mode {
@@ -285,7 +285,7 @@ impl PPProvider {
                 let (max_pp, map_in_db) = {
                     let data = data.read().await;
                     let mysql = data.get::<MySQL>().unwrap();
-                    match mysql.get_mod_pp(map.beatmap_id, map.mode, &mods) {
+                    match mysql.get_mod_pp(map.beatmap_id, map.mode, mods) {
                         Ok(result) => (result, true),
                         Err(why) => {
                             if let Error::Custom(_) = why {
@@ -318,9 +318,9 @@ impl PPProvider {
                     let data = data.read().await;
                     let mysql = data.get::<MySQL>().unwrap();
                     if map_in_db {
-                        mysql.update_pp_map(map.beatmap_id, map.mode, &mods, max_pp)?;
+                        mysql.update_pp_map(map.beatmap_id, map.mode, mods, max_pp)?;
                     } else {
-                        mysql.insert_pp_map(map.beatmap_id, map.mode, &mods, max_pp)?;
+                        mysql.insert_pp_map(map.beatmap_id, map.mode, mods, max_pp)?;
                     }
                     Ok(max_pp)
                 }
@@ -396,7 +396,7 @@ async fn start_pp_calc<S: SubScore>(map_id: u32, params: CalcParam<'_, S>) -> Re
         ),
     };
     cmd.arg(map_path);
-    for &m in params.mods().iter().filter(|&&m| m != GameMod::ScoreV2) {
+    for m in params.mods().iter().filter(|&m| m != GameMods::ScoreV2) {
         cmd.arg("-m").arg(m.to_string());
     }
     if let CalcParam::MNA { score, mods } = params {
@@ -447,7 +447,7 @@ async fn calc_stars(map_id: u32, mods: &GameMods) -> Result<f32, Error> {
         .arg(env::var("PERF_CALC").unwrap())
         .arg("difficulty")
         .arg(map_path);
-    for &m in mods.iter().filter(|&&m| m != GameMod::ScoreV2) {
+    for m in mods.iter().filter(|&m| m != GameMods::ScoreV2) {
         cmd.arg("-m").arg(m.to_string());
     }
     let output = match time::timeout(time::Duration::from_secs(10), cmd.output()).await {
@@ -524,7 +524,7 @@ fn _ctb_score_pp(score: &Score, map: &Beatmap, stars: f64) -> f32 {
     }
     value *= ar_factor;
 
-    if mods.contains(&GameMod::Hidden) {
+    if mods.contains(GameMods::Hidden) {
         value *= 1.05 + 0.075 * (10.0 - map.diff_ar.min(10.0) as f64); // 7.5% for each AR below 10
 
         // Hiddens gives almost nothing on max approach rate, and more the lower it is
@@ -536,7 +536,7 @@ fn _ctb_score_pp(score: &Score, map: &Beatmap, stars: f64) -> f32 {
     }
 
     // Apply length bonus again if flashlight is on simply because it becomes a lot harder on longer maps.
-    if mods.contains(&GameMod::Flashlight) {
+    if mods.contains(GameMods::Flashlight) {
         value *= 1.35 * length_bonus;
     }
 
@@ -544,7 +544,7 @@ fn _ctb_score_pp(score: &Score, map: &Beatmap, stars: f64) -> f32 {
     value *= (score.accuracy(GameMode::CTB) as f64).powf(5.5);
 
     // Custom multipliers for NoFail. SpunOut is not applicable.
-    if mods.contains(&GameMod::NoFail) {
+    if mods.contains(GameMods::NoFail) {
         value *= 0.9;
     }
 
@@ -556,7 +556,7 @@ fn f32_to_db(
     mysql: &MySQL,
     map_id: u32,
     mode: GameMode,
-    mods: &GameMods,
+    mods: GameMods,
     value: f32,
     stars: bool, // max_pp if false
 ) -> Result<(), Error> {
@@ -585,7 +585,7 @@ fn f32_to_db(
             }
         }
     } else if stars {
-        match mysql.insert_stars_map(map_id, mode, &mods, value) {
+        match mysql.insert_stars_map(map_id, mode, mods, value) {
             Ok(_) => debug!("Inserted beatmap {} into {} stars table", map_id, mode),
             Err(why) => {
                 error!("Error while inserting {} stars: {}", mode, why);
@@ -606,18 +606,15 @@ fn f32_to_db(
 
 enum CalcParam<'a, S: SubScore> {
     #[allow(dead_code)] // its not dead code rust...
-    MNA {
-        score: Option<u32>,
-        mods: &'a GameMods,
-    },
+    MNA { score: Option<u32>, mods: GameMods },
     #[allow(dead_code)]
     CTB { score: &'a S },
     #[allow(dead_code)]
-    MaxCTB { mods: &'a GameMods },
+    MaxCTB { mods: GameMods },
 }
 
 impl<'a, S: SubScore> CalcParam<'a, S> {
-    fn mania(score: Option<u32>, mods: &'a GameMods) -> Self {
+    fn mania(score: Option<u32>, mods: GameMods) -> Self {
         Self::MNA { score, mods }
     }
 
@@ -628,7 +625,7 @@ impl<'a, S: SubScore> CalcParam<'a, S> {
         Self::CTB { score }
     }
 
-    fn max_ctb(mods: &'a GameMods) -> Self {
+    fn max_ctb(mods: GameMods) -> Self {
         Self::MaxCTB { mods }
     }
 
@@ -639,10 +636,10 @@ impl<'a, S: SubScore> CalcParam<'a, S> {
         }
     }
 
-    fn mods(&self) -> &GameMods {
+    fn mods(&self) -> GameMods {
         match self {
-            CalcParam::MNA { mods, .. } | CalcParam::MaxCTB { mods } => mods,
-            CalcParam::CTB { score, .. } => &score.mods(),
+            CalcParam::MNA { mods, .. } | CalcParam::MaxCTB { mods } => *mods,
+            CalcParam::CTB { score, .. } => score.mods(),
         }
     }
 }
@@ -653,7 +650,7 @@ pub trait SubScore {
     fn c100(&self) -> u32;
     fn c300(&self) -> u32;
     fn combo(&self) -> u32;
-    fn mods(&self) -> &GameMods;
+    fn mods(&self) -> GameMods;
     fn hits(&self, mode: GameMode) -> u32;
     fn grade(&self) -> Grade;
     fn score(&self) -> u32;
@@ -675,8 +672,8 @@ impl SubScore for Score {
     fn combo(&self) -> u32 {
         self.max_combo
     }
-    fn mods(&self) -> &GameMods {
-        &self.enabled_mods
+    fn mods(&self) -> GameMods {
+        self.enabled_mods
     }
     fn hits(&self, mode: GameMode) -> u32 {
         self.total_hits(mode)
@@ -705,8 +702,8 @@ impl SubScore for ScraperScore {
     fn combo(&self) -> u32 {
         self.max_combo
     }
-    fn mods(&self) -> &GameMods {
-        &self.enabled_mods
+    fn mods(&self) -> GameMods {
+        self.enabled_mods
     }
     fn hits(&self, _: GameMode) -> u32 {
         self.total_hits()

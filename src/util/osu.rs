@@ -3,7 +3,7 @@ use crate::{
     util::globals::{emotes::*, DEV_GUILD_ID, HOMEPAGE},
     Error,
 };
-use rosu::models::{Beatmap, GameMod, GameMode, Grade, Score};
+use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score};
 use serenity::{
     cache::CacheRwLock,
     model::{
@@ -106,7 +106,10 @@ pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
             score.count100 = 0;
             score.count50 = 0;
             score.count_miss = 0;
-            score.grade = if score.enabled_mods.contains(&GameMod::Hidden) {
+            score.grade = if score
+                .enabled_mods
+                .intersects(GameMods::Flashlight | GameMods::Hidden)
+            {
                 Grade::XH
             } else {
                 Grade::X
@@ -146,7 +149,7 @@ pub fn unchoke_score(score: &mut Score, map: &Beatmap) {
             score.count100 = 0;
             score.count50 = 0;
             score.count_miss = 0;
-            score.grade = if score.enabled_mods.contains(&GameMod::Hidden) {
+            score.grade = if score.enabled_mods.contains(GameMods::Hidden) {
                 Grade::XH
             } else {
                 Grade::X

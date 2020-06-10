@@ -12,7 +12,7 @@ use diesel::{
     sql_types::Text,
     MysqlConnection,
 };
-use rosu::models::{Beatmap, GameMod, GameMode, GameMods};
+use rosu::models::{Beatmap, GameMode, GameMods};
 use serenity::model::id::GuildId;
 use std::collections::{HashMap, HashSet};
 
@@ -181,12 +181,7 @@ impl MySQL {
     // Table: pp_mania_mods / pp_ctb_mods
     // ----------------------------------
 
-    pub fn get_mod_pp(
-        &self,
-        map_id: u32,
-        mode: GameMode,
-        mods: &GameMods,
-    ) -> DBResult<Option<f32>> {
+    pub fn get_mod_pp(&self, map_id: u32, mode: GameMode, mods: GameMods) -> DBResult<Option<f32>> {
         let conn = self.get_connection()?;
         if mode == GameMode::MNA {
             let bits = mania_mod_bits(mods);
@@ -195,20 +190,22 @@ impl MySQL {
                 .first::<ManiaPP>(&conn)?
                 .get(bits)
         } else {
-            use rosu::models::GameMod::{DoubleTime, HardRock, Hidden, NightCore};
-
             let data = schema::pp_ctb_mods::table
                 .find(map_id)
                 .first::<CtbPP>(&conn)?;
             if mods.is_empty() {
                 Ok(data.NM)
             } else {
-                match mods.keys().collect::<Vec<_>>().as_slice() {
-                    &[Hidden] => Ok(data.HD),
-                    &[HardRock] => Ok(data.HR),
-                    &[DoubleTime] | &[NightCore] => Ok(data.DT),
-                    &[Hidden, HardRock] => Ok(data.HDHR),
-                    &[Hidden, DoubleTime] | &[Hidden, NightCore] => Ok(data.HDDT),
+                match mods {
+                    GameMods::Hidden => Ok(data.HD),
+                    GameMods::HardRock => Ok(data.HR),
+                    GameMods::DoubleTime | GameMods::NightCore => Ok(data.DT),
+                    m if m == GameMods::from_bits(24).unwrap() => Ok(data.HDHR),
+                    m if m == GameMods::from_bits(72).unwrap()
+                        || m == GameMods::NightCore | GameMods::Hidden =>
+                    {
+                        Ok(data.HDDT)
+                    }
                     _ => Ok(None),
                 }
             }
@@ -219,7 +216,7 @@ impl MySQL {
         &self,
         map_id: u32,
         mode: GameMode,
-        mods: &GameMods,
+        mods: GameMods,
         pp: f32,
     ) -> DBResult<()> {
         let conn = self.get_connection()?;
@@ -230,19 +227,21 @@ impl MySQL {
                 .values(&data)
                 .execute(&conn)?;
         } else {
-            use rosu::models::GameMod::{DoubleTime, HardRock, Hidden, NightCore};
-
             let mut data = CtbPP::default();
             data.beatmap_id = map_id;
             if mods.is_empty() {
                 data.NM = Some(pp);
             } else {
-                match mods.keys().collect::<Vec<_>>().as_slice() {
-                    &[Hidden] => data.HD = Some(pp),
-                    &[HardRock] => data.HR = Some(pp),
-                    &[DoubleTime] | &[NightCore] => data.DT = Some(pp),
-                    &[Hidden, HardRock] => data.HDHR = Some(pp),
-                    &[Hidden, DoubleTime] | &[Hidden, NightCore] => data.HDDT = Some(pp),
+                match mods {
+                    GameMods::Hidden => data.HD = Some(pp),
+                    GameMods::HardRock => data.HR = Some(pp),
+                    GameMods::DoubleTime | GameMods::NightCore => data.DT = Some(pp),
+                    m if m == GameMods::from_bits(24).unwrap() => data.HDHR = Some(pp),
+                    m if m == GameMods::from_bits(72).unwrap()
+                        || m == GameMods::NightCore | GameMods::Hidden =>
+                    {
+                        data.HDDT = Some(pp)
+                    }
                     _ => return Ok(()),
                 }
             }
@@ -257,7 +256,7 @@ impl MySQL {
         &self,
         map_id: u32,
         mode: GameMode,
-        mods: &GameMods,
+        mods: GameMods,
         pp: f32,
     ) -> DBResult<()> {
         let conn = self.get_connection()?;
@@ -276,14 +275,16 @@ impl MySQL {
             if mods.is_empty() {
                 data.NM = Some(pp);
             } else {
-                use rosu::models::GameMod::{DoubleTime, HardRock, Hidden, NightCore};
-
-                match mods.keys().collect::<Vec<_>>().as_slice() {
-                    &[Hidden] => data.HD = Some(pp),
-                    &[HardRock] => data.HR = Some(pp),
-                    &[DoubleTime] | &[NightCore] => data.DT = Some(pp),
-                    &[Hidden, HardRock] => data.HDHR = Some(pp),
-                    &[Hidden, DoubleTime] | &[Hidden, NightCore] => data.HDDT = Some(pp),
+                match mods {
+                    GameMods::Hidden => data.HD = Some(pp),
+                    GameMods::HardRock => data.HR = Some(pp),
+                    GameMods::DoubleTime | GameMods::NightCore => data.DT = Some(pp),
+                    m if m == GameMods::from_bits(24).unwrap() => data.HDHR = Some(pp),
+                    m if m == GameMods::from_bits(72).unwrap()
+                        || m == GameMods::NightCore | GameMods::Hidden =>
+                    {
+                        data.HDDT = Some(pp)
+                    }
                     _ => return Ok(()),
                 }
             }
@@ -302,7 +303,7 @@ impl MySQL {
         &self,
         map_id: u32,
         mode: GameMode,
-        mods: &GameMods,
+        mods: GameMods,
     ) -> DBResult<Option<f32>> {
         let conn = self.get_connection()?;
         if mode == GameMode::MNA {
@@ -310,16 +311,14 @@ impl MySQL {
                 schema::stars_mania_mods::table
                     .find(map_id)
                     .first::<(u32, Option<f32>, Option<f32>)>(&conn)?;
-            if mods.contains(&GameMod::DoubleTime) || mods.contains(&GameMod::NightCore) {
+            if mods.contains(GameMods::DoubleTime) {
                 Ok(data.1)
-            } else if mods.contains(&GameMod::HalfTime) {
+            } else if mods.contains(GameMods::HalfTime) {
                 Ok(data.2)
             } else {
                 Ok(None)
             }
         } else {
-            use GameMod::{DoubleTime, Easy, HalfTime, HardRock, NightCore};
-
             let data = schema::stars_ctb_mods::table.find(map_id).first::<(
                 u32,
                 Option<f32>,
@@ -331,25 +330,25 @@ impl MySQL {
                 Option<f32>,
                 Option<f32>,
             )>(&conn)?;
-            if mods.contains(&Easy) {
-                if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+            if mods.contains(GameMods::Easy) {
+                if mods.contains(GameMods::DoubleTime) {
                     Ok(data.5)
-                } else if mods.contains(&HalfTime) {
+                } else if mods.contains(GameMods::HalfTime) {
                     Ok(data.7)
                 } else {
                     Ok(data.1)
                 }
-            } else if mods.contains(&HardRock) {
-                if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+            } else if mods.contains(GameMods::HardRock) {
+                if mods.contains(GameMods::DoubleTime) {
                     Ok(data.6)
-                } else if mods.contains(&HalfTime) {
+                } else if mods.contains(GameMods::HalfTime) {
                     Ok(data.8)
                 } else {
                     Ok(data.2)
                 }
-            } else if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+            } else if mods.contains(GameMods::DoubleTime) {
                 Ok(data.3)
-            } else if mods.contains(&HalfTime) {
+            } else if mods.contains(GameMods::HalfTime) {
                 Ok(data.4)
             } else {
                 panic!("Don't call update_stars_map with CtB on NoMod");
@@ -361,7 +360,7 @@ impl MySQL {
         &self,
         map_id: u32,
         mode: GameMode,
-        mods: &GameMods,
+        mods: GameMods,
         stars: f32,
     ) -> DBResult<()> {
         use schema::{
@@ -371,12 +370,11 @@ impl MySQL {
             },
             stars_mania_mods::columns::{beatmap_id as mID, DT as mDT, HT as mHT},
         };
-        use GameMod::{DoubleTime, Easy, HalfTime, HardRock, NightCore};
         let conn = self.get_connection()?;
         if mode == GameMode::MNA {
-            let data = if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+            let data = if mods.contains(GameMods::DoubleTime) {
                 (mID.eq(map_id), mDT.eq(Some(stars)), mHT.eq(None))
-            } else if mods.contains(&HalfTime) {
+            } else if mods.contains(GameMods::HalfTime) {
                 (mID.eq(map_id), mDT.eq(None), mHT.eq(Some(stars)))
             } else {
                 (mID.eq(map_id), mDT.eq(None), mHT.eq(None))
@@ -385,8 +383,8 @@ impl MySQL {
                 .values(&data)
                 .execute(&conn)?;
         } else {
-            let data = if mods.contains(&Easy) {
-                if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+            let data = if mods.contains(GameMods::Easy) {
+                if mods.contains(GameMods::DoubleTime) {
                     (
                         cID.eq(map_id),
                         cEZ.eq(None),
@@ -398,7 +396,7 @@ impl MySQL {
                         cEZHT.eq(None),
                         cHRHT.eq(None),
                     )
-                } else if mods.contains(&HalfTime) {
+                } else if mods.contains(GameMods::HalfTime) {
                     (
                         cID.eq(map_id),
                         cEZ.eq(None),
@@ -423,8 +421,8 @@ impl MySQL {
                         cHRHT.eq(None),
                     )
                 }
-            } else if mods.contains(&HardRock) {
-                if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+            } else if mods.contains(GameMods::HardRock) {
+                if mods.contains(GameMods::DoubleTime) {
                     (
                         cID.eq(map_id),
                         cEZ.eq(None),
@@ -436,7 +434,7 @@ impl MySQL {
                         cEZHT.eq(None),
                         cHRHT.eq(None),
                     )
-                } else if mods.contains(&HalfTime) {
+                } else if mods.contains(GameMods::HalfTime) {
                     (
                         cID.eq(map_id),
                         cEZ.eq(None),
@@ -461,7 +459,7 @@ impl MySQL {
                         cHRHT.eq(None),
                     )
                 }
-            } else if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+            } else if mods.contains(GameMods::DoubleTime) {
                 (
                     cID.eq(map_id),
                     cEZ.eq(None),
@@ -473,7 +471,7 @@ impl MySQL {
                     cEZHT.eq(None),
                     cHRHT.eq(None),
                 )
-            } else if mods.contains(&HalfTime) {
+            } else if mods.contains(GameMods::HalfTime) {
                 (
                     cID.eq(map_id),
                     cEZ.eq(None),
@@ -499,7 +497,7 @@ impl MySQL {
         &self,
         map_id: u32,
         mode: GameMode,
-        mods: &GameMods,
+        mods: GameMods,
         stars: f32,
     ) -> DBResult<()> {
         use schema::{
@@ -509,36 +507,35 @@ impl MySQL {
             },
             stars_mania_mods::columns::{beatmap_id as mID, DT as mDT, HT as mHT},
         };
-        use GameMod::{DoubleTime, Easy, HalfTime, HardRock, NightCore};
         let conn = self.get_connection()?;
         if mode == GameMode::MNA {
             let update = diesel::update(schema::stars_mania_mods::table.filter(mID.eq(map_id)));
-            if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+            if mods.contains(GameMods::DoubleTime) {
                 update.set(mDT.eq(Some(stars))).execute(&conn)?;
-            } else if mods.contains(&HalfTime) {
+            } else if mods.contains(GameMods::HalfTime) {
                 update.set(mHT.eq(Some(stars))).execute(&conn)?;
             };
         } else {
             let update = diesel::update(schema::stars_ctb_mods::table.filter(cID.eq(map_id)));
-            if mods.contains(&Easy) {
-                if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+            if mods.contains(GameMods::Easy) {
+                if mods.contains(GameMods::DoubleTime) {
                     update.set(cEZDT.eq(Some(stars))).execute(&conn)?;
-                } else if mods.contains(&HalfTime) {
+                } else if mods.contains(GameMods::HalfTime) {
                     update.set(cEZHT.eq(Some(stars))).execute(&conn)?;
                 } else {
                     update.set(cEZ.eq(Some(stars))).execute(&conn)?;
                 }
-            } else if mods.contains(&HardRock) {
-                if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+            } else if mods.contains(GameMods::HardRock) {
+                if mods.contains(GameMods::DoubleTime) {
                     update.set(cHRDT.eq(Some(stars))).execute(&conn)?;
-                } else if mods.contains(&HalfTime) {
+                } else if mods.contains(GameMods::HalfTime) {
                     update.set(cHRHT.eq(Some(stars))).execute(&conn)?;
                 } else {
                     update.set(cHR.eq(Some(stars))).execute(&conn)?;
                 }
-            } else if mods.contains(&DoubleTime) || mods.contains(&NightCore) {
+            } else if mods.contains(GameMods::DoubleTime) {
                 update.set(cDT.eq(Some(stars))).execute(&conn)?;
-            } else if mods.contains(&HalfTime) {
+            } else if mods.contains(GameMods::HalfTime) {
                 update.set(cHT.eq(Some(stars))).execute(&conn)?;
             } else {
                 panic!("Don't call update_stars_map with CtB on NoMod");
@@ -733,17 +730,9 @@ impl MySQL {
     }
 }
 
-fn mania_mod_bits(mods: &GameMods) -> u32 {
-    use GameMod::{DoubleTime, Easy, HalfTime, NightCore, NoFail};
-    let mut bits = 0;
-    for &m in mods.iter() {
-        match m {
-            NightCore => bits += DoubleTime as u32,
-            DoubleTime | Easy | HalfTime | NoFail => bits += m as u32,
-            _ => {}
-        }
-    }
-    bits
+fn mania_mod_bits(mods: GameMods) -> u32 {
+    let valid = GameMods::DoubleTime | GameMods::Easy | GameMods::HalfTime | GameMods::NoFail;
+    mods.bits() & valid.bits()
 }
 
 sql_function! {

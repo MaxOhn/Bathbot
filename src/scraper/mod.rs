@@ -13,7 +13,7 @@ use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
     Client, Response,
 };
-use rosu::models::{GameMod, GameMode, GameMods};
+use rosu::models::{GameMode, GameMods};
 use scraper::{Html, Node, Selector};
 use std::{collections::HashSet, convert::TryFrom, env, fmt::Write, sync::Mutex};
 
@@ -83,13 +83,13 @@ impl Scraper {
     ) -> Result<Vec<ScraperScore>, Error> {
         let mut scores = self._get_leaderboard(map_id, national, mods).await?;
         let mods = mods.and_then(|mods| {
-            let dt = GameMod::DoubleTime;
-            let nc = GameMod::NightCore;
-            if mods.contains(&GameMod::DoubleTime) {
-                let mods = mods.as_bits() - dt as u32 + nc as u32;
+            let dt = GameMods::DoubleTime.bits();
+            let nc = GameMods::NightCore.bits();
+            if mods.contains(GameMods::DoubleTime) {
+                let mods = mods.bits() - dt + nc;
                 Some(GameMods::try_from(mods).unwrap())
-            } else if mods.contains(&GameMod::NightCore) {
-                let mods = mods.as_bits() - nc as u32 + dt as u32;
+            } else if mods.contains(GameMods::NightCore) {
+                let mods = mods.bits() - nc + dt;
                 Some(GameMods::try_from(mods).unwrap())
             } else {
                 None

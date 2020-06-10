@@ -60,12 +60,11 @@ pub fn get_mods(mods: &GameMods) -> String {
 }
 
 pub fn get_keys(mods: &GameMods, map: &Beatmap) -> String {
-    for m in mods.iter() {
-        if m.is_key_mod() {
-            return format!("[{}]", m);
-        }
+    if let Some(key_mod) = mods.has_key_mod() {
+        format!("[{}]", key_mod)
+    } else {
+        format!("[{}K]", map.diff_cs as u32)
     }
-    format!("[{}K]", map.diff_cs as u32)
 }
 
 pub fn get_stars(stars: f32) -> String {
