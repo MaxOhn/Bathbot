@@ -5,7 +5,7 @@ use serenity::{
     model::{gateway::ActivityType, prelude::Message},
     prelude::Context,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 #[command]
 #[only_in("guild")]
@@ -14,20 +14,12 @@ use std::{collections::HashMap, sync::Arc};
 async fn allstreams(ctx: &Context, msg: &Message) -> CommandResult {
     let guild_id = msg.guild_id.unwrap();
     let presences: Vec<_> = {
-        let cache = ctx.cache.clone();
-        let http = Arc::clone(&ctx.http);
-        let guild_lock = guild_id.to_guild_cached(&cache).await.unwrap();
-        let guild = guild_lock.read().await;
+        let guild = guild_id.to_guild_cached(ctx).await.unwrap();
         let mut presences = Vec::with_capacity(guild.presences.len());
         for (_, presence) in guild.presences.iter() {
             if let Some(activity) = presence.activity.as_ref() {
                 if activity.kind == ActivityType::Streaming
-                    && !presence
-                        .user_id
-                        .to_user((&cache, &*http))
-                        .await
-                        .unwrap()
-                        .bot
+                    && !presence.user_id.to_user(ctx).await.unwrap().bot
                 {
                     presences.push(presence.clone());
                 }
@@ -41,8 +33,6 @@ async fn allstreams(ctx: &Context, msg: &Message) -> CommandResult {
         .to_guild_cached(&ctx.cache)
         .await
         .unwrap_or_else(|| panic!("Guild {} not found in cache", guild_id))
-        .read()
-        .await
         .icon_url();
     let mut users = HashMap::with_capacity(presences.len());
     for presence in presences.iter() {

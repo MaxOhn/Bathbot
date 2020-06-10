@@ -73,14 +73,11 @@ async fn ratios(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     };
 
     // Accumulate all necessary data
-    let data = match BasicEmbedData::create_ratio(user, scores, ctx.data.clone()).await {
+    let data = match BasicEmbedData::create_ratio(user, scores, &ctx.data).await {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id
-                .say(
-                    &ctx.http,
-                    "Some issue while calculating ratio data, blame bade",
-                )
+                .say(ctx, "Some issue while calculating ratio data, blame bade")
                 .await?;
             return Err(CommandError::from(why.to_string()));
         }

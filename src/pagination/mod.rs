@@ -8,7 +8,7 @@ use crate::{
 use rosu::models::{Beatmap, GameMode, Score, User};
 use serenity::{
     builder::CreateEmbed,
-    cache::CacheRwLock,
+    cache::Cache,
     http::client::Http,
     model::id::UserId,
     prelude::{RwLock, TypeMap},
@@ -26,14 +26,14 @@ pub enum PaginationType {
         maps: HashMap<u32, Beatmap>,
         best: Vec<Score>,
         global: HashMap<u32, Vec<Score>>,
-        cache: CacheRwLock,
+        cache: Arc<Cache>,
         data: Arc<RwLock<TypeMap>>,
     },
     Top {
         user: Box<User>,
         scores: Vec<(usize, Score, Beatmap)>,
         mode: GameMode,
-        cache: CacheRwLock,
+        cache: Arc<Cache>,
         data: Arc<RwLock<TypeMap>>,
     },
     Leaderboard {
@@ -41,7 +41,7 @@ pub enum PaginationType {
         scores: Vec<ScraperScore>,
         author_name: Option<String>,
         first_place_icon: Option<String>,
-        cache: CacheRwLock,
+        cache: Arc<Cache>,
         data: Arc<RwLock<TypeMap>>,
     },
     BgRanking {
@@ -50,7 +50,7 @@ pub enum PaginationType {
         scores: Vec<(u64, u32)>,
         usernames: HashMap<u64, String>,
         http: Arc<Http>,
-        cache: CacheRwLock,
+        cache: Arc<Cache>,
     },
     CommandCounter {
         booted_up: String,
@@ -60,7 +60,7 @@ pub enum PaginationType {
         user: Box<User>,
         scores_data: Vec<(usize, Score, Score, Beatmap)>,
         unchoked_pp: f64,
-        cache: CacheRwLock,
+        cache: Arc<Cache>,
     },
 }
 
@@ -126,7 +126,7 @@ impl Pagination {
         maps: HashMap<u32, Beatmap>,
         best: Vec<Score>,
         global: HashMap<u32, Vec<Score>>,
-        cache: CacheRwLock,
+        cache: Arc<Cache>,
         data: Arc<RwLock<TypeMap>>,
     ) -> Self {
         let total_pages = scores.len();
@@ -152,7 +152,7 @@ impl Pagination {
         user: User,
         scores: Vec<(usize, Score, Beatmap)>,
         mode: GameMode,
-        cache: CacheRwLock,
+        cache: Arc<Cache>,
         data: Arc<RwLock<TypeMap>>,
     ) -> Self {
         let amount = scores.len();
@@ -178,7 +178,7 @@ impl Pagination {
         scores: Vec<ScraperScore>,
         author_name: Option<String>,
         first_place_icon: Option<String>,
-        cache: CacheRwLock,
+        cache: Arc<Cache>,
         data: Arc<RwLock<TypeMap>>,
     ) -> Self {
         let amount = scores.len();
@@ -205,7 +205,7 @@ impl Pagination {
         scores: Vec<(u64, u32)>,
         global: bool,
         http: Arc<Http>,
-        cache: CacheRwLock,
+        cache: Arc<Cache>,
     ) -> Self {
         let amount = scores.len();
         let per_page = 15;
@@ -243,7 +243,7 @@ impl Pagination {
         user: User,
         scores_data: Vec<(usize, Score, Score, Beatmap)>,
         unchoked_pp: f64,
-        cache: CacheRwLock,
+        cache: Arc<Cache>,
     ) -> Self {
         let amount = scores_data.len();
         let per_page = 5;

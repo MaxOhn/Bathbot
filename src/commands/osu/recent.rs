@@ -99,7 +99,6 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             .get_beatmaps(&dedubed_ids)
             .unwrap_or_else(|_| HashMap::default())
     };
-    // debug!("Found {}/{} beatmaps in DB", maps.len(), map_ids.len());
 
     // Memoize which maps are already in the DB
     map_ids.retain(|id| maps.contains_key(&id));
@@ -209,7 +208,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
 
     // Check if the author wants to edit the response
     let http = Arc::clone(&ctx.http);
-    let cache = ctx.cache.clone();
+    let cache = Arc::clone(&ctx.cache);
     let data = Arc::clone(&ctx.data);
     tokio::spawn(async move {
         let mut pagination = Pagination::recent(
@@ -218,7 +217,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             maps,
             best,
             global,
-            cache.clone(),
+            Arc::clone(&cache),
             Arc::clone(&data),
         );
         while let Some(reaction) = collector.next().await {

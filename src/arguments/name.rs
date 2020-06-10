@@ -46,8 +46,7 @@ impl DiscordUserArgs {
                     .to_string());
             }
         } else {
-            let guild_arc = guild.to_guild_cached(&ctx.cache).await.unwrap();
-            let guild = guild_arc.read().await;
+            let guild = guild.to_guild_cached(&ctx.cache).await.unwrap();
             if let Some(member) = guild.member_named(&arg).await {
                 member.user.clone()
             } else {

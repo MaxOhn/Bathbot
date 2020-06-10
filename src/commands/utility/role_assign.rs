@@ -27,8 +27,8 @@ async fn roleassign(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = match RoleAssignArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
-            let response = msg.channel_id.say(&ctx.http, err_msg).await?;
-            discord::reaction_deletion(&ctx, response, msg.author.id).await;
+            let response = msg.channel_id.say(ctx, err_msg).await?;
+            discord::reaction_deletion(ctx, response, msg.author.id).await;
             return Ok(());
         }
     };
@@ -41,9 +41,11 @@ async fn roleassign(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         match mysql.add_role_assign(channel.0, message.0, role.0) {
             Ok(_) => debug!("Inserted into role_assign table"),
             Err(why) => {
-                msg.channel_id
-                    .say(&ctx.http, "Some issue while inserting into DB, blame bade")
+                let response = msg
+                    .channel_id
+                    .say(ctx, "Some issue while inserting into DB, blame bade")
                     .await?;
+                discord::reaction_deletion(ctx, response, msg.author.id).await;
                 return Err(CommandError::from(why.to_string()));
             }
         }
@@ -58,8 +60,8 @@ async fn roleassign(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         BasicEmbedData::create_roleassign(message, msg.guild_id.unwrap(), role, &ctx.cache).await;
     let response = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
+        .send_message(ctx, |m| m.embed(|e| data.build(e)))
         .await?;
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+    discord::reaction_deletion(ctx, response, msg.author.id).await;
     Ok(())
 }

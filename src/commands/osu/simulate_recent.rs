@@ -139,7 +139,7 @@ async fn simulate_recent_send(
         }
     }
 
-    discord::reaction_deletion(&ctx, response.clone(), msg.author.id).await;
+    discord::reaction_deletion(ctx, response.clone(), msg.author.id).await;
 
     // Minimize embed after delay
     time::delay_for(Duration::from_secs(MINIMIZE_DELAY)).await;

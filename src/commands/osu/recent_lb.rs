@@ -207,7 +207,7 @@ async fn recent_lb_send(
 
     // Check if the author wants to edit the response
     let http = Arc::clone(&ctx.http);
-    let cache = ctx.cache.clone();
+    let cache = Arc::clone(&ctx.cache);
     let data = Arc::clone(&ctx.data);
     tokio::spawn(async move {
         let mut pagination = Pagination::leaderboard(
@@ -215,8 +215,8 @@ async fn recent_lb_send(
             scores,
             author_name,
             first_place_icon,
-            cache.clone(),
-            Arc::clone(&data),
+            Arc::clone(&cache),
+            data,
         );
         while let Some(reaction) = collector.next().await {
             if let ReactionAction::Added(reaction) = &*reaction {

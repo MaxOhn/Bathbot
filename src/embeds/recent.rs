@@ -1,6 +1,6 @@
 use super::util;
 use crate::util::{
-    datetime::{date_to_string, how_long_ago},
+    datetime::how_long_ago,
     discord::CacheData,
     globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
     numbers::{round, round_and_comma, with_comma_u64},
@@ -9,9 +9,10 @@ use crate::util::{
     Error,
 };
 
+use chrono::{DateTime, Utc};
 use rosu::models::{Beatmap, GameMode, Grade, Score, User};
 use serenity::{builder::CreateEmbed, utils::Colour};
-use std::{fmt::Write, sync::Arc};
+use std::fmt::Write;
 
 pub struct RecentData {
     pub description: Option<String>,
@@ -32,7 +33,7 @@ pub struct RecentData {
     pub map_info: String,
     pub footer_url: String,
     pub footer_text: String,
-    pub timestamp: String,
+    pub timestamp: DateTime<Utc>,
     pub thumbnail: String,
     pub image: String,
 }
@@ -46,7 +47,7 @@ impl RecentData {
             .color(Colour::DARK_GREEN)
             .title(&self.title)
             .url(&self.title_url)
-            .timestamp(self.timestamp.clone())
+            .timestamp(&self.timestamp)
             .image(&self.image)
             .footer(|f| f.icon_url(&self.footer_url).text(&self.footer_text))
             .fields(vec![
@@ -128,7 +129,7 @@ impl RecentData {
             None
         };
         let title = if map.mode == GameMode::MNA {
-            format!("{} {}", util::get_keys(&score.enabled_mods, &map), map)
+            format!("{} {}", util::get_keys(score.enabled_mods, &map), map)
         } else {
             map.to_string()
         };
@@ -143,10 +144,9 @@ impl RecentData {
             country = user.country,
             national = user.pp_country_rank
         );
-        let cache = cache_data.cache().clone();
-        let grade_completion_mods = util::get_grade_completion_mods(&score, &map, cache).await;
-        let data = Arc::clone(cache_data.data());
-        let mut pp_provider = match PPProvider::new(&score, &map, Some(data)).await {
+        let grade_completion_mods =
+            util::get_grade_completion_mods(&score, &map, cache_data.cache()).await;
+        let mut pp_provider = match PPProvider::new(&score, &map, Some(cache_data.data())).await {
             Ok(provider) => provider,
             Err(why) => {
                 return Err(Error::Custom(format!(
@@ -207,7 +207,7 @@ impl RecentData {
             map_info: util::get_map_info(&map),
             footer_url: format!("{}{}", AVATAR_URL, map.creator_id),
             footer_text: format!("{:?} map by {}", map.approval_status, map.creator),
-            timestamp: date_to_string(&score.date),
+            timestamp: score.date,
             thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id),
             image: format!(
                 "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",

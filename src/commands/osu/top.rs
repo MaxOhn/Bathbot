@@ -312,11 +312,10 @@ async fn top_send(
 
     // Check if the author wants to edit the response
     let http = Arc::clone(&ctx.http);
-    let cache = ctx.cache.clone();
+    let cache = Arc::clone(&ctx.cache);
     let data = Arc::clone(&ctx.data);
     tokio::spawn(async move {
-        let mut pagination =
-            Pagination::top(user, scores_data, mode, cache.clone(), Arc::clone(&data));
+        let mut pagination = Pagination::top(user, scores_data, mode, Arc::clone(&cache), data);
         while let Some(reaction) = collector.next().await {
             if let ReactionAction::Added(reaction) = &*reaction {
                 if let ReactionType::Unicode(reaction) = &reaction.emoji {

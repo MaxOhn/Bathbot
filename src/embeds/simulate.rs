@@ -13,7 +13,7 @@ use crate::{
 
 use rosu::models::{Beatmap, GameMode, Score};
 use serenity::{builder::CreateEmbed, utils::Colour};
-use std::{fmt::Write, sync::Arc};
+use std::fmt::Write;
 
 pub struct SimulateData {
     pub title: String,
@@ -75,10 +75,10 @@ impl SimulateData {
     }
 
     pub fn minimize<'d, 'e>(&'d self, embed: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
-        let pp = if let Some(prev_pp) = &self.prev_pp {
-            format!("{} → {}", prev_pp, self.pp)
+        let mut value = if let Some(prev_pp) = &self.prev_pp {
+            format!("{} → {} {}", prev_pp, self.pp, self.hits)
         } else {
-            self.pp.clone()
+            format!("{} {}", self.pp, self.hits)
         };
         let combo = if let Some(prev_combo) = &self.prev_combo {
             format!("{} → {}", prev_combo, self.combo)
@@ -98,7 +98,6 @@ impl SimulateData {
             acc = self.acc,
             combo = combo
         );
-        let mut value = format!("{} {}", pp, self.hits);
         if let Some(misses) = self.removed_misses {
             if misses > 0 {
                 let _ = write!(value, " (+{}miss)", misses);
@@ -122,17 +121,10 @@ impl SimulateData {
         D: CacheData,
     {
         let is_some = args.is_some();
-        // if !is_some && map.mode == GameMode::TKO {
-        //     return Err(Error::Custom(format!(
-        //         "Can only simulate STD and MNA scores, not {:?}",
-        //         map.mode,
-        //     )));
-        // }
         let title = map.to_string();
         let title_url = format!("{}b/{}", HOMEPAGE, map.beatmap_id);
         let (prev_pp, prev_combo, prev_hits, misses) = if let Some(s) = score.as_ref() {
-            let data = Arc::clone(cache_data.data());
-            let pp_provider = match PPProvider::new(&s, &map, Some(Arc::clone(&data))).await {
+            let pp_provider = match PPProvider::new(&s, &map, Some(cache_data.data())).await {
                 Ok(provider) => provider,
                 Err(why) => {
                     return Err(Error::Custom(format!(
@@ -158,19 +150,18 @@ impl SimulateData {
         } else {
             osu::unchoke_score(&mut unchoked_score, &map);
         }
-        let cache = cache_data.cache().clone();
         let grade_completion_mods =
-            util::get_grade_completion_mods(&unchoked_score, &map, cache).await;
-        let data = Arc::clone(cache_data.data());
-        let pp_provider = match PPProvider::new(&unchoked_score, &map, Some(data)).await {
-            Ok(provider) => provider,
-            Err(why) => {
-                return Err(Error::Custom(format!(
-                    "Something went wrong while creating PPProvider: {}",
-                    why
-                )))
-            }
-        };
+            util::get_grade_completion_mods(&unchoked_score, &map, cache_data.cache()).await;
+        let pp_provider =
+            match PPProvider::new(&unchoked_score, &map, Some(cache_data.data())).await {
+                Ok(provider) => provider,
+                Err(why) => {
+                    return Err(Error::Custom(format!(
+                        "Something went wrong while creating PPProvider: {}",
+                        why
+                    )))
+                }
+            };
         let stars = util::get_stars(pp_provider.stars());
         let pp = util::get_pp(&unchoked_score, &pp_provider);
         let hits = util::get_hits(&unchoked_score, map.mode);

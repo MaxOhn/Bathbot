@@ -239,9 +239,10 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     // Check if the author wants to edit the response
     let http = Arc::clone(&ctx.http);
-    let cache = ctx.cache.clone();
+    let cache = Arc::clone(&ctx.cache);
     tokio::spawn(async move {
-        let mut pagination = Pagination::nochoke(user, scores_data, unchoked_pp, cache.clone());
+        let mut pagination =
+            Pagination::nochoke(user, scores_data, unchoked_pp, Arc::clone(&cache));
         while let Some(reaction) = collector.next().await {
             if let ReactionAction::Added(reaction) = &*reaction {
                 if let ReactionType::Unicode(reaction) = &reaction.emoji {

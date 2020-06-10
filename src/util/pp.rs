@@ -5,7 +5,7 @@ use crate::{
 
 use rosu::models::{ApprovalStatus, Beatmap, GameMode, GameMods, Grade, Score};
 use serenity::prelude::{RwLock, TypeMap};
-use std::{env, mem, process::Stdio, str::FromStr, sync::Arc};
+use std::{env, mem, process::Stdio, str::FromStr};
 use tokio::{
     process::{Child, Command},
     time,
@@ -34,7 +34,7 @@ async fn new_oppai(score: &Score, map: &Beatmap) -> Result<PPProvider, Error> {
     let map_path = osu::prepare_beatmap_file(map.beatmap_id).await?;
     let mut oppai = Oppai::new();
     if !score.enabled_mods.is_empty() {
-        let bits = score.enabled_mods.as_bits();
+        let bits = score.enabled_mods.bits();
         oppai.set_mods(bits);
     }
     let max_pp = oppai.calculate(Some(&map_path))?.get_pp();
@@ -61,7 +61,7 @@ async fn new_oppai(score: &Score, map: &Beatmap) -> Result<PPProvider, Error> {
 async fn new_perf_calc<'a>(
     score: &'a Score,
     map: &Beatmap,
-    data: Arc<RwLock<TypeMap>>,
+    data: &RwLock<TypeMap>,
 ) -> Result<PPProvider, Error> {
     let mode = map.mode;
     let mutex = if score.pp.is_none() {
@@ -169,7 +169,7 @@ async fn new_perf_calc<'a>(
     let stars = if let Some(stars) = stars {
         stars
     } else {
-        let stars = calc_stars(map.beatmap_id, &score.enabled_mods).await?;
+        let stars = calc_stars(map.beatmap_id, score.enabled_mods).await?;
         mem::drop(lock);
         if map.approval_status == ApprovalStatus::Ranked
             || map.approval_status == ApprovalStatus::Loved
@@ -196,7 +196,7 @@ impl PPProvider {
     pub async fn new(
         score: &Score,
         map: &Beatmap,
-        data: Option<Arc<RwLock<TypeMap>>>,
+        data: Option<&RwLock<TypeMap>>,
     ) -> Result<Self, Error> {
         match map.mode {
             GameMode::STD | GameMode::TKO => new_oppai(score, map).await,
@@ -222,7 +222,7 @@ impl PPProvider {
         let map_path = osu::prepare_beatmap_file(map.beatmap_id).await?;
         let mut oppai = Oppai::new();
         if !score.mods().is_empty() {
-            let bits = score.mods().as_bits();
+            let bits = score.mods().bits();
             oppai.set_mods(bits);
         }
         oppai
@@ -237,7 +237,7 @@ impl PPProvider {
     pub async fn calculate_pp<S>(
         score: &S,
         map: &Beatmap,
-        data: Arc<RwLock<TypeMap>>,
+        data: &RwLock<TypeMap>,
     ) -> Result<f32, Error>
     where
         S: SubScore,
@@ -267,14 +267,14 @@ impl PPProvider {
     pub async fn calculate_max<'a>(
         map: &Beatmap,
         mods: GameMods,
-        data: Option<Arc<RwLock<TypeMap>>>,
+        data: Option<&RwLock<TypeMap>>,
     ) -> Result<f32, Error> {
         match map.mode {
             GameMode::STD | GameMode::TKO => {
                 let map_path = osu::prepare_beatmap_file(map.beatmap_id).await?;
                 let mut oppai = Oppai::new();
                 if !mods.is_empty() {
-                    let bits = mods.as_bits();
+                    let bits = mods.bits();
                     oppai.set_mods(bits);
                 }
                 Ok(oppai.calculate(Some(&map_path))?.get_pp())
@@ -332,7 +332,7 @@ impl PPProvider {
         match self {
             Self::Oppai { oppai, pp, .. } => {
                 if !score.enabled_mods.is_empty() {
-                    let bits = score.enabled_mods.as_bits();
+                    let bits = score.enabled_mods.bits();
                     oppai.set_mods(bits);
                 }
                 oppai
@@ -440,7 +440,7 @@ async fn parse_pp_calc(child: Child) -> Result<f32, Error> {
     }
 }
 
-async fn calc_stars(map_id: u32, mods: &GameMods) -> Result<f32, Error> {
+async fn calc_stars(map_id: u32, mods: GameMods) -> Result<f32, Error> {
     let map_path = osu::prepare_beatmap_file(map_id).await?;
     let mut cmd = Command::new("dotnet");
     cmd.kill_on_drop(true)

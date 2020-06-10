@@ -107,7 +107,7 @@ async fn hint(ctx: &Context, msg: &Message) -> CommandResult {
     } else {
         msg.channel_id
             .say(
-                &ctx.http,
+                ctx,
                 "There is no running game in this channel, \
                 start one with `<bg s`",
             )
@@ -139,7 +139,7 @@ async fn bigger(ctx: &Context, msg: &Message) -> CommandResult {
     } else {
         msg.channel_id
             .say(
-                &ctx.http,
+                ctx,
                 "There is no running game in this channel, \
                 start one with `<bg s`",
             )
@@ -156,7 +156,7 @@ async fn stop(ctx: &Context, msg: &Message) -> CommandResult {
     if !games.contains_key(&channel) {
         msg.channel_id
             .say(
-                &ctx.http,
+                ctx,
                 "There is no running game in this channel, \
                 start one with `<bg s`",
             )
@@ -187,7 +187,7 @@ async fn stats(ctx: &Context, msg: &Message) -> CommandResult {
         )
         .await?
     };
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+    discord::reaction_deletion(ctx, response, msg.author.id).await;
     Ok(())
 }
 
@@ -206,11 +206,13 @@ async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
     };
     if !global && msg.guild_id.is_some() {
         let guild_id = msg.guild_id.unwrap();
-        let cache = ctx.cache.read().await;
-        let cache_guild = cache.guilds.get(&guild_id);
-        if let Some(guild) = cache_guild {
-            let guild = guild.read().await;
-            let members: Vec<u64> = guild.members.keys().map(|id| id.0).collect();
+        let member_ids = ctx
+            .cache
+            .guild_field(guild_id, |guild| {
+                guild.members.keys().map(|id| id.0).collect::<Vec<_>>()
+            })
+            .await;
+        if let Some(members) = member_ids {
             scores.retain(|(user, _)| members.iter().any(|member| member == user));
         }
 
@@ -218,11 +220,11 @@ async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
             let response = msg
                 .channel_id
                 .say(
-                    &ctx,
+                    ctx,
                     "Looks like no one on this server has played the backgroundgame yet",
                 )
                 .await?;
-            discord::reaction_deletion(&ctx, response, msg.author.id).await;
+            discord::reaction_deletion(ctx, response, msg.author.id).await;
             return Ok(());
         }
     }
@@ -275,10 +277,15 @@ async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
     }
     // Check if the author wants to edit the response
     let http = Arc::clone(&ctx.http);
-    let cache = ctx.cache.clone();
+    let cache = Arc::clone(&ctx.cache);
     tokio::spawn(async move {
-        let mut pagination =
-            Pagination::bg_ranking(author_idx, scores, global, Arc::clone(&http), cache.clone());
+        let mut pagination = Pagination::bg_ranking(
+            author_idx,
+            scores,
+            global,
+            Arc::clone(&http),
+            Arc::clone(&cache),
+        );
         while let Some(reaction) = collector.next().await {
             if let ReactionAction::Added(reaction) = &*reaction {
                 if let ReactionType::Unicode(reaction) = &reaction.emoji {

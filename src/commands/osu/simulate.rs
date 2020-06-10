@@ -36,8 +36,8 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = match SimulateMapArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
-            let response = msg.channel_id.say(&ctx.http, err_msg).await?;
-            discord::reaction_deletion(&ctx, response, msg.author.id).await;
+            let response = msg.channel_id.say(ctx, err_msg).await?;
+            discord::reaction_deletion(ctx, response, msg.author.id).await;
             return Ok(());
         }
     };
@@ -46,19 +46,21 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     } else {
         let msgs = msg
             .channel_id
-            .messages(&ctx.http, |retriever| retriever.limit(50))
+            .messages(ctx, |retriever| retriever.limit(50))
             .await?;
-        match discord::map_id_from_history(msgs, ctx.cache.clone()).await {
+        match discord::map_id_from_history(msgs, &ctx.cache).await {
             Some(id) => id,
             None => {
-                msg.channel_id
+                let response = msg
+                    .channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "No map embed found in this channel's recent history.\n\
-                     Try specifying a map either by url to the map, \
-                     or just by map id.",
+                        Try specifying a map either by url to the map, \
+                        or just by map id.",
                     )
                     .await?;
+                discord::reaction_deletion(ctx, response, msg.author.id).await;
                 return Ok(());
             }
         }
@@ -77,15 +79,16 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     Ok(result) => match result {
                         Some(map) => map,
                         None => {
-                            msg.channel_id.say(
-                                &ctx.http,
+                            let response = msg.channel_id.say(
+                                ctx,
                                 format!("Could not find beatmap with id `{}`. Did you give me a mapset id instead of a map id?", map_id),
                             ).await?;
+                            discord::reaction_deletion(ctx, response, msg.author.id).await;
                             return Ok(());
                         }
                     },
                     Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                        msg.channel_id.say(ctx, OSU_API_ISSUE).await?;
                         return Err(CommandError::from(why.to_string()));
                     }
                 };
@@ -106,7 +109,7 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     format!("I can only simulate STD and MNA maps, not {}", map.mode),
                 )
                 .await?;
-            discord::reaction_deletion(ctx, response.clone(), msg.author.id).await;
+            discord::reaction_deletion(ctx, response, msg.author.id).await;
             return Ok(());
         }
         _ => {}
@@ -119,7 +122,7 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         Err(why) => {
             msg.channel_id
                 .say(
-                    &ctx.http,
+                    ctx,
                     "Some issue while calculating simulate data, blame bade",
                 )
                 .await?;
@@ -130,7 +133,7 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     // Creating the embed
     let mut response = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
+        .send_message(ctx, |m| m.embed(|e| data.build(e)))
         .await?;
 
     // Add map to database if its not in already
@@ -141,7 +144,6 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             warn!("Could not add map of simulaterecent command to DB: {}", why);
         }
     }
-
     discord::reaction_deletion(ctx, response.clone(), msg.author.id).await;
 
     // Minimize embed after delay

@@ -59,8 +59,7 @@ async fn authorities(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
         }
     }
     // Get all roles of the guild
-    let guild_lock = guild_id.to_guild_cached(&ctx.cache).await.unwrap();
-    let guild = guild_lock.read().await;
+    let guild = guild_id.to_guild_cached(&ctx.cache).await.unwrap();
     let guild_roles = &guild.roles;
     // Parse the arguments
     let mut new_auth = Vec::with_capacity(10);
