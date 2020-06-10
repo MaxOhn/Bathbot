@@ -93,7 +93,7 @@ impl BackGroundGame {
                     // Listen for stop or restart invokes
                     option = rx.recv() => option.unwrap_or_else(|| LoopResult::Stop),
                     // Let the game run
-                    result = game_loop(&mut collector, &http, Arc::clone(&game_lock), channel) => result,
+                    result = game_loop(&mut collector, &http, &game_lock, channel) => result,
                     // Timeout after 3 minutes
                     _ = time::delay_for(time::Duration::from_secs(180)) => LoopResult::Stop,
                 };
@@ -153,7 +153,7 @@ enum LoopResult {
 async fn game_loop(
     collector: &mut MessageCollector,
     http: &Http,
-    game_lock: Arc<RwLock<GameData>>,
+    game_lock: &RwLock<GameData>,
     channel: ChannelId,
 ) -> LoopResult {
     // Collect and evaluate messages
@@ -270,7 +270,7 @@ impl GameData {
         let mut split = file_name.split('.');
         let mapset_id = u32::from_str(split.next().unwrap()).unwrap();
         debug!("Next BG mapset id: {}", mapset_id);
-        let (title, artist) = util::get_title_artist(mapset_id, Arc::clone(&data)).await?;
+        let (title, artist) = util::get_title_artist(mapset_id, &data).await?;
         let file_type = match split.next().unwrap() {
             "png" => ImageFormat::Png,
             "jpg" | "jpeg" => ImageFormat::Jpeg,

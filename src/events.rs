@@ -37,14 +37,14 @@ impl EventHandler for Handler {
         START.call_once(|| {
             // Tracking streams
             if WITH_STREAM_TRACK {
-                let http = ctx.http.clone();
-                let data = ctx.data.clone();
+                let http = Arc::clone(&ctx.http);
+                let data = Arc::clone(&ctx.data);
                 let _ = tokio::spawn(async move {
                     let track_delay = 10;
                     let mut interval = time::interval(time::Duration::from_secs(track_delay * 60));
                     interval.tick().await;
                     loop {
-                        _check_streams(&http, Arc::clone(&data).clone()).await;
+                        _check_streams(&http, &data).await;
                         interval.tick().await;
                     }
                 });
@@ -193,7 +193,7 @@ impl EventHandler for Handler {
     }
 }
 
-async fn _check_streams(http: &Http, data: Arc<RwLock<TypeMap>>) {
+async fn _check_streams(http: &Http, data: &RwLock<TypeMap>) {
     let now_online = {
         let reading = data.read().await;
 

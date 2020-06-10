@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use rosu::models::{ApprovalStatus, GameMod, GameMode, GameMods, Grade};
+use rosu::models::{ApprovalStatus, GameMode, GameMods, Grade};
 use serde::{de, Deserialize, Deserializer};
 use serde_derive::Deserialize as DeserializeDerive;
 use std::convert::TryFrom;
@@ -181,8 +181,8 @@ where
     D: Deserializer<'de>,
 {
     let mods: Vec<&str> = Deserialize::deserialize(d)?;
-    let mods: Result<Vec<GameMod>, _> = mods.into_iter().map(GameMod::try_from).collect();
-    Ok(GameMods::new(mods.map_err(de::Error::custom)?))
+    let mods: Result<GameMods, _> = mods.into_iter().map(GameMods::try_from).collect();
+    mods.map_err(de::Error::custom)
 }
 
 fn adjust_grade<'de, D>(d: D) -> Result<Grade, D::Error>

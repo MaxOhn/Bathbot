@@ -42,13 +42,16 @@ async fn about(ctx: &Context, msg: &Message) -> CommandResult {
         (process_cpu, process_ram, total_cpu, used_ram, total_ram)
     };
 
-    let cache = &ctx.cache.read().await;
-    let name = cache.user.name.clone();
-    let shards = cache.shard_count.to_string();
-    let avatar = cache.user.avatar_url().unwrap();
-    let users = with_comma_u64(cache.users.len() as u64);
-    let guilds = with_comma_u64(cache.guilds.len() as u64);
-    let channels = with_comma_u64(cache.channels.len() as u64);
+    let cache = &ctx.cache;
+    let name = cache.current_user_field(|user| user.name.clone()).await;
+    let shards = cache.shard_count().await.to_string();
+    let avatar = cache
+        .current_user_field(|user| user.avatar_url())
+        .await
+        .unwrap();
+    let users = with_comma_u64(cache.user_count().await as u64);
+    let guilds = with_comma_u64(cache.guild_count().await as u64);
+    let channels = with_comma_u64(cache.guild_channel_count().await as u64);
 
     let response = {
         let data = ctx.data.read().await;

@@ -34,7 +34,7 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             .channel_id
             .messages(ctx, |retriever| retriever.limit(50))
             .await?;
-        match discord::map_id_from_history(msgs, ctx.cache.clone()).await {
+        match discord::map_id_from_history(msgs, &ctx.cache).await {
             Some(id) => id,
             None => {
                 msg.channel_id

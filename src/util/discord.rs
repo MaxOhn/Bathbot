@@ -6,7 +6,7 @@ use image::{
 use regex::Regex;
 use reqwest::Client;
 use serenity::{
-    cache::CacheRwLock,
+    cache::Cache,
     model::{
         channel::{EmbedField, Message, ReactionType},
         guild::Member,
@@ -41,7 +41,7 @@ pub async fn get_combined_thumbnail(user_ids: &[u32]) -> Result<Vec<u8>, Error> 
     Ok(png_bytes)
 }
 
-pub async fn map_id_from_history(msgs: Vec<Message>, cache: CacheRwLock) -> Option<u32> {
+pub async fn map_id_from_history(msgs: Vec<Message>, cache: &Cache) -> Option<u32> {
     let url_regex = Regex::new(r".*/([0-9]{1,9})").unwrap();
     let field_regex = Regex::new(r".*\{(\d+/){2,}\d+}.*").unwrap();
     let check_field = |url: &str, field: &EmbedField| {
@@ -57,7 +57,7 @@ pub async fn map_id_from_history(msgs: Vec<Message>, cache: CacheRwLock) -> Opti
         None
     };
     for msg in msgs {
-        if !msg.is_own(&cache).await {
+        if !msg.is_own(cache).await {
             continue;
         }
         for embed in msg.embeds {
@@ -131,12 +131,12 @@ pub async fn reaction_deletion(ctx: &Context, msg: Message, owner: UserId) {
 }
 
 pub trait CacheData {
-    fn cache(&self) -> &CacheRwLock;
+    fn cache(&self) -> &Cache;
     fn data(&self) -> &Arc<RwLock<TypeMap>>;
 }
 
 impl CacheData for &Context {
-    fn cache(&self) -> &CacheRwLock {
+    fn cache(&self) -> &Cache {
         &self.cache
     }
     fn data(&self) -> &Arc<RwLock<TypeMap>> {
@@ -144,44 +144,8 @@ impl CacheData for &Context {
     }
 }
 
-impl CacheData for &mut Context {
-    fn cache(&self) -> &CacheRwLock {
-        &self.cache
-    }
-    fn data(&self) -> &Arc<RwLock<TypeMap>> {
-        &self.data
-    }
-}
-
-impl CacheData for &&mut Context {
-    fn cache(&self) -> &CacheRwLock {
-        &self.cache
-    }
-    fn data(&self) -> &Arc<RwLock<TypeMap>> {
-        &self.data
-    }
-}
-
-impl CacheData for (CacheRwLock, Arc<RwLock<TypeMap>>) {
-    fn cache(&self) -> &CacheRwLock {
-        &self.0
-    }
-    fn data(&self) -> &Arc<RwLock<TypeMap>> {
-        &self.1
-    }
-}
-
-impl CacheData for (&CacheRwLock, &Arc<RwLock<TypeMap>>) {
-    fn cache(&self) -> &CacheRwLock {
-        self.0
-    }
-    fn data(&self) -> &Arc<RwLock<TypeMap>> {
-        self.1
-    }
-}
-
-impl CacheData for (&mut CacheRwLock, &mut Arc<RwLock<TypeMap>>) {
-    fn cache(&self) -> &CacheRwLock {
+impl CacheData for (&mut Arc<Cache>, &mut Arc<RwLock<TypeMap>>) {
+    fn cache(&self) -> &Cache {
         self.0
     }
     fn data(&self) -> &Arc<RwLock<TypeMap>> {

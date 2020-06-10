@@ -8,11 +8,7 @@ use crate::{
 };
 
 use rayon::prelude::*;
-use rosu::models::{
-    Beatmap,
-    GameMod::{DoubleTime, Easy, HalfTime, HardRock, Hidden, NightCore, NoFail},
-    GameMode, GameMods,
-};
+use rosu::models::{Beatmap, GameMode, GameMods};
 use serenity::model::id::GuildId;
 use sqlx::mysql::{MySqlPool, MySqlQueryAs};
 use std::collections::{HashMap, HashSet};
@@ -193,11 +189,11 @@ impl MySQL {
         &self,
         map_id: u32,
         mode: GameMode,
-        mods: &GameMods,
+        mut mods: GameMods,
     ) -> DBResult<Option<f32>> {
-        let mut mods = mods.as_bits();
-        if mods & NightCore as u32 == NightCore as u32 {
-            mods += DoubleTime as u32 - NightCore as u32;
+        if mods.contains(GameMods::NightCore) {
+            mods.remove(GameMods::NightCore);
+            mods.insert(GameMods::DoubleTime);
         }
         let (table, column) = match mode {
             GameMode::MNA => ("pp_mania_mods", mania_pp_mods_column(mods)?),
@@ -216,12 +212,12 @@ impl MySQL {
         &self,
         map_id: u32,
         mode: GameMode,
-        mods: &GameMods,
+        mut mods: GameMods,
         pp: f32,
     ) -> DBResult<()> {
-        let mut mods = mods.as_bits();
-        if mods & NightCore as u32 == NightCore as u32 {
-            mods += DoubleTime as u32 - NightCore as u32;
+        if mods.contains(GameMods::NightCore) {
+            mods.remove(GameMods::NightCore);
+            mods.insert(GameMods::DoubleTime);
         }
         let (table, column) = match mode {
             GameMode::MNA => ("pp_mania_mods", mania_pp_mods_column(mods)?),
@@ -245,12 +241,12 @@ impl MySQL {
         &self,
         map_id: u32,
         mode: GameMode,
-        mods: &GameMods,
+        mut mods: GameMods,
         pp: f32,
     ) -> DBResult<()> {
-        let mut mods = mods.as_bits();
-        if mods & NightCore as u32 == NightCore as u32 {
-            mods += DoubleTime as u32 - NightCore as u32;
+        if mods.contains(GameMods::NightCore) {
+            mods.remove(GameMods::NightCore);
+            mods.insert(GameMods::DoubleTime);
         }
         let (table, column) = match mode {
             GameMode::MNA => ("pp_mania_mods", mania_pp_mods_column(mods)?),
@@ -274,11 +270,11 @@ impl MySQL {
         &self,
         map_id: u32,
         mode: GameMode,
-        mods: &GameMods,
+        mut mods: GameMods,
     ) -> DBResult<Option<f32>> {
-        let mut mods = mods.as_bits();
-        if mods & NightCore as u32 == NightCore as u32 {
-            mods += DoubleTime as u32 - NightCore as u32;
+        if mods.contains(GameMods::NightCore) {
+            mods.remove(GameMods::NightCore);
+            mods.insert(GameMods::DoubleTime);
         }
         let (table, column) = match mode {
             GameMode::MNA => ("stars_mania_mods", mania_stars_mods_column(mods)?),
@@ -297,12 +293,12 @@ impl MySQL {
         &self,
         map_id: u32,
         mode: GameMode,
-        mods: &GameMods,
+        mut mods: GameMods,
         stars: f32,
     ) -> DBResult<()> {
-        let mut mods = mods.as_bits();
-        if mods & NightCore as u32 == NightCore as u32 {
-            mods += DoubleTime as u32 - NightCore as u32;
+        if mods.contains(GameMods::NightCore) {
+            mods.remove(GameMods::NightCore);
+            mods.insert(GameMods::DoubleTime);
         }
         let (table, column) = match mode {
             GameMode::MNA => ("stars_mania_mods", mania_stars_mods_column(mods)?),
@@ -326,12 +322,12 @@ impl MySQL {
         &self,
         map_id: u32,
         mode: GameMode,
-        mods: &GameMods,
+        mut mods: GameMods,
         stars: f32,
     ) -> DBResult<()> {
-        let mut mods = mods.as_bits();
-        if mods & NightCore as u32 == NightCore as u32 {
-            mods += DoubleTime as u32 - NightCore as u32;
+        if mods.contains(GameMods::NightCore) {
+            mods.remove(GameMods::NightCore);
+            mods.insert(GameMods::DoubleTime);
         }
         let (table, column) = match mode {
             GameMode::MNA => ("stars_mania_mods", mania_stars_mods_column(mods)?),
@@ -546,16 +542,15 @@ impl CustomSQL for String {
     }
 }
 
-fn ctb_pp_mods_column(mods: u32) -> DBResult<&'static str> {
-    let valid =
-        Easy as u32 + NoFail as u32 + DoubleTime as u32 + NightCore as u32 + HalfTime as u32;
+fn ctb_pp_mods_column(mods: GameMods) -> DBResult<&'static str> {
+    let valid = GameMods::Easy | GameMods::NoFail | GameMods::DoubleTime | GameMods::HalfTime;
     let m = match mods & valid {
-        0 => "NM",
-        8 => "HD",
-        16 => "HR",
-        64 => "DT",
-        m if m == Hidden as u32 + HardRock as u32 => "HDHR",
-        m if m == Hidden as u32 + DoubleTime as u32 => "HDDT",
+        GameMods::NoMod => "NM",
+        GameMods::Hidden => "HD",
+        GameMods::HardRock => "HR",
+        GameMods::DoubleTime => "DT",
+        m if m == GameMods::Hidden | GameMods::HardRock => "HDHR",
+        m if m == GameMods::Hidden | GameMods::DoubleTime => "HDDT",
         _ => {
             return Err(Error::Custom(format!(
                 "No valid mod combination for ctb pp ({})",
@@ -566,22 +561,21 @@ fn ctb_pp_mods_column(mods: u32) -> DBResult<&'static str> {
     Ok(m)
 }
 
-fn mania_pp_mods_column(mods: u32) -> DBResult<&'static str> {
-    let valid =
-        Easy as u32 + NoFail as u32 + DoubleTime as u32 + NightCore as u32 + HalfTime as u32;
+fn mania_pp_mods_column(mods: GameMods) -> DBResult<&'static str> {
+    let valid = GameMods::Easy | GameMods::NoFail | GameMods::DoubleTime | GameMods::HalfTime;
     let m = match mods & valid {
-        0 => "NM",
-        1 => "NF",
-        2 => "EZ",
-        64 => "DT",
-        256 => "HT",
-        3 => "NFEZ",
-        65 => "NFDT",
-        66 => "EZDT",
-        257 => "NFHT",
-        258 => "EZHT",
-        67 => "NFEZDT",
-        259 => "NFEZHT",
+        GameMods::NoMod => "NM",
+        GameMods::NoFail => "NF",
+        GameMods::Easy => "EZ",
+        GameMods::DoubleTime => "DT",
+        GameMods::HalfTime => "HT",
+        m if m == GameMods::NoFail | GameMods::Easy => "NFEZ",
+        m if m == GameMods::NoFail | GameMods::DoubleTime => "NFDT",
+        m if m == GameMods::Easy | GameMods::DoubleTime => "EZDT",
+        m if m == GameMods::NoFail | GameMods::HalfTime => "NFHT",
+        m if m == GameMods::Easy | GameMods::HalfTime => "EZHT",
+        m if m == GameMods::NoFail | GameMods::Easy | GameMods::DoubleTime => "NFEZDT",
+        m if m == GameMods::NoFail | GameMods::Easy | GameMods::HalfTime => "NFEZHT",
         _ => {
             return Err(Error::Custom(format!(
                 "No valid mod combination for mania pp ({})",
@@ -592,17 +586,17 @@ fn mania_pp_mods_column(mods: u32) -> DBResult<&'static str> {
     Ok(m)
 }
 
-fn ctb_stars_mods_column(mods: u32) -> DBResult<&'static str> {
-    let valid = Easy as u32 + HardRock as u32 + DoubleTime as u32 + HalfTime as u32;
+fn ctb_stars_mods_column(mods: GameMods) -> DBResult<&'static str> {
+    let valid = GameMods::Easy | GameMods::HardRock | GameMods::DoubleTime | GameMods::HalfTime;
     let m = match mods & valid {
-        2 => "EZ",
-        16 => "HR",
-        64 => "DT",
-        256 => "HT",
-        66 => "EZDT",
-        80 => "HRDT",
-        258 => "EZHT",
-        272 => "HRHT",
+        GameMods::Easy => "EZ",
+        GameMods::HardRock => "HR",
+        GameMods::DoubleTime => "DT",
+        GameMods::HalfTime => "HT",
+        m if m == GameMods::Easy | GameMods::DoubleTime => "EZDT",
+        m if m == GameMods::HardRock | GameMods::DoubleTime => "HRDT",
+        m if m == GameMods::Easy | GameMods::HalfTime => "EZHT",
+        m if m == GameMods::HardRock | GameMods::HalfTime => "HRHT",
         _ => {
             return Err(Error::Custom(format!(
                 "No valid mod combination for ctb stars ({})",
@@ -613,11 +607,11 @@ fn ctb_stars_mods_column(mods: u32) -> DBResult<&'static str> {
     Ok(m)
 }
 
-fn mania_stars_mods_column(mods: u32) -> DBResult<&'static str> {
-    let valid = DoubleTime as u32 + HalfTime as u32;
+fn mania_stars_mods_column(mods: GameMods) -> DBResult<&'static str> {
+    let valid = GameMods::DoubleTime | GameMods::HalfTime;
     let m = match mods & valid {
-        64 => "DT",
-        256 => "HT",
+        GameMods::DoubleTime => "DT",
+        GameMods::HalfTime => "HT",
         _ => {
             return Err(Error::Custom(format!(
                 "No valid mod combination for mania stars ({})",

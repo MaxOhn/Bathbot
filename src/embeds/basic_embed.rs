@@ -17,12 +17,10 @@ use crate::{
 
 use itertools::Itertools;
 use rayon::prelude::*;
-use rosu::models::{
-    Beatmap, GameMod, GameMode, GameMods, Grade, Match, Score, Team, TeamType, User,
-};
+use rosu::models::{Beatmap, GameMode, GameMods, Grade, Match, Score, Team, TeamType, User};
 use serenity::{
     builder::CreateEmbed,
-    cache::CacheRwLock,
+    cache::Cache,
     model::{
         channel::Message,
         gateway::Presence,
@@ -37,7 +35,6 @@ use std::{
     collections::{BTreeMap, HashMap},
     f32,
     fmt::Write,
-    sync::Arc,
     u32,
 };
 
@@ -558,14 +555,14 @@ impl BasicEmbedData {
                 if found_author {
                     username.push_str("__");
                 }
-                let cache = cache_data.cache().clone();
-                let data = Arc::clone(cache_data.data());
                 let _ = writeln!(
                     description,
                     "**{idx}.** {emote} **{name}**: {score} [ {combo} ]{mods}\n\
                     - {pp} ~ {acc}% ~ {ago}",
                     idx = idx + i + 1,
-                    emote = osu::grade_emote(score.grade, cache).await.to_string(),
+                    emote = osu::grade_emote(score.grade, cache_data.cache())
+                        .await
+                        .to_string(),
                     name = username,
                     score = with_comma_u64(score.score as u64),
                     combo = get_combo(&score, &map),
@@ -574,7 +571,7 @@ impl BasicEmbedData {
                     } else {
                         format!(" **+{}**", score.enabled_mods)
                     },
-                    pp = get_pp(&mut mod_map, &score, &map, data).await?,
+                    pp = get_pp(&mut mod_map, &score, &map, cache_data.data()).await?,
                     acc = round(score.accuracy),
                     ago = how_long_ago(&score.date),
                 );
@@ -849,7 +846,7 @@ impl BasicEmbedData {
         scores_data: S,
         unchoked_pp: f64,
         pages: (usize, usize),
-        cache: &CacheRwLock,
+        cache: &Cache,
     ) -> Result<Self, Error>
     where
         S: Iterator<Item = &'i (usize, Score, Score, Beatmap)>,
@@ -882,9 +879,9 @@ impl BasicEmbedData {
                 version = map.version,
                 base = HOMEPAGE,
                 id = map.beatmap_id,
-                mods = util::get_mods(&original.enabled_mods),
+                mods = util::get_mods(original.enabled_mods),
                 stars = stars,
-                grade = osu::grade_emote(unchoked.grade, cache.clone()).await,
+                grade = osu::grade_emote(unchoked.grade, cache).await,
                 old_pp = round(original.pp.unwrap()),
                 new_pp = round(unchoked.pp.unwrap()),
                 max_pp = max_pp,
@@ -994,7 +991,7 @@ impl BasicEmbedData {
         user: User,
         score_maps: Vec<(Score, Beatmap)>,
         mode: GameMode,
-        cache: CacheRwLock,
+        cache: &Cache,
     ) -> Self {
         let mut result = Self::default();
         let (author_icon, author_url, author_text) = get_user_author(&user);
@@ -1068,13 +1065,13 @@ impl BasicEmbedData {
                     "Grades:".to_owned(),
                     format!(
                         "{}{} {}{} {}{} {}{} {}{}",
-                        osu::grade_emote(Grade::XH, cache.clone()).await,
+                        osu::grade_emote(Grade::XH, cache).await,
                         user.count_ssh,
-                        osu::grade_emote(Grade::X, cache.clone()).await,
+                        osu::grade_emote(Grade::X, cache).await,
                         user.count_ss,
-                        osu::grade_emote(Grade::SH, cache.clone()).await,
+                        osu::grade_emote(Grade::SH, cache).await,
                         user.count_sh,
-                        osu::grade_emote(Grade::S, cache.clone()).await,
+                        osu::grade_emote(Grade::S, cache).await,
                         user.count_s,
                         osu::grade_emote(Grade::A, cache).await,
                         user.count_a,
@@ -1256,7 +1253,7 @@ impl BasicEmbedData {
     pub async fn create_ratio(
         user: User,
         scores: Vec<Score>,
-        data: Arc<RwLock<TypeMap>>,
+        data: &RwLock<TypeMap>,
     ) -> Result<Self, Error> {
         let mut result = Self::default();
         let mut accs = vec![0, 90, 95, 97, 99];
@@ -1382,7 +1379,7 @@ impl BasicEmbedData {
         msg: Message,
         guild: GuildId,
         role: RoleId,
-        cache: &CacheRwLock,
+        cache: &Cache,
     ) -> Self {
         let mut result = Self::default();
         let description = format!(
@@ -1427,8 +1424,8 @@ impl BasicEmbedData {
         let mut fields = Vec::new();
         for (i, score) in scores.into_iter().enumerate() {
             let (stars, pp) = {
-                let data = Arc::clone(cache_data.data());
-                let pp_provider = match PPProvider::new(&score, &map, Some(data)).await {
+                let pp_provider = match PPProvider::new(&score, &map, Some(cache_data.data())).await
+                {
                     Ok(provider) => provider,
                     Err(why) => {
                         return Err(Error::Custom(format!(
@@ -1442,17 +1439,16 @@ impl BasicEmbedData {
                     util::get_pp(&score, &pp_provider),
                 )
             };
-            let cache = cache_data.cache().clone();
             let mut name = format!(
                 "**{idx}.** {grade}\t[{stars}]\t{score}\t({acc})",
                 idx = i + 1,
-                grade = util::get_grade_completion_mods(&score, &map, cache).await,
+                grade = util::get_grade_completion_mods(&score, &map, cache_data.cache()).await,
                 stars = stars,
                 score = with_comma_u64(score.score as u64),
                 acc = util::get_acc(&score, map.mode),
             );
             if map.mode == GameMode::MNA {
-                let _ = write!(name, "\t{}", util::get_keys(&score.enabled_mods, &map));
+                let _ = write!(name, "\t{}", util::get_keys(score.enabled_mods, &map));
             }
             let value = format!(
                 "{pp}\t[ {combo} ]\t {hits}\t{ago}",
@@ -1508,11 +1504,10 @@ impl BasicEmbedData {
         let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
         let mut description = String::with_capacity(512);
         for (idx, score, map) in scores_data {
-            let cache = cache_data.cache().clone();
-            let grade = { osu::grade_emote(score.grade, cache).await };
+            let grade = { osu::grade_emote(score.grade, cache_data.cache()).await };
             let (stars, pp) = {
-                let data = Arc::clone(cache_data.data());
-                let pp_provider = match PPProvider::new(&score, &map, Some(data)).await {
+                let pp_provider = match PPProvider::new(&score, &map, Some(cache_data.data())).await
+                {
                     Ok(provider) => provider,
                     Err(why) => {
                         return Err(Error::Custom(format!(
@@ -1535,7 +1530,7 @@ impl BasicEmbedData {
                 version = map.version,
                 base = HOMEPAGE,
                 id = map.beatmap_id,
-                mods = util::get_mods(&score.enabled_mods),
+                mods = util::get_mods(score.enabled_mods),
                 stars = stars,
                 grade = grade,
                 pp = pp,
@@ -1666,9 +1661,9 @@ pub async fn get_pp(
     mod_map: &mut HashMap<u32, f32>,
     score: &ScraperScore,
     map: &Beatmap,
-    data: Arc<RwLock<TypeMap>>,
+    data: &RwLock<TypeMap>,
 ) -> Result<String, Error> {
-    let bits = score.enabled_mods.as_bits();
+    let bits = score.enabled_mods.bits();
     let actual = if score.pp.is_some() {
         score.pp
     } else {
@@ -1677,7 +1672,7 @@ pub async fn get_pp(
                 Some(PPProvider::calculate_oppai_pp(score, map).await?)
             }
             GameMode::MNA | GameMode::CTB => {
-                Some(PPProvider::calculate_pp(score, map, Arc::clone(&data)).await?)
+                Some(PPProvider::calculate_pp(score, map, &data).await?)
             }
         }
     };
@@ -1685,7 +1680,7 @@ pub async fn get_pp(
     let max = if mod_map.contains_key(&bits) {
         mod_map.get(&bits).copied()
     } else {
-        let max = PPProvider::calculate_max(&map, &score.enabled_mods, Some(data)).await?;
+        let max = PPProvider::calculate_max(&map, score.enabled_mods, Some(data)).await?;
         mod_map.insert(bits, max);
         Some(max)
     };
@@ -1788,8 +1783,8 @@ struct ProfileResult {
 
     mod_combs_count: Option<Vec<(GameMods, u32)>>,
     mod_combs_pp: Option<Vec<(GameMods, f32)>>,
-    mods_count: Vec<(GameMod, u32)>,
-    mods_pp: Vec<(GameMod, f32)>,
+    mods_count: Vec<(GameMods, u32)>,
+    mods_pp: Vec<(GameMods, f32)>,
 }
 
 impl ProfileResult {
@@ -1841,7 +1836,7 @@ impl ProfileResult {
                 mod_comb.1 += weighted_pp;
             }
             if score.enabled_mods.is_empty() {
-                let mut nm = mods.entry(GameMod::NoMod).or_insert((0, 0.0));
+                let mut nm = mods.entry(GameMods::NoMod).or_insert((0, 0.0));
                 nm.0 += 1;
                 nm.1 += weighted_pp;
             } else {
@@ -1877,7 +1872,7 @@ impl ProfileResult {
         let (mod_combs_count, mod_combs_pp) = if mult_mods {
             let mut mod_combs_count: Vec<_> = mod_combs
                 .iter()
-                .map(|(name, (count, _))| (name.clone(), *count))
+                .map(|(name, (count, _))| (*name, *count))
                 .collect();
             mod_combs_count.sort_by(|a, b| b.1.cmp(&a.1));
             let mut mod_combs_pp: Vec<_> = mod_combs

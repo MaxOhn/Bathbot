@@ -3,13 +3,10 @@ use crate::{
     util::globals::{emotes::*, DEV_GUILD_ID, HOMEPAGE},
     Error,
 };
-use rosu::models::{Beatmap, GameMod, GameMode, Grade, Score};
+use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score};
 use serenity::{
-    cache::CacheRwLock,
-    model::{
-        guild::Emoji,
-        id::{EmojiId, GuildId},
-    },
+    cache::Cache,
+    model::{guild::Emoji, id::EmojiId},
 };
 use std::{env, path::Path};
 use tokio::{fs::File, io::AsyncWriteExt};
@@ -30,7 +27,7 @@ pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, Error> {
     Ok(map_path)
 }
 
-pub async fn grade_emote(grade: Grade, cache: CacheRwLock) -> Emoji {
+pub async fn grade_emote(grade: Grade, cache: &Cache) -> Emoji {
     let emoji_id = match grade {
         Grade::XH => EmojiId(EMOTE_XH_ID),
         Grade::X => EmojiId(EMOTE_X_ID),
@@ -42,20 +39,11 @@ pub async fn grade_emote(grade: Grade, cache: CacheRwLock) -> Emoji {
         Grade::D => EmojiId(EMOTE_D_ID),
         Grade::F => EmojiId(EMOTE_F_ID),
     };
-    let guild = GuildId(DEV_GUILD_ID).to_guild_cached(cache).await;
-    guild
-        .unwrap()
-        .read()
+    cache
+        .guild_field(DEV_GUILD_ID, |guild| guild.emojis.get(&emoji_id).cloned())
         .await
-        .emojis
-        .get(&emoji_id)
-        .unwrap_or_else(|| {
-            panic!(
-                "Could not find emote with id {} for grade {}",
-                emoji_id.0, grade
-            )
-        })
-        .clone()
+        .flatten()
+        .unwrap_or_else(|| panic!("Emote {} not found", emoji_id.0))
 }
 
 pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
@@ -106,7 +94,10 @@ pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
             score.count100 = 0;
             score.count50 = 0;
             score.count_miss = 0;
-            score.grade = if score.enabled_mods.contains(&GameMod::Hidden) {
+            score.grade = if score
+                .enabled_mods
+                .intersects(GameMods::Flashlight | GameMods::Hidden)
+            {
                 Grade::XH
             } else {
                 Grade::X
@@ -146,7 +137,7 @@ pub fn unchoke_score(score: &mut Score, map: &Beatmap) {
             score.count100 = 0;
             score.count50 = 0;
             score.count_miss = 0;
-            score.grade = if score.enabled_mods.contains(&GameMod::Hidden) {
+            score.grade = if score.enabled_mods.contains(GameMods::Hidden) {
                 Grade::XH
             } else {
                 Grade::X

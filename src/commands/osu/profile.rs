@@ -145,7 +145,7 @@ async fn profile_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) 
     };
 
     // Accumulate all necessary data
-    let data = BasicEmbedData::create_profile(user, score_maps, mode, ctx.cache.clone()).await;
+    let data = BasicEmbedData::create_profile(user, score_maps, mode, &ctx.cache).await;
 
     if let Some(msg) = retrieving_msg {
         msg.delete(&ctx.http).await?;

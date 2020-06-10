@@ -10,7 +10,7 @@ use crate::{
 use rayon::prelude::*;
 use rosu::{
     backend::requests::UserRequest,
-    models::{GameMod, GameMode, GameMods, Score, User},
+    models::{GameMode, GameMods, Score, User},
 };
 use serenity::{
     collector::ReactionAction,
@@ -37,7 +37,7 @@ async fn top_send(
             return Ok(());
         }
     };
-    let (mut mods, selection) = args
+    let (mods, selection) = args
         .mods
         .unwrap_or_else(|| (GameMods::default(), ModSelection::None));
     let combo = args.combo.unwrap_or(0);
@@ -92,7 +92,7 @@ async fn top_send(
         };
         (user, scores)
     };
-    let contains_nm = mods.remove(&GameMod::NoMod).is_some();
+    let contains_nm = mods.is_empty();
 
     // Filter scores according to mods, combo, acc, and grade
     let mut scores_indices: Vec<(usize, Score)> = scores
@@ -313,11 +313,10 @@ async fn top_send(
 
     // Check if the author wants to edit the response
     let http = Arc::clone(&ctx.http);
-    let cache = ctx.cache.clone();
+    let cache = Arc::clone(&ctx.cache);
     let data = Arc::clone(&ctx.data);
     tokio::spawn(async move {
-        let mut pagination =
-            Pagination::top(user, scores_data, mode, cache.clone(), Arc::clone(&data));
+        let mut pagination = Pagination::top(user, scores_data, mode, Arc::clone(&cache), data);
         while let Some(reaction) = collector.next().await {
             if let ReactionAction::Added(reaction) = &*reaction {
                 if let ReactionType::Unicode(reaction) = &reaction.emoji {

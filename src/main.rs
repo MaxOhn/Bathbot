@@ -207,10 +207,10 @@ async fn main() {
 
 #[hook]
 async fn before(ctx: &Context, msg: &Message, cmd_name: &str) -> bool {
-    let location = match msg.guild(&ctx).await {
+    let location = match msg.guild(ctx).await {
         Some(guild) => {
-            let guild_name = guild.read().await.name.clone();
-            let channel_name = if let Channel::Guild(channel) = msg.channel(&ctx).await.unwrap() {
+            let guild_name = &guild.name;
+            let channel_name = if let Channel::Guild(channel) = msg.channel(ctx).await.unwrap() {
                 channel.name
             } else {
                 panic!("Found non-Guild channel of msg despite msg being in a guild");

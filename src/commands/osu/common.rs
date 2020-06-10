@@ -47,9 +47,9 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                 None => {
                     msg.channel_id
                         .say(
-                            &ctx.http,
+                            ctx,
                             "Since you're not linked via `<link`, \
-                         you must specify at least two names.",
+                            you must specify at least two names.",
                         )
                         .await?;
                     return Ok(());
@@ -61,7 +61,7 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
     };
     if names.iter().collect::<HashSet<_>>().len() == 1 {
         msg.channel_id
-            .say(&ctx.http, "Give at least two different names.")
+            .say(ctx, "Give at least two different names.")
             .await?;
         return Ok(());
     }

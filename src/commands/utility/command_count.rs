@@ -62,7 +62,7 @@ async fn commands(ctx: &Context, msg: &Message) -> CommandResult {
     }
     // Check if the author wants to edit the response
     let http = Arc::clone(&ctx.http);
-    let cache = ctx.cache.clone();
+    let cache = Arc::clone(&ctx.cache);
     tokio::spawn(async move {
         let mut pagination = Pagination::command_counter(vec, boot_time);
         while let Some(reaction) = collector.next().await {

@@ -103,7 +103,7 @@ async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     // Check if the author wants to edit the response
     let http = Arc::clone(&ctx.http);
-    let cache = ctx.cache.clone();
+    let cache = Arc::clone(&ctx.cache);
     tokio::spawn(async move {
         let mut pagination = Pagination::most_played(user, maps);
         while let Some(reaction) = collector.next().await {

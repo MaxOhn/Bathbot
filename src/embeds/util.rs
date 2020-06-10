@@ -1,7 +1,7 @@
 use crate::util::{datetime::sec_to_minsec, numbers::round, osu, pp::PPProvider};
 
 use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score};
-use serenity::cache::CacheRwLock;
+use serenity::cache::Cache;
 use std::fmt::Write;
 
 pub fn get_hits(score: &Score, mode: GameMode) -> String {
@@ -49,7 +49,7 @@ pub fn _get_pp(actual: Option<f32>, max: Option<f32>) -> String {
     format!("**{}**/{}PP", actual, max)
 }
 
-pub fn get_mods(mods: &GameMods) -> String {
+pub fn get_mods(mods: GameMods) -> String {
     if mods.is_empty() {
         String::new()
     } else {
@@ -59,20 +59,19 @@ pub fn get_mods(mods: &GameMods) -> String {
     }
 }
 
-pub fn get_keys(mods: &GameMods, map: &Beatmap) -> String {
-    for m in mods.iter() {
-        if m.is_key_mod() {
-            return format!("[{}]", m);
-        }
+pub fn get_keys(mods: GameMods, map: &Beatmap) -> String {
+    if let Some(key_mod) = mods.has_key_mod() {
+        format!("[{}]", key_mod)
+    } else {
+        format!("[{}K]", map.diff_cs as u32)
     }
-    format!("[{}K]", map.diff_cs as u32)
 }
 
 pub fn get_stars(stars: f32) -> String {
     format!("{}★", round(stars))
 }
 
-pub async fn get_grade_completion_mods(score: &Score, map: &Beatmap, cache: CacheRwLock) -> String {
+pub async fn get_grade_completion_mods(score: &Score, map: &Beatmap, cache: &Cache) -> String {
     let mut res_string = osu::grade_emote(score.grade, cache).await.to_string();
     if score.grade == Grade::F && map.mode != GameMode::CTB {
         let passed = score.total_hits(map.mode) - score.count50;
