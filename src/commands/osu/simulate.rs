@@ -5,6 +5,7 @@ use crate::{
     util::{
         discord,
         globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
+        MessageExt,
     },
     Osu,
 };
@@ -36,8 +37,11 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = match SimulateMapArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
-            let response = msg.channel_id.say(ctx, err_msg).await?;
-            discord::reaction_deletion(ctx, response, msg.author.id).await;
+            msg.channel_id
+                .say(ctx, err_msg)
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Ok(());
         }
     };
@@ -51,16 +55,16 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         match discord::map_id_from_history(msgs, &ctx.cache).await {
             Some(id) => id,
             None => {
-                let response = msg
-                    .channel_id
+                msg.channel_id
                     .say(
                         ctx,
                         "No map embed found in this channel's recent history.\n\
                         Try specifying a map either by url to the map, \
                         or just by map id.",
                     )
-                    .await?;
-                discord::reaction_deletion(ctx, response, msg.author.id).await;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -79,11 +83,18 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     Ok(result) => match result {
                         Some(map) => map,
                         None => {
-                            let response = msg.channel_id.say(
-                                ctx,
-                                format!("Could not find beatmap with id `{}`. Did you give me a mapset id instead of a map id?", map_id),
-                            ).await?;
-                            discord::reaction_deletion(ctx, response, msg.author.id).await;
+                            msg.channel_id
+                                .say(
+                                    ctx,
+                                    format!(
+                                        "Could not find beatmap with id `{}`. \
+                                        Did you give me a mapset id instead of a map id?",
+                                        map_id
+                                    ),
+                                )
+                                .await?
+                                .reaction_delete(ctx, msg.author.id)
+                                .await;
                             return Ok(());
                         }
                     },
@@ -102,14 +113,14 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     match map.mode {
         GameMode::TKO | GameMode::CTB => {
-            let response = msg
-                .channel_id
+            msg.channel_id
                 .say(
                     ctx,
                     format!("I can only simulate STD and MNA maps, not {}", map.mode),
                 )
-                .await?;
-            discord::reaction_deletion(ctx, response, msg.author.id).await;
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Ok(());
         }
         _ => {}
@@ -125,7 +136,9 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     ctx,
                     "Some issue while calculating simulate data, blame bade",
                 )
-                .await?;
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Err(CommandError::from(why.to_string()));
         }
     };
@@ -144,7 +157,7 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             warn!("Could not add map of simulaterecent command to DB: {}", why);
         }
     }
-    discord::reaction_deletion(ctx, response.clone(), msg.author.id).await;
+    response.clone().reaction_delete(ctx, msg.author.id).await;
 
     // Minimize embed after delay
     for _ in 0..5usize {

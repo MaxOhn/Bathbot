@@ -2,7 +2,7 @@ mod structs;
 
 use structs::*;
 
-use crate::util::{discord, Matrix};
+use crate::util::{Matrix, MessageExt};
 
 use serenity::{
     cache::Cache,
@@ -127,7 +127,9 @@ async fn help(
     };
     // For these 4 lines I had to copy the WHOLE helper message creation code...
     match result {
-        Ok(response) => discord::reaction_deletion(ctx, response, msg.author.id).await,
+        Ok(response) => {
+            response.reaction_delete(ctx, msg.author.id).await;
+        }
         Err(why) => warn!("Failed to send help message because: {:?}", why),
     }
     Ok(())

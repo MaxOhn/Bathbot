@@ -2,7 +2,7 @@ use crate::{
     arguments::MultNameArgs,
     database::MySQL,
     embeds::BasicEmbedData,
-    util::{discord, globals::OSU_API_ISSUE},
+    util::{globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
 };
 
@@ -30,11 +30,13 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
         0 => {
             msg.channel_id
                 .say(
-                    &ctx.http,
+                    ctx,
                     "You need to specify at least one osu username. \
-                 If you're not linked, you must specify at least two names.",
+                    If you're not linked, you must specify at least two names.",
                 )
-                .await?;
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Ok(());
         }
         1 => {
@@ -51,7 +53,9 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                             "Since you're not linked via `<link`, \
                             you must specify at least two names.",
                         )
-                        .await?;
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Ok(());
                 }
             }
@@ -62,7 +66,9 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
     if names.iter().collect::<HashSet<_>>().len() == 1 {
         msg.channel_id
             .say(ctx, "Give at least two different names.")
-            .await?;
+            .await?
+            .reaction_delete(ctx, msg.author.id)
+            .await;
         return Ok(());
     }
 
@@ -82,20 +88,30 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                     Some(user) => user,
                     None => {
                         msg.channel_id
-                            .say(&ctx.http, format!("User `{}` was not found", name))
-                            .await?;
+                            .say(ctx, format!("User `{}` was not found", name))
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
                         return Ok(());
                     }
                 },
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                    msg.channel_id
+                        .say(ctx, OSU_API_ISSUE)
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Err(CommandError::from(why.to_string()));
                 }
             };
             let scores = match user.get_top_scores(&osu, 100, mode).await {
                 Ok(scores) => scores,
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                    msg.channel_id
+                        .say(ctx, OSU_API_ISSUE)
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Err(CommandError::from(why.to_string()));
                 }
             };
@@ -135,7 +151,6 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             .unwrap_or_else(|_| HashMap::default())
     };
     let amount_common = map_ids.len();
-    debug!("Found {}/{} beatmaps in DB", maps.len(), amount_common);
     map_ids.retain(|id| !maps.contains_key(id));
 
     // Retrieve all missing maps from the API
@@ -153,8 +168,10 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                     }
                     None => {
                         msg.channel_id
-                            .say(&ctx.http, "Unexpected response from the API, blame bade")
-                            .await?;
+                            .say(ctx, "Unexpected response from the API, blame bade")
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
                         return Ok(());
                     }
                 },
@@ -199,7 +216,7 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
     // Creating the embed
     let response = msg
         .channel_id
-        .send_message(&ctx.http, |m| {
+        .send_message(ctx, |m| {
             if !thumbnail.is_empty() {
                 let bytes: &[u8] = &thumbnail;
                 m.add_file((bytes, "avatar_fuse.png"));
@@ -220,8 +237,7 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             );
         }
     }
-
-    discord::reaction_deletion(&ctx, response?, msg.author.id).await;
+    response?.reaction_delete(ctx, msg.author.id).await;
     Ok(())
 }
 

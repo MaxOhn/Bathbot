@@ -3,8 +3,8 @@ use crate::{
     database::MySQL,
     embeds::SimulateData,
     util::{
-        discord,
         globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
+        MessageExt,
     },
     DiscordLinks, Osu,
 };
@@ -33,8 +33,11 @@ async fn simulate_recent_send(
     let args = match SimulateNameArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
-            let response = msg.channel_id.say(&ctx.http, err_msg).await?;
-            discord::reaction_deletion(&ctx, response, msg.author.id).await;
+            msg.channel_id
+                .say(ctx, err_msg)
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Ok(());
         }
     };
@@ -48,11 +51,13 @@ async fn simulate_recent_send(
             None => {
                 msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "Either specify an osu name or link your discord \
-                     to an osu profile via `<link osuname`",
+                        to an osu profile via `<link osuname`",
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -66,7 +71,11 @@ async fn simulate_recent_send(
         let mut scores = match request.queue(osu).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                msg.channel_id
+                    .say(&ctx.http, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Err(CommandError::from(why.to_string()));
             }
         };
@@ -74,11 +83,10 @@ async fn simulate_recent_send(
             Some(score) => score,
             None => {
                 msg.channel_id
-                    .say(
-                        &ctx.http,
-                        format!("No recent plays found for user `{}`", name),
-                    )
-                    .await?;
+                    .say(ctx, format!("No recent plays found for user `{}`", name))
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -114,10 +122,12 @@ async fn simulate_recent_send(
         Err(why) => {
             msg.channel_id
                 .say(
-                    &ctx.http,
+                    ctx,
                     "Some issue while calculating simulaterecent data, blame bade",
                 )
-                .await?;
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Err(CommandError::from(why.to_string()));
         }
     };
@@ -139,7 +149,7 @@ async fn simulate_recent_send(
         }
     }
 
-    discord::reaction_deletion(ctx, response.clone(), msg.author.id).await;
+    response.clone().reaction_delete(ctx, msg.author.id).await;
 
     // Minimize embed after delay
     time::delay_for(Duration::from_secs(MINIMIZE_DELAY)).await;

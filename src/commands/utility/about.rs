@@ -1,8 +1,8 @@
 use crate::{
     util::{
         datetime::how_long_ago,
-        discord,
         numbers::{round, with_comma_u64},
+        MessageExt,
     },
     BootTime,
 };
@@ -53,46 +53,45 @@ async fn about(ctx: &Context, msg: &Message) -> CommandResult {
     let guilds = with_comma_u64(cache.guild_count().await as u64);
     let channels = with_comma_u64(cache.guild_channel_count().await as u64);
 
-    let response = {
-        let data = ctx.data.read().await;
-        let boot_time: &DateTime<Utc> = data.get::<BootTime>().unwrap();
-        msg.channel_id
-            .send_message(&ctx.http, |m| {
-                m.embed(|e| {
-                    e.title(format!("About {}", name))
-                        .color(Colour::DARK_GREEN)
-                        .thumbnail(avatar)
-                        .fields(vec![
-                            ("Guilds", guilds, true),
-                            ("Users", users, true),
-                            ("Channels", channels, true),
-                            ("Shards", shards, true),
-                            ("Process CPU", format!("{}%", process_cpu), true),
-                            ("Total CPU", format!("{}%", total_cpu), true),
-                            ("Boot time", how_long_ago(&boot_time), true),
-                            ("Process RAM", format!("{} MB", process_ram), true),
-                            ("Total RAM", format!("{}/{} MB", used_ram, total_ram), true),
-                            (
-                                "Github",
-                                "https://github.com/MaxOhn/Bathbot".to_string(),
-                                false,
-                            ),
-                            (
-                                "Invite link",
-                                "https://discordapp.com/api/oauth2/authorize?scope=bot&\
+    let data = ctx.data.read().await;
+    let boot_time: &DateTime<Utc> = data.get::<BootTime>().unwrap();
+    msg.channel_id
+        .send_message(&ctx.http, |m| {
+            m.embed(|e| {
+                e.title(format!("About {}", name))
+                    .color(Colour::DARK_GREEN)
+                    .thumbnail(avatar)
+                    .fields(vec![
+                        ("Guilds", guilds, true),
+                        ("Users", users, true),
+                        ("Channels", channels, true),
+                        ("Shards", shards, true),
+                        ("Process CPU", format!("{}%", process_cpu), true),
+                        ("Total CPU", format!("{}%", total_cpu), true),
+                        ("Boot time", how_long_ago(&boot_time), true),
+                        ("Process RAM", format!("{} MB", process_ram), true),
+                        ("Total RAM", format!("{}/{} MB", used_ram, total_ram), true),
+                        (
+                            "Github",
+                            "https://github.com/MaxOhn/Bathbot".to_string(),
+                            false,
+                        ),
+                        (
+                            "Invite link",
+                            "https://discordapp.com/api/oauth2/authorize?scope=bot&\
                             client_id=297073686916366336&permissions=268823616"
-                                    .to_string(),
-                                false,
-                            ),
-                        ])
-                        .footer(|f| {
-                            f.text(format!("Owner: {}", owner.tag()))
-                                .icon_url(owner.avatar_url().unwrap())
-                        })
-                })
+                                .to_string(),
+                            false,
+                        ),
+                    ])
+                    .footer(|f| {
+                        f.text(format!("Owner: {}", owner.tag()))
+                            .icon_url(owner.avatar_url().unwrap())
+                    })
             })
-            .await?
-    };
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+        })
+        .await?
+        .reaction_delete(ctx, msg.author.id)
+        .await;
     Ok(())
 }

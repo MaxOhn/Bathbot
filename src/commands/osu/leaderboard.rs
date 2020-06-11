@@ -7,6 +7,7 @@ use crate::{
     util::{
         discord,
         globals::{AVATAR_URL, OSU_API_ISSUE},
+        MessageExt,
     },
     DiscordLinks, Osu,
 };
@@ -45,18 +46,20 @@ async fn leaderboard_send(
     } else {
         let msgs = msg
             .channel_id
-            .messages(&ctx.http, |retriever| retriever.limit(50))
+            .messages(ctx, |retriever| retriever.limit(50))
             .await?;
         match discord::map_id_from_history(msgs, &ctx.cache).await {
             Some(id) => id,
             None => {
                 msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "No beatmap specified and none found in recent channel history. \
-                     Try specifying a map either by url to the map, or just by map id.",
+                        Try specifying a map either by url to the map, or just by map id.",
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -80,19 +83,25 @@ async fn leaderboard_send(
                         None => {
                             msg.channel_id
                                 .say(
-                                    &ctx.http,
+                                    ctx,
                                     format!(
                                         "Could not find beatmap with id `{}`. \
                                         Did you give me a mapset id instead of a map id?",
                                         map_id
                                     ),
                                 )
-                                .await?;
+                                .await?
+                                .reaction_delete(ctx, msg.author.id)
+                                .await;
                             return Ok(());
                         }
                     },
                     Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                        msg.channel_id
+                            .say(ctx, OSU_API_ISSUE)
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
                         return Err(CommandError::from(why.to_string()));
                     }
                 };
@@ -119,7 +128,11 @@ async fn leaderboard_send(
         match scores_future.await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                msg.channel_id
+                    .say(&ctx.http, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Err(CommandError::from(why.to_string()));
             }
         }
@@ -149,10 +162,12 @@ async fn leaderboard_send(
         Err(why) => {
             msg.channel_id
                 .say(
-                    &ctx.http,
+                    ctx,
                     "Some issue while calculating leaderboard data, blame bade",
                 )
-                .await?;
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Err(CommandError::from(why.to_string()));
         }
     };
@@ -184,7 +199,7 @@ async fn leaderboard_send(
     }
     let mut response = response?;
     if scores.is_empty() {
-        discord::reaction_deletion(&ctx, response, msg.author.id).await;
+        response.reaction_delete(ctx, msg.author.id).await;
         return Ok(());
     }
 

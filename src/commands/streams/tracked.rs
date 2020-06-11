@@ -1,4 +1,4 @@
-use crate::{database::Platform, util::discord, StreamTracks, TwitchUsers};
+use crate::{database::Platform, util::MessageExt, StreamTracks, TwitchUsers};
 
 use itertools::Itertools;
 use rayon::prelude::*;
@@ -36,19 +36,16 @@ async fn trackedstreams(ctx: &Context, msg: &Message) -> CommandResult {
     };
 
     // Sending the msg
-    let response = msg
-        .channel_id
+    msg.channel_id
         .say(
-            &ctx.http,
+            ctx,
             format!(
-                "Tracked streams in this channel:\n\
-            Twitch: `{}`\n\
-            Mixer: `None`",
+                "Tracked streams in this channel:\nTwitch: `{}`\nMixer: `None`",
                 user_str
             ),
         )
-        .await?;
-
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+        .await?
+        .reaction_delete(ctx, msg.author.id)
+        .await;
     Ok(())
 }

@@ -1,4 +1,4 @@
-use crate::util::discord;
+use crate::util::MessageExt;
 
 use chrono::Utc;
 use serenity::{
@@ -20,7 +20,6 @@ async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
             m.content(format!("Pong! ({}ms)", elapsed))
         })
         .await?;
-
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+    response.reaction_delete(ctx, msg.author.id).await;
     Ok(())
 }

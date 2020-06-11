@@ -2,7 +2,7 @@ use crate::{
     arguments::NameArgs,
     database::MySQL,
     embeds::BasicEmbedData,
-    util::{discord, globals::OSU_API_ISSUE},
+    util::{globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
 };
 
@@ -31,11 +31,13 @@ async fn profile_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) 
             None => {
                 msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "Either specify an osu name or link your discord \
-                     to an osu profile via `<link osuname`",
+                        to an osu profile via `<link osuname`",
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -51,20 +53,30 @@ async fn profile_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) 
                 Some(user) => user,
                 None => {
                     msg.channel_id
-                        .say(&ctx.http, format!("User `{}` was not found", name))
-                        .await?;
+                        .say(ctx, format!("User `{}` was not found", name))
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Ok(());
                 }
             },
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Err(CommandError::from(why.to_string()));
             }
         };
         let scores = match user.get_top_scores(&osu, 100, mode).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Err(CommandError::from(why.to_string()));
             }
         };
@@ -86,7 +98,7 @@ async fn profile_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) 
         Some(
             msg.channel_id
                 .say(
-                    &ctx.http,
+                    ctx,
                     format!(
                         "Retrieving {} maps from the api...",
                         scores.len() - maps.len()
@@ -138,7 +150,11 @@ async fn profile_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) 
             (score_maps, missing_maps)
         }
         Err(why) => {
-            msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+            msg.channel_id
+                .say(ctx, OSU_API_ISSUE)
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Err(why);
         }
     };
@@ -147,13 +163,13 @@ async fn profile_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) 
     let data = BasicEmbedData::create_profile(user, score_maps, mode, &ctx.cache).await;
 
     if let Some(msg) = retrieving_msg {
-        msg.delete(&ctx.http).await?;
+        msg.delete(ctx).await?;
     }
 
     // Send the embed
     let response = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
+        .send_message(ctx, |m| m.embed(|e| data.build(e)))
         .await;
 
     // Add missing maps to database
@@ -167,8 +183,7 @@ async fn profile_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) 
             );
         }
     }
-
-    discord::reaction_deletion(&ctx, response?, msg.author.id).await;
+    response?.reaction_delete(ctx, msg.author.id).await;
     Ok(())
 }
 

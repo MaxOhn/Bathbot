@@ -1,7 +1,7 @@
 use crate::{
     commands::checks::*,
     database::MySQL,
-    util::{discord, globals::GENERAL_ISSUE},
+    util::{globals::GENERAL_ISSUE, MessageExt},
     Guilds,
 };
 
@@ -29,7 +29,11 @@ async fn lyrics(ctx: &Context, msg: &Message) -> CommandResult {
                 new_bool
             }
             Entry::Vacant(_) => {
-                msg.channel_id.say(&ctx.http, GENERAL_ISSUE).await?;
+                msg.channel_id
+                    .say(&ctx.http, GENERAL_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Err(CommandError(format!(
                     "GuildId {} not found in Guilds",
                     guild_id.0
@@ -51,8 +55,10 @@ async fn lyrics(ctx: &Context, msg: &Message) -> CommandResult {
     } else {
         "Song commands can no longer be used in this server".to_string()
     };
-    let response = msg.channel_id.say(&ctx.http, content).await?;
-
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+    msg.channel_id
+        .say(&ctx.http, content)
+        .await?
+        .reaction_delete(ctx, msg.author.id)
+        .await;
     Ok(())
 }

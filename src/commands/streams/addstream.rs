@@ -1,7 +1,7 @@
 use crate::{
     commands::checks::*,
     database::{Platform, StreamTrack},
-    util::discord,
+    util::MessageExt,
     MySQL, StreamTracks, Twitch, TwitchUsers,
 };
 
@@ -39,7 +39,9 @@ async fn addstream(ctx: &Context, msg: &Message, mut args: Args) -> CommandResul
                         "The first argument must be either `twitch` or `mixer`. \
                      The next argument must be the name of the stream.",
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         };
@@ -106,7 +108,6 @@ async fn addstream(ctx: &Context, msg: &Message, mut args: Args) -> CommandResul
             )
             .await?
     };
-
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+    response.reaction_delete(ctx, msg.author.id).await;
     Ok(())
 }

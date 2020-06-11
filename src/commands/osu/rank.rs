@@ -2,7 +2,7 @@ use crate::{
     arguments::RankArgs,
     embeds::BasicEmbedData,
     scraper::Scraper,
-    util::{discord, globals::OSU_API_ISSUE},
+    util::{globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
 };
 
@@ -20,8 +20,11 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
     let args = match RankArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
-            let response = msg.channel_id.say(&ctx.http, err_msg).await?;
-            discord::reaction_deletion(ctx, response, msg.author.id).await;
+            msg.channel_id
+                .say(ctx, err_msg)
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Ok(());
         }
     };
@@ -35,11 +38,13 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
             None => {
                 msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "Either specify an osu name or link your discord \
-                     to an osu profile via `<link osuname`",
+                        to an osu profile via `<link osuname`",
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -57,7 +62,11 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
         {
             Ok(rank) => rank,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Err(CommandError::from(why.to_string()));
             }
         }
@@ -71,11 +80,10 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
                 Some(user) => user,
                 None => {
                     msg.channel_id
-                        .say(
-                            &ctx.http,
-                            format!("User id `{}` was not found", rank_holder_id),
-                        )
-                        .await?;
+                        .say(ctx, format!("User id `{}` was not found", rank_holder_id))
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Ok(());
                 }
             },
@@ -96,13 +104,19 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
                 Some(user) => user,
                 None => {
                     msg.channel_id
-                        .say(&ctx.http, format!("User `{}` was not found", name))
-                        .await?;
+                        .say(ctx, format!("User `{}` was not found", name))
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Ok(());
                 }
             },
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Err(CommandError::from(why.to_string()));
             }
         };
@@ -112,7 +126,11 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
             let scores = match user.get_top_scores(&osu, 100, mode).await {
                 Ok(scores) => scores,
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                    msg.channel_id
+                        .say(ctx, OSU_API_ISSUE)
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Err(CommandError::from(why.to_string()));
                 }
             };
@@ -124,12 +142,11 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
     let data = BasicEmbedData::create_rank(user, scores, rank, country, rank_holder);
 
     // Creating the embed
-    let response = msg
-        .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
-        .await?;
-
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+    msg.channel_id
+        .send_message(ctx, |m| m.embed(|e| data.build(e)))
+        .await?
+        .reaction_delete(ctx, msg.author.id)
+        .await;
     Ok(())
 }
 

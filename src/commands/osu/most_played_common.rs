@@ -2,7 +2,7 @@ use crate::{
     arguments::MultNameArgs,
     embeds::BasicEmbedData,
     scraper::MostPlayedMap,
-    util::{discord, globals::OSU_API_ISSUE},
+    util::{globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu, Scraper,
 };
 
@@ -31,11 +31,13 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
         0 => {
             msg.channel_id
                 .say(
-                    &ctx.http,
+                    ctx,
                     "You need to specify at least one osu username. \
-                 If you're not linked, you must specify at least two names.",
+                    If you're not linked, you must specify at least two names.",
                 )
-                .await?;
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Ok(());
         }
         1 => {
@@ -48,11 +50,13 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
                 None => {
                     msg.channel_id
                         .say(
-                            &ctx.http,
+                            ctx,
                             "Since you're not linked via `<link`, \
-                         you must specify at least two names.",
+                            you must specify at least two names.",
                         )
-                        .await?;
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Ok(());
                 }
             }
@@ -62,8 +66,10 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
     };
     if names.iter().collect::<HashSet<_>>().len() == 1 {
         msg.channel_id
-            .say(&ctx.http, "Give at least two different names.")
-            .await?;
+            .say(ctx, "Give at least two different names.")
+            .await?
+            .reaction_delete(ctx, msg.author.id)
+            .await;
         return Ok(());
     }
 
@@ -82,13 +88,19 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
                     Some(user) => user,
                     None => {
                         msg.channel_id
-                            .say(&ctx.http, format!("User `{}` was not found", name))
-                            .await?;
+                            .say(ctx, format!("User `{}` was not found", name))
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
                         return Ok(());
                     }
                 },
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                    msg.channel_id
+                        .say(ctx, OSU_API_ISSUE)
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Err(CommandError::from(why.to_string()));
                 }
             };
@@ -96,7 +108,11 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
                 match scraper.get_most_played(user.user_id, 100).await {
                     Ok(maps) => maps,
                     Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                        msg.channel_id
+                            .say(ctx, OSU_API_ISSUE)
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
                         return Err(CommandError::from(why.to_string()));
                     }
                 }
@@ -154,8 +170,7 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
         BasicEmbedData::create_mostplayedcommon(users, all_maps, users_count).await;
 
     // Creating the embed
-    let response = msg
-        .channel_id
+    msg.channel_id
         .send_message(&ctx.http, |m| {
             if !thumbnail.is_empty() {
                 let bytes: &[u8] = &thumbnail;
@@ -164,9 +179,8 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
             m.content(content)
                 .embed(|e| data.build(e).thumbnail("attachment://avatar_fuse.png"))
         })
-        .await?;
-
-    // Save the response owner
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+        .await?
+        .reaction_delete(ctx, msg.author.id)
+        .await;
     Ok(())
 }

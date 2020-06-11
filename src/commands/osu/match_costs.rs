@@ -1,7 +1,7 @@
 use crate::{
     arguments::MatchArgs,
     embeds::BasicEmbedData,
-    util::{discord, globals::OSU_API_ISSUE},
+    util::{globals::OSU_API_ISSUE, MessageExt},
     Osu,
 };
 
@@ -26,7 +26,11 @@ async fn matchcosts(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = match MatchArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
-            msg.channel_id.say(&ctx.http, err_msg).await?;
+            msg.channel_id
+                .say(ctx, err_msg)
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Ok(());
         }
     };
@@ -41,7 +45,11 @@ async fn matchcosts(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         match match_req.queue_single(&osu).await {
             Ok(osu_match) => osu_match,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Err(CommandError::from(why.to_string()));
             }
         }
@@ -63,7 +71,11 @@ async fn matchcosts(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                             None => score.user_id.to_string(),
                         },
                         Err(why) => {
-                            msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                            msg.channel_id
+                                .say(ctx, OSU_API_ISSUE)
+                                .await?
+                                .reaction_delete(ctx, msg.author.id)
+                                .await;
                             return Err(CommandError::from(why.to_string()));
                         }
                     };
@@ -78,9 +90,8 @@ async fn matchcosts(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let data = BasicEmbedData::create_match_costs(users, osu_match, warmups);
 
     // Creating the embed
-    let response = msg
-        .channel_id
-        .send_message(&ctx.http, |m| {
+    msg.channel_id
+        .send_message(ctx, |m| {
             if warmups > 0 {
                 let mut content = String::from("Ignoring the first ");
                 if warmups == 1 {
@@ -93,8 +104,8 @@ async fn matchcosts(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             }
             m.embed(|e| data.build(e))
         })
-        .await?;
-
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+        .await?
+        .reaction_delete(ctx, msg.author.id)
+        .await;
     Ok(())
 }

@@ -2,8 +2,8 @@ use crate::{
     arguments::{DiscordUserArgs, NameArgs},
     embeds::BasicEmbedData,
     util::{
-        discord,
         globals::{AVATAR_URL, OSU_API_ISSUE},
+        MessageExt,
     },
     Osu,
 };
@@ -50,7 +50,7 @@ pub async fn avatar(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             )
             .await?
     };
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+    response.reaction_delete(ctx, msg.author.id).await;
     Ok(())
 }
 
@@ -90,11 +90,11 @@ pub async fn osu(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         url: format!("{}{}", AVATAR_URL, user.user_id),
     };
     let data = BasicEmbedData::create_avatar(user);
-    let response = msg
-        .channel_id
+    msg.channel_id
         .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
-        .await?;
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+        .await?
+        .reaction_delete(ctx, msg.author.id)
+        .await;
     Ok(())
 }
 

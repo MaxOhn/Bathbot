@@ -1,7 +1,7 @@
 use crate::{
     arguments::NameArgs,
     embeds::BasicEmbedData,
-    util::{discord, globals::OSU_API_ISSUE},
+    util::{globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
 };
 
@@ -32,11 +32,13 @@ async fn ratios(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             None => {
                 msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "Either specify an osu name or link your discord \
-                     to an osu profile via `<link osuname`",
+                        to an osu profile via `<link osuname`",
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -52,20 +54,30 @@ async fn ratios(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 Some(user) => user,
                 None => {
                     msg.channel_id
-                        .say(&ctx.http, format!("User `{}` was not found", name))
-                        .await?;
+                        .say(ctx, format!("User `{}` was not found", name))
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Ok(());
                 }
             },
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Err(CommandError::from(why.to_string()));
             }
         };
         let scores = match user.get_top_scores(&osu, 100, GameMode::MNA).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Err(CommandError::from(why.to_string()));
             }
         };
@@ -78,20 +90,21 @@ async fn ratios(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         Err(why) => {
             msg.channel_id
                 .say(ctx, "Some issue while calculating ratio data, blame bade")
-                .await?;
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Err(CommandError::from(why.to_string()));
         }
     };
 
     // Creating the embed
-    let response = msg
-        .channel_id
-        .send_message(&ctx.http, |m| {
+    msg.channel_id
+        .send_message(ctx, |m| {
             let content = format!("Average ratios of `{}`'s top 100 in mania:", name);
             m.content(content).embed(|e| data.build(e))
         })
-        .await?;
-
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+        .await?
+        .reaction_delete(ctx, msg.author.id)
+        .await;
     Ok(())
 }

@@ -3,7 +3,7 @@ use crate::{
     database::MySQL,
     embeds::BasicEmbedData,
     pagination::{Pagination, ReactionData},
-    util::{discord, globals::OSU_API_ISSUE, numbers},
+    util::{globals::OSU_API_ISSUE, numbers, MessageExt},
     DiscordLinks, Osu,
 };
 
@@ -32,8 +32,11 @@ async fn top_send(
     let args = match TopArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
-            let response = msg.channel_id.say(&ctx.http, err_msg).await?;
-            discord::reaction_deletion(&ctx, response, msg.author.id).await;
+            msg.channel_id
+                .say(&ctx.http, err_msg)
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Ok(());
         }
     };
@@ -53,11 +56,13 @@ async fn top_send(
             None => {
                 msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "Either specify an osu name or link your discord \
-                     to an osu profile via `<link osuname`",
+                        to an osu profile via `<link osuname`",
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -73,20 +78,30 @@ async fn top_send(
                 Some(user) => user,
                 None => {
                     msg.channel_id
-                        .say(&ctx.http, format!("User `{}` was not found", name))
-                        .await?;
+                        .say(ctx, format!("User `{}` was not found", name))
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Ok(());
                 }
             },
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Err(CommandError::from(why.to_string()));
             }
         };
         let scores = match user.get_top_scores(&osu, 100, mode).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Err(CommandError::from(why.to_string()));
             }
         };
@@ -183,7 +198,7 @@ async fn top_send(
         Some(
             msg.channel_id
                 .say(
-                    &ctx.http,
+                    ctx,
                     format!(
                         "Retrieving {} maps from the api...",
                         scores_indices.len() - maps.len()
@@ -277,7 +292,7 @@ async fn top_send(
         };
 
     if let Some(msg) = retrieving_msg {
-        msg.delete(&ctx.http).await?;
+        let _ = msg.delete(&ctx.http).await;
     }
 
     // Creating the embed
@@ -298,7 +313,7 @@ async fn top_send(
 
     // Collect reactions of author on the response
     let mut collector = response
-        .await_reactions(&ctx)
+        .await_reactions(ctx)
         .timeout(Duration::from_secs(90))
         .author_id(msg.author.id)
         .await;
@@ -307,7 +322,7 @@ async fn top_send(
     let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
     for &reaction in reactions.iter() {
         let reaction_type = ReactionType::try_from(reaction).unwrap();
-        response.react(&ctx.http, reaction_type).await?;
+        response.react(ctx, reaction_type).await?;
     }
 
     // Check if the author wants to edit the response

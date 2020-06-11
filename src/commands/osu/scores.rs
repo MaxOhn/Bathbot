@@ -2,7 +2,7 @@ use crate::{
     arguments::NameMapArgs,
     database::MySQL,
     embeds::BasicEmbedData,
-    util::{discord, globals::OSU_API_ISSUE},
+    util::{discord, globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
 };
 
@@ -44,7 +44,9 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                          Try specifying a map as last argument either by url to the map, \
                          or just by map id.",
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -63,7 +65,9 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                         "Either specify an osu name or link your discord \
                          to an osu profile via `<link osuname`",
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -87,16 +91,22 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                                     ctx,
                                     format!(
                                         "Could not find beatmap with id `{}`. \
-                                         Did you give me a mapset id instead of a map id?",
+                                        Did you give me a mapset id instead of a map id?",
                                         map_id
                                     ),
                                 )
-                                .await?;
+                                .await?
+                                .reaction_delete(ctx, msg.author.id)
+                                .await;
                             return Ok(());
                         }
                     },
                     Err(why) => {
-                        msg.channel_id.say(ctx, OSU_API_ISSUE).await?;
+                        msg.channel_id
+                            .say(ctx, OSU_API_ISSUE)
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
                         return Err(CommandError::from(why.to_string()));
                     }
                 };
@@ -118,7 +128,11 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         let scores = match score_req.queue(osu).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(ctx, OSU_API_ISSUE).await?;
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Err(CommandError::from(why.to_string()));
             }
         };
@@ -129,12 +143,18 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 None => {
                     msg.channel_id
                         .say(ctx, format!("Could not find user `{}`", name))
-                        .await?;
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Ok(());
                 }
             },
             Err(why) => {
-                msg.channel_id.say(ctx, OSU_API_ISSUE).await?;
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Err(CommandError::from(why.to_string()));
             }
         };
@@ -148,7 +168,9 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         Err(why) => {
             msg.channel_id
                 .say(ctx, "Some issue while calculating scores data, blame bade")
-                .await?;
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Err(CommandError::from(why.to_string()));
         }
     };
@@ -167,7 +189,6 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             warn!("Could not add map of compare command to DB: {}", why);
         }
     }
-
-    discord::reaction_deletion(&ctx, response?, msg.author.id).await;
+    response?.reaction_delete(ctx, msg.author.id).await;
     Ok(())
 }

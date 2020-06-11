@@ -1,4 +1,4 @@
-use crate::util::{discord, Matrix};
+use crate::util::{Matrix, MessageExt};
 
 use rand::RngCore;
 use serenity::{
@@ -20,14 +20,14 @@ async fn minesweeper(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
             "hard" => Difficulty::Hard.create(),
             "extreme" => Difficulty::Extreme.create(),
             _ => {
-                let response = msg
-                    .channel_id
+                msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "The argument must be either `Easy`, `Medium`, `Hard`, or `Extreme`",
                     )
-                    .await?;
-                discord::reaction_deletion(&ctx, response, msg.author.id).await;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -44,8 +44,7 @@ async fn minesweeper(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
         field.push('\n');
     }
     field.pop();
-    let response = msg
-        .channel_id
+    msg.channel_id
         .say(
             &ctx.http,
             format!(
@@ -56,8 +55,9 @@ async fn minesweeper(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
                 field
             ),
         )
-        .await?;
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+        .await?
+        .reaction_delete(ctx, msg.author.id)
+        .await;
     Ok(())
 }
 

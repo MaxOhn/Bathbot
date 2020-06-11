@@ -10,7 +10,7 @@ use img_reveal::ImageReveal;
 use crate::{
     embeds::BasicEmbedData,
     pagination::{Pagination, ReactionData},
-    util::{discord, numbers},
+    util::{numbers, MessageExt},
     BgGames, Error, MySQL,
 };
 
@@ -46,7 +46,7 @@ async fn backgroundgame(ctx: &Context, msg: &Message, args: Args) -> CommandResu
             )
             .await?
     };
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+    response.reaction_delete(ctx, msg.author.id).await;
     Ok(())
 }
 
@@ -102,8 +102,8 @@ async fn hint(ctx: &Context, msg: &Message) -> CommandResult {
             None
         }
     };
-    let _ = if let Some(hint) = hint {
-        msg.channel_id.say(&ctx.http, hint).await?
+    let response = if let Some(hint) = hint {
+        msg.channel_id.say(ctx, hint).await?
     } else {
         msg.channel_id
             .say(
@@ -113,6 +113,7 @@ async fn hint(ctx: &Context, msg: &Message) -> CommandResult {
             )
             .await?
     };
+    response.reaction_delete(ctx, msg.author.id).await;
     Ok(())
 }
 
@@ -131,7 +132,7 @@ async fn bigger(ctx: &Context, msg: &Message) -> CommandResult {
     };
     if let Some(Ok(img)) = img {
         msg.channel_id
-            .send_message(&ctx.http, |m| {
+            .send_message(ctx, |m| {
                 let bytes: &[u8] = &img;
                 m.add_file((bytes, "bg_img.png"))
             })
@@ -187,7 +188,7 @@ async fn stats(ctx: &Context, msg: &Message) -> CommandResult {
         )
         .await?
     };
-    discord::reaction_deletion(ctx, response, msg.author.id).await;
+    response.reaction_delete(ctx, msg.author.id).await;
     Ok(())
 }
 
@@ -217,14 +218,14 @@ async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
         }
 
         if scores.is_empty() {
-            let response = msg
-                .channel_id
+            msg.channel_id
                 .say(
                     ctx,
                     "Looks like no one on this server has played the backgroundgame yet",
                 )
-                .await?;
-            discord::reaction_deletion(ctx, response, msg.author.id).await;
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Ok(());
         }
     }
@@ -258,7 +259,7 @@ async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
         .await?;
 
     if scores.len() <= 15 {
-        discord::reaction_deletion(&ctx, response, msg.author.id).await;
+        response.reaction_delete(ctx, msg.author.id).await;
         return Ok(());
     }
 
