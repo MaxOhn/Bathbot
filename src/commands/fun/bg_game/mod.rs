@@ -9,14 +9,14 @@ use img_reveal::ImageReveal;
 
 use crate::{
     embeds::BasicEmbedData,
-    pagination::{Pagination, ReactionData},
+    pagination::{BGRankingPagination, Pagination},
     util::{numbers, MessageExt},
     BgGames, Error, MySQL,
 };
 
 use rosu::models::GameMode;
 use serenity::{
-    collector::{MessageCollectorBuilder, ReactionAction},
+    collector::MessageCollectorBuilder,
     framework::standard::{macros::command, Args, CommandResult},
     model::{
         channel::{Message, ReactionType},
@@ -253,18 +253,18 @@ async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
     let data = BasicEmbedData::create_bg_ranking(author_idx, initial_scores, global, 1, (1, pages));
 
     // Creating the embed
-    let mut response = msg
+    let mut resp = msg
         .channel_id
         .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
         .await?;
 
     if scores.len() <= 15 {
-        response.reaction_delete(ctx, msg.author.id).await;
+        resp.reaction_delete(ctx, msg.author.id).await;
         return Ok(());
     }
 
     // Collect reactions of author on the response
-    let mut collector = response
+    let mut collector = resp
         .await_reactions(&ctx)
         .timeout(Duration::from_secs(60))
         .author_id(msg.author.id)
@@ -274,13 +274,13 @@ async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
     let reactions = ["⏮️", "⏪", "*️⃣", "⏩", "⏭️"];
     for &reaction in reactions.iter() {
         let reaction_type = ReactionType::try_from(reaction).unwrap();
-        response.react(&ctx.http, reaction_type).await?;
+        resp.react(&ctx.http, reaction_type).await?;
     }
     // Check if the author wants to edit the response
     let http = Arc::clone(&ctx.http);
     let cache = Arc::clone(&ctx.cache);
     tokio::spawn(async move {
-        let mut pagination = Pagination::bg_ranking(
+        let mut pagination = BGRankingPagination::new(
             author_idx,
             scores,
             global,
@@ -288,30 +288,21 @@ async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
             Arc::clone(&cache),
         );
         while let Some(reaction) = collector.next().await {
-            if let ReactionAction::Added(reaction) = &*reaction {
-                if let ReactionType::Unicode(reaction) = &reaction.emoji {
-                    match pagination.next_reaction(reaction.as_str()).await {
-                        Ok(data) => match data {
-                            ReactionData::Delete => response.delete((&cache, &*http)).await?,
-                            ReactionData::None => {}
-                            _ => {
-                                response
-                                    .edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
-                                    .await?
-                            }
-                        },
-                        Err(why) => warn!("Error while using paginator for bg ranking: {}", why),
-                    }
+            match pagination.next_page(reaction, &resp, &cache, &http).await {
+                Ok(Some(data)) => {
+                    resp.edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
+                        .await?;
                 }
+                Ok(None) => {}
+                Err(why) => warn!("Error while using BGRankingPagination: {}", why),
             }
         }
 
         // Remove initial reactions
         for &reaction in reactions.iter() {
             let reaction_type = ReactionType::try_from(reaction).unwrap();
-            response
-                .channel_id
-                .delete_reaction(&http, response.id, None, reaction_type)
+            resp.channel_id
+                .delete_reaction(&http, resp.id, None, reaction_type)
                 .await?;
         }
         Ok::<_, serenity::Error>(())

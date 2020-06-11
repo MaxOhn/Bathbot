@@ -2,7 +2,7 @@ use crate::{
     arguments::{MapModArgs, ModSelection},
     database::MySQL,
     embeds::BasicEmbedData,
-    pagination::{Pagination, ReactionData},
+    pagination::{LeaderboardPagination, Pagination},
     scraper::Scraper,
     util::{
         discord,
@@ -20,7 +20,6 @@ use rosu::{
     },
 };
 use serenity::{
-    collector::ReactionAction,
     framework::standard::{macros::command, Args, CommandError, CommandResult},
     model::channel::{Message, ReactionType},
     prelude::Context,
@@ -197,14 +196,14 @@ async fn leaderboard_send(
             warn!("Could not add map of recent command to DB: {}", why);
         }
     }
-    let mut response = response?;
+    let mut resp = response?;
     if scores.is_empty() {
-        response.reaction_delete(ctx, msg.author.id).await;
+        resp.reaction_delete(ctx, msg.author.id).await;
         return Ok(());
     }
 
     // Collect reactions of author on the response
-    let mut collector = response
+    let mut collector = resp
         .await_reactions(&ctx)
         .timeout(Duration::from_secs(60))
         .author_id(msg.author.id)
@@ -214,7 +213,7 @@ async fn leaderboard_send(
     let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
     for &reaction in reactions.iter() {
         let reaction_type = ReactionType::try_from(reaction).unwrap();
-        response.react(&ctx.http, reaction_type).await?;
+        resp.react(&ctx.http, reaction_type).await?;
     }
 
     // Check if the author wants to edit the response
@@ -222,7 +221,7 @@ async fn leaderboard_send(
     let cache = Arc::clone(&ctx.cache);
     let data = Arc::clone(&ctx.data);
     tokio::spawn(async move {
-        let mut pagination = Pagination::leaderboard(
+        let mut pagination = LeaderboardPagination::new(
             map,
             scores,
             author_name,
@@ -231,28 +230,19 @@ async fn leaderboard_send(
             data,
         );
         while let Some(reaction) = collector.next().await {
-            if let ReactionAction::Added(reaction) = &*reaction {
-                if let ReactionType::Unicode(reaction) = &reaction.emoji {
-                    match pagination.next_reaction(reaction.as_str()).await {
-                        Ok(data) => match data {
-                            ReactionData::Delete => response.delete((&cache, &*http)).await?,
-                            ReactionData::None => {}
-                            _ => {
-                                response
-                                    .edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
-                                    .await?
-                            }
-                        },
-                        Err(why) => warn!("Error while using paginator for leaderboard: {}", why),
-                    }
+            match pagination.next_page(reaction, &resp, &cache, &http).await {
+                Ok(Some(data)) => {
+                    resp.edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
+                        .await?;
                 }
+                Ok(None) => {}
+                Err(why) => warn!("Error while using TopPagination: {}", why),
             }
         }
         for &reaction in reactions.iter() {
             let reaction_type = ReactionType::try_from(reaction).unwrap();
-            response
-                .channel_id
-                .delete_reaction(&http, response.id, None, reaction_type)
+            resp.channel_id
+                .delete_reaction(&http, resp.id, None, reaction_type)
                 .await?;
         }
         Ok::<_, serenity::Error>(())

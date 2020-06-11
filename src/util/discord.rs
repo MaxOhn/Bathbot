@@ -130,6 +130,15 @@ impl CacheData for (&mut Arc<Cache>, &mut Arc<RwLock<TypeMap>>) {
     }
 }
 
+impl CacheData for (&Arc<Cache>, &Arc<RwLock<TypeMap>>) {
+    fn cache(&self) -> &Cache {
+        self.0
+    }
+    fn data(&self) -> &Arc<RwLock<TypeMap>> {
+        self.1
+    }
+}
+
 #[async_trait]
 pub trait MessageExt: Sized {
     async fn reaction_delete(self, ctx: &Context, author: UserId);

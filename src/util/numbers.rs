@@ -56,6 +56,14 @@ pub fn div_euclid(group: usize, total: usize) -> usize {
     }
 }
 
+pub fn last_multiple(per_page: usize, total: usize) -> usize {
+    if per_page <= total && total % per_page == 0 {
+        total - per_page
+    } else {
+        total - total % per_page
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

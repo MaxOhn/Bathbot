@@ -1,14 +1,13 @@
 use crate::{
     arguments::NameArgs,
     embeds::BasicEmbedData,
-    pagination::{Pagination, ReactionData},
+    pagination::{MostPlayedPagination, Pagination},
     util::{globals::OSU_API_ISSUE, numbers},
     DiscordLinks, Osu, Scraper,
 };
 
 use rosu::backend::requests::UserRequest;
 use serenity::{
-    collector::ReactionAction,
     framework::standard::{macros::command, Args, CommandError, CommandResult},
     model::channel::{Message, ReactionType},
     prelude::Context,
@@ -82,13 +81,13 @@ async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let data = BasicEmbedData::create_mostplayed(&user, maps.iter().take(10), (1, pages));
 
     // Creating the embed
-    let mut response = msg
+    let mut resp = msg
         .channel_id
         .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
         .await?;
 
     // Collect reactions of author on the response
-    let mut collector = response
+    let mut collector = resp
         .await_reactions(&ctx)
         .timeout(Duration::from_secs(90))
         .author_id(msg.author.id)
@@ -98,37 +97,28 @@ async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
     for &reaction in reactions.iter() {
         let reaction_type = ReactionType::try_from(reaction).unwrap();
-        response.react(&ctx.http, reaction_type).await?;
+        resp.react(&ctx.http, reaction_type).await?;
     }
 
     // Check if the author wants to edit the response
     let http = Arc::clone(&ctx.http);
     let cache = Arc::clone(&ctx.cache);
     tokio::spawn(async move {
-        let mut pagination = Pagination::most_played(user, maps);
+        let mut pagination = MostPlayedPagination::new(user, maps);
         while let Some(reaction) = collector.next().await {
-            if let ReactionAction::Added(reaction) = &*reaction {
-                if let ReactionType::Unicode(reaction) = &reaction.emoji {
-                    match pagination.next_reaction(reaction.as_str()).await {
-                        Ok(data) => match data {
-                            ReactionData::Delete => response.delete((&cache, &*http)).await?,
-                            ReactionData::None => {}
-                            _ => {
-                                response
-                                    .edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
-                                    .await?
-                            }
-                        },
-                        Err(why) => warn!("Error while using paginator for mostplayed: {}", why),
-                    }
+            match pagination.next_page(reaction, &resp, &cache, &http).await {
+                Ok(Some(data)) => {
+                    resp.edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
+                        .await?;
                 }
+                Ok(None) => {}
+                Err(why) => warn!("Error while using MostPlayedPagination: {}", why),
             }
         }
         for &reaction in reactions.iter() {
             let reaction_type = ReactionType::try_from(reaction).unwrap();
-            response
-                .channel_id
-                .delete_reaction(&http, response.id, None, reaction_type)
+            resp.channel_id
+                .delete_reaction(&http, resp.id, None, reaction_type)
                 .await?;
         }
         Ok::<_, serenity::Error>(())
