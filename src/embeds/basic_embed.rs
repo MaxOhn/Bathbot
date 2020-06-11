@@ -1790,7 +1790,7 @@ impl ProfileResult {
         let (mut min_acc, mut max_acc, mut avg_acc) = (f32::MAX, 0.0_f32, 0.0);
         let (mut min_pp, mut max_pp, mut avg_pp) = (f32::MAX, 0.0_f32, 0.0);
         let (mut min_combo, mut max_combo, mut avg_combo, mut map_combo) = (u32::MAX, 0, 0, 0);
-        let (mut min_len, mut max_len, mut avg_len) = (u32::MAX, 0, 0);
+        let (mut min_len, mut max_len, mut avg_len) = (f32::MAX, 0.0_f32, 0.0);
         let len = tuples.len() as f32;
         let mut mappers = HashMap::with_capacity(len as usize);
         let mut mod_combs = HashMap::with_capacity(5);
@@ -1817,9 +1817,17 @@ impl ProfileResult {
                 map_combo += combo;
             }
 
-            min_len = min_len.min(map.seconds_drain);
-            max_len = max_len.max(map.seconds_drain);
-            avg_len += map.seconds_drain;
+            let seconds_drain = if score.enabled_mods.contains(GameMods::DoubleTime) {
+                map.seconds_drain as f32 / 1.5
+            } else if score.enabled_mods.contains(GameMods::HalfTime) {
+                map.seconds_drain as f32 * 1.5
+            } else {
+                map.seconds_drain as f32
+            };
+
+            min_len = min_len.min(seconds_drain);
+            max_len = max_len.max(seconds_drain);
+            avg_len += seconds_drain;
 
             let mut mapper = mappers.entry(map.creator).or_insert((0, 0.0));
             let weighted_pp = score.pp.unwrap_or(0.0) * factor;
@@ -1849,7 +1857,7 @@ impl ProfileResult {
         avg_acc /= len;
         avg_pp /= len;
         avg_combo /= len as u32;
-        avg_len /= len as u32;
+        avg_len /= len;
         map_combo /= len as u32;
         mod_combs
             .values_mut()
@@ -1903,9 +1911,9 @@ impl ProfileResult {
             max_combo,
             avg_combo,
             map_combo,
-            min_len,
-            max_len,
-            avg_len,
+            min_len: min_len as u32,
+            max_len: max_len as u32,
+            avg_len: avg_len as u32,
             mappers,
             mod_combs_count,
             mod_combs_pp,

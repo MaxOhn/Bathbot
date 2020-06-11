@@ -48,6 +48,5 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Make `<mpc` paginated
 - Check on previous id buffer of bg game
 - Fix "Error while sending HTTP request." for `<c`
-- Adjust map length of `<profile` with DT, ...
   ### Commands
   - None as of now
