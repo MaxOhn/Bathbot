@@ -97,6 +97,12 @@ async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
         .await?;
 
+    // Skip pagination if too few entries
+    if maps.len() <= 10 {
+        resp.reaction_delete(ctx, msg.author.id).await;
+        return Ok(());
+    }
+
     // Pagination
     let pagination = MostPlayedPagination::new(ctx, resp, msg.author.id, user, maps).await;
     let cache = Arc::clone(&ctx.cache);

@@ -308,6 +308,12 @@ async fn top_send(
         }
     }
 
+    // Skip pagination if too few entries
+    if scores_data.len() <= 5 {
+        resp?.reaction_delete(ctx, msg.author.id).await;
+        return Ok(());
+    }
+
     // Pagination
     let pagination = TopPagination::new(ctx, resp?, msg.author.id, user, scores_data, mode).await;
     let cache = Arc::clone(&ctx.cache);

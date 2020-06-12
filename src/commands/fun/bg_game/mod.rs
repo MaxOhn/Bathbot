@@ -254,6 +254,7 @@ async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
         .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
         .await?;
 
+    // Skip pagination if too few entries
     if scores.len() <= 15 {
         resp.reaction_delete(ctx, msg.author.id).await;
         return Ok(());

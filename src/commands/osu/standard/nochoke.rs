@@ -3,7 +3,7 @@ use crate::{
     database::MySQL,
     embeds::BasicEmbedData,
     pagination::{NoChokePagination, Pagination},
-    util::{globals::OSU_API_ISSUE, numbers, osu, pp::PPProvider},
+    util::{globals::OSU_API_ISSUE, numbers, osu, pp::PPProvider, MessageExt},
     DiscordLinks, Osu,
 };
 
@@ -215,6 +215,12 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 why
             );
         }
+    }
+
+    // Skip pagination if too few entries
+    if scores_data.len() <= 5 {
+        resp?.reaction_delete(ctx, msg.author.id).await;
+        return Ok(());
     }
 
     // Pagination

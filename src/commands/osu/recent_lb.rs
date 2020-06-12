@@ -4,7 +4,10 @@ use crate::{
     embeds::BasicEmbedData,
     pagination::{LeaderboardPagination, Pagination},
     scraper::Scraper,
-    util::globals::{AVATAR_URL, OSU_API_ISSUE},
+    util::{
+        globals::{AVATAR_URL, OSU_API_ISSUE},
+        MessageExt,
+    },
     DiscordLinks, Osu,
 };
 
@@ -186,6 +189,12 @@ async fn recent_lb_send(
         if let Err(why) = mysql.insert_beatmap(&map) {
             warn!("Could not add map of recent command to DB: {}", why);
         }
+    }
+
+    // Skip pagination if too few entries
+    if scores.len() <= 10 {
+        resp?.reaction_delete(ctx, msg.author.id).await;
+        return Ok(());
     }
 
     // Pagination

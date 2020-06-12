@@ -201,6 +201,12 @@ async fn leaderboard_send(
         return Ok(());
     }
 
+    // Skip pagination if too few entries
+    if scores.len() <= 10 {
+        resp.reaction_delete(ctx, msg.author.id).await;
+        return Ok(());
+    }
+
     // Pagination
     let pagination = LeaderboardPagination::new(
         ctx,

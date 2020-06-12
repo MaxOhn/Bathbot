@@ -3,7 +3,7 @@ use crate::{
     database::MySQL,
     embeds::RecentData,
     pagination::{Pagination, RecentPagination},
-    util::globals::OSU_API_ISSUE,
+    util::{globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
 };
 
@@ -187,6 +187,12 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                 .embed(|e| embed_data.build_embed(e))
         })
         .await?;
+
+    // Skip pagination if too few entries
+    if scores.len() <= 1 {
+        resp.reaction_delete(ctx, msg.author.id).await;
+        return Ok(());
+    }
 
     // Pagination
     let pagination = RecentPagination::new(

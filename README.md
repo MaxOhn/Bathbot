@@ -48,7 +48,6 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Make `<mpc` paginated
 - Check on previous id buffer of bg game
 - Fix "Error while sending HTTP request." for `<c`
-- Prevent pagination if too few entries
 - Add `Recent score #` back to `<r`
   ### Commands
   - None as of now
