@@ -16,7 +16,6 @@ use crate::{
 };
 
 use itertools::Itertools;
-use rayon::prelude::*;
 use rosu::models::{Beatmap, GameMode, GameMods, Grade, Match, Score, Team, TeamType, User};
 use serenity::{
     builder::CreateEmbed,
@@ -428,53 +427,27 @@ impl BasicEmbedData {
     //
     // common
     //
-    /// Returns a tuple containing a new `BasicEmbedData` object,
-    /// and a `Vec<u8>` representing the bytes of a png
-    pub async fn create_common(
-        users: HashMap<u32, User>,
-        all_scores: Vec<Vec<Score>>,
-        maps: HashMap<u32, Beatmap>,
-    ) -> (Self, Vec<u8>) {
+    pub fn create_common(
+        users: &HashMap<u32, User>,
+        scores: &HashMap<u32, Vec<Score>>,
+        maps: &HashMap<u32, Beatmap>,
+        id_pps: &[(u32, f32)],
+        index: usize,
+    ) -> Self {
         let mut result = Self::default();
-        // Flatten scores, sort by beatmap id, then group by beatmap id
-        let mut all_scores: Vec<Score> = all_scores.into_iter().flatten().collect();
-        all_scores.sort_by(|s1, s2| s1.beatmap_id.unwrap().cmp(&s2.beatmap_id.unwrap()));
-        let mut all_scores: HashMap<u32, Vec<Score>> = all_scores
-            .into_iter()
-            .group_by(|score| score.beatmap_id.unwrap())
-            .into_iter()
-            .map(|(map_id, scores)| (map_id, scores.collect()))
-            .collect();
-        // Sort each group by pp value, then take the best 3
-        all_scores.par_iter_mut().for_each(|(_, scores)| {
-            scores.sort_by(|s1, s2| s2.pp.unwrap().partial_cmp(&s1.pp.unwrap()).unwrap());
-            scores.truncate(3);
-        });
-        // Consider only the top 10 maps with the highest avg pp among the users
-        let mut pp_avg: Vec<(u32, f32)> = all_scores
-            .par_iter()
-            .map(|(&map_id, scores)| {
-                let sum = scores.iter().fold(0.0, |sum, next| sum + next.pp.unwrap());
-                (map_id, sum / scores.len() as f32)
-            })
-            .collect();
-        pp_avg.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-        let top_map_ids: Vec<u32> = pp_avg.into_iter().take(10).map(|(id, _)| id).collect();
-        all_scores.retain(|id, _| top_map_ids.contains(id));
-        // Write msg
         let mut description = String::with_capacity(512);
-        for (i, map_id) in top_map_ids.iter().enumerate() {
+        for (i, (map_id, _)) in id_pps.iter().enumerate() {
             let map = maps.get(map_id).unwrap();
             let _ = writeln!(
                 description,
                 "**{idx}.** [{title} [{version}]]({base}b/{id})",
-                idx = i + 1,
+                idx = index + i + 1,
                 title = map.title,
                 version = map.version,
                 base = HOMEPAGE,
                 id = map.beatmap_id,
             );
-            let scores = all_scores.get(map_id).unwrap();
+            let scores = scores.get(map_id).unwrap();
             let first_score = scores.get(0).unwrap();
             let first_user = users.get(&first_score.user_id).unwrap();
             let second_score = scores.get(1).unwrap();
@@ -499,16 +472,8 @@ impl BasicEmbedData {
             }
             description.push('\n');
         }
-        // Keys have no strict order, hence inconsistent result
-        let user_ids: Vec<u32> = users.keys().copied().collect();
-        let thumbnail = discord::get_combined_thumbnail(&user_ids)
-            .await
-            .unwrap_or_else(|e| {
-                warn!("Error while combining avatars: {}", e);
-                Vec::default()
-            });
         result.description = Some(description);
-        (result, thumbnail)
+        result
     }
 
     //

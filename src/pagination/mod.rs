@@ -1,5 +1,6 @@
 mod bg_rankings;
 mod command_count;
+mod common;
 mod leaderboard;
 mod most_played;
 mod nochoke;
@@ -8,6 +9,7 @@ mod top;
 
 pub use bg_rankings::BGRankingPagination;
 pub use command_count::CommandCountPagination;
+pub use common::CommonPagination;
 pub use leaderboard::LeaderboardPagination;
 pub use most_played::MostPlayedPagination;
 pub use nochoke::NoChokePagination;
@@ -50,6 +52,13 @@ pub trait Pagination: Sync + Sized {
     fn jump_index(&self) -> Option<usize> {
         None
     }
+    // TODO: Use this
+    fn thumbnail(&self) -> Option<&[u8]> {
+        None
+    }
+    fn content(&self) -> Option<String> {
+        None
+    }
     fn process_data(&mut self, _data: &Self::PageData) {}
     async fn final_processing(mut self, _cache: Arc<Cache>, _http: Arc<Http>) -> Result<(), Error> {
         Ok(())
@@ -76,8 +85,14 @@ pub trait Pagination: Sync + Sized {
         while let Some(reaction) = self.collector().next().await {
             match self.next_page(reaction, &cache, &http).await {
                 Ok(Some(data)) => {
+                    let content = self.content();
                     self.msg()
-                        .edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
+                        .edit((&cache, &*http), |m| {
+                            if let Some(content) = content {
+                                m.content(content);
+                            }
+                            m.embed(|e| data.build(e))
+                        })
                         .await?;
                 }
                 Ok(None) => {}

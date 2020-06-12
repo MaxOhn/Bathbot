@@ -83,6 +83,9 @@ impl Pagination for RecentPagination {
     fn process_data(&mut self, data: &RecentData) {
         self.embed_data = data.clone();
     }
+    fn content(&self) -> Option<String> {
+        Some(format!("Recent score #{}", self.pages.index + 1))
+    }
     async fn final_processing(mut self, cache: Arc<Cache>, http: Arc<Http>) -> Result<(), Error> {
         // Minimize embed
         let mut msg = self.msg.clone();

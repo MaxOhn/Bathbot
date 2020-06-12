@@ -2,7 +2,8 @@ use crate::{
     arguments::MultNameArgs,
     database::MySQL,
     embeds::BasicEmbedData,
-    util::{globals::OSU_API_ISSUE, MessageExt},
+    pagination::{CommonPagination, Pagination},
+    util::{discord, globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
 };
 
@@ -21,6 +22,7 @@ use std::{
     collections::{HashMap, HashSet},
     convert::From,
     fmt::Write,
+    sync::Arc,
 };
 
 #[allow(clippy::cognitive_complexity)]
@@ -141,6 +143,32 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
         .par_iter_mut()
         .for_each(|scores| scores.retain(|s| map_ids.contains(&s.beatmap_id.unwrap())));
 
+    // Flatten scores, sort by beatmap id, then group by beatmap id
+    let mut all_scores: Vec<Score> = all_scores.into_iter().flatten().collect();
+    all_scores.sort_by(|s1, s2| s1.beatmap_id.cmp(&s2.beatmap_id));
+    let mut all_scores: HashMap<u32, Vec<Score>> = all_scores
+        .into_iter()
+        .group_by(|score| score.beatmap_id.unwrap())
+        .into_iter()
+        .map(|(map_id, scores)| (map_id, scores.collect()))
+        .collect();
+
+    // Sort each group by pp value, then take the best 3
+    all_scores.par_iter_mut().for_each(|(_, scores)| {
+        scores.sort_by(|s1, s2| s2.pp.partial_cmp(&s1.pp).unwrap());
+        scores.truncate(3);
+    });
+
+    // Consider only the top 10 maps with the highest avg pp among the users
+    let mut pp_avg: Vec<(u32, f32)> = all_scores
+        .par_iter()
+        .map(|(&map_id, scores)| {
+            let sum = scores.iter().fold(0.0, |sum, next| sum + next.pp.unwrap());
+            (map_id, sum / scores.len() as f32)
+        })
+        .collect();
+    pp_avg.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
     // Try retrieving all maps of common scores from the database
     let mut maps: HashMap<u32, Beatmap> = {
         let map_ids: Vec<u32> = map_ids.iter().copied().collect();
@@ -176,7 +204,11 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                     }
                 },
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                    msg.channel_id
+                        .say(ctx, OSU_API_ISSUE)
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Err(CommandError::from(why.to_string()));
                 }
             };
@@ -205,16 +237,26 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             amount_common,
             if amount_common > 1 { "s" } else { "" }
         );
-        if amount_common > 10 {
-            content.push_str(", here's the top 10 of them:");
-        } else {
-            content.push(':');
-        }
     }
-    let (data, thumbnail) = BasicEmbedData::create_common(users, all_scores, maps).await;
+
+    // Keys have no strict order, hence inconsistent result
+    let user_ids: Vec<u32> = users.keys().copied().collect();
+    let thumbnail = discord::get_combined_thumbnail(&user_ids)
+        .await
+        .unwrap_or_else(|e| {
+            warn!("Error while combining avatars: {}", e);
+            Vec::default()
+        });
+    let data = BasicEmbedData::create_common(
+        &users,
+        &all_scores,
+        &maps,
+        &pp_avg[..10.min(pp_avg.len())], // TODO: Test case pp_avg.len() = 0
+        0,
+    );
 
     // Creating the embed
-    let response = msg
+    let resp = msg
         .channel_id
         .send_message(ctx, |m| {
             if !thumbnail.is_empty() {
@@ -237,7 +279,32 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             );
         }
     }
-    response?.reaction_delete(ctx, msg.author.id).await;
+
+    // Skip pagination if too few entries
+    if pp_avg.len() <= 10 {
+        resp?.reaction_delete(ctx, msg.author.id).await;
+        return Ok(());
+    }
+
+    // Pagination
+    let pagination = CommonPagination::new(
+        ctx,
+        resp?,
+        msg.author.id,
+        users,
+        all_scores,
+        maps,
+        pp_avg,
+        thumbnail,
+    )
+    .await;
+    let cache = Arc::clone(&ctx.cache);
+    let http = Arc::clone(&ctx.http);
+    tokio::spawn(async move {
+        if let Err(why) = pagination.start(cache, http).await {
+            warn!("Pagination error: {}", why)
+        }
+    });
     Ok(())
 }
 
