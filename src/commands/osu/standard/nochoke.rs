@@ -13,14 +13,10 @@ use rosu::{
 };
 use serenity::{
     framework::standard::{macros::command, Args, CommandError, CommandResult},
-    model::{
-        channel::{Message, ReactionType},
-        misc::Mentionable,
-    },
+    model::{channel::Message, misc::Mentionable},
     prelude::Context,
 };
-use std::{cmp::Ordering, collections::HashMap, convert::TryFrom, sync::Arc, time::Duration};
-use tokio::stream::StreamExt;
+use std::{cmp::Ordering, collections::HashMap, sync::Arc};
 
 #[command]
 #[description = "Display a user's top plays if no score in their top 100 \
@@ -201,9 +197,9 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     }
 
     // Creating the embed
-    let response = msg
+    let resp = msg
         .channel_id
-        .send_message(&ctx.http, |m| {
+        .send_message(ctx, |m| {
             m.content(format!("{} No-choke top scores for `{}`:", mention, name))
                 .embed(|e| data.build(e))
         })
@@ -220,45 +216,16 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             );
         }
     }
-    let mut resp = response?;
 
-    // Collect reactions of author on the response
-    let mut collector = resp
-        .await_reactions(&ctx)
-        .timeout(Duration::from_secs(90))
-        .author_id(msg.author.id)
-        .await;
-
-    // Add initial reactions
-    let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
-    for &reaction in reactions.iter() {
-        let reaction_type = ReactionType::try_from(reaction).unwrap();
-        resp.react(&ctx.http, reaction_type).await?;
-    }
-
-    // Check if the author wants to edit the response
-    let http = Arc::clone(&ctx.http);
+    // Pagination
+    let pagination =
+        NoChokePagination::new(ctx, resp?, msg.author.id, user, scores_data, unchoked_pp).await;
     let cache = Arc::clone(&ctx.cache);
+    let http = Arc::clone(&ctx.http);
     tokio::spawn(async move {
-        let mut pagination =
-            NoChokePagination::new(user, scores_data, unchoked_pp, Arc::clone(&cache));
-        while let Some(reaction) = collector.next().await {
-            match pagination.next_page(reaction, &resp, &cache, &http).await {
-                Ok(Some(data)) => {
-                    resp.edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
-                        .await?;
-                }
-                Ok(None) => {}
-                Err(why) => warn!("Error while using NoChokePagination: {}", why),
-            }
+        if let Err(why) = pagination.start(cache, http).await {
+            warn!("Pagination error: {}", why)
         }
-        for &reaction in reactions.iter() {
-            let reaction_type = ReactionType::try_from(reaction).unwrap();
-            resp.channel_id
-                .delete_reaction(&http, resp.id, None, reaction_type)
-                .await?;
-        }
-        Ok::<_, serenity::Error>(())
     });
     Ok(())
 }

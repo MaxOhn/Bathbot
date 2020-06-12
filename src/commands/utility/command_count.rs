@@ -9,11 +9,10 @@ use crate::{
 use chrono::{DateTime, Utc};
 use serenity::{
     framework::standard::{macros::command, CommandResult},
-    model::channel::{Message, ReactionType},
+    model::channel::Message,
     prelude::Context,
 };
-use std::{convert::TryFrom, sync::Arc, time::Duration};
-use tokio::stream::StreamExt;
+use std::sync::Arc;
 
 #[command]
 #[description = "Let me show you my most popular commands \
@@ -41,48 +40,19 @@ async fn commands(ctx: &Context, msg: &Message) -> CommandResult {
     let data = BasicEmbedData::create_command_counter(sub_vec, boot_time.as_str(), 1, (1, pages));
 
     // Creating the embed
-    let mut resp = msg
+    let resp = msg
         .channel_id
         .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
         .await?;
 
-    // Collect reactions of author on the response
-    let mut collector = resp
-        .await_reactions(&ctx)
-        .timeout(Duration::from_secs(60))
-        .author_id(msg.author.id)
-        .await;
-
-    // Add initial reactions
-    let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
-    for &reaction in reactions.iter() {
-        let reaction_type = ReactionType::try_from(reaction).unwrap();
-        resp.react(&ctx.http, reaction_type).await?;
-    }
-    // Check if the author wants to edit the response
-    let http = Arc::clone(&ctx.http);
+    // Pagination
+    let pagination = CommandCountPagination::new(ctx, resp, msg.author.id, vec, boot_time).await;
     let cache = Arc::clone(&ctx.cache);
+    let http = Arc::clone(&ctx.http);
     tokio::spawn(async move {
-        let mut pagination = CommandCountPagination::new(vec, boot_time);
-        while let Some(reaction) = collector.next().await {
-            match pagination.next_page(reaction, &resp, &cache, &http).await {
-                Ok(Some(data)) => {
-                    resp.edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
-                        .await?;
-                }
-                Ok(None) => {}
-                Err(why) => warn!("Error while using CommandCountPagination: {}", why),
-            }
+        if let Err(why) = pagination.start(cache, http).await {
+            warn!("Pagination error: {}", why)
         }
-
-        // Remove initial reactions
-        for &reaction in reactions.iter() {
-            let reaction_type = ReactionType::try_from(reaction).unwrap();
-            resp.channel_id
-                .delete_reaction(&http, resp.id, None, reaction_type)
-                .await?;
-        }
-        Ok::<_, serenity::Error>(())
     });
     Ok(())
 }

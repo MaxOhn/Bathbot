@@ -14,36 +14,84 @@ pub use nochoke::NoChokePagination;
 pub use recent::RecentPagination;
 pub use top::TopPagination;
 
-use crate::{util::numbers, Error};
+use crate::{embeds::EmbedData, util::numbers, Error};
 
 use serenity::{
     async_trait,
     cache::Cache,
-    collector::ReactionAction,
+    client::Context,
+    collector::{ReactionAction, ReactionCollector},
     http::Http,
-    model::channel::{Message, ReactionType},
+    model::{
+        channel::{Message, ReactionType},
+        id::UserId,
+    },
 };
-use std::sync::Arc;
+use std::{convert::TryFrom, sync::Arc, time::Duration};
+use tokio::stream::StreamExt;
 
 #[async_trait]
-pub trait Pagination: Sync {
-    type PageData;
+pub trait Pagination: Sync + Sized {
+    type PageData: EmbedData;
 
-    // Implement these three
+    // Implement these
+    fn msg(&mut self) -> &mut Message;
+    fn collector(&mut self) -> &mut ReactionCollector;
     fn pages(&self) -> Pages;
     fn pages_mut(&mut self) -> &mut Pages;
     async fn build_page(&mut self) -> Result<Self::PageData, Error>;
 
-    // Optionally implement this
+    // Optionally implement these
+    fn reactions() -> &'static [&'static str] {
+        &["⏮️", "⏪", "⏩", "⏭️"]
+    }
     fn jump_index(&self) -> Option<usize> {
         None
     }
+    async fn final_processing(mut self) -> Result<(), Error> {
+        Ok(())
+    }
 
     // Don't implement anything else
+    async fn create_collector(
+        ctx: &Context,
+        msg: &Message,
+        author: UserId,
+        sec_duration: u64,
+    ) -> ReactionCollector {
+        msg.await_reactions(ctx)
+            .timeout(Duration::from_secs(sec_duration))
+            .author_id(author)
+            .await
+    }
+    async fn start(mut self, cache: Arc<Cache>, http: Arc<Http>) -> Result<(), Error> {
+        let reactions = Self::reactions();
+        for &reaction in reactions.iter() {
+            let reaction_type = ReactionType::try_from(reaction).unwrap();
+            self.msg().react((&cache, &*http), reaction_type).await?;
+        }
+        while let Some(reaction) = self.collector().next().await {
+            match self.next_page(reaction, &cache, &http).await {
+                Ok(Some(data)) => {
+                    self.msg()
+                        .edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
+                        .await?;
+                }
+                Ok(None) => {}
+                Err(why) => warn!("Error while paginating: {}", why),
+            }
+        }
+        for &reaction in reactions.iter() {
+            let r = ReactionType::try_from(reaction).unwrap();
+            self.msg()
+                .delete_reaction_emoji((&cache, &*http), r)
+                .await?;
+        }
+        self.final_processing().await
+    }
     async fn next_page(
         &mut self,
         reaction: Arc<ReactionAction>,
-        msg: &Message,
         cache: &Arc<Cache>,
         http: &Http,
     ) -> Result<Option<Self::PageData>, Error> {
@@ -53,7 +101,7 @@ pub trait Pagination: Sync {
                     PageChange::None => Ok(None),
                     PageChange::Change => self.build_page().await.map(Some),
                     PageChange::Delete => {
-                        msg.delete((cache, http)).await?;
+                        self.msg().delete((cache, http)).await?;
                         Ok(None)
                     }
                 };

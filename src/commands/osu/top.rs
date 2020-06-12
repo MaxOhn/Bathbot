@@ -14,11 +14,10 @@ use rosu::{
 };
 use serenity::{
     framework::standard::{macros::command, Args, CommandError, CommandResult},
-    model::channel::{Message, ReactionType},
+    model::channel::Message,
     prelude::Context,
 };
-use std::{cmp::Ordering, collections::HashMap, convert::TryFrom, sync::Arc, time::Duration};
-use tokio::stream::StreamExt;
+use std::{cmp::Ordering, collections::HashMap, sync::Arc};
 
 #[allow(clippy::cognitive_complexity)]
 async fn top_send(
@@ -295,9 +294,9 @@ async fn top_send(
     }
 
     // Creating the embed
-    let response = msg
+    let resp = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.content(content).embed(|e| data.build(e)))
+        .send_message(ctx, |m| m.content(content).embed(|e| data.build(e)))
         .await;
 
     // Add missing maps to database
@@ -308,45 +307,15 @@ async fn top_send(
             warn!("Could not add missing maps of top command to DB: {}", why);
         }
     }
-    let mut resp = response?;
 
-    // Collect reactions of author on the response
-    let mut collector = resp
-        .await_reactions(ctx)
-        .timeout(Duration::from_secs(90))
-        .author_id(msg.author.id)
-        .await;
-
-    // Add initial reactions
-    let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
-    for &reaction in reactions.iter() {
-        let reaction_type = ReactionType::try_from(reaction).unwrap();
-        resp.react(ctx, reaction_type).await?;
-    }
-
-    // Check if the author wants to edit the response
-    let http = Arc::clone(&ctx.http);
+    // Pagination
+    let pagination = TopPagination::new(ctx, resp?, msg.author.id, user, scores_data, mode).await;
     let cache = Arc::clone(&ctx.cache);
-    let data = Arc::clone(&ctx.data);
+    let http = Arc::clone(&ctx.http);
     tokio::spawn(async move {
-        let mut pagination = TopPagination::new(user, scores_data, mode, Arc::clone(&cache), data);
-        while let Some(reaction) = collector.next().await {
-            match pagination.next_page(reaction, &resp, &cache, &http).await {
-                Ok(Some(data)) => {
-                    resp.edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
-                        .await?;
-                }
-                Ok(None) => {}
-                Err(why) => warn!("Error while using TopPagination: {}", why),
-            }
+        if let Err(why) = pagination.start(cache, http).await {
+            warn!("Pagination error: {}", why)
         }
-        for &reaction in reactions.iter() {
-            let reaction_type = ReactionType::try_from(reaction).unwrap();
-            resp.channel_id
-                .delete_reaction(&http, resp.id, None, reaction_type)
-                .await?;
-        }
-        Ok::<_, serenity::Error>(())
     });
     Ok(())
 }

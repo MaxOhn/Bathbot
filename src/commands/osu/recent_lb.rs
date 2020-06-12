@@ -17,11 +17,10 @@ use rosu::{
 };
 use serenity::{
     framework::standard::{macros::command, Args, CommandError, CommandResult},
-    model::channel::{Message, ReactionType},
+    model::channel::Message,
     prelude::Context,
 };
-use std::{convert::TryFrom, sync::Arc, time::Duration};
-use tokio::stream::StreamExt;
+use std::sync::Arc;
 
 #[allow(clippy::cognitive_complexity)]
 async fn recent_lb_send(
@@ -164,7 +163,7 @@ async fn recent_lb_send(
     };
 
     // Sending the embed
-    let response = msg
+    let resp = msg
         .channel_id
         .send_message(&ctx.http, |m| {
             let mut content = format!(
@@ -188,52 +187,24 @@ async fn recent_lb_send(
             warn!("Could not add map of recent command to DB: {}", why);
         }
     }
-    let mut resp = response?;
 
-    // Collect reactions of author on the response
-    let mut collector = resp
-        .await_reactions(&ctx)
-        .timeout(Duration::from_secs(60))
-        .author_id(msg.author.id)
-        .await;
-
-    // Add initial reactions
-    let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
-    for &reaction in reactions.iter() {
-        let reaction_type = ReactionType::try_from(reaction).unwrap();
-        resp.react(&ctx.http, reaction_type).await?;
-    }
-
-    // Check if the author wants to edit the response
-    let http = Arc::clone(&ctx.http);
+    // Pagination
+    let pagination = LeaderboardPagination::new(
+        ctx,
+        resp?,
+        msg.author.id,
+        map,
+        scores,
+        author_name,
+        first_place_icon,
+    )
+    .await;
     let cache = Arc::clone(&ctx.cache);
-    let data = Arc::clone(&ctx.data);
+    let http = Arc::clone(&ctx.http);
     tokio::spawn(async move {
-        let mut pagination = LeaderboardPagination::new(
-            map,
-            scores,
-            author_name,
-            first_place_icon,
-            Arc::clone(&cache),
-            data,
-        );
-        while let Some(reaction) = collector.next().await {
-            match pagination.next_page(reaction, &resp, &cache, &http).await {
-                Ok(Some(data)) => {
-                    resp.edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
-                        .await?;
-                }
-                Ok(None) => {}
-                Err(why) => warn!("Error while using TopPagination: {}", why),
-            }
+        if let Err(why) = pagination.start(cache, http).await {
+            warn!("Pagination error: {}", why)
         }
-        for &reaction in reactions.iter() {
-            let reaction_type = ReactionType::try_from(reaction).unwrap();
-            resp.channel_id
-                .delete_reaction(&http, resp.id, None, reaction_type)
-                .await?;
-        }
-        Ok::<_, serenity::Error>(())
     });
     Ok(())
 }

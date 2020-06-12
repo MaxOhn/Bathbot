@@ -2,18 +2,17 @@ use crate::{
     arguments::NameArgs,
     embeds::BasicEmbedData,
     pagination::{MostPlayedPagination, Pagination},
-    util::{globals::OSU_API_ISSUE, numbers},
+    util::{globals::OSU_API_ISSUE, numbers, MessageExt},
     DiscordLinks, Osu, Scraper,
 };
 
 use rosu::backend::requests::UserRequest;
 use serenity::{
     framework::standard::{macros::command, Args, CommandError, CommandResult},
-    model::channel::{Message, ReactionType},
+    model::channel::Message,
     prelude::Context,
 };
-use std::{convert::TryFrom, sync::Arc, time::Duration};
-use tokio::stream::StreamExt;
+use std::sync::Arc;
 
 #[command]
 #[description = "Display the 10 most played maps of a user"]
@@ -31,11 +30,13 @@ async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             None => {
                 msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "Either specify an osu name or link your discord \
-                     to an osu profile via `<link osuname`",
+                        to an osu profile via `<link osuname`",
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -52,13 +53,19 @@ async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     Some(user) => user,
                     None => {
                         msg.channel_id
-                            .say(&ctx.http, format!("User `{}` was not found", name))
-                            .await?;
+                            .say(ctx, format!("User `{}` was not found", name))
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
                         return Ok(());
                     }
                 },
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                    msg.channel_id
+                        .say(ctx, OSU_API_ISSUE)
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Err(CommandError::from(why.to_string()));
                 }
             }
@@ -68,7 +75,11 @@ async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             match scraper.get_most_played(user.user_id, 50).await {
                 Ok(maps) => maps,
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                    msg.channel_id
+                        .say(ctx, OSU_API_ISSUE)
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Err(CommandError::from(why.to_string()));
                 }
             }
@@ -81,47 +92,19 @@ async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let data = BasicEmbedData::create_mostplayed(&user, maps.iter().take(10), (1, pages));
 
     // Creating the embed
-    let mut resp = msg
+    let resp = msg
         .channel_id
         .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
         .await?;
 
-    // Collect reactions of author on the response
-    let mut collector = resp
-        .await_reactions(&ctx)
-        .timeout(Duration::from_secs(90))
-        .author_id(msg.author.id)
-        .await;
-
-    // Add initial reactions
-    let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
-    for &reaction in reactions.iter() {
-        let reaction_type = ReactionType::try_from(reaction).unwrap();
-        resp.react(&ctx.http, reaction_type).await?;
-    }
-
-    // Check if the author wants to edit the response
-    let http = Arc::clone(&ctx.http);
+    // Pagination
+    let pagination = MostPlayedPagination::new(ctx, resp, msg.author.id, user, maps).await;
     let cache = Arc::clone(&ctx.cache);
+    let http = Arc::clone(&ctx.http);
     tokio::spawn(async move {
-        let mut pagination = MostPlayedPagination::new(user, maps);
-        while let Some(reaction) = collector.next().await {
-            match pagination.next_page(reaction, &resp, &cache, &http).await {
-                Ok(Some(data)) => {
-                    resp.edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
-                        .await?;
-                }
-                Ok(None) => {}
-                Err(why) => warn!("Error while using MostPlayedPagination: {}", why),
-            }
+        if let Err(why) = pagination.start(cache, http).await {
+            warn!("Pagination error: {}", why)
         }
-        for &reaction in reactions.iter() {
-            let reaction_type = ReactionType::try_from(reaction).unwrap();
-            resp.channel_id
-                .delete_reaction(&http, resp.id, None, reaction_type)
-                .await?;
-        }
-        Ok::<_, serenity::Error>(())
     });
     Ok(())
 }

@@ -6,11 +6,16 @@ use rosu::models::Beatmap;
 use serenity::{
     async_trait,
     cache::Cache,
+    client::Context,
+    collector::ReactionCollector,
+    model::{channel::Message, id::UserId},
     prelude::{RwLock, TypeMap},
 };
 use std::sync::Arc;
 
 pub struct LeaderboardPagination {
+    msg: Message,
+    collector: ReactionCollector,
     pages: Pages,
     map: Box<Beatmap>,
     scores: Vec<ScraperScore>,
@@ -21,15 +26,21 @@ pub struct LeaderboardPagination {
 }
 
 impl LeaderboardPagination {
-    pub fn new(
+    pub async fn new(
+        ctx: &Context,
+        msg: Message,
+        author: UserId,
         map: Beatmap,
         scores: Vec<ScraperScore>,
         author_name: Option<String>,
         first_place_icon: Option<String>,
-        cache: Arc<Cache>,
-        data: Arc<RwLock<TypeMap>>,
     ) -> Self {
+        let collector = Self::create_collector(ctx, &msg, author, 60).await;
+        let cache = Arc::clone(&ctx.cache);
+        let data = Arc::clone(&ctx.data);
         Self {
+            msg,
+            collector,
             pages: Pages::new(10, scores.len()),
             map: Box::new(map),
             scores,
@@ -44,6 +55,12 @@ impl LeaderboardPagination {
 #[async_trait]
 impl Pagination for LeaderboardPagination {
     type PageData = BasicEmbedData;
+    fn msg(&mut self) -> &mut Message {
+        &mut self.msg
+    }
+    fn collector(&mut self) -> &mut ReactionCollector {
+        &mut self.collector
+    }
     fn pages(&self) -> Pages {
         self.pages
     }

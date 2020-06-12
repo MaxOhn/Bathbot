@@ -11,21 +11,18 @@ use rosu::{
     backend::requests::{RecentRequest, UserRequest},
     models::{
         ApprovalStatus::{Approved, Loved, Qualified, Ranked},
-        Beatmap, GameMode,
+        GameMode,
     },
 };
 use serenity::{
     framework::standard::{macros::command, Args, CommandError, CommandResult},
-    model::channel::{Message, ReactionType},
+    model::channel::Message,
     prelude::Context,
 };
 use std::{
     collections::{HashMap, HashSet},
-    convert::TryFrom,
     sync::Arc,
 };
-use tokio::stream::StreamExt;
-use tokio::time::Duration;
 
 #[allow(clippy::cognitive_complexity)]
 async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> CommandResult {
@@ -183,80 +180,23 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
     };
 
     // Creating the embed
-    let mut resp = msg
+    let resp = msg
         .channel_id
-        .send_message(&ctx.http, |m| {
+        .send_message(ctx, |m| {
             m.content(format!("Try #{}", tries))
                 .embed(|e| embed_data.build(e))
         })
         .await?;
 
-    // Collect reactions of author on the response
-    let mut collector = resp
-        .await_reactions(&ctx)
-        .timeout(Duration::from_secs(45))
-        .author_id(msg.author.id)
-        .await;
-
-    // Add initial reactions
-    let reactions = ["⏮️", "⏪", "◀️", "▶️", "⏩", "⏭️"];
-    for &reaction in reactions.iter() {
-        let reaction_type = ReactionType::try_from(reaction).unwrap();
-        resp.react(&ctx.http, reaction_type).await?;
-    }
-
-    // Check if the author wants to edit the response
-    let http = Arc::clone(&ctx.http);
+    // Pagination
+    let pagination =
+        RecentPagination::new(ctx, resp, msg.author.id, user, scores, maps, best, global).await;
     let cache = Arc::clone(&ctx.cache);
-    let data = Arc::clone(&ctx.data);
+    let http = Arc::clone(&ctx.http);
     tokio::spawn(async move {
-        let mut pagination = RecentPagination::new(
-            user,
-            scores,
-            maps,
-            best,
-            global,
-            Arc::clone(&cache),
-            Arc::clone(&data),
-        );
-        while let Some(reaction) = collector.next().await {
-            match pagination.next_page(reaction, &resp, &cache, &http).await {
-                Ok(Some(data)) => {
-                    resp.edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
-                        .await?;
-                }
-                Ok(None) => {}
-                Err(why) => warn!("Error while using RecentPagination: {}", why),
-            }
+        if let Err(why) = pagination.start(cache, http).await {
+            warn!("Pagination error: {}", why)
         }
-
-        // Remove initial reactions
-        for &reaction in reactions.iter() {
-            let reaction_type = ReactionType::try_from(reaction).unwrap();
-            resp.channel_id
-                .delete_reaction(&http, resp.id, None, reaction_type)
-                .await?;
-        }
-
-        // Minimize embed
-        resp.edit((&cache, &*http), |m| m.embed(|e| embed_data.minimize(e)))
-            .await?;
-
-        // Put missing maps into DB
-        let maps = pagination.maps();
-        if maps.len() > map_ids.len() {
-            let maps: Vec<Beatmap> = maps
-                .into_iter()
-                .filter(|(id, _)| !map_ids.contains(&id))
-                .map(|(_, map)| map)
-                .collect();
-            let data = data.read().await;
-            let mysql = data.get::<MySQL>().unwrap();
-            if let Err(why) = mysql.insert_beatmaps(maps) {
-                warn!("Error while adding maps to DB: {}", why);
-            }
-        }
-        Ok::<_, serenity::Error>(())
     });
     Ok(())
 }

@@ -18,14 +18,10 @@ use rosu::models::GameMode;
 use serenity::{
     collector::MessageCollectorBuilder,
     framework::standard::{macros::command, Args, CommandResult},
-    model::{
-        channel::{Message, ReactionType},
-        id::UserId,
-    },
+    model::{channel::Message, id::UserId},
     prelude::Context,
 };
-use std::{collections::HashMap, convert::TryFrom, sync::Arc, time::Duration};
-use tokio::stream::StreamExt;
+use std::{collections::HashMap, sync::Arc};
 
 #[command]
 #[description = "Given part of a map's background, try to guess \
@@ -253,7 +249,7 @@ async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
     let data = BasicEmbedData::create_bg_ranking(author_idx, initial_scores, global, 1, (1, pages));
 
     // Creating the embed
-    let mut resp = msg
+    let resp = msg
         .channel_id
         .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
         .await?;
@@ -263,49 +259,15 @@ async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
         return Ok(());
     }
 
-    // Collect reactions of author on the response
-    let mut collector = resp
-        .await_reactions(&ctx)
-        .timeout(Duration::from_secs(60))
-        .author_id(msg.author.id)
-        .await;
-
-    // Add initial reactions
-    let reactions = ["⏮️", "⏪", "*️⃣", "⏩", "⏭️"];
-    for &reaction in reactions.iter() {
-        let reaction_type = ReactionType::try_from(reaction).unwrap();
-        resp.react(&ctx.http, reaction_type).await?;
-    }
-    // Check if the author wants to edit the response
-    let http = Arc::clone(&ctx.http);
+    // Pagination
+    let pagination =
+        BGRankingPagination::new(ctx, resp, msg.author.id, author_idx, scores, global).await;
     let cache = Arc::clone(&ctx.cache);
+    let http = Arc::clone(&ctx.http);
     tokio::spawn(async move {
-        let mut pagination = BGRankingPagination::new(
-            author_idx,
-            scores,
-            global,
-            Arc::clone(&http),
-            Arc::clone(&cache),
-        );
-        while let Some(reaction) = collector.next().await {
-            match pagination.next_page(reaction, &resp, &cache, &http).await {
-                Ok(Some(data)) => {
-                    resp.edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
-                        .await?;
-                }
-                Ok(None) => {}
-                Err(why) => warn!("Error while using BGRankingPagination: {}", why),
-            }
+        if let Err(why) = pagination.start(cache, http).await {
+            warn!("Pagination error: {}", why)
         }
-
-        // Remove initial reactions
-        for &reaction in reactions.iter() {
-            let reaction_type = ReactionType::try_from(reaction).unwrap();
-            resp.channel_id
-                .delete_reaction(&http, resp.id, None, reaction_type)
-                .await?;
-        }
-        Ok::<_, serenity::Error>(())
     });
     Ok(())
 }

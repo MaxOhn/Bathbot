@@ -6,11 +6,15 @@ use rosu::models::{Beatmap, GameMode, Score, User};
 use serenity::{
     async_trait,
     cache::Cache,
-    prelude::{RwLock, TypeMap},
+    collector::ReactionCollector,
+    model::{channel::Message, id::UserId},
+    prelude::{Context, RwLock, TypeMap},
 };
 use std::sync::Arc;
 
 pub struct TopPagination {
+    msg: Message,
+    collector: ReactionCollector,
     pages: Pages,
     user: Box<User>,
     scores: Vec<(usize, Score, Beatmap)>,
@@ -20,15 +24,21 @@ pub struct TopPagination {
 }
 
 impl TopPagination {
-    pub fn new(
+    pub async fn new(
+        ctx: &Context,
+        msg: Message,
+        author: UserId,
         user: User,
         scores: Vec<(usize, Score, Beatmap)>,
         mode: GameMode,
-        cache: Arc<Cache>,
-        data: Arc<RwLock<TypeMap>>,
     ) -> Self {
+        let collector = Self::create_collector(ctx, &msg, author, 90).await;
+        let cache = Arc::clone(&ctx.cache);
+        let data = Arc::clone(&ctx.data);
         Self {
             pages: Pages::new(5, scores.len()),
+            msg,
+            collector,
             user: Box::new(user),
             scores,
             mode,
@@ -41,6 +51,12 @@ impl TopPagination {
 #[async_trait]
 impl Pagination for TopPagination {
     type PageData = BasicEmbedData;
+    fn msg(&mut self) -> &mut Message {
+        &mut self.msg
+    }
+    fn collector(&mut self) -> &mut ReactionCollector {
+        &mut self.collector
+    }
     fn pages(&self) -> Pages {
         self.pages
     }

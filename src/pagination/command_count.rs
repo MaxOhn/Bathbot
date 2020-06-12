@@ -2,17 +2,33 @@ use super::{Pages, Pagination};
 
 use crate::{embeds::BasicEmbedData, Error};
 
-use serenity::async_trait;
+use serenity::{
+    async_trait,
+    client::Context,
+    collector::ReactionCollector,
+    model::{channel::Message, id::UserId},
+};
 
 pub struct CommandCountPagination {
+    msg: Message,
+    collector: ReactionCollector,
     pages: Pages,
     booted_up: String,
     cmd_counts: Vec<(String, u32)>,
 }
 
 impl CommandCountPagination {
-    pub fn new(cmd_counts: Vec<(String, u32)>, booted_up: String) -> Self {
+    pub async fn new(
+        ctx: &Context,
+        msg: Message,
+        author: UserId,
+        cmd_counts: Vec<(String, u32)>,
+        booted_up: String,
+    ) -> Self {
+        let collector = Self::create_collector(ctx, &msg, author, 60).await;
         Self {
+            msg,
+            collector,
             pages: Pages::new(15, cmd_counts.len()),
             cmd_counts,
             booted_up,
@@ -23,6 +39,12 @@ impl CommandCountPagination {
 #[async_trait]
 impl Pagination for CommandCountPagination {
     type PageData = BasicEmbedData;
+    fn msg(&mut self) -> &mut Message {
+        &mut self.msg
+    }
+    fn collector(&mut self) -> &mut ReactionCollector {
+        &mut self.collector
+    }
     fn pages(&self) -> Pages {
         self.pages
     }
