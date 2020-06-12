@@ -23,11 +23,13 @@ pub struct RecentPagination {
     best: Vec<Score>,
     global: HashMap<u32, Vec<Score>>,
     maps_in_db: HashSet<u32>,
+    embed_data: RecentData,
     cache: Arc<Cache>,
     data: Arc<RwLock<TypeMap>>,
 }
 
 impl RecentPagination {
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         ctx: &Context,
         msg: Message,
@@ -38,6 +40,7 @@ impl RecentPagination {
         best: Vec<Score>,
         global: HashMap<u32, Vec<Score>>,
         maps_in_db: HashSet<u32>,
+        embed_data: RecentData,
     ) -> Self {
         let collector = Self::create_collector(ctx, &msg, author, 60).await;
         let cache = Arc::clone(&ctx.cache);
@@ -52,6 +55,7 @@ impl RecentPagination {
             best,
             global,
             maps_in_db,
+            embed_data,
             cache,
             data,
         }
@@ -76,10 +80,13 @@ impl Pagination for RecentPagination {
     fn reactions() -> &'static [&'static str] {
         &["⏮️", "⏪", "◀️", "▶️", "⏩", "⏭️"]
     }
+    fn process_data(&mut self, data: &RecentData) {
+        self.embed_data = data.clone();
+    }
     async fn final_processing(mut self, cache: Arc<Cache>, http: Arc<Http>) -> Result<(), Error> {
-        // Minimize embed (TODO)
-        // self.msg.edit((&cache, &*http), |m| m.embed(|e| embed_data.minimize(e)))
-        //     .await?;
+        // Minimize embed
+        let mut msg = self.msg.clone();
+        msg.edit((&cache, &*http), |m| m.embed(|e| self.embed_data.minimize(e))).await?;
 
         // Put missing maps into DB
         if self.maps.len() > self.maps_in_db.len() {

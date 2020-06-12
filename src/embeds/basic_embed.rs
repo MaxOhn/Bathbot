@@ -38,7 +38,7 @@ use std::{
     u32,
 };
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct BasicEmbedData {
     pub author_icon: Option<String>,
     pub author_url: Option<String>,

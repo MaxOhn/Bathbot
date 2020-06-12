@@ -184,7 +184,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
         .channel_id
         .send_message(ctx, |m| {
             m.content(format!("Try #{}", tries))
-                .embed(|e| embed_data.build(e))
+                .embed(|e| embed_data.build_embed(e))
         })
         .await?;
 
@@ -199,6 +199,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
         best,
         global,
         map_ids,
+        embed_data,
     )
     .await;
     let cache = Arc::clone(&ctx.cache);

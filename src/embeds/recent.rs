@@ -14,6 +14,7 @@ use rosu::models::{Beatmap, GameMode, Grade, Score, User};
 use serenity::{builder::CreateEmbed, utils::Colour};
 use std::fmt::Write;
 
+#[derive(Clone)]
 pub struct RecentData {
     pub description: Option<String>,
     pub title: String,
@@ -39,7 +40,7 @@ pub struct RecentData {
 }
 
 impl RecentData {
-    pub fn build<'d, 'e>(&'d self, embed: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
+    pub fn build_embed<'d, 'e>(&'d self, embed: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
         if self.description.is_some() {
             embed.description(&self.description.as_ref().unwrap());
         }

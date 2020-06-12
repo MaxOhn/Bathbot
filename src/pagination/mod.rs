@@ -50,7 +50,8 @@ pub trait Pagination: Sync + Sized {
     fn jump_index(&self) -> Option<usize> {
         None
     }
-    async fn final_processing(mut self, cache: Arc<Cache>, http: Arc<Http>) -> Result<(), Error> {
+    fn process_data(&mut self, _data: &Self::PageData) {}
+    async fn final_processing(mut self, _cache: Arc<Cache>, _http: Arc<Http>) -> Result<(), Error> {
         Ok(())
     }
 
@@ -101,7 +102,13 @@ pub trait Pagination: Sync + Sized {
             if let ReactionType::Unicode(ref reaction) = reaction.emoji {
                 return match self.process_reaction(reaction.as_str()) {
                     PageChange::None => Ok(None),
-                    PageChange::Change => self.build_page().await.map(Some),
+                    PageChange::Change => {
+                        let data = self.build_page().await.map(Some);
+                        if let Ok(Some(ref data)) = data {
+                            self.process_data(data);
+                        }
+                        data
+                    }
                     PageChange::Delete => {
                         self.msg().delete((cache, http)).await?;
                         Ok(None)
