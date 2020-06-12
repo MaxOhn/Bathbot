@@ -34,11 +34,13 @@ use tokio::stream::StreamExt;
 pub trait Pagination: Sync + Sized {
     type PageData: EmbedData;
 
-    // Implement these
+    // Make these point to the corresponding struct fields
     fn msg(&mut self) -> &mut Message;
     fn collector(&mut self) -> &mut ReactionCollector;
     fn pages(&self) -> Pages;
     fn pages_mut(&mut self) -> &mut Pages;
+
+    // Implement this
     async fn build_page(&mut self) -> Result<Self::PageData, Error>;
 
     // Optionally implement these
@@ -48,7 +50,7 @@ pub trait Pagination: Sync + Sized {
     fn jump_index(&self) -> Option<usize> {
         None
     }
-    async fn final_processing(mut self) -> Result<(), Error> {
+    async fn final_processing(mut self, cache: Arc<Cache>, http: Arc<Http>) -> Result<(), Error> {
         Ok(())
     }
 
@@ -87,7 +89,7 @@ pub trait Pagination: Sync + Sized {
                 .delete_reaction_emoji((&cache, &*http), r)
                 .await?;
         }
-        self.final_processing().await
+        self.final_processing(cache, http).await
     }
     async fn next_page(
         &mut self,

@@ -189,8 +189,18 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
         .await?;
 
     // Pagination
-    let pagination =
-        RecentPagination::new(ctx, resp, msg.author.id, user, scores, maps, best, global).await;
+    let pagination = RecentPagination::new(
+        ctx,
+        resp,
+        msg.author.id,
+        user,
+        scores,
+        maps,
+        best,
+        global,
+        map_ids,
+    )
+    .await;
     let cache = Arc::clone(&ctx.cache);
     let http = Arc::clone(&ctx.http);
     tokio::spawn(async move {

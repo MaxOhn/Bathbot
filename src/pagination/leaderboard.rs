@@ -17,7 +17,7 @@ pub struct LeaderboardPagination {
     msg: Message,
     collector: ReactionCollector,
     pages: Pages,
-    map: Box<Beatmap>,
+    map: Beatmap,
     scores: Vec<ScraperScore>,
     author_name: Option<String>,
     first_place_icon: Option<String>,
@@ -42,7 +42,7 @@ impl LeaderboardPagination {
             msg,
             collector,
             pages: Pages::new(10, scores.len()),
-            map: Box::new(map),
+            map,
             scores,
             author_name,
             first_place_icon,
@@ -70,7 +70,7 @@ impl Pagination for LeaderboardPagination {
     async fn build_page(&mut self) -> Result<Self::PageData, Error> {
         BasicEmbedData::create_leaderboard(
             &self.author_name.as_deref(),
-            &*self.map,
+            &self.map,
             Some(self.scores.iter().skip(self.index()).take(self.per_page())),
             &self.first_place_icon,
             self.index(),

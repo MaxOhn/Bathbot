@@ -16,7 +16,7 @@ pub struct NoChokePagination {
     msg: Message,
     collector: ReactionCollector,
     pages: Pages,
-    user: Box<User>,
+    user: User,
     scores: Vec<(usize, Score, Score, Beatmap)>,
     unchoked_pp: f64,
     cache: Arc<Cache>,
@@ -37,7 +37,7 @@ impl NoChokePagination {
             msg,
             collector,
             pages: Pages::new(5, scores.len()),
-            user: Box::new(user),
+            user,
             scores,
             unchoked_pp,
             cache,
@@ -62,7 +62,7 @@ impl Pagination for NoChokePagination {
     }
     async fn build_page(&mut self) -> Result<Self::PageData, Error> {
         BasicEmbedData::create_nochoke(
-            &*self.user,
+            &self.user,
             self.scores.iter().skip(self.index()).take(self.per_page()),
             self.unchoked_pp,
             (self.page(), self.total_pages()),

@@ -16,7 +16,7 @@ pub struct TopPagination {
     msg: Message,
     collector: ReactionCollector,
     pages: Pages,
-    user: Box<User>,
+    user: User,
     scores: Vec<(usize, Score, Beatmap)>,
     mode: GameMode,
     cache: Arc<Cache>,
@@ -39,7 +39,7 @@ impl TopPagination {
             pages: Pages::new(5, scores.len()),
             msg,
             collector,
-            user: Box::new(user),
+            user,
             scores,
             mode,
             cache,
@@ -65,7 +65,7 @@ impl Pagination for TopPagination {
     }
     async fn build_page(&mut self) -> Result<Self::PageData, Error> {
         BasicEmbedData::create_top(
-            &*self.user,
+            &self.user,
             self.scores.iter().skip(self.index()).take(self.per_page()),
             self.mode,
             (self.page(), self.total_pages()),
