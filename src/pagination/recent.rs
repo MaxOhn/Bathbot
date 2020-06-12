@@ -50,16 +50,18 @@ impl RecentPagination {
 
 #[async_trait]
 impl Pagination for RecentPagination {
+    type PageData = RecentData;
     fn pages(&self) -> Pages {
         self.pages
     }
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
-    async fn build_page(&mut self) -> Result<BasicEmbedData, Error> {
+    async fn build_page(&mut self) -> Result<Self::PageData, Error> {
         let score = self.scores.get(self.index()).unwrap();
         let map_id = score.beatmap_id.unwrap();
         // Make sure map is ready
+        #[allow(clippy::clippy::map_entry)]
         if !self.maps.contains_key(&map_id) {
             let data = self.data.read().await;
             let osu = data.get::<Osu>().unwrap();
@@ -68,6 +70,7 @@ impl Pagination for RecentPagination {
         }
         let map = self.maps.get(&map_id).unwrap();
         // Make sure map leaderboard is ready
+        #[allow(clippy::clippy::map_entry)]
         if !self.global.contains_key(&map.beatmap_id) {
             let data = self.data.read().await;
             let osu = data.get::<Osu>().unwrap();
@@ -76,15 +79,14 @@ impl Pagination for RecentPagination {
         };
         let global_lb = self.global.get(&map.beatmap_id).unwrap();
         // Create embed data
-        let x = RecentData::new(
+        RecentData::new(
             &*self.user,
             score,
             map,
             &self.best,
-            &self.global_lb,
+            &global_lb,
             (&self.cache, &self.data),
         )
-        .await?;
-        Ok(todo!())
+        .await
     }
 }

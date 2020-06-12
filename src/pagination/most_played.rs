@@ -23,13 +23,14 @@ impl MostPlayedPagination {
 
 #[async_trait]
 impl Pagination for MostPlayedPagination {
+    type PageData = BasicEmbedData;
     fn pages(&self) -> Pages {
         self.pages
     }
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
-    async fn build_page(&mut self) -> Result<BasicEmbedData, Error> {
+    async fn build_page(&mut self) -> Result<Self::PageData, Error> {
         Ok(BasicEmbedData::create_mostplayed(
             &*self.user,
             self.maps.iter().skip(self.index()).take(self.per_page()),

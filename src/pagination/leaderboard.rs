@@ -43,13 +43,14 @@ impl LeaderboardPagination {
 
 #[async_trait]
 impl Pagination for LeaderboardPagination {
+    type PageData = BasicEmbedData;
     fn pages(&self) -> Pages {
         self.pages
     }
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
-    async fn build_page(&mut self) -> Result<BasicEmbedData, Error> {
+    async fn build_page(&mut self) -> Result<Self::PageData, Error> {
         BasicEmbedData::create_leaderboard(
             &self.author_name.as_deref(),
             &*self.map,

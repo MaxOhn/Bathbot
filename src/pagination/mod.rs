@@ -14,7 +14,7 @@ pub use nochoke::NoChokePagination;
 pub use recent::RecentPagination;
 pub use top::TopPagination;
 
-use crate::{embeds::BasicEmbedData, util::numbers, Error};
+use crate::{util::numbers, Error};
 
 use serenity::{
     async_trait,
@@ -25,20 +25,14 @@ use serenity::{
 };
 use std::sync::Arc;
 
-use crate::embeds::RecentData;
-
-pub trait Test {
-    fn test(&self) {}
-}
-impl Test for Result<BasicEmbedData, Error> {}
-impl Test for Result<RecentData, Error> {}
-
 #[async_trait]
 pub trait Pagination: Sync {
+    type PageData;
+
     // Implement these three
     fn pages(&self) -> Pages;
     fn pages_mut(&mut self) -> &mut Pages;
-    async fn build_page(&mut self, x: &mut impl Test);
+    async fn build_page(&mut self) -> Result<Self::PageData, Error>;
 
     // Optionally implement this
     fn jump_index(&self) -> Option<usize> {
@@ -46,24 +40,18 @@ pub trait Pagination: Sync {
     }
 
     // Don't implement anything else
-    async fn _build_page(&mut self) -> Result<BasicEmbedData, Error> {
-        let mut res = Ok(BasicEmbedData::default());
-        self.build_page(&mut res).await;
-        res
-    }
-
     async fn next_page(
         &mut self,
         reaction: Arc<ReactionAction>,
         msg: &Message,
         cache: &Arc<Cache>,
         http: &Http,
-    ) -> Result<Option<BasicEmbedData>, Error> {
+    ) -> Result<Option<Self::PageData>, Error> {
         if let ReactionAction::Added(reaction) = &*reaction {
             if let ReactionType::Unicode(ref reaction) = reaction.emoji {
                 return match self.process_reaction(reaction.as_str()) {
                     PageChange::None => Ok(None),
-                    PageChange::Change => self._build_page().await.map(Some),
+                    PageChange::Change => self.build_page().await.map(Some),
                     PageChange::Delete => {
                         msg.delete((cache, http)).await?;
                         Ok(None)

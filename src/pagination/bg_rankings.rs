@@ -38,6 +38,7 @@ impl BGRankingPagination {
 
 #[async_trait]
 impl Pagination for BGRankingPagination {
+    type PageData = BasicEmbedData;
     fn pages(&self) -> Pages {
         self.pages
     }
@@ -47,7 +48,7 @@ impl Pagination for BGRankingPagination {
     fn jump_index(&self) -> Option<usize> {
         self.author_idx
     }
-    async fn build_page(&mut self) -> Result<BasicEmbedData, Error> {
+    async fn build_page(&mut self) -> Result<Self::PageData, Error> {
         for id in self
             .scores
             .iter()

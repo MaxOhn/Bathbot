@@ -22,13 +22,14 @@ impl CommandCountPagination {
 
 #[async_trait]
 impl Pagination for CommandCountPagination {
+    type PageData = BasicEmbedData;
     fn pages(&self) -> Pages {
         self.pages
     }
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
-    async fn build_page(&mut self) -> Result<BasicEmbedData, Error> {
+    async fn build_page(&mut self) -> Result<Self::PageData, Error> {
         let sub_list: Vec<(&String, u32)> = self
             .cmd_counts
             .iter()
