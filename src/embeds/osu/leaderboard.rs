@@ -42,8 +42,6 @@ impl LeaderboardEmbed {
             let _ = write!(author_text, "[{}K] ", map.diff_cs as u32);
         }
         let _ = write!(author_text, "{} [{}★]", map, round(map.stars));
-        let footer_url = format!("{}{}", AVATAR_URL, map.creator_id);
-        let footer_text = format!("{:?} map by {}", map.approval_status, map.creator);
         let description = if let Some(scores) = scores {
             let mut mod_map = HashMap::new();
             let mut description = String::with_capacity(256);
@@ -93,10 +91,12 @@ impl LeaderboardEmbed {
         if let Some(ref author_icon) = author_icon {
             author = author.icon_url(author_icon.to_owned());
         }
+        let footer = Footer::new(format!("{:?} map by {}", map.approval_status, map.creator))
+            .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
         Ok(Self {
             author,
             description,
-            footer: Footer::new(footer_text).icon_url(footer_url),
+            footer,
             thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id),
         })
     }

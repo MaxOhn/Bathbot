@@ -47,6 +47,5 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Check on previous id buffer of bg game
 - Fix "Error while sending HTTP request." for `<c`
 - Put `<about` embed outside of command
-- Put `<matchcost` calculation in command and polish embed
   ### Commands
   - None as of now
