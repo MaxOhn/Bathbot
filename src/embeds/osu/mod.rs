@@ -8,7 +8,9 @@ mod pp_missing;
 mod profile;
 mod rank;
 mod ratio;
+mod recent;
 mod scores;
+mod simulate;
 mod top;
 mod whatif;
 
@@ -22,13 +24,15 @@ pub use pp_missing::PPMissingEmbed;
 pub use profile::ProfileEmbed;
 pub use rank::RankEmbed;
 pub use ratio::RatioEmbed;
+pub use recent::RecentEmbed;
 pub use scores::ScoresEmbed;
+pub use simulate::SimulateEmbed;
 pub use top::TopEmbed;
 pub use whatif::WhatIfEmbed;
 
 use crate::{
     embeds::Author,
-    util::{globals::HOMEPAGE, numbers, osu::grade_emote, pp::PPProvider},
+    util::{datetime::sec_to_minsec, globals::HOMEPAGE, numbers, osu::grade_emote, pp::PPProvider},
 };
 
 use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score, User};
@@ -127,4 +131,20 @@ pub async fn get_grade_completion_mods(score: &Score, map: &Beatmap, cache: &Cac
         let _ = write!(res_string, " +{}", score.enabled_mods);
     }
     res_string
+}
+
+pub fn get_map_info(map: &Beatmap) -> String {
+    format!(
+        "Length: `{}` (`{}`) BPM: `{}` Objects: `{}`\n\
+        CS: `{}` AR: `{}` OD: `{}` HP: `{}` Stars: `{}`",
+        sec_to_minsec(map.seconds_total),
+        sec_to_minsec(map.seconds_drain),
+        numbers::round(map.bpm).to_string(),
+        map.count_objects(),
+        numbers::round(map.diff_cs).to_string(),
+        numbers::round(map.diff_ar).to_string(),
+        numbers::round(map.diff_od).to_string(),
+        numbers::round(map.diff_hp).to_string(),
+        numbers::round(map.stars)
+    )
 }

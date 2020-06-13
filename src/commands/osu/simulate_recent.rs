@@ -1,7 +1,7 @@
 use crate::{
     arguments::SimulateNameArgs,
     database::MySQL,
-    embeds::SimulateData,
+    embeds::{EmbedData, SimulateEmbed},
     util::{globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
 };
@@ -100,7 +100,11 @@ async fn simulate_recent_send(
                 let map = match score.get_beatmap(osu).await {
                     Ok(m) => m,
                     Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                        msg.channel_id
+                            .say(ctx, OSU_API_ISSUE)
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
                         return Err(CommandError::from(why.to_string()));
                     }
                 };
@@ -114,7 +118,7 @@ async fn simulate_recent_send(
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match SimulateData::new(Some(score), map, args.into(), ctx).await {
+    let data = match SimulateEmbed::new(Some(score), map, args.into(), ctx).await {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id

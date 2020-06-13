@@ -1,18 +1,12 @@
 mod fun;
 mod osu;
-mod recent;
-mod simulate;
 mod streams;
-mod util;
 mod utility;
 
 pub use fun::*;
 pub use osu::*;
 pub use streams::*;
 pub use utility::*;
-
-pub use recent::RecentData;
-pub use simulate::SimulateData;
 
 use chrono::{DateTime, Utc};
 use serenity::{builder::CreateEmbed, utils::Colour};
@@ -48,7 +42,6 @@ pub trait EmbedData: Send + Sync + Sized + Clone {
     }
 
     // Implement this if minimization required
-    // fn minimize<'e>(&self, e: &' mut CreateEmbed) -> &'e mut CreateEmbed;
     fn minimize<'e>(&self, embed: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
         embed
     }
@@ -96,15 +89,6 @@ pub trait EmbedData: Send + Sync + Sized + Clone {
             e.fields(fields);
         }
         e.color(Colour::DARK_GREEN)
-    }
-}
-
-impl EmbedData for RecentData {
-    fn build<'e>(&self, e: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
-        self.build_embed(e)
-    }
-    fn minimize<'e>(&self, embed: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
-        self.minimize(embed)
     }
 }
 

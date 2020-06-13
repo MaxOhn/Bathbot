@@ -1,6 +1,6 @@
 use super::{Pages, Pagination, create_collector};
 
-use crate::{embeds::RecentData, Error, Osu, MySQL};
+use crate::{embeds::{RecentEmbed, EmbedData}, Error, Osu, MySQL};
 
 use rosu::models::{Beatmap, Score, User};
 use serenity::{
@@ -23,7 +23,7 @@ pub struct RecentPagination {
     best: Vec<Score>,
     global: HashMap<u32, Vec<Score>>,
     maps_in_db: HashSet<u32>,
-    embed_data: RecentData,
+    embed_data: RecentEmbed,
     cache: Arc<Cache>,
     data: Arc<RwLock<TypeMap>>,
 }
@@ -40,7 +40,7 @@ impl RecentPagination {
         best: Vec<Score>,
         global: HashMap<u32, Vec<Score>>,
         maps_in_db: HashSet<u32>,
-        embed_data: RecentData,
+        embed_data: RecentEmbed,
     ) -> Self {
         let collector = create_collector(ctx, &msg, author, 60).await;
         let cache = Arc::clone(&ctx.cache);
@@ -64,7 +64,7 @@ impl RecentPagination {
 
 #[async_trait]
 impl Pagination for RecentPagination {
-    type PageData = RecentData;
+    type PageData = RecentEmbed;
     fn msg(&mut self) -> &mut Message {
         &mut self.msg
     }
@@ -80,7 +80,7 @@ impl Pagination for RecentPagination {
     fn reactions() -> &'static [&'static str] {
         &["⏮️", "⏪", "◀️", "▶️", "⏩", "⏭️"]
     }
-    fn process_data(&mut self, data: &RecentData) {
+    fn process_data(&mut self, data: &Self::PageData) {
         self.embed_data = data.clone();
     }
     fn content(&self) -> Option<String> {
@@ -130,7 +130,7 @@ impl Pagination for RecentPagination {
         };
         let global_lb = self.global.get(&map.beatmap_id).unwrap();
         // Create embed data
-        RecentData::new(
+        RecentEmbed::new(
             &self.user,
             score,
             map,

@@ -1,7 +1,7 @@
 use crate::{
     arguments::NameArgs,
     database::MySQL,
-    embeds::RecentData,
+    embeds::{EmbedData, RecentEmbed},
     pagination::{Pagination, RecentPagination},
     util::{globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
@@ -37,11 +37,13 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             None => {
                 msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "Either specify an osu name or link your discord \
-                     to an osu profile via `<link osuname`",
+                        to an osu profile via `<link osuname`",
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -55,18 +57,21 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
         match request.queue(osu).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Err(CommandError::from(why.to_string()));
             }
         }
     };
     if scores.is_empty() {
         msg.channel_id
-            .say(
-                &ctx.http,
-                format!("No recent plays found for user `{}`", name),
-            )
-            .await?;
+            .say(ctx, format!("No recent plays found for user `{}`", name))
+            .await?
+            .reaction_delete(ctx, msg.author.id)
+            .await;
         return Ok(());
     }
 
@@ -79,7 +84,11 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             Ok(Some(u)) => u,
             Ok(None) => unreachable!(),
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Err(CommandError::from(why.to_string()));
             }
         }
@@ -109,7 +118,11 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             let map = match first_score.get_beatmap(osu).await {
                 Ok(map) => map,
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                    msg.channel_id
+                        .say(ctx, OSU_API_ISSUE)
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Err(CommandError::from(why.to_string()));
                 }
             };
@@ -124,7 +137,11 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
         match user.get_top_scores(osu, 100, mode).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Err(CommandError::from(why.to_string()));
             }
         }
@@ -141,7 +158,11 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                         global.insert(first_map.beatmap_id, scores);
                     }
                     Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                        msg.channel_id
+                            .say(ctx, OSU_API_ISSUE)
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
                         return Err(CommandError::from(why.to_string()));
                     }
                 }
@@ -157,34 +178,26 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             s.beatmap_id.unwrap() == first_id && s.enabled_mods == first_score.enabled_mods
         })
         .count();
-    let embed_data = match RecentData::new(
-        &user,
-        first_score,
-        first_map,
-        &best,
-        global.get(&first_map.beatmap_id).unwrap(),
-        ctx,
-    )
-    .await
-    {
-        Ok(data) => data,
-        Err(why) => {
-            msg.channel_id
-                .say(
-                    &ctx.http,
-                    "Some issue while calculating recent data, blame bade",
-                )
-                .await?;
-            return Err(CommandError::from(why.to_string()));
-        }
-    };
+    let global_scores = global.get(&first_map.beatmap_id).unwrap();
+    let embed_data =
+        match RecentEmbed::new(&user, first_score, first_map, &best, global_scores, ctx).await {
+            Ok(data) => data,
+            Err(why) => {
+                msg.channel_id
+                    .say(ctx, "Some issue while calculating recent data, blame bade")
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(CommandError::from(why.to_string()));
+            }
+        };
 
     // Creating the embed
     let resp = msg
         .channel_id
         .send_message(ctx, |m| {
             m.content(format!("Try #{}", tries))
-                .embed(|e| embed_data.build_embed(e))
+                .embed(|e| embed_data.build(e))
         })
         .await?;
 

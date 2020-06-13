@@ -1,7 +1,7 @@
 use crate::{
     arguments::SimulateMapArgs,
     database::MySQL,
-    embeds::SimulateData,
+    embeds::{EmbedData, SimulateEmbed},
     util::{discord, globals::OSU_API_ISSUE, MessageExt},
     Osu,
 };
@@ -124,7 +124,7 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match SimulateData::new(None, map, args.into(), ctx).await {
+    let data = match SimulateEmbed::new(None, map, args.into(), ctx).await {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id
