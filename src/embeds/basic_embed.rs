@@ -101,33 +101,7 @@ impl BasicEmbedData {
                 pp_given = pp
             )
         } else {
-            let pp_values: Vec<f32> = scores.into_iter().map(|score| score.pp.unwrap()).collect();
-            let size: usize = pp_values.len();
-            let mut idx: usize = size - 1;
-            let mut factor: f32 = 0.95_f32.powi(idx as i32);
-            let mut top: f32 = user.pp_raw;
-            let mut bot: f32 = 0.0;
-            let mut current: f32 = pp_values[idx];
-            while top + bot < pp {
-                top -= current * factor;
-                if idx == 0 {
-                    break;
-                }
-                current = pp_values[idx - 1];
-                bot += current * factor;
-                factor /= 0.95;
-                idx -= 1;
-            }
-            let mut required: f32 = pp - top - bot;
-            if top + bot >= pp {
-                factor *= 0.95;
-                required = (required + factor * pp_values[idx]) / factor;
-                idx += 1;
-            }
-            idx += 1;
-            if size < 100 {
-                required -= pp_values[size - 1] * 0.95_f32.powi(size as i32 - 1);
-            }
+            let (required, idx) = osu::pp_missing(user.pp_raw, pp, &scores);
             format!(
                 "To reach {pp}pp with one additional score, {user} needs to perform \
                  a **{required}pp** score which would be the top #{idx}",
@@ -189,31 +163,7 @@ impl BasicEmbedData {
                 name = user.username,
             )
         } else {
-            let pp_values: Vec<f32> = scores.into_iter().map(|score| score.pp.unwrap()).collect();
-            let size: usize = pp_values.len();
-            let mut idx: usize = size - 1;
-            let mut factor: f32 = 0.95_f32.powi(idx as i32);
-            let mut top: f32 = user.pp_raw;
-            let mut bot: f32 = 0.0;
-            let mut current: f32 = pp_values[idx];
-            while top + bot < rank_holder.pp_raw {
-                top -= current * factor;
-                if idx == 0 {
-                    break;
-                }
-                current = pp_values[idx - 1];
-                bot += current * factor;
-                factor /= 0.95;
-                idx -= 1;
-            }
-            let mut required: f32 = rank_holder.pp_raw - top - bot;
-            if top + bot >= rank_holder.pp_raw {
-                factor *= 0.95;
-                required = (required + factor * pp_values[idx]) / factor;
-            }
-            if size < 100 {
-                required -= pp_values[size - 1] * 0.95_f32.powi(size as i32 - 1);
-            }
+            let (required, _) = osu::pp_missing(user.pp_raw, rank_holder.pp_raw, &scores);
             format!(
                 "Rank {country}{rank} is currently held by {holder_name} with \
                  **{holder_pp}pp**, so {name} is missing **{missing}** raw pp, \
