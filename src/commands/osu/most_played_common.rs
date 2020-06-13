@@ -1,6 +1,6 @@
 use crate::{
     arguments::MultNameArgs,
-    embeds::BasicEmbedData,
+    embeds::{EmbedData, MostPlayedCommonEmbed},
     pagination::{MostPlayedCommonPagination, Pagination},
     scraper::MostPlayedMap,
     util::{discord, globals::OSU_API_ISSUE, MessageExt},
@@ -188,13 +188,8 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
         }
     };
 
-    let data = BasicEmbedData::create_mostplayedcommon(
-        &users,
-        &maps[..10.min(maps.len())],
-        &users_count,
-        0,
-    )
-    .await;
+    let initial_maps = &maps[..10.min(maps.len())];
+    let data = MostPlayedCommonEmbed::new(&users, initial_maps, &users_count, 0).await;
 
     // Creating the embed
     let resp = msg

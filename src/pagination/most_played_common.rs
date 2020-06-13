@@ -1,6 +1,6 @@
 use super::{create_collector, Pages, Pagination};
 
-use crate::{embeds::BasicEmbedData, scraper::MostPlayedMap, Error};
+use crate::{embeds::MostPlayedCommonEmbed, scraper::MostPlayedMap, Error};
 
 use rosu::models::User;
 use serenity::{
@@ -46,7 +46,7 @@ impl MostPlayedCommonPagination {
 
 #[async_trait]
 impl Pagination for MostPlayedCommonPagination {
-    type PageData = BasicEmbedData;
+    type PageData = MostPlayedCommonEmbed;
     fn msg(&mut self) -> &mut Message {
         &mut self.msg
     }
@@ -63,7 +63,7 @@ impl Pagination for MostPlayedCommonPagination {
         Some(self.thumbnail.clone())
     }
     async fn build_page(&mut self) -> Result<Self::PageData, Error> {
-        Ok(BasicEmbedData::create_mostplayedcommon(
+        Ok(MostPlayedCommonEmbed::new(
             &self.users,
             &self.maps[self.pages.index..(self.pages.index + 10).min(self.maps.len())],
             &self.users_count,
