@@ -1,4 +1,7 @@
-use crate::{embeds::BasicEmbedData, util::MessageExt};
+use crate::{
+    embeds::{AllStreamsEmbed, EmbedData},
+    util::MessageExt,
+};
 
 use serenity::{
     framework::standard::{macros::command, CommandResult},
@@ -43,7 +46,7 @@ async fn allstreams(ctx: &Context, msg: &Message) -> CommandResult {
     }
 
     // Accumulate all necessary data
-    let data = BasicEmbedData::create_allstreams(presences, users, total, avatar);
+    let data = AllStreamsEmbed::new(presences, users, total, avatar);
 
     // Creating the embed
     msg.channel_id

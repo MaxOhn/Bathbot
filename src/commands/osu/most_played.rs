@@ -1,6 +1,6 @@
 use crate::{
     arguments::NameArgs,
-    embeds::BasicEmbedData,
+    embeds::{EmbedData, MostPlayedEmbed},
     pagination::{MostPlayedPagination, Pagination},
     util::{globals::OSU_API_ISSUE, numbers, MessageExt},
     DiscordLinks, Osu, Scraper,
@@ -89,7 +89,7 @@ async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     // Accumulate all necessary data
     let pages = numbers::div_euclid(10, maps.len());
-    let data = BasicEmbedData::create_mostplayed(&user, maps.iter().take(10), (1, pages));
+    let data = MostPlayedEmbed::new(&user, maps.iter().take(10), (1, pages));
 
     // Creating the embed
     let resp = msg

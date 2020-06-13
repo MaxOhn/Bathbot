@@ -1,7 +1,7 @@
 use crate::{
     arguments::MultNameArgs,
     database::MySQL,
-    embeds::BasicEmbedData,
+    embeds::{CommonEmbed, EmbedData},
     pagination::{CommonPagination, Pagination},
     util::{discord, globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
@@ -247,13 +247,8 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             warn!("Error while combining avatars: {}", e);
             Vec::default()
         });
-    let data = BasicEmbedData::create_common(
-        &users,
-        &all_scores,
-        &maps,
-        &pp_avg[..10.min(pp_avg.len())], // TODO: Test case pp_avg.len() = 0
-        0,
-    );
+    let id_pps = &pp_avg[..10.min(pp_avg.len())];
+    let data = CommonEmbed::new(&users, &all_scores, &maps, id_pps, 0);
 
     // Creating the embed
     let resp = msg

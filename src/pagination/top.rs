@@ -1,6 +1,6 @@
 use super::{Pages, Pagination};
 
-use crate::{embeds::BasicEmbedData, Error};
+use crate::{embeds::TopEmbed, Error};
 
 use rosu::models::{Beatmap, GameMode, Score, User};
 use serenity::{
@@ -50,7 +50,7 @@ impl TopPagination {
 
 #[async_trait]
 impl Pagination for TopPagination {
-    type PageData = BasicEmbedData;
+    type PageData = TopEmbed;
     fn msg(&mut self) -> &mut Message {
         &mut self.msg
     }
@@ -64,7 +64,7 @@ impl Pagination for TopPagination {
         &mut self.pages
     }
     async fn build_page(&mut self) -> Result<Self::PageData, Error> {
-        BasicEmbedData::create_top(
+        TopEmbed::new(
             &self.user,
             self.scores.iter().skip(self.index()).take(self.per_page()),
             self.mode,

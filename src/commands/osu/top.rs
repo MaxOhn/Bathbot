@@ -1,7 +1,7 @@
 use crate::{
     arguments::{ModSelection, TopArgs},
     database::MySQL,
-    embeds::BasicEmbedData,
+    embeds::{EmbedData, TopEmbed},
     pagination::{Pagination, TopPagination},
     util::{globals::OSU_API_ISSUE, numbers, MessageExt},
     DiscordLinks, Osu,
@@ -273,21 +273,18 @@ async fn top_send(
         }
     };
     let pages = numbers::div_euclid(5, scores_data.len());
-    let data =
-        match BasicEmbedData::create_top(&user, scores_data.iter().take(5), mode, (1, pages), ctx)
-            .await
-        {
-            Ok(data) => data,
-            Err(why) => {
-                msg.channel_id
-                    .say(
-                        &ctx.http,
-                        "Some issue while calculating top data, blame bade",
-                    )
-                    .await?;
-                return Err(CommandError::from(why.to_string()));
-            }
-        };
+    let data = match TopEmbed::new(&user, scores_data.iter().take(5), mode, (1, pages), ctx).await {
+        Ok(data) => data,
+        Err(why) => {
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    "Some issue while calculating top data, blame bade",
+                )
+                .await?;
+            return Err(CommandError::from(why.to_string()));
+        }
+    };
 
     if let Some(msg) = retrieving_msg {
         let _ = msg.delete(&ctx.http).await;

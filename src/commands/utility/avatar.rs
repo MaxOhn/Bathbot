@@ -1,6 +1,6 @@
 use crate::{
     arguments::{DiscordUserArgs, NameArgs},
-    embeds::BasicEmbedData,
+    embeds::{AvatarEmbed, EmbedData},
     util::{
         globals::{AVATAR_URL, OSU_API_ISSUE},
         MessageExt,
@@ -38,7 +38,7 @@ pub async fn avatar(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             name: user.tag(),
             url,
         };
-        let data = BasicEmbedData::create_avatar(user);
+        let data = AvatarEmbed::new(user);
         msg.channel_id
             .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
             .await?
@@ -89,7 +89,7 @@ pub async fn osu(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         name: user.username,
         url: format!("{}{}", AVATAR_URL, user.user_id),
     };
-    let data = BasicEmbedData::create_avatar(user);
+    let data = AvatarEmbed::new(user);
     msg.channel_id
         .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
         .await?

@@ -47,5 +47,8 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Make `<mpc` paginated
 - Check on previous id buffer of bg game
 - Fix "Error while sending HTTP request." for `<c`
+- Put `<about` embed outside of command
+- Put `<matchcost` calculation in command and polish embed
+- Refactor pp analyzing of `<rank`, `<pp`, and `<whatif`
   ### Commands
   - None as of now

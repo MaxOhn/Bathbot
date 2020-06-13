@@ -1,15 +1,22 @@
 mod basic_embed;
-mod bg_ranking;
+mod fun;
+mod osu;
 mod recent;
 mod simulate;
+mod streams;
 mod util;
+mod utility;
+
+pub use fun::*;
+pub use osu::*;
+pub use streams::*;
+pub use utility::*;
 
 pub use basic_embed::BasicEmbedData;
-pub use bg_ranking::BGRankingEmbed;
-use chrono::{DateTime, Utc};
 pub use recent::RecentData;
 pub use simulate::SimulateData;
 
+use chrono::{DateTime, Utc};
 use serenity::{builder::CreateEmbed, utils::Colour};
 
 pub trait EmbedData: Send + Sync + Sized + Clone {
@@ -24,6 +31,9 @@ pub trait EmbedData: Send + Sync + Sized + Clone {
         None
     }
     fn image(&self) -> Option<&str> {
+        None
+    }
+    fn thumbnail(&self) -> Option<&str> {
         None
     }
     fn footer(&self) -> Option<&Footer> {
@@ -55,6 +65,9 @@ pub trait EmbedData: Send + Sync + Sized + Clone {
         }
         if let Some(timestamp) = self.timestamp() {
             e.timestamp(timestamp);
+        }
+        if let Some(thumbnail) = self.thumbnail() {
+            e.thumbnail(thumbnail);
         }
         if let Some(image) = self.image() {
             e.image(image);

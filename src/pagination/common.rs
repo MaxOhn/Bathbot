@@ -1,6 +1,6 @@
 use super::{Pages, Pagination};
 
-use crate::{embeds::BasicEmbedData, Error};
+use crate::{embeds::CommonEmbed, Error};
 
 use rosu::models::{Beatmap, Score, User};
 use serenity::{
@@ -50,7 +50,7 @@ impl CommonPagination {
 
 #[async_trait]
 impl Pagination for CommonPagination {
-    type PageData = BasicEmbedData;
+    type PageData = CommonEmbed;
     fn msg(&mut self) -> &mut Message {
         &mut self.msg
     }
@@ -67,7 +67,7 @@ impl Pagination for CommonPagination {
         Some(self.thumbnail.clone())
     }
     async fn build_page(&mut self) -> Result<Self::PageData, Error> {
-        Ok(BasicEmbedData::create_common(
+        Ok(CommonEmbed::new(
             &self.users,
             &self.scores,
             &self.maps,

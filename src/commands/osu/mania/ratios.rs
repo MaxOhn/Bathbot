@@ -1,6 +1,6 @@
 use crate::{
     arguments::NameArgs,
-    embeds::BasicEmbedData,
+    embeds::{EmbedData, RatioEmbed},
     util::{globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
 };
@@ -85,7 +85,7 @@ async fn ratios(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     };
 
     // Accumulate all necessary data
-    let data = match BasicEmbedData::create_ratio(user, scores, &ctx.data).await {
+    let data = match RatioEmbed::new(user, scores, &ctx.data).await {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id

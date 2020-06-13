@@ -1,7 +1,7 @@
 use crate::{
     arguments::{MapModArgs, ModSelection},
     database::MySQL,
-    embeds::BasicEmbedData,
+    embeds::{EmbedData, LeaderboardEmbed},
     pagination::{LeaderboardPagination, Pagination},
     scraper::Scraper,
     util::{
@@ -142,7 +142,7 @@ async fn leaderboard_send(
     let first_place_icon = scores
         .first()
         .map(|s| format!("{}{}", AVATAR_URL, s.user_id));
-    let data = match BasicEmbedData::create_leaderboard(
+    let data = match LeaderboardEmbed::new(
         &author_name.as_deref(),
         &map,
         if scores.is_empty() {

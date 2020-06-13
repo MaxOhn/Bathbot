@@ -1,5 +1,5 @@
 use crate::{
-    embeds::BasicEmbedData,
+    embeds::{CommandCounterEmbed, EmbedData},
     pagination::{CommandCountPagination, Pagination},
     util::datetime,
     util::numbers,
@@ -37,7 +37,7 @@ async fn commands(ctx: &Context, msg: &Message) -> CommandResult {
         .map(|(name, amount)| (name, *amount))
         .collect();
     let pages = numbers::div_euclid(15, vec.len());
-    let data = BasicEmbedData::create_command_counter(sub_vec, boot_time.as_str(), 1, (1, pages));
+    let data = CommandCounterEmbed::new(sub_vec, boot_time.as_str(), 1, (1, pages));
 
     // Creating the embed
     let resp = msg

@@ -1,7 +1,7 @@
 use crate::{
     arguments::NameMapArgs,
     database::MySQL,
-    embeds::BasicEmbedData,
+    embeds::{EmbedData, ScoresEmbed},
     util::{discord, globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
 };
@@ -163,7 +163,7 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match BasicEmbedData::create_scores(user, map, scores, ctx).await {
+    let data = match ScoresEmbed::new(user, map, scores, ctx).await {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id

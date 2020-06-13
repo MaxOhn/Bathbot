@@ -1,6 +1,10 @@
 use crate::{
-    arguments::RoleAssignArgs, commands::checks::*, database::MySQL, embeds::BasicEmbedData,
-    util::MessageExt, ReactionTracker,
+    arguments::RoleAssignArgs,
+    commands::checks::*,
+    database::MySQL,
+    embeds::{EmbedData, RoleAssignEmbed},
+    util::MessageExt,
+    ReactionTracker,
 };
 
 use serenity::{
@@ -59,8 +63,7 @@ async fn roleassign(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         reaction_tracker.insert((ChannelId(channel.0), MessageId(msg_id.0)), RoleId(role.0));
     }
     let message = channel.message(ctx, msg_id).await?;
-    let data =
-        BasicEmbedData::create_roleassign(message, msg.guild_id.unwrap(), role, &ctx.cache).await;
+    let data = RoleAssignEmbed::new(message, msg.guild_id.unwrap(), role, &ctx.cache).await;
     msg.channel_id
         .send_message(ctx, |m| m.embed(|e| data.build(e)))
         .await?

@@ -1,6 +1,6 @@
 use super::{Pages, Pagination};
 
-use crate::{embeds::BasicEmbedData, Error};
+use crate::{embeds::CommandCounterEmbed, Error};
 
 use serenity::{
     async_trait,
@@ -38,7 +38,7 @@ impl CommandCountPagination {
 
 #[async_trait]
 impl Pagination for CommandCountPagination {
-    type PageData = BasicEmbedData;
+    type PageData = CommandCounterEmbed;
     fn msg(&mut self) -> &mut Message {
         &mut self.msg
     }
@@ -59,7 +59,7 @@ impl Pagination for CommandCountPagination {
             .take(self.per_page())
             .map(|(name, amount)| (name, *amount))
             .collect();
-        Ok(BasicEmbedData::create_command_counter(
+        Ok(CommandCounterEmbed::new(
             sub_list,
             &self.booted_up,
             self.index() + 1,

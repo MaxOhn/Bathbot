@@ -1,6 +1,6 @@
 use super::{Pages, Pagination};
 
-use crate::{embeds::BasicEmbedData, scraper::MostPlayedMap, Error};
+use crate::{embeds::MostPlayedEmbed, scraper::MostPlayedMap, Error};
 
 use rosu::models::User;
 use serenity::{
@@ -39,7 +39,7 @@ impl MostPlayedPagination {
 
 #[async_trait]
 impl Pagination for MostPlayedPagination {
-    type PageData = BasicEmbedData;
+    type PageData = MostPlayedEmbed;
     fn msg(&mut self) -> &mut Message {
         &mut self.msg
     }
@@ -53,7 +53,7 @@ impl Pagination for MostPlayedPagination {
         &mut self.pages
     }
     async fn build_page(&mut self) -> Result<Self::PageData, Error> {
-        Ok(BasicEmbedData::create_mostplayed(
+        Ok(MostPlayedEmbed::new(
             &*self.user,
             self.maps.iter().skip(self.index()).take(self.per_page()),
             (self.page(), self.total_pages()),

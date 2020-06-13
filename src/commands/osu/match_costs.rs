@@ -1,6 +1,6 @@
 use crate::{
     arguments::MatchArgs,
-    embeds::BasicEmbedData,
+    embeds::{EmbedData, MatchCostEmbed},
     util::{globals::OSU_API_ISSUE, MessageExt},
     Osu,
 };
@@ -87,7 +87,7 @@ async fn matchcosts(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     };
 
     // Accumulate all necessary data
-    let data = BasicEmbedData::create_match_costs(users, osu_match, warmups);
+    let data = MatchCostEmbed::new(users, osu_match, warmups);
 
     // Creating the embed
     msg.channel_id

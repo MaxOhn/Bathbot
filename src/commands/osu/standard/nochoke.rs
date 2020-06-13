@@ -1,7 +1,7 @@
 use crate::{
     arguments::NameIntArgs,
     database::MySQL,
-    embeds::BasicEmbedData,
+    embeds::{EmbedData, NoChokeEmbed},
     pagination::{NoChokePagination, Pagination},
     util::{globals::OSU_API_ISSUE, numbers, osu, pp::PPProvider, MessageExt},
     DiscordLinks, Osu,
@@ -170,7 +170,7 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     // Accumulate all necessary data
     let pages = numbers::div_euclid(5, scores_data.len());
-    let data = match BasicEmbedData::create_nochoke(
+    let data = match NoChokeEmbed::new(
         &user,
         scores_data.iter().take(5),
         unchoked_pp,

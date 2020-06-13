@@ -1,6 +1,6 @@
 use super::{Pages, Pagination};
 
-use crate::{embeds::BasicEmbedData, Error};
+use crate::{embeds::NoChokeEmbed, Error};
 
 use rosu::models::{Beatmap, Score, User};
 use serenity::{
@@ -47,7 +47,7 @@ impl NoChokePagination {
 
 #[async_trait]
 impl Pagination for NoChokePagination {
-    type PageData = BasicEmbedData;
+    type PageData = NoChokeEmbed;
     fn msg(&mut self) -> &mut Message {
         &mut self.msg
     }
@@ -61,7 +61,7 @@ impl Pagination for NoChokePagination {
         &mut self.pages
     }
     async fn build_page(&mut self) -> Result<Self::PageData, Error> {
-        BasicEmbedData::create_nochoke(
+        NoChokeEmbed::new(
             &self.user,
             self.scores.iter().skip(self.index()).take(self.per_page()),
             self.unchoked_pp,

@@ -1,6 +1,6 @@
 use super::{Pages, Pagination};
 
-use crate::{embeds::BasicEmbedData, scraper::ScraperScore, Error};
+use crate::{embeds::LeaderboardEmbed, scraper::ScraperScore, Error};
 
 use rosu::models::Beatmap;
 use serenity::{
@@ -54,7 +54,7 @@ impl LeaderboardPagination {
 
 #[async_trait]
 impl Pagination for LeaderboardPagination {
-    type PageData = BasicEmbedData;
+    type PageData = LeaderboardEmbed;
     fn msg(&mut self) -> &mut Message {
         &mut self.msg
     }
@@ -68,7 +68,7 @@ impl Pagination for LeaderboardPagination {
         &mut self.pages
     }
     async fn build_page(&mut self) -> Result<Self::PageData, Error> {
-        BasicEmbedData::create_leaderboard(
+        LeaderboardEmbed::new(
             &self.author_name.as_deref(),
             &self.map,
             Some(self.scores.iter().skip(self.index()).take(self.per_page())),

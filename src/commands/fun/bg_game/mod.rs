@@ -8,7 +8,7 @@ use hints::Hints;
 use img_reveal::ImageReveal;
 
 use crate::{
-    embeds::{BGRankingEmbed, BasicEmbedData, EmbedData},
+    embeds::{BGHelpEmbed, BGRankingEmbed, EmbedData},
     pagination::{BGRankingPagination, Pagination},
     util::{numbers, MessageExt},
     BgGames, Error, MySQL,
@@ -30,7 +30,7 @@ the **title** of the map's song.\nCheck `<bg` for more help"]
 #[sub_commands("start", "hint", "bigger", "stop", "stats", "ranking")]
 async fn backgroundgame(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let response = if args.is_empty() {
-        let data = BasicEmbedData::create_bg_help();
+        let data = BGHelpEmbed::new();
         msg.channel_id
             .send_message(ctx, |m| m.embed(|e| data.build(e)))
             .await?

@@ -1,6 +1,6 @@
 use crate::{
     database::{MySQL, Platform},
-    embeds::BasicEmbedData,
+    embeds::{EmbedData, TwitchNotifEmbed},
     streams::{Twitch, TwitchStream},
     structs::{Guilds, OnlineTwitch, ReactionTracker, StreamTracks},
     util::discord::get_member,
@@ -258,10 +258,7 @@ async fn _check_streams(http: &Http, data: &RwLock<TypeMap>) {
             for track in stream_tracks {
                 if streams.contains_key(&track.user_id) {
                     let stream = streams.get(&track.user_id).unwrap();
-                    let data = BasicEmbedData::create_twitch_stream_notif(
-                        stream,
-                        users.get(&stream.user_id).unwrap(),
-                    );
+                    let data = TwitchNotifEmbed::new(stream, users.get(&stream.user_id).unwrap());
                     let _ = ChannelId(track.channel_id)
                         .send_message(http, |m| m.embed(|e| data.build(e)))
                         .await;

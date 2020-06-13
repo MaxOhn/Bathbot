@@ -1,7 +1,7 @@
 use crate::{
     arguments::NameArgs,
     database::MySQL,
-    embeds::BasicEmbedData,
+    embeds::{EmbedData, ProfileEmbed},
     util::{globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
 };
@@ -160,7 +160,7 @@ async fn profile_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) 
     };
 
     // Accumulate all necessary data
-    let data = BasicEmbedData::create_profile(user, score_maps, mode, &ctx.cache).await;
+    let data = ProfileEmbed::new(user, score_maps, mode, &ctx.cache).await;
 
     if let Some(msg) = retrieving_msg {
         msg.delete(ctx).await?;
