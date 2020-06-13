@@ -52,8 +52,7 @@ pub trait Pagination: Sync + Sized {
     fn jump_index(&self) -> Option<usize> {
         None
     }
-    // TODO: Use this
-    fn thumbnail(&self) -> Option<&[u8]> {
+    fn thumbnail(&self) -> Option<String> {
         None
     }
     fn content(&self) -> Option<String> {
@@ -86,12 +85,18 @@ pub trait Pagination: Sync + Sized {
             match self.next_page(reaction, &cache, &http).await {
                 Ok(Some(data)) => {
                     let content = self.content();
+                    let thumbnail = self.thumbnail();
                     self.msg()
                         .edit((&cache, &*http), |m| {
                             if let Some(content) = content {
                                 m.content(content);
                             }
-                            m.embed(|e| data.build(e))
+                            m.embed(|e| {
+                                if let Some(ref thumbnail) = thumbnail {
+                                    e.thumbnail(thumbnail);
+                                }
+                                data.build(e)
+                            })
                         })
                         .await?;
                 }

@@ -2,11 +2,7 @@ use crate::{
     arguments::SimulateMapArgs,
     database::MySQL,
     embeds::SimulateData,
-    util::{
-        discord,
-        globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
-        MessageExt,
-    },
+    util::{discord, globals::OSU_API_ISSUE, MessageExt},
     Osu,
 };
 
@@ -161,11 +157,11 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     // Minimize embed after delay
     for _ in 0..5usize {
-        time::delay_for(Duration::from_secs(MINIMIZE_DELAY)).await;
+        time::delay_for(Duration::from_secs(45)).await;
         match response.edit(ctx, |m| m.embed(|e| data.minimize(e))).await {
             Ok(_) => break,
             Err(why) => {
-                warn!("Error while trying to minimize simulate msg: {}", why);
+                warn!("Error while minimizing simulate msg: {}", why);
                 time::delay_for(Duration::from_secs(5)).await;
             }
         }

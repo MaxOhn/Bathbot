@@ -492,7 +492,7 @@ impl BasicEmbedData {
         D: CacheData,
     {
         let mut result = Self::default();
-        let mut author_text = String::with_capacity(16);
+        let mut author_text = String::with_capacity(32);
         if map.mode == GameMode::MNA {
             let _ = write!(author_text, "[{}K] ", map.diff_cs as u32);
         }
@@ -513,8 +513,9 @@ impl BasicEmbedData {
                 }
                 let _ = write!(
                     username,
-                    "[{name}](https://osu.ppy.sh/users/{id})",
+                    "[{name}]({base}users/{id})",
                     name = score.username,
+                    base = HOMEPAGE,
                     id = score.user_id
                 );
                 if found_author {
@@ -522,10 +523,10 @@ impl BasicEmbedData {
                 }
                 let _ = writeln!(
                     description,
-                    "**{idx}.** {emote} **{name}**: {score} [ {combo} ]{mods}\n\
+                    "**{idx}.** {grade} **{name}**: {score} [ {combo} ]{mods}\n\
                     - {pp} ~ {acc}% ~ {ago}",
                     idx = idx + i + 1,
-                    emote = osu::grade_emote(score.grade, cache_data.cache())
+                    grade = osu::grade_emote(score.grade, cache_data.cache())
                         .await
                         .to_string(),
                     name = username,

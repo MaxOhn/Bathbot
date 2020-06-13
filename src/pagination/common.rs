@@ -19,10 +19,11 @@ pub struct CommonPagination {
     scores: HashMap<u32, Vec<Score>>,
     maps: HashMap<u32, Beatmap>,
     id_pps: Vec<(u32, f32)>,
-    thumbnail: Vec<u8>,
+    thumbnail: String,
 }
 
 impl CommonPagination {
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         ctx: &Context,
         msg: Message,
@@ -31,7 +32,7 @@ impl CommonPagination {
         scores: HashMap<u32, Vec<Score>>,
         maps: HashMap<u32, Beatmap>,
         id_pps: Vec<(u32, f32)>,
-        thumbnail: Vec<u8>,
+        thumbnail: String,
     ) -> Self {
         let collector = Self::create_collector(ctx, &msg, author, 60).await;
         Self {
@@ -62,8 +63,8 @@ impl Pagination for CommonPagination {
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
-    fn thumbnail(&self) -> Option<&[u8]> {
-        Some(&self.thumbnail)
+    fn thumbnail(&self) -> Option<String> {
+        Some(self.thumbnail.clone())
     }
     async fn build_page(&mut self) -> Result<Self::PageData, Error> {
         Ok(BasicEmbedData::create_common(

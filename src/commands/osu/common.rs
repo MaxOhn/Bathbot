@@ -295,7 +295,7 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
         all_scores,
         maps,
         pp_avg,
-        thumbnail,
+        "attachment://avatar_fuse.png".to_owned(),
     )
     .await;
     let cache = Arc::clone(&ctx.cache);

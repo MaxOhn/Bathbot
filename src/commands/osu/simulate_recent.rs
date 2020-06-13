@@ -2,10 +2,7 @@ use crate::{
     arguments::SimulateNameArgs,
     database::MySQL,
     embeds::SimulateData,
-    util::{
-        globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
-        MessageExt,
-    },
+    util::{globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
 };
 
@@ -152,12 +149,9 @@ async fn simulate_recent_send(
     response.clone().reaction_delete(ctx, msg.author.id).await;
 
     // Minimize embed after delay
-    time::delay_for(Duration::from_secs(MINIMIZE_DELAY)).await;
+    time::delay_for(Duration::from_secs(45)).await;
     if let Err(why) = response.edit(ctx, |m| m.embed(|e| data.minimize(e))).await {
-        warn!(
-            "Error while trying to minimize simulate recent msg: {}",
-            why
-        );
+        warn!("Error while minimizing simulate recent msg: {}", why);
     }
     Ok(())
 }
