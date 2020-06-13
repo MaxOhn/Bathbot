@@ -1,4 +1,4 @@
-use super::{Pages, Pagination};
+use super::{create_collector, Pages, Pagination};
 
 use crate::{embeds::BasicEmbedData, Error};
 
@@ -31,7 +31,7 @@ impl NoChokePagination {
         scores: Vec<(usize, Score, Score, Beatmap)>,
         unchoked_pp: f64,
     ) -> Self {
-        let collector = Self::create_collector(ctx, &msg, author, 90).await;
+        let collector = create_collector(ctx, &msg, author, 90).await;
         let cache = Arc::clone(&ctx.cache);
         Self {
             msg,

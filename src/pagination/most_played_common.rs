@@ -9,36 +9,43 @@ use serenity::{
     collector::ReactionCollector,
     model::{channel::Message, id::UserId},
 };
+use std::collections::HashMap;
 
-pub struct MostPlayedPagination {
+pub struct MostPlayedCommonPagination {
     msg: Message,
     collector: ReactionCollector,
     pages: Pages,
-    user: Box<User>,
+    users: HashMap<u32, User>,
+    users_count: HashMap<u32, HashMap<u32, u32>>,
     maps: Vec<MostPlayedMap>,
+    thumbnail: String,
 }
 
-impl MostPlayedPagination {
+impl MostPlayedCommonPagination {
     pub async fn new(
         ctx: &Context,
         msg: Message,
         author: UserId,
-        user: User,
+        users: HashMap<u32, User>,
+        users_count: HashMap<u32, HashMap<u32, u32>>,
         maps: Vec<MostPlayedMap>,
+        thumbnail: String,
     ) -> Self {
-        let collector = create_collector(ctx, &msg, author, 90).await;
+        let collector = create_collector(ctx, &msg, author, 60).await;
         Self {
+            pages: Pages::new(10, maps.len()),
             msg,
             collector,
-            pages: Pages::new(10, maps.len()),
-            user: Box::new(user),
+            users,
+            users_count,
             maps,
+            thumbnail,
         }
     }
 }
 
 #[async_trait]
-impl Pagination for MostPlayedPagination {
+impl Pagination for MostPlayedCommonPagination {
     type PageData = BasicEmbedData;
     fn msg(&mut self) -> &mut Message {
         &mut self.msg
@@ -52,11 +59,16 @@ impl Pagination for MostPlayedPagination {
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
+    fn thumbnail(&self) -> Option<String> {
+        Some(self.thumbnail.clone())
+    }
     async fn build_page(&mut self) -> Result<Self::PageData, Error> {
-        Ok(BasicEmbedData::create_mostplayed(
-            &*self.user,
-            self.maps.iter().skip(self.index()).take(self.per_page()),
-            (self.page(), self.total_pages()),
-        ))
+        Ok(BasicEmbedData::create_mostplayedcommon(
+            &self.users,
+            &self.maps[self.pages.index..(self.pages.index + 10).min(self.maps.len())],
+            &self.users_count,
+            self.pages.index,
+        )
+        .await)
     }
 }

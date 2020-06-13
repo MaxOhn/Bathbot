@@ -1,4 +1,4 @@
-use super::{Pages, Pagination};
+use super::{create_collector, Pages, Pagination};
 
 use crate::{embeds::BasicEmbedData, Error};
 
@@ -25,7 +25,7 @@ impl CommandCountPagination {
         cmd_counts: Vec<(String, u32)>,
         booted_up: String,
     ) -> Self {
-        let collector = Self::create_collector(ctx, &msg, author, 60).await;
+        let collector = create_collector(ctx, &msg, author, 60).await;
         Self {
             msg,
             collector,

@@ -1,4 +1,4 @@
-use super::{Pages, Pagination};
+use super::{create_collector, Pages, Pagination};
 
 use crate::{embeds::BasicEmbedData, Error};
 
@@ -32,7 +32,7 @@ impl TopPagination {
         scores: Vec<(usize, Score, Beatmap)>,
         mode: GameMode,
     ) -> Self {
-        let collector = Self::create_collector(ctx, &msg, author, 90).await;
+        let collector = create_collector(ctx, &msg, author, 90).await;
         let cache = Arc::clone(&ctx.cache);
         let data = Arc::clone(&ctx.data);
         Self {

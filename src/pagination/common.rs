@@ -1,4 +1,4 @@
-use super::{Pages, Pagination};
+use super::{create_collector, Pages, Pagination};
 
 use crate::{embeds::BasicEmbedData, Error};
 
@@ -34,7 +34,7 @@ impl CommonPagination {
         id_pps: Vec<(u32, f32)>,
         thumbnail: String,
     ) -> Self {
-        let collector = Self::create_collector(ctx, &msg, author, 60).await;
+        let collector = create_collector(ctx, &msg, author, 60).await;
         Self {
             pages: Pages::new(10, scores.len()),
             msg,

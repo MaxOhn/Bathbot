@@ -1,4 +1,4 @@
-use super::{Pages, Pagination};
+use super::{create_collector, Pages, Pagination};
 
 use crate::{embeds::BasicEmbedData, Error};
 
@@ -33,7 +33,7 @@ impl BGRankingPagination {
         scores: Vec<(u64, u32)>,
         global: bool,
     ) -> Self {
-        let collector = Self::create_collector(ctx, &msg, author, 60).await;
+        let collector = create_collector(ctx, &msg, author, 60).await;
         let cache = Arc::clone(&ctx.cache);
         let http = Arc::clone(&ctx.http);
         let per_page = 15;

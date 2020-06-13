@@ -1,8 +1,9 @@
 use crate::{
     arguments::MultNameArgs,
     embeds::BasicEmbedData,
+    pagination::{MostPlayedCommonPagination, Pagination},
     scraper::MostPlayedMap,
-    util::{globals::OSU_API_ISSUE, MessageExt},
+    util::{discord, globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu, Scraper,
 };
 
@@ -16,7 +17,9 @@ use serenity::{
 use std::{
     collections::{HashMap, HashSet},
     convert::From,
+    fmt::Write,
     iter::Extend,
+    sync::Arc,
 };
 
 #[command]
@@ -129,7 +132,7 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
     }
 
     // Consider only maps that appear in each users map list
-    let all_maps: Vec<_> = all_maps
+    let mut maps: Vec<_> = all_maps
         .into_iter()
         .filter(|map| {
             users_count
@@ -137,7 +140,23 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
                 .all(|(_, count_map)| count_map.contains_key(&map.beatmap_id))
         })
         .collect();
-    let amount_common = all_maps.len();
+    let amount_common = maps.len();
+
+    // Sort maps by sum of counts
+    let total_counts: HashMap<u32, u32> = users_count.iter().fold(
+        HashMap::with_capacity(maps.len()),
+        |mut counts, (_, user_entry)| {
+            for (map_id, count) in user_entry {
+                *counts.entry(*map_id).or_insert(0) += count;
+            }
+            counts
+        },
+    );
+    maps.sort_by(|a, b| {
+        total_counts
+            .get(&b.beatmap_id)
+            .cmp(&total_counts.get(&a.beatmap_id))
+    });
 
     // Accumulate all necessary data
     let len = names.len();
@@ -151,27 +170,36 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
     if amount_common == 0 {
         content.push_str(" don't share any maps in their 100 most played maps");
     } else {
-        content.push_str(&format!(
+        let _ = write!(
+            content,
             " have {}/100 common most played map{}",
             amount_common,
             if amount_common > 1 { "s" } else { "" }
-        ));
-        if amount_common > 10 {
-            content.push_str(", here's the top 10 of them:");
-        } else {
-            content.push(':');
-        }
+        );
     }
 
-    // TODO: Paginate
-    let all_maps = all_maps.into_iter().take(10).collect();
+    // Keys have no strict order, hence inconsistent result
+    let user_ids: Vec<u32> = users.keys().copied().collect();
+    let thumbnail = match discord::get_combined_thumbnail(&user_ids).await {
+        Ok(thumbnail) => thumbnail,
+        Err(why) => {
+            warn!("Error while combining avatars: {}", why);
+            Vec::default()
+        }
+    };
 
-    let (data, thumbnail) =
-        BasicEmbedData::create_mostplayedcommon(users, all_maps, users_count).await;
+    let data = BasicEmbedData::create_mostplayedcommon(
+        &users,
+        &maps[..10.min(maps.len())],
+        &users_count,
+        0,
+    )
+    .await;
 
     // Creating the embed
-    msg.channel_id
-        .send_message(&ctx.http, |m| {
+    let resp = msg
+        .channel_id
+        .send_message(ctx, |m| {
             if !thumbnail.is_empty() {
                 let bytes: &[u8] = &thumbnail;
                 m.add_file((bytes, "avatar_fuse.png"));
@@ -179,8 +207,31 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
             m.content(content)
                 .embed(|e| data.build(e).thumbnail("attachment://avatar_fuse.png"))
         })
-        .await?
-        .reaction_delete(ctx, msg.author.id)
-        .await;
+        .await?;
+
+    // Skip pagination if too few entries
+    if maps.len() <= 10 {
+        resp.reaction_delete(ctx, msg.author.id).await;
+        return Ok(());
+    }
+
+    // Pagination
+    let pagination = MostPlayedCommonPagination::new(
+        ctx,
+        resp,
+        msg.author.id,
+        users,
+        users_count,
+        maps,
+        "attachment://avatar_fuse.png".to_owned(),
+    )
+    .await;
+    let cache = Arc::clone(&ctx.cache);
+    let http = Arc::clone(&ctx.http);
+    tokio::spawn(async move {
+        if let Err(why) = pagination.start(cache, http).await {
+            warn!("Pagination error: {}", why)
+        }
+    });
     Ok(())
 }

@@ -241,12 +241,13 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
 
     // Keys have no strict order, hence inconsistent result
     let user_ids: Vec<u32> = users.keys().copied().collect();
-    let thumbnail = discord::get_combined_thumbnail(&user_ids)
-        .await
-        .unwrap_or_else(|e| {
-            warn!("Error while combining avatars: {}", e);
+    let thumbnail = match discord::get_combined_thumbnail(&user_ids).await {
+        Ok(thumbnail) => thumbnail,
+        Err(why) => {
+            warn!("Error while combining avatars: {}", why);
             Vec::default()
-        });
+        }
+    };
     let data = BasicEmbedData::create_common(
         &users,
         &all_scores,
