@@ -48,7 +48,7 @@ impl RecentPagination {
         Self {
             msg,
             collector,
-            pages: Pages::new(5, scores.len()),
+            pages: Pages::new(5, scores.len() + 1),
             user,
             scores,
             maps,
@@ -109,7 +109,7 @@ impl Pagination for RecentPagination {
         Ok(())
     }
     async fn build_page(&mut self) -> Result<Self::PageData, Error> {
-        let score = self.scores.get(self.index()).unwrap();
+        let score = self.scores.get(self.pages.index).unwrap();
         let map_id = score.beatmap_id.unwrap();
         // Make sure map is ready
         #[allow(clippy::clippy::map_entry)]

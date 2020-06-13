@@ -1,8 +1,9 @@
 use crate::{
     embeds::{Author, EmbedData, Footer},
-    util::globals::SYMBOLS,
+    util::{datetime::how_long_ago, globals::SYMBOLS},
 };
 
+use chrono::{DateTime, Utc};
 use std::fmt::Write;
 
 #[derive(Clone)]
@@ -15,7 +16,7 @@ pub struct CommandCounterEmbed {
 impl CommandCounterEmbed {
     pub fn new(
         list: Vec<(&String, u32)>,
-        booted_up: &str,
+        booted_up: &DateTime<Utc>,
         idx: usize,
         pages: (usize, usize),
     ) -> Self {
@@ -43,7 +44,9 @@ impl CommandCounterEmbed {
         description.push_str("```");
         let footer_text = format!(
             "Page {}/{} ~ Started counting {}",
-            pages.0, pages.1, booted_up
+            pages.0,
+            pages.1,
+            how_long_ago(&booted_up)
         );
         Self {
             description,

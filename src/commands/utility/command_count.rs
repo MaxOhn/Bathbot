@@ -1,12 +1,10 @@
 use crate::{
     embeds::{CommandCounterEmbed, EmbedData},
     pagination::{CommandCountPagination, Pagination},
-    util::datetime,
     util::numbers,
     BootTime, CommandCounter,
 };
 
-use chrono::{DateTime, Utc};
 use serenity::{
     framework::standard::{macros::command, CommandResult},
     model::channel::Message,
@@ -27,17 +25,14 @@ async fn commands(ctx: &Context, msg: &Message) -> CommandResult {
     vec.sort_by(|&(_, a), &(_, b)| b.cmp(&a));
 
     // Prepare embed data
-    let boot_time = {
-        let boot_time: &DateTime<Utc> = data.get::<BootTime>().unwrap();
-        datetime::how_long_ago(boot_time)
-    };
+    let boot_time = *data.get::<BootTime>().unwrap();
     let sub_vec = vec
         .iter()
         .take(15)
         .map(|(name, amount)| (name, *amount))
         .collect();
     let pages = numbers::div_euclid(15, vec.len());
-    let data = CommandCounterEmbed::new(sub_vec, boot_time.as_str(), 1, (1, pages));
+    let data = CommandCounterEmbed::new(sub_vec, &boot_time, 1, (1, pages));
 
     // Creating the embed
     let resp = msg

@@ -63,9 +63,12 @@ impl Pagination for NoChokePagination {
     async fn build_page(&mut self) -> Result<Self::PageData, Error> {
         NoChokeEmbed::new(
             &self.user,
-            self.scores.iter().skip(self.index()).take(self.per_page()),
+            self.scores
+                .iter()
+                .skip(self.pages.index)
+                .take(self.pages.per_page),
             self.unchoked_pp,
-            (self.page(), self.total_pages()),
+            (self.page(), self.pages.total_pages),
             &self.cache,
         )
         .await

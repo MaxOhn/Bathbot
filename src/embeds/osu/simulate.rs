@@ -23,13 +23,13 @@ pub struct SimulateEmbed {
     thumbnail: String,
     image: String,
 
-    stars: String,
+    stars: f32,
     grade_completion_mods: String,
-    acc: String,
-    prev_pp: Option<String>,
+    acc: f32,
+    prev_pp: Option<f32>,
     pp: String,
-    prev_combo: Option<String>,
-    score: Option<String>,
+    prev_combo: Option<u32>,
+    score: Option<u64>,
     combo: String,
     prev_hits: Option<String>,
     hits: String,
@@ -63,9 +63,9 @@ impl SimulateEmbed {
                     )))
                 }
             };
-            let prev_pp = Some(round(pp_provider.pp()).to_string());
+            let prev_pp = Some(round(pp_provider.pp()));
             let prev_combo = if map.mode == GameMode::STD {
-                Some(s.max_combo.to_string())
+                Some(s.max_combo)
             } else {
                 None
             };
@@ -97,11 +97,11 @@ impl SimulateEmbed {
         let (combo, acc) = match map.mode {
             GameMode::STD => (
                 osu::get_combo(&unchoked_score, &map),
-                osu::get_acc(&unchoked_score, map.mode),
+                round(unchoked_score.accuracy(map.mode)),
             ),
-            GameMode::MNA => (String::from("**-**/-"), String::from("100%")),
+            GameMode::MNA => (String::from("**-**/-"), 100.0),
             m if m == GameMode::TKO && is_some => {
-                let acc = unchoked_score.accuracy(GameMode::TKO);
+                let acc = round(unchoked_score.accuracy(GameMode::TKO));
                 let combo = unchoked_score.max_combo;
                 (
                     format!(
@@ -112,7 +112,7 @@ impl SimulateEmbed {
                             combo.to_string()
                         }
                     ),
-                    format!("{}%", round(acc)),
+                    acc,
                 )
             }
             _ => {
@@ -125,7 +125,7 @@ impl SimulateEmbed {
         let footer = Footer::new(format!("{:?} map by {}", map.approval_status, map.creator))
             .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
         let score = if map.mode == GameMode::MNA {
-            Some(with_comma_u64(unchoked_score.score as u64))
+            Some(unchoked_score.score as u64)
         } else {
             None
         };
@@ -140,7 +140,7 @@ impl SimulateEmbed {
             ),
 
             grade_completion_mods,
-            stars: osu::get_stars(pp_provider.stars()),
+            stars: round(pp_provider.stars()),
             score,
             acc,
             pp,
@@ -169,24 +169,24 @@ impl EmbedData for SimulateEmbed {
         Some(&self.image)
     }
     fn fields(&self) -> Option<Vec<(String, String, bool)>> {
-        let combo = if let Some(prev_combo) = &self.prev_combo {
+        let combo = if let Some(prev_combo) = self.prev_combo {
             format!("{} → {}", prev_combo, self.combo)
         } else {
             self.combo.to_owned()
         };
         let mut fields = vec![
             ("Grade".to_owned(), self.grade_completion_mods.clone(), true),
-            ("Acc".to_owned(), self.acc.clone(), true),
+            ("Acc".to_owned(), format!("{}%", self.acc), true),
             ("Combo".to_owned(), combo, true),
         ];
-        let pp = if let Some(prev_pp) = &self.prev_pp {
+        let pp = if let Some(prev_pp) = self.prev_pp {
             format!("{} → {}", prev_pp, self.pp)
         } else {
             self.pp.to_owned()
         };
-        if let Some(ref score) = self.score {
+        if let Some(score) = self.score {
             fields.push(("PP".to_owned(), pp, true));
-            fields.push(("Score".to_owned(), score.to_owned(), true));
+            fields.push(("Score".to_owned(), with_comma_u64(score), true));
         } else {
             fields.push(("PP".to_owned(), pp, false));
         }
@@ -200,38 +200,33 @@ impl EmbedData for SimulateEmbed {
         Some(fields)
     }
     fn minimize<'e>(&self, e: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
-        let mut value = if let Some(ref prev_pp) = self.prev_pp {
+        let mut value = if let Some(prev_pp) = self.prev_pp {
             format!("{} → {} {}", prev_pp, self.pp, self.hits)
         } else {
             format!("{} {}", self.pp, self.hits)
         };
-        let combo = if let Some(ref prev_combo) = self.prev_combo {
-            format!("{} → {}", prev_combo, self.combo)
-        } else {
-            self.combo.clone()
-        };
-        let title = format!("{} [{}]", self.title, self.stars);
-        let score = if let Some(score) = &self.score {
-            format!("{} ", score)
-        } else {
-            String::new()
-        };
-        let name = format!(
-            "{grade} {score}({acc}) [ {combo} ]",
-            grade = self.grade_completion_mods,
-            score = score,
-            acc = self.acc,
-            combo = combo
-        );
         if let Some(misses) = self.removed_misses {
             if misses > 0 {
                 let _ = write!(value, " (+{}miss)", misses);
             }
         }
+        let combo = if let Some(prev_combo) = self.prev_combo {
+            format!("{} → {}", prev_combo, self.combo)
+        } else {
+            self.combo.clone()
+        };
+        let score = self.score.map(with_comma_u64).unwrap_or_default();
+        let name = format!(
+            "{grade} {score}({acc}%) [ {combo} ]",
+            grade = self.grade_completion_mods,
+            score = score,
+            acc = self.acc,
+            combo = combo
+        );
         e.color(Colour::DARK_GREEN)
             .field(name, value, false)
             .thumbnail(&self.thumbnail)
             .url(&self.url)
-            .title(title)
+            .title(format!("{} [{}★]", self.title, self.stars))
     }
 }

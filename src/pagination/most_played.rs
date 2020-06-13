@@ -55,8 +55,11 @@ impl Pagination for MostPlayedPagination {
     async fn build_page(&mut self) -> Result<Self::PageData, Error> {
         Ok(MostPlayedEmbed::new(
             &*self.user,
-            self.maps.iter().skip(self.index()).take(self.per_page()),
-            (self.page(), self.total_pages()),
+            self.maps
+                .iter()
+                .skip(self.pages.index)
+                .take(self.pages.per_page),
+            (self.page(), self.pages.total_pages),
         ))
     }
 }

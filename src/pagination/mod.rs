@@ -168,9 +168,15 @@ pub trait Pagination: Sync + Sized {
             // Move one page right
             "⏩" => {
                 let index = self.index() + self.per_page();
+                println!(
+                    "potential index: {} ~ last_index: {}",
+                    index,
+                    self.last_index()
+                );
                 if index <= self.last_index() {
                     Some(index)
                 } else {
+                    println!("returning None");
                     None
                 }
             }

@@ -66,9 +66,12 @@ impl Pagination for TopPagination {
     async fn build_page(&mut self) -> Result<Self::PageData, Error> {
         TopEmbed::new(
             &self.user,
-            self.scores.iter().skip(self.index()).take(self.per_page()),
+            self.scores
+                .iter()
+                .skip(self.pages.index)
+                .take(self.pages.per_page),
             self.mode,
-            (self.page(), self.total_pages()),
+            (self.page(), self.pages.total_pages),
             (&self.cache, &self.data),
         )
         .await

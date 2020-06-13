@@ -27,10 +27,10 @@ pub struct RecentEmbed {
     thumbnail: String,
     image: String,
 
-    stars: String,
+    stars: f32,
     grade_completion_mods: String,
     score: String,
-    acc: String,
+    acc: f32,
     ago: String,
     pp: String,
     combo: String,
@@ -135,9 +135,9 @@ impl RecentEmbed {
             ),
 
             grade_completion_mods,
-            stars: osu::get_stars(pp_provider.stars()),
+            stars: round(pp_provider.stars()),
             score: with_comma_u64(score.score as u64),
-            acc: osu::get_acc(&score, map.mode),
+            acc: round(score.accuracy(map.mode)),
             ago: how_long_ago(&score.date),
             pp,
             combo,
@@ -174,7 +174,7 @@ impl EmbedData for RecentEmbed {
         let mut fields = vec![
             ("Grade".to_owned(), self.grade_completion_mods.clone(), true),
             ("Score".to_owned(), self.score.clone(), true),
-            ("Acc".to_owned(), self.acc.clone(), true),
+            ("Acc".to_owned(), format!("{}%", self.acc), true),
             ("PP".to_owned(), self.pp.clone(), true),
         ];
         let mania = self.hits.chars().filter(|&c| c == '/').count() == 5;
@@ -198,7 +198,7 @@ impl EmbedData for RecentEmbed {
             self.grade_completion_mods, self.score, self.acc, self.ago
         );
         let value = format!("{} [ {} ] {}", self.pp, self.combo, self.hits);
-        let title = format!("{} [{}]", self.title, self.stars);
+        let title = format!("{} [{}★]", self.title, self.stars);
         if self.description.is_some() {
             e.description(&self.description.as_ref().unwrap());
         }

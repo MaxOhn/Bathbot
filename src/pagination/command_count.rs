@@ -2,6 +2,7 @@ use super::{create_collector, Pages, Pagination};
 
 use crate::{embeds::CommandCounterEmbed, Error};
 
+use chrono::{DateTime, Utc};
 use serenity::{
     async_trait,
     client::Context,
@@ -13,7 +14,7 @@ pub struct CommandCountPagination {
     msg: Message,
     collector: ReactionCollector,
     pages: Pages,
-    booted_up: String,
+    booted_up: DateTime<Utc>,
     cmd_counts: Vec<(String, u32)>,
 }
 
@@ -23,7 +24,7 @@ impl CommandCountPagination {
         msg: Message,
         author: UserId,
         cmd_counts: Vec<(String, u32)>,
-        booted_up: String,
+        booted_up: DateTime<Utc>,
     ) -> Self {
         let collector = create_collector(ctx, &msg, author, 60).await;
         Self {
@@ -55,15 +56,15 @@ impl Pagination for CommandCountPagination {
         let sub_list: Vec<(&String, u32)> = self
             .cmd_counts
             .iter()
-            .skip(self.index())
-            .take(self.per_page())
+            .skip(self.pages.index)
+            .take(self.pages.per_page)
             .map(|(name, amount)| (name, *amount))
             .collect();
         Ok(CommandCounterEmbed::new(
             sub_list,
             &self.booted_up,
-            self.index() + 1,
-            (self.page(), self.total_pages()),
+            self.pages.index + 1,
+            (self.page(), self.pages.total_pages),
         ))
     }
 }

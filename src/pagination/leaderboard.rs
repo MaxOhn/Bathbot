@@ -68,12 +68,17 @@ impl Pagination for LeaderboardPagination {
         &mut self.pages
     }
     async fn build_page(&mut self) -> Result<Self::PageData, Error> {
+        let scores = self
+            .scores
+            .iter()
+            .skip(self.pages.index)
+            .take(self.pages.per_page);
         LeaderboardEmbed::new(
             &self.author_name.as_deref(),
             &self.map,
-            Some(self.scores.iter().skip(self.index()).take(self.per_page())),
+            Some(scores),
             &self.first_place_icon,
-            self.index(),
+            self.pages.index,
             (&self.cache, &self.data),
         )
         .await

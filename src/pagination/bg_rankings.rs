@@ -75,8 +75,8 @@ impl Pagination for BGRankingPagination {
         for id in self
             .scores
             .iter()
-            .skip(self.index())
-            .take(self.per_page())
+            .skip(self.pages.index)
+            .take(self.pages.per_page)
             .map(|(id, _)| id)
         {
             if !self.usernames.contains_key(id) {
@@ -91,16 +91,16 @@ impl Pagination for BGRankingPagination {
         let scores = self
             .scores
             .iter()
-            .skip(self.index())
-            .take(self.per_page())
+            .skip(self.pages.index)
+            .take(self.pages.per_page)
             .map(|(id, score)| (self.usernames.get(&id).unwrap(), *score))
             .collect();
         Ok(BGRankingEmbed::new(
             self.author_idx,
             scores,
             self.global,
-            self.index() + 1,
-            (self.page(), self.total_pages()),
+            self.pages.index + 1,
+            (self.page(), self.pages.total_pages),
         ))
     }
 }
