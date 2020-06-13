@@ -1,4 +1,4 @@
-use super::{Pages, Pagination};
+use super::{create_collector, Pages, Pagination};
 
 use crate::{embeds::MostPlayedEmbed, scraper::MostPlayedMap, Error};
 
@@ -26,7 +26,7 @@ impl MostPlayedPagination {
         user: User,
         maps: Vec<MostPlayedMap>,
     ) -> Self {
-        let collector = Self::create_collector(ctx, &msg, author, 90).await;
+        let collector = create_collector(ctx, &msg, author, 90).await;
         Self {
             msg,
             collector,

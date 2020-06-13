@@ -1,8 +1,8 @@
 use super::{create_collector, Pages, Pagination};
 
-use crate::{embeds::CommonEmbed, Error};
+use crate::{embeds::BasicEmbedData, scraper::MostPlayedMap, Error};
 
-use rosu::models::{Beatmap, Score, User};
+use rosu::models::User;
 use serenity::{
     async_trait,
     client::Context,
@@ -11,46 +11,42 @@ use serenity::{
 };
 use std::collections::HashMap;
 
-pub struct CommonPagination {
+pub struct MostPlayedCommonPagination {
     msg: Message,
     collector: ReactionCollector,
     pages: Pages,
     users: HashMap<u32, User>,
-    scores: HashMap<u32, Vec<Score>>,
-    maps: HashMap<u32, Beatmap>,
-    id_pps: Vec<(u32, f32)>,
+    users_count: HashMap<u32, HashMap<u32, u32>>,
+    maps: Vec<MostPlayedMap>,
     thumbnail: String,
 }
 
-impl CommonPagination {
-    #[allow(clippy::too_many_arguments)]
+impl MostPlayedCommonPagination {
     pub async fn new(
         ctx: &Context,
         msg: Message,
         author: UserId,
         users: HashMap<u32, User>,
-        scores: HashMap<u32, Vec<Score>>,
-        maps: HashMap<u32, Beatmap>,
-        id_pps: Vec<(u32, f32)>,
+        users_count: HashMap<u32, HashMap<u32, u32>>,
+        maps: Vec<MostPlayedMap>,
         thumbnail: String,
     ) -> Self {
         let collector = create_collector(ctx, &msg, author, 60).await;
         Self {
-            pages: Pages::new(10, scores.len()),
+            pages: Pages::new(10, maps.len()),
             msg,
             collector,
             users,
-            scores,
+            users_count,
             maps,
-            id_pps,
             thumbnail,
         }
     }
 }
 
 #[async_trait]
-impl Pagination for CommonPagination {
-    type PageData = CommonEmbed;
+impl Pagination for MostPlayedCommonPagination {
+    type PageData = BasicEmbedData;
     fn msg(&mut self) -> &mut Message {
         &mut self.msg
     }
@@ -67,12 +63,12 @@ impl Pagination for CommonPagination {
         Some(self.thumbnail.clone())
     }
     async fn build_page(&mut self) -> Result<Self::PageData, Error> {
-        Ok(CommonEmbed::new(
+        Ok(BasicEmbedData::create_mostplayedcommon(
             &self.users,
-            &self.scores,
-            &self.maps,
-            &self.id_pps[self.pages.index..(self.pages.index + 10).min(self.id_pps.len())],
+            &self.maps[self.pages.index..(self.pages.index + 10).min(self.maps.len())],
+            &self.users_count,
             self.pages.index,
-        ))
+        )
+        .await)
     }
 }

@@ -3,6 +3,7 @@ mod command_count;
 mod common;
 mod leaderboard;
 mod most_played;
+mod most_played_common;
 mod nochoke;
 mod recent;
 mod top;
@@ -12,6 +13,7 @@ pub use command_count::CommandCountPagination;
 pub use common::CommonPagination;
 pub use leaderboard::LeaderboardPagination;
 pub use most_played::MostPlayedPagination;
+pub use most_played_common::MostPlayedCommonPagination;
 pub use nochoke::NoChokePagination;
 pub use recent::RecentPagination;
 pub use top::TopPagination;
@@ -64,17 +66,6 @@ pub trait Pagination: Sync + Sized {
     }
 
     // Don't implement anything else
-    async fn create_collector(
-        ctx: &Context,
-        msg: &Message,
-        author: UserId,
-        sec_duration: u64,
-    ) -> ReactionCollector {
-        msg.await_reactions(ctx)
-            .timeout(Duration::from_secs(sec_duration))
-            .author_id(author)
-            .await
-    }
     async fn start(mut self, cache: Arc<Cache>, http: Arc<Http>) -> Result<(), Error> {
         let reactions = Self::reactions();
         for &reaction in reactions.iter() {
@@ -220,6 +211,18 @@ pub trait Pagination: Sync + Sized {
     fn page(&self) -> usize {
         self.index() / self.per_page() + 1
     }
+}
+
+pub async fn create_collector(
+    ctx: &Context,
+    msg: &Message,
+    author: UserId,
+    sec_duration: u64,
+) -> ReactionCollector {
+    msg.await_reactions(ctx)
+        .timeout(Duration::from_secs(sec_duration))
+        .author_id(author)
+        .await
 }
 
 pub enum PageChange {

@@ -1,4 +1,4 @@
-use super::{Pages, Pagination};
+use super::{create_collector, Pages, Pagination};
 
 use crate::{embeds::LeaderboardEmbed, scraper::ScraperScore, Error};
 
@@ -35,7 +35,7 @@ impl LeaderboardPagination {
         author_name: Option<String>,
         first_place_icon: Option<String>,
     ) -> Self {
-        let collector = Self::create_collector(ctx, &msg, author, 60).await;
+        let collector = create_collector(ctx, &msg, author, 60).await;
         let cache = Arc::clone(&ctx.cache);
         let data = Arc::clone(&ctx.data);
         Self {

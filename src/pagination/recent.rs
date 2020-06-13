@@ -1,4 +1,4 @@
-use super::{Pages, Pagination};
+use super::{Pages, Pagination, create_collector};
 
 use crate::{embeds::RecentData, Error, Osu, MySQL};
 
@@ -42,7 +42,7 @@ impl RecentPagination {
         maps_in_db: HashSet<u32>,
         embed_data: RecentData,
     ) -> Self {
-        let collector = Self::create_collector(ctx, &msg, author, 60).await;
+        let collector = create_collector(ctx, &msg, author, 60).await;
         let cache = Arc::clone(&ctx.cache);
         let data = Arc::clone(&ctx.data);
         Self {

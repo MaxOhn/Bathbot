@@ -2,7 +2,6 @@ use super::util;
 use crate::{
     scraper::MostPlayedMap,
     util::{
-        discord,
         globals::{AVATAR_URL, HOMEPAGE},
         numbers::{round, round_and_comma, with_comma_u64},
     },
@@ -81,37 +80,20 @@ impl BasicEmbedData {
     //
     // mostplayedcommon
     //
-    /// Returns a tuple containing a new `BasicEmbedData` object,
-    /// and a `Vec<u8>` representing the bytes of a png
     pub async fn create_mostplayedcommon(
-        users: HashMap<u32, User>,
-        mut maps: Vec<MostPlayedMap>,
-        users_count: HashMap<u32, HashMap<u32, u32>>,
-    ) -> (Self, Vec<u8>) {
+        users: &HashMap<u32, User>,
+        maps: &[MostPlayedMap],
+        users_count: &HashMap<u32, HashMap<u32, u32>>,
+        index: usize,
+    ) -> Self {
         let mut result = Self::default();
-        // Sort maps by sum of counts
-        let total_counts: HashMap<u32, u32> = users_count.iter().fold(
-            HashMap::with_capacity(maps.len()),
-            |mut counts, (_, user_entry)| {
-                for (map_id, count) in user_entry {
-                    *counts.entry(*map_id).or_insert(0) += count;
-                }
-                counts
-            },
-        );
-        maps.sort_by(|a, b| {
-            total_counts
-                .get(&b.beatmap_id)
-                .unwrap()
-                .cmp(total_counts.get(&a.beatmap_id).unwrap())
-        });
         // Write msg
         let mut description = String::with_capacity(512);
-        for (i, map) in maps.into_iter().enumerate() {
+        for (i, map) in maps.iter().enumerate() {
             let _ = writeln!(
                 description,
                 "**{idx}.** [{title} [{version}]]({base}b/{id}) [{stars}]",
-                idx = i + 1,
+                idx = index + i + 1,
                 title = map.title,
                 version = map.version,
                 base = HOMEPAGE,
@@ -147,16 +129,8 @@ impl BasicEmbedData {
             }
             description.push('\n');
         }
-        // Keys have no strict order, hence inconsistent result
-        let user_ids: Vec<u32> = users.keys().copied().collect();
-        let thumbnail = discord::get_combined_thumbnail(&user_ids)
-            .await
-            .unwrap_or_else(|e| {
-                warn!("Error while combining avatars: {}", e);
-                Vec::default()
-            });
         result.description = Some(description);
-        (result, thumbnail)
+        result
     }
 
     //
