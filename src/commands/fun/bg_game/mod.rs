@@ -8,7 +8,7 @@ use hints::Hints;
 use img_reveal::ImageReveal;
 
 use crate::{
-    embeds::BasicEmbedData,
+    embeds::{BGRankingEmbed, BasicEmbedData, EmbedData},
     pagination::{BGRankingPagination, Pagination},
     util::{numbers, MessageExt},
     BgGames, Error, MySQL,
@@ -246,7 +246,7 @@ async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
 
     // Prepare initial page
     let pages = numbers::div_euclid(15, scores.len());
-    let data = BasicEmbedData::create_bg_ranking(author_idx, initial_scores, global, 1, (1, pages));
+    let data = BGRankingEmbed::new(author_idx, initial_scores, global, 1, (1, pages));
 
     // Creating the embed
     let resp = msg

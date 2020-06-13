@@ -1,6 +1,5 @@
 use super::{Pages, Pagination};
-
-use crate::{embeds::BasicEmbedData, Error};
+use crate::{embeds::BGRankingEmbed, Error};
 
 use serenity::{
     async_trait,
@@ -53,7 +52,7 @@ impl BGRankingPagination {
 
 #[async_trait]
 impl Pagination for BGRankingPagination {
-    type PageData = BasicEmbedData;
+    type PageData = BGRankingEmbed;
     fn msg(&mut self) -> &mut Message {
         &mut self.msg
     }
@@ -96,7 +95,7 @@ impl Pagination for BGRankingPagination {
             .take(self.per_page())
             .map(|(id, score)| (self.usernames.get(&id).unwrap(), *score))
             .collect();
-        Ok(BasicEmbedData::create_bg_ranking(
+        Ok(BGRankingEmbed::new(
             self.author_idx,
             scores,
             self.global,
