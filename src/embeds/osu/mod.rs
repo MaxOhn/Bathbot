@@ -4,10 +4,13 @@ mod match_costs;
 mod most_played;
 mod most_played_common;
 mod nochoke;
+mod pp_missing;
 mod profile;
+mod rank;
 mod ratio;
 mod scores;
 mod top;
+mod whatif;
 
 pub use common::CommonEmbed;
 pub use leaderboard::LeaderboardEmbed;
@@ -15,10 +18,13 @@ pub use match_costs::MatchCostEmbed;
 pub use most_played::MostPlayedEmbed;
 pub use most_played_common::MostPlayedCommonEmbed;
 pub use nochoke::NoChokeEmbed;
+pub use pp_missing::PPMissingEmbed;
 pub use profile::ProfileEmbed;
+pub use rank::RankEmbed;
 pub use ratio::RatioEmbed;
 pub use scores::ScoresEmbed;
 pub use top::TopEmbed;
+pub use whatif::WhatIfEmbed;
 
 use crate::{
     embeds::Author,

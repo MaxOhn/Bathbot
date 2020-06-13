@@ -1,6 +1,6 @@
 use crate::{
     arguments::RankArgs,
-    embeds::BasicEmbedData,
+    embeds::{EmbedData, RankEmbed},
     scraper::Scraper,
     util::{globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
@@ -139,7 +139,7 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
     };
 
     // Accumulate all necessary data
-    let data = BasicEmbedData::create_rank(user, scores, rank, country, rank_holder);
+    let data = RankEmbed::new(user, scores, rank, country, rank_holder);
 
     // Creating the embed
     msg.channel_id

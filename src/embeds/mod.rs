@@ -1,4 +1,3 @@
-mod basic_embed;
 mod fun;
 mod osu;
 mod recent;
@@ -12,7 +11,6 @@ pub use osu::*;
 pub use streams::*;
 pub use utility::*;
 
-pub use basic_embed::BasicEmbedData;
 pub use recent::RecentData;
 pub use simulate::SimulateData;
 
@@ -100,8 +98,6 @@ pub trait EmbedData: Send + Sync + Sized + Clone {
         e.color(Colour::DARK_GREEN)
     }
 }
-
-impl EmbedData for BasicEmbedData {}
 
 impl EmbedData for RecentData {
     fn build<'e>(&self, e: &'e mut CreateEmbed) -> &'e mut CreateEmbed {

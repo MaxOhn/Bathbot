@@ -34,10 +34,11 @@ impl ScoresEmbed {
     where
         D: CacheData,
     {
-        let mut description = None;
-        if scores.is_empty() {
-            description = Some("No scores found".to_string());
-        }
+        let description = if scores.is_empty() {
+            Some("No scores found".to_string())
+        } else {
+            None
+        };
         let mut fields = Vec::new();
         for (i, score) in scores.into_iter().enumerate() {
             let (stars, pp) = {

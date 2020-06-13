@@ -1,6 +1,6 @@
 use crate::{
     arguments::NameFloatArgs,
-    embeds::BasicEmbedData,
+    embeds::{EmbedData, PPMissingEmbed},
     util::{globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
 };
@@ -99,7 +99,7 @@ async fn pp_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> Co
     };
 
     // Accumulate all necessary data
-    let data = BasicEmbedData::create_ppmissing(user, scores, pp);
+    let data = PPMissingEmbed::new(user, scores, pp);
 
     // Creating the embed
     msg.channel_id

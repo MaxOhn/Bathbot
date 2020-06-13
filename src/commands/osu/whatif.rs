@@ -1,6 +1,6 @@
 use crate::{
     arguments::NameFloatArgs,
-    embeds::BasicEmbedData,
+    embeds::{EmbedData, WhatIfEmbed},
     util::{globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
 };
@@ -99,7 +99,7 @@ async fn whatif_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
     };
 
     // Accumulate all necessary data
-    let data = BasicEmbedData::create_whatif(user, scores, mode, pp);
+    let data = WhatIfEmbed::new(user, scores, mode, pp);
 
     // Sending the embed
     msg.channel_id
