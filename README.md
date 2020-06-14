@@ -46,6 +46,5 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Automize the bot setup via docker
 - Check on previous id buffer of bg game
 - Fix "Error while sending HTTP request." for `<c`
-- Put `<about` embed outside of command
   ### Commands
   - None as of now

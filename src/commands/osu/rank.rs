@@ -11,7 +11,7 @@ use rosu::{
     models::{GameMode, Score, User},
 };
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::prelude::Message,
     prelude::Context,
 };
@@ -67,7 +67,7 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
                     .await?
                     .reaction_delete(ctx, msg.author.id)
                     .await;
-                return Err(CommandError::from(why.to_string()));
+                return Err(why.to_string().into());
             }
         }
     };
@@ -88,8 +88,12 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
                 }
             },
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                return Err(CommandError::from(why.to_string()));
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
             }
         }
     };
@@ -117,7 +121,7 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
                     .await?
                     .reaction_delete(ctx, msg.author.id)
                     .await;
-                return Err(CommandError::from(why.to_string()));
+                return Err(why.to_string().into());
             }
         };
         if user.pp_raw > rank_holder.pp_raw {
@@ -131,7 +135,7 @@ async fn rank_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> 
                         .await?
                         .reaction_delete(ctx, msg.author.id)
                         .await;
-                    return Err(CommandError::from(why.to_string()));
+                    return Err(why.to_string().into());
                 }
             };
             (user, scores)

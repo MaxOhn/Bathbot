@@ -15,7 +15,7 @@ use rosu::{
     },
 };
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::channel::Message,
     prelude::Context,
 };
@@ -62,7 +62,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                     .await?
                     .reaction_delete(ctx, msg.author.id)
                     .await;
-                return Err(CommandError::from(why.to_string()));
+                return Err(why.to_string().into());
             }
         }
     };
@@ -89,7 +89,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                     .await?
                     .reaction_delete(ctx, msg.author.id)
                     .await;
-                return Err(CommandError::from(why.to_string()));
+                return Err(why.to_string().into());
             }
         }
     };
@@ -123,7 +123,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                         .await?
                         .reaction_delete(ctx, msg.author.id)
                         .await;
-                    return Err(CommandError::from(why.to_string()));
+                    return Err(why.to_string().into());
                 }
             };
             maps.insert(first_id, map);
@@ -142,7 +142,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                     .await?
                     .reaction_delete(ctx, msg.author.id)
                     .await;
-                return Err(CommandError::from(why.to_string()));
+                return Err(why.to_string().into());
             }
         }
     };
@@ -163,7 +163,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                             .await?
                             .reaction_delete(ctx, msg.author.id)
                             .await;
-                        return Err(CommandError::from(why.to_string()));
+                        return Err(why.to_string().into());
                     }
                 }
             }
@@ -188,7 +188,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                     .await?
                     .reaction_delete(ctx, msg.author.id)
                     .await;
-                return Err(CommandError::from(why.to_string()));
+                return Err(why.to_string().into());
             }
         };
 

@@ -12,7 +12,7 @@ use rosu::{
     models::{Beatmap, GameMode, Score, User},
 };
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::{channel::Message, misc::Mentionable},
     prelude::Context,
 };
@@ -38,11 +38,13 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             None => {
                 msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "Either specify an osu name or link your discord \
-                     to an osu profile via `<link osuname`",
+                        to an osu profile via `<link osuname`",
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -59,21 +61,31 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 Some(user) => user,
                 None => {
                     msg.channel_id
-                        .say(&ctx.http, format!("User `{}` was not found", name))
-                        .await?;
+                        .say(ctx, format!("User `{}` was not found", name))
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Ok(());
                 }
             },
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                return Err(CommandError::from(why.to_string()));
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
             }
         };
         let scores = match user.get_top_scores(&osu, 100, GameMode::STD).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                return Err(CommandError::from(why.to_string()));
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
             }
         };
         (user, scores)
@@ -94,7 +106,7 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         Some(
             msg.channel_id
                 .say(
-                    &ctx.http,
+                    ctx,
                     format!(
                         "Retrieving {} maps from the api...",
                         scores.len() - maps.len()
@@ -120,8 +132,12 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 let map = match score.get_beatmap(osu).await {
                     Ok(map) => map,
                     Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                        return Err(CommandError::from(why.to_string()));
+                        msg.channel_id
+                            .say(ctx, OSU_API_ISSUE)
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
+                        return Err(why.to_string().into());
                     }
                 };
                 missing_maps.push(map.clone());
@@ -182,12 +198,11 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id
-                .say(
-                    &ctx.http,
-                    "Some issue while calculating nochoke data, blame bade",
-                )
-                .await?;
-            return Err(CommandError::from(why.to_string()));
+                .say(ctx, "Some issue while calculating nochoke data, blame bade")
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
+            return Err(why.to_string().into());
         }
     };
     let mention = msg.author.mention();

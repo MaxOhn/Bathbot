@@ -14,7 +14,7 @@ use rosu::{
     },
 };
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::prelude::Message,
     prelude::Context,
 };
@@ -73,7 +73,7 @@ async fn simulate_recent_send(
                     .await?
                     .reaction_delete(ctx, msg.author.id)
                     .await;
-                return Err(CommandError::from(why.to_string()));
+                return Err(why.to_string().into());
             }
         };
         match scores.pop() {
@@ -105,7 +105,7 @@ async fn simulate_recent_send(
                             .await?
                             .reaction_delete(ctx, msg.author.id)
                             .await;
-                        return Err(CommandError::from(why.to_string()));
+                        return Err(why.to_string().into());
                     }
                 };
                 (
@@ -129,7 +129,7 @@ async fn simulate_recent_send(
                 .await?
                 .reaction_delete(ctx, msg.author.id)
                 .await;
-            return Err(CommandError::from(why.to_string()));
+            return Err(why.to_string().into());
         }
     };
 

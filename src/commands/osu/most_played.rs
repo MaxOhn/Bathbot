@@ -8,7 +8,7 @@ use crate::{
 
 use rosu::backend::requests::UserRequest;
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::channel::Message,
     prelude::Context,
 };
@@ -66,7 +66,7 @@ async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                         .await?
                         .reaction_delete(ctx, msg.author.id)
                         .await;
-                    return Err(CommandError::from(why.to_string()));
+                    return Err(why.to_string().into());
                 }
             }
         };
@@ -80,7 +80,7 @@ async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                         .await?
                         .reaction_delete(ctx, msg.author.id)
                         .await;
-                    return Err(CommandError::from(why.to_string()));
+                    return Err(why.to_string().into());
                 }
             }
         };

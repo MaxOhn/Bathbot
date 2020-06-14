@@ -10,7 +10,7 @@ use rosu::{
     models::{GameMode, Score, User},
 };
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::prelude::Message,
     prelude::Context,
 };
@@ -67,7 +67,7 @@ async fn ratios(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     .await?
                     .reaction_delete(ctx, msg.author.id)
                     .await;
-                return Err(CommandError::from(why.to_string()));
+                return Err(why.to_string().into());
             }
         };
         let scores = match user.get_top_scores(&osu, 100, GameMode::MNA).await {
@@ -78,7 +78,7 @@ async fn ratios(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     .await?
                     .reaction_delete(ctx, msg.author.id)
                     .await;
-                return Err(CommandError::from(why.to_string()));
+                return Err(why.to_string().into());
             }
         };
         (user, scores)
@@ -93,7 +93,7 @@ async fn ratios(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 .await?
                 .reaction_delete(ctx, msg.author.id)
                 .await;
-            return Err(CommandError::from(why.to_string()));
+            return Err(why.to_string().into());
         }
     };
 

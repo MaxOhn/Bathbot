@@ -14,13 +14,12 @@ use rosu::{
     models::{Beatmap, GameMode, Score, User},
 };
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::prelude::Message,
     prelude::Context,
 };
 use std::{
     collections::{HashMap, HashSet},
-    convert::From,
     fmt::Write,
     sync::Arc,
 };
@@ -103,7 +102,7 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                         .await?
                         .reaction_delete(ctx, msg.author.id)
                         .await;
-                    return Err(CommandError::from(why.to_string()));
+                    return Err(why.to_string().into());
                 }
             };
             let scores = match user.get_top_scores(&osu, 100, mode).await {
@@ -114,7 +113,7 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                         .await?
                         .reaction_delete(ctx, msg.author.id)
                         .await;
-                    return Err(CommandError::from(why.to_string()));
+                    return Err(why.to_string().into());
                 }
             };
             users.insert(user.user_id, user);
@@ -209,7 +208,7 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                         .await?
                         .reaction_delete(ctx, msg.author.id)
                         .await;
-                    return Err(CommandError::from(why.to_string()));
+                    return Err(why.to_string().into());
                 }
             };
             missing_maps.push(map);

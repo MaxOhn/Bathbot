@@ -11,7 +11,7 @@ use rosu::{
     models::ApprovalStatus::{Loved, Ranked},
 };
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::prelude::Message,
     prelude::Context,
 };
@@ -107,7 +107,7 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                             .await?
                             .reaction_delete(ctx, msg.author.id)
                             .await;
-                        return Err(CommandError::from(why.to_string()));
+                        return Err(why.to_string().into());
                     }
                 };
                 (
@@ -133,7 +133,7 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     .await?
                     .reaction_delete(ctx, msg.author.id)
                     .await;
-                return Err(CommandError::from(why.to_string()));
+                return Err(why.to_string().into());
             }
         };
         let user_req = UserRequest::with_username(&name).mode(map.mode);
@@ -155,7 +155,7 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     .await?
                     .reaction_delete(ctx, msg.author.id)
                     .await;
-                return Err(CommandError::from(why.to_string()));
+                return Err(why.to_string().into());
             }
         };
         (user, map, scores)
@@ -171,7 +171,7 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 .await?
                 .reaction_delete(ctx, msg.author.id)
                 .await;
-            return Err(CommandError::from(why.to_string()));
+            return Err(why.to_string().into());
         }
     };
 

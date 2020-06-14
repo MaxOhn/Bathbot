@@ -13,7 +13,7 @@ use rosu::{
     models::{GameMode, GameMods, Score, User},
 };
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::channel::Message,
     prelude::Context,
 };
@@ -89,7 +89,7 @@ async fn top_send(
                     .await?
                     .reaction_delete(ctx, msg.author.id)
                     .await;
-                return Err(CommandError::from(why.to_string()));
+                return Err(why.to_string().into());
             }
         };
         let scores = match user.get_top_scores(&osu, 100, mode).await {
@@ -100,7 +100,7 @@ async fn top_send(
                     .await?
                     .reaction_delete(ctx, msg.author.id)
                     .await;
-                return Err(CommandError::from(why.to_string()));
+                return Err(why.to_string().into());
             }
         };
         (user, scores)
@@ -225,7 +225,7 @@ async fn top_send(
                     Ok(map) => map,
                     Err(why) => {
                         msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                        return Err(CommandError::from(why.to_string()));
+                        return Err(why.to_string().into());
                     }
                 }
             };
@@ -277,12 +277,11 @@ async fn top_send(
         Ok(data) => data,
         Err(why) => {
             msg.channel_id
-                .say(
-                    &ctx.http,
-                    "Some issue while calculating top data, blame bade",
-                )
-                .await?;
-            return Err(CommandError::from(why.to_string()));
+                .say(ctx, "Some issue while calculating top data, blame bade")
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
+            return Err(why.to_string().into());
         }
     };
 

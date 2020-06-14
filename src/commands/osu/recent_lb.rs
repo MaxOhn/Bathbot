@@ -19,7 +19,7 @@ use rosu::{
     },
 };
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::channel::Message,
     prelude::Context,
 };
@@ -52,11 +52,13 @@ async fn recent_lb_send(
             None => {
                 msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "Either specify an osu name or link your discord \
-                     to an osu profile via `<link osuname`",
+                        to an osu profile via `<link osuname`",
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -73,17 +75,20 @@ async fn recent_lb_send(
                     score
                 } else {
                     msg.channel_id
-                        .say(
-                            &ctx.http,
-                            format!("No recent plays found for user `{}`", name),
-                        )
-                        .await?;
+                        .say(ctx, format!("No recent plays found for user `{}`", name))
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Ok(());
                 }
             }
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                return Err(CommandError::from(why.to_string()));
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
             }
         }
     };
@@ -100,8 +105,12 @@ async fn recent_lb_send(
                 let map = match score.get_beatmap(osu).await {
                     Ok(m) => m,
                     Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                        return Err(CommandError::from(why.to_string()));
+                        msg.channel_id
+                            .say(ctx, OSU_API_ISSUE)
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
+                        return Err(why.to_string().into());
                     }
                 };
                 (
@@ -127,8 +136,12 @@ async fn recent_lb_send(
         match scores_future.await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                return Err(CommandError::from(why.to_string()));
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
             }
         }
     };
@@ -157,11 +170,13 @@ async fn recent_lb_send(
         Err(why) => {
             msg.channel_id
                 .say(
-                    &ctx.http,
+                    ctx,
                     "Some issue while calculating leaderboard data, blame bade",
                 )
-                .await?;
-            return Err(CommandError::from(why.to_string()));
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
+            return Err(why.to_string().into());
         }
     };
 

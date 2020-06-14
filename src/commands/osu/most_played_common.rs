@@ -10,13 +10,12 @@ use crate::{
 use itertools::Itertools;
 use rosu::{backend::requests::UserRequest, models::User};
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::prelude::Message,
     prelude::Context,
 };
 use std::{
     collections::{HashMap, HashSet},
-    convert::From,
     fmt::Write,
     iter::Extend,
     sync::Arc,
@@ -104,7 +103,7 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
                         .await?
                         .reaction_delete(ctx, msg.author.id)
                         .await;
-                    return Err(CommandError::from(why.to_string()));
+                    return Err(why.to_string().into());
                 }
             };
             let maps = {
@@ -116,7 +115,7 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
                             .await?
                             .reaction_delete(ctx, msg.author.id)
                             .await;
-                        return Err(CommandError::from(why.to_string()));
+                        return Err(why.to_string().into());
                     }
                 }
             };

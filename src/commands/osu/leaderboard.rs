@@ -20,7 +20,7 @@ use rosu::{
     },
 };
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::channel::Message,
     prelude::Context,
 };
@@ -100,7 +100,7 @@ async fn leaderboard_send(
                             .await?
                             .reaction_delete(ctx, msg.author.id)
                             .await;
-                        return Err(CommandError::from(why.to_string()));
+                        return Err(why.to_string().into());
                     }
                 };
                 (
@@ -131,7 +131,7 @@ async fn leaderboard_send(
                     .await?
                     .reaction_delete(ctx, msg.author.id)
                     .await;
-                return Err(CommandError::from(why.to_string()));
+                return Err(why.to_string().into());
             }
         }
     };
@@ -166,7 +166,7 @@ async fn leaderboard_send(
                 .await?
                 .reaction_delete(ctx, msg.author.id)
                 .await;
-            return Err(CommandError::from(why.to_string()));
+            return Err(why.to_string().into());
         }
     };
 
