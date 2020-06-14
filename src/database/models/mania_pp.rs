@@ -2,7 +2,7 @@
 use super::{super::schema::pp_mania_mods, beatmap::DBMap};
 use crate::Error;
 
-#[derive(Default, Identifiable, Queryable, Associations, Insertable, AsChangeset)]
+#[derive(Default, Copy, Clone, Identifiable, Queryable, Associations, Insertable, AsChangeset)]
 #[table_name = "pp_mania_mods"]
 #[belongs_to(DBMap, foreign_key = "beatmap_id")]
 #[primary_key(beatmap_id)]

@@ -58,7 +58,7 @@ impl From<u8> for Platform {
     }
 }
 
-#[derive(Insertable, Queryable, Identifiable, Debug, PartialEq, Associations)]
+#[derive(Copy, Clone, Insertable, Queryable, Identifiable, Debug, PartialEq, Associations)]
 #[table_name = "stream_tracks"]
 #[belongs_to(TwitchUser, foreign_key = "user_id")]
 pub struct StreamTrackDB {
@@ -85,7 +85,7 @@ impl Into<StreamTrack> for StreamTrackDB {
     }
 }
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct StreamTrack {
     pub channel_id: u64,
     pub user_id: u64,

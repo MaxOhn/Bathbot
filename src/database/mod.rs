@@ -2,9 +2,12 @@ mod models;
 mod schema;
 
 use models::{CtbPP, DBMap, GuildDB, ManiaPP, MapSplit, StreamTrackDB};
-pub use models::{DBMapSet, Guild, Platform, Ratios, StreamTrack, TwitchUser};
+pub use models::{DBMapSet, Guild, MapsetTagDB, Platform, Ratios, StreamTrack, TwitchUser};
 
-use crate::util::{globals::AUTHORITY_ROLES, Error};
+use crate::{
+    commands::fun::MapsetTag,
+    util::{globals::AUTHORITY_ROLES, Error},
+};
 
 use diesel::{
     prelude::*,
@@ -740,6 +743,37 @@ impl MySQL {
             .into_iter()
             .map(|id| UserId(id.0))
             .collect();
+        Ok(users)
+    }
+
+    // ---------------
+    // Table: map_tags
+    // ---------------
+
+    pub fn add_tag_mapset(&self, mapset_id: u32) -> DBResult<()> {
+        use schema::map_tags::dsl::beatmapset_id;
+        let conn = self.get_connection()?;
+        diesel::insert_or_ignore_into(schema::map_tags::table)
+            .values(beatmapset_id.eq(mapset_id))
+            .execute(&conn)?;
+        Ok(())
+    }
+
+    pub fn set_tag_mapset(&self, mapset_id: u32, tag: MapsetTag, value: bool) -> DBResult<()> {
+        use schema::map_tags::columns::beatmapset_id;
+        let conn = self.get_connection()?;
+        let entry = MapsetTagDB::with_value(mapset_id, tag, value);
+        diesel::update(schema::map_tags::table.filter(beatmapset_id.eq(mapset_id)))
+            .set(&entry)
+            .execute(&conn)?;
+        Ok(())
+    }
+
+    pub fn get_tags_mapset(&self, mapset_id: u32) -> DBResult<MapsetTagDB> {
+        let conn = self.get_connection()?;
+        let users = schema::map_tags::table
+            .find(mapset_id)
+            .first::<MapsetTagDB>(&conn)?;
         Ok(users)
     }
 }

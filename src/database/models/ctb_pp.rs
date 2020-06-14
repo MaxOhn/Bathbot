@@ -2,7 +2,9 @@
 use super::{super::schema::pp_ctb_mods, beatmap::DBMap};
 use crate::Error;
 
-#[derive(Default, Identifiable, Queryable, Associations, Insertable, AsChangeset, Debug)]
+#[derive(
+    Default, Copy, Clone, Identifiable, Queryable, Associations, Insertable, AsChangeset, Debug,
+)]
 #[table_name = "pp_ctb_mods"]
 #[belongs_to(DBMap, foreign_key = "beatmap_id")]
 #[primary_key(beatmap_id)]

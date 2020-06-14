@@ -62,6 +62,24 @@ table! {
 }
 
 table! {
+    map_tags (beatmapset_id) {
+        beatmapset_id -> Unsigned<Integer>,
+        farm -> Nullable<Bool>,
+        streams -> Nullable<Bool>,
+        alternate -> Nullable<Bool>,
+        old -> Nullable<Bool>,
+        meme -> Nullable<Bool>,
+        hardname -> Nullable<Bool>,
+        easy -> Nullable<Bool>,
+        hard -> Nullable<Bool>,
+        tech -> Nullable<Bool>,
+        weeb -> Nullable<Bool>,
+        bluesky -> Nullable<Bool>,
+        english -> Nullable<Bool>,
+    }
+}
+
+table! {
     pp_ctb_mods (beatmap_id) {
         beatmap_id -> Unsigned<Integer>,
         NM -> Nullable<Float>,
@@ -147,6 +165,7 @@ table! {
     }
 }
 
+joinable!(map_tags -> mapsets (beatmapset_id));
 joinable!(maps -> mapsets (beatmapset_id));
 joinable!(pp_ctb_mods -> maps (beatmap_id));
 joinable!(pp_mania_mods -> maps (beatmap_id));
@@ -160,6 +179,7 @@ allow_tables_to_appear_in_same_query!(
     guilds,
     maps,
     mapsets,
+    map_tags,
     pp_ctb_mods,
     pp_mania_mods,
     ratio_table,

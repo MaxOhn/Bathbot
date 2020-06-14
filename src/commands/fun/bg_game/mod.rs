@@ -272,3 +272,18 @@ async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
     });
     Ok(())
 }
+
+pub enum MapsetTag {
+    Farm,
+    Streams,
+    Alternate,
+    Old,
+    Meme,
+    HardName,
+    Easy,
+    Hard,
+    Tech,
+    BlueSky,
+    English,
+    Weeb,
+}
