@@ -1,9 +1,14 @@
 use super::models::{TwitchStream, TwitchStreams, TwitchUser, TwitchUsers};
 use crate::util::{
     globals::{TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT},
-    Error, RateLimiter,
+    Error,
 };
 
+use governor::{
+    clock::DefaultClock,
+    state::{direct::NotKeyed, InMemoryState},
+    Quota, RateLimiter,
+};
 use rayon::prelude::*;
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
@@ -11,12 +16,12 @@ use reqwest::{
 };
 use serde::Serialize;
 use serde_derive::Deserialize;
-use std::{convert::TryFrom, fmt, sync::Mutex};
+use std::{convert::TryFrom, fmt, num::NonZeroU32};
 
 pub struct Twitch {
     client: Client,
     auth_token: OAuthToken,
-    twitch_limiter: Mutex<RateLimiter>,
+    ratelimiter: RateLimiter<NotKeyed, InMemoryState, DefaultClock>,
 }
 
 impl Twitch {
@@ -35,10 +40,12 @@ impl Twitch {
             .send()
             .await?;
         let auth_token = serde_json::from_slice(&auth_response.bytes().await?)?;
+        let quota = Quota::per_second(NonZeroU32::new(5).unwrap());
+        let ratelimiter = RateLimiter::direct(quota);
         Ok(Self {
             client,
             auth_token,
-            twitch_limiter: Mutex::new(RateLimiter::new(5, 1)),
+            ratelimiter,
         })
     }
 
@@ -47,12 +54,7 @@ impl Twitch {
         endpoint: &str,
         data: &T,
     ) -> Result<Response, reqwest::Error> {
-        {
-            self.twitch_limiter
-                .lock()
-                .unwrap_or_else(|why| panic!("Could not lock twitch_limiter: {}", why))
-                .await_access();
-        }
+        self.ratelimiter.until_ready().await;
         self.client
             .get(endpoint)
             .bearer_auth(&self.auth_token)

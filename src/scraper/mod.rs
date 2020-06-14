@@ -6,8 +6,13 @@ use score::ScraperScores;
 pub use score::{ScraperBeatmap, ScraperScore};
 
 use crate::{
-    util::{globals::HOMEPAGE, Error, RateLimiter},
+    util::{globals::HOMEPAGE, Error},
     WITH_SCRAPER,
+};
+use governor::{
+    clock::DefaultClock,
+    state::{direct::NotKeyed, InMemoryState},
+    Quota, RateLimiter,
 };
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
@@ -15,11 +20,11 @@ use reqwest::{
 };
 use rosu::models::{GameMode, GameMods};
 use scraper::{Html, Node, Selector};
-use std::{collections::HashSet, convert::TryFrom, env, fmt::Write, sync::Mutex};
+use std::{collections::HashSet, convert::TryFrom, env, fmt::Write, num::NonZeroU32};
 
 pub struct Scraper {
     client: Client,
-    osu_limiter: Mutex<RateLimiter>,
+    ratelimiter: RateLimiter<NotKeyed, InMemoryState, DefaultClock>,
 }
 
 impl Scraper {
@@ -38,21 +43,17 @@ impl Scraper {
             debug!("Skipping Scraper login into osu!");
         }
         let client = builder.build()?;
-        let osu_limiter = Mutex::new(RateLimiter::new(2, 1));
+        let quota = Quota::per_second(NonZeroU32::new(2).unwrap());
+        let ratelimiter = RateLimiter::direct(quota);
         Ok(Self {
             client,
-            osu_limiter,
+            ratelimiter,
         })
     }
 
     async fn send_request(&self, url: String) -> Result<Response, reqwest::Error> {
         debug!("Scraping url {}", url);
-        {
-            self.osu_limiter
-                .lock()
-                .expect("Could not lock osu_limiter")
-                .await_access();
-        }
+        self.ratelimiter.until_ready().await;
         self.client.get(&url).send().await
     }
 
