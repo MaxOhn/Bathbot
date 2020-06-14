@@ -1,0 +1,1 @@
+DROP TABLE bg_verified

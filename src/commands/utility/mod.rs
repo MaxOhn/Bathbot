@@ -6,11 +6,12 @@ mod echo;
 mod lyrics;
 mod ping;
 mod prune;
+mod reload_verified;
 mod role_assign;
 
 pub use self::{
     about::*, authorities::*, avatar::*, command_count::*, echo::*, lyrics::*, ping::*, prune::*,
-    role_assign::*,
+    reload_verified::*, role_assign::*,
 };
 
 use serenity::framework::standard::macros::group;
@@ -26,6 +27,7 @@ use serenity::framework::standard::macros::group;
     prune,
     authorities,
     roleassign,
-    lyrics
+    lyrics,
+    reloadverified
 )]
 struct Utility;

@@ -8,7 +8,7 @@ use crate::{
 use chrono::{DateTime, Utc};
 use rosu::backend::Osu as OsuClient;
 use serenity::{
-    model::id::{ChannelId, GuildId, MessageId, RoleId},
+    model::id::{ChannelId, GuildId, MessageId, RoleId, UserId},
     prelude::*,
 };
 use std::{
@@ -81,4 +81,9 @@ impl TypeMapKey for Guilds {
 pub struct BgGames;
 impl TypeMapKey for BgGames {
     type Value = HashMap<ChannelId, BackGroundGame>;
+}
+
+pub struct BgVerified;
+impl TypeMapKey for BgVerified {
+    type Value = Vec<UserId>;
 }

@@ -138,6 +138,11 @@ async fn main() {
     };
     let now = Utc::now();
 
+    // Custom (temporal(?)) manual user verification
+    let verified_users = mysql
+        .get_bg_verified()
+        .expect("Could not get verified users");
+
     // ---------------
     // Framework setup
     // ---------------
@@ -194,6 +199,7 @@ async fn main() {
         }
         data.insert::<Guilds>(guilds);
         data.insert::<BgGames>(HashMap::new());
+        data.insert::<BgVerified>(verified_users);
     }
 
     // Boot it all up

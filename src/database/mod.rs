@@ -13,7 +13,7 @@ use diesel::{
     MysqlConnection,
 };
 use rosu::models::{Beatmap, GameMode, GameMods};
-use serenity::model::id::GuildId;
+use serenity::model::id::{GuildId, UserId};
 use std::collections::{HashMap, HashSet};
 
 pub struct MySQL {
@@ -727,6 +727,20 @@ impl MySQL {
             Err(why) => warn!("Error while updating ratios: {}", why),
         }
         data
+    }
+
+    // ------------------
+    // Table: bg_verified
+    // ------------------
+
+    pub fn get_bg_verified(&self) -> DBResult<Vec<UserId>> {
+        let conn = self.get_connection()?;
+        let users = schema::bg_verified::table
+            .load::<(u64,)>(&conn)?
+            .into_iter()
+            .map(|id| UserId(id.0))
+            .collect();
+        Ok(users)
     }
 }
 

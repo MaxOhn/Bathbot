@@ -1,4 +1,4 @@
-use crate::Guilds;
+use crate::{BgVerified, Guilds};
 
 use serenity::{
     framework::standard::{macros::check, Args, CheckResult, CommandOptions},
@@ -46,4 +46,21 @@ async fn authority_check(
     } else {
         CheckResult::Success
     }
+}
+
+#[check]
+#[name = "BgVerifiedCheck"]
+#[check_in_help(true)]
+#[display_in_help(true)]
+async fn bgverified_check(
+    ctx: &Context,
+    msg: &Message,
+    _: &mut Args,
+    _: &CommandOptions,
+) -> CheckResult {
+    let data = ctx.data.read().await;
+    data.get::<BgVerified>()
+        .unwrap()
+        .contains(&msg.author.id)
+        .into()
 }
