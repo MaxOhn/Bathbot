@@ -177,9 +177,7 @@ pub async fn create_customised_help_data<'a>(
     let mut listed_groups: Vec<GroupCommandsPair> = Vec::default();
     for group in groups {
         let group = *group;
-
         let group_with_cmds = create_single_group(ctx, msg, group, &owners, &help_options).await;
-
         if !group_with_cmds.command_names.is_empty() || !group_with_cmds.sub_groups.is_empty() {
             listed_groups.push(group_with_cmds);
         }

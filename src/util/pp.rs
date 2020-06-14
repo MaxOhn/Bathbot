@@ -33,10 +33,7 @@ pub enum PPProvider {
 async fn new_oppai(score: &Score, map: &Beatmap) -> Result<PPProvider, Error> {
     let map_path = osu::prepare_beatmap_file(map.beatmap_id).await?;
     let mut oppai = Oppai::new();
-    if !score.enabled_mods.is_empty() {
-        let bits = score.enabled_mods.bits();
-        oppai.set_mods(bits);
-    }
+    oppai.set_mods(score.enabled_mods.bits());
     let max_pp = oppai.calculate(Some(&map_path))?.get_pp();
     oppai
         .set_miss_count(score.count_miss)
@@ -331,11 +328,8 @@ impl PPProvider {
     pub fn recalculate(&mut self, score: &Score, mode: GameMode) -> Result<(), Error> {
         match self {
             Self::Oppai { oppai, pp, .. } => {
-                if !score.enabled_mods.is_empty() {
-                    let bits = score.enabled_mods.bits();
-                    oppai.set_mods(bits);
-                }
                 oppai
+                    .set_mods(score.enabled_mods.bits())
                     .set_miss_count(score.count_miss)
                     .set_hits(score.count100, score.count50)
                     .set_end_index(score.total_hits(mode))
@@ -396,8 +390,10 @@ async fn start_pp_calc<S: SubScore>(map_id: u32, params: CalcParam<'_, S>) -> Re
         ),
     };
     cmd.arg(map_path);
-    for m in params.mods().iter().filter(|&m| m != GameMods::ScoreV2) {
-        cmd.arg("-m").arg(m.to_string());
+    if !params.mods().is_empty() {
+        for m in params.mods().iter().filter(|&m| m != GameMods::ScoreV2) {
+            cmd.arg("-m").arg(m.to_string());
+        }
     }
     if let CalcParam::MNA { score, mods } = params {
         cmd.arg("-s");
@@ -447,8 +443,10 @@ async fn calc_stars(map_id: u32, mods: GameMods) -> Result<f32, Error> {
         .arg(env::var("PERF_CALC").unwrap())
         .arg("difficulty")
         .arg(map_path);
-    for m in mods.iter().filter(|&m| m != GameMods::ScoreV2) {
-        cmd.arg("-m").arg(m.to_string());
+    if !mods.is_empty() {
+        for m in mods.iter().filter(|&m| m != GameMods::ScoreV2) {
+            cmd.arg("-m").arg(m.to_string());
+        }
     }
     let output = match time::timeout(time::Duration::from_secs(10), cmd.output()).await {
         Ok(output) => output?,
