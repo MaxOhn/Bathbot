@@ -21,7 +21,6 @@ use tokio::{
 pub struct BackGroundGame {
     pub game: Arc<RwLock<GameData>>,
     pub mode: GameMode,
-    // previous_ids: Arc<RwLock<VecDequeue<u32>>>,
     tx: Sender<LoopResult>,
     rx: Receiver<LoopResult>,
 }
@@ -128,6 +127,7 @@ impl BackGroundGame {
                             .unwrap()
                             .remove(&channel);
                         collector.stop();
+                        debug!("Game finished");
                         break;
                     }
                     LoopResult::Winner(user_id) => {

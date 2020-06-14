@@ -97,9 +97,14 @@ pub trait Pagination: Sync + Sized {
         }
         for &reaction in reactions.iter() {
             let r = ReactionType::try_from(reaction).unwrap();
-            self.msg()
-                .delete_reaction_emoji((&cache, &*http), r)
-                .await?;
+            let msg = self.msg();
+            if msg.is_private() {
+                msg.channel_id
+                    .delete_reaction(&http, msg.id, None, r)
+                    .await?;
+            } else {
+                msg.delete_reaction_emoji((&cache, &*http), r).await?;
+            }
         }
         self.final_processing(cache, http).await
     }
