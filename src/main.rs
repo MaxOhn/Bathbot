@@ -17,7 +17,7 @@ use events::Handler;
 use streams::Twitch;
 use structs::Osu;
 use structs::*;
-pub use util::{discord::get_member, Error};
+pub use util::{discord::get_member, Error, MessageExt};
 
 #[macro_use]
 extern crate log;
@@ -150,11 +150,11 @@ async fn main() {
     let framework = StandardFramework::new()
         .configure(|c| {
             c.prefixes(vec!["<", "!!"])
-                .owners(owners)
                 .delimiter(' ')
                 .case_insensitivity(true)
                 .ignore_bots(true)
                 .no_dm_prefix(true)
+                .owners(owners)
         })
         .before(before)
         .after(after)
@@ -240,14 +240,33 @@ async fn after(_ctx: &Context, _msg: &Message, cmd_name: &str, cmd_result: Comma
 }
 
 #[hook]
-async fn dispatch_error(ctx: &Context, msg: &Message, error: DispatchError) -> () {
-    if let DispatchError::Ratelimited(seconds) = error {
-        let _ = msg
+async fn dispatch_error(ctx: &Context, msg: &Message, error: DispatchError) {
+    let response = match error {
+        DispatchError::Ratelimited(seconds) => msg
             .channel_id
             .say(
                 ctx,
                 format!("Command on cooldown, try again in {} seconds", seconds),
             )
-            .await;
+            .await
+            .ok(),
+        DispatchError::CheckFailed(name, _) => {
+            if name == "BgVerified" {
+                msg.channel_id
+                    .say(
+                        ctx,
+                        "Only handselected people can use this command.\n\
+                        Ask bade to add you if you want to help out tagging backgrounds.",
+                    )
+                    .await
+                    .ok()
+            } else {
+                None
+            }
+        }
+        _ => None,
     };
+    if let Some(response) = response {
+        response.reaction_delete(ctx, msg.author.id).await;
+    }
 }

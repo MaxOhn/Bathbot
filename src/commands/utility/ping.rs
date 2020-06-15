@@ -13,7 +13,7 @@ use serenity::{
 #[aliases("p")]
 async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
     let start = Utc::now().timestamp_millis();
-    let mut response = msg.channel_id.say(&ctx.http, "Pong!").await?;
+    let mut response = msg.channel_id.say(ctx, "Pong!").await?;
     response
         .edit(ctx, |m| {
             let elapsed = Utc::now().timestamp_millis() - start;

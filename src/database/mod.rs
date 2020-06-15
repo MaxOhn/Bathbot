@@ -732,9 +732,9 @@ impl MySQL {
         data
     }
 
-    // ------------------
-    // Table: bg_verified
-    // ------------------
+    // -----------------------------
+    // Table: bg_verified / map_tags
+    // -----------------------------
 
     pub fn get_bg_verified(&self) -> DBResult<Vec<UserId>> {
         let conn = self.get_connection()?;
@@ -745,10 +745,6 @@ impl MySQL {
             .collect();
         Ok(users)
     }
-
-    // ---------------
-    // Table: map_tags
-    // ---------------
 
     pub fn add_tag_mapset(&self, mapset_id: u32) -> DBResult<()> {
         use schema::map_tags::dsl::beatmapset_id;

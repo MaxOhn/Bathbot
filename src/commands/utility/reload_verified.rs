@@ -1,4 +1,4 @@
-use crate::{commands::checks::*, util::MessageExt, BgVerified, MySQL};
+use crate::{util::MessageExt, BgVerified, MySQL};
 
 use serenity::{
     framework::standard::{macros::command, CommandResult},
@@ -8,7 +8,6 @@ use serenity::{
 
 #[command]
 #[owners_only]
-#[checks(BgVerifiedCheck)]
 #[description = "Reload bg verified users from database"]
 async fn reloadverified(ctx: &Context, msg: &Message) -> CommandResult {
     let mut data = ctx.data.write().await;

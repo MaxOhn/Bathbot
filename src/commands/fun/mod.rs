@@ -20,6 +20,7 @@ use serenity::framework::standard::macros::group;
     flamingo,
     pretender,
     rockefeller,
-    tijdmachine
+    tijdmachine,
+    bgtags
 )]
 struct Fun;

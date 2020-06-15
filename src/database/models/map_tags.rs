@@ -1,6 +1,8 @@
 use super::{super::schema::map_tags, beatmap::DBMapSet};
 use crate::commands::fun::MapsetTag;
 
+use std::fmt::{self, Write};
+
 #[derive(Default, Copy, Clone, Identifiable, Queryable, Associations, Insertable, AsChangeset)]
 #[table_name = "map_tags"]
 #[belongs_to(DBMapSet, foreign_key = "beatmapset_id")]
@@ -56,5 +58,69 @@ impl MapsetTagDB {
             MapsetTag::English => result.english = Some(value),
         }
         result
+    }
+    fn any(&self) -> bool {
+        self.farm.is_some()
+            | self.streams.is_some()
+            | self.alternate.is_some()
+            | self.old.is_some()
+            | self.meme.is_some()
+            | self.hardname.is_some()
+            | self.easy.is_some()
+            | self.hard.is_some()
+            | self.tech.is_some()
+            | self.weeb.is_some()
+            | self.bluesky.is_some()
+            | self.english.is_some()
+    }
+}
+
+impl fmt::Display for MapsetTagDB {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.any() {
+            let mut buf = String::with_capacity(32);
+            if let Some(true) = self.farm {
+                write!(buf, "farm, ")?;
+            }
+            if let Some(true) = self.streams {
+                write!(buf, "streams, ")?;
+            }
+            if let Some(true) = self.alternate {
+                write!(buf, "alternate, ")?;
+            }
+            if let Some(true) = self.old {
+                write!(buf, "old, ")?;
+            }
+            if let Some(true) = self.meme {
+                write!(buf, "meme, ")?;
+            }
+            if let Some(true) = self.hardname {
+                write!(buf, "hardname, ")?;
+            }
+            if let Some(true) = self.easy {
+                write!(buf, "easy, ")?;
+            }
+            if let Some(true) = self.hard {
+                write!(buf, "hard, ")?;
+            }
+            if let Some(true) = self.tech {
+                write!(buf, "tech, ")?;
+            }
+            if let Some(true) = self.weeb {
+                write!(buf, "weeb, ")?;
+            }
+            if let Some(true) = self.bluesky {
+                write!(buf, "bluesky, ")?;
+            }
+            if let Some(true) = self.english {
+                write!(buf, "english, ")?;
+            }
+            buf.pop();
+            buf.pop();
+            write!(f, "{}", buf)?;
+        } else {
+            write!(f, "None")?;
+        }
+        Ok(())
     }
 }

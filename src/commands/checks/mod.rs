@@ -49,7 +49,7 @@ async fn authority_check(
 }
 
 #[check]
-#[name = "BgVerifiedCheck"]
+#[name = "BgVerified"]
 #[check_in_help(true)]
 #[display_in_help(true)]
 async fn bgverified_check(
