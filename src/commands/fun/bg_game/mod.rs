@@ -1,10 +1,8 @@
-mod bg_tag;
 mod game;
 mod hints;
 mod img_reveal;
 mod util;
 
-pub use bg_tag::*;
 pub use game::BackGroundGame;
 use hints::Hints;
 use img_reveal::ImageReveal;

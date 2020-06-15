@@ -10,8 +10,9 @@ use serenity::{
     model::id::ChannelId,
     prelude::{RwLock, TypeMap},
 };
-use std::{collections::VecDeque, env, fmt::Write, fs, path::PathBuf, str::FromStr, sync::Arc};
+use std::{collections::VecDeque, env, fmt::Write, path::PathBuf, str::FromStr, sync::Arc};
 use tokio::{
+    fs,
     stream::StreamExt,
     sync::watch::{channel, Receiver, Sender},
     time,
@@ -277,7 +278,7 @@ impl GameData {
             t => panic!("Can't read file type {}", t),
         };
         path.push(file_name);
-        let img_vec = fs::read(path)?;
+        let img_vec = fs::read(path).await?;
         let mut img = image::load_from_memory_with_format(&img_vec, file_type)?;
         let (w, h) = img.dimensions();
         // 800*600 (4:3)

@@ -1,11 +1,13 @@
 mod models;
 mod schema;
 
-use models::{CtbPP, DBMap, GuildDB, ManiaPP, MapSplit, StreamTrackDB};
-pub use models::{DBMapSet, Guild, MapsetTagDB, Platform, Ratios, StreamTrack, TwitchUser};
+use models::{CtbPP, DBMap, GuildDB, ManiaPP, StreamTrackDB};
+pub use models::{
+    DBMapSet, Guild, MapSplit, MapsetTagDB, Platform, Ratios, StreamTrack, TwitchUser,
+};
 
 use crate::{
-    commands::fun::MapsetTag,
+    commands::utility::MapsetTag,
     util::{globals::AUTHORITY_ROLES, Error},
 };
 
@@ -746,11 +748,20 @@ impl MySQL {
         Ok(users)
     }
 
-    pub fn add_tag_mapset(&self, mapset_id: u32) -> DBResult<()> {
-        use schema::map_tags::dsl::beatmapset_id;
+    pub fn add_tag_mapset(
+        &self,
+        mapset_id: u32,
+        file_type: &str,
+        gamemode: GameMode,
+    ) -> DBResult<()> {
+        use schema::map_tags::dsl::{beatmapset_id, filetype, mode};
         let conn = self.get_connection()?;
         diesel::insert_or_ignore_into(schema::map_tags::table)
-            .values(beatmapset_id.eq(mapset_id))
+            .values((
+                beatmapset_id.eq(mapset_id),
+                filetype.eq(file_type),
+                mode.eq(gamemode as u8),
+            ))
             .execute(&conn)?;
         Ok(())
     }
@@ -767,10 +778,19 @@ impl MySQL {
 
     pub fn get_tags_mapset(&self, mapset_id: u32) -> DBResult<MapsetTagDB> {
         let conn = self.get_connection()?;
-        let users = schema::map_tags::table
+        let tags = schema::map_tags::table
             .find(mapset_id)
             .first::<MapsetTagDB>(&conn)?;
-        Ok(users)
+        Ok(tags)
+    }
+
+    pub fn get_all_tags_mapset(&self, gamemode: GameMode) -> DBResult<Vec<MapsetTagDB>> {
+        use schema::map_tags::columns::mode;
+        let conn = self.get_connection()?;
+        let tags = schema::map_tags::table
+            .filter(mode.eq(gamemode as u8))
+            .load::<MapsetTagDB>(&conn)?;
+        Ok(tags)
     }
 }
 

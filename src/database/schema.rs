@@ -64,6 +64,8 @@ table! {
 table! {
     map_tags (beatmapset_id) {
         beatmapset_id -> Unsigned<Integer>,
+        filetype -> Nullable<Varchar>,
+        mode -> Nullable<Unsigned<Tinyint>>,
         farm -> Nullable<Bool>,
         streams -> Nullable<Bool>,
         alternate -> Nullable<Bool>,

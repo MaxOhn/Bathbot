@@ -1,17 +1,17 @@
 mod about;
 mod authorities;
 mod avatar;
+mod bg_tags;
 mod command_count;
 mod echo;
 mod lyrics;
 mod ping;
 mod prune;
-mod reload_verified;
 mod role_assign;
 
 pub use self::{
-    about::*, authorities::*, avatar::*, command_count::*, echo::*, lyrics::*, ping::*, prune::*,
-    reload_verified::*, role_assign::*,
+    about::*, authorities::*, avatar::*, bg_tags::*, command_count::*, echo::*, lyrics::*, ping::*,
+    prune::*, role_assign::*,
 };
 
 use serenity::framework::standard::macros::group;
@@ -28,6 +28,7 @@ use serenity::framework::standard::macros::group;
     authorities,
     roleassign,
     lyrics,
-    reloadverified
+    bgtagsmanual,
+    bgtags
 )]
 struct Utility;

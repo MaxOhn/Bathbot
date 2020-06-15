@@ -1,32 +1,36 @@
 use super::{super::schema::map_tags, beatmap::DBMapSet};
-use crate::commands::fun::MapsetTag;
+use crate::commands::utility::MapsetTag;
 
 use std::fmt::{self, Write};
 
-#[derive(Default, Copy, Clone, Identifiable, Queryable, Associations, Insertable, AsChangeset)]
+#[derive(Default, Debug, Clone, Identifiable, Queryable, Associations, Insertable, AsChangeset)]
 #[table_name = "map_tags"]
 #[belongs_to(DBMapSet, foreign_key = "beatmapset_id")]
 #[primary_key(beatmapset_id)]
 pub struct MapsetTagDB {
-    beatmapset_id: u32,
-    farm: Option<bool>,
-    streams: Option<bool>,
-    alternate: Option<bool>,
-    old: Option<bool>,
-    meme: Option<bool>,
-    hardname: Option<bool>,
-    easy: Option<bool>,
-    hard: Option<bool>,
-    tech: Option<bool>,
-    bluesky: Option<bool>,
-    weeb: Option<bool>,
-    english: Option<bool>,
+    pub beatmapset_id: u32,
+    pub filetype: Option<String>,
+    pub mode: Option<u8>,
+    pub farm: Option<bool>,
+    pub streams: Option<bool>,
+    pub alternate: Option<bool>,
+    pub old: Option<bool>,
+    pub meme: Option<bool>,
+    pub hardname: Option<bool>,
+    pub easy: Option<bool>,
+    pub hard: Option<bool>,
+    pub tech: Option<bool>,
+    pub bluesky: Option<bool>,
+    pub weeb: Option<bool>,
+    pub english: Option<bool>,
 }
 
 impl MapsetTagDB {
     pub fn new(beatmapset_id: u32) -> Self {
         Self {
             beatmapset_id,
+            filetype: None,
+            mode: None,
             farm: None,
             streams: None,
             alternate: None,
@@ -59,19 +63,22 @@ impl MapsetTagDB {
         }
         result
     }
-    fn any(&self) -> bool {
-        self.farm.is_some()
-            | self.streams.is_some()
-            | self.alternate.is_some()
-            | self.old.is_some()
-            | self.meme.is_some()
-            | self.hardname.is_some()
-            | self.easy.is_some()
-            | self.hard.is_some()
-            | self.tech.is_some()
-            | self.weeb.is_some()
-            | self.bluesky.is_some()
-            | self.english.is_some()
+    pub fn any(&self) -> bool {
+        self.farm == Some(true)
+            || self.streams == Some(true)
+            || self.alternate == Some(true)
+            || self.old == Some(true)
+            || self.meme == Some(true)
+            || self.hardname == Some(true)
+            || self.easy == Some(true)
+            || self.hard == Some(true)
+            || self.tech == Some(true)
+            || self.weeb == Some(true)
+            || self.bluesky == Some(true)
+            || self.english == Some(true)
+    }
+    pub fn untagged(&self) -> bool {
+        !self.any()
     }
 }
 

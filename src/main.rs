@@ -11,7 +11,7 @@ pub mod structs;
 pub mod util;
 
 use crate::scraper::Scraper;
-use commands::{fun::*, help::*, osu::*, streams::*, utility::*};
+use commands::{fun::*, help::*, osu::*, owner::*, streams::*, utility::*};
 use database::MySQL;
 use events::Handler;
 use streams::Twitch;
@@ -173,7 +173,8 @@ async fn main() {
         .group(&CATCHTHEBEAT_GROUP)
         .group(&FUN_GROUP)
         .group(&UTILITY_GROUP)
-        .group(&STREAMTRACKING_GROUP);
+        .group(&STREAMTRACKING_GROUP)
+        .group(&OWNER_GROUP);
 
     let mut discord = Client::new(&discord_token)
         .event_handler(Handler)
