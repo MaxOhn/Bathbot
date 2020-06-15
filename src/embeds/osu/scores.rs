@@ -4,7 +4,7 @@ use crate::{
         datetime::how_long_ago,
         discord::CacheData,
         globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
-        numbers::with_comma_u64,
+        numbers::{round_and_comma, with_comma_u64},
         pp::PPProvider,
     },
     Error,
@@ -79,6 +79,17 @@ impl ScoresEmbed {
         }
         let footer = Footer::new(format!("{:?} map by {}", map.approval_status, map.creator))
             .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
+        let author_text = format!(
+            "{name}: {pp}pp (#{global} {country}{national})",
+            name = user.username,
+            pp = round_and_comma(user.pp_raw),
+            global = with_comma_u64(user.pp_rank as u64),
+            country = user.country,
+            national = user.pp_country_rank
+        );
+        let author = Author::new(author_text)
+            .url(format!("{}u/{}", HOMEPAGE, user.user_id))
+            .icon_url(format!("{}{}", AVATAR_URL, user.user_id));
         Ok(Self {
             description,
             footer,
@@ -86,7 +97,7 @@ impl ScoresEmbed {
             title: map.to_string(),
             url: format!("{}b/{}", HOMEPAGE, map.beatmap_id),
             fields,
-            author: osu::get_user_author(&user),
+            author,
         })
     }
 }

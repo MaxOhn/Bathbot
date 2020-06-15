@@ -34,7 +34,6 @@ impl TopEmbed {
         S: Iterator<Item = &'i (usize, Score, Beatmap)>,
         D: CacheData,
     {
-        let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
         let mut description = String::with_capacity(512);
         for (idx, score, map) in scores_data {
             let grade = { grade_emote(score.grade, cache_data.cache()).await };
@@ -76,7 +75,7 @@ impl TopEmbed {
         }
         description.pop();
         Ok(Self {
-            thumbnail,
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
             description,
             author: osu::get_user_author(user),
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
