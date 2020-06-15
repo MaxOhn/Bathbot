@@ -141,8 +141,9 @@ async fn bgtagsmanual(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
 
 #[command]
 #[only_in(guilds)]
-#[description = "Let me give you a mapset that still needs to be tagged.\n\
-React to it properly, then finish it up by either waiting 10min or react with ✅."]
+#[description = "Let me give you mapsets that still need to be tagged.\n\
+React to them properly, then finish it up by either waiting 10min or react with ✅.\n\
+To leave the loop, react with ❌."]
 #[aliases("bgt", "bgtag")]
 async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     // Parse arguments as mode
@@ -165,137 +166,154 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         },
         Err(_) => GameMode::STD,
     };
-    // Get all mapsets for which tags are missing
-    let missing_tags = {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_all_tags_mapset(mode) {
-            Ok(tags) => tags
-                .into_iter()
-                .filter(|tag| tag.untagged())
-                .collect::<Vec<_>>(),
-            Err(why) => {
-                msg.channel_id
-                    .say(ctx, "Some database issue, blame bade")
-                    .await?
-                    .reaction_delete(ctx, msg.author.id)
-                    .await;
-                return Err(why.to_string().into());
+    loop {
+        // Get all mapsets for which tags are missing
+        let missing_tags = {
+            let data = ctx.data.read().await;
+            let mysql = data.get::<MySQL>().unwrap();
+            match mysql.get_all_tags_mapset(mode) {
+                Ok(tags) => tags
+                    .into_iter()
+                    .filter(|tag| tag.untagged())
+                    .collect::<Vec<_>>(),
+                Err(why) => {
+                    msg.channel_id
+                        .say(ctx, "Some database issue, blame bade")
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
+                    return Err(why.to_string().into());
+                }
             }
+        };
+        if missing_tags.is_empty() {
+            msg.channel_id
+                .say(
+                    ctx,
+                    "All background entries have been tagged, no untagged one left",
+                )
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
+            return Ok(());
         }
-    };
-    if missing_tags.is_empty() {
-        msg.channel_id
-            .say(
-                ctx,
-                "All background entries have been tagged, no untagged one left",
-            )
-            .await?
-            .reaction_delete(ctx, msg.author.id)
-            .await;
-        return Ok(());
-    }
-    let (mapset_id, img) = get_random_image(missing_tags, mode).await;
-    let content = format!(
-        "This mapset needs some tags {}beatmapsets/{}\n\
+        let (mapset_id, img) = get_random_image(missing_tags, mode).await;
+        let content = format!(
+            "This mapset needs some tags {}beatmapsets/{}\n\
         ```\n\
         🍋: Easy  😱: Hard name  👨‍🌾: Farm\n\
         🤓: Hard  🏙️: Blue sky   💯: Tech\n\
         🤡: Meme  🪀: Alternate  🤢: Weeb\n\
         👴: Old   🆒: English    🚅: Streams\n\
         ```",
-        HOMEPAGE, mapset_id
-    );
-    // Send response
-    let response = msg
-        .channel_id
-        .send_message(ctx, |m| {
-            m.content(content).add_file((img.as_slice(), "bg_img.png"))
-        })
-        .await?;
-    // Setup collector
-    let mut collector = response
-        .await_reactions(ctx)
-        .timeout(Duration::from_secs(600))
-        .author_id(msg.author.id)
-        .await;
-    // Add reactions
-    let reactions = [
-        "🍋",
-        "🤓",
-        "🤡",
-        "👴",
-        "😱",
-        "🏙️",
-        "🪀",
-        "🆒",
-        "👨‍🌾",
-        "💯",
-        "🤢",
-        "🚅",
-        "✅",
-    ];
-    for &reaction in reactions.iter() {
-        let reaction_type = ReactionType::try_from(reaction).unwrap();
-        response.react(ctx, reaction_type).await?;
-    }
-    // Run collector
-    let mut tags = HashSet::new();
-    while let Some(reaction) = collector.next().await {
-        let tag = if let ReactionType::Unicode(ref reaction) = reaction.as_inner_ref().emoji {
-            match reaction.as_str() {
-                "🍋" => MapsetTag::Easy,
-                "🤓" => MapsetTag::Hard,
-                "🤡" => MapsetTag::Meme,
-                "👴" => MapsetTag::Old,
-                "😱" => MapsetTag::HardName,
-                "🏙️" => MapsetTag::BlueSky,
-                "🪀" => MapsetTag::Alternate,
-                "🆒" => MapsetTag::English,
-                "👨‍🌾" => MapsetTag::Farm,
-                "💯" => MapsetTag::Tech,
-                "🤢" => MapsetTag::Weeb,
-                "🚅" => MapsetTag::Streams,
-                "✅" => break,
-                _ => continue,
+            HOMEPAGE, mapset_id
+        );
+        // Send response
+        let response = msg
+            .channel_id
+            .send_message(ctx, |m| {
+                m.content(content).add_file((img.as_slice(), "bg_img.png"))
+            })
+            .await?;
+        // Setup collector
+        let mut collector = response
+            .await_reactions(ctx)
+            .timeout(Duration::from_secs(600))
+            .author_id(msg.author.id)
+            .removed(true)
+            .await;
+        // Add reactions
+        let reactions = [
+            "🍋",
+            "🤓",
+            "🤡",
+            "👴",
+            "😱",
+            "🏙️",
+            "🪀",
+            "🆒",
+            "👨‍🌾",
+            "💯",
+            "🤢",
+            "🚅",
+            "✅",
+            "❌",
+        ];
+        for &reaction in reactions.iter() {
+            let reaction_type = ReactionType::try_from(reaction).unwrap();
+            response.react(ctx, reaction_type).await?;
+        }
+        let mut break_loop = true;
+        // Run collector
+        let mut tags = HashSet::new();
+        while let Some(reaction) = collector.next().await {
+            let tag = if let ReactionType::Unicode(ref reaction) = reaction.as_inner_ref().emoji {
+                match reaction.as_str() {
+                    "🍋" => MapsetTag::Easy,
+                    "🤓" => MapsetTag::Hard,
+                    "🤡" => MapsetTag::Meme,
+                    "👴" => MapsetTag::Old,
+                    "😱" => MapsetTag::HardName,
+                    "🏙️" => MapsetTag::BlueSky,
+                    "🪀" => MapsetTag::Alternate,
+                    "🆒" => MapsetTag::English,
+                    "👨‍🌾" => MapsetTag::Farm,
+                    "💯" => MapsetTag::Tech,
+                    "🤢" => MapsetTag::Weeb,
+                    "🚅" => MapsetTag::Streams,
+                    "✅" => {
+                        break_loop = false;
+                        break;
+                    }
+                    "❌" => {
+                        msg.channel_id
+                            .say(ctx, "Loop quited, thanks for helping out :)")
+                            .await?;
+                        return Ok(());
+                    }
+                    _ => continue,
+                }
+            } else {
+                continue;
+            };
+            if reaction.is_added() {
+                tags.insert(tag);
+            } else {
+                tags.remove(&tag);
             }
-        } else {
-            continue;
+        }
+        let data = ctx.data.read().await;
+        let mysql = data.get::<MySQL>().unwrap();
+        // Update columns individually
+        let mut result = Ok(());
+        for tag in tags {
+            result = result.and(mysql.set_tag_mapset(mapset_id, tag, true));
+        }
+        // Then show the final tags
+        let result = result.and_then(|_| mysql.get_tags_mapset(mapset_id));
+        match result {
+            Ok(tags) => {
+                msg.channel_id
+                    .say(
+                        ctx,
+                        format!(
+                            "{}beatmapsets/{} is now tagged as:\n{}",
+                            HOMEPAGE, mapset_id, tags,
+                        ),
+                    )
+                    .await?;
+            }
+            Err(why) => {
+                error!("Error while updating bg mapset tag: {}", why);
+                msg.channel_id
+                    .say(ctx, "Some database issue, blame bade")
+                    .await?;
+            }
         };
-        if reaction.is_added() {
-            tags.insert(tag);
-        } else {
-            tags.remove(&tag);
+        if break_loop {
+            break;
         }
     }
-    let data = ctx.data.read().await;
-    let mysql = data.get::<MySQL>().unwrap();
-    // Update columns individually
-    let mut result = Ok(());
-    for tag in tags {
-        result = result.and(mysql.set_tag_mapset(mapset_id, tag, true));
-    }
-    // Then show the final tags
-    let result = result.and_then(|_| mysql.get_tags_mapset(mapset_id));
-    match result {
-        Ok(tags) => {
-            msg.channel_id
-                .say(
-                    ctx,
-                    format!(
-                        "{}beatmapsets/{} is now tagged as:\n{}",
-                        HOMEPAGE, mapset_id, tags,
-                    ),
-                )
-                .await?;
-        }
-        Err(why) => {
-            error!("Error while updating bg mapset tag: {}", why);
-            msg.channel_id
-                .say(ctx, "Some database issue, blame bade")
-                .await?;
-        }
-    };
     Ok(())
 }
 
@@ -347,7 +365,7 @@ impl FromStr for Action {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum MapsetTag {
     Farm,
     Streams,

@@ -20,8 +20,8 @@ pub struct MapsetTagDB {
     pub easy: Option<bool>,
     pub hard: Option<bool>,
     pub tech: Option<bool>,
-    pub bluesky: Option<bool>,
     pub weeb: Option<bool>,
+    pub bluesky: Option<bool>,
     pub english: Option<bool>,
 }
 
@@ -40,8 +40,8 @@ impl MapsetTagDB {
             easy: None,
             hard: None,
             tech: None,
-            bluesky: None,
             weeb: None,
+            bluesky: None,
             english: None,
         }
     }

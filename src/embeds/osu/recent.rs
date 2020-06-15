@@ -133,7 +133,6 @@ impl RecentEmbed {
                 "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
                 map.beatmapset_id
             ),
-
             grade_completion_mods,
             stars: round(pp_provider.stars()),
             score: with_comma_u64(score.score as u64),
@@ -194,7 +193,7 @@ impl EmbedData for RecentEmbed {
     }
     fn minimize<'e>(&self, e: &'e mut CreateEmbed) -> &'e mut CreateEmbed {
         let name = format!(
-            "{}\t{}\t({})\t{}",
+            "{}\t{}\t({}%)\t{}",
             self.grade_completion_mods, self.score, self.acc, self.ago
         );
         let value = format!("{} [ {} ] {}", self.pp, self.combo, self.hits);
