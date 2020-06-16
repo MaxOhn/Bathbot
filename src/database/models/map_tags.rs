@@ -213,7 +213,7 @@ impl fmt::Display for MapsetTags {
         let mut tags = self.tags().into_iter();
         let first_tag = match tags.next() {
             Some(first_tag) => first_tag,
-            None => return Ok(()),
+            None => return write!(f, "None"),
         };
         write!(f, "{:?}", first_tag)?;
         for tag in tags {

@@ -171,7 +171,7 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
         match mysql.get_all_tags_mapset(mode) {
-            Ok(tags) => tags.iter().filter(|tag| tag.untagged()).count() == 0,
+            Ok(tags) => tags.iter().filter(|tag| tag.untagged()).count() > 0,
             Err(why) => {
                 msg.channel_id
                     .say(ctx, "Some database issue, blame bade")
