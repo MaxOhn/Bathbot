@@ -167,16 +167,50 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         },
         Err(_) => GameMode::STD,
     };
+    let untagged = {
+        let data = ctx.data.read().await;
+        let mysql = data.get::<MySQL>().unwrap();
+        match mysql.get_all_tags_mapset(mode) {
+            Ok(tags) => tags.iter().filter(|tag| tag.untagged()).count() == 0,
+            Err(why) => {
+                msg.channel_id
+                    .say(ctx, "Some database issue, blame bade")
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
+            }
+        }
+    };
+    if !untagged {
+        msg.channel_id
+            .say(
+                ctx,
+                "All backgrounds have been tagged, \
+                here are some random ones you can review again though",
+            )
+            .await?;
+    }
     loop {
         // Get all mapsets for which tags are missing
         let missing_tags = {
             let data = ctx.data.read().await;
             let mysql = data.get::<MySQL>().unwrap();
-            match mysql.get_all_tags_mapset(mode) {
-                Ok(tags) => tags
-                    .into_iter()
-                    .filter(|tag| tag.untagged())
-                    .collect::<Vec<_>>(),
+            let tags_result = if untagged {
+                mysql.get_all_tags_mapset(mode)
+            } else {
+                mysql.get_random_tags_mapset(mode).map(|tags| vec![tags])
+            };
+            match tags_result {
+                Ok(tags) => {
+                    if untagged {
+                        tags.into_iter()
+                            .filter(|tag| tag.untagged())
+                            .collect::<Vec<_>>()
+                    } else {
+                        tags
+                    }
+                }
                 Err(why) => {
                     msg.channel_id
                         .say(ctx, "Some database issue, blame bade")
@@ -187,23 +221,15 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                 }
             }
         };
-        if missing_tags.is_empty() {
-            msg.channel_id
-                .say(ctx, "All background entries have been tagged")
-                .await?
-                .reaction_delete(ctx, msg.author.id)
-                .await;
-            return Ok(());
-        }
         let (mapset_id, img) = get_random_image(missing_tags, mode).await;
         let content = format!(
-            "This mapset needs some tags {}beatmapsets/{}\n\
+            "Which tags should this mapsets get: {}beatmapsets/{}\n\
         ```\n\
         🍋: Easy  😱: Hard name  💯: Tech\n\
         🤓: Hard  🏙️: Blue sky   🤢: Weeb\n\
         🤡: Meme  🪀: Alternate  🍨: Kpop\n\
         👴: Old   🆒: English    ✅: Log tags in\n\
-        👨‍🌾: Farm  🚅: Streams    ❌: Exit loop
+        👨‍🌾: Farm  🚅: Streams    ❌: Exit loop\n\
         ```",
             HOMEPAGE, mapset_id
         );

@@ -792,6 +792,17 @@ impl MySQL {
             .load::<MapsetTagDB>(&conn)?;
         Ok(tags.into_iter().map(|tag| tag.into()).collect())
     }
+
+    pub fn get_random_tags_mapset(&self, gamemode: GameMode) -> DBResult<MapsetTags> {
+        use schema::map_tags::columns::mode;
+        no_arg_sql_function!(RAND, (), "sql RAND()");
+        let conn = self.get_connection()?;
+        let tags = schema::map_tags::table
+            .filter(mode.eq(gamemode as u8))
+            .order(RAND)
+            .first::<MapsetTagDB>(&conn)?;
+        Ok(tags.into())
+    }
 }
 
 fn mania_mod_bits(mods: GameMods) -> u32 {
