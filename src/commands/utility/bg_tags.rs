@@ -199,10 +199,11 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let content = format!(
             "This mapset needs some tags {}beatmapsets/{}\n\
         ```\n\
-        🍋: Easy  😱: Hard name  👨‍🌾: Farm\n\
-        🤓: Hard  🏙️: Blue sky   💯: Tech\n\
-        🤡: Meme  🪀: Alternate  🤢: Weeb\n\
-        👴: Old   🆒: English    🚅: Streams\n\
+        🍋: Easy  😱: Hard name  💯: Tech\n\
+        🤓: Hard  🏙️: Blue sky   🤢: Weeb\n\
+        🤡: Meme  🪀: Alternate  🍨: Kpop\n\
+        👴: Old   🆒: English    ✅: Log tags in\n\
+        👨‍🌾: Farm  🚅: Streams    ❌: Exit loop
         ```",
             HOMEPAGE, mapset_id
         );
@@ -226,14 +227,15 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
             "🤓",
             "🤡",
             "👴",
+            "👨‍🌾",
             "😱",
             "🏙️",
             "🪀",
             "🆒",
-            "👨‍🌾",
+            "🚅",
             "💯",
             "🤢",
-            "🚅",
+            "🍨",
             "✅",
             "❌",
         ];
@@ -259,6 +261,7 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                     "💯" => MapsetTag::Tech,
                     "🤢" => MapsetTag::Weeb,
                     "🚅" => MapsetTag::Streams,
+                    "🍨" => MapsetTag::Kpop,
                     "✅" => {
                         break_loop = false;
                         break;
@@ -364,9 +367,10 @@ pub enum MapsetTag {
     Easy,
     Hard,
     Tech,
+    Weeb,
     BlueSky,
     English,
-    Weeb,
+    Kpop,
 }
 
 impl FromStr for MapsetTag {

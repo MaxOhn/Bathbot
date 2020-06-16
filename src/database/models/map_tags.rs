@@ -24,6 +24,7 @@ pub struct MapsetTagDB {
     pub weeb: Option<bool>,
     pub bluesky: Option<bool>,
     pub english: Option<bool>,
+    pub kpop: Option<bool>,
 }
 
 impl MapsetTagDB {
@@ -44,6 +45,7 @@ impl MapsetTagDB {
             weeb: None,
             bluesky: None,
             english: None,
+            kpop: None,
         }
     }
     pub fn with_value(beatmapset_id: u32, tag: MapsetTag, value: bool) -> Self {
@@ -61,6 +63,7 @@ impl MapsetTagDB {
             MapsetTag::Weeb => result.weeb = Some(value),
             MapsetTag::BlueSky => result.bluesky = Some(value),
             MapsetTag::English => result.english = Some(value),
+            MapsetTag::Kpop => result.kpop = Some(value),
         }
         result
     }
@@ -116,6 +119,9 @@ impl MapsetTags {
     pub fn english(&self) -> bool {
         self.tags & 2048 != 0
     }
+    pub fn kpop(&self) -> bool {
+        self.tags & 4096 != 0
+    }
     pub fn tags(&self) -> Vec<MapsetTag> {
         let mut tags = Vec::with_capacity(4);
         if self.farm() {
@@ -154,6 +160,9 @@ impl MapsetTags {
         if self.english() {
             tags.push(MapsetTag::English);
         }
+        if self.kpop() {
+            tags.push(MapsetTag::Kpop);
+        }
         tags
     }
     pub fn has_tag(&self, tag: MapsetTag) -> bool {
@@ -170,6 +179,7 @@ impl MapsetTags {
             MapsetTag::Weeb => self.weeb(),
             MapsetTag::BlueSky => self.bluesky(),
             MapsetTag::English => self.english(),
+            MapsetTag::Kpop => self.kpop(),
         }
     }
 }
@@ -187,7 +197,8 @@ impl From<MapsetTagDB> for MapsetTags {
             + (((Some(true) == tags.tech) as u32) << 8)
             + (((Some(true) == tags.weeb) as u32) << 9)
             + (((Some(true) == tags.bluesky) as u32) << 10)
-            + (((Some(true) == tags.english) as u32) << 11);
+            + (((Some(true) == tags.english) as u32) << 11)
+            + (((Some(true) == tags.kpop) as u32) << 12);
         Self {
             mapset_id: tags.beatmapset_id,
             mode: GameMode::from(tags.mode.unwrap()),

@@ -78,6 +78,7 @@ table! {
         weeb -> Nullable<Bool>,
         bluesky -> Nullable<Bool>,
         english -> Nullable<Bool>,
+        kpop -> Nullable<Bool>,
     }
 }
 

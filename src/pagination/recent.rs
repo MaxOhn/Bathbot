@@ -48,7 +48,7 @@ impl RecentPagination {
         Self {
             msg,
             collector,
-            pages: Pages::new(5, scores.len() + 1),
+            pages: Pages::new(5, scores.len()),
             user,
             scores,
             maps,

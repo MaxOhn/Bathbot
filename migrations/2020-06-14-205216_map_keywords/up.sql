@@ -13,5 +13,6 @@ CREATE TABLE map_tags(
     weeb BOOLEAN DEFAULT false,
     bluesky BOOLEAN DEFAULT false,
     english BOOLEAN DEFAULT false,
+    kpop BOOLEAN DEFAULT false,
     PRIMARY KEY (beatmapset_id)
 )
