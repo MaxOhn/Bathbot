@@ -1,9 +1,9 @@
 mod models;
 mod schema;
 
-use models::{CtbPP, DBMap, GuildDB, ManiaPP, StreamTrackDB};
+use models::{CtbPP, DBMap, GuildDB, ManiaPP, MapsetTagDB, StreamTrackDB};
 pub use models::{
-    DBMapSet, Guild, MapSplit, MapsetTagDB, Platform, Ratios, StreamTrack, TwitchUser,
+    DBMapSet, Guild, MapSplit, MapsetTags, Platform, Ratios, StreamTrack, TwitchUser,
 };
 
 use crate::{
@@ -776,21 +776,21 @@ impl MySQL {
         Ok(())
     }
 
-    pub fn get_tags_mapset(&self, mapset_id: u32) -> DBResult<MapsetTagDB> {
+    pub fn get_tags_mapset(&self, mapset_id: u32) -> DBResult<MapsetTags> {
         let conn = self.get_connection()?;
         let tags = schema::map_tags::table
             .find(mapset_id)
             .first::<MapsetTagDB>(&conn)?;
-        Ok(tags)
+        Ok(tags.into())
     }
 
-    pub fn get_all_tags_mapset(&self, gamemode: GameMode) -> DBResult<Vec<MapsetTagDB>> {
+    pub fn get_all_tags_mapset(&self, gamemode: GameMode) -> DBResult<Vec<MapsetTags>> {
         use schema::map_tags::columns::mode;
         let conn = self.get_connection()?;
         let tags = schema::map_tags::table
             .filter(mode.eq(gamemode as u8))
             .load::<MapsetTagDB>(&conn)?;
-        Ok(tags)
+        Ok(tags.into_iter().map(|tag| tag.into()).collect())
     }
 }
 

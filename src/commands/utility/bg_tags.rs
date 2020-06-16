@@ -1,6 +1,6 @@
 use crate::{
     commands::checks::*,
-    database::MapsetTagDB,
+    database::MapsetTags,
     util::{globals::HOMEPAGE, MessageExt},
     MySQL,
 };
@@ -310,7 +310,7 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     Ok(())
 }
 
-async fn get_random_image(mut missing_tags: Vec<MapsetTagDB>, mode: GameMode) -> (u32, Vec<u8>) {
+async fn get_random_image(mut missing_tags: Vec<MapsetTags>, mode: GameMode) -> (u32, Vec<u8>) {
     let mut path = PathBuf::new();
     path.push(env::var("BG_PATH").unwrap());
     match mode {
@@ -324,14 +324,10 @@ async fn get_random_image(mut missing_tags: Vec<MapsetTagDB>, mode: GameMode) ->
             rng.next_u32() as usize % missing_tags.len()
         };
         let mapset = missing_tags.remove(random_idx);
-        let filename = format!(
-            "{}.{}",
-            mapset.beatmapset_id,
-            mapset.filetype.as_ref().unwrap()
-        );
+        let filename = format!("{}.{}", mapset.mapset_id, mapset.filetype);
         path.push(filename);
         match fs::read(&path).await {
-            Ok(bytes) => return (mapset.beatmapset_id, bytes),
+            Ok(bytes) => return (mapset.mapset_id, bytes),
             Err(why) => {
                 warn!("Error while reading file {}: {}", path.display(), why);
                 path.pop();
