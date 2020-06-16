@@ -140,10 +140,11 @@ async fn bgtagsmanual(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
 }
 
 #[command]
-#[only_in(guilds)]
 #[description = "Let me give you mapsets that still need to be tagged.\n\
-React to them properly, then finish it up by either waiting 10min or react with ✅.\n\
-To leave the loop, react with ❌."]
+React to them properly, then lock it in by reacting with ✅.\n\
+To leave the loop, react with ❌ or just wait 10 minutes.\n\
+Mode can be specified in the first argument, defaults to std."]
+#[usage = "[std / mna]"]
 #[aliases("bgt", "bgtag")]
 async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     // Parse arguments as mode
@@ -188,10 +189,7 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         };
         if missing_tags.is_empty() {
             msg.channel_id
-                .say(
-                    ctx,
-                    "All background entries have been tagged, no untagged one left",
-                )
+                .say(ctx, "All background entries have been tagged")
                 .await?
                 .reaction_delete(ctx, msg.author.id)
                 .await;
@@ -240,8 +238,8 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
             "❌",
         ];
         for &reaction in reactions.iter() {
-            let reaction_type = ReactionType::try_from(reaction).unwrap();
-            response.react(ctx, reaction_type).await?;
+            let reaction = ReactionType::try_from(reaction).unwrap();
+            response.react(ctx, reaction).await?;
         }
         let mut break_loop = true;
         // Run collector
@@ -265,12 +263,7 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                         break_loop = false;
                         break;
                     }
-                    "❌" => {
-                        msg.channel_id
-                            .say(ctx, "Loop quited, thanks for helping out :)")
-                            .await?;
-                        return Ok(());
-                    }
+                    "❌" => break,
                     _ => continue,
                 }
             } else {
@@ -285,23 +278,20 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
         // Update columns individually
-        let mut result = Ok(());
-        for tag in tags {
-            result = result.and(mysql.set_tag_mapset(mapset_id, tag, true));
-        }
+        let result = tags
+            .into_iter()
+            .fold(Ok(()), |result, tag| {
+                result.and(mysql.set_tag_mapset(mapset_id, tag, true))
+            })
+            .and_then(|_| mysql.get_tags_mapset(mapset_id));
         // Then show the final tags
-        let result = result.and_then(|_| mysql.get_tags_mapset(mapset_id));
         match result {
             Ok(tags) => {
-                msg.channel_id
-                    .say(
-                        ctx,
-                        format!(
-                            "{}beatmapsets/{} is now tagged as:\n{}",
-                            HOMEPAGE, mapset_id, tags,
-                        ),
-                    )
-                    .await?;
+                let content = format!(
+                    "{}beatmapsets/{} is now tagged as:\n{}",
+                    HOMEPAGE, mapset_id, tags,
+                );
+                msg.channel_id.say(ctx, content).await?;
             }
             Err(why) => {
                 error!("Error while updating bg mapset tag: {}", why);
@@ -311,6 +301,9 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
             }
         };
         if break_loop {
+            msg.channel_id
+                .say(ctx, "Loop quitted, thanks for helping out :)")
+                .await?;
             break;
         }
     }
@@ -342,7 +335,6 @@ async fn get_random_image(mut missing_tags: Vec<MapsetTagDB>, mode: GameMode) ->
             Err(why) => {
                 warn!("Error while reading file {}: {}", path.display(), why);
                 path.pop();
-                continue;
             }
         }
     }
