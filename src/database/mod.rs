@@ -738,7 +738,7 @@ impl MySQL {
     // Table: bg_verified / map_tags
     // -----------------------------
 
-    pub fn get_bg_verified(&self) -> DBResult<Vec<UserId>> {
+    pub fn get_bg_verified(&self) -> DBResult<HashSet<UserId>> {
         let conn = self.get_connection()?;
         let users = schema::bg_verified::table
             .load::<(u64,)>(&conn)?

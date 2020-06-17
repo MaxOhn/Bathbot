@@ -4,7 +4,7 @@ use crate::{
     commands::checks::*,
     database::MapsetTagWrapper,
     util::{globals::HOMEPAGE, MessageExt},
-    MySQL,
+    BgVerified, MySQL,
 };
 
 use rand::RngCore;
@@ -224,7 +224,7 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
             "Which tags should this mapsets get: {}beatmapsets/{}\n\
         ```\n\
         🍋: Easy  😱: Hard name  🗽: English\n\
-        🤓: Hard  🟦: Blue sky   ♨️: Streams\n\
+        🤓: Hard  🟦: Blue sky   🌀: Streams\n\
         🤡: Meme  💯: Tech       🪀: Alternate\n\
         👴: Old   🎨: Weeb       ✅: Log tags in\n\
         👨‍🌾: Farm  🍨: Kpop       ❌: Exit loop\n\
@@ -239,10 +239,14 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
             })
             .await?;
         // Setup collector
+        let verified_users = {
+            let data = ctx.data.read().await;
+            data.get::<BgVerified>().unwrap().clone()
+        };
         let mut collector = response
             .await_reactions(ctx)
             .timeout(Duration::from_secs(600))
-            .author_id(msg.author.id)
+            .filter(move |reaction| verified_users.contains(&reaction.user_id))
             .removed(true)
             .await;
         // Add reactions
@@ -258,7 +262,7 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
             "🎨",
             "🍨",
             "🗽",
-            "♨️",
+            "🌀",
             "🪀",
             "✅",
             "❌",
@@ -284,7 +288,7 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                     "👨‍🌾" => MapsetTags::Farm,
                     "💯" => MapsetTags::Tech,
                     "🎨" => MapsetTags::Weeb,
-                    "♨️" => MapsetTags::Streams,
+                    "🌀" => MapsetTags::Streams,
                     "🍨" => MapsetTags::Kpop,
                     "✅" => {
                         break_loop = false;

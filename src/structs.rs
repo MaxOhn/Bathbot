@@ -85,5 +85,5 @@ impl TypeMapKey for BgGames {
 
 pub struct BgVerified;
 impl TypeMapKey for BgVerified {
-    type Value = Vec<UserId>;
+    type Value = HashSet<UserId>;
 }
