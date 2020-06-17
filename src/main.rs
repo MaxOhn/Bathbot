@@ -163,6 +163,8 @@ async fn main() {
         .on_dispatch_error(dispatch_error)
         .bucket("songs", |b| b.delay(20).limit(1))
         .await
+        .bucket("bg_start", |b| b.time_span(30).limit(4))
+        .await
         .bucket("bg_bigger", |b| b.time_span(10).limit(3))
         .await
         .bucket("bg_hint", |b| b.time_span(7).limit(3))

@@ -13,7 +13,7 @@ pub struct MostPlayedEmbed {
     author: Author,
     footer: Footer,
     thumbnail: String,
-    title: String,
+    title: &'static str,
 }
 
 impl MostPlayedEmbed {
@@ -37,10 +37,10 @@ impl MostPlayedEmbed {
             );
         }
         Self {
-            description,
             thumbnail,
+            description,
+            title: "Most played maps:",
             author: osu::get_user_author(user),
-            title: "Most played maps:".to_owned(),
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
         }
     }
@@ -60,6 +60,6 @@ impl EmbedData for MostPlayedEmbed {
         Some(&self.thumbnail)
     }
     fn title(&self) -> Option<&str> {
-        Some(&self.title)
+        Some(self.title)
     }
 }

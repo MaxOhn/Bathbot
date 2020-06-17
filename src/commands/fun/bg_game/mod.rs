@@ -53,6 +53,7 @@ async fn backgroundgame(ctx: &Context, msg: &Message, args: Args) -> CommandResu
 
 #[command]
 #[aliases("s", "skip", "resolve", "r")]
+#[bucket = "bg_start"]
 #[sub_commands("mania")]
 async fn start(ctx: &Context, msg: &Message) -> CommandResult {
     let channel = msg.channel_id;

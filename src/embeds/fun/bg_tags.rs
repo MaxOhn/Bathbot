@@ -2,14 +2,13 @@ use crate::{commands::utility::MapsetTags, embeds::EmbedData};
 
 #[derive(Clone)]
 pub struct BGTagsEmbed {
-    title: String,
-    description: Option<String>,
+    title: &'static str,
+    description: Option<&'static str>,
     fields: Vec<(String, String, bool)>,
 }
 
 impl BGTagsEmbed {
     pub fn new(included: MapsetTags, excluded: MapsetTags, amount: usize) -> Self {
-        let title = "Selected tags".to_string();
         let include_value = if !included.is_empty() {
             included.join("\n")
         } else if excluded.is_empty() {
@@ -28,12 +27,12 @@ impl BGTagsEmbed {
             ("#Backgrounds".to_owned(), amount.to_string(), true),
         ];
         let description = if amount == 0 {
-            Some("No stored backgrounds match these tags, try different ones".to_owned())
+            Some("No stored backgrounds match these tags, try different ones")
         } else {
             None
         };
         Self {
-            title,
+            title: "Selected tags",
             fields,
             description,
         }
@@ -42,10 +41,10 @@ impl BGTagsEmbed {
 
 impl EmbedData for BGTagsEmbed {
     fn title(&self) -> Option<&str> {
-        Some(&self.title)
+        Some(self.title)
     }
     fn description(&self) -> Option<&str> {
-        self.description.as_deref()
+        self.description
     }
     fn fields(&self) -> Option<Vec<(String, String, bool)>> {
         Some(self.fields.clone())

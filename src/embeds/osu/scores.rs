@@ -15,7 +15,7 @@ use std::fmt::Write;
 
 #[derive(Clone)]
 pub struct ScoresEmbed {
-    description: Option<String>,
+    description: Option<&'static str>,
     fields: Vec<(String, String, bool)>,
     thumbnail: String,
     footer: Footer,
@@ -35,7 +35,7 @@ impl ScoresEmbed {
         D: CacheData,
     {
         let description = if scores.is_empty() {
-            Some("No scores found".to_string())
+            Some("No scores found")
         } else {
             None
         };
@@ -104,7 +104,7 @@ impl ScoresEmbed {
 
 impl EmbedData for ScoresEmbed {
     fn description(&self) -> Option<&str> {
-        self.description.as_deref()
+        self.description
     }
     fn fields(&self) -> Option<Vec<(String, String, bool)>> {
         Some(self.fields.clone())

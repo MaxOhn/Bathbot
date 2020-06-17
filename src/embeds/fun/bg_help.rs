@@ -2,31 +2,32 @@ use crate::embeds::EmbedData;
 
 #[derive(Clone)]
 pub struct BGHelpEmbed {
-    title: String,
-    description: String,
+    title: &'static str,
+    description: &'static str,
     fields: Vec<(String, String, bool)>,
 }
 
 impl BGHelpEmbed {
     pub fn new() -> Self {
-        let title = "Background guessing game".to_string();
         let description = "Given part of a map's background, \
             try to guess the **title** of the map's song.\n\
             Content in parentheses `(...)` or content after `ft.` or `feat.` \
             will be removed from the title you need to guess.\n\
-            You don't need to guess spot on, it suffices to get close enough.\n\
-            Use these subcommands to initiate with the game:"
-            .to_owned();
+            Use these subcommands to initiate with the game:";
         let fields = vec![
             (
                 "start / s / skip / resolve / r".to_owned(),
-                "Start the game in the current channel. \
-                If a game is already running, \
-                it will resolve the background and give a new one.\n\
+                "Start the game in the current channel.\n\
+                If no game is running yet, you get to choose which kind \
+                of backgrounds you need to guess.\n\
+                React to require a tag, or react-unreact to exclude a tag.\n\
+                If no tag is chosen, all backgrounds will be selected.\n\
+                If a game was already running, it will resolve the current \
+                background and give a new one with the same tag specs.\n\
                 For the mania version, **start** a game with \
                 the additional argument `mania` or just `m` e.g. `<bg s m`. \
                 Once the mania game is running, you can skip with `<bg s`.\n\
-                To go from STD to MNA or vice versa, make sure to `<bg stop` first."
+                To change mode or tags, be sure to `<bg stop` first."
                     .to_owned(),
                 false,
             ),
@@ -65,21 +66,21 @@ impl BGHelpEmbed {
             ),
         ];
         Self {
-            title,
-            description,
             fields,
+            description,
+            title: "Background guessing game",
         }
     }
 }
 
 impl EmbedData for BGHelpEmbed {
     fn title(&self) -> Option<&str> {
-        Some(&self.title)
+        Some(self.title)
+    }
+    fn description(&self) -> Option<&str> {
+        Some(self.description)
     }
     fn fields(&self) -> Option<Vec<(String, String, bool)>> {
         Some(self.fields.clone())
-    }
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
     }
 }
