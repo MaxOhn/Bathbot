@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "bathbot",
-            "type": "cppvsdbg",
+            "type": "lldb",
             "request": "launch",
             "program": "${workspaceFolder}/target/debug/bathbot.exe",
             "args": [],

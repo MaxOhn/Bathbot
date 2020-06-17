@@ -1,8 +1,8 @@
 use super::{super::schema::map_tags, beatmap::DBMapSet};
-use crate::commands::utility::MapsetTag;
+use crate::commands::utility::MapsetTags;
 
 use rosu::models::GameMode;
-use std::fmt;
+use std::{fmt, ops::Deref};
 
 #[derive(Default, Debug, Clone, Identifiable, Queryable, Associations, Insertable, AsChangeset)]
 #[table_name = "map_tags"]
@@ -48,143 +48,78 @@ impl MapsetTagDB {
             kpop: None,
         }
     }
-    pub fn with_value(beatmapset_id: u32, tag: MapsetTag, value: bool) -> Self {
+    pub fn with_value(beatmapset_id: u32, tags: MapsetTags, value: bool) -> Self {
         let mut result = Self::new(beatmapset_id);
-        match tag {
-            MapsetTag::Farm => result.farm = Some(value),
-            MapsetTag::Streams => result.streams = Some(value),
-            MapsetTag::Alternate => result.alternate = Some(value),
-            MapsetTag::Old => result.old = Some(value),
-            MapsetTag::Meme => result.meme = Some(value),
-            MapsetTag::HardName => result.hardname = Some(value),
-            MapsetTag::Easy => result.easy = Some(value),
-            MapsetTag::Hard => result.hard = Some(value),
-            MapsetTag::Tech => result.tech = Some(value),
-            MapsetTag::Weeb => result.weeb = Some(value),
-            MapsetTag::BlueSky => result.bluesky = Some(value),
-            MapsetTag::English => result.english = Some(value),
-            MapsetTag::Kpop => result.kpop = Some(value),
+        if tags.contains(MapsetTags::Farm) {
+            result.farm = Some(value);
+        }
+        if tags.contains(MapsetTags::Streams) {
+            result.streams = Some(value);
+        }
+        if tags.contains(MapsetTags::Alternate) {
+            result.alternate = Some(value);
+        }
+        if tags.contains(MapsetTags::Old) {
+            result.old = Some(value);
+        }
+        if tags.contains(MapsetTags::Meme) {
+            result.meme = Some(value);
+        }
+        if tags.contains(MapsetTags::HardName) {
+            result.hardname = Some(value);
+        }
+        if tags.contains(MapsetTags::Easy) {
+            result.easy = Some(value);
+        }
+        if tags.contains(MapsetTags::Hard) {
+            result.hard = Some(value);
+        }
+        if tags.contains(MapsetTags::Tech) {
+            result.tech = Some(value);
+        }
+        if tags.contains(MapsetTags::Weeb) {
+            result.weeb = Some(value);
+        }
+        if tags.contains(MapsetTags::BlueSky) {
+            result.bluesky = Some(value);
+        }
+        if tags.contains(MapsetTags::English) {
+            result.english = Some(value);
+        }
+        if tags.contains(MapsetTags::Kpop) {
+            result.kpop = Some(value);
         }
         result
     }
 }
 
-pub struct MapsetTags {
+pub struct MapsetTagWrapper {
     pub mapset_id: u32,
     pub mode: GameMode,
     pub filetype: String,
-    tags: u32,
+    tags: MapsetTags,
 }
 
-impl MapsetTags {
+impl Deref for MapsetTagWrapper {
+    type Target = MapsetTags;
+    fn deref(&self) -> &Self::Target {
+        &self.tags
+    }
+}
+
+impl MapsetTagWrapper {
     pub fn untagged(&self) -> bool {
-        self.tags == 0
+        self.tags.is_empty()
     }
     pub fn any(&self) -> bool {
-        self.tags != 0
+        !self.tags.is_empty()
     }
-    pub fn farm(&self) -> bool {
-        self.tags & 1 != 0
-    }
-    pub fn streams(&self) -> bool {
-        self.tags & 2 != 0
-    }
-    pub fn alternate(&self) -> bool {
-        self.tags & 4 != 0
-    }
-    pub fn old(&self) -> bool {
-        self.tags & 8 != 0
-    }
-    pub fn meme(&self) -> bool {
-        self.tags & 16 != 0
-    }
-    pub fn hardname(&self) -> bool {
-        self.tags & 32 != 0
-    }
-    pub fn easy(&self) -> bool {
-        self.tags & 64 != 0
-    }
-    pub fn hard(&self) -> bool {
-        self.tags & 128 != 0
-    }
-    pub fn tech(&self) -> bool {
-        self.tags & 256 != 0
-    }
-    pub fn weeb(&self) -> bool {
-        self.tags & 512 != 0
-    }
-    pub fn bluesky(&self) -> bool {
-        self.tags & 1024 != 0
-    }
-    pub fn english(&self) -> bool {
-        self.tags & 2048 != 0
-    }
-    pub fn kpop(&self) -> bool {
-        self.tags & 4096 != 0
-    }
-    pub fn tags(&self) -> Vec<MapsetTag> {
-        let mut tags = Vec::with_capacity(4);
-        if self.farm() {
-            tags.push(MapsetTag::Farm);
-        }
-        if self.streams() {
-            tags.push(MapsetTag::Streams);
-        }
-        if self.alternate() {
-            tags.push(MapsetTag::Alternate);
-        }
-        if self.old() {
-            tags.push(MapsetTag::Old);
-        }
-        if self.meme() {
-            tags.push(MapsetTag::Meme);
-        }
-        if self.hardname() {
-            tags.push(MapsetTag::HardName);
-        }
-        if self.easy() {
-            tags.push(MapsetTag::Easy);
-        }
-        if self.hard() {
-            tags.push(MapsetTag::Hard);
-        }
-        if self.tech() {
-            tags.push(MapsetTag::Tech);
-        }
-        if self.weeb() {
-            tags.push(MapsetTag::Weeb);
-        }
-        if self.bluesky() {
-            tags.push(MapsetTag::BlueSky);
-        }
-        if self.english() {
-            tags.push(MapsetTag::English);
-        }
-        if self.kpop() {
-            tags.push(MapsetTag::Kpop);
-        }
-        tags
-    }
-    pub fn has_tag(&self, tag: MapsetTag) -> bool {
-        match tag {
-            MapsetTag::Farm => self.farm(),
-            MapsetTag::Streams => self.streams(),
-            MapsetTag::Alternate => self.alternate(),
-            MapsetTag::Old => self.old(),
-            MapsetTag::Meme => self.meme(),
-            MapsetTag::HardName => self.hardname(),
-            MapsetTag::Easy => self.easy(),
-            MapsetTag::Hard => self.hard(),
-            MapsetTag::Tech => self.tech(),
-            MapsetTag::Weeb => self.weeb(),
-            MapsetTag::BlueSky => self.bluesky(),
-            MapsetTag::English => self.english(),
-            MapsetTag::Kpop => self.kpop(),
-        }
+    pub fn has_tags(&self, tags: MapsetTags) -> bool {
+        self.contains(tags)
     }
 }
 
-impl From<MapsetTagDB> for MapsetTags {
+impl From<MapsetTagDB> for MapsetTagWrapper {
     fn from(tags: MapsetTagDB) -> Self {
         let bits = (Some(true) == tags.farm) as u32
             + (((Some(true) == tags.streams) as u32) << 1)
@@ -203,14 +138,14 @@ impl From<MapsetTagDB> for MapsetTags {
             mapset_id: tags.beatmapset_id,
             mode: GameMode::from(tags.mode.unwrap()),
             filetype: tags.filetype.unwrap(),
-            tags: bits,
+            tags: MapsetTags::from_bits(bits).unwrap(),
         }
     }
 }
 
-impl fmt::Display for MapsetTags {
+impl fmt::Display for MapsetTagWrapper {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut tags = self.tags().into_iter();
+        let mut tags = self.tags.into_iter();
         let first_tag = match tags.next() {
             Some(first_tag) => first_tag,
             None => return write!(f, "None"),

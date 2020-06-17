@@ -1,6 +1,8 @@
+#![allow(non_upper_case_globals)]
+
 use crate::{
     commands::checks::*,
-    database::MapsetTags,
+    database::MapsetTagWrapper,
     util::{globals::HOMEPAGE, MessageExt},
     MySQL,
 };
@@ -12,10 +14,7 @@ use serenity::{
     model::channel::{Message, ReactionType},
     prelude::Context,
 };
-use std::{
-    collections::HashSet, convert::TryFrom, env, hash::Hash, path::PathBuf, str::FromStr,
-    time::Duration,
-};
+use std::{convert::TryFrom, env, hash::Hash, path::PathBuf, str::FromStr, time::Duration};
 use tokio::{fs, stream::StreamExt};
 
 #[command]
@@ -84,10 +83,10 @@ async fn bgtagsmanual(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
         }
     };
     // Parse tags
-    let mut tags = Vec::new();
+    let mut tags = MapsetTags::empty();
     while !args.is_empty() {
-        match args.single::<MapsetTag>() {
-            Ok(tag) => tags.push(tag),
+        match args.single::<MapsetTags>() {
+            Ok(tag) => tags.insert(tag),
             Err(tag) => {
                 msg.channel_id
                     .say(
@@ -109,14 +108,13 @@ async fn bgtagsmanual(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
     }
     let data = ctx.data.read().await;
     let mysql = data.get::<MySQL>().unwrap();
-    // Update columns individually
-    let mut result = Ok(());
-    for tag in tags {
-        result = result.and(mysql.set_tag_mapset(mapset_id, tag, action == Action::Add));
-    }
+    let result = if tags.is_empty() {
+        Ok(())
+    } else {
+        mysql.set_tags_mapset(mapset_id, tags, action == Action::Add)
+    };
     // Then show the final tags
-    let result = result.and_then(|_| mysql.get_tags_mapset(mapset_id));
-    let response = match result {
+    let response = match result.and_then(|_| mysql.get_tags_mapset(mapset_id)) {
         Ok(tags) => {
             msg.channel_id
                 .say(
@@ -193,7 +191,7 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     }
     loop {
         // Get all mapsets for which tags are missing
-        let missing_tags = {
+        let mapsets = {
             let data = ctx.data.read().await;
             let mysql = data.get::<MySQL>().unwrap();
             let tags_result = if untagged {
@@ -221,15 +219,15 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                 }
             }
         };
-        let (mapset_id, img) = get_random_image(missing_tags, mode).await;
+        let (mapset_id, img) = get_random_image(mapsets, mode).await;
         let content = format!(
             "Which tags should this mapsets get: {}beatmapsets/{}\n\
         ```\n\
-        🍋: Easy  😱: Hard name  💯: Tech\n\
-        🤓: Hard  🏙️: Blue sky   🤢: Weeb\n\
-        🤡: Meme  🪀: Alternate  🍨: Kpop\n\
-        👴: Old   🆒: English    ✅: Log tags in\n\
-        👨‍🌾: Farm  🚅: Streams    ❌: Exit loop\n\
+        🍋: Easy  😱: Hard name  🗽: English\n\
+        🤓: Hard  🟦: Blue sky   ♨️: Streams\n\
+        🤡: Meme  💯: Tech       🪀: Alternate\n\
+        👴: Old   🎨: Weeb       ✅: Log tags in\n\
+        👨‍🌾: Farm  🍨: Kpop       ❌: Exit loop\n\
         ```",
             HOMEPAGE, mapset_id
         );
@@ -255,13 +253,13 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
             "👴",
             "👨‍🌾",
             "😱",
-            "🏙️",
-            "🪀",
-            "🆒",
-            "🚅",
+            "🟦",
             "💯",
-            "🤢",
+            "🎨",
             "🍨",
+            "🗽",
+            "♨️",
+            "🪀",
             "✅",
             "❌",
         ];
@@ -271,23 +269,23 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         }
         let mut break_loop = true;
         // Run collector
-        let mut tags = HashSet::new();
+        let mut tags = MapsetTags::empty();
         while let Some(reaction) = collector.next().await {
             let tag = if let ReactionType::Unicode(ref reaction) = reaction.as_inner_ref().emoji {
                 match reaction.as_str() {
-                    "🍋" => MapsetTag::Easy,
-                    "🤓" => MapsetTag::Hard,
-                    "🤡" => MapsetTag::Meme,
-                    "👴" => MapsetTag::Old,
-                    "😱" => MapsetTag::HardName,
-                    "🏙️" => MapsetTag::BlueSky,
-                    "🪀" => MapsetTag::Alternate,
-                    "🆒" => MapsetTag::English,
-                    "👨‍🌾" => MapsetTag::Farm,
-                    "💯" => MapsetTag::Tech,
-                    "🤢" => MapsetTag::Weeb,
-                    "🚅" => MapsetTag::Streams,
-                    "🍨" => MapsetTag::Kpop,
+                    "🍋" => MapsetTags::Easy,
+                    "🤓" => MapsetTags::Hard,
+                    "🤡" => MapsetTags::Meme,
+                    "👴" => MapsetTags::Old,
+                    "😱" => MapsetTags::HardName,
+                    "🟦" => MapsetTags::BlueSky,
+                    "🪀" => MapsetTags::Alternate,
+                    "🗽" => MapsetTags::English,
+                    "👨‍🌾" => MapsetTags::Farm,
+                    "💯" => MapsetTags::Tech,
+                    "🎨" => MapsetTags::Weeb,
+                    "♨️" => MapsetTags::Streams,
+                    "🍨" => MapsetTags::Kpop,
                     "✅" => {
                         break_loop = false;
                         break;
@@ -301,20 +299,18 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
             if reaction.is_added() {
                 tags.insert(tag);
             } else {
-                tags.remove(&tag);
+                tags.remove(tag);
             }
         }
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        // Update columns individually
-        let result = tags
-            .into_iter()
-            .fold(Ok(()), |result, tag| {
-                result.and(mysql.set_tag_mapset(mapset_id, tag, true))
-            })
-            .and_then(|_| mysql.get_tags_mapset(mapset_id));
+        let result = if tags.is_empty() {
+            Ok(())
+        } else {
+            mysql.set_tags_mapset(mapset_id, tags, true)
+        };
         // Then show the final tags
-        match result {
+        match result.and_then(|_| mysql.get_tags_mapset(mapset_id)) {
             Ok(tags) => {
                 let content = format!(
                     "{}beatmapsets/{} is now tagged as:\n{}",
@@ -339,7 +335,7 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     Ok(())
 }
 
-async fn get_random_image(mut missing_tags: Vec<MapsetTags>, mode: GameMode) -> (u32, Vec<u8>) {
+async fn get_random_image(mut mapsets: Vec<MapsetTagWrapper>, mode: GameMode) -> (u32, Vec<u8>) {
     let mut path = PathBuf::new();
     path.push(env::var("BG_PATH").unwrap());
     match mode {
@@ -350,9 +346,9 @@ async fn get_random_image(mut missing_tags: Vec<MapsetTags>, mode: GameMode) -> 
     loop {
         let random_idx = {
             let mut rng = rand::thread_rng();
-            rng.next_u32() as usize % missing_tags.len()
+            rng.next_u32() as usize % mapsets.len()
         };
-        let mapset = missing_tags.remove(random_idx);
+        let mapset = mapsets.remove(random_idx);
         let filename = format!("{}.{}", mapset.mapset_id, mapset.filetype);
         path.push(filename);
         match fs::read(&path).await {
@@ -382,24 +378,31 @@ impl FromStr for Action {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum MapsetTag {
-    Farm,
-    Streams,
-    Alternate,
-    Old,
-    Meme,
-    HardName,
-    Easy,
-    Hard,
-    Tech,
-    Weeb,
-    BlueSky,
-    English,
-    Kpop,
+bitflags! {
+    pub struct MapsetTags: u32 {
+        const Farm = 1;
+        const Streams = 2;
+        const Alternate = 4;
+        const Old = 8;
+        const Meme = 16;
+        const HardName = 32;
+        const Easy = 64;
+        const Hard = 128;
+        const Tech = 256;
+        const Weeb = 512;
+        const BlueSky = 1024;
+        const English = 2048;
+        const Kpop = 4096;
+    }
 }
 
-impl FromStr for MapsetTag {
+impl Default for MapsetTags {
+    fn default() -> Self {
+        Self::all()
+    }
+}
+
+impl FromStr for MapsetTags {
     type Err = String;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let result = match value.to_lowercase().as_str() {
@@ -418,5 +421,41 @@ impl FromStr for MapsetTag {
             other => return Err(other.to_owned()),
         };
         Ok(result)
+    }
+}
+
+pub struct IntoIter {
+    tags: MapsetTags,
+    shift: usize,
+}
+
+impl Iterator for IntoIter {
+    type Item = MapsetTags;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.tags.is_empty() {
+            None
+        } else {
+            loop {
+                if self.shift == 32 {
+                    return None;
+                }
+                let bit = 1 << self.shift;
+                self.shift += 1;
+                if self.tags.bits & bit != 0 {
+                    return MapsetTags::from_bits(bit);
+                }
+            }
+        }
+    }
+}
+
+impl IntoIterator for MapsetTags {
+    type Item = MapsetTags;
+    type IntoIter = IntoIter;
+    fn into_iter(self) -> IntoIter {
+        IntoIter {
+            tags: self,
+            shift: 0,
+        }
     }
 }

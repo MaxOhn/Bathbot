@@ -3,11 +3,11 @@ mod schema;
 
 use models::{CtbPP, DBMap, GuildDB, ManiaPP, MapsetTagDB, StreamTrackDB};
 pub use models::{
-    DBMapSet, Guild, MapSplit, MapsetTags, Platform, Ratios, StreamTrack, TwitchUser,
+    DBMapSet, Guild, MapSplit, MapsetTagWrapper, Platform, Ratios, StreamTrack, TwitchUser,
 };
 
 use crate::{
-    commands::utility::MapsetTag,
+    commands::utility::MapsetTags,
     util::{globals::AUTHORITY_ROLES, Error},
 };
 
@@ -766,7 +766,7 @@ impl MySQL {
         Ok(())
     }
 
-    pub fn set_tag_mapset(&self, mapset_id: u32, tag: MapsetTag, value: bool) -> DBResult<()> {
+    pub fn set_tags_mapset(&self, mapset_id: u32, tag: MapsetTags, value: bool) -> DBResult<()> {
         use schema::map_tags::columns::beatmapset_id;
         let conn = self.get_connection()?;
         let entry = MapsetTagDB::with_value(mapset_id, tag, value);
@@ -776,7 +776,7 @@ impl MySQL {
         Ok(())
     }
 
-    pub fn get_tags_mapset(&self, mapset_id: u32) -> DBResult<MapsetTags> {
+    pub fn get_tags_mapset(&self, mapset_id: u32) -> DBResult<MapsetTagWrapper> {
         let conn = self.get_connection()?;
         let tags = schema::map_tags::table
             .find(mapset_id)
@@ -784,7 +784,7 @@ impl MySQL {
         Ok(tags.into())
     }
 
-    pub fn get_all_tags_mapset(&self, gamemode: GameMode) -> DBResult<Vec<MapsetTags>> {
+    pub fn get_all_tags_mapset(&self, gamemode: GameMode) -> DBResult<Vec<MapsetTagWrapper>> {
         use schema::map_tags::columns::mode;
         let conn = self.get_connection()?;
         let tags = schema::map_tags::table
@@ -793,7 +793,7 @@ impl MySQL {
         Ok(tags.into_iter().map(|tag| tag.into()).collect())
     }
 
-    pub fn get_random_tags_mapset(&self, gamemode: GameMode) -> DBResult<MapsetTags> {
+    pub fn get_random_tags_mapset(&self, gamemode: GameMode) -> DBResult<MapsetTagWrapper> {
         use schema::map_tags::columns::mode;
         no_arg_sql_function!(RAND, (), "sql RAND()");
         let conn = self.get_connection()?;

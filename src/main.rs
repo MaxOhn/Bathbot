@@ -20,9 +20,11 @@ use structs::*;
 pub use util::{discord::get_member, Error, MessageExt};
 
 #[macro_use]
-extern crate log;
+extern crate bitflags;
 #[macro_use]
 extern crate diesel;
+#[macro_use]
+extern crate log;
 
 use chrono::{Local, Utc};
 use fern::colors::{Color, ColoredLevelConfig};

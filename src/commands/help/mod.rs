@@ -251,40 +251,6 @@ async fn send_single_command_embed(
         .await
 }
 
-async fn check_common_behaviour<'a>(
-    cache: impl AsRef<Cache>,
-    msg: &Message,
-    options: &impl CommonOptions,
-    owners: &HashSet<UserId>,
-    help_options: &HelpOptions,
-) -> HelpBehaviour {
-    if !options.help_available() {
-        return HelpBehaviour::Hide;
-    }
-    if options.only_in() == OnlyIn::Dm && !msg.is_private()
-        || options.only_in() == OnlyIn::Guild && msg.is_private()
-    {
-        return help_options.wrong_channel;
-    }
-    if options.owners_only() && !owners.contains(&msg.author.id) {
-        return help_options.lacking_ownership;
-    }
-    if options.owner_privilege() && owners.contains(&msg.author.id) {
-        return HelpBehaviour::Nothing;
-    }
-    if !has_correct_permissions(&cache, options, msg).await {
-        return help_options.lacking_permissions;
-    }
-    if let Some(guild) = msg.guild(&cache).await {
-        if let Some(member) = guild.members.get(&msg.author.id) {
-            if !has_correct_roles(options, &guild.roles, &member) {
-                return help_options.lacking_role;
-            }
-        }
-    }
-    HelpBehaviour::Nothing
-}
-
 async fn nested_group_command_search<'rec, 'a: 'rec>(
     ctx: &'rec Context,
     msg: &'rec Message,
@@ -490,7 +456,6 @@ async fn fetch_all_eligible_commands_in_group<'rec, 'a: 'rec>(
             _ => {
                 let name = format_command_name!(&group_behaviour, &name);
                 group_with_cmds.command_names.push(name);
-
                 continue;
             }
         }
@@ -556,6 +521,40 @@ async fn check_cmd_behaviour<'a>(
         }
     }
     b
+}
+
+async fn check_common_behaviour<'a>(
+    cache: impl AsRef<Cache>,
+    msg: &Message,
+    options: &impl CommonOptions,
+    owners: &HashSet<UserId>,
+    help_options: &HelpOptions,
+) -> HelpBehaviour {
+    if !options.help_available() {
+        return HelpBehaviour::Hide;
+    }
+    if options.only_in() == OnlyIn::Dm && !msg.is_private()
+        || options.only_in() == OnlyIn::Guild && msg.is_private()
+    {
+        return help_options.wrong_channel;
+    }
+    if options.owners_only() && !owners.contains(&msg.author.id) {
+        return help_options.lacking_ownership;
+    }
+    if options.owner_privilege() && owners.contains(&msg.author.id) {
+        return HelpBehaviour::Nothing;
+    }
+    if !has_correct_permissions(&cache, options, msg).await {
+        return help_options.lacking_permissions;
+    }
+    if let Some(guild) = msg.guild(&cache).await {
+        if let Some(member) = guild.members.get(&msg.author.id) {
+            if !has_correct_roles(options, &guild.roles, &member) {
+                return help_options.lacking_role;
+            }
+        }
+    }
+    HelpBehaviour::Nothing
 }
 
 async fn has_correct_permissions(

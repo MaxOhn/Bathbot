@@ -10,6 +10,6 @@ pub use beatmap::{DBMap, DBMapSet, MapSplit};
 pub use ctb_pp::CtbPP;
 pub use guild::{Guild, GuildDB};
 pub use mania_pp::ManiaPP;
-pub use map_tags::{MapsetTagDB, MapsetTags};
+pub use map_tags::{MapsetTagDB, MapsetTagWrapper};
 pub use ratios::Ratios;
 pub use streams::{Platform, StreamTrack, StreamTrackDB, TwitchUser};
