@@ -145,15 +145,6 @@ impl From<MapsetTagDB> for MapsetTagWrapper {
 
 impl fmt::Display for MapsetTagWrapper {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut tags = self.tags.into_iter();
-        let first_tag = match tags.next() {
-            Some(first_tag) => first_tag,
-            None => return write!(f, "None"),
-        };
-        write!(f, "{:?}", first_tag)?;
-        for tag in tags {
-            write!(f, ", {:?}", tag)?;
-        }
-        Ok(())
+        write!(f, "{}", self.tags.join(", "))
     }
 }

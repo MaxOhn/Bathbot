@@ -1,16 +1,16 @@
 use super::{util, Hints, ImageReveal};
-use crate::{BgGames, Error, MySQL};
+use crate::{database::MapsetTagWrapper, util::globals::HOMEPAGE, BgGames, Error, MySQL};
 
-use image::{imageops::FilterType, GenericImageView, ImageFormat};
+use image::{imageops::FilterType, GenericImageView};
 use rosu::models::GameMode;
 use serenity::{
-    collector::MessageCollector,
+    collector::{MessageCollector, MessageCollectorBuilder},
     framework::standard::CommandResult,
     http::client::Http,
     model::id::ChannelId,
-    prelude::{RwLock, TypeMap},
+    prelude::{Context, RwLock, TypeMap},
 };
-use std::{collections::VecDeque, env, fmt::Write, path::PathBuf, str::FromStr, sync::Arc};
+use std::{collections::VecDeque, env, fmt::Write, path::PathBuf, sync::Arc};
 use tokio::{
     fs,
     stream::StreamExt,
@@ -21,18 +21,16 @@ use tokio::{
 // Everything in here is coded horribly :(
 pub struct BackGroundGame {
     pub game: Arc<RwLock<GameData>>,
-    pub mode: GameMode,
     tx: Sender<LoopResult>,
     rx: Receiver<LoopResult>,
 }
 
 impl BackGroundGame {
-    pub async fn new(mode: GameMode) -> Self {
+    pub async fn new() -> Self {
         let (tx, mut rx) = channel(LoopResult::Restart);
         let _ = rx.recv().await; // zzz
         Self {
             game: Arc::new(RwLock::new(GameData::default())),
-            mode,
             tx,
             rx,
         }
@@ -62,23 +60,22 @@ impl BackGroundGame {
         game.hint()
     }
 
-    pub fn start(
-        &self,
-        mut collector: MessageCollector,
-        channel: ChannelId,
-        data: Arc<RwLock<TypeMap>>,
-        http: Arc<Http>,
-    ) {
+    pub async fn start(&self, ctx: &Context, channel: ChannelId, mapsets: Vec<MapsetTagWrapper>) {
+        let mut collector = MessageCollectorBuilder::new(ctx)
+            .channel_id(channel)
+            .filter(|msg| !msg.author.bot)
+            .await;
         let game_lock = Arc::clone(&self.game);
-        let mode = self.mode;
         let mut rx = self.rx.clone();
+        let data = Arc::clone(&ctx.data);
+        let http = Arc::clone(&ctx.http);
         tokio::spawn(async move {
             let mut previous_ids = VecDeque::with_capacity(100);
             loop {
                 // Initialize game
                 let img = {
                     let mut game = game_lock.write().await;
-                    game.restart_with_img(Arc::clone(&data), &mut previous_ids, mode)
+                    game.restart_with_img(Arc::clone(&data), &mapsets, &mut previous_ids)
                         .await
                 };
                 let _ = channel
@@ -104,8 +101,8 @@ impl BackGroundGame {
                         // Send message
                         let game = game_lock.read().await;
                         let content = format!(
-                            "Full background: https://osu.ppy.sh/beatmapsets/{}",
-                            game.mapset_id
+                            "Full background: {}beatmapsets/{}",
+                            HOMEPAGE, game.mapset_id
                         );
                         let _ = game.resolve(&http, channel, content).await;
                     }
@@ -113,9 +110,9 @@ impl BackGroundGame {
                         // Send message
                         let game = game_lock.read().await;
                         let content = format!(
-                            "Full background: https://osu.ppy.sh/beatmapsets/{}\n\
+                            "Full background: {}beatmapsets/{}\n\
                             End of game, see you next time o/",
-                            game.mapset_id
+                            HOMEPAGE, game.mapset_id
                         );
                         let _ = game.resolve(&http, channel, content).await;
                         // Then quit
@@ -132,10 +129,12 @@ impl BackGroundGame {
                         break;
                     }
                     LoopResult::Winner(user_id) => {
-                        let data = data.read().await;
-                        let mysql = data.get::<MySQL>().unwrap();
-                        if let Err(why) = mysql.increment_bggame_score(user_id) {
-                            error!("Error while incrementing bggame score: {}", why);
+                        if mapsets.len() >= 10 {
+                            let data = data.read().await;
+                            let mysql = data.get::<MySQL>().unwrap();
+                            if let Err(why) = mysql.increment_bggame_score(user_id) {
+                                error!("Error while incrementing bggame score: {}", why);
+                            }
                         }
                     }
                 }
@@ -171,8 +170,8 @@ async fn game_loop(
                 };
                 let _ = write!(
                     content,
-                    " \\:)\nMapset: https://osu.ppy.sh/beatmapsets/{}",
-                    game.mapset_id
+                    " \\:)\nMapset: {}beatmapsets/{}",
+                    HOMEPAGE, game.mapset_id
                 );
                 // Send message
                 let _ = game.resolve(&http, channel, content).await;
@@ -258,28 +257,22 @@ impl GameData {
     async fn restart(
         &mut self,
         data: Arc<RwLock<TypeMap>>,
+        mapsets: &[MapsetTagWrapper],
         previous_ids: &mut VecDeque<u32>,
-        mode: GameMode,
     ) -> Result<(), Error> {
         let mut path = PathBuf::from(env::var("BG_PATH")?);
-        match mode {
+        match mapsets[0].mode {
             GameMode::STD => path.push("osu"),
             GameMode::MNA => path.push("mania"),
             GameMode::TKO | GameMode::CTB => panic!("TKO and CTB not yet supported as bg game"),
         }
-        let file_name = util::get_random_filename(previous_ids, mode, &path).await?;
-        let mut split = file_name.split('.');
-        let mapset_id = u32::from_str(split.next().unwrap()).unwrap();
-        debug!("Next BG mapset id: {}", mapset_id);
-        let (title, artist) = util::get_title_artist(mapset_id, &data).await?;
-        let file_type = match split.next().unwrap() {
-            "png" => ImageFormat::Png,
-            "jpg" | "jpeg" => ImageFormat::Jpeg,
-            t => panic!("Can't read file type {}", t),
-        };
-        path.push(file_name);
+        let mapset = util::get_random_mapset(mapsets, previous_ids).await?;
+        debug!("Next BG mapset id: {}", mapset.mapset_id);
+        let (title, artist) = util::get_title_artist(mapset.mapset_id, &data).await?;
+        let filename = format!("{}.{}", mapset.mapset_id, mapset.filetype);
+        path.push(filename);
         let img_vec = fs::read(path).await?;
-        let mut img = image::load_from_memory_with_format(&img_vec, file_type)?;
+        let mut img = image::load_from_memory(&img_vec)?;
         let (w, h) = img.dimensions();
         // 800*600 (4:3)
         if w * h > 480_000 {
@@ -288,7 +281,7 @@ impl GameData {
         self.hints = Hints::new(&title);
         self.title = title;
         self.artist = artist;
-        self.mapset_id = mapset_id;
+        self.mapset_id = mapset.mapset_id;
         self.reveal = ImageReveal::new(img);
         self.discord_data = Some(data);
         Ok(())
@@ -297,11 +290,11 @@ impl GameData {
     pub async fn restart_with_img(
         &mut self,
         data: Arc<RwLock<TypeMap>>,
+        mapsets: &[MapsetTagWrapper],
         previous_ids: &mut VecDeque<u32>,
-        mode: GameMode,
     ) -> Vec<u8> {
         loop {
-            match self.restart(Arc::clone(&data), previous_ids, mode).await {
+            match self.restart(Arc::clone(&data), mapsets, previous_ids).await {
                 Ok(_) => match self.reveal.sub_image() {
                     Ok(img) => return img,
                     Err(why) => warn!(

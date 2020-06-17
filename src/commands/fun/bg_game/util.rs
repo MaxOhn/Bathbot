@@ -1,38 +1,28 @@
-use crate::{Error, MySQL, Osu};
+use crate::{database::MapsetTagWrapper, Error, MySQL, Osu};
 
 use rand::RngCore;
-use rosu::{backend::BeatmapRequest, models::GameMode};
+use rosu::backend::BeatmapRequest;
 use serenity::prelude::{RwLock, TypeMap};
-use std::{collections::VecDeque, path::PathBuf, str::FromStr};
-use tokio::{fs, stream::StreamExt};
+use std::collections::VecDeque;
 
-pub async fn get_random_filename(
+pub async fn get_random_mapset<'m>(
+    mapsets: &'m [MapsetTagWrapper],
     previous_ids: &mut VecDeque<u32>,
-    mode: GameMode,
-    path: &PathBuf,
-) -> Result<String, Error> {
-    let mut files: Vec<String> = fs::read_dir(path)
-        .await?
-        .filter_map(|entry| entry.ok())
-        .filter_map(|entry| entry.file_name().into_string().ok())
-        .collect::<Vec<_>>()
-        .await;
+) -> Result<&'m MapsetTagWrapper, Error> {
     let mut rng = rand::thread_rng();
-    let buffer_size = match mode {
-        GameMode::STD => 500,
-        GameMode::MNA => 100,
-        _ => unreachable!(),
-    };
+    let buffer_size = mapsets.len() / 2;
+    println!("previous_ids: {:?}", previous_ids);
     loop {
-        let len = files.len();
-        let file = files.remove(rng.next_u32() as usize % len);
-        let id = u32::from_str(file.split('.').next().unwrap()).unwrap();
-        if !previous_ids.contains(&id) {
-            previous_ids.push_front(id);
+        let random_index = rng.next_u32() as usize % mapsets.len();
+        let mapset = &mapsets[random_index];
+        if !previous_ids.contains(&mapset.mapset_id) {
+            println!("{} not yet contained", mapset.mapset_id);
+            previous_ids.push_front(mapset.mapset_id);
             if previous_ids.len() > buffer_size {
+                println!("len > {} -> pop", buffer_size);
                 previous_ids.pop_back();
             }
-            return Ok(file);
+            return Ok(mapset);
         }
     }
 }

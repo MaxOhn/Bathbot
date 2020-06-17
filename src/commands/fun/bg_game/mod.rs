@@ -8,7 +8,9 @@ use hints::Hints;
 use img_reveal::ImageReveal;
 
 use crate::{
-    embeds::{BGHelpEmbed, BGRankingEmbed, EmbedData},
+    commands::utility::MapsetTags,
+    database::MapsetTagWrapper,
+    embeds::{BGHelpEmbed, BGRankingEmbed, BGStartEmbed, BGTagsEmbed, EmbedData},
     pagination::{BGRankingPagination, Pagination},
     util::{numbers, MessageExt},
     BgGames, Error, MySQL,
@@ -16,12 +18,15 @@ use crate::{
 
 use rosu::models::GameMode;
 use serenity::{
-    collector::MessageCollectorBuilder,
     framework::standard::{macros::command, Args, CommandResult},
-    model::{channel::Message, id::UserId},
+    model::{
+        channel::{Message, ReactionType},
+        id::UserId,
+    },
     prelude::Context,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, convert::TryFrom, sync::Arc, time::Duration};
+use tokio::stream::StreamExt;
 
 #[command]
 #[description = "Given part of a map's background, try to guess \
@@ -50,35 +55,145 @@ async fn backgroundgame(ctx: &Context, msg: &Message, args: Args) -> CommandResu
 #[aliases("s", "skip", "resolve", "r")]
 #[sub_commands("mania")]
 async fn start(ctx: &Context, msg: &Message) -> CommandResult {
-    _start(GameMode::STD, ctx, msg).await
+    let channel = msg.channel_id;
+    // Check if channel already has a running game
+    {
+        let mut data = ctx.data.write().await;
+        let games = data.get_mut::<BgGames>().unwrap();
+        if games.contains_key(&channel) {
+            games.get_mut(&channel).unwrap().restart()?;
+            return Ok(());
+        }
+    }
+    // Send initial message
+    let embed_data = BGStartEmbed::new();
+    let response = channel
+        .send_message(ctx, |m| m.embed(|e| embed_data.build(e)))
+        .await?;
+    let mut collector = response
+        .await_reactions(ctx)
+        .timeout(Duration::from_secs(60))
+        .author_id(msg.author.id)
+        .removed(true)
+        .await;
+    let reactions = [
+        "🍋",
+        "🤓",
+        "🤡",
+        "🎨",
+        "🍨",
+        "👨‍🌾",
+        "😱",
+        "🪀",
+        "🟦",
+        "🗽",
+        "🌀",
+        "👴",
+        "💯",
+        "✅",
+    ];
+    for &reaction in reactions.iter() {
+        let reaction = ReactionType::try_from(reaction).unwrap();
+        response.react(ctx, reaction).await?;
+    }
+    // Run collector
+    let mut included = MapsetTags::empty();
+    let mut excluded = MapsetTags::empty();
+    while let Some(reaction) = collector.next().await {
+        let tag = if let ReactionType::Unicode(ref reaction) = reaction.as_inner_ref().emoji {
+            match reaction.as_str() {
+                "🍋" => MapsetTags::Easy,
+                "🤓" => MapsetTags::Hard,
+                "🤡" => MapsetTags::Meme,
+                "👴" => MapsetTags::Old,
+                "😱" => MapsetTags::HardName,
+                "🟦" => MapsetTags::BlueSky,
+                "🪀" => MapsetTags::Alternate,
+                "🗽" => MapsetTags::English,
+                "👨‍🌾" => MapsetTags::Farm,
+                "💯" => MapsetTags::Tech,
+                "🎨" => MapsetTags::Weeb,
+                "🌀" => MapsetTags::Streams,
+                "🍨" => MapsetTags::Kpop,
+                "✅" => break,
+                _ => continue,
+            }
+        } else {
+            continue;
+        };
+        if reaction.is_added() {
+            included.insert(tag);
+            excluded.remove(tag);
+        } else {
+            excluded.insert(tag);
+            included.remove(tag);
+        }
+    }
+    collector.stop();
+    // Get all mapsets matching the given tags
+    let mapsets = {
+        let data = ctx.data.read().await;
+        let mysql = data.get::<MySQL>().unwrap();
+        match mysql.get_specific_tags_mapset(GameMode::STD, included, excluded) {
+            Ok(mapsets) => mapsets,
+            Err(why) => {
+                channel
+                    .say(ctx, "Some database issue, blame bade")
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
+            }
+        }
+    };
+    let embed_data = BGTagsEmbed::new(included, excluded, mapsets.len());
+    channel
+        .send_message(ctx, |m| m.embed(|e| embed_data.build(e)))
+        .await?;
+    if mapsets.is_empty() {
+        return Ok(());
+    }
+    _start(ctx, msg, mapsets).await
 }
 
 #[command]
 #[aliases("m")]
 async fn mania(ctx: &Context, msg: &Message) -> CommandResult {
-    _start(GameMode::MNA, ctx, msg).await
+    {
+        let mut data = ctx.data.write().await;
+        let games = data.get_mut::<BgGames>().unwrap();
+        if games.contains_key(&msg.channel_id) {
+            games.get_mut(&msg.channel_id).unwrap().restart()?;
+            return Ok(());
+        }
+    }
+    let data = ctx.data.read().await;
+    let mysql = data.get::<MySQL>().unwrap();
+    let mapsets = match mysql.get_all_tags_mapset(GameMode::MNA) {
+        Ok(mapsets) => mapsets,
+        Err(why) => {
+            msg.channel_id
+                .say(ctx, "Some database issue, blame bade")
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
+            return Err(why.to_string().into());
+        }
+    };
+    _start(ctx, msg, mapsets).await
 }
 
 #[allow(clippy::map_entry)]
-async fn _start(mode: GameMode, ctx: &Context, msg: &Message) -> CommandResult {
+async fn _start(ctx: &Context, msg: &Message, mapsets: Vec<MapsetTagWrapper>) -> CommandResult {
     let channel = msg.channel_id;
     let mut data = ctx.data.write().await;
     let games = data.get_mut::<BgGames>().unwrap();
-    if !games.contains_key(&channel) {
-        let game = BackGroundGame::new(mode).await;
-        let collector = MessageCollectorBuilder::new(&ctx)
-            .channel_id(channel)
-            .filter(|msg| !msg.author.bot)
-            .await;
-        game.start(
-            collector,
-            channel,
-            Arc::clone(&ctx.data),
-            Arc::clone(&ctx.http),
-        );
-        games.insert(channel, game);
-    } else {
+    if games.contains_key(&channel) {
         games.get_mut(&channel).unwrap().restart()?;
+    } else {
+        let game = BackGroundGame::new().await;
+        game.start(ctx, channel, mapsets).await;
+        games.insert(channel, game);
     }
     Ok(())
 }
@@ -146,6 +261,7 @@ async fn bigger(ctx: &Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
+#[aliases("end")]
 async fn stop(ctx: &Context, msg: &Message) -> CommandResult {
     let channel = msg.channel_id;
     let mut data = ctx.data.write().await;

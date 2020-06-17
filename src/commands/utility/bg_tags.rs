@@ -14,7 +14,9 @@ use serenity::{
     model::channel::{Message, ReactionType},
     prelude::Context,
 };
-use std::{convert::TryFrom, env, hash::Hash, path::PathBuf, str::FromStr, time::Duration};
+use std::{
+    convert::TryFrom, env, fmt::Write, hash::Hash, path::PathBuf, str::FromStr, time::Duration,
+};
 use tokio::{fs, stream::StreamExt};
 
 #[command]
@@ -425,6 +427,22 @@ impl FromStr for MapsetTags {
             other => return Err(other.to_owned()),
         };
         Ok(result)
+    }
+}
+
+impl MapsetTags {
+    pub fn join(self, separator: &str) -> String {
+        let mut tags = self.into_iter();
+        let first_tag = match tags.next() {
+            Some(first_tag) => first_tag,
+            None => return "None".to_owned(),
+        };
+        let mut result = String::with_capacity(16);
+        let _ = write!(result, "{:?}", first_tag);
+        for element in tags {
+            let _ = write!(result, "{}{:?}", separator, element);
+        }
+        result
     }
 }
 

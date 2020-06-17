@@ -803,6 +803,144 @@ impl MySQL {
             .first::<MapsetTagDB>(&conn)?;
         Ok(tags.into())
     }
+
+    #[allow(clippy::clippy::cognitive_complexity)]
+    pub fn get_specific_tags_mapset(
+        &self,
+        gamemode: GameMode,
+        included: MapsetTags,
+        excluded: MapsetTags,
+    ) -> DBResult<Vec<MapsetTagWrapper>> {
+        use schema::map_tags::columns::*;
+        if included.is_empty() && excluded.is_empty() {
+            return self.get_all_tags_mapset(gamemode);
+        }
+
+        // I hate this so much, can't wait for the change to sqlx...
+
+        let farm_predicate = if included.contains(MapsetTags::Farm) {
+            farm.eq(true).or(farm.eq(true))
+        } else if excluded.contains(MapsetTags::Farm) {
+            farm.eq(false).or(farm.eq(false))
+        } else {
+            farm.eq(true).or(farm.eq(false))
+        };
+
+        let streams_predicate = if included.contains(MapsetTags::Streams) {
+            streams.eq(true).or(streams.eq(true))
+        } else if excluded.contains(MapsetTags::Streams) {
+            streams.eq(false).or(streams.eq(false))
+        } else {
+            streams.eq(true).or(streams.eq(false))
+        };
+
+        let alternate_predicate = if included.contains(MapsetTags::Alternate) {
+            alternate.eq(true).or(alternate.eq(true))
+        } else if excluded.contains(MapsetTags::Alternate) {
+            alternate.eq(false).or(alternate.eq(false))
+        } else {
+            alternate.eq(true).or(alternate.eq(false))
+        };
+
+        let old_predicate = if included.contains(MapsetTags::Old) {
+            old.eq(true).or(old.eq(true))
+        } else if excluded.contains(MapsetTags::Old) {
+            old.eq(false).or(old.eq(false))
+        } else {
+            old.eq(true).or(old.eq(false))
+        };
+
+        let meme_predicate = if included.contains(MapsetTags::Meme) {
+            meme.eq(true).or(meme.eq(true))
+        } else if excluded.contains(MapsetTags::Meme) {
+            meme.eq(false).or(meme.eq(false))
+        } else {
+            meme.eq(true).or(meme.eq(false))
+        };
+
+        let hardname_predicate = if included.contains(MapsetTags::HardName) {
+            hardname.eq(true).or(hardname.eq(true))
+        } else if excluded.contains(MapsetTags::HardName) {
+            hardname.eq(false).or(hardname.eq(false))
+        } else {
+            hardname.eq(true).or(hardname.eq(false))
+        };
+
+        let easy_predicate = if included.contains(MapsetTags::Easy) {
+            easy.eq(true).or(easy.eq(true))
+        } else if excluded.contains(MapsetTags::Easy) {
+            easy.eq(false).or(easy.eq(false))
+        } else {
+            easy.eq(true).or(easy.eq(false))
+        };
+
+        let hard_predicate = if included.contains(MapsetTags::Hard) {
+            hard.eq(true).or(hard.eq(true))
+        } else if excluded.contains(MapsetTags::Hard) {
+            hard.eq(false).or(hard.eq(false))
+        } else {
+            hard.eq(true).or(hard.eq(false))
+        };
+
+        let tech_predicate = if included.contains(MapsetTags::Tech) {
+            tech.eq(true).or(tech.eq(true))
+        } else if excluded.contains(MapsetTags::Tech) {
+            tech.eq(false).or(tech.eq(false))
+        } else {
+            tech.eq(true).or(tech.eq(false))
+        };
+
+        let weeb_predicate = if included.contains(MapsetTags::Weeb) {
+            weeb.eq(true).or(weeb.eq(true))
+        } else if excluded.contains(MapsetTags::Weeb) {
+            weeb.eq(false).or(weeb.eq(false))
+        } else {
+            weeb.eq(true).or(weeb.eq(false))
+        };
+
+        let bluesky_predicate = if included.contains(MapsetTags::BlueSky) {
+            bluesky.eq(true).or(bluesky.eq(true))
+        } else if excluded.contains(MapsetTags::BlueSky) {
+            bluesky.eq(false).or(bluesky.eq(false))
+        } else {
+            bluesky.eq(true).or(bluesky.eq(false))
+        };
+
+        let english_predicate = if included.contains(MapsetTags::English) {
+            english.eq(true).or(english.eq(true))
+        } else if excluded.contains(MapsetTags::English) {
+            english.eq(false).or(english.eq(false))
+        } else {
+            english.eq(true).or(english.eq(false))
+        };
+
+        let kpop_predicate = if included.contains(MapsetTags::Kpop) {
+            kpop.eq(true).or(kpop.eq(true))
+        } else if excluded.contains(MapsetTags::Kpop) {
+            kpop.eq(false).or(kpop.eq(false))
+        } else {
+            kpop.eq(true).or(kpop.eq(false))
+        };
+
+        let conn = self.get_connection()?;
+        let mapsets = schema::map_tags::table
+            .filter(mode.eq(gamemode as u8))
+            .filter(farm_predicate)
+            .filter(streams_predicate)
+            .filter(alternate_predicate)
+            .filter(old_predicate)
+            .filter(meme_predicate)
+            .filter(hardname_predicate)
+            .filter(easy_predicate)
+            .filter(hard_predicate)
+            .filter(tech_predicate)
+            .filter(weeb_predicate)
+            .filter(bluesky_predicate)
+            .filter(english_predicate)
+            .filter(kpop_predicate)
+            .load::<MapsetTagDB>(&conn)?;
+        Ok(mapsets.into_iter().map(|tags| tags.into()).collect())
+    }
 }
 
 fn mania_mod_bits(mods: GameMods) -> u32 {
