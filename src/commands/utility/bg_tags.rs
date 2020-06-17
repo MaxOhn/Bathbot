@@ -222,13 +222,11 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let (mapset_id, img) = get_random_image(mapsets, mode).await;
         let content = format!(
             "Which tags should this mapsets get: {}beatmapsets/{}\n\
-        ```\n\
-        🍋: Easy  😱: Hard name  🗽: English\n\
-        🤓: Hard  🟦: Blue sky   🌀: Streams\n\
-        🤡: Meme  💯: Tech       🪀: Alternate\n\
-        👴: Old   🎨: Weeb       ✅: Log tags in\n\
-        👨‍🌾: Farm  🍨: Kpop       ❌: Exit loop\n\
-        ```",
+            ```\n\
+            🍋: Easy 🎨: Weeb 😱: Hard name 🗽: English 💯: Tech\n\
+            🤓: Hard 🍨: Kpop 🪀: Alternate 🌀: Streams ✅: Log in\n\
+            🤡: Meme 👨‍🌾: Farm 🟦: Blue sky  👴: Old     ❌: Exit loop\n\
+            ```",
             HOMEPAGE, mapset_id
         );
         // Send response
@@ -254,16 +252,16 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
             "🍋",
             "🤓",
             "🤡",
-            "👴",
-            "👨‍🌾",
-            "😱",
-            "🟦",
-            "💯",
             "🎨",
             "🍨",
+            "👨‍🌾",
+            "😱",
+            "🪀",
+            "🟦",
             "🗽",
             "🌀",
-            "🪀",
+            "👴",
+            "💯",
             "✅",
             "❌",
         ];
@@ -306,6 +304,7 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                 tags.remove(tag);
             }
         }
+        collector.stop();
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
         let result = if tags.is_empty() {
