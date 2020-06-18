@@ -4,9 +4,10 @@ use crate::{
         datetime::how_long_ago,
         numbers::{round, with_comma_u64},
     },
-    BootTime, Error,
+    BootTime,
 };
 
+use failure::Error;
 use serenity::client::Context;
 use sysinfo::{get_current_pid, ProcessExt, ProcessorExt, System, SystemExt};
 

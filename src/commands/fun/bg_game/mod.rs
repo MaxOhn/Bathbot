@@ -11,9 +11,10 @@ use crate::{
     embeds::{BGHelpEmbed, BGRankingEmbed, EmbedData},
     pagination::{BGRankingPagination, Pagination},
     util::{numbers, MessageExt},
-    BgGames, Error, MySQL,
+    BgGames, MySQL,
 };
 
+use failure::Error;
 use rosu::models::GameMode;
 use serenity::{
     collector::MessageCollectorBuilder,

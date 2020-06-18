@@ -1,7 +1,8 @@
 use super::{create_collector, Pages, Pagination};
 
-use crate::{embeds::LeaderboardEmbed, scraper::ScraperScore, Error};
+use crate::{embeds::LeaderboardEmbed, scraper::ScraperScore};
 
+use failure::Error;
 use rosu::models::Beatmap;
 use serenity::{
     async_trait,

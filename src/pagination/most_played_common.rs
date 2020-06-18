@@ -1,7 +1,8 @@
 use super::{create_collector, Pages, Pagination};
 
-use crate::{embeds::MostPlayedCommonEmbed, scraper::MostPlayedMap, Error};
+use crate::{embeds::MostPlayedCommonEmbed, scraper::MostPlayedMap};
 
+use failure::Error;
 use rosu::models::User;
 use serenity::{
     async_trait,

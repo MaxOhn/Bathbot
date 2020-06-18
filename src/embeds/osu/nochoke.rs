@@ -6,9 +6,9 @@ use crate::{
         osu::grade_emote,
         pp::PPProvider,
     },
-    Error,
 };
 
+use failure::Error;
 use rosu::models::{Beatmap, GameMode, Score, User};
 use serenity::cache::Cache;
 use std::fmt::Write;
@@ -38,10 +38,7 @@ impl NoChokeEmbed {
         for (idx, original, unchoked, map) in scores_data {
             let (stars, max_pp) = {
                 let pp_provider = PPProvider::new(original, map, None).await.map_err(|why| {
-                    Error::Custom(format!(
-                        "Something went wrong while creating PPProvider: {}",
-                        why
-                    ))
+                    format_err!("Something went wrong while creating PPProvider: {}", why)
                 })?;
                 (
                     osu::get_stars(pp_provider.stars()),

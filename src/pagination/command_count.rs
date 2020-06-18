@@ -1,8 +1,9 @@
 use super::{create_collector, Pages, Pagination};
 
-use crate::{embeds::CommandCounterEmbed, Error};
+use crate::embeds::CommandCounterEmbed;
 
 use chrono::{DateTime, Utc};
+use failure::Error;
 use serenity::{
     async_trait,
     client::Context,
