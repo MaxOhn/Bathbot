@@ -8,9 +8,9 @@ use crate::{
         osu::{simulate_score, unchoke_score},
         pp::PPProvider,
     },
-    Error,
 };
 
+use failure::Error;
 use rosu::models::{Beatmap, GameMode, GameMods, Score};
 use serenity::{builder::CreateEmbed, utils::Colour};
 use std::fmt::Write;
@@ -56,12 +56,7 @@ impl SimulateEmbed {
         let (prev_pp, prev_combo, prev_hits, misses) = if let Some(s) = score.as_ref() {
             let pp_provider = match PPProvider::new(&s, &map, Some(cache_data.data())).await {
                 Ok(provider) => provider,
-                Err(why) => {
-                    return Err(Error::Custom(format!(
-                        "Something went wrong while creating PPProvider: {}",
-                        why
-                    )))
-                }
+                Err(why) => bail!("Something went wrong while creating PPProvider: {}", why),
             };
             let prev_pp = Some(round(pp_provider.pp()));
             let prev_combo = if map.mode == GameMode::STD {
@@ -85,12 +80,7 @@ impl SimulateEmbed {
         let pp_provider =
             match PPProvider::new(&unchoked_score, &map, Some(cache_data.data())).await {
                 Ok(provider) => provider,
-                Err(why) => {
-                    return Err(Error::Custom(format!(
-                        "Something went wrong while creating PPProvider: {}",
-                        why
-                    )))
-                }
+                Err(why) => bail!("Something went wrong while creating PPProvider: {}", why),
             };
         let pp = osu::get_pp(&unchoked_score, &pp_provider);
         let hits = osu::get_hits(&unchoked_score, map.mode);
@@ -115,12 +105,7 @@ impl SimulateEmbed {
                     acc,
                 )
             }
-            _ => {
-                return Err(Error::Custom(format!(
-                    "Cannot prepare simulate data of GameMode::{:?} score",
-                    map.mode
-                )))
-            }
+            _ => bail!("Cannot prepare simulate data of {:?} score", map.mode),
         };
         let footer = Footer::new(format!("{:?} map by {}", map.approval_status, map.creator))
             .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));

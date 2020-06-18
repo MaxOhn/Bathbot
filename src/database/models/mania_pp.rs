@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 use super::{super::schema::pp_mania_mods, beatmap::DBMap};
-use crate::Error;
+
+use failure::Error;
 
 #[derive(Default, Identifiable, Queryable, Associations, Insertable, AsChangeset)]
 #[table_name = "pp_mania_mods"]
@@ -38,10 +39,7 @@ impl ManiaPP {
             258 => self.EZHT,
             259 => self.NFEZHT,
             _ => {
-                return Err(Error::Custom(format!(
-                    "{} are no valid mod bits for the mania pp table",
-                    bits
-                )));
+                bail!("{} are no valid mod bits for the mania pp table", bits);
             }
         };
         Ok(pp)
@@ -64,10 +62,7 @@ impl ManiaPP {
             258 => pp.EZHT = value,
             259 => pp.NFEZHT = value,
             _ => {
-                return Err(Error::Custom(format!(
-                    "{} are no valid mod bits for the mania pp table",
-                    bits
-                )));
+                bail!("{} are no valid mod bits for the mania pp table", bits);
             }
         };
         Ok(pp)

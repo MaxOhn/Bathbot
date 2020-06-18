@@ -5,10 +5,9 @@ pub use most_played::MostPlayedMap;
 use score::ScraperScores;
 pub use score::{ScraperBeatmap, ScraperScore};
 
-use crate::{
-    util::{globals::HOMEPAGE, Error},
-    WITH_SCRAPER,
-};
+use crate::{util::globals::HOMEPAGE, WITH_SCRAPER};
+
+use failure::Error;
 use governor::{
     clock::DefaultClock,
     state::{direct::NotKeyed, InMemoryState},
@@ -140,10 +139,7 @@ impl Scraper {
         country_acronym: Option<&str>,
     ) -> Result<u32, Error> {
         if rank < 1 || 10_000 < rank {
-            return Err(Error::Custom(format!(
-                "Rank must be between 1 and 10_000, got {}",
-                rank
-            )));
+            bail!("Rank must be between 1 and 10_000, got {}", rank);
         }
         let mode = get_mode_str(mode);
         let mut url = format!(
@@ -162,18 +158,19 @@ impl Scraper {
         let response = self.send_request(url).await?;
         let body = match response.error_for_status() {
             Ok(res) => res.text().await?,
-            Err(why) => return Err(Error::Custom(format!("Scraper got bad response: {}", why))),
+            Err(why) => bail!("Scraper got bad response: {}", why),
         };
         let html = Html::parse_document(&body);
         let ranking_page_table = Selector::parse(".ranking-page-table").unwrap();
-        let ranking_page_table = html.select(&ranking_page_table).next().ok_or_else(|| {
-            Error::Custom("No class 'ranking-page-table' found in response".to_string())
-        })?;
+        let ranking_page_table = html
+            .select(&ranking_page_table)
+            .next()
+            .ok_or_else(|| format_err!("No class 'ranking-page-table' found in response"))?;
         let tbody = Selector::parse("tbody").unwrap();
         let tbody = ranking_page_table
             .select(&tbody)
             .next()
-            .ok_or_else(|| Error::Custom("No 'tbody' element found in response".to_string()))?;
+            .ok_or_else(|| format_err!("No 'tbody' element found in response"))?;
         let child = tbody
             .children()
             .enumerate()
@@ -184,24 +181,22 @@ impl Scraper {
         let node = child
             .children()
             .nth(3)
-            .ok_or_else(|| Error::Custom("Unwraping 1: Could not find fourth child".to_string()))?
+            .ok_or_else(|| format_err!("Unwraping 1: Could not find fourth child"))?
             .children()
             .nth(1)
-            .ok_or_else(|| Error::Custom("Unwraping 2: Could not find second child".to_string()))?
+            .ok_or_else(|| format_err!("Unwraping 2: Could not find second child"))?
             .children()
             .nth(3)
-            .ok_or_else(|| Error::Custom("Unwraping 3: Could not find fourth child".to_string()))?;
+            .ok_or_else(|| format_err!("Unwraping 3: Could not find fourth child"))?;
         match node.value() {
             Node::Element(e) => {
                 if let Some(id) = e.attr("data-user-id") {
                     Ok(id.parse::<u32>().unwrap())
                 } else {
-                    Err(Error::Custom(
-                        "Could not find attribute 'data-user-id'".to_string(),
-                    ))
+                    bail!("Could not find attribute 'data-user-id'")
                 }
             }
-            _ => Err(Error::Custom("Did not reach Element node".to_string())),
+            _ => bail!("Did not reach Element node"),
         }
     }
 }

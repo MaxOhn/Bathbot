@@ -1,14 +1,14 @@
-use super::Error;
 use crate::util::globals::DATE_FORMAT;
+
 use chrono::{offset::TimeZone, DateTime, Datelike, Utc};
+use failure::Error;
 
 pub fn date_to_string(date: &DateTime<Utc>) -> String {
     date.format(DATE_FORMAT).to_string()
 }
 
 pub fn string_to_date(date: String) -> Result<DateTime<Utc>, Error> {
-    Utc.datetime_from_str(&date, "%F %T")
-        .map_err(Error::ParseChrono)
+    Ok(Utc.datetime_from_str(&date, "%F %T")?)
 }
 
 pub fn sec_to_minsec(secs: u32) -> String {

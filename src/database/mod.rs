@@ -4,7 +4,7 @@ mod schema;
 use models::{CtbPP, DBMap, GuildDB, ManiaPP, MapSplit, StreamTrackDB};
 pub use models::{DBMapSet, Guild, Platform, Ratios, StreamTrack, TwitchUser};
 
-use crate::util::{globals::AUTHORITY_ROLES, Error};
+use crate::util::globals::AUTHORITY_ROLES;
 
 use diesel::{
     prelude::*,
@@ -12,6 +12,7 @@ use diesel::{
     sql_types::Text,
     MysqlConnection,
 };
+use failure::Error;
 use rosu::models::{Beatmap, GameMode, GameMods};
 use serenity::model::id::GuildId;
 use std::collections::{HashMap, HashSet};
@@ -28,14 +29,14 @@ impl MySQL {
         let manager = ConnectionManager::new(database_url);
         let pool = Pool::builder()
             .build(manager)
-            .map_err(|e| Error::Custom(format!("Failed to create pool: {}", e)))?;
+            .map_err(|e| format_err!("Failed to create pool: {}", e))?;
         Ok(Self { pool })
     }
 
     fn get_connection(&self) -> ConnectionResult {
-        self.pool.get().map_err(|e| {
-            Error::MySQLConnection(format!("Error while waiting for MySQL connection: {}", e))
-        })
+        self.pool
+            .get()
+            .map_err(|e| format_err!("Error while waiting for MySQL connection: {}", e))
     }
 
     // ---------------------
@@ -351,7 +352,7 @@ impl MySQL {
             } else if mods.contains(GameMods::HalfTime) {
                 Ok(data.4)
             } else {
-                panic!("Don't call update_stars_map with CtB on NoMod");
+                bail!("Don't call update_stars_map with CtB on NoMod");
             }
         }
     }
@@ -484,7 +485,7 @@ impl MySQL {
                     cHRHT.eq(None),
                 )
             } else {
-                panic!("Don't call insert_stars_map with CtB on NoMod")
+                bail!("Don't call insert_stars_map with CtB on NoMod")
             };
             diesel::insert_or_ignore_into(schema::stars_ctb_mods::table)
                 .values(&data)
@@ -538,7 +539,7 @@ impl MySQL {
             } else if mods.contains(GameMods::HalfTime) {
                 update.set(cHT.eq(Some(stars))).execute(&conn)?;
             } else {
-                panic!("Don't call update_stars_map with CtB on NoMod");
+                bail!("Don't call update_stars_map with CtB on NoMod");
             }
         };
         Ok(())

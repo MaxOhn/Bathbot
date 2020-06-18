@@ -18,8 +18,9 @@ pub use nochoke::NoChokePagination;
 pub use recent::RecentPagination;
 pub use top::TopPagination;
 
-use crate::{embeds::EmbedData, util::numbers, Error};
+use crate::{embeds::EmbedData, util::numbers};
 
+use failure::Error;
 use serenity::{
     async_trait,
     cache::Cache,

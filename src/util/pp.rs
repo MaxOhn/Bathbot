@@ -1,8 +1,8 @@
 use crate::{
-    database::MySQL, roppai::Oppai, scraper::ScraperScore, util::osu, Error,
-    PerformanceCalculatorLock,
+    database::MySQL, roppai::Oppai, scraper::ScraperScore, util::osu, PerformanceCalculatorLock,
 };
 
+use failure::Error;
 use rosu::models::{ApprovalStatus, Beatmap, GameMode, GameMods, Grade, Score};
 use serenity::prelude::{RwLock, TypeMap};
 use std::{env, mem, process::Stdio, str::FromStr};
@@ -67,16 +67,15 @@ async fn new_perf_calc<'a>(
     } else {
         None
     };
-    let (stars, stars_in_db) = if score.enabled_mods.changes_stars(mode) {
+    let mods = score.enabled_mods;
+    let (stars, stars_in_db) = if mods.changes_stars(mode) {
         // Try retrieving stars from database
         let data = data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_mod_stars(map.beatmap_id, mode, score.enabled_mods) {
+        match mysql.get_mod_stars(map.beatmap_id, mode, mods) {
             Ok(result) => (result, true),
             Err(why) => {
-                if let Error::Custom(_) = why {
-                    warn!("Error while retrieving from {} stars: {}", mode, why);
-                }
+                warn!("Error while retrieving from {} stars: {}", mode, why);
                 (None, false)
             }
         }
@@ -89,13 +88,13 @@ async fn new_perf_calc<'a>(
         // If its a fail or below half score, it's gonna be 0pp anyway
         if score.grade == Grade::F
             || (mode == GameMode::MNA
-                && score.score < (500_000.0 * score.enabled_mods.score_multiplier(mode)) as u32)
+                && score.score < (500_000.0 * mods.score_multiplier(mode)) as u32)
         {
             (None, None)
         } else {
             let lock = mutex.as_ref().unwrap().lock();
             let params = if mode == GameMode::MNA {
-                CalcParam::mania(Some(score.score), score.enabled_mods)
+                CalcParam::mania(Some(score.score), mods)
             } else {
                 CalcParam::ctb(score)
             };
@@ -109,15 +108,13 @@ async fn new_perf_calc<'a>(
     let (max_pp, map_in_db) = {
         let data = data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_mod_pp(map.beatmap_id, mode, score.enabled_mods) {
+        match mysql.get_mod_pp(map.beatmap_id, mode, mods) {
             Ok(result) => (result, true),
             Err(why) => {
-                if let Error::Custom(_) = why {
-                    warn!(
-                        "Some mod bit error for mods {} in {} pp table",
-                        score.enabled_mods, mode
-                    );
-                }
+                warn!(
+                    "Mod bit error for mods {} in {} pp table: {}",
+                    mods, mode, why
+                );
                 (None, false)
             }
         }
@@ -126,8 +123,7 @@ async fn new_perf_calc<'a>(
     let pp = if let Some(pp_child) = pp_child {
         parse_pp_calc(pp_child).await?
     } else if score.grade == Grade::F
-        || (mode == GameMode::MNA
-            && score.score < (500_000.0 * score.enabled_mods.score_multiplier(mode)) as u32)
+        || (mode == GameMode::MNA && score.score < (500_000.0 * mods.score_multiplier(mode)) as u32)
     {
         0.0
     } else {
@@ -139,9 +135,9 @@ async fn new_perf_calc<'a>(
     // Otherwise start calculating them in new async worker
     } else {
         let params: CalcParam<'a, Score> = if mode == GameMode::MNA {
-            CalcParam::mania(None, score.enabled_mods)
+            CalcParam::mania(None, mods)
         } else {
-            CalcParam::max_ctb(score.enabled_mods)
+            CalcParam::max_ctb(mods)
         };
         let max_pp_child = start_pp_calc(map.beatmap_id, params).await?;
         let max_pp = parse_pp_calc(max_pp_child).await?;
@@ -151,15 +147,7 @@ async fn new_perf_calc<'a>(
             // Insert max pp value into database
             let data = data.read().await;
             let mysql = data.get::<MySQL>().unwrap();
-            f32_to_db(
-                map_in_db,
-                mysql,
-                map.beatmap_id,
-                mode,
-                score.enabled_mods,
-                max_pp,
-                false,
-            )?;
+            f32_to_db(map_in_db, mysql, map.beatmap_id, mode, mods, max_pp, false)?;
         }
         max_pp
     };
@@ -199,15 +187,11 @@ impl PPProvider {
             GameMode::STD | GameMode::TKO => new_oppai(score, map).await,
             GameMode::MNA => match data {
                 Some(data) => new_perf_calc(score, map, data).await,
-                None => Err(Error::Custom(
-                    "Cannot calculate mania pp without TypeMap".to_string(),
-                )),
+                None => bail!("Cannot calculate mania pp without TypeMap"),
             },
             GameMode::CTB => match data {
                 Some(data) => new_perf_calc(score, map, data).await,
-                None => Err(Error::Custom(
-                    "Cannot calculate ctb pp without TypeMap".to_string(),
-                )),
+                None => bail!("Cannot calculate ctb pp without TypeMap"),
             },
         }
     }
@@ -285,9 +269,7 @@ impl PPProvider {
                     match mysql.get_mod_pp(map.beatmap_id, map.mode, mods) {
                         Ok(result) => (result, true),
                         Err(why) => {
-                            if let Error::Custom(_) = why {
-                                warn!("Error getting mod pp from table: {}", why);
-                            }
+                            warn!("Error getting mod pp from table: {}", why);
                             (None, false)
                         }
                     }
@@ -338,8 +320,8 @@ impl PPProvider {
                 *pp = oppai.get_pp();
                 Ok(())
             }
-            Self::Mania { .. } => Err(Error::Custom("Cannot recalculate mania pp".to_string())),
-            Self::Fruits { .. } => Err(Error::Custom("Cannot recalculate ctb pp".to_string())),
+            Self::Mania { .. } => bail!("Cannot recalculate mania pp"),
+            Self::Fruits { .. } => bail!("Cannot recalculate ctb pp"),
         }
     }
 
@@ -384,7 +366,7 @@ async fn start_pp_calc<S: SubScore>(map_id: u32, params: CalcParam<'_, S>) -> Re
     match params.mode() {
         GameMode::MNA => cmd.arg("mania"),
         GameMode::CTB => cmd.arg("catch"),
-        _ => panic!(
+        _ => bail!(
             "Only use start_pp_calc for mania or ctb, not {}",
             params.mode()
         ),
@@ -418,21 +400,17 @@ async fn parse_pp_calc(child: Child) -> Result<f32, Error> {
     let calculation = time::timeout(time::Duration::from_secs(10), child.wait_with_output());
     let output = match calculation.await {
         Ok(output) => output?,
-        Err(_) => {
-            return Err(Error::Custom(
-                "Timeout while waiting for pp output".to_string(),
-            ))
-        }
+        Err(_) => bail!("Timeout while waiting for pp output",),
     };
     if output.status.success() {
         let result = String::from_utf8(output.stdout)
-            .map_err(|_| Error::Custom("Could not read stdout string".to_string()))?;
+            .map_err(|_| format_err!("Could not read stdout string"))?;
         f32::from_str(&result.trim())
-            .map_err(|_| Error::Custom("PerfCalc result could not be parsed into pp".to_string()))
+            .map_err(|_| format_err!("PerfCalc result could not be parsed into pp"))
     } else {
         let error_msg = String::from_utf8(output.stderr)
-            .map_err(|_| Error::Custom("Could not read stderr string".to_string()))?;
-        Err(Error::Custom(error_msg))
+            .map_err(|_| format_err!("Could not read stderr string"))?;
+        bail!(error_msg)
     }
 }
 
@@ -450,22 +428,17 @@ async fn calc_stars(map_id: u32, mods: GameMods) -> Result<f32, Error> {
     }
     let output = match time::timeout(time::Duration::from_secs(10), cmd.output()).await {
         Ok(output) => output?,
-        Err(_) => {
-            return Err(Error::Custom(
-                "Timeout while waiting for stars output".to_string(),
-            ))
-        }
+        Err(_) => bail!("Timeout while waiting for stars output"),
     };
     if output.status.success() {
         let result = String::from_utf8(output.stdout)
-            .map_err(|_| Error::Custom("Could not read stdout string".to_string()))?;
-        f32::from_str(&result.trim()).map_err(|_| {
-            Error::Custom("PerfCalc result could not be parsed into stars".to_string())
-        })
+            .map_err(|_| format_err!("Could not read stdout string"))?;
+        f32::from_str(&result.trim())
+            .map_err(|_| format_err!("PerfCalc result could not be parsed into stars"))
     } else {
         let error_msg = String::from_utf8(output.stderr)
-            .map_err(|_| Error::Custom("Could not read stderr string".to_string()))?;
-        Err(Error::Custom(error_msg))
+            .map_err(|_| format_err!("Could not read stderr string"))?;
+        bail!(error_msg)
     }
 }
 

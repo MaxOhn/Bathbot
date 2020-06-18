@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 use super::{super::schema::pp_ctb_mods, beatmap::DBMap};
-use crate::Error;
+
+use failure::Error;
 
 #[derive(Default, Identifiable, Queryable, Associations, Insertable, AsChangeset, Debug)]
 #[table_name = "pp_ctb_mods"]
@@ -26,10 +27,7 @@ impl CtbPP {
             64 => self.DT,
             72 => self.HDDT,
             _ => {
-                return Err(Error::Custom(format!(
-                    "{} are no valid mod bits for the ctb pp table",
-                    bits
-                )));
+                bail!("{} are no valid mod bits for the ctb pp table", bits);
             }
         };
         Ok(pp)

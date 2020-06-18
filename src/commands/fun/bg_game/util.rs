@@ -1,5 +1,6 @@
-use crate::{Error, MySQL, Osu};
+use crate::{MySQL, Osu};
 
+use failure::Error;
 use rand::RngCore;
 use rosu::{backend::BeatmapRequest, models::GameMode};
 use serenity::prelude::{RwLock, TypeMap};
@@ -45,18 +46,16 @@ pub async fn get_title_artist(
         let data = data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
         if let Ok(mapset) = mysql.get_beatmapset(mapset_id) {
-            Ok((mapset.title, mapset.artist))
+            (mapset.title, mapset.artist)
         } else {
             let request = BeatmapRequest::new().mapset_id(mapset_id);
             let osu = data.get::<Osu>().unwrap();
             match request.queue_single(&osu).await {
-                Ok(Some(map)) => Ok((map.title, map.artist)),
-                _ => Err(Error::Custom(
-                    "Could not retrieve map from osu API".to_string(),
-                )),
+                Ok(Some(map)) => (map.title, map.artist),
+                _ => bail!("Could not retrieve map from osu API"),
             }
         }
-    }?;
+    };
     if title.contains('(') && title.contains(')') {
         let idx_open = title.find('(').unwrap();
         let idx_close = title.find(')').unwrap();

@@ -1,9 +1,10 @@
 use crate::{
     embeds::{osu, Author, EmbedData},
     util::{globals::AVATAR_URL, numbers::round_precision},
-    Error, MySQL,
+    MySQL,
 };
 
+use failure::Error;
 use itertools::Itertools;
 use rosu::models::{GameMode, Grade, Score, User};
 use serenity::prelude::{RwLock, TypeMap};

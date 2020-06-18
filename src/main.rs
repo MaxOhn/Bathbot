@@ -17,12 +17,14 @@ use events::Handler;
 use streams::Twitch;
 use structs::Osu;
 use structs::*;
-pub use util::{discord::get_member, Error};
+pub use util::discord::get_member; // add Error here
 
 #[macro_use]
 extern crate log;
 #[macro_use]
 extern crate diesel;
+#[macro_use]
+extern crate failure;
 
 use chrono::{Local, Utc};
 use fern::colors::{Color, ColoredLevelConfig};

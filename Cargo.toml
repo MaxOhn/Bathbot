@@ -12,6 +12,7 @@ cc      = { version = "1.0", features = ["parallel"] }
 chrono       = "0.4"
 diesel       = { version = "1.4", features = ["mysql", "chrono", "r2d2"] }
 dotenv       = "0.15"
+failure      = "0.1"
 fern         = { version = "0.6", features = ["colored"] }
 governor     = "0.2"
 image        = "0.23"

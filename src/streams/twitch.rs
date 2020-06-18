@@ -1,9 +1,7 @@
 use super::models::{TwitchStream, TwitchStreams, TwitchUser, TwitchUsers};
-use crate::util::{
-    globals::{TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT},
-    Error,
-};
+use crate::util::globals::{TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT};
 
+use failure::Error;
 use governor::{
     clock::DefaultClock,
     state::{direct::NotKeyed, InMemoryState},
@@ -69,10 +67,7 @@ impl Twitch {
         let mut users: TwitchUsers = serde_json::from_slice(&response.bytes().await?)?;
         match users.data.pop() {
             Some(user) => Ok(user),
-            None => Err(Error::Custom(format!(
-                "Twitch API gave no results for username {}",
-                name
-            ))),
+            None => bail!("Twitch API gave no results for username {}", name),
         }
     }
 
