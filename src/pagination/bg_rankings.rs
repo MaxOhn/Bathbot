@@ -1,6 +1,7 @@
 use super::{create_collector, Pages, Pagination};
-use crate::{embeds::BGRankingEmbed, Error};
+use crate::embeds::BGRankingEmbed;
 
+use failure::Error;
 use serenity::{
     async_trait,
     cache::Cache,

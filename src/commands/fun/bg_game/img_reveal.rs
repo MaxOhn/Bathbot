@@ -1,5 +1,4 @@
-use crate::Error;
-
+use failure::Error;
 use image::{png::PNGEncoder, ColorType, DynamicImage, GenericImageView};
 use rand::RngCore;
 

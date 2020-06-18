@@ -8,10 +8,10 @@ use crate::{
         osu::unchoke_score,
         pp::PPProvider,
     },
-    Error,
 };
 
 use chrono::{DateTime, Utc};
+use failure::Error;
 use rosu::models::{Beatmap, GameMode, Grade, Score, User};
 use serenity::{builder::CreateEmbed, utils::Colour};
 use std::fmt::Write;
@@ -78,12 +78,7 @@ impl RecentEmbed {
             osu::get_grade_completion_mods(&score, &map, cache_data.cache()).await;
         let mut pp_provider = match PPProvider::new(&score, &map, Some(cache_data.data())).await {
             Ok(provider) => provider,
-            Err(why) => {
-                return Err(Error::Custom(format!(
-                    "Something went wrong while creating PPProvider: {}",
-                    why
-                )))
-            }
+            Err(why) => bail!("Something went wrong while creating PPProvider: {}", why),
         };
         let (pp, combo, hits) = (
             osu::get_pp(&score, &pp_provider),

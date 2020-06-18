@@ -17,12 +17,14 @@ use events::Handler;
 use streams::Twitch;
 use structs::Osu;
 use structs::*;
-pub use util::{discord::get_member, Error, MessageExt};
+pub use util::{discord::get_member, MessageExt};
 
 #[macro_use]
 extern crate bitflags;
 #[macro_use]
 extern crate diesel;
+#[macro_use]
+extern crate failure;
 #[macro_use]
 extern crate log;
 

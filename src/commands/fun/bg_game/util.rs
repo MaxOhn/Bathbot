@@ -1,5 +1,6 @@
-use crate::{database::MapsetTagWrapper, Error, MySQL, Osu};
+use crate::{database::MapsetTagWrapper, MySQL, Osu};
 
+use failure::Error;
 use rand::RngCore;
 use rosu::backend::BeatmapRequest;
 use serenity::prelude::{RwLock, TypeMap};
@@ -11,15 +12,12 @@ pub async fn get_random_mapset<'m>(
 ) -> Result<&'m MapsetTagWrapper, Error> {
     let mut rng = rand::thread_rng();
     let buffer_size = mapsets.len() / 2;
-    println!("previous_ids: {:?}", previous_ids);
     loop {
         let random_index = rng.next_u32() as usize % mapsets.len();
         let mapset = &mapsets[random_index];
         if !previous_ids.contains(&mapset.mapset_id) {
-            println!("{} not yet contained", mapset.mapset_id);
             previous_ids.push_front(mapset.mapset_id);
             if previous_ids.len() > buffer_size {
-                println!("len > {} -> pop", buffer_size);
                 previous_ids.pop_back();
             }
             return Ok(mapset);
@@ -35,18 +33,16 @@ pub async fn get_title_artist(
         let data = data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
         if let Ok(mapset) = mysql.get_beatmapset(mapset_id) {
-            Ok((mapset.title, mapset.artist))
+            (mapset.title, mapset.artist)
         } else {
             let request = BeatmapRequest::new().mapset_id(mapset_id);
             let osu = data.get::<Osu>().unwrap();
             match request.queue_single(&osu).await {
-                Ok(Some(map)) => Ok((map.title, map.artist)),
-                _ => Err(Error::Custom(
-                    "Could not retrieve map from osu API".to_string(),
-                )),
+                Ok(Some(map)) => (map.title, map.artist),
+                _ => bail!("Could not retrieve map from osu API"),
             }
         }
-    }?;
+    };
     if title.contains('(') && title.contains(')') {
         let idx_open = title.find('(').unwrap();
         let idx_close = title.find(')').unwrap();

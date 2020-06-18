@@ -9,9 +9,9 @@ use crate::{
         osu,
         pp::PPProvider,
     },
-    Error,
 };
 
+use failure::Error;
 use rosu::models::{Beatmap, GameMode};
 use serenity::prelude::{RwLock, TypeMap};
 use std::{collections::HashMap, fmt::Write};

@@ -1,5 +1,6 @@
-use crate::{util::globals::AVATAR_URL, Error};
+use crate::util::globals::AVATAR_URL;
 
+use failure::Error;
 use image::{
     imageops::FilterType, png::PNGEncoder, ColorType, DynamicImage, GenericImage, GenericImageView,
 };

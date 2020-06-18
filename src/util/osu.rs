@@ -1,8 +1,9 @@
 use crate::{
     arguments::{ModSelection, SimulateArgs},
     util::globals::{emotes::*, DEV_GUILD_ID, HOMEPAGE},
-    Error,
 };
+
+use failure::Error;
 use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score};
 use serenity::{
     cache::Cache,

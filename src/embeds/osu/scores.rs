@@ -7,9 +7,9 @@ use crate::{
         numbers::{round_and_comma, with_comma_u64},
         pp::PPProvider,
     },
-    Error,
 };
 
+use failure::Error;
 use rosu::models::{Beatmap, GameMode, Score, User};
 use std::fmt::Write;
 
@@ -45,12 +45,7 @@ impl ScoresEmbed {
                 let pp_provider = match PPProvider::new(&score, &map, Some(cache_data.data())).await
                 {
                     Ok(provider) => provider,
-                    Err(why) => {
-                        return Err(Error::Custom(format!(
-                            "Something went wrong while creating PPProvider: {}",
-                            why
-                        )))
-                    }
+                    Err(why) => bail!("Something went wrong while creating PPProvider: {}", why),
                 };
                 (
                     osu::get_stars(pp_provider.stars()),
