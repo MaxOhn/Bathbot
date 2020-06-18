@@ -24,7 +24,7 @@ impl<'c> FromRow<'c, MySqlRow<'c>> for Ratios {
                 .split(',')
                 .map(|s| f32::from_str(s).unwrap())
                 .collect(),
-            misses: ratios
+            misses: misses
                 .split(',')
                 .map(|s| f32::from_str(s).unwrap())
                 .collect(),

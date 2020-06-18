@@ -1,12 +1,13 @@
 use crate::{
     arguments::{MapModArgs, ModSelection},
     database::MySQL,
-    embeds::BasicEmbedData,
-    pagination::{Pagination, ReactionData},
+    embeds::{EmbedData, LeaderboardEmbed},
+    pagination::{LeaderboardPagination, Pagination},
     scraper::Scraper,
     util::{
         discord,
         globals::{AVATAR_URL, OSU_API_ISSUE},
+        MessageExt,
     },
     DiscordLinks, Osu,
 };
@@ -19,13 +20,11 @@ use rosu::{
     },
 };
 use serenity::{
-    collector::ReactionAction,
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
-    model::channel::{Message, ReactionType},
+    framework::standard::{macros::command, Args, CommandResult},
+    model::channel::Message,
     prelude::Context,
 };
-use std::{convert::TryFrom, sync::Arc, time::Duration};
-use tokio::stream::StreamExt;
+use std::sync::Arc;
 
 #[allow(clippy::cognitive_complexity)]
 async fn leaderboard_send(
@@ -45,18 +44,20 @@ async fn leaderboard_send(
     } else {
         let msgs = msg
             .channel_id
-            .messages(&ctx.http, |retriever| retriever.limit(50))
+            .messages(ctx, |retriever| retriever.limit(50))
             .await?;
         match discord::map_id_from_history(msgs, &ctx.cache).await {
             Some(id) => id,
             None => {
                 msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "No beatmap specified and none found in recent channel history. \
-                     Try specifying a map either by url to the map, or just by map id.",
+                        Try specifying a map either by url to the map, or just by map id.",
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -80,20 +81,26 @@ async fn leaderboard_send(
                         None => {
                             msg.channel_id
                                 .say(
-                                    &ctx.http,
+                                    ctx,
                                     format!(
                                         "Could not find beatmap with id `{}`. \
                                         Did you give me a mapset id instead of a map id?",
                                         map_id
                                     ),
                                 )
-                                .await?;
+                                .await?
+                                .reaction_delete(ctx, msg.author.id)
+                                .await;
                             return Ok(());
                         }
                     },
                     Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                        return Err(CommandError::from(why.to_string()));
+                        msg.channel_id
+                            .say(ctx, OSU_API_ISSUE)
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
+                        return Err(why.to_string().into());
                     }
                 };
                 (
@@ -119,8 +126,12 @@ async fn leaderboard_send(
         match scores_future.await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                return Err(CommandError::from(why.to_string()));
+                msg.channel_id
+                    .say(&ctx.http, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
             }
         }
     };
@@ -131,7 +142,7 @@ async fn leaderboard_send(
     let first_place_icon = scores
         .first()
         .map(|s| format!("{}{}", AVATAR_URL, s.user_id));
-    let data = match BasicEmbedData::create_leaderboard(
+    let data = match LeaderboardEmbed::new(
         &author_name.as_deref(),
         &map,
         if scores.is_empty() {
@@ -149,11 +160,13 @@ async fn leaderboard_send(
         Err(why) => {
             msg.channel_id
                 .say(
-                    &ctx.http,
+                    ctx,
                     "Some issue while calculating leaderboard data, blame bade",
                 )
-                .await?;
-            return Err(CommandError::from(why.to_string()));
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
+            return Err(why.to_string().into());
         }
     };
 
@@ -182,65 +195,35 @@ async fn leaderboard_send(
             warn!("Could not add map of recent command to DB: {}", why);
         }
     }
-    let mut response = response?;
+    let resp = response?;
     if scores.is_empty() {
-        discord::reaction_deletion(&ctx, response, msg.author.id).await;
+        resp.reaction_delete(ctx, msg.author.id).await;
         return Ok(());
     }
 
-    // Collect reactions of author on the response
-    let mut collector = response
-        .await_reactions(&ctx)
-        .timeout(Duration::from_secs(60))
-        .author_id(msg.author.id)
-        .await;
-
-    // Add initial reactions
-    let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
-    for &reaction in reactions.iter() {
-        let reaction_type = ReactionType::try_from(reaction).unwrap();
-        response.react(&ctx.http, reaction_type).await?;
+    // Skip pagination if too few entries
+    if scores.len() <= 10 {
+        resp.reaction_delete(ctx, msg.author.id).await;
+        return Ok(());
     }
 
-    // Check if the author wants to edit the response
-    let http = Arc::clone(&ctx.http);
+    // Pagination
+    let pagination = LeaderboardPagination::new(
+        ctx,
+        resp,
+        msg.author.id,
+        map,
+        scores,
+        author_name,
+        first_place_icon,
+    )
+    .await;
     let cache = Arc::clone(&ctx.cache);
-    let data = Arc::clone(&ctx.data);
+    let http = Arc::clone(&ctx.http);
     tokio::spawn(async move {
-        let mut pagination = Pagination::leaderboard(
-            map,
-            scores,
-            author_name,
-            first_place_icon,
-            Arc::clone(&cache),
-            data,
-        );
-        while let Some(reaction) = collector.next().await {
-            if let ReactionAction::Added(reaction) = &*reaction {
-                if let ReactionType::Unicode(reaction) = &reaction.emoji {
-                    match pagination.next_reaction(reaction.as_str()).await {
-                        Ok(data) => match data {
-                            ReactionData::Delete => response.delete((&cache, &*http)).await?,
-                            ReactionData::None => {}
-                            _ => {
-                                response
-                                    .edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
-                                    .await?
-                            }
-                        },
-                        Err(why) => warn!("Error while using paginator for leaderboard: {}", why),
-                    }
-                }
-            }
+        if let Err(why) = pagination.start(cache, http).await {
+            warn!("Pagination error: {}", why)
         }
-        for &reaction in reactions.iter() {
-            let reaction_type = ReactionType::try_from(reaction).unwrap();
-            response
-                .channel_id
-                .delete_reaction(&http, response.id, None, reaction_type)
-                .await?;
-        }
-        Ok::<_, serenity::Error>(())
     });
     Ok(())
 }

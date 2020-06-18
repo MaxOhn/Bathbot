@@ -17,7 +17,7 @@ impl RankArgs {
                 (None, num)
             } else if arg.len() < 3 {
                 return Err("Could not parse rank. Provide it either as positive \
-                    number or as country acronym followed by a positive }
+                    number or as country acronym followed by a positive \
                     number e.g. `be10`."
                     .to_string());
             } else {

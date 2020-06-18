@@ -1,7 +1,7 @@
 use crate::{
     commands::checks::*,
     database::MySQL,
-    util::{discord, globals::GENERAL_ISSUE},
+    util::{globals::GENERAL_ISSUE, MessageExt},
     Guilds,
 };
 
@@ -185,14 +185,13 @@ async fn authorities(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
             .map(|role| format!("`{}`", role))
             .join(", ")
     };
-    let response = msg
-        .channel_id
+    msg.channel_id
         .say(
             &ctx.http,
             format!("Successfully changed the authority roles to: {}", content),
         )
-        .await?;
-
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+        .await?
+        .reaction_delete(ctx, msg.author.id)
+        .await;
     Ok(())
 }

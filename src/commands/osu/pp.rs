@@ -1,7 +1,7 @@
 use crate::{
     arguments::NameFloatArgs,
-    embeds::BasicEmbedData,
-    util::{discord, globals::OSU_API_ISSUE},
+    embeds::{EmbedData, PPMissingEmbed},
+    util::{globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
 };
 
@@ -10,7 +10,7 @@ use rosu::{
     models::{GameMode, Score, User},
 };
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::prelude::Message,
     prelude::Context,
 };
@@ -19,8 +19,11 @@ async fn pp_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> Co
     let args = match NameFloatArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
-            let response = msg.channel_id.say(&ctx.http, err_msg).await?;
-            discord::reaction_deletion(ctx, response, msg.author.id).await;
+            msg.channel_id
+                .say(ctx, err_msg)
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Ok(());
         }
     };
@@ -34,11 +37,13 @@ async fn pp_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> Co
             None => {
                 msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "Either specify an osu name or link your discord \
-                     to an osu profile via `<link osuname`",
+                        to an osu profile via `<link osuname`",
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -46,8 +51,10 @@ async fn pp_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> Co
     let pp = args.float;
     if pp < 0.0 {
         msg.channel_id
-            .say(&ctx.http, "The pp number must be non-negative")
-            .await?;
+            .say(ctx, "The pp number must be non-negative")
+            .await?
+            .reaction_delete(ctx, msg.author.id)
+            .await;
         return Ok(());
     }
 
@@ -61,36 +68,45 @@ async fn pp_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> Co
                 Some(user) => user,
                 None => {
                     msg.channel_id
-                        .say(&ctx.http, format!("User `{}` was not found", name))
-                        .await?;
+                        .say(ctx, format!("User `{}` was not found", name))
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Ok(());
                 }
             },
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                return Err(CommandError::from(why.to_string()));
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
             }
         };
         let scores = match user.get_top_scores(&osu, 100, mode).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                return Err(CommandError::from(why.to_string()));
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
             }
         };
         (user, scores)
     };
 
     // Accumulate all necessary data
-    let data = BasicEmbedData::create_ppmissing(user, scores, pp);
+    let data = PPMissingEmbed::new(user, scores, pp);
 
     // Creating the embed
-    let response = msg
-        .channel_id
-        .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
-        .await?;
-
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+    msg.channel_id
+        .send_message(ctx, |m| m.embed(|e| data.build(e)))
+        .await?
+        .reaction_delete(ctx, msg.author.id)
+        .await;
     Ok(())
 }
 

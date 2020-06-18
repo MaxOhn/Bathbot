@@ -1,20 +1,16 @@
 use crate::{
-    embeds::BasicEmbedData,
-    pagination::{Pagination, ReactionData},
-    util::datetime,
+    embeds::{CommandCounterEmbed, EmbedData},
+    pagination::{CommandCountPagination, Pagination},
     util::numbers,
     BootTime, CommandCounter,
 };
 
-use chrono::{DateTime, Utc};
 use serenity::{
-    collector::ReactionAction,
     framework::standard::{macros::command, CommandResult},
-    model::channel::{Message, ReactionType},
+    model::channel::Message,
     prelude::Context,
 };
-use std::{convert::TryFrom, sync::Arc, time::Duration};
-use tokio::stream::StreamExt;
+use std::sync::Arc;
 
 #[command]
 #[description = "Let me show you my most popular commands \
@@ -29,72 +25,29 @@ async fn commands(ctx: &Context, msg: &Message) -> CommandResult {
     vec.sort_by(|&(_, a), &(_, b)| b.cmp(&a));
 
     // Prepare embed data
-    let boot_time = {
-        let boot_time: &DateTime<Utc> = data.get::<BootTime>().unwrap();
-        datetime::how_long_ago(boot_time)
-    };
+    let boot_time = *data.get::<BootTime>().unwrap();
     let sub_vec = vec
         .iter()
         .take(15)
         .map(|(name, amount)| (name, *amount))
         .collect();
     let pages = numbers::div_euclid(15, vec.len());
-    let data = BasicEmbedData::create_command_counter(sub_vec, boot_time.as_str(), 1, (1, pages));
+    let data = CommandCounterEmbed::new(sub_vec, &boot_time, 1, (1, pages));
 
     // Creating the embed
-    let mut response = msg
+    let resp = msg
         .channel_id
         .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
         .await?;
 
-    // Collect reactions of author on the response
-    let mut collector = response
-        .await_reactions(&ctx)
-        .timeout(Duration::from_secs(60))
-        .author_id(msg.author.id)
-        .await;
-
-    // Add initial reactions
-    let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
-    for &reaction in reactions.iter() {
-        let reaction_type = ReactionType::try_from(reaction).unwrap();
-        response.react(&ctx.http, reaction_type).await?;
-    }
-    // Check if the author wants to edit the response
-    let http = Arc::clone(&ctx.http);
+    // Pagination
+    let pagination = CommandCountPagination::new(ctx, resp, msg.author.id, vec, boot_time).await;
     let cache = Arc::clone(&ctx.cache);
+    let http = Arc::clone(&ctx.http);
     tokio::spawn(async move {
-        let mut pagination = Pagination::command_counter(vec, boot_time);
-        while let Some(reaction) = collector.next().await {
-            if let ReactionAction::Added(reaction) = &*reaction {
-                if let ReactionType::Unicode(reaction) = &reaction.emoji {
-                    match pagination.next_reaction(reaction.as_str()).await {
-                        Ok(data) => match data {
-                            ReactionData::Delete => response.delete((&cache, &*http)).await?,
-                            ReactionData::None => {}
-                            _ => {
-                                response
-                                    .edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
-                                    .await?
-                            }
-                        },
-                        Err(why) => {
-                            warn!("Error while using paginator for command counter: {}", why)
-                        }
-                    }
-                }
-            }
+        if let Err(why) = pagination.start(cache, http).await {
+            warn!("Pagination error: {}", why)
         }
-
-        // Remove initial reactions
-        for &reaction in reactions.iter() {
-            let reaction_type = ReactionType::try_from(reaction).unwrap();
-            response
-                .channel_id
-                .delete_reaction(&http, response.id, None, reaction_type)
-                .await?;
-        }
-        Ok::<_, serenity::Error>(())
     });
     Ok(())
 }

@@ -11,14 +11,16 @@ pub mod structs;
 pub mod util;
 
 use crate::scraper::Scraper;
-use commands::{fun::*, osu::*, streams::*, utility::*};
+use commands::{fun::*, help::*, osu::*, streams::*, utility::*};
 use database::MySQL;
 use events::Handler;
 use streams::Twitch;
 use structs::Osu;
 use structs::*;
-pub use util::{discord::get_member, Error};
+pub use util::discord::get_member;
 
+#[macro_use]
+extern crate failure;
 #[macro_use]
 extern crate log;
 

@@ -1,9 +1,9 @@
 use crate::{
     arguments::NameIntArgs,
     database::MySQL,
-    embeds::BasicEmbedData,
-    pagination::{Pagination, ReactionData},
-    util::{globals::OSU_API_ISSUE, numbers, osu, pp::PPProvider},
+    embeds::{EmbedData, NoChokeEmbed},
+    pagination::{NoChokePagination, Pagination},
+    util::{globals::OSU_API_ISSUE, numbers, osu, pp::PPProvider, MessageExt},
     DiscordLinks, Osu,
 };
 
@@ -12,16 +12,11 @@ use rosu::{
     models::{Beatmap, GameMode, Score, User},
 };
 use serenity::{
-    collector::ReactionAction,
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
-    model::{
-        channel::{Message, ReactionType},
-        misc::Mentionable,
-    },
+    framework::standard::{macros::command, Args, CommandResult},
+    model::{channel::Message, misc::Mentionable},
     prelude::Context,
 };
-use std::{cmp::Ordering, collections::HashMap, convert::TryFrom, sync::Arc, time::Duration};
-use tokio::stream::StreamExt;
+use std::{cmp::Ordering, collections::HashMap, sync::Arc};
 
 #[command]
 #[description = "Display a user's top plays if no score in their top 100 \
@@ -43,11 +38,13 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             None => {
                 msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "Either specify an osu name or link your discord \
-                     to an osu profile via `<link osuname`",
+                        to an osu profile via `<link osuname`",
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -64,21 +61,31 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 Some(user) => user,
                 None => {
                     msg.channel_id
-                        .say(&ctx.http, format!("User `{}` was not found", name))
-                        .await?;
+                        .say(ctx, format!("User `{}` was not found", name))
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Ok(());
                 }
             },
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                return Err(CommandError::from(why.to_string()));
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
             }
         };
         let scores = match user.get_top_scores(&osu, 100, GameMode::STD).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                return Err(CommandError::from(why.to_string()));
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
             }
         };
         (user, scores)
@@ -100,7 +107,7 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         Some(
             msg.channel_id
                 .say(
-                    &ctx.http,
+                    ctx,
                     format!(
                         "Retrieving {} maps from the api...",
                         scores.len() - maps.len()
@@ -126,8 +133,12 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 let map = match score.get_beatmap(osu).await {
                     Ok(map) => map,
                     Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                        return Err(CommandError::from(why.to_string()));
+                        msg.channel_id
+                            .say(ctx, OSU_API_ISSUE)
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
+                        return Err(why.to_string().into());
                     }
                 };
                 missing_maps.push(map.clone());
@@ -176,7 +187,7 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     // Accumulate all necessary data
     let pages = numbers::div_euclid(5, scores_data.len());
-    let data = match BasicEmbedData::create_nochoke(
+    let data = match NoChokeEmbed::new(
         &user,
         scores_data.iter().take(5),
         unchoked_pp,
@@ -188,12 +199,11 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id
-                .say(
-                    &ctx.http,
-                    "Some issue while calculating nochoke data, blame bade",
-                )
-                .await?;
-            return Err(CommandError::from(why.to_string()));
+                .say(ctx, "Some issue while calculating nochoke data, blame bade")
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
+            return Err(why.to_string().into());
         }
     };
     let mention = msg.author.mention();
@@ -203,9 +213,9 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     }
 
     // Creating the embed
-    let response = msg
+    let resp = msg
         .channel_id
-        .send_message(&ctx.http, |m| {
+        .send_message(ctx, |m| {
             m.content(format!("{} No-choke top scores for `{}`:", mention, name))
                 .embed(|e| data.build(e))
         })
@@ -222,54 +232,22 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             );
         }
     }
-    let mut response = response?;
 
-    // Collect reactions of author on the response
-    let mut collector = response
-        .await_reactions(&ctx)
-        .timeout(Duration::from_secs(90))
-        .author_id(msg.author.id)
-        .await;
-
-    // Add initial reactions
-    let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
-    for &reaction in reactions.iter() {
-        let reaction_type = ReactionType::try_from(reaction).unwrap();
-        response.react(&ctx.http, reaction_type).await?;
+    // Skip pagination if too few entries
+    if scores_data.len() <= 5 {
+        resp?.reaction_delete(ctx, msg.author.id).await;
+        return Ok(());
     }
 
-    // Check if the author wants to edit the response
-    let http = Arc::clone(&ctx.http);
+    // Pagination
+    let pagination =
+        NoChokePagination::new(ctx, resp?, msg.author.id, user, scores_data, unchoked_pp).await;
     let cache = Arc::clone(&ctx.cache);
+    let http = Arc::clone(&ctx.http);
     tokio::spawn(async move {
-        let mut pagination =
-            Pagination::nochoke(user, scores_data, unchoked_pp, Arc::clone(&cache));
-        while let Some(reaction) = collector.next().await {
-            if let ReactionAction::Added(reaction) = &*reaction {
-                if let ReactionType::Unicode(reaction) = &reaction.emoji {
-                    match pagination.next_reaction(reaction.as_str()).await {
-                        Ok(data) => match data {
-                            ReactionData::Delete => response.delete((&cache, &*http)).await?,
-                            ReactionData::None => {}
-                            _ => {
-                                response
-                                    .edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
-                                    .await?
-                            }
-                        },
-                        Err(why) => warn!("Error while using paginator for nochoke: {}", why),
-                    }
-                }
-            }
+        if let Err(why) = pagination.start(cache, http).await {
+            warn!("Pagination error: {}", why)
         }
-        for &reaction in reactions.iter() {
-            let reaction_type = ReactionType::try_from(reaction).unwrap();
-            response
-                .channel_id
-                .delete_reaction(&http, response.id, None, reaction_type)
-                .await?;
-        }
-        Ok::<_, serenity::Error>(())
     });
     Ok(())
 }

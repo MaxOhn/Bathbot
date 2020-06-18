@@ -1,3 +1,5 @@
+use std::{error::Error, fmt};
+
 #[derive(Debug)]
 pub enum OppaiErr {
     Binding(String),
@@ -10,6 +12,24 @@ pub enum OppaiErr {
     OOM(String),
     UnexpectedCode(String),
     MissingPath(String),
+}
+
+impl fmt::Display for OppaiErr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Oppai ")?;
+        match self {
+            Self::Binding(e) => write!(f, "binding: {}", e),
+            Self::More(e) => write!(f, "more: {}", e),
+            Self::Syntax(e) => write!(f, "syntax: {}", e),
+            Self::Truncated(e) => write!(f, "truncated: {}", e),
+            Self::NotImplemented(e) => write!(f, "not implemented: {}", e),
+            Self::IO(e) => write!(f, "io: {}", e),
+            Self::Format(e) => write!(f, "format: {}", e),
+            Self::OOM(e) => write!(f, "oom: {}", e),
+            Self::UnexpectedCode(e) => write!(f, "unexpected code: {}", e),
+            Self::MissingPath(e) => write!(f, "missing path: {}", e),
+        }
+    }
 }
 
 impl OppaiErr {
@@ -30,3 +50,5 @@ impl OppaiErr {
         }
     }
 }
+
+impl Error for OppaiErr {}

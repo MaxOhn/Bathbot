@@ -45,12 +45,7 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Allow username provision via discord user mention
 - Update spreadsheet (`<mostplayed`, `pagination`, ...)
 - Automize the bot setup via docker
-- Make `<common` paginated
-- Make `<mpc` paginated
 - Check on previous id buffer of bg game
-- Check on the bgs that don't work
 - Fix "Error while sending HTTP request." for `<c`
-- Try to optimize dependencies
-- Make `<help` deletable
   ### Commands
   - None as of now

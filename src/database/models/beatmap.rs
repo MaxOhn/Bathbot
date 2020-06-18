@@ -3,36 +3,6 @@ use rosu::models::{ApprovalStatus, Beatmap, GameMode, Genre, Language};
 use sqlx::{mysql::MySqlRow, FromRow, Row};
 use std::convert::TryFrom;
 
-pub type MapTuple<'s> = (
-    u32,
-    u32,
-    u8,
-    &'s str,
-    u32,
-    u32,
-    f32,
-    f32,
-    f32,
-    f32,
-    f32,
-    f32,
-    u32,
-    u32,
-    u32,
-    Option<u32>,
-);
-pub type MapsetTuple<'s> = (
-    u32,
-    &'s str,
-    &'s str,
-    u32,
-    &'s str,
-    u8,
-    u8,
-    i8,
-    Option<NaiveDateTime>,
-);
-
 #[derive(FromRow, Debug)]
 pub struct DBMap {
     pub beatmap_id: u32,
@@ -66,8 +36,22 @@ pub struct DBMapSet {
     approved_date: Option<NaiveDateTime>,
 }
 
-impl<'c> FromRow<'c, MySqlRow<'c>> for Beatmap {
-    fn from_row(row: &MySqlRow<'c>) -> Result<Beatmap, sqlx::Error> {
+pub struct BeatmapWrapper(Beatmap);
+
+impl From<Beatmap> for BeatmapWrapper {
+    fn from(map: Beatmap) -> Self {
+        Self(map)
+    }
+}
+
+impl Into<Beatmap> for BeatmapWrapper {
+    fn into(self) -> Beatmap {
+        self.0
+    }
+}
+
+impl<'c> FromRow<'c, MySqlRow<'c>> for BeatmapWrapper {
+    fn from_row(row: &MySqlRow<'c>) -> Result<BeatmapWrapper, sqlx::Error> {
         let mode: u8 = row.get("mode");
         let genre: u8 = row.get("mode");
         let language: u8 = row.get("mode");
@@ -97,6 +81,6 @@ impl<'c> FromRow<'c, MySqlRow<'c>> for Beatmap {
         map.language = Language::try_from(language).unwrap();
         map.approval_status = ApprovalStatus::try_from(status).unwrap();
         map.approved_date = row.get("approved_date");
-        Ok(map)
+        Ok(Self(map))
     }
 }

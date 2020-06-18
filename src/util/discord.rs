@@ -1,11 +1,13 @@
-use crate::{util::globals::AVATAR_URL, Error};
+use crate::util::globals::AVATAR_URL;
 
+use failure::Error;
 use image::{
     imageops::FilterType, png::PNGEncoder, ColorType, DynamicImage, GenericImage, GenericImageView,
 };
 use regex::Regex;
 use reqwest::Client;
 use serenity::{
+    async_trait,
     cache::Cache,
     model::{
         channel::{EmbedField, Message, ReactionType},
@@ -106,30 +108,6 @@ pub async fn get_member(ctx: &Context, channel_id: ChannelId, user_id: UserId) -
     }
 }
 
-pub async fn reaction_deletion(ctx: &Context, msg: Message, owner: UserId) {
-    let mut collector = msg
-        .await_reactions(ctx)
-        .timeout(Duration::from_secs(60))
-        .author_id(owner)
-        .filter(|reaction| {
-            if let ReactionType::Unicode(reaction_name) = &reaction.emoji {
-                reaction_name == "❌"
-            } else {
-                false
-            }
-        })
-        .await;
-    let http = Arc::clone(&ctx.http);
-    tokio::spawn(async move {
-        let delete_reaction = collector.next().await;
-        if delete_reaction.is_some() {
-            if let Err(why) = msg.delete(&http).await {
-                warn!("Error while deleting msg after reaction: {}", why);
-            }
-        }
-    });
-}
-
 pub trait CacheData {
     fn cache(&self) -> &Cache;
     fn data(&self) -> &Arc<RwLock<TypeMap>>;
@@ -150,5 +128,46 @@ impl CacheData for (&mut Arc<Cache>, &mut Arc<RwLock<TypeMap>>) {
     }
     fn data(&self) -> &Arc<RwLock<TypeMap>> {
         self.1
+    }
+}
+
+impl CacheData for (&Arc<Cache>, &Arc<RwLock<TypeMap>>) {
+    fn cache(&self) -> &Cache {
+        self.0
+    }
+    fn data(&self) -> &Arc<RwLock<TypeMap>> {
+        self.1
+    }
+}
+
+#[async_trait]
+pub trait MessageExt: Sized {
+    async fn reaction_delete(self, ctx: &Context, author: UserId);
+}
+
+#[async_trait]
+impl MessageExt for Message {
+    async fn reaction_delete(self, ctx: &Context, author: UserId) {
+        let mut collector = self
+            .await_reactions(ctx)
+            .timeout(Duration::from_secs(60))
+            .author_id(author)
+            .filter(|reaction| {
+                if let ReactionType::Unicode(reaction_name) = &reaction.emoji {
+                    reaction_name == "❌"
+                } else {
+                    false
+                }
+            })
+            .await;
+        let http = Arc::clone(&ctx.http);
+        tokio::spawn(async move {
+            let delete_reaction = collector.next().await;
+            if delete_reaction.is_some() {
+                if let Err(why) = self.delete(&http).await {
+                    warn!("Error while deleting msg after reaction: {}", why);
+                }
+            }
+        });
     }
 }

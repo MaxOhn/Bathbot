@@ -1,11 +1,8 @@
 use crate::{
     arguments::SimulateMapArgs,
     database::MySQL,
-    embeds::SimulateData,
-    util::{
-        discord,
-        globals::{MINIMIZE_DELAY, OSU_API_ISSUE},
-    },
+    embeds::{EmbedData, SimulateEmbed},
+    util::{discord, globals::OSU_API_ISSUE, MessageExt},
     Osu,
 };
 
@@ -17,7 +14,7 @@ use rosu::{
     },
 };
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::prelude::Message,
     prelude::Context,
 };
@@ -36,8 +33,11 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = match SimulateMapArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
-            let response = msg.channel_id.say(ctx, err_msg).await?;
-            discord::reaction_deletion(ctx, response, msg.author.id).await;
+            msg.channel_id
+                .say(ctx, err_msg)
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Ok(());
         }
     };
@@ -51,16 +51,16 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         match discord::map_id_from_history(msgs, &ctx.cache).await {
             Some(id) => id,
             None => {
-                let response = msg
-                    .channel_id
+                msg.channel_id
                     .say(
                         ctx,
                         "No map embed found in this channel's recent history.\n\
                         Try specifying a map either by url to the map, \
                         or just by map id.",
                     )
-                    .await?;
-                discord::reaction_deletion(ctx, response, msg.author.id).await;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -79,17 +79,28 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     Ok(result) => match result {
                         Some(map) => map,
                         None => {
-                            let response = msg.channel_id.say(
-                                ctx,
-                                format!("Could not find beatmap with id `{}`. Did you give me a mapset id instead of a map id?", map_id),
-                            ).await?;
-                            discord::reaction_deletion(ctx, response, msg.author.id).await;
+                            msg.channel_id
+                                .say(
+                                    ctx,
+                                    format!(
+                                        "Could not find beatmap with id `{}`. \
+                                        Did you give me a mapset id instead of a map id?",
+                                        map_id
+                                    ),
+                                )
+                                .await?
+                                .reaction_delete(ctx, msg.author.id)
+                                .await;
                             return Ok(());
                         }
                     },
                     Err(why) => {
-                        msg.channel_id.say(ctx, OSU_API_ISSUE).await?;
-                        return Err(CommandError::from(why.to_string()));
+                        msg.channel_id
+                            .say(ctx, OSU_API_ISSUE)
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
+                        return Err(why.to_string().into());
                     }
                 };
                 (
@@ -102,14 +113,14 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     match map.mode {
         GameMode::TKO | GameMode::CTB => {
-            let response = msg
-                .channel_id
+            msg.channel_id
                 .say(
                     ctx,
                     format!("I can only simulate STD and MNA maps, not {}", map.mode),
                 )
-                .await?;
-            discord::reaction_deletion(ctx, response, msg.author.id).await;
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Ok(());
         }
         _ => {}
@@ -117,7 +128,7 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match SimulateData::new(None, map, args.into(), ctx).await {
+    let data = match SimulateEmbed::new(None, map, args.into(), ctx).await {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id
@@ -125,8 +136,10 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     ctx,
                     "Some issue while calculating simulate data, blame bade",
                 )
-                .await?;
-            return Err(CommandError::from(why.to_string()));
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
+            return Err(why.to_string().into());
         }
     };
 
@@ -144,15 +157,15 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             warn!("Could not add map of simulaterecent command to DB: {}", why);
         }
     }
-    discord::reaction_deletion(ctx, response.clone(), msg.author.id).await;
+    response.clone().reaction_delete(ctx, msg.author.id).await;
 
     // Minimize embed after delay
     for _ in 0..5usize {
-        time::delay_for(Duration::from_secs(MINIMIZE_DELAY)).await;
+        time::delay_for(Duration::from_secs(45)).await;
         match response.edit(ctx, |m| m.embed(|e| data.minimize(e))).await {
             Ok(_) => break,
             Err(why) => {
-                warn!("Error while trying to minimize simulate msg: {}", why);
+                warn!("Error while minimizing simulate msg: {}", why);
                 time::delay_for(Duration::from_secs(5)).await;
             }
         }

@@ -1,4 +1,4 @@
-use crate::{commands::checks::*, util::discord};
+use crate::{commands::checks::*, util::MessageExt};
 
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
@@ -15,7 +15,10 @@ async fn echo(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let channel = msg.channel_id;
     msg.delete(ctx).await?;
     let content = content_safe(&ctx.cache, args.rest(), &ContentSafeOptions::default()).await;
-    let response = channel.say(ctx, content).await?;
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+    channel
+        .say(ctx, content)
+        .await?
+        .reaction_delete(ctx, msg.author.id)
+        .await;
     Ok(())
 }

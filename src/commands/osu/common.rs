@@ -1,8 +1,9 @@
 use crate::{
     arguments::MultNameArgs,
     database::MySQL,
-    embeds::BasicEmbedData,
-    util::{discord, globals::OSU_API_ISSUE},
+    embeds::{CommonEmbed, EmbedData},
+    pagination::{CommonPagination, Pagination},
+    util::{discord, globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
 };
 
@@ -13,14 +14,14 @@ use rosu::{
     models::{Beatmap, GameMode, Score, User},
 };
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::prelude::Message,
     prelude::Context,
 };
 use std::{
     collections::{HashMap, HashSet},
-    convert::From,
     fmt::Write,
+    sync::Arc,
 };
 
 #[allow(clippy::cognitive_complexity)]
@@ -30,11 +31,13 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
         0 => {
             msg.channel_id
                 .say(
-                    &ctx.http,
+                    ctx,
                     "You need to specify at least one osu username. \
-                 If you're not linked, you must specify at least two names.",
+                    If you're not linked, you must specify at least two names.",
                 )
-                .await?;
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Ok(());
         }
         1 => {
@@ -51,7 +54,9 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                             "Since you're not linked via `<link`, \
                             you must specify at least two names.",
                         )
-                        .await?;
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Ok(());
                 }
             }
@@ -62,7 +67,9 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
     if names.iter().collect::<HashSet<_>>().len() == 1 {
         msg.channel_id
             .say(ctx, "Give at least two different names.")
-            .await?;
+            .await?
+            .reaction_delete(ctx, msg.author.id)
+            .await;
         return Ok(());
     }
 
@@ -82,21 +89,31 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                     Some(user) => user,
                     None => {
                         msg.channel_id
-                            .say(&ctx.http, format!("User `{}` was not found", name))
-                            .await?;
+                            .say(ctx, format!("User `{}` was not found", name))
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
                         return Ok(());
                     }
                 },
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                    return Err(CommandError::from(why.to_string()));
+                    msg.channel_id
+                        .say(ctx, OSU_API_ISSUE)
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
+                    return Err(why.to_string().into());
                 }
             };
             let scores = match user.get_top_scores(&osu, 100, mode).await {
                 Ok(scores) => scores,
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                    return Err(CommandError::from(why.to_string()));
+                    msg.channel_id
+                        .say(ctx, OSU_API_ISSUE)
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
+                    return Err(why.to_string().into());
                 }
             };
             users.insert(user.user_id, user);
@@ -125,6 +142,32 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
         .par_iter_mut()
         .for_each(|scores| scores.retain(|s| map_ids.contains(&s.beatmap_id.unwrap())));
 
+    // Flatten scores, sort by beatmap id, then group by beatmap id
+    let mut all_scores: Vec<Score> = all_scores.into_iter().flatten().collect();
+    all_scores.sort_by(|s1, s2| s1.beatmap_id.cmp(&s2.beatmap_id));
+    let mut all_scores: HashMap<u32, Vec<Score>> = all_scores
+        .into_iter()
+        .group_by(|score| score.beatmap_id.unwrap())
+        .into_iter()
+        .map(|(map_id, scores)| (map_id, scores.collect()))
+        .collect();
+
+    // Sort each group by pp value, then take the best 3
+    all_scores.par_iter_mut().for_each(|(_, scores)| {
+        scores.sort_by(|s1, s2| s2.pp.partial_cmp(&s1.pp).unwrap());
+        scores.truncate(3);
+    });
+
+    // Consider only the top 10 maps with the highest avg pp among the users
+    let mut pp_avg: Vec<(u32, f32)> = all_scores
+        .par_iter()
+        .map(|(&map_id, scores)| {
+            let sum = scores.iter().fold(0.0, |sum, next| sum + next.pp.unwrap());
+            (map_id, sum / scores.len() as f32)
+        })
+        .collect();
+    pp_avg.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
     // Try retrieving all maps of common scores from the database
     let mut maps: HashMap<u32, Beatmap> = {
         let map_ids: Vec<u32> = map_ids.iter().copied().collect();
@@ -136,7 +179,6 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             .unwrap_or_else(|_| HashMap::default())
     };
     let amount_common = map_ids.len();
-    debug!("Found {}/{} beatmaps in DB", maps.len(), amount_common);
     map_ids.retain(|id| !maps.contains_key(id));
 
     // Retrieve all missing maps from the API
@@ -154,14 +196,20 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                     }
                     None => {
                         msg.channel_id
-                            .say(&ctx.http, "Unexpected response from the API, blame bade")
-                            .await?;
+                            .say(ctx, "Unexpected response from the API, blame bade")
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
                         return Ok(());
                     }
                 },
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                    return Err(CommandError::from(why.to_string()));
+                    msg.channel_id
+                        .say(ctx, OSU_API_ISSUE)
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
+                    return Err(why.to_string().into());
                 }
             };
             missing_maps.push(map);
@@ -189,18 +237,24 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             amount_common,
             if amount_common > 1 { "s" } else { "" }
         );
-        if amount_common > 10 {
-            content.push_str(", here's the top 10 of them:");
-        } else {
-            content.push(':');
-        }
     }
-    let (data, thumbnail) = BasicEmbedData::create_common(users, all_scores, maps).await;
+
+    // Keys have no strict order, hence inconsistent result
+    let user_ids: Vec<u32> = users.keys().copied().collect();
+    let thumbnail = match discord::get_combined_thumbnail(&user_ids).await {
+        Ok(thumbnail) => thumbnail,
+        Err(why) => {
+            warn!("Error while combining avatars: {}", why);
+            Vec::default()
+        }
+    };
+    let id_pps = &pp_avg[..10.min(pp_avg.len())];
+    let data = CommonEmbed::new(&users, &all_scores, &maps, id_pps, 0);
 
     // Creating the embed
-    let response = msg
+    let resp = msg
         .channel_id
-        .send_message(&ctx.http, |m| {
+        .send_message(ctx, |m| {
             if !thumbnail.is_empty() {
                 let bytes: &[u8] = &thumbnail;
                 m.add_file((bytes, "avatar_fuse.png"));
@@ -222,7 +276,31 @@ async fn common_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
         }
     }
 
-    discord::reaction_deletion(&ctx, response?, msg.author.id).await;
+    // Skip pagination if too few entries
+    if pp_avg.len() <= 10 {
+        resp?.reaction_delete(ctx, msg.author.id).await;
+        return Ok(());
+    }
+
+    // Pagination
+    let pagination = CommonPagination::new(
+        ctx,
+        resp?,
+        msg.author.id,
+        users,
+        all_scores,
+        maps,
+        pp_avg,
+        "attachment://avatar_fuse.png".to_owned(),
+    )
+    .await;
+    let cache = Arc::clone(&ctx.cache);
+    let http = Arc::clone(&ctx.http);
+    tokio::spawn(async move {
+        if let Err(why) = pagination.start(cache, http).await {
+            warn!("Pagination error: {}", why)
+        }
+    });
     Ok(())
 }
 

@@ -1,6 +1,7 @@
 use super::{util, Hints, ImageReveal};
-use crate::{BgGames, Error, MySQL};
+use crate::{BgGames, MySQL};
 
+use failure::Error;
 use image::{imageops::FilterType, GenericImageView, ImageFormat};
 use rosu::models::GameMode;
 use serenity::{
@@ -21,7 +22,6 @@ use tokio::{
 pub struct BackGroundGame {
     pub game: Arc<RwLock<GameData>>,
     pub mode: GameMode,
-    // previous_ids: Arc<RwLock<VecDequeue<u32>>>,
     tx: Sender<LoopResult>,
     rx: Receiver<LoopResult>,
 }
@@ -42,14 +42,14 @@ impl BackGroundGame {
         Ok(self
             .tx
             .broadcast(LoopResult::Stop)
-            .map_err(|_| Error::Custom("Could not send stop message".to_string()))?)
+            .map_err(|_| format_err!("Could not send stop message"))?)
     }
 
     pub fn restart(&mut self) -> Result<(), Error> {
         Ok(self
             .tx
             .broadcast(LoopResult::Restart)
-            .map_err(|_| Error::Custom("Could not send restart message".to_string()))?)
+            .map_err(|_| format_err!("Could not send restart message"))?)
     }
 
     pub async fn sub_image(&self) -> Result<Vec<u8>, Error> {
@@ -128,6 +128,7 @@ impl BackGroundGame {
                             .unwrap()
                             .remove(&channel);
                         collector.stop();
+                        debug!("Game finished");
                         break;
                     }
                     LoopResult::Winner(user_id) => {

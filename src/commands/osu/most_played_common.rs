@@ -1,22 +1,24 @@
 use crate::{
     arguments::MultNameArgs,
-    embeds::BasicEmbedData,
+    embeds::{EmbedData, MostPlayedCommonEmbed},
+    pagination::{MostPlayedCommonPagination, Pagination},
     scraper::MostPlayedMap,
-    util::{discord, globals::OSU_API_ISSUE},
+    util::{discord, globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu, Scraper,
 };
 
 use itertools::Itertools;
 use rosu::{backend::requests::UserRequest, models::User};
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::prelude::Message,
     prelude::Context,
 };
 use std::{
     collections::{HashMap, HashSet},
-    convert::From,
+    fmt::Write,
     iter::Extend,
+    sync::Arc,
 };
 
 #[command]
@@ -31,11 +33,13 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
         0 => {
             msg.channel_id
                 .say(
-                    &ctx.http,
+                    ctx,
                     "You need to specify at least one osu username. \
-                 If you're not linked, you must specify at least two names.",
+                    If you're not linked, you must specify at least two names.",
                 )
-                .await?;
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Ok(());
         }
         1 => {
@@ -48,11 +52,13 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
                 None => {
                     msg.channel_id
                         .say(
-                            &ctx.http,
+                            ctx,
                             "Since you're not linked via `<link`, \
-                         you must specify at least two names.",
+                            you must specify at least two names.",
                         )
-                        .await?;
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Ok(());
                 }
             }
@@ -62,8 +68,10 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
     };
     if names.iter().collect::<HashSet<_>>().len() == 1 {
         msg.channel_id
-            .say(&ctx.http, "Give at least two different names.")
-            .await?;
+            .say(ctx, "Give at least two different names.")
+            .await?
+            .reaction_delete(ctx, msg.author.id)
+            .await;
         return Ok(());
     }
 
@@ -82,22 +90,32 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
                     Some(user) => user,
                     None => {
                         msg.channel_id
-                            .say(&ctx.http, format!("User `{}` was not found", name))
-                            .await?;
+                            .say(ctx, format!("User `{}` was not found", name))
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
                         return Ok(());
                     }
                 },
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                    return Err(CommandError::from(why.to_string()));
+                    msg.channel_id
+                        .say(ctx, OSU_API_ISSUE)
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
+                    return Err(why.to_string().into());
                 }
             };
             let maps = {
                 match scraper.get_most_played(user.user_id, 100).await {
                     Ok(maps) => maps,
                     Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                        return Err(CommandError::from(why.to_string()));
+                        msg.channel_id
+                            .say(ctx, OSU_API_ISSUE)
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
+                        return Err(why.to_string().into());
                     }
                 }
             };
@@ -113,7 +131,7 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
     }
 
     // Consider only maps that appear in each users map list
-    let all_maps: Vec<_> = all_maps
+    let mut maps: Vec<_> = all_maps
         .into_iter()
         .filter(|map| {
             users_count
@@ -121,7 +139,23 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
                 .all(|(_, count_map)| count_map.contains_key(&map.beatmap_id))
         })
         .collect();
-    let amount_common = all_maps.len();
+    let amount_common = maps.len();
+
+    // Sort maps by sum of counts
+    let total_counts: HashMap<u32, u32> = users_count.iter().fold(
+        HashMap::with_capacity(maps.len()),
+        |mut counts, (_, user_entry)| {
+            for (map_id, count) in user_entry {
+                *counts.entry(*map_id).or_insert(0) += count;
+            }
+            counts
+        },
+    );
+    maps.sort_by(|a, b| {
+        total_counts
+            .get(&b.beatmap_id)
+            .cmp(&total_counts.get(&a.beatmap_id))
+    });
 
     // Accumulate all necessary data
     let len = names.len();
@@ -135,28 +169,31 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
     if amount_common == 0 {
         content.push_str(" don't share any maps in their 100 most played maps");
     } else {
-        content.push_str(&format!(
+        let _ = write!(
+            content,
             " have {}/100 common most played map{}",
             amount_common,
             if amount_common > 1 { "s" } else { "" }
-        ));
-        if amount_common > 10 {
-            content.push_str(", here's the top 10 of them:");
-        } else {
-            content.push(':');
-        }
+        );
     }
 
-    // TODO: Paginate
-    let all_maps = all_maps.into_iter().take(10).collect();
+    // Keys have no strict order, hence inconsistent result
+    let user_ids: Vec<u32> = users.keys().copied().collect();
+    let thumbnail = match discord::get_combined_thumbnail(&user_ids).await {
+        Ok(thumbnail) => thumbnail,
+        Err(why) => {
+            warn!("Error while combining avatars: {}", why);
+            Vec::default()
+        }
+    };
 
-    let (data, thumbnail) =
-        BasicEmbedData::create_mostplayedcommon(users, all_maps, users_count).await;
+    let initial_maps = &maps[..10.min(maps.len())];
+    let data = MostPlayedCommonEmbed::new(&users, initial_maps, &users_count, 0).await;
 
     // Creating the embed
-    let response = msg
+    let resp = msg
         .channel_id
-        .send_message(&ctx.http, |m| {
+        .send_message(ctx, |m| {
             if !thumbnail.is_empty() {
                 let bytes: &[u8] = &thumbnail;
                 m.add_file((bytes, "avatar_fuse.png"));
@@ -166,7 +203,29 @@ async fn mostplayedcommon(ctx: &Context, msg: &Message, args: Args) -> CommandRe
         })
         .await?;
 
-    // Save the response owner
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+    // Skip pagination if too few entries
+    if maps.len() <= 10 {
+        resp.reaction_delete(ctx, msg.author.id).await;
+        return Ok(());
+    }
+
+    // Pagination
+    let pagination = MostPlayedCommonPagination::new(
+        ctx,
+        resp,
+        msg.author.id,
+        users,
+        users_count,
+        maps,
+        "attachment://avatar_fuse.png".to_owned(),
+    )
+    .await;
+    let cache = Arc::clone(&ctx.cache);
+    let http = Arc::clone(&ctx.http);
+    tokio::spawn(async move {
+        if let Err(why) = pagination.start(cache, http).await {
+            warn!("Pagination error: {}", why)
+        }
+    });
     Ok(())
 }

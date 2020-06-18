@@ -1,13 +1,11 @@
 mod models;
 
+use models::BeatmapWrapper;
 pub use models::{DBMapSet, Platform, Ratios, StreamTrack, TwitchUser};
 
-use crate::{
-    util::{globals::AUTHORITY_ROLES, Error},
-    Guild,
-};
+use crate::{util::globals::AUTHORITY_ROLES, Guild};
 
-use rayon::prelude::*;
+use failure::Error;
 use rosu::models::{Beatmap, GameMode, GameMods};
 use serenity::model::id::GuildId;
 use sqlx::mysql::{MySqlPool, MySqlQueryAs};
@@ -37,11 +35,11 @@ impl MySQL {
         let query = "SELECT * FROM \
                         (SELECT * FROM maps WHERE beatmap_id=?) as m \
                     JOIN mapsets as ms ON m.beatmapset_id=ms.beatmapset_id";
-        let map: Beatmap = sqlx::query_as(query)
+        let map: BeatmapWrapper = sqlx::query_as(query)
             .bind(map_id)
             .fetch_one(&self.pool)
             .await?;
-        Ok(map)
+        Ok(map.into())
     }
 
     pub async fn get_beatmapset(&self, mapset_id: u32) -> DBResult<DBMapSet> {
@@ -61,9 +59,14 @@ impl MySQL {
             "SELECT * FROM {} as m JOIN mapsets as ms ON m.beatmapset_id=ms.beatmapset_id",
             subquery
         );
-        let beatmaps = sqlx::query_as::<_, Beatmap>(&query)
+        let beatmaps = sqlx::query_as::<_, BeatmapWrapper>(&query)
             .fetch(&self.pool)
-            .filter_map(|res| res.ok().map(|map| (map.beatmap_id, map)))
+            .filter_map(|res| {
+                res.ok().map(|map| {
+                    let map: Beatmap = map.into();
+                    (map.beatmap_id, map)
+                })
+            })
             .collect::<Vec<(_, _)>>()
             .await
             .into_iter()
@@ -136,18 +139,18 @@ impl MySQL {
     }
 
     // TODO: Wait for sqlx 0.4
-    pub async fn insert_beatmaps<'s>(&'s self, maps: Vec<Beatmap>) -> DBResult<()> {
+    pub async fn insert_beatmaps(&self, maps: Vec<Beatmap>) -> DBResult<()> {
         if maps.is_empty() {
             return Ok(());
         }
-        let handles = maps
-            .iter()
-            .map(|map| tokio::spawn(async { self.insert_beatmap(map).await }));
-        for handle in handles {
-            if let Err(why) = handle.await {
-                warn!("Error while inserting map: {}", why);
-            }
-        }
+        // let handles = maps
+        //     .iter()
+        //     .map(|map| tokio::spawn(async { self.insert_beatmap(map).await }));
+        // for handle in handles {
+        //     if let Err(why) = handle.await {
+        //         warn!("Error while inserting map: {}", why);
+        //     }
+        // }
         Ok(())
     }
 
@@ -551,12 +554,7 @@ fn ctb_pp_mods_column(mods: GameMods) -> DBResult<&'static str> {
         GameMods::DoubleTime => "DT",
         m if m == GameMods::Hidden | GameMods::HardRock => "HDHR",
         m if m == GameMods::Hidden | GameMods::DoubleTime => "HDDT",
-        _ => {
-            return Err(Error::Custom(format!(
-                "No valid mod combination for ctb pp ({})",
-                mods
-            )))
-        }
+        _ => bail!("No valid mod combination for ctb pp ({})", mods),
     };
     Ok(m)
 }
@@ -576,12 +574,7 @@ fn mania_pp_mods_column(mods: GameMods) -> DBResult<&'static str> {
         m if m == GameMods::Easy | GameMods::HalfTime => "EZHT",
         m if m == GameMods::NoFail | GameMods::Easy | GameMods::DoubleTime => "NFEZDT",
         m if m == GameMods::NoFail | GameMods::Easy | GameMods::HalfTime => "NFEZHT",
-        _ => {
-            return Err(Error::Custom(format!(
-                "No valid mod combination for mania pp ({})",
-                mods
-            )))
-        }
+        _ => bail!("No valid mod combination for mania pp ({})", mods),
     };
     Ok(m)
 }
@@ -597,12 +590,7 @@ fn ctb_stars_mods_column(mods: GameMods) -> DBResult<&'static str> {
         m if m == GameMods::HardRock | GameMods::DoubleTime => "HRDT",
         m if m == GameMods::Easy | GameMods::HalfTime => "EZHT",
         m if m == GameMods::HardRock | GameMods::HalfTime => "HRHT",
-        _ => {
-            return Err(Error::Custom(format!(
-                "No valid mod combination for ctb stars ({})",
-                mods
-            )))
-        }
+        _ => bail!("No valid mod combination for ctb stars ({})", mods),
     };
     Ok(m)
 }
@@ -612,12 +600,7 @@ fn mania_stars_mods_column(mods: GameMods) -> DBResult<&'static str> {
     let m = match mods & valid {
         GameMods::DoubleTime => "DT",
         GameMods::HalfTime => "HT",
-        _ => {
-            return Err(Error::Custom(format!(
-                "No valid mod combination for mania stars ({})",
-                mods
-            )))
-        }
+        _ => bail!("No valid mod combination for mania stars ({})", mods),
     };
     Ok(m)
 }

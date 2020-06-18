@@ -1,16 +1,16 @@
 use crate::{
     arguments::{DiscordUserArgs, NameArgs},
-    embeds::BasicEmbedData,
+    embeds::{AvatarEmbed, EmbedData},
     util::{
-        discord,
         globals::{AVATAR_URL, OSU_API_ISSUE},
+        MessageExt,
     },
     Osu,
 };
 
 use rosu::backend::UserRequest;
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::prelude::Message,
     prelude::Context,
 };
@@ -26,10 +26,14 @@ use serenity::{
 #[example = "osu Badewanne3"]
 #[sub_commands("osu")]
 pub async fn avatar(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    let user = match DiscordUserArgs::new(args, &ctx, msg.guild_id.unwrap()).await {
+    let user = match DiscordUserArgs::new(args, ctx, msg.guild_id.unwrap()).await {
         Ok(args) => args.user,
         Err(err_msg) => {
-            msg.channel_id.say(&ctx.http, err_msg).await?;
+            msg.channel_id
+                .say(ctx, err_msg)
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Ok(());
         }
     };
@@ -38,19 +42,19 @@ pub async fn avatar(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             name: user.tag(),
             url,
         };
-        let data = BasicEmbedData::create_avatar(user);
+        let data = AvatarEmbed::new(user);
         msg.channel_id
-            .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
+            .send_message(ctx, |m| m.embed(|e| data.build(e)))
             .await?
     } else {
         msg.channel_id
             .say(
-                &ctx.http,
+                ctx,
                 format!("No avatar found for discord user {}", user.name),
             )
             .await?
     };
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+    response.reaction_delete(ctx, msg.author.id).await;
     Ok(())
 }
 
@@ -60,8 +64,10 @@ pub async fn osu(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         Some(name) => name,
         None => {
             msg.channel_id
-                .say(&ctx.http, "After `osu` you need to provide a username")
-                .await?;
+                .say(ctx, "After `osu` you need to provide a username")
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Ok(());
         }
     };
@@ -74,14 +80,20 @@ pub async fn osu(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 Some(user) => user,
                 None => {
                     msg.channel_id
-                        .say(&ctx.http, format!("User `{}` was not found", name))
-                        .await?;
+                        .say(ctx, format!("User `{}` was not found", name))
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Ok(());
                 }
             },
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                return Err(CommandError::from(why.to_string()));
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
             }
         }
     };
@@ -89,12 +101,12 @@ pub async fn osu(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         name: user.username,
         url: format!("{}{}", AVATAR_URL, user.user_id),
     };
-    let data = BasicEmbedData::create_avatar(user);
-    let response = msg
-        .channel_id
+    let data = AvatarEmbed::new(user);
+    msg.channel_id
         .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
-        .await?;
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+        .await?
+        .reaction_delete(ctx, msg.author.id)
+        .await;
     Ok(())
 }
 

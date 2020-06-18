@@ -1,6 +1,6 @@
 use crate::{
     database::MySQL,
-    util::{discord, globals::GENERAL_ISSUE},
+    util::{globals::GENERAL_ISSUE, MessageExt},
     DiscordLinks,
 };
 use serenity::{
@@ -35,8 +35,10 @@ async fn link(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
             }
         }
         msg.channel_id
-            .say(&ctx.http, "You are no longer linked")
-            .await?;
+            .say(ctx, "You are no longer linked")
+            .await?
+            .reaction_delete(ctx, msg.author.id)
+            .await;
         Ok(())
     } else {
         let name = args.single_quoted::<String>()?;
@@ -52,7 +54,11 @@ async fn link(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
             match mysql.add_discord_link(id, &name).await {
                 Ok(_) => debug!("Discord user {} now linked to osu name {} in DB", id, name),
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, GENERAL_ISSUE).await?;
+                    msg.channel_id
+                        .say(ctx, GENERAL_ISSUE)
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
                     return Err(CommandError(format!(
                         "Error while adding discord link to DB: {}",
                         why
@@ -60,18 +66,17 @@ async fn link(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                 }
             }
         }
-        let response = msg
-            .channel_id
+        msg.channel_id
             .say(
-                &ctx.http,
+                ctx,
                 format!(
                     "I linked discord's `{}` with osu's `{}`",
                     msg.author.name, name
                 ),
             )
-            .await?;
-
-        discord::reaction_deletion(&ctx, response, msg.author.id).await;
+            .await?
+            .reaction_delete(ctx, msg.author.id)
+            .await;
         Ok(())
     }
 }

@@ -1,9 +1,9 @@
 use crate::{
     arguments::NameArgs,
     database::MySQL,
-    embeds::RecentData,
-    pagination::{Pagination, ReactionData},
-    util::globals::OSU_API_ISSUE,
+    embeds::{EmbedData, RecentEmbed},
+    pagination::{Pagination, RecentPagination},
+    util::{globals::OSU_API_ISSUE, MessageExt},
     DiscordLinks, Osu,
 };
 
@@ -11,22 +11,18 @@ use rosu::{
     backend::requests::{RecentRequest, UserRequest},
     models::{
         ApprovalStatus::{Approved, Loved, Qualified, Ranked},
-        Beatmap, GameMode,
+        GameMode,
     },
 };
 use serenity::{
-    collector::ReactionAction,
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
-    model::channel::{Message, ReactionType},
+    framework::standard::{macros::command, Args, CommandResult},
+    model::channel::Message,
     prelude::Context,
 };
 use std::{
     collections::{HashMap, HashSet},
-    convert::TryFrom,
     sync::Arc,
 };
-use tokio::stream::StreamExt;
-use tokio::time::Duration;
 
 #[allow(clippy::cognitive_complexity)]
 async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> CommandResult {
@@ -41,11 +37,13 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             None => {
                 msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "Either specify an osu name or link your discord \
-                     to an osu profile via `<link osuname`",
+                        to an osu profile via `<link osuname`",
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -59,18 +57,21 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
         match request.queue(osu).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                return Err(CommandError::from(why.to_string()));
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
             }
         }
     };
     if scores.is_empty() {
         msg.channel_id
-            .say(
-                &ctx.http,
-                format!("No recent plays found for user `{}`", name),
-            )
-            .await?;
+            .say(ctx, format!("No recent plays found for user `{}`", name))
+            .await?
+            .reaction_delete(ctx, msg.author.id)
+            .await;
         return Ok(());
     }
 
@@ -83,8 +84,12 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             Ok(Some(u)) => u,
             Ok(None) => unreachable!(),
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                return Err(CommandError::from(why.to_string()));
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
             }
         }
     };
@@ -114,8 +119,12 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             let map = match first_score.get_beatmap(osu).await {
                 Ok(map) => map,
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                    return Err(CommandError::from(why.to_string()));
+                    msg.channel_id
+                        .say(ctx, OSU_API_ISSUE)
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
+                    return Err(why.to_string().into());
                 }
             };
             maps.insert(first_id, map);
@@ -129,8 +138,12 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
         match user.get_top_scores(osu, 100, mode).await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                return Err(CommandError::from(why.to_string()));
+                msg.channel_id
+                    .say(ctx, OSU_API_ISSUE)
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
             }
         }
     };
@@ -146,8 +159,12 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
                         global.insert(first_map.beatmap_id, scores);
                     }
                     Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                        return Err(CommandError::from(why.to_string()));
+                        msg.channel_id
+                            .say(ctx, OSU_API_ISSUE)
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
+                        return Err(why.to_string().into());
                     }
                 }
             }
@@ -162,117 +179,55 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             s.beatmap_id.unwrap() == first_id && s.enabled_mods == first_score.enabled_mods
         })
         .count();
-    let mut embed_data = match RecentData::new(
-        &user,
-        first_score,
-        first_map,
-        &best,
-        global.get(&first_map.beatmap_id).unwrap(),
-        ctx,
-    )
-    .await
-    {
-        Ok(data) => data,
-        Err(why) => {
-            msg.channel_id
-                .say(
-                    &ctx.http,
-                    "Some issue while calculating recent data, blame bade",
-                )
-                .await?;
-            return Err(CommandError::from(why.to_string()));
-        }
-    };
+    let global_scores = global.get(&first_map.beatmap_id).unwrap();
+    let embed_data =
+        match RecentEmbed::new(&user, first_score, first_map, &best, global_scores, ctx).await {
+            Ok(data) => data,
+            Err(why) => {
+                msg.channel_id
+                    .say(ctx, "Some issue while calculating recent data, blame bade")
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
+            }
+        };
 
     // Creating the embed
-    let mut response = msg
+    let resp = msg
         .channel_id
-        .send_message(&ctx.http, |m| {
+        .send_message(ctx, |m| {
             m.content(format!("Try #{}", tries))
                 .embed(|e| embed_data.build(e))
         })
         .await?;
 
-    // Collect reactions of author on the response
-    let mut collector = response
-        .await_reactions(&ctx)
-        .timeout(Duration::from_secs(45))
-        .author_id(msg.author.id)
-        .await;
-
-    // Add initial reactions
-    let reactions = ["⏮️", "⏪", "◀️", "▶️", "⏩", "⏭️"];
-    for &reaction in reactions.iter() {
-        let reaction_type = ReactionType::try_from(reaction).unwrap();
-        response.react(&ctx.http, reaction_type).await?;
+    // Skip pagination if too few entries
+    if scores.len() <= 1 {
+        resp.reaction_delete(ctx, msg.author.id).await;
+        return Ok(());
     }
 
-    // Check if the author wants to edit the response
-    let http = Arc::clone(&ctx.http);
+    // Pagination
+    let pagination = RecentPagination::new(
+        ctx,
+        resp,
+        msg.author.id,
+        user,
+        scores,
+        maps,
+        best,
+        global,
+        map_ids,
+        embed_data,
+    )
+    .await;
     let cache = Arc::clone(&ctx.cache);
-    let data = Arc::clone(&ctx.data);
+    let http = Arc::clone(&ctx.http);
     tokio::spawn(async move {
-        let mut pagination = Pagination::recent(
-            user,
-            scores,
-            maps,
-            best,
-            global,
-            Arc::clone(&cache),
-            Arc::clone(&data),
-        );
-        while let Some(reaction) = collector.next().await {
-            if let ReactionAction::Added(reaction) = &*reaction {
-                if let ReactionType::Unicode(reaction) = &reaction.emoji {
-                    match pagination.next_reaction(reaction.as_str()).await {
-                        Ok(data) => match data {
-                            ReactionData::Delete => response.delete((&cache, &*http)).await?,
-                            ReactionData::None => {}
-                            _ => {
-                                let content = format!("Recent score #{}", pagination.index + 1);
-                                embed_data = data.recent_data();
-                                response
-                                    .edit((&cache, &*http), |m| {
-                                        m.content(content).embed(|e| embed_data.build(e))
-                                    })
-                                    .await?
-                            }
-                        },
-                        Err(why) => warn!("Error while using paginator for recent: {}", why),
-                    }
-                }
-            }
+        if let Err(why) = pagination.start(cache, http).await {
+            warn!("Pagination error: {}", why)
         }
-
-        // Remove initial reactions
-        for &reaction in reactions.iter() {
-            let reaction_type = ReactionType::try_from(reaction).unwrap();
-            response
-                .channel_id
-                .delete_reaction(&http, response.id, None, reaction_type)
-                .await?;
-        }
-
-        // Minimize embed
-        response
-            .edit((&cache, &*http), |m| m.embed(|e| embed_data.minimize(e)))
-            .await?;
-
-        // Put missing maps into DB
-        let maps = pagination.recent_maps();
-        if maps.len() > map_ids.len() {
-            let maps: Vec<Beatmap> = maps
-                .into_iter()
-                .filter(|(id, _)| !map_ids.contains(&id))
-                .map(|(_, map)| map)
-                .collect();
-            let data = data.read().await;
-            let mysql = data.get::<MySQL>().unwrap();
-            if let Err(why) = mysql.insert_beatmaps(maps).await {
-                warn!("Error while adding maps to DB: {}", why);
-            }
-        }
-        Ok::<_, serenity::Error>(())
     });
     Ok(())
 }

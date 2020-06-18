@@ -11,7 +11,9 @@ cc      = { version = "1.0", features = ["parallel"] }
 [dependencies]
 chrono       = "0.4"
 dotenv       = "0.15"
+failure      = "0.1"
 fern         = { version = "0.6", features = ["colored"] }
+governor     = "0.2"
 image        = "0.23"
 itertools    = "0.9"
 log          = "0.4"
@@ -27,7 +29,7 @@ serde        = "1.0"
 serde_derive = "1.0"
 serde_json   = "1.0"
 strfmt       = "0.1.6"
-sysinfo      = "0.14"
+sysinfo      = "0.11"
 
 [dependencies.serenity]
 git      = "https://github.com/Lakelezz/serenity/"

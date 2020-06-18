@@ -1,7 +1,7 @@
 use crate::{
     commands::checks::*,
     database::{Platform, StreamTrack},
-    util::discord,
+    util::MessageExt,
     MySQL, StreamTracks, TwitchUsers,
 };
 
@@ -26,7 +26,9 @@ async fn removestream(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
                 "The first argument must be either `twitch` or `mixer`. \
              The next argument must be the name of the stream.",
             )
-            .await?;
+            .await?
+            .reaction_delete(ctx, msg.author.id)
+            .await;
         return Ok(());
     } else {
         let platform = match args.single::<String>()?.to_lowercase().as_str() {
@@ -81,8 +83,10 @@ async fn removestream(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
     };
 
     // Sending the msg
-    let response = msg.channel_id.say(&ctx.http, content).await?;
-
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+    msg.channel_id
+        .say(&ctx.http, content)
+        .await?
+        .reaction_delete(ctx, msg.author.id)
+        .await;
     Ok(())
 }

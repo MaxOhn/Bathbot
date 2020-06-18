@@ -1,8 +1,9 @@
 use crate::{
     arguments::{ModSelection, SimulateArgs},
     util::globals::{emotes::*, DEV_GUILD_ID, HOMEPAGE},
-    Error,
 };
+
+use failure::Error;
 use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score};
 use serenity::{
     cache::Cache,
@@ -145,4 +146,38 @@ pub fn unchoke_score(score: &mut Score, map: &Beatmap) {
         }
         _ => panic!("Can only unchoke STD and MNA scores, not {:?}", map.mode,),
     }
+}
+
+/// First element: Weighted missing pp to reach goal from start
+///
+/// Second element: Index of hypothetical pp in scores
+pub fn pp_missing(start: f32, goal: f32, scores: &[Score]) -> (f32, usize) {
+    let pp_values: Vec<f32> = scores.iter().map(|score| score.pp.unwrap()).collect();
+    let size: usize = pp_values.len();
+    let mut idx: usize = size - 1;
+    let mut factor: f32 = 0.95_f32.powi(idx as i32);
+    let mut top: f32 = start;
+    let mut bot: f32 = 0.0;
+    let mut current: f32 = pp_values[idx];
+    while top + bot < goal {
+        top -= current * factor;
+        if idx == 0 {
+            break;
+        }
+        current = pp_values[idx - 1];
+        bot += current * factor;
+        factor /= 0.95;
+        idx -= 1;
+    }
+    let mut required: f32 = goal - top - bot;
+    if top + bot >= goal {
+        factor *= 0.95;
+        required = (required + factor * pp_values[idx]) / factor;
+        idx += 1;
+    }
+    idx += 1;
+    if size < 100 {
+        required -= pp_values[size - 1] * 0.95_f32.powi(size as i32 - 1);
+    }
+    (required, idx)
 }

@@ -1,10 +1,14 @@
 use crate::{
-    arguments::RoleAssignArgs, commands::checks::*, database::MySQL, embeds::BasicEmbedData,
-    util::discord, ReactionTracker,
+    arguments::RoleAssignArgs,
+    commands::checks::*,
+    database::MySQL,
+    embeds::{EmbedData, RoleAssignEmbed},
+    util::MessageExt,
+    ReactionTracker,
 };
 
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::{
         channel::Message,
         id::{ChannelId, MessageId, RoleId},
@@ -27,41 +31,43 @@ async fn roleassign(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let args = match RoleAssignArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
-            let response = msg.channel_id.say(ctx, err_msg).await?;
-            discord::reaction_deletion(ctx, response, msg.author.id).await;
+            msg.channel_id
+                .say(ctx, err_msg)
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Ok(());
         }
     };
     let channel = args.channel_id;
-    let message = args.message_id;
+    let msg_id = args.message_id;
     let role = args.role_id;
     {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        match mysql.add_role_assign(channel.0, message.0, role.0).await {
+        match mysql.add_role_assign(channel.0, msg_id.0, role.0).await {
             Ok(_) => debug!("Inserted into role_assign table"),
             Err(why) => {
-                let response = msg
-                    .channel_id
+                msg.channel_id
                     .say(ctx, "Some issue while inserting into DB, blame bade")
-                    .await?;
-                discord::reaction_deletion(ctx, response, msg.author.id).await;
-                return Err(CommandError::from(why.to_string()));
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
             }
         }
     }
     {
         let mut data = ctx.data.write().await;
         let reaction_tracker = data.get_mut::<ReactionTracker>().unwrap();
-        reaction_tracker.insert((ChannelId(channel.0), MessageId(message.0)), RoleId(role.0));
+        reaction_tracker.insert((ChannelId(channel.0), MessageId(msg_id.0)), RoleId(role.0));
     }
-    let message = channel.message(&ctx.http, message).await?;
-    let data =
-        BasicEmbedData::create_roleassign(message, msg.guild_id.unwrap(), role, &ctx.cache).await;
-    let response = msg
-        .channel_id
+    let message = channel.message(ctx, msg_id).await?;
+    let data = RoleAssignEmbed::new(message, msg.guild_id.unwrap(), role, &ctx.cache).await;
+    msg.channel_id
         .send_message(ctx, |m| m.embed(|e| data.build(e)))
-        .await?;
-    discord::reaction_deletion(ctx, response, msg.author.id).await;
+        .await?
+        .reaction_delete(ctx, msg.author.id)
+        .await;
     Ok(())
 }

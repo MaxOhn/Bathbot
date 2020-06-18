@@ -1,20 +1,18 @@
 use crate::{
     arguments::NameArgs,
-    embeds::BasicEmbedData,
-    pagination::{Pagination, ReactionData},
-    util::{globals::OSU_API_ISSUE, numbers},
+    embeds::{EmbedData, MostPlayedEmbed},
+    pagination::{MostPlayedPagination, Pagination},
+    util::{globals::OSU_API_ISSUE, numbers, MessageExt},
     DiscordLinks, Osu, Scraper,
 };
 
 use rosu::backend::requests::UserRequest;
 use serenity::{
-    collector::ReactionAction,
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
-    model::channel::{Message, ReactionType},
+    framework::standard::{macros::command, Args, CommandResult},
+    model::channel::Message,
     prelude::Context,
 };
-use std::{convert::TryFrom, sync::Arc, time::Duration};
-use tokio::stream::StreamExt;
+use std::sync::Arc;
 
 #[command]
 #[description = "Display the 10 most played maps of a user"]
@@ -32,11 +30,13 @@ async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             None => {
                 msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         "Either specify an osu name or link your discord \
-                     to an osu profile via `<link osuname`",
+                        to an osu profile via `<link osuname`",
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -53,14 +53,20 @@ async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     Some(user) => user,
                     None => {
                         msg.channel_id
-                            .say(&ctx.http, format!("User `{}` was not found", name))
-                            .await?;
+                            .say(ctx, format!("User `{}` was not found", name))
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
                         return Ok(());
                     }
                 },
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                    return Err(CommandError::from(why.to_string()));
+                    msg.channel_id
+                        .say(ctx, OSU_API_ISSUE)
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
+                    return Err(why.to_string().into());
                 }
             }
         };
@@ -69,8 +75,12 @@ async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             match scraper.get_most_played(user.user_id, 50).await {
                 Ok(maps) => maps,
                 Err(why) => {
-                    msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
-                    return Err(CommandError::from(why.to_string()));
+                    msg.channel_id
+                        .say(ctx, OSU_API_ISSUE)
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
+                    return Err(why.to_string().into());
                 }
             }
         };
@@ -79,59 +89,28 @@ async fn mostplayed(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     // Accumulate all necessary data
     let pages = numbers::div_euclid(10, maps.len());
-    let data = BasicEmbedData::create_mostplayed(&user, maps.iter().take(10), (1, pages));
+    let data = MostPlayedEmbed::new(&user, maps.iter().take(10), (1, pages));
 
     // Creating the embed
-    let mut response = msg
+    let resp = msg
         .channel_id
         .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
         .await?;
 
-    // Collect reactions of author on the response
-    let mut collector = response
-        .await_reactions(&ctx)
-        .timeout(Duration::from_secs(90))
-        .author_id(msg.author.id)
-        .await;
-
-    // Add initial reactions
-    let reactions = ["⏮️", "⏪", "⏩", "⏭️"];
-    for &reaction in reactions.iter() {
-        let reaction_type = ReactionType::try_from(reaction).unwrap();
-        response.react(&ctx.http, reaction_type).await?;
+    // Skip pagination if too few entries
+    if maps.len() <= 10 {
+        resp.reaction_delete(ctx, msg.author.id).await;
+        return Ok(());
     }
 
-    // Check if the author wants to edit the response
-    let http = Arc::clone(&ctx.http);
+    // Pagination
+    let pagination = MostPlayedPagination::new(ctx, resp, msg.author.id, user, maps).await;
     let cache = Arc::clone(&ctx.cache);
+    let http = Arc::clone(&ctx.http);
     tokio::spawn(async move {
-        let mut pagination = Pagination::most_played(user, maps);
-        while let Some(reaction) = collector.next().await {
-            if let ReactionAction::Added(reaction) = &*reaction {
-                if let ReactionType::Unicode(reaction) = &reaction.emoji {
-                    match pagination.next_reaction(reaction.as_str()).await {
-                        Ok(data) => match data {
-                            ReactionData::Delete => response.delete((&cache, &*http)).await?,
-                            ReactionData::None => {}
-                            _ => {
-                                response
-                                    .edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
-                                    .await?
-                            }
-                        },
-                        Err(why) => warn!("Error while using paginator for mostplayed: {}", why),
-                    }
-                }
-            }
+        if let Err(why) = pagination.start(cache, http).await {
+            warn!("Pagination error: {}", why)
         }
-        for &reaction in reactions.iter() {
-            let reaction_type = ReactionType::try_from(reaction).unwrap();
-            response
-                .channel_id
-                .delete_reaction(&http, response.id, None, reaction_type)
-                .await?;
-        }
-        Ok::<_, serenity::Error>(())
     });
     Ok(())
 }

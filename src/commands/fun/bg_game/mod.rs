@@ -8,24 +8,21 @@ use hints::Hints;
 use img_reveal::ImageReveal;
 
 use crate::{
-    embeds::BasicEmbedData,
-    pagination::{Pagination, ReactionData},
-    util::{discord, numbers},
-    BgGames, Error, MySQL,
+    embeds::{BGHelpEmbed, BGRankingEmbed, EmbedData},
+    pagination::{BGRankingPagination, Pagination},
+    util::{numbers, MessageExt},
+    BgGames, MySQL,
 };
 
+use failure::Error;
 use rosu::models::GameMode;
 use serenity::{
-    collector::{MessageCollectorBuilder, ReactionAction},
+    collector::MessageCollectorBuilder,
     framework::standard::{macros::command, Args, CommandResult},
-    model::{
-        channel::{Message, ReactionType},
-        id::UserId,
-    },
+    model::{channel::Message, id::UserId},
     prelude::Context,
 };
-use std::{collections::HashMap, convert::TryFrom, sync::Arc, time::Duration};
-use tokio::stream::StreamExt;
+use std::{collections::HashMap, sync::Arc};
 
 #[command]
 #[description = "Given part of a map's background, try to guess \
@@ -34,7 +31,7 @@ the **title** of the map's song.\nCheck `<bg` for more help"]
 #[sub_commands("start", "hint", "bigger", "stop", "stats", "ranking")]
 async fn backgroundgame(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let response = if args.is_empty() {
-        let data = BasicEmbedData::create_bg_help();
+        let data = BGHelpEmbed::new();
         msg.channel_id
             .send_message(ctx, |m| m.embed(|e| data.build(e)))
             .await?
@@ -46,7 +43,7 @@ async fn backgroundgame(ctx: &Context, msg: &Message, args: Args) -> CommandResu
             )
             .await?
     };
-    discord::reaction_deletion(&ctx, response, msg.author.id).await;
+    response.reaction_delete(ctx, msg.author.id).await;
     Ok(())
 }
 
@@ -102,8 +99,8 @@ async fn hint(ctx: &Context, msg: &Message) -> CommandResult {
             None
         }
     };
-    let _ = if let Some(hint) = hint {
-        msg.channel_id.say(&ctx.http, hint).await?
+    let response = if let Some(hint) = hint {
+        msg.channel_id.say(ctx, hint).await?
     } else {
         msg.channel_id
             .say(
@@ -113,6 +110,7 @@ async fn hint(ctx: &Context, msg: &Message) -> CommandResult {
             )
             .await?
     };
+    response.reaction_delete(ctx, msg.author.id).await;
     Ok(())
 }
 
@@ -131,7 +129,7 @@ async fn bigger(ctx: &Context, msg: &Message) -> CommandResult {
     };
     if let Some(Ok(img)) = img {
         msg.channel_id
-            .send_message(&ctx.http, |m| {
+            .send_message(ctx, |m| {
                 let bytes: &[u8] = &img;
                 m.add_file((bytes, "bg_img.png"))
             })
@@ -187,7 +185,7 @@ async fn stats(ctx: &Context, msg: &Message) -> CommandResult {
         )
         .await?
     };
-    discord::reaction_deletion(ctx, response, msg.author.id).await;
+    response.reaction_delete(ctx, msg.author.id).await;
     Ok(())
 }
 
@@ -217,14 +215,14 @@ async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
         }
 
         if scores.is_empty() {
-            let response = msg
-                .channel_id
+            msg.channel_id
                 .say(
                     ctx,
                     "Looks like no one on this server has played the backgroundgame yet",
                 )
-                .await?;
-            discord::reaction_deletion(ctx, response, msg.author.id).await;
+                .await?
+                .reaction_delete(ctx, msg.author.id)
+                .await;
             return Ok(());
         }
     }
@@ -249,71 +247,29 @@ async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
 
     // Prepare initial page
     let pages = numbers::div_euclid(15, scores.len());
-    let data = BasicEmbedData::create_bg_ranking(author_idx, initial_scores, global, 1, (1, pages));
+    let data = BGRankingEmbed::new(author_idx, initial_scores, global, 1, (1, pages));
 
     // Creating the embed
-    let mut response = msg
+    let resp = msg
         .channel_id
         .send_message(&ctx.http, |m| m.embed(|e| data.build(e)))
         .await?;
 
+    // Skip pagination if too few entries
     if scores.len() <= 15 {
-        discord::reaction_deletion(&ctx, response, msg.author.id).await;
+        resp.reaction_delete(ctx, msg.author.id).await;
         return Ok(());
     }
 
-    // Collect reactions of author on the response
-    let mut collector = response
-        .await_reactions(&ctx)
-        .timeout(Duration::from_secs(60))
-        .author_id(msg.author.id)
-        .await;
-
-    // Add initial reactions
-    let reactions = ["⏮️", "⏪", "*️⃣", "⏩", "⏭️"];
-    for &reaction in reactions.iter() {
-        let reaction_type = ReactionType::try_from(reaction).unwrap();
-        response.react(&ctx.http, reaction_type).await?;
-    }
-    // Check if the author wants to edit the response
-    let http = Arc::clone(&ctx.http);
+    // Pagination
+    let pagination =
+        BGRankingPagination::new(ctx, resp, msg.author.id, author_idx, scores, global).await;
     let cache = Arc::clone(&ctx.cache);
+    let http = Arc::clone(&ctx.http);
     tokio::spawn(async move {
-        let mut pagination = Pagination::bg_ranking(
-            author_idx,
-            scores,
-            global,
-            Arc::clone(&http),
-            Arc::clone(&cache),
-        );
-        while let Some(reaction) = collector.next().await {
-            if let ReactionAction::Added(reaction) = &*reaction {
-                if let ReactionType::Unicode(reaction) = &reaction.emoji {
-                    match pagination.next_reaction(reaction.as_str()).await {
-                        Ok(data) => match data {
-                            ReactionData::Delete => response.delete((&cache, &*http)).await?,
-                            ReactionData::None => {}
-                            _ => {
-                                response
-                                    .edit((&cache, &*http), |m| m.embed(|e| data.build(e)))
-                                    .await?
-                            }
-                        },
-                        Err(why) => warn!("Error while using paginator for bg ranking: {}", why),
-                    }
-                }
-            }
+        if let Err(why) = pagination.start(cache, http).await {
+            warn!("Pagination error: {}", why)
         }
-
-        // Remove initial reactions
-        for &reaction in reactions.iter() {
-            let reaction_type = ReactionType::try_from(reaction).unwrap();
-            response
-                .channel_id
-                .delete_reaction(&http, response.id, None, reaction_type)
-                .await?;
-        }
-        Ok::<_, serenity::Error>(())
     });
     Ok(())
 }
