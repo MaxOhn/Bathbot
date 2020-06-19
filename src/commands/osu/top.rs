@@ -235,7 +235,7 @@ async fn top_send(
             }
         }
     }
-    let missing_maps = if missing_indices.is_empty() || scores_data.is_empty() {
+    let missing_maps: Option<Vec<_>> = if missing_indices.is_empty() || scores_data.is_empty() {
         None
     } else {
         Some(
@@ -296,12 +296,17 @@ async fn top_send(
         .send_message(ctx, |m| m.content(content).embed(|e| data.build(e)))
         .await;
 
+    println!("missing maps: {:?}", missing_maps);
+
     // Add missing maps to database
     if let Some(maps) = missing_maps {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        if let Err(why) = mysql.insert_beatmaps(maps).await {
-            warn!("Could not add missing maps of top command to DB: {}", why);
+        let len = maps.len();
+        match mysql.insert_beatmaps(maps).await {
+            Ok(_) if len == 1 => {}
+            Ok(_) => info!("Added {} maps to DB", len),
+            Err(why) => warn!("Error while adding maps to DB: {}", why),
         }
     }
 

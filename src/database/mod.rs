@@ -8,7 +8,7 @@ use crate::{util::globals::AUTHORITY_ROLES, Guild};
 use failure::Error;
 use rosu::models::{Beatmap, GameMode, GameMods};
 use serenity::model::id::GuildId;
-use sqlx::mysql::{MySqlPool, MySqlQueryAs};
+use sqlx::mysql::{MySql, MySqlPool};
 use std::collections::{HashMap, HashSet};
 use tokio::stream::StreamExt;
 
@@ -21,7 +21,7 @@ type DBResult<T> = Result<T, Error>;
 impl MySQL {
     pub async fn new(database_url: &str) -> DBResult<Self> {
         let pool = MySqlPool::builder()
-            .max_size(20)
+            .max_size(16)
             .build(database_url)
             .await?;
         Ok(Self { pool })
@@ -56,18 +56,22 @@ impl MySQL {
         }
         let subquery = String::from("SELECT * FROM maps WHERE beatmap_id IN").in_clause(map_ids);
         let query = format!(
-            "SELECT * FROM {} as m JOIN mapsets as ms ON m.beatmapset_id=ms.beatmapset_id",
+            "SELECT * FROM ({}) as m JOIN mapsets as ms ON m.beatmapset_id=ms.beatmapset_id",
             subquery
         );
         let beatmaps = sqlx::query_as::<_, BeatmapWrapper>(&query)
             .fetch(&self.pool)
-            .filter_map(|res| {
-                res.ok().map(|map| {
-                    let map: Beatmap = map.into();
-                    (map.beatmap_id, map)
-                })
+            .filter_map(|result| match result {
+                Ok(map_wrapper) => {
+                    let map: Beatmap = map_wrapper.into();
+                    Some((map.beatmap_id, map))
+                }
+                Err(why) => {
+                    warn!("Error while getting maps from DB: {}", why);
+                    None
+                }
             })
-            .collect::<Vec<(_, _)>>()
+            .collect::<Vec<_>>()
             .await
             .into_iter()
             .collect();
@@ -75,82 +79,22 @@ impl MySQL {
     }
 
     pub async fn insert_beatmap(&self, map: &Beatmap) -> DBResult<()> {
-        let query = "INSERT INTO mapsets (\
-                        beatmapset_id,\
-                        artist,\
-                        title,\
-                        creator_id,\
-                        creator,\
-                        genre,\
-                        language,\
-                        approval_status,\
-                        approved_date\
-                    ) VALUES (?,?,?,?,?,?,?,?,?)";
-        sqlx::query(query)
-            .bind(map.beatmapset_id)
-            .bind(&map.artist)
-            .bind(&map.title)
-            .bind(map.creator_id)
-            .bind(&map.creator)
-            .bind(map.genre as u8)
-            .bind(map.language as u8)
-            .bind(map.approval_status as i8)
-            .bind(map.approved_date)
-            .execute(&self.pool)
-            .await?;
-        let query = "INSERT INTO maps (\
-                        beatmap_id,\
-                        beatmapset_id,\
-                        mode,\
-                        version,\
-                        seconds_drain,\
-                        seconds_total,\
-                        bpm,\
-                        stars,\
-                        diff_cs,\
-                        diff_od,\
-                        diff_ar,\
-                        diff_hp,\
-                        count_circle,\
-                        count_slider,\
-                        count_spinner,\
-                        max_combo\
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-        sqlx::query(query)
-            .bind(map.beatmap_id)
-            .bind(map.beatmapset_id)
-            .bind(map.mode as u8)
-            .bind(&map.version)
-            .bind(map.seconds_drain)
-            .bind(map.seconds_total)
-            .bind(map.bpm)
-            .bind(map.stars)
-            .bind(map.diff_cs)
-            .bind(map.diff_od)
-            .bind(map.diff_ar)
-            .bind(map.diff_hp)
-            .bind(map.count_circle)
-            .bind(map.count_slider)
-            .bind(map.count_spinner)
-            .bind(map.max_combo)
-            .execute(&self.pool)
-            .await?;
+        // Important to do mapsets first for foreign key constrain
+        _insert_beatmapset(&self.pool, map).await?;
+        _insert_beatmap(&self.pool, map).await?;
         Ok(())
     }
 
-    // TODO: Wait for sqlx 0.4
     pub async fn insert_beatmaps(&self, maps: Vec<Beatmap>) -> DBResult<()> {
         if maps.is_empty() {
             return Ok(());
         }
-        // let handles = maps
-        //     .iter()
-        //     .map(|map| tokio::spawn(async { self.insert_beatmap(map).await }));
-        // for handle in handles {
-        //     if let Err(why) = handle.await {
-        //         warn!("Error while inserting map: {}", why);
-        //     }
-        // }
+        let mut tx = self.pool.begin().await?;
+        for map in maps {
+            _insert_beatmapset(&mut tx, &map).await?;
+            _insert_beatmap(&mut tx, &map).await?;
+        }
+        tx.commit().await?;
         Ok(())
     }
 
@@ -353,7 +297,13 @@ impl MySQL {
     pub async fn get_role_assigns(&self) -> DBResult<HashMap<(u64, u64), u64>> {
         let assigns = sqlx::query_as::<_, (u32, u64, u64, u64)>("SELECT * FROM role_assign")
             .fetch(&self.pool)
-            .filter_map(|res| res.ok().map(|(_, c, m, r)| ((c, m), r)))
+            .filter_map(|result| match result {
+                Ok((_, c, m, r)) => Some(((c, m), r)),
+                Err(why) => {
+                    warn!("Error while getting roleassigns from DB: {}", why);
+                    None
+                }
+            })
             .collect::<Vec<_>>()
             .await
             .into_iter()
@@ -397,7 +347,13 @@ impl MySQL {
     pub async fn get_twitch_users(&self) -> DBResult<HashMap<String, u64>> {
         let users = sqlx::query_as::<_, (u64, String)>("SELECT * FROM twitch_users")
             .fetch(&self.pool)
-            .filter_map(|res| res.ok().map(|(id, name)| (name, id)))
+            .filter_map(|result| match result {
+                Ok((id, name)) => Some((name, id)),
+                Err(why) => {
+                    warn!("Error while getting twitch users from DB: {}", why);
+                    None
+                }
+            })
             .collect::<Vec<_>>()
             .await
             .into_iter()
@@ -431,7 +387,13 @@ impl MySQL {
     pub async fn get_guilds(&self) -> DBResult<HashMap<GuildId, Guild>> {
         let guilds = sqlx::query_as::<_, Guild>("SELECT * FROM guilds")
             .fetch(&self.pool)
-            .filter_map(|res| res.ok().map(|g: Guild| (g.guild_id, g)))
+            .filter_map(|result| match result {
+                Ok(g) => Some((g.guild_id, g)),
+                Err(why) => {
+                    warn!("Error while getting guilds from DB: {}", why);
+                    None
+                }
+            })
             .collect::<Vec<_>>()
             .await
             .into_iter()
@@ -603,4 +565,78 @@ fn mania_stars_mods_column(mods: GameMods) -> DBResult<&'static str> {
         _ => bail!("No valid mod combination for mania stars ({})", mods),
     };
     Ok(m)
+}
+
+async fn _insert_beatmap<'c, E>(executor: E, map: &Beatmap) -> DBResult<()>
+where
+    E: sqlx::prelude::Executor<'c, Database = MySql>,
+{
+    let query = "INSERT IGNORE INTO maps (\
+                    beatmap_id,\
+                    beatmapset_id,\
+                    mode,\
+                    version,\
+                    seconds_drain,\
+                    seconds_total,\
+                    bpm,\
+                    stars,\
+                    diff_cs,\
+                    diff_od,\
+                    diff_ar,\
+                    diff_hp,\
+                    count_circle,\
+                    count_slider,\
+                    count_spinner,\
+                    max_combo\
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    sqlx::query(query)
+        .bind(map.beatmap_id)
+        .bind(map.beatmapset_id)
+        .bind(map.mode as u8)
+        .bind(&map.version)
+        .bind(map.seconds_drain)
+        .bind(map.seconds_total)
+        .bind(map.bpm)
+        .bind(map.stars)
+        .bind(map.diff_cs)
+        .bind(map.diff_od)
+        .bind(map.diff_ar)
+        .bind(map.diff_hp)
+        .bind(map.count_circle)
+        .bind(map.count_slider)
+        .bind(map.count_spinner)
+        .bind(map.max_combo)
+        .execute(executor)
+        .await?;
+    Ok(())
+}
+
+async fn _insert_beatmapset<'c, E>(executor: E, map: &Beatmap) -> DBResult<()>
+where
+    E: sqlx::prelude::Executor<'c, Database = MySql>,
+{
+    let query = "INSERT IGNORE INTO mapsets (\
+                    beatmapset_id,\
+                    artist,\
+                    title,\
+                    creator_id,\
+                    creator,\
+                    genre,\
+                    language,\
+                    approval_status,\
+                    approved_date\
+                ) VALUES (?,?,?,?,?,?,?,?,?)";
+    sqlx::query(query)
+        .bind(map.beatmapset_id)
+        .bind(&map.artist)
+        .bind(&map.title)
+        .bind(map.creator_id)
+        .bind(&map.creator)
+        .bind(map.genre as u8)
+        .bind(map.language as u8)
+        .bind(map.approval_status as i8)
+        .bind(map.approved_date)
+        .execute(executor)
+        .await?;
+    Ok(())
 }

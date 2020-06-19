@@ -34,8 +34,8 @@ impl StreamTrack {
     }
 }
 
-impl<'c> FromRow<'c, MySqlRow<'c>> for StreamTrack {
-    fn from_row(row: &MySqlRow<'c>) -> Result<StreamTrack, sqlx::Error> {
+impl<'c> FromRow<'c, MySqlRow> for StreamTrack {
+    fn from_row(row: &MySqlRow) -> Result<StreamTrack, sqlx::Error> {
         let platform: u8 = row.get("platform");
         let platform = Platform::from(platform);
         Ok(StreamTrack {

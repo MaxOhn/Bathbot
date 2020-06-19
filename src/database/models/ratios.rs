@@ -9,8 +9,8 @@ pub struct Ratios {
     pub misses: Vec<f32>,
 }
 
-impl<'c> FromRow<'c, MySqlRow<'c>> for Ratios {
-    fn from_row(row: &MySqlRow<'c>) -> Result<Ratios, sqlx::Error> {
+impl<'c> FromRow<'c, MySqlRow> for Ratios {
+    fn from_row(row: &MySqlRow) -> Result<Ratios, sqlx::Error> {
         let scores: &str = row.get("scores");
         let ratios: &str = row.get("ratios");
         let misses: &str = row.get("misses");

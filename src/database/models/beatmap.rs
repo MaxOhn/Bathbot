@@ -1,7 +1,6 @@
 use chrono::NaiveDateTime;
-use rosu::models::{ApprovalStatus, Beatmap, GameMode, Genre, Language};
+use rosu::models::Beatmap;
 use sqlx::{mysql::MySqlRow, FromRow, Row};
-use std::convert::TryFrom;
 
 #[derive(FromRow, Debug)]
 pub struct DBMap {
@@ -50,12 +49,12 @@ impl Into<Beatmap> for BeatmapWrapper {
     }
 }
 
-impl<'c> FromRow<'c, MySqlRow<'c>> for BeatmapWrapper {
-    fn from_row(row: &MySqlRow<'c>) -> Result<BeatmapWrapper, sqlx::Error> {
+impl<'c> FromRow<'c, MySqlRow> for BeatmapWrapper {
+    fn from_row(row: &MySqlRow) -> Result<BeatmapWrapper, sqlx::Error> {
         let mode: u8 = row.get("mode");
-        let genre: u8 = row.get("mode");
-        let language: u8 = row.get("mode");
-        let status: i8 = row.get("mode");
+        let genre: u8 = row.get("genre");
+        let language: u8 = row.get("language");
+        let status: i8 = row.get("approval_status");
         let mut map = Beatmap::default();
         map.beatmap_id = row.get("beatmap_id");
         map.beatmapset_id = row.get("beatmapset_id");
@@ -75,11 +74,11 @@ impl<'c> FromRow<'c, MySqlRow<'c>> for BeatmapWrapper {
         map.title = row.get("title");
         map.creator_id = row.get("creator_id");
         map.creator = row.get("creator");
-        map.mode = GameMode::try_from(mode).unwrap();
+        map.mode = mode.into();
         map.max_combo = row.get("max_combo");
-        map.genre = Genre::try_from(genre).unwrap();
-        map.language = Language::try_from(language).unwrap();
-        map.approval_status = ApprovalStatus::try_from(status).unwrap();
+        map.genre = genre.into();
+        map.language = language.into();
+        map.approval_status = status.into();
         map.approved_date = row.get("approved_date");
         Ok(Self(map))
     }

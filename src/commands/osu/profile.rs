@@ -177,11 +177,11 @@ async fn profile_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) 
     if let Some(maps) = missing_maps {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        if let Err(why) = mysql.insert_beatmaps(maps).await {
-            warn!(
-                "Could not add missing maps of profile command to DB: {}",
-                why
-            );
+        let len = maps.len();
+        match mysql.insert_beatmaps(maps).await {
+            Ok(_) if len == 1 => {}
+            Ok(_) => info!("Added {} maps to DB", len),
+            Err(why) => warn!("Error while adding maps to DB: {}", why),
         }
     }
     response?.reaction_delete(ctx, msg.author.id).await;

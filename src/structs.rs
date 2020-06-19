@@ -97,8 +97,8 @@ impl Guild {
     }
 }
 
-impl<'c> FromRow<'c, MySqlRow<'c>> for Guild {
-    fn from_row(row: &MySqlRow<'c>) -> Result<Guild, sqlx::Error> {
+impl<'c> FromRow<'c, MySqlRow> for Guild {
+    fn from_row(row: &MySqlRow) -> Result<Guild, sqlx::Error> {
         let role_string: &str = row.get("authorities");
         let mut authorities = Vec::new();
         let mut args = Args::new(role_string, &[Delimiter::Single(' ')]);
