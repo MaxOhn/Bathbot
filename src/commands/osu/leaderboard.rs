@@ -70,7 +70,7 @@ async fn leaderboard_send(
     let (map_to_db, map) = {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_beatmap(map_id) {
+        match mysql.get_beatmap(map_id).await {
             Ok(map) => (false, map),
             Err(_) => {
                 let map_req = BeatmapRequest::new().map_id(map_id);
@@ -191,7 +191,7 @@ async fn leaderboard_send(
     if let Some(map) = map_copy {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        if let Err(why) = mysql.insert_beatmap(&map) {
+        if let Err(why) = mysql.insert_beatmap(&map).await {
             warn!("Could not add map of recent command to DB: {}", why);
         }
     }

@@ -59,8 +59,9 @@ async fn removestream(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
                     let track = StreamTrack::new(msg.channel_id.0, twitch_id, platform);
                     if stream_tracks.remove(&track) {
                         let mysql = data.get::<MySQL>().unwrap();
-                        if let Err(why) =
-                            mysql.remove_stream_track(msg.channel_id.0, twitch_id, platform)
+                        if let Err(why) = mysql
+                            .remove_stream_track(msg.channel_id.0, twitch_id, platform)
+                            .await
                         {
                             warn!("Error while removing stream track: {}", why);
                         }

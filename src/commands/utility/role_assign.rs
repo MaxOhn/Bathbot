@@ -45,7 +45,7 @@ async fn roleassign(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        match mysql.add_role_assign(channel.0, msg_id.0, role.0) {
+        match mysql.add_role_assign(channel.0, msg_id.0, role.0).await {
             Ok(_) => debug!("Inserted into role_assign table"),
             Err(why) => {
                 msg.channel_id

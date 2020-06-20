@@ -165,7 +165,7 @@ async fn prepare_mapset(
 ) -> Result<(), &'static str> {
     let data = ctx.data.read().await;
     let mysql = data.get::<MySQL>().unwrap();
-    if mysql.get_beatmapset(mapset_id).is_err() {
+    if mysql.get_beatmapset(mapset_id).await.is_err() {
         let osu = data.get::<Osu>().unwrap();
         let req = BeatmapRequest::new().mapset_id(mapset_id);
         match req.queue(osu).await {
@@ -180,7 +180,7 @@ async fn prepare_mapset(
             }
         }
     }
-    if let Err(why) = mysql.add_tag_mapset(mapset_id, filetype, mode) {
+    if let Err(why) = mysql.add_tag_mapset(mapset_id, filetype, mode).await {
         error!("Error while adding mapset to tags table: {}", why);
         return Err("Some database issue, blame bade");
     }

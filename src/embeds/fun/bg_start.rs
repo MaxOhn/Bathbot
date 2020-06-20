@@ -9,7 +9,8 @@ pub struct BGStartEmbed {
 impl BGStartEmbed {
     pub fn new() -> Self {
         let title = "React to include tag, unreact to exclude tag";
-        let description = "\
+        let description = "(Not all backgrounds have been tagged properly yet, \
+        I suggest to ✅ right away for now)\n\
         ```\n\
         🍋: Easy 🎨: Weeb 😱: Hard name 🗽: English 💯: Tech\n\
         🤓: Hard 🍨: Kpop 🪀: Alternate 🌀: Streams ✅: Log in\n\

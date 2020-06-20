@@ -102,6 +102,7 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
         let mysql = data.get::<MySQL>().unwrap();
         mysql
             .get_beatmaps(&dedubed_ids)
+            .await
             .unwrap_or_else(|_| HashMap::default())
     };
 

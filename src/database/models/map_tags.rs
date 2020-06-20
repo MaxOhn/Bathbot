@@ -1,97 +1,8 @@
-use super::{super::schema::map_tags, beatmap::DBMapSet};
 use crate::commands::utility::MapsetTags;
 
 use rosu::models::GameMode;
+use sqlx::{mysql::MySqlRow, FromRow, Row};
 use std::{fmt, ops::Deref};
-
-#[derive(Default, Debug, Clone, Identifiable, Queryable, Associations, Insertable, AsChangeset)]
-#[table_name = "map_tags"]
-#[belongs_to(DBMapSet, foreign_key = "beatmapset_id")]
-#[primary_key(beatmapset_id)]
-pub struct MapsetTagDB {
-    pub beatmapset_id: u32,
-    pub filetype: Option<String>,
-    pub mode: Option<u8>,
-    pub farm: Option<bool>,
-    pub streams: Option<bool>,
-    pub alternate: Option<bool>,
-    pub old: Option<bool>,
-    pub meme: Option<bool>,
-    pub hardname: Option<bool>,
-    pub easy: Option<bool>,
-    pub hard: Option<bool>,
-    pub tech: Option<bool>,
-    pub weeb: Option<bool>,
-    pub bluesky: Option<bool>,
-    pub english: Option<bool>,
-    pub kpop: Option<bool>,
-}
-
-impl MapsetTagDB {
-    pub fn new(beatmapset_id: u32) -> Self {
-        Self {
-            beatmapset_id,
-            filetype: None,
-            mode: None,
-            farm: None,
-            streams: None,
-            alternate: None,
-            old: None,
-            meme: None,
-            hardname: None,
-            easy: None,
-            hard: None,
-            tech: None,
-            weeb: None,
-            bluesky: None,
-            english: None,
-            kpop: None,
-        }
-    }
-    pub fn with_value(beatmapset_id: u32, tags: MapsetTags, value: bool) -> Self {
-        let mut result = Self::new(beatmapset_id);
-        if tags.contains(MapsetTags::Farm) {
-            result.farm = Some(value);
-        }
-        if tags.contains(MapsetTags::Streams) {
-            result.streams = Some(value);
-        }
-        if tags.contains(MapsetTags::Alternate) {
-            result.alternate = Some(value);
-        }
-        if tags.contains(MapsetTags::Old) {
-            result.old = Some(value);
-        }
-        if tags.contains(MapsetTags::Meme) {
-            result.meme = Some(value);
-        }
-        if tags.contains(MapsetTags::HardName) {
-            result.hardname = Some(value);
-        }
-        if tags.contains(MapsetTags::Easy) {
-            result.easy = Some(value);
-        }
-        if tags.contains(MapsetTags::Hard) {
-            result.hard = Some(value);
-        }
-        if tags.contains(MapsetTags::Tech) {
-            result.tech = Some(value);
-        }
-        if tags.contains(MapsetTags::Weeb) {
-            result.weeb = Some(value);
-        }
-        if tags.contains(MapsetTags::BlueSky) {
-            result.bluesky = Some(value);
-        }
-        if tags.contains(MapsetTags::English) {
-            result.english = Some(value);
-        }
-        if tags.contains(MapsetTags::Kpop) {
-            result.kpop = Some(value);
-        }
-        result
-    }
-}
 
 pub struct MapsetTagWrapper {
     pub mapset_id: u32,
@@ -119,32 +30,76 @@ impl MapsetTagWrapper {
     }
 }
 
-impl From<MapsetTagDB> for MapsetTagWrapper {
-    fn from(tags: MapsetTagDB) -> Self {
-        let bits = (Some(true) == tags.farm) as u32
-            + (((Some(true) == tags.streams) as u32) << 1)
-            + (((Some(true) == tags.alternate) as u32) << 2)
-            + (((Some(true) == tags.old) as u32) << 3)
-            + (((Some(true) == tags.meme) as u32) << 4)
-            + (((Some(true) == tags.hardname) as u32) << 5)
-            + (((Some(true) == tags.easy) as u32) << 6)
-            + (((Some(true) == tags.hard) as u32) << 7)
-            + (((Some(true) == tags.tech) as u32) << 8)
-            + (((Some(true) == tags.weeb) as u32) << 9)
-            + (((Some(true) == tags.bluesky) as u32) << 10)
-            + (((Some(true) == tags.english) as u32) << 11)
-            + (((Some(true) == tags.kpop) as u32) << 12);
-        Self {
-            mapset_id: tags.beatmapset_id,
-            mode: GameMode::from(tags.mode.unwrap()),
-            filetype: tags.filetype.unwrap(),
+impl<'c> FromRow<'c, MySqlRow> for MapsetTagWrapper {
+    fn from_row(row: &MySqlRow) -> Result<MapsetTagWrapper, sqlx::Error> {
+        let row: TagRow = row.into();
+        let bits = row.farm as u32
+            + ((row.streams as u32) << 1)
+            + ((row.alternate as u32) << 2)
+            + ((row.old as u32) << 3)
+            + ((row.meme as u32) << 4)
+            + ((row.hardname as u32) << 5)
+            + ((row.easy as u32) << 6)
+            + ((row.hard as u32) << 7)
+            + ((row.tech as u32) << 8)
+            + ((row.weeb as u32) << 9)
+            + ((row.bluesky as u32) << 10)
+            + ((row.english as u32) << 11)
+            + ((row.kpop as u32) << 12);
+        Ok(Self {
+            mapset_id: row.mapset_id,
+            mode: GameMode::from(row.mode),
             tags: MapsetTags::from_bits(bits).unwrap(),
-        }
+            filetype: row.filetype,
+        })
     }
 }
 
 impl fmt::Display for MapsetTagWrapper {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.tags.join(", "))
+    }
+}
+
+#[derive(FromRow)]
+struct TagRow {
+    mapset_id: u32,
+    mode: u8,
+    filetype: String,
+    farm: bool,
+    alternate: bool,
+    streams: bool,
+    old: bool,
+    meme: bool,
+    hardname: bool,
+    kpop: bool,
+    english: bool,
+    bluesky: bool,
+    weeb: bool,
+    tech: bool,
+    easy: bool,
+    hard: bool,
+}
+
+impl From<&MySqlRow> for TagRow {
+    fn from(row: &MySqlRow) -> Self {
+        Self {
+            mapset_id: row.get("beatmapset_id"),
+            mode: row.get("mode"),
+            filetype: row.get("filetype"),
+            farm: row.get("farm"),
+            alternate: row.get("alternate"),
+            streams: row.get("streams"),
+            old: row.get("old"),
+            meme: row.get("meme"),
+            hardname: row.get("hardname"),
+            kpop: row.get("kpop"),
+            english: row.get("english"),
+            bluesky: row.get("bluesky"),
+            weeb: row.get("weeb"),
+            tech: row.get("tech"),
+            easy: row.get("easy"),
+            hard: row.get("hard"),
+        }
     }
 }

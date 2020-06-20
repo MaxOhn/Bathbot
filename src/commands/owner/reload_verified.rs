@@ -13,7 +13,7 @@ async fn reloadverified(ctx: &Context, msg: &Message) -> CommandResult {
     let mut data = ctx.data.write().await;
     let verified_users = {
         let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_bg_verified() {
+        match mysql.get_bg_verified().await {
             Ok(users) => users,
             Err(why) => {
                 msg.channel_id

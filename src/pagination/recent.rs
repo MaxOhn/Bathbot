@@ -96,15 +96,18 @@ impl Pagination for RecentPagination {
         if self.maps.len() > self.maps_in_db.len() {
             let data = Arc::clone(&self.data);
             let map_ids = self.maps_in_db.clone();
-            let maps = self.maps
+            let maps: Vec<_> = self.maps
                 .into_iter()
                 .filter(|(id, _)| !map_ids.contains(&id))
                 .map(|(_, map)| map)
                 .collect();
             let data = data.read().await;
             let mysql = data.get::<MySQL>().unwrap();
-            if let Err(why) = mysql.insert_beatmaps(maps) {
-                warn!("Error while adding maps to DB: {}", why);
+            let len = maps.len();
+            match mysql.insert_beatmaps(maps).await {
+                Ok(_) if len == 1 => {}
+                Ok(_) => info!("Added {} maps to DB", len),
+                Err(why) => warn!("Error while adding maps to DB: {}", why),
             }
         }
         Ok(())

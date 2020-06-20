@@ -70,7 +70,7 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let (map_to_db, map) = {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_beatmap(map_id) {
+        match mysql.get_beatmap(map_id).await {
             Ok(map) => (false, map),
             Err(_) => {
                 let map_req = BeatmapRequest::new().map_id(map_id);
@@ -153,7 +153,7 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     if let Some(map) = map_copy {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        if let Err(why) = mysql.insert_beatmap(&map) {
+        if let Err(why) = mysql.insert_beatmap(&map).await {
             warn!("Could not add map of simulaterecent command to DB: {}", why);
         }
     }

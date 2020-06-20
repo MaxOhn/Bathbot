@@ -59,7 +59,7 @@ async fn bgtagsmanual(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
     {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        if mysql.get_tags_mapset(mapset_id).is_err() {
+        if mysql.get_tags_mapset(mapset_id).await.is_err() {
             msg.channel_id
                 .say(ctx, "No background entry found with this id")
                 .await?
@@ -111,12 +111,18 @@ async fn bgtagsmanual(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
     let data = ctx.data.read().await;
     let mysql = data.get::<MySQL>().unwrap();
     let result = if tags.is_empty() {
-        Ok(())
+        mysql.get_tags_mapset(mapset_id).await
     } else {
-        mysql.set_tags_mapset(mapset_id, tags, action == Action::Add)
+        match mysql
+            .set_tags_mapset(mapset_id, tags, action == Action::Add)
+            .await
+        {
+            Ok(_) => mysql.get_tags_mapset(mapset_id).await,
+            Err(why) => Err(why),
+        }
     };
     // Then show the final tags
-    let response = match result.and_then(|_| mysql.get_tags_mapset(mapset_id)) {
+    let response = match result {
         Ok(tags) => {
             msg.channel_id
                 .say(
@@ -170,7 +176,7 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let untagged = {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_all_tags_mapset(mode) {
+        match mysql.get_all_tags_mapset(mode).await {
             Ok(tags) => tags.iter().filter(|tag| tag.untagged()).count() > 0,
             Err(why) => {
                 msg.channel_id
@@ -197,9 +203,12 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
             let data = ctx.data.read().await;
             let mysql = data.get::<MySQL>().unwrap();
             let tags_result = if untagged {
-                mysql.get_all_tags_mapset(mode)
+                mysql.get_all_tags_mapset(mode).await
             } else {
-                mysql.get_random_tags_mapset(mode).map(|tags| vec![tags])
+                mysql
+                    .get_random_tags_mapset(mode)
+                    .await
+                    .map(|tags| vec![tags])
             };
             match tags_result {
                 Ok(tags) => {
@@ -310,18 +319,23 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
         let result = if tags.is_empty() {
-            Ok(())
+            mysql.get_tags_mapset(mapset_id).await
         } else {
-            mysql.set_tags_mapset(mapset_id, tags, true)
+            match mysql.set_tags_mapset(mapset_id, tags, true).await {
+                Ok(_) => mysql.get_tags_mapset(mapset_id).await,
+                Err(why) => Err(why),
+            }
         };
         // Then show the final tags
-        match result.and_then(|_| mysql.get_tags_mapset(mapset_id)) {
+        match result {
             Ok(tags) => {
-                let content = format!(
-                    "{}beatmapsets/{} is now tagged as:\n{}",
-                    HOMEPAGE, mapset_id, tags,
-                );
-                msg.channel_id.say(ctx, content).await?;
+                if !tags.is_empty() {
+                    let content = format!(
+                        "{}beatmapsets/{} is now tagged as:\n{}",
+                        HOMEPAGE, mapset_id, tags,
+                    );
+                    msg.channel_id.say(ctx, content).await?;
+                }
             }
             Err(why) => {
                 error!("Error while updating bg mapset tag: {}", why);

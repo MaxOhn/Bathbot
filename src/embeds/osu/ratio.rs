@@ -73,12 +73,14 @@ impl RatioEmbed {
         let previous_ratios = {
             let data = data.read().await;
             let mysql = data.get::<MySQL>().unwrap();
-            mysql.update_ratios(
-                &user.username,
-                all_scores.iter().join(","),
-                all_ratios.iter().join(","),
-                all_misses.iter().join(","),
-            )
+            mysql
+                .update_ratios(
+                    &user.username,
+                    &all_scores.iter().join(","),
+                    &all_ratios.iter().join(","),
+                    &all_misses.iter().join(","),
+                )
+                .await?
         };
         if let Some(ratios) = previous_ratios {
             if ratios.scores != all_scores

@@ -1,154 +1,103 @@
 mod models;
-mod schema;
 
-use models::{CtbPP, DBMap, GuildDB, ManiaPP, MapsetTagDB, StreamTrackDB};
-pub use models::{
-    DBMapSet, Guild, MapSplit, MapsetTagWrapper, Platform, Ratios, StreamTrack, TwitchUser,
-};
+use models::BeatmapWrapper;
+pub use models::{DBMapSet, MapsetTagWrapper, Platform, Ratios, StreamTrack, TwitchUser};
 
-use crate::{commands::utility::MapsetTags, util::globals::AUTHORITY_ROLES};
+use crate::{commands::utility::MapsetTags, util::globals::AUTHORITY_ROLES, Guild};
 
-use diesel::{
-    prelude::*,
-    r2d2::{ConnectionManager, Pool, PooledConnection},
-    sql_types::Text,
-    MysqlConnection,
-};
 use failure::Error;
 use rosu::models::{Beatmap, GameMode, GameMods};
 use serenity::model::id::{GuildId, UserId};
-use std::collections::{HashMap, HashSet};
+use sqlx::mysql::{MySql, MySqlPool};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Write,
+};
+use tokio::stream::StreamExt;
 
 pub struct MySQL {
-    pool: Pool<ConnectionManager<MysqlConnection>>,
+    pool: MySqlPool,
 }
 
-type ConnectionResult = Result<PooledConnection<ConnectionManager<MysqlConnection>>, Error>;
 type DBResult<T> = Result<T, Error>;
 
 impl MySQL {
-    pub fn new(database_url: &str) -> DBResult<Self> {
-        let manager = ConnectionManager::new(database_url);
-        let pool = Pool::builder()
-            .build(manager)
-            .map_err(|e| format_err!("Failed to create pool: {}", e))?;
+    pub async fn new(database_url: &str) -> DBResult<Self> {
+        let pool = MySqlPool::builder()
+            .max_size(16)
+            .build(database_url)
+            .await?;
         Ok(Self { pool })
-    }
-
-    fn get_connection(&self) -> ConnectionResult {
-        self.pool
-            .get()
-            .map_err(|e| format_err!("Error while waiting for MySQL connection: {}", e))
     }
 
     // ---------------------
     // Table: maps / mapsets
     // ---------------------
 
-    pub fn get_beatmap(&self, map_id: u32) -> DBResult<Beatmap> {
-        use schema::{maps, mapsets};
-        let conn = self.get_connection()?;
-        let map = maps::table.find(map_id).first::<DBMap>(&conn)?;
-        let mapset = mapsets::table
-            .find(map.beatmapset_id)
-            .first::<DBMapSet>(&conn)?;
-        Ok(map.into_beatmap(mapset))
+    pub async fn get_beatmap(&self, map_id: u32) -> DBResult<Beatmap> {
+        let query = "SELECT * FROM \
+                        (SELECT * FROM maps WHERE beatmap_id=?) as m \
+                    JOIN mapsets as ms ON m.beatmapset_id=ms.beatmapset_id";
+        let map: BeatmapWrapper = sqlx::query_as(query)
+            .bind(map_id)
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(map.into())
     }
 
-    pub fn get_beatmapset(&self, mapset_id: u32) -> DBResult<DBMapSet> {
-        use schema::mapsets;
-        let conn = self.get_connection()?;
-        let mapset = mapsets::table.find(mapset_id).first::<DBMapSet>(&conn)?;
+    pub async fn get_beatmapset(&self, mapset_id: u32) -> DBResult<DBMapSet> {
+        let mapset: DBMapSet = sqlx::query_as("SELECT * FROM mapsets WHERE beatmapset_id=?")
+            .bind(mapset_id)
+            .fetch_one(&self.pool)
+            .await?;
         Ok(mapset)
     }
 
-    pub fn get_beatmaps(&self, map_ids: &[u32]) -> DBResult<HashMap<u32, Beatmap>> {
+    pub async fn get_beatmaps(&self, map_ids: &[u32]) -> DBResult<HashMap<u32, Beatmap>> {
         if map_ids.is_empty() {
             return Ok(HashMap::new());
         }
-        use schema::{
-            maps::{self, dsl::beatmap_id},
-            mapsets::{self, dsl::beatmapset_id},
-        };
-        let conn = self.get_connection()?;
-        // Retrieve all DBMap's
-        let mut maps: Vec<DBMap> = maps::table
-            .filter(beatmap_id.eq_any(map_ids))
-            .load::<DBMap>(&conn)?;
-        // Sort them by beatmapset_id
-        maps.sort_by(|a, b| a.beatmapset_id.cmp(&b.beatmapset_id));
-        // Check if all maps are from different mapsets by removing duplicates
-        let mut mapset_ids: Vec<_> = maps.iter().map(|m| m.beatmapset_id).collect();
-        mapset_ids.dedup();
-        // Retrieve all DBMapSet's
-        let mut mapsets: Vec<DBMapSet> = mapsets::table
-            .filter(beatmapset_id.eq_any(&mapset_ids))
-            .load::<DBMapSet>(&conn)?;
-        // If all maps have different mapsets
-        let beatmaps = if maps.len() == mapset_ids.len() {
-            // Sort DBMapSet's by beatmapset'd
-            mapsets.sort_by(|a, b| a.beatmapset_id.cmp(&b.beatmapset_id));
-            // Then zip them with the DBMap's
-            maps.into_iter()
-                .zip(mapsets.into_iter())
-                .map(|(m, ms)| (m.beatmap_id, m.into_beatmap(ms)))
-                .collect()
-        // Otherwise (some maps are from the same mapset)
-        } else {
-            // Collect mapsets into HashMap
-            let mapsets: HashMap<u32, DBMapSet> = mapsets
-                .into_iter()
-                .map(|ms| (ms.beatmapset_id, ms))
-                .collect();
-            // Clone mapset for each corresponding map
-            maps.into_iter()
-                .map(|m| {
-                    let mapset: DBMapSet = mapsets.get(&m.beatmapset_id).unwrap().clone();
-                    let map = m.into_beatmap(mapset);
-                    (map.beatmap_id, map)
-                })
-                .collect()
-        };
+        let subquery = String::from("SELECT * FROM maps WHERE beatmap_id IN").in_clause(map_ids);
+        let query = format!(
+            "SELECT * FROM ({}) as m JOIN mapsets as ms ON m.beatmapset_id=ms.beatmapset_id",
+            subquery
+        );
+        let beatmaps = sqlx::query_as::<_, BeatmapWrapper>(&query)
+            .fetch(&self.pool)
+            .filter_map(|result| match result {
+                Ok(map_wrapper) => {
+                    let map: Beatmap = map_wrapper.into();
+                    Some((map.beatmap_id, map))
+                }
+                Err(why) => {
+                    warn!("Error while getting maps from DB: {}", why);
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .collect();
         Ok(beatmaps)
     }
 
-    pub fn insert_beatmap<M>(&self, map: &M) -> DBResult<()>
-    where
-        M: MapSplit,
-    {
-        use schema::{maps, mapsets};
-        let (map, mapset) = map.db_split();
-        let conn = self.get_connection()?;
-        diesel::insert_or_ignore_into(mapsets::table)
-            .values(&mapset)
-            .execute(&conn)?;
-        diesel::insert_or_ignore_into(maps::table)
-            .values(&map)
-            .execute(&conn)?;
-        debug!("Inserted beatmap {} into DB", map.beatmap_id);
+    pub async fn insert_beatmap(&self, map: &Beatmap) -> DBResult<()> {
+        // Important to do mapsets first for foreign key constrain
+        _insert_beatmapset(&self.pool, map).await?;
+        _insert_beatmap(&self.pool, map).await?;
         Ok(())
     }
 
-    pub fn insert_beatmaps<M>(&self, maps: Vec<M>) -> DBResult<()>
-    where
-        M: MapSplit,
-    {
-        use schema::{maps, mapsets};
-        let (maps, mapsets): (Vec<DBMap>, Vec<DBMapSet>) =
-            maps.into_iter().map(|m| m.into_db_split()).unzip();
-        let conn = self.get_connection()?;
-        diesel::insert_or_ignore_into(mapsets::table)
-            .values(&mapsets)
-            .execute(&conn)?;
-        diesel::insert_or_ignore_into(maps::table)
-            .values(&maps)
-            .execute(&conn)?;
-        let map_ids: Vec<u32> = maps.iter().map(|m| m.beatmap_id).collect();
-        if map_ids.len() > 5 {
-            debug!("Inserted {} beatmaps into DB", map_ids.len());
-        } else {
-            debug!("Inserted beatmaps {:?} into DB", map_ids);
+    pub async fn insert_beatmaps(&self, maps: Vec<Beatmap>) -> DBResult<()> {
+        if maps.is_empty() {
+            return Ok(());
         }
+        let mut tx = self.pool.begin().await?;
+        for map in maps {
+            _insert_beatmapset(&mut tx, &map).await?;
+            _insert_beatmap(&mut tx, &map).await?;
+        }
+        tx.commit().await?;
         Ok(())
     }
 
@@ -156,27 +105,29 @@ impl MySQL {
     // Table: discord_users
     // --------------------
 
-    pub fn add_discord_link(&self, discord_id: u64, osu_name: &str) -> DBResult<()> {
-        use schema::discord_users::dsl::{discord_id as id, osu_name as name};
-        let entry = vec![(id.eq(discord_id), name.eq(osu_name))];
-        let conn = self.get_connection()?;
-        diesel::replace_into(schema::discord_users::table)
-            .values(&entry)
-            .execute(&conn)?;
+    pub async fn add_discord_link(&self, id: u64, name: &str) -> DBResult<()> {
+        sqlx::query("INSERT INTO discord_users(discord_id, osu_name) VALUES (?,?)")
+            .bind(id)
+            .bind(name)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
-    pub fn remove_discord_link(&self, discord_id: u64) -> Result<(), Error> {
-        use schema::discord_users::{self, dsl::discord_id as id};
-        let conn = self.get_connection()?;
-        diesel::delete(discord_users::table.filter(id.eq(discord_id))).execute(&conn)?;
+    pub async fn remove_discord_link(&self, id: u64) -> Result<(), Error> {
+        sqlx::query("DELETE FROM discord_users WHERE discord_id=?")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
-    pub fn get_discord_links(&self) -> Result<HashMap<u64, String>, Error> {
-        let conn = self.get_connection()?;
-        let tuples = schema::discord_users::table.load::<(u64, String)>(&conn)?;
-        let links: HashMap<u64, String> = tuples.into_iter().collect();
+    pub async fn get_discord_links(&self) -> Result<HashMap<u64, String>, Error> {
+        let links = sqlx::query_as("SELECT * FROM discord_users")
+            .fetch_all(&self.pool)
+            .await?
+            .into_iter()
+            .collect();
         Ok(links)
     }
 
@@ -184,117 +135,80 @@ impl MySQL {
     // Table: pp_mania_mods / pp_ctb_mods
     // ----------------------------------
 
-    pub fn get_mod_pp(&self, map_id: u32, mode: GameMode, mods: GameMods) -> DBResult<Option<f32>> {
-        let conn = self.get_connection()?;
-        if mode == GameMode::MNA {
-            let bits = mania_mod_bits(mods);
-            schema::pp_mania_mods::table
-                .find(map_id)
-                .first::<ManiaPP>(&conn)?
-                .get(bits)
-        } else {
-            let data = schema::pp_ctb_mods::table
-                .find(map_id)
-                .first::<CtbPP>(&conn)?;
-            if mods.is_empty() {
-                Ok(data.NM)
-            } else {
-                match mods {
-                    GameMods::Hidden => Ok(data.HD),
-                    GameMods::HardRock => Ok(data.HR),
-                    GameMods::DoubleTime | GameMods::NightCore => Ok(data.DT),
-                    m if m == GameMods::from_bits(24).unwrap() => Ok(data.HDHR),
-                    m if m == GameMods::from_bits(72).unwrap()
-                        || m == GameMods::NightCore | GameMods::Hidden =>
-                    {
-                        Ok(data.HDDT)
-                    }
-                    _ => Ok(None),
-                }
-            }
-        }
-    }
-
-    pub fn insert_pp_map(
+    pub async fn get_mod_pp(
         &self,
         map_id: u32,
         mode: GameMode,
-        mods: GameMods,
+        mut mods: GameMods,
+    ) -> DBResult<Option<f32>> {
+        if mods.contains(GameMods::NightCore) {
+            mods.remove(GameMods::NightCore);
+            mods.insert(GameMods::DoubleTime);
+        }
+        let (table, column) = match mode {
+            GameMode::MNA => ("pp_mania_mods", mania_pp_mods_column(mods)?),
+            GameMode::CTB => ("pp_ctb_mods", ctb_pp_mods_column(mods)?),
+            _ => unreachable!(),
+        };
+        let query = format!("SELECT {} FROM {} WHERE beatmap_id=?", column, table);
+        let pp: (Option<f32>,) = sqlx::query_as(&query)
+            .bind(map_id)
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(pp.0)
+    }
+
+    pub async fn insert_pp_map(
+        &self,
+        map_id: u32,
+        mode: GameMode,
+        mut mods: GameMods,
         pp: f32,
     ) -> DBResult<()> {
-        let conn = self.get_connection()?;
-        if mode == GameMode::MNA {
-            let bits = mania_mod_bits(mods);
-            let data = ManiaPP::new(map_id, bits, Some(pp))?;
-            diesel::insert_or_ignore_into(schema::pp_mania_mods::table)
-                .values(&data)
-                .execute(&conn)?;
-        } else {
-            let mut data = CtbPP::default();
-            data.beatmap_id = map_id;
-            if mods.is_empty() {
-                data.NM = Some(pp);
-            } else {
-                match mods {
-                    GameMods::Hidden => data.HD = Some(pp),
-                    GameMods::HardRock => data.HR = Some(pp),
-                    GameMods::DoubleTime | GameMods::NightCore => data.DT = Some(pp),
-                    m if m == GameMods::from_bits(24).unwrap() => data.HDHR = Some(pp),
-                    m if m == GameMods::from_bits(72).unwrap()
-                        || m == GameMods::NightCore | GameMods::Hidden =>
-                    {
-                        data.HDDT = Some(pp)
-                    }
-                    _ => return Ok(()),
-                }
-            }
-            diesel::insert_or_ignore_into(schema::pp_ctb_mods::table)
-                .values(&data)
-                .execute(&conn)?;
+        if mods.contains(GameMods::NightCore) {
+            mods.remove(GameMods::NightCore);
+            mods.insert(GameMods::DoubleTime);
+        }
+        let (table, column) = match mode {
+            GameMode::MNA => ("pp_mania_mods", mania_pp_mods_column(mods)?),
+            GameMode::CTB => ("pp_ctb_mods", ctb_pp_mods_column(mods)?),
+            _ => unreachable!(),
         };
+        let query = format!(
+            "INSERT INTO {} (beatmap_id, {col}) VALUES ($1,$2) ON DUPLICATE KEY UPDATE {col}=$2",
+            table,
+            col = column
+        );
+        sqlx::query(&query)
+            .bind(map_id)
+            .bind(pp)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
-    pub fn update_pp_map(
+    pub async fn update_pp_map(
         &self,
         map_id: u32,
         mode: GameMode,
-        mods: GameMods,
+        mut mods: GameMods,
         pp: f32,
     ) -> DBResult<()> {
-        let conn = self.get_connection()?;
-        if mode == GameMode::MNA {
-            use schema::pp_mania_mods::{self, columns::beatmap_id};
-            let bits = mania_mod_bits(mods);
-            let data = ManiaPP::new(map_id, bits, Some(pp))?;
-            diesel::update(pp_mania_mods::table.filter(beatmap_id.eq(map_id)))
-                .set(&data)
-                .execute(&conn)?;
-        } else {
-            use schema::pp_ctb_mods::{self, columns::beatmap_id};
-
-            let mut data = CtbPP::default();
-            data.beatmap_id = map_id;
-            if mods.is_empty() {
-                data.NM = Some(pp);
-            } else {
-                match mods {
-                    GameMods::Hidden => data.HD = Some(pp),
-                    GameMods::HardRock => data.HR = Some(pp),
-                    GameMods::DoubleTime | GameMods::NightCore => data.DT = Some(pp),
-                    m if m == GameMods::from_bits(24).unwrap() => data.HDHR = Some(pp),
-                    m if m == GameMods::from_bits(72).unwrap()
-                        || m == GameMods::NightCore | GameMods::Hidden =>
-                    {
-                        data.HDDT = Some(pp)
-                    }
-                    _ => return Ok(()),
-                }
-            }
-            diesel::update(pp_ctb_mods::table.filter(beatmap_id.eq(map_id)))
-                .set(&data)
-                .execute(&conn)?;
+        if mods.contains(GameMods::NightCore) {
+            mods.remove(GameMods::NightCore);
+            mods.insert(GameMods::DoubleTime);
         }
+        let (table, column) = match mode {
+            GameMode::MNA => ("pp_mania_mods", mania_pp_mods_column(mods)?),
+            GameMode::CTB => ("pp_ctb_mods", ctb_pp_mods_column(mods)?),
+            _ => unreachable!(),
+        };
+        let query = format!("UPDATE {} SET {}=? WHERE beatmap_id=?", table, col = column);
+        sqlx::query(&query)
+            .bind(pp)
+            .bind(map_id)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -302,248 +216,80 @@ impl MySQL {
     // Table: stars_mania_mods / stars_ctb_mods
     // ----------------------------------------
 
-    pub fn get_mod_stars(
+    pub async fn get_mod_stars(
         &self,
         map_id: u32,
         mode: GameMode,
-        mods: GameMods,
+        mut mods: GameMods,
     ) -> DBResult<Option<f32>> {
-        let conn = self.get_connection()?;
-        if mode == GameMode::MNA {
-            let data =
-                schema::stars_mania_mods::table
-                    .find(map_id)
-                    .first::<(u32, Option<f32>, Option<f32>)>(&conn)?;
-            if mods.contains(GameMods::DoubleTime) {
-                Ok(data.1)
-            } else if mods.contains(GameMods::HalfTime) {
-                Ok(data.2)
-            } else {
-                Ok(None)
-            }
-        } else {
-            let data = schema::stars_ctb_mods::table.find(map_id).first::<(
-                u32,
-                Option<f32>,
-                Option<f32>,
-                Option<f32>,
-                Option<f32>,
-                Option<f32>,
-                Option<f32>,
-                Option<f32>,
-                Option<f32>,
-            )>(&conn)?;
-            if mods.contains(GameMods::Easy) {
-                if mods.contains(GameMods::DoubleTime) {
-                    Ok(data.5)
-                } else if mods.contains(GameMods::HalfTime) {
-                    Ok(data.7)
-                } else {
-                    Ok(data.1)
-                }
-            } else if mods.contains(GameMods::HardRock) {
-                if mods.contains(GameMods::DoubleTime) {
-                    Ok(data.6)
-                } else if mods.contains(GameMods::HalfTime) {
-                    Ok(data.8)
-                } else {
-                    Ok(data.2)
-                }
-            } else if mods.contains(GameMods::DoubleTime) {
-                Ok(data.3)
-            } else if mods.contains(GameMods::HalfTime) {
-                Ok(data.4)
-            } else {
-                bail!("Don't call update_stars_map with CtB on NoMod");
-            }
+        if mods.contains(GameMods::NightCore) {
+            mods.remove(GameMods::NightCore);
+            mods.insert(GameMods::DoubleTime);
         }
+        let (table, column) = match mode {
+            GameMode::MNA => ("stars_mania_mods", mania_stars_mods_column(mods)?),
+            GameMode::CTB => ("stars_ctb_mods", ctb_stars_mods_column(mods)?),
+            _ => unreachable!(),
+        };
+        let query = format!("SELECT {} FROM {} WHERE beatmap_id=?", column, table);
+        let stars: (Option<f32>,) = sqlx::query_as(&query)
+            .bind(map_id)
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(stars.0)
     }
 
-    pub fn insert_stars_map(
+    pub async fn insert_stars_map(
         &self,
         map_id: u32,
         mode: GameMode,
-        mods: GameMods,
+        mut mods: GameMods,
         stars: f32,
     ) -> DBResult<()> {
-        use schema::{
-            stars_ctb_mods::columns::{
-                beatmap_id as cID, DT as cDT, EZ as cEZ, EZDT as cEZDT, EZHT as cEZHT, HR as cHR,
-                HRDT as cHRDT, HRHT as cHRHT, HT as cHT,
-            },
-            stars_mania_mods::columns::{beatmap_id as mID, DT as mDT, HT as mHT},
-        };
-        let conn = self.get_connection()?;
-        if mode == GameMode::MNA {
-            let data = if mods.contains(GameMods::DoubleTime) {
-                (mID.eq(map_id), mDT.eq(Some(stars)), mHT.eq(None))
-            } else if mods.contains(GameMods::HalfTime) {
-                (mID.eq(map_id), mDT.eq(None), mHT.eq(Some(stars)))
-            } else {
-                (mID.eq(map_id), mDT.eq(None), mHT.eq(None))
-            };
-            diesel::insert_or_ignore_into(schema::stars_mania_mods::table)
-                .values(&data)
-                .execute(&conn)?;
-        } else {
-            let data = if mods.contains(GameMods::Easy) {
-                if mods.contains(GameMods::DoubleTime) {
-                    (
-                        cID.eq(map_id),
-                        cEZ.eq(None),
-                        cHR.eq(None),
-                        cDT.eq(None),
-                        cHT.eq(None),
-                        cEZDT.eq(Some(stars)),
-                        cHRDT.eq(None),
-                        cEZHT.eq(None),
-                        cHRHT.eq(None),
-                    )
-                } else if mods.contains(GameMods::HalfTime) {
-                    (
-                        cID.eq(map_id),
-                        cEZ.eq(None),
-                        cHR.eq(None),
-                        cDT.eq(None),
-                        cHT.eq(None),
-                        cEZDT.eq(None),
-                        cHRDT.eq(None),
-                        cEZHT.eq(Some(stars)),
-                        cHRHT.eq(None),
-                    )
-                } else {
-                    (
-                        cID.eq(map_id),
-                        cEZ.eq(Some(stars)),
-                        cHR.eq(None),
-                        cDT.eq(None),
-                        cHT.eq(None),
-                        cEZDT.eq(None),
-                        cHRDT.eq(None),
-                        cEZHT.eq(None),
-                        cHRHT.eq(None),
-                    )
-                }
-            } else if mods.contains(GameMods::HardRock) {
-                if mods.contains(GameMods::DoubleTime) {
-                    (
-                        cID.eq(map_id),
-                        cEZ.eq(None),
-                        cHR.eq(None),
-                        cDT.eq(None),
-                        cHT.eq(None),
-                        cEZDT.eq(None),
-                        cHRDT.eq(Some(stars)),
-                        cEZHT.eq(None),
-                        cHRHT.eq(None),
-                    )
-                } else if mods.contains(GameMods::HalfTime) {
-                    (
-                        cID.eq(map_id),
-                        cEZ.eq(None),
-                        cHR.eq(None),
-                        cDT.eq(None),
-                        cHT.eq(None),
-                        cEZDT.eq(None),
-                        cHRDT.eq(None),
-                        cEZHT.eq(None),
-                        cHRHT.eq(Some(stars)),
-                    )
-                } else {
-                    (
-                        cID.eq(map_id),
-                        cEZ.eq(None),
-                        cHR.eq(Some(stars)),
-                        cDT.eq(None),
-                        cHT.eq(None),
-                        cEZDT.eq(None),
-                        cHRDT.eq(None),
-                        cEZHT.eq(None),
-                        cHRHT.eq(None),
-                    )
-                }
-            } else if mods.contains(GameMods::DoubleTime) {
-                (
-                    cID.eq(map_id),
-                    cEZ.eq(None),
-                    cHR.eq(None),
-                    cDT.eq(Some(stars)),
-                    cHT.eq(None),
-                    cEZDT.eq(None),
-                    cHRDT.eq(None),
-                    cEZHT.eq(None),
-                    cHRHT.eq(None),
-                )
-            } else if mods.contains(GameMods::HalfTime) {
-                (
-                    cID.eq(map_id),
-                    cEZ.eq(None),
-                    cHR.eq(None),
-                    cDT.eq(None),
-                    cHT.eq(Some(stars)),
-                    cEZDT.eq(None),
-                    cHRDT.eq(None),
-                    cEZHT.eq(None),
-                    cHRHT.eq(None),
-                )
-            } else {
-                bail!("Don't call insert_stars_map with CtB on NoMod")
-            };
-            diesel::insert_or_ignore_into(schema::stars_ctb_mods::table)
-                .values(&data)
-                .execute(&conn)?;
+        if mods.contains(GameMods::NightCore) {
+            mods.remove(GameMods::NightCore);
+            mods.insert(GameMods::DoubleTime);
         }
+        let (table, column) = match mode {
+            GameMode::MNA => ("stars_mania_mods", mania_stars_mods_column(mods)?),
+            GameMode::CTB => ("stars_ctb_mods", ctb_stars_mods_column(mods)?),
+            _ => unreachable!(),
+        };
+        let query = format!(
+            "INSERT INTO {} (beatmap_id, {col}) VALUES ($1,$2) ON DUPLICATE KEY UPDATE {col}=$2",
+            table,
+            col = column
+        );
+        sqlx::query(&query)
+            .bind(map_id)
+            .bind(stars)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
-    pub fn update_stars_map(
+    pub async fn update_stars_map(
         &self,
         map_id: u32,
         mode: GameMode,
-        mods: GameMods,
+        mut mods: GameMods,
         stars: f32,
     ) -> DBResult<()> {
-        use schema::{
-            stars_ctb_mods::columns::{
-                beatmap_id as cID, DT as cDT, EZ as cEZ, EZDT as cEZDT, EZHT as cEZHT, HR as cHR,
-                HRDT as cHRDT, HRHT as cHRHT, HT as cHT,
-            },
-            stars_mania_mods::columns::{beatmap_id as mID, DT as mDT, HT as mHT},
+        if mods.contains(GameMods::NightCore) {
+            mods.remove(GameMods::NightCore);
+            mods.insert(GameMods::DoubleTime);
+        }
+        let (table, column) = match mode {
+            GameMode::MNA => ("stars_mania_mods", mania_stars_mods_column(mods)?),
+            GameMode::CTB => ("stars_ctb_mods", ctb_stars_mods_column(mods)?),
+            _ => unreachable!(),
         };
-        let conn = self.get_connection()?;
-        if mode == GameMode::MNA {
-            let update = diesel::update(schema::stars_mania_mods::table.filter(mID.eq(map_id)));
-            if mods.contains(GameMods::DoubleTime) {
-                update.set(mDT.eq(Some(stars))).execute(&conn)?;
-            } else if mods.contains(GameMods::HalfTime) {
-                update.set(mHT.eq(Some(stars))).execute(&conn)?;
-            };
-        } else {
-            let update = diesel::update(schema::stars_ctb_mods::table.filter(cID.eq(map_id)));
-            if mods.contains(GameMods::Easy) {
-                if mods.contains(GameMods::DoubleTime) {
-                    update.set(cEZDT.eq(Some(stars))).execute(&conn)?;
-                } else if mods.contains(GameMods::HalfTime) {
-                    update.set(cEZHT.eq(Some(stars))).execute(&conn)?;
-                } else {
-                    update.set(cEZ.eq(Some(stars))).execute(&conn)?;
-                }
-            } else if mods.contains(GameMods::HardRock) {
-                if mods.contains(GameMods::DoubleTime) {
-                    update.set(cHRDT.eq(Some(stars))).execute(&conn)?;
-                } else if mods.contains(GameMods::HalfTime) {
-                    update.set(cHRHT.eq(Some(stars))).execute(&conn)?;
-                } else {
-                    update.set(cHR.eq(Some(stars))).execute(&conn)?;
-                }
-            } else if mods.contains(GameMods::DoubleTime) {
-                update.set(cDT.eq(Some(stars))).execute(&conn)?;
-            } else if mods.contains(GameMods::HalfTime) {
-                update.set(cHT.eq(Some(stars))).execute(&conn)?;
-            } else {
-                bail!("Don't call update_stars_map with CtB on NoMod");
-            }
-        };
+        let query = format!("UPDATE {} SET {}=? WHERE beatmap_id=?", table, col = column);
+        sqlx::query(&query)
+            .bind(stars)
+            .bind(map_id)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -551,23 +297,30 @@ impl MySQL {
     // Table: role_assign
     // ------------------
 
-    pub fn get_role_assigns(&self) -> DBResult<HashMap<(u64, u64), u64>> {
-        let conn = self.get_connection()?;
-        let tuples = schema::role_assign::table.load::<(u32, u64, u64, u64)>(&conn)?;
-        let map = tuples.into_iter().map(|(_, c, m, r)| ((c, m), r)).collect();
-        Ok(map)
+    pub async fn get_role_assigns(&self) -> DBResult<HashMap<(u64, u64), u64>> {
+        let assigns = sqlx::query_as::<_, (u32, u64, u64, u64)>("SELECT * FROM role_assign")
+            .fetch(&self.pool)
+            .filter_map(|result| match result {
+                Ok((_, c, m, r)) => Some(((c, m), r)),
+                Err(why) => {
+                    warn!("Error while getting roleassigns from DB: {}", why);
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .collect();
+        Ok(assigns)
     }
 
-    pub fn add_role_assign(&self, channel_id: u64, message_id: u64, role_id: u64) -> DBResult<()> {
-        use schema::role_assign::dsl::{channel, message, role};
-        let conn = self.get_connection()?;
-        diesel::insert_into(schema::role_assign::table)
-            .values((
-                channel.eq(channel_id),
-                message.eq(message_id),
-                role.eq(role_id),
-            ))
-            .execute(&conn)?;
+    pub async fn add_role_assign(&self, channel: u64, message: u64, role: u64) -> DBResult<()> {
+        sqlx::query("INSERT INTO role_assign(channel,message,role) VALUES (?,?,?)")
+            .bind(channel)
+            .bind(message)
+            .bind(role)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -575,52 +328,58 @@ impl MySQL {
     // Table: stream_tracks / twitch_users
     // -----------------------------------
 
-    pub fn add_twitch_user(&self, id: u64, username: &str) -> DBResult<()> {
-        use schema::twitch_users::dsl::{name, user_id};
-        let conn = self.get_connection()?;
-        diesel::insert_into(schema::twitch_users::table)
-            .values((user_id.eq(id), name.eq(username)))
-            .execute(&conn)?;
+    pub async fn add_twitch_user(&self, id: u64, name: &str) -> DBResult<()> {
+        sqlx::query("INSERT INTO twitch_users(user_id,name) VALUES (?,?)")
+            .bind(id)
+            .bind(name)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
-    pub fn add_stream_track(&self, channel: u64, user: u64, pf: Platform) -> DBResult<()> {
-        use schema::stream_tracks::dsl::{channel_id, platform, user_id};
-        let conn = self.get_connection()?;
-        diesel::insert_into(schema::stream_tracks::table)
-            .values((
-                channel_id.eq(channel),
-                user_id.eq(user),
-                platform.eq(pf as u8),
-            ))
-            .execute(&conn)?;
+    pub async fn add_stream_track(&self, channel: u64, user: u64, pf: Platform) -> DBResult<()> {
+        sqlx::query("INSERT INTO stream_tracks(channel_id,user_id,platform) VALUES (?,?,?)")
+            .bind(channel)
+            .bind(user)
+            .bind(pf as u8)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
-    pub fn get_twitch_users(&self) -> DBResult<HashMap<String, u64>> {
-        let conn = self.get_connection()?;
-        let tuples = schema::twitch_users::table.load::<(u64, String)>(&conn)?;
-        let users: HashMap<_, _> = tuples.into_iter().map(|(id, name)| (name, id)).collect();
+    pub async fn get_twitch_users(&self) -> DBResult<HashMap<String, u64>> {
+        let users = sqlx::query_as::<_, (u64, String)>("SELECT * FROM twitch_users")
+            .fetch(&self.pool)
+            .filter_map(|result| match result {
+                Ok((id, name)) => Some((name, id)),
+                Err(why) => {
+                    warn!("Error while getting twitch users from DB: {}", why);
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .collect();
         Ok(users)
     }
 
-    pub fn get_stream_tracks(&self) -> DBResult<HashSet<StreamTrack>> {
-        let conn = self.get_connection()?;
-        let tracks = schema::stream_tracks::table.load::<StreamTrackDB>(&conn)?;
-        let tracks = tracks.into_iter().map(StreamTrackDB::into).collect();
+    pub async fn get_stream_tracks(&self) -> DBResult<HashSet<StreamTrack>> {
+        let tracks = sqlx::query_as::<_, StreamTrack>("SELECT * FROM stream_tracks")
+            .fetch_all(&self.pool)
+            .await?
+            .into_iter()
+            .collect();
         Ok(tracks)
     }
 
-    pub fn remove_stream_track(&self, channel: u64, user: u64, pf: Platform) -> DBResult<()> {
-        use schema::stream_tracks::columns;
-        let conn = self.get_connection()?;
-        diesel::delete(
-            schema::stream_tracks::table
-                .filter(columns::channel_id.eq(channel))
-                .filter(columns::user_id.eq(user))
-                .filter(columns::platform.eq(pf as u8)),
-        )
-        .execute(&conn)?;
+    pub async fn remove_stream_track(&self, channel: u64, user: u64, pf: Platform) -> DBResult<()> {
+        sqlx::query("DELETE FROM stream_tracks WHERE channel_id=? AND user_id=? AND platform=?")
+            .bind(channel)
+            .bind(user)
+            .bind(pf as u8)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -628,42 +387,48 @@ impl MySQL {
     // Table: guilds
     // -------------
 
-    pub fn get_guilds(&self) -> DBResult<HashMap<GuildId, Guild>> {
-        let conn = self.get_connection()?;
-        let guilds = schema::guilds::table.load::<GuildDB>(&conn)?;
-        let guilds = guilds
+    pub async fn get_guilds(&self) -> DBResult<HashMap<GuildId, Guild>> {
+        let guilds = sqlx::query_as::<_, Guild>("SELECT * FROM guilds")
+            .fetch(&self.pool)
+            .filter_map(|result| match result {
+                Ok(g) => Some((g.guild_id, g)),
+                Err(why) => {
+                    warn!("Error while getting guilds from DB: {}", why);
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+            .await
             .into_iter()
-            .map(|g| (GuildId(g.guild_id), g.into()))
             .collect();
         Ok(guilds)
     }
 
-    pub fn insert_guild(&self, guild_id: u64) -> DBResult<Guild> {
-        let guild = GuildDB::new(guild_id, true, AUTHORITY_ROLES.to_string());
-        let conn = self.get_connection()?;
-        diesel::insert_or_ignore_into(schema::guilds::table)
-            .values(&guild)
-            .execute(&conn)?;
-        Ok(guild.into())
+    pub async fn insert_guild(&self, guild_id: u64) -> DBResult<Guild> {
+        sqlx::query("INSERT INTO guilds(guild_id,with_lyrics,authorities) VALUES (?,?,?)")
+            .bind(guild_id)
+            .bind(true)
+            .bind(AUTHORITY_ROLES)
+            .execute(&self.pool)
+            .await?;
+        Ok(Guild::new(guild_id))
     }
 
-    pub fn update_guild_lyrics(&self, guild: u64, lyrics: bool) -> DBResult<()> {
-        use schema::guilds::columns::{guild_id, with_lyrics};
-        let conn = self.get_connection()?;
-        let target = schema::guilds::table.filter(guild_id.eq(guild));
-        diesel::update(target)
-            .set(with_lyrics.eq(lyrics))
-            .execute(&conn)?;
+    pub async fn update_guild_lyrics(&self, guild: u64, lyrics: bool) -> DBResult<()> {
+        sqlx::query("UPDATE guilds SET with_lyrics=? WHERE guild_id=?")
+            .bind(lyrics)
+            .bind(guild)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
-    pub fn update_guild_authorities(&self, guild: u64, auths: String) -> DBResult<()> {
-        use schema::guilds::columns::{authorities, guild_id};
-        let conn = self.get_connection()?;
-        let target = schema::guilds::table.filter(guild_id.eq(guild));
-        diesel::update(target)
-            .set(authorities.eq(auths))
-            .execute(&conn)?;
+    pub async fn update_guild_authorities(&self, guild: u64, authorities: String) -> DBResult<()> {
+        sqlx::query("UPDATE guilds SET authorities=? WHERE guild_id=?")
+            .bind(authorities)
+            .bind(guild)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -671,281 +436,348 @@ impl MySQL {
     // Table: bggame_stats
     // -------------------
 
-    pub fn increment_bggame_score(&self, user: u64) -> DBResult<()> {
-        let conn = self.get_connection()?;
-        let query = format!(
-            "INSERT INTO bggame_stats(discord_id, score) values ({}, 1) \
-            on duplicate key update score = score + 1",
-            user
-        );
-        diesel::sql_query(query).execute(&conn)?;
+    pub async fn increment_bggame_score(&self, user: u64) -> DBResult<()> {
+        let query = "INSERT INTO bggame_stats(discord_id,score) VALUES (?,1) \
+                    ON DUPLICATE KEY UPDATE score=score+1";
+        sqlx::query(&query).bind(user).execute(&self.pool).await?;
         Ok(())
     }
 
-    pub fn get_bggame_score(&self, user: u64) -> DBResult<u32> {
-        let conn = self.get_connection()?;
-        let data = schema::bggame_stats::table
-            .find(user)
-            .first::<(u64, u32)>(&conn)?;
-        Ok(data.1)
+    pub async fn get_bggame_score(&self, user: u64) -> DBResult<u32> {
+        let (_, score): (u64, u32) =
+            sqlx::query_as("SELECT * FROM bggame_stats WHERE discord_id=?")
+                .bind(user)
+                .fetch_one(&self.pool)
+                .await?;
+        Ok(score)
     }
 
-    pub fn all_bggame_scores(&self) -> DBResult<Vec<(u64, u32)>> {
-        let conn = self.get_connection()?;
-        Ok(schema::bggame_stats::table.load(&conn)?)
+    pub async fn all_bggame_scores(&self) -> DBResult<Vec<(u64, u32)>> {
+        let scores = sqlx::query_as("SELECT * FROM bggame_stats")
+            .fetch_all(&self.pool)
+            .await?;
+        Ok(scores)
     }
 
     // ------------------
     // Table: ratio_table
     // ------------------
 
-    pub fn update_ratios(
+    pub async fn update_ratios(
         &self,
-        osuname: &str,
-        all_scores: String,
-        all_ratios: String,
-        all_misses: String,
-    ) -> Option<Ratios> {
-        use schema::ratio_table::columns::{misses, name, ratios, scores};
-        let entry = vec![(
-            name.eq(osuname),
-            scores.eq(all_scores),
-            ratios.eq(all_ratios),
-            misses.eq(all_misses),
-        )];
-        let conn = if let Ok(conn) = self.get_connection() {
-            conn
-        } else {
-            return None;
-        };
-        let data = schema::ratio_table::table
-            .find(osuname)
-            .first::<Ratios>(&conn)
-            .ok();
-        match diesel::replace_into(schema::ratio_table::table)
-            .values(&entry)
-            .execute(&conn)
-        {
-            Ok(_) => debug!("Updated ratios of '{}'", osuname),
-            Err(why) => warn!("Error while updating ratios: {}", why),
-        }
-        data
+        name: &str,
+        scores: &str,
+        ratios: &str,
+        misses: &str,
+    ) -> DBResult<Option<Ratios>> {
+        let old_ratios: Option<Ratios> = sqlx::query_as("SELECT * FROM ratio_table WHERE name=?")
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await?;
+        sqlx::query("REPLACE INTO ratio_table(name,scores,ratios,misses) VALUES (?,?,?,?)")
+            .bind(name)
+            .bind(scores)
+            .bind(ratios)
+            .bind(misses)
+            .execute(&self.pool)
+            .await?;
+        Ok(old_ratios)
     }
 
     // -----------------------------
     // Table: bg_verified / map_tags
     // -----------------------------
 
-    pub fn get_bg_verified(&self) -> DBResult<HashSet<UserId>> {
-        let conn = self.get_connection()?;
-        let users = schema::bg_verified::table
-            .load::<(u64,)>(&conn)?
+    pub async fn get_bg_verified(&self) -> DBResult<HashSet<UserId>> {
+        let users = sqlx::query_as::<_, (u64,)>("SELECT * FROM bg_verified")
+            .fetch_all(&self.pool)
+            .await?
             .into_iter()
-            .map(|id| UserId(id.0))
+            .map(|(id,)| UserId(id))
             .collect();
         Ok(users)
     }
 
-    pub fn add_tag_mapset(
+    pub async fn add_tag_mapset(
         &self,
         mapset_id: u32,
-        file_type: &str,
-        gamemode: GameMode,
+        filetype: &str,
+        mode: GameMode,
     ) -> DBResult<()> {
-        use schema::map_tags::dsl::{beatmapset_id, filetype, mode};
-        let conn = self.get_connection()?;
-        diesel::insert_or_ignore_into(schema::map_tags::table)
-            .values((
-                beatmapset_id.eq(mapset_id),
-                filetype.eq(file_type),
-                mode.eq(gamemode as u8),
-            ))
-            .execute(&conn)?;
+        sqlx::query("INSERT IGNORE INTO map_tags(beatmapset_id, filetype, mode) VALUES (?,?,?)")
+            .bind(mapset_id)
+            .bind(filetype)
+            .bind(mode as u8)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
-    pub fn set_tags_mapset(&self, mapset_id: u32, tag: MapsetTags, value: bool) -> DBResult<()> {
-        use schema::map_tags::columns::beatmapset_id;
-        let conn = self.get_connection()?;
-        let entry = MapsetTagDB::with_value(mapset_id, tag, value);
-        diesel::update(schema::map_tags::table.filter(beatmapset_id.eq(mapset_id)))
-            .set(&entry)
-            .execute(&conn)?;
-        Ok(())
-    }
-
-    pub fn get_tags_mapset(&self, mapset_id: u32) -> DBResult<MapsetTagWrapper> {
-        let conn = self.get_connection()?;
-        let tags = schema::map_tags::table
-            .find(mapset_id)
-            .first::<MapsetTagDB>(&conn)?;
-        Ok(tags.into())
-    }
-
-    pub fn get_all_tags_mapset(&self, gamemode: GameMode) -> DBResult<Vec<MapsetTagWrapper>> {
-        use schema::map_tags::columns::mode;
-        let conn = self.get_connection()?;
-        let tags = schema::map_tags::table
-            .filter(mode.eq(gamemode as u8))
-            .load::<MapsetTagDB>(&conn)?;
-        Ok(tags.into_iter().map(|tag| tag.into()).collect())
-    }
-
-    pub fn get_random_tags_mapset(&self, gamemode: GameMode) -> DBResult<MapsetTagWrapper> {
-        use schema::map_tags::columns::mode;
-        no_arg_sql_function!(RAND, (), "sql RAND()");
-        let conn = self.get_connection()?;
-        let tags = schema::map_tags::table
-            .filter(mode.eq(gamemode as u8))
-            .order(RAND)
-            .first::<MapsetTagDB>(&conn)?;
-        Ok(tags.into())
-    }
-
-    #[allow(clippy::clippy::cognitive_complexity)]
-    pub fn get_specific_tags_mapset(
+    pub async fn set_tags_mapset(
         &self,
-        gamemode: GameMode,
+        mapset_id: u32,
+        tags: MapsetTags,
+        value: bool,
+    ) -> DBResult<()> {
+        let mut query = String::from("UPDATE map_tags SET").set_tags(",", tags, value)?;
+        write!(query, " WHERE beatmapset_id={}", mapset_id)?;
+        sqlx::query(&query).execute(&self.pool).await?;
+        Ok(())
+    }
+
+    pub async fn get_tags_mapset(&self, mapset_id: u32) -> DBResult<MapsetTagWrapper> {
+        let tags = sqlx::query_as("SELECT * FROM map_tags WHERE beatmapset_id=?")
+            .bind(mapset_id)
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(tags)
+    }
+
+    pub async fn get_all_tags_mapset(&self, mode: GameMode) -> DBResult<Vec<MapsetTagWrapper>> {
+        let tags = sqlx::query_as("SELECT * FROM map_tags WHERE mode=?")
+            .bind(mode as u8)
+            .fetch_all(&self.pool)
+            .await?;
+        Ok(tags)
+    }
+
+    pub async fn get_random_tags_mapset(&self, mode: GameMode) -> DBResult<MapsetTagWrapper> {
+        let query = r#"SELECT
+                        *
+                    FROM
+                        map_tags AS mt
+                        JOIN (
+                            SELECT
+                                beatmapset_id
+                            from
+                                map_tags
+                            WHERE
+                                mode=?
+                            ORDER BY
+                                RAND()
+                            LIMIT
+                                1
+                        ) as rndm ON mt.beatmapset_id = rndm.beatmapset_id"#;
+        let tags = sqlx::query_as(&query)
+            .bind(mode as u8)
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(tags)
+    }
+
+    pub async fn get_specific_tags_mapset(
+        &self,
+        mode: GameMode,
         included: MapsetTags,
         excluded: MapsetTags,
     ) -> DBResult<Vec<MapsetTagWrapper>> {
-        use schema::map_tags::columns::*;
         if included.is_empty() && excluded.is_empty() {
-            return self.get_all_tags_mapset(gamemode);
+            return self.get_all_tags_mapset(mode).await;
         }
-
-        // I hate this so much, can't wait for the change to sqlx...
-
-        let farm_predicate = if included.contains(MapsetTags::Farm) {
-            farm.eq(true).or(farm.eq(true))
-        } else if excluded.contains(MapsetTags::Farm) {
-            farm.eq(false).or(farm.eq(false))
-        } else {
-            farm.eq(true).or(farm.eq(false))
-        };
-
-        let streams_predicate = if included.contains(MapsetTags::Streams) {
-            streams.eq(true).or(streams.eq(true))
-        } else if excluded.contains(MapsetTags::Streams) {
-            streams.eq(false).or(streams.eq(false))
-        } else {
-            streams.eq(true).or(streams.eq(false))
-        };
-
-        let alternate_predicate = if included.contains(MapsetTags::Alternate) {
-            alternate.eq(true).or(alternate.eq(true))
-        } else if excluded.contains(MapsetTags::Alternate) {
-            alternate.eq(false).or(alternate.eq(false))
-        } else {
-            alternate.eq(true).or(alternate.eq(false))
-        };
-
-        let old_predicate = if included.contains(MapsetTags::Old) {
-            old.eq(true).or(old.eq(true))
-        } else if excluded.contains(MapsetTags::Old) {
-            old.eq(false).or(old.eq(false))
-        } else {
-            old.eq(true).or(old.eq(false))
-        };
-
-        let meme_predicate = if included.contains(MapsetTags::Meme) {
-            meme.eq(true).or(meme.eq(true))
-        } else if excluded.contains(MapsetTags::Meme) {
-            meme.eq(false).or(meme.eq(false))
-        } else {
-            meme.eq(true).or(meme.eq(false))
-        };
-
-        let hardname_predicate = if included.contains(MapsetTags::HardName) {
-            hardname.eq(true).or(hardname.eq(true))
-        } else if excluded.contains(MapsetTags::HardName) {
-            hardname.eq(false).or(hardname.eq(false))
-        } else {
-            hardname.eq(true).or(hardname.eq(false))
-        };
-
-        let easy_predicate = if included.contains(MapsetTags::Easy) {
-            easy.eq(true).or(easy.eq(true))
-        } else if excluded.contains(MapsetTags::Easy) {
-            easy.eq(false).or(easy.eq(false))
-        } else {
-            easy.eq(true).or(easy.eq(false))
-        };
-
-        let hard_predicate = if included.contains(MapsetTags::Hard) {
-            hard.eq(true).or(hard.eq(true))
-        } else if excluded.contains(MapsetTags::Hard) {
-            hard.eq(false).or(hard.eq(false))
-        } else {
-            hard.eq(true).or(hard.eq(false))
-        };
-
-        let tech_predicate = if included.contains(MapsetTags::Tech) {
-            tech.eq(true).or(tech.eq(true))
-        } else if excluded.contains(MapsetTags::Tech) {
-            tech.eq(false).or(tech.eq(false))
-        } else {
-            tech.eq(true).or(tech.eq(false))
-        };
-
-        let weeb_predicate = if included.contains(MapsetTags::Weeb) {
-            weeb.eq(true).or(weeb.eq(true))
-        } else if excluded.contains(MapsetTags::Weeb) {
-            weeb.eq(false).or(weeb.eq(false))
-        } else {
-            weeb.eq(true).or(weeb.eq(false))
-        };
-
-        let bluesky_predicate = if included.contains(MapsetTags::BlueSky) {
-            bluesky.eq(true).or(bluesky.eq(true))
-        } else if excluded.contains(MapsetTags::BlueSky) {
-            bluesky.eq(false).or(bluesky.eq(false))
-        } else {
-            bluesky.eq(true).or(bluesky.eq(false))
-        };
-
-        let english_predicate = if included.contains(MapsetTags::English) {
-            english.eq(true).or(english.eq(true))
-        } else if excluded.contains(MapsetTags::English) {
-            english.eq(false).or(english.eq(false))
-        } else {
-            english.eq(true).or(english.eq(false))
-        };
-
-        let kpop_predicate = if included.contains(MapsetTags::Kpop) {
-            kpop.eq(true).or(kpop.eq(true))
-        } else if excluded.contains(MapsetTags::Kpop) {
-            kpop.eq(false).or(kpop.eq(false))
-        } else {
-            kpop.eq(true).or(kpop.eq(false))
-        };
-
-        let conn = self.get_connection()?;
-        let mapsets = schema::map_tags::table
-            .filter(mode.eq(gamemode as u8))
-            .filter(farm_predicate)
-            .filter(streams_predicate)
-            .filter(alternate_predicate)
-            .filter(old_predicate)
-            .filter(meme_predicate)
-            .filter(hardname_predicate)
-            .filter(easy_predicate)
-            .filter(hard_predicate)
-            .filter(tech_predicate)
-            .filter(weeb_predicate)
-            .filter(bluesky_predicate)
-            .filter(english_predicate)
-            .filter(kpop_predicate)
-            .load::<MapsetTagDB>(&conn)?;
-        Ok(mapsets.into_iter().map(|tags| tags.into()).collect())
+        let mut query = format!("SELECT * FROM map_tags WHERE mode={}", mode as u8);
+        query.push_str(" AND");
+        if !included.is_empty() {
+            query = query.set_tags(" AND ", included, true)?;
+            if !excluded.is_empty() {
+                query.push_str(" AND");
+            }
+        }
+        if !excluded.is_empty() {
+            query = query.set_tags(" AND ", excluded, false)?;
+        }
+        let mapsets = sqlx::query_as(&query).fetch_all(&self.pool).await?;
+        Ok(mapsets)
     }
 }
 
-fn mania_mod_bits(mods: GameMods) -> u32 {
-    let valid = GameMods::DoubleTime | GameMods::Easy | GameMods::HalfTime | GameMods::NoFail;
-    mods.bits() & valid.bits()
+trait CustomSQL: Sized + std::fmt::Write {
+    fn pop(&mut self) -> Option<char>;
+
+    /// Adds (a,b,c,...) to self
+    fn in_clause<I, T>(mut self, values: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+        T: std::fmt::Display,
+    {
+        let _ = write!(self, " (");
+        for value in values {
+            let _ = write!(self, "{},", value);
+        }
+        self.pop();
+        let _ = write!(self, ")");
+        self
+    }
+
+    /// Adds a delim b delim c delim... without whitespaces to self
+    fn set_tags(mut self, delim: &str, tags: MapsetTags, value: bool) -> DBResult<Self> {
+        let mut tags = tags.into_iter();
+        let first_tag = match tags.next() {
+            Some(first_tag) => first_tag,
+            None => bail!("Cannot build update query without tags"),
+        };
+        let _ = write!(self, " {}={}", tag_column(first_tag), value as u8);
+        for tag in tags {
+            let _ = write!(self, "{}{}={}", delim, tag_column(tag), value as u8);
+        }
+        Ok(self)
+    }
 }
 
-sql_function! {
-    fn length(t: Text) -> Integer;
+fn tag_column(tag: MapsetTags) -> &'static str {
+    match tag {
+        MapsetTags::Farm => "farm",
+        MapsetTags::Streams => "streams",
+        MapsetTags::Alternate => "alternate",
+        MapsetTags::BlueSky => "bluesky",
+        MapsetTags::Meme => "meme",
+        MapsetTags::Old => "old",
+        MapsetTags::Easy => "easy",
+        MapsetTags::Hard => "hard",
+        MapsetTags::Kpop => "kpop",
+        MapsetTags::English => "english",
+        MapsetTags::HardName => "hardname",
+        MapsetTags::Weeb => "weeb",
+        MapsetTags::Tech => "tech",
+        _ => panic!("Only call tag_column with single tag argument"),
+    }
+}
+
+impl CustomSQL for String {
+    fn pop(&mut self) -> Option<char> {
+        self.pop()
+    }
+}
+
+fn ctb_pp_mods_column(mods: GameMods) -> DBResult<&'static str> {
+    let valid = GameMods::Easy | GameMods::NoFail | GameMods::DoubleTime | GameMods::HalfTime;
+    let m = match mods & valid {
+        GameMods::NoMod => "NM",
+        GameMods::Hidden => "HD",
+        GameMods::HardRock => "HR",
+        GameMods::DoubleTime => "DT",
+        m if m == GameMods::Hidden | GameMods::HardRock => "HDHR",
+        m if m == GameMods::Hidden | GameMods::DoubleTime => "HDDT",
+        _ => bail!("No valid mod combination for ctb pp ({})", mods),
+    };
+    Ok(m)
+}
+
+fn mania_pp_mods_column(mods: GameMods) -> DBResult<&'static str> {
+    let valid = GameMods::Easy | GameMods::NoFail | GameMods::DoubleTime | GameMods::HalfTime;
+    let m = match mods & valid {
+        GameMods::NoMod => "NM",
+        GameMods::NoFail => "NF",
+        GameMods::Easy => "EZ",
+        GameMods::DoubleTime => "DT",
+        GameMods::HalfTime => "HT",
+        m if m == GameMods::NoFail | GameMods::Easy => "NFEZ",
+        m if m == GameMods::NoFail | GameMods::DoubleTime => "NFDT",
+        m if m == GameMods::Easy | GameMods::DoubleTime => "EZDT",
+        m if m == GameMods::NoFail | GameMods::HalfTime => "NFHT",
+        m if m == GameMods::Easy | GameMods::HalfTime => "EZHT",
+        m if m == GameMods::NoFail | GameMods::Easy | GameMods::DoubleTime => "NFEZDT",
+        m if m == GameMods::NoFail | GameMods::Easy | GameMods::HalfTime => "NFEZHT",
+        _ => bail!("No valid mod combination for mania pp ({})", mods),
+    };
+    Ok(m)
+}
+
+fn ctb_stars_mods_column(mods: GameMods) -> DBResult<&'static str> {
+    let valid = GameMods::Easy | GameMods::HardRock | GameMods::DoubleTime | GameMods::HalfTime;
+    let m = match mods & valid {
+        GameMods::Easy => "EZ",
+        GameMods::HardRock => "HR",
+        GameMods::DoubleTime => "DT",
+        GameMods::HalfTime => "HT",
+        m if m == GameMods::Easy | GameMods::DoubleTime => "EZDT",
+        m if m == GameMods::HardRock | GameMods::DoubleTime => "HRDT",
+        m if m == GameMods::Easy | GameMods::HalfTime => "EZHT",
+        m if m == GameMods::HardRock | GameMods::HalfTime => "HRHT",
+        _ => bail!("No valid mod combination for ctb stars ({})", mods),
+    };
+    Ok(m)
+}
+
+fn mania_stars_mods_column(mods: GameMods) -> DBResult<&'static str> {
+    let valid = GameMods::DoubleTime | GameMods::HalfTime;
+    let m = match mods & valid {
+        GameMods::DoubleTime => "DT",
+        GameMods::HalfTime => "HT",
+        _ => bail!("No valid mod combination for mania stars ({})", mods),
+    };
+    Ok(m)
+}
+
+async fn _insert_beatmap<'c, E>(executor: E, map: &Beatmap) -> DBResult<()>
+where
+    E: sqlx::prelude::Executor<'c, Database = MySql>,
+{
+    let query = "INSERT IGNORE INTO maps (\
+                    beatmap_id,\
+                    beatmapset_id,\
+                    mode,\
+                    version,\
+                    seconds_drain,\
+                    seconds_total,\
+                    bpm,\
+                    stars,\
+                    diff_cs,\
+                    diff_od,\
+                    diff_ar,\
+                    diff_hp,\
+                    count_circle,\
+                    count_slider,\
+                    count_spinner,\
+                    max_combo\
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    sqlx::query(query)
+        .bind(map.beatmap_id)
+        .bind(map.beatmapset_id)
+        .bind(map.mode as u8)
+        .bind(&map.version)
+        .bind(map.seconds_drain)
+        .bind(map.seconds_total)
+        .bind(map.bpm)
+        .bind(map.stars)
+        .bind(map.diff_cs)
+        .bind(map.diff_od)
+        .bind(map.diff_ar)
+        .bind(map.diff_hp)
+        .bind(map.count_circle)
+        .bind(map.count_slider)
+        .bind(map.count_spinner)
+        .bind(map.max_combo)
+        .execute(executor)
+        .await?;
+    Ok(())
+}
+
+async fn _insert_beatmapset<'c, E>(executor: E, map: &Beatmap) -> DBResult<()>
+where
+    E: sqlx::prelude::Executor<'c, Database = MySql>,
+{
+    let query = "INSERT IGNORE INTO mapsets (\
+                    beatmapset_id,\
+                    artist,\
+                    title,\
+                    creator_id,\
+                    creator,\
+                    genre,\
+                    language,\
+                    approval_status,\
+                    approved_date\
+                ) VALUES (?,?,?,?,?,?,?,?,?)";
+    sqlx::query(query)
+        .bind(map.beatmapset_id)
+        .bind(&map.artist)
+        .bind(&map.title)
+        .bind(map.creator_id)
+        .bind(&map.creator)
+        .bind(map.genre as u8)
+        .bind(map.language as u8)
+        .bind(map.approval_status as i8)
+        .bind(map.approved_date)
+        .execute(executor)
+        .await?;
+    Ok(())
 }

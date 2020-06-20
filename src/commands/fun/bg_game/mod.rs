@@ -136,7 +136,10 @@ async fn start(ctx: &Context, msg: &Message) -> CommandResult {
     let mapsets = {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_specific_tags_mapset(GameMode::STD, included, excluded) {
+        match mysql
+            .get_specific_tags_mapset(GameMode::STD, included, excluded)
+            .await
+        {
             Ok(mapsets) => mapsets,
             Err(why) => {
                 channel
@@ -171,7 +174,7 @@ async fn mania(ctx: &Context, msg: &Message) -> CommandResult {
     }
     let data = ctx.data.read().await;
     let mysql = data.get::<MySQL>().unwrap();
-    let mapsets = match mysql.get_all_tags_mapset(GameMode::MNA) {
+    let mapsets = match mysql.get_all_tags_mapset(GameMode::MNA).await {
         Ok(mapsets) => mapsets,
         Err(why) => {
             msg.channel_id
@@ -287,7 +290,7 @@ async fn stats(ctx: &Context, msg: &Message) -> CommandResult {
     let score = {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        mysql.get_bggame_score(msg.author.id.0).ok()
+        mysql.get_bggame_score(msg.author.id.0).await.ok()
     };
     let response = if let Some(score) = score {
         msg.reply(
@@ -317,7 +320,7 @@ async fn ranking(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
     let mut scores = {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
-        mysql.all_bggame_scores()?
+        mysql.all_bggame_scores().await?
     };
     if !global && msg.guild_id.is_some() {
         let guild_id = msg.guild_id.unwrap();
