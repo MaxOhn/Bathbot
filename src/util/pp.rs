@@ -531,10 +531,7 @@ async fn f32_to_db(
                     "Updated map id {} with mods {} in {} stars table",
                     map_id, mods, mode
                 ),
-                Err(why) => {
-                    error!("Error while updating {} stars: {}", mode, why);
-                    return Err(why);
-                }
+                Err(why) => error!("Error while updating {} stars: {}", mode, why),
             }
         } else {
             match mysql.update_pp_map(map_id, mode, mods, value).await {
@@ -542,27 +539,18 @@ async fn f32_to_db(
                     "Updated map id {} with mods {} in {} pp table",
                     map_id, mods, mode
                 ),
-                Err(why) => {
-                    error!("Error while updating {} pp: {}", mode, why);
-                    return Err(why);
-                }
+                Err(why) => error!("Error while updating {} pp: {}", mode, why),
             }
         }
     } else if stars {
         match mysql.insert_stars_map(map_id, mode, mods, value).await {
             Ok(_) => debug!("Inserted beatmap {} into {} stars table", map_id, mode),
-            Err(why) => {
-                error!("Error while inserting {} stars: {}", mode, why);
-                return Err(why);
-            }
+            Err(why) => error!("Error while inserting {} stars: {}", mode, why),
         }
     } else {
         match mysql.insert_pp_map(map_id, mode, mods, value).await {
             Ok(_) => debug!("Inserted beatmap {} into {} pp table", map_id, mode),
-            Err(why) => {
-                error!("Error while inserting {} pp: {}", mode, why);
-                return Err(why);
-            }
+            Err(why) => error!("Error while inserting {} pp: {}", mode, why),
         }
     }
     Ok(())

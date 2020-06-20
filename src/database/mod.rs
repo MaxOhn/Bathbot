@@ -257,12 +257,13 @@ impl MySQL {
             _ => unreachable!(),
         };
         let query = format!(
-            "INSERT INTO {} (beatmap_id, {col}) VALUES ($1,$2) ON DUPLICATE KEY UPDATE {col}=$2",
+            "INSERT INTO {} (beatmap_id, {col}) VALUES (?,?) ON DUPLICATE KEY UPDATE {col}=?",
             table,
             col = column
         );
         sqlx::query(&query)
             .bind(map_id)
+            .bind(stars)
             .bind(stars)
             .execute(&self.pool)
             .await?;
