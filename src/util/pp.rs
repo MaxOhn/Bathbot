@@ -74,10 +74,7 @@ async fn new_perf_calc<'a>(
         let mysql = data.get::<MySQL>().unwrap();
         match mysql.get_mod_stars(map.beatmap_id, mode, mods).await {
             Ok(result) => (result, true),
-            Err(why) => {
-                warn!("Error while retrieving from {} stars: {}", mode, why);
-                (None, false)
-            }
+            Err(_) => (None, false),
         }
     } else {
         (Some(map.stars), true)
@@ -110,13 +107,7 @@ async fn new_perf_calc<'a>(
         let mysql = data.get::<MySQL>().unwrap();
         match mysql.get_mod_pp(map.beatmap_id, mode, mods).await {
             Ok(result) => (result, true),
-            Err(why) => {
-                warn!(
-                    "Mod bit error for mods {} in {} pp table: {}",
-                    mods, mode, why
-                );
-                (None, false)
-            }
+            Err(_) => (None, false),
         }
     };
     // Wait for score pp calculation to finish
@@ -269,10 +260,7 @@ impl PPProvider {
                     let mysql = data.get::<MySQL>().unwrap();
                     match mysql.get_mod_pp(map.beatmap_id, map.mode, mods).await {
                         Ok(result) => (result, true),
-                        Err(why) => {
-                            warn!("Error getting mod pp from table: {}", why);
-                            (None, false)
-                        }
+                        Err(_) => (None, false),
                     }
                 };
                 // If max pp were found, get them

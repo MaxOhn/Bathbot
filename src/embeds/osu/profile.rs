@@ -286,9 +286,7 @@ impl ProfileResult {
             mapper.0 += 1;
             mapper.1 += weighted_pp;
             {
-                let mut mod_comb = mod_combs
-                    .entry(score.enabled_mods.clone())
-                    .or_insert((0, 0.0));
+                let mut mod_comb = mod_combs.entry(score.enabled_mods).or_insert((0, 0.0));
                 mod_comb.0 += 1;
                 mod_comb.1 += weighted_pp;
             }
