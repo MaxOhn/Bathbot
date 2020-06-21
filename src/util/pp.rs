@@ -35,6 +35,11 @@ async fn new_oppai(score: &Score, map: &Beatmap) -> Result<PPProvider, Error> {
     let mut oppai = Oppai::new();
     oppai.set_mods(score.enabled_mods.bits());
     let max_pp = oppai.calculate(Some(&map_path))?.get_pp();
+    let stars = if score.enabled_mods.changes_stars(map.mode) {
+        oppai.get_stars()
+    } else {
+        map.stars
+    };
     oppai
         .set_miss_count(score.count_miss)
         .set_hits(score.count100, score.count50)
@@ -42,11 +47,6 @@ async fn new_oppai(score: &Score, map: &Beatmap) -> Result<PPProvider, Error> {
         .set_combo(score.max_combo)
         .calculate(None)?;
     let pp = oppai.get_pp();
-    let stars = if score.enabled_mods.changes_stars(map.mode) {
-        oppai.get_stars()
-    } else {
-        map.stars
-    };
     Ok(PPProvider::Oppai {
         oppai,
         pp,
