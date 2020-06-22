@@ -9,72 +9,73 @@ use serde_derive::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct OsuStatsScore {
     #[serde(rename = "userId")]
-    user_id: u32,
-    position: u32,
+    pub user_id: u32,
+    pub position: u32,
     #[serde(rename = "rank", deserialize_with = "str_to_grade")]
-    rank: Grade,
-    score: u32,
+    pub grade: Grade,
+    pub score: u32,
     #[serde(rename = "maxCombo")]
-    max_combo: u32,
+    pub max_combo: u32,
     #[serde(deserialize_with = "str_to_f32")]
-    accuracy: f32,
-    count300: u32,
-    count100: u32,
-    count50: u32,
+    pub accuracy: f32,
+    pub count300: u32,
+    pub count100: u32,
+    pub count50: u32,
     #[serde(rename = "countKatu")]
-    count_katu: u32,
+    pub count_katu: u32,
     #[serde(rename = "countGeki")]
-    count_geki: u32,
+    pub count_geki: u32,
     #[serde(rename = "countMiss")]
-    count_miss: u32,
+    pub count_miss: u32,
     #[serde(rename = "enabledMods", deserialize_with = "adjust_mods")]
-    enabled_mods: GameMods,
+    pub enabled_mods: GameMods,
     #[serde(rename = "playDate", deserialize_with = "str_to_date")]
-    date: DateTime<Utc>,
+    pub date: DateTime<Utc>,
     #[serde(rename = "ppValue")]
-    pp: Option<f32>,
+    pub pp: Option<f32>,
     #[serde(rename = "beatmap")]
-    map: OsuStatsMap,
+    pub map: OsuStatsMap,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct OsuStatsMap {
     #[serde(rename = "beatmapId")]
-    beatmap_id: u32,
+    pub beatmap_id: u32,
     #[serde(rename = "beatmapSetId")]
-    beatmapset_id: u32,
+    pub beatmapset_id: u32,
     #[serde(deserialize_with = "str_to_approved")]
-    approved: ApprovalStatus,
+    pub approved: ApprovalStatus,
     #[serde(rename = "lastUpdated", deserialize_with = "str_to_date")]
-    last_updated: DateTime<Utc>,
+    pub last_updated: DateTime<Utc>,
     #[serde(rename = "approvedDate", deserialize_with = "str_to_maybe_date")]
-    approved_date: Option<DateTime<Utc>>,
+    pub approved_date: Option<DateTime<Utc>>,
     #[serde(rename = "hitLength")]
-    seconds_drain: u32,
+    pub seconds_drain: u32,
     #[serde(rename = "totalLength")]
-    seconds_total: u32,
+    pub seconds_total: u32,
     #[serde(deserialize_with = "num_to_mode")]
-    mode: GameMode,
-    version: String,
-    artist: String,
-    title: String,
-    creator: String,
-    bpm: f32,
-    source: String,
+    pub mode: GameMode,
+    pub version: String,
+    pub artist: String,
+    pub title: String,
+    pub creator: String,
+    pub bpm: f32,
+    pub source: String,
     #[serde(rename = "diffRating", deserialize_with = "str_to_f32")]
-    stars: f32,
+    pub stars: f32,
     #[serde(rename = "diffSize", deserialize_with = "str_to_f32")]
-    diff_cs: f32,
+    pub diff_cs: f32,
     #[serde(rename = "diffOverall", deserialize_with = "str_to_f32")]
-    diff_od: f32,
+    pub diff_od: f32,
     #[serde(rename = "diffApproach", deserialize_with = "str_to_f32")]
-    diff_ar: f32,
+    pub diff_ar: f32,
     #[serde(rename = "diffDrain", deserialize_with = "str_to_f32")]
-    diff_hp: f32,
+    pub diff_hp: f32,
     #[serde(rename = "maxCombo")]
-    max_combo: u32,
+    pub max_combo: Option<u32>,
 }
 
+#[derive(Copy, Clone)]
 pub enum OsuStatsOrder {
     PlayDate = 0,
     Pp = 1,

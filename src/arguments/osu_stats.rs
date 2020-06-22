@@ -3,6 +3,7 @@ use crate::{
     scraper::{OsuStatsParams, OsuStatsOrder},
 };
 
+use rosu::models::GameMode;
 use serenity::framework::standard::Args;
 use std::{iter::FromIterator, str::FromStr};
 
@@ -11,7 +12,7 @@ pub struct OsuStatsArgs {
 }
 
 impl OsuStatsArgs {
-    pub fn new(mut args: Args, mut username: String) -> Result<Self, String> {
+    pub fn new(mut args: Args, mut username: Option<String>, mode: GameMode) -> Result<Self, String> {
         let mut args = Vec::from_iter(arguments::first_n(&mut args, 8));
         // Parse min and max rank
         let mut rank_min = None;
@@ -85,10 +86,15 @@ impl OsuStatsArgs {
         };
         // Parse username
         if let Some(name) = args.pop() {
-            username = name;
+            username = Some(name);
+        }
+        if username.is_none() {
+            return Err(String::from("Either specify an osu name or link your discord \
+                                    to an osu profile via `<link osuname`"));
         }
         // Put values into parameter variable
-        let mut params = OsuStatsParams::new(username)
+        let mut params = OsuStatsParams::new(username.unwrap())
+            .mode(mode)
             .rank_max(rank_max.unwrap())
             .acc_max(acc_max.unwrap())
             .order(sort_by)

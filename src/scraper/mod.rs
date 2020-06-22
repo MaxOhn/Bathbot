@@ -63,7 +63,7 @@ impl Scraper {
         Ok(self.client.get(&url).send().await?)
     }
 
-    pub async fn get_global_scores(&self, params: OsuStatsParams) -> Result<Vec<OsuStatsScore>> {
+    pub async fn get_global_scores(&self, params: &OsuStatsParams) -> Result<Vec<OsuStatsScore>> {
         let mut form = Form::new()
             .text("accMin", params.acc_min.to_string())
             .text("accMax", params.acc_max.to_string())
@@ -73,7 +73,7 @@ impl Scraper {
             .text("sortBy", (params.order as u8).to_string())
             .text("sortOrder", (params.descending as u8).to_string())
             .text("page", params.page.to_string())
-            .text("u1", params.username);
+            .text("u1", params.username.clone());
         if let Some((mods, selection)) = params.mods {
             let mut mod_str = String::with_capacity(3);
             match selection {

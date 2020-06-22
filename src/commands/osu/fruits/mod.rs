@@ -1,5 +1,6 @@
 pub use crate::commands::osu::{
-    common::*, pp::*, profile::*, rank::*, recent::*, recent_lb::*, top::*, whatif::*,
+    common::*, osustats_globals::*, pp::*, profile::*, rank::*, recent::*, recent_lb::*, top::*,
+    whatif::*,
 };
 
 use serenity::framework::standard::macros::group;
@@ -16,6 +17,7 @@ use serenity::framework::standard::macros::group;
     rankctb,
     commonctb,
     recentctbleaderboard,
-    recentctbgloballeaderboard
+    recentctbgloballeaderboard,
+    osustatsglobalsctb
 )]
 pub struct CatchTheBeat;

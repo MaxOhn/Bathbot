@@ -3,8 +3,8 @@ mod nochoke;
 pub use nochoke::*;
 
 pub use crate::commands::osu::{
-    common::*, pp::*, profile::*, rank::*, recent::*, recent_lb::*, simulate_recent::*, top::*,
-    whatif::*,
+    common::*, osustats_globals::*, pp::*, profile::*, rank::*, recent::*, recent_lb::*,
+    simulate_recent::*, top::*, whatif::*,
 };
 
 use serenity::framework::standard::macros::group;
@@ -22,6 +22,7 @@ use serenity::framework::standard::macros::group;
     common,
     recentleaderboard,
     recentgloballeaderboard,
+    osustatsglobals,
     simulaterecent,
     nochokes,
     sotarks
