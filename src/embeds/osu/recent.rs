@@ -6,7 +6,7 @@ use crate::{
         globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
         numbers::{round, with_comma_u64},
         osu::unchoke_score,
-        pp::PPProvider,
+        pp::{Calculations, PPCalculator},
     },
 };
 
@@ -14,7 +14,7 @@ use chrono::{DateTime, Utc};
 use failure::Error;
 use rosu::models::{Beatmap, GameMode, Grade, Score, User};
 use serenity::{builder::CreateEmbed, utils::Colour};
-use std::fmt::Write;
+use std::{fmt::Write, sync::Arc};
 
 #[derive(Clone)]
 pub struct RecentEmbed {
@@ -76,12 +76,16 @@ impl RecentEmbed {
         };
         let grade_completion_mods =
             osu::get_grade_completion_mods(&score, &map, cache_data.cache()).await;
-        let mut pp_provider = match PPProvider::new(&score, &map, Some(cache_data.data())).await {
-            Ok(provider) => provider,
-            Err(why) => bail!("Something went wrong while creating PPProvider: {}", why),
-        };
+        let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
+        let mut calculator = PPCalculator::new()
+            .score(score)
+            .map(map)
+            .data(Arc::clone(cache_data.data()));
+        calculator.calculate(calculations).await?;
+        let max_pp = calculator.max_pp();
+        let stars = round(calculator.stars().unwrap());
         let (pp, combo, hits) = (
-            osu::get_pp(&score, &pp_provider),
+            osu::get_pp(calculator.pp(), max_pp),
             if map.mode == GameMode::MNA {
                 let mut ratio = score.count_geki as f32;
                 if score.count300 > 0 {
@@ -102,11 +106,12 @@ impl RecentEmbed {
         {
             let mut unchoked = score.clone();
             unchoke_score(&mut unchoked, &map);
-            if let Err(why) = pp_provider.recalculate(&unchoked, GameMode::STD) {
-                warn!("Error while unchoking score for <recent: {}", why);
+            let mut calculator = PPCalculator::new().score(&unchoked).map(map);
+            if let Err(why) = calculator.calculate(Calculations::PP).await {
+                warn!("Error while calculating pp of <recent score: {}", why);
                 None
             } else {
-                let pp = osu::get_pp(&unchoked, &pp_provider);
+                let pp = osu::get_pp(calculator.pp(), max_pp);
                 let combo = osu::get_combo(&unchoked, &map);
                 let hits = osu::get_hits(&unchoked, map.mode);
                 Some((pp, combo, hits))
@@ -129,7 +134,7 @@ impl RecentEmbed {
                 map.beatmapset_id
             ),
             grade_completion_mods,
-            stars: round(pp_provider.stars()),
+            stars,
             score: with_comma_u64(score.score as u64),
             acc: round(score.accuracy(map.mode)),
             ago: how_long_ago(&score.date),

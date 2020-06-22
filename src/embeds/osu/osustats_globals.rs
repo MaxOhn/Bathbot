@@ -8,7 +8,7 @@ use crate::{
         numbers::round_and_comma,
         numbers::with_comma_u64,
         osu::grade_emote,
-        pp::PPProvider,
+        pp::{Calculations, PPCalculator},
     },
 };
 
@@ -36,51 +36,51 @@ impl OsuStatsGlobalsEmbed {
         let entries = scores.range(index..index + 10);
         let mut description = String::with_capacity(1024);
         for (idx, score) in entries {
-            let grade = { grade_emote(score.grade, cache_data.cache()).await };
-            let (stars, pp) = {
-                let pp_provider = match PPProvider::new(&score, &map, Some(cache_data.data())).await
-                {
-                    Ok(provider) => provider,
-                    Err(why) => bail!("Something went wrong while creating PPProvider: {}", why),
-                };
-                (
-                    osu::get_stars(pp_provider.stars()),
-                    osu::get_pp(score, &pp_provider),
-                )
-            };
-            let mut combo = format!("**{}x**/", score.max_combo);
-            match score.map.max_combo {
-                Some(amount) => {
-                    let _ = write!(combo, "{}x", amount);
-                }
-                None => combo.push('-'),
-            }
-            let _ = writeln!(
-                description,
-                "**{idx}. [#{rank}] [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
-                {grade} {pp} ~ ({acc}%) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
-                idx = idx,
-                rank = score.position,
-                title = score.map.title,
-                version = score.map.version,
-                base = HOMEPAGE,
-                id = score.map.beatmap_id,
-                mods = osu::get_mods(score.enabled_mods),
-                stars = stars,
-                grade = grade,
-                pp = pp,
-                acc = score.accuracy,
-                score = with_comma_u64(score.score as u64),
-                combo = combo,
-                hits = osu::get_hits(&score, mode),
-                ago = how_long_ago(&score.date)
-            );
+            // let grade = { grade_emote(score.grade, cache_data.cache()).await };
+            // let (stars, pp) = {
+            //     let pp_provider = match PPProvider::new(&score, &map, Some(cache_data.data())).await
+            //     {
+            //         Ok(provider) => provider,
+            //         Err(why) => bail!("Something went wrong while creating PPProvider: {}", why),
+            //     };
+            //     (
+            //         osu::get_stars(pp_provider.stars()),
+            //         osu::get_pp(score, &pp_provider),
+            //     )
+            // };
+            // let mut combo = format!("**{}x**/", score.max_combo);
+            // match score.map.max_combo {
+            //     Some(amount) => {
+            //         let _ = write!(combo, "{}x", amount);
+            //     }
+            //     None => combo.push('-'),
+            // }
+            // let _ = writeln!(
+            //     description,
+            //     "**{idx}. [#{rank}] [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
+            //     {grade} {pp} ~ ({acc}%) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
+            //     idx = idx,
+            //     rank = score.position,
+            //     title = score.map.title,
+            //     version = score.map.version,
+            //     base = HOMEPAGE,
+            //     id = score.map.beatmap_id,
+            //     mods = osu::get_mods(score.enabled_mods),
+            //     stars = stars,
+            //     grade = grade,
+            //     pp = pp,
+            //     acc = score.accuracy,
+            //     score = with_comma_u64(score.score as u64),
+            //     combo = combo,
+            //     hits = osu::get_hits(&score, mode),
+            //     ago = how_long_ago(&score.date)
+            // );
         }
-        Self {
+        Ok(Self {
             description,
             author: osu::get_user_author(&user),
             thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
-        }
+        })
     }
 }
 

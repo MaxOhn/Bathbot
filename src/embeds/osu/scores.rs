@@ -5,13 +5,13 @@ use crate::{
         discord::CacheData,
         globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
         numbers::{round_and_comma, with_comma_u64},
-        pp::PPProvider,
+        pp::{Calculations, PPCalculator},
     },
 };
 
 use failure::Error;
 use rosu::models::{Beatmap, GameMode, Score, User};
-use std::fmt::Write;
+use std::{fmt::Write, sync::Arc};
 
 #[derive(Clone)]
 pub struct ScoresEmbed {
@@ -41,17 +41,14 @@ impl ScoresEmbed {
         };
         let mut fields = Vec::new();
         for (i, score) in scores.into_iter().enumerate() {
-            let (stars, pp) = {
-                let pp_provider = match PPProvider::new(&score, &map, Some(cache_data.data())).await
-                {
-                    Ok(provider) => provider,
-                    Err(why) => bail!("Something went wrong while creating PPProvider: {}", why),
-                };
-                (
-                    osu::get_stars(pp_provider.stars()),
-                    osu::get_pp(&score, &pp_provider),
-                )
-            };
+            let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
+            let mut calculator = PPCalculator::new()
+                .score(&score)
+                .map(&map)
+                .data(Arc::clone(cache_data.data()));
+            calculator.calculate(calculations).await?;
+            let stars = osu::get_stars(calculator.stars().unwrap());
+            let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
             let mut name = format!(
                 "**{idx}.** {grade}\t[{stars}]\t{score}\t({acc})",
                 idx = i + 1,

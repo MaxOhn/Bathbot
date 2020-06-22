@@ -6,13 +6,13 @@ use crate::{
         globals::{AVATAR_URL, HOMEPAGE},
         numbers::with_comma_u64,
         osu::grade_emote,
-        pp::PPProvider,
+        pp::{Calculations, PPCalculator},
     },
 };
 
 use failure::Error;
 use rosu::models::{Beatmap, GameMode, Score, User};
-use std::fmt::Write;
+use std::{fmt::Write, sync::Arc};
 
 #[derive(Clone)]
 pub struct TopEmbed {
@@ -37,17 +37,14 @@ impl TopEmbed {
         let mut description = String::with_capacity(512);
         for (idx, score, map) in scores_data {
             let grade = { grade_emote(score.grade, cache_data.cache()).await };
-            let (stars, pp) = {
-                let pp_provider = match PPProvider::new(&score, &map, Some(cache_data.data())).await
-                {
-                    Ok(provider) => provider,
-                    Err(why) => bail!("Something went wrong while creating PPProvider: {}", why),
-                };
-                (
-                    osu::get_stars(pp_provider.stars()),
-                    osu::get_pp(score, &pp_provider),
-                )
-            };
+            let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
+            let mut calculator = PPCalculator::new()
+                .score(score)
+                .map(map)
+                .data(Arc::clone(cache_data.data()));
+            calculator.calculate(calculations).await?;
+            let stars = osu::get_stars(calculator.stars().unwrap());
+            let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
             let _ = writeln!(
                 description,
                 "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\

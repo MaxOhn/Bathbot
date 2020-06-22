@@ -7,14 +7,14 @@ use crate::{
         globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
         numbers::{round, with_comma_u64},
         osu,
-        pp::PPProvider,
+        pp::{Calculations, PPCalculator},
     },
 };
 
 use failure::Error;
 use rosu::models::{Beatmap, GameMode};
 use serenity::prelude::{RwLock, TypeMap};
-use std::{collections::HashMap, fmt::Write};
+use std::{collections::HashMap, fmt::Write, sync::Arc};
 
 #[derive(Clone)]
 pub struct LeaderboardEmbed {
@@ -78,7 +78,7 @@ impl LeaderboardEmbed {
                     } else {
                         format!(" **+{}**", score.enabled_mods)
                     },
-                    pp = get_pp(&mut mod_map, &score, &map, cache_data.data()).await?,
+                    pp = get_pp(&mut mod_map, &score, &map, Arc::clone(cache_data.data())).await?,
                     acc = round(score.accuracy),
                     ago = how_long_ago(&score.date),
                 );
@@ -121,33 +121,19 @@ async fn get_pp(
     mod_map: &mut HashMap<u32, f32>,
     score: &ScraperScore,
     map: &Beatmap,
-    data: &RwLock<TypeMap>,
+    data: Arc<RwLock<TypeMap>>,
 ) -> Result<String, Error> {
+    let mut calculator = PPCalculator::new().score(score).map(map).data(data);
+    let mut calculations = Calculations::PP;
     let bits = score.enabled_mods.bits();
-    let actual = if score.pp.is_some() {
-        score.pp
-    } else {
-        match map.mode {
-            GameMode::STD | GameMode::TKO => {
-                Some(PPProvider::calculate_oppai_pp(score, map).await?)
-            }
-            GameMode::MNA | GameMode::CTB => {
-                Some(PPProvider::calculate_pp(score, map, &data).await?)
-            }
-        }
-    };
-    #[allow(clippy::map_entry)]
-    let max = if mod_map.contains_key(&bits) {
-        mod_map.get(&bits).copied()
-    } else {
-        let max = PPProvider::calculate_max(&map, score.enabled_mods, Some(data)).await?;
-        mod_map.insert(bits, max);
-        Some(max)
-    };
+    if !mod_map.contains_key(&bits) {
+        calculations = calculations | Calculations::MAX_PP;
+    }
+    calculator.calculate(calculations).await?;
     Ok(format!(
         "**{}**/{}PP",
-        actual.map_or_else(|| "-".to_string(), |pp| round(pp).to_string()),
-        max.map_or_else(|| "-".to_string(), |pp| round(pp).to_string())
+        round(calculator.pp().unwrap()),
+        round(calculator.max_pp().unwrap())
     ))
 }
 

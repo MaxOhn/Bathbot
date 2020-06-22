@@ -6,14 +6,14 @@ use crate::{
         globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
         numbers::{round, with_comma_u64},
         osu::{simulate_score, unchoke_score},
-        pp::PPProvider,
+        pp::{Calculations, PPCalculator},
     },
 };
 
 use failure::Error;
 use rosu::models::{Beatmap, GameMode, GameMods, Score};
 use serenity::{builder::CreateEmbed, utils::Colour};
-use std::fmt::Write;
+use std::{fmt::Write, sync::Arc};
 
 #[derive(Clone)]
 pub struct SimulateEmbed {
@@ -53,12 +53,13 @@ impl SimulateEmbed {
         } else {
             map.to_string()
         };
-        let (prev_pp, prev_combo, prev_hits, misses) = if let Some(s) = score.as_ref() {
-            let pp_provider = match PPProvider::new(&s, &map, Some(cache_data.data())).await {
-                Ok(provider) => provider,
-                Err(why) => bail!("Something went wrong while creating PPProvider: {}", why),
-            };
-            let prev_pp = Some(round(pp_provider.pp()));
+        let (prev_pp, prev_combo, prev_hits, misses) = if let Some(ref s) = score {
+            let mut calculator = PPCalculator::new()
+                .score(s)
+                .map(&map)
+                .data(Arc::clone(cache_data.data()));
+            calculator.calculate(Calculations::PP).await?;
+            let prev_pp = Some(round(calculator.pp().unwrap()));
             let prev_combo = if map.mode == GameMode::STD {
                 Some(s.max_combo)
             } else {
@@ -77,12 +78,14 @@ impl SimulateEmbed {
         }
         let grade_completion_mods =
             osu::get_grade_completion_mods(&unchoked_score, &map, cache_data.cache()).await;
-        let pp_provider =
-            match PPProvider::new(&unchoked_score, &map, Some(cache_data.data())).await {
-                Ok(provider) => provider,
-                Err(why) => bail!("Something went wrong while creating PPProvider: {}", why),
-            };
-        let pp = osu::get_pp(&unchoked_score, &pp_provider);
+        let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
+        let mut calculator = PPCalculator::new()
+            .score(&unchoked_score)
+            .map(&map)
+            .data(Arc::clone(cache_data.data()));
+        calculator.calculate(calculations).await?;
+        let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
+        let stars = round(calculator.stars().unwrap());
         let hits = osu::get_hits(&unchoked_score, map.mode);
         let (combo, acc) = match map.mode {
             GameMode::STD => (
@@ -125,7 +128,7 @@ impl SimulateEmbed {
             ),
 
             grade_completion_mods,
-            stars: round(pp_provider.stars()),
+            stars,
             score,
             acc,
             pp,

@@ -3,625 +3,452 @@ use crate::{
 };
 
 use failure::Error;
-use rosu::models::{ApprovalStatus, Beatmap, GameMode, GameMods, Grade, Score};
-use serenity::prelude::{RwLock, TypeMap};
-use std::{env, mem, process::Stdio, str::FromStr};
-use tokio::{
-    process::{Child, Command},
-    time,
+use rosu::models::{
+    ApprovalStatus::{self, Approved, Loved, Ranked},
+    Beatmap, GameMode, GameMods, Grade, Score,
 };
+use serenity::prelude::{RwLock, TypeMap};
+use std::{env, str::FromStr, sync::Arc};
+use tokio::{process::Command, time};
 
-pub enum PPProvider {
-    Oppai {
-        oppai: Oppai,
-        pp: f32,
-        max_pp: f32,
-        stars: f32,
-    },
-    Mania {
-        pp: f32,
-        max_pp: f32,
-        stars: f32,
-    },
-    Fruits {
-        pp: f32,
-        max_pp: f32,
-        stars: f32,
-    },
+bitflags! {
+    pub struct Calculations: u8 {
+        const PP = 1;
+        const MAX_PP = 2;
+        const STARS = 4;
+    }
 }
 
-async fn new_oppai(score: &Score, map: &Beatmap) -> Result<PPProvider, Error> {
-    let map_path = osu::prepare_beatmap_file(map.beatmap_id).await?;
-    let mut oppai = Oppai::new();
-    oppai.set_mods(score.enabled_mods.bits());
-    let max_pp = oppai.calculate(Some(&map_path))?.get_pp();
-    let stars = if score.enabled_mods.changes_stars(map.mode) {
-        oppai.get_stars()
-    } else {
-        map.stars
-    };
-    oppai
-        .set_miss_count(score.count_miss)
-        .set_hits(score.count100, score.count50)
-        .set_end_index(score.total_hits(map.mode))
-        .set_combo(score.max_combo)
-        .calculate(None)?;
-    let pp = oppai.get_pp();
-    Ok(PPProvider::Oppai {
-        oppai,
-        pp,
-        max_pp,
-        stars,
-    })
+#[derive(Default)]
+pub struct PPCalculator {
+    count_geki: Option<u32>,
+    count_300: Option<u32>,
+    count_katu: Option<u32>,
+    count_100: Option<u32>,
+    count_50: Option<u32>,
+    count_miss: Option<u32>,
+    max_combo_score: Option<u32>,
+    mods: Option<GameMods>,
+    score: Option<u32>,
+
+    map_id: Option<u32>,
+    mode: Option<GameMode>,
+    max_combo_map: Option<u32>,
+    default_stars: Option<f32>,
+    approval_status: Option<ApprovalStatus>,
+
+    data: Option<Arc<RwLock<TypeMap>>>,
+
+    pp: Option<f32>,
+    max_pp: Option<f32>,
+    stars: Option<f32>,
 }
 
-async fn new_perf_calc<'a>(
-    score: &'a Score,
-    map: &Beatmap,
-    data: &RwLock<TypeMap>,
-) -> Result<PPProvider, Error> {
-    let mode = map.mode;
-    let mutex = if score.pp.is_none() {
-        let data = data.read().await;
-        Some(data.get::<PerformanceCalculatorLock>().unwrap().clone())
-    } else {
-        None
-    };
-    let mods = score.enabled_mods;
-    let (stars, stars_in_db) = if mods.changes_stars(mode) {
-        // Try retrieving stars from database
-        let data = data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_mod_stars(map.beatmap_id, mode, mods).await {
-            Ok(result) => (result, true),
-            Err(_) => (None, false),
+impl PPCalculator {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    pub fn score(mut self, score: impl ScoreExt) -> Self {
+        self.count_geki = Some(score.count_geki());
+        self.count_300 = Some(score.count_300());
+        self.count_katu = Some(score.count_katu());
+        self.count_100 = Some(score.count_100());
+        self.count_50 = Some(score.count_50());
+        self.count_miss = Some(score.count_miss());
+        self.max_combo_score = Some(score.max_combo());
+        self.mods = Some(score.mods());
+        self.score = Some(score.score());
+        self.pp = score.pp();
+        self
+    }
+    pub fn map(mut self, map: impl BeatmapExt) -> Self {
+        self.map_id = Some(map.map_id());
+        self.max_combo_map = map.max_combo();
+        self.mode = Some(map.mode());
+        self.default_stars = Some(map.stars());
+        self.approval_status = Some(map.approval_status());
+        self
+    }
+    pub fn mode(mut self, mode: GameMode) -> Self {
+        self.mode = Some(mode);
+        self
+    }
+    pub fn data(mut self, data: Arc<RwLock<TypeMap>>) -> Self {
+        self.data = Some(data);
+        self
+    }
+    fn total_hits(&self) -> Option<u32> {
+        let mode = self.mode?;
+        let mut amount = self.count_300? + self.count_100? + self.count_miss?;
+        if mode != GameMode::TKO {
+            amount += self.count_50?;
+            if mode != GameMode::STD {
+                amount += self.count_katu?;
+                if mode != GameMode::CTB {
+                    amount += self.count_geki?;
+                }
+            }
         }
-    } else {
-        (Some(map.stars), true)
-    };
+        Some(amount)
+    }
+    pub async fn calculate(&mut self, calculations: Calculations) -> Result<(), Error> {
+        let (pp, max_pp, stars) = tokio::join!(
+            calculate_pp(&self, calculations),
+            calculate_max_pp(&self, calculations),
+            calculate_stars(&self, calculations)
+        );
+        if let Ok(Some(pp)) = pp {
+            self.pp = Some(pp);
+        }
+        if let Ok(Some(max_pp)) = max_pp {
+            self.max_pp = Some(max_pp);
+        }
+        if let Ok(Some(stars)) = stars {
+            self.stars = Some(stars);
+        }
+        pp.or(max_pp).or(stars)?;
+        Ok(())
+    }
 
-    // Start calculating pp of the score in new async worker
-    let (pp_child, lock) = if score.pp.is_none() {
-        // If its a fail or below half score, it's gonna be 0pp anyway
-        if score.grade == Grade::F
-            || (mode == GameMode::MNA
-                && score.score < (500_000.0 * mods.score_multiplier(mode)) as u32)
-        {
-            (None, None)
-        } else {
-            let lock = mutex.as_ref().unwrap().lock();
-            let params = if mode == GameMode::MNA {
-                CalcParam::mania(Some(score.score), mods)
-            } else {
-                CalcParam::ctb(score)
-            };
-            let child = start_pp_calc(map.beatmap_id, params).await?;
-            (Some(child), Some(lock))
-        }
-    } else {
-        (None, None)
-    };
-    // Try retrieving max pp of the map from database
-    let (max_pp, map_in_db) = {
-        let data = data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_mod_pp(map.beatmap_id, mode, mods).await {
-            Ok(result) => (result, true),
-            Err(_) => (None, false),
-        }
-    };
-    // Wait for score pp calculation to finish
-    let pp = if let Some(pp_child) = pp_child {
-        parse_pp_calc(pp_child).await?
-    } else if score.grade == Grade::F
-        || (mode == GameMode::MNA && score.score < (500_000.0 * mods.score_multiplier(mode)) as u32)
-    {
-        0.0
-    } else {
-        score.pp.unwrap()
-    };
-    // If max pp were found, get them
-    let max_pp = if let Some(max_pp) = max_pp {
-        max_pp
-    // Otherwise start calculating them in new async worker
-    } else {
-        let params: CalcParam<'a, Score> = if mode == GameMode::MNA {
-            CalcParam::mania(None, mods)
-        } else {
-            CalcParam::max_ctb(mods)
-        };
-        let max_pp_child = start_pp_calc(map.beatmap_id, params).await?;
-        let max_pp = parse_pp_calc(max_pp_child).await?;
-        if map.approval_status == ApprovalStatus::Ranked
-            || map.approval_status == ApprovalStatus::Loved
-        {
-            // Insert max pp value into database
-            let data = data.read().await;
-            let mysql = data.get::<MySQL>().unwrap();
-            f32_to_db(map_in_db, mysql, map.beatmap_id, mode, mods, max_pp, false).await?;
-        }
-        max_pp
-    };
-    let stars = if let Some(stars) = stars {
-        stars
-    } else {
-        let stars = calc_stars(map.beatmap_id, score.enabled_mods).await?;
-        mem::drop(lock);
-        if map.approval_status == ApprovalStatus::Ranked
-            || map.approval_status == ApprovalStatus::Loved
-        {
-            // Insert stars value into database
-            let data = data.read().await;
-            let mysql = data.get::<MySQL>().unwrap();
-            f32_to_db(
-                stars_in_db,
-                mysql,
-                map.beatmap_id,
-                mode,
-                score.enabled_mods,
-                stars,
-                true,
-            )
-            .await?;
-        }
-        stars
-    };
-    Ok(PPProvider::Mania { pp, max_pp, stars })
+    pub fn pp(&self) -> Option<f32> {
+        self.pp
+    }
+    pub fn max_pp(&self) -> Option<f32> {
+        self.max_pp
+    }
+    pub fn stars(&self) -> Option<f32> {
+        self.stars
+    }
 }
 
-impl PPProvider {
-    pub async fn new(
-        score: &Score,
-        map: &Beatmap,
-        data: Option<&RwLock<TypeMap>>,
-    ) -> Result<Self, Error> {
-        match map.mode {
-            GameMode::STD | GameMode::TKO => new_oppai(score, map).await,
-            GameMode::MNA => match data {
-                Some(data) => new_perf_calc(score, map, data).await,
-                None => bail!("Cannot calculate mania pp without TypeMap"),
-            },
-            GameMode::CTB => match data {
-                Some(data) => new_perf_calc(score, map, data).await,
-                None => bail!("Cannot calculate ctb pp without TypeMap"),
-            },
-        }
+async fn calculate_pp(
+    data: &PPCalculator,
+    calculations: Calculations,
+) -> Result<Option<f32>, Error> {
+    // Do we want to calculate pp?
+    if !calculations.contains(Calculations::PP) {
+        return Ok(None);
     }
-
-    pub async fn calculate_oppai_pp<S>(score: &S, map: &Beatmap) -> Result<f32, Error>
-    where
-        S: SubScore,
-    {
-        let map_path = osu::prepare_beatmap_file(map.beatmap_id).await?;
-        let mut oppai = Oppai::new();
-        if !score.mods().is_empty() {
-            let bits = score.mods().bits();
-            oppai.set_mods(bits);
-        }
-        oppai
-            .set_miss_count(score.miss())
-            .set_hits(score.c100(), score.c50())
-            .set_end_index(score.hits(map.mode))
-            .set_combo(score.combo())
-            .calculate(Some(&map_path))?;
-        Ok(oppai.get_pp())
+    // Is pp value already present?
+    if data.pp.is_some() {
+        return Ok(data.pp);
     }
-
-    pub async fn calculate_pp<S>(
-        score: &S,
-        map: &Beatmap,
-        data: &RwLock<TypeMap>,
-    ) -> Result<f32, Error>
-    where
-        S: SubScore,
-    {
-        let mods = score.mods();
-        if score.grade() == Grade::F
-            || (map.mode == GameMode::MNA
-                && score.score() < (500_000.0 * mods.score_multiplier(map.mode)) as u32)
-        {
-            Ok(0.0)
-        } else {
-            let mutex = {
-                let data = data.read().await;
-                data.get::<PerformanceCalculatorLock>().unwrap().clone()
+    let mode = match data.mode {
+        Some(mode) => mode,
+        None => bail!("Cannot calculate pp without mode"),
+    };
+    let map_id = match data.map_id {
+        Some(map_id) => map_id,
+        None => bail!("Cannot calculate pp without map_id"),
+    };
+    // Distinguish between mods
+    let pp = match mode {
+        // Oppai for STD and TKO
+        GameMode::STD | GameMode::TKO => {
+            let map_path = osu::prepare_beatmap_file(map_id).await?;
+            let mut oppai = Oppai::new();
+            if let Some(mods) = data.mods {
+                oppai.set_mods(mods.bits());
+            }
+            if let Some(count_miss) = data.count_miss {
+                oppai.set_miss_count(count_miss);
+            }
+            if let Some(count_100) = data.count_100 {
+                if let Some(count_50) = data.count_50 {
+                    oppai.set_hits(count_100, count_50);
+                }
+            }
+            if let Some(max_combo) = data.max_combo_score {
+                oppai.set_combo(max_combo);
+            }
+            if let Some(total_hits) = data.total_hits() {
+                oppai.set_end_index(total_hits);
+            }
+            oppai.calculate(Some(&map_path))?;
+            oppai.get_pp()
+        }
+        // osu-tools for MNA and CTB
+        GameMode::MNA | GameMode::CTB => {
+            let data_map = match data.data {
+                Some(ref data_map) => data_map,
+                None => bail!("Cannot calculate {} pp without typemap", mode),
             };
-            let _ = mutex.lock();
-            let params = if map.mode == GameMode::MNA {
-                CalcParam::mania(Some(score.score()), mods)
-            } else {
-                CalcParam::ctb(score)
+            let map_path = osu::prepare_beatmap_file(map_id).await?;
+            let mut cmd = Command::new("dotnet");
+            cmd.kill_on_drop(true)
+                .arg(env::var("PERF_CALC").unwrap())
+                .arg("simulate");
+            match mode {
+                GameMode::MNA => cmd.arg("mania"),
+                GameMode::CTB => cmd.arg("catch"),
+                _ => unreachable!(),
             };
-            let child = start_pp_calc(map.beatmap_id, params).await?;
-            parse_pp_calc(child).await
-        }
-    }
-
-    pub async fn calculate_max<'a>(
-        map: &Beatmap,
-        mods: GameMods,
-        data: Option<&RwLock<TypeMap>>,
-    ) -> Result<f32, Error> {
-        match map.mode {
-            GameMode::STD | GameMode::TKO => {
-                let map_path = osu::prepare_beatmap_file(map.beatmap_id).await?;
-                let mut oppai = Oppai::new();
+            cmd.arg(map_path);
+            if let Some(mods) = data.mods {
                 if !mods.is_empty() {
-                    let bits = mods.bits();
-                    oppai.set_mods(bits);
-                }
-                Ok(oppai.calculate(Some(&map_path))?.get_pp())
-            }
-            GameMode::MNA | GameMode::CTB => {
-                let data = data.unwrap();
-                // Try retrieving max pp of the map from database
-                let (max_pp, map_in_db) = {
-                    let data = data.read().await;
-                    let mysql = data.get::<MySQL>().unwrap();
-                    match mysql.get_mod_pp(map.beatmap_id, map.mode, mods).await {
-                        Ok(result) => (result, true),
-                        Err(_) => (None, false),
+                    for m in mods.iter().filter(|&m| m != GameMods::ScoreV2) {
+                        cmd.arg("-m").arg(m.to_string());
                     }
-                };
-                // If max pp were found, get them
-                if let Some(max_pp) = max_pp {
-                    Ok(max_pp)
-                // Otherwise start calculating them in new thread
-                } else {
-                    let max_pp = {
-                        let mutex = {
-                            let data = data.read().await;
-                            data.get::<PerformanceCalculatorLock>().unwrap().clone()
-                        };
-                        let _ = mutex.lock();
-                        let params: CalcParam<'a, Score> = if map.mode == GameMode::MNA {
-                            CalcParam::mania(None, mods)
-                        } else {
-                            CalcParam::max_ctb(mods)
-                        };
-                        let max_pp_child = start_pp_calc(map.beatmap_id, params).await?;
-                        parse_pp_calc(max_pp_child).await?
-                    };
-                    // Insert max pp value into database
-                    let data = data.read().await;
-                    let mysql = data.get::<MySQL>().unwrap();
-                    if map_in_db {
-                        mysql
-                            .update_pp_map(map.beatmap_id, map.mode, mods, max_pp)
-                            .await?;
-                    } else {
-                        mysql
-                            .insert_pp_map(map.beatmap_id, map.mode, mods, max_pp)
-                            .await?;
-                    }
-                    Ok(max_pp)
                 }
             }
-        }
-    }
-
-    pub fn recalculate(&mut self, score: &Score, mode: GameMode) -> Result<(), Error> {
-        match self {
-            Self::Oppai { oppai, pp, .. } => {
-                oppai
-                    .set_mods(score.enabled_mods.bits())
-                    .set_miss_count(score.count_miss)
-                    .set_hits(score.count100, score.count50)
-                    .set_end_index(score.total_hits(mode))
-                    .set_combo(score.max_combo)
-                    .calculate(None)?;
-                *pp = oppai.get_pp();
-                Ok(())
+            if mode == GameMode::MNA {
+                if let Some(score) = data.score {
+                    cmd.arg("-s").arg(score.to_string());
+                }
+            } else if mode == GameMode::CTB {
+                if let Some(combo) = data.max_combo_score {
+                    cmd.arg("-c").arg(combo.to_string());
+                }
+                if let Some(misses) = data.count_miss {
+                    cmd.arg("-X").arg(misses.to_string());
+                }
+                if let Some(count_100) = data.count_100 {
+                    cmd.arg("-D").arg(count_100.to_string());
+                }
+                if let Some(count_50) = data.count_50 {
+                    cmd.arg("-T").arg(count_50.to_string());
+                }
             }
-            Self::Mania { .. } => bail!("Cannot recalculate mania pp"),
-            Self::Fruits { .. } => bail!("Cannot recalculate ctb pp"),
+            parse_calculation(cmd, data_map).await?
         }
-    }
-
-    pub fn pp(&self) -> f32 {
-        match self {
-            Self::Oppai { pp, .. } => *pp,
-            Self::Mania { pp, .. } => *pp,
-            Self::Fruits { .. } => panic!("Don't call pp on ctb maps!"),
-        }
-    }
-
-    pub fn max_pp(&self) -> f32 {
-        match self {
-            Self::Oppai { max_pp, .. } => *max_pp,
-            Self::Mania { max_pp, .. } => *max_pp,
-            Self::Fruits { .. } => panic!("Don't call pp_max on ctb maps!"),
-        }
-    }
-
-    pub fn stars(&self) -> f32 {
-        match self {
-            Self::Oppai { stars, .. } => *stars,
-            Self::Mania { stars, .. } => *stars,
-            Self::Fruits { stars, .. } => *stars,
-        }
-    }
-
-    pub fn oppai(&self) -> Option<&Oppai> {
-        match self {
-            Self::Oppai { oppai, .. } => Some(oppai),
-            _ => None,
-        }
-    }
-}
-
-async fn start_pp_calc<S: SubScore>(map_id: u32, params: CalcParam<'_, S>) -> Result<Child, Error> {
-    let map_path = osu::prepare_beatmap_file(map_id).await?;
-    let mut cmd = Command::new("dotnet");
-    cmd.kill_on_drop(true)
-        .arg(env::var("PERF_CALC").unwrap())
-        .arg("simulate");
-    match params.mode() {
-        GameMode::MNA => cmd.arg("mania"),
-        GameMode::CTB => cmd.arg("catch"),
-        _ => bail!(
-            "Only use start_pp_calc for mania or ctb, not {}",
-            params.mode()
-        ),
     };
-    cmd.arg(map_path);
-    if !params.mods().is_empty() {
-        for m in params.mods().iter().filter(|&m| m != GameMods::ScoreV2) {
-            cmd.arg("-m").arg(m.to_string());
-        }
-    }
-    if let CalcParam::MNA { score, mods } = params {
-        cmd.arg("-s");
-        if let Some(score) = score {
-            cmd.arg(score.to_string());
-        } else {
-            cmd.arg(((1_000_000.0 * mods.score_multiplier(GameMode::MNA)) as u32).to_string());
-        }
-    } else if let CalcParam::CTB { score } = params {
-        cmd.arg("-c").arg(score.combo().to_string());
-        cmd.arg("-X").arg(score.miss().to_string());
-        cmd.arg("-D").arg(score.c100().to_string());
-        cmd.arg("-T").arg(score.c50().to_string());
-    }
-    cmd.stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(Error::from)
+    Ok(Some(pp))
 }
 
-async fn parse_pp_calc(child: Child) -> Result<f32, Error> {
-    let calculation = time::timeout(time::Duration::from_secs(10), child.wait_with_output());
-    let output = match calculation.await {
-        Ok(output) => output?,
-        Err(_) => bail!("Timeout while waiting for pp output",),
+async fn calculate_max_pp(
+    data: &PPCalculator,
+    calculations: Calculations,
+) -> Result<Option<f32>, Error> {
+    // Do we want to calculate max pp?
+    if !calculations.contains(Calculations::MAX_PP) {
+        return Ok(None);
+    }
+    let mode = match data.mode {
+        Some(mode) => mode,
+        None => bail!("Cannot calculate pp without mode"),
+    };
+    let map_id = match data.map_id {
+        Some(map_id) => map_id,
+        None => bail!("Cannot calculate pp without map_id"),
+    };
+    // Distinguish between mods
+    match mode {
+        // Oppai for STD and TKO
+        GameMode::STD | GameMode::TKO => {
+            let map_path = osu::prepare_beatmap_file(map_id).await?;
+            let mut oppai = Oppai::new();
+            if let Some(mods) = data.mods {
+                oppai.set_mods(mods.bits());
+            }
+            Ok(Some(oppai.calculate(Some(&map_path))?.get_pp()))
+        }
+        // osu-tools for MNA and CTB
+        GameMode::MNA | GameMode::CTB => {
+            let data_map = match data.data {
+                Some(ref data_map) => data_map,
+                None => bail!("Cannot calculate {} max pp without typemap", mode),
+            };
+            // Is value already stored in DB?
+            {
+                let data_map = data_map.read().await;
+                let mysql = data_map.get::<MySQL>().unwrap();
+                let mods = data.mods.unwrap_or_default();
+                if let Ok(Some(max_pp)) = mysql.get_mod_pp(map_id, mode, mods).await {
+                    return Ok(Some(max_pp));
+                }
+            }
+            // If not, calculate
+            let map_path = osu::prepare_beatmap_file(map_id).await?;
+            let mut cmd = Command::new("dotnet");
+            cmd.kill_on_drop(true)
+                .arg(env::var("PERF_CALC").unwrap())
+                .arg("simulate");
+            match mode {
+                GameMode::MNA => cmd.arg("mania"),
+                GameMode::CTB => cmd.arg("catch"),
+                _ => unreachable!(),
+            };
+            cmd.arg(map_path);
+            if let Some(mods) = data.mods {
+                if !mods.is_empty() {
+                    for m in mods.iter().filter(|&m| m != GameMods::ScoreV2) {
+                        cmd.arg("-m").arg(m.to_string());
+                    }
+                }
+            }
+            if mode == GameMode::MNA {
+                if let Some(mods) = data.mods {
+                    cmd.arg(((1_000_000.0 * mods.score_multiplier(mode)) as u32).to_string());
+                }
+            }
+            let max_pp = parse_calculation(cmd, data_map).await?;
+            // Store value in DB
+            if let Ranked | Loved | Approved = data.approval_status.unwrap() {
+                let data_map = data_map.read().await;
+                let mysql = data_map.get::<MySQL>().unwrap();
+                let mods = data.mods.unwrap_or_default();
+                if let Err(why) = mysql.insert_pp_map(map_id, mode, mods, max_pp).await {
+                    warn!("Error while inserting max pp: {}", why);
+                }
+            }
+            Ok(Some(max_pp))
+        }
+    }
+}
+
+async fn calculate_stars(
+    data: &PPCalculator,
+    calculations: Calculations,
+) -> Result<Option<f32>, Error> {
+    if !calculations.contains(Calculations::STARS) {
+        return Ok(None);
+    }
+    if let Some(mode) = data.mode {
+        if let Some(mods) = data.mods {
+            if !mods.changes_stars(mode) {
+                return Ok(data.default_stars);
+            }
+        }
+    }
+    let mode = match data.mode {
+        Some(mode) => mode,
+        None => bail!("Cannot calculate stars without mode"),
+    };
+    let map_id = match data.map_id {
+        Some(map_id) => map_id,
+        None => bail!("Cannot calculate stars without map_id"),
+    };
+    match mode {
+        GameMode::STD | GameMode::TKO => {
+            let map_path = osu::prepare_beatmap_file(map_id).await?;
+            let mut oppai = Oppai::new();
+            if let Some(mods) = data.mods {
+                oppai.set_mods(mods.bits());
+            }
+            Ok(Some(oppai.calculate(Some(&map_path))?.get_stars()))
+        }
+        GameMode::MNA | GameMode::CTB => {
+            let data_map = match data.data {
+                Some(ref data_map) => data_map,
+                None => bail!("Cannot calculate {} stars without typemap", mode),
+            };
+            // Is value already stored in DB?
+            {
+                let data_map = data_map.read().await;
+                let mysql = data_map.get::<MySQL>().unwrap();
+                let mods = data.mods.unwrap_or_default();
+                if let Ok(Some(stars)) = mysql.get_mod_stars(map_id, mode, mods).await {
+                    return Ok(Some(stars));
+                }
+            }
+            let map_path = osu::prepare_beatmap_file(map_id).await?;
+            let mut cmd = Command::new("dotnet");
+            cmd.kill_on_drop(true)
+                .arg(env::var("PERF_CALC").unwrap())
+                .arg("difficulty")
+                .arg(map_path);
+            if let Some(mods) = data.mods {
+                if !mods.is_empty() {
+                    for m in mods.iter().filter(|&m| m != GameMods::ScoreV2) {
+                        cmd.arg("-m").arg(m.to_string());
+                    }
+                }
+            }
+            let stars = parse_calculation(cmd, data_map).await?;
+            // Store value in DB
+            if let Ranked | Loved | Approved = data.approval_status.unwrap() {
+                let data_map = data_map.read().await;
+                let mysql = data_map.get::<MySQL>().unwrap();
+                let mods = data.mods.unwrap_or_default();
+                if let Err(why) = mysql.insert_stars_map(map_id, mode, mods, stars).await {
+                    warn!("Error while inserting stars: {}", why);
+                }
+            }
+            Ok(Some(stars))
+        }
+    }
+}
+
+async fn parse_calculation(mut cmd: Command, data: &RwLock<TypeMap>) -> Result<f32, Error> {
+    let calculation = time::timeout(time::Duration::from_secs(10), cmd.output());
+    let output = {
+        let data = data.read().await;
+        let mutex = data.get::<PerformanceCalculatorLock>().unwrap();
+        let _lock = mutex.lock().await;
+        match calculation.await {
+            Ok(output) => output?,
+            Err(_) => bail!("Timeout while waiting for output",),
+        }
     };
     if output.status.success() {
-        let result = String::from_utf8(output.stdout)
-            .map_err(|_| format_err!("Could not read stdout string"))?;
-        f32::from_str(&result.trim())
-            .map_err(|_| format_err!("PerfCalc result could not be parsed into pp"))
+        let result = String::from_utf8(output.stdout)?;
+        Ok(f32::from_str(&result.trim())?)
     } else {
-        let error_msg = String::from_utf8(output.stderr)
-            .map_err(|_| format_err!("Could not read stderr string"))?;
-        bail!(error_msg)
+        bail!(String::from_utf8(output.stderr)?)
     }
 }
 
-async fn calc_stars(map_id: u32, mods: GameMods) -> Result<f32, Error> {
-    let map_path = osu::prepare_beatmap_file(map_id).await?;
-    let mut cmd = Command::new("dotnet");
-    cmd.kill_on_drop(true)
-        .arg(env::var("PERF_CALC").unwrap())
-        .arg("difficulty")
-        .arg(map_path);
-    if !mods.is_empty() {
-        for m in mods.iter().filter(|&m| m != GameMods::ScoreV2) {
-            cmd.arg("-m").arg(m.to_string());
-        }
-    }
-    let output = match time::timeout(time::Duration::from_secs(10), cmd.output()).await {
-        Ok(output) => output?,
-        Err(_) => bail!("Timeout while waiting for stars output"),
-    };
-    if output.status.success() {
-        let result = String::from_utf8(output.stdout)
-            .map_err(|_| format_err!("Could not read stdout string"))?;
-        f32::from_str(&result.trim())
-            .map_err(|_| format_err!("PerfCalc result could not be parsed into stars"))
-    } else {
-        let error_msg = String::from_utf8(output.stderr)
-            .map_err(|_| format_err!("Could not read stderr string"))?;
-        bail!(error_msg)
-    }
+pub trait BeatmapExt {
+    fn max_combo(&self) -> Option<u32>;
+    fn map_id(&self) -> u32;
+    fn mode(&self) -> GameMode;
+    fn stars(&self) -> f32;
+    fn approval_status(&self) -> ApprovalStatus;
 }
 
-// Calculate CTB pp manually in case its useful at some point...
-fn _ctb_score_pp(score: &Score, map: &Beatmap, stars: f64) -> f32 {
-    let mods = &score.enabled_mods;
-    let fruits_hit = score.count300;
-    let ticks_hit = score.count100;
-    let misses = score.count_miss;
-
-    // let stars = if mods.contains(&GameMod::Easy)
-    //     || mods.contains(&GameMod::HardRock)
-    //     || mods.contains(&GameMod::DoubleTime)
-    //     || mods.contains(&GameMod::NightCore)
-    //     || mods.contains(&GameMod::HalfTime)
-    // {
-    //     todo!()
-    // } else {
-    //     map.stars as f64
-    // };
-
-    let num_total_hits = (misses + ticks_hit + fruits_hit) as f64;
-
-    let mut value = (5.0_f64 * 1.0_f64.max(stars / 0.0049) - 4.0).powi(2) / 100_000.0;
-
-    // Longer maps are worth more. "Longer" means how many hits there are which can contribute to combo
-    let mut length_bonus = 0.95_f64 + 0.3 * (num_total_hits / 2500.0).min(1.0);
-    if num_total_hits > 2_500.0 {
-        length_bonus += (num_total_hits / 2_500.0).log10() * 0.475;
+impl BeatmapExt for &Beatmap {
+    fn max_combo(&self) -> Option<u32> {
+        self.max_combo
     }
-    value *= length_bonus;
-
-    // Penalize misses exponentially. This mainly fixes tag4 maps and the likes until a per-hitobject solution is available
-    value *= 0.97_f64.powi(misses as i32);
-
-    // Combo scaling
-    match map.max_combo {
-        Some(max_combo) if max_combo > 0 => {
-            value *= (score.max_combo as f64 / max_combo as f64)
-                .powf(0.8)
-                .min(1.0)
-        }
-        _ => {}
+    fn map_id(&self) -> u32 {
+        self.beatmap_id
     }
-
-    let mut ar_factor = 1.0_f64;
-    if map.diff_ar > 9.0 {
-        ar_factor += 0.1 * (map.diff_ar as f64 - 9.0); // 10% for each AR above 9
-    }
-    if map.diff_ar > 10.0 {
-        ar_factor += 0.1 * (map.diff_ar as f64 - 10.0); // Additional 10% at AR 11, 30% total
-    } else if map.diff_ar < 8.0 {
-        ar_factor += 0.025 * (8.0 - map.diff_ar as f64); // 2.5% for each AR below 8
-    }
-    value *= ar_factor;
-
-    if mods.contains(GameMods::Hidden) {
-        value *= 1.05 + 0.075 * (10.0 - map.diff_ar.min(10.0) as f64); // 7.5% for each AR below 10
-
-        // Hiddens gives almost nothing on max approach rate, and more the lower it is
-        if map.diff_ar <= 10.0 {
-            value *= 1.05 + 0.075 * (10.0 - map.diff_ar as f64); // 7.5% for each AR below 10
-        } else if map.diff_ar > 10.0 {
-            value *= 1.01 + 0.04 * (11.0 - map.diff_ar.min(11.0) as f64); // 5% at AR 10, 1% at AR 11
-        }
-    }
-
-    // Apply length bonus again if flashlight is on simply because it becomes a lot harder on longer maps.
-    if mods.contains(GameMods::Flashlight) {
-        value *= 1.35 * length_bonus;
-    }
-
-    // Scale the aim value with accuracy _slightly_
-    value *= (score.accuracy(GameMode::CTB) as f64).powf(5.5);
-
-    // Custom multipliers for NoFail. SpunOut is not applicable.
-    if mods.contains(GameMods::NoFail) {
-        value *= 0.9;
-    }
-
-    value as f32
-}
-
-async fn f32_to_db(
-    in_db: bool,
-    mysql: &MySQL,
-    map_id: u32,
-    mode: GameMode,
-    mods: GameMods,
-    value: f32,
-    stars: bool, // max_pp if false
-) -> Result<(), Error> {
-    if in_db {
-        if stars {
-            match mysql.update_stars_map(map_id, mode, mods, value).await {
-                Ok(_) => debug!(
-                    "Updated map id {} with mods {} in {} stars table",
-                    map_id, mods, mode
-                ),
-                Err(why) => error!("Error while updating {} stars: {}", mode, why),
-            }
-        } else {
-            match mysql.update_pp_map(map_id, mode, mods, value).await {
-                Ok(_) => debug!(
-                    "Updated map id {} with mods {} in {} pp table",
-                    map_id, mods, mode
-                ),
-                Err(why) => error!("Error while updating {} pp: {}", mode, why),
-            }
-        }
-    } else if stars {
-        match mysql.insert_stars_map(map_id, mode, mods, value).await {
-            Ok(_) => debug!("Inserted beatmap {} into {} stars table", map_id, mode),
-            Err(why) => error!("Error while inserting {} stars: {}", mode, why),
-        }
-    } else {
-        match mysql.insert_pp_map(map_id, mode, mods, value).await {
-            Ok(_) => debug!("Inserted beatmap {} into {} pp table", map_id, mode),
-            Err(why) => error!("Error while inserting {} pp: {}", mode, why),
-        }
-    }
-    Ok(())
-}
-
-enum CalcParam<'a, S: SubScore> {
-    #[allow(dead_code)] // its not dead code rust...
-    MNA { score: Option<u32>, mods: GameMods },
-    #[allow(dead_code)]
-    CTB { score: &'a S },
-    #[allow(dead_code)]
-    MaxCTB { mods: GameMods },
-}
-
-impl<'a, S: SubScore> CalcParam<'a, S> {
-    fn mania(score: Option<u32>, mods: GameMods) -> Self {
-        Self::MNA { score, mods }
-    }
-
-    fn ctb(score: &'a S) -> Self
-    where
-        S: SubScore,
-    {
-        Self::CTB { score }
-    }
-
-    fn max_ctb(mods: GameMods) -> Self {
-        Self::MaxCTB { mods }
-    }
-
     fn mode(&self) -> GameMode {
-        match self {
-            CalcParam::MNA { .. } => GameMode::MNA,
-            CalcParam::CTB { .. } | CalcParam::MaxCTB { .. } => GameMode::CTB,
-        }
+        self.mode
     }
-
-    fn mods(&self) -> GameMods {
-        match self {
-            CalcParam::MNA { mods, .. } | CalcParam::MaxCTB { mods } => *mods,
-            CalcParam::CTB { score, .. } => score.mods(),
-        }
+    fn stars(&self) -> f32 {
+        self.stars
+    }
+    fn approval_status(&self) -> ApprovalStatus {
+        self.approval_status
     }
 }
 
-pub trait SubScore {
-    fn miss(&self) -> u32;
-    fn c50(&self) -> u32;
-    fn c100(&self) -> u32;
-    fn c300(&self) -> u32;
-    fn combo(&self) -> u32;
+pub trait ScoreExt {
+    fn count_miss(&self) -> u32;
+    fn count_50(&self) -> u32;
+    fn count_100(&self) -> u32;
+    fn count_300(&self) -> u32;
+    fn count_geki(&self) -> u32;
+    fn count_katu(&self) -> u32;
+    fn max_combo(&self) -> u32;
     fn mods(&self) -> GameMods;
     fn hits(&self, mode: GameMode) -> u32;
     fn grade(&self) -> Grade;
     fn score(&self) -> u32;
+    fn pp(&self) -> Option<f32>;
 }
 
-impl SubScore for Score {
-    fn miss(&self) -> u32 {
+impl ScoreExt for &Score {
+    fn count_miss(&self) -> u32 {
         self.count_miss
     }
-    fn c50(&self) -> u32 {
+    fn count_50(&self) -> u32 {
         self.count50
     }
-    fn c100(&self) -> u32 {
+    fn count_100(&self) -> u32 {
         self.count100
     }
-    fn c300(&self) -> u32 {
+    fn count_300(&self) -> u32 {
         self.count300
     }
-    fn combo(&self) -> u32 {
+    fn count_geki(&self) -> u32 {
+        self.count_geki
+    }
+    fn count_katu(&self) -> u32 {
+        self.count_katu
+    }
+    fn max_combo(&self) -> u32 {
         self.max_combo
     }
     fn mods(&self) -> GameMods {
@@ -636,22 +463,31 @@ impl SubScore for Score {
     fn score(&self) -> u32 {
         self.score
     }
+    fn pp(&self) -> Option<f32> {
+        self.pp
+    }
 }
 
-impl SubScore for ScraperScore {
-    fn miss(&self) -> u32 {
+impl ScoreExt for &ScraperScore {
+    fn count_miss(&self) -> u32 {
         self.count_miss
     }
-    fn c50(&self) -> u32 {
+    fn count_50(&self) -> u32 {
         self.count50
     }
-    fn c100(&self) -> u32 {
+    fn count_100(&self) -> u32 {
         self.count100
     }
-    fn c300(&self) -> u32 {
+    fn count_300(&self) -> u32 {
         self.count300
     }
-    fn combo(&self) -> u32 {
+    fn count_geki(&self) -> u32 {
+        self.count_geki
+    }
+    fn count_katu(&self) -> u32 {
+        self.count_katu
+    }
+    fn max_combo(&self) -> u32 {
         self.max_combo
     }
     fn mods(&self) -> GameMods {
@@ -665,5 +501,8 @@ impl SubScore for ScraperScore {
     }
     fn score(&self) -> u32 {
         self.score
+    }
+    fn pp(&self) -> Option<f32> {
+        self.pp
     }
 }

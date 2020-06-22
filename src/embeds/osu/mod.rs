@@ -34,7 +34,7 @@ pub use whatif::WhatIfEmbed;
 
 use crate::{
     embeds::Author,
-    util::{datetime::sec_to_minsec, globals::HOMEPAGE, numbers, osu::grade_emote, pp::PPProvider},
+    util::{datetime::sec_to_minsec, globals::HOMEPAGE, numbers, osu::grade_emote},
 };
 
 use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score, User};
@@ -102,13 +102,7 @@ pub fn get_combo(score: &Score, map: &Beatmap) -> String {
     combo
 }
 
-pub fn get_pp(score: &Score, pp_provider: &PPProvider) -> String {
-    let actual = score.pp.or_else(|| Some(pp_provider.pp()));
-    let max = Some(pp_provider.max_pp());
-    _get_pp(actual, max)
-}
-
-pub fn _get_pp(actual: Option<f32>, max: Option<f32>) -> String {
+pub fn get_pp(actual: Option<f32>, max: Option<f32>) -> String {
     let actual = actual.map_or_else(|| '-'.to_string(), |pp| numbers::round(pp).to_string());
     let max = max.map_or_else(|| '-'.to_string(), |pp| numbers::round(pp).to_string());
     format!("**{}**/{}PP", actual, max)
