@@ -31,7 +31,7 @@ async fn top_send(
         Ok(args) => args,
         Err(err_msg) => {
             msg.channel_id
-                .say(&ctx.http, err_msg)
+                .say(ctx, err_msg)
                 .await?
                 .reaction_delete(ctx, msg.author.id)
                 .await;
@@ -211,21 +211,29 @@ async fn top_send(
 
     // Retrieving all missing beatmaps
     let mut scores_data = Vec::with_capacity(scores_indices.len());
-    let mut missing_indices = Vec::with_capacity(scores_indices.len());
+    // let mut missing_indices = Vec::with_capacity(scores_indices.len());
+    let mut missing_maps = None;
     {
         let dont_filter_sotarks = top_type != TopType::Sotarks;
         let data = ctx.data.read().await;
         let osu = data.get::<Osu>().unwrap();
+        let mut curr_missing_maps = Vec::with_capacity(8);
         for (i, score) in scores_indices.into_iter() {
             let map_id = score.beatmap_id.unwrap();
             let map = if maps.contains_key(&map_id) {
                 maps.remove(&map_id).unwrap()
             } else {
-                missing_indices.push(i);
                 match score.get_beatmap(osu).await {
-                    Ok(map) => map,
+                    Ok(map) => {
+                        curr_missing_maps.push(map.clone());
+                        map
+                    }
                     Err(why) => {
-                        msg.channel_id.say(&ctx.http, OSU_API_ISSUE).await?;
+                        msg.channel_id
+                            .say(ctx, OSU_API_ISSUE)
+                            .await?
+                            .reaction_delete(ctx, msg.author.id)
+                            .await;
                         return Err(why.to_string().into());
                     }
                 }
@@ -234,18 +242,10 @@ async fn top_send(
                 scores_data.push((i, score, map));
             }
         }
+        if !curr_missing_maps.is_empty() {
+            missing_maps = Some(curr_missing_maps);
+        }
     }
-    let missing_maps: Option<Vec<_>> = if missing_indices.is_empty() || scores_data.is_empty() {
-        None
-    } else {
-        Some(
-            scores_data
-                .iter()
-                .filter(|(i, ..)| missing_indices.contains(i))
-                .map(|(.., map)| map.clone())
-                .collect(),
-        )
-    };
 
     // Accumulate all necessary data
     let content = match top_type {
