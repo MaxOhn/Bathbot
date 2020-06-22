@@ -1,3 +1,5 @@
+use super::deserialize::adjust_mode;
+
 use rosu::models::GameMode;
 use serde::{Deserialize, Deserializer};
 use serde_derive::Deserialize as DeserializeDerive;
@@ -66,19 +68,4 @@ impl<'de> Deserialize<'de> for MostPlayedMap {
             stars: helper.beatmap.difficulty_rating,
         })
     }
-}
-
-fn adjust_mode<'de, D>(d: D) -> Result<GameMode, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let m: &str = Deserialize::deserialize(d)?;
-    let m = match m {
-        "osu" => GameMode::STD,
-        "taiko" => GameMode::TKO,
-        "fruits" => GameMode::CTB,
-        "mania" => GameMode::MNA,
-        _ => panic!("Could not parse mode '{}'", m),
-    };
-    Ok(m)
 }
