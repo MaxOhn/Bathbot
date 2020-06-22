@@ -35,9 +35,19 @@ impl MySQL {
     // ---------------------
 
     pub async fn get_beatmap(&self, map_id: u32) -> DBResult<Beatmap> {
-        let query = "SELECT * FROM \
-                        (SELECT * FROM maps WHERE beatmap_id=?) as m \
-                    JOIN mapsets as ms ON m.beatmapset_id=ms.beatmapset_id";
+        let query = r#"
+SELECT
+    *
+FROM
+    (
+        SELECT
+            *
+        FROM
+            maps
+        WHERE
+            beatmap_id = ?
+    ) as m
+    JOIN mapsets as ms ON m.beatmapset_id = ms.beatmapset_id"#;
         let map: BeatmapWrapper = sqlx::query_as(query)
             .bind(map_id)
             .fetch_one(&self.pool)
@@ -106,11 +116,20 @@ impl MySQL {
     // --------------------
 
     pub async fn add_discord_link(&self, id: u64, name: &str) -> DBResult<()> {
-        sqlx::query("INSERT INTO discord_users(discord_id, osu_name) VALUES (?,?)")
-            .bind(id)
-            .bind(name)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(
+            r#"
+INSERT INTO
+    discord_users(discord_id, osu_name)
+VALUES
+    (?,?) ON DUPLICATE KEY
+UPDATE
+    osu_name=?"#,
+        )
+        .bind(id)
+        .bind(name)
+        .bind(name)
+        .execute(&self.pool)
+        .await?;
         Ok(())
     }
 
@@ -175,7 +194,13 @@ impl MySQL {
             _ => unreachable!(),
         };
         let query = format!(
-            "INSERT INTO {} (beatmap_id, {col}) VALUES (?,?) ON DUPLICATE KEY UPDATE {col}=?",
+            r#"
+INSERT INTO
+    {} (beatmap_id, {col})
+VALUES
+    (?,?) ON DUPLICATE KEY
+UPDATE
+    {col}=?"#,
             table,
             col = column
         );
@@ -257,7 +282,13 @@ impl MySQL {
             _ => unreachable!(),
         };
         let query = format!(
-            "INSERT INTO {} (beatmap_id, {col}) VALUES (?,?) ON DUPLICATE KEY UPDATE {col}=?",
+            r#"
+INSERT INTO
+    {} (beatmap_id, {col})
+VALUES
+    (?,?) ON DUPLICATE KEY
+UPDATE
+    {col}=?"#,
             table,
             col = column
         );
@@ -376,12 +407,20 @@ impl MySQL {
     }
 
     pub async fn remove_stream_track(&self, channel: u64, user: u64, pf: Platform) -> DBResult<()> {
-        sqlx::query("DELETE FROM stream_tracks WHERE channel_id=? AND user_id=? AND platform=?")
-            .bind(channel)
-            .bind(user)
-            .bind(pf as u8)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(
+            r#"
+DELETE FROM
+    stream_tracks
+WHERE
+    channel_id=?
+    AND user_id=?
+    AND platform=?"#,
+        )
+        .bind(channel)
+        .bind(user)
+        .bind(pf as u8)
+        .execute(&self.pool)
+        .await?;
         Ok(())
     }
 
@@ -439,8 +478,13 @@ impl MySQL {
     // -------------------
 
     pub async fn increment_bggame_score(&self, user: u64) -> DBResult<()> {
-        let query = "INSERT INTO bggame_stats(discord_id,score) VALUES (?,1) \
-                    ON DUPLICATE KEY UPDATE score=score+1";
+        let query = r#"
+INSERT INTO
+    bggame_stats(discord_id, score)
+VALUES
+    (?,1) ON DUPLICATE KEY
+UPDATE
+    score = score + 1"#;
         sqlx::query(&query).bind(user).execute(&self.pool).await?;
         Ok(())
     }
@@ -506,12 +550,18 @@ impl MySQL {
         filetype: &str,
         mode: GameMode,
     ) -> DBResult<()> {
-        sqlx::query("INSERT IGNORE INTO map_tags(beatmapset_id, filetype, mode) VALUES (?,?,?)")
-            .bind(mapset_id)
-            .bind(filetype)
-            .bind(mode as u8)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(
+            r#"
+INSERT
+    IGNORE INTO map_tags(beatmapset_id, filetype, mode)
+VALUES
+    (?, ?, ?)"#,
+        )
+        .bind(mapset_id)
+        .bind(filetype)
+        .bind(mode as u8)
+        .execute(&self.pool)
+        .await?;
         Ok(())
     }
 
@@ -544,22 +594,23 @@ impl MySQL {
     }
 
     pub async fn get_random_tags_mapset(&self, mode: GameMode) -> DBResult<MapsetTagWrapper> {
-        let query = r#"SELECT
-                        *
-                    FROM
-                        map_tags AS mt
-                        JOIN (
-                            SELECT
-                                beatmapset_id
-                            from
-                                map_tags
-                            WHERE
-                                mode=?
-                            ORDER BY
-                                RAND()
-                            LIMIT
-                                1
-                        ) as rndm ON mt.beatmapset_id = rndm.beatmapset_id"#;
+        let query = r#"
+SELECT
+    *
+FROM
+    map_tags AS mt
+    JOIN (
+        SELECT
+            beatmapset_id
+        from
+            map_tags
+        WHERE
+            mode=?
+        ORDER BY
+            RAND()
+        LIMIT
+            1
+    ) as rndm ON mt.beatmapset_id = rndm.beatmapset_id"#;
         let tags = sqlx::query_as(&query)
             .bind(mode as u8)
             .fetch_one(&self.pool)
@@ -714,24 +765,25 @@ async fn _insert_beatmap<'c, E>(executor: E, map: &Beatmap) -> DBResult<()>
 where
     E: sqlx::prelude::Executor<'c, Database = MySql>,
 {
-    let query = "INSERT IGNORE INTO maps (\
-                    beatmap_id,\
-                    beatmapset_id,\
-                    mode,\
-                    version,\
-                    seconds_drain,\
-                    seconds_total,\
-                    bpm,\
-                    stars,\
-                    diff_cs,\
-                    diff_od,\
-                    diff_ar,\
-                    diff_hp,\
-                    count_circle,\
-                    count_slider,\
-                    count_spinner,\
-                    max_combo\
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    let query = r#"
+INSERT IGNORE INTO maps (
+    beatmap_id,
+    beatmapset_id,
+    mode,
+    version,
+    seconds_drain,
+    seconds_total,
+    bpm,
+    stars,
+    diff_cs,
+    diff_od,
+    diff_ar,
+    diff_hp,
+    count_circle,
+    count_slider,
+    count_spinner,
+    max_combo
+) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"#;
     sqlx::query(query)
         .bind(map.beatmap_id)
         .bind(map.beatmapset_id)
@@ -758,17 +810,18 @@ async fn _insert_beatmapset<'c, E>(executor: E, map: &Beatmap) -> DBResult<()>
 where
     E: sqlx::prelude::Executor<'c, Database = MySql>,
 {
-    let query = "INSERT IGNORE INTO mapsets (\
-                    beatmapset_id,\
-                    artist,\
-                    title,\
-                    creator_id,\
-                    creator,\
-                    genre,\
-                    language,\
-                    approval_status,\
-                    approved_date\
-                ) VALUES (?,?,?,?,?,?,?,?,?)";
+    let query = r#"
+INSERT IGNORE INTO mapsets (
+    beatmapset_id,
+    artist,
+    title,
+    creator_id,
+    creator,
+    genre,
+    language,
+    approval_status,
+    approved_date
+) VALUES (?,?,?,?,?,?,?,?,?)"#;
     sqlx::query(query)
         .bind(map.beatmapset_id)
         .bind(&map.artist)
