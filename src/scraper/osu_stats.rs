@@ -5,6 +5,7 @@ use crate::arguments::ModSelection;
 use chrono::{DateTime, Utc};
 use rosu::models::{ApprovalStatus, GameMode, GameMods, Grade};
 use serde_derive::Deserialize;
+use std::fmt;
 
 #[derive(Debug, Deserialize)]
 pub struct OsuStatsScore {
@@ -75,7 +76,7 @@ pub struct OsuStatsMap {
     pub max_combo: Option<u32>,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum OsuStatsOrder {
     PlayDate = 0,
     Pp = 1,
@@ -86,6 +87,13 @@ pub enum OsuStatsOrder {
     Misses = 6,
 }
 
+impl fmt::Display for OsuStatsOrder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Debug)]
 pub struct OsuStatsParams {
     pub username: String,
     pub mode: GameMode,
@@ -106,7 +114,7 @@ impl OsuStatsParams {
             mode: GameMode::STD,
             page: 1,
             rank_min: 1,
-            rank_max: 50,
+            rank_max: 100,
             acc_min: 0.0,
             acc_max: 100.0,
             order: OsuStatsOrder::PlayDate,
@@ -116,10 +124,6 @@ impl OsuStatsParams {
     }
     pub fn mode(mut self, mode: GameMode) -> Self {
         self.mode = mode;
-        self
-    }
-    pub fn page(mut self, page: usize) -> Self {
-        self.page = page;
         self
     }
     pub fn rank_min(mut self, rank_min: usize) -> Self {
@@ -149,5 +153,8 @@ impl OsuStatsParams {
     pub fn mods(mut self, mods: GameMods, selection: ModSelection) -> Self {
         self.mods = Some((mods, selection));
         self
+    }
+    pub fn page(&mut self, page: usize) {
+        self.page = page;
     }
 }

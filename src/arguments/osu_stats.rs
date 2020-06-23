@@ -95,15 +95,19 @@ impl OsuStatsArgs {
         // Put values into parameter variable
         let mut params = OsuStatsParams::new(username.unwrap())
             .mode(mode)
-            .rank_max(rank_max.unwrap())
-            .acc_max(acc_max.unwrap())
             .order(sort_by)
             .descending(descending);
         if let Some(acc_min) = acc_min {
             params = params.acc_min(acc_min);
         }
+        if let Some(acc_max) = acc_max {
+            params = params.acc_max(acc_max);
+        }
         if let Some(rank_min) = rank_min {
             params = params.rank_min(rank_min);
+        }
+        if let Some(rank_max) = rank_max {
+            params = params.rank_max(rank_max);
         }
         if let Some((mods, selection)) = mods {
             params = params.mods(mods, selection);

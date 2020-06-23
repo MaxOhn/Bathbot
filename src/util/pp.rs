@@ -69,18 +69,13 @@ impl PPCalculator {
         self.approval_status = Some(map.approval_status());
         self
     }
-    pub fn mode(mut self, mode: GameMode) -> Self {
-        self.mode = Some(mode);
-        self
-    }
     pub fn data(mut self, data: Arc<RwLock<TypeMap>>) -> Self {
         self.data = Some(data);
         self
     }
     fn total_hits_oppai(&self) -> Option<u32> {
-        let mode = self.mode?;
         let mut amount = self.count_300? + self.count_100? + self.count_miss?;
-        if mode != GameMode::TKO {
+        if self.mode? == GameMode::STD {
             amount += self.count_50?;
         }
         Some(amount)

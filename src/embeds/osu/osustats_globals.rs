@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{osu, Author, EmbedData},
+    embeds::{osu, Author, EmbedData, Footer},
     scraper::OsuStatsScore,
     util::{
         datetime::how_long_ago,
@@ -20,21 +20,38 @@ pub struct OsuStatsGlobalsEmbed {
     description: String,
     thumbnail: String,
     author: Author,
+    footer: Footer,
 }
 
 impl OsuStatsGlobalsEmbed {
     pub async fn new<D>(
         user: &User,
         scores: &BTreeMap<usize, OsuStatsScore>,
-        index: usize,
+        pages: (usize, usize),
         cache_data: D,
     ) -> Result<Self, Error>
     where
         D: CacheData,
     {
-        let entries = scores.range(index..index + 10);
+        if scores.is_empty() {
+            return Ok(Self {
+                author: osu::get_user_author(&user),
+                thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+                footer: Footer::new(String::from("Page 1/1")),
+                description: String::from("No score with these parameters were found"),
+            });
+        }
+        let index = (pages.0 - 1) * 5;
+        let entries = scores.range(index..index + 5);
+        println!(
+            "creating embed for scores on indices {}..{}",
+            index,
+            index + 5
+        );
+        println!("scores: {:?}", scores.keys());
+        println!("entries: {:?}", entries);
         let mut description = String::with_capacity(1024);
-        for (idx, score) in entries {
+        for (_, score) in entries {
             let grade = { grade_emote(score.grade, cache_data.cache()).await };
             let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
             let mut calculator = PPCalculator::new()
@@ -53,9 +70,8 @@ impl OsuStatsGlobalsEmbed {
             }
             let _ = writeln!(
                 description,
-                "**{idx}.** [#{rank}] **[{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
+                "**[#{rank}] [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
                 {grade} {pp} ~ ({acc}%) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
-                idx = idx,
                 rank = score.position,
                 title = score.map.title,
                 version = score.map.version,
@@ -76,6 +92,7 @@ impl OsuStatsGlobalsEmbed {
             description,
             author: osu::get_user_author(&user),
             thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
         })
     }
 }
@@ -89,5 +106,8 @@ impl EmbedData for OsuStatsGlobalsEmbed {
     }
     fn author(&self) -> Option<&Author> {
         Some(&self.author)
+    }
+    fn footer(&self) -> Option<&Footer> {
+        Some(&self.footer)
     }
 }

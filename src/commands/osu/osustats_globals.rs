@@ -1,8 +1,9 @@
 use crate::{
-    arguments::OsuStatsArgs,
+    arguments::{ModSelection, OsuStatsArgs},
     embeds::{EmbedData, OsuStatsGlobalsEmbed},
+    pagination::{OsuStatsGlobalsPagination, Pagination},
     scraper::{OsuStatsScore, Scraper},
-    util::{globals::OSU_API_ISSUE, MessageExt},
+    util::{globals::OSU_API_ISSUE, numbers, MessageExt},
     DiscordLinks, Osu,
 };
 
@@ -12,7 +13,7 @@ use serenity::{
     model::prelude::Message,
     prelude::Context,
 };
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 
 async fn osustats_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let name = {
@@ -56,11 +57,17 @@ async fn osustats_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args)
             }
         }
     };
-    let scores: BTreeMap<usize, OsuStatsScore> = {
+    let (scores, amount) = {
         let data = ctx.data.read().await;
         let scraper = data.get::<Scraper>().unwrap();
         match scraper.get_global_scores(&params).await {
-            Ok(scores) => scores.into_iter().enumerate().collect(),
+            Ok((scores, amount)) => (
+                scores
+                    .into_iter()
+                    .enumerate()
+                    .collect::<BTreeMap<usize, OsuStatsScore>>(),
+                amount,
+            ),
             Err(why) => {
                 msg.channel_id
                     .say(ctx, OSU_API_ISSUE)
@@ -73,7 +80,8 @@ async fn osustats_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args)
     };
 
     // Accumulate all necessary data
-    let data = match OsuStatsGlobalsEmbed::new(&user, &scores, 0, ctx).await {
+    let pages = numbers::div_euclid(5, amount);
+    let data = match OsuStatsGlobalsEmbed::new(&user, &scores, (1, pages), ctx).await {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id
@@ -87,13 +95,53 @@ async fn osustats_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args)
             return Err(why.to_string().into());
         }
     };
+    let mut content = format!(
+        "`Acc: {acc_min}% - {acc_max}%` ~ \
+        `Rank: {rank_min} - {rank_max}` ~ \
+        `Order: {order} {descending}`",
+        acc_min = params.acc_min,
+        acc_max = params.acc_max,
+        rank_min = params.rank_min,
+        rank_max = params.rank_max,
+        order = params.order,
+        descending = if params.descending { "Desc" } else { "Asc" },
+    );
+    if let Some((mods, selection)) = params.mods {
+        let _ = write!(
+            content,
+            " ~ `Mods: {}{}`",
+            match selection {
+                ModSelection::Exact => "",
+                ModSelection::Excludes => "Exclude ",
+                ModSelection::Includes | ModSelection::None => "Include ",
+            },
+            mods
+        );
+    }
 
     // Creating the embed
-    msg.channel_id
-        .send_message(ctx, |m| m.embed(|e| data.build(e)))
-        .await?
-        .reaction_delete(ctx, msg.author.id)
-        .await;
+    let resp = msg
+        .channel_id
+        .send_message(ctx, |m| m.content(content).embed(|e| data.build(e)))
+        .await?;
+
+    // Skip pagination if too few entries
+    if scores.len() <= 5 {
+        resp.reaction_delete(ctx, msg.author.id).await;
+        return Ok(());
+    }
+
+    // Pagination
+    let pagination =
+        OsuStatsGlobalsPagination::new(ctx, resp, msg.author.id, user, scores, amount, params)
+            .await;
+    let cache = Arc::clone(&ctx.cache);
+    let http = Arc::clone(&ctx.http);
+    tokio::spawn(async move {
+        if let Err(why) = pagination.start(cache, http).await {
+            warn!("Pagination error: {}", why)
+        }
+    });
     Ok(())
 }
 
@@ -105,8 +153,9 @@ or two numbers of the form `a..b` for min and max rank/acc.\n\
 There are several available orderings: Accuracy with `--a`, combo with `--c`, \
 pp with `--p`, rank with `--r`, score with `--s`, misses with `--m`, \
 and the default: date.\n\
-By default the scores are sorted in descending order. To reverse, specify `--asc`.\n
-Mods can also be specified."]
+By default the scores are sorted in descending order. To reverse, specify `--asc`.\n\
+Mods can also be specified.\n\
+Check https://osustats.ppy.sh/ for more info."]
 #[usage = "[username] [mods] [-a [num..]num] [-r [num..]num] [--a/--c/--p/--r/--s/--m] [--asc]"]
 #[example = "badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc"]
 #[example = "vaxei +hdhr -r 1..5 --r"]
@@ -123,8 +172,9 @@ or two numbers of the form `a..b` for min and max rank/acc.\n\
 There are several available orderings: Accuracy with `--a`, combo with `--c`, \
 pp with `--p`, rank with `--r`, score with `--s`, misses with `--m`, \
 and the default: date.\n\
-By default the scores are sorted in descending order. To reverse, specify `--asc`.\n
-Mods can also be specified."]
+By default the scores are sorted in descending order. To reverse, specify `--asc`.\n\
+Mods can also be specified.\n\
+Check https://osustats.ppy.sh/ for more info."]
 #[usage = "[username] [mods] [-a [num..]num] [-r [num..]num] [--a/--c/--p/--r/--s/--m] [--asc]"]
 #[example = "badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc"]
 #[example = "vaxei +hdhr -r 1..5 --r"]
@@ -141,8 +191,9 @@ or two numbers of the form `a..b` for min and max rank/acc.\n\
 There are several available orderings: Accuracy with `--a`, combo with `--c`, \
 pp with `--p`, rank with `--r`, score with `--s`, misses with `--m`, \
 and the default: date.\n\
-By default the scores are sorted in descending order. To reverse, specify `--asc`.\n
-Mods can also be specified."]
+By default the scores are sorted in descending order. To reverse, specify `--asc`.\n\
+Mods can also be specified.\n\
+Check https://osustats.ppy.sh/ for more info."]
 #[usage = "[username] [mods] [-a [num..]num] [-r [num..]num] [--a/--c/--p/--r/--s/--m] [--asc]"]
 #[example = "badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc"]
 #[example = "vaxei +dtmr -r 1..5 --r"]
@@ -159,8 +210,9 @@ or two numbers of the form `a..b` for min and max rank/acc.\n\
 There are several available orderings: Accuracy with `--a`, combo with `--c`, \
 pp with `--p`, rank with `--r`, score with `--s`, misses with `--m`, \
 and the default: date.\n\
-By default the scores are sorted in descending order. To reverse, specify `--asc`.\n
-Mods can also be specified."]
+By default the scores are sorted in descending order. To reverse, specify `--asc`.\n\
+Mods can also be specified.\n\
+Check https://osustats.ppy.sh/ for more info."]
 #[usage = "[username] [mods] [-a [num..]num] [-r [num..]num] [--a/--c/--p/--r/--s/--m] [--asc]"]
 #[example = "badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc"]
 #[example = "vaxei +hdhr -r 1..5 --r"]

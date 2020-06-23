@@ -63,7 +63,10 @@ impl Scraper {
         Ok(self.client.get(&url).send().await?)
     }
 
-    pub async fn get_global_scores(&self, params: &OsuStatsParams) -> Result<Vec<OsuStatsScore>> {
+    pub async fn get_global_scores(
+        &self,
+        params: &OsuStatsParams,
+    ) -> Result<(Vec<OsuStatsScore>, usize)> {
         let mut form = Form::new()
             .text("accMin", params.acc_min.to_string())
             .text("accMax", params.acc_max.to_string())
@@ -71,7 +74,7 @@ impl Scraper {
             .text("rankMax", params.rank_max.to_string())
             .text("gamemode", (params.mode as u8).to_string())
             .text("sortBy", (params.order as u8).to_string())
-            .text("sortOrder", (params.descending as u8).to_string())
+            .text("sortOrder", (!params.descending as u8).to_string())
             .text("page", params.page.to_string())
             .text("u1", params.username.clone());
         if let Some((mods, selection)) = params.mods {
@@ -93,12 +96,15 @@ impl Scraper {
         let response = request.send().await?;
         let text = response.text().await?;
         let result: Value = serde_json::from_str(&text)?;
-        let scores = if let Value::Array(mut array) = result {
-            serde_json::from_value(array.drain(..1).next().unwrap())?
+        let (scores, amount) = if let Value::Array(mut array) = result {
+            let mut values = array.drain(..2);
+            let scores = serde_json::from_value(values.next().unwrap())?;
+            let amount = serde_json::from_value(values.next().unwrap())?;
+            (scores, amount)
         } else {
-            Vec::new()
+            (Vec::new(), 0)
         };
-        Ok(scores)
+        Ok((scores, amount))
     }
 
     // Retrieve the most played maps of a user
