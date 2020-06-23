@@ -65,7 +65,7 @@ impl SimulateEmbed {
             } else {
                 None
             };
-            let prev_hits = Some(osu::get_hits(&s, map.mode));
+            let prev_hits = Some(osu::get_hits(s, map.mode));
             (prev_pp, prev_combo, prev_hits, Some(s.count_miss))
         } else {
             (None, None, None, None)

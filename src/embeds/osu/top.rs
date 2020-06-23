@@ -61,7 +61,7 @@ impl TopEmbed {
                 acc = osu::get_acc(&score, mode),
                 score = with_comma_u64(score.score as u64),
                 combo = osu::get_combo(&score, &map),
-                hits = osu::get_hits(&score, mode),
+                hits = osu::get_hits(score, mode),
                 ago = how_long_ago(&score.date)
             );
         }

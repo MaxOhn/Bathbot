@@ -34,7 +34,7 @@ pub use whatif::WhatIfEmbed;
 
 use crate::{
     embeds::Author,
-    util::{datetime::sec_to_minsec, globals::HOMEPAGE, numbers, osu::grade_emote},
+    util::{datetime::sec_to_minsec, globals::HOMEPAGE, numbers, osu::grade_emote, pp::ScoreExt},
 };
 
 use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score, User};
@@ -69,20 +69,20 @@ pub fn get_mods(mods: GameMods) -> String {
     }
 }
 
-pub fn get_hits(score: &Score, mode: GameMode) -> String {
+pub fn get_hits(score: impl ScoreExt, mode: GameMode) -> String {
     let mut hits = String::from("{");
     if mode == GameMode::MNA {
-        let _ = write!(hits, "{}/", score.count_geki);
+        let _ = write!(hits, "{}/", score.count_geki());
     }
-    let _ = write!(hits, "{}/", score.count300);
+    let _ = write!(hits, "{}/", score.count_300());
     if mode == GameMode::MNA {
-        let _ = write!(hits, "{}/", score.count_katu);
+        let _ = write!(hits, "{}/", score.count_katu());
     }
-    let _ = write!(hits, "{}/", score.count100);
+    let _ = write!(hits, "{}/", score.count_100());
     if mode != GameMode::TKO {
-        let _ = write!(hits, "{}/", score.count50);
+        let _ = write!(hits, "{}/", score.count_50());
     }
-    let _ = write!(hits, "{}}}", score.count_miss);
+    let _ = write!(hits, "{}}}", score.count_miss());
     hits
 }
 

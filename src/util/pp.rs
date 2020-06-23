@@ -1,5 +1,9 @@
 use crate::{
-    database::MySQL, roppai::Oppai, scraper::ScraperScore, util::osu, PerformanceCalculatorLock,
+    database::MySQL,
+    roppai::Oppai,
+    scraper::{OsuStatsMap, OsuStatsScore, ScraperScore},
+    util::osu,
+    PerformanceCalculatorLock,
 };
 
 use failure::Error;
@@ -21,9 +25,7 @@ bitflags! {
 
 #[derive(Default)]
 pub struct PPCalculator {
-    count_geki: Option<u32>,
     count_300: Option<u32>,
-    count_katu: Option<u32>,
     count_100: Option<u32>,
     count_50: Option<u32>,
     count_miss: Option<u32>,
@@ -49,9 +51,7 @@ impl PPCalculator {
         Self::default()
     }
     pub fn score(mut self, score: impl ScoreExt) -> Self {
-        self.count_geki = Some(score.count_geki());
         self.count_300 = Some(score.count_300());
-        self.count_katu = Some(score.count_katu());
         self.count_100 = Some(score.count_100());
         self.count_50 = Some(score.count_50());
         self.count_miss = Some(score.count_miss());
@@ -77,17 +77,11 @@ impl PPCalculator {
         self.data = Some(data);
         self
     }
-    fn total_hits(&self) -> Option<u32> {
+    fn total_hits_oppai(&self) -> Option<u32> {
         let mode = self.mode?;
         let mut amount = self.count_300? + self.count_100? + self.count_miss?;
         if mode != GameMode::TKO {
             amount += self.count_50?;
-            if mode != GameMode::STD {
-                amount += self.count_katu?;
-                if mode != GameMode::CTB {
-                    amount += self.count_geki?;
-                }
-            }
         }
         Some(amount)
     }
@@ -106,7 +100,9 @@ impl PPCalculator {
         if let Ok(Some(stars)) = stars {
             self.stars = Some(stars);
         }
-        pp.or(max_pp).or(stars)?;
+        pp.map_err(|why| format_err!("Error calculating pp: {}", why))?;
+        max_pp.map_err(|why| format_err!("Error calculating max pp: {}", why))?;
+        stars.map_err(|why| format_err!("Error calculating stars: {}", why))?;
         Ok(())
     }
 
@@ -161,7 +157,7 @@ async fn calculate_pp(
             if let Some(max_combo) = data.max_combo_score {
                 oppai.set_combo(max_combo);
             }
-            if let Some(total_hits) = data.total_hits() {
+            if let Some(total_hits) = data.total_hits_oppai() {
                 oppai.set_end_index(total_hits);
             }
             oppai.calculate(Some(&map_path))?;
@@ -278,7 +274,8 @@ async fn calculate_max_pp(
             }
             if mode == GameMode::MNA {
                 if let Some(mods) = data.mods {
-                    cmd.arg(((1_000_000.0 * mods.score_multiplier(mode)) as u32).to_string());
+                    cmd.arg("-s")
+                        .arg(((1_000_000.0 * mods.score_multiplier(mode)) as u32).to_string());
                 }
             }
             let max_pp = parse_calculation(cmd, data_map).await?;
@@ -396,6 +393,24 @@ pub trait BeatmapExt {
     fn approval_status(&self) -> ApprovalStatus;
 }
 
+impl BeatmapExt for &OsuStatsMap {
+    fn max_combo(&self) -> Option<u32> {
+        self.max_combo
+    }
+    fn map_id(&self) -> u32 {
+        self.beatmap_id
+    }
+    fn mode(&self) -> GameMode {
+        self.mode
+    }
+    fn stars(&self) -> f32 {
+        self.stars
+    }
+    fn approval_status(&self) -> ApprovalStatus {
+        self.approval_status
+    }
+}
+
 impl BeatmapExt for &Beatmap {
     fn max_combo(&self) -> Option<u32> {
         self.max_combo
@@ -427,6 +442,56 @@ pub trait ScoreExt {
     fn grade(&self) -> Grade;
     fn score(&self) -> u32;
     fn pp(&self) -> Option<f32>;
+}
+
+impl ScoreExt for &OsuStatsScore {
+    fn count_miss(&self) -> u32 {
+        self.count_miss
+    }
+    fn count_50(&self) -> u32 {
+        self.count50
+    }
+    fn count_100(&self) -> u32 {
+        self.count100
+    }
+    fn count_300(&self) -> u32 {
+        self.count300
+    }
+    fn count_geki(&self) -> u32 {
+        self.count_geki
+    }
+    fn count_katu(&self) -> u32 {
+        self.count_katu
+    }
+    fn max_combo(&self) -> u32 {
+        self.max_combo
+    }
+    fn mods(&self) -> GameMods {
+        self.enabled_mods
+    }
+    fn hits(&self, _mode: GameMode) -> u32 {
+        let mut amount = self.count300 + self.count100 + self.count_miss;
+        let mode = self.map.mode;
+        if mode != GameMode::TKO {
+            amount += self.count50;
+            if mode != GameMode::STD {
+                amount += self.count_katu;
+                if mode != GameMode::CTB {
+                    amount += self.count_geki;
+                }
+            }
+        }
+        amount
+    }
+    fn grade(&self) -> Grade {
+        self.grade
+    }
+    fn score(&self) -> u32 {
+        self.score
+    }
+    fn pp(&self) -> Option<f32> {
+        self.pp
+    }
 }
 
 impl ScoreExt for &Score {

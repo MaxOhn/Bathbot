@@ -74,7 +74,7 @@ where
 {
     let s: String = Deserialize::deserialize(d)?;
     let mods = s
-        .split(",")
+        .split(',')
         .map(GameMods::try_from)
         .collect::<Result<Vec<GameMods>, _>>()
         .map_err(de::Error::custom)?

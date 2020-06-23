@@ -127,7 +127,7 @@ async fn get_pp(
     let mut calculations = Calculations::PP;
     let bits = score.enabled_mods.bits();
     if !mod_map.contains_key(&bits) {
-        calculations = calculations | Calculations::MAX_PP;
+        calculations |= Calculations::MAX_PP;
     }
     calculator.calculate(calculations).await?;
     Ok(format!(

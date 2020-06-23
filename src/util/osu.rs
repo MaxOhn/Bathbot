@@ -109,6 +109,7 @@ pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
 }
 
 pub fn unchoke_score(score: &mut Score, map: &Beatmap) {
+    score.pp = None;
     match map.mode {
         GameMode::STD => {
             let max_combo = map

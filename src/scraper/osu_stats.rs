@@ -43,8 +43,8 @@ pub struct OsuStatsMap {
     pub beatmap_id: u32,
     #[serde(rename = "beatmapSetId")]
     pub beatmapset_id: u32,
-    #[serde(deserialize_with = "str_to_approved")]
-    pub approved: ApprovalStatus,
+    #[serde(rename = "approved", deserialize_with = "str_to_approved")]
+    pub approval_status: ApprovalStatus,
     #[serde(rename = "lastUpdated", deserialize_with = "str_to_date")]
     pub last_updated: DateTime<Utc>,
     #[serde(rename = "approvedDate", deserialize_with = "str_to_maybe_date")]
@@ -127,7 +127,7 @@ impl OsuStatsParams {
         self
     }
     pub fn rank_max(mut self, rank_max: usize) -> Self {
-        self.rank_max = rank_max;
+        self.rank_max = rank_max.min(100);
         self
     }
     pub fn acc_min(mut self, acc_min: f32) -> Self {
@@ -135,7 +135,7 @@ impl OsuStatsParams {
         self
     }
     pub fn acc_max(mut self, acc_max: f32) -> Self {
-        self.acc_max = acc_max;
+        self.acc_max = acc_max.min(100.0);
         self
     }
     pub fn order(mut self, order: OsuStatsOrder) -> Self {

@@ -156,7 +156,7 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 && (miss_limit.is_none() || score.count_miss <= *miss_limit.as_ref().unwrap())
             {
                 osu::unchoke_score(&mut unchoked, &map);
-                let calculator = PPCalculator::new().score(&unchoked).map(&map);
+                let mut calculator = PPCalculator::new().score(&unchoked).map(&map);
                 if let Err(why) = calculator.calculate(Calculations::PP).await {
                     msg.channel_id
                         .say(ctx, "Error while calculating pp, blame bade")

@@ -95,7 +95,7 @@ impl RecentEmbed {
             } else {
                 osu::get_combo(&score, &map)
             },
-            osu::get_hits(&score, map.mode),
+            osu::get_hits(score, map.mode),
         );
         let got_s = match score.grade {
             Grade::S | Grade::SH | Grade::X | Grade::XH => true,
