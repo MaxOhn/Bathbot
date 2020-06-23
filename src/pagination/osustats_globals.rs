@@ -98,6 +98,7 @@ impl Pagination for OsuStatsGlobalsPagination {
         OsuStatsGlobalsEmbed::new(
             &self.user,
             &self.scores,
+            self.total,
             (self.page(), self.pages.total_pages),
             (&self.cache, &self.data),
         )

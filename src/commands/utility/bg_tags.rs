@@ -11,7 +11,10 @@ use rand::RngCore;
 use rosu::models::GameMode;
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
-    model::channel::{Message, ReactionType},
+    model::{
+        channel::{Message, ReactionType},
+        misc::Mentionable,
+    },
     prelude::Context,
 };
 use std::{
@@ -197,6 +200,7 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
             )
             .await?;
     }
+    let mut owner = msg.author.id;
     loop {
         // Get all mapsets for which tags are missing
         let mapsets = {
@@ -232,13 +236,15 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         };
         let (mapset_id, img) = get_random_image(mapsets, mode).await;
         let content = format!(
-            "Which tags should this mapsets get: {}beatmapsets/{}\n\
+            "{} Which tags should this mapsets get: {}beatmapsets/{}\n\
             ```\n\
             🍋: Easy 🎨: Weeb 😱: Hard name 🗽: English 💯: Tech\n\
             🤓: Hard 🍨: Kpop 🪀: Alternate 🌀: Streams ✅: Log in\n\
             🤡: Meme 👨‍🌾: Farm 🟦: Blue sky  👴: Old     ❌: Exit loop\n\
             ```",
-            HOMEPAGE, mapset_id
+            owner.mention(),
+            HOMEPAGE,
+            mapset_id
         );
         // Send response
         let response = msg
@@ -284,8 +290,8 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         // Run collector
         let mut tags = MapsetTags::empty();
         while let Some(reaction) = collector.next().await {
-            let tag = if let ReactionType::Unicode(ref reaction) = reaction.as_inner_ref().emoji {
-                match reaction.as_str() {
+            let tag = if let ReactionType::Unicode(ref r) = reaction.as_inner_ref().emoji {
+                match r.as_str() {
                     "🍋" => MapsetTags::Easy,
                     "🤓" => MapsetTags::Hard,
                     "🤡" => MapsetTags::Meme,
@@ -300,6 +306,7 @@ async fn bgtags(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                     "🌀" => MapsetTags::Streams,
                     "🍨" => MapsetTags::Kpop,
                     "✅" => {
+                        owner = reaction.as_inner_ref().user_id;
                         break_loop = false;
                         break;
                     }

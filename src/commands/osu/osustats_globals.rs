@@ -81,7 +81,7 @@ async fn osustats_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args)
 
     // Accumulate all necessary data
     let pages = numbers::div_euclid(5, amount);
-    let data = match OsuStatsGlobalsEmbed::new(&user, &scores, (1, pages), ctx).await {
+    let data = match OsuStatsGlobalsEmbed::new(&user, &scores, amount, (1, pages), ctx).await {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id

@@ -27,6 +27,7 @@ impl OsuStatsGlobalsEmbed {
     pub async fn new<D>(
         user: &User,
         scores: &BTreeMap<usize, OsuStatsScore>,
+        total: usize,
         pages: (usize, usize),
         cache_data: D,
     ) -> Result<Self, Error>
@@ -85,7 +86,10 @@ impl OsuStatsGlobalsEmbed {
             description,
             author: osu::get_user_author(&user),
             thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
-            footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
+            footer: Footer::new(format!(
+                "Page {}/{} ~ Total scores: {}",
+                pages.0, pages.1, total
+            )),
         })
     }
 }
