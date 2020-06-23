@@ -1,5 +1,5 @@
 use crate::{
-    database::{MySQL, Platform},
+    database::MySQL,
     embeds::{EmbedData, TwitchNotifEmbed},
     streams::{Twitch, TwitchStream},
     structs::{Guilds, OnlineTwitch, ReactionTracker, StreamTracks},
@@ -199,11 +199,7 @@ async fn _check_streams(http: &Http, data: &RwLock<TypeMap>) {
 
         // Get data about what needs to be tracked for which channel
         let stream_tracks = reading.get::<StreamTracks>().unwrap();
-        let user_ids: Vec<_> = stream_tracks
-            .iter()
-            .filter(|track| track.platform == Platform::Twitch)
-            .map(|track| track.user_id)
-            .collect();
+        let user_ids: Vec<_> = stream_tracks.iter().map(|track| track.user_id).collect();
         // Twitch provides up to 100 streams per request, otherwise its trimmed
         if user_ids.len() > 100 {
             warn!("Reached 100 twitch trackings, improve handling!");

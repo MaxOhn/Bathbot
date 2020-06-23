@@ -1,7 +1,7 @@
 mod models;
 
 use models::BeatmapWrapper;
-pub use models::{DBMapSet, MapsetTagWrapper, Platform, Ratios, StreamTrack, TwitchUser};
+pub use models::{DBMapSet, MapsetTagWrapper, Ratios, StreamTrack, TwitchUser};
 
 use crate::{commands::utility::MapsetTags, util::globals::AUTHORITY_ROLES, Guild};
 
@@ -320,11 +320,10 @@ UPDATE
         Ok(())
     }
 
-    pub async fn add_stream_track(&self, channel: u64, user: u64, pf: Platform) -> DBResult<()> {
-        sqlx::query("INSERT INTO stream_tracks(channel_id,user_id,platform) VALUES (?,?,?)")
+    pub async fn add_stream_track(&self, channel: u64, user: u64) -> DBResult<()> {
+        sqlx::query("INSERT INTO stream_tracks(channel_id,user_id) VALUES (?,?)")
             .bind(channel)
             .bind(user)
-            .bind(pf as u8)
             .execute(&self.pool)
             .await?;
         Ok(())
@@ -356,19 +355,17 @@ UPDATE
         Ok(tracks)
     }
 
-    pub async fn remove_stream_track(&self, channel: u64, user: u64, pf: Platform) -> DBResult<()> {
+    pub async fn remove_stream_track(&self, channel: u64, user: u64) -> DBResult<()> {
         sqlx::query(
             r#"
 DELETE FROM
     stream_tracks
 WHERE
     channel_id=?
-    AND user_id=?
-    AND platform=?"#,
+    AND user_id=?"#,
         )
         .bind(channel)
         .bind(user)
-        .bind(pf as u8)
         .execute(&self.pool)
         .await?;
         Ok(())

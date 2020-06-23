@@ -1,4 +1,4 @@
-use crate::{database::Platform, util::MessageExt, StreamTracks, TwitchUsers};
+use crate::{util::MessageExt, StreamTracks, TwitchUsers};
 
 use itertools::Itertools;
 use rayon::prelude::*;
@@ -19,11 +19,9 @@ async fn trackedstreams(ctx: &Context, msg: &Message) -> CommandResult {
         twitch_users
             .par_iter()
             .filter(|(_, &twitch_id)| {
-                tracks.iter().any(|track| {
-                    track.user_id == twitch_id
-                        && track.channel_id == msg.channel_id.0
-                        && track.platform == Platform::Twitch
-                })
+                tracks
+                    .iter()
+                    .any(|track| track.user_id == twitch_id && track.channel_id == msg.channel_id.0)
             })
             .map(|(name, _)| name.clone())
             .collect()
@@ -39,10 +37,7 @@ async fn trackedstreams(ctx: &Context, msg: &Message) -> CommandResult {
     msg.channel_id
         .say(
             ctx,
-            format!(
-                "Tracked streams in this channel:\nTwitch: `{}`\nMixer: `None`",
-                user_str
-            ),
+            format!("Tracked twitch streams in this channel:\n`{}`", user_str),
         )
         .await?
         .reaction_delete(ctx, msg.author.id)
