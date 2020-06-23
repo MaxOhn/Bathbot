@@ -94,8 +94,10 @@ impl Scraper {
             .multipart(form);
         self.ratelimiter.until_ready().await;
         let response = request.send().await?;
-        let text = response.text().await?;
-        let result: Value = serde_json::from_str(&text)?;
+        // let text = response.text().await?;
+        // let result: Value = serde_json::from_str(&text)?;
+        let bytes = response.bytes().await?;
+        let result: Value = serde_json::from_slice(&bytes)?;
         let (scores, amount) = if let Value::Array(mut array) = result {
             let mut values = array.drain(..2);
             let scores = serde_json::from_value(values.next().unwrap())?;

@@ -38,8 +38,8 @@ impl OsuStatsGlobalsEmbed {
             return Ok(Self {
                 author: osu::get_user_author(&user),
                 thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
-                footer: Footer::new(String::from("Page 1/1")),
-                description: String::from("No score with these parameters were found"),
+                footer: Footer::new(String::from("Page 1/1 ~ Total scores: 0")),
+                description: String::from("No scores with these parameters were found"),
             });
         }
         let index = (pages.0 - 1) * 5;

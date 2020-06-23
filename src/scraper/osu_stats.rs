@@ -62,8 +62,8 @@ pub struct OsuStatsMap {
     pub creator: String,
     pub bpm: f32,
     pub source: String,
-    #[serde(rename = "diffRating", deserialize_with = "str_to_f32")]
-    pub stars: f32,
+    #[serde(rename = "diffRating", deserialize_with = "str_to_maybe_f32")]
+    pub stars: Option<f32>,
     #[serde(rename = "diffSize", deserialize_with = "str_to_f32")]
     pub diff_cs: f32,
     #[serde(rename = "diffOverall", deserialize_with = "str_to_f32")]

@@ -65,7 +65,7 @@ impl PPCalculator {
         self.map_id = Some(map.map_id());
         self.max_combo_map = map.max_combo();
         self.mode = Some(map.mode());
-        self.default_stars = Some(map.stars());
+        self.default_stars = map.stars();
         self.approval_status = Some(map.approval_status());
         self
     }
@@ -81,10 +81,14 @@ impl PPCalculator {
         Some(amount)
     }
     pub async fn calculate(&mut self, calculations: Calculations) -> Result<(), Error> {
+        let map_path = match self.map_id {
+            Some(map_id) => osu::prepare_beatmap_file(map_id).await?,
+            None => bail!("Cannot calculate without map_id"),
+        };
         let (pp, max_pp, stars) = tokio::join!(
-            calculate_pp(&self, calculations),
-            calculate_max_pp(&self, calculations),
-            calculate_stars(&self, calculations)
+            calculate_pp(&self, calculations, &map_path),
+            calculate_max_pp(&self, calculations, &map_path),
+            calculate_stars(&self, calculations, &map_path)
         );
         if let Ok(Some(pp)) = pp {
             self.pp = Some(pp);
@@ -115,6 +119,7 @@ impl PPCalculator {
 async fn calculate_pp(
     data: &PPCalculator,
     calculations: Calculations,
+    map_path: &str,
 ) -> Result<Option<f32>, Error> {
     // Do we want to calculate pp?
     if !calculations.contains(Calculations::PP) {
@@ -128,15 +133,10 @@ async fn calculate_pp(
         Some(mode) => mode,
         None => bail!("Cannot calculate pp without mode"),
     };
-    let map_id = match data.map_id {
-        Some(map_id) => map_id,
-        None => bail!("Cannot calculate pp without map_id"),
-    };
     // Distinguish between mods
     let pp = match mode {
         // Oppai for STD and TKO
         GameMode::STD | GameMode::TKO => {
-            let map_path = osu::prepare_beatmap_file(map_id).await?;
             let mut oppai = Oppai::new();
             if let Some(mods) = data.mods {
                 oppai.set_mods(mods.bits());
@@ -155,7 +155,7 @@ async fn calculate_pp(
             if let Some(total_hits) = data.total_hits_oppai() {
                 oppai.set_end_index(total_hits);
             }
-            oppai.calculate(Some(&map_path))?;
+            oppai.calculate(Some(map_path))?;
             oppai.get_pp()
         }
         // osu-tools for MNA and CTB
@@ -164,7 +164,6 @@ async fn calculate_pp(
                 Some(ref data_map) => data_map,
                 None => bail!("Cannot calculate {} pp without typemap", mode),
             };
-            let map_path = osu::prepare_beatmap_file(map_id).await?;
             let mut cmd = Command::new("dotnet");
             cmd.kill_on_drop(true)
                 .arg(env::var("PERF_CALC").unwrap())
@@ -209,6 +208,7 @@ async fn calculate_pp(
 async fn calculate_max_pp(
     data: &PPCalculator,
     calculations: Calculations,
+    map_path: &str,
 ) -> Result<Option<f32>, Error> {
     // Do we want to calculate max pp?
     if !calculations.contains(Calculations::MAX_PP) {
@@ -226,12 +226,11 @@ async fn calculate_max_pp(
     match mode {
         // Oppai for STD and TKO
         GameMode::STD | GameMode::TKO => {
-            let map_path = osu::prepare_beatmap_file(map_id).await?;
             let mut oppai = Oppai::new();
             if let Some(mods) = data.mods {
                 oppai.set_mods(mods.bits());
             }
-            Ok(Some(oppai.calculate(Some(&map_path))?.get_pp()))
+            Ok(Some(oppai.calculate(Some(map_path))?.get_pp()))
         }
         // osu-tools for MNA and CTB
         GameMode::MNA | GameMode::CTB => {
@@ -249,7 +248,6 @@ async fn calculate_max_pp(
                 }
             }
             // If not, calculate
-            let map_path = osu::prepare_beatmap_file(map_id).await?;
             let mut cmd = Command::new("dotnet");
             cmd.kill_on_drop(true)
                 .arg(env::var("PERF_CALC").unwrap())
@@ -291,13 +289,14 @@ async fn calculate_max_pp(
 async fn calculate_stars(
     data: &PPCalculator,
     calculations: Calculations,
+    map_path: &str,
 ) -> Result<Option<f32>, Error> {
     if !calculations.contains(Calculations::STARS) {
         return Ok(None);
     }
     if let Some(mode) = data.mode {
         if let Some(mods) = data.mods {
-            if !mods.changes_stars(mode) {
+            if !mods.changes_stars(mode) && data.default_stars.is_some() {
                 return Ok(data.default_stars);
             }
         }
@@ -312,12 +311,11 @@ async fn calculate_stars(
     };
     match mode {
         GameMode::STD | GameMode::TKO => {
-            let map_path = osu::prepare_beatmap_file(map_id).await?;
             let mut oppai = Oppai::new();
             if let Some(mods) = data.mods {
                 oppai.set_mods(mods.bits());
             }
-            Ok(Some(oppai.calculate(Some(&map_path))?.get_stars()))
+            Ok(Some(oppai.calculate(Some(map_path))?.get_stars()))
         }
         GameMode::MNA | GameMode::CTB => {
             let data_map = match data.data {
@@ -333,7 +331,6 @@ async fn calculate_stars(
                     return Ok(Some(stars));
                 }
             }
-            let map_path = osu::prepare_beatmap_file(map_id).await?;
             let mut cmd = Command::new("dotnet");
             cmd.kill_on_drop(true)
                 .arg(env::var("PERF_CALC").unwrap())
@@ -348,12 +345,14 @@ async fn calculate_stars(
             }
             let stars = parse_calculation(cmd, data_map).await?;
             // Store value in DB
-            if let Ranked | Loved | Approved = data.approval_status.unwrap() {
-                let data_map = data_map.read().await;
-                let mysql = data_map.get::<MySQL>().unwrap();
-                let mods = data.mods.unwrap_or_default();
-                if let Err(why) = mysql.insert_stars_map(map_id, mode, mods, stars).await {
-                    warn!("Error while inserting stars: {}", why);
+            if !data.mods.as_ref().unwrap().is_empty() {
+                if let Ranked | Loved | Approved = data.approval_status.unwrap() {
+                    let data_map = data_map.read().await;
+                    let mysql = data_map.get::<MySQL>().unwrap();
+                    let mods = data.mods.unwrap_or_default();
+                    if let Err(why) = mysql.insert_stars_map(map_id, mode, mods, stars).await {
+                        warn!("Error while inserting stars: {}", why);
+                    }
                 }
             }
             Ok(Some(stars))
@@ -384,7 +383,7 @@ pub trait BeatmapExt {
     fn max_combo(&self) -> Option<u32>;
     fn map_id(&self) -> u32;
     fn mode(&self) -> GameMode;
-    fn stars(&self) -> f32;
+    fn stars(&self) -> Option<f32>;
     fn approval_status(&self) -> ApprovalStatus;
 }
 
@@ -398,7 +397,7 @@ impl BeatmapExt for &OsuStatsMap {
     fn mode(&self) -> GameMode {
         self.mode
     }
-    fn stars(&self) -> f32 {
+    fn stars(&self) -> Option<f32> {
         self.stars
     }
     fn approval_status(&self) -> ApprovalStatus {
@@ -416,8 +415,8 @@ impl BeatmapExt for &Beatmap {
     fn mode(&self) -> GameMode {
         self.mode
     }
-    fn stars(&self) -> f32 {
-        self.stars
+    fn stars(&self) -> Option<f32> {
+        Some(self.stars)
     }
     fn approval_status(&self) -> ApprovalStatus {
         self.approval_status
