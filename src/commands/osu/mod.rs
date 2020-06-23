@@ -6,6 +6,7 @@ pub mod mania;
 mod match_costs;
 mod most_played;
 mod most_played_common;
+pub mod osustats_globals;
 pub mod pp;
 pub mod profile;
 pub mod rank;

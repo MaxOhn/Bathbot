@@ -1,11 +1,14 @@
+mod deserialize;
 mod most_played;
+mod osu_stats;
 mod score;
 
 pub use most_played::MostPlayedMap;
+pub use osu_stats::*;
 use score::ScraperScores;
 pub use score::{ScraperBeatmap, ScraperScore};
 
-use crate::{util::globals::HOMEPAGE, WITH_SCRAPER};
+use crate::{arguments::ModSelection, util::globals::HOMEPAGE, WITH_SCRAPER};
 
 use failure::Error;
 use governor::{
@@ -15,11 +18,15 @@ use governor::{
 };
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
+    multipart::Form,
     Client, Response,
 };
 use rosu::models::{GameMode, GameMods};
 use scraper::{Html, Node, Selector};
+use serde_json::Value;
 use std::{collections::HashSet, convert::TryFrom, env, fmt::Write, num::NonZeroU32};
+
+type Result<T> = std::result::Result<T, Error>;
 
 pub struct Scraper {
     client: Client,
@@ -27,7 +34,7 @@ pub struct Scraper {
 }
 
 impl Scraper {
-    pub async fn new() -> Result<Self, Error> {
+    pub async fn new() -> Result<Self> {
         // Initialize client
         let mut builder = Client::builder();
         if WITH_SCRAPER {
@@ -50,18 +57,58 @@ impl Scraper {
         })
     }
 
-    async fn send_request(&self, url: String) -> Result<Response, reqwest::Error> {
+    async fn send_request(&self, url: String) -> Result<Response> {
         debug!("Scraping url {}", url);
         self.ratelimiter.until_ready().await;
-        self.client.get(&url).send().await
+        Ok(self.client.get(&url).send().await?)
+    }
+
+    pub async fn get_global_scores(
+        &self,
+        params: &OsuStatsParams,
+    ) -> Result<(Vec<OsuStatsScore>, usize)> {
+        let mut form = Form::new()
+            .text("accMin", params.acc_min.to_string())
+            .text("accMax", params.acc_max.to_string())
+            .text("rankMin", params.rank_min.to_string())
+            .text("rankMax", params.rank_max.to_string())
+            .text("gamemode", (params.mode as u8).to_string())
+            .text("sortBy", (params.order as u8).to_string())
+            .text("sortOrder", (!params.descending as u8).to_string())
+            .text("page", params.page.to_string())
+            .text("u1", params.username.clone());
+        if let Some((mods, selection)) = params.mods {
+            let mut mod_str = String::with_capacity(3);
+            match selection {
+                ModSelection::None => {}
+                ModSelection::Includes => mod_str.push('+'),
+                ModSelection::Excludes => mod_str.push('-'),
+                ModSelection::Exact => mod_str.push('!'),
+            }
+            let _ = write!(mod_str, "{}", mods);
+            form = form.text("mods", mod_str);
+        }
+        let request = self
+            .client
+            .post("https://osustats.ppy.sh/api/getScores")
+            .multipart(form);
+        self.ratelimiter.until_ready().await;
+        let response = request.send().await?;
+        let text = response.text().await?;
+        let result: Value = serde_json::from_str(&text)?;
+        let (scores, amount) = if let Value::Array(mut array) = result {
+            let mut values = array.drain(..2);
+            let scores = serde_json::from_value(values.next().unwrap())?;
+            let amount = serde_json::from_value(values.next().unwrap())?;
+            (scores, amount)
+        } else {
+            (Vec::new(), 0)
+        };
+        Ok((scores, amount))
     }
 
     // Retrieve the most played maps of a user
-    pub async fn get_most_played(
-        &self,
-        user_id: u32,
-        amount: u32,
-    ) -> Result<Vec<MostPlayedMap>, Error> {
+    pub async fn get_most_played(&self, user_id: u32, amount: u32) -> Result<Vec<MostPlayedMap>> {
         let url = format!(
             "{base}users/{id}/beatmapsets/most_played?limit={limit}",
             base = HOMEPAGE,
@@ -80,7 +127,7 @@ impl Scraper {
         map_id: u32,
         national: bool,
         mods: Option<&GameMods>,
-    ) -> Result<Vec<ScraperScore>, Error> {
+    ) -> Result<Vec<ScraperScore>> {
         let mut scores = self._get_leaderboard(map_id, national, mods).await?;
         let mods = mods.and_then(|mods| {
             let dt = GameMods::DoubleTime.bits();
@@ -113,7 +160,7 @@ impl Scraper {
         map_id: u32,
         national: bool,
         mods: Option<&GameMods>,
-    ) -> Result<Vec<ScraperScore>, Error> {
+    ) -> Result<Vec<ScraperScore>> {
         let mut url = format!("{base}beatmaps/{id}/scores?", base = HOMEPAGE, id = map_id);
         if national {
             url.push_str("type=country");
@@ -137,7 +184,7 @@ impl Scraper {
         rank: usize,
         mode: GameMode,
         country_acronym: Option<&str>,
-    ) -> Result<u32, Error> {
+    ) -> Result<u32> {
         if rank < 1 || 10_000 < rank {
             bail!("Rank must be between 1 and 10_000, got {}", rank);
         }

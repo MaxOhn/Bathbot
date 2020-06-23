@@ -5,6 +5,7 @@ mod leaderboard;
 mod most_played;
 mod most_played_common;
 mod nochoke;
+mod osustats_globals;
 mod recent;
 mod top;
 
@@ -15,6 +16,7 @@ pub use leaderboard::LeaderboardPagination;
 pub use most_played::MostPlayedPagination;
 pub use most_played_common::MostPlayedCommonPagination;
 pub use nochoke::NoChokePagination;
+pub use osustats_globals::OsuStatsGlobalsPagination;
 pub use recent::RecentPagination;
 pub use top::TopPagination;
 
@@ -51,6 +53,12 @@ pub trait Pagination: Sync + Sized {
     // Optionally implement these
     fn reactions() -> &'static [&'static str] {
         &["⏮️", "⏪", "⏩", "⏭️"]
+    }
+    fn single_step(&self) -> usize {
+        1
+    }
+    fn multi_step(&self) -> usize {
+        5
     }
     fn jump_index(&self) -> Option<usize> {
         None
@@ -147,9 +155,9 @@ pub trait Pagination: Sync + Sized {
                 }
             }
             // Move one page left
-            "⏪" => self.index().checked_sub(self.per_page()),
+            "⏪" => self.index().checked_sub(self.multi_step()),
             // Move one index left
-            "◀️" => self.index().checked_sub(1),
+            "◀️" => self.index().checked_sub(self.single_step()),
             // Move to specific position
             "*️⃣" => {
                 if let Some(index) = self.jump_index() {
@@ -165,17 +173,18 @@ pub trait Pagination: Sync + Sized {
             }
             // Move one index right
             "▶️" => {
-                if self.index() < self.last_index() {
-                    Some(self.index() + 1)
+                let next = self.index() + self.single_step();
+                if next <= self.last_index() {
+                    Some(next)
                 } else {
                     None
                 }
             }
             // Move one page right
             "⏩" => {
-                let index = self.index() + self.per_page();
-                if index <= self.last_index() {
-                    Some(index)
+                let next = self.index() + self.multi_step();
+                if next <= self.last_index() {
+                    Some(next)
                 } else {
                     None
                 }

@@ -1,6 +1,7 @@
 mod discord;
 mod name;
 mod osu_id;
+mod osu_stats;
 mod rank;
 mod simulate;
 mod top;
@@ -8,6 +9,7 @@ mod top;
 pub use discord::*;
 pub use name::*;
 pub use osu_id::*;
+pub use osu_stats::*;
 pub use rank::*;
 pub use simulate::*;
 pub use top::*;

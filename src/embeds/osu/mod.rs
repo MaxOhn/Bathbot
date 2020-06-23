@@ -4,6 +4,7 @@ mod match_costs;
 mod most_played;
 mod most_played_common;
 mod nochoke;
+mod osustats_globals;
 mod pp_missing;
 mod profile;
 mod rank;
@@ -20,6 +21,7 @@ pub use match_costs::MatchCostEmbed;
 pub use most_played::MostPlayedEmbed;
 pub use most_played_common::MostPlayedCommonEmbed;
 pub use nochoke::NoChokeEmbed;
+pub use osustats_globals::OsuStatsGlobalsEmbed;
 pub use pp_missing::PPMissingEmbed;
 pub use profile::ProfileEmbed;
 pub use rank::RankEmbed;
@@ -32,7 +34,7 @@ pub use whatif::WhatIfEmbed;
 
 use crate::{
     embeds::Author,
-    util::{datetime::sec_to_minsec, globals::HOMEPAGE, numbers, osu::grade_emote, pp::PPProvider},
+    util::{datetime::sec_to_minsec, globals::HOMEPAGE, numbers, osu::grade_emote, pp::ScoreExt},
 };
 
 use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score, User};
@@ -67,20 +69,20 @@ pub fn get_mods(mods: GameMods) -> String {
     }
 }
 
-pub fn get_hits(score: &Score, mode: GameMode) -> String {
+pub fn get_hits(score: impl ScoreExt, mode: GameMode) -> String {
     let mut hits = String::from("{");
     if mode == GameMode::MNA {
-        let _ = write!(hits, "{}/", score.count_geki);
+        let _ = write!(hits, "{}/", score.count_geki());
     }
-    let _ = write!(hits, "{}/", score.count300);
+    let _ = write!(hits, "{}/", score.count_300());
     if mode == GameMode::MNA {
-        let _ = write!(hits, "{}/", score.count_katu);
+        let _ = write!(hits, "{}/", score.count_katu());
     }
-    let _ = write!(hits, "{}/", score.count100);
+    let _ = write!(hits, "{}/", score.count_100());
     if mode != GameMode::TKO {
-        let _ = write!(hits, "{}/", score.count50);
+        let _ = write!(hits, "{}/", score.count_50());
     }
-    let _ = write!(hits, "{}}}", score.count_miss);
+    let _ = write!(hits, "{}}}", score.count_miss());
     hits
 }
 
@@ -100,13 +102,7 @@ pub fn get_combo(score: &Score, map: &Beatmap) -> String {
     combo
 }
 
-pub fn get_pp(score: &Score, pp_provider: &PPProvider) -> String {
-    let actual = score.pp.or_else(|| Some(pp_provider.pp()));
-    let max = Some(pp_provider.max_pp());
-    _get_pp(actual, max)
-}
-
-pub fn _get_pp(actual: Option<f32>, max: Option<f32>) -> String {
+pub fn get_pp(actual: Option<f32>, max: Option<f32>) -> String {
     let actual = actual.map_or_else(|| '-'.to_string(), |pp| numbers::round(pp).to_string());
     let max = max.map_or_else(|| '-'.to_string(), |pp| numbers::round(pp).to_string());
     format!("**{}**/{}PP", actual, max)

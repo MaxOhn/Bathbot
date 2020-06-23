@@ -3,7 +3,12 @@ use crate::{
     database::MySQL,
     embeds::{EmbedData, NoChokeEmbed},
     pagination::{NoChokePagination, Pagination},
-    util::{globals::OSU_API_ISSUE, numbers, osu, pp::PPProvider, MessageExt},
+    util::{
+        globals::OSU_API_ISSUE,
+        numbers, osu,
+        pp::{Calculations, PPCalculator},
+        MessageExt,
+    },
     DiscordLinks, Osu,
 };
 
@@ -77,7 +82,7 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 return Err(why.to_string().into());
             }
         };
-        let scores = match user.get_top_scores(&osu, 100, GameMode::STD).await {
+        let scores = match user.get_top_scores(osu, 100, GameMode::STD).await {
             Ok(scores) => scores,
             Err(why) => {
                 msg.channel_id
@@ -151,8 +156,16 @@ async fn nochokes(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 && (miss_limit.is_none() || score.count_miss <= *miss_limit.as_ref().unwrap())
             {
                 osu::unchoke_score(&mut unchoked, &map);
-                let pp = PPProvider::calculate_oppai_pp(&unchoked, &map).await?;
-                unchoked.pp = Some(pp);
+                let mut calculator = PPCalculator::new().score(&unchoked).map(&map);
+                if let Err(why) = calculator.calculate(Calculations::PP).await {
+                    msg.channel_id
+                        .say(ctx, "Error while calculating pp, blame bade")
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
+                    return Err(why.to_string().into());
+                }
+                unchoked.pp = calculator.pp();
             }
             scores_data.push((i + 1, score, unchoked, map));
         }

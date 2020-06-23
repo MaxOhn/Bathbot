@@ -213,31 +213,6 @@ UPDATE
         Ok(())
     }
 
-    pub async fn update_pp_map(
-        &self,
-        map_id: u32,
-        mode: GameMode,
-        mut mods: GameMods,
-        pp: f32,
-    ) -> DBResult<()> {
-        if mods.contains(GameMods::NightCore) {
-            mods.remove(GameMods::NightCore);
-            mods.insert(GameMods::DoubleTime);
-        }
-        let (table, column) = match mode {
-            GameMode::MNA => ("pp_mania_mods", mania_pp_mods_column(mods)?),
-            GameMode::CTB => ("pp_ctb_mods", ctb_pp_mods_column(mods)?),
-            _ => unreachable!(),
-        };
-        let query = format!("UPDATE {} SET {}=? WHERE beatmap_id=?", table, col = column);
-        sqlx::query(&query)
-            .bind(pp)
-            .bind(map_id)
-            .execute(&self.pool)
-            .await?;
-        Ok(())
-    }
-
     // ----------------------------------------
     // Table: stars_mania_mods / stars_ctb_mods
     // ----------------------------------------
@@ -296,31 +271,6 @@ UPDATE
             .bind(map_id)
             .bind(stars)
             .bind(stars)
-            .execute(&self.pool)
-            .await?;
-        Ok(())
-    }
-
-    pub async fn update_stars_map(
-        &self,
-        map_id: u32,
-        mode: GameMode,
-        mut mods: GameMods,
-        stars: f32,
-    ) -> DBResult<()> {
-        if mods.contains(GameMods::NightCore) {
-            mods.remove(GameMods::NightCore);
-            mods.insert(GameMods::DoubleTime);
-        }
-        let (table, column) = match mode {
-            GameMode::MNA => ("stars_mania_mods", mania_stars_mods_column(mods)?),
-            GameMode::CTB => ("stars_ctb_mods", ctb_stars_mods_column(mods)?),
-            _ => unreachable!(),
-        };
-        let query = format!("UPDATE {} SET {}=? WHERE beatmap_id=?", table, col = column);
-        sqlx::query(&query)
-            .bind(stars)
-            .bind(map_id)
             .execute(&self.pool)
             .await?;
         Ok(())

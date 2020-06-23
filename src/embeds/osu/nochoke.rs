@@ -4,7 +4,7 @@ use crate::{
         globals::{AVATAR_URL, HOMEPAGE},
         numbers::round,
         osu::grade_emote,
-        pp::PPProvider,
+        pp::{Calculations, PPCalculator},
     },
 };
 
@@ -36,15 +36,11 @@ impl NoChokeEmbed {
         let pp_diff = (100.0 * (unchoked_pp - user.pp_raw as f64)).round() / 100.0;
         let mut description = String::with_capacity(512);
         for (idx, original, unchoked, map) in scores_data {
-            let (stars, max_pp) = {
-                let pp_provider = PPProvider::new(original, map, None).await.map_err(|why| {
-                    format_err!("Something went wrong while creating PPProvider: {}", why)
-                })?;
-                (
-                    osu::get_stars(pp_provider.stars()),
-                    round(pp_provider.max_pp()),
-                )
-            };
+            let calculations = Calculations::MAX_PP | Calculations::STARS;
+            let mut calculator = PPCalculator::new().score(original).map(map);
+            calculator.calculate(calculations).await?;
+            let stars = osu::get_stars(calculator.stars().unwrap());
+            let max_pp = round(calculator.max_pp().unwrap());
             let _ = writeln!(
                 description,
                 "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\

@@ -1,5 +1,6 @@
 use crate::{
     embeds::{osu, Author, EmbedData, Footer},
+    scraper::OsuStatsScore,
     util::{
         datetime::how_long_ago,
         discord::CacheData,
@@ -11,71 +12,85 @@ use crate::{
 };
 
 use failure::Error;
-use rosu::models::{Beatmap, GameMode, Score, User};
-use std::{fmt::Write, sync::Arc};
+use rosu::models::User;
+use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 
 #[derive(Clone)]
-pub struct TopEmbed {
+pub struct OsuStatsGlobalsEmbed {
     description: String,
-    author: Author,
     thumbnail: String,
+    author: Author,
     footer: Footer,
 }
 
-impl TopEmbed {
-    pub async fn new<'i, S, D>(
+impl OsuStatsGlobalsEmbed {
+    pub async fn new<D>(
         user: &User,
-        scores_data: S,
-        mode: GameMode,
+        scores: &BTreeMap<usize, OsuStatsScore>,
         pages: (usize, usize),
         cache_data: D,
     ) -> Result<Self, Error>
     where
-        S: Iterator<Item = &'i (usize, Score, Beatmap)>,
         D: CacheData,
     {
-        let mut description = String::with_capacity(512);
-        for (idx, score, map) in scores_data {
+        if scores.is_empty() {
+            return Ok(Self {
+                author: osu::get_user_author(&user),
+                thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+                footer: Footer::new(String::from("Page 1/1")),
+                description: String::from("No score with these parameters were found"),
+            });
+        }
+        let index = (pages.0 - 1) * 5;
+        let entries = scores.range(index..index + 5);
+        let mut description = String::with_capacity(1024);
+        for (_, score) in entries {
             let grade = { grade_emote(score.grade, cache_data.cache()).await };
             let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
             let mut calculator = PPCalculator::new()
                 .score(score)
-                .map(map)
+                .map(&score.map)
                 .data(Arc::clone(cache_data.data()));
             calculator.calculate(calculations).await?;
             let stars = osu::get_stars(calculator.stars().unwrap());
             let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
+            let mut combo = format!("**{}x**/", score.max_combo);
+            match score.map.max_combo {
+                Some(amount) => {
+                    let _ = write!(combo, "{}x", amount);
+                }
+                None => combo.push('-'),
+            }
             let _ = writeln!(
                 description,
-                "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
-                {grade} {pp} ~ ({acc}) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
-                idx = idx,
-                title = map.title,
-                version = map.version,
+                "**[#{rank}] [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
+                {grade} {pp} ~ ({acc}%) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
+                rank = score.position,
+                title = score.map.title,
+                version = score.map.version,
                 base = HOMEPAGE,
-                id = map.beatmap_id,
+                id = score.map.beatmap_id,
                 mods = osu::get_mods(score.enabled_mods),
                 stars = stars,
                 grade = grade,
                 pp = pp,
-                acc = osu::get_acc(&score, mode),
+                acc = score.accuracy,
                 score = with_comma_u64(score.score as u64),
-                combo = osu::get_combo(&score, &map),
-                hits = osu::get_hits(score, mode),
+                combo = combo,
+                hits = osu::get_hits(score, score.map.mode),
                 ago = how_long_ago(&score.date)
             );
         }
-        description.pop();
         Ok(Self {
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
             description,
-            author: osu::get_user_author(user),
+            author: osu::get_user_author(&user),
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
         })
     }
 }
 
-impl EmbedData for TopEmbed {
+impl EmbedData for OsuStatsGlobalsEmbed {
     fn description(&self) -> Option<&str> {
         Some(&self.description)
     }
