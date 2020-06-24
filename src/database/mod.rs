@@ -166,7 +166,14 @@ UPDATE
         }
         let (table, column) = match mode {
             GameMode::MNA => ("pp_mania_mods", mania_pp_mods_column(mods)?),
-            GameMode::CTB => ("pp_ctb_mods", ctb_pp_mods_column(mods)?),
+            GameMode::CTB => {
+                let column = ctb_pp_mods_column(mods);
+                if let Some(column) = column {
+                    ("pp_ctb_mods", column)
+                } else {
+                    return Ok(None);
+                }
+            }
             _ => unreachable!(),
         };
         let query = format!("SELECT {} FROM {} WHERE beatmap_id=?", column, table);
@@ -190,7 +197,14 @@ UPDATE
         }
         let (table, column) = match mode {
             GameMode::MNA => ("pp_mania_mods", mania_pp_mods_column(mods)?),
-            GameMode::CTB => ("pp_ctb_mods", ctb_pp_mods_column(mods)?),
+            GameMode::CTB => {
+                let column = ctb_pp_mods_column(mods);
+                if let Some(column) = column {
+                    ("pp_ctb_mods", column)
+                } else {
+                    return Ok(());
+                }
+            }
             _ => unreachable!(),
         };
         let query = format!(
@@ -655,18 +669,20 @@ impl CustomSQL for String {
     }
 }
 
-fn ctb_pp_mods_column(mods: GameMods) -> DBResult<&'static str> {
-    let valid = GameMods::Easy | GameMods::NoFail | GameMods::DoubleTime | GameMods::HalfTime;
+fn ctb_pp_mods_column(mods: GameMods) -> Option<&'static str> {
+    if (mods - GameMods::Perfect).is_empty() {
+        return Some("NM");
+    }
+    let valid = GameMods::Hidden | GameMods::HardRock | GameMods::DoubleTime;
     let m = match mods & valid {
-        GameMods::NoMod => "NM",
         GameMods::Hidden => "HD",
         GameMods::HardRock => "HR",
         GameMods::DoubleTime => "DT",
         m if m == GameMods::Hidden | GameMods::HardRock => "HDHR",
         m if m == GameMods::Hidden | GameMods::DoubleTime => "HDDT",
-        _ => bail!("No valid mod combination for ctb pp ({})", mods),
+        _ => return None,
     };
-    Ok(m)
+    Some(m)
 }
 
 fn mania_pp_mods_column(mods: GameMods) -> DBResult<&'static str> {
