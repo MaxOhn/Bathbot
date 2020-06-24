@@ -8,9 +8,10 @@ use crate::{
 };
 
 use rayon::prelude::*;
+use regex::Regex;
 use rosu::{
     backend::requests::UserRequest,
-    models::{GameMode, GameMods, Score, User},
+    models::{Beatmap, GameMode, GameMods, Score, User},
 };
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
@@ -238,7 +239,7 @@ async fn top_send(
                     }
                 }
             };
-            if dont_filter_sotarks || &map.creator == "Sotarks" {
+            if dont_filter_sotarks || is_sotarks_map(&map) {
                 scores_data.push((i, score, map));
             }
         }
@@ -258,17 +259,17 @@ async fn top_send(
         TopType::Sotarks => {
             let amount = scores_data.len();
             let mut content = format!(
-                "I found {amount} Sotarks map{plural} in `{name}`'s top 100",
+                "I found {amount} Sotarks map{plural} in `{name}`'s top 100, ",
                 amount = amount,
                 plural = if amount != 1 { "s" } else { "" },
                 name = name
             );
             match amount {
-                0 => content.push_str(", proud of you \\:)"),
-                n if n <= 5 => content.push_str(", kinda sad \\:/"),
-                n if n <= 10 => content.push_str(", pretty sad \\:("),
-                n if n <= 15 => content.push_str(", really sad \\:(("),
-                _ => content.push_str(", just sad \\:'("),
+                0 => content.push_str("proud of you \\:)"),
+                n if n <= 5 => content.push_str("kinda sad \\:/"),
+                n if n <= 10 => content.push_str("pretty sad \\:("),
+                n if n <= 15 => content.push_str("really sad \\:(("),
+                _ => content.push_str("just sad \\:'("),
             }
             content
         }
@@ -445,4 +446,15 @@ pub enum TopSortBy {
     None,
     Acc,
     Combo,
+}
+
+fn is_sotarks_map(map: &Beatmap) -> bool {
+    let guest_diff = if map.creator.as_str() == "Sotarks" {
+        !Regex::new(".*'s? (Easy|Normal|Hard|Insane|Expert|Extra|Extreme)")
+            .unwrap()
+            .is_match(&map.version)
+    } else {
+        false
+    };
+    map.version.contains("Sotarks") || guest_diff
 }
