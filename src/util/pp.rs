@@ -345,14 +345,12 @@ async fn calculate_stars(
             }
             let stars = parse_calculation(cmd, data_map).await?;
             // Store value in DB
-            if !data.mods.as_ref().unwrap().is_empty() {
-                if let Ranked | Loved | Approved = data.approval_status.unwrap() {
-                    let data_map = data_map.read().await;
-                    let mysql = data_map.get::<MySQL>().unwrap();
-                    let mods = data.mods.unwrap_or_default();
-                    if let Err(why) = mysql.insert_stars_map(map_id, mode, mods, stars).await {
-                        warn!("Error while inserting stars: {}", why);
-                    }
+            if let Ranked | Loved | Approved = data.approval_status.unwrap() {
+                let data_map = data_map.read().await;
+                let mysql = data_map.get::<MySQL>().unwrap();
+                let mods = data.mods.unwrap_or_default();
+                if let Err(why) = mysql.insert_stars_map(map_id, mode, mods, stars).await {
+                    warn!("Error while inserting stars: {}", why);
                 }
             }
             Ok(Some(stars))

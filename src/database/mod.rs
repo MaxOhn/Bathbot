@@ -247,7 +247,14 @@ UPDATE
         mut mods: GameMods,
         stars: f32,
     ) -> DBResult<()> {
-        if mods.contains(GameMods::NightCore) {
+        let mania_mods = GameMods::DoubleTime | GameMods::HalfTime;
+        let ctb_mods =
+            GameMods::Easy | GameMods::HardRock | GameMods::DoubleTime | GameMods::HalfTime;
+        if (mode == GameMode::MNA && !mods.intersects(mania_mods))
+            || (mode == GameMode::CTB && !mods.intersects(ctb_mods))
+        {
+            return Ok(());
+        } else if mods.contains(GameMods::NightCore) {
             mods.remove(GameMods::NightCore);
             mods.insert(GameMods::DoubleTime);
         }
