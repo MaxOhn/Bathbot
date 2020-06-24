@@ -149,6 +149,7 @@ async fn bgtagsmanual(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
 }
 
 #[command]
+#[checks(BgVerified)]
 #[description = "Let me give you mapsets that still need to be tagged.\n\
 React to them properly, then lock it in by reacting with ✅.\n\
 To leave the loop, react with ❌ or just wait 10 minutes.\n\

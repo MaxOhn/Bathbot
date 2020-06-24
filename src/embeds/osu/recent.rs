@@ -54,10 +54,12 @@ impl RecentEmbed {
         let personal_idx = personal.iter().position(|s| s == score);
         let global_idx = global.iter().position(|s| s == score);
         let description = if personal_idx.is_some() || global_idx.is_some() {
-            let mut description = String::from("__**");
+            let mut description = String::with_capacity(25);
+            description.push_str("__**");
             if let Some(idx) = personal_idx {
                 let _ = write!(description, "Personal Best #{}", idx + 1);
                 if global_idx.is_some() {
+                    description.reserve(19);
                     description.push_str(" and ");
                 }
             }

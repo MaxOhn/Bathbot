@@ -449,12 +449,13 @@ pub enum TopSortBy {
 }
 
 fn is_sotarks_map(map: &Beatmap) -> bool {
-    let guest_diff = if map.creator.as_str() == "Sotarks" {
-        !Regex::new(".*'s? (Easy|Normal|Hard|Insane|Expert|Extra|Extreme)")
+    let version = map.version.to_lowercase();
+    let guest_diff = if map.creator.to_lowercase() == "sotarks" {
+        !Regex::new(".*'s? (easy|normal|hard|insane|expert|extra|extreme)")
             .unwrap()
-            .is_match(&map.version)
+            .is_match(&version)
     } else {
         false
     };
-    map.version.contains("Sotarks") || guest_diff
+    version.contains("sotarks") || guest_diff
 }
