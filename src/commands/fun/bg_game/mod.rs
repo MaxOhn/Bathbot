@@ -158,6 +158,11 @@ async fn start(ctx: &Context, msg: &Message) -> CommandResult {
     if mapsets.is_empty() {
         return Ok(());
     }
+    debug!(
+        "Starting bg game with included: {} ~ excluded: {}",
+        included.join(','),
+        excluded.join(',')
+    );
     _start(ctx, msg, mapsets).await
 }
 

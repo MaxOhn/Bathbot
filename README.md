@@ -40,13 +40,11 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Assign all other variables of the `.env.example` file into your `.env` file
 
 ## Todos
-- Mixer stream tracking
 - Allow username provision via discord user mention
 - Update spreadsheet (`<mostplayed`, `pagination`, ...)
 - Automize the bot setup via docker
 - Check on previous id buffer of bg game
 - Fix "Error while sending HTTP request." for `<c`
 - Log included and excluded tags for `<bg s`
-- Make use of the `https://osustats.ppy.sh/` api
   ### Commands
   - `<map` to show general stats for a map

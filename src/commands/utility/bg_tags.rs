@@ -451,7 +451,7 @@ impl FromStr for MapsetTags {
 }
 
 impl MapsetTags {
-    pub fn join(self, separator: &str) -> String {
+    pub fn join(self, separator: impl std::fmt::Display) -> String {
         let mut tags = self.into_iter();
         let first_tag = match tags.next() {
             Some(first_tag) => first_tag,

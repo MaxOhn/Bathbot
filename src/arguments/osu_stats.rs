@@ -34,7 +34,7 @@ impl OsuStatsArgs {
                 }
             } else {
                 return Err(String::from(
-                    "After the acc keyword you must specify either an integer for max rank \
+                    "After the rank keyword you must specify either an integer for max rank \
                     or two decimal numbers of the form `a..b` for min and max rank",
                 ));
             }
