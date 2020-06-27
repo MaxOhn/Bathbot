@@ -1,9 +1,10 @@
 use crate::{
     arguments::NameArgs,
+    scraper::{OsuStatsScore, OsuStatsParams},
     database::MySQL,
     embeds::{EmbedData, ProfileEmbed},
     util::{globals::OSU_API_ISSUE, MessageExt},
-    DiscordLinks, Osu,
+    DiscordLinks, Osu, Scraper,
 };
 
 use rayon::prelude::*;
@@ -83,73 +84,12 @@ async fn profile_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) 
         (user, scores)
     };
 
-    // Get all relevant maps from the database
-    let map_ids: Vec<u32> = scores.iter().map(|s| s.beatmap_id.unwrap()).collect();
-    let mut maps = {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        mysql
-            .get_beatmaps(&map_ids)
-            .await
-            .unwrap_or_else(|_| HashMap::default())
-    };
-    debug!("Found {}/{} beatmaps in DB", maps.len(), scores.len());
-
-    let retrieving_msg = if scores.len() - maps.len() > 15 {
-        Some(
-            msg.channel_id
-                .say(
-                    ctx,
-                    format!(
-                        "Retrieving {} maps from the api...",
-                        scores.len() - maps.len()
-                    ),
-                )
-                .await?,
-        )
-    } else {
-        None
-    };
-
-    // Retrieving all missing beatmaps
-    let res = {
-        let mut tuples = Vec::with_capacity(scores.len());
-        let mut missing_indices = Vec::with_capacity(scores.len());
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
-        for (i, score) in scores.into_iter().enumerate() {
-            let map_id = score.beatmap_id.unwrap();
-            let map = if maps.contains_key(&map_id) {
-                maps.remove(&map_id).unwrap()
-            } else {
-                missing_indices.push(i);
-                score.get_beatmap(osu).await.or_else(|e| {
-                    Err(CommandError(format!(
-                        "Error while retrieving Beatmap of score: {}",
-                        e
-                    )))
-                })?
-            };
-            tuples.push((score, map));
-        }
-        Ok((tuples, missing_indices))
-    };
-    let (score_maps, missing_maps): (Vec<_>, Option<Vec<Beatmap>>) = match res {
-        Ok((score_maps, missing_indices)) => {
-            let missing_maps = if missing_indices.is_empty() {
-                None
-            } else {
-                Some(
-                    score_maps
-                        .par_iter()
-                        .enumerate()
-                        .filter(|(i, _)| missing_indices.contains(i))
-                        .map(|(_, (_, map))| map.clone())
-                        .collect(),
-                )
-            };
-            (score_maps, missing_maps)
-        }
+    let (map_process_result, globals_count) = tokio::try_join!(
+        process_maps(ctx, &scores),
+        get_globals_count(ctx, user.username.clone(), mode)
+    ).await;
+    let (score_maps, missing_maps, retrieving_msg) = match map_process_result {
+        Ok(results) => results,
         Err(why) => {
             msg.channel_id
                 .say(ctx, OSU_API_ISSUE)
@@ -157,11 +97,11 @@ async fn profile_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) 
                 .reaction_delete(ctx, msg.author.id)
                 .await;
             return Err(why);
-        }
-    };
+        },
+    }
 
     // Accumulate all necessary data
-    let data = ProfileEmbed::new(user, score_maps, mode, &ctx.cache).await;
+    let data = ProfileEmbed::new(user, score_maps, mode, global_counts, &ctx.cache).await;
 
     if let Some(msg) = retrieving_msg {
         msg.delete(ctx).await?;
@@ -186,6 +126,83 @@ async fn profile_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) 
     }
     response?.reaction_delete(ctx, msg.author.id).await;
     Ok(())
+}
+
+async fn process_maps(ctx: &Context, scores: &[Score]) -> Result<(Vec<(Score, Beatmap)>, Option<Vec<Beatmap>>, Option<Message>), CommandError> {
+    // Get all relevant maps from the database
+    let map_ids: Vec<u32> = scores.iter().map(|s| s.beatmap_id.unwrap()).collect();
+    let mut maps = {
+        let data = ctx.data.read().await;
+        let mysql = data.get::<MySQL>().unwrap();
+        mysql
+            .get_beatmaps(&map_ids)
+            .await
+            .unwrap_or_else(|_| HashMap::default())
+    };
+    debug!("Found {}/{} beatmaps in DB", maps.len(), scores.len());
+
+    let retrieving_msg = if scores.len() - maps.len() > 15 {
+        msg.channel_id
+            .say(
+                ctx,
+                format!(
+                    "Retrieving {} maps from the api...",
+                    scores.len() - maps.len()
+                ),
+            )
+            .await.ok()
+    } else {
+        None
+    };
+
+    // Retrieving all missing beatmaps
+    let (score_maps, missing_indices) = {
+        let mut tuples = Vec::with_capacity(scores.len());
+        let mut missing_indices = Vec::with_capacity(scores.len());
+        let data = ctx.data.read().await;
+        let osu = data.get::<Osu>().unwrap();
+        for (i, score) in scores.into_iter().enumerate() {
+            let map_id = score.beatmap_id.unwrap();
+            let map = if maps.contains_key(&map_id) {
+                maps.remove(&map_id).unwrap()
+            } else {
+                missing_indices.push(i);
+                score.get_beatmap(osu).await.or_else(|why| {
+                    format_err!("Error while retrieving Beatmap of score: {}", why)
+                })?
+            };
+            tuples.push((score, map));
+        }
+        (tuples, missing_indices)
+    };
+    let missing_maps: Option<Vec<Beatmap>> = if missing_indices.is_empty() {
+        None
+    } else {
+        Some(
+            score_maps
+                .par_iter()
+                .enumerate()
+                .filter(|(i, _)| missing_indices.contains(i))
+                .map(|(_, (_, map))| map.clone())
+                .collect(),
+        )
+    };
+    Ok((score_maps, missing_maps, retrieving_msg))
+}
+
+async fn get_globals_count(ctx: &Context, name: String, mode: GameMode) -> HashMap<usize, usize> {
+    let data = ctx.data.read().await;
+    let scraper = data.get::<Scraper>().unwrap();
+    let mut counts = HashMap::new();
+    let mut params = OsuStatsParams::new(name).mode(mode);
+    for rank in [50, 20, 10, 5, 1] {
+        params = params.rank_max(rank);
+        match scraper.get_global_scores(&params).await {
+            Ok((_, count)) => counts.insert(rank, count),
+            Err(why) => error!("Error while retrieving osustats for profile: {}", why),
+        }
+    }
+    counts
 }
 
 #[command]

@@ -27,6 +27,7 @@ impl ProfileEmbed {
         user: User,
         score_maps: Vec<(Score, Beatmap)>,
         mode: GameMode,
+        globals_count: HashMap<usize, usize>,
         cache: &Cache,
     ) -> Self {
         let footer_text = format!(
@@ -134,6 +135,7 @@ impl ProfileEmbed {
                     false,
                 ));
             }
+            fields.reserve(if values.mod_combs_pp.is_some { 6 } else { 5 });
             fields.push((
                 "Favourite mods:".to_owned(),
                 values
@@ -171,6 +173,13 @@ impl ProfileEmbed {
                     .join("\n"),
                 true,
             ));
+            let mut count_str = String::with_capacity(64);
+            count_str.push_str("```\n");
+            for (rank, count) in globals_count {
+                let _ writeln!(count_str, "Top {:<2}: {}", rank, with_comma_u64(count as u64));
+            }
+            count_str.push_str("```");
+            fields.push(("Global leaderboard count".to_owned(), count_str, true));
             fields.push((
                 "Average map length:".to_owned(),
                 format!(
