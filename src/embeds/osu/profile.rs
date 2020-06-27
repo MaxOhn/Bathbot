@@ -1,4 +1,5 @@
 use crate::{
+    commands::osu::ProfileResult,
     embeds::{osu, Author, EmbedData, Footer},
     util::{
         datetime::{date_to_string, how_long_ago, sec_to_minsec},
@@ -9,9 +10,9 @@ use crate::{
 };
 
 use itertools::Itertools;
-use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score, User};
+use rosu::models::{GameMode, Grade, User};
 use serenity::cache::Cache;
-use std::{cmp::Ordering::Equal, collections::HashMap, fmt::Write};
+use std::{collections::HashMap, fmt::Write};
 
 #[derive(Clone)]
 pub struct ProfileEmbed {
@@ -25,9 +26,8 @@ pub struct ProfileEmbed {
 impl ProfileEmbed {
     pub async fn new(
         user: User,
-        score_maps: Vec<(Score, Beatmap)>,
-        mode: GameMode,
-        globals_count: HashMap<usize, usize>,
+        profile_result: Option<ProfileResult>,
+        globals_count: HashMap<usize, String>,
         cache: &Cache,
     ) -> Self {
         let footer_text = format!(
@@ -39,7 +39,6 @@ impl ProfileEmbed {
             (user.count_ssh + user.count_ss + user.count_sh + user.count_s + user.count_a) as i32,
         );
         let bonus_pp = (100.0 * 416.6667 * (1.0 - bonus_pow)).round() / 100.0;
-        let mut description = None;
         let mut fields = vec![
             (
                 "Ranked score:".to_owned(),
@@ -73,12 +72,9 @@ impl ProfileEmbed {
                 true,
             ),
         ];
-        if score_maps.is_empty() {
-            description = Some("No Top scores".to_string());
-        } else {
-            let values = ProfileResult::calc(mode, score_maps);
+        let description = if let Some(values) = profile_result {
             let mut combo = String::from(&values.avg_combo.to_string());
-            match mode {
+            match values.mode {
                 GameMode::STD | GameMode::CTB => {
                     let _ = write!(combo, "/{}", values.map_combo);
                 }
@@ -135,7 +131,7 @@ impl ProfileEmbed {
                     false,
                 ));
             }
-            fields.reserve(if values.mod_combs_pp.is_some { 6 } else { 5 });
+            fields.reserve(if values.mod_combs_pp.is_some() { 6 } else { 5 });
             fields.push((
                 "Favourite mods:".to_owned(),
                 values
@@ -173,10 +169,19 @@ impl ProfileEmbed {
                     .join("\n"),
                 true,
             ));
+            let count_len = globals_count
+                .iter()
+                .fold(0, |max, (_, count)| max.max(count.len()));
             let mut count_str = String::with_capacity(64);
             count_str.push_str("```\n");
             for (rank, count) in globals_count {
-                let _ writeln!(count_str, "Top {:<2}: {}", rank, with_comma_u64(count as u64));
+                let _ = writeln!(
+                    count_str,
+                    "Top {:<2}: {:>count_len$}",
+                    rank,
+                    count,
+                    count_len = count_len,
+                );
             }
             count_str.push_str("```");
             fields.push(("Global leaderboard count".to_owned(), count_str, true));
@@ -190,7 +195,10 @@ impl ProfileEmbed {
                 ),
                 true,
             ));
-        }
+            None
+        } else {
+            Some("No Top scores".to_string())
+        };
         Self {
             description,
             fields,
@@ -216,167 +224,5 @@ impl EmbedData for ProfileEmbed {
     }
     fn fields(&self) -> Option<Vec<(String, String, bool)>> {
         Some(self.fields.clone())
-    }
-}
-
-struct ProfileResult {
-    min_acc: f32,
-    max_acc: f32,
-    avg_acc: f32,
-
-    min_pp: f32,
-    max_pp: f32,
-    avg_pp: f32,
-
-    min_combo: u32,
-    max_combo: u32,
-    avg_combo: u32,
-    map_combo: u32,
-
-    min_len: u32,
-    max_len: u32,
-    avg_len: u32,
-
-    mappers: Vec<(String, u32, f32)>,
-
-    mod_combs_count: Option<Vec<(GameMods, u32)>>,
-    mod_combs_pp: Option<Vec<(GameMods, f32)>>,
-    mods_count: Vec<(GameMods, u32)>,
-    mods_pp: Vec<(GameMods, f32)>,
-}
-
-impl ProfileResult {
-    fn calc(mode: GameMode, tuples: Vec<(Score, Beatmap)>) -> Self {
-        let (mut min_acc, mut max_acc, mut avg_acc) = (f32::MAX, 0.0_f32, 0.0);
-        let (mut min_pp, mut max_pp, mut avg_pp) = (f32::MAX, 0.0_f32, 0.0);
-        let (mut min_combo, mut max_combo, mut avg_combo, mut map_combo) = (u32::MAX, 0, 0, 0);
-        let (mut min_len, mut max_len, mut avg_len) = (f32::MAX, 0.0_f32, 0.0);
-        let len = tuples.len() as f32;
-        let mut mappers = HashMap::with_capacity(len as usize);
-        let mut mod_combs = HashMap::with_capacity(5);
-        let mut mods = HashMap::with_capacity(5);
-        let mut factor = 1.0;
-        let mut mult_mods = false;
-        for (score, map) in tuples {
-            let acc = score.accuracy(mode);
-            min_acc = min_acc.min(acc);
-            max_acc = max_acc.max(acc);
-            avg_acc += acc;
-
-            if let Some(pp) = score.pp {
-                min_pp = min_pp.min(pp);
-                max_pp = max_pp.max(pp);
-                avg_pp += pp;
-            }
-
-            min_combo = min_combo.min(score.max_combo);
-            max_combo = max_combo.max(score.max_combo);
-            avg_combo += score.max_combo;
-
-            if let Some(combo) = map.max_combo {
-                map_combo += combo;
-            }
-
-            let seconds_drain = if score.enabled_mods.contains(GameMods::DoubleTime) {
-                map.seconds_drain as f32 / 1.5
-            } else if score.enabled_mods.contains(GameMods::HalfTime) {
-                map.seconds_drain as f32 * 1.5
-            } else {
-                map.seconds_drain as f32
-            };
-
-            min_len = min_len.min(seconds_drain);
-            max_len = max_len.max(seconds_drain);
-            avg_len += seconds_drain;
-
-            let mut mapper = mappers.entry(map.creator).or_insert((0, 0.0));
-            let weighted_pp = score.pp.unwrap_or(0.0) * factor;
-            factor *= 0.95;
-            mapper.0 += 1;
-            mapper.1 += weighted_pp;
-            {
-                let mut mod_comb = mod_combs.entry(score.enabled_mods).or_insert((0, 0.0));
-                mod_comb.0 += 1;
-                mod_comb.1 += weighted_pp;
-            }
-            if score.enabled_mods.is_empty() {
-                let mut nm = mods.entry(GameMods::NoMod).or_insert((0, 0.0));
-                nm.0 += 1;
-                nm.1 += weighted_pp;
-            } else {
-                mult_mods |= score.enabled_mods.len() > 1;
-                for m in score.enabled_mods {
-                    let mut r#mod = mods.entry(m).or_insert((0, 0.0));
-                    r#mod.0 += 1;
-                    r#mod.1 += weighted_pp;
-                }
-            }
-        }
-        avg_acc /= len;
-        avg_pp /= len;
-        avg_combo /= len as u32;
-        avg_len /= len;
-        map_combo /= len as u32;
-        mod_combs
-            .values_mut()
-            .for_each(|(count, _)| *count = (*count as f32 * 100.0 / len) as u32);
-        mods.values_mut()
-            .for_each(|(count, _)| *count = (*count as f32 * 100.0 / len) as u32);
-        let mut mappers: Vec<_> = mappers
-            .into_iter()
-            .map(|(name, (count, pp))| (name, count, pp))
-            .collect();
-        mappers.sort_by(
-            |(_, count_a, pp_a), (_, count_b, pp_b)| match count_b.cmp(&count_a) {
-                Equal => pp_b.partial_cmp(pp_a).unwrap_or(Equal),
-                other => other,
-            },
-        );
-        mappers = mappers[..5.min(mappers.len())].to_vec();
-        let (mod_combs_count, mod_combs_pp) = if mult_mods {
-            let mut mod_combs_count: Vec<_> = mod_combs
-                .iter()
-                .map(|(name, (count, _))| (*name, *count))
-                .collect();
-            mod_combs_count.sort_by(|a, b| b.1.cmp(&a.1));
-            let mut mod_combs_pp: Vec<_> = mod_combs
-                .into_iter()
-                .map(|(name, (_, avg))| (name, avg))
-                .collect();
-            mod_combs_pp.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Equal));
-            (Some(mod_combs_count), Some(mod_combs_pp))
-        } else {
-            (None, None)
-        };
-        let mut mods_count: Vec<_> = mods
-            .iter()
-            .map(|(name, (count, _))| (*name, *count))
-            .collect();
-        mods_count.sort_by(|a, b| b.1.cmp(&a.1));
-        let mut mods_pp: Vec<_> = mods
-            .into_iter()
-            .map(|(name, (_, avg))| (name, avg))
-            .collect();
-        mods_pp.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Equal));
-        Self {
-            min_acc,
-            max_acc,
-            avg_acc,
-            min_pp,
-            max_pp,
-            avg_pp,
-            min_combo,
-            max_combo,
-            avg_combo,
-            map_combo,
-            min_len: min_len as u32,
-            max_len: max_len as u32,
-            avg_len: avg_len as u32,
-            mappers,
-            mod_combs_count,
-            mod_combs_pp,
-            mods_count,
-            mods_pp,
-        }
     }
 }
