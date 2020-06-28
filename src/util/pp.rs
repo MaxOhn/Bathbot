@@ -155,8 +155,7 @@ async fn calculate_pp(
             if let Some(total_hits) = data.total_hits_oppai() {
                 oppai.set_end_index(total_hits);
             }
-            oppai.calculate(Some(map_path))?;
-            oppai.get_pp()
+            oppai.calculate(map_path)?.get_pp()
         }
         // osu-tools for MNA and CTB
         GameMode::MNA | GameMode::CTB => {
@@ -230,7 +229,7 @@ async fn calculate_max_pp(
             if let Some(mods) = data.mods {
                 oppai.set_mods(mods.bits());
             }
-            Ok(Some(oppai.calculate(Some(map_path))?.get_pp()))
+            Ok(Some(oppai.calculate(map_path)?.get_pp()))
         }
         // osu-tools for MNA and CTB
         GameMode::MNA | GameMode::CTB => {
@@ -315,7 +314,7 @@ async fn calculate_stars(
             if let Some(mods) = data.mods {
                 oppai.set_mods(mods.bits());
             }
-            Ok(Some(oppai.calculate(Some(map_path))?.get_stars()))
+            Ok(Some(oppai.calculate(map_path)?.get_stars()))
         }
         GameMode::MNA | GameMode::CTB => {
             let data_map = match data.data {

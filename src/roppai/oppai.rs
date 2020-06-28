@@ -23,14 +23,12 @@ use std::ffi::{CStr, CString};
 /// - if end is set, the map will be cut to this object index
 pub struct Oppai {
     ezpp: ezpp_t,
-    path: String,
 }
 
 impl Default for Oppai {
     fn default() -> Self {
         Self {
             ezpp: unsafe { ezpp_new() },
-            path: String::new(),
         }
     }
 }
@@ -96,25 +94,20 @@ impl Oppai {
     /// otherwise it returns an Err
     ///
     /// oppai-ng: if map is "-" the map is read from standard input
-    pub fn calculate(&mut self, beatmap_file_path: Option<&str>) -> Result<&mut Self, OppaiErr> {
-        if beatmap_file_path.is_none() && self.path.is_empty() {
-            return Err(OppaiErr::MissingPath(String::from(
-                "Require path to beatmap .osu file before calculating",
-            )));
-        }
-        if let Some(path) = beatmap_file_path {
-            self.path = String::from(path);
-        }
-        let s: &str = self.path.as_ref();
-        let file_content = CString::new(s)
-            .unwrap_or_else(|e| panic!("Could not translate {} to CString: {}", self.path, e));
+    pub fn calculate(&mut self, map_path: &str) -> Result<&mut Self, OppaiErr> {
+        let file_content = CString::new(map_path).map_err(|why| {
+            OppaiErr::Format(format!(
+                "Could not translate {} to CString: {}",
+                map_path, why
+            ))
+        })?;
         match unsafe { ezpp(self.ezpp, file_content.as_ptr() as *mut _) } {
             code if code < 0 => {
                 let raw = unsafe { errstr(code) };
-                let msg = unsafe { CStr::from_ptr(raw) }.to_str().or_else(|e| {
+                let msg = unsafe { CStr::from_ptr(raw) }.to_str().or_else(|why| {
                     Err(OppaiErr::Binding(format!(
                         "Error while transforming CString error msg into String: {}",
-                        e
+                        why
                     )))
                 })?;
                 Err(OppaiErr::new(code, msg))
