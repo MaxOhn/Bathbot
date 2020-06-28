@@ -204,7 +204,7 @@ async fn get_globals_count(
     let scraper = data.get::<Scraper>().unwrap();
     let mut counts = BTreeMap::new();
     let mut params = OsuStatsParams::new(name).mode(mode);
-    for rank in [50, 20, 10, 5, 1].iter() {
+    for rank in [50, 25, 15, 8, 1].iter() {
         params = params.rank_max(*rank);
         match scraper.get_global_scores(&params).await {
             Ok((_, count)) => {

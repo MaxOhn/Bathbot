@@ -17,19 +17,17 @@ mod tests {
     fn usage() {
         let path = "E:/Games/osu!/beatmaps/1969122.osu";
         let mut oppai = Oppai::new();
-        oppai.calculate(Some(path)).unwrap();
+        oppai.calculate(path).unwrap();
         oppai
             .set_accuracy(98.73)
             .set_mods(24)
             .set_miss_count(1)
-            .calculate(Some(path))
+            .calculate(path)
             .unwrap();
         oppai
             .set_combo(150)
             .set_hits(42, 13)
-            .calculate(None)
+            .calculate(path)
             .unwrap();
-        oppai.calculate(None).unwrap();
-        oppai.calculate(None).unwrap();
     }
 }
