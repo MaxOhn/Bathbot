@@ -12,7 +12,7 @@ use crate::{
 use itertools::Itertools;
 use rosu::models::{GameMode, Grade, User};
 use serenity::cache::Cache;
-use std::{collections::HashMap, fmt::Write};
+use std::{collections::BTreeMap, fmt::Write};
 
 #[derive(Clone)]
 pub struct ProfileEmbed {
@@ -27,7 +27,7 @@ impl ProfileEmbed {
     pub async fn new(
         user: User,
         profile_result: Option<ProfileResult>,
-        globals_count: HashMap<usize, String>,
+        globals_count: BTreeMap<usize, String>,
         cache: &Cache,
     ) -> Self {
         let footer_text = format!(
@@ -193,7 +193,7 @@ impl ProfileEmbed {
                     sec_to_minsec(values.min_len),
                     sec_to_minsec(values.max_len)
                 ),
-                true,
+                false,
             ));
             None
         } else {

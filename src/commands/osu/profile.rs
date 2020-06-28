@@ -17,7 +17,10 @@ use serenity::{
     model::{channel::Message, id::ChannelId},
     prelude::Context,
 };
-use std::{cmp::Ordering::Equal, collections::HashMap};
+use std::{
+    cmp::Ordering::Equal,
+    collections::{BTreeMap, HashMap},
+};
 
 #[allow(clippy::cognitive_complexity)]
 async fn profile_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> CommandResult {
@@ -196,10 +199,10 @@ async fn get_globals_count(
     ctx: &Context,
     name: String,
     mode: GameMode,
-) -> Result<HashMap<usize, String>, CommandError> {
+) -> Result<BTreeMap<usize, String>, CommandError> {
     let data = ctx.data.read().await;
     let scraper = data.get::<Scraper>().unwrap();
-    let mut counts = HashMap::new();
+    let mut counts = BTreeMap::new();
     let mut params = OsuStatsParams::new(name).mode(mode);
     for rank in [50, 20, 10, 5, 1].iter() {
         params = params.rank_max(*rank);
