@@ -42,6 +42,8 @@ impl RankArgs {
             return Err(
                 "Unfortunately I can only provide data for ranks up to 10,000 :(".to_string(),
             );
+        } else if rank == 0 {
+            return Err("Rank must be greater than 0 you clown :^)".to_string());
         }
         Ok(Self {
             name: args.next(),
