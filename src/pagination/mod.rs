@@ -58,7 +58,7 @@ pub trait Pagination: Sync + Sized {
         1
     }
     fn multi_step(&self) -> usize {
-        5
+        self.pages().per_page
     }
     fn jump_index(&self) -> Option<usize> {
         None
