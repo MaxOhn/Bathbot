@@ -99,8 +99,9 @@ async fn help(
             ref help_description,
             ref groups,
         } => {
-            msg.channel_id
-                .send_message(ctx, |m| {
+            match msg
+                .author
+                .direct_message(ctx, |m| {
                     m.embed(|e| {
                         e.colour(help_options.embed_success_colour)
                             .description(help_description);
@@ -112,6 +113,14 @@ async fn help(
                         e
                     })
                 })
+                .await
+            {
+                Ok(response) => {
+                    response.reaction_delete(ctx, msg.author.id).await;
+                }
+                Err(why) => warn!("Failed to help as DM because: {:?}", why),
+            }
+            msg.reply(ctx, "Don't mind me sliding into your DMs :eyes:")
                 .await
         }
         CustomisedHelpData::SingleCommand { ref command } => {

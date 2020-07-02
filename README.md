@@ -45,6 +45,5 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Automize the bot setup via docker
 - Check on previous id buffer of bg game
 - Fix "Error while sending HTTP request." for `<c`
-- Send `<help` directly to dms
   ### Commands
   - `<map` to show general stats for a map
