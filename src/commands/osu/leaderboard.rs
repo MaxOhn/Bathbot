@@ -15,7 +15,7 @@ use crate::{
 use rosu::{
     backend::requests::BeatmapRequest,
     models::{
-        ApprovalStatus::{Loved, Ranked},
+        ApprovalStatus::{Approved, Loved, Ranked},
         GameMods,
     },
 };
@@ -104,7 +104,9 @@ async fn leaderboard_send(
                     }
                 };
                 (
-                    map.approval_status == Ranked || map.approval_status == Loved,
+                    map.approval_status == Ranked
+                        || map.approval_status == Loved
+                        || map.approval_status == Approved,
                     map,
                 )
             }

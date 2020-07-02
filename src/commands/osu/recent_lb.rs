@@ -14,7 +14,7 @@ use crate::{
 use rosu::{
     backend::requests::RecentRequest,
     models::{
-        ApprovalStatus::{Loved, Ranked},
+        ApprovalStatus::{Approved, Loved, Ranked},
         GameMode, GameMods,
     },
 };
@@ -114,7 +114,9 @@ async fn recent_lb_send(
                     }
                 };
                 (
-                    map.approval_status == Ranked || map.approval_status == Loved,
+                    map.approval_status == Ranked
+                        || map.approval_status == Loved
+                        || map.approval_status == Approved,
                     map,
                 )
             }

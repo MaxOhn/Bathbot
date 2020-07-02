@@ -8,7 +8,7 @@ use crate::{
 
 use rosu::{
     backend::requests::{BeatmapRequest, ScoreRequest, UserRequest},
-    models::ApprovalStatus::{Loved, Ranked},
+    models::ApprovalStatus::{Approved, Loved, Ranked},
 };
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
@@ -111,7 +111,9 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     }
                 };
                 (
-                    map.approval_status == Ranked || map.approval_status == Loved,
+                    map.approval_status == Ranked
+                        || map.approval_status == Loved
+                        || map.approval_status == Approved,
                     map,
                 )
             }

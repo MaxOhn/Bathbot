@@ -9,7 +9,7 @@ use crate::{
 use rosu::{
     backend::requests::BeatmapRequest,
     models::{
-        ApprovalStatus::{Loved, Ranked},
+        ApprovalStatus::{Approved, Loved, Ranked},
         GameMode,
     },
 };
@@ -104,7 +104,9 @@ async fn simulate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     }
                 };
                 (
-                    map.approval_status == Ranked || map.approval_status == Loved,
+                    map.approval_status == Ranked
+                        || map.approval_status == Loved
+                        || map.approval_status == Approved,
                     map,
                 )
             }

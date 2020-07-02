@@ -6,7 +6,10 @@ pub use models::{DBMapSet, MapsetTagWrapper, Ratios, StreamTrack, TwitchUser};
 use crate::{commands::utility::MapsetTags, util::globals::AUTHORITY_ROLES, Guild};
 
 use failure::Error;
-use rosu::models::{Beatmap, GameMode, GameMods};
+use rosu::models::{
+    ApprovalStatus::{Approved, Loved, Ranked},
+    Beatmap, GameMode, GameMods,
+};
 use serenity::model::id::{GuildId, UserId};
 use sqlx::mysql::{MySql, MySqlPool};
 use std::{
@@ -92,9 +95,14 @@ FROM
     }
 
     pub async fn insert_beatmap(&self, map: &Beatmap) -> DBResult<()> {
-        // Important to do mapsets first for foreign key constrain
-        _insert_beatmapset(&self.pool, map).await?;
-        _insert_beatmap(&self.pool, map).await?;
+        match map.approval_status {
+            Loved | Ranked | Approved => {
+                // Important to do mapsets first for foreign key constrain
+                _insert_beatmapset(&self.pool, map).await?;
+                _insert_beatmap(&self.pool, map).await?;
+            }
+            _ => {}
+        }
         Ok(())
     }
 
@@ -104,8 +112,13 @@ FROM
         }
         let mut tx = self.pool.begin().await?;
         for map in maps {
-            _insert_beatmapset(&mut tx, &map).await?;
-            _insert_beatmap(&mut tx, &map).await?;
+            match map.approval_status {
+                Loved | Ranked | Approved => {
+                    _insert_beatmapset(&mut tx, &map).await?;
+                    _insert_beatmap(&mut tx, &map).await?;
+                }
+                _ => {}
+            }
         }
         tx.commit().await?;
         Ok(())
