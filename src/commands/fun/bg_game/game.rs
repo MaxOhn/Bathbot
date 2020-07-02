@@ -130,7 +130,7 @@ impl BackGroundGame {
                         break;
                     }
                     LoopResult::Winner(user_id) => {
-                        if mapsets.len() >= 10 {
+                        if mapsets.len() >= 20 {
                             let data = data.read().await;
                             let mysql = data.get::<MySQL>().unwrap();
                             if let Err(why) = mysql.increment_bggame_score(user_id).await {

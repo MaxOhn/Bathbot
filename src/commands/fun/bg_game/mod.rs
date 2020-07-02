@@ -68,7 +68,7 @@ async fn start(ctx: &Context, msg: &Message) -> CommandResult {
         }
     }
     // Send initial message
-    let embed_data = BGStartEmbed::new();
+    let embed_data = BGStartEmbed::new(msg.author.id);
     let response = channel
         .send_message(ctx, |m| m.embed(|e| embed_data.build(e)))
         .await?;
@@ -102,8 +102,8 @@ async fn start(ctx: &Context, msg: &Message) -> CommandResult {
     let mut included = MapsetTags::empty();
     let mut excluded = MapsetTags::empty();
     while let Some(reaction) = collector.next().await {
-        let tag = if let ReactionType::Unicode(ref reaction) = reaction.as_inner_ref().emoji {
-            match reaction.as_str() {
+        let tag = if let ReactionType::Unicode(ref r) = reaction.as_inner_ref().emoji {
+            match r.as_str() {
                 "🍋" => MapsetTags::Easy,
                 "🤓" => MapsetTags::Hard,
                 "🤡" => MapsetTags::Meme,
@@ -117,7 +117,7 @@ async fn start(ctx: &Context, msg: &Message) -> CommandResult {
                 "🎨" => MapsetTags::Weeb,
                 "🌀" => MapsetTags::Streams,
                 "🍨" => MapsetTags::Kpop,
-                "✅" => break,
+                "✅" if reaction.as_inner_ref().user_id == msg.author.id => break,
                 _ => continue,
             }
         } else {
