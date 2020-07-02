@@ -194,7 +194,7 @@ async fn top_send(
         maps.len(),
         scores_indices.len()
     );
-    let retrieving_msg = if scores_indices.len() - maps.len() > 15 {
+    let retrieving_msg = if scores_indices.len() - maps.len() > 10 {
         Some(
             msg.channel_id
                 .say(

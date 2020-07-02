@@ -159,7 +159,7 @@ async fn start(ctx: &Context, msg: &Message) -> CommandResult {
         return Ok(());
     }
     debug!(
-        "Starting bg game with included: {} ~ excluded: {}",
+        "Starting bg game with included: {} - excluded: {}",
         included.join(','),
         excluded.join(',')
     );

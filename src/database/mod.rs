@@ -521,9 +521,9 @@ UPDATE
         sqlx::query(
             r#"
 INSERT
-    IGNORE INTO map_tags(beatmapset_id, filetype, mode)
+    INTO map_tags(beatmapset_id, filetype, mode)
 VALUES
-    (?, ?, ?)"#,
+    (?,?,?)"#,
         )
         .bind(mapset_id)
         .bind(filetype)

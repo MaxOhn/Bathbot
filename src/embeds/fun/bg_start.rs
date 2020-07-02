@@ -13,7 +13,7 @@ impl BGStartEmbed {
         I suggest to ✅ right away for now)\n\
         ```\n\
         🍋: Easy 🎨: Weeb 😱: Hard name 🗽: English 💯: Tech\n\
-        🤓: Hard 🍨: Kpop 🪀: Alternate 🌀: Streams ✅: Log in\n\
+        🤓: Hard 🍨: Kpop 🪀: Alternate 🌀: Streams ✅: Lock in\n\
         🤡: Meme 👨‍🌾: Farm 🟦: Blue sky  👴: Old\n\
         ```";
         Self { title, description }

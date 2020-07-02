@@ -84,7 +84,10 @@ async fn addbg(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         }
     };
     // Check if attachement has proper file type
-    let filetype = match filename_split.next() {
+    let filetype = match filename_split
+        .next()
+        .map(|filetype| filetype.to_lowercase())
+    {
         Some(filetype) if filetype == "jpg" || filetype == "jpeg" || filetype == "png" => filetype,
         _ => {
             msg.channel_id
@@ -142,11 +145,11 @@ async fn addbg(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         }
     };
     // Check if valid mapset id
-    let content = match prepare_mapset(ctx, mapset_id, filetype, mode).await {
-        Ok(_) => "Background successfully added",
+    let content = match prepare_mapset(ctx, mapset_id, &filetype, mode).await {
+        Ok(_) => format!("Background successfully added ({})", mode),
         Err(err_msg) => {
             let _ = remove_file(path).await;
-            err_msg
+            err_msg.to_owned()
         }
     };
     msg.channel_id
@@ -181,8 +184,8 @@ async fn prepare_mapset(
         }
     }
     if let Err(why) = mysql.add_tag_mapset(mapset_id, filetype, mode).await {
-        error!("Error while adding mapset to tags table: {}", why);
-        return Err("Some database issue, blame bade");
+        warn!("Error while adding mapset to tags table: {}", why);
+        return Err("There is already an entry with this mapset id");
     }
     Ok(())
 }
