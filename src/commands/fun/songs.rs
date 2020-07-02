@@ -1,4 +1,7 @@
-use crate::Guilds;
+use crate::{
+    util::{discord::add_guild, globals::GENERAL_ISSUE, MessageExt},
+    Guilds,
+};
 
 use serenity::{
     framework::standard::{macros::command, CommandResult},
@@ -9,16 +12,25 @@ use tokio::time;
 
 async fn song_send(lyrics: &[&str], delay: u64, ctx: &Context, msg: &Message) -> CommandResult {
     let allow = {
-        let data = ctx.data.read().await;
-        let guilds = data.get::<Guilds>().unwrap();
         if let Some(guild_id) = msg.guild_id {
-            match guilds.get(&guild_id) {
-                Some(guild) => guild.with_lyrics,
-                None => {
-                    warn!("Guild {} not in Guilds data", guild_id);
-                    true
+            let contains_guild = {
+                let data = ctx.data.read().await;
+                let guilds = data.get::<Guilds>().unwrap();
+                guilds.contains_key(&guild_id)
+            };
+            if !contains_guild {
+                if let Err(why) = add_guild(ctx, guild_id).await {
+                    msg.channel_id
+                        .say(ctx, GENERAL_ISSUE)
+                        .await?
+                        .reaction_delete(ctx, msg.author.id)
+                        .await;
+                    return Err(why.into());
                 }
             }
+            let data = ctx.data.read().await;
+            let guilds = data.get::<Guilds>().unwrap();
+            guilds.get(&guild_id).unwrap().with_lyrics
         } else {
             true
         }
@@ -27,19 +39,19 @@ async fn song_send(lyrics: &[&str], delay: u64, ctx: &Context, msg: &Message) ->
         let mut interval = time::interval(time::Duration::from_millis(delay));
         interval.tick().await;
         for line in lyrics {
-            msg.channel_id
-                .say(&ctx.http, format!("♫ {} ♫", line))
-                .await?;
+            msg.channel_id.say(ctx, format!("♫ {} ♫", line)).await?;
             interval.tick().await;
         }
     } else {
         msg.channel_id
             .say(
-                &ctx.http,
+                ctx,
                 "The server's big boys disabled song commands. \
-            Server authorities can re-enable them by typing `<lyrics`",
+                Server authorities can re-enable them by typing `<lyrics`",
             )
-            .await?;
+            .await?
+            .reaction_delete(ctx, msg.author.id)
+            .await;
     }
     Ok(())
 }

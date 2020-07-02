@@ -1,14 +1,9 @@
-use crate::{
-    commands::checks::*,
-    database::MySQL,
-    util::{globals::GENERAL_ISSUE, MessageExt},
-    Guilds,
-};
+use crate::{commands::checks::*, database::MySQL, util::MessageExt, Guilds};
 
 use itertools::Itertools;
 use regex::Regex;
 use serenity::{
-    framework::standard::{macros::command, Args, CommandError, CommandResult},
+    framework::standard::{macros::command, Args, CommandResult},
     model::{id::RoleId, prelude::Message},
     prelude::Context,
 };
@@ -34,29 +29,25 @@ async fn authorities(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
     if args.current().unwrap_or_default() == "-show" {
         let data = ctx.data.read().await;
         let guilds = data.get::<Guilds>().unwrap();
-        if let Some(guild) = guilds.get(&guild_id) {
-            let roles = &guild.authorities;
-            let content = if roles.is_empty() {
-                "None".to_string()
-            } else {
-                roles.iter().map(|role| format!("`{}`", role)).join(", ")
-            };
-
-            // Send the message
-            msg.channel_id
-                .say(
-                    &ctx.http,
-                    format!("Current authority roles for this server: {}", content),
-                )
-                .await?;
-            return Ok(());
+        // Entry is necessarily available due to authority check, hence unwrap()
+        let guild = guilds.get(&guild_id).unwrap();
+        let roles = &guild.authorities;
+        let content = if roles.is_empty() {
+            "None".to_string()
         } else {
-            msg.channel_id.say(&ctx.http, GENERAL_ISSUE).await?;
-            return Err(CommandError(format!(
-                "GuildId {} not found in Guilds",
-                guild_id.0
-            )));
-        }
+            roles.iter().map(|role| format!("`{}`", role)).join(", ")
+        };
+
+        // Send the message
+        msg.channel_id
+            .say(
+                ctx,
+                format!("Current authority roles for this server: {}", content),
+            )
+            .await?
+            .reaction_delete(ctx, msg.author.id)
+            .await;
+        return Ok(());
     }
     // Get all roles of the guild
     let guild = guild_id.to_guild_cached(&ctx.cache).await.unwrap();
@@ -105,10 +96,12 @@ async fn authorities(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
             } else {
                 msg.channel_id
                     .say(
-                        &ctx.http,
+                        ctx,
                         format!("I don't know what role you mean with `{}`", next),
                     )
-                    .await?;
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
                 return Ok(());
             }
         }
@@ -127,11 +120,13 @@ async fn authorities(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
     if invalid_auths {
         msg.channel_id
             .say(
-                &ctx.http,
+                ctx,
                 "You cannot set authority roles to something \
-             that would make you lose authority status.",
+                that would make you lose authority status.",
             )
-            .await?;
+            .await?
+            .reaction_delete(ctx, msg.author.id)
+            .await;
         return Ok(());
     }
     let auth_strings: Vec<_> = new_auth
@@ -152,13 +147,8 @@ async fn authorities(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
         let guilds = data.get_mut::<Guilds>().unwrap();
         match guilds.entry(guild_id) {
             Entry::Occupied(mut entry) => entry.get_mut().authorities = auth_strings.clone(),
-            Entry::Vacant(_) => {
-                msg.channel_id.say(&ctx.http, GENERAL_ISSUE).await?;
-                return Err(CommandError(format!(
-                    "GuildId {} not found in Guilds",
-                    guild_id.0
-                )));
-            }
+            // Entry is necessarily occupied due to authority check
+            Entry::Vacant(_) => unreachable!(),
         }
     }
 
@@ -187,7 +177,7 @@ async fn authorities(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
     };
     msg.channel_id
         .say(
-            &ctx.http,
+            ctx,
             format!("Successfully changed the authority roles to: {}", content),
         )
         .await?

@@ -2,8 +2,8 @@ use crate::{
     database::MySQL,
     embeds::{EmbedData, TwitchNotifEmbed},
     streams::{Twitch, TwitchStream},
-    structs::{Guilds, OnlineTwitch, ReactionTracker, StreamTracks},
-    util::discord::get_member,
+    structs::{OnlineTwitch, ReactionTracker, StreamTracks},
+    util::discord::{_add_guild, get_member},
     WITH_STREAM_TRACK,
 };
 
@@ -91,31 +91,8 @@ impl EventHandler for Handler {
 
     async fn guild_create(&self, ctx: Context, guild: Guild, is_new: bool) {
         if is_new {
-            // Insert basic guild info into database
-            let guild = {
-                let data = ctx.data.read().await;
-                let mysql = data.get::<MySQL>().unwrap();
-                match mysql.insert_guild(guild.id.0).await {
-                    Ok(g) => {
-                        debug!(
-                            "Inserted new guild {} with id {} to DB",
-                            guild.name, guild.id
-                        );
-                        Some(g)
-                    }
-                    Err(why) => {
-                        error!(
-                            "Could not insert new guild {} with id {} to DB: {}",
-                            guild.name, guild.id, why
-                        );
-                        None
-                    }
-                }
-            };
-            if let Some(guild) = guild {
-                let mut data = ctx.data.write().await;
-                let guilds = data.get_mut::<Guilds>().unwrap();
-                guilds.insert(guild.guild_id, guild);
+            if let Err(why) = _add_guild(&ctx, guild.id, &guild.name).await {
+                error!("{}", why);
             }
         }
     }

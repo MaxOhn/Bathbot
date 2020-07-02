@@ -1,12 +1,7 @@
-use crate::{
-    commands::checks::*,
-    database::MySQL,
-    util::{globals::GENERAL_ISSUE, MessageExt},
-    Guilds,
-};
+use crate::{commands::checks::*, database::MySQL, util::MessageExt, Guilds};
 
 use serenity::{
-    framework::standard::{macros::command, CommandError, CommandResult},
+    framework::standard::{macros::command, CommandResult},
     model::prelude::Message,
     prelude::Context,
 };
@@ -28,17 +23,8 @@ async fn lyrics(ctx: &Context, msg: &Message) -> CommandResult {
                 entry.get_mut().with_lyrics = new_bool;
                 new_bool
             }
-            Entry::Vacant(_) => {
-                msg.channel_id
-                    .say(&ctx.http, GENERAL_ISSUE)
-                    .await?
-                    .reaction_delete(ctx, msg.author.id)
-                    .await;
-                return Err(CommandError(format!(
-                    "GuildId {} not found in Guilds",
-                    guild_id.0
-                )));
-            }
+            // Entry is necessarily occupied due to authority check
+            Entry::Vacant(_) => unreachable!(),
         }
     };
     {
@@ -56,7 +42,7 @@ async fn lyrics(ctx: &Context, msg: &Message) -> CommandResult {
         "Song commands can no longer be used in this server".to_string()
     };
     msg.channel_id
-        .say(&ctx.http, content)
+        .say(ctx, content)
         .await?
         .reaction_delete(ctx, msg.author.id)
         .await;

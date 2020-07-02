@@ -1,4 +1,4 @@
-use crate::util::globals::AVATAR_URL;
+use crate::{util::globals::AVATAR_URL, Guilds, MySQL};
 
 use failure::Error;
 use image::{
@@ -12,7 +12,7 @@ use serenity::{
     model::{
         channel::{EmbedField, Message, ReactionType},
         guild::Member,
-        id::{ChannelId, UserId},
+        id::{ChannelId, GuildId, UserId},
     },
     prelude::{Context, RwLock, TypeMap},
 };
@@ -106,6 +106,38 @@ pub async fn get_member(ctx: &Context, channel_id: ChannelId, user_id: UserId) -
         Some(guild_channel) => guild_channel.guild_id.member(ctx, user_id).await.ok(),
         None => None,
     }
+}
+
+pub async fn add_guild(ctx: &Context, guild_id: GuildId) -> Result<(), Error> {
+    let guild = guild_id.to_partial_guild(ctx).await?;
+    _add_guild(ctx, guild.id, &guild.name).await
+}
+
+pub async fn _add_guild(ctx: &Context, guild_id: GuildId, guild_name: &str) -> Result<(), Error> {
+    let guild = {
+        let data = ctx.data.read().await;
+        let mysql = data.get::<MySQL>().unwrap();
+        match mysql.insert_guild(guild_id.0).await {
+            Ok(g) => {
+                debug!("Inserted new guild {} ({}) to DB", guild_name, guild_id);
+                Some(g)
+            }
+            Err(why) => {
+                bail!(
+                    "Error while inserting new guild {} ({}) to DB: {}",
+                    guild_name,
+                    guild_id,
+                    why
+                );
+            }
+        }
+    };
+    if let Some(guild) = guild {
+        let mut data = ctx.data.write().await;
+        let guilds = data.get_mut::<Guilds>().unwrap();
+        guilds.insert(guild.guild_id, guild);
+    }
+    Ok(())
 }
 
 pub trait CacheData {

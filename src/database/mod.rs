@@ -414,7 +414,7 @@ WHERE
     }
 
     pub async fn insert_guild(&self, guild_id: u64) -> DBResult<Guild> {
-        sqlx::query("INSERT INTO guilds(guild_id,with_lyrics,authorities) VALUES (?,?,?)")
+        sqlx::query("INSERT IGNORE INTO guilds(guild_id,with_lyrics,authorities) VALUES (?,?,?)")
             .bind(guild_id)
             .bind(true)
             .bind(AUTHORITY_ROLES)
