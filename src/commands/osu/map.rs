@@ -198,6 +198,18 @@ async fn map(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         })
         .await?;
 
+    // Add missing maps to database
+    {
+        let data = ctx.data.read().await;
+        let mysql = data.get::<MySQL>().unwrap();
+        let len = maps.len();
+        match mysql.insert_beatmaps(&maps).await {
+            Ok(_) if len == 1 => {}
+            Ok(_) => info!("Added {} maps to DB", len),
+            Err(why) => warn!("Error while adding maps to DB: {}", why),
+        }
+    }
+
     // Skip pagination if too few entries
     if maps.len() < 2 {
         resp.reaction_delete(ctx, msg.author.id).await;

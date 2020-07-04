@@ -106,16 +106,16 @@ FROM
         Ok(())
     }
 
-    pub async fn insert_beatmaps(&self, maps: Vec<Beatmap>) -> DBResult<()> {
+    pub async fn insert_beatmaps(&self, maps: &[Beatmap]) -> DBResult<()> {
         if maps.is_empty() {
             return Ok(());
         }
         let mut tx = self.pool.begin().await?;
-        for map in maps {
+        for map in maps.iter() {
             match map.approval_status {
                 Loved | Ranked | Approved => {
-                    _insert_beatmapset(&mut tx, &map).await?;
-                    _insert_beatmap(&mut tx, &map).await?;
+                    _insert_beatmapset(&mut tx, map).await?;
+                    _insert_beatmap(&mut tx, map).await?;
                 }
                 _ => {}
             }

@@ -122,7 +122,7 @@ async fn profile_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) 
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
         let len = maps.len();
-        match mysql.insert_beatmaps(maps).await {
+        match mysql.insert_beatmaps(&maps).await {
             Ok(_) if len == 1 => {}
             Ok(_) => info!("Added {} maps to DB", len),
             Err(why) => warn!("Error while adding maps to DB: {}", why),
