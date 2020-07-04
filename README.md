@@ -47,6 +47,5 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Fix "Error while sending HTTP request." for `<c`
 - Update Readme regarding database migration
 - Show tags as hint for bg game
-- Provide option to cancel `<bg s`
   ### Commands
   - None as of now

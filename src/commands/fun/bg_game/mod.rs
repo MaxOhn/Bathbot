@@ -93,6 +93,7 @@ async fn start(ctx: &Context, msg: &Message) -> CommandResult {
         "👴",
         "💯",
         "✅",
+        "❌",
     ];
     for &reaction in reactions.iter() {
         let reaction = ReactionType::try_from(reaction).unwrap();
@@ -118,6 +119,10 @@ async fn start(ctx: &Context, msg: &Message) -> CommandResult {
                 "🌀" => MapsetTags::Streams,
                 "🍨" => MapsetTags::Kpop,
                 "✅" if reaction.as_inner_ref().user_id == msg.author.id => break,
+                "❌" if reaction.as_inner_ref().user_id == msg.author.id => {
+                    msg.reply(ctx, "Game cancelled").await?;
+                    return Ok(());
+                }
                 _ => continue,
             }
         } else {
