@@ -2,7 +2,7 @@ use super::{util, Hints, ImageReveal};
 use crate::{database::MapsetTagWrapper, util::globals::HOMEPAGE, BgGames, MySQL};
 
 use failure::Error;
-use image::{imageops::FilterType, GenericImageView};
+use image::GenericImageView;
 use rosu::models::GameMode;
 use serenity::{
     collector::{MessageCollector, MessageCollectorBuilder},
@@ -277,9 +277,9 @@ impl GameData {
         let (w, h) = img.dimensions();
         // 800*600 (4:3)
         if w * h > 480_000 {
-            img = img.resize(800, 600, FilterType::Lanczos3);
+            img = img.thumbnail(800, 600);
         }
-        self.hints = Hints::new(&title);
+        self.hints = Hints::new(&title, mapset.tags);
         self.title = title;
         self.artist = artist;
         self.mapset_id = mapset.mapset_id;

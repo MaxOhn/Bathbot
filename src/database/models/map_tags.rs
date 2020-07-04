@@ -8,7 +8,7 @@ pub struct MapsetTagWrapper {
     pub mapset_id: u32,
     pub mode: GameMode,
     pub filetype: String,
-    tags: MapsetTags,
+    pub tags: MapsetTags,
 }
 
 impl Deref for MapsetTagWrapper {
