@@ -33,7 +33,7 @@ impl MapPagination {
         start_idx: usize,
         with_thumbnail: bool,
     ) -> Self {
-        let collector = create_collector(ctx, &msg, author, 90).await;
+        let collector = create_collector(ctx, &msg, author, 60).await;
         let data = Arc::clone(&ctx.data);
         let mut pages = Pages::new(1, maps.len());
         pages.index = start_idx;

@@ -30,8 +30,9 @@ In case you want to get the bot running yourself to either modify a custom insta
     - Install as full package and start the server, specifically make sure MySQL-Connector-C-6.1 or similar is included
     - Add the system environment variable `MYSQLCLIENT_LIB_DIR` with the path `/path/to/mysql/connector/lib/vs14`
   - Create a new database on the MySQL server and add its path to the `.env` file e.g. `mysql://username:password@localhost/db_name`
-  - Add [diesel](https://diesel.rs/)'s CLI tool via `cargo install diesel_cli --no-default-features --features mysql` (in the directory of this repo)
-  - Create all required tables for the database via `diesel migration run` (in the directory of this repo)
+  - ~~Add [diesel](https://diesel.rs/)'s CLI tool via `cargo install diesel_cli --no-default-features --features mysql` (in the directory of this repo)~~
+  - ~~Create all required tables for the database via `diesel migration run` (in the directory of this repo)~~
+  - I moved from diesel to sqlx and table migration is not yet setup so you'll have to check in the `/migrations` directory and add tables manually for now :(
 - Handling osu-tools
   - If you can't use the command `dotnet` in the CLI, [download it](https://dotnet.microsoft.com/download) so you can compile C# code
   - Mania and CtB PP calculation is done via [osu-tools](https://github.com/MaxOhn/osu-tools) so clone it anywhere via `git clone https://github.com/MaxOhn/osu-tools.git`
@@ -43,8 +44,7 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Allow username provision via discord user mention
 - Update spreadsheet (`<mostplayed`, `pagination`, ...)
 - Automize the bot setup via docker
-- Check on previous id buffer of bg game
-- Fix "Error while sending HTTP request." for `<c`
+- Move from serenity to twilight
 - Update Readme regarding database migration
   ### Commands
   - None as of now

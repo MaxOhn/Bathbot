@@ -64,19 +64,17 @@ impl Hints {
                 "Another hint: The map's tags are `{}`",
                 self.tags.join(", ")
             )
+        } else if let Some(i) = self.indices.pop() {
+            self.title_mask[i] = true;
+            let title_hint: String = self
+                .title_mask
+                .iter()
+                .zip(title.chars())
+                .map(|(mask, c)| if *mask { c } else { '▢' })
+                .collect();
+            format!("Slowly constructing the title: `{}`", title_hint)
         } else {
-            if let Some(i) = self.indices.pop() {
-                self.title_mask[i] = true;
-                let title_hint: String = self
-                    .title_mask
-                    .iter()
-                    .zip(title.chars())
-                    .map(|(mask, c)| if *mask { c } else { '▢' })
-                    .collect();
-                format!("Slowly constructing the title: `{}`", title_hint)
-            } else {
-                format!("Bruh the title is literally `{}` xd", title)
-            }
+            format!("Bruh the title is literally `{}` xd", title)
         }
     }
 }

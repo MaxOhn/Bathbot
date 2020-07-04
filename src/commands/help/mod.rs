@@ -134,7 +134,6 @@ async fn help(
             .await
         }
     };
-    // For these 4 lines I had to copy the WHOLE helper message creation code...
     match result {
         Ok(response) => {
             response.reaction_delete(ctx, msg.author.id).await;
