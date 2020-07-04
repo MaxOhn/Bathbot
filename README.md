@@ -46,5 +46,8 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Check on previous id buffer of bg game
 - Fix "Error while sending HTTP request." for `<c`
 - Update Readme regarding database migration
+- Show tags as hint for bg game
+- Provide option to cancel `<bg s`
+- Try reference to map instead of ownership for `<c` and `<map` (check `<c` all around)
   ### Commands
-  - `<map` to show general stats for a map
+  - None as of now

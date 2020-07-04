@@ -80,6 +80,15 @@ pub async fn map_id_from_history(msgs: Vec<Message>, cache: &Cache) -> Option<u3
                 continue;
             }
             if let Some(url) = embed.url {
+                if url.contains("/b/") {
+                    let result = url_regex
+                        .captures(&url)
+                        .and_then(|caps| caps.get(1))
+                        .and_then(|cap| u32::from_str(cap.as_str()).ok());
+                    if result.is_some() {
+                        return result;
+                    }
+                }
                 if let Some(field) = embed.fields.first() {
                     if let Some(id) = check_field(&url, &field) {
                         return Some(id);

@@ -46,3 +46,8 @@ features         = ["mysql", "runtime-tokio", "chrono", "macros"]
 [dependencies.tokio]
 version  = "0.2"
 features = ["rt-core", "rt-threaded", "time", "macros", "process", "sync", "stream", "fs"]
+
+[dependencies.plotters]
+version = "0.2"
+default-features = false
+features = [ "image_encoder", "line_series" ]

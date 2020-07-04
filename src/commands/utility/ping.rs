@@ -13,11 +13,11 @@ use serenity::{
 #[aliases("p")]
 async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
     let start = Utc::now().timestamp_millis();
-    let mut response = msg.channel_id.say(ctx, "Pong!").await?;
+    let mut response = msg.channel_id.say(ctx, ":ping_pong: Pong!").await?;
     response
         .edit(ctx, |m| {
             let elapsed = Utc::now().timestamp_millis() - start;
-            m.content(format!("Pong! ({}ms)", elapsed))
+            m.content(format!(":ping_pong: Pong! ({}ms)", elapsed))
         })
         .await?;
     response.reaction_delete(ctx, msg.author.id).await;

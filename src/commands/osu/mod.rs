@@ -3,6 +3,7 @@ pub mod fruits;
 mod leaderboard;
 mod link;
 pub mod mania;
+mod map;
 mod match_costs;
 mod most_played;
 mod most_played_common;
@@ -26,6 +27,7 @@ pub use self::standard::*;
 pub use self::taiko::*;
 pub use leaderboard::*;
 pub use link::*;
+pub use map::*;
 pub use match_costs::*;
 pub use most_played::*;
 pub use most_played_common::*;
@@ -40,6 +42,7 @@ use serenity::framework::standard::macros::group;
     link,
     scores,
     simulate,
+    map,
     matchcosts,
     mostplayed,
     mostplayedcommon,

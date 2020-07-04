@@ -27,8 +27,22 @@ impl MatchArgs {
     }
 }
 
+pub enum ID {
+    Map(u32),
+    Set(u32),
+}
+
+impl ID {
+    pub fn get(&self) -> u32 {
+        match self {
+            ID::Map(id) => *id,
+            ID::Set(id) => *id,
+        }
+    }
+}
+
 pub struct MapModArgs {
-    pub map_id: Option<u32>,
+    pub map_id: Option<ID>,
     pub mods: Option<(GameMods, ModSelection)>,
 }
 
@@ -40,8 +54,17 @@ impl MapModArgs {
         for arg in args {
             let maybe_map_id = arguments::get_regex_id(&arg);
             let maybe_mods = maybe_map_id.map_or_else(|| arguments::parse_mods(&arg), |_| None);
-            if map_id.is_none() && maybe_map_id.is_some() {
-                map_id = maybe_map_id;
+            if let Some(maybe_map_id) = maybe_map_id {
+                if map_id.is_none() {
+                    let id = if arg.contains("/s/")
+                        || (arg.contains("/beatmapsets/") && !arg.contains('#'))
+                    {
+                        ID::Set(maybe_map_id)
+                    } else {
+                        ID::Map(maybe_map_id)
+                    };
+                    map_id = Some(id);
+                }
             } else if mods.is_none() && maybe_mods.is_some() {
                 mods = maybe_mods;
             }

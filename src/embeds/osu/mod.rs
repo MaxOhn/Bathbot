@@ -1,5 +1,6 @@
 mod common;
 mod leaderboard;
+mod map;
 mod match_costs;
 mod most_played;
 mod most_played_common;
@@ -17,6 +18,7 @@ mod whatif;
 
 pub use common::CommonEmbed;
 pub use leaderboard::LeaderboardEmbed;
+pub use map::MapEmbed;
 pub use match_costs::MatchCostEmbed;
 pub use most_played::MostPlayedEmbed;
 pub use most_played_common::MostPlayedCommonEmbed;
@@ -135,12 +137,12 @@ pub fn get_map_info(map: &Beatmap) -> String {
         CS: `{}` AR: `{}` OD: `{}` HP: `{}` Stars: `{}`",
         sec_to_minsec(map.seconds_total),
         sec_to_minsec(map.seconds_drain),
-        numbers::round(map.bpm).to_string(),
+        numbers::round(map.bpm),
         map.count_objects(),
-        numbers::round(map.diff_cs).to_string(),
-        numbers::round(map.diff_ar).to_string(),
-        numbers::round(map.diff_od).to_string(),
-        numbers::round(map.diff_hp).to_string(),
+        numbers::round(map.diff_cs),
+        numbers::round(map.diff_ar),
+        numbers::round(map.diff_od),
+        numbers::round(map.diff_hp),
         numbers::round(map.stars)
     )
 }

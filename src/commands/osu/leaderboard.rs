@@ -40,7 +40,7 @@ async fn leaderboard_send(
     };
     let args = MapModArgs::new(args);
     let map_id = if let Some(id) = args.map_id {
-        id
+        id.get()
     } else {
         let msgs = msg
             .channel_id

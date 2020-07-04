@@ -2,6 +2,7 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 use super::OppaiErr;
 
+use rosu::models::GameMods;
 use std::ffi::{CStr, CString};
 
 /// Wrapper struct for [oppai-ng](https://github.com/Francesco149/oppai-ng)'s `ezpp` struct in C code.
@@ -164,8 +165,8 @@ impl Oppai {
         unsafe { ezpp_hp(self.ezpp) }
     }
 
-    pub fn get_object_count(&self) -> u32 {
-        unsafe { ezpp_nobjects(self.ezpp) as u32 }
+    pub fn get_object_count(&self) -> usize {
+        unsafe { ezpp_nobjects(self.ezpp) as usize }
     }
 
     pub fn get_combo(&self) -> u32 {
@@ -174,6 +175,18 @@ impl Oppai {
 
     pub fn get_max_combo(&self) -> u32 {
         unsafe { ezpp_max_combo(self.ezpp) as u32 }
+    }
+
+    pub fn get_mods(&self) -> GameMods {
+        unsafe { GameMods::from_bits(ezpp_mods(self.ezpp) as u32).unwrap() }
+    }
+
+    pub fn get_time_at(&self, idx: usize) -> u32 {
+        unsafe { ezpp_time_at(self.ezpp, idx as i32) as u32 }
+    }
+
+    pub fn get_strain_at(&self, idx: usize, difficulty_type: i32) -> f32 {
+        unsafe { ezpp_strain_at(self.ezpp, idx as i32, difficulty_type) }
     }
 
     // ----------------------------------------------------------------------------
