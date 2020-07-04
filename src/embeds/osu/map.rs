@@ -4,7 +4,7 @@ use crate::{
     util::{
         datetime::sec_to_minsec,
         globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
-        numbers::round,
+        numbers::{round, with_comma_u64},
         osu::prepare_beatmap_file,
         pp::{Calculations, PPCalculator},
     },
@@ -140,8 +140,8 @@ impl MapEmbed {
                         GameMode::CTB => "fruits",
                         GameMode::MNA => "mania",
                     },
-                    map.favourite_count,
-                    map.playcount
+                    with_comma_u64(map.favourite_count as u64),
+                    with_comma_u64(map.playcount as u64)
                 ),
                 format!("{:?}, {:?}", map.language, map.genre),
                 false,

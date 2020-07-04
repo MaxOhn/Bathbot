@@ -27,7 +27,7 @@ pub struct ScoresEmbed {
 impl ScoresEmbed {
     pub async fn new<D>(
         user: User,
-        map: Beatmap,
+        map: &Beatmap,
         scores: Vec<Score>,
         cache_data: D,
     ) -> Result<Self, Error>
@@ -44,7 +44,7 @@ impl ScoresEmbed {
             let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
             let mut calculator = PPCalculator::new()
                 .score(&score)
-                .map(&map)
+                .map(map)
                 .data(Arc::clone(cache_data.data()));
             calculator.calculate(calculations).await?;
             let stars = osu::get_stars(calculator.stars().unwrap());

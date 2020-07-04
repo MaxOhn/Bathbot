@@ -6,10 +6,7 @@ use crate::{
     DiscordLinks, Osu,
 };
 
-use rosu::{
-    backend::requests::{BeatmapRequest, ScoreRequest, UserRequest},
-    models::ApprovalStatus::{Approved, Loved, Ranked},
-};
+use rosu::backend::requests::{BeatmapRequest, ScoreRequest, UserRequest};
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
     model::prelude::Message,
@@ -74,15 +71,15 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     };
 
     // Retrieving the beatmap
-    let (map_to_db, map) = {
+    let map = {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
         match mysql.get_beatmap(map_id).await {
-            Ok(map) => (false, map),
+            Ok(map) => map,
             Err(_) => {
                 let map_req = BeatmapRequest::new().map_id(map_id);
                 let osu = data.get::<Osu>().unwrap();
-                let map = match map_req.queue_single(&osu).await {
+                match map_req.queue_single(&osu).await {
                     Ok(result) => match result {
                         Some(map) => map,
                         None => {
@@ -109,13 +106,7 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                             .await;
                         return Err(why.to_string().into());
                     }
-                };
-                (
-                    map.approval_status == Ranked
-                        || map.approval_status == Loved
-                        || map.approval_status == Approved,
-                    map,
-                )
+                }
             }
         }
     };
@@ -164,8 +155,7 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     };
 
     // Accumulate all necessary data
-    let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match ScoresEmbed::new(user, map, scores, ctx).await {
+    let data = match ScoresEmbed::new(user, &map, scores, ctx).await {
         Ok(data) => data,
         Err(why) => {
             msg.channel_id
@@ -184,7 +174,7 @@ async fn scores(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         .await;
 
     // Add map to database if its not in already
-    if let Some(map) = map_copy {
+    {
         let data = ctx.data.read().await;
         let mysql = data.get::<MySQL>().unwrap();
         if let Err(why) = mysql.insert_beatmap(&map).await {
