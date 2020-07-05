@@ -121,8 +121,11 @@ impl RecentEmbed {
         } else {
             None
         };
-        let footer = Footer::new(format!("{:?} map by {}", map.approval_status, map.creator))
-            .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
+        let footer = Footer::new(format!(
+            "{:?} map by {}, played",
+            map.approval_status, map.creator
+        ))
+        .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
         Ok(Self {
             description,
             title,

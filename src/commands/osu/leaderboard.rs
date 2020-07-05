@@ -176,15 +176,10 @@ async fn leaderboard_send(
     let response = msg
         .channel_id
         .send_message(&ctx.http, |m| {
-            let mut content = format!(
+            let content = format!(
                 "I found {} scores with the specified mods on the map's leaderboard",
                 amount
             );
-            if amount > 10 {
-                content.push_str(", here's the top 10 of them:");
-            } else {
-                content.push(':');
-            }
             m.content(content).embed(|e| data.build(e))
         })
         .await;

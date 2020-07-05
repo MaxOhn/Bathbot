@@ -17,7 +17,7 @@ impl BGStartEmbed {
             ```\n\
             🍋: Easy 🎨: Weeb 😱: Hard name 🗽: English 💯: Tech\n\
             🤓: Hard 🍨: Kpop 🪀: Alternate 🌀: Streams ✅: Lock in\n\
-            🤡: Meme 👨‍🌾: Farm 🟦: Blue sky  👴: Old     ❌: Cancel\n\
+            🤡: Meme 👨‍🌾: Farm 🟦: Blue sky  👴: Old     ❌: Abort\n\
             ```",
             author.mention()
         );

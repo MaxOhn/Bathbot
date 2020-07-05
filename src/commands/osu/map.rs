@@ -101,11 +101,26 @@ async fn map(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         let map_req = BeatmapRequest::new().mapset_id(mapset_id);
         let maps = match map_req.queue(&osu).await {
             Ok(mut maps) => {
-                maps.sort_by(|m1, m2| {
-                    m1.stars
-                        .partial_cmp(&m2.stars)
-                        .unwrap_or_else(|| std::cmp::Ordering::Equal)
-                });
+                // For mania sort first by mania key, then star rating
+                if maps.first().map(|map| map.mode).unwrap_or_default() == GameMode::MNA {
+                    maps.sort_by(|m1, m2| {
+                        m1.diff_cs
+                            .partial_cmp(&m2.diff_cs)
+                            .unwrap_or_else(|| std::cmp::Ordering::Equal)
+                            .then(
+                                m1.stars
+                                    .partial_cmp(&m2.stars)
+                                    .unwrap_or_else(|| std::cmp::Ordering::Equal),
+                            )
+                    })
+                // For other mods just sort by star rating
+                } else {
+                    maps.sort_by(|m1, m2| {
+                        m1.stars
+                            .partial_cmp(&m2.stars)
+                            .unwrap_or_else(|| std::cmp::Ordering::Equal)
+                    })
+                }
                 maps
             }
             Err(why) => {
