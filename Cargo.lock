@@ -111,6 +111,7 @@ name = "bathbot-twilight"
 version = "0.1.0"
 dependencies = [
  "bitflags",
+ "bytes",
  "chrono",
  "clap",
  "ctrlc",

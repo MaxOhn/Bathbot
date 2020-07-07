@@ -1,33 +1,35 @@
+use super::enums::*;
+
 use chrono::NaiveDateTime;
 use rosu::models::{Beatmap, GameMode};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct DBMap {
-    pub beatmap_id: u32,
-    pub beatmapset_id: u32,
+    pub beatmap_id: i32,
+    pub beatmapset_id: i32,
     mode: GameMode,
     version: String,
-    seconds_drain: u32,
-    seconds_total: u32,
+    seconds_drain: i32,
+    seconds_total: i32,
     bpm: f32,
     stars: f32,
     diff_cs: f32,
     diff_od: f32,
     diff_ar: f32,
     diff_hp: f32,
-    count_circle: u32,
-    count_slider: u32,
-    count_spinner: u32,
-    max_combo: Option<u32>,
+    count_circle: i32,
+    count_slider: i32,
+    count_spinner: i32,
+    max_combo: Option<i32>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct DBMapSet {
-    pub beatmapset_id: u32,
+    pub beatmapset_id: i32,
     pub artist: String,
     pub title: String,
-    creator_id: u32,
+    creator_id: i32,
     creator: String,
     genre: u8,
     language: u8,
