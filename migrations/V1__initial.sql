@@ -90,52 +90,28 @@ CREATE TABLE maps (
 
 CREATE TABLE ctb_pp (
     beatmap_id INT NOT NULL,
-    NM FLOAT,
-    HD FLOAT,
-    HR FLOAT,
-    DT FLOAT,
-    HDHR FLOAT,
-    HDDT FLOAT,
+    values JSON NOT NULL,
     FOREIGN KEY (beatmap_id) REFERENCES maps(beatmap_id),
     PRIMARY KEY (beatmap_id)
 );
 
 CREATE TABLE ctb_stars (
     beatmap_id INT NOT NULL,
-    EZ FLOAT,
-    HR FLOAT,
-    DT FLOAT,
-    HT FLOAT,
-    EZDT FLOAT,
-    HRDT FLOAT,
-    EZHT FLOAT,
-    HRHT FLOAT,
+    values JSON NOT NULL,
     FOREIGN KEY (beatmap_id) REFERENCES maps(beatmap_id),
     PRIMARY KEY (beatmap_id)
 );
 
 CREATE TABLE mania_pp (
     beatmap_id INT NOT NULL,
-    NM FLOAT,
-    NF FLOAT,
-    EZ FLOAT,
-    DT FLOAT,
-    HT FLOAT,
-    NFEZ FLOAT,
-    NFDT FLOAT,
-    EZDT FLOAT,
-    NFHT FLOAT,
-    EZHT FLOAT,
-    NFEZDT FLOAT,
-    NFEZHT FLOAT,
+    values JSON NOT NULL,
     FOREIGN KEY (beatmap_id) REFERENCES maps(beatmap_id),
     PRIMARY KEY (beatmap_id)
 );
 
 CREATE TABLE mania_stars (
     beatmap_id INT NOT NULL,
-    DT FLOAT,
-    HT FLOAT,
+    values JSON NOT NULL,
     FOREIGN KEY (beatmap_id) REFERENCES maps(beatmap_id),
     PRIMARY KEY (beatmap_id)
 );
@@ -190,6 +166,7 @@ CREATE TABLE guilds (
 
 CREATE TABLE ratio_table (
     name VARCHAR(31) PRIMARY KEY NOT NULL,
-    values
-        JSON NOT NULL
+    scores CHAR[] NOT NULL,
+    ratios REAL[] NOT NULL,
+    misses REAL[] NOT NULL
 )

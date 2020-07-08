@@ -111,22 +111,12 @@ async fn run(
             encoder.encode(&metric_families, &mut buffer).unwrap();
             String::from_utf8(buffer).unwrap()
         });
-        let port = 9091;
-        warp::serve(hello).run(([127, 0, 0, 1], port)).await;
+        warp::serve(hello).run(([127, 0, 0, 1], 9091)).await;
     });
-    let cache = Cache::new(0, stats.clone());
+    let cache = Cache::new(stats.clone());
     let mut cb = ClusterConfig::builder(&config.tokens.discord)
         .shard_scheme(sharding_scheme)
-        .intents(intents)
-        .presence(UpdateStatusInfo::new(
-            true,
-            generate_activity(
-                ActivityType::Listening,
-                String::from("to the modem screeching as i connect to the gateway"),
-            ),
-            None,
-            Status::Idle,
-        ));
+        .intents(intents);
     // Check for resume data, pass to builder if present
     let mut connection = redis.get().await;
     match connection.get("cb_cluster_data_0").await.ok().flatten() {
@@ -167,7 +157,6 @@ async fn run(
                 }
             }
         }
-
         None => {}
     };
     let cluster_config = cb.build();
@@ -189,7 +178,7 @@ async fn run(
     let shutdown_ctx = context.clone();
     ctrlc::set_handler(move || {
         // We need a seperate runtime, because at this point in the program,
-        // the tokio::main instance isn't running anymore.
+        // the tokio::main instance isn't running anymore
         let _ = Runtime::new()
             .unwrap()
             .block_on(shutdown_ctx.initiate_cold_resume());

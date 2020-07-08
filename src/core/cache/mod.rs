@@ -56,9 +56,9 @@ pub struct Cache {
 }
 
 impl Cache {
-    pub fn new(cluster_id: u64, stats: Arc<BotStats>) -> Self {
+    pub fn new(stats: Arc<BotStats>) -> Self {
         Cache {
-            cluster_id,
+            cluster_id: 0,
             guilds: DashMap::new(),
             guild_channels: DashMap::new(),
             private_channels: DashMap::new(),
