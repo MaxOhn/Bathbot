@@ -1,5 +1,5 @@
 mod beatmap;
-pub mod game_mode;
+pub mod enums;
 mod guild_config;
 mod map_tags;
 mod ratios;
