@@ -11,8 +11,8 @@ use dashmap::{DashMap, ElementGuard};
 use deadpool_postgres::{Manager, Pool};
 use postgres_types::Type;
 use rosu::models::{
-    ApprovalStatus::{self, Approved, Loved, Ranked},
-    Beatmap, GameMode, GameMods, Genre, Language,
+    ApprovalStatus::{Approved, Loved, Ranked},
+    Beatmap, GameMode, GameMods,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -50,7 +50,7 @@ impl Database {
     // ---------------------
 
     pub async fn get_beatmap(&self, map_id: u32) -> BotResult<Beatmap> {
-        let query = r#"
+        let query = "
 SELECT
     *
 FROM
@@ -62,7 +62,8 @@ FROM
         WHERE
             beatmap_id=$1
     ) as m
-    JOIN mapsets as ms ON m.beatmapset_id = ms.beatmapset_id"#;
+    JOIN mapsets as ms ON m.beatmapset_id = ms.beatmapset_id
+";
         let client = self.pool.get().await?;
         let statement = client.prepare_typed(query & [Type::INT4]).await?;
         let map = client.query_one(&statement, &[&(map_id as i32)]).await?;
@@ -135,13 +136,14 @@ FROM
             Loved | Ranked | Approved => {
                 // Important to do mapsets first for foreign key constrain
                 let mapset_query = format!(
-                    r#"
+                    "
 INSERT INTO
     mapsets
 VALUES
     ({},{},{},{},{},{},{},{},$1)
-ON CONFLICT DO NOTHING
-"#,
+ON CONFLICT DO
+    NOTHING
+",
                     map.beatmapset_id,
                     map.artist,
                     map.title,
@@ -155,13 +157,14 @@ ON CONFLICT DO NOTHING
                 txn.execute(mapset_stmnt, &[&map.approved_date]).await?;
 
                 let map_query = format!(
-                    r#"
+                    "
 INSERT INTO
     maps
 VALUES
     ({},{},{},{},{},{},{},{},{},{},{},{},{},{},$1)
-ON CONFLICT DO NOTHING
-"#,
+ON CONFLICT DO 
+    NOTHING
+",
                     map.beatmap_id,
                     map.beatmapset_id,
                     match map.mode {
@@ -211,14 +214,15 @@ ON CONFLICT DO NOTHING
     // --------------------
 
     pub async fn add_discord_link(&self, user_id: u64, name: &str) -> BotResult<()> {
-        let query = r#"
+        let query = "
 INSERT INTO
     discord_users
 VALUES
     ($1,$2)
 ON CONFLICT DO
     UPDATE
-        osu_name=$2"#;
+        SET osu_name=$2
+";
         let client = self.pool.get().await?;
         let statement = client
             .prepare_typed(query, &[Type::INT8, Type::BYTEA])
@@ -309,13 +313,14 @@ ON CONFLICT DO
             _ => unreachable!(),
         };
         let query = format!(
-            r#"
+            "
 INSERT INTO
     {} (beatmap_id, {col})
 VALUES
     (?,?) ON DUPLICATE KEY
 UPDATE
-    {col}=?"#,
+    {col}=?
+",
             table,
             col = column
         );
@@ -379,13 +384,14 @@ UPDATE
             _ => unreachable!(),
         };
         let query = format!(
-            r#"
+            "
 INSERT INTO
     {} (beatmap_id, {col})
 VALUES
     (?,?) ON DUPLICATE KEY
 UPDATE
-    {col}=?"#,
+    {col}=?
+",
             table,
             col = column
         );
@@ -403,28 +409,38 @@ UPDATE
     // ------------------
 
     pub async fn get_role_assigns(&self) -> BotResult<HashMap<(u64, u64), u64>> {
-        let assigns = sqlx::query_as::<_, (u32, u64, u64, u64)>("SELECT * FROM role_assign")
-            .fetch(&self.pool)
-            .filter_map(|result| match result {
-                Ok((_, c, m, r)) => Some(((c, m), r)),
-                Err(why) => {
-                    warn!("Error while getting roleassigns from DB: {}", why);
-                    None
-                }
-            })
-            .collect::<Vec<_>>()
-            .await
+        let client = self.pool.get().await?;
+        let statement = client.prepare("SELECT * FROM role_assign").await?;
+        let assigns = client
+            .query(statement)
+            .await?
             .into_iter()
+            .map(|row| {
+                let channel: i64 = row.get(0);
+                let msg: i64 = row.get(1);
+                let role: i64 = row.get(2);
+                ((channel as u64, msg as u64), role as u64)
+            })
             .collect();
         Ok(assigns)
     }
 
     pub async fn add_role_assign(&self, channel: u64, message: u64, role: u64) -> BotResult<()> {
-        sqlx::query("INSERT INTO role_assign(channel,message,role) VALUES (?,?,?)")
-            .bind(channel)
-            .bind(message)
-            .bind(role)
-            .execute(&self.pool)
+        let query = "
+INSERT INTO
+    role_assign
+VALUES
+    ($1,$2,$3)
+ON CONFLICT DO
+    UPDATE
+        SET role=$3
+";
+        let client = self.pool.get().await?;
+        let statement = client
+            .prepare_typed(query, &[Type::INT8, Type::INT8, Type::INT8])
+            .await?;
+        client
+            .execute(statement, &[channel as i64, message as i64, role as i64])
             .await?;
         Ok(())
     }
@@ -433,63 +449,79 @@ UPDATE
     // Table: stream_tracks / twitch_users
     // -----------------------------------
 
-    pub async fn add_twitch_user(&self, id: u64, name: &str) -> BotResult<()> {
-        sqlx::query("INSERT INTO twitch_users(user_id,name) VALUES (?,?)")
-            .bind(id)
-            .bind(name)
-            .execute(&self.pool)
+    pub async fn add_twitch_user(&self, user_id: u64, name: &str) -> BotResult<()> {
+        let client = self.pool.get().await?;
+        let statement = client
+            .prepare_typed(
+                "INSERT INTO twitch_users VALUES ($1,$2)",
+                &[Type::INT8, Type::BYTEA],
+            )
             .await?;
+        client.execute(statement, &[user_id as i64, name]).await?;
         Ok(())
     }
 
     pub async fn add_stream_track(&self, channel: u64, user: u64) -> BotResult<()> {
-        sqlx::query("INSERT INTO stream_tracks(channel_id,user_id) VALUES (?,?)")
-            .bind(channel)
-            .bind(user)
-            .execute(&self.pool)
+        let client = self.pool.get().await?;
+        let statement = client
+            .prepare_typed(
+                "INSERT INTO stream_tracks VALUES ($1,$2)",
+                &[Type::INT8, Type::INT8],
+            )
+            .await?;
+        client
+            .execute(statement, &[channel as i64, user as i64])
             .await?;
         Ok(())
     }
 
-    pub async fn get_twitch_users(&self) -> BotResult<HashMap<String, u64>> {
-        let users = sqlx::query_as::<_, (u64, String)>("SELECT * FROM twitch_users")
-            .fetch(&self.pool)
-            .filter_map(|result| match result {
-                Ok((id, name)) => Some((name, id)),
-                Err(why) => {
-                    warn!("Error while getting twitch users from DB: {}", why);
-                    None
-                }
-            })
-            .collect::<Vec<_>>()
-            .await
+    pub async fn get_twitch_users(&self, user_ids: &[u64]) -> BotResult<HashMap<String, u64>> {
+        let query = String::from("SELECT * FROM twitch_users WHERE user_id IN").in_clause(user_ids);
+        let client = self.pool.get().await?;
+        let statement = client.prepare(&query).await?;
+        let users = client
+            .query(statement)
+            .await?
             .into_iter()
+            .map(|row| {
+                let user_id: i64 = row.get(0);
+                (row.get(1), user_id as u64)
+            })
             .collect();
         Ok(users)
     }
 
-    pub async fn get_stream_tracks(&self) -> BotResult<HashSet<StreamTrack>> {
-        let tracks = sqlx::query_as::<_, StreamTrack>("SELECT * FROM stream_tracks")
-            .fetch_all(&self.pool)
+    pub async fn get_stream_tracks(&self) -> BotResult<HashSet<(u64, u64)>> {
+        let client = self.pool.get().await?;
+        let statement = client.prepare("SELECT * FROM stream_tracks").await?;
+        let tracks = client
+            .query(statement)
             .await?
             .into_iter()
+            .map(|row| {
+                let channel: i64 = row.get(0);
+                let user: i64 = row.get(1);
+                (channel as u64, user as u64)
+            })
             .collect();
         Ok(tracks)
     }
 
     pub async fn remove_stream_track(&self, channel: u64, user: u64) -> BotResult<()> {
-        sqlx::query(
-            r#"
+        let client = self.pool.get().await?;
+        let query = "
 DELETE FROM
     stream_tracks
 WHERE
-    channel_id=?
-    AND user_id=?"#,
-        )
-        .bind(channel)
-        .bind(user)
-        .execute(&self.pool)
-        .await?;
+    channel_id=$1
+    AND user_id=$2
+";
+        let statement = client
+            .prepare_typed(query, &[Type::INT8, Type::INT8])
+            .await?;
+        client
+            .execute(statement, &[channel as i64, user as i64])
+            .await?;
         Ok(())
     }
 
@@ -580,14 +612,15 @@ WHERE
     // -------------------
 
     pub async fn increment_bggame_score(&self, user_id: u64) -> BotResult<()> {
-        let query = r#"
+        let query = "
 INSERT INTO
     bggame_stats
 VALUES
     ($1,1)
 ON CONFLICT DO
     UPDATE
-        score = score + 1"#;
+        SET score=score+1
+";
         let client = self.pool.get().await?;
         let statement = client.prepare_typed(query, &[Type::INT8]).await?;
         client.execute(&statement, &[&(user_id as i64)]).await?;
@@ -625,6 +658,7 @@ ON CONFLICT DO
     // Table: ratio_table
     // ------------------
 
+    // TODO: arguments
     pub async fn update_ratios(
         &self,
         name: &str,
@@ -632,17 +666,58 @@ ON CONFLICT DO
         ratios: &str,
         misses: &str,
     ) -> BotResult<Option<Ratios>> {
-        let old_ratios: Option<Ratios> = sqlx::query_as("SELECT * FROM ratio_table WHERE name=?")
-            .bind(name)
-            .fetch_optional(&self.pool)
+        let select_query = "
+SELECT 
+    scores,ratios,misses
+FROM
+    ratio_table
+WHERE
+    name=$1
+";
+        let upsert_query = "
+INSERT INTO
+    ratio_table
+VALUES
+    ($1,$2,$3,$4)
+ON CONFLICT DO
+    UPDATE
+        SET scores=$2,ratios=$3,misses=$4
+";
+        let client = self.pool.get().await?;
+        let txn = client.transaction().await?;
+        let select_stmnt = txn
+            .prepare_typed(
+                select_query,
+                &[
+                    Type::BYTEA,
+                    Type::INT2_ARRAY,
+                    Type::FLOAT4_ARRAY,
+                    Type::FLOAT4_ARRAY,
+                ],
+            )
             .await?;
-        sqlx::query("REPLACE INTO ratio_table(name,scores,ratios,misses) VALUES (?,?,?,?)")
-            .bind(name)
-            .bind(scores)
-            .bind(ratios)
-            .bind(misses)
-            .execute(&self.pool)
+        let row = txn
+            .query_opt(select_stmnt, &[name, scores, ratios, misses])
             .await?;
+        let upsert_stmnt = txn
+            .prepare_typed(
+                upsert_query,
+                &[
+                    Type::BYTEA,
+                    Type::INT2_ARRAY,
+                    Type::FLOAT4_ARRAY,
+                    Type::FLOAT4_ARRAY,
+                ],
+            )
+            .await?;
+        txn.execute(upsert_stmnt, &[name, scores, ratios, misses])
+            .await?;
+        txn.commit().await?;
+        let old_ratios = row.map(|row| Ratios {
+            scores: row.get(0),
+            ratios: row.get(1),
+            misses: row.get(2),
+        });
         Ok(old_ratios)
     }
 
@@ -670,9 +745,10 @@ ON CONFLICT DO
     ) -> BotResult<()> {
         let query = "
 INSERT
-    INTO map_tags(beatmapset_id, filetype, mode)
+    INTO map_tags
 VALUES
-    ($1,$2,$3)";
+    ($1,$2,$3)
+";
         let client = self.pool.get().await?;
         let statement = client
             .prepare_typed(query, &[Type::INT4, Type::BYTEA, Type::INT2])
@@ -697,21 +773,61 @@ VALUES
         Ok(())
     }
 
-    // pub async fn get_tags_mapset(&self, mapset_id: u32) -> BotResult<MapsetTagWrapper> {
-    //     let tags = sqlx::query_as("SELECT * FROM map_tags WHERE beatmapset_id=?")
-    //         .bind(mapset_id)
-    //         .fetch_one(&self.pool)
-    //         .await?;
-    //     Ok(tags)
-    // }
+    pub async fn get_tags_mapset(&self, mapset_id: u32) -> BotResult<MapsetTagWrapper> {
+        let client = self.pool.get().await?;
+        let statement = client
+            .prepare_typed(
+                "SELECT * FROM map_tags WHERE beatmapset_id=$1",
+                &[Type::INT4],
+            )
+            .await?;
+        let tags = client
+            .query_one(statement, &[mapset_id as i64])
+            .await?
+            .into();
+        Ok(tags)
+    }
 
-    // pub async fn get_all_tags_mapset(&self, mode: GameMode) -> BotResult<Vec<MapsetTagWrapper>> {
-    //     let tags = sqlx::query_as("SELECT * FROM map_tags WHERE mode=?")
-    //         .bind(mode as u8)
-    //         .fetch_all(&self.pool)
-    //         .await?;
-    //     Ok(tags)
-    // }
+    pub async fn get_all_tags_mapset(&self, mode: GameMode) -> BotResult<Vec<MapsetTagWrapper>> {
+        let client = self.pool.get().await?;
+        let statement = client
+            .prepare_typed("SELECT * FROM map_tags WHERE mode=$1", &[Type::BYTEA])
+            .await?;
+        let mode = match mode {
+            GameMode::STD => "osu",
+            GameMode::TKO => "taiko",
+            GameMode::CTB => "fuits",
+            GameMode::MNA => "mania",
+        };
+        let tags = client
+            .query(statement, &[mode])
+            .await?
+            .into_iter()
+            .map(|row| row.into())
+            .collect();
+        Ok(tags)
+    }
+
+    pub async fn get_random_tags_mapset(&self, mode: GameMode) -> BotResult<MapsetTagWrapper> {
+        let query = "
+SELECT
+    *
+FROM
+    map_tags AS mt
+    JOIN (
+        SELECT
+            beatmapset_id
+        FROM
+            map_tags
+        WHERE
+            mode=?
+        ORDER BY
+            RAND()
+        LIMIT
+            1
+    ) as rndm ON mt.beatmapset_id = rndm.beatmapset_id
+";
+    }
 
     //     pub async fn get_random_tags_mapset(&self, mode: GameMode) -> BotResult<MapsetTagWrapper> {
     //         let query = r#"
