@@ -1,14 +1,5 @@
-#![allow(non_snake_case)]
-use super::{super::schema::pp_ctb_mods, beatmap::DBMap};
+use super::DBMap;
 
-use failure::Error;
-
-#[derive(
-    Default, Copy, Clone, Identifiable, Queryable, Associations, Insertable, AsChangeset, Debug,
-)]
-#[table_name = "pp_ctb_mods"]
-#[belongs_to(DBMap, foreign_key = "beatmap_id")]
-#[primary_key(beatmap_id)]
 pub struct CtbPP {
     pub beatmap_id: u32,
     pub NM: Option<f32>,

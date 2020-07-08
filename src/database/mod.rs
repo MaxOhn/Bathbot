@@ -11,15 +11,15 @@ use dashmap::{DashMap, ElementGuard};
 use deadpool_postgres::{Manager, Pool};
 use postgres_types::Type;
 use rosu::models::{
-    ApprovalStatus::{Approved, Loved, Ranked},
-    Beatmap, GameMode, GameMods,
+    ApprovalStatus::{self, Approved, Loved, Ranked},
+    Beatmap, GameMode, GameMods, Genre, Language,
 };
 use std::{
     collections::{HashMap, HashSet},
     fmt::Write,
 };
 use tokio::stream::StreamExt;
-use tokio_postgres::{Config, NoTls};
+use tokio_postgres::{Config, NoTls, Transaction};
 use twilight::model::id::UserId;
 
 mod embedded {
@@ -60,13 +60,12 @@ FROM
         FROM
             maps
         WHERE
-            beatmap_id = ?
+            beatmap_id=$1
     ) as m
     JOIN mapsets as ms ON m.beatmapset_id = ms.beatmapset_id"#;
-        let map: BeatmapWrapper = sqlx::query_as(query)
-            .bind(map_id)
-            .fetch_one(&self.pool)
-            .await?;
+        let client = self.pool.get().await?;
+        let statement = client.prepare_typed(query & [Type::INT4]).await?;
+        let map = client.query_one(&statement, &[&(map_id as i32)]).await?;
         Ok(map.into())
     }
 
@@ -90,90 +89,164 @@ FROM
             "SELECT * FROM ({}) as m JOIN mapsets as ms ON m.beatmapset_id=ms.beatmapset_id",
             subquery
         );
-        let beatmaps = sqlx::query_as::<_, BeatmapWrapper>(&query)
-            .fetch(&self.pool)
-            .filter_map(|result| match result {
-                Ok(map_wrapper) => {
-                    let map: Beatmap = map_wrapper.into();
-                    Some((map.beatmap_id, map))
-                }
-                Err(why) => {
-                    warn!("Error while getting maps from DB: {}", why);
-                    None
-                }
-            })
-            .collect::<Vec<_>>()
-            .await
+        let client = self.pool.get().await?;
+        let statement = client.prepare(query).await?;
+        let maps = client
+            .query(&statement)
+            .await?
             .into_iter()
+            .map(|row| {
+                let map: Beatmap = row.into::<BeatmapWrapper>().into();
+                (map.beatmap_id, map)
+            })
             .collect();
-        Ok(beatmaps)
+        // let beatmaps = sqlx::query_as::<_, BeatmapWrapper>(&query)
+        //     .fetch(&self.pool)
+        //     .filter_map(|result| match result {
+        //         Ok(map_wrapper) => {
+        //             let map: Beatmap = map_wrapper.into();
+        //             Some((map.beatmap_id, map))
+        //         }
+        //         Err(why) => {
+        //             warn!("Error while getting maps from DB: {}", why);
+        //             None
+        //         }
+        //     })
+        //     .collect::<Vec<_>>()
+        //     .await
+        //     .into_iter()
+        //     .collect();
+        Ok(maps)
     }
 
-    pub async fn insert_beatmap(&self, map: &Beatmap) -> BotResult<()> {
+    pub async fn insert_beatmap(&self, map: &Beatmap) -> BotResult<bool> {
+        let client = self.pool.get().await?;
+        let txn = client.transaction().await?;
+        let result = _insert_beatmap(&txn, map).await?;
+        txn.commit().await?;
+        Ok(result)
+    }
+
+    async fn _insert_beatmap<'t, 'm>(
+        txn: &'t Transaction<'t>,
+        map: &'m Beatmap,
+    ) -> BotResult<bool> {
         match map.approval_status {
             Loved | Ranked | Approved => {
                 // Important to do mapsets first for foreign key constrain
-                _insert_beatmapset(&self.pool, map).await?;
-                _insert_beatmap(&self.pool, map).await?;
+                let mapset_query = format!(
+                    r#"
+INSERT INTO
+    mapsets
+VALUES
+    ({},{},{},{},{},{},{},{},$1)
+ON CONFLICT DO NOTHING
+"#,
+                    map.beatmapset_id,
+                    map.artist,
+                    map.title,
+                    map.creator_id,
+                    map.creator,
+                    map.genre.to_string().to_lowercase(),
+                    map.language.to_string().to_lowercase(),
+                    map.approval_status.to_string().to_lowercase(),
+                );
+                let mapset_stmnt = txn.prepare_typed(&mapset_query, &[Type::DATE]);
+                txn.execute(mapset_stmnt, &[&map.approved_date]).await?;
+
+                let map_query = format!(
+                    r#"
+INSERT INTO
+    maps
+VALUES
+    ({},{},{},{},{},{},{},{},{},{},{},{},{},{},$1)
+ON CONFLICT DO NOTHING
+"#,
+                    map.beatmap_id,
+                    map.beatmapset_id,
+                    match map.mode {
+                        GameMode::STD => "osu",
+                        GameMode::TKO => "taiko",
+                        GameMode::CTB => "fruits",
+                        GameMode::MNA => "mania",
+                    },
+                    map.version,
+                    map.seconds_drain,
+                    map.seconds_total,
+                    map.bpm,
+                    map.diff_cs,
+                    map.diff_od,
+                    map.diff_ar,
+                    map.diff_hp,
+                    map.count_circle,
+                    map.count_slider,
+                    map.count_spinner
+                );
+                let map_stmnt = txn.prepare_typed(map_query, &[Type::INT4]);
+                txn.execute(map_stmnt, &[&map.max_combo]).await?;
+                Ok(true)
             }
-            _ => {}
+            _ => Ok(false),
         }
-        Ok(())
     }
 
-    pub async fn insert_beatmaps(&self, maps: &[Beatmap]) -> BotResult<()> {
+    pub async fn insert_beatmaps(&self, maps: &[Beatmap]) -> BotResult<usize> {
         if maps.is_empty() {
-            return Ok(());
+            return Ok(0);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut success = 0;
+        let client = self.pool.get().await?;
+        let txn = client.transaction().await?;
         for map in maps.iter() {
-            match map.approval_status {
-                Loved | Ranked | Approved => {
-                    _insert_beatmapset(&mut tx, map).await?;
-                    _insert_beatmap(&mut tx, map).await?;
-                }
-                _ => {}
+            if _insert_beatmap(&txn, map).await? {
+                success += 1
             }
         }
-        tx.commit().await?;
-        Ok(())
+        txn.commit().await?;
+        Ok(success)
     }
 
     // --------------------
     // Table: discord_users
     // --------------------
 
-    pub async fn add_discord_link(&self, id: u64, name: &str) -> BotResult<()> {
-        sqlx::query(
-            r#"
+    pub async fn add_discord_link(&self, user_id: u64, name: &str) -> BotResult<()> {
+        let query = r#"
 INSERT INTO
-    discord_users(discord_id, osu_name)
+    discord_users
 VALUES
-    (?,?) ON DUPLICATE KEY
-UPDATE
-    osu_name=?"#,
-        )
-        .bind(id)
-        .bind(name)
-        .bind(name)
-        .execute(&self.pool)
-        .await?;
+    ($1,$2)
+ON CONFLICT DO
+    UPDATE
+        osu_name=$2"#;
+        let client = self.pool.get().await?;
+        let statement = client
+            .prepare_typed(query, &[Type::INT8, Type::BYTEA])
+            .await?;
+        client.execute(&statement, &[user_id as i64, name]).await?;
         Ok(())
     }
 
-    pub async fn remove_discord_link(&self, id: u64) -> BotResult<()> {
-        sqlx::query("DELETE FROM discord_users WHERE discord_id=?")
-            .bind(id)
-            .execute(&self.pool)
+    pub async fn remove_discord_link(&self, user_id: u64) -> BotResult<()> {
+        let client = self.pool.get().await?;
+        let statement = client
+            .prepare_typed(
+                "DELETE FROM discord_users WHERE discord_id=$1",
+                &[Type::INT8],
+            )
             .await?;
+        client.execute(statement, &[&user_id]).await?;
         Ok(())
     }
 
     pub async fn get_discord_links(&self) -> BotResult<HashMap<u64, String>> {
-        let links = sqlx::query_as("SELECT * FROM discord_users")
-            .fetch_all(&self.pool)
+        let client = self.pool.get().await?;
+        let statement = client.prepare("SELECT * FROM discord_users").await?;
+        let links = client
+            .query(statement)
             .await?
             .into_iter()
+            .map(|row| (row.get(0), row.get(1)))
             .collect();
         Ok(links)
     }
