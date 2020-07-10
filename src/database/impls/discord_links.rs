@@ -1,6 +1,6 @@
 use crate::{BotResult, Database};
 
-use postgres_types::Type;
+use sqlx::Row;
 use std::collections::HashMap;
 
 impl Database {
@@ -14,36 +14,26 @@ ON CONFLICT DO
     UPDATE
         SET osu_name=$2
 ";
-        let client = self.pool.get().await?;
-        let statement = client
-            .prepare_typed(query, &[Type::INT8, Type::BYTEA])
-            .await?;
-        client
-            .execute(&statement, &[&(user_id as i64), &(name)])
+        sqlx::query(query)
+            .bind(user_id as i64)
+            .bind(name)
+            .execute(&self.pool)
             .await?;
         Ok(())
     }
 
     pub async fn remove_discord_link(&self, user_id: u64) -> BotResult<()> {
-        let client = self.pool.get().await?;
-        let statement = client
-            .prepare_typed(
-                "DELETE FROM discord_users WHERE discord_id=$1",
-                &[Type::INT8],
-            )
-            .await?;
-        client.execute(&statement, &[&(user_id as i64)]).await?;
+        let query = format!("DELETE FROM discord_users WHERE discord_id={}", user_id);
+        sqlx::query(&query).execute(&self.pool).await?;
         Ok(())
     }
 
     pub async fn get_discord_links(&self) -> BotResult<HashMap<u64, String>> {
-        let client = self.pool.get().await?;
-        let statement = client.prepare("SELECT * FROM discord_users").await?;
-        let links = client
-            .query(&statement, &[])
+        let links = sqlx::query("SELECT * FROM discord_users")
+            .fetch_all(&self.pool)
             .await?
             .into_iter()
-            .map(|row| (row.get::<_, i64>(0) as u64, row.get(1)))
+            .map(|row| (row.get::<i64, _>(0) as u64, row.get(1)))
             .collect();
         Ok(links)
     }

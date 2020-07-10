@@ -1,37 +1,20 @@
 use crate::{database::GuildConfig, BotResult, Database};
 
-use postgres_types::Type;
-
 impl Database {
     pub async fn get_guild_config(&self, guild_id: u64) -> BotResult<GuildConfig> {
-        let client = self.pool.get().await?;
-        let statement = client
-            .prepare_typed("SELECT config from guilds where id=$1", &[Type::INT8])
-            .await?;
-        if let Some(row) = client.query_opt(&statement, &[&(guild_id as i64)]).await? {
-            Ok(serde_json::from_value(row.get(0))?)
-        } else {
-            let config = GuildConfig::default();
-            info!(
-                "No config found for guild {}, inserting blank one",
-                guild_id
-            );
-            let statement = client
-                .prepare_typed(
-                    "INSERT INTO guilds VALUES ($1, $2)",
-                    &[Type::INT8, Type::JSON],
-                )
-                .await?;
-            client
-                .execute(
-                    &statement,
-                    &[
-                        &(guild_id as i64),
-                        &serde_json::to_value(&GuildConfig::default()).unwrap(),
-                    ],
-                )
-                .await?;
-            Ok(config)
+        let query = format!("SELECT config from guilds where id={}", guild_id);
+        match sqlx::query_as::<_, GuildConfig>(&query)
+            .fetch_optional(&self.pool)
+            .await?
+        {
+            Some(config) => Ok(config),
+            None => {
+                info!(
+                    "No config found for guild {}, inserting blank one",
+                    guild_id
+                );
+                self.insert_guild(guild_id).await
+            }
         }
     }
 
@@ -53,36 +36,20 @@ impl Database {
     // }
 
     pub async fn set_guild_config(&self, guild_id: u64, config: GuildConfig) -> BotResult<()> {
-        let client = self.pool.get().await?;
-        let statement = client
-            .prepare_typed(
-                "UPDATE guilds SET config=$1 WHERE id=$2",
-                &[Type::JSON, Type::INT8],
-            )
-            .await?;
-        client
-            .execute(
-                &statement,
-                &[&serde_json::to_value(&config).unwrap(), &(guild_id as i64)],
-            )
+        sqlx::query("UPDATE guilds SET config=$1 WHERE id=$2")
+            .bind(serde_json::to_string(&config)?)
+            .bind(guild_id as i64)
+            .execute(&self.pool)
             .await?;
         Ok(())
     }
 
     pub async fn insert_guild(&self, guild_id: u64) -> BotResult<GuildConfig> {
-        let client = self.pool.get().await?;
-        let statement = client
-            .prepare_typed(
-                "INSERT INTO guilds VALUES ($1,$2) ON CONFLICT DO NOTHING",
-                &[Type::INT8, Type::JSON],
-            )
-            .await?;
         let config = GuildConfig::default();
-        client
-            .execute(
-                &statement,
-                &[&(guild_id as i64), &serde_json::to_value(&config).unwrap()],
-            )
+        sqlx::query("INSERT INTO guild VALUES ($1,$2) ON CONFLICT DO NOTHING")
+            .bind(guild_id as i64)
+            .bind(serde_json::to_string(&config).unwrap())
+            .execute(&self.pool)
             .await?;
         Ok(config)
     }

@@ -2,7 +2,8 @@ use crate::{BotResult, Database};
 
 use dashmap::DashMap;
 use rosu::models::GameMods;
-use std::{collections::HashMap, fmt::Write};
+use sqlx::Row;
+use std::collections::HashMap;
 
 type ValueResult = BotResult<DashMap<u32, HashMap<GameMods, f32>>>;
 
@@ -24,12 +25,9 @@ impl Database {
     }
 
     async fn get_values(&self, table: &str) -> ValueResult {
-        let mut query = String::with_capacity(14 + table.len());
-        let _ = write!(query, "SELECT * FROM {}", table);
-        let client = self.pool.get().await?;
-        let statement = client.prepare(&query).await?;
-        let values: BotResult<DashMap<_, _>> = client
-            .query(&statement, &[])
+        let query = format!("SELECT * FROM {}", table);
+        let values: BotResult<DashMap<_, _>> = sqlx::query(&query)
+            .fetch_all(&self.pool)
             .await?
             .into_iter()
             .map(|row| Ok((row.get(0), serde_json::from_value(row.get(1))?)))

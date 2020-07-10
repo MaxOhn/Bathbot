@@ -1,10 +1,7 @@
 use darkredis::Error as RedisError;
-use deadpool_postgres::PoolError;
-use refinery::Error as MigrationError;
 use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
 use std::{error, fmt};
-use tokio_postgres::Error as _DBError;
 use toml::de::Error as TomlError;
 use twilight::{gateway::cluster::Error as ClusterError, http::Error as HttpError};
 
@@ -27,14 +24,11 @@ pub enum Error {
     CacheDefrost(&'static str, Box<Error>),
     Custom(String),
     Database(DBError),
-    _Database(_DBError), // TODO: Remove this
     Fmt(fmt::Error),
     InvalidConfig(TomlError),
     InvalidSession(u64),
-    Migration(MigrationError),
     NoConfig,
     NoLoggingSpec,
-    Pool(PoolError),
     Redis(RedisError),
     Serde(SerdeJsonError),
     TwilightHttp(HttpError),
@@ -51,7 +45,6 @@ impl fmt::Display for Error {
             }
             Error::Custom(e) => write!(f, "{}", e),
             Error::Database(e) => write!(f, "Database error occured: {}", e),
-            Error::_Database(e) => write!(f, "Database error occured: {}", e),
             Error::Fmt(e) => write!(f, "fmt error: {}", e),
             Error::InvalidConfig(e) => {
                 write!(f, "The config file was not in the correct format: {}", e)
@@ -61,10 +54,8 @@ impl fmt::Display for Error {
                 "Gateway invalidated session unrecoverably for shard {}",
                 shard
             ),
-            Error::Migration(e) => write!(f, "Error while migrating database schema: {}", e),
             Error::NoConfig => write!(f, "The config file could not be found"),
             Error::NoLoggingSpec => write!(f, "The logging configuration could not be found"),
-            Error::Pool(e) => write!(f, "Error with postgres pool: {}", e),
             Error::Redis(e) => write!(f, "Error communicating with redis cache: {}", e),
             Error::Serde(e) => write!(f, "Serde error: {}", e),
             Error::TwilightHttp(e) => write!(f, "Error while making a Discord request: {}", e),
@@ -79,27 +70,9 @@ impl From<DBError> for Error {
     }
 }
 
-impl From<_DBError> for Error {
-    fn from(e: _DBError) -> Self {
-        Error::_Database(e)
-    }
-}
-
 impl From<fmt::Error> for Error {
     fn from(e: fmt::Error) -> Self {
         Error::Fmt(e)
-    }
-}
-
-impl From<MigrationError> for Error {
-    fn from(e: MigrationError) -> Self {
-        Error::Migration(e)
-    }
-}
-
-impl From<PoolError> for Error {
-    fn from(e: PoolError) -> Self {
-        Error::Pool(e)
     }
 }
 

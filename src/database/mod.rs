@@ -3,7 +3,7 @@ mod models;
 pub mod parse;
 mod util;
 
-pub use models::{BeatmapWrapper, DBMapSet, GuildConfig, MapsetTagWrapper, Ratios};
+pub use models::{BeatmapWrapper, DBMapSet, GuildConfig, MapsetTagWrapper, Ratios, StreamTrack};
 
 use crate::BotResult;
 

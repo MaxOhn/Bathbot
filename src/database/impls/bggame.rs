@@ -4,63 +4,55 @@ use crate::{
     BotResult, Database,
 };
 
-use postgres_types::Type;
 use rosu::models::GameMode;
+use sqlx::Row;
 use std::{collections::HashSet, fmt::Write};
 use twilight::model::id::UserId;
 
 impl Database {
-    pub async fn increment_bggame_score(&self, user_id: u64) -> BotResult<()> {
-        let query = "
+    pub async fn increment_bggame_score(&self, user_id: u64) -> BotResult<usize> {
+        let query = format!(
+            "
 INSERT INTO
     bggame_stats
 VALUES
-    ($1,1)
+    ({},1)
 ON CONFLICT DO
     UPDATE
         SET score=score+1
-";
-        let client = self.pool.get().await?;
-        let statement = client.prepare_typed(query, &[Type::INT8]).await?;
-        client.execute(&statement, &[&(user_id as i64)]).await?;
-        Ok(())
+RETURNING score
+",
+            user_id
+        );
+        let row = sqlx::query(&query).fetch_one(&self.pool).await?;
+        Ok(row.get::<i64, _>(0) as usize)
     }
 
-    pub async fn get_bggame_score(&self, user_id: u64) -> BotResult<u32> {
-        let client = self.pool.get().await?;
-        let statement = client
-            .prepare_typed(
-                "SELECT score FROM bggame_stats WHERE discord_id=$1",
-                &[Type::INT8],
-            )
-            .await?;
-        let score = client
-            .query_one(&statement, &[&(user_id as i64)])
-            .await
-            .map(|row| row.get(0))?;
-        Ok(score)
+    pub async fn get_bggame_score(&self, user_id: u64) -> BotResult<usize> {
+        let query = format!(
+            "SELECT score FROM bggame_stats WHERE discord_id={}",
+            user_id
+        );
+        let row = sqlx::query(&query).fetch_one(&self.pool).await?;
+        Ok(row.get::<i64, _>(0) as usize)
     }
 
     pub async fn all_bggame_scores(&self) -> BotResult<Vec<(u64, u32)>> {
-        let client = self.pool.get().await?;
-        let statement = client.prepare("SELECT * FROM bggame_stats").await?;
-        let scores = client
-            .query(&statement, &[])
+        let scores = sqlx::query("SELECT * FROM bggame_stats")
+            .fetch_all(&self.pool)
             .await?
             .into_iter()
-            .map(|row| (row.get::<_, i64>(0) as u64, row.get(1)))
+            .map(|row| (row.get::<i64, _>(0) as u64, row.get(1)))
             .collect();
         Ok(scores)
     }
 
     pub async fn get_bg_verified(&self) -> BotResult<HashSet<UserId>> {
-        let client = self.pool.get().await?;
-        let statement = client.prepare("SELECT user_id FROM bg_verified").await?;
-        let users = client
-            .query(&statement, &[])
+        let users = sqlx::query("SELECT user_id FROM bg_verified")
+            .fetch_all(&self.pool)
             .await?
             .into_iter()
-            .map(|row| UserId(row.get::<_, i64>(0) as u64))
+            .map(|row| UserId(row.get::<i64, _>(0) as u64))
             .collect();
         Ok(users)
     }
@@ -71,22 +63,11 @@ ON CONFLICT DO
         filetype: &str,
         mode: GameMode,
     ) -> BotResult<()> {
-        let query = "
-INSERT
-    INTO map_tags
-VALUES
-    ($1,$2,$3)
-";
-        let client = self.pool.get().await?;
-        let statement = client
-            .prepare_typed(query, &[Type::INT4, Type::BYTEA, Type::INT2])
-            .await?;
-        client
-            .execute(
-                &statement,
-                &[&(mapset_id as i32), &(filetype), &(mode as i8)],
-            )
-            .await?;
+        let query = format!(
+            "INSERT INTO map_tags VALUES ({},{},{})",
+            mapset_id, filetype, mode as u8
+        );
+        sqlx::query(&query).execute(&self.pool).await?;
         Ok(())
     }
 
@@ -96,45 +77,28 @@ VALUES
         tags: MapsetTags,
         value: bool,
     ) -> BotResult<()> {
+        // TODO: Set length beforehand
         let mut query = String::from("UPDATE map_tags SET").set_tags(",", tags, value)?;
         write!(query, " WHERE beatmapset_id={}", mapset_id)?;
-        let client = self.pool.get().await?;
-        let statement = client.prepare(&query).await?;
-        client.execute(&statement, &[]).await?;
+        sqlx::query(&query).execute(&self.pool).await?;
         Ok(())
     }
 
     pub async fn get_tags_mapset(&self, mapset_id: u32) -> BotResult<MapsetTagWrapper> {
-        let client = self.pool.get().await?;
-        let statement = client
-            .prepare_typed(
-                "SELECT * FROM map_tags WHERE beatmapset_id=$1",
-                &[Type::INT4],
-            )
-            .await?;
-        let tags = client
-            .query_one(&statement, &[&(mapset_id as i64)])
-            .await?
-            .into();
+        let query = format!("SELECT * FROM map_tags WHERE beatmapset_id={}", mapset_id);
+        let tags = sqlx::query_as(&query).fetch_one(&self.pool).await?;
         Ok(tags)
     }
 
     pub async fn get_all_tags_mapset(&self, mode: GameMode) -> BotResult<Vec<MapsetTagWrapper>> {
-        let client = self.pool.get().await?;
-        let statement = client
-            .prepare_typed("SELECT * FROM map_tags WHERE mode=$1", &[Type::BYTEA])
-            .await?;
-        let tags = client
-            .query(&statement, &[&(mode as i8)])
-            .await?
-            .into_iter()
-            .map(|row| row.into())
-            .collect();
+        let query = format!("SELECT * FROM map_tags WHERE mode={}", mode as u8);
+        let tags = sqlx::query_as(&query).fetch_all(&self.pool).await?;
         Ok(tags)
     }
 
     pub async fn get_random_tags_mapset(&self, mode: GameMode) -> BotResult<MapsetTagWrapper> {
-        let query = "
+        let query = format!(
+            "
 SELECT
     *
 FROM
@@ -145,17 +109,16 @@ FROM
         FROM
             map_tags
         WHERE
-            mode=$1
+            mode={}
         ORDER BY
             RAND()
         LIMIT
             1
     ) as rndm ON mt.beatmapset_id = rndm.beatmapset_id
-";
-        let client = self.pool.get().await?;
-        let statement = client.prepare_typed(query, &[Type::BYTEA]).await?;
-        let tags = client.query_one(&statement, &[&(mode as i8)]).await?.into();
-        Ok(tags)
+",
+            mode as u8
+        );
+        Ok(sqlx::query_as(&query).fetch_one(&self.pool).await?)
     }
 
     pub async fn get_specific_tags_mapset(
@@ -167,6 +130,7 @@ FROM
         if included.is_empty() && excluded.is_empty() {
             return self.get_all_tags_mapset(mode).await;
         }
+        // TODO: Set length beforehand
         let mut query = format!("SELECT * FROM map_tags WHERE mode={}", mode as u8);
         query.push_str(" AND");
         if !included.is_empty() {
@@ -178,14 +142,6 @@ FROM
         if !excluded.is_empty() {
             query = query.set_tags(" AND ", excluded, false)?;
         }
-        let client = self.pool.get().await?;
-        let statement = client.prepare(&query).await?;
-        let mapsets = client
-            .query(&statement, &[])
-            .await?
-            .into_iter()
-            .map(|row| row.into())
-            .collect();
-        Ok(mapsets)
+        Ok(sqlx::query_as(&query).fetch_all(&self.pool).await?)
     }
 }

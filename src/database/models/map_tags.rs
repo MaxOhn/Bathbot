@@ -1,8 +1,8 @@
-use crate::{database::parse::str_to_mode, util::bg_game::MapsetTags};
+use crate::util::bg_game::MapsetTags;
 
 use rosu::models::GameMode;
+use sqlx::{postgres::PgRow, Error, FromRow};
 use std::{fmt, ops::Deref};
-use tokio_postgres::row::Row;
 
 pub struct MapsetTagWrapper {
     pub mapset_id: u32,
@@ -30,9 +30,9 @@ impl MapsetTagWrapper {
     }
 }
 
-impl From<Row> for MapsetTagWrapper {
-    fn from(row: Row) -> Self {
-        let row: TagRow = row.into();
+impl<'c> FromRow<'c, PgRow> for MapsetTagWrapper {
+    fn from_row(row: &PgRow) -> Result<Self, Error> {
+        let row = TagRow::from_row(&row)?;
         let bits = row.farm as u32
             + ((row.streams as u32) << 1)
             + ((row.alternate as u32) << 2)
@@ -46,12 +46,12 @@ impl From<Row> for MapsetTagWrapper {
             + ((row.bluesky as u32) << 10)
             + ((row.english as u32) << 11)
             + ((row.kpop as u32) << 12);
-        Self {
+        Ok(Self {
             mapset_id: row.mapset_id,
-            mode: str_to_mode(&row.mode),
+            mode: (row.mode as u8).into(),
             tags: MapsetTags::from_bits(bits).unwrap(),
             filetype: row.filetype,
-        }
+        })
     }
 }
 
@@ -61,9 +61,10 @@ impl fmt::Display for MapsetTagWrapper {
     }
 }
 
+#[derive(FromRow)]
 struct TagRow {
     mapset_id: u32,
-    mode: String,
+    mode: i8,
     filetype: String,
     farm: bool,
     alternate: bool,
@@ -78,27 +79,4 @@ struct TagRow {
     tech: bool,
     easy: bool,
     hard: bool,
-}
-
-impl From<Row> for TagRow {
-    fn from(row: Row) -> Self {
-        Self {
-            mapset_id: row.get("beatmapset_id"),
-            mode: row.get("mode"),
-            filetype: row.get("filetype"),
-            farm: row.get("farm"),
-            alternate: row.get("alternate"),
-            streams: row.get("streams"),
-            old: row.get("old"),
-            meme: row.get("meme"),
-            hardname: row.get("hardname"),
-            kpop: row.get("kpop"),
-            english: row.get("english"),
-            bluesky: row.get("bluesky"),
-            weeb: row.get("weeb"),
-            tech: row.get("tech"),
-            easy: row.get("easy"),
-            hard: row.get("hard"),
-        }
-    }
 }
