@@ -1,4 +1,4 @@
-use crate::util::bg_game::MapsetTags;
+use crate::{database::parse::str_to_mode, util::bg_game::MapsetTags};
 
 use rosu::models::GameMode;
 use std::{fmt, ops::Deref};
@@ -46,12 +46,12 @@ impl From<Row> for MapsetTagWrapper {
             + ((row.bluesky as u32) << 10)
             + ((row.english as u32) << 11)
             + ((row.kpop as u32) << 12);
-        Ok(Self {
+        Self {
             mapset_id: row.mapset_id,
-            mode: GameMode::from(row.mode),
+            mode: str_to_mode(&row.mode),
             tags: MapsetTags::from_bits(bits).unwrap(),
             filetype: row.filetype,
-        })
+        }
     }
 }
 
@@ -63,7 +63,7 @@ impl fmt::Display for MapsetTagWrapper {
 
 struct TagRow {
     mapset_id: u32,
-    mode: u8,
+    mode: String,
     filetype: String,
     farm: bool,
     alternate: bool,
@@ -80,8 +80,8 @@ struct TagRow {
     hard: bool,
 }
 
-impl From<&Row> for TagRow {
-    fn from(row: &Row) -> Self {
+impl From<Row> for TagRow {
+    fn from(row: Row) -> Self {
         Self {
             mapset_id: row.get("beatmapset_id"),
             mode: row.get("mode"),

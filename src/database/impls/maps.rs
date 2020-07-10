@@ -1,5 +1,5 @@
 use crate::{
-    database::{mode_enum, BeatmapWrapper, DBMapSet},
+    database::{BeatmapWrapper, DBMapSet},
     BotResult, Database,
 };
 
@@ -28,21 +28,21 @@ FROM
     JOIN mapsets as ms ON m.beatmapset_id = ms.beatmapset_id
 ";
         let client = self.pool.get().await?;
-        let statement = client.prepare_typed(query & [Type::INT4]).await?;
-        let map = client.query_one(&statement, &[&(map_id as i32)]).await?;
-        Ok(map.into())
+        let statement = client.prepare_typed(query, &[Type::INT4]).await?;
+        let row = client.query_one(&statement, &[&(map_id as i32)]).await?;
+        Ok(BeatmapWrapper::from(row).into())
     }
 
-    pub async fn get_beatmapset(&self, mapset_id: u32) -> BotResult<Option<DBMapSet>> {
-        let client = self.pool.get().await?;
-        let statement = client
-            .prepare_typed(
-                "SELECT * FROM mapsets WHERE beatmapset_id=$1",
-                &[Type::INT4],
-            )
-            .await?;
-        client.query_one(&statement, &[&(mapset_id as i32)]).await
-    }
+    // pub async fn get_beatmapset(&self, mapset_id: u32) -> BotResult<Option<DBMapSet>> {
+    //     let client = self.pool.get().await?;
+    //     let statement = client
+    //         .prepare_typed(
+    //             "SELECT * FROM mapsets WHERE beatmapset_id=$1",
+    //             &[Type::INT4],
+    //         )
+    //         .await?;
+    //     client.query_one(&statement, &[&(mapset_id as i32)]).await
+    // }
 
     pub async fn get_beatmaps(&self, map_ids: &[u32]) -> BotResult<HashMap<u32, Beatmap>> {
         if map_ids.is_empty() {
@@ -54,13 +54,13 @@ FROM
             subquery
         );
         let client = self.pool.get().await?;
-        let statement = client.prepare(query).await?;
+        let statement = client.prepare(&query).await?;
         let maps = client
-            .query(&statement)
+            .query(&statement, &[])
             .await?
             .into_iter()
             .map(|row| {
-                let map: Beatmap = row.into::<BeatmapWrapper>().into();
+                let map: Beatmap = BeatmapWrapper::from(row).into();
                 (map.beatmap_id, map)
             })
             .collect();
@@ -68,7 +68,7 @@ FROM
     }
 
     pub async fn insert_beatmap(&self, map: &Beatmap) -> BotResult<bool> {
-        let client = self.pool.get().await?;
+        let mut client = self.pool.get().await?;
         let txn = client.transaction().await?;
         let result = _insert_beatmap(&txn, map).await?;
         txn.commit().await?;
@@ -80,7 +80,7 @@ FROM
             return Ok(0);
         }
         let mut success = 0;
-        let client = self.pool.get().await?;
+        let mut client = self.pool.get().await?;
         let txn = client.transaction().await?;
         for map in maps.iter() {
             if _insert_beatmap(&txn, map).await? {
@@ -114,8 +114,8 @@ ON CONFLICT DO
                 map.language.to_string().to_lowercase(),
                 map.approval_status.to_string().to_lowercase(),
             );
-            let mapset_stmnt = txn.prepare_typed(&mapset_query, &[Type::DATE]);
-            txn.execute(mapset_stmnt, &[&map.approved_date]).await?;
+            let mapset_stmnt = txn.prepare_typed(&mapset_query, &[Type::DATE]).await?;
+            txn.execute(&mapset_stmnt, &[&(map.approved_date)]).await?;
 
             let map_query = format!(
                 "
@@ -141,8 +141,8 @@ ON CONFLICT DO
                 map.count_slider,
                 map.count_spinner
             );
-            let map_stmnt = txn.prepare_typed(map_query, &[Type::INT4]);
-            txn.execute(map_stmnt, &[&map.max_combo]).await?;
+            let map_stmnt = txn.prepare_typed(&map_query, &[Type::INT4]).await?;
+            txn.execute(&map_stmnt, &[&map.max_combo]).await?;
             Ok(true)
         }
         _ => Ok(false),

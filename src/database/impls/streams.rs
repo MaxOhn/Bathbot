@@ -1,4 +1,4 @@
-use crate::{BotResult, Database};
+use crate::{database::util::CustomSQL, BotResult, Database};
 
 use postgres_types::Type;
 use std::collections::{HashMap, HashSet};
@@ -12,7 +12,9 @@ impl Database {
                 &[Type::INT8, Type::BYTEA],
             )
             .await?;
-        client.execute(statement, &[user_id as i64, name]).await?;
+        client
+            .execute(&statement, &[&(user_id as i64), &(name)])
+            .await?;
         Ok(())
     }
 
@@ -25,7 +27,7 @@ impl Database {
             )
             .await?;
         client
-            .execute(statement, &[channel as i64, user as i64])
+            .execute(&statement, &[&(channel as i64), &(user as i64)])
             .await?;
         Ok(())
     }
@@ -35,7 +37,7 @@ impl Database {
         let client = self.pool.get().await?;
         let statement = client.prepare(&query).await?;
         let users = client
-            .query(statement)
+            .query(&statement, &[])
             .await?
             .into_iter()
             .map(|row| {
@@ -50,7 +52,7 @@ impl Database {
         let client = self.pool.get().await?;
         let statement = client.prepare("SELECT * FROM stream_tracks").await?;
         let tracks = client
-            .query(statement)
+            .query(&statement, &[])
             .await?
             .into_iter()
             .map(|row| {
@@ -75,7 +77,7 @@ WHERE
             .prepare_typed(query, &[Type::INT8, Type::INT8])
             .await?;
         client
-            .execute(statement, &[channel as i64, user as i64])
+            .execute(&statement, &[&(channel as i64), &(user as i64)])
             .await?;
         Ok(())
     }

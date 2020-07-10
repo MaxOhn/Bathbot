@@ -8,7 +8,7 @@ impl Database {
         let statement = client
             .prepare_typed("SELECT config from guilds where id=$1", &[Type::INT8])
             .await?;
-        if let Some(row) = client.query_one(&statement, &[&(guild_id as i64)]).await? {
+        if let Some(row) = client.query_opt(&statement, &[&(guild_id as i64)]).await? {
             Ok(serde_json::from_value(row.get(0))?)
         } else {
             let config = GuildConfig::default();
@@ -61,7 +61,10 @@ impl Database {
             )
             .await?;
         client
-            .execute(&statement, &[&config, &(guild_id as i64)])
+            .execute(
+                &statement,
+                &[&serde_json::to_value(&config).unwrap(), &(guild_id as i64)],
+            )
             .await?;
         Ok(())
     }
@@ -76,7 +79,10 @@ impl Database {
             .await?;
         let config = GuildConfig::default();
         client
-            .execute(&statement, &[&(guild_id as i64), &config])
+            .execute(
+                &statement,
+                &[&(guild_id as i64), &serde_json::to_value(&config).unwrap()],
+            )
             .await?;
         Ok(config)
     }

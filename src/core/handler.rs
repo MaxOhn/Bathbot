@@ -32,7 +32,7 @@ pub async fn handle_event(shard_id: u64, event: &Event, ctx: Arc<Context>) -> Bo
         // ###########
         Event::MessageCreate(msg) => {
             ctx.stats.new_message(&ctx, msg);
-            let p = match msg.guild_id {
+            let prefixes = match msg.guild_id {
                 Some(guild_id) => {
                     let guild = ctx.cache.get_guild(guild_id);
                     match guild {
@@ -47,28 +47,17 @@ pub async fn handle_event(shard_id: u64, event: &Event, ctx: Arc<Context>) -> Bo
                         }
                         None => return Ok(()), // we didnt even get a guild create yet
                     }
-                    let config = ctx.mysql.get_guild_config(guild_id).await?;
-                    vec![config.value().prefix.clone()]
+                    let config = ctx.database.get_guild_config(guild_id.0).await?;
+                    config.prefixes.clone()
                 }
                 None => vec!["<".to_owned(), "!!".to_owned()],
             };
 
-            let prefix = if msg.content.starts_with(&p) {
-                Some(p)
-            } else {
-                let mention_1 = format!("<@{}>", ctx.bot_user.id);
-                let mention_2 = format!("<@!{}>", ctx.bot_user.id);
-                if msg.content.starts_with(&mention_1) {
-                    Some(mention_1)
-                } else if msg.content.starts_with(&mention_2) {
-                    Some(mention_2)
-                } else {
-                    None
+            for p in prefixes {
+                if msg.content.starts_with(&p) {
+                    // Parser::figure_it_out(&prefix, msg, ctx, shard_id).await?;
+                    break;
                 }
-            };
-
-            if let Some(prefix) = prefix {
-                // Parser::figure_it_out(&prefix, msg, ctx, shard_id).await?;
             }
         }
         _ => (),

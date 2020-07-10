@@ -18,7 +18,9 @@ ON CONFLICT DO
         let statement = client
             .prepare_typed(query, &[Type::INT8, Type::BYTEA])
             .await?;
-        client.execute(&statement, &[user_id as i64, name]).await?;
+        client
+            .execute(&statement, &[&(user_id as i64), &(name)])
+            .await?;
         Ok(())
     }
 
@@ -30,7 +32,7 @@ ON CONFLICT DO
                 &[Type::INT8],
             )
             .await?;
-        client.execute(statement, &[&user_id]).await?;
+        client.execute(&statement, &[&(user_id as i64)]).await?;
         Ok(())
     }
 
@@ -38,10 +40,10 @@ ON CONFLICT DO
         let client = self.pool.get().await?;
         let statement = client.prepare("SELECT * FROM discord_users").await?;
         let links = client
-            .query(statement)
+            .query(&statement, &[])
             .await?
             .into_iter()
-            .map(|row| (row.get(0), row.get(1)))
+            .map(|row| (row.get::<_, i64>(0) as u64, row.get(1)))
             .collect();
         Ok(links)
     }

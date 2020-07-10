@@ -8,7 +8,7 @@ impl Database {
         let client = self.pool.get().await?;
         let statement = client.prepare("SELECT * FROM role_assign").await?;
         let assigns = client
-            .query(statement)
+            .query(&statement, &[])
             .await?
             .into_iter()
             .map(|row| {
@@ -36,7 +36,10 @@ ON CONFLICT DO
             .prepare_typed(query, &[Type::INT8, Type::INT8, Type::INT8])
             .await?;
         client
-            .execute(statement, &[channel as i64, message as i64, role as i64])
+            .execute(
+                &statement,
+                &[&(channel as i64), &(message as i64), &(role as i64)],
+            )
             .await?;
         Ok(())
     }

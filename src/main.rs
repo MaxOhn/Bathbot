@@ -4,10 +4,7 @@ mod database;
 mod util;
 
 use crate::{
-    core::{
-        cache::Cache, generate_activity, handle_event, logging, BotConfig, BotStats,
-        ColdRebootData, Context,
-    },
+    core::{cache::Cache, handle_event, logging, BotConfig, BotStats, ColdRebootData, Context},
     database::Database,
     util::Error,
 };
@@ -31,14 +28,7 @@ use twilight::{
     http::{
         request::channel::message::allowed_mentions::AllowedMentionsBuilder, Client as HttpClient,
     },
-    model::{
-        gateway::{
-            payload::update_status::UpdateStatusInfo,
-            presence::{ActivityType, Status},
-            GatewayIntents,
-        },
-        user::CurrentUser,
-    },
+    model::{gateway::GatewayIntents, user::CurrentUser},
 };
 use warp::Filter;
 
@@ -63,10 +53,10 @@ async fn main() -> BotResult<()> {
                 .build_solo(),
         );
     let http = builder.build()?;
-    let user = http.current_user().await?;
+    let bot_user = http.current_user().await?;
     info!(
         "Token validated, connecting to Discord as {}#{}",
-        user.name, user.discriminator
+        bot_user.name, bot_user.discriminator
     );
 
     // Connect to the database
@@ -78,13 +68,13 @@ async fn main() -> BotResult<()> {
     info!("Connected to redis");
 
     // Boot everything up
-    run(config, http, user, database, redis).await
+    run(config, http, bot_user, database, redis).await
 }
 
 async fn run(
     config: BotConfig,
     http: HttpClient,
-    user: CurrentUser,
+    bot_user: CurrentUser,
     database: Database,
     redis: ConnectionPool,
 ) -> BotResult<()> {
@@ -102,6 +92,8 @@ async fn run(
             | GatewayIntents::DIRECT_MESSAGE_REACTIONS,
     );
     let stats = Arc::new(BotStats::new());
+
+    // Provide stats to locale address
     let s = stats.clone();
     tokio::spawn(async move {
         let hello = warp::path!("metrics").map(move || {
@@ -113,10 +105,13 @@ async fn run(
         });
         warp::serve(hello).run(([127, 0, 0, 1], 9091)).await;
     });
+
+    // Prepare cluster builder
     let cache = Cache::new(stats.clone());
     let mut cb = ClusterConfig::builder(&config.tokens.discord)
         .shard_scheme(sharding_scheme)
         .intents(intents);
+
     // Check for resume data, pass to builder if present
     let mut connection = redis.get().await;
     match connection.get("cb_cluster_data_0").await.ok().flatten() {
@@ -159,6 +154,8 @@ async fn run(
         }
         None => {}
     };
+
+    // Build cluster and create context
     let cluster_config = cb.build();
     let cluster = Cluster::new(cluster_config).await?;
     let context = Arc::new(
@@ -166,25 +163,27 @@ async fn run(
             cache,
             cluster,
             http,
-            user,
+            bot_user,
             database,
             redis.clone(),
-            stats.clone(),
+            stats,
             total_shards,
             shards_per_cluster,
         )
         .await,
     );
+
+    // Setup graceful shutdown
     let shutdown_ctx = context.clone();
     ctrlc::set_handler(move || {
-        // We need a seperate runtime, because at this point in the program,
-        // the tokio::main instance isn't running anymore
+        // tokio::main no longer running, create own runtime
         let _ = Runtime::new()
             .unwrap()
             .block_on(shutdown_ctx.initiate_cold_resume());
         process::exit(0);
     })
     .map_err(|why| format_err!("Failed to register shutdown handler: {}", why))?;
+
     info!("Cluster going online");
     let c = context.cluster.clone();
     tokio::spawn(async move {

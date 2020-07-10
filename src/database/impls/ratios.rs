@@ -27,7 +27,7 @@ ON CONFLICT DO
     UPDATE
         SET scores=$2,ratios=$3,misses=$4
 ";
-        let client = self.pool.get().await?;
+        let mut client = self.pool.get().await?;
         let txn = client.transaction().await?;
         let select_stmnt = txn
             .prepare_typed(
@@ -41,7 +41,7 @@ ON CONFLICT DO
             )
             .await?;
         let row = txn
-            .query_opt(select_stmnt, &[name, scores, ratios, misses])
+            .query_opt(&select_stmnt, &[&(name), &(scores), &(ratios), &(misses)])
             .await?;
         let upsert_stmnt = txn
             .prepare_typed(
@@ -54,7 +54,7 @@ ON CONFLICT DO
                 ],
             )
             .await?;
-        txn.execute(upsert_stmnt, &[name, scores, ratios, misses])
+        txn.execute(&upsert_stmnt, &[&(name), &(scores), &(ratios), &(misses)])
             .await?;
         txn.commit().await?;
         let old_ratios = row.map(|row| Ratios {

@@ -1,8 +1,6 @@
 use crate::{bail, util::bg_game::MapsetTags, BotResult};
 
-use std::fmt::Write;
-
-trait CustomSQL: Sized + std::fmt::Write {
+pub trait CustomSQL: Sized + std::fmt::Write {
     fn pop(&mut self) -> Option<char>;
 
     /// Adds (a,b,c,...) to self
@@ -57,5 +55,29 @@ fn tag_column(tag: MapsetTags) -> &'static str {
         MapsetTags::Weeb => "weeb",
         MapsetTags::Tech => "tech",
         _ => panic!("Only call tag_column with single tag argument"),
+    }
+}
+
+pub mod serde_maybe_date {
+    use chrono::{DateTime, TimeZone, Utc};
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    const FORMAT: &'static str = "%F %T";
+
+    pub fn serialize<S: Serializer>(date: &Option<DateTime<Utc>>, s: S) -> Result<S::Ok, S::Error> {
+        match date.map(|date| date.format(FORMAT).to_string()) {
+            Some(date) => s.serialize_some(&date),
+            None => s.serialize_none(),
+        }
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Option<DateTime<Utc>>, D::Error> {
+        let v: &str = match Deserialize::deserialize(d) {
+            Ok(v) => v,
+            Err(_) => return Ok(None),
+        };
+        Utc.datetime_from_str(v, FORMAT)
+            .map(Some)
+            .map_err(serde::de::Error::custom)
     }
 }

@@ -1,5 +1,6 @@
 mod impls;
 mod models;
+pub mod parse;
 mod util;
 
 pub use models::{BeatmapWrapper, DBMapSet, GuildConfig, MapsetTagWrapper, Ratios};
@@ -7,7 +8,7 @@ pub use models::{BeatmapWrapper, DBMapSet, GuildConfig, MapsetTagWrapper, Ratios
 use crate::BotResult;
 
 use deadpool_postgres::{Manager, Pool};
-use rosu::models::GameMode;
+use std::str::FromStr;
 use tokio_postgres::{Config, NoTls};
 
 mod embedded {
@@ -28,17 +29,7 @@ impl Database {
         embedded::migrations::runner()
             .run_async(&mut **connection)
             .await?;
-        // .map_err(|e| Error::DatabaseMigration(e.to_string()))?;
 
         Ok(Self { pool })
-    }
-}
-
-pub fn mode_enum(mode: GameMode) -> &'static str {
-    match mode {
-        GameMode::STD => "osu",
-        GameMode::TKO => "taiko",
-        GameMode::CTB => "fruits",
-        GameMode::MNA => "mania",
     }
 }

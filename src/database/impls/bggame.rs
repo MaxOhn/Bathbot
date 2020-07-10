@@ -1,12 +1,12 @@
 use crate::{
-    database::{mode_enum, MapsetTagWrapper},
+    database::{util::CustomSQL, MapsetTagWrapper},
     util::bg_game::MapsetTags,
     BotResult, Database,
 };
 
 use postgres_types::Type;
 use rosu::models::GameMode;
-use std::collections::HashSet;
+use std::{collections::HashSet, fmt::Write};
 use twilight::model::id::UserId;
 
 impl Database {
@@ -36,8 +36,8 @@ ON CONFLICT DO
             .await?;
         let score = client
             .query_one(&statement, &[&(user_id as i64)])
-            .await?
-            .map_or(0, |row| row.get(0));
+            .await
+            .map(|row| row.get(0))?;
         Ok(score)
     }
 
@@ -45,10 +45,10 @@ ON CONFLICT DO
         let client = self.pool.get().await?;
         let statement = client.prepare("SELECT * FROM bggame_stats").await?;
         let scores = client
-            .query(&statement)
+            .query(&statement, &[])
             .await?
             .into_iter()
-            .map(|row| (row.get(0), row.get(1)))
+            .map(|row| (row.get::<_, i64>(0) as u64, row.get(1)))
             .collect();
         Ok(scores)
     }
@@ -57,10 +57,10 @@ ON CONFLICT DO
         let client = self.pool.get().await?;
         let statement = client.prepare("SELECT user_id FROM bg_verified").await?;
         let users = client
-            .query(&statement)
+            .query(&statement, &[])
             .await?
             .into_iter()
-            .map(|row| UserId(row.get(0)))
+            .map(|row| UserId(row.get::<_, i64>(0) as u64))
             .collect();
         Ok(users)
     }
@@ -82,7 +82,10 @@ VALUES
             .prepare_typed(query, &[Type::INT4, Type::BYTEA, Type::INT2])
             .await?;
         client
-            .execute(&statement, &[&(mapset_id as i32), filetype, mode as i8])
+            .execute(
+                &statement,
+                &[&(mapset_id as i32), &(filetype), &(mode as i8)],
+            )
             .await?;
         Ok(())
     }
@@ -97,7 +100,7 @@ VALUES
         write!(query, " WHERE beatmapset_id={}", mapset_id)?;
         let client = self.pool.get().await?;
         let statement = client.prepare(&query).await?;
-        client.execute(&statement).await?;
+        client.execute(&statement, &[]).await?;
         Ok(())
     }
 
@@ -110,7 +113,7 @@ VALUES
             )
             .await?;
         let tags = client
-            .query_one(statement, &[mapset_id as i64])
+            .query_one(&statement, &[&(mapset_id as i64)])
             .await?
             .into();
         Ok(tags)
@@ -122,7 +125,7 @@ VALUES
             .prepare_typed("SELECT * FROM map_tags WHERE mode=$1", &[Type::BYTEA])
             .await?;
         let tags = client
-            .query(statement, &[mode_enum(mode)])
+            .query(&statement, &[&(mode as i8)])
             .await?
             .into_iter()
             .map(|row| row.into())
@@ -151,10 +154,7 @@ FROM
 ";
         let client = self.pool.get().await?;
         let statement = client.prepare_typed(query, &[Type::BYTEA]).await?;
-        let tags = client
-            .query_one(statement, &[mode_enum(mode)])
-            .await?
-            .into();
+        let tags = client.query_one(&statement, &[&(mode as i8)]).await?.into();
         Ok(tags)
     }
 
@@ -167,7 +167,7 @@ FROM
         if included.is_empty() && excluded.is_empty() {
             return self.get_all_tags_mapset(mode).await;
         }
-        let mut query = format!("SELECT * FROM map_tags WHERE mode={}", mode_enum(mode));
+        let mut query = format!("SELECT * FROM map_tags WHERE mode={}", mode as u8);
         query.push_str(" AND");
         if !included.is_empty() {
             query = query.set_tags(" AND ", included, true)?;
@@ -181,7 +181,7 @@ FROM
         let client = self.pool.get().await?;
         let statement = client.prepare(&query).await?;
         let mapsets = client
-            .query(statement)
+            .query(&statement, &[])
             .await?
             .into_iter()
             .map(|row| row.into())
