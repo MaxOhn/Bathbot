@@ -1,15 +1,15 @@
 use crate::{
-    database::{BeatmapWrapper, DBMapSet},
+    database::{util::CustomSQL, BeatmapWrapper},
     BotResult, Database,
 };
 
-use postgres_types::Type;
 use rosu::models::{
     ApprovalStatus::{Approved, Loved, Ranked},
     Beatmap,
 };
+use sqlx::PgConnection;
 use std::collections::HashMap;
-use tokio_postgres::Transaction;
+use tokio::stream::StreamExt;
 
 impl Database {
     pub async fn get_beatmap(&self, map_id: u32) -> BotResult<Beatmap> {
@@ -23,25 +23,23 @@ FROM
         FROM
             maps
         WHERE
-            beatmap_id=$1
+            beatmap_id = ?
     ) as m
     JOIN mapsets as ms ON m.beatmapset_id = ms.beatmapset_id
-";
-        let client = self.pool.get().await?;
-        let statement = client.prepare_typed(query, &[Type::INT4]).await?;
-        let row = client.query_one(&statement, &[&(map_id as i32)]).await?;
-        Ok(BeatmapWrapper::from(row).into())
+    ";
+        let map: BeatmapWrapper = sqlx::query_as(query)
+            .bind(map_id)
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(map.into())
     }
 
-    // pub async fn get_beatmapset(&self, mapset_id: u32) -> BotResult<Option<DBMapSet>> {
-    //     let client = self.pool.get().await?;
-    //     let statement = client
-    //         .prepare_typed(
-    //             "SELECT * FROM mapsets WHERE beatmapset_id=$1",
-    //             &[Type::INT4],
-    //         )
+    // pub async fn get_beatmapset(&self, mapset_id: u32) -> BotResult<DBMapSet> {
+    //     let mapset: DBMapSet = sqlx::query_as("SELECT * FROM mapsets WHERE beatmapset_id=?")
+    //         .bind(mapset_id)
+    //         .fetch_one(&self.pool)
     //         .await?;
-    //     client.query_one(&statement, &[&(mapset_id as i32)]).await
+    //     Ok(mapset)
     // }
 
     pub async fn get_beatmaps(&self, map_ids: &[u32]) -> BotResult<HashMap<u32, Beatmap>> {
@@ -53,24 +51,28 @@ FROM
             "SELECT * FROM ({}) as m JOIN mapsets as ms ON m.beatmapset_id=ms.beatmapset_id",
             subquery
         );
-        let client = self.pool.get().await?;
-        let statement = client.prepare(&query).await?;
-        let maps = client
-            .query(&statement, &[])
-            .await?
-            .into_iter()
-            .map(|row| {
-                let map: Beatmap = BeatmapWrapper::from(row).into();
-                (map.beatmap_id, map)
+        let beatmaps = sqlx::query_as::<_, BeatmapWrapper>(&query)
+            .fetch(&self.pool)
+            .filter_map(|result| match result {
+                Ok(map_wrapper) => {
+                    let map: Beatmap = map_wrapper.into();
+                    Some((map.beatmap_id, map))
+                }
+                Err(why) => {
+                    warn!("Error while getting maps from DB: {}", why);
+                    None
+                }
             })
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
             .collect();
-        Ok(maps)
+        Ok(beatmaps)
     }
 
     pub async fn insert_beatmap(&self, map: &Beatmap) -> BotResult<bool> {
-        let mut client = self.pool.get().await?;
-        let txn = client.transaction().await?;
-        let result = _insert_beatmap(&txn, map).await?;
+        let mut txn = self.pool.begin().await?;
+        let result = _insert_map(&mut *txn, map).await?;
         txn.commit().await?;
         Ok(result)
     }
@@ -80,10 +82,9 @@ FROM
             return Ok(0);
         }
         let mut success = 0;
-        let mut client = self.pool.get().await?;
-        let txn = client.transaction().await?;
+        let mut txn = self.pool.begin().await?;
         for map in maps.iter() {
-            if _insert_beatmap(&txn, map).await? {
+            if _insert_map(&mut *txn, map).await? {
                 success += 1
             }
         }
@@ -92,59 +93,72 @@ FROM
     }
 }
 
-async fn _insert_beatmap<'t, 'm>(txn: &'t Transaction<'t>, map: &'m Beatmap) -> BotResult<bool> {
+async fn _insert_map(conn: &mut PgConnection, map: &Beatmap) -> BotResult<bool> {
     match map.approval_status {
         Loved | Ranked | Approved => {
-            // Important to do mapsets first for foreign key constrain
-            let mapset_query = format!(
-                "
-INSERT INTO
-    mapsets
-VALUES
-    ({},{},{},{},{},{},{},{},$1)
-ON CONFLICT DO
-    NOTHING
-",
-                map.beatmapset_id,
-                map.artist,
-                map.title,
-                map.creator_id,
-                map.creator,
-                map.genre.to_string().to_lowercase(),
-                map.language.to_string().to_lowercase(),
-                map.approval_status.to_string().to_lowercase(),
-            );
-            let mapset_stmnt = txn.prepare_typed(&mapset_query, &[Type::DATE]).await?;
-            txn.execute(&mapset_stmnt, &[&(map.approved_date)]).await?;
-
-            let map_query = format!(
-                "
-INSERT INTO
-    maps
-VALUES
-    ({},{},{},{},{},{},{},{},{},{},{},{},{},{},$1)
-ON CONFLICT DO
-    NOTHING
-",
-                map.beatmap_id,
-                map.beatmapset_id,
-                mode_enum(map.mode),
-                map.version,
-                map.seconds_drain,
-                map.seconds_total,
-                map.bpm,
-                map.diff_cs,
-                map.diff_od,
-                map.diff_ar,
-                map.diff_hp,
-                map.count_circle,
-                map.count_slider,
-                map.count_spinner
-            );
-            let map_stmnt = txn.prepare_typed(&map_query, &[Type::INT4]).await?;
-            txn.execute(&map_stmnt, &[&map.max_combo]).await?;
+            // Crucial to do mapsets first for foreign key constrain
+            _insert_beatmapset(conn, map).await?;
+            _insert_beatmap(conn, map).await?;
             Ok(true)
         }
         _ => Ok(false),
     }
+}
+
+async fn _insert_beatmapset(conn: &mut PgConnection, map: &Beatmap) -> BotResult<()> {
+    let mapset_query = format!(
+        "
+INSERT INTO
+    mapsets
+VALUES
+    ({},$1,$2,{},$3,{},{},{},$4)
+ON CONFLICT DO
+    NOTHING
+",
+        map.beatmapset_id,
+        map.creator_id,
+        map.genre as u8,
+        map.language as u8,
+        map.approval_status as i8,
+    );
+    sqlx::query(&mapset_query)
+        .bind(&map.artist)
+        .bind(&map.title)
+        .bind(&map.creator)
+        .bind(map.approved_date)
+        .execute(conn)
+        .await?;
+    Ok(())
+}
+
+async fn _insert_beatmap(conn: &mut PgConnection, map: &Beatmap) -> BotResult<()> {
+    let map_query = format!(
+        "
+    INSERT INTO
+        maps
+    VALUES
+        ({},{},{},$1,{},{},{},{},{},{},{},{},{},{},$2)
+    ON CONFLICT DO
+        NOTHING
+    ",
+        map.beatmap_id,
+        map.beatmapset_id,
+        map.mode as u8,
+        map.seconds_drain,
+        map.seconds_total,
+        map.bpm,
+        map.diff_cs,
+        map.diff_od,
+        map.diff_ar,
+        map.diff_hp,
+        map.count_circle,
+        map.count_slider,
+        map.count_spinner
+    );
+    sqlx::query(&map_query)
+        .bind(&map.version)
+        .bind(&map.max_combo)
+        .execute(conn)
+        .await?;
+    Ok(())
 }
