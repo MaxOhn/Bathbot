@@ -26,10 +26,7 @@ type DBResult<T> = Result<T, Error>;
 
 impl MySQL {
     pub async fn new(database_url: &str) -> DBResult<Self> {
-        let pool = MySqlPool::builder()
-            .max_size(16)
-            .build(database_url)
-            .await?;
+        let pool = MySqlPool::connect(database_url).await?;
         Ok(Self { pool })
     }
 
