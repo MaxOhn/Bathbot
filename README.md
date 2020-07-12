@@ -47,4 +47,4 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Move from serenity to twilight
 - Update Readme regarding database migration
   ### Commands
-  - None as of now
+  - `<replays` for helpybot

@@ -182,17 +182,19 @@ async fn mania(ctx: &Context, msg: &Message) -> CommandResult {
             return Ok(());
         }
     }
-    let data = ctx.data.read().await;
-    let mysql = data.get::<MySQL>().unwrap();
-    let mapsets = match mysql.get_all_tags_mapset(GameMode::MNA).await {
-        Ok(mapsets) => mapsets,
-        Err(why) => {
-            msg.channel_id
-                .say(ctx, "Some database issue, blame bade")
-                .await?
-                .reaction_delete(ctx, msg.author.id)
-                .await;
-            return Err(why.to_string().into());
+    let mapsets = {
+        let data = ctx.data.read().await;
+        let mysql = data.get::<MySQL>().unwrap();
+        match mysql.get_all_tags_mapset(GameMode::MNA).await {
+            Ok(mapsets) => mapsets,
+            Err(why) => {
+                msg.channel_id
+                    .say(ctx, "Some database issue, blame bade")
+                    .await?
+                    .reaction_delete(ctx, msg.author.id)
+                    .await;
+                return Err(why.to_string().into());
+            }
         }
     };
     _start(ctx, msg, mapsets).await
