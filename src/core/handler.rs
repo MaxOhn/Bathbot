@@ -1,9 +1,17 @@
-use crate::{core::Context, BotResult, Error};
+use crate::{
+    core::{CommandGroups, Context},
+    BotResult, Error,
+};
 
 use std::sync::{atomic::Ordering, Arc};
 use twilight::gateway::Event;
 
-pub async fn handle_event(shard_id: u64, event: &Event, ctx: Arc<Context>) -> BotResult<()> {
+pub async fn handle_event(
+    shard_id: u64,
+    event: &Event,
+    ctx: Arc<Context>,
+    cmd_groups: Arc<CommandGroups>,
+) -> BotResult<()> {
     match &event {
         // ####################
         // ## Gateway status ##

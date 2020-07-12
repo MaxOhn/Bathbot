@@ -1,27 +1,26 @@
-// #![allow(unused_imports, dead_code)]
+mod commands;
 mod core;
 mod database;
 mod util;
 
 use crate::{
-    core::{cache::Cache, handle_event, logging, BotConfig, BotStats, ColdRebootData, Context},
+    core::{
+        cache::Cache, handle_event, logging, BotConfig, BotStats, ColdRebootData, CommandGroups,
+        Context,
+    },
     database::Database,
     util::Error,
 };
 
+#[macro_use]
+extern crate proc_macros;
 #[macro_use]
 extern crate log;
 
 use clap::{App, Arg};
 use darkredis::ConnectionPool;
 use prometheus::{Encoder, TextEncoder};
-use std::{
-    collections::HashMap,
-    process,
-    str::FromStr,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{collections::HashMap, process, str::FromStr, sync::Arc, time::Instant};
 use tokio::{runtime::Runtime, stream::StreamExt};
 use twilight::{
     gateway::{cluster::config::ShardScheme, shard::ResumeSession, Cluster, ClusterConfig},
@@ -158,7 +157,7 @@ async fn run(
     // Build cluster and create context
     let cluster_config = cb.build();
     let cluster = Cluster::new(cluster_config).await?;
-    let context = Arc::new(
+    let ctx = Arc::new(
         Context::new(
             cache,
             cluster,
@@ -174,7 +173,7 @@ async fn run(
     );
 
     // Setup graceful shutdown
-    let shutdown_ctx = context.clone();
+    let shutdown_ctx = ctx.clone();
     ctrlc::set_handler(move || {
         // tokio::main no longer running, create own runtime
         let _ = Runtime::new()
@@ -185,24 +184,27 @@ async fn run(
     .map_err(|why| format_err!("Failed to register shutdown handler: {}", why))?;
 
     info!("Cluster going online");
-    let c = context.cluster.clone();
-    tokio::spawn(async move {
-        tokio::time::delay_for(Duration::from_secs(1)).await;
-        c.up().await;
-    });
-    let mut bot_events = context.cluster.events().await;
+    ctx.cluster.up().await;
+    // let c = context.cluster.clone();
+    // tokio::spawn(async move {
+    //     tokio::time::delay_for(Duration::from_secs(1)).await;
+    //     c.up().await;
+    // });
+    let mut bot_events = ctx.cluster.events().await;
+    let cmd_groups = Arc::new(CommandGroups::new());
     while let Some(event) = bot_events.next().await {
-        let c = context.clone();
+        let c = ctx.clone();
         let (shard, event) = event;
-        context.update_stats(shard, &event);
-        context.cache.update(shard, &event, context.clone()).await?;
+        ctx.update_stats(shard, &event);
+        ctx.cache.update(shard, &event, ctx.clone()).await?;
+        let cmds = cmd_groups.clone();
         tokio::spawn(async move {
-            if let Err(why) = handle_event(shard, &event, c).await {
+            if let Err(why) = handle_event(shard, &event, c, cmds).await {
                 error!("Error while handling event: {}", why);
             }
         });
     }
-    context.cluster.down().await;
+    ctx.cluster.down().await;
     Ok(())
 }
 
