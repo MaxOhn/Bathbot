@@ -1,7 +1,9 @@
 use crate::commands::command_groups;
 
 use radix_trie::Trie;
-use std::ops::Deref;
+use std::{fmt, ops::Deref};
+
+type CommandTree = Trie<&'static str, &'static Command>;
 
 pub struct Command {
     pub names: &'static [&'static str],
@@ -11,6 +13,19 @@ pub struct Command {
     pub examples: &'static [&'static str],
     pub sub_commands: &'static [&'static Command],
     pub fun: fn(&mut (), &(), ()) -> (),
+}
+
+impl fmt::Debug for Command {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Command")
+            .field("names", &self.names)
+            .field("short_desc", &self.short_desc)
+            .field("long_desc", &self.long_desc)
+            .field("usage", &self.usage)
+            .field("examples", &self.examples)
+            .field("sub_commands", &self.sub_commands)
+            .finish()
+    }
 }
 
 pub struct CommandGroup {
@@ -29,7 +44,7 @@ impl CommandGroup {
 
 pub struct CommandGroups {
     pub groups: Vec<CommandGroup>,
-    trie: Trie<&'static str, &'static Command>,
+    trie: CommandTree,
 }
 
 impl CommandGroups {
@@ -48,7 +63,7 @@ impl CommandGroups {
 }
 
 impl Deref for CommandGroups {
-    type Target = Trie<&'static str, &'static Command>;
+    type Target = CommandTree;
 
     fn deref(&self) -> &Self::Target {
         &self.trie
