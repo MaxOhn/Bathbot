@@ -75,8 +75,8 @@ pub async fn handle_event(
                 Invoke::Command(cmd) => debug!("Got command: {:?}", cmd),
                 Invoke::Help(None) => debug!("Got help command"),
                 Invoke::Help(Some(cmd)) => debug!("Got help command for {:?}", cmd),
-                Invoke::FailedHelp(name) => debug!("Got failed help for {}", name),
-                Invoke::UnrecognisedCommand(name) => debug!("Got unknown command `name`"),
+                Invoke::FailedHelp(name) => debug!("Got failed help for `{}`", name),
+                Invoke::UnrecognisedCommand(name) => debug!("Got unknown command `{}`", name),
             }
         }
         _ => (),

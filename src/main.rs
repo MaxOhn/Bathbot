@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 mod commands;
 mod core;
 mod database;
@@ -41,6 +43,13 @@ async fn main() -> BotResult<()> {
     let config = BotConfig::new("config.toml")?;
     info!("Loaded config file");
 
+    // Connect to the database
+    let database = Database::new(&config.database.mysql).await?;
+    let guild_config = database.get_guild_config(297072529426612224).await?;
+    println!("{:#?}", guild_config);
+
+    return Ok(());
+
     //Connect to the discord http client
     let mut builder = HttpClient::builder();
     builder
@@ -58,9 +67,9 @@ async fn main() -> BotResult<()> {
         bot_user.name, bot_user.discriminator
     );
 
-    // Connect to the database
-    let database = Database::new(&config.database.mysql).await?;
-    info!("Connected to postgres database");
+    // // Connect to the database
+    // let database = Database::new(&config.database.mysql).await?;
+    // info!("Connected to postgres database");
 
     // Connect to redis cache
     let redis = ConnectionPool::create(config.database.redis.clone(), None, 5).await?;

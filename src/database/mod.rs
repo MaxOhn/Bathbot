@@ -15,7 +15,7 @@ pub struct Database {
 
 impl Database {
     pub async fn new(database_url: &str) -> BotResult<Self> {
-        let pool = PgPool::builder().max_size(16).build(database_url).await?;
+        let pool = PgPool::connect_lazy(database_url)?;
         Ok(Self { pool })
     }
 }
