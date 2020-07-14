@@ -1,4 +1,4 @@
-use crate::util::{matcher, Error};
+use crate::util::{error::Error, matcher};
 
 use once_cell::sync::OnceCell;
 use serde::Deserialize;

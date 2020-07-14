@@ -1,9 +1,17 @@
+use super::constants::CONTENT_LENGTH;
+
 use darkredis::Error as RedisError;
 use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
 use std::{error, fmt};
 use toml::de::Error as TomlError;
-use twilight::{gateway::cluster::Error as ClusterError, http::Error as HttpError};
+use twilight::{
+    gateway::cluster::Error as ClusterError,
+    http::{
+        request::channel::message::create_message::CreateMessageError as TwilightMessageError,
+        Error as HttpError,
+    },
+};
 
 #[macro_export]
 macro_rules! bail {
@@ -20,8 +28,34 @@ macro_rules! format_err {
 }
 
 #[derive(Debug)]
+pub enum CreateMessageError {
+    ContentSize(usize),
+    CreateMessage(TwilightMessageError),
+}
+
+impl fmt::Display for CreateMessageError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ContentSize(chars) => write!(
+                f,
+                "the content is {} characters long, but the max is {}",
+                chars, CONTENT_LENGTH,
+            ),
+            Self::CreateMessage(e) => {
+                if let TwilightMessageError::EmbedTooLarge { source } = e {
+                    source.fmt(f)
+                } else {
+                    e.fmt(f)
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum Error {
     CacheDefrost(&'static str, Box<Error>),
+    CreateMessage(CreateMessageError),
     Custom(String),
     Database(DBError),
     Fmt(fmt::Error),
@@ -41,26 +75,45 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::CacheDefrost(reason, e) => {
-                write!(f, "Error defrosting cache ({}): {}", reason, e)
+                write!(f, "error defrosting cache ({}): {}", reason, e)
             }
-            Error::Custom(e) => write!(f, "{}", e),
-            Error::Database(e) => write!(f, "Database error occured: {}", e),
+            Error::CreateMessage(e) => {
+                write!(f, "error while creating message: {}", e)
+                // f.write_str("error while creating message")?;
+                // if let CreateMessageError::EmbedTooLarge { source } = e {
+                //     source.fmt(f)
+                // } else {
+                //     e.fmt(f)
+                // }
+            }
+            Error::Custom(e) => e.fmt(f),
+            Error::Database(e) => write!(f, "database error occured: {}", e),
             Error::Fmt(e) => write!(f, "fmt error: {}", e),
-            Error::InvalidConfig(e) => {
-                write!(f, "The config file was not in the correct format: {}", e)
-            }
+            Error::InvalidConfig(e) => write!(f, "config file was not in correct format: {}", e),
             Error::InvalidSession(shard) => write!(
                 f,
-                "Gateway invalidated session unrecoverably for shard {}",
+                "gateway invalidated session unrecoverably for shard {}",
                 shard
             ),
-            Error::NoConfig => write!(f, "The config file could not be found"),
-            Error::NoLoggingSpec => write!(f, "The logging configuration could not be found"),
-            Error::Redis(e) => write!(f, "Error communicating with redis cache: {}", e),
-            Error::Serde(e) => write!(f, "Serde error: {}", e),
-            Error::TwilightHttp(e) => write!(f, "Error while making a Discord request: {}", e),
-            Error::TwilightCluster(e) => write!(f, "Error occurred on a cluster request: {}", e),
+            Error::NoConfig => f.write_str("config file was not found"),
+            Error::NoLoggingSpec => f.write_str("logging config was not found"),
+            Error::Redis(e) => write!(f, "error while communicating with redis cache: {}", e),
+            Error::Serde(e) => write!(f, "serde error: {}", e),
+            Error::TwilightHttp(e) => write!(f, "error while making discord request: {}", e),
+            Error::TwilightCluster(e) => write!(f, "error occurred on cluster request: {}", e),
         }
+    }
+}
+
+impl From<TwilightMessageError> for Error {
+    fn from(e: TwilightMessageError) -> Self {
+        Error::CreateMessage(CreateMessageError::CreateMessage(e))
+    }
+}
+
+impl From<CreateMessageError> for Error {
+    fn from(e: CreateMessageError) -> Self {
+        Error::CreateMessage(e)
     }
 }
 

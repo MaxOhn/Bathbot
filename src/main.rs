@@ -10,7 +10,7 @@ use crate::{
         handle_event, logging, BotConfig, BotStats, Cache, ColdRebootData, CommandGroups, Context,
     },
     database::Database,
-    util::Error,
+    util::error::Error,
 };
 
 #[macro_use]

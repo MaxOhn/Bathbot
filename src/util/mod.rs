@@ -1,5 +1,4 @@
 pub mod bg_game;
-mod error;
+pub mod constants;
+pub mod error;
 pub mod matcher;
-
-pub use error::*;
