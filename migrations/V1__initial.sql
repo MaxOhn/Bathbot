@@ -3,74 +3,22 @@ CREATE TABLE discord_users (
     osu_name VARCHAR(32) NOT NULL
 );
 
-CREATE TYPE genre AS enum (
-    'unspecified',
-    'videogame',
-    'anime',
-    'rock',
-    'pop',
-    'other',
-    'novelty',
-    'hiphop',
-    'electronic',
-    'metal',
-    'classical',
-    'folk',
-    'jazz',
-    'any'
-);
-
-CREATE TYPE language AS enum (
-    'any',
-    'other',
-    'english',
-    'japanese',
-    'chinese',
-    'instrumental',
-    'korean',
-    'french',
-    'german',
-    'swedish',
-    'spanish',
-    'italian',
-    'russian',
-    'polish',
-    'unspecified'
-);
-
-CREATE TYPE approval_status AS enum (
-    'loved',
-    'qualified',
-    'approved',
-    'ranked',
-    'pending',
-    'wip',
-    'graveyard'
-);
-
 CREATE TABLE mapsets (
     beatmapset_id INT PRIMARY KEY NOT NULL,
     artist VARCHAR(255) NOT NULL,
     title VARCHAR(255) NOT NULL,
     creator_id INT NOT NULL,
     creator VARCHAR(32) NOT NULL,
-    genre genre NOT NULL,
-    language language NOT NULL,
-    approval_status approval_status NOT NULL,
+    genre CHAR NOT NULL,
+    language CHAR NOT NULL,
+    approval_status CHAR NOT NULL,
     approved_date TIMESTAMP DEFAULT NULL
-);
-
-CREATE TYPE mode AS enum (
-    'osu',
-    'taiko',
-    'fruits',
-    'mania'
 );
 
 CREATE TABLE maps (
     beatmap_id INT NOT NULL,
     beatmapset_id INT NOT NULL,
-    mode mode NOT NULL,
+    mode CHAR NOT NULL,
     version VARCHAR(255) NOT NULL,
     seconds_drain INT NOT NULL,
     seconds_total INT NOT NULL,
@@ -143,7 +91,7 @@ CREATE TABLE bg_verified(user_id BIGINT PRIMARY KEY NOT NULL);
 CREATE TABLE map_tags(
     beatmapset_id INT PRIMARY KEY NOT NULL,
     filetype VARCHAR(7) NOT NULL,
-    mode mode NOT NULL,
+    mode CHAR NOT NULL,
     farm BOOLEAN DEFAULT false,
     streams BOOLEAN DEFAULT false,
     alternate BOOLEAN DEFAULT false,
