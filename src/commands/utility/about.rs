@@ -1,7 +1,11 @@
+use crate::{BotResult, Context};
+
+use twilight::model::channel::Message;
+
 #[command]
 #[short_desc("Various info about me")]
 #[long_desc("Various info about me.")]
 #[aliases("info")]
-fn about(_ctx: &mut (), _msg: &(), _args: ()) -> () {
-    ()
+async fn about(_ctx: &Context, _msg: &Message) -> BotResult<()> {
+    Ok(())
 }

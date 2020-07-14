@@ -126,18 +126,17 @@ fn validation_stmt(actual: &Type, intended: &Type) -> Stmt {
 }
 
 pub fn create_declaration_validations(fun: &mut CommandFun) -> Result<()> {
-    if fun.args.len() != 3 {
+    if fun.args.len() != 2 {
         return Err(Error::new(
             fun.args.last().unwrap().span(),
-            "function requires three arguments",
+            "command function requires context and message as arguments",
         ));
     }
 
     let intended_types: Vec<Type> = vec![
-        parse_quote!(&mut ()), // first arg
-        parse_quote!(&()),     // second arg
-        parse_quote!(()),      // third arg
-        parse_quote!(()),      // return value
+        parse_quote!(&crate::Context),                    // first arg
+        parse_quote!(&twilight::model::channel::Message), // second arg
+        parse_quote!(crate::BotResult<()>),               // return value
     ];
     let validations = fun
         .args

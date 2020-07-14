@@ -1,7 +1,8 @@
-use crate::commands::command_groups;
+use crate::{commands::command_groups, BotResult, Context};
 
 use radix_trie::Trie;
 use std::{fmt, ops::Deref};
+use twilight::model::channel::Message;
 
 type CommandTree = Trie<&'static str, &'static Command>;
 
@@ -12,7 +13,7 @@ pub struct Command {
     pub usage: Option<&'static str>,
     pub examples: &'static [&'static str],
     pub sub_commands: &'static [&'static Command],
-    pub fun: fn(&mut (), &(), ()) -> (),
+    pub fun: fn(&Context, &Message) -> BotResult<()>,
 }
 
 impl fmt::Debug for Command {

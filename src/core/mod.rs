@@ -1,5 +1,5 @@
-pub mod cache;
-mod cold_resume_data;
+mod cache;
+mod cold_resume;
 mod commands;
 mod config;
 mod context;
@@ -7,7 +7,8 @@ mod handler;
 pub mod logging;
 mod stats;
 
-pub use cold_resume_data::ColdRebootData;
+pub use cache::Cache;
+pub use cold_resume::ColdRebootData;
 pub use commands::{Command, CommandGroup, CommandGroups};
 pub use config::BotConfig;
 pub use context::{generate_activity, Context};

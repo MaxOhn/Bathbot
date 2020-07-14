@@ -303,13 +303,13 @@ impl Context {
     }
 
     pub fn shard_state_change(&self, shard: u64, new_state: ShardState) {
-        match self.shard_states.get(&shard) {
+        match self.backend.shard_states.get(&shard) {
             Some(guard) => self.get_state_metric(guard.value()).dec(),
             None => {}
         }
         info!("Shard {} is now {:?}", shard, new_state);
         self.get_state_metric(&new_state).inc();
-        self.shard_states.insert(shard, new_state);
+        self.backend.shard_states.insert(shard, new_state);
     }
 
     fn get_state_metric(&self, state: &ShardState) -> &IntGauge {

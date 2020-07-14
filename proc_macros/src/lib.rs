@@ -12,11 +12,6 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse::Error, parse_macro_input, spanned::Spanned};
 
-const CMD: &str = "CMD";
-// const GROUP: &str = "GROUP";
-// const GROUP_OPTIONS: &str = "GROUP_OPTIONS";
-// const CHECK: &str = "CHECK";
-
 macro_rules! match_options {
     ($n:expr, $values:ident, $options:ident, $span:expr => [$($name:ident);*]) => {
         match $n {
@@ -79,9 +74,9 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
     let fun_name = fun.name.clone();
     let sub_commands = sub_commands
         .into_iter()
-        .map(|i| i.with_suffix(CMD))
+        .map(|i| i.with_suffix("CMD"))
         .collect::<Vec<_>>();
-    let cmd_name = fun.name.with_suffix(CMD);
+    let cmd_name = fun.name.with_suffix("CMD");
     let command_path = quote!(crate::core::Command);
     let stream = quote! {
         pub static #cmd_name: #command_path = #command_path {

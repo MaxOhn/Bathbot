@@ -1,7 +1,7 @@
 use super::{BotStats, ShardState};
 
 use crate::{
-    core::{cache::Cache, ColdRebootData},
+    core::{Cache, ColdRebootData},
     database::{Database, GuildConfig},
     BotResult,
 };
@@ -9,7 +9,6 @@ use crate::{
 use darkredis::ConnectionPool;
 use dashmap::DashMap;
 use std::{collections::HashMap, sync::Arc, time::Instant};
-use tokio::sync::RwLock;
 use twilight::{
     gateway::Cluster,
     http::Client as HttpClient,
@@ -20,21 +19,27 @@ use twilight::{
             presence::{Activity, ActivityType, Status},
         },
         id::GuildId,
-        user::CurrentUser,
     },
 };
 
 pub struct Context {
     pub cache: Cache,
-    pub cluster: Cluster,
     pub http: HttpClient,
     pub stats: Arc<BotStats>,
-    pub status_type: RwLock<u16>,
-    pub status_text: RwLock<String>,
-    pub bot_user: CurrentUser,
-    configs: DashMap<GuildId, GuildConfig>,
-    pub database: Database,
+    pub configs: DashMap<GuildId, GuildConfig>,
+    pub backend: BackendData,
+    pub clients: Clients,
+}
+
+pub struct Clients {
+    pub psql: Database,
     pub redis: ConnectionPool,
+    // pub osu: Osu,
+    // pub custom: CustomScraper,
+}
+
+pub struct BackendData {
+    pub cluster: Cluster,
     pub shard_states: DashMap<u64, ShardState>,
     pub total_shards: u64,
     pub shards_per_cluster: u64,
@@ -45,7 +50,6 @@ impl Context {
         cache: Cache,
         cluster: Cluster,
         http: HttpClient,
-        bot_user: CurrentUser,
         database: Database,
         redis: ConnectionPool,
         stats: Arc<BotStats>,
@@ -57,26 +61,29 @@ impl Context {
             shard_states.insert(i, ShardState::PendingCreation);
         }
         stats.shard_counts.pending.set(shards_per_cluster as i64);
-        Context {
-            cache,
-            cluster,
-            http,
-            stats,
-            status_type: RwLock::new(3),
-            status_text: RwLock::new(String::from("the commands turn")),
-            bot_user,
-            configs: DashMap::new(),
-            database,
+        let clients = Clients {
+            psql: database,
             redis,
+        };
+        let backend = BackendData {
+            cluster,
             shard_states,
             total_shards,
             shards_per_cluster,
+        };
+        Context {
+            cache,
+            http,
+            stats,
+            configs: DashMap::new(),
+            clients,
+            backend,
         }
     }
 
     /// Returns if a message was sent by us.
     pub fn is_own(&self, other: &Message) -> bool {
-        self.bot_user.id == other.author.id
+        self.cache.bot_user.id == other.author.id
     }
 
     pub async fn initiate_cold_resume(&self) -> BotResult<()> {
@@ -89,14 +96,14 @@ impl Context {
         )
         .await?;
         let start = Instant::now();
-        let mut connection = self.redis.get().await;
+        let mut connection = self.clients.redis.get().await;
 
         //kill the shards and get their resume info
         //DANGER: WE WILL NOT BE GETTING EVENTS FROM THIS POINT ONWARDS, REBOOT REQUIRED
 
-        let resume_data = self.cluster.down_resumable().await;
+        let resume_data = self.backend.cluster.down_resumable().await;
         info!("Resume data acquired");
-        let (guild_chunks, user_chunks) = self.cache.prepare_cold_resume(&self.redis).await;
+        let (guild_chunks, user_chunks) = self.cache.prepare_cold_resume(&self.clients.redis).await;
         println!(
             "guild chunks: {} ~  user chunks: {}",
             guild_chunks, user_chunks
@@ -111,9 +118,9 @@ impl Context {
         }
         let data = ColdRebootData {
             resume_data: map,
-            total_shards: self.total_shards,
+            total_shards: self.backend.total_shards,
             guild_chunks,
-            shard_count: self.shards_per_cluster,
+            shard_count: self.backend.shards_per_cluster,
             user_chunks,
         };
         println!("Setting redis data...");
@@ -139,7 +146,7 @@ impl Context {
         activity_type: ActivityType,
         message: String,
     ) -> BotResult<()> {
-        for shard_id in 0..self.shards_per_cluster {
+        for shard_id in 0..self.backend.shards_per_cluster {
             self.set_shard_activity(shard_id, status, activity_type, message.clone())
                 .await?;
         }
@@ -153,7 +160,8 @@ impl Context {
         activity_type: ActivityType,
         message: String,
     ) -> BotResult<()> {
-        self.cluster
+        self.backend
+            .cluster
             .command(
                 shard_id,
                 &UpdateStatus::new(

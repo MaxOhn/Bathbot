@@ -7,8 +7,7 @@ mod util;
 
 use crate::{
     core::{
-        cache::Cache, handle_event, logging, BotConfig, BotStats, ColdRebootData, CommandGroups,
-        Context,
+        handle_event, logging, BotConfig, BotStats, Cache, ColdRebootData, CommandGroups, Context,
     },
     database::Database,
     util::Error,
@@ -114,7 +113,7 @@ async fn run(
     // });
 
     // Prepare cluster builder
-    let cache = Cache::new(stats.clone());
+    let cache = Cache::new(bot_user, stats.clone());
     let mut cb = ClusterConfig::builder(&config.tokens.discord)
         .shard_scheme(sharding_scheme)
         .intents(intents);
@@ -169,7 +168,6 @@ async fn run(
             cache,
             cluster,
             http,
-            bot_user,
             database,
             redis.clone(),
             stats,
@@ -191,8 +189,8 @@ async fn run(
     })
     .map_err(|why| format_err!("Failed to register shutdown handler: {}", why))?;
 
-    ctx.cluster.up().await;
-    let mut bot_events = ctx.cluster.events().await;
+    ctx.backend.cluster.up().await;
+    let mut bot_events = ctx.backend.cluster.events().await;
     let cmd_groups = Arc::new(CommandGroups::new());
     while let Some(event) = bot_events.next().await {
         let c = ctx.clone();

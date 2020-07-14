@@ -3,7 +3,10 @@ use crate::{
     BotResult, Error,
 };
 
-use std::sync::{atomic::Ordering, Arc};
+use std::{
+    ops::Deref,
+    sync::{atomic::Ordering, Arc},
+};
 use twilight::gateway::Event;
 use uwl::Stream;
 
@@ -59,7 +62,7 @@ pub async fn handle_event(
                         }
                         None => return Ok(()), // we didnt even get a guild create yet
                     }
-                    let config = ctx.database.get_guild_config(guild_id.0).await?;
+                    let config = ctx.clients.psql.get_guild_config(guild_id.0).await?;
                     config.prefixes.clone()
                 }
                 None => vec!["<".to_owned(), "!!".to_owned()],
@@ -71,13 +74,13 @@ pub async fn handle_event(
                 return Ok(());
             }
             stream.take_while_char(|c| c.is_whitespace());
-            match parse_invoke(&mut stream, &cmd_groups) {
-                Invoke::Command(cmd) => debug!("Got command: {:?}", cmd),
-                Invoke::Help(None) => debug!("Got help command"),
-                Invoke::Help(Some(cmd)) => debug!("Got help command for {:?}", cmd),
-                Invoke::FailedHelp(name) => debug!("Got failed help for `{}`", name),
-                Invoke::UnrecognisedCommand(name) => {}
-            }
+            return match parse_invoke(&mut stream, &cmd_groups) {
+                Invoke::Command(cmd) => (cmd.fun)(&ctx, msg.deref()),
+                Invoke::Help(None) => todo!(),
+                Invoke::Help(Some(_cmd)) => todo!(),
+                Invoke::FailedHelp(_name) => todo!(),
+                Invoke::UnrecognisedCommand(_name) => Ok(()),
+            };
         }
         _ => (),
     }
