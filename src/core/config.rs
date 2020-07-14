@@ -22,7 +22,7 @@ pub struct Tokens {
 
 #[derive(Deserialize, Debug)]
 pub struct Database {
-    pub mysql: String,
+    pub postgres: String,
     pub redis: String,
 }
 

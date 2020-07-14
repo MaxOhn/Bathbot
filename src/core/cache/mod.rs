@@ -597,7 +597,7 @@ impl Cache {
         if list.len() > 0 {
             work_orders.push(list)
         }
-        debug!("Freezing {:?} guilds", self.stats.guild_counts.loaded.get());
+        debug!("Freezing {} guilds", self.stats.guild_counts.loaded.get());
         for i in 0..work_orders.len() {
             tasks.push(self._prepare_cold_resume_guild(redis, work_orders[i].clone(), i));
         }
@@ -610,11 +610,13 @@ impl Cache {
             user_work_orders[count % user_chunks].push(guard.key().clone());
             count += 1;
         }
-        debug!("Freezing {:?} users", self.users.len());
+        debug!("Freezing {} users", self.users.len());
         for i in 0..user_chunks {
             user_tasks.push(self._prepare_cold_resume_user(redis, user_work_orders[i].clone(), i));
         }
+        debug!("joining futures...");
         future::join_all(user_tasks).await;
+        debug!("futures joined");
         self.users.clear();
         (guild_chunks, user_chunks)
     }
@@ -630,13 +632,16 @@ impl Cache {
             index,
             todo.len()
         );
+        println!("getting connection...");
         let mut connection = redis.get().await;
+        println!("got connection");
         let mut to_dump = Vec::with_capacity(todo.len());
         for key in todo {
             let g = self.guilds.remove_take(&key).unwrap();
             to_dump.push(ColdStorageGuild::from(g));
         }
         let serialized = serde_json::to_string(&to_dump).unwrap();
+        println!("set_and_expire...");
         connection
             .set_and_expire_seconds(
                 format!("cb_cluster_{}_guild_chunk_{}", self.cluster_id, index),
@@ -644,6 +649,10 @@ impl Cache {
                 180,
             )
             .await?;
+        println!(
+            "stored in: cb_cluster_{}_guild_chunk_{}",
+            self.cluster_id, index
+        );
         Ok(())
     }
 

@@ -94,12 +94,15 @@ impl Context {
         //kill the shards and get their resume info
         //DANGER: WE WILL NOT BE GETTING EVENTS FROM THIS POINT ONWARDS, REBOOT REQUIRED
 
-        info!("Resume data acquired");
-
         let resume_data = self.cluster.down_resumable().await;
+        info!("Resume data acquired");
         let (guild_chunks, user_chunks) = self.cache.prepare_cold_resume(&self.redis).await;
+        println!(
+            "guild chunks: {} ~  user chunks: {}",
+            guild_chunks, user_chunks
+        );
 
-        // prepare resume data
+        // Prepare resume data
         let mut map = HashMap::new();
         for (shard_id, data) in resume_data {
             if let Some(info) = data {
@@ -113,6 +116,7 @@ impl Context {
             shard_count: self.shards_per_cluster,
             user_chunks,
         };
+        println!("Setting redis data...");
         connection
             .set_and_expire_seconds(
                 "cb_cluster_data_0",
@@ -121,9 +125,9 @@ impl Context {
             )
             .await
             .unwrap();
-        let end = std::time::Instant::now();
-        info!(
-            "Cold resume preparations completed in {}ms!",
+        let end = Instant::now();
+        println!(
+            "Cold resume preparations completed in {}ms",
             (end - start).as_millis()
         );
         Ok(())

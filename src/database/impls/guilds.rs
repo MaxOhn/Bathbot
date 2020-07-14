@@ -2,7 +2,7 @@ use crate::{database::GuildConfig, BotResult, Database};
 
 impl Database {
     pub async fn get_guild_config(&self, guild_id: u64) -> BotResult<GuildConfig> {
-        let query = format!("SELECT config from guilds where id={}", guild_id);
+        let query = format!("SELECT config from guilds where guild_id={}", guild_id);
         match sqlx::query_as::<_, GuildConfig>(&query)
             .fetch_optional(&self.pool)
             .await?

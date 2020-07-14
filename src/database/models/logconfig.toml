@@ -1,0 +1,11 @@
+### Optional: Default log level
+global_level = 'info'
+
+### Optional: specify a regular expression to suppress all messages that don't match
+#global_pattern = 'foo'
+
+### Specific log levels per module are optionally defined in this section
+[modules]
+#'mod1' = 'warn'
+#'mod2' = 'debug'
+#'mod2::mod3' = 'trace'

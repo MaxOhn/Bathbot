@@ -22,7 +22,13 @@ extern crate log;
 use clap::{App, Arg};
 use darkredis::ConnectionPool;
 use prometheus::{Encoder, TextEncoder};
-use std::{collections::HashMap, process, str::FromStr, sync::Arc, time::Instant};
+use std::{
+    collections::HashMap,
+    process,
+    str::FromStr,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tokio::{runtime::Runtime, stream::StreamExt};
 use twilight::{
     gateway::{cluster::config::ShardScheme, shard::ResumeSession, Cluster, ClusterConfig},
@@ -43,13 +49,6 @@ async fn main() -> BotResult<()> {
     let config = BotConfig::new("config.toml")?;
     info!("Loaded config file");
 
-    // Connect to the database
-    let database = Database::new(&config.database.mysql).await?;
-    let guild_config = database.get_guild_config(297072529426612224).await?;
-    println!("{:#?}", guild_config);
-
-    return Ok(());
-
     //Connect to the discord http client
     let mut builder = HttpClient::builder();
     builder
@@ -67,9 +66,9 @@ async fn main() -> BotResult<()> {
         bot_user.name, bot_user.discriminator
     );
 
-    // // Connect to the database
-    // let database = Database::new(&config.database.mysql).await?;
-    // info!("Connected to postgres database");
+    // Connect to the database
+    let database = Database::new(&config.database.postgres).await?;
+    info!("Connected to postgres database");
 
     // Connect to redis cache
     let redis = ConnectionPool::create(config.database.redis.clone(), None, 5).await?;
@@ -101,18 +100,18 @@ async fn run(
     );
     let stats = Arc::new(BotStats::new());
 
-    // Provide stats to locale address
-    let s = stats.clone();
-    tokio::spawn(async move {
-        let hello = warp::path!("metrics").map(move || {
-            let mut buffer = vec![];
-            let encoder = TextEncoder::new();
-            let metric_families = s.registry.gather();
-            encoder.encode(&metric_families, &mut buffer).unwrap();
-            String::from_utf8(buffer).unwrap()
-        });
-        warp::serve(hello).run(([127, 0, 0, 1], 9091)).await;
-    });
+    // // Provide stats to locale address
+    // let s = stats.clone();
+    // tokio::spawn(async move {
+    //     let hello = warp::path!("metrics").map(move || {
+    //         let mut buffer = vec![];
+    //         let encoder = TextEncoder::new();
+    //         let metric_families = s.registry.gather();
+    //         encoder.encode(&metric_families, &mut buffer).unwrap();
+    //         String::from_utf8(buffer).unwrap()
+    //     });
+    //     warp::serve(hello).run(([127, 0, 0, 1], 9091)).await;
+    // });
 
     // Prepare cluster builder
     let cache = Cache::new(stats.clone());
@@ -122,46 +121,45 @@ async fn run(
 
     // Check for resume data, pass to builder if present
     let mut connection = redis.get().await;
-    match connection.get("cb_cluster_data_0").await.ok().flatten() {
-        Some(d) => {
-            let cold_cache: ColdRebootData = serde_json::from_str(&*String::from_utf8(d).unwrap())?;
-            debug!("ColdRebootData: {:?}", cold_cache);
-            connection.del("cb_cluster_data_0").await?;
-            if cold_cache.total_shards == total_shards
-                && cold_cache.shard_count == shards_per_cluster
-            {
-                let mut map = HashMap::new();
-                for (id, data) in cold_cache.resume_data {
-                    map.insert(
-                        id,
-                        ResumeSession {
-                            session_id: data.0,
-                            sequence: data.1,
-                        },
+    let x = connection.get("cb_cluster_data_0").await;
+    println!("redis result: {:?}", x);
+    if let Some(d) = connection.get("cb_cluster_data_0").await.ok().flatten() {
+        let cold_cache: ColdRebootData = serde_json::from_str(&*String::from_utf8(d).unwrap())?;
+        debug!("ColdRebootData: {:?}", cold_cache);
+        connection.del("cb_cluster_data_0").await?;
+        if cold_cache.total_shards == total_shards && cold_cache.shard_count == shards_per_cluster {
+            let mut map = HashMap::new();
+            for (id, data) in cold_cache.resume_data {
+                map.insert(
+                    id,
+                    ResumeSession {
+                        session_id: data.0,
+                        sequence: data.1,
+                    },
+                );
+            }
+            let start = Instant::now();
+            let result = cache
+                .restore_cold_resume(&redis, cold_cache.guild_chunks, cold_cache.user_chunks)
+                .await;
+            match result {
+                Ok(_) => {
+                    let end = Instant::now();
+                    info!(
+                        "Cold resume defrosting completed in {}ms",
+                        (end - start).as_millis()
                     );
+                    cb = cb.resume_sessions(map);
                 }
-                let start = Instant::now();
-                let result = cache
-                    .restore_cold_resume(&redis, cold_cache.guild_chunks, cold_cache.user_chunks)
-                    .await;
-                match result {
-                    Ok(_) => {
-                        let end = std::time::Instant::now();
-                        info!(
-                            "Cold resume defrosting completed in {}ms",
-                            (end - start).as_millis()
-                        );
-                        cb = cb.resume_sessions(map);
-                    }
-                    Err(why) => {
-                        error!("Cold resume defrosting failed: {}", why);
-                        cache.reset();
-                    }
+                Err(why) => {
+                    error!("Cold resume defrosting failed: {}", why);
+                    cache.reset();
                 }
             }
         }
-        None => {}
-    };
+    } else {
+        println!("not found");
+    }
 
     // Build cluster and create context
     let cluster_config = cb.build();
@@ -185,20 +183,15 @@ async fn run(
     let shutdown_ctx = ctx.clone();
     ctrlc::set_handler(move || {
         // tokio::main no longer running, create own runtime
-        let _ = Runtime::new()
+        let freeze_result = Runtime::new()
             .unwrap()
             .block_on(shutdown_ctx.initiate_cold_resume());
+        println!("freeze_result: {:?}", freeze_result);
         process::exit(0);
     })
     .map_err(|why| format_err!("Failed to register shutdown handler: {}", why))?;
 
-    info!("Cluster going online");
     ctx.cluster.up().await;
-    // let c = context.cluster.clone();
-    // tokio::spawn(async move {
-    //     tokio::time::delay_for(Duration::from_secs(1)).await;
-    //     c.up().await;
-    // });
     let mut bot_events = ctx.cluster.events().await;
     let cmd_groups = Arc::new(CommandGroups::new());
     while let Some(event) = bot_events.next().await {
@@ -213,7 +206,7 @@ async fn run(
             }
         });
     }
-    ctx.cluster.down().await;
+    // ctx.cluster.down().await;
     Ok(())
 }
 
