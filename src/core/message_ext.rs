@@ -22,15 +22,18 @@ pub trait MessageExt {
     async fn build_response<'a, F>(&self, ctx: &'a Context, f: F) -> BotResult<()>
     where
         F: Send + FnOnce(CreateMessage<'a>) -> Result<CreateMessage<'a>, CreateMessageError>;
+
     /// Response with simple content
     ///
     /// Includes reaction_delete
     async fn respond(&self, ctx: &Context, content: String) -> BotResult<()>;
+
     /// Response with simple content by tagging the author
     ///
     /// Includes reaction_delete
     async fn reply(&self, ctx: &Context, content: String) -> BotResult<()>;
-    /// The author has 60s time to delete the message by reacting with `❌`
+
+    /// Give the author 60s to delete the message by reacting with `❌`
     fn reaction_delete(&self, ctx: &Context, owner: UserId);
 }
 

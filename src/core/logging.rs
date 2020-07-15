@@ -22,7 +22,7 @@ pub fn initialize() -> Result<(), Error> {
             .map_err(|_| Error::NoLoggingSpec)?,
     );
     if log_init_status.is_err() {
-        error!("The logging system was attempted to be initalized a second time!");
+        error!("Logging system was attempted to be initalized a second time");
     }
     Ok(())
 }

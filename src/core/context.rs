@@ -1,4 +1,4 @@
-use super::{BotStats, ShardState};
+use super::ShardState;
 
 use crate::{
     core::{Cache, ColdRebootData},
@@ -8,7 +8,7 @@ use crate::{
 
 use darkredis::ConnectionPool;
 use dashmap::DashMap;
-use std::{collections::HashMap, sync::Arc, time::Instant};
+use std::{collections::HashMap, time::Instant};
 use twilight::{
     gateway::Cluster,
     http::Client as HttpClient,
@@ -27,7 +27,6 @@ pub struct Context {
     pub cache: Cache,
     pub http: HttpClient,
     pub standby: Standby,
-    pub stats: Arc<BotStats>,
     pub guilds: DashMap<GuildId, GuildConfig>,
     pub backend: BackendData,
     pub clients: Clients,
@@ -38,6 +37,7 @@ pub struct Clients {
     pub redis: ConnectionPool,
     // pub osu: Osu,
     // pub custom: CustomScraper,
+    // pub twitch: Twitch,
 }
 
 pub struct BackendData {
@@ -54,7 +54,6 @@ impl Context {
         http: HttpClient,
         database: Database,
         redis: ConnectionPool,
-        stats: Arc<BotStats>,
         total_shards: u64,
         shards_per_cluster: u64,
     ) -> Self {
@@ -62,7 +61,11 @@ impl Context {
         for i in 0..shards_per_cluster {
             shard_states.insert(i, ShardState::PendingCreation);
         }
-        stats.shard_counts.pending.set(shards_per_cluster as i64);
+        cache
+            .stats
+            .shard_counts
+            .pending
+            .set(shards_per_cluster as i64);
         let clients = Clients {
             psql: database,
             redis,
@@ -77,14 +80,13 @@ impl Context {
             cache,
             http,
             standby: Standby::new(),
-            stats,
             guilds: DashMap::new(),
             clients,
             backend,
         }
     }
 
-    /// Returns if a message was sent by us.
+    /// Returns if a message was sent by us
     pub fn is_own(&self, other: &Message) -> bool {
         self.cache.bot_user.id == other.author.id
     }

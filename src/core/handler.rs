@@ -41,7 +41,7 @@ pub async fn handle_event(
         // ## Other ##
         // ###########
         Event::MessageCreate(msg) => {
-            ctx.stats.new_message(&ctx, msg);
+            ctx.cache.stats.new_message(&ctx, msg);
             if msg.author.bot || msg.webhook_id.is_some() {
                 return Ok(());
             }

@@ -113,7 +113,7 @@ async fn run(
     // });
 
     // Prepare cluster builder
-    let cache = Cache::new(bot_user, stats.clone());
+    let cache = Cache::new(bot_user, stats);
     let mut cb = ClusterConfig::builder(&config.tokens.discord)
         .shard_scheme(sharding_scheme)
         .intents(intents);
@@ -157,7 +157,7 @@ async fn run(
             }
         }
     } else {
-        println!("not found");
+        println!("cb_cluster_data_0 not found");
     }
 
     // Build cluster and create context
@@ -170,7 +170,6 @@ async fn run(
             http,
             database,
             redis.clone(),
-            stats,
             total_shards,
             shards_per_cluster,
         )
