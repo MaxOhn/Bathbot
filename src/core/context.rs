@@ -28,7 +28,7 @@ pub struct Context {
     pub http: HttpClient,
     pub standby: Standby,
     pub stats: Arc<BotStats>,
-    pub configs: DashMap<GuildId, GuildConfig>,
+    pub guilds: DashMap<GuildId, GuildConfig>,
     pub backend: BackendData,
     pub clients: Clients,
 }
@@ -78,7 +78,7 @@ impl Context {
             http,
             standby: Standby::new(),
             stats,
-            configs: DashMap::new(),
+            guilds: DashMap::new(),
             clients,
             backend,
         }

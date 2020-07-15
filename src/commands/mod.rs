@@ -1,4 +1,5 @@
 mod fun;
+pub mod help;
 mod twitch;
 mod utility;
 

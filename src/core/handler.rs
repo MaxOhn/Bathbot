@@ -1,20 +1,10 @@
-mod failed_help;
-mod help;
-mod help_command;
-
-use failed_help::failed_help;
-use help::help;
-use help_command::help_command;
-
 use crate::{
+    commands::help::{failed_help, help, help_command},
     core::{Command, CommandGroups, Context},
     BotResult, Error,
 };
 
-use std::{
-    ops::Deref,
-    sync::{atomic::Ordering, Arc},
-};
+use std::{ops::Deref, sync::Arc};
 use twilight::gateway::Event;
 use uwl::Stream;
 
@@ -56,22 +46,12 @@ pub async fn handle_event(
                 return Ok(());
             }
             let prefixes = match msg.guild_id {
-                Some(guild_id) => {
-                    let guild = ctx.cache.get_guild(guild_id);
-                    match guild {
-                        Some(g) => {
-                            if !g.complete.load(Ordering::SeqCst) {
-                                debug!(
-                                    "Message received in guild {} but guild not fully cached yet",
-                                    g.id
-                                );
-                                return Ok(()); // not cached yet, just ignore for now
-                            }
-                        }
-                        None => return Ok(()), // we didnt even get a guild create yet
+                Some(guild) => {
+                    if !ctx.guilds.contains_key(&guild) {
+                        let config = ctx.clients.psql.insert_guild(guild.0).await?;
+                        ctx.guilds.insert(guild, config);
                     }
-                    let config = ctx.clients.psql.get_guild_config(guild_id.0).await?;
-                    config.prefixes.clone()
+                    ctx.guilds.get(&guild).unwrap().prefixes.clone()
                 }
                 None => vec!["<".to_owned(), "!!".to_owned()],
             };
