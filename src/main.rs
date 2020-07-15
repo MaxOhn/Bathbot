@@ -193,10 +193,11 @@ async fn run(
     let mut bot_events = ctx.backend.cluster.events().await;
     let cmd_groups = Arc::new(CommandGroups::new());
     while let Some(event) = bot_events.next().await {
-        let c = ctx.clone();
         let (shard, event) = event;
         ctx.update_stats(shard, &event);
         ctx.cache.update(shard, &event, ctx.clone()).await?;
+        ctx.standby.process(&event);
+        let c = ctx.clone();
         let cmds = cmd_groups.clone();
         tokio::spawn(async move {
             if let Err(why) = handle_event(shard, &event, c, cmds).await {
@@ -204,7 +205,7 @@ async fn run(
             }
         });
     }
-    // ctx.cluster.down().await;
+    ctx.backend.cluster.down().await;
     Ok(())
 }
 

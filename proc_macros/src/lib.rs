@@ -69,7 +69,8 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
     } else {
         panic!("require `#[short_desc(\"...\")]`")
     };
-    propagate_err!(create_declaration_validations(&mut fun));
+    create_declaration_validations(&mut fun);
+    populate_fut_lifetimes_on_refs(&mut fun.args);
     let fun_name_str = fun.name.to_string();
     let fun_name = fun.name.clone();
     let sub_commands = sub_commands

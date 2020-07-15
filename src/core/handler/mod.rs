@@ -1,3 +1,11 @@
+mod failed_help;
+mod help;
+mod help_command;
+
+use failed_help::failed_help;
+use help::help;
+use help_command::help_command;
+
 use crate::{
     core::{Command, CommandGroups, Context},
     BotResult, Error,
@@ -14,7 +22,7 @@ pub async fn handle_event(
     shard_id: u64,
     event: &Event,
     ctx: Arc<Context>,
-    cmd_groups: Arc<CommandGroups>,
+    cmds: Arc<CommandGroups>,
 ) -> BotResult<()> {
     match &event {
         // ####################
@@ -74,11 +82,11 @@ pub async fn handle_event(
                 return Ok(());
             }
             stream.take_while_char(|c| c.is_whitespace());
-            return match parse_invoke(&mut stream, &cmd_groups) {
-                Invoke::Command(cmd) => (cmd.fun)(&ctx, msg.deref()),
-                Invoke::Help(None) => todo!(),
-                Invoke::Help(Some(_cmd)) => todo!(),
-                Invoke::FailedHelp(_name) => todo!(),
+            return match parse_invoke(&mut stream, &cmds) {
+                Invoke::Command(cmd) => (cmd.fun)(&ctx, msg.deref()).await,
+                Invoke::Help(None) => help(&ctx, &cmds, msg.deref()).await,
+                Invoke::Help(Some(cmd)) => help_command(&ctx, cmd, msg.deref()).await,
+                Invoke::FailedHelp(name) => failed_help(&ctx, name, &cmds, msg.deref()).await,
                 Invoke::UnrecognisedCommand(_name) => Ok(()),
             };
         }

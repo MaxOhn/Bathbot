@@ -20,11 +20,13 @@ use twilight::{
         },
         id::GuildId,
     },
+    standby::Standby,
 };
 
 pub struct Context {
     pub cache: Cache,
     pub http: HttpClient,
+    pub standby: Standby,
     pub stats: Arc<BotStats>,
     pub configs: DashMap<GuildId, GuildConfig>,
     pub backend: BackendData,
@@ -74,6 +76,7 @@ impl Context {
         Context {
             cache,
             http,
+            standby: Standby::new(),
             stats,
             configs: DashMap::new(),
             clients,

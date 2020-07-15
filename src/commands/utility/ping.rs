@@ -1,7 +1,6 @@
-use crate::{BotResult, Context};
-// use crate::util::MessageExt;
+use crate::{core::MessageExt, BotResult, Context};
 
-use chrono::Utc;
+use std::time::Instant;
 use twilight::model::channel::Message;
 
 #[command]
@@ -12,14 +11,16 @@ use twilight::model::channel::Message;
 )]
 #[aliases("p")]
 async fn ping(ctx: &Context, msg: &Message) -> BotResult<()> {
-    let start = Utc::now().timestamp_millis();
-    // let mut response = msg.channel_id.say(ctx, "Pong!").await?;
-    // response
-    //     .edit(ctx, |m| {
-    //         let elapsed = Utc::now().timestamp_millis() - start;
-    //         m.content(format!("Pong! ({}ms)", elapsed))
-    //     })
-    //     .await?;
-    // response.reaction_delete(ctx, msg.author.id).await;
+    let start = Instant::now();
+    let response = ctx
+        .http
+        .create_message(msg.channel_id)
+        .content(":ping_pong:")?
+        .await?;
+    let elapsed = (Instant::now() - start).as_millis();
+    ctx.http
+        .update_message(msg.channel_id, response.id)
+        .content(Some(format!(":ping_pong: Pong! ({}ms)", elapsed)))?;
+    response.reaction_delete(ctx, msg.author.id);
     Ok(())
 }

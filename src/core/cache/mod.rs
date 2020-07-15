@@ -361,9 +361,9 @@ impl Cache {
                 }
             }
             Event::MemberUpdate(event) => {
-                let e = event.clone();
-                let c = ctx.clone();
-                if !Cache::member_update(shard_id, &c, &e, true).await {
+                if !Cache::member_update(shard_id, &ctx, event, true).await {
+                    let e = event.clone();
+                    let c = ctx.clone();
                     tokio::spawn(async move {
                         tokio::time::delay_for(Duration::from_millis(100)).await;
                         Cache::member_update(shard_id, &c, &e, false).await;

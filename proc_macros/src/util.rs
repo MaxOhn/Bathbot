@@ -1,6 +1,6 @@
 use crate::CommandFun;
 
-use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
 use syn::{
     parenthesized,
@@ -9,7 +9,7 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Comma, Mut},
-    Ident, Lit, Stmt, Type,
+    Ident, Lifetime, Lit, Stmt, Type,
 };
 
 macro_rules! propagate_err {
@@ -21,7 +21,6 @@ macro_rules! propagate_err {
     }};
 }
 
-#[derive(Debug)]
 pub struct Argument {
     pub mutable: Option<Mut>,
     pub name: Ident,
@@ -41,7 +40,6 @@ impl ToTokens for Argument {
     }
 }
 
-#[derive(Debug)]
 pub struct Parenthesised<T>(pub Punctuated<T, Comma>);
 
 impl<T: Parse> Parse for Parenthesised<T> {
@@ -91,7 +89,6 @@ impl IdentExt for Ident {
     }
 }
 
-#[derive(Debug)]
 pub struct AsOption<T>(pub Option<T>);
 
 impl<T: ToTokens> ToTokens for AsOption<T> {
@@ -125,12 +122,9 @@ fn validation_stmt(actual: &Type, intended: &Type) -> Stmt {
     }
 }
 
-pub fn create_declaration_validations(fun: &mut CommandFun) -> Result<()> {
+pub fn create_declaration_validations(fun: &mut CommandFun) {
     if fun.args.len() != 2 {
-        return Err(Error::new(
-            fun.args.last().unwrap().span(),
-            "command function requires context and message as arguments",
-        ));
+        panic!("command function requires ctx and msg as arguments");
     }
 
     let intended_types: Vec<Type> = vec![
@@ -148,5 +142,13 @@ pub fn create_declaration_validations(fun: &mut CommandFun) -> Result<()> {
     for validation in validations {
         fun.body.insert(0, validation);
     }
-    Ok(())
+}
+
+#[inline]
+pub fn populate_fut_lifetimes_on_refs(args: &mut Vec<Argument>) {
+    for arg in args {
+        if let Type::Reference(ref mut reference) = arg.kind {
+            reference.lifetime = Some(Lifetime::new("'fut", Span::call_site()));
+        }
+    }
 }

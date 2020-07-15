@@ -9,7 +9,6 @@ use syn::{
     Attribute, Block, FnArg, Ident, Pat, ReturnType, Stmt, Token, Type, Visibility,
 };
 
-#[derive(Debug)]
 pub struct CommandFun {
     // #[...]
     pub attributes: Vec<Attribute>,
@@ -80,8 +79,9 @@ impl ToTokens for CommandFun {
             body,
         } = self;
         stream.extend(quote! {
-            #visibility fn #name (#(#args),*) -> #ret {
-                #(#body)*
+            #visibility fn #name<'fut> (#(#args),*) -> futures::future::BoxFuture<'fut, #ret> {
+                use futures::future::FutureExt;
+                async move { #(#body)* }.boxed()
             }
         });
     }
@@ -123,7 +123,7 @@ fn parse_argument(arg: FnArg) -> Result<Argument> {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Options {
     pub aliases: Vec<String>,
     pub short_desc: Option<String>,

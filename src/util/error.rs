@@ -1,5 +1,3 @@
-use super::constants::CONTENT_LENGTH;
-
 use darkredis::Error as RedisError;
 use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
@@ -8,7 +6,9 @@ use toml::de::Error as TomlError;
 use twilight::{
     gateway::cluster::Error as ClusterError,
     http::{
-        request::channel::message::create_message::CreateMessageError as TwilightMessageError,
+        request::channel::message::{
+            create_message::CreateMessageError, update_message::UpdateMessageError,
+        },
         Error as HttpError,
     },
 };
@@ -28,34 +28,10 @@ macro_rules! format_err {
 }
 
 #[derive(Debug)]
-pub enum CreateMessageError {
-    ContentSize(usize),
-    CreateMessage(TwilightMessageError),
-}
-
-impl fmt::Display for CreateMessageError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ContentSize(chars) => write!(
-                f,
-                "the content is {} characters long, but the max is {}",
-                chars, CONTENT_LENGTH,
-            ),
-            Self::CreateMessage(e) => {
-                if let TwilightMessageError::EmbedTooLarge { source } = e {
-                    source.fmt(f)
-                } else {
-                    e.fmt(f)
-                }
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
 pub enum Error {
     CacheDefrost(&'static str, Box<Error>),
     CreateMessage(CreateMessageError),
+    UpdateMessage(UpdateMessageError),
     Custom(String),
     Database(DBError),
     Fmt(fmt::Error),
@@ -78,13 +54,20 @@ impl fmt::Display for Error {
                 write!(f, "error defrosting cache ({}): {}", reason, e)
             }
             Error::CreateMessage(e) => {
-                write!(f, "error while creating message: {}", e)
-                // f.write_str("error while creating message")?;
-                // if let CreateMessageError::EmbedTooLarge { source } = e {
-                //     source.fmt(f)
-                // } else {
-                //     e.fmt(f)
-                // }
+                f.write_str("error while creating message: ")?;
+                if let CreateMessageError::EmbedTooLarge { source } = e {
+                    source.fmt(f)
+                } else {
+                    e.fmt(f)
+                }
+            }
+            Error::UpdateMessage(e) => {
+                f.write_str("error while updating message: ")?;
+                if let UpdateMessageError::EmbedTooLarge { source } = e {
+                    source.fmt(f)
+                } else {
+                    e.fmt(f)
+                }
             }
             Error::Custom(e) => e.fmt(f),
             Error::Database(e) => write!(f, "database error occured: {}", e),
@@ -102,12 +85,6 @@ impl fmt::Display for Error {
             Error::TwilightHttp(e) => write!(f, "error while making discord request: {}", e),
             Error::TwilightCluster(e) => write!(f, "error occurred on cluster request: {}", e),
         }
-    }
-}
-
-impl From<TwilightMessageError> for Error {
-    fn from(e: TwilightMessageError) -> Self {
-        Error::CreateMessage(CreateMessageError::CreateMessage(e))
     }
 }
 
@@ -150,5 +127,11 @@ impl From<HttpError> for Error {
 impl From<ClusterError> for Error {
     fn from(e: ClusterError) -> Self {
         Error::TwilightCluster(e)
+    }
+}
+
+impl From<UpdateMessageError> for Error {
+    fn from(e: UpdateMessageError) -> Self {
+        Error::UpdateMessage(e)
     }
 }

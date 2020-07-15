@@ -5,7 +5,6 @@ use syn::parse::{Error, Result};
 use syn::spanned::Spanned;
 use syn::{Attribute, Ident, Lit, LitStr, Meta, NestedMeta, Path};
 
-#[derive(Debug)]
 pub struct Values {
     pub name: Ident,
     pub literals: Vec<Lit>,
