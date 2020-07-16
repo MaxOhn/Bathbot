@@ -62,11 +62,23 @@ pub async fn handle_event(
                 return Ok(());
             }
             stream.take_while_char(|c| c.is_whitespace());
-            return match parse_invoke(&mut stream, &cmds) {
-                Invoke::Command(cmd) => (cmd.fun)(&ctx, msg.deref()).await,
-                Invoke::Help(None) => help(&ctx, &cmds, msg.deref()).await,
-                Invoke::Help(Some(cmd)) => help_command(&ctx, cmd, msg.deref()).await,
-                Invoke::FailedHelp(arg) => failed_help(&ctx, arg, &cmds, msg.deref()).await,
+            let invoke = parse_invoke(&mut stream, &cmds);
+            match invoke {
+                Invoke::Command(cmd) => ctx.cache.stats.inc_command(cmd.names[0]),
+                Invoke::SubCommand { main, sub } => ctx
+                    .cache
+                    .stats
+                    .inc_command(format!("{}-{}", main.names[0], sub.names[0])),
+                Invoke::Help(_) | Invoke::FailedHelp(_) => ctx.cache.stats.inc_command("hellp"),
+                _ => {}
+            }
+            let msg = msg.deref();
+            return match invoke {
+                Invoke::Command(cmd) => (cmd.fun)(&ctx, msg).await,
+                Invoke::SubCommand { sub, .. } => (sub.fun)(&ctx, msg).await,
+                Invoke::Help(None) => help(&ctx, &cmds, msg).await,
+                Invoke::Help(Some(cmd)) => help_command(&ctx, cmd, msg).await,
+                Invoke::FailedHelp(arg) => failed_help(&ctx, arg, &cmds, msg).await,
                 Invoke::UnrecognisedCommand(_name) => Ok(()),
             };
         }
@@ -116,7 +128,10 @@ fn parse_invoke(stream: &mut Stream<'_>, groups: &CommandGroups) -> Invoke {
                         stream.take_while_char(|c| c.is_whitespace());
                         // TODO: Check permissions & co
                         // check_discrepancy(ctx, msg, config, &cmd.options)?;
-                        return Invoke::Command(sub_cmd);
+                        return Invoke::SubCommand {
+                            main: cmd,
+                            sub: sub_cmd,
+                        };
                     }
                 }
                 // TODO: Check permissions & co
@@ -132,6 +147,10 @@ fn parse_invoke(stream: &mut Stream<'_>, groups: &CommandGroups) -> Invoke {
 #[derive(Debug)]
 pub enum Invoke {
     Command(&'static Command),
+    SubCommand {
+        main: &'static Command,
+        sub: &'static Command,
+    },
     Help(Option<&'static Command>),
     FailedHelp(String),
     UnrecognisedCommand(String),

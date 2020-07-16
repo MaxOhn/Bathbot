@@ -98,7 +98,7 @@ impl BotStats {
         let mut static_labels = HashMap::new();
         static_labels.insert(String::from("cluster"), 0.to_string());
         let registry =
-            Registry::new_custom(Some(String::from("gearbot")), Some(static_labels)).unwrap();
+            Registry::new_custom(Some(String::from("bathbot")), Some(static_labels)).unwrap();
         registry.register(Box::new(event_counter.clone())).unwrap();
         registry
             .register(Box::new(message_counter.clone()))
@@ -252,6 +252,14 @@ impl BotStats {
             }
         } else {
             self.message_counts.user_messages.inc()
+        }
+    }
+
+    pub fn inc_command(&self, cmd: impl AsRef<str>) {
+        let c = cmd.as_ref();
+        match self.command_counts.get_metric_with_label_values(&[c]) {
+            Ok(counter) => counter.inc(),
+            Err(why) => warn!("Error while incrementing `{}`'s counter: {}", c, why),
         }
     }
 }
