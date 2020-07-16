@@ -4,7 +4,7 @@ use crate::{
     BotResult, Error,
 };
 
-use std::{ops::Deref, sync::Arc};
+use std::{borrow::Cow, ops::Deref, sync::Arc};
 use twilight_gateway::Event;
 use uwl::Stream;
 
@@ -63,17 +63,8 @@ pub async fn handle_event(
             }
             stream.take_while_char(|c| c.is_whitespace());
             let invoke = parse_invoke(&mut stream, &cmds);
-            match invoke {
-                Invoke::Command(cmd) => ctx.cache.stats.inc_command(cmd.names[0]),
-                Invoke::SubCommand { main, sub } => ctx
-                    .cache
-                    .stats
-                    .inc_command(format!("{}-{}", main.names[0], sub.names[0])),
-                Invoke::Help(_) | Invoke::FailedHelp(_) => ctx.cache.stats.inc_command("hellp"),
-                _ => {}
-            }
             let msg = msg.deref();
-            return match invoke {
+            let command_result = match &invoke {
                 Invoke::Command(cmd) => (cmd.fun)(&ctx, msg).await,
                 Invoke::SubCommand { sub, .. } => (sub.fun)(&ctx, msg).await,
                 Invoke::Help(None) => help(&ctx, &cmds, msg).await,
@@ -81,6 +72,14 @@ pub async fn handle_event(
                 Invoke::FailedHelp(arg) => failed_help(&ctx, arg, &cmds, msg).await,
                 Invoke::UnrecognisedCommand(_name) => Ok(()),
             };
+            let name = invoke.name();
+            match command_result {
+                Ok(_) => match invoke {
+                    Invoke::UnrecognisedCommand(_) => {}
+                    _ => ctx.cache.stats.inc_command(name),
+                },
+                Err(why) => return Err(Error::Command(name.to_string(), Box::new(why))),
+            }
         }
         _ => (),
     }
@@ -154,4 +153,17 @@ pub enum Invoke {
     Help(Option<&'static Command>),
     FailedHelp(String),
     UnrecognisedCommand(String),
+}
+
+impl Invoke {
+    fn name(&self) -> Cow<str> {
+        match self {
+            Invoke::Command(cmd) => Cow::Borrowed(cmd.names[0]),
+            Invoke::SubCommand { main, sub } => {
+                Cow::Owned(format!("{}-{}", main.names[0], sub.names[0]))
+            }
+            Invoke::Help(_) | Invoke::FailedHelp(_) => Cow::Borrowed("help"),
+            Invoke::UnrecognisedCommand(arg) => Cow::Borrowed(arg),
+        }
+    }
 }

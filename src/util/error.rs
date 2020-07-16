@@ -1,7 +1,9 @@
+use crate::roppai::OppaiErr;
+
 use darkredis::Error as RedisError;
 use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
-use std::{error, fmt};
+use std::{borrow::Cow, error, fmt};
 use toml::de::Error as TomlError;
 use twilight_gateway::cluster::Error as ClusterError;
 use twilight_http::{
@@ -28,6 +30,7 @@ macro_rules! format_err {
 #[derive(Debug)]
 pub enum Error {
     CacheDefrost(&'static str, Box<Error>),
+    Command(String, Box<Error>),
     CreateMessage(CreateMessageError),
     UpdateMessage(UpdateMessageError),
     Custom(String),
@@ -37,6 +40,7 @@ pub enum Error {
     InvalidSession(u64),
     NoConfig,
     NoLoggingSpec,
+    Oppai(OppaiErr),
     Redis(RedisError),
     Serde(SerdeJsonError),
     TwilightHttp(HttpError),
@@ -51,6 +55,7 @@ impl fmt::Display for Error {
             Error::CacheDefrost(reason, e) => {
                 write!(f, "error defrosting cache ({}): {}", reason, e)
             }
+            Error::Command(cmd, e) => write!(f, "error while processing command `{}`: {}", cmd, e),
             Error::CreateMessage(e) => {
                 f.write_str("error while creating message: ")?;
                 if let CreateMessageError::EmbedTooLarge { source } = e {
@@ -78,6 +83,7 @@ impl fmt::Display for Error {
             ),
             Error::NoConfig => f.write_str("config file was not found"),
             Error::NoLoggingSpec => f.write_str("logging config was not found"),
+            Error::Oppai(e) => write!(f, "error while using oppai: {}", e),
             Error::Redis(e) => write!(f, "error while communicating with redis cache: {}", e),
             Error::Serde(e) => write!(f, "serde error: {}", e),
             Error::TwilightHttp(e) => write!(f, "error while making discord request: {}", e),

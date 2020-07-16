@@ -50,7 +50,7 @@ impl Context {
         cache: Cache,
         cluster: Cluster,
         http: HttpClient,
-        database: Database,
+        psql: Database,
         redis: ConnectionPool,
         total_shards: u64,
         shards_per_cluster: u64,
@@ -59,15 +59,16 @@ impl Context {
         for i in 0..shards_per_cluster {
             shard_states.insert(i, ShardState::PendingCreation);
         }
+        let guilds = psql.get_guilds().await.unwrap_or_else(|why| {
+            error!("Error while getting guild configs: {}", why);
+            DashMap::new()
+        });
         cache
             .stats
             .shard_counts
             .pending
             .set(shards_per_cluster as i64);
-        let clients = Clients {
-            psql: database,
-            redis,
-        };
+        let clients = Clients { psql, redis };
         let backend = BackendData {
             cluster,
             shard_states,
@@ -78,7 +79,7 @@ impl Context {
             cache,
             http,
             standby: Standby::new(),
-            guilds: DashMap::new(),
+            guilds,
             clients,
             backend,
         }

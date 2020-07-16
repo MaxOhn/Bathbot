@@ -44,7 +44,7 @@ fn description(ctx: &Context, guild: Option<GuildId>) -> String {
             If you used `{prefix}link osuname`, you can ommit the osu username for any command that needs one.\n\
             Many commands allow you to specify mods. You can do so with `+mods` \
             for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods.\n\
-            If you react with :x: to my response, I will delete it.
+            If you react with :x: to my response, I will delete it.\n\
             Further help on the spreadsheet: http://bit.ly/badecoms", prefix_desc, prefix = first_prefix)
 }
 
@@ -140,7 +140,7 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
 
 pub async fn failed_help(
     ctx: &Context,
-    arg: String,
+    arg: &str,
     cmds: &CommandGroups,
     msg: &Message,
 ) -> BotResult<()> {
@@ -151,7 +151,7 @@ pub async fn failed_help(
         .collect::<Vec<_>>();
     let mut dists = BTreeMap::new();
     for name in names {
-        let dist = levenshtein_distance(&arg, name);
+        let dist = levenshtein_distance(arg, name);
         if dist < 4 {
             dists.insert(dist, name);
         }

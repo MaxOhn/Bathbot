@@ -4,6 +4,7 @@
 mod commands;
 mod core;
 mod database;
+mod roppai;
 mod util;
 
 use crate::{
@@ -47,7 +48,6 @@ async fn main() -> BotResult<()> {
 
     // Load config file
     let config = BotConfig::new("config.toml")?;
-    info!("Loaded config file");
 
     //Connect to the discord http client
     let mut builder = HttpClient::builder();
@@ -66,13 +66,10 @@ async fn main() -> BotResult<()> {
         bot_user.name, bot_user.discriminator
     );
 
-    // Connect to the database
+    // Connect to psql database and redis cache
     let database = Database::new(&config.database.postgres).await?;
-    info!("Connected to postgres database");
-
-    // Connect to redis cache
     let redis = ConnectionPool::create(config.database.redis.clone(), None, 5).await?;
-    info!("Connected to redis");
+    info!("Connected to psql and redis");
 
     // Boot everything up
     run(config, http, bot_user, database, redis).await
@@ -120,45 +117,47 @@ async fn run(
         .intents(intents);
 
     // Check for resume data, pass to builder if present
-    let mut connection = redis.get().await;
-    let x = connection.get("cb_cluster_data_0").await;
-    println!("redis result: {:?}", x);
-    if let Some(d) = connection.get("cb_cluster_data_0").await.ok().flatten() {
-        let cold_cache: ColdRebootData = serde_json::from_str(&*String::from_utf8(d).unwrap())?;
-        debug!("ColdRebootData: {:?}", cold_cache);
-        connection.del("cb_cluster_data_0").await?;
-        if cold_cache.total_shards == total_shards && cold_cache.shard_count == shards_per_cluster {
-            let mut map = HashMap::new();
-            for (id, data) in cold_cache.resume_data {
-                map.insert(
-                    id,
-                    ResumeSession {
-                        session_id: data.0,
-                        sequence: data.1,
-                    },
-                );
-            }
-            let start = Instant::now();
-            let result = cache
-                .restore_cold_resume(&redis, cold_cache.guild_chunks, cold_cache.user_chunks)
-                .await;
-            match result {
-                Ok(_) => {
-                    let end = Instant::now();
-                    info!(
-                        "Cold resume defrosting completed in {}ms",
-                        (end - start).as_millis()
+    {
+        let mut connection = redis.get().await;
+        if let Some(d) = connection.get("cb_cluster_data_0").await.ok().flatten() {
+            let cold_cache: ColdRebootData = serde_json::from_str(&*String::from_utf8(d).unwrap())?;
+            debug!("ColdRebootData: {:?}", cold_cache);
+            connection.del("cb_cluster_data_0").await?;
+            if cold_cache.total_shards == total_shards
+                && cold_cache.shard_count == shards_per_cluster
+            {
+                let mut map = HashMap::new();
+                for (id, data) in cold_cache.resume_data {
+                    map.insert(
+                        id,
+                        ResumeSession {
+                            session_id: data.0,
+                            sequence: data.1,
+                        },
                     );
-                    cb = cb.resume_sessions(map);
                 }
-                Err(why) => {
-                    error!("Cold resume defrosting failed: {}", why);
-                    cache.reset();
+                let start = Instant::now();
+                let result = cache
+                    .restore_cold_resume(&redis, cold_cache.guild_chunks, cold_cache.user_chunks)
+                    .await;
+                match result {
+                    Ok(_) => {
+                        let end = Instant::now();
+                        info!(
+                            "Cold resume defrosting completed in {}ms",
+                            (end - start).as_millis()
+                        );
+                        cb = cb.resume_sessions(map);
+                    }
+                    Err(why) => {
+                        error!("Cold resume defrosting failed: {}", why);
+                        cache.reset();
+                    }
                 }
             }
+        } else {
+            warn!("redis' cb_cluster_data_0 not found");
         }
-    } else {
-        println!("cb_cluster_data_0 not found");
     }
 
     // Build cluster and create context
@@ -170,7 +169,7 @@ async fn run(
             cluster,
             http,
             database,
-            redis.clone(),
+            redis,
             total_shards,
             shards_per_cluster,
         )
@@ -178,16 +177,16 @@ async fn run(
     );
 
     // Setup graceful shutdown
-    let shutdown_ctx = ctx.clone();
-    ctrlc::set_handler(move || {
-        // tokio::main no longer running, create own runtime
-        let freeze_result = Runtime::new()
-            .unwrap()
-            .block_on(shutdown_ctx.initiate_cold_resume());
-        println!("freeze_result: {:?}", freeze_result);
-        process::exit(0);
-    })
-    .map_err(|why| format_err!("Failed to register shutdown handler: {}", why))?;
+    // let shutdown_ctx = ctx.clone();
+    // ctrlc::set_handler(move || {
+    //     // tokio::main no longer running, create own runtime
+    //     let freeze_result = Runtime::new()
+    //         .unwrap()
+    //         .block_on(shutdown_ctx.initiate_cold_resume());
+    //     debug!("freeze_result: {:?}", freeze_result);
+    //     process::exit(0);
+    // })
+    // .map_err(|why| format_err!("Failed to register shutdown handler: {}", why))?;
 
     ctx.backend.cluster.up().await;
     let mut bot_events = ctx.backend.cluster.events().await;

@@ -5,8 +5,11 @@ authors = ["MaxOhn <ohn.m@hotmail.de>"]
 edition = "2018"
 
 [build-dependencies]
-bindgen = "0.54"
 cc      = { version = "1.0", features = ["parallel"] }
+
+[build-dependencies.bindgen]
+version = "0.54"
+default_features = false
 
 [dependencies]
 async-trait = "0.1"

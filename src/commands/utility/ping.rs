@@ -20,7 +20,8 @@ async fn ping(ctx: &Context, msg: &Message) -> BotResult<()> {
     let elapsed = (Instant::now() - start).as_millis();
     ctx.http
         .update_message(msg.channel_id, response.id)
-        .content(Some(format!(":ping_pong: Pong! ({}ms)", elapsed)))?;
+        .content(Some(format!(":ping_pong: Pong! ({}ms)", elapsed)))?
+        .await?;
     response.reaction_delete(ctx, msg.author.id);
     Ok(())
 }

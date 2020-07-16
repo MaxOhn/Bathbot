@@ -1,5 +1,9 @@
 use crate::{database::GuildConfig, BotResult, Database};
 
+use dashmap::DashMap;
+use sqlx::{types::Json, FromRow, Row};
+use twilight_model::id::GuildId;
+
 impl Database {
     pub async fn get_guild_config(&self, guild_id: u64) -> BotResult<GuildConfig> {
         let query = format!("SELECT config from guilds where guild_id={}", guild_id);
@@ -18,26 +22,23 @@ impl Database {
         }
     }
 
-    // pub async fn get_guilds(&self) -> BotResult<HashMap<GuildId, Guild>> {
-    //     let guilds = sqlx::query_as::<_, Guild>("SELECT * FROM guilds")
-    //         .fetch(&self.pool)
-    //         .filter_map(|result| match result {
-    //             Ok(g) => Some((g.guild_id, g)),
-    //             Err(why) => {
-    //                 warn!("Error while getting guilds from DB: {}", why);
-    //                 None
-    //             }
-    //         })
-    //         .collect::<Vec<_>>()
-    //         .await
-    //         .into_iter()
-    //         .collect();
-    //     Ok(guilds)
-    // }
+    pub async fn get_guilds(&self) -> BotResult<DashMap<GuildId, GuildConfig>> {
+        let guilds = sqlx::query("SELECT * FROM guilds")
+            .fetch_all(&self.pool)
+            .await?
+            .into_iter()
+            .map(|row| {
+                let id: i64 = row.get(0);
+                let config = GuildConfig::from_row(&row).unwrap();
+                (GuildId(id as u64), config)
+            })
+            .collect();
+        Ok(guilds)
+    }
 
     pub async fn set_guild_config(&self, guild_id: u64, config: GuildConfig) -> BotResult<()> {
         sqlx::query("UPDATE guilds SET config=$1 WHERE id=$2")
-            .bind(serde_json::to_string(&config)?)
+            .bind(Json(config))
             .bind(guild_id as i64)
             .execute(&self.pool)
             .await?;
@@ -45,12 +46,20 @@ impl Database {
     }
 
     pub async fn insert_guild(&self, guild_id: u64) -> BotResult<GuildConfig> {
-        let config = GuildConfig::default();
-        sqlx::query("INSERT INTO guild VALUES ($1,$2) ON CONFLICT DO NOTHING")
+        let query = "
+INSERT INTO
+    guilds
+VALUES
+    ($1,$2)
+ON CONFLICT DO
+    NOTHING
+RETURNING
+    config";
+        sqlx::query(query)
             .bind(guild_id as i64)
-            .bind(serde_json::to_string(&config).unwrap())
+            .bind(Json(GuildConfig::default()))
             .execute(&self.pool)
             .await?;
-        Ok(config)
+        Ok(GuildConfig::default())
     }
 }
