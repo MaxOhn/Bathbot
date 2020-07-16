@@ -1,6 +1,5 @@
 mod impls;
 mod models;
-pub mod parse;
 mod util;
 
 pub use models::{BeatmapWrapper, DBMapSet, GuildConfig, MapsetTagWrapper, Ratios, StreamTrack};

@@ -60,8 +60,7 @@ impl MessageExt for Message {
 
     async fn reply(&self, ctx: &Context, content: String) -> BotResult<()> {
         let content = format!("{}: {}", self.author.mention(), content);
-        let response = ctx
-            .http
+        ctx.http
             .create_message(self.channel_id)
             .content(content)?
             .await?

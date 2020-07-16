@@ -3,8 +3,8 @@ pub mod help;
 mod twitch;
 mod utility;
 
-use fun::*;
-use twitch::*;
+// use fun::*;
+// use twitch::*;
 use utility::*;
 
 use crate::core::CommandGroup;

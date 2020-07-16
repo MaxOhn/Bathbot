@@ -289,7 +289,7 @@ impl Context {
             Event::ShardIdentifying(_) => {
                 self.shard_state_change(shard_id, ShardState::Identifying)
             }
-            Event::ShardConnecting(_) => self.shard_state_change(shard_id, ShardState::Connecting),
+            // Event::ShardConnecting(_) => self.shard_state_change(shard_id, ShardState::Connecting),
             Event::ShardConnected(_) => self.shard_state_change(shard_id, ShardState::Connected),
             Event::Ready(_) => self.shard_state_change(shard_id, ShardState::Ready),
             Event::Resumed => self.shard_state_change(shard_id, ShardState::Ready),

@@ -66,7 +66,7 @@ pub async fn handle_event(
                 Invoke::Command(cmd) => (cmd.fun)(&ctx, msg.deref()).await,
                 Invoke::Help(None) => help(&ctx, &cmds, msg.deref()).await,
                 Invoke::Help(Some(cmd)) => help_command(&ctx, cmd, msg.deref()).await,
-                Invoke::FailedHelp(name) => failed_help(&ctx, name, &cmds, msg.deref()).await,
+                Invoke::FailedHelp(arg) => failed_help(&ctx, arg, &cmds, msg.deref()).await,
                 Invoke::UnrecognisedCommand(_name) => Ok(()),
             };
         }
