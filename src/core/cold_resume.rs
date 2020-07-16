@@ -13,7 +13,7 @@ use std::{
         Arc,
     },
 };
-use twilight::model::id::{GuildId, UserId};
+use twilight_model::id::{GuildId, UserId};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ColdRebootData {
@@ -43,19 +43,19 @@ impl Cache {
         for guard in self.guilds.iter() {
             count +=
                 guard.members.len() + guard.channels.len() + guard.emoji.len() + guard.roles.len();
-            list.push(guard.key().clone());
+            list.push(*guard.key());
             if count > 100_000 {
                 work_orders.push(list);
                 list = vec![];
                 count = 0;
             }
         }
-        if list.len() > 0 {
+        if !list.is_empty() {
             work_orders.push(list)
         }
         debug!("Freezing {} guilds", self.stats.guild_counts.loaded.get());
-        for i in 0..work_orders.len() {
-            tasks.push(self._prepare_cold_resume_guild(redis, work_orders[i].clone(), i));
+        for (i, order) in work_orders.iter().enumerate() {
+            tasks.push(self._prepare_cold_resume_guild(redis, order.clone(), i));
         }
         let guild_chunks = tasks.len();
         future::join_all(tasks).await;
@@ -63,12 +63,12 @@ impl Cache {
         let user_chunks = (self.users.len() / 100_000 + 1) as usize;
         let mut user_work_orders: Vec<Vec<UserId>> = vec![vec![]; user_chunks];
         for guard in self.users.iter() {
-            user_work_orders[count % user_chunks].push(guard.key().clone());
+            user_work_orders[count % user_chunks].push(*guard.key());
             count += 1;
         }
         debug!("Freezing {} users", self.users.len());
-        for i in 0..user_chunks {
-            user_tasks.push(self._prepare_cold_resume_user(redis, user_work_orders[i].clone(), i));
+        for (i, chunk) in user_work_orders.iter().enumerate().take(user_chunks) {
+            user_tasks.push(self._prepare_cold_resume_user(redis, chunk.clone(), i));
         }
         debug!("joining futures...");
         future::join_all(user_tasks).await;
@@ -124,13 +124,13 @@ impl Cache {
         for key in todo {
             let user = self.users.remove_take(&key).unwrap();
             chunk.push(CachedUser {
-                id: user.id.clone(),
+                id: user.id,
                 username: user.username.clone(),
                 discriminator: user.discriminator.clone(),
                 avatar: user.avatar.clone(),
                 bot_user: user.bot_user,
                 system_user: user.system_user,
-                public_flags: user.public_flags.clone(),
+                public_flags: user.public_flags,
                 mutual_servers: AtomicU64::new(0),
             });
         }

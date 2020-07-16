@@ -9,7 +9,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
     Arc,
 };
-use twilight::model::{
+use twilight_model::{
     guild::{DefaultMessageNotificationLevel, Guild, PartialGuild, PremiumTier, VerificationLevel},
     id::{ChannelId, GuildId, RoleId, UserId},
 };
@@ -179,7 +179,7 @@ impl CachedGuild {
             complete: AtomicBool::new(self.complete.load(Ordering::SeqCst)),
             member_count: AtomicU64::new(self.member_count.load(Ordering::SeqCst)),
         };
-        for (_, role) in &other.roles {
+        for role in other.roles.values() {
             guild
                 .roles
                 .insert(role.id, Arc::new(CachedRole::from_role(role)));
@@ -299,18 +299,18 @@ impl From<ElementGuard<GuildId, Arc<CachedGuild>>> for ColdStorageGuild {
                     slowmode,
                     parent_id,
                 } => CachedChannel::TextChannel {
-                    id: id.clone(),
-                    guild_id: guild_id.clone(),
-                    position: position.clone(),
+                    id: *id,
+                    guild_id: *guild_id,
+                    position: *position,
                     permission_overrides: permission_overrides.clone(),
                     name: name.clone(),
                     topic: topic.clone(),
-                    nsfw: nsfw.clone(),
-                    slowmode: slowmode.clone(),
-                    parent_id: parent_id.clone(),
+                    nsfw: *nsfw,
+                    slowmode: *slowmode,
+                    parent_id: *parent_id,
                 },
                 CachedChannel::DM { id, receiver } => CachedChannel::DM {
-                    id: id.clone(),
+                    id: *id,
                     receiver: receiver.clone(),
                 },
                 CachedChannel::VoiceChannel {
@@ -323,17 +323,17 @@ impl From<ElementGuard<GuildId, Arc<CachedGuild>>> for ColdStorageGuild {
                     user_limit,
                     parent_id,
                 } => CachedChannel::VoiceChannel {
-                    id: id.clone(),
-                    guild_id: guild_id.clone(),
-                    position: position.clone(),
+                    id: *id,
+                    guild_id: *guild_id,
+                    position: *position,
                     permission_overrides: permission_overrides.clone(),
                     name: name.clone(),
-                    bitrate: bitrate.clone(),
-                    user_limit: user_limit.clone(),
-                    parent_id: parent_id.clone(),
+                    bitrate: *bitrate,
+                    user_limit: *user_limit,
+                    parent_id: *parent_id,
                 },
                 CachedChannel::GroupDM { id, receivers } => CachedChannel::GroupDM {
-                    id: id.clone(),
+                    id: *id,
                     receivers: receivers.clone(),
                 },
                 CachedChannel::Category {
@@ -343,9 +343,9 @@ impl From<ElementGuard<GuildId, Arc<CachedGuild>>> for ColdStorageGuild {
                     permission_overrides,
                     name,
                 } => CachedChannel::Category {
-                    id: id.clone(),
-                    guild_id: guild_id.clone(),
-                    position: position.clone(),
+                    id: *id,
+                    guild_id: *guild_id,
+                    position: *position,
                     permission_overrides: permission_overrides.clone(),
                     name: name.clone(),
                 },
@@ -357,12 +357,12 @@ impl From<ElementGuard<GuildId, Arc<CachedGuild>>> for ColdStorageGuild {
                     name,
                     parent_id,
                 } => CachedChannel::AnnouncementsChannel {
-                    id: id.clone(),
-                    guild_id: guild_id.clone(),
-                    position: position.clone(),
+                    id: *id,
+                    guild_id: *guild_id,
+                    position: *position,
                     permission_overrides: permission_overrides.clone(),
                     name: name.clone(),
-                    parent_id: parent_id.clone(),
+                    parent_id: *parent_id,
                 },
                 CachedChannel::StoreChannel {
                     id,
@@ -372,11 +372,11 @@ impl From<ElementGuard<GuildId, Arc<CachedGuild>>> for ColdStorageGuild {
                     parent_id,
                     permission_overrides,
                 } => CachedChannel::StoreChannel {
-                    id: id.clone(),
-                    guild_id: guild_id.clone(),
-                    position: position.clone(),
+                    id: *id,
+                    guild_id: *guild_id,
+                    position: *position,
                     name: name.clone(),
-                    parent_id: parent_id.clone(),
+                    parent_id: *parent_id,
                     permission_overrides: permission_overrides.clone(),
                 },
             });

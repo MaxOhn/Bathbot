@@ -5,7 +5,7 @@ use crate::{
 };
 
 use std::{ops::Deref, sync::Arc};
-use twilight::gateway::Event;
+use twilight_gateway::Event;
 use uwl::Stream;
 
 pub async fn handle_event(

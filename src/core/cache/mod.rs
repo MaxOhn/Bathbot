@@ -25,17 +25,15 @@ use std::{
     },
     time::Duration,
 };
-use twilight::{
-    gateway::Event,
-    model::{
-        channel::{Channel, GuildChannel, PrivateChannel},
-        gateway::{
-            payload::{MemberUpdate, RequestGuildMembers},
-            presence::{ActivityType, Status},
-        },
-        id::{ChannelId, EmojiId, GuildId, UserId},
-        user::{CurrentUser, User},
+use twilight_gateway::Event;
+use twilight_model::{
+    channel::{Channel, GuildChannel, PrivateChannel},
+    gateway::{
+        payload::{MemberUpdate, RequestGuildMembers},
+        presence::{ActivityType, Status},
     },
+    id::{ChannelId, EmojiId, GuildId, UserId},
+    user::{CurrentUser, User},
 };
 
 pub struct Cache {
@@ -116,12 +114,9 @@ impl Cache {
                 }
                 // We dont need this mutable but acquire a write lock regardless to prevent potential deadlocks
                 let mut list = self.unavailable_guilds.write().unwrap();
-                match list.iter().position(|id| id.0 == guild.id.0) {
-                    Some(index) => {
-                        list.remove(index);
-                        info!("Guild \"{}\" ({}) available again", guild.name, guild.id);
-                    }
-                    None => {}
+                if let Some(index) = list.iter().position(|id| id.0 == guild.id.0) {
+                    list.remove(index);
+                    info!("Guild \"{}\" ({}) available again", guild.name, guild.id);
                 }
                 // Trigger member chunk events
                 let data = RequestGuildMembers::new_all(guild.id, None);
@@ -153,8 +148,8 @@ impl Cache {
                     }
                 }
             }
-            Event::GuildDelete(guild) => match self.get_guild(guild.id) {
-                Some(cached_guild) => {
+            Event::GuildDelete(guild) => {
+                if let Some(cached_guild) = self.get_guild(guild.id) {
                     if !cached_guild.complete.load(Ordering::SeqCst) {
                         self.stats.guild_counts.partial.dec();
                     } else {
@@ -165,8 +160,7 @@ impl Cache {
                     }
                     self.nuke_guild_cache(&cached_guild)
                 }
-                None => {}
-            },
+            }
             Event::MemberChunk(chunk) => {
                 trace!(
                     "Received member chunk {}/{} (nonce: {:?}) for guild {}",
@@ -434,7 +428,7 @@ impl Cache {
     async fn member_update(
         shard_id: u64,
         ctx: &Arc<Context>,
-        event: &Box<MemberUpdate>,
+        event: &MemberUpdate,
         retry: bool,
     ) -> bool {
         debug!("Member {} updated in {}", event.user.id, event.guild_id);
@@ -559,12 +553,9 @@ impl Cache {
     pub fn insert_private_channel(&self, private_channel: &PrivateChannel) -> Arc<CachedChannel> {
         let channel = CachedChannel::from_private(private_channel, self);
         let arced = Arc::new(channel);
-        match arced.as_ref() {
-            CachedChannel::DM { receiver, .. } => {
-                self.dm_channels_by_user.insert(receiver.id, arced.clone());
-            }
-            _ => {}
-        };
+        if let CachedChannel::DM { receiver, .. } = arced.as_ref() {
+            self.dm_channels_by_user.insert(receiver.id, arced.clone());
+        }
         self.private_channels.insert(arced.get_id(), arced.clone());
         arced
     }

@@ -2,7 +2,7 @@ use super::is_default;
 
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::AtomicU64;
-use twilight::model::{
+use twilight_model::{
     id::UserId,
     user::{User, UserFlags},
 };

@@ -42,15 +42,13 @@ fn to_ident(p: &Path) -> Result<Ident> {
 pub fn parse_values(attr: &Attribute) -> Result<Values> {
     let meta = attr.parse_meta()?;
     match meta {
-        Meta::Path(_) | Meta::NameValue(_) => {
-            return Err(Error::new(
-                attr.span(),
-                format_args!(
-                    "expected attribute of the form `#[{}(...)]`",
-                    to_ident(meta.path())?
-                ),
-            ));
-        }
+        Meta::Path(_) | Meta::NameValue(_) => Err(Error::new(
+            attr.span(),
+            format_args!(
+                "expected attribute of the form `#[{}(...)]`",
+                to_ident(meta.path())?
+            ),
+        )),
         Meta::List(meta) => {
             let name = to_ident(&meta.path)?;
             let mut lits = Vec::with_capacity(meta.nested.len());

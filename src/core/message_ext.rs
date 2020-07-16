@@ -2,15 +2,13 @@ use crate::{BotResult, Context};
 
 use async_trait::async_trait;
 use tokio::time::{timeout, Duration};
-use twilight::{
-    http::request::channel::message::create_message::{CreateMessage, CreateMessageError},
-    model::{
-        channel::{Message, ReactionType},
-        gateway::payload::ReactionAdd,
-        id::UserId,
-    },
-};
+use twilight_http::request::channel::message::create_message::{CreateMessage, CreateMessageError};
 use twilight_mention::Mention;
+use twilight_model::{
+    channel::{Message, ReactionType},
+    gateway::payload::ReactionAdd,
+    id::UserId,
+};
 
 // TODO: Check permissions
 

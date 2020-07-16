@@ -1,7 +1,7 @@
 use super::{get_true, is_default, is_true};
 
 use serde::{Deserialize, Serialize};
-use twilight::model::{
+use twilight_model::{
     guild::Emoji,
     id::{EmojiId, RoleId, UserId},
 };

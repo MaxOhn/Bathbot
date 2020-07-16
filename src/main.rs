@@ -30,13 +30,13 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::{runtime::Runtime, stream::StreamExt};
-use twilight::{
-    gateway::{cluster::config::ShardScheme, shard::ResumeSession, Cluster, ClusterConfig},
-    http::{
-        request::channel::message::allowed_mentions::AllowedMentionsBuilder, Client as HttpClient,
-    },
-    model::{gateway::GatewayIntents, user::CurrentUser},
+use twilight_gateway::{
+    cluster::config::ShardScheme, shard::ResumeSession, Cluster, ClusterConfig,
 };
+use twilight_http::{
+    request::channel::message::allowed_mentions::AllowedMentionsBuilder, Client as HttpClient,
+};
+use twilight_model::{gateway::GatewayIntents, user::CurrentUser};
 use warp::Filter;
 
 pub type BotResult<T> = std::result::Result<T, Error>;
@@ -229,7 +229,7 @@ fn shard_schema_values() -> Option<(u64, u64)> {
         .get_matches();
     // Either of them given?
     args.value_of("shards_per_cluster")
-        .or(args.value_of("total_shards"))?;
+        .or_else(|| args.value_of("total_shards"))?;
     // If so, parse
     let shards_per_cluster = args
         .value_of("shards_per_cluster")

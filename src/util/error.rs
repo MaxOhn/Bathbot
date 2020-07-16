@@ -3,14 +3,12 @@ use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
 use std::{error, fmt};
 use toml::de::Error as TomlError;
-use twilight::{
-    gateway::cluster::Error as ClusterError,
-    http::{
-        request::channel::message::{
-            create_message::CreateMessageError, update_message::UpdateMessageError,
-        },
-        Error as HttpError,
+use twilight_gateway::cluster::Error as ClusterError;
+use twilight_http::{
+    request::channel::message::{
+        create_message::CreateMessageError, update_message::UpdateMessageError,
     },
+    Error as HttpError,
 };
 
 #[macro_export]

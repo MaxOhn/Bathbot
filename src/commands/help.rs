@@ -8,19 +8,17 @@ use crate::{
 };
 
 use std::{collections::BTreeMap, fmt::Write};
-use twilight::{
-    builders::embed::EmbedBuilder,
-    model::{
-        channel::{embed::Embed, Message},
-        id::{ChannelId, GuildId, UserId},
-    },
+use twilight_builders::embed::EmbedBuilder;
+use twilight_model::{
+    channel::{embed::Embed, Message},
+    id::{ChannelId, GuildId, UserId},
 };
 
 fn description(ctx: &Context, guild: Option<GuildId>) -> String {
     let (custom_prefix, first_prefix) = if let Some(guild) = guild {
         // Certain to be contained because of handle_event
         let config = ctx.guilds.get(&guild).unwrap();
-        if config.prefixes == &["<", "!!"] {
+        if config.prefixes == ["<", "!!"] {
             (None, "<".to_string())
         } else {
             let mut prefix_iter = config.prefixes.iter();

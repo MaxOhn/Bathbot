@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use log::info;
 use prometheus::{IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry};
 use std::collections::HashMap;
-use twilight::model::{channel::Message, gateway::event::Event};
+use twilight_model::{channel::Message, gateway::event::Event};
 
 pub struct EventStats {
     pub channel_create: IntCounter,
@@ -313,9 +313,8 @@ impl Context {
     }
 
     pub fn shard_state_change(&self, shard: u64, new_state: ShardState) {
-        match self.backend.shard_states.get(&shard) {
-            Some(guard) => self.get_state_metric(guard.value()).dec(),
-            None => {}
+        if let Some(guard) = self.backend.shard_states.get(&shard) {
+            self.get_state_metric(guard.value()).dec();
         }
         info!("Shard {} is now {:?}", shard, new_state);
         self.get_state_metric(&new_state).inc();
