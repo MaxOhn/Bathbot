@@ -13,7 +13,7 @@ use std::{
         Arc,
     },
 };
-use twilight_model::id::{GuildId, UserId};
+use twilight::model::id::{GuildId, UserId};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ColdRebootData {
@@ -70,9 +70,7 @@ impl Cache {
         for (i, chunk) in user_work_orders.iter().enumerate().take(user_chunks) {
             user_tasks.push(self._prepare_cold_resume_user(redis, chunk.clone(), i));
         }
-        debug!("joining futures...");
         future::join_all(user_tasks).await;
-        debug!("futures joined");
         self.users.clear();
         (guild_chunks, user_chunks)
     }
@@ -88,16 +86,13 @@ impl Cache {
             index,
             todo.len()
         );
-        println!("getting connection...");
         let mut connection = redis.get().await;
-        println!("got connection");
         let mut to_dump = Vec::with_capacity(todo.len());
         for key in todo {
             let g = self.guilds.remove_take(&key).unwrap();
             to_dump.push(ColdStorageGuild::from(g));
         }
         let serialized = serde_json::to_string(&to_dump).unwrap();
-        println!("set_and_expire...");
         connection
             .set_and_expire_seconds(
                 format!("cb_cluster_{}_guild_chunk_{}", self.cluster_id, index),
@@ -105,10 +100,6 @@ impl Cache {
                 180,
             )
             .await?;
-        println!(
-            "stored in: cb_cluster_{}_guild_chunk_{}",
-            self.cluster_id, index
-        );
         Ok(())
     }
 

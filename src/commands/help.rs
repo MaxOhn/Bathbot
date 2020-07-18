@@ -8,8 +8,8 @@ use crate::{
 };
 
 use std::{collections::BTreeMap, fmt::Write};
-use twilight_builders::embed::EmbedBuilder;
-use twilight_model::{
+use twilight::builders::embed::EmbedBuilder;
+use twilight::model::{
     channel::{embed::Embed, Message},
     id::{ChannelId, GuildId, UserId},
 };

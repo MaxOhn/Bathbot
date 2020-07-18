@@ -9,9 +9,9 @@ use crate::{
 use darkredis::ConnectionPool;
 use dashmap::DashMap;
 use std::{collections::HashMap, time::Instant};
-use twilight_gateway::Cluster;
-use twilight_http::Client as HttpClient;
-use twilight_model::{
+use twilight::gateway::Cluster;
+use twilight::http::Client as HttpClient;
+use twilight::model::{
     channel::Message,
     gateway::{
         payload::UpdateStatus,
@@ -19,7 +19,7 @@ use twilight_model::{
     },
     id::GuildId,
 };
-use twilight_standby::Standby;
+use twilight::standby::Standby;
 
 pub struct Context {
     pub cache: Cache,
@@ -106,12 +106,7 @@ impl Context {
         //DANGER: WE WILL NOT BE GETTING EVENTS FROM THIS POINT ONWARDS, REBOOT REQUIRED
 
         let resume_data = self.backend.cluster.down_resumable().await;
-        info!("Resume data acquired");
         let (guild_chunks, user_chunks) = self.cache.prepare_cold_resume(&self.clients.redis).await;
-        println!(
-            "guild chunks: {} ~  user chunks: {}",
-            guild_chunks, user_chunks
-        );
 
         // Prepare resume data
         let mut map = HashMap::new();
@@ -127,7 +122,6 @@ impl Context {
             shard_count: self.backend.shards_per_cluster,
             user_chunks,
         };
-        println!("Setting redis data...");
         connection
             .set_and_expire_seconds(
                 "cb_cluster_data_0",
@@ -137,7 +131,7 @@ impl Context {
             .await
             .unwrap();
         let end = Instant::now();
-        println!(
+        debug!(
             "Cold resume preparations completed in {}ms",
             (end - start).as_millis()
         );

@@ -1,6 +1,8 @@
 use crate::Error;
 
-use flexi_logger::{Age, Cleanup, Criterion, DeferredNow, Logger, Naming, ReconfigurationHandle};
+use flexi_logger::{
+    Age, Cleanup, Criterion, DeferredNow, Duplicate, Logger, Naming, ReconfigurationHandle,
+};
 use log::Record;
 use once_cell::sync::OnceCell;
 
@@ -9,8 +11,8 @@ static LOGGER_HANDLE: OnceCell<ReconfigurationHandle> = OnceCell::new();
 pub fn initialize() -> Result<(), Error> {
     let log_init_status = LOGGER_HANDLE.set(
         Logger::with_env_or_str("info")
-            // .log_to_file()
-            // .directory("logs")
+            .log_to_file()
+            .directory("logs")
             .format(log_format)
             .o_timestamp(true)
             .rotate(
@@ -18,6 +20,7 @@ pub fn initialize() -> Result<(), Error> {
                 Naming::Timestamps,
                 Cleanup::KeepLogAndZipFiles(10, 30),
             )
+            .duplicate_to_stdout(Duplicate::Info)
             .start_with_specfile("logconfig.toml")
             .map_err(|_| Error::NoLoggingSpec)?,
     );
@@ -36,7 +39,7 @@ pub fn log_format(
         "[{}] {:^5} [{}:{}] {}",
         now.now().format("%y-%m-%d %H:%M:%S"),
         record.level(),
-        record.file().unwrap_or("<unnamed>"),
+        record.file_static().unwrap_or_else(|| record.target()),
         record.line().unwrap_or(0),
         &record.args()
     )

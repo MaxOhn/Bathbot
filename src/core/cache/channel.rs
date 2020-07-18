@@ -3,7 +3,7 @@ use crate::core::cache::{Cache, CachedUser};
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use twilight_model::{
+use twilight::model::{
     channel::{
         permission_overwrite::PermissionOverwrite, ChannelType, GuildChannel, PrivateChannel,
     },

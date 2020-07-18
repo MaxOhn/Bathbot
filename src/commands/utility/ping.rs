@@ -1,7 +1,7 @@
 use crate::{core::MessageExt, BotResult, Context};
 
 use std::time::Instant;
-use twilight_model::channel::Message;
+use twilight::model::channel::Message;
 
 #[command]
 #[short_desc("Check if I'm online")]

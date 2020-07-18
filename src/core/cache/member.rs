@@ -4,7 +4,7 @@ use crate::core::cache::{Cache, CachedUser};
 use dashmap::ElementGuard;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use twilight_model::{
+use twilight::model::{
     gateway::payload::MemberUpdate,
     guild::Member,
     id::{RoleId, UserId},

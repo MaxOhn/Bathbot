@@ -128,9 +128,9 @@ pub fn create_declaration_validations(fun: &mut CommandFun) {
     }
 
     let intended_types: Vec<Type> = vec![
-        parse_quote!(&crate::Context),                   // first arg
-        parse_quote!(&twilight_model::channel::Message), // second arg
-        parse_quote!(crate::BotResult<()>),              // return value
+        parse_quote!(&crate::Context),                    // first arg
+        parse_quote!(&twilight::model::channel::Message), // second arg
+        parse_quote!(crate::BotResult<()>),               // return value
     ];
     let validations = fun
         .args

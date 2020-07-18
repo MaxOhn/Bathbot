@@ -5,8 +5,8 @@ use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
 use std::{borrow::Cow, error, fmt};
 use toml::de::Error as TomlError;
-use twilight_gateway::cluster::Error as ClusterError;
-use twilight_http::{
+use twilight::gateway::cluster::Error as ClusterError;
+use twilight::http::{
     request::channel::message::{
         create_message::CreateMessageError, update_message::UpdateMessageError,
     },

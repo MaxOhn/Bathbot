@@ -1,6 +1,6 @@
 use crate::{BotResult, Context};
 
-use twilight_model::channel::Message;
+use twilight::model::channel::Message;
 
 #[command]
 #[short_desc("Various info about me")]

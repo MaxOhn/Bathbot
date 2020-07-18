@@ -67,37 +67,41 @@ version = "0.2"
 default_features = false
 features = ["macros", "sync", "rt-core"]
 
-[dependencies.twilight-builders]
+[dependencies.twilight]
 git = "https://github.com/twilight-rs/twilight"
 branch = "trunk"
-default_features = false
 
-[dependencies.twilight-gateway]
-git = "https://github.com/twilight-rs/twilight"
-branch = "trunk"
-default_features = false
-features = ["serde_json"]
+# [dependencies.twilight-builders]
+# git = "https://github.com/twilight-rs/twilight"
+# branch = "trunk"
+# default_features = false
 
-[dependencies.twilight-http]
-git = "https://github.com/twilight-rs/twilight"
-branch = "trunk"
-default_features = false
-features = ["rustls"]
+# [dependencies.twilight-gateway]
+# git = "https://github.com/twilight-rs/twilight"
+# branch = "trunk"
+# default_features = false
+# features = ["serde_json", "rustls"]
+
+# [dependencies.twilight-http]
+# git = "https://github.com/twilight-rs/twilight"
+# branch = "trunk"
+# default_features = false
+# features = ["rustls"]
 
 [dependencies.twilight-mention]
 git = "https://github.com/twilight-rs/twilight"
 branch = "trunk"
 default_features = false
 
-[dependencies.twilight-model]
-git = "https://github.com/twilight-rs/twilight"
-branch = "trunk"
-default_features = false
+# [dependencies.twilight-model]
+# git = "https://github.com/twilight-rs/twilight"
+# branch = "trunk"
+# default_features = false
 
-[dependencies.twilight-standby]
-git = "https://github.com/twilight-rs/twilight"
-branch = "trunk"
-default_features = false
+# [dependencies.twilight-standby]
+# git = "https://github.com/twilight-rs/twilight"
+# branch = "trunk"
+# default_features = false
 
 [dependencies.warp]
 version = "0.2"

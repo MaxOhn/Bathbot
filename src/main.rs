@@ -31,19 +31,25 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::{runtime::Runtime, stream::StreamExt};
-use twilight_gateway::{
+use twilight::gateway::{
     cluster::config::ShardScheme, shard::ResumeSession, Cluster, ClusterConfig,
 };
-use twilight_http::{
+use twilight::http::{
     request::channel::message::allowed_mentions::AllowedMentionsBuilder, Client as HttpClient,
 };
-use twilight_model::{gateway::GatewayIntents, user::CurrentUser};
+use twilight::model::{gateway::GatewayIntents, user::CurrentUser};
 use warp::Filter;
 
 pub type BotResult<T> = std::result::Result<T, Error>;
 
-#[tokio::main]
-async fn main() -> BotResult<()> {
+fn main() -> BotResult<()> {
+    let mut runtime = Runtime::new().expect("Could not start runtime");
+    runtime.block_on(async move { async_main().await })?;
+    runtime.shutdown_timeout(Duration::from_secs(90));
+    Ok(())
+}
+
+async fn async_main() -> BotResult<()> {
     logging::initialize()?;
 
     // Load config file
@@ -121,7 +127,7 @@ async fn run(
         let mut connection = redis.get().await;
         if let Some(d) = connection.get("cb_cluster_data_0").await.ok().flatten() {
             let cold_cache: ColdRebootData = serde_json::from_str(&*String::from_utf8(d).unwrap())?;
-            debug!("ColdRebootData: {:?}", cold_cache);
+            debug!("ColdRebootData:\n{:#?}", cold_cache);
             connection.del("cb_cluster_data_0").await?;
             if cold_cache.total_shards == total_shards
                 && cold_cache.shard_count == shards_per_cluster
@@ -155,8 +161,6 @@ async fn run(
                     }
                 }
             }
-        } else {
-            warn!("redis' cb_cluster_data_0 not found");
         }
     }
 
@@ -177,16 +181,15 @@ async fn run(
     );
 
     // Setup graceful shutdown
-    // let shutdown_ctx = ctx.clone();
-    // ctrlc::set_handler(move || {
-    //     // tokio::main no longer running, create own runtime
-    //     let freeze_result = Runtime::new()
-    //         .unwrap()
-    //         .block_on(shutdown_ctx.initiate_cold_resume());
-    //     debug!("freeze_result: {:?}", freeze_result);
-    //     process::exit(0);
-    // })
-    // .map_err(|why| format_err!("Failed to register shutdown handler: {}", why))?;
+    let shutdown_ctx = ctx.clone();
+    ctrlc::set_handler(move || {
+        // tokio::main no longer running, create own runtime
+        let _ = Runtime::new()
+            .unwrap()
+            .block_on(shutdown_ctx.initiate_cold_resume());
+        process::exit(0);
+    })
+    .map_err(|why| format_err!("Failed to register shutdown handler: {}", why))?;
 
     ctx.backend.cluster.up().await;
     let mut bot_events = ctx.backend.cluster.events().await;

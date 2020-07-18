@@ -3,7 +3,7 @@ use super::is_default;
 use dashmap::ElementGuard;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use twilight_model::{
+use twilight::model::{
     guild::{Permissions, Role},
     id::RoleId,
 };

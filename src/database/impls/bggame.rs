@@ -7,7 +7,7 @@ use crate::{
 use rosu::models::GameMode;
 use sqlx::Row;
 use std::{collections::HashSet, fmt::Write};
-use twilight_model::id::UserId;
+use twilight::model::id::UserId;
 
 impl Database {
     pub async fn increment_bggame_score(&self, user_id: u64) -> BotResult<usize> {

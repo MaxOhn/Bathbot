@@ -9,7 +9,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
     Arc,
 };
-use twilight_model::{
+use twilight::model::{
     guild::{DefaultMessageNotificationLevel, Guild, PartialGuild, PremiumTier, VerificationLevel},
     id::{ChannelId, GuildId, RoleId, UserId},
 };

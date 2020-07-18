@@ -3,7 +3,7 @@ use crate::{commands::command_groups, BotResult, Context};
 use futures::future::BoxFuture;
 use radix_trie::Trie;
 use std::{fmt, ops::Deref};
-use twilight_model::channel::Message;
+use twilight::model::channel::Message;
 
 type CommandTree = Trie<&'static str, &'static Command>;
 

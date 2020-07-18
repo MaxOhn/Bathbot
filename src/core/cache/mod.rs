@@ -25,8 +25,8 @@ use std::{
     },
     time::Duration,
 };
-use twilight_gateway::Event;
-use twilight_model::{
+use twilight::gateway::Event;
+use twilight::model::{
     channel::{Channel, GuildChannel, PrivateChannel},
     gateway::{
         payload::{MemberUpdate, RequestGuildMembers},
