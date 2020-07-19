@@ -1,57 +1,43 @@
-use super::{create_collector, Pages, Pagination};
+use super::{Pages, Pagination};
 
 use crate::{
     embeds::OsuStatsGlobalsEmbed,
     scraper::{OsuStatsParams, OsuStatsScore},
-    Scraper,
+    BotResult, Context, Scraper,
 };
 
-use failure::Error;
+use async_trait::async_trait;
 use rosu::models::User;
-use serenity::{
-    async_trait,
-    cache::Cache,
-    collector::ReactionCollector,
-    model::{channel::Message, id::UserId},
-    prelude::{Context, RwLock, TypeMap},
-};
 use std::{collections::BTreeMap, iter::Extend, sync::Arc};
+use twilight::model::{channel::Message, id::UserId};
 
 pub struct OsuStatsGlobalsPagination {
     msg: Message,
-    collector: ReactionCollector,
     pages: Pages,
     user: User,
     scores: BTreeMap<usize, OsuStatsScore>,
     total: usize,
     params: OsuStatsParams,
-    cache: Arc<Cache>,
-    data: Arc<RwLock<TypeMap>>,
+    ctx: Arc<Context>,
 }
 
 impl OsuStatsGlobalsPagination {
     pub async fn new(
-        ctx: &Context,
+        ctx: Arc<Context>,
         msg: Message,
-        author: UserId,
         user: User,
         scores: BTreeMap<usize, OsuStatsScore>,
         total: usize,
         params: OsuStatsParams,
     ) -> Self {
-        let collector = create_collector(ctx, &msg, author, 120).await;
-        let cache = Arc::clone(&ctx.cache);
-        let data = Arc::clone(&ctx.data);
         Self {
             pages: Pages::new(5, total),
             msg,
-            collector,
             user,
             scores,
             total,
             params,
-            cache,
-            data,
+            ctx,
         }
     }
 }
@@ -59,11 +45,8 @@ impl OsuStatsGlobalsPagination {
 #[async_trait]
 impl Pagination for OsuStatsGlobalsPagination {
     type PageData = OsuStatsGlobalsEmbed;
-    fn msg(&mut self) -> &mut Message {
-        &mut self.msg
-    }
-    fn collector(&mut self) -> &mut ReactionCollector {
-        &mut self.collector
+    fn msg(&self) -> &Message {
+        &self.msg
     }
     fn pages(&self) -> Pages {
         self.pages
@@ -80,7 +63,7 @@ impl Pagination for OsuStatsGlobalsPagination {
     fn multi_step(&self) -> usize {
         25
     }
-    async fn build_page(&mut self) -> Result<Self::PageData, Error> {
+    async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let entries = self.scores.range(self.pages.index..self.pages.index + 5);
         let count = entries.count();
         if count < 5 && self.total - self.pages.index > count {
@@ -100,7 +83,7 @@ impl Pagination for OsuStatsGlobalsPagination {
             &self.scores,
             self.total,
             (self.page(), self.pages.total_pages),
-            (&self.cache, &self.data),
+            &self.ctx,
         )
         .await
     }

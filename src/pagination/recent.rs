@@ -1,28 +1,23 @@
-use super::{create_collector, Pages, Pagination};
+use super::{Pages, Pagination};
 
 use crate::{
     embeds::{EmbedData, RecentEmbed},
-    MySQL, Osu,
+    BotResult, Context,
 };
 
-use failure::Error;
+use async_trait::async_trait;
 use rosu::models::{Beatmap, Score, User};
-use serenity::{
-    async_trait,
-    cache::Cache,
-    collector::ReactionCollector,
-    http::Http,
-    model::{channel::Message, id::UserId},
-    prelude::{Context, RwLock, TypeMap},
-};
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
+use twilight::{
+    builders::embed::EmbedBuilder,
+    model::{channel::Message, id::UserId},
+};
 
 pub struct RecentPagination {
     msg: Message,
-    collector: ReactionCollector,
     pages: Pages,
     user: User,
     scores: Vec<Score>,
@@ -31,16 +26,14 @@ pub struct RecentPagination {
     global: HashMap<u32, Vec<Score>>,
     maps_in_db: HashSet<u32>,
     embed_data: RecentEmbed,
-    cache: Arc<Cache>,
-    data: Arc<RwLock<TypeMap>>,
+    ctx: Arc<Context>,
 }
 
 impl RecentPagination {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
-        ctx: &Context,
+        ctx: Arc<Context>,
         msg: Message,
-        author: UserId,
         user: User,
         scores: Vec<Score>,
         maps: HashMap<u32, Beatmap>,
@@ -49,12 +42,8 @@ impl RecentPagination {
         maps_in_db: HashSet<u32>,
         embed_data: RecentEmbed,
     ) -> Self {
-        let collector = create_collector(ctx, &msg, author, 60).await;
-        let cache = Arc::clone(&ctx.cache);
-        let data = Arc::clone(&ctx.data);
         Self {
             msg,
-            collector,
             pages: Pages::new(5, scores.len()),
             user,
             scores,
@@ -63,8 +52,7 @@ impl RecentPagination {
             global,
             maps_in_db,
             embed_data,
-            cache,
-            data,
+            ctx,
         }
     }
 }
@@ -72,11 +60,8 @@ impl RecentPagination {
 #[async_trait]
 impl Pagination for RecentPagination {
     type PageData = RecentEmbed;
-    fn msg(&mut self) -> &mut Message {
-        &mut self.msg
-    }
-    fn collector(&mut self) -> &mut ReactionCollector {
-        &mut self.collector
+    fn msg(&self) -> &Message {
+        &self.msg
     }
     fn pages(&self) -> Pages {
         self.pages
@@ -93,17 +78,17 @@ impl Pagination for RecentPagination {
     fn content(&self) -> Option<String> {
         Some(format!("Recent score #{}", self.pages.index + 1))
     }
-    async fn final_processing(mut self, cache: Arc<Cache>, http: Arc<Http>) -> Result<(), Error> {
+    async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
         // Minimize embed
-        let mut msg = self.msg.clone();
-        msg.edit((&cache, &*http), |m| {
-            m.embed(|e| self.embed_data.minimize(e))
-        })
-        .await?;
+        let msg = self.msg();
+        let eb = self.embed_data.minimize(EmbedBuilder::new());
+        ctx.http
+            .update_message(msg.channel_id, msg.id)
+            .embed(eb.build())?
+            .await?;
 
         // Put missing maps into DB
         if self.maps.len() > self.maps_in_db.len() {
-            let data = Arc::clone(&self.data);
             let map_ids = self.maps_in_db.clone();
             let maps: Vec<_> = self
                 .maps
@@ -111,10 +96,9 @@ impl Pagination for RecentPagination {
                 .filter(|(id, _)| !map_ids.contains(&id))
                 .map(|(_, map)| map)
                 .collect();
-            let data = data.read().await;
-            let mysql = data.get::<MySQL>().unwrap();
+            let psql = &ctx.clients.psql;
             let len = maps.len();
-            match mysql.insert_beatmaps(maps).await {
+            match psql.insert_beatmaps(&maps).await {
                 Ok(_) if len == 1 => {}
                 Ok(_) => info!("Added {} maps to DB", len),
                 Err(why) => warn!("Error while adding maps to DB: {}", why),
@@ -122,14 +106,13 @@ impl Pagination for RecentPagination {
         }
         Ok(())
     }
-    async fn build_page(&mut self) -> Result<Self::PageData, Error> {
+    async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let score = self.scores.get(self.pages.index).unwrap();
         let map_id = score.beatmap_id.unwrap();
         // Make sure map is ready
         #[allow(clippy::clippy::map_entry)]
         if !self.maps.contains_key(&map_id) {
-            let data = self.data.read().await;
-            let osu = data.get::<Osu>().unwrap();
+            let osu = &self.ctx.clients.osu;
             let map = score.get_beatmap(osu).await?;
             self.maps.insert(map_id, map);
         }
@@ -137,8 +120,7 @@ impl Pagination for RecentPagination {
         // Make sure map leaderboard is ready
         #[allow(clippy::clippy::map_entry)]
         if !self.global.contains_key(&map.beatmap_id) {
-            let data = self.data.read().await;
-            let osu = data.get::<Osu>().unwrap();
+            let osu = &self.ctx.clients.osu;
             let global_lb = map.get_global_leaderboard(&osu, 50).await?;
             self.global.insert(map.beatmap_id, global_lb);
         };
@@ -150,7 +132,7 @@ impl Pagination for RecentPagination {
             map,
             &self.best,
             &global_lb,
-            (&self.cache, &self.data),
+            self.ctx.clone(),
         )
         .await
     }

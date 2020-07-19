@@ -42,34 +42,45 @@ impl Database {
         Ok(values?)
     }
 
-    pub async fn insert_mania_stars(&self, values: &Values) -> BotResult<()> {
+    pub async fn insert_mania_stars(&self, values: &Values) -> BotResult<usize> {
         self.insert_values("mania_stars", values).await
     }
 
-    pub async fn insert_mania_pp(&self, values: &Values) -> BotResult<()> {
+    pub async fn insert_mania_pp(&self, values: &Values) -> BotResult<usize> {
         self.insert_values("mania_pp", values).await
     }
 
-    pub async fn insert_ctb_stars(&self, values: &Values) -> BotResult<()> {
+    pub async fn insert_ctb_stars(&self, values: &Values) -> BotResult<usize> {
         self.insert_values("ctb_stars", values).await
     }
 
-    pub async fn insert_ctb_pp(&self, values: &Values) -> BotResult<()> {
+    pub async fn insert_ctb_pp(&self, values: &Values) -> BotResult<usize> {
         self.insert_values("ctb_pp", values).await
     }
 
-    async fn insert_values(&self, table: &str, values: &Values) -> BotResult<()> {
+    async fn insert_values(&self, table: &str, values: &Values) -> BotResult<usize> {
         values.retain(|_, mod_map| mod_map.values().any(|(_, to_insert)| *to_insert));
+        let len = values.len();
         let mut txn = self.pool.begin().await?;
         for guard in values.into_iter() {
             let (map_id, mod_map) = guard.pair();
-            let query = format!("UPDATE {} values=$1 WHERE beatmap_id={}", table, *map_id);
+            let query = format!(
+                "
+INSERT INTO
+    {}
+VALUES
+    ({},$1)
+ON CONFLICT DO
+    UPDATE
+        SET values=$1",
+                table, *map_id
+            );
             sqlx::query(&query)
                 .bind(Json(mod_map))
                 .execute(&mut *txn)
                 .await?;
         }
         txn.commit().await?;
-        Ok(())
+        Ok(len)
     }
 }

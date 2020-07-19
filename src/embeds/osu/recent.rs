@@ -40,7 +40,7 @@ pub struct RecentEmbed {
 }
 
 impl RecentEmbed {
-    pub async fn new<D>(
+    pub async fn new(
         user: &User,
         score: &Score,
         map: &Beatmap,

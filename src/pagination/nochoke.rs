@@ -1,47 +1,36 @@
-use super::{create_collector, Pages, Pagination};
+use super::{Pages, Pagination};
 
-use crate::embeds::NoChokeEmbed;
+use crate::{embeds::NoChokeEmbed, BotResult, Context};
 
-use failure::Error;
+use async_trait::async_trait;
 use rosu::models::{Beatmap, Score, User};
-use serenity::{
-    async_trait,
-    cache::Cache,
-    client::Context,
-    collector::ReactionCollector,
-    model::{channel::Message, id::UserId},
-};
 use std::sync::Arc;
+use twilight::model::{channel::Message, id::UserId};
 
 pub struct NoChokePagination {
     msg: Message,
-    collector: ReactionCollector,
     pages: Pages,
     user: User,
     scores: Vec<(usize, Score, Score, Beatmap)>,
     unchoked_pp: f64,
-    cache: Arc<Cache>,
+    ctx: Arc<Context>,
 }
 
 impl NoChokePagination {
     pub async fn new(
-        ctx: &Context,
+        ctx: Arc<Context>,
         msg: Message,
-        author: UserId,
         user: User,
         scores: Vec<(usize, Score, Score, Beatmap)>,
         unchoked_pp: f64,
     ) -> Self {
-        let collector = create_collector(ctx, &msg, author, 90).await;
-        let cache = Arc::clone(&ctx.cache);
         Self {
             msg,
-            collector,
             pages: Pages::new(5, scores.len()),
             user,
             scores,
             unchoked_pp,
-            cache,
+            ctx,
         }
     }
 }
@@ -49,11 +38,8 @@ impl NoChokePagination {
 #[async_trait]
 impl Pagination for NoChokePagination {
     type PageData = NoChokeEmbed;
-    fn msg(&mut self) -> &mut Message {
-        &mut self.msg
-    }
-    fn collector(&mut self) -> &mut ReactionCollector {
-        &mut self.collector
+    fn msg(&self) -> &Message {
+        &self.msg
     }
     fn pages(&self) -> Pages {
         self.pages
@@ -61,7 +47,7 @@ impl Pagination for NoChokePagination {
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
-    async fn build_page(&mut self) -> Result<Self::PageData, Error> {
+    async fn build_page(&mut self) -> BotResult<Self::PageData> {
         NoChokeEmbed::new(
             &self.user,
             self.scores
@@ -70,7 +56,7 @@ impl Pagination for NoChokePagination {
                 .take(self.pages.per_page),
             self.unchoked_pp,
             (self.page(), self.pages.total_pages),
-            &self.cache,
+            &self.ctx,
         )
         .await
     }

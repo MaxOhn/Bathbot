@@ -1,52 +1,37 @@
-use super::{create_collector, Pages, Pagination};
-use crate::embeds::BGRankingEmbed;
+use super::{Pages, Pagination};
+use crate::{embeds::BGRankingEmbed, BotResult, Context};
 
-use failure::Error;
-use serenity::{
-    async_trait,
-    cache::Cache,
-    client::Context,
-    collector::ReactionCollector,
-    http::Http,
-    model::{channel::Message, id::UserId},
-};
+use async_trait::async_trait;
 use std::{collections::HashMap, sync::Arc};
+use twilight::model::{channel::Message, id::UserId};
 
 pub struct BGRankingPagination {
     msg: Message,
-    collector: ReactionCollector,
     pages: Pages,
     author_idx: Option<usize>,
     global: bool,
     scores: Vec<(u64, u32)>,
     usernames: HashMap<u64, String>,
-    http: Arc<Http>,
-    cache: Arc<Cache>,
+    ctx: Arc<Context>,
 }
 
 impl BGRankingPagination {
     pub async fn new(
-        ctx: &Context,
+        ctx: Arc<Context>,
         msg: Message,
-        author: UserId,
         author_idx: Option<usize>,
         scores: Vec<(u64, u32)>,
         global: bool,
     ) -> Self {
-        let collector = create_collector(ctx, &msg, author, 60).await;
-        let cache = Arc::clone(&ctx.cache);
-        let http = Arc::clone(&ctx.http);
         let per_page = 15;
         Self {
             msg,
-            collector,
             pages: Pages::new(per_page, scores.len()),
             author_idx,
             scores,
             usernames: HashMap::with_capacity(per_page),
             global,
-            http,
-            cache,
+            ctx,
         }
     }
 }
@@ -54,11 +39,8 @@ impl BGRankingPagination {
 #[async_trait]
 impl Pagination for BGRankingPagination {
     type PageData = BGRankingEmbed;
-    fn msg(&mut self) -> &mut Message {
-        &mut self.msg
-    }
-    fn collector(&mut self) -> &mut ReactionCollector {
-        &mut self.collector
+    fn msg(&self) -> &Message {
+        &self.msg
     }
     fn pages(&self) -> Pages {
         self.pages
@@ -72,7 +54,7 @@ impl Pagination for BGRankingPagination {
     fn reactions() -> &'static [&'static str] {
         &["⏮️", "⏪", "*️⃣", "⏩", "⏭️"]
     }
-    async fn build_page(&mut self) -> Result<Self::PageData, Error> {
+    async fn build_page(&mut self) -> BotResult<Self::PageData> {
         for id in self
             .scores
             .iter()

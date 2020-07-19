@@ -1,54 +1,39 @@
-use super::{create_collector, Pages, Pagination};
+use super::{Pages, Pagination};
 
-use crate::{embeds::LeaderboardEmbed, scraper::ScraperScore};
+use crate::{embeds::LeaderboardEmbed, scraper::ScraperScore, BotResult, Context};
 
-use failure::Error;
+use async_trait::async_trait;
 use rosu::models::Beatmap;
-use serenity::{
-    async_trait,
-    cache::Cache,
-    client::Context,
-    collector::ReactionCollector,
-    model::{channel::Message, id::UserId},
-    prelude::{RwLock, TypeMap},
-};
 use std::sync::Arc;
+use twilight::model::{channel::Message, id::UserId};
 
 pub struct LeaderboardPagination {
     msg: Message,
-    collector: ReactionCollector,
     pages: Pages,
     map: Beatmap,
     scores: Vec<ScraperScore>,
     author_name: Option<String>,
     first_place_icon: Option<String>,
-    cache: Arc<Cache>,
-    data: Arc<RwLock<TypeMap>>,
+    ctx: Arc<Context>,
 }
 
 impl LeaderboardPagination {
     pub async fn new(
-        ctx: &Context,
+        ctx: Arc<Context>,
         msg: Message,
-        author: UserId,
         map: Beatmap,
         scores: Vec<ScraperScore>,
         author_name: Option<String>,
         first_place_icon: Option<String>,
     ) -> Self {
-        let collector = create_collector(ctx, &msg, author, 60).await;
-        let cache = Arc::clone(&ctx.cache);
-        let data = Arc::clone(&ctx.data);
         Self {
             msg,
-            collector,
             pages: Pages::new(10, scores.len()),
             map,
             scores,
             author_name,
             first_place_icon,
-            cache,
-            data,
+            ctx,
         }
     }
 }
@@ -56,11 +41,8 @@ impl LeaderboardPagination {
 #[async_trait]
 impl Pagination for LeaderboardPagination {
     type PageData = LeaderboardEmbed;
-    fn msg(&mut self) -> &mut Message {
-        &mut self.msg
-    }
-    fn collector(&mut self) -> &mut ReactionCollector {
-        &mut self.collector
+    fn msg(&self) -> &Message {
+        &self.msg
     }
     fn pages(&self) -> Pages {
         self.pages
@@ -68,7 +50,7 @@ impl Pagination for LeaderboardPagination {
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
-    async fn build_page(&mut self) -> Result<Self::PageData, Error> {
+    async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let scores = self
             .scores
             .iter()

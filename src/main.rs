@@ -1,11 +1,13 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
+// TODO: Use emotes from config
+
 mod commands;
 mod core;
 mod database;
-// mod pagination;
 mod embeds;
+mod pagination;
 mod pp;
 mod roppai;
 mod util;
@@ -27,7 +29,7 @@ use clap::{App, Arg};
 use darkredis::ConnectionPool;
 use dashmap::DashMap;
 use prometheus::{Encoder, TextEncoder};
-use rosu::models::GameMods;
+use rosu::{models::GameMods, Osu};
 use std::{
     collections::HashMap,
     process,
@@ -60,7 +62,10 @@ async fn async_main() -> BotResult<()> {
     // Load config file
     let config = BotConfig::new("config.toml")?;
 
-    //Connect to the discord http client
+    // Conntect to osu! API
+    let osu = Osu::new(config.tokens.osu.clone());
+
+    // Connect to the discord http client
     let mut builder = HttpClient::builder();
     builder
         .token(&config.tokens.discord)
@@ -73,17 +78,16 @@ async fn async_main() -> BotResult<()> {
     let http = builder.build()?;
     let bot_user = http.current_user().await?;
     info!(
-        "Token validated, connecting to Discord as {}#{}",
+        "Connecting to Discord as {}#{}...",
         bot_user.name, bot_user.discriminator
     );
 
     // Connect to psql database and redis cache
     let psql = Database::new(&config.database.postgres).await?;
     let redis = ConnectionPool::create(config.database.redis.clone(), None, 5).await?;
-    info!("Connected to psql and redis");
 
     // Boot everything up
-    run(config, http, bot_user, psql, redis).await
+    run(config, http, bot_user, psql, redis, osu).await
 }
 
 async fn run(
@@ -92,6 +96,7 @@ async fn run(
     bot_user: CurrentUser,
     psql: Database,
     redis: ConnectionPool,
+    osu: Osu,
 ) -> BotResult<()> {
     let (shards_per_cluster, total_shards, sharding_scheme) = shard_schema_values()
         .map_or((1, 1, ShardScheme::Auto), |(to, total)| {
@@ -179,6 +184,7 @@ async fn run(
             http,
             psql,
             redis,
+            osu,
             stored_values,
             total_shards,
             shards_per_cluster,
@@ -189,12 +195,15 @@ async fn run(
     // Setup graceful shutdown
     let shutdown_ctx = ctx.clone();
     ctrlc::set_handler(move || {
-        // tokio::main no longer running, create own runtime
         let _ = Runtime::new().unwrap().block_on(async {
-            if let Err(why) = shutdown_ctx.store_values().await {
+            let (store_result, cold_resume_result) = tokio::join!(
+                shutdown_ctx.store_values(),
+                shutdown_ctx.initiate_cold_resume()
+            );
+            if let Err(why) = store_result {
                 error!("Error while storing values: {}", why);
             }
-            if let Err(why) = shutdown_ctx.initiate_cold_resume().await {
+            if let Err(why) = cold_resume_result {
                 error!("Error while freezing cache: {}", why);
             }
         });

@@ -1,54 +1,51 @@
-mod bg_rankings;
+// mod bg_rankings;
 mod command_count;
-mod common;
-mod leaderboard;
-mod most_played;
-mod most_played_common;
+// mod common;
+// mod leaderboard;
+// mod most_played;
+// mod most_played_common;
 mod nochoke;
-mod osustats_globals;
+// mod osustats_globals;
 mod recent;
 mod top;
 
-pub use bg_rankings::BGRankingPagination;
+// pub use bg_rankings::BGRankingPagination;
 pub use command_count::CommandCountPagination;
-pub use common::CommonPagination;
-pub use leaderboard::LeaderboardPagination;
-pub use most_played::MostPlayedPagination;
-pub use most_played_common::MostPlayedCommonPagination;
+// pub use common::CommonPagination;
+// pub use leaderboard::LeaderboardPagination;
+// pub use most_played::MostPlayedPagination;
+// pub use most_played_common::MostPlayedCommonPagination;
 pub use nochoke::NoChokePagination;
-pub use osustats_globals::OsuStatsGlobalsPagination;
+// pub use osustats_globals::OsuStatsGlobalsPagination;
 pub use recent::RecentPagination;
 pub use top::TopPagination;
 
-use crate::{embeds::EmbedData, util::numbers};
+use crate::{embeds::EmbedData, util::numbers, BotResult, Context};
 
-use failure::Error;
-use serenity::{
-    async_trait,
-    cache::Cache,
-    client::Context,
-    collector::{ReactionAction, ReactionCollector},
-    http::Http,
-    model::{
-        channel::{Message, ReactionType},
-        id::UserId,
-    },
-};
+use async_trait::async_trait;
 use std::{convert::TryFrom, sync::Arc, time::Duration};
 use tokio::stream::StreamExt;
+use twilight::{
+    builders::embed::EmbedBuilder,
+    model::{
+        channel::{Message, Reaction, ReactionType},
+        gateway::payload::ReactionAdd,
+        id::UserId,
+    },
+    standby::WaitForReactionStream,
+};
 
 #[async_trait]
 pub trait Pagination: Sync + Sized {
     type PageData: EmbedData;
 
     // Make these point to the corresponding struct fields
-    fn msg(&mut self) -> &mut Message;
-    fn collector(&mut self) -> &mut ReactionCollector;
+    fn msg(&self) -> &Message;
     fn pages(&self) -> Pages;
     fn pages_mut(&mut self) -> &mut Pages;
 
     // Implement this
-    async fn build_page(&mut self) -> Result<Self::PageData, Error>;
+    async fn build_page(&mut self) -> BotResult<Self::PageData>;
 
     // Optionally implement these
     fn reactions() -> &'static [&'static str] {
@@ -70,76 +67,83 @@ pub trait Pagination: Sync + Sized {
         None
     }
     fn process_data(&mut self, _data: &Self::PageData) {}
-    async fn final_processing(mut self, _cache: Arc<Cache>, _http: Arc<Http>) -> Result<(), Error> {
+    async fn final_processing(mut self, _ctx: &Context) -> BotResult<()> {
         Ok(())
     }
 
     // Don't implement anything else
-    async fn start(mut self, cache: Arc<Cache>, http: Arc<Http>) -> Result<(), Error> {
+    async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> BotResult<()> {
         let reactions = Self::reactions();
-        for &reaction in reactions.iter() {
-            let reaction_type = ReactionType::try_from(reaction).unwrap();
-            self.msg().react((&cache, &*http), reaction_type).await?;
-        }
-        while let Some(reaction) = self.collector().next().await {
-            match self.next_page(reaction, &cache, &http).await {
+        let mut reaction_stream = {
+            let msg = self.msg();
+            for &reaction in reactions.iter() {
+                let emote = ReactionType::Unicode {
+                    name: reaction.to_string(),
+                };
+                ctx.http
+                    .create_reaction(msg.channel_id, msg.id, emote)
+                    .await?;
+            }
+            ctx.standby
+                .wait_for_reaction_stream(msg.id, move |r: &ReactionAdd| r.0.user_id == owner)
+                .timeout(Duration::from_secs(duration))
+        };
+        while let Some(Ok(reaction)) = reaction_stream.next().await {
+            match self.next_page(reaction.0, ctx).await {
                 Ok(Some(data)) => {
-                    let content = self.content();
-                    let thumbnail = self.thumbnail();
-                    self.msg()
-                        .edit((&cache, &*http), |m| {
-                            if let Some(content) = content {
-                                m.content(content);
-                            }
-                            m.embed(|e| {
-                                if let Some(ref thumbnail) = thumbnail {
-                                    e.thumbnail(thumbnail);
-                                }
-                                data.build(e)
-                            })
-                        })
-                        .await?;
+                    let msg = self.msg();
+                    let mut update = ctx.http.update_message(msg.channel_id, msg.id);
+                    if let Some(content) = self.content() {
+                        update = update.content(content)?;
+                    }
+                    let mut eb = EmbedBuilder::new();
+                    if let Some(thumbnail) = self.thumbnail() {
+                        eb = eb.thumbnail(thumbnail);
+                    }
+                    update.embed(data.build(eb).build())?.await?;
                 }
                 Ok(None) => {}
                 Err(why) => warn!("Error while paginating: {}", why),
             }
         }
         for &reaction in reactions.iter() {
-            let r = ReactionType::try_from(reaction).unwrap();
+            let r = ReactionType::Unicode {
+                name: reaction.to_string(),
+            };
             let msg = self.msg();
-            if msg.is_private() {
-                msg.channel_id
-                    .delete_reaction(&http, msg.id, None, r)
+            if msg.guild_id.is_none() {
+                ctx.http
+                    .delete_current_user_reaction(msg.channel_id, msg.id, r)
                     .await?;
             } else {
-                msg.delete_reaction_emoji((&cache, &*http), r).await?;
+                ctx.http
+                    .delete_all_reaction(msg.channel_id, msg.id, r)
+                    .await?;
             }
         }
-        self.final_processing(cache, http).await
+        self.final_processing(ctx).await
     }
     async fn next_page(
         &mut self,
-        reaction: Arc<ReactionAction>,
-        cache: &Arc<Cache>,
-        http: &Http,
-    ) -> Result<Option<Self::PageData>, Error> {
-        if let ReactionAction::Added(reaction) = &*reaction {
-            if let ReactionType::Unicode(ref reaction) = reaction.emoji {
-                return match self.process_reaction(reaction.as_str()) {
-                    PageChange::None => Ok(None),
-                    PageChange::Change => {
-                        let data = self.build_page().await.map(Some);
-                        if let Ok(Some(ref data)) = data {
-                            self.process_data(data);
-                        }
-                        data
+        reaction: Reaction,
+        ctx: &Context,
+    ) -> BotResult<Option<Self::PageData>> {
+        if let ReactionType::Unicode { name: reaction } = reaction.emoji {
+            return match self.process_reaction(reaction.as_str()) {
+                PageChange::None => Ok(None),
+                PageChange::Change => {
+                    let data = self.build_page().await.map(Some);
+                    if let Ok(Some(ref data)) = data {
+                        self.process_data(data);
                     }
-                    PageChange::Delete => {
-                        self.msg().delete((cache, http)).await?;
-                        Ok(None)
-                    }
-                };
-            }
+                    data
+                }
+                PageChange::Delete => {
+                    let msg = self.msg();
+                    ctx.http.delete_message(msg.channel_id, msg.id).await?;
+                    Ok(None)
+                }
+            };
         }
         Ok(None)
     }
@@ -226,18 +230,6 @@ pub trait Pagination: Sync + Sized {
     fn page(&self) -> usize {
         self.index() / self.per_page() + 1
     }
-}
-
-pub async fn create_collector(
-    ctx: &Context,
-    msg: &Message,
-    author: UserId,
-    sec_duration: u64,
-) -> ReactionCollector {
-    msg.await_reactions(ctx)
-        .timeout(Duration::from_secs(sec_duration))
-        .author_id(author)
-        .await
 }
 
 pub enum PageChange {

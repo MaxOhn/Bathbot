@@ -1,20 +1,14 @@
-use super::{create_collector, Pages, Pagination};
+use super::{Pages, Pagination};
 
-use crate::embeds::CommonEmbed;
+use crate::{embeds::CommonEmbed, BotResult, Context};
 
-use failure::Error;
+use async_trait::async_trait;
 use rosu::models::{Beatmap, Score, User};
-use serenity::{
-    async_trait,
-    client::Context,
-    collector::ReactionCollector,
-    model::{channel::Message, id::UserId},
-};
 use std::collections::HashMap;
+use twilight::model::{channel::Message, id::UserId};
 
 pub struct CommonPagination {
     msg: Message,
-    collector: ReactionCollector,
     pages: Pages,
     users: HashMap<u32, User>,
     scores: HashMap<u32, Vec<Score>>,
@@ -28,18 +22,15 @@ impl CommonPagination {
     pub async fn new(
         ctx: &Context,
         msg: Message,
-        author: UserId,
         users: HashMap<u32, User>,
         scores: HashMap<u32, Vec<Score>>,
         maps: HashMap<u32, Beatmap>,
         id_pps: Vec<(u32, f32)>,
         thumbnail: String,
     ) -> Self {
-        let collector = create_collector(ctx, &msg, author, 60).await;
         Self {
             pages: Pages::new(10, scores.len()),
             msg,
-            collector,
             users,
             scores,
             maps,
@@ -52,11 +43,8 @@ impl CommonPagination {
 #[async_trait]
 impl Pagination for CommonPagination {
     type PageData = CommonEmbed;
-    fn msg(&mut self) -> &mut Message {
-        &mut self.msg
-    }
-    fn collector(&mut self) -> &mut ReactionCollector {
-        &mut self.collector
+    fn msg(&self) -> &Message {
+        &self.msg
     }
     fn pages(&self) -> Pages {
         self.pages
@@ -67,7 +55,7 @@ impl Pagination for CommonPagination {
     fn thumbnail(&self) -> Option<String> {
         Some(self.thumbnail.clone())
     }
-    async fn build_page(&mut self) -> Result<Self::PageData, Error> {
+    async fn build_page(&mut self) -> BotResult<Self::PageData> {
         Ok(CommonEmbed::new(
             &self.users,
             &self.scores,

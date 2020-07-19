@@ -3,7 +3,7 @@ use crate::roppai::OppaiErr;
 use chrono::format::ParseError as ChronoParseError;
 use darkredis::Error as RedisError;
 use reqwest::Error as ReqwestError;
-use rosu::models::GameMode;
+use rosu::{models::GameMode, OsuError};
 use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
 use std::{borrow::Cow, error, fmt};
@@ -46,6 +46,7 @@ pub enum Error {
     MapDownload(MapDownloadError),
     NoConfig,
     NoLoggingSpec,
+    Osu(OsuError),
     PP(PPError),
     Redis(RedisError),
     Serde(SerdeJsonError),
@@ -91,6 +92,7 @@ impl fmt::Display for Error {
             Self::MapDownload(e) => write!(f, "error while downloading new map: {}", e),
             Self::NoConfig => f.write_str("config file was not found"),
             Self::NoLoggingSpec => f.write_str("logging config was not found"),
+            Self::Osu(e) => write!(f, "osu error: {}", e),
             Self::PP(e) => write!(f, "error while using PPCalculator: {}", e),
             Self::Redis(e) => write!(f, "error while communicating with redis cache: {}", e),
             Self::Serde(e) => write!(f, "serde error: {}", e),
@@ -126,6 +128,12 @@ impl From<fmt::Error> for Error {
 impl From<MapDownloadError> for Error {
     fn from(e: MapDownloadError) -> Self {
         Error::MapDownload(e)
+    }
+}
+
+impl From<OsuError> for Error {
+    fn from(e: OsuError) -> Self {
+        Error::Osu(e)
     }
 }
 

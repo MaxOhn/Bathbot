@@ -11,7 +11,10 @@ use crate::{
 
 use darkredis::ConnectionPool;
 use dashmap::DashMap;
-use rosu::models::{GameMode, GameMods};
+use rosu::{
+    models::{GameMode, GameMods},
+    Osu,
+};
 use std::{collections::HashMap, time::Instant};
 use tokio::sync::Mutex;
 use twilight::gateway::Cluster;
@@ -40,7 +43,7 @@ pub struct Context {
 pub struct Clients {
     pub psql: Database,
     pub redis: ConnectionPool,
-    // pub osu: Osu,
+    pub osu: Osu,
     // pub custom: CustomScraper,
     // pub twitch: Twitch,
 }
@@ -59,6 +62,7 @@ impl Context {
         http: HttpClient,
         psql: Database,
         redis: ConnectionPool,
+        osu: Osu,
         stored_values: StoredValues,
         total_shards: u64,
         shards_per_cluster: u64,
@@ -76,7 +80,7 @@ impl Context {
             .shard_counts
             .pending
             .set(shards_per_cluster as i64);
-        let clients = Clients { psql, redis };
+        let clients = Clients { psql, redis, osu };
         let backend = BackendData {
             cluster,
             shard_states,
@@ -149,17 +153,25 @@ impl Context {
     }
 
     pub async fn store_values(&self) -> BotResult<()> {
+        let start = Instant::now();
         let mania_pp = &self.stored_values.mania_pp;
         let mania_stars = &self.stored_values.mania_stars;
         let ctb_pp = &self.stored_values.ctb_pp;
         let ctb_stars = &self.stored_values.ctb_stars;
         let psql = &self.clients.psql;
-        tokio::try_join!(
+        let (mania_pp, mania_stars, ctb_pp, ctb_stars) = tokio::try_join!(
             psql.insert_mania_pp(mania_pp),
             psql.insert_mania_stars(mania_stars),
             psql.insert_ctb_pp(ctb_pp),
             psql.insert_ctb_stars(ctb_stars),
         )?;
+        let end = Instant::now();
+        debug!(
+            "Stored {} pp and {} star values in {}ms",
+            mania_pp + ctb_pp,
+            mania_stars + ctb_stars,
+            (end - start).as_millis()
+        );
         Ok(())
     }
 
