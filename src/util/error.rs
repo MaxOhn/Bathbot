@@ -1,9 +1,13 @@
 use crate::roppai::OppaiErr;
 
+use chrono::format::ParseError as ChronoParseError;
 use darkredis::Error as RedisError;
+use reqwest::Error as ReqwestError;
+use rosu::models::GameMode;
 use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
 use std::{borrow::Cow, error, fmt};
+use tokio::io::Error as TokioIOError;
 use toml::de::Error as TomlError;
 use twilight::gateway::cluster::Error as ClusterError;
 use twilight::http::{
@@ -32,15 +36,17 @@ pub enum Error {
     CacheDefrost(&'static str, Box<Error>),
     Command(String, Box<Error>),
     CreateMessage(CreateMessageError),
+    ChronoParse(ChronoParseError),
     UpdateMessage(UpdateMessageError),
     Custom(String),
     Database(DBError),
     Fmt(fmt::Error),
     InvalidConfig(TomlError),
     InvalidSession(u64),
+    MapDownload(MapDownloadError),
     NoConfig,
     NoLoggingSpec,
-    Oppai(OppaiErr),
+    PP(PPError),
     Redis(RedisError),
     Serde(SerdeJsonError),
     TwilightHttp(HttpError),
@@ -52,11 +58,11 @@ impl error::Error for Error {}
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Error::CacheDefrost(reason, e) => {
+            Self::CacheDefrost(reason, e) => {
                 write!(f, "error defrosting cache ({}): {}", reason, e)
             }
-            Error::Command(cmd, e) => write!(f, "error while processing command `{}`: {}", cmd, e),
-            Error::CreateMessage(e) => {
+            Self::Command(cmd, e) => write!(f, "error while processing command `{}`: {}", cmd, e),
+            Self::CreateMessage(e) => {
                 f.write_str("error while creating message: ")?;
                 if let CreateMessageError::EmbedTooLarge { source } = e {
                     source.fmt(f)
@@ -64,7 +70,8 @@ impl fmt::Display for Error {
                     e.fmt(f)
                 }
             }
-            Error::UpdateMessage(e) => {
+            Self::ChronoParse(e) => write!(f, "chrono parse error: {}", e),
+            Self::UpdateMessage(e) => {
                 f.write_str("error while updating message: ")?;
                 if let UpdateMessageError::EmbedTooLarge { source } = e {
                     source.fmt(f)
@@ -72,22 +79,23 @@ impl fmt::Display for Error {
                     e.fmt(f)
                 }
             }
-            Error::Custom(e) => e.fmt(f),
-            Error::Database(e) => write!(f, "database error occured: {}", e),
-            Error::Fmt(e) => write!(f, "fmt error: {}", e),
-            Error::InvalidConfig(e) => write!(f, "config file was not in correct format: {}", e),
-            Error::InvalidSession(shard) => write!(
+            Self::Custom(e) => e.fmt(f),
+            Self::Database(e) => write!(f, "database error occured: {}", e),
+            Self::Fmt(e) => write!(f, "fmt error: {}", e),
+            Self::InvalidConfig(e) => write!(f, "config file was not in correct format: {}", e),
+            Self::InvalidSession(shard) => write!(
                 f,
                 "gateway invalidated session unrecoverably for shard {}",
                 shard
             ),
-            Error::NoConfig => f.write_str("config file was not found"),
-            Error::NoLoggingSpec => f.write_str("logging config was not found"),
-            Error::Oppai(e) => write!(f, "error while using oppai: {}", e),
-            Error::Redis(e) => write!(f, "error while communicating with redis cache: {}", e),
-            Error::Serde(e) => write!(f, "serde error: {}", e),
-            Error::TwilightHttp(e) => write!(f, "error while making discord request: {}", e),
-            Error::TwilightCluster(e) => write!(f, "error occurred on cluster request: {}", e),
+            Self::MapDownload(e) => write!(f, "error while downloading new map: {}", e),
+            Self::NoConfig => f.write_str("config file was not found"),
+            Self::NoLoggingSpec => f.write_str("logging config was not found"),
+            Self::PP(e) => write!(f, "error while using PPCalculator: {}", e),
+            Self::Redis(e) => write!(f, "error while communicating with redis cache: {}", e),
+            Self::Serde(e) => write!(f, "serde error: {}", e),
+            Self::TwilightHttp(e) => write!(f, "error while making discord request: {}", e),
+            Self::TwilightCluster(e) => write!(f, "error occurred on cluster request: {}", e),
         }
     }
 }
@@ -95,6 +103,12 @@ impl fmt::Display for Error {
 impl From<CreateMessageError> for Error {
     fn from(e: CreateMessageError) -> Self {
         Error::CreateMessage(e)
+    }
+}
+
+impl From<ChronoParseError> for Error {
+    fn from(e: ChronoParseError) -> Self {
+        Error::ChronoParse(e)
     }
 }
 
@@ -107,6 +121,17 @@ impl From<DBError> for Error {
 impl From<fmt::Error> for Error {
     fn from(e: fmt::Error) -> Self {
         Error::Fmt(e)
+    }
+}
+impl From<MapDownloadError> for Error {
+    fn from(e: MapDownloadError) -> Self {
+        Error::MapDownload(e)
+    }
+}
+
+impl From<PPError> for Error {
+    fn from(e: PPError) -> Self {
+        Error::PP(e)
     }
 }
 
@@ -139,3 +164,69 @@ impl From<UpdateMessageError> for Error {
         Error::UpdateMessage(e)
     }
 }
+
+#[derive(Debug)]
+pub enum PPError {
+    CommandLine(String),
+    MaxPP(Box<PPError>),
+    NoContext(GameMode),
+    NoMapId,
+    Oppai(OppaiErr),
+    PP(Box<PPError>),
+    Stars(Box<PPError>),
+    Timeout,
+}
+
+impl fmt::Display for PPError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::CommandLine(e) => write!(f, "command line error: {}", e),
+            Self::MaxPP(e) => write!(f, "error for max pp: {}", e),
+            Self::NoContext(m) => write!(f, "missing context for {:?}", m),
+            Self::NoMapId => f.write_str("missing map id"),
+            Self::Oppai(e) => write!(f, "error while using oppai: {}", e),
+            Self::PP(e) => write!(f, "error for pp: {}", e),
+            Self::Stars(e) => write!(f, "error for stars: {}", e),
+            Self::Timeout => f.write_str("calculation took too long, timed out"),
+        }
+    }
+}
+
+impl From<OppaiErr> for PPError {
+    fn from(e: OppaiErr) -> Self {
+        Self::Oppai(e)
+    }
+}
+
+impl error::Error for PPError {}
+
+#[derive(Debug)]
+pub enum MapDownloadError {
+    CreateFile(TokioIOError),
+    NoEnv,
+    Reqwest(ReqwestError),
+}
+
+impl fmt::Display for MapDownloadError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::CreateFile(e) => write!(f, "could not create file: {}", e),
+            Self::NoEnv => f.write_str("no `BEATMAP_PATH` variable in .env file"),
+            Self::Reqwest(e) => write!(f, "reqwest error: {}", e),
+        }
+    }
+}
+
+impl From<TokioIOError> for MapDownloadError {
+    fn from(e: TokioIOError) -> Self {
+        Self::CreateFile(e)
+    }
+}
+
+impl From<ReqwestError> for MapDownloadError {
+    fn from(e: ReqwestError) -> Self {
+        Self::Reqwest(e)
+    }
+}
+
+impl error::Error for MapDownloadError {}

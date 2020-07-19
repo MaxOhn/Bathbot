@@ -2,7 +2,7 @@ use crate::{commands::command_groups, BotResult, Context};
 
 use futures::future::BoxFuture;
 use radix_trie::Trie;
-use std::{fmt, ops::Deref};
+use std::{fmt, ops::Deref, sync::Arc};
 use twilight::model::channel::Message;
 
 type CommandTree = Trie<&'static str, &'static Command>;
@@ -14,7 +14,7 @@ pub struct Command {
     pub usage: Option<&'static str>,
     pub examples: &'static [&'static str],
     pub sub_commands: &'static [&'static Command],
-    pub fun: for<'fut> fn(&'fut Context, &'fut Message) -> BoxFuture<'fut, BotResult<()>>,
+    pub fun: for<'fut> fn(Arc<Context>, &'fut Message) -> BoxFuture<'fut, BotResult<()>>,
 }
 
 impl fmt::Debug for Command {

@@ -5,17 +5,17 @@ mod config;
 mod context;
 mod handler;
 pub mod logging;
-mod message_ext;
 mod stats;
+mod stored_values;
 
-pub use cache::Cache;
+pub use cache::{Cache, CachedEmoji};
 pub use cold_resume::ColdRebootData;
 pub use commands::{Command, CommandGroup, CommandGroups};
 pub use config::BotConfig;
 pub use context::{generate_activity, Context};
 pub use handler::handle_event;
-pub use message_ext::MessageExt;
 pub use stats::BotStats;
+pub use stored_values::{StoredValues, Values};
 
 #[derive(PartialEq, Debug)]
 pub enum ShardState {

@@ -1,6 +1,6 @@
-use crate::{core::MessageExt, BotResult, Context};
+use crate::{util::MessageExt, BotResult, Context};
 
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 use twilight::model::channel::Message;
 
 #[command]
@@ -10,7 +10,7 @@ use twilight::model::channel::Message;
     The latency indicates how fast I receive messages from Discord."
 )]
 #[aliases("p")]
-async fn ping(ctx: &Context, msg: &Message) -> BotResult<()> {
+async fn ping(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     let start = Instant::now();
     let response = ctx
         .http
@@ -22,6 +22,6 @@ async fn ping(ctx: &Context, msg: &Message) -> BotResult<()> {
         .update_message(msg.channel_id, response.id)
         .content(Some(format!(":ping_pong: Pong! ({}ms)", elapsed)))?
         .await?;
-    response.reaction_delete(ctx, msg.author.id);
+    response.reaction_delete(&ctx, msg.author.id);
     Ok(())
 }

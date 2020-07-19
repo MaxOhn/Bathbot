@@ -1,7 +1,13 @@
 pub mod bg_game;
 pub mod constants;
+pub mod datetime;
 pub mod error;
+pub mod exts;
 pub mod matcher;
+pub mod numbers;
+pub mod osu;
+
+pub use exts::*;
 
 pub fn levenshtein_distance(word_a: &str, word_b: &str) -> usize {
     let (word_a, word_b) = if word_a.chars().count() > word_b.chars().count() {

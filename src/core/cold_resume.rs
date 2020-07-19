@@ -206,7 +206,7 @@ impl Cache {
         }
         self.filling.store(false, Ordering::SeqCst);
         info!(
-            "Cache defrosting complete, now holding {} users ({} unique) from {} guilds, and {} channels",
+            "Cache defrosting complete, now holding {} users ({} unique) from {} guilds ({} channels)",
             self.stats.user_counts.total.get(),
             self.stats.user_counts.unique.get(),
             self.stats.guild_counts.loaded.get(),

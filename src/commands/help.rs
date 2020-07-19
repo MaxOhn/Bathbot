@@ -1,13 +1,13 @@
 use crate::{
-    core::{Command, CommandGroups, MessageExt},
+    core::{Command, CommandGroups},
     util::{
         constants::{DARK_GREEN, DESCRIPTION_SIZE, EMBED_SIZE, FIELD_VALUE_SIZE, RED},
-        levenshtein_distance,
+        levenshtein_distance, MessageExt,
     },
     BotResult, Context,
 };
 
-use std::{collections::BTreeMap, fmt::Write};
+use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 use twilight::builders::embed::EmbedBuilder;
 use twilight::model::{
     channel::{embed::Embed, Message},

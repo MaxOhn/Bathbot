@@ -65,8 +65,8 @@ pub async fn handle_event(
             let invoke = parse_invoke(&mut stream, &cmds);
             let msg = msg.deref();
             let command_result = match &invoke {
-                Invoke::Command(cmd) => (cmd.fun)(&ctx, msg).await,
-                Invoke::SubCommand { sub, .. } => (sub.fun)(&ctx, msg).await,
+                Invoke::Command(cmd) => (cmd.fun)(ctx.clone(), msg).await,
+                Invoke::SubCommand { sub, .. } => (sub.fun)(ctx.clone(), msg).await,
                 Invoke::Help(None) => help(&ctx, &cmds, msg).await,
                 Invoke::Help(Some(cmd)) => help_command(&ctx, cmd, msg).await,
                 Invoke::FailedHelp(arg) => failed_help(&ctx, arg, &cmds, msg).await,

@@ -4,6 +4,9 @@
 mod commands;
 mod core;
 mod database;
+// mod pagination;
+mod embeds;
+mod pp;
 mod roppai;
 mod util;
 
@@ -22,7 +25,9 @@ extern crate log;
 
 use clap::{App, Arg};
 use darkredis::ConnectionPool;
+use dashmap::DashMap;
 use prometheus::{Encoder, TextEncoder};
+use rosu::models::GameMods;
 use std::{
     collections::HashMap,
     process,
@@ -30,7 +35,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use tokio::{runtime::Runtime, stream::StreamExt};
+use tokio::{runtime::Runtime, stream::StreamExt, time};
 use twilight::gateway::{
     cluster::config::ShardScheme, shard::ResumeSession, Cluster, ClusterConfig,
 };
@@ -73,19 +78,19 @@ async fn async_main() -> BotResult<()> {
     );
 
     // Connect to psql database and redis cache
-    let database = Database::new(&config.database.postgres).await?;
+    let psql = Database::new(&config.database.postgres).await?;
     let redis = ConnectionPool::create(config.database.redis.clone(), None, 5).await?;
     info!("Connected to psql and redis");
 
     // Boot everything up
-    run(config, http, bot_user, database, redis).await
+    run(config, http, bot_user, psql, redis).await
 }
 
 async fn run(
     config: BotConfig,
     http: HttpClient,
     bot_user: CurrentUser,
-    database: Database,
+    psql: Database,
     redis: ConnectionPool,
 ) -> BotResult<()> {
     let (shards_per_cluster, total_shards, sharding_scheme) = shard_schema_values()
@@ -102,6 +107,7 @@ async fn run(
             | GatewayIntents::DIRECT_MESSAGE_REACTIONS,
     );
     let stats = Arc::new(BotStats::new());
+    let stored_values = core::StoredValues::new(&psql).await?;
 
     // // Provide stats to locale address
     // let s = stats.clone();
@@ -165,15 +171,15 @@ async fn run(
     }
 
     // Build cluster and create context
-    let cluster_config = cb.build();
-    let cluster = Cluster::new(cluster_config).await?;
+    let cluster = Cluster::new(cb.build()).await?;
     let ctx = Arc::new(
         Context::new(
             cache,
             cluster,
             http,
-            database,
+            psql,
             redis,
+            stored_values,
             total_shards,
             shards_per_cluster,
         )
@@ -184,21 +190,34 @@ async fn run(
     let shutdown_ctx = ctx.clone();
     ctrlc::set_handler(move || {
         // tokio::main no longer running, create own runtime
-        let _ = Runtime::new()
-            .unwrap()
-            .block_on(shutdown_ctx.initiate_cold_resume());
+        let _ = Runtime::new().unwrap().block_on(async {
+            if let Err(why) = shutdown_ctx.store_values().await {
+                error!("Error while storing values: {}", why);
+            }
+            if let Err(why) = shutdown_ctx.initiate_cold_resume().await {
+                error!("Error while freezing cache: {}", why);
+            }
+        });
         process::exit(0);
     })
     .map_err(|why| format_err!("Failed to register shutdown handler: {}", why))?;
 
-    ctx.backend.cluster.up().await;
+    let c = ctx.backend.cluster.clone();
+    tokio::spawn(async move {
+        time::delay_for(Duration::from_secs(1)).await;
+        c.up().await;
+    });
     let mut bot_events = ctx.backend.cluster.events().await;
     let cmd_groups = Arc::new(CommandGroups::new());
     while let Some(event) = bot_events.next().await {
         let (shard, event) = event;
+        debug!("Got event, updating stats...");
         ctx.update_stats(shard, &event);
+        debug!("Updating cache...");
         ctx.cache.update(shard, &event, ctx.clone()).await?;
+        debug!("Updating standby...");
         ctx.standby.process(&event);
+        debug!("Pre-event handling done");
         let c = ctx.clone();
         let cmds = cmd_groups.clone();
         tokio::spawn(async move {

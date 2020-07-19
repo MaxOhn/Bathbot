@@ -1,14 +1,19 @@
 use super::ShardState;
 
 use crate::{
-    core::{Cache, ColdRebootData},
+    core::{
+        stored_values::{StoredValues, Values},
+        Cache, ColdRebootData,
+    },
     database::{Database, GuildConfig},
     BotResult,
 };
 
 use darkredis::ConnectionPool;
 use dashmap::DashMap;
+use rosu::models::{GameMode, GameMods};
 use std::{collections::HashMap, time::Instant};
+use tokio::sync::Mutex;
 use twilight::gateway::Cluster;
 use twilight::http::Client as HttpClient;
 use twilight::model::{
@@ -26,6 +31,8 @@ pub struct Context {
     pub http: HttpClient,
     pub standby: Standby,
     pub guilds: DashMap<GuildId, GuildConfig>,
+    pub stored_values: StoredValues,
+    pub perf_calc_mutex: Mutex<()>,
     pub backend: BackendData,
     pub clients: Clients,
 }
@@ -52,6 +59,7 @@ impl Context {
         http: HttpClient,
         psql: Database,
         redis: ConnectionPool,
+        stored_values: StoredValues,
         total_shards: u64,
         shards_per_cluster: u64,
     ) -> Self {
@@ -82,6 +90,8 @@ impl Context {
             guilds,
             clients,
             backend,
+            stored_values,
+            perf_calc_mutex: Mutex::new(()),
         }
     }
 
@@ -136,6 +146,37 @@ impl Context {
             (end - start).as_millis()
         );
         Ok(())
+    }
+
+    pub async fn store_values(&self) -> BotResult<()> {
+        let mania_pp = &self.stored_values.mania_pp;
+        let mania_stars = &self.stored_values.mania_stars;
+        let ctb_pp = &self.stored_values.ctb_pp;
+        let ctb_stars = &self.stored_values.ctb_stars;
+        let psql = &self.clients.psql;
+        tokio::try_join!(
+            psql.insert_mania_pp(mania_pp),
+            psql.insert_mania_stars(mania_stars),
+            psql.insert_ctb_pp(ctb_pp),
+            psql.insert_ctb_stars(ctb_stars),
+        )?;
+        Ok(())
+    }
+
+    pub fn pp(&self, mode: GameMode) -> &Values {
+        match mode {
+            GameMode::MNA => &self.stored_values.mania_pp,
+            GameMode::CTB => &self.stored_values.ctb_pp,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn stars(&self, mode: GameMode) -> &Values {
+        match mode {
+            GameMode::MNA => &self.stored_values.mania_stars,
+            GameMode::CTB => &self.stored_values.ctb_stars,
+            _ => unreachable!(),
+        }
     }
 
     pub async fn set_cluster_activity(

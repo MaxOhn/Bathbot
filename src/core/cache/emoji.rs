@@ -1,6 +1,7 @@
 use super::{get_true, is_default, is_true};
 
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use twilight::model::{
     guild::Emoji,
     id::{EmojiId, RoleId, UserId},
@@ -42,5 +43,11 @@ impl From<Emoji> for CachedEmoji {
             animated: emoji.animated,
             available: emoji.available,
         }
+    }
+}
+
+impl fmt::Display for CachedEmoji {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&self.name)
     }
 }

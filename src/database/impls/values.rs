@@ -2,10 +2,11 @@ use crate::{BotResult, Database};
 
 use dashmap::DashMap;
 use rosu::models::GameMods;
-use sqlx::Row;
+use sqlx::{types::Json, Row};
 use std::collections::HashMap;
 
-type ValueResult = BotResult<DashMap<u32, HashMap<GameMods, f32>>>;
+type Values = DashMap<u32, HashMap<GameMods, (f32, bool)>>;
+type ValueResult = BotResult<Values>;
 
 impl Database {
     pub async fn get_mania_stars(&self) -> ValueResult {
@@ -30,220 +31,45 @@ impl Database {
             .fetch_all(&self.pool)
             .await?
             .into_iter()
-            .map(|row| Ok((row.get(0), serde_json::from_value(row.get(1))?)))
+            .map(|row| {
+                let values = serde_json::from_value::<HashMap<GameMods, f32>>(row.get(1))?
+                    .into_iter()
+                    .map(|(m, v)| (m, (v, false)))
+                    .collect();
+                Ok((row.get(0), values))
+            })
             .collect();
         Ok(values?)
     }
+
+    pub async fn insert_mania_stars(&self, values: &Values) -> BotResult<()> {
+        self.insert_values("mania_stars", values).await
+    }
+
+    pub async fn insert_mania_pp(&self, values: &Values) -> BotResult<()> {
+        self.insert_values("mania_pp", values).await
+    }
+
+    pub async fn insert_ctb_stars(&self, values: &Values) -> BotResult<()> {
+        self.insert_values("ctb_stars", values).await
+    }
+
+    pub async fn insert_ctb_pp(&self, values: &Values) -> BotResult<()> {
+        self.insert_values("ctb_pp", values).await
+    }
+
+    async fn insert_values(&self, table: &str, values: &Values) -> BotResult<()> {
+        values.retain(|_, mod_map| mod_map.values().any(|(_, to_insert)| *to_insert));
+        let mut txn = self.pool.begin().await?;
+        for guard in values.into_iter() {
+            let (map_id, mod_map) = guard.pair();
+            let query = format!("UPDATE {} values=$1 WHERE beatmap_id={}", table, *map_id);
+            sqlx::query(&query)
+                .bind(Json(mod_map))
+                .execute(&mut *txn)
+                .await?;
+        }
+        txn.commit().await?;
+        Ok(())
+    }
 }
-
-// // ----------------------------------
-// // Table: pp_mania_mods / pp_ctb_mods
-// // ----------------------------------
-
-// pub async fn get_mod_pp(
-//     &self,
-//     map_id: u32,
-//     mode: GameMode,
-//     mut mods: GameMods,
-// ) -> BotResult<Option<f32>> {
-//     if mods.contains(GameMods::NightCore) {
-//         mods.remove(GameMods::NightCore);
-//         mods.insert(GameMods::DoubleTime);
-//     }
-//     let (table, column) = match mode {
-//         GameMode::MNA => ("pp_mania_mods", mania_pp_mods_column(mods)?),
-//         GameMode::CTB => {
-//             let column = ctb_pp_mods_column(mods);
-//             if let Some(column) = column {
-//                 ("pp_ctb_mods", column)
-//             } else {
-//                 return Ok(None);
-//             }
-//         }
-//         _ => unreachable!(),
-//     };
-//     let query = format!("SELECT {} FROM {} WHERE beatmap_id=?", column, table);
-//     let pp: (Option<f32>,) = sqlx::query_as(&query)
-//         .bind(map_id)
-//         .fetch_one(&self.pool)
-//         .await?;
-//     Ok(pp.0)
-// }
-
-// pub async fn insert_pp_map(
-//     &self,
-//     map_id: u32,
-//     mode: GameMode,
-//     mut mods: GameMods,
-//     pp: f32,
-// ) -> BotResult<()> {
-//     if mods.contains(GameMods::NightCore) {
-//         mods.remove(GameMods::NightCore);
-//         mods.insert(GameMods::DoubleTime);
-//     }
-//     let (table, column) = match mode {
-//         GameMode::MNA => ("pp_mania_mods", mania_pp_mods_column(mods)?),
-//         GameMode::CTB => {
-//             let column = ctb_pp_mods_column(mods);
-//             if let Some(column) = column {
-//                 ("pp_ctb_mods", column)
-//             } else {
-//                 return Ok(());
-//             }
-//         }
-//         _ => unreachable!(),
-//     };
-//     let query = format!(
-//         "
-// INSERT INTO
-// {} (beatmap_id, {col})
-// VALUES
-// (?,?) ON DUPLICATE KEY
-// UPDATE
-// {col}=?
-// ",
-//         table,
-//         col = column
-//     );
-//     sqlx::query(&query)
-//         .bind(map_id)
-//         .bind(pp)
-//         .bind(pp)
-//         .execute(&self.pool)
-//         .await?;
-//     Ok(())
-// }
-
-// // ----------------------------------------
-// // Table: stars_mania_mods / stars_ctb_mods
-// // ----------------------------------------
-
-// pub async fn get_mod_stars(
-//     &self,
-//     map_id: u32,
-//     mode: GameMode,
-//     mut mods: GameMods,
-// ) -> BotResult<Option<f32>> {
-//     if mods.contains(GameMods::NightCore) {
-//         mods.remove(GameMods::NightCore);
-//         mods.insert(GameMods::DoubleTime);
-//     }
-//     let (table, column) = match mode {
-//         GameMode::MNA => ("stars_mania_mods", mania_stars_mods_column(mods)?),
-//         GameMode::CTB => ("stars_ctb_mods", ctb_stars_mods_column(mods)?),
-//         _ => unreachable!(),
-//     };
-//     let query = format!("SELECT {} FROM {} WHERE beatmap_id=?", column, table);
-//     let stars: (Option<f32>,) = sqlx::query_as(&query)
-//         .bind(map_id)
-//         .fetch_one(&self.pool)
-//         .await?;
-//     Ok(stars.0)
-// }
-
-// pub async fn insert_stars_map(
-//     &self,
-//     map_id: u32,
-//     mode: GameMode,
-//     mut mods: GameMods,
-//     stars: f32,
-// ) -> BotResult<()> {
-//     let mania_mods = GameMods::DoubleTime | GameMods::HalfTime;
-//     let ctb_mods =
-//         GameMods::Easy | GameMods::HardRock | GameMods::DoubleTime | GameMods::HalfTime;
-//     if (mode == GameMode::MNA && !mods.intersects(mania_mods))
-//         || (mode == GameMode::CTB && !mods.intersects(ctb_mods))
-//     {
-//         return Ok(());
-//     } else if mods.contains(GameMods::NightCore) {
-//         mods.remove(GameMods::NightCore);
-//         mods.insert(GameMods::DoubleTime);
-//     }
-//     let (table, column) = match mode {
-//         GameMode::MNA => ("stars_mania_mods", mania_stars_mods_column(mods)?),
-//         GameMode::CTB => ("stars_ctb_mods", ctb_stars_mods_column(mods)?),
-//         _ => unreachable!(),
-//     };
-//     let query = format!(
-//         "
-// INSERT INTO
-// {} (beatmap_id, {col})
-// VALUES
-// (?,?) ON DUPLICATE KEY
-// UPDATE
-// {col}=?
-// ",
-//         table,
-//         col = column
-//     );
-//     sqlx::query(&query)
-//         .bind(map_id)
-//         .bind(stars)
-//         .bind(stars)
-//         .execute(&self.pool)
-//         .await?;
-//     Ok(())
-// }
-// }
-
-// fn ctb_pp_mods_column(mods: GameMods) -> Option<&'static str> {
-// if (mods - GameMods::Perfect).is_empty() {
-//     return Some("NM");
-// }
-// let valid = GameMods::Hidden | GameMods::HardRock | GameMods::DoubleTime;
-// let m = match mods & valid {
-//     GameMods::Hidden => "HD",
-//     GameMods::HardRock => "HR",
-//     GameMods::DoubleTime => "DT",
-//     m if m == GameMods::Hidden | GameMods::HardRock => "HDHR",
-//     m if m == GameMods::Hidden | GameMods::DoubleTime => "HDDT",
-//     _ => return None,
-// };
-// Some(m)
-// }
-
-// fn mania_pp_mods_column(mods: GameMods) -> BotResult<&'static str> {
-// let valid = GameMods::Easy | GameMods::NoFail | GameMods::DoubleTime | GameMods::HalfTime;
-// let m = match mods & valid {
-//     GameMods::NoMod => "NM",
-//     GameMods::NoFail => "NF",
-//     GameMods::Easy => "EZ",
-//     GameMods::DoubleTime => "DT",
-//     GameMods::HalfTime => "HT",
-//     m if m == GameMods::NoFail | GameMods::Easy => "NFEZ",
-//     m if m == GameMods::NoFail | GameMods::DoubleTime => "NFDT",
-//     m if m == GameMods::Easy | GameMods::DoubleTime => "EZDT",
-//     m if m == GameMods::NoFail | GameMods::HalfTime => "NFHT",
-//     m if m == GameMods::Easy | GameMods::HalfTime => "EZHT",
-//     m if m == GameMods::NoFail | GameMods::Easy | GameMods::DoubleTime => "NFEZDT",
-//     m if m == GameMods::NoFail | GameMods::Easy | GameMods::HalfTime => "NFEZHT",
-//     _ => bail!("No valid mod combination for mania pp ({})", mods),
-// };
-// Ok(m)
-// }
-
-// fn ctb_stars_mods_column(mods: GameMods) -> BotResult<&'static str> {
-// let valid = GameMods::Easy | GameMods::HardRock | GameMods::DoubleTime | GameMods::HalfTime;
-// let m = match mods & valid {
-//     GameMods::Easy => "EZ",
-//     GameMods::HardRock => "HR",
-//     GameMods::DoubleTime => "DT",
-//     GameMods::HalfTime => "HT",
-//     m if m == GameMods::Easy | GameMods::DoubleTime => "EZDT",
-//     m if m == GameMods::HardRock | GameMods::DoubleTime => "HRDT",
-//     m if m == GameMods::Easy | GameMods::HalfTime => "EZHT",
-//     m if m == GameMods::HardRock | GameMods::HalfTime => "HRHT",
-//     _ => bail!("No valid mod combination for ctb stars ({})", mods),
-// };
-// Ok(m)
-// }
-
-// fn mania_stars_mods_column(mods: GameMods) -> BotResult<&'static str> {
-// let valid = GameMods::DoubleTime | GameMods::HalfTime;
-// let m = match mods & valid {
-//     GameMods::DoubleTime => "DT",
-//     GameMods::HalfTime => "HT",
-//     _ => bail!("No valid mod combination for mania stars ({})", mods),
-// };
-// Ok(m)
-// }

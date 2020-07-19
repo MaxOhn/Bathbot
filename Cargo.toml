@@ -27,6 +27,7 @@ radix_trie  = "0.2"
 regex       = "1.3"
 serde_json  = "1.0"
 static_assertions = "1.1"
+sysinfo     = "0.11"
 toml        = "0.5"
 uwl         = "0.6"
 
@@ -42,15 +43,20 @@ features = ["termination"]
 version = "4.0.0-rc6"
 features = ["serde"]
 
-[dependencies.rosu]
-git = "https://github.com/MaxOhn/rosu"
-branch = "serialize"
-features = [ "serialize" ]
-
 [dependencies.flexi_logger]
 version = "0.15"
 default_features = false
 features = ["colors", "specfile", "ziplogs"]
+
+[dependencies.reqwest]
+version = "0.10"
+default_features = false
+features = ["cookies"]
+
+[dependencies.rosu]
+git = "https://github.com/MaxOhn/rosu"
+branch = "serialize"
+features = [ "serialize" ]
 
 [dependencies.serde]
 version = "1.0"
@@ -65,7 +71,7 @@ features         = ["postgres", "runtime-tokio", "chrono", "macros", "json"]
 [dependencies.tokio]
 version = "0.2"
 default_features = false
-features = ["macros", "sync", "rt-core"]
+features = ["rt-core", "rt-threaded", "time", "macros", "process", "sync", "stream", "fs"]
 
 [dependencies.twilight]
 git = "https://github.com/twilight-rs/twilight"
