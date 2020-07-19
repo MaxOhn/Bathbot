@@ -1,6 +1,6 @@
 use super::{Pages, Pagination};
 
-use crate::{embeds::MostPlayedCommonEmbed, scraper::MostPlayedMap, BotResult, Context};
+use crate::{custom_client::MostPlayedMap, embeds::MostPlayedCommonEmbed, BotResult};
 
 use async_trait::async_trait;
 use rosu::models::User;
@@ -18,7 +18,6 @@ pub struct MostPlayedCommonPagination {
 
 impl MostPlayedCommonPagination {
     pub async fn new(
-        ctx: &Context,
         msg: Message,
         users: HashMap<u32, User>,
         users_count: HashMap<u32, HashMap<u32, u32>>,

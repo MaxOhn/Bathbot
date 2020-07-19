@@ -6,7 +6,7 @@ use crate::{
         Cache, ColdRebootData,
     },
     database::{Database, GuildConfig},
-    BotResult,
+    BotResult, CustomClient,
 };
 
 use darkredis::ConnectionPool;
@@ -44,7 +44,7 @@ pub struct Clients {
     pub psql: Database,
     pub redis: ConnectionPool,
     pub osu: Osu,
-    // pub custom: CustomScraper,
+    pub custom: CustomClient,
     // pub twitch: Twitch,
 }
 
@@ -63,6 +63,7 @@ impl Context {
         psql: Database,
         redis: ConnectionPool,
         osu: Osu,
+        custom_client: CustomClient,
         stored_values: StoredValues,
         total_shards: u64,
         shards_per_cluster: u64,
@@ -80,7 +81,12 @@ impl Context {
             .shard_counts
             .pending
             .set(shards_per_cluster as i64);
-        let clients = Clients { psql, redis, osu };
+        let clients = Clients {
+            psql,
+            redis,
+            osu,
+            custom: custom_client,
+        };
         let backend = BackendData {
             cluster,
             shard_states,

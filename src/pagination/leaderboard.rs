@@ -62,7 +62,7 @@ impl Pagination for LeaderboardPagination {
             Some(scores),
             &self.first_place_icon,
             self.pages.index,
-            (&self.cache, &self.data),
+            &self.ctx,
         )
         .await
     }

@@ -5,6 +5,7 @@
 
 mod commands;
 mod core;
+mod custom_client;
 mod database;
 mod embeds;
 mod pagination;
@@ -16,6 +17,7 @@ use crate::{
     core::{
         handle_event, logging, BotConfig, BotStats, Cache, ColdRebootData, CommandGroups, Context,
     },
+    custom_client::CustomClient,
     database::Database,
     util::error::Error,
 };
@@ -62,8 +64,11 @@ async fn async_main() -> BotResult<()> {
     // Load config file
     let config = BotConfig::new("config.toml")?;
 
-    // Conntect to osu! API
+    // Connect to osu! API
     let osu = Osu::new(config.tokens.osu.clone());
+
+    // Log custom client into osu!
+    let custom_client = CustomClient::new(&config.tokens.osu_session).await?;
 
     // Connect to the discord http client
     let mut builder = HttpClient::builder();
@@ -87,7 +92,7 @@ async fn async_main() -> BotResult<()> {
     let redis = ConnectionPool::create(config.database.redis.clone(), None, 5).await?;
 
     // Boot everything up
-    run(config, http, bot_user, psql, redis, osu).await
+    run(config, http, bot_user, psql, redis, osu, custom_client).await
 }
 
 async fn run(
@@ -97,6 +102,7 @@ async fn run(
     psql: Database,
     redis: ConnectionPool,
     osu: Osu,
+    custom_client: CustomClient,
 ) -> BotResult<()> {
     let (shards_per_cluster, total_shards, sharding_scheme) = shard_schema_values()
         .map_or((1, 1, ShardScheme::Auto), |(to, total)| {
@@ -185,6 +191,7 @@ async fn run(
             psql,
             redis,
             osu,
+            custom_client,
             stored_values,
             total_shards,
             shards_per_cluster,

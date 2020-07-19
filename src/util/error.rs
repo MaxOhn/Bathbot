@@ -37,8 +37,8 @@ pub enum Error {
     Command(String, Box<Error>),
     CreateMessage(CreateMessageError),
     ChronoParse(ChronoParseError),
-    UpdateMessage(UpdateMessageError),
     Custom(String),
+    CustomClient(CustomClientError),
     Database(DBError),
     Fmt(fmt::Error),
     InvalidConfig(TomlError),
@@ -49,9 +49,11 @@ pub enum Error {
     Osu(OsuError),
     PP(PPError),
     Redis(RedisError),
+    Reqwest(ReqwestError),
     Serde(SerdeJsonError),
     TwilightHttp(HttpError),
     TwilightCluster(ClusterError),
+    UpdateMessage(UpdateMessageError),
 }
 
 impl error::Error for Error {}
@@ -72,15 +74,8 @@ impl fmt::Display for Error {
                 }
             }
             Self::ChronoParse(e) => write!(f, "chrono parse error: {}", e),
-            Self::UpdateMessage(e) => {
-                f.write_str("error while updating message: ")?;
-                if let UpdateMessageError::EmbedTooLarge { source } = e {
-                    source.fmt(f)
-                } else {
-                    e.fmt(f)
-                }
-            }
             Self::Custom(e) => e.fmt(f),
+            Self::CustomClient(e) => write!(f, "custom client error: {}", e),
             Self::Database(e) => write!(f, "database error occured: {}", e),
             Self::Fmt(e) => write!(f, "fmt error: {}", e),
             Self::InvalidConfig(e) => write!(f, "config file was not in correct format: {}", e),
@@ -95,9 +90,18 @@ impl fmt::Display for Error {
             Self::Osu(e) => write!(f, "osu error: {}", e),
             Self::PP(e) => write!(f, "error while using PPCalculator: {}", e),
             Self::Redis(e) => write!(f, "error while communicating with redis cache: {}", e),
+            Self::Reqwest(e) => write!(f, "reqwest error: {}", e),
             Self::Serde(e) => write!(f, "serde error: {}", e),
             Self::TwilightHttp(e) => write!(f, "error while making discord request: {}", e),
             Self::TwilightCluster(e) => write!(f, "error occurred on cluster request: {}", e),
+            Self::UpdateMessage(e) => {
+                f.write_str("error while updating message: ")?;
+                if let UpdateMessageError::EmbedTooLarge { source } = e {
+                    source.fmt(f)
+                } else {
+                    e.fmt(f)
+                }
+            }
         }
     }
 }
@@ -111,6 +115,12 @@ impl From<CreateMessageError> for Error {
 impl From<ChronoParseError> for Error {
     fn from(e: ChronoParseError) -> Self {
         Error::ChronoParse(e)
+    }
+}
+
+impl From<CustomClientError> for Error {
+    fn from(e: CustomClientError) -> Self {
+        Error::CustomClient(e)
     }
 }
 
@@ -146,6 +156,12 @@ impl From<PPError> for Error {
 impl From<RedisError> for Error {
     fn from(e: RedisError) -> Self {
         Error::Redis(e)
+    }
+}
+
+impl From<ReqwestError> for Error {
+    fn from(e: ReqwestError) -> Self {
+        Error::Reqwest(e)
     }
 }
 
@@ -238,3 +254,26 @@ impl From<ReqwestError> for MapDownloadError {
 }
 
 impl error::Error for MapDownloadError {}
+
+#[derive(Debug)]
+pub enum CustomClientError {
+    DataUserId,
+    RankIndex(usize),
+    RankingPageTable,
+    RankNode(u8),
+    TBody,
+}
+
+impl fmt::Display for CustomClientError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::DataUserId => f.write_str("no attribute `data-user-id`"),
+            Self::RankIndex(n) => write!(f, "expected rank between 1 and 10_000, got {}", n),
+            Self::RankingPageTable => f.write_str("no class `ranking-page-table`"),
+            Self::RankNode(n) => write!(f, "error at unwrap {}, expected  child", n),
+            Self::TBody => f.write_str("no element `tbody`"),
+        }
+    }
+}
+
+impl error::Error for CustomClientError {}

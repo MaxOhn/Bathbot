@@ -1,7 +1,7 @@
 use crate::{
+    custom_client::MostPlayedMap,
     embeds::{osu, Author, EmbedData, Footer},
-    scraper::MostPlayedMap,
-    util::globals::{AVATAR_URL, HOMEPAGE},
+    util::constants::{AVATAR_URL, OSU_BASE},
 };
 
 use rosu::models::User;
@@ -31,7 +31,7 @@ impl MostPlayedEmbed {
                 title = map.title,
                 artist = map.artist,
                 version = map.version,
-                base = HOMEPAGE,
+                base = OSU_BASE,
                 map_id = map.beatmap_id,
                 stars = osu::get_stars(map.stars),
             );
