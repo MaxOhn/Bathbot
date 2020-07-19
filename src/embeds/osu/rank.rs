@@ -22,7 +22,7 @@ impl RankEmbed {
         country: Option<String>,
         rank_holder: User,
     ) -> Self {
-        let country = country.map_or_else(|| Cow::Borrowed("#"), |c| Cow::Owned(c));
+        let country = country.map_or_else(|| Cow::Borrowed("#"), Cow::Owned);
         let title = format!(
             "How many pp is {name} missing to reach rank {country}{rank}?",
             name = user.username,

@@ -92,7 +92,11 @@ mod tests {
 
     #[test]
     fn test_round() {
-        assert_eq!(round(3.1415), 3.14);
+        let v1 = 3.1615;
+        let v2 = 3.16;
+        if round(v1) - v2 > std::f32::EPSILON {
+            panic!("[test_round] round({})={} != {}", v1, round(v1), v2);
+        }
     }
 
     #[test]
@@ -107,6 +111,6 @@ mod tests {
 
     #[test]
     fn test_round_and_comma() {
-        assert_eq!(round_and_comma(31926.535897), "31,926.54".to_owned());
+        assert_eq!(round_and_comma(1926.5358), "1,926.54".to_owned());
     }
 }

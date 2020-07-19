@@ -80,7 +80,7 @@ impl Twitch {
         let mut users: TwitchUsers = serde_json::from_slice(&response.bytes().await?)?;
         match users.data.pop() {
             Some(user) => Ok(user),
-            None => Err(TwitchError::NoUserResult(name.to_string()).into()),
+            None => Err(TwitchError::NoUserResult(name.to_string())),
         }
     }
 

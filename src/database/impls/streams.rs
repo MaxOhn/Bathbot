@@ -3,6 +3,7 @@ use crate::{
     BotResult, Database,
 };
 
+use dashmap::DashMap;
 use sqlx::Row;
 use std::collections::{HashMap, HashSet};
 
@@ -24,7 +25,6 @@ impl Database {
 
     pub async fn get_twitch_users(&self, user_ids: &[u64]) -> BotResult<HashMap<String, u64>> {
         // TODO: Check how long twitch ids are
-        // TODO: Reform HashMap
         let query = String::from("SELECT * FROM twitch_users WHERE user_id IN").in_clause(user_ids);
         let users = sqlx::query(&query)
             .fetch_all(&self.pool)
@@ -35,13 +35,26 @@ impl Database {
         Ok(users)
     }
 
-    pub async fn get_stream_tracks(&self) -> BotResult<HashSet<StreamTrack>> {
-        let tracks = sqlx::query_as::<_, StreamTrack>("SELECT * FROM stream_tracks")
+    pub async fn get_stream_tracks(&self) -> BotResult<DashMap<u64, Vec<u64>>> {
+        let users: Vec<_> = sqlx::query("SELECT * FROM stream_tracks")
             .fetch_all(&self.pool)
             .await?
             .into_iter()
+            .map(|row| (row.get::<i64, _>(1) as u64, row.get::<i64, _>(0) as u64))
             .collect();
-        Ok(tracks)
+
+        let len = users.len();
+        let iter = users
+            .into_iter()
+            .fold(
+                HashMap::with_capacity(len * 2 / 3),
+                |mut all: HashMap<u64, Vec<u64>>, (user, channel)| {
+                    all.entry(user).or_default().push(channel);
+                    all
+                },
+            )
+            .into_iter();
+        Ok(DashMap::from_iter(iter))
     }
 
     pub async fn remove_stream_track(&self, channel: u64, user: u64) -> BotResult<()> {

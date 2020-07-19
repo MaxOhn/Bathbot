@@ -30,6 +30,7 @@ use serde_json::Value;
 use std::{collections::HashSet, convert::TryFrom, env, fmt::Write, hash::Hash, num::NonZeroU32};
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
+#[allow(clippy::enum_variant_names)]
 enum Site {
     OsuWebsite,
     OsuStats,
@@ -200,7 +201,7 @@ impl CustomClient {
         country_acronym: Option<&str>,
     ) -> BotResult<u32> {
         if rank < 1 || 10_000 < rank {
-            Err(CustomClientError::RankIndex(rank))?;
+            return Err(CustomClientError::RankIndex(rank).into());
         }
         let mode = get_mode_str(mode);
         let mut url = format!(
@@ -257,7 +258,7 @@ impl CustomClient {
                     Err(CustomClientError::DataUserId.into())
                 }
             }
-            _ => Err(CustomClientError::DataUserId)?,
+            _ => Err(CustomClientError::DataUserId.into()),
         }
     }
 }

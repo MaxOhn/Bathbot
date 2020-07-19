@@ -83,7 +83,7 @@ impl PPCalculator {
     pub async fn calculate(&mut self, calculations: Calculations) -> BotResult<()> {
         let map_path = match self.map_id {
             Some(map_id) => prepare_beatmap_file(map_id).await?,
-            None => Err(PPError::NoMapId)?,
+            None => return Err(PPError::NoMapId.into()),
         };
         let (pp, max_pp, stars) = tokio::join!(
             calculate_pp(&self, calculations, &map_path),
@@ -158,7 +158,7 @@ async fn calculate_pp(
         GameMode::MNA | GameMode::CTB => {
             let ctx = match data.ctx {
                 Some(ref ctx) => ctx,
-                None => Err(PPError::NoContext(mode))?,
+                None => return Err(PPError::NoContext(mode)),
             };
             let mut cmd = Command::new("dotnet");
             cmd.kill_on_drop(true)
@@ -226,7 +226,7 @@ async fn calculate_max_pp(
         GameMode::MNA | GameMode::CTB => {
             let ctx = match data.ctx {
                 Some(ref ctx) => ctx,
-                None => Err(PPError::NoContext(mode))?,
+                None => return Err(PPError::NoContext(mode)),
             };
             // Is value already stored?
             let mods = data.mods.unwrap_or_default();

@@ -6,7 +6,7 @@ fn main() {
     // Compile oppai
     cc::Build::new()
         .file("oppai-ng/oppai.c")
-        .flag("-w")
+        .warnings(false)
         .define("OPPAI_IMPLEMENTATION", None)
         .compile("oppai");
     // Link to compiled oppai

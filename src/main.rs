@@ -15,7 +15,8 @@ mod util;
 
 use crate::{
     core::{
-        handle_event, logging, BotConfig, BotStats, Cache, ColdRebootData, CommandGroups, Context,
+        handle_event, logging, BackendData, BotConfig, BotStats, Cache, Clients, ColdRebootData,
+        CommandGroups, Context,
     },
     custom_client::CustomClient,
     database::Database,
@@ -69,7 +70,7 @@ async fn async_main() -> BotResult<()> {
     let osu = Osu::new(config.tokens.osu.clone());
 
     // Log custom client into osu!
-    let custom_client = CustomClient::new(&config.tokens.osu_session).await?;
+    let custom = CustomClient::new(&config.tokens.osu_session).await?;
 
     // Prepare twitch client
     let twitch = Twitch::new(&config.tokens.twitch_client_id, &config.tokens.twitch_token).await?;
@@ -95,28 +96,22 @@ async fn async_main() -> BotResult<()> {
     let psql = Database::new(&config.database.postgres).await?;
     let redis = ConnectionPool::create(config.database.redis.clone(), None, 5).await?;
 
-    // Boot everything up
-    run(
-        config,
-        http,
-        bot_user,
+    let clients = Clients {
         psql,
         redis,
         osu,
-        custom_client,
-        twitch,
-    )
-    .await
+        custom,
+    };
+
+    // Boot everything up
+    run(config, http, bot_user, clients, twitch).await
 }
 
 async fn run(
     config: BotConfig,
     http: HttpClient,
     bot_user: CurrentUser,
-    psql: Database,
-    redis: ConnectionPool,
-    osu: Osu,
-    custom_client: CustomClient,
+    clients: Clients,
     twitch: Twitch,
 ) -> BotResult<()> {
     let (shards_per_cluster, total_shards, sharding_scheme) = shard_schema_values()
@@ -133,9 +128,9 @@ async fn run(
             | GatewayIntents::DIRECT_MESSAGE_REACTIONS,
     );
     let stats = Arc::new(BotStats::new());
-    let stored_values = core::StoredValues::new(&psql).await?;
+    let stored_values = core::StoredValues::new(&clients.psql).await?;
 
-    // // Provide stats to locale address
+    // Provide stats to locale address
     // let s = stats.clone();
     // tokio::spawn(async move {
     //     let hello = warp::path!("metrics").map(move || {
@@ -156,7 +151,7 @@ async fn run(
 
     // Check for resume data, pass to builder if present
     {
-        let mut connection = redis.get().await;
+        let mut connection = clients.redis.get().await;
         if let Some(d) = connection.get("cb_cluster_data_0").await.ok().flatten() {
             let cold_cache: ColdRebootData = serde_json::from_str(&*String::from_utf8(d).unwrap())?;
             debug!("ColdRebootData:\n{:#?}", cold_cache);
@@ -176,7 +171,11 @@ async fn run(
                 }
                 let start = Instant::now();
                 let result = cache
-                    .restore_cold_resume(&redis, cold_cache.guild_chunks, cold_cache.user_chunks)
+                    .restore_cold_resume(
+                        &clients.redis,
+                        cold_cache.guild_chunks,
+                        cold_cache.user_chunks,
+                    )
                     .await;
                 match result {
                     Ok(_) => {
@@ -195,21 +194,33 @@ async fn run(
             }
         }
     }
-
-    // Build cluster and create context
     let cluster = Cluster::new(cb.build()).await?;
+
+    // Shard states
+    let shard_states = DashMap::with_capacity(shards_per_cluster as usize);
+    for i in 0..shards_per_cluster {
+        shard_states.insert(i, core::ShardState::PendingCreation);
+    }
+
+    // Tracked streams
+    let tracked_streams = clients.psql.get_stream_tracks().await?;
+
+    let backend = BackendData {
+        cluster,
+        shard_states,
+        total_shards,
+        shards_per_cluster,
+    };
+
+    // Final context
     let ctx = Arc::new(
         Context::new(
             cache,
-            cluster,
             http,
-            psql,
-            redis,
-            osu,
-            custom_client,
+            clients,
+            backend,
             stored_values,
-            total_shards,
-            shards_per_cluster,
+            tracked_streams,
         )
         .await,
     );
@@ -235,7 +246,7 @@ async fn run(
 
     // Spawn twitch worker
     let twitch_ctx = ctx.clone();
-    tokio::spawn(async move {});
+    tokio::spawn(twitch::twitch_loop(twitch_ctx, twitch));
 
     let c = ctx.backend.cluster.clone();
     tokio::spawn(async move {

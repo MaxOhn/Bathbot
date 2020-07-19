@@ -10,7 +10,7 @@ use std::{
 };
 use strfmt::strfmt;
 use tokio::time;
-use twilight::builders::embed::EmbedBuilder;
+use twilight::{builders::embed::EmbedBuilder, model::id::ChannelId};
 
 pub async fn twitch_loop(ctx: Arc<Context>, twitch: Twitch) {
     let mut online_streams = HashSet::new();
@@ -19,8 +19,11 @@ pub async fn twitch_loop(ctx: Arc<Context>, twitch: Twitch) {
         interval.tick().await;
         let now_online = {
             // Get data about what needs to be tracked for which channel
-            let stream_tracks = reading.get::<StreamTracks>().unwrap();
-            let user_ids: Vec<_> = stream_tracks.iter().map(|track| track.user_id).collect();
+            let user_ids: Vec<_> = ctx
+                .tracked_streams
+                .iter()
+                .map(|entry| *entry.key())
+                .collect();
 
             // Get stream data about all streams that need to be tracked
             let mut streams = match twitch.get_streams(&user_ids).await {
@@ -56,7 +59,7 @@ pub async fn twitch_loop(ctx: Arc<Context>, twitch: Twitch) {
                 fmt_data.insert(String::from("height"), String::from("180"));
 
                 // Put streams into a more suitable data type and process the thumbnail url
-                let streams: HashMap<u64, TwitchStream> = streams
+                let streams: Vec<(u64, TwitchStream)> = streams
                     .into_iter()
                     .map(|mut stream| {
                         if let Ok(thumbnail) = strfmt(&stream.thumbnail_url, &fmt_data) {
@@ -66,14 +69,14 @@ pub async fn twitch_loop(ctx: Arc<Context>, twitch: Twitch) {
                     })
                     .collect();
 
-                // Process each tracking by notifying corresponding channels
-                for track in stream_tracks {
-                    if streams.contains_key(&track.user_id) {
-                        let stream = streams.get(&track.user_id).unwrap();
-                        let data =
-                            TwitchNotifEmbed::new(stream, users.get(&stream.user_id).unwrap());
-                        let embed = data.build(EmbedBuilder::new()).build();
-                        match ctx.http.create_message(track.channel_id).embed(embed) {
+                // Process each stream by notifying all corresponding channels
+                for (user, stream) in streams {
+                    let entry = ctx.tracked_streams.get(&user).unwrap();
+                    let data = TwitchNotifEmbed::new(&stream, users.get(&stream.user_id).unwrap());
+                    let embed = data.build(EmbedBuilder::new()).build();
+                    for channel in entry.value() {
+                        let msg_fut = ctx.http.create_message(ChannelId(*channel));
+                        match msg_fut.embed(embed.clone()) {
                             Ok(msg_fut) => {
                                 if let Err(why) = msg_fut.await {
                                     warn!("Error while sending twitch notif: {}", why);

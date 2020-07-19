@@ -36,7 +36,8 @@ pub struct Context {
     pub guilds: DashMap<GuildId, GuildConfig>,
     pub stored_values: StoredValues,
     pub perf_calc_mutex: Mutex<()>,
-    pub tracked_streams: DashMap<String, Vec<u64>>,
+    // Mapping twitch user ids to vec of discord channel ids
+    pub tracked_streams: DashMap<u64, Vec<u64>>,
     pub backend: BackendData,
     pub clients: Clients,
 }
@@ -58,22 +59,13 @@ pub struct BackendData {
 impl Context {
     pub async fn new(
         cache: Cache,
-        cluster: Cluster,
         http: HttpClient,
-        psql: Database,
-        redis: ConnectionPool,
-        osu: Osu,
-        custom_client: CustomClient,
+        clients: Clients,
+        backend: BackendData,
         stored_values: StoredValues,
-        tracked_streams: DashMap<String, Vec<u64>>,
-        total_shards: u64,
-        shards_per_cluster: u64,
+        tracked_streams: DashMap<u64, Vec<u64>>,
     ) -> Self {
-        let shard_states = DashMap::with_capacity(shards_per_cluster as usize);
-        for i in 0..shards_per_cluster {
-            shard_states.insert(i, ShardState::PendingCreation);
-        }
-        let guilds = psql.get_guilds().await.unwrap_or_else(|why| {
+        let guilds = clients.psql.get_guilds().await.unwrap_or_else(|why| {
             error!("Error while getting guild configs: {}", why);
             DashMap::new()
         });
@@ -81,19 +73,7 @@ impl Context {
             .stats
             .shard_counts
             .pending
-            .set(shards_per_cluster as i64);
-        let clients = Clients {
-            psql,
-            redis,
-            osu,
-            custom: custom_client,
-        };
-        let backend = BackendData {
-            cluster,
-            shard_states,
-            total_shards,
-            shards_per_cluster,
-        };
+            .set(backend.shards_per_cluster as i64);
         Context {
             cache,
             http,
