@@ -29,16 +29,16 @@ use scraper::{Html, Node, Selector};
 use serde_json::Value;
 use std::{collections::HashSet, convert::TryFrom, env, fmt::Write, hash::Hash, num::NonZeroU32};
 
-pub struct CustomClient {
-    client: Client,
-    ratelimiter: RateLimiter<Site, DashMapStateStore<Site>, DefaultClock>,
-}
-
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
 enum Site {
     OsuWebsite,
     OsuStats,
     OsuHiddenApi,
+}
+
+pub struct CustomClient {
+    client: Client,
+    ratelimiter: RateLimiter<Site, DashMapStateStore<Site>, DefaultClock>,
 }
 
 impl CustomClient {

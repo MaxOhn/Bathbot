@@ -10,7 +10,7 @@ mod database;
 mod embeds;
 mod pagination;
 mod pp;
-mod roppai;
+mod twitch;
 mod util;
 
 use crate::{
@@ -19,6 +19,7 @@ use crate::{
     },
     custom_client::CustomClient,
     database::Database,
+    twitch::Twitch,
     util::error::Error,
 };
 
@@ -70,6 +71,9 @@ async fn async_main() -> BotResult<()> {
     // Log custom client into osu!
     let custom_client = CustomClient::new(&config.tokens.osu_session).await?;
 
+    // Prepare twitch client
+    let twitch = Twitch::new(&config.tokens.twitch_client_id, &config.tokens.twitch_token).await?;
+
     // Connect to the discord http client
     let mut builder = HttpClient::builder();
     builder
@@ -92,7 +96,17 @@ async fn async_main() -> BotResult<()> {
     let redis = ConnectionPool::create(config.database.redis.clone(), None, 5).await?;
 
     // Boot everything up
-    run(config, http, bot_user, psql, redis, osu, custom_client).await
+    run(
+        config,
+        http,
+        bot_user,
+        psql,
+        redis,
+        osu,
+        custom_client,
+        twitch,
+    )
+    .await
 }
 
 async fn run(
@@ -103,6 +117,7 @@ async fn run(
     redis: ConnectionPool,
     osu: Osu,
     custom_client: CustomClient,
+    twitch: Twitch,
 ) -> BotResult<()> {
     let (shards_per_cluster, total_shards, sharding_scheme) = shard_schema_values()
         .map_or((1, 1, ShardScheme::Auto), |(to, total)| {
@@ -217,6 +232,10 @@ async fn run(
         process::exit(0);
     })
     .map_err(|why| format_err!("Failed to register shutdown handler: {}", why))?;
+
+    // Spawn twitch worker
+    let twitch_ctx = ctx.clone();
+    tokio::spawn(async move {});
 
     let c = ctx.backend.cluster.clone();
     tokio::spawn(async move {

@@ -36,6 +36,7 @@ pub struct Context {
     pub guilds: DashMap<GuildId, GuildConfig>,
     pub stored_values: StoredValues,
     pub perf_calc_mutex: Mutex<()>,
+    pub tracked_streams: DashMap<String, Vec<u64>>,
     pub backend: BackendData,
     pub clients: Clients,
 }
@@ -45,7 +46,6 @@ pub struct Clients {
     pub redis: ConnectionPool,
     pub osu: Osu,
     pub custom: CustomClient,
-    // pub twitch: Twitch,
 }
 
 pub struct BackendData {
@@ -65,6 +65,7 @@ impl Context {
         osu: Osu,
         custom_client: CustomClient,
         stored_values: StoredValues,
+        tracked_streams: DashMap<String, Vec<u64>>,
         total_shards: u64,
         shards_per_cluster: u64,
     ) -> Self {
@@ -101,6 +102,7 @@ impl Context {
             clients,
             backend,
             stored_values,
+            tracked_streams,
             perf_calc_mutex: Mutex::new(()),
         }
     }
@@ -142,6 +144,7 @@ impl Context {
             shard_count: self.backend.shards_per_cluster,
             user_chunks,
         };
+        // TODO: remove 0 from redis name
         connection
             .set_and_expire_seconds(
                 "cb_cluster_data_0",

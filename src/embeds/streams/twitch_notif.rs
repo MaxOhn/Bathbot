@@ -1,7 +1,7 @@
 use crate::{
     embeds::{Author, EmbedData},
-    streams::{TwitchStream, TwitchUser},
-    util::globals::TWITCH_BASE,
+    twitch::{TwitchStream, TwitchUser},
+    util::constants::TWITCH_BASE,
 };
 
 #[derive(Clone)]

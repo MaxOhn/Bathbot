@@ -24,6 +24,7 @@ impl Database {
 
     pub async fn get_twitch_users(&self, user_ids: &[u64]) -> BotResult<HashMap<String, u64>> {
         // TODO: Check how long twitch ids are
+        // TODO: Reform HashMap
         let query = String::from("SELECT * FROM twitch_users WHERE user_id IN").in_clause(user_ids);
         let users = sqlx::query(&query)
             .fetch_all(&self.pool)

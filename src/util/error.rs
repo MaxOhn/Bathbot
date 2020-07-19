@@ -1,8 +1,8 @@
-use crate::roppai::OppaiErr;
+use crate::pp::roppai::OppaiErr;
 
 use chrono::format::ParseError as ChronoParseError;
 use darkredis::Error as RedisError;
-use reqwest::Error as ReqwestError;
+use reqwest::{header::InvalidHeaderValue, Error as ReqwestError};
 use rosu::{models::GameMode, OsuError};
 use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
@@ -53,6 +53,7 @@ pub enum Error {
     Serde(SerdeJsonError),
     TwilightHttp(HttpError),
     TwilightCluster(ClusterError),
+    Twitch(TwitchError),
     UpdateMessage(UpdateMessageError),
 }
 
@@ -94,6 +95,7 @@ impl fmt::Display for Error {
             Self::Serde(e) => write!(f, "serde error: {}", e),
             Self::TwilightHttp(e) => write!(f, "error while making discord request: {}", e),
             Self::TwilightCluster(e) => write!(f, "error occurred on cluster request: {}", e),
+            Self::Twitch(e) => write!(f, "twitch error: {}", e),
             Self::UpdateMessage(e) => {
                 f.write_str("error while updating message: ")?;
                 if let UpdateMessageError::EmbedTooLarge { source } = e {
@@ -180,6 +182,12 @@ impl From<HttpError> for Error {
 impl From<ClusterError> for Error {
     fn from(e: ClusterError) -> Self {
         Error::TwilightCluster(e)
+    }
+}
+
+impl From<TwitchError> for Error {
+    fn from(e: TwitchError) -> Self {
+        Error::Twitch(e)
     }
 }
 
@@ -277,3 +285,44 @@ impl fmt::Display for CustomClientError {
 }
 
 impl error::Error for CustomClientError {}
+
+#[derive(Debug)]
+pub enum TwitchError {
+    InvalidAuth(SerdeJsonError),
+    InvalidHeader(InvalidHeaderValue),
+    NoUserResult(String),
+    Reqwest(ReqwestError),
+    Serde(SerdeJsonError),
+}
+
+impl fmt::Display for TwitchError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::InvalidAuth(e) => write!(f, "invalid auth response: {}", e),
+            Self::InvalidHeader(e) => write!(f, "invalid client id: {}", e),
+            Self::NoUserResult(n) => write!(f, "no result for name `{}`", n),
+            Self::Reqwest(e) => write!(f, "reqwest error: {}", e),
+            Self::Serde(e) => write!(f, "error while deserializing: {}", e),
+        }
+    }
+}
+
+impl From<InvalidHeaderValue> for TwitchError {
+    fn from(e: InvalidHeaderValue) -> Self {
+        Self::InvalidHeader(e)
+    }
+}
+
+impl From<ReqwestError> for TwitchError {
+    fn from(e: ReqwestError) -> Self {
+        Self::Reqwest(e)
+    }
+}
+
+impl From<SerdeJsonError> for TwitchError {
+    fn from(e: SerdeJsonError) -> Self {
+        Self::Serde(e)
+    }
+}
+
+impl error::Error for TwitchError {}

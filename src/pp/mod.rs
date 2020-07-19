@@ -1,5 +1,8 @@
+pub mod roppai;
+
+use roppai::Oppai;
+
 use crate::{
-    roppai::Oppai,
     util::{error::PPError, osu::prepare_beatmap_file, BeatmapExt, ScoreExt},
     BotResult, Context,
 };
