@@ -1,5 +1,5 @@
 use crate::{
-    // arguments::SimulateArgs,
+    arguments::SimulateArgs,
     embeds::{osu, EmbedData, Footer},
     pp::{Calculations, PPCalculator},
     util::{
@@ -8,8 +8,7 @@ use crate::{
         osu::unchoke_score,
         ScoreExt,
     },
-    BotResult,
-    Context,
+    BotResult, Context,
 };
 
 use rosu::models::{Beatmap, GameMode, GameMods, Score};
@@ -182,7 +181,7 @@ impl EmbedData for SimulateEmbed {
         fields.push(("Map Info".to_owned(), self.map_info.clone(), false));
         Some(fields)
     }
-    fn minimize(&self, mut e: EmbedBuilder) -> EmbedBuilder {
+    fn minimize(&self, e: EmbedBuilder) -> EmbedBuilder {
         let mut value = if let Some(prev_pp) = self.prev_pp {
             format!("{} → {} {}", prev_pp, self.pp, self.hits)
         } else {

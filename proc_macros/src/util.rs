@@ -1,15 +1,12 @@
-use crate::CommandFun;
-
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
 use syn::{
     parenthesized,
     parse::{Parse, ParseStream, Result},
-    parse_quote,
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Comma, Mut},
-    Ident, Lifetime, Lit, Stmt, Type,
+    Ident, Lifetime, Lit, Type,
 };
 
 macro_rules! propagate_err {
@@ -115,34 +112,34 @@ impl<T> Default for AsOption<T> {
     }
 }
 
-#[inline]
-fn validation_stmt(actual: &Type, intended: &Type) -> Stmt {
-    parse_quote! {
-        static_assertions::assert_type_eq_all!(#actual, #intended);
-    }
-}
+// #[inline]
+// fn validation_stmt(actual: &Type, intended: &Type) -> Stmt {
+//     parse_quote! {
+//         static_assertions::assert_type_eq_all!(#actual, #intended);
+//     }
+// }
 
-pub fn create_declaration_validations(fun: &mut CommandFun) {
-    if fun.args.len() != 2 {
-        panic!("command function requires ctx and msg as arguments");
-    }
+// pub fn create_declaration_validations(fun: &mut CommandFun) {
+//     if fun.args.len() != 2 {
+//         panic!("command function requires ctx and msg as arguments");
+//     }
 
-    let intended_types: Vec<Type> = vec![
-        parse_quote!(std::sync::Arc<crate::Context>), // first arg
-        parse_quote!(&twilight::model::channel::Message), // second arg
-        parse_quote!(crate::BotResult<()>),           // return value
-    ];
-    let validations = fun
-        .args
-        .iter()
-        .map(|arg| &arg.kind)
-        .chain(std::iter::once(&fun.ret))
-        .zip(intended_types.iter())
-        .map(|(actual, intended)| validation_stmt(actual, intended));
-    for validation in validations {
-        fun.body.insert(0, validation);
-    }
-}
+//     let intended_types: Vec<Type> = vec![
+//         parse_quote!(std::sync::Arc<crate::Context>), // first arg
+//         parse_quote!(&twilight::model::channel::Message), // second arg
+//         parse_quote!(crate::BotResult<()>),           // return value
+//     ];
+//     let validations = fun
+//         .args
+//         .iter()
+//         .map(|arg| &arg.kind)
+//         .chain(std::iter::once(&fun.ret))
+//         .zip(intended_types.iter())
+//         .map(|(actual, intended)| validation_stmt(actual, intended));
+//     for validation in validations {
+//         fun.body.insert(0, validation);
+//     }
+// }
 
 #[inline]
 pub fn populate_fut_lifetimes_on_refs(args: &mut Vec<Argument>) {

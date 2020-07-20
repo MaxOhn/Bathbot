@@ -5,6 +5,7 @@ use quote::{quote, ToTokens};
 use syn::{
     braced,
     parse::{Error, Parse, ParseStream, Result},
+    parse_quote,
     spanned::Spanned,
     Attribute, Block, FnArg, Ident, Pat, ReturnType, Stmt, Token, Type, Visibility,
 };
@@ -39,16 +40,37 @@ impl Parse for CommandFun {
         // name
         let name = input.parse::<Ident>()?;
 
-        // (...)
+        // (_: Arc<Context>, _: &Message)
         let Parenthesised(args) = input.parse::<Parenthesised<FnArg>>()?;
         let args = args
             .into_iter()
             .map(parse_argument)
             .collect::<Result<Vec<_>>>()?;
+        let mut iter = args.iter();
+        let valid = match iter.next() {
+            Some(arg) => &arg.kind == &parse_quote! { Arc<Context> },
+            None => false,
+        };
+        if !valid {
+            return Err(input.error("expected first argument of type `Arc<Context>`"));
+        }
+        let valid = match iter.next() {
+            Some(arg) => &arg.kind == &parse_quote! { &Message },
+            None => false,
+        };
+        if !valid {
+            return Err(input.error("expected second argument of type `&Message`"));
+        }
 
-        // -> ...
+        // -> BotResult<()>
         let ret = match input.parse::<ReturnType>()? {
-            ReturnType::Type(_, t) => (*t).clone(),
+            ReturnType::Type(_, t) => {
+                if &t == &parse_quote! { BotResult<()> } {
+                    *t
+                } else {
+                    return Err(input.error("expected return type `BotResult<()>`"));
+                }
+            }
             ReturnType::Default => return Err(input.error("expected a return value")),
         };
 

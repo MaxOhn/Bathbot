@@ -107,10 +107,10 @@ async fn send_help_chunk(
 
 pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotResult<()> {
     let name = cmd.names[0];
-    let mut eb = EmbedBuilder::new().color(DARK_GREEN).title(name);
-    if let Some(description) = cmd.long_desc {
-        eb = eb.description(description);
-    }
+    let mut eb = EmbedBuilder::new()
+        .color(DARK_GREEN)
+        .title(name)
+        .description(cmd.long_desc.unwrap_or(cmd.short_desc));
     if let Some(usage) = cmd.usage {
         eb = eb.add_field("How to use", usage).inline().commit();
     }

@@ -8,7 +8,7 @@ pub mod logging;
 mod stats;
 mod stored_values;
 
-pub use cache::{Cache, CachedEmoji};
+pub use cache::{Cache, CachedEmoji, CachedUser};
 pub use cold_resume::ColdRebootData;
 pub use commands::{Command, CommandGroup, CommandGroups};
 pub use config::BotConfig;

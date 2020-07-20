@@ -106,11 +106,11 @@ impl Oppai {
         match unsafe { ezpp(self.ezpp, file_content.as_ptr() as *mut _) } {
             code if code < 0 => {
                 let raw = unsafe { errstr(code) };
-                let msg = unsafe { CStr::from_ptr(raw) }.to_str().or_else(|why| {
-                    Err(OppaiErr::Binding(format!(
+                let msg = unsafe { CStr::from_ptr(raw) }.to_str().map_err(|why| {
+                    OppaiErr::Binding(format!(
                         "Error while transforming CString error msg into String: {}",
                         why
-                    )))
+                    ))
                 })?;
                 Err(OppaiErr::new(code, msg))
             }

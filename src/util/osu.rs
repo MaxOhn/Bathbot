@@ -12,6 +12,13 @@ use std::{env, path::Path, sync::Arc};
 use tokio::{fs::File, io::AsyncWriteExt};
 use twilight::model::id::EmojiId;
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ModSelection {
+    Include,
+    Exclude,
+    Exact,
+}
+
 pub fn grade_emote(grade: Grade, ctx: &Context) -> Arc<CachedEmoji> {
     let emoji_id = match grade {
         Grade::XH => EmojiId(EMOTE_XH_ID),

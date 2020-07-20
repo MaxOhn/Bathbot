@@ -14,6 +14,7 @@ pub struct CachedUser {
     #[serde(rename = "u")]
     pub username: String,
     #[serde(rename = "d")]
+    // TODO: Store as u16
     pub discriminator: String,
     #[serde(rename = "a", default, skip_serializing_if = "is_default")]
     pub avatar: Option<String>,

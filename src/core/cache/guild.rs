@@ -5,9 +5,12 @@ use crate::core::cache::{
 
 use dashmap::{DashMap, ElementGuard};
 use serde::{Deserialize, Serialize};
-use std::sync::{
-    atomic::{AtomicBool, AtomicU64, Ordering},
-    Arc,
+use std::{
+    str::FromStr,
+    sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc,
+    },
 };
 use twilight::model::{
     guild::{DefaultMessageNotificationLevel, Guild, PartialGuild, PremiumTier, VerificationLevel},
@@ -24,7 +27,7 @@ pub struct CachedGuild {
     pub discovery_splash: Option<String>,
     pub owner_id: UserId,
     pub region: String,
-    //can technically be an enum but that will fail as soon as they add a new region
+    // can technically be an enum but that will fail as soon as they add a new region
     pub afk_channel_id: Option<ChannelId>,
     pub afk_timeout: u64,
     pub verification_level: VerificationLevel,
@@ -32,13 +35,13 @@ pub struct CachedGuild {
     pub roles: DashMap<RoleId, Arc<CachedRole>>,
     pub emoji: Vec<Arc<CachedEmoji>>,
     pub features: Vec<String>,
-    //same as region, will cause issues when they add one
+    // same as region, will cause issues when they add one
     pub unavailable: bool,
     pub members: DashMap<UserId, Arc<CachedMember>>,
     pub channels: DashMap<ChannelId, Arc<CachedChannel>>,
-    //use our own version, easier to work with then twilight's enum
+    // use our own version, easier to work with then twilight's enum
     pub max_presences: Option<u64>,
-    //defaults to 25000 if null in the guild create
+    // defaults to 25000 if null in the guild create
     pub max_members: Option<u64>,
     // should always be present in guild create, but option just in case
     pub description: Option<String>,
@@ -47,9 +50,9 @@ pub struct CachedGuild {
     pub premium_subscription_count: u64,
     pub preferred_locale: String,
 
-    //own fields
+    // own fields
     pub complete: AtomicBool,
-    pub member_count: AtomicU64, //own field because we do not rely on the guild create info for this but rather the
+    pub member_count: AtomicU64,
 }
 
 impl From<Guild> for CachedGuild {
@@ -192,6 +195,41 @@ impl CachedGuild {
             guild.channels.insert(guard.get_id(), guard.value().clone());
         }
         guild
+    }
+
+    pub fn member_named(&self, name: &str) -> Option<Arc<CachedMember>> {
+        let (name, discrim) = if let Some(pos) = name.rfind('#') {
+            let split = name.split_at(pos + 1);
+            let split2 = (
+                match split.0.get(0..split.0.len() - 1) {
+                    Some(s) => s,
+                    None => "",
+                },
+                split.1,
+            );
+            match split2.1.parse::<u16>() {
+                Ok(discrim_int) => (split2.0, Some(discrim_int)),
+                Err(_) => (name, None),
+            }
+        } else {
+            (&name[..], None)
+        };
+        let mut nick = None;
+        for guard in &self.members {
+            let member = guard.value();
+            let name_matches = &member.user.username == name;
+            let discrim_matches = match discrim {
+                Some(discrim) => u16::from_str(&member.user.discriminator).unwrap() == discrim,
+                None => true,
+            };
+            if name_matches && discrim_matches {
+                return Some(member.clone());
+            }
+            if nick.is_none() && member.nickname.as_ref().map_or(false, |nick| nick == name) {
+                nick = Some(member.clone());
+            }
+        }
+        nick
     }
 }
 

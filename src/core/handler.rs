@@ -4,17 +4,21 @@ use crate::{
     BotResult, Error,
 };
 
-use std::{borrow::Cow, ops::Deref, sync::Arc};
+use std::{
+    borrow::Cow,
+    ops::{Deref, DerefMut},
+    sync::Arc,
+};
 use twilight::gateway::Event;
 use uwl::Stream;
 
 pub async fn handle_event(
     shard_id: u64,
-    event: &Event,
+    event: Event,
     ctx: Arc<Context>,
     cmds: Arc<CommandGroups>,
 ) -> BotResult<()> {
-    match &event {
+    match event {
         // ####################
         // ## Gateway status ##
         // ####################
@@ -24,7 +28,7 @@ pub async fn handle_event(
         Event::Resumed => info!("Shard {} successfully resumed", shard_id),
         Event::GatewayReconnect => info!("Gateway requested shard {} to reconnect", shard_id),
         Event::GatewayInvalidateSession(recon) => {
-            if *recon {
+            if recon {
                 warn!(
                     "Gateway has invalidated session for shard {}, but its reconnectable",
                     shard_id
@@ -40,8 +44,8 @@ pub async fn handle_event(
         // ###########
         // ## Other ##
         // ###########
-        Event::MessageCreate(msg) => {
-            ctx.cache.stats.new_message(&ctx, msg);
+        Event::MessageCreate(mut msg) => {
+            ctx.cache.stats.new_message(&ctx, msg.deref());
             if msg.author.bot || msg.webhook_id.is_some() {
                 return Ok(());
             }
@@ -56,14 +60,19 @@ pub async fn handle_event(
                 None => vec!["<".to_owned(), "!!".to_owned()],
             };
 
-            let mut stream = Stream::new(&msg.content);
-            stream.take_while_char(|c| c.is_whitespace());
-            if !(find_prefix(&prefixes, &mut stream) || msg.guild_id.is_none()) {
-                return Ok(());
-            }
-            stream.take_while_char(|c| c.is_whitespace());
-            let invoke = parse_invoke(&mut stream, &cmds);
-            let msg = msg.deref();
+            let (invoke, content) = {
+                let mut stream = Stream::new(&msg.content);
+                stream.take_while_char(|c| c.is_whitespace());
+                if !(find_prefix(&prefixes, &mut stream) || msg.guild_id.is_none()) {
+                    return Ok(());
+                }
+                stream.take_while_char(|c| c.is_whitespace());
+                let invoke = parse_invoke(&mut stream, &cmds);
+                let content = stream.rest().to_owned();
+                (invoke, content)
+            };
+            let msg = msg.deref_mut();
+            msg.content = content;
             let command_result = match &invoke {
                 Invoke::Command(cmd) => (cmd.fun)(ctx.clone(), msg).await,
                 Invoke::SubCommand { sub, .. } => (sub.fun)(ctx.clone(), msg).await,

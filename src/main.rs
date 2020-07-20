@@ -3,6 +3,7 @@
 
 // TODO: Use emotes from config
 
+mod arguments;
 mod commands;
 mod core;
 mod custom_client;
@@ -257,17 +258,13 @@ async fn run(
     let cmd_groups = Arc::new(CommandGroups::new());
     while let Some(event) = bot_events.next().await {
         let (shard, event) = event;
-        debug!("Got event, updating stats...");
         ctx.update_stats(shard, &event);
-        debug!("Updating cache...");
         ctx.cache.update(shard, &event, ctx.clone()).await?;
-        debug!("Updating standby...");
         ctx.standby.process(&event);
-        debug!("Pre-event handling done");
         let c = ctx.clone();
         let cmds = cmd_groups.clone();
         tokio::spawn(async move {
-            if let Err(why) = handle_event(shard, &event, c, cmds).await {
+            if let Err(why) = handle_event(shard, event, c, cmds).await {
                 error!("Error while handling event: {}", why);
             }
         });

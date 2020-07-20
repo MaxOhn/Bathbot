@@ -11,7 +11,7 @@ mod rank;
 mod ratio;
 mod recent;
 mod scores;
-// mod simulate;
+mod simulate;
 mod top;
 mod whatif;
 
@@ -28,7 +28,7 @@ pub use rank::RankEmbed;
 pub use ratio::RatioEmbed;
 pub use recent::RecentEmbed;
 pub use scores::ScoresEmbed;
-// pub use simulate::SimulateEmbed;
+pub use simulate::SimulateEmbed;
 pub use top::TopEmbed;
 pub use whatif::WhatIfEmbed;
 

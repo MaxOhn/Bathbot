@@ -1,17 +1,17 @@
 use crate::{
+    custom_client::OsuStatsScore,
     embeds::{osu, Author, EmbedData, Footer},
-    scraper::OsuStatsScore,
+    pp::{Calculations, PPCalculator},
     util::{
+        constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
         discord::CacheData,
-        globals::{AVATAR_URL, HOMEPAGE},
-        numbers::with_comma_u64,
-        osu::grade_emote,
-        pp::{Calculations, PPCalculator},
+        numbers::with_comma_int,
+        osu, ScoreExt,
     },
+    BotResult, Context,
 };
 
-use failure::Error;
 use rosu::models::User;
 use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 
@@ -29,8 +29,8 @@ impl OsuStatsGlobalsEmbed {
         scores: &BTreeMap<usize, OsuStatsScore>,
         total: usize,
         pages: (usize, usize),
-        cache_data: D,
-    ) -> Result<Self, Error>
+        ctx: Arc<Context>,
+    ) -> BotResult<Self>
     where
         D: CacheData,
     {
@@ -51,7 +51,7 @@ impl OsuStatsGlobalsEmbed {
             let mut calculator = PPCalculator::new()
                 .score(score)
                 .map(&score.map)
-                .data(Arc::clone(cache_data.data()));
+                .ctx(ctx.clone());
             calculator.calculate(calculations).await?;
             let stars = osu::get_stars(calculator.stars().unwrap());
             let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
@@ -69,16 +69,16 @@ impl OsuStatsGlobalsEmbed {
                 rank = score.position,
                 title = score.map.title,
                 version = score.map.version,
-                base = HOMEPAGE,
+                base = OSU_BASE,
                 id = score.map.beatmap_id,
                 mods = osu::get_mods(score.enabled_mods),
                 stars = stars,
                 grade = grade,
                 pp = pp,
                 acc = score.accuracy,
-                score = with_comma_u64(score.score as u64),
+                score = with_comma_int(score.score),
                 combo = combo,
-                hits = osu::get_hits(score, score.map.mode),
+                hits = score.hits_string(score.map.mode),
                 ago = how_long_ago(&score.date)
             );
         }
