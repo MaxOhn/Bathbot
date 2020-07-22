@@ -10,6 +10,7 @@ use std::{
     sync::Arc,
 };
 use twilight::gateway::Event;
+use twilight::model::id::RoleId;
 use uwl::Stream;
 
 pub async fn handle_event(
@@ -41,9 +42,42 @@ pub async fn handle_event(
             debug!("Registered with gateway {} on shard {}", u, shard_id);
         }
 
-        // ###########
-        // ## Other ##
-        // ###########
+        // ##############
+        // ## Reaction ##
+        // ##############
+        Event::ReactionAdd(reaction_add) => {
+            let reaction = reaction_add.0;
+            if let Some(guild_id) = reaction.guild_id {
+                let key = (reaction.channel_id.0, reaction.message_id.0);
+                if let Some(guard) = ctx.role_assigns.get(&key) {
+                    let role_id = RoleId(*guard.value());
+                    if let Err(why) = ctx.http.add_role(guild_id, reaction.user_id, role_id).await {
+                        error!("Error while assigning react-role to user: {}", why);
+                    }
+                }
+            }
+        }
+
+        Event::ReactionRemove(reaction_remove) => {
+            let reaction = reaction_remove.0;
+            if let Some(guild_id) = reaction.guild_id {
+                let key = (reaction.channel_id.0, reaction.message_id.0);
+                if let Some(guard) = ctx.role_assigns.get(&key) {
+                    let role_id = RoleId(*guard.value());
+                    if let Err(why) = ctx
+                        .http
+                        .remove_guild_member_role(guild_id, reaction.user_id, role_id)
+                        .await
+                    {
+                        error!("Error while removing react-role from user: {}", why);
+                    }
+                }
+            }
+        }
+
+        // #############
+        // ## Message ##
+        // #############
         Event::MessageCreate(mut msg) => {
             ctx.cache.stats.new_message(&ctx, msg.deref());
             if msg.author.bot || msg.webhook_id.is_some() {

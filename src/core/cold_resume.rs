@@ -34,8 +34,6 @@ impl Cache {
         self.guild_channels.clear();
         // We do not want to drag along DM channels, we get guild creates for them when they send a message anyways
         self.private_channels.clear();
-        let mut tasks = vec![];
-        let mut user_tasks = vec![];
         // Collect their work first before they start sabotaging each other again >.>
         let mut work_orders: Vec<Vec<GuildId>> = vec![];
         let mut count = 0;
@@ -54,22 +52,26 @@ impl Cache {
             work_orders.push(list)
         }
         debug!("Freezing {} guilds", self.stats.guild_counts.loaded.get());
-        for (i, order) in work_orders.iter().enumerate() {
-            tasks.push(self._prepare_cold_resume_guild(redis, order.clone(), i));
-        }
+        let tasks: Vec<_> = work_orders
+            .into_iter()
+            .enumerate()
+            .map(|(i, order)| self._prepare_cold_resume_guild(redis, order, i))
+            .collect();
         let guild_chunks = tasks.len();
         future::join_all(tasks).await;
         count = 0;
         let user_chunks = (self.users.len() / 100_000 + 1) as usize;
-        let mut user_work_orders: Vec<Vec<UserId>> = vec![vec![]; user_chunks];
+        let mut user_work_orders: Vec<Vec<UserId>> = vec![Vec::with_capacity(50_000); user_chunks];
         for guard in self.users.iter() {
             user_work_orders[count % user_chunks].push(*guard.key());
             count += 1;
         }
         debug!("Freezing {} users", self.users.len());
-        for (i, chunk) in user_work_orders.iter().enumerate().take(user_chunks) {
-            user_tasks.push(self._prepare_cold_resume_user(redis, chunk.clone(), i));
-        }
+        let user_tasks: Vec<_> = user_work_orders
+            .into_iter()
+            .enumerate()
+            .map(|(i, chunk)| self._prepare_cold_resume_user(redis, chunk, i))
+            .collect();
         future::join_all(user_tasks).await;
         self.users.clear();
         (guild_chunks, user_chunks)
@@ -89,17 +91,26 @@ impl Cache {
         let mut connection = redis.get().await;
         let mut to_dump = Vec::with_capacity(todo.len());
         for key in todo {
+            debug!("[take_removing key {}]", key);
             let g = self.guilds.remove_take(&key).unwrap();
+            debug!("[got entry]");
             to_dump.push(ColdStorageGuild::from(g));
         }
+        debug!("[got to_dump]");
         let serialized = serde_json::to_string(&to_dump).unwrap();
-        connection
+        let dump_task = connection
             .set_and_expire_seconds(
                 format!("cb_cluster_{}_guild_chunk_{}", self.cluster_id, index),
                 serialized,
-                300,
+                180,
             )
-            .await?;
+            .await;
+        if let Err(why) = dump_task {
+            debug!(
+                "Error while setting redis' `cb_cluster_{}_guild_chunk_{}`: {}",
+                self.cluster_id, index, why
+            );
+        }
         Ok(())
     }
 
@@ -126,13 +137,19 @@ impl Cache {
             });
         }
         let serialized = serde_json::to_string(&chunk).unwrap();
-        connection
+        let worker_task = connection
             .set_and_expire_seconds(
                 format!("cb_cluster_{}_user_chunk_{}", self.cluster_id, index),
                 serialized,
-                300,
+                180,
             )
-            .await?;
+            .await;
+        if let Err(why) = worker_task {
+            debug!(
+                "Error while setting redis' `cb_cluster_{}_user_chunk_{}`: {}",
+                self.cluster_id, index, why
+            );
+        }
         Ok(())
     }
 

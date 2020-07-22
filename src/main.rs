@@ -257,15 +257,16 @@ async fn run(
     })
     .map_err(|why| format_err!("Failed to register shutdown handler: {}", why))?;
 
-    // Spawn twitch worker
-    let twitch_ctx = ctx.clone();
-    tokio::spawn(twitch::twitch_loop(twitch_ctx, twitch));
-
     let c = ctx.backend.cluster.clone();
     tokio::spawn(async move {
         time::delay_for(Duration::from_secs(1)).await;
         c.up().await;
     });
+
+    // Spawn twitch worker
+    let twitch_ctx = ctx.clone();
+    tokio::spawn(twitch::twitch_loop(twitch_ctx, twitch));
+
     let mut bot_events = ctx.backend.cluster.events().await;
     let cmd_groups = Arc::new(CommandGroups::new());
     while let Some(event) = bot_events.next().await {

@@ -94,20 +94,22 @@ impl Context {
     }
 
     pub async fn initiate_cold_resume(&self) -> BotResult<()> {
-        // Preparing for update rollout, set status to atleast give some indication to users
         info!("Preparing for cold resume");
-        self.set_cluster_activity(
-            Status::Idle,
-            ActivityType::Watching,
-            String::from("update deployment, replies might be delayed"),
-        )
-        .await?;
+        let activity_result = self
+            .set_cluster_activity(
+                Status::Idle,
+                ActivityType::Watching,
+                String::from("deploying update, replies might be delayed"),
+            )
+            .await;
+        if let Err(why) = activity_result {
+            debug!("Error while updating activity for cold resume: {}", why);
+        }
         let start = Instant::now();
         let mut connection = self.clients.redis.get().await;
 
-        //kill the shards and get their resume info
-        //DANGER: WE WILL NOT BE GETTING EVENTS FROM THIS POINT ONWARDS, REBOOT REQUIRED
-
+        // Kill the shards and get their resume info
+        // DANGER: WE WILL NOT BE GETTING EVENTS FROM THIS POINT ONWARDS, REBOOT REQUIRED
         let resume_data = self.backend.cluster.down_resumable().await;
         let (guild_chunks, user_chunks) = self.cache.prepare_cold_resume(&self.clients.redis).await;
 
@@ -130,12 +132,12 @@ impl Context {
             .set_and_expire_seconds(
                 "cb_cluster_data_0",
                 &serde_json::to_value(data).unwrap().to_string().into_bytes(),
-                300,
+                180,
             )
             .await
             .unwrap();
         let end = Instant::now();
-        debug!(
+        info!(
             "Cold resume preparations completed in {}ms",
             (end - start).as_millis()
         );
@@ -156,7 +158,7 @@ impl Context {
             psql.insert_ctb_stars(ctb_stars),
         )?;
         let end = Instant::now();
-        debug!(
+        info!(
             "Stored {} pp and {} star values in {}ms",
             mania_pp + ctb_pp,
             mania_stars + ctb_stars,
