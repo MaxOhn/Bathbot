@@ -1,13 +1,16 @@
 pub mod bg_game;
 pub mod constants;
 pub mod datetime;
+#[macro_use]
 pub mod error;
 pub mod exts;
 pub mod matcher;
 pub mod numbers;
 pub mod osu;
+mod safe_content;
 
 pub use exts::*;
+pub use safe_content::content_safe;
 
 pub fn levenshtein_distance(word_a: &str, word_b: &str) -> usize {
     let (word_a, word_b) = if word_a.chars().count() > word_b.chars().count() {

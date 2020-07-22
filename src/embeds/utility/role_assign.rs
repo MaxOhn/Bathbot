@@ -1,13 +1,8 @@
-use crate::embeds::EmbedData;
+use crate::{embeds::EmbedData, util::content_safe, Context};
 
-use serenity::{
-    cache::Cache,
-    model::{
-        channel::Message,
-        id::{GuildId, RoleId},
-        misc::Mentionable,
-    },
-    utils::{content_safe, ContentSafeOptions},
+use twilight::model::{
+    channel::Message,
+    id::{GuildId, RoleId},
 };
 
 #[derive(Clone)]
@@ -16,19 +11,21 @@ pub struct RoleAssignEmbed {
 }
 
 impl RoleAssignEmbed {
-    pub async fn new(msg: Message, guild: GuildId, role: RoleId, cache: &Cache) -> Self {
+    pub async fn new(ctx: &Context, msg: Message, guild: GuildId, role: RoleId) -> Self {
+        let mut content = msg.content.clone();
+        content_safe(ctx, &mut content, Some(guild));
         let description = format!(
-            "Whoever reacts to {author}'s [message]\
+            "Whoever reacts to @{author}'s [message]\
             (https://discordapp.com/channels/{guild}/{channel}/{msg})\n\
             ```\n{content}\n```\n\
-            in {channel_mention} will be assigned the {role_mention} role!",
-            author = msg.author.mention(),
+            in #{channel_mention} will be assigned the @{role_mention} role!",
+            author = msg.author.id,
             guild = guild,
             channel = msg.channel_id,
             msg = msg.id,
-            content = content_safe(cache, &msg.content, &ContentSafeOptions::default()).await,
-            channel_mention = msg.channel_id.mention(),
-            role_mention = role.mention(),
+            content = content,
+            channel_mention = msg.channel_id,
+            role_mention = role,
         );
         Self { description }
     }

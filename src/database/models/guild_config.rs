@@ -3,7 +3,7 @@ use serde_json::Value;
 use sqlx::{postgres::PgRow, types::Json, Error, FromRow, Row};
 use std::ops::Deref;
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct GuildConfig {
     pub with_lyrics: bool,
     pub prefixes: Vec<String>,

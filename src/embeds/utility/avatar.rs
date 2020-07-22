@@ -1,4 +1,6 @@
-use crate::{commands::utility::AvatarUser, embeds::EmbedData};
+use crate::{embeds::EmbedData, util::constants::AVATAR_URL};
+
+use rosu::models::User;
 
 #[derive(Clone)]
 pub struct AvatarEmbed {
@@ -8,20 +10,13 @@ pub struct AvatarEmbed {
 }
 
 impl AvatarEmbed {
-    pub fn new(user: AvatarUser) -> Self {
-        let title_text = format!(
-            "{}'s {} avatar:",
-            user.name(),
-            if let AvatarUser::Discord { .. } = user {
-                "discord"
-            } else {
-                "osu!"
-            }
-        );
+    pub fn new(user: User) -> Self {
+        let title_text = "{}'s osu! avatar:".to_owned();
+        let url = format!("{}{}", AVATAR_URL, user.user_id);
         Self {
             title: title_text,
-            url: user.url().to_string(),
-            image: user.url().to_string(),
+            image: url.clone(),
+            url,
         }
     }
 }

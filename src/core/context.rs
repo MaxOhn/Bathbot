@@ -38,6 +38,8 @@ pub struct Context {
     pub perf_calc_mutex: Mutex<()>,
     // Mapping twitch user ids to vec of discord channel ids
     pub tracked_streams: DashMap<u64, Vec<u64>>,
+    // Mapping (channel id, message id) to role id
+    pub role_assigns: DashMap<(u64, u64), u64>,
     pub backend: BackendData,
     pub clients: Clients,
 }
@@ -64,11 +66,9 @@ impl Context {
         backend: BackendData,
         stored_values: StoredValues,
         tracked_streams: DashMap<u64, Vec<u64>>,
+        role_assigns: DashMap<(u64, u64), u64>,
+        guilds: DashMap<GuildId, GuildConfig>,
     ) -> Self {
-        let guilds = clients.psql.get_guilds().await.unwrap_or_else(|why| {
-            error!("Error while getting guild configs: {}", why);
-            DashMap::new()
-        });
         cache
             .stats
             .shard_counts
@@ -83,6 +83,7 @@ impl Context {
             backend,
             stored_values,
             tracked_streams,
+            role_assigns,
             perf_calc_mutex: Mutex::new(()),
         }
     }

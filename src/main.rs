@@ -115,6 +115,16 @@ async fn run(
     clients: Clients,
     twitch: Twitch,
 ) -> BotResult<()> {
+    // Guild configs
+    let guilds = clients.psql.get_guilds().await?;
+
+    // Tracked streams
+    let tracked_streams = clients.psql.get_stream_tracks().await?;
+
+    // Reaction-role-assign
+    let role_assigns = clients.psql.get_role_assigns().await?;
+
+    // Shard-cluster config
     let (shards_per_cluster, total_shards, sharding_scheme) = shard_schema_values()
         .map_or((1, 1, ShardScheme::Auto), |(to, total)| {
             (to, total, ShardScheme::Range { from: 0, to, total })
@@ -195,6 +205,8 @@ async fn run(
             }
         }
     }
+
+    // Build cluster
     let cluster = Cluster::new(cb.build()).await?;
 
     // Shard states
@@ -202,9 +214,6 @@ async fn run(
     for i in 0..shards_per_cluster {
         shard_states.insert(i, core::ShardState::PendingCreation);
     }
-
-    // Tracked streams
-    let tracked_streams = clients.psql.get_stream_tracks().await?;
 
     let backend = BackendData {
         cluster,
@@ -222,6 +231,8 @@ async fn run(
             backend,
             stored_values,
             tracked_streams,
+            role_assigns,
+            guilds,
         )
         .await,
     );

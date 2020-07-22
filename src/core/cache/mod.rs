@@ -32,7 +32,7 @@ use twilight::model::{
         payload::{MemberUpdate, RequestGuildMembers},
         presence::{ActivityType, Status},
     },
-    id::{ChannelId, EmojiId, GuildId, UserId},
+    id::{ChannelId, EmojiId, GuildId, RoleId, UserId},
     user::{CurrentUser, User},
 };
 
@@ -206,7 +206,7 @@ impl Cache {
                             }
                             self.stats.guild_counts.partial.dec();
                             self.stats.guild_counts.loaded.inc();
-                            // if we where at 1 we are now at 0
+                            // if we were at 1 we are now at 0
                             if self.stats.guild_counts.partial.get() == 0
                                 && self.filling.load(Ordering::Relaxed)
                                 && ctx
@@ -515,10 +515,9 @@ impl Cache {
     }
 
     pub fn get_guild(&self, guild_id: GuildId) -> Option<Arc<CachedGuild>> {
-        match self.guilds.get(&guild_id) {
-            Some(guard) => Some(guard.value().clone()),
-            None => None,
-        }
+        self.guilds
+            .get(&guild_id)
+            .map(|guard| guard.value().clone())
     }
 
     fn guild_unavailable(&self, guild: &CachedGuild) {
@@ -532,10 +531,7 @@ impl Cache {
     }
 
     pub fn get_user(&self, user_id: UserId) -> Option<Arc<CachedUser>> {
-        match self.users.get(&user_id) {
-            Some(guard) => Some(guard.value().clone()),
-            None => None,
-        }
+        self.users.get(&user_id).map(|guard| guard.value().clone())
     }
 
     pub fn get_or_insert_user(&self, user: &User) -> Arc<CachedUser> {
@@ -565,6 +561,12 @@ impl Cache {
             Some(atomic) => atomic.value().load(Ordering::Relaxed) == 0,
             None => true, // we cold resumed so have everything
         }
+    }
+
+    pub fn get_role(&self, role_id: RoleId, guild_id: GuildId) -> Option<Arc<CachedRole>> {
+        self.get_guild(guild_id)
+            .and_then(|guild| guild.roles.get(&role_id))
+            .map(|guard| guard.value().clone())
     }
 }
 

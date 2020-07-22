@@ -1,10 +1,10 @@
 use crate::{BotResult, Database};
 
+use dashmap::DashMap;
 use sqlx::Row;
-use std::collections::HashMap;
 
 impl Database {
-    pub async fn get_role_assigns(&self) -> BotResult<HashMap<(u64, u64), u64>> {
+    pub async fn get_role_assigns(&self) -> BotResult<DashMap<(u64, u64), u64>> {
         let assigns = sqlx::query("SELECT * FROM role_assign")
             .fetch_all(&self.pool)
             .await?
