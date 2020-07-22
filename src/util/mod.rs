@@ -9,8 +9,15 @@ pub mod numbers;
 pub mod osu;
 mod safe_content;
 
+use constants::DISCORD_CDN;
 pub use exts::*;
 pub use safe_content::content_safe;
+
+use twilight::model::id::UserId;
+
+pub fn discord_avatar(user_id: UserId, hash: &str) -> String {
+    format!("{}avatars/{}/{}.webp?size=1024", DISCORD_CDN, user_id, hash)
+}
 
 pub fn levenshtein_distance(word_a: &str, word_b: &str) -> usize {
     let (word_a, word_b) = if word_a.chars().count() > word_b.chars().count() {

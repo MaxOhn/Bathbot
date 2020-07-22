@@ -34,7 +34,6 @@ macro_rules! format_err {
 #[derive(Debug)]
 pub enum Error {
     CacheDefrost(&'static str, Box<Error>),
-    Command(String, Box<Error>),
     CreateMessage(CreateMessageError),
     ChronoParse(ChronoParseError),
     Custom(String),
@@ -65,7 +64,6 @@ impl fmt::Display for Error {
             Self::CacheDefrost(reason, e) => {
                 write!(f, "error defrosting cache ({}): {}", reason, e)
             }
-            Self::Command(cmd, e) => write!(f, "error while processing command `{}`: {}", cmd, e),
             Self::CreateMessage(e) => {
                 f.write_str("error while creating message: ")?;
                 if let CreateMessageError::EmbedTooLarge { source } = e {

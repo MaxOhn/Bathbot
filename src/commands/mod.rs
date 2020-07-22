@@ -22,6 +22,18 @@ pub fn command_groups() -> Vec<CommandGroup> {
         // CommandGroup::new("mania", vec![]),
         // CommandGroup::new("fun", vec![]),
         // CommandGroup::new("twitch", vec![]),
-        CommandGroup::new("utility", vec![&PING_CMD, &ABOUT_CMD]),
+        CommandGroup::new(
+            "utility",
+            vec![
+                &PING_CMD,
+                &ABOUT_CMD,
+                &COMMANDS_CMD,
+                &AVATAR_CMD,
+                &PRUNE_CMD,
+                &ECHO_CMD,
+                &ROLEASSIGN_CMD,
+                &LYRICS_CMD,
+            ],
+        ),
     ]
 }

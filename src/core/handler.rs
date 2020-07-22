@@ -82,12 +82,15 @@ pub async fn handle_event(
                 Invoke::UnrecognisedCommand(_name) => Ok(()),
             };
             let name = invoke.name();
-            match command_result {
-                Ok(_) => match invoke {
-                    Invoke::UnrecognisedCommand(_) => {}
-                    _ => ctx.cache.stats.inc_command(name),
-                },
-                Err(why) => return Err(Error::Command(name.to_string(), Box::new(why))),
+            match invoke {
+                Invoke::UnrecognisedCommand(_) => {}
+                _ => {
+                    ctx.cache.stats.inc_command(name.as_ref());
+                    match command_result {
+                        Ok(_) => info!("Processed command `{}`", name),
+                        Err(why) => error!("Error while processing command `{}`: {}", name, why),
+                    }
+                }
             }
         }
         _ => (),

@@ -17,6 +17,9 @@ pub const TWITCH_BASE: &str = "https://www.twitch.tv/";
 pub const TWITCH_STREAM_ENDPOINT: &str = "https://api.twitch.tv/helix/streams";
 pub const TWITCH_USERS_ENDPOINT: &str = "https://api.twitch.tv/helix/users";
 
+// discord
+pub const DISCORD_CDN: &str = "https://cdn.discordapp.com/";
+
 // Discord ids
 pub const OWNER_USER_ID: u64 = 219905108316520448;
 pub const DEV_GUILD_ID: u64 = 297072529426612224;

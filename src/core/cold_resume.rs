@@ -97,7 +97,7 @@ impl Cache {
             .set_and_expire_seconds(
                 format!("cb_cluster_{}_guild_chunk_{}", self.cluster_id, index),
                 serialized,
-                180,
+                300,
             )
             .await?;
         Ok(())
@@ -130,7 +130,7 @@ impl Cache {
             .set_and_expire_seconds(
                 format!("cb_cluster_{}_user_chunk_{}", self.cluster_id, index),
                 serialized,
-                180,
+                300,
             )
             .await?;
         Ok(())

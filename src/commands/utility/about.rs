@@ -20,8 +20,7 @@ async fn about(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
             return Err(why);
         }
     };
-    let eb = data.build(EmbedBuilder::new());
-    msg.build_response(&ctx, |m| Ok(m.embed(eb.build())?))
-        .await?;
+    let embed = data.build(EmbedBuilder::new()).build();
+    msg.build_response(&ctx, |m| Ok(m.embed(embed)?)).await?;
     Ok(())
 }

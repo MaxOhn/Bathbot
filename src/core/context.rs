@@ -130,7 +130,7 @@ impl Context {
             .set_and_expire_seconds(
                 "cb_cluster_data_0",
                 &serde_json::to_value(data).unwrap().to_string().into_bytes(),
-                180,
+                300,
             )
             .await
             .unwrap();

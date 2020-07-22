@@ -52,12 +52,14 @@ pub async fn help(ctx: &Context, cmds: &CommandGroups, msg: &Message) -> BotResu
     // TODO: Check permission to DM
     let channel = ctx.http.create_private_channel(msg.author.id).await?;
     let author = msg.author.id;
-    let _ = msg
-        .reply(
-            ctx,
-            "Don't mind me sliding into your DMs :eyes:".to_string(),
-        )
-        .await;
+    if let Some(_) = msg.guild_id {
+        let _ = msg
+            .reply(
+                ctx,
+                "Don't mind me sliding into your DMs :eyes:".to_string(),
+            )
+            .await;
+    }
     let desc = description(ctx, msg.guild_id);
     let mut size = desc.len();
     debug_assert!(size < DESCRIPTION_SIZE);

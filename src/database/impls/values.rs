@@ -60,6 +60,9 @@ impl Database {
 
     async fn insert_values(&self, table: &str, values: &Values) -> BotResult<usize> {
         values.retain(|_, mod_map| mod_map.values().any(|(_, to_insert)| *to_insert));
+        if values.is_empty() {
+            return Ok(0);
+        }
         let len = values.len();
         let mut txn = self.pool.begin().await?;
         for guard in values.into_iter() {

@@ -252,6 +252,7 @@ async fn run(
                 error!("Error while freezing cache: {}", why);
             }
         });
+        info!("Shutting down");
         process::exit(0);
     })
     .map_err(|why| format_err!("Failed to register shutdown handler: {}", why))?;

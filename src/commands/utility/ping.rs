@@ -15,7 +15,7 @@ async fn ping(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     let response = ctx
         .http
         .create_message(msg.channel_id)
-        .content(":ping_pong:")?
+        .content("Pong")?
         .await?;
     let elapsed = (Instant::now() - start).as_millis();
     ctx.http

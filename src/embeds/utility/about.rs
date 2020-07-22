@@ -3,6 +3,7 @@ use crate::{
     util::{
         constants::OWNER_USER_ID,
         datetime::how_long_ago,
+        discord_avatar,
         numbers::{round, with_comma_int},
     },
     BotResult, Context,
@@ -42,7 +43,8 @@ impl AboutEmbed {
             (process_cpu, process_ram, total_cpu, used_ram, total_ram)
         };
 
-        let name = ctx.cache.bot_user.name.clone();
+        let bot_user = &ctx.cache.bot_user;
+        let name = bot_user.name.clone();
         let shards = ctx.backend.cluster.info().await.len();
         let user_counts = &ctx.cache.stats.user_counts;
         let total_users = user_counts.total.get();
@@ -53,10 +55,10 @@ impl AboutEmbed {
 
         let boot_time = ctx.cache.stats.start_time;
 
-        let thumbnail = ctx.cache.bot_user.avatar.clone().unwrap();
+        let thumbnail = discord_avatar(bot_user.id, bot_user.avatar.as_deref().unwrap());
 
         let footer = Footer::new(format!("Owner: {}#{}", owner.name, owner.discriminator))
-            .icon_url(owner.avatar.unwrap());
+            .icon_url(discord_avatar(owner.id, owner.avatar.as_deref().unwrap()));
         let fields = vec![
             ("Guilds".to_owned(), guilds.to_string(), true),
             (

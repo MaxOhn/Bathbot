@@ -17,7 +17,7 @@ use twilight::model::{
 #[command]
 // #[only_in("guild")]
 // #[checks(Authority)]
-#[short_desc("Mangaging roles with reactions")]
+#[short_desc("Managing roles with reactions")]
 #[long_desc(
     "Assign a message to a role such that \
      when anyone reacts to that message, the member will \

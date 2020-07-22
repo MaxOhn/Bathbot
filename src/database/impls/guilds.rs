@@ -37,7 +37,7 @@ impl Database {
     }
 
     pub async fn set_guild_config(&self, guild_id: u64, config: &GuildConfig) -> BotResult<()> {
-        sqlx::query("UPDATE guilds SET config=$1 WHERE id=$2")
+        sqlx::query("UPDATE guilds SET config=$1 WHERE guild_id=$2")
             .bind(Json(config))
             .bind(guild_id as i64)
             .execute(&self.pool)
