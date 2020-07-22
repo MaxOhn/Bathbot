@@ -23,8 +23,7 @@ async fn avatar(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     let name = match NameArgs::new(args).name {
         Some(name) => name,
         None => {
-            msg.respond(&ctx, "You must specify a username".to_owned())
-                .await?;
+            msg.respond(&ctx, "You must specify a username").await?;
             return Ok(());
         }
     };
@@ -41,7 +40,7 @@ async fn avatar(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
                 }
             },
             Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE.to_owned()).await?;
+                msg.respond(&ctx, OSU_API_ISSUE).await?;
                 return Err(why.into());
             }
         }

@@ -13,6 +13,7 @@ pub struct Command {
     pub long_desc: Option<&'static str>,
     pub usage: Option<&'static str>,
     pub examples: &'static [&'static str],
+    pub only_guilds: bool,
     pub sub_commands: &'static [&'static Command],
     pub fun: for<'fut> fn(Arc<Context>, &'fut Message) -> BoxFuture<'fut, BotResult<()>>,
 }

@@ -5,6 +5,7 @@ use tokio::time::{self, Duration};
 use twilight::model::channel::Message;
 
 #[command]
+#[only_guilds()]
 // #[checks(Authority)]
 #[short_desc("Prune messages in a channel")]
 #[long_desc(
@@ -21,22 +22,16 @@ async fn prune(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
         match args.single::<u64>() {
             Ok(val) => {
                 if val < 1 || val > 99 {
-                    msg.respond(
-                        &ctx,
-                        "First argument must be an integer between 1 and 99".to_owned(),
-                    )
-                    .await?;
+                    msg.respond(&ctx, "First argument must be an integer between 1 and 99")
+                        .await?;
                     return Ok(());
                 } else {
                     val + 1
                 }
             }
             Err(_) => {
-                msg.respond(
-                    &ctx,
-                    "First argument must be a number between 1 and 99".to_owned(),
-                )
-                .await?;
+                msg.respond(&ctx, "First argument must be an integer between 1 and 99")
+                    .await?;
                 return Ok(());
             }
         }
@@ -52,14 +47,12 @@ async fn prune(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     {
         Ok(msgs) => msgs.into_iter().map(|msg| msg.id).collect::<Vec<_>>(),
         Err(why) => {
-            msg.respond(&ctx, "Error while retrieving messages".to_owned())
-                .await?;
+            msg.respond(&ctx, "Error while retrieving messages").await?;
             return Err(why.into());
         }
     };
     if let Err(why) = ctx.http.delete_messages(msg.channel_id, messages).await {
-        msg.respond(&ctx, "Error while deleting messages".to_owned())
-            .await?;
+        msg.respond(&ctx, "Error while deleting messages").await?;
         return Err(why.into());
     }
     let response = ctx

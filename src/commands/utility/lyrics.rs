@@ -8,7 +8,7 @@ use std::{collections::hash_map::Entry, sync::Arc};
 use twilight::model::channel::Message;
 
 #[command]
-// #[only_in("guild")]
+#[only_guilds()]
 // #[checks(Authority)]
 #[short_desc("Toggle availability of song commands")]
 #[long_desc(
@@ -32,7 +32,7 @@ async fn lyrics(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
             Err(why) => warn!("Could not set lyrics of guild: {}", why),
         }
     } else {
-        msg.respond(&ctx, GENERAL_ISSUE.to_owned()).await?;
+        msg.respond(&ctx, GENERAL_ISSUE).await?;
         bail!("GuildId {} not found in guilds", guild_id);
     }
 
@@ -41,6 +41,6 @@ async fn lyrics(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     } else {
         "Song commands can no longer be used in this server"
     };
-    msg.respond(&ctx, content.to_owned()).await?;
+    msg.respond(&ctx, content).await?;
     Ok(())
 }

@@ -136,6 +136,12 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
         }
         eb = eb.add_field("Aliases", value).inline().commit();
     }
+    let footer_text = if cmd.only_guilds {
+        "Only available in guilds"
+    } else {
+        "Available in guilds and DMs"
+    };
+    eb = eb.footer(footer_text).commit();
     msg.build_response(ctx, |m| m.embed(eb.build())).await?;
     Ok(())
 }

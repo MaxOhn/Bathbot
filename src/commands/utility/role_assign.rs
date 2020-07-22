@@ -15,7 +15,7 @@ use twilight::model::{
 };
 
 #[command]
-// #[only_in("guild")]
+#[only_guilds()]
 // #[checks(Authority)]
 #[short_desc("Managing roles with reactions")]
 #[long_desc(
@@ -40,6 +40,15 @@ async fn roleassign(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     let channel = args.channel_id;
     let msg_id = args.message_id;
     let role = args.role_id;
+    let guild = msg.guild_id.unwrap();
+    if ctx.cache.get_role(role, guild).is_none() {
+        msg.respond(&ctx, "Role not found in this guild").await?;
+        return Ok(());
+    }
+    if ctx.cache.get_guild_channel(channel, guild).is_none() {
+        msg.respond(&ctx, "Channel not found in this guild").await?;
+        return Ok(());
+    }
     let psql = &ctx.clients.psql;
     match psql.add_role_assign(channel.0, msg_id.0, role.0).await {
         Ok(_) => debug!("Inserted into role_assign table"),

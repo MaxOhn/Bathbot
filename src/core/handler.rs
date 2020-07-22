@@ -1,6 +1,7 @@
 use crate::{
     commands::help::{failed_help, help, help_command},
     core::{Command, CommandGroups, Context},
+    util::MessageExt,
     BotResult, Error,
 };
 
@@ -108,7 +109,14 @@ pub async fn handle_event(
             let msg = msg.deref_mut();
             msg.content = content;
             let command_result = match &invoke {
-                Invoke::Command(cmd) => (cmd.fun)(ctx.clone(), msg).await,
+                Invoke::Command(cmd) => {
+                    if cmd.only_guilds && msg.guild_id.is_none() {
+                        msg.respond(&ctx, "That command is only available in guilds")
+                            .await?;
+                        return Ok(());
+                    }
+                    (cmd.fun)(ctx.clone(), msg).await
+                }
                 Invoke::SubCommand { sub, .. } => (sub.fun)(ctx.clone(), msg).await,
                 Invoke::Help(None) => help(&ctx, &cmds, msg).await,
                 Invoke::Help(Some(cmd)) => help_command(&ctx, cmd, msg).await,

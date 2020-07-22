@@ -7,6 +7,7 @@ use std::sync::Arc;
 use twilight::model::channel::Message;
 
 #[command]
+#[only_guilds()]
 // #[checks(Authority)]
 #[short_desc("Let me repeat your message")]
 #[long_desc("Let me repeat your message but without any pings")]

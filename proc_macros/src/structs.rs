@@ -152,5 +152,6 @@ pub struct Options {
     pub long_desc: AsOption<String>,
     pub usage: AsOption<String>,
     pub examples: Vec<String>,
+    pub only_guilds: bool,
     pub sub_commands: Vec<Ident>,
 }

@@ -568,6 +568,16 @@ impl Cache {
             .and_then(|guild| guild.roles.get(&role_id))
             .map(|guard| guard.value().clone())
     }
+
+    pub fn get_guild_channel(
+        &self,
+        channel_id: ChannelId,
+        guild_id: GuildId,
+    ) -> Option<Arc<CachedChannel>> {
+        self.get_guild(guild_id)
+            .and_then(|guild| guild.channels.get(&channel_id))
+            .map(|guard| guard.value().clone())
+    }
 }
 
 fn is_default<T: Default + PartialEq>(t: &T) -> bool {

@@ -1,6 +1,7 @@
 use crate::{BotResult, Context};
 
 use async_trait::async_trait;
+use std::fmt::Display;
 use tokio::time::{timeout, Duration};
 use twilight::http::request::channel::message::create_message::{
     CreateMessage, CreateMessageError,
@@ -26,12 +27,12 @@ pub trait MessageExt {
     /// Response with simple content
     ///
     /// Includes reaction_delete
-    async fn respond(&self, ctx: &Context, content: String) -> BotResult<()>;
+    async fn respond<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()>;
 
     /// Response with simple content by tagging the author
     ///
     /// Includes reaction_delete
-    async fn reply(&self, ctx: &Context, content: String) -> BotResult<()>;
+    async fn reply<C: Display + Send>(&self, ctx: &Context, content: C) -> BotResult<()>;
 
     /// Give the author 60s to delete the message by reacting with `❌`
     fn reaction_delete(&self, ctx: &Context, owner: UserId);
@@ -49,7 +50,7 @@ impl MessageExt for Message {
         Ok(())
     }
 
-    async fn respond(&self, ctx: &Context, content: String) -> BotResult<()> {
+    async fn respond<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
         ctx.http
             .create_message(self.channel_id)
             .content(content)?
@@ -58,7 +59,7 @@ impl MessageExt for Message {
         Ok(())
     }
 
-    async fn reply(&self, ctx: &Context, content: String) -> BotResult<()> {
+    async fn reply<C: Display + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
         let content = format!("{}: {}", self.author.mention(), content);
         ctx.http
             .create_message(self.channel_id)
