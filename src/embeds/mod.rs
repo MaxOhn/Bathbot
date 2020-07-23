@@ -1,11 +1,11 @@
 mod fun;
 mod osu;
-mod streams;
+mod twitch;
 mod utility;
 
 pub use fun::*;
 pub use osu::*;
-pub use streams::*;
+pub use twitch::*;
 pub use utility::*;
 
 use crate::util::{constants::DARK_GREEN, datetime};

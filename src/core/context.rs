@@ -18,6 +18,7 @@ use rosu::{
 };
 use std::{collections::HashMap, time::Instant};
 use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 use twilight::gateway::Cluster;
 use twilight::http::Client as HttpClient;
 use twilight::model::{
@@ -40,7 +41,7 @@ pub struct Context {
     pub stored_values: StoredValues,
     pub perf_calc_mutex: Mutex<()>,
     // Mapping twitch user ids to vec of discord channel ids
-    pub tracked_streams: DashMap<u64, Vec<u64>>,
+    pub tracked_streams: RwLock<HashMap<u64, Vec<u64>>>,
     // Mapping (channel id, message id) to role id
     pub role_assigns: DashMap<(u64, u64), u64>,
     pub buckets: Buckets,
@@ -70,7 +71,7 @@ impl Context {
         clients: Clients,
         backend: BackendData,
         stored_values: StoredValues,
-        tracked_streams: DashMap<u64, Vec<u64>>,
+        tracked_streams: HashMap<u64, Vec<u64>>,
         role_assigns: DashMap<(u64, u64), u64>,
         guilds: DashMap<GuildId, GuildConfig>,
     ) -> Self {
@@ -87,7 +88,7 @@ impl Context {
             clients,
             backend,
             stored_values,
-            tracked_streams,
+            tracked_streams: RwLock::new(tracked_streams),
             role_assigns,
             buckets: buckets(),
             perf_calc_mutex: Mutex::new(()),

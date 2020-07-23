@@ -6,6 +6,7 @@ use crate::{
 };
 
 use std::sync::Arc;
+use tokio::time::{timeout, Duration};
 use twilight::model::channel::Message;
 
 #[command]
@@ -33,37 +34,35 @@ async fn addstream(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
         }
     };
     let channel = msg.channel_id.0;
-    let success = ctx.tracked_streams.update(&twitch_id, |_, channels| {
-        let mut new_channels = channels.clone();
+    {
+        let mut tracked_streams =
+            match timeout(Duration::from_secs(10), ctx.tracked_streams.write()).await {
+                Ok(tracks) => tracks,
+                Err(_) => {
+                    msg.respond(&ctx, GENERAL_ISSUE).await?;
+                    bail!("Timed out while waiting for write access");
+                }
+            };
+        let channels = tracked_streams.entry(twitch_id).or_default();
         if !channels.contains(&channel) {
-            new_channels.push(channel);
+            channels.push(channel);
         }
-        new_channels
-    });
+    }
 
     let psql = &ctx.clients.psql;
     if let Err(why) = psql.add_stream_track(channel, twitch_id).await {
         error!("Error while inserting stream track into DB: {}", why);
     }
 
-    if success {
-        // Sending the msg
-        let content = format!(
-            "I'm now tracking `{}`'s twitch stream in this channel",
-            name
-        );
-        debug!(
-            "Now tracking twitch user {} for channel {}",
-            name, msg.channel_id
-        );
-        msg.respond(&ctx, content).await?;
-        Ok(())
-    } else {
-        msg.respond(&ctx, GENERAL_ISSUE).await?;
-        bail!(
-            "Unsuccessful while inserting channel {} for twitch user {}",
-            msg.channel_id,
-            twitch_id
-        );
-    }
+    // Sending the msg
+    let content = format!(
+        "I'm now tracking `{}`'s twitch stream in this channel",
+        name
+    );
+    debug!(
+        "Now tracking twitch stream {} for channel {}",
+        name, msg.channel_id
+    );
+    msg.respond(&ctx, content).await?;
+    Ok(())
 }

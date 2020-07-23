@@ -10,10 +10,12 @@ async fn trackedstreams(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     let channel = msg.channel_id.0;
     let twitch_ids: Vec<_> = ctx
         .tracked_streams
+        .read()
+        .await
         .iter()
-        .filter_map(|guard| {
-            if guard.value().contains(&channel) {
-                Some(*guard.key())
+        .filter_map(|(user, channels)| {
+            if channels.contains(&channel) {
+                Some(*user)
             } else {
                 None
             }

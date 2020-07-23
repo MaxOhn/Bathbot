@@ -6,6 +6,7 @@ use crate::{
 };
 
 use std::sync::Arc;
+use tokio::time::{timeout, Duration};
 use twilight::model::channel::Message;
 
 #[command]
@@ -33,27 +34,34 @@ async fn removestream(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
         }
     };
     let channel = msg.channel_id.0;
-    let success = ctx.tracked_streams.update(&twitch_id, |_, channels| {
-        let mut new_channels = channels.clone();
-        if let Some(idx) = new_channels.iter().position(|&id| id == channel) {
-            new_channels.remove(idx);
-        }
-        new_channels
-    });
+    {
+        let mut tracked_streams =
+            match timeout(Duration::from_secs(10), ctx.tracked_streams.write()).await {
+                Ok(tracks) => tracks,
+                Err(_) => {
+                    msg.respond(&ctx, GENERAL_ISSUE).await?;
+                    bail!("Timed out while waiting for write access");
+                }
+            };
+        tracked_streams.entry(twitch_id).and_modify(|channels| {
+            if let Some(idx) = channels.iter().position(|&id| id == channel) {
+                channels.remove(idx);
+            };
+        });
+    }
     let psql = &ctx.clients.psql;
     if let Err(why) = psql.remove_stream_track(channel, twitch_id).await {
         msg.respond(&ctx, GENERAL_ISSUE).await?;
         bail!("Error while removing stream track from DB: {}", why);
     }
-    if success {
-        let content = format!(
-            "I'm no longer tracking `{}`'s twitch stream in this channel",
-            name
-        );
-        msg.respond(&ctx, content).await?;
-    } else {
-        let content = "That stream wasn't tracked in this channel anyway";
-        msg.respond(&ctx, content).await?;
-    };
+    debug!(
+        "No longer tracking {}'s twitch for channel {}",
+        name, channel
+    );
+    let content = format!(
+        "I'm no longer tracking `{}`'s twitch stream in this channel",
+        name
+    );
+    msg.respond(&ctx, content).await?;
     Ok(())
 }

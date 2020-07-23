@@ -24,11 +24,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
         interval.tick().await;
         let now_online = {
             // Get data about what needs to be tracked for which channel
-            let user_ids: Vec<_> = ctx
-                .tracked_streams
-                .iter()
-                .map(|entry| *entry.key())
-                .collect();
+            let user_ids: Vec<_> = ctx.tracked_streams.read().await.keys().copied().collect();
 
             // Get stream data about all streams that need to be tracked
             let mut streams = match ctx.clients.twitch.get_streams(&user_ids).await {
@@ -71,11 +67,12 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                     .collect();
 
                 // Process each stream by notifying all corresponding channels
+                let tracked_streams = ctx.tracked_streams.read().await;
                 for (user, stream) in streams {
-                    let entry = ctx.tracked_streams.get(&user).unwrap();
+                    let channels = tracked_streams.get(&user).unwrap();
                     let data = TwitchNotifEmbed::new(&stream, users.get(&stream.user_id).unwrap());
                     let embed = data.build(EmbedBuilder::new()).build();
-                    for channel in entry.value() {
+                    for channel in channels {
                         let msg_fut = ctx.http.create_message(ChannelId(*channel));
                         match msg_fut.embed(embed.clone()) {
                             Ok(msg_fut) => {
