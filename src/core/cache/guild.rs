@@ -219,7 +219,7 @@ impl CachedGuild {
         let mut nick = None;
         for guard in &self.members {
             let member = guard.value();
-            let name_matches = &member.user.username == name;
+            let name_matches = member.user.username == name;
             let discrim_matches = match discrim {
                 Some(discrim) => u16::from_str(&member.user.discriminator).unwrap() == discrim,
                 None => true,

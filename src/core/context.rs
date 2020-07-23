@@ -65,6 +65,7 @@ pub struct BackendData {
 }
 
 impl Context {
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         cache: Cache,
         http: HttpClient,

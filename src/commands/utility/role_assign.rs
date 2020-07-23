@@ -53,7 +53,7 @@ async fn roleassign(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
         Ok(_) => debug!("Inserted into role_assign table"),
         Err(why) => {
             msg.respond(&ctx, command_issue("roleassign")).await?;
-            return Err(why.into());
+            return Err(why);
         }
     }
     ctx.role_assigns.insert((channel.0, msg_id.0), role.0);

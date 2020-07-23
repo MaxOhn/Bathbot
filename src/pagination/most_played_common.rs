@@ -47,6 +47,9 @@ impl Pagination for MostPlayedCommonPagination {
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
+    fn thumbnail(&self) -> Option<String> {
+        Some(self.thumbnail.clone())
+    }
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         Ok(MostPlayedCommonEmbed::new(
             &self.users,
