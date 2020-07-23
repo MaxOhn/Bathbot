@@ -12,7 +12,12 @@ use strfmt::strfmt;
 use tokio::time;
 use twilight::{builders::embed::EmbedBuilder, model::id::ChannelId};
 
-pub async fn twitch_loop(ctx: Arc<Context>, twitch: Twitch) {
+pub async fn twitch_loop(ctx: Arc<Context>) {
+    // Formatting of the embed image
+    let mut fmt_data = HashMap::new();
+    fmt_data.insert(String::from("width"), String::from("360"));
+    fmt_data.insert(String::from("height"), String::from("180"));
+
     let mut online_streams = HashSet::new();
     let mut interval = time::interval(time::Duration::from_secs(10 * 60));
     loop {
@@ -26,7 +31,7 @@ pub async fn twitch_loop(ctx: Arc<Context>, twitch: Twitch) {
                 .collect();
 
             // Get stream data about all streams that need to be tracked
-            let mut streams = match twitch.get_streams(&user_ids).await {
+            let mut streams = match ctx.clients.twitch.get_streams(&user_ids).await {
                 Ok(streams) => streams,
                 Err(why) => {
                     warn!("Error while retrieving streams: {}", why);
@@ -46,17 +51,13 @@ pub async fn twitch_loop(ctx: Arc<Context>, twitch: Twitch) {
                 streams.retain(|stream| !online_streams.contains(&stream.user_id));
 
                 let ids: Vec<_> = streams.iter().map(|s| s.user_id).collect();
-                let users: HashMap<_, _> = match twitch.get_users(&ids).await {
+                let users: HashMap<_, _> = match ctx.clients.twitch.get_users(&ids).await {
                     Ok(users) => users.into_iter().map(|u| (u.user_id, u)).collect(),
                     Err(why) => {
                         warn!("Error while retrieving twitch users: {}", why);
                         return;
                     }
                 };
-
-                let mut fmt_data = HashMap::new();
-                fmt_data.insert(String::from("width"), String::from("360"));
-                fmt_data.insert(String::from("height"), String::from("180"));
 
                 // Put streams into a more suitable data type and process the thumbnail url
                 let streams: Vec<(u64, TwitchStream)> = streams

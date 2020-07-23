@@ -3,8 +3,8 @@ pub mod help;
 pub mod twitch;
 pub mod utility;
 
-// use fun::*;
-// use twitch::*;
+use fun::*;
+use twitch::*;
 use utility::*;
 
 use crate::core::CommandGroup;
@@ -21,7 +21,10 @@ pub fn command_groups() -> Vec<CommandGroup> {
         // CommandGroup::new("catch the beat", vec![]),
         // CommandGroup::new("mania", vec![]),
         // CommandGroup::new("fun", vec![]),
-        // CommandGroup::new("twitch", vec![]),
+        CommandGroup::new(
+            "twitch",
+            vec![&ADDSTREAM_CMD, &REMOVESTREAM_CMD, &TRACKEDSTREAMS_CMD],
+        ),
         CommandGroup::new(
             "utility",
             vec![

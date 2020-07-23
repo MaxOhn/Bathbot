@@ -102,10 +102,11 @@ async fn async_main() -> BotResult<()> {
         redis,
         osu,
         custom,
+        twitch,
     };
 
     // Boot everything up
-    run(config, http, bot_user, clients, twitch).await
+    run(config, http, bot_user, clients).await
 }
 
 async fn run(
@@ -113,7 +114,6 @@ async fn run(
     http: HttpClient,
     bot_user: CurrentUser,
     clients: Clients,
-    twitch: Twitch,
 ) -> BotResult<()> {
     // Guild configs
     let guilds = clients.psql.get_guilds().await?;
@@ -265,7 +265,7 @@ async fn run(
 
     // Spawn twitch worker
     let twitch_ctx = ctx.clone();
-    tokio::spawn(twitch::twitch_loop(twitch_ctx, twitch));
+    tokio::spawn(twitch::twitch_loop(twitch_ctx));
 
     let mut bot_events = ctx.backend.cluster.events().await;
     let cmd_groups = Arc::new(CommandGroups::new());

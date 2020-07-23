@@ -7,7 +7,7 @@ use crate::{
         Cache, ColdRebootData,
     },
     database::{Database, GuildConfig},
-    BotResult, CustomClient,
+    BotResult, CustomClient, Twitch,
 };
 
 use darkredis::ConnectionPool;
@@ -53,6 +53,7 @@ pub struct Clients {
     pub redis: ConnectionPool,
     pub osu: Osu,
     pub custom: CustomClient,
+    pub twitch: Twitch,
 }
 
 pub struct BackendData {
