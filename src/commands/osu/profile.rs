@@ -204,11 +204,19 @@ async fn get_globals_count(
     let scraper = data.get::<Scraper>().unwrap();
     let mut counts = BTreeMap::new();
     let mut params = OsuStatsParams::new(name).mode(mode);
+    let mut get_amount = true;
     for rank in [50, 25, 15, 8, 1].iter() {
+        if !get_amount {
+            counts.insert(*rank, 0);
+            continue;
+        }
         params = params.rank_max(*rank);
         match scraper.get_global_scores(&params).await {
             Ok((_, count)) => {
                 counts.insert(*rank, numbers::with_comma_u64(count as u64));
+                if count == 0 {
+                    get_amount = false;
+                }
             }
             Err(why) => error!("Error while retrieving osustats for profile: {}", why),
         }
