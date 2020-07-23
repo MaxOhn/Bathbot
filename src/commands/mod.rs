@@ -31,6 +31,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &AVATAR_CMD,
                 &PRUNE_CMD,
                 &ECHO_CMD,
+                &AUTHORITIES_CMD,
                 &ROLEASSIGN_CMD,
                 &LYRICS_CMD,
             ],

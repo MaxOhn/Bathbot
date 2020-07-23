@@ -1,6 +1,7 @@
 use super::is_default;
-use crate::core::cache::{
-    Cache, CachedChannel, CachedEmoji, CachedMember, CachedRole, ColdStorageMember,
+use crate::{
+    core::cache::{Cache, CachedChannel, CachedEmoji, CachedMember, CachedRole, ColdStorageMember},
+    util::constants::OWNER_USER_ID,
 };
 
 use dashmap::{DashMap, ElementGuard};
@@ -234,7 +235,7 @@ impl CachedGuild {
     }
 
     pub fn has_admin_permission(&self, user_id: UserId) -> Option<bool> {
-        if user_id == self.owner_id {
+        if user_id == self.owner_id || user_id.0 == OWNER_USER_ID {
             return Some(true);
         }
         let member_guard = self.members.get(&user_id)?;

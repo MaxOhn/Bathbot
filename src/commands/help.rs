@@ -11,7 +11,7 @@ use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 use twilight::builders::embed::EmbedBuilder;
 use twilight::model::{
     channel::{embed::Embed, Message},
-    id::{ChannelId, GuildId, UserId},
+    id::{ChannelId, GuildId, RoleId, UserId},
 };
 
 fn description(ctx: &Context, guild: Option<GuildId>) -> String {
@@ -136,7 +136,33 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
         }
         eb = eb.add_field("Aliases", value).inline().commit();
     }
-    let footer_text = if cmd.only_guilds {
+    if cmd.authority {
+        let value = if let Some(guild) = msg.guild_id {
+            if let Some(guard) = ctx.guilds.get(&guild) {
+                let config = guard.value();
+                let mut value = "You need admin permission".to_owned();
+                if !config.authorities.is_empty() {
+                    let mut iter = config.authorities.iter();
+                    let _ = write!(value, " or any of these roles: @{}", iter.next().unwrap());
+                    for role in iter {
+                        let _ = write!(value, ", @{}", role);
+                    }
+                }
+                value
+            } else {
+                error!("No config for guild {}", guild);
+                "Admin permission or any role that \
+                was setup as authority in this guild"
+                    .to_owned()
+            }
+        } else {
+            "Admin permission or any role that \
+            was setup as authority in a guild"
+                .to_owned()
+        };
+        eb = eb.add_field("Requires authority status", value).commit();
+    }
+    let footer_text = if cmd.only_guilds || cmd.authority {
         "Only available in guilds"
     } else {
         "Available in guilds and DMs"

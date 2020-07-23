@@ -109,18 +109,13 @@ impl Args {
         self
     }
 
-    #[inline]
-    fn apply<'a>(&self, s: &'a str) -> &'a str {
-        remove_quotes(s.trim())
-    }
-
     /// Retrieve the current argument.
     #[inline]
     pub fn current(&self) -> Option<&str> {
         if self.is_empty() {
             return None;
         }
-        Some(self.apply(self.slice()))
+        Some(remove_quotes(self.slice().trim()))
     }
 
     /// Parse the current argument.
