@@ -1,4 +1,5 @@
 use crate::{
+    bail,
     commands::help::{failed_help, help, help_command},
     core::{Command, CommandGroups, Context},
     util::MessageExt,
@@ -7,11 +8,12 @@ use crate::{
 
 use std::{
     borrow::Cow,
+    fmt::Write,
     ops::{Deref, DerefMut},
     sync::Arc,
 };
 use twilight::gateway::Event;
-use twilight::model::id::RoleId;
+use twilight::model::{channel::Message, id::RoleId};
 use uwl::Stream;
 
 pub async fn handle_event(
@@ -109,15 +111,8 @@ pub async fn handle_event(
             let msg = msg.deref_mut();
             msg.content = content;
             let command_result = match &invoke {
-                Invoke::Command(cmd) => {
-                    if cmd.only_guilds && msg.guild_id.is_none() {
-                        msg.respond(&ctx, "That command is only available in guilds")
-                            .await?;
-                        return Ok(());
-                    }
-                    (cmd.fun)(ctx.clone(), msg).await
-                }
-                Invoke::SubCommand { sub, .. } => (sub.fun)(ctx.clone(), msg).await,
+                Invoke::Command(cmd) => process_command(cmd, ctx.clone(), msg).await,
+                Invoke::SubCommand { sub, .. } => process_command(sub, ctx.clone(), msg).await,
                 Invoke::Help(None) => help(&ctx, &cmds, msg).await,
                 Invoke::Help(Some(cmd)) => help_command(&ctx, cmd, msg).await,
                 Invoke::FailedHelp(arg) => failed_help(&ctx, arg, &cmds, msg).await,
@@ -138,6 +133,117 @@ pub async fn handle_event(
         _ => (),
     }
     Ok(())
+}
+
+async fn process_command(cmd: &Command, ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+    // Only in guilds?
+    if (cmd.authority || cmd.only_guilds) && msg.guild_id.is_none() {
+        msg.respond(&ctx, "That command is only available in guilds")
+            .await?;
+        return Ok(());
+    }
+    // Ratelimited?
+    if let Some(bucket) = cmd.bucket {
+        if let Some(cooldown) = check_ratelimit(&ctx, msg, bucket).await {
+            debug!(
+                "Ratelimiting user {} on command `{}` for {} seconds",
+                msg.author.id, cmd.names[0], cooldown,
+            );
+            let content = format!("Command on cooldown, try again in {} seconds", cooldown);
+            msg.respond(&ctx, content).await?;
+            return Ok(());
+        }
+    }
+    // Only for authorities?
+    if cmd.authority {
+        match check_authority(&ctx, msg) {
+            Ok(None) => {}
+            Ok(Some(content)) => {
+                debug!(
+                    "Non-authority user {} tried using command `{}`",
+                    msg.author.id, cmd.names[0]
+                );
+                msg.respond(&ctx, content).await?;
+                return Ok(());
+            }
+            Err(why) => {
+                msg.respond(&ctx, "Error while checking authority status")
+                    .await?;
+                return Err(why);
+            }
+        }
+    }
+    // Call command function
+    (cmd.fun)(ctx, msg).await
+}
+
+// Is authority -> Ok(None)
+// No authority -> Ok(Some(message to user))
+// Couldn't figure out -> Err()
+fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>> {
+    let guild_id = msg.guild_id.unwrap();
+    if let Some(true) = ctx.cache.has_admin_permission(msg.author.id, guild_id) {
+        return Ok(None);
+    }
+    if let Some(guard) = ctx.guilds.get(&guild_id) {
+        let config = guard.value();
+        let auth_roles: Vec<_> = config.authorities.iter().map(|id| RoleId(*id)).collect();
+        if auth_roles.is_empty() {
+            let prefix = &config.prefixes[0];
+            let content = format!(
+                "You need admin permissions to use this command.\n\
+                    (`{}help authorities` to adjust authority status for this guild)",
+                prefix
+            );
+            return Ok(Some(content));
+        } else if let Some(member) = ctx.cache.get_member(msg.author.id, guild_id) {
+            if !member.roles.iter().any(|role| auth_roles.contains(role)) {
+                let mut roles = Vec::with_capacity(auth_roles.len());
+                for role in auth_roles {
+                    match ctx.cache.get_role(role, guild_id) {
+                        Some(role) => roles.push(role.name.clone()),
+                        None => warn!("Role {} not cached for guild {}", role, guild_id),
+                    }
+                }
+                let role_len: usize = roles.iter().map(|role| role.len()).sum();
+                let mut content = String::from(
+                    "You need either admin permissions or \
+                    any of these roles to use this command:\n",
+                );
+                content.reserve_exact(role_len + (roles.len() - 1) * 2);
+                let mut roles = roles.into_iter();
+                content.push_str(&roles.next().unwrap());
+                for role in roles {
+                    let _ = write!(content, ", {}", role);
+                }
+                let prefix = &config.prefixes[0];
+                let _ = write!(
+                    content,
+                    "\n(`{}help authorities` to adjust authority status for this guild)",
+                    prefix
+                );
+                return Ok(Some(content));
+            }
+        } else {
+            bail!("Member {} not cached for guild {}", msg.author.id, guild_id);
+        }
+    } else {
+        bail!("Guild {} not in cache", guild_id);
+    }
+    Ok(None)
+}
+
+async fn check_ratelimit(ctx: &Context, msg: &Message, bucket: &str) -> Option<i64> {
+    let rate_limit = {
+        let guard = ctx.buckets.get(bucket).unwrap();
+        let mutex = guard.value();
+        let mut bucket = mutex.lock().await;
+        bucket.take(msg.author.id.0)
+    };
+    if rate_limit > 0 {
+        return Some(rate_limit);
+    }
+    None
 }
 
 pub fn find_prefix<'a>(prefixes: &[String], stream: &mut Stream<'a>) -> bool {

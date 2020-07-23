@@ -16,10 +16,9 @@ pub struct CachedMember {
     pub nickname: Option<String>,
     pub roles: Vec<RoleId>,
     pub joined_at: Option<String>,
-    //TODO: Convert to date
-    pub boosting_since: Option<String>,
-    pub server_deafened: bool,
-    pub server_muted: bool,
+    // pub boosting_since: Option<String>,
+    // pub server_deafened: bool,
+    // pub server_muted: bool,
 }
 
 impl CachedMember {
@@ -29,9 +28,9 @@ impl CachedMember {
             nickname: member.nickname,
             roles: member.roles,
             joined_at: member.joined_at,
-            boosting_since: member.boosting_since,
-            server_deafened: member.server_deafened,
-            server_muted: member.server_muted,
+            // boosting_since: member.boosting_since,
+            // server_deafened: member.server_deafened,
+            // server_muted: member.server_muted,
         }
     }
 
@@ -41,9 +40,9 @@ impl CachedMember {
             nickname: member.nick.clone(),
             roles: member.roles.clone(),
             joined_at: member.joined_at.clone(),
-            boosting_since: member.premium_since.clone(),
-            server_deafened: member.deaf,
-            server_muted: member.mute,
+            // boosting_since: member.premium_since.clone(),
+            // server_deafened: member.deaf,
+            // server_muted: member.mute,
         }
     }
 
@@ -53,9 +52,9 @@ impl CachedMember {
             nickname: member.nick.clone(),
             roles: member.roles.clone(),
             joined_at: self.joined_at.clone(),
-            boosting_since: member.premium_since.clone(),
-            server_deafened: self.server_deafened,
-            server_muted: self.server_muted,
+            // boosting_since: member.premium_since.clone(),
+            // server_deafened: self.server_deafened,
+            // server_muted: self.server_muted,
         }
     }
 }
@@ -67,9 +66,9 @@ impl CachedMember {
             nickname: self.nickname.clone(),
             roles: self.roles.clone(),
             joined_at: self.joined_at.clone(),
-            boosting_since: self.boosting_since.clone(),
-            server_deafened: self.server_deafened,
-            server_muted: self.server_muted,
+            // boosting_since: self.boosting_since.clone(),
+            // server_deafened: self.server_deafened,
+            // server_muted: self.server_muted,
         }
     }
 }
@@ -84,12 +83,12 @@ pub struct ColdStorageMember {
     pub roles: Vec<RoleId>,
     #[serde(rename = "j", default, skip_serializing_if = "is_default")]
     pub joined_at: Option<String>,
-    #[serde(rename = "b", default, skip_serializing_if = "is_default")]
-    pub boosting_since: Option<String>,
-    #[serde(rename = "d", default, skip_serializing_if = "is_default")]
-    pub server_deafened: bool,
-    #[serde(rename = "m", default, skip_serializing_if = "is_default")]
-    pub server_muted: bool,
+    // #[serde(rename = "b", default, skip_serializing_if = "is_default")]
+    // pub boosting_since: Option<String>,
+    // #[serde(rename = "d", default, skip_serializing_if = "is_default")]
+    // pub server_deafened: bool,
+    // #[serde(rename = "m", default, skip_serializing_if = "is_default")]
+    // pub server_muted: bool,
 }
 
 impl From<ElementGuard<UserId, Arc<CachedMember>>> for ColdStorageMember {
@@ -99,9 +98,9 @@ impl From<ElementGuard<UserId, Arc<CachedMember>>> for ColdStorageMember {
             nickname: member.nickname.clone(),
             roles: member.roles.clone(),
             joined_at: member.joined_at.clone(),
-            boosting_since: member.boosting_since.clone(),
-            server_deafened: member.server_deafened,
-            server_muted: member.server_muted,
+            // boosting_since: member.boosting_since.clone(),
+            // server_deafened: member.server_deafened,
+            // server_muted: member.server_muted,
         }
     }
 }

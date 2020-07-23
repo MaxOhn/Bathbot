@@ -578,6 +578,17 @@ impl Cache {
             .and_then(|guild| guild.channels.get(&channel_id))
             .map(|guard| guard.value().clone())
     }
+
+    pub fn get_member(&self, user_id: UserId, guild_id: GuildId) -> Option<Arc<CachedMember>> {
+        self.get_guild(guild_id)
+            .and_then(|guild| guild.members.get(&user_id))
+            .map(|guard| guard.value().clone())
+    }
+
+    pub fn has_admin_permission(&self, user_id: UserId, guild_id: GuildId) -> Option<bool> {
+        self.get_guild(guild_id)
+            .and_then(|guild| guild.has_admin_permission(user_id))
+    }
 }
 
 fn is_default<T: Default + PartialEq>(t: &T) -> bool {

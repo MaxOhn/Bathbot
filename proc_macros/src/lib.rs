@@ -45,6 +45,7 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
                     .examples
                     .push(propagate_err!(attributes::parse(values)));
             }
+            "authority" => options.authority = true,
             "only_guilds" => options.only_guilds = true,
             _ => {
                 match_options!(name, values, options, span => [
@@ -52,6 +53,7 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
                     long_desc;
                     aliases;
                     usage;
+                    bucket;
                     sub_commands
                 ]);
             }
@@ -64,6 +66,8 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
         usage,
         examples,
         only_guilds,
+        authority,
+        bucket,
         sub_commands,
     } = options;
     let short_desc = if let Some(short_desc) = short_desc {
@@ -88,6 +92,8 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
             usage: #usage,
             examples: &[#(#examples),*],
             only_guilds: #only_guilds,
+            authority: #authority,
+            bucket: #bucket,
             sub_commands: &[#(&#sub_commands),*],
             fun: #fun_name,
         };

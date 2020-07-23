@@ -7,6 +7,7 @@ use std::ops::Deref;
 pub struct GuildConfig {
     pub with_lyrics: bool,
     pub prefixes: Vec<String>,
+    pub authorities: Vec<u64>,
 }
 
 impl<'c> FromRow<'c, PgRow> for GuildConfig {
@@ -20,6 +21,7 @@ impl Default for GuildConfig {
         GuildConfig {
             with_lyrics: true,
             prefixes: vec!["<".to_owned(), "!!".to_owned()],
+            authorities: vec![],
         }
     }
 }

@@ -13,7 +13,10 @@ use std::{
     },
 };
 use twilight::model::{
-    guild::{DefaultMessageNotificationLevel, Guild, PartialGuild, PremiumTier, VerificationLevel},
+    guild::{
+        DefaultMessageNotificationLevel, Guild, PartialGuild, Permissions, PremiumTier,
+        VerificationLevel,
+    },
     id::{ChannelId, GuildId, RoleId, UserId},
 };
 
@@ -23,36 +26,34 @@ pub struct CachedGuild {
     pub id: GuildId,
     pub name: String,
     pub icon: Option<String>,
-    pub splash: Option<String>,
-    pub discovery_splash: Option<String>,
     pub owner_id: UserId,
-    pub region: String,
-    // can technically be an enum but that will fail as soon as they add a new region
-    pub afk_channel_id: Option<ChannelId>,
-    pub afk_timeout: u64,
-    pub verification_level: VerificationLevel,
-    pub default_message_notifications: DefaultMessageNotificationLevel,
     pub roles: DashMap<RoleId, Arc<CachedRole>>,
     pub emoji: Vec<Arc<CachedEmoji>>,
     pub features: Vec<String>,
-    // same as region, will cause issues when they add one
     pub unavailable: bool,
     pub members: DashMap<UserId, Arc<CachedMember>>,
     pub channels: DashMap<ChannelId, Arc<CachedChannel>>,
-    // use our own version, easier to work with then twilight's enum
+    // use our own version, easier to work with than twilight's enum
     pub max_presences: Option<u64>,
-    // defaults to 25000 if null in the guild create
+    // defaults to 25_000 if null in the guild create
     pub max_members: Option<u64>,
     // should always be present in guild create, but option just in case
     pub description: Option<String>,
-    pub banner: Option<String>,
-    pub premium_tier: PremiumTier,
-    pub premium_subscription_count: u64,
     pub preferred_locale: String,
 
     // own fields
     pub complete: AtomicBool,
     pub member_count: AtomicU64,
+    // pub afk_channel_id: Option<ChannelId>,
+    // pub afk_timeout: u64,
+    // pub verification_level: VerificationLevel,
+    // pub default_message_notifications: DefaultMessageNotificationLevel,
+    // pub region: String,
+    // pub splash: Option<String>,
+    // pub discovery_splash: Option<String>,
+    // pub banner: Option<String>,
+    // pub premium_tier: PremiumTier,
+    // pub premium_subscription_count: u64,
 }
 
 impl From<Guild> for CachedGuild {
@@ -61,14 +62,14 @@ impl From<Guild> for CachedGuild {
             id: guild.id,
             name: guild.name,
             icon: guild.icon,
-            splash: guild.splash,
-            discovery_splash: guild.discovery_splash,
+            // splash: guild.splash,
+            // discovery_splash: guild.discovery_splash,
             owner_id: guild.owner_id,
-            region: guild.region,
-            afk_channel_id: guild.afk_channel_id,
-            afk_timeout: guild.afk_timeout,
-            verification_level: guild.verification_level,
-            default_message_notifications: guild.default_message_notifications,
+            // region: guild.region,
+            // afk_channel_id: guild.afk_channel_id,
+            // afk_timeout: guild.afk_timeout,
+            // verification_level: guild.verification_level,
+            // default_message_notifications: guild.default_message_notifications,
             roles: DashMap::new(),
             emoji: vec![],
             features: guild.features,
@@ -78,9 +79,9 @@ impl From<Guild> for CachedGuild {
             max_presences: guild.max_presences,
             max_members: guild.max_members,
             description: guild.description,
-            banner: guild.banner,
-            premium_tier: guild.premium_tier,
-            premium_subscription_count: guild.premium_subscription_count.unwrap_or(0),
+            // banner: guild.banner,
+            // premium_tier: guild.premium_tier,
+            // premium_subscription_count: guild.premium_subscription_count.unwrap_or(0),
             preferred_locale: guild.preferred_locale,
             complete: AtomicBool::new(false),
             member_count: AtomicU64::new(0),
@@ -112,14 +113,14 @@ impl CachedGuild {
             id: cold_guild.id,
             name: cold_guild.name,
             icon: cold_guild.icon,
-            splash: cold_guild.splash,
-            discovery_splash: cold_guild.discovery_splash,
+            // splash: cold_guild.splash,
+            // discovery_splash: cold_guild.discovery_splash,
             owner_id: cold_guild.owner_id,
-            region: cold_guild.region,
-            afk_channel_id: cold_guild.afk_channel_id,
-            afk_timeout: cold_guild.afk_timeout,
-            verification_level: cold_guild.verification_level,
-            default_message_notifications: cold_guild.default_message_notifications,
+            // region: cold_guild.region,
+            // afk_channel_id: cold_guild.afk_channel_id,
+            // afk_timeout: cold_guild.afk_timeout,
+            // verification_level: cold_guild.verification_level,
+            // default_message_notifications: cold_guild.default_message_notifications,
             roles: DashMap::new(),
             emoji: vec![],
             features: vec![],
@@ -129,9 +130,9 @@ impl CachedGuild {
             max_presences: cold_guild.max_presences,
             max_members: cold_guild.max_members,
             description: cold_guild.description,
-            banner: cold_guild.banner,
-            premium_tier: cold_guild.premium_tier,
-            premium_subscription_count: cold_guild.premium_subscription_count,
+            // banner: cold_guild.banner,
+            // premium_tier: cold_guild.premium_tier,
+            // premium_subscription_count: cold_guild.premium_subscription_count,
             preferred_locale: cold_guild.preferred_locale,
             complete: AtomicBool::new(true),
             member_count: AtomicU64::new(cold_guild.members.len() as u64),
@@ -158,14 +159,14 @@ impl CachedGuild {
             id: other.id,
             name: other.name.clone(),
             icon: other.icon.clone(),
-            splash: other.splash.clone(),
-            discovery_splash: other.discovery_splash.clone(),
+            // splash: other.splash.clone(),
+            // discovery_splash: other.discovery_splash.clone(),
             owner_id: other.owner_id,
-            region: other.region.clone(),
-            afk_channel_id: other.afk_channel_id,
-            afk_timeout: other.afk_timeout,
-            verification_level: other.verification_level,
-            default_message_notifications: other.default_message_notifications,
+            // region: other.region.clone(),
+            // afk_channel_id: other.afk_channel_id,
+            // afk_timeout: other.afk_timeout,
+            // verification_level: other.verification_level,
+            // default_message_notifications: other.default_message_notifications,
             roles: DashMap::new(),
             emoji: self.emoji.clone(),
             features: other.features.clone(),
@@ -175,9 +176,9 @@ impl CachedGuild {
             max_presences: other.max_presences,
             max_members: other.max_members,
             description: other.description.clone(),
-            banner: other.banner.clone(),
-            premium_tier: other.premium_tier,
-            premium_subscription_count: other.premium_subscription_count.unwrap_or(0),
+            // banner: other.banner.clone(),
+            // premium_tier: other.premium_tier,
+            // premium_subscription_count: other.premium_subscription_count.unwrap_or(0),
             preferred_locale: other.preferred_locale.clone(),
             complete: AtomicBool::new(self.complete.load(Ordering::SeqCst)),
             member_count: AtomicU64::new(self.member_count.load(Ordering::SeqCst)),
@@ -231,6 +232,22 @@ impl CachedGuild {
         }
         nick
     }
+
+    pub fn has_admin_permission(&self, user_id: UserId) -> Option<bool> {
+        if user_id == self.owner_id {
+            return Some(true);
+        }
+        let member_guard = self.members.get(&user_id)?;
+        let member = member_guard.value();
+        for role_id in member.roles.iter() {
+            let role_guard = self.roles.get(role_id)?;
+            let role = role_guard.value();
+            if role.permissions.contains(Permissions::ADMINISTRATOR) {
+                return Some(true);
+            }
+        }
+        Some(false)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -241,23 +258,23 @@ pub struct ColdStorageGuild {
     pub name: String,
     #[serde(rename = "c", default, skip_serializing_if = "is_default")]
     pub icon: Option<String>,
-    #[serde(rename = "d", default, skip_serializing_if = "is_default")]
-    pub splash: Option<String>,
-    #[serde(rename = "e", default, skip_serializing_if = "is_default")]
-    pub discovery_splash: Option<String>,
+    // #[serde(rename = "d", default, skip_serializing_if = "is_default")]
+    // pub splash: Option<String>,
+    // #[serde(rename = "e", default, skip_serializing_if = "is_default")]
+    // pub discovery_splash: Option<String>,
     #[serde(rename = "f")]
     pub owner_id: UserId,
-    #[serde(rename = "g", default, skip_serializing_if = "is_default")]
-    pub region: String,
+    // #[serde(rename = "g", default, skip_serializing_if = "is_default")]
+    // pub region: String,
     // can technically be an enum but that will fail as soon as they add a new region
-    #[serde(rename = "h", default, skip_serializing_if = "is_default")]
-    pub afk_channel_id: Option<ChannelId>,
-    #[serde(rename = "i", default, skip_serializing_if = "is_default")]
-    pub afk_timeout: u64,
-    #[serde(rename = "j")]
-    pub verification_level: VerificationLevel,
-    #[serde(rename = "k")]
-    pub default_message_notifications: DefaultMessageNotificationLevel,
+    // #[serde(rename = "h", default, skip_serializing_if = "is_default")]
+    // pub afk_channel_id: Option<ChannelId>,
+    // #[serde(rename = "i", default, skip_serializing_if = "is_default")]
+    // pub afk_timeout: u64,
+    // #[serde(rename = "j")]
+    // pub verification_level: VerificationLevel,
+    // #[serde(rename = "k")]
+    // pub default_message_notifications: DefaultMessageNotificationLevel,
     #[serde(rename = "l")]
     pub roles: Vec<CachedRole>,
     #[serde(rename = "m")]
@@ -274,12 +291,12 @@ pub struct ColdStorageGuild {
     pub max_members: Option<u64>,
     #[serde(rename = "s", default, skip_serializing_if = "is_default")]
     pub description: Option<String>,
-    #[serde(rename = "t", default, skip_serializing_if = "is_default")]
-    pub banner: Option<String>,
-    #[serde(rename = "u", default, skip_serializing_if = "is_default")]
-    pub premium_tier: PremiumTier,
-    #[serde(rename = "v", default, skip_serializing_if = "is_default")]
-    pub premium_subscription_count: u64,
+    // #[serde(rename = "t", default, skip_serializing_if = "is_default")]
+    // pub banner: Option<String>,
+    // #[serde(rename = "u", default, skip_serializing_if = "is_default")]
+    // pub premium_tier: PremiumTier,
+    // #[serde(rename = "v", default, skip_serializing_if = "is_default")]
+    // pub premium_subscription_count: u64,
     #[serde(rename = "w", default, skip_serializing_if = "is_default")]
     pub preferred_locale: String,
 }
@@ -291,14 +308,14 @@ impl From<ElementGuard<GuildId, Arc<CachedGuild>>> for ColdStorageGuild {
             id: guild.id,
             name: guild.name.clone(),
             icon: guild.icon.clone(),
-            splash: guild.splash.clone(),
-            discovery_splash: guild.discovery_splash.clone(),
+            // splash: guild.splash.clone(),
+            // discovery_splash: guild.discovery_splash.clone(),
             owner_id: guild.owner_id,
-            region: guild.region.clone(),
-            afk_channel_id: guild.afk_channel_id,
-            afk_timeout: guild.afk_timeout,
-            verification_level: guild.verification_level,
-            default_message_notifications: guild.default_message_notifications,
+            // region: guild.region.clone(),
+            // afk_channel_id: guild.afk_channel_id,
+            // afk_timeout: guild.afk_timeout,
+            // verification_level: guild.verification_level,
+            // default_message_notifications: guild.default_message_notifications,
             roles: vec![],
             emoji: vec![],
             features: guild.features.clone(),
@@ -307,9 +324,9 @@ impl From<ElementGuard<GuildId, Arc<CachedGuild>>> for ColdStorageGuild {
             max_presences: guild.max_presences,
             max_members: guild.max_members,
             description: guild.description.clone(),
-            banner: guild.banner.clone(),
-            premium_tier: guild.premium_tier,
-            premium_subscription_count: guild.premium_subscription_count,
+            // banner: guild.banner.clone(),
+            // premium_tier: guild.premium_tier,
+            // premium_subscription_count: guild.premium_subscription_count,
             preferred_locale: guild.preferred_locale.clone(),
         };
         for role in &guild.roles {

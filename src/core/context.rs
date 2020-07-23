@@ -2,6 +2,7 @@ use super::ShardState;
 
 use crate::{
     core::{
+        buckets::{Bucket, Ratelimit},
         stored_values::{StoredValues, Values},
         Cache, ColdRebootData,
     },
@@ -29,6 +30,8 @@ use twilight::model::{
 };
 use twilight::standby::Standby;
 
+type Buckets = DashMap<&'static str, Mutex<Bucket>>;
+
 pub struct Context {
     pub cache: Cache,
     pub http: HttpClient,
@@ -40,6 +43,7 @@ pub struct Context {
     pub tracked_streams: DashMap<u64, Vec<u64>>,
     // Mapping (channel id, message id) to role id
     pub role_assigns: DashMap<(u64, u64), u64>,
+    pub buckets: Buckets,
     pub backend: BackendData,
     pub clients: Clients,
 }
@@ -84,6 +88,7 @@ impl Context {
             stored_values,
             tracked_streams,
             role_assigns,
+            buckets: buckets(),
             perf_calc_mutex: Mutex::new(()),
         }
     }
@@ -237,4 +242,26 @@ pub fn generate_activity(activity_type: ActivityType, message: String) -> Activi
         timestamps: None,
         url: None,
     }
+}
+
+fn buckets() -> Buckets {
+    let buckets = DashMap::new();
+    insert_bucket(&buckets, "song_bucket", 20, 0, 1);
+    insert_bucket(&buckets, "bg_start", 0, 30, 4);
+    insert_bucket(&buckets, "bg_bigger", 0, 11, 3);
+    insert_bucket(&buckets, "bg_hint", 0, 8, 3);
+    buckets
+}
+
+fn insert_bucket(buckets: &Buckets, name: &'static str, delay: i64, time_span: i64, limit: i32) {
+    buckets.insert(
+        name,
+        Mutex::new(Bucket {
+            ratelimit: Ratelimit {
+                delay,
+                limit: Some((time_span, limit)),
+            },
+            users: HashMap::new(),
+        }),
+    );
 }

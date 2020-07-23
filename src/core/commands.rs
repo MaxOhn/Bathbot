@@ -14,6 +14,8 @@ pub struct Command {
     pub usage: Option<&'static str>,
     pub examples: &'static [&'static str],
     pub only_guilds: bool,
+    pub authority: bool,
+    pub bucket: Option<&'static str>,
     pub sub_commands: &'static [&'static Command],
     pub fun: for<'fut> fn(Arc<Context>, &'fut Message) -> BoxFuture<'fut, BotResult<()>>,
 }

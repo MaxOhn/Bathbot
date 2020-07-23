@@ -16,7 +16,7 @@ use twilight::model::{
 
 #[command]
 #[only_guilds()]
-// #[checks(Authority)]
+#[authority()]
 #[short_desc("Managing roles with reactions")]
 #[long_desc(
     "Assign a message to a role such that \
