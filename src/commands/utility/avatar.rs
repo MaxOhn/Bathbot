@@ -10,7 +10,6 @@ use crate::{
 
 use rosu::backend::UserRequest;
 use std::sync::Arc;
-use twilight::builders::embed::EmbedBuilder;
 use twilight::model::channel::Message;
 
 #[command]
@@ -45,7 +44,7 @@ async fn avatar(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
             }
         }
     };
-    let embed = AvatarEmbed::new(user).build(EmbedBuilder::new()).build();
-    msg.build_response(&ctx, |m| Ok(m.embed(embed)?)).await?;
+    let embed = AvatarEmbed::new(user).build().build();
+    msg.build_response(&ctx, |m| m.embed(embed)).await?;
     Ok(())
 }

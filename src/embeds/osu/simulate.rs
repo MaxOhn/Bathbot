@@ -67,6 +67,7 @@ impl SimulateEmbed {
         let mut unchoked_score = score.unwrap_or_default();
         if is_some {
             // simulate_score(&mut unchoked_score, &map, args);
+            // TODO
             todo!()
         } else {
             unchoke_score(&mut unchoked_score, &map);
@@ -181,7 +182,7 @@ impl EmbedData for SimulateEmbed {
         fields.push(("Map Info".to_owned(), self.map_info.clone(), false));
         Some(fields)
     }
-    fn minimize(&self, e: EmbedBuilder) -> EmbedBuilder {
+    fn minimize(&self) -> EmbedBuilder {
         let mut value = if let Some(prev_pp) = self.prev_pp {
             format!("{} → {} {}", prev_pp, self.pp, self.hits)
         } else {
@@ -205,7 +206,8 @@ impl EmbedData for SimulateEmbed {
             acc = self.acc,
             combo = combo
         );
-        e.color(DARK_GREEN)
+        EmbedBuilder::new()
+            .color(DARK_GREEN)
             .add_field(name, value)
             .commit()
             .thumbnail(&self.thumbnail)

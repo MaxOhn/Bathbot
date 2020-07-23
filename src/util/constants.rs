@@ -31,6 +31,8 @@ pub const OSU_API_ISSUE: &str = "Some issue with the osu api, blame bade";
 // Misc
 pub const SYMBOLS: [&str; 6] = ["♔", "♕", "♖", "♗", "♘", "♙"];
 pub const DATE_FORMAT: &str = "%F %T";
+pub const INVITE_LINK: &str = "https://discordapp.com/api/oauth2/authorize?scope=bot&\
+    client_id=297073686916366336&permissions=268823616";
 
 pub mod emotes {
     pub const EMOTE_XH_ID: u64 = 515354675059621888;

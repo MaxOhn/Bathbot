@@ -1,7 +1,7 @@
 use crate::{
     embeds::{EmbedData, Footer},
     util::{
-        constants::OWNER_USER_ID,
+        constants::{INVITE_LINK, OWNER_USER_ID},
         datetime::how_long_ago,
         discord_avatar,
         numbers::{round, with_comma_int},
@@ -86,13 +86,7 @@ impl AboutEmbed {
                 "https://github.com/MaxOhn/Bathbot".to_string(),
                 false,
             ),
-            (
-                "Invite link".to_owned(),
-                "https://discordapp.com/api/oauth2/authorize?scope=bot&\
-                client_id=297073686916366336&permissions=268823616"
-                    .to_string(),
-                false,
-            ),
+            ("Invite link".to_owned(), INVITE_LINK.to_owned(), false),
         ];
         Ok(Self {
             footer,

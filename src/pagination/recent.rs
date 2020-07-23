@@ -81,10 +81,10 @@ impl Pagination for RecentPagination {
     async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
         // Minimize embed
         let msg = self.msg();
-        let eb = self.embed_data.minimize(EmbedBuilder::new());
+        let embed = self.embed_data.minimize().build();
         ctx.http
             .update_message(msg.channel_id, msg.id)
-            .embed(eb.build())?
+            .embed(embed)?
             .await?;
 
         // Put missing maps into DB

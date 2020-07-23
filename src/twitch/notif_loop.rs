@@ -71,7 +71,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                 for (user, stream) in streams {
                     let channels = tracked_streams.get(&user).unwrap();
                     let data = TwitchNotifEmbed::new(&stream, users.get(&stream.user_id).unwrap());
-                    let embed = data.build(EmbedBuilder::new()).build();
+                    let embed = data.build().build();
                     for channel in channels {
                         let msg_fut = ctx.http.create_message(ChannelId(*channel));
                         match msg_fut.embed(embed.clone()) {

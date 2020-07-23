@@ -7,7 +7,6 @@ use crate::{
 
 use prometheus::core::Collector;
 use std::sync::Arc;
-use twilight::builders::embed::EmbedBuilder;
 use twilight::model::channel::Message;
 
 #[command]
@@ -41,12 +40,9 @@ async fn commands(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     let data = CommandCounterEmbed::new(sub_vec, &boot_time, 1, (1, pages));
 
     // Creating the embed
-    let eb = data.build(EmbedBuilder::new());
-    let resp = ctx
-        .http
-        .create_message(msg.channel_id)
-        .embed(eb.build())?
-        .await?;
+    let embed = data.build().build();
+    let channel = msg.channel_id;
+    let resp = ctx.http.create_message(channel).embed(embed)?.await?;
 
     // Pagination
     let pagination = CommandCountPagination::new(&ctx, resp, cmds).await;

@@ -96,11 +96,11 @@ pub trait Pagination: Sync + Sized {
                     if let Some(content) = self.content() {
                         update = update.content(content)?;
                     }
-                    let mut eb = EmbedBuilder::new();
+                    let mut eb = data.build();
                     if let Some(thumbnail) = self.thumbnail() {
                         eb = eb.thumbnail(thumbnail);
                     }
-                    update.embed(data.build(eb).build())?.await?;
+                    update.embed(eb.build())?.await?;
                 }
                 Ok(None) => {}
                 Err(why) => warn!("Error while paginating: {}", why),

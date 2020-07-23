@@ -12,6 +12,7 @@ use crate::util::{constants::DARK_GREEN, datetime};
 
 use chrono::{DateTime, Utc};
 use twilight::builders::embed::EmbedBuilder;
+use twilight::model::channel::embed::Embed;
 
 pub trait EmbedData: Send + Sync + Sized + Clone {
     // Make these point to the corresponding fields
@@ -44,59 +45,60 @@ pub trait EmbedData: Send + Sync + Sized + Clone {
     }
 
     // Implement this if minimization required
-    fn minimize(&self, e: EmbedBuilder) -> EmbedBuilder {
-        e
+    fn minimize(&self) -> EmbedBuilder {
+        EmbedBuilder::new()
     }
 
     // Don't implement this
-    fn build(&self, mut e: EmbedBuilder) -> EmbedBuilder {
+    fn build(&self) -> EmbedBuilder {
+        let mut eb = EmbedBuilder::new();
         if let Some(title) = self.title() {
-            e = e.title(title);
+            eb = eb.title(title);
         }
         if let Some(url) = self.url() {
-            e = e.url(url);
+            eb = eb.url(url);
         }
         if let Some(timestamp) = self.timestamp() {
             let timestamp = datetime::date_to_string(timestamp);
-            e = e.timestamp(timestamp);
+            eb = eb.timestamp(timestamp);
         }
         if let Some(thumbnail) = self.thumbnail() {
-            e = e.thumbnail(thumbnail);
+            eb = eb.thumbnail(thumbnail);
         }
         if let Some(image) = self.image() {
-            e = e.image(image);
+            eb = eb.image(image);
         }
         if let Some(footer) = self.footer() {
-            let mut fb = e.footer(&footer.text);
+            let mut fb = eb.footer(&footer.text);
             if let Some(ref icon_url) = footer.icon_url {
                 fb = fb.icon_url(icon_url);
             }
-            e = fb.commit();
+            eb = fb.commit();
         }
         if let Some(author) = self.author() {
-            let mut ab = e.author().name(&author.name);
+            let mut ab = eb.author().name(&author.name);
             if let Some(ref icon_url) = author.icon_url {
                 ab = ab.icon_url(icon_url);
             }
             if let Some(ref url) = author.url {
                 ab = ab.url(url);
             }
-            e = ab.commit();
+            eb = ab.commit();
         }
         if let Some(description) = self.description() {
-            e = e.description(description);
+            eb = eb.description(description);
         }
         if let Some(fields) = self.fields() {
             for (name, value, inline) in fields {
-                let field = e.add_field(name, value);
-                e = if inline {
+                let field = eb.add_field(name, value);
+                eb = if inline {
                     field.inline().commit()
                 } else {
                     field.commit()
                 }
             }
         }
-        e.color(DARK_GREEN)
+        eb.color(DARK_GREEN)
     }
 }
 

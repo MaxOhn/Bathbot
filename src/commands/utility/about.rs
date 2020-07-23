@@ -6,7 +6,6 @@ use crate::{
 };
 
 use std::sync::Arc;
-use twilight::builders::embed::EmbedBuilder;
 use twilight::model::channel::Message;
 
 #[command]
@@ -20,7 +19,7 @@ async fn about(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
             return Err(why);
         }
     };
-    let embed = data.build(EmbedBuilder::new()).build();
-    msg.build_response(&ctx, |m| Ok(m.embed(embed)?)).await?;
+    let embed = data.build().build();
+    msg.build_response(&ctx, |m| m.embed(embed)).await?;
     Ok(())
 }

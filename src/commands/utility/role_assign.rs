@@ -8,7 +8,6 @@ use crate::{
 };
 
 use std::sync::Arc;
-use twilight::builders::embed::EmbedBuilder;
 use twilight::model::{
     channel::Message,
     id::{ChannelId, MessageId, RoleId},
@@ -70,7 +69,7 @@ async fn roleassign(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
         }
     };
     let data = RoleAssignEmbed::new(&ctx, message, msg.guild_id.unwrap(), role).await;
-    let eb = data.build(EmbedBuilder::new());
-    msg.build_response(&ctx, |m| m.embed(eb.build())).await?;
+    let embed = data.build().build();
+    msg.build_response(&ctx, |m| m.embed(embed)).await?;
     Ok(())
 }

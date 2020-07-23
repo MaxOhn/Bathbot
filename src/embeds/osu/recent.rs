@@ -186,7 +186,8 @@ impl EmbedData for RecentEmbed {
         fields.push(("Map Info".to_owned(), self.map_info.clone(), false));
         Some(fields)
     }
-    fn minimize(&self, mut e: EmbedBuilder) -> EmbedBuilder {
+    fn minimize(&self) -> EmbedBuilder {
+        let mut eb = EmbedBuilder::new();
         let name = format!(
             "{}\t{}\t({}%)\t{}",
             self.grade_completion_mods, self.score, self.acc, self.ago
@@ -194,9 +195,9 @@ impl EmbedData for RecentEmbed {
         let value = format!("{} [ {} ] {}", self.pp, self.combo, self.hits);
         let title = format!("{} [{}★]", self.title, self.stars);
         if self.description.is_some() {
-            e = e.description(self.description.as_ref().unwrap());
+            eb = eb.description(self.description.as_ref().unwrap());
         }
-        e.color(DARK_GREEN)
+        eb.color(DARK_GREEN)
             .thumbnail(&self.thumbnail)
             .title(title)
             .url(&self.url)
