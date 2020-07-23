@@ -30,6 +30,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &COMMANDS_CMD,
                 &AVATAR_CMD,
                 &PRUNE_CMD,
+                &PREFIX_CMD,
                 &ECHO_CMD,
                 &AUTHORITIES_CMD,
                 &ROLEASSIGN_CMD,

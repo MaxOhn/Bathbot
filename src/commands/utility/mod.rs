@@ -5,6 +5,7 @@ mod command_count;
 mod echo;
 mod lyrics;
 mod ping;
+mod prefix;
 mod prune;
 mod role_assign;
 
@@ -15,5 +16,6 @@ pub use command_count::*;
 pub use echo::*;
 pub use lyrics::*;
 pub use ping::*;
+pub use prefix::*;
 pub use prune::*;
 pub use role_assign::*;
