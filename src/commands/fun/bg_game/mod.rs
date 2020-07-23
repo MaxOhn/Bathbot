@@ -27,7 +27,7 @@ use serenity::{
     prelude::Context,
 };
 use std::{collections::HashMap, convert::TryFrom, sync::Arc, time::Duration};
-use tokio::stream::StreamExt;
+use tokio::{stream::StreamExt, time};
 
 #[command]
 #[description = "Given part of a map's background, try to guess \
@@ -220,7 +220,15 @@ async fn _start(ctx: &Context, msg: &Message, mapsets: Vec<MapsetTagWrapper>) ->
 #[bucket = "bg_hint"]
 async fn hint(ctx: &Context, msg: &Message) -> CommandResult {
     let hint = {
-        let mut data = ctx.data.write().await;
+        let mut data = match time::timeout(time::Duration::from_secs(5), ctx.data.write()).await {
+            Ok(data) => data,
+            Err(_) => {
+                msg.channel_id
+                    .say(ctx, "Error while retrieving hint, try again in a moment")
+                    .await?;
+                return Err("Timed out while waiting for data in `<bg hint`".into());
+            }
+        };
         let game = data
             .get_mut::<BgGames>()
             .and_then(|games| games.get(&msg.channel_id));

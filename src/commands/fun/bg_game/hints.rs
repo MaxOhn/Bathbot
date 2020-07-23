@@ -58,7 +58,9 @@ impl Hints {
                 "Here's my second hint: The artist looks like `{}`",
                 artist_hint
             )
-        } else if (self.hint_level == 2 && self.artist_guessed) || self.hint_level == 3 {
+        } else if !self.tags.is_empty() && (self.hint_level == 2 && self.artist_guessed)
+            || self.hint_level == 3
+        {
             self.hint_level = self.hint_level.saturating_add(1);
             format!(
                 "Another hint: The map's tags are `{}`",

@@ -207,7 +207,7 @@ async fn get_globals_count(
     let mut get_amount = true;
     for rank in [50, 25, 15, 8, 1].iter() {
         if !get_amount {
-            counts.insert(*rank, 0);
+            counts.insert(*rank, String::from("0"));
             continue;
         }
         params = params.rank_max(*rank);

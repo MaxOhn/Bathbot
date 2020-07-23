@@ -70,7 +70,11 @@ mod tests {
 
     #[test]
     fn test_round() {
-        assert_eq!(round(3.1415), 3.14);
+        let v1 = 3.1615;
+        let v2 = 3.16;
+        if f32::abs(round(v1) - v2) > f32::EPSILON {
+            panic!("[test_round] round({}) = {} != {}", v1, round(v1), v2);
+        }
     }
 
     #[test]
