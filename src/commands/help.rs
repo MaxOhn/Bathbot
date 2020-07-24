@@ -17,7 +17,7 @@ use twilight::model::{
 fn description(ctx: &Context, guild: Option<GuildId>) -> String {
     let (custom_prefix, first_prefix) = if let Some(guild) = guild {
         // Certain to be contained because of handle_event
-        let config = ctx.guilds.get(&guild).unwrap();
+        let config = ctx.guilds().get(&guild).unwrap();
         if config.prefixes == ["<", "!!"] {
             (None, "<".to_string())
         } else {
@@ -134,7 +134,7 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
     }
     if cmd.authority {
         let value = if let Some(guild) = msg.guild_id {
-            if let Some(guard) = ctx.guilds.get(&guild) {
+            if let Some(guard) = ctx.guilds().get(&guild) {
                 let config = guard.value();
                 let mut value = "You need admin permission".to_owned();
                 if !config.authorities.is_empty() {

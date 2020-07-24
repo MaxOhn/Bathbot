@@ -36,7 +36,7 @@ async fn removestream(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     let channel = msg.channel_id.0;
     {
         let mut tracked_streams =
-            match timeout(Duration::from_secs(10), ctx.tracked_streams.write()).await {
+            match timeout(Duration::from_secs(10), ctx.data.tracked_streams.write()).await {
                 Ok(tracks) => tracks,
                 Err(_) => {
                     msg.respond(&ctx, GENERAL_ISSUE).await?;

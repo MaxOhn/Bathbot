@@ -9,6 +9,7 @@ use twilight::model::channel::Message;
 async fn trackedstreams(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     let channel = msg.channel_id.0;
     let twitch_ids: Vec<_> = ctx
+        .data
         .tracked_streams
         .read()
         .await

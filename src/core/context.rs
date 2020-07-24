@@ -37,16 +37,10 @@ pub struct Context {
     pub cache: Cache,
     pub http: HttpClient,
     pub standby: Standby,
-    pub guilds: DashMap<GuildId, GuildConfig>,
-    pub stored_values: StoredValues,
-    pub perf_calc_mutex: Mutex<()>,
-    // Mapping twitch user ids to vec of discord channel ids
-    pub tracked_streams: RwLock<HashMap<u64, Vec<u64>>>,
-    // Mapping (channel id, message id) to role id
-    pub role_assigns: DashMap<(u64, u64), u64>,
     pub buckets: Buckets,
     pub backend: BackendData,
     pub clients: Clients,
+    pub data: ContextData,
 }
 
 pub struct Clients {
@@ -64,17 +58,23 @@ pub struct BackendData {
     pub shards_per_cluster: u64,
 }
 
+pub struct ContextData {
+    pub guilds: DashMap<GuildId, GuildConfig>,
+    pub stored_values: StoredValues,
+    pub perf_calc_mutex: Mutex<()>,
+    // Mapping twitch user ids to vec of discord channel ids
+    pub tracked_streams: RwLock<HashMap<u64, Vec<u64>>>,
+    // Mapping (channel id, message id) to role id
+    pub role_assigns: DashMap<(u64, u64), u64>,
+}
+
 impl Context {
-    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         cache: Cache,
         http: HttpClient,
         clients: Clients,
         backend: BackendData,
-        stored_values: StoredValues,
-        tracked_streams: HashMap<u64, Vec<u64>>,
-        role_assigns: DashMap<(u64, u64), u64>,
-        guilds: DashMap<GuildId, GuildConfig>,
+        data: ContextData,
     ) -> Self {
         cache
             .stats
@@ -85,20 +85,20 @@ impl Context {
             cache,
             http,
             standby: Standby::new(),
-            guilds,
             clients,
             backend,
-            stored_values,
-            tracked_streams: RwLock::new(tracked_streams),
-            role_assigns,
+            data,
             buckets: buckets(),
-            perf_calc_mutex: Mutex::new(()),
         }
     }
 
     /// Returns if a message was sent by us
     pub fn is_own(&self, other: &Message) -> bool {
         self.cache.bot_user.id == other.author.id
+    }
+
+    pub fn guilds(&self) -> &DashMap<GuildId, GuildConfig> {
+        &self.data.guilds
     }
 
     pub async fn initiate_cold_resume(&self) -> BotResult<()> {
@@ -154,10 +154,10 @@ impl Context {
 
     pub async fn store_values(&self) -> BotResult<()> {
         let start = Instant::now();
-        let mania_pp = &self.stored_values.mania_pp;
-        let mania_stars = &self.stored_values.mania_stars;
-        let ctb_pp = &self.stored_values.ctb_pp;
-        let ctb_stars = &self.stored_values.ctb_stars;
+        let mania_pp = &self.data.stored_values.mania_pp;
+        let mania_stars = &self.data.stored_values.mania_stars;
+        let ctb_pp = &self.data.stored_values.ctb_pp;
+        let ctb_stars = &self.data.stored_values.ctb_stars;
         let psql = &self.clients.psql;
         let (mania_pp, mania_stars, ctb_pp, ctb_stars) = tokio::try_join!(
             psql.insert_mania_pp(mania_pp),
@@ -177,16 +177,16 @@ impl Context {
 
     pub fn pp(&self, mode: GameMode) -> &Values {
         match mode {
-            GameMode::MNA => &self.stored_values.mania_pp,
-            GameMode::CTB => &self.stored_values.ctb_pp,
+            GameMode::MNA => &self.data.stored_values.mania_pp,
+            GameMode::CTB => &self.data.stored_values.ctb_pp,
             _ => unreachable!(),
         }
     }
 
     pub fn stars(&self, mode: GameMode) -> &Values {
         match mode {
-            GameMode::MNA => &self.stored_values.mania_stars,
-            GameMode::CTB => &self.stored_values.ctb_stars,
+            GameMode::MNA => &self.data.stored_values.mania_stars,
+            GameMode::CTB => &self.data.stored_values.ctb_stars,
             _ => unreachable!(),
         }
     }

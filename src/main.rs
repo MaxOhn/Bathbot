@@ -16,8 +16,7 @@ mod util;
 
 use crate::{
     core::{
-        handle_event, logging, BackendData, BotConfig, BotStats, Cache, Clients, ColdRebootData,
-        CommandGroups, Context,
+        handle_event, logging, BotConfig, BotStats, Cache, ColdRebootData, CommandGroups, Context,
     },
     custom_client::CustomClient,
     database::Database,
@@ -42,7 +41,12 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use tokio::{runtime::Runtime, stream::StreamExt, time};
+use tokio::{
+    runtime::Runtime,
+    stream::StreamExt,
+    sync::{Mutex, RwLock},
+    time,
+};
 use twilight::gateway::{
     cluster::config::ShardScheme, shard::ResumeSession, Cluster, ClusterConfig,
 };
@@ -97,7 +101,7 @@ async fn async_main() -> BotResult<()> {
     let psql = Database::new(&config.database.postgres).await?;
     let redis = ConnectionPool::create(config.database.redis.clone(), None, 5).await?;
 
-    let clients = Clients {
+    let clients = crate::core::Clients {
         psql,
         redis,
         osu,
@@ -113,13 +117,13 @@ async fn run(
     config: BotConfig,
     http: HttpClient,
     bot_user: CurrentUser,
-    clients: Clients,
+    clients: crate::core::Clients,
 ) -> BotResult<()> {
     // Guild configs
     let guilds = clients.psql.get_guilds().await?;
 
     // Tracked streams
-    let tracked_streams = clients.psql.get_stream_tracks().await?;
+    let tracked_streams = RwLock::new(clients.psql.get_stream_tracks().await?);
 
     // Reaction-role-assign
     let role_assigns = clients.psql.get_role_assigns().await?;
@@ -215,27 +219,23 @@ async fn run(
         shard_states.insert(i, core::ShardState::PendingCreation);
     }
 
-    let backend = BackendData {
+    let backend = crate::core::BackendData {
         cluster,
         shard_states,
         total_shards,
         shards_per_cluster,
     };
 
+    let data = crate::core::ContextData {
+        guilds,
+        tracked_streams,
+        role_assigns,
+        stored_values,
+        perf_calc_mutex: Mutex::new(()),
+    };
+
     // Final context
-    let ctx = Arc::new(
-        Context::new(
-            cache,
-            http,
-            clients,
-            backend,
-            stored_values,
-            tracked_streams,
-            role_assigns,
-            guilds,
-        )
-        .await,
-    );
+    let ctx = Arc::new(Context::new(cache, http, clients, backend, data).await);
 
     // Setup graceful shutdown
     let shutdown_ctx = ctx.clone();

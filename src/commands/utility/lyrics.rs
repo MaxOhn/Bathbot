@@ -17,9 +17,8 @@ use twilight::model::channel::Message;
 )]
 async fn lyrics(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     let guild_id = msg.guild_id.unwrap();
-    let guilds = &ctx.guilds;
     let mut available = false;
-    let config = guilds.update_get(&guild_id, |_, config| {
+    let config = ctx.guilds().update_get(&guild_id, |_, config| {
         let mut new_config = config.clone();
         new_config.with_lyrics = !config.with_lyrics;
         available = new_config.with_lyrics;

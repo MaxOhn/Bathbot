@@ -52,7 +52,7 @@ pub async fn handle_event(
             let reaction = reaction_add.0;
             if let Some(guild_id) = reaction.guild_id {
                 let key = (reaction.channel_id.0, reaction.message_id.0);
-                if let Some(guard) = ctx.role_assigns.get(&key) {
+                if let Some(guard) = ctx.data.role_assigns.get(&key) {
                     let role_id = RoleId(*guard.value());
                     if let Err(why) = ctx.http.add_role(guild_id, reaction.user_id, role_id).await {
                         error!("Error while assigning react-role to user: {}", why);
@@ -65,7 +65,7 @@ pub async fn handle_event(
             let reaction = reaction_remove.0;
             if let Some(guild_id) = reaction.guild_id {
                 let key = (reaction.channel_id.0, reaction.message_id.0);
-                if let Some(guard) = ctx.role_assigns.get(&key) {
+                if let Some(guard) = ctx.data.role_assigns.get(&key) {
                     let role_id = RoleId(*guard.value());
                     if let Err(why) = ctx
                         .http
@@ -88,11 +88,11 @@ pub async fn handle_event(
             }
             let prefixes = match msg.guild_id {
                 Some(guild) => {
-                    if !ctx.guilds.contains_key(&guild) {
+                    if !ctx.guilds().contains_key(&guild) {
                         let config = ctx.clients.psql.insert_guild(guild.0).await?;
-                        ctx.guilds.insert(guild, config);
+                        ctx.guilds().insert(guild, config);
                     }
-                    ctx.guilds.get(&guild).unwrap().prefixes.clone()
+                    ctx.guilds().get(&guild).unwrap().prefixes.clone()
                 }
                 None => vec!["<".to_owned(), "!!".to_owned()],
             };
@@ -185,7 +185,7 @@ fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>> {
     if let Some(true) = ctx.cache.has_admin_permission(msg.author.id, guild_id) {
         return Ok(None);
     }
-    if let Some(guard) = ctx.guilds.get(&guild_id) {
+    if let Some(guard) = ctx.guilds().get(&guild_id) {
         let config = guard.value();
         let auth_roles: Vec<_> = config.authorities.iter().map(|id| RoleId(*id)).collect();
         if auth_roles.is_empty() {

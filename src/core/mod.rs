@@ -13,7 +13,7 @@ pub use cache::{Cache, CachedEmoji, CachedUser};
 pub use cold_resume::ColdRebootData;
 pub use commands::{Command, CommandGroup, CommandGroups};
 pub use config::BotConfig;
-pub use context::{generate_activity, BackendData, Clients, Context};
+pub use context::{generate_activity, BackendData, Clients, Context, ContextData};
 pub use handler::handle_event;
 pub use stats::BotStats;
 pub use stored_values::{StoredValues, Values};

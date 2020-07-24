@@ -36,7 +36,7 @@ async fn authorities(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     // Check if the user just wants to see the current authorities
     match args.current().unwrap_or_default() {
         "-show" | "show" => {
-            let guard = match ctx.guilds.get(&guild_id) {
+            let guard = match ctx.guilds().get(&guild_id) {
                 Some(guard) => guard,
                 None => {
                     msg.respond(&ctx, GENERAL_ISSUE).await?;
@@ -92,7 +92,7 @@ async fn authorities(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
         return Ok(());
     }
 
-    let config = ctx.guilds.update_get(&guild_id, |_, config| {
+    let config = ctx.guilds().update_get(&guild_id, |_, config| {
         let mut new_config = config.clone();
         new_config.authorities = new_auths.iter().map(|role| role.id.0).collect();
         new_config

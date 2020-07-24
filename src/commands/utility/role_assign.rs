@@ -56,7 +56,7 @@ async fn roleassign(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
             return Err(why);
         }
     }
-    ctx.role_assigns.insert((channel.0, msg_id.0), role.0);
+    ctx.data.role_assigns.insert((channel.0, msg_id.0), role.0);
     let message = match ctx.http.message(channel, msg_id).await? {
         Some(message) => message,
         None => {

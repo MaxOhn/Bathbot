@@ -28,7 +28,7 @@ async fn prefix(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     let mut args = Args::new(msg.content.clone());
     let guild_id = msg.guild_id.unwrap();
     if args.is_empty() {
-        let guard = match ctx.guilds.get(&guild_id) {
+        let guard = match ctx.guilds().get(&guild_id) {
             Some(guard) => guard,
             None => {
                 msg.respond(&ctx, GENERAL_ISSUE).await?;
@@ -59,7 +59,7 @@ async fn prefix(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
         msg.respond(&ctx, content).await?;
         return Ok(());
     }
-    let config = ctx.guilds.update_get(&guild_id, |_, config| {
+    let config = ctx.guilds().update_get(&guild_id, |_, config| {
         let mut new_config = config.clone();
         let args = args.iter().take(5);
         match action {
