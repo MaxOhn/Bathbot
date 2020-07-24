@@ -1,9 +1,13 @@
+pub mod bg_game;
 pub mod fun;
 pub mod help;
+pub mod songs;
 pub mod twitch;
 pub mod utility;
 
+use bg_game::*;
 use fun::*;
+use songs::*;
 use twitch::*;
 use utility::*;
 
@@ -25,6 +29,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
             "twitch",
             vec![&ADDSTREAM_CMD, &REMOVESTREAM_CMD, &TRACKEDSTREAMS_CMD],
         ),
+        CommandGroup::new("background guessing game", vec![&BACKGROUNDGAME_CMD]),
         CommandGroup::new(
             "utility",
             vec![
@@ -39,6 +44,21 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &AUTHORITIES_CMD,
                 &ROLEASSIGN_CMD,
                 &LYRICS_CMD,
+            ],
+        ),
+        CommandGroup::new(
+            "songs",
+            vec![
+                &BOMBSAWAY_CMD,
+                &CATCHIT_CMD,
+                &DING_CMD,
+                &FIREANDFLAMES_CMD,
+                &FIREFLIES_CMD,
+                &FLAMINGO_CMD,
+                &PRETENDER_CMD,
+                &ROCKEFELLER_CMD,
+                &SAYGOODBYE_CMD,
+                &TIJDMACHINE_CMD,
             ],
         ),
     ]
