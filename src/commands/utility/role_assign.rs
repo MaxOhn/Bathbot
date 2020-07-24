@@ -1,9 +1,8 @@
-use super::super::command_issue;
 use crate::{
     arguments::{Args, RoleAssignArgs},
     bail,
     embeds::{EmbedData, RoleAssignEmbed},
-    util::MessageExt,
+    util::{constants::GENERAL_ISSUE, MessageExt},
     BotResult, Context,
 };
 
@@ -52,7 +51,7 @@ async fn roleassign(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     match psql.add_role_assign(channel.0, msg_id.0, role.0).await {
         Ok(_) => debug!("Inserted into role_assign table"),
         Err(why) => {
-            msg.respond(&ctx, command_issue("roleassign")).await?;
+            msg.respond(&ctx, GENERAL_ISSUE).await?;
             return Err(why);
         }
     }

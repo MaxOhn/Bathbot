@@ -128,6 +128,21 @@ async fn run(
     // Reaction-role-assign
     let role_assigns = clients.psql.get_role_assigns().await?;
 
+    // Discord-osu! links
+    let discord_links = clients.psql.get_discord_links().await?;
+
+    // Stored pp and star values for mania and ctb
+    let stored_values = core::StoredValues::new(&clients.psql).await?;
+
+    let data = crate::core::ContextData {
+        guilds,
+        tracked_streams,
+        role_assigns,
+        stored_values,
+        perf_calc_mutex: Mutex::new(()),
+        discord_links,
+    };
+
     // Shard-cluster config
     let (shards_per_cluster, total_shards, sharding_scheme) = shard_schema_values()
         .map_or((1, 1, ShardScheme::Auto), |(to, total)| {
@@ -143,7 +158,6 @@ async fn run(
             | GatewayIntents::DIRECT_MESSAGE_REACTIONS,
     );
     let stats = Arc::new(BotStats::new());
-    let stored_values = core::StoredValues::new(&clients.psql).await?;
 
     // Provide stats to locale address
     // let s = stats.clone();
@@ -224,14 +238,6 @@ async fn run(
         shard_states,
         total_shards,
         shards_per_cluster,
-    };
-
-    let data = crate::core::ContextData {
-        guilds,
-        tracked_streams,
-        role_assigns,
-        stored_values,
-        perf_calc_mutex: Mutex::new(()),
     };
 
     // Final context

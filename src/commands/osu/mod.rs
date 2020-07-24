@@ -1,0 +1,36 @@
+mod common;
+mod fruits;
+mod leaderboard;
+mod link;
+mod mania;
+mod map;
+mod match_costs;
+mod most_played;
+mod most_played_common;
+mod osustats_globals;
+mod pp;
+mod profile;
+mod rank;
+mod recent;
+mod recent_lb;
+mod scores;
+mod simulate;
+mod simulate_recent;
+mod standard;
+mod taiko;
+mod top;
+mod whatif;
+
+pub use fruits::*;
+pub use mania::*;
+pub use standard::*;
+pub use taiko::*;
+
+pub use leaderboard::*;
+pub use link::*;
+pub use map::*;
+pub use match_costs::*;
+pub use most_played::*;
+pub use most_played_common::*;
+pub use scores::*;
+pub use simulate::*;

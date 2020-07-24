@@ -1,7 +1,6 @@
-use super::super::command_issue;
 use crate::{
     embeds::{AboutEmbed, EmbedData},
-    util::MessageExt,
+    util::{constants::GENERAL_ISSUE, MessageExt},
     BotResult, Context,
 };
 
@@ -15,7 +14,7 @@ async fn about(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     let data = match AboutEmbed::new(&ctx).await {
         Ok(data) => data,
         Err(why) => {
-            msg.respond(&ctx, command_issue("about")).await?;
+            msg.respond(&ctx, GENERAL_ISSUE).await?;
             return Err(why);
         }
     };

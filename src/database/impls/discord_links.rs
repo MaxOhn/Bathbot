@@ -1,5 +1,6 @@
 use crate::{BotResult, Database};
 
+use dashmap::DashMap;
 use sqlx::Row;
 use std::collections::HashMap;
 
@@ -28,7 +29,7 @@ ON CONFLICT DO
         Ok(())
     }
 
-    pub async fn get_discord_links(&self) -> BotResult<HashMap<u64, String>> {
+    pub async fn get_discord_links(&self) -> BotResult<DashMap<u64, String>> {
         let links = sqlx::query("SELECT * FROM discord_users")
             .fetch_all(&self.pool)
             .await?
