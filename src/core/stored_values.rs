@@ -15,17 +15,17 @@ pub struct StoredValues {
 
 impl StoredValues {
     pub async fn new(psql: &Database) -> BotResult<Self> {
-        let (mania_pp, mania_stars, ctb_pp, ctb_stars) = tokio::join!(
+        let (mania_pp, mania_stars, ctb_pp, ctb_stars) = tokio::try_join!(
             psql.get_mania_pp(),
             psql.get_mania_stars(),
             psql.get_ctb_pp(),
             psql.get_ctb_stars(),
-        );
+        )?;
         Ok(Self {
-            mania_pp: mania_pp?,
-            mania_stars: mania_stars?,
-            ctb_pp: ctb_pp?,
-            ctb_stars: ctb_stars?,
+            mania_pp,
+            mania_stars,
+            ctb_pp,
+            ctb_stars,
         })
     }
 }

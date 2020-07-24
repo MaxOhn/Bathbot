@@ -1,11 +1,10 @@
-use crate::{BotResult, Database};
+use crate::{core::Values, BotResult, Database};
 
 use dashmap::DashMap;
 use rosu::models::GameMods;
 use sqlx::{types::Json, Row};
 use std::collections::HashMap;
 
-type Values = DashMap<u32, HashMap<GameMods, (f32, bool)>>;
 type ValueResult = BotResult<Values>;
 
 impl Database {
@@ -59,14 +58,23 @@ impl Database {
     }
 
     async fn insert_values(&self, table: &str, values: &Values) -> BotResult<usize> {
-        values.retain(|_, mod_map| mod_map.values().any(|(_, to_insert)| *to_insert));
-        if values.is_empty() {
-            return Ok(0);
-        }
-        let len = values.len();
+        let value_iter = values.iter().filter_map(|guard| {
+            let mod_map: HashMap<_, _> = guard
+                .value()
+                .iter()
+                .filter_map(
+                    |(mods, (pp, to_insert))| if *to_insert { Some((*mods, *pp)) } else { None },
+                )
+                .collect();
+            if mod_map.is_empty() {
+                None
+            } else {
+                Some((*guard.key(), mod_map))
+            }
+        });
+        let mut counter = 0;
         let mut txn = self.pool.begin().await?;
-        for guard in values.into_iter() {
-            let (map_id, mod_map) = guard.pair();
+        for (map_id, mod_map) in value_iter {
             let query = format!(
                 "
 INSERT INTO
@@ -76,14 +84,15 @@ VALUES
 ON CONFLICT DO
     UPDATE
         SET values=$1",
-                table, *map_id
+                table, map_id
             );
             sqlx::query(&query)
                 .bind(Json(mod_map))
                 .execute(&mut *txn)
                 .await?;
+            counter += 1;
         }
         txn.commit().await?;
-        Ok(len)
+        Ok(counter)
     }
 }
