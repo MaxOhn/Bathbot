@@ -18,7 +18,7 @@ pub struct LeaderboardPagination {
 }
 
 impl LeaderboardPagination {
-    pub async fn new(
+    pub fn new(
         ctx: Arc<Context>,
         msg: Message,
         map: Beatmap,

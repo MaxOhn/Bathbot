@@ -17,7 +17,7 @@ pub struct MostPlayedCommonPagination {
 }
 
 impl MostPlayedCommonPagination {
-    pub async fn new(
+    pub fn new(
         msg: Message,
         users: HashMap<u32, User>,
         users_count: HashMap<u32, HashMap<u32, u32>>,

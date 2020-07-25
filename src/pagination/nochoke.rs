@@ -17,7 +17,7 @@ pub struct NoChokePagination {
 }
 
 impl NoChokePagination {
-    pub async fn new(
+    pub fn new(
         ctx: Arc<Context>,
         msg: Message,
         user: User,

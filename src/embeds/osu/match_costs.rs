@@ -2,7 +2,7 @@ use crate::{
     commands::osu::MatchResult,
     embeds::EmbedData,
     util::{
-        globals::{AVATAR_URL, OSU_BASE},
+        constants::{AVATAR_URL, OSU_BASE},
         numbers::round,
     },
 };
@@ -75,7 +75,7 @@ impl MatchCostEmbed {
                             "**{idx}**: [{name}]({base}users/{name_r}) - **{cost}** {medal}",
                             idx = i + 1,
                             name = name,
-                            base = HOMEPAGE,
+                            base = OSU_BASE,
                             name_r = name.replace(" ", "%20"),
                             cost = round(cost),
                             medal = medal,
@@ -94,7 +94,7 @@ impl MatchCostEmbed {
                             "**{idx}**: [{name}]({base}users/{name_r}) - **{cost}** {medal}",
                             idx = i + 1,
                             name = name,
-                            base = HOMEPAGE,
+                            base = OSU_BASE,
                             name_r = name.replace(" ", "%20"),
                             cost = round(cost),
                             medal = medal,
@@ -108,7 +108,7 @@ impl MatchCostEmbed {
                             "**{idx}**: [{name}]({base}users/{name_r}) - **{cost}** {medal}",
                             idx = i + 1,
                             name = name,
-                            base = HOMEPAGE,
+                            base = OSU_BASE,
                             name_r = name.replace(" ", "%20"),
                             cost = round(cost),
                             medal = if i < medals.len() { medals[i] } else { "" },
@@ -126,7 +126,7 @@ impl MatchCostEmbed {
             title,
             thumbnail,
             description,
-            url: format!("{}community/matches/{}", HOMEPAGE, match_id),
+            url: format!("{}community/matches/{}", OSU_BASE, match_id),
         }
     }
 }

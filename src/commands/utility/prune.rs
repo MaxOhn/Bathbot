@@ -17,21 +17,16 @@ use twilight::model::channel::Message;
 #[example("3")]
 #[aliases("purge")]
 async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
-    let amount = if !args.is_empty() {
-        match args.single::<u64>() {
-            Ok(val) => {
-                if val < 1 || val > 99 {
-                    return wrong_argument(&ctx, msg).await;
-                } else {
-                    val + 1
-                }
-            }
-            Err(_) => {
-                return wrong_argument(&ctx, msg).await;
+    let amount = match args.single::<u64>() {
+        Ok(amount) => {
+            if amount < 1 || amount > 99 {
+                let content = "First argument must be an integer between 1 and 99";
+                return msg.respond(&ctx, content).await;
+            } else {
+                amount + 1
             }
         }
-    } else {
-        2
+        Err(_) => 2,
     };
     let messages = match ctx
         .http
@@ -60,9 +55,4 @@ async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
         .delete_message(response.channel_id, response.id)
         .await?;
     Ok(())
-}
-
-async fn wrong_argument(ctx: &Context, msg: &Message) -> BotResult<()> {
-    msg.respond(&ctx, "First argument must be an integer between 1 and 99")
-        .await
 }

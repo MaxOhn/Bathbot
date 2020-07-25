@@ -1,9 +1,10 @@
+use super::require_link;
 use crate::{
     arguments::{Args, NameMapArgs},
     embeds::{EmbedData, ScoresEmbed},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        discord, MessageExt,
+        MessageExt,
     },
     BotResult, Context,
 };
@@ -29,41 +30,28 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let map_id = if let Some(map_id) = args.map_id {
         map_id
     } else {
-        let msgs = msg
-            .channel_id
-            .messages(ctx, |retriever| retriever.limit(50))
-            .await?;
-        match discord::map_id_from_history(msgs, &ctx.cache).await {
+        let msg_fut = ctx.http.channel_messages(msg.channel_id).limit(50).unwrap();
+        let msgs = match msg_fut.await {
+            Ok(msgs) => msgs,
+            Err(why) => {
+                msg.respond(&ctx, "Error while retrieving messages").await?;
+                return Err(why.into());
+            }
+        };
+        match discord::map_id_from_history(msgs, &ctx).await {
             Some(id) => id,
             None => {
                 let content = "No map embed found in this channel's recent history.\n\
                          Try specifying a map as last argument either by url to the map, \
                          or just by map id.";
-                msg.respond(&ctx, contenet).await?;
+                msg.respond(&ctx, content).await?;
                 return Ok(());
             }
         }
     };
-    let name = if let Some(name) = args.name {
-        name
-    } else {
-        let data = ctx.data.read().await;
-        let links = data.get::<DiscordLinks>().unwrap();
-        match links.get(msg.author.id.as_u64()) {
-            Some(name) => name.clone(),
-            None => {
-                msg.channel_id
-                    .say(
-                        ctx,
-                        "Either specify an osu name or link your discord \
-                         to an osu profile via `<link osuname`",
-                    )
-                    .await?
-                    .reaction_delete(ctx, msg.author.id)
-                    .await;
-                return Ok(());
-            }
-        }
+    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+        Some(name) => name,
+        None => return require_link(&ctx, msg).await,
     };
 
     // Retrieving the beatmap
@@ -98,35 +86,27 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
 
     // Retrieve user and user's scores on the map
-    let (user, map, scores) = {
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
-        let score_req = ScoreRequest::with_map_id(map_id)
-            .username(&name)
-            .mode(map.mode);
-        let scores = match score_req.queue(osu).await {
-            Ok(scores) => scores,
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
-        };
-        let user_req = UserRequest::with_username(&name).mode(map.mode);
-        let user = match user_req.queue_single(osu).await {
-            Ok(result) => match result {
-                Some(user) => user,
-                None => {
-                    let content = format!("Could not find user `{}`", name);
-                    msg.respond(&ctx, content).await?;
-                    return Ok(());
-                }
-            },
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
-        };
-        (user, map, scores)
+    let osu = &ctx.clients.osu;
+    let score_req = ScoreRequest::with_map_id(map_id)
+        .username(&name)
+        .mode(map.mode);
+    let scores = match score_req.queue(osu).await {
+        Ok(scores) => scores,
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
+        }
+    };
+    let user = match ctx.osu_user(&name, map.mode).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            let content = format!("Could not find user `{}`", name);
+            return msg.respond(&ctx, content).await;
+        }
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
+        }
     };
 
     // Accumulate all necessary data
@@ -139,19 +119,12 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
 
     // Sending the embed
-    let response = msg
-        .channel_id
-        .send_message(ctx, |m| m.embed(|e| data.build(e)))
-        .await;
+    let embed = data.build().build();
+    msg.build_response(&ctx, |m| m.embed(embed)).await?;
 
     // Add map to database if its not in already
-    {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        if let Err(why) = mysql.insert_beatmap(&map).await {
-            warn!("Could not add map of compare command to DB: {}", why);
-        }
+    if let Err(why) = ctx.clients.psql.insert_beatmap(&map).await {
+        warn!("Error while adding new map to DB: {}", why);
     }
-    response?.reaction_delete(ctx, msg.author.id).await;
     Ok(())
 }

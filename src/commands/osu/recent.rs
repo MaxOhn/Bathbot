@@ -1,3 +1,4 @@
+use super::require_link;
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, RecentEmbed},
@@ -27,75 +28,55 @@ async fn recent_send(
     mode: GameMode,
     ctx: Arc<Context>,
     msg: &Message,
-    args: Args,
+    args: Args<'_>,
 ) -> BotResult<()> {
     let args = NameArgs::new(args);
-    let name = if let Some(name) = args.name {
-        name
-    } else {
-        let data = ctx.data.read().await;
-        let links = data.get::<DiscordLinks>().unwrap();
-        match links.get(msg.author.id.as_u64()) {
-            Some(name) => name.clone(),
-            None => {
-                msg.channel_id
-                    .say(
-                        ctx,
-                        "Either specify an osu name or link your discord \
-                        to an osu profile via `<link osuname`",
-                    )
-                    .await?
-                    .reaction_delete(ctx, msg.author.id)
-                    .await;
-                return Ok(());
-            }
-        }
+    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+        Some(name) => name,
+        None => return require_link(&ctx, msg).await,
     };
 
     // Retrieve the recent scores
-    let scores = {
-        let request = RecentRequest::with_username(&name).mode(mode).limit(50);
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
-        match request.queue(osu).await {
-            Ok(scores) => scores,
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
+    let request = RecentRequest::with_username(&name).mode(mode).limit(50);
+    let osu = &ctx.clients.osu;
+    let scores = match request.queue(osu).await {
+        Ok(scores) => scores,
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
         }
     };
     if scores.is_empty() {
         let content = format!("No recent plays found for user `{}`", name);
-        msg.respond(ctx, content).await?;
-        return Ok(());
+        return msg.respond(&ctx, content).await;
     }
 
     // Retrieving the score's user
-    let user = {
-        let req = UserRequest::with_username(&name).mode(mode);
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
-        match req.queue_single(&osu).await {
-            Ok(Some(u)) => u,
-            Ok(None) => unreachable!(),
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
+    let req = UserRequest::with_username(&name).mode(mode);
+    let user = match req.queue_single(osu).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            let content = format!("User `{}` was not found", name);
+            return msg.respond(&ctx, content).await;
+        }
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
         }
     };
 
     // Get all relevant maps from the database
-    let mut map_ids: HashSet<u32> = scores.iter().map(|s| s.beatmap_id.unwrap()).collect();
+    let mut map_ids: HashSet<u32> = scores.iter().filter_map(|s| s.beatmap_id).collect();
     let mut maps = {
         let dedubed_ids: Vec<u32> = map_ids.iter().copied().collect();
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        mysql
-            .get_beatmaps(&dedubed_ids)
-            .await
-            .unwrap_or_else(|_| HashMap::default())
+        let map_result = ctx.clients.psql.get_beatmaps(&dedubed_ids).await;
+        match map_result {
+            Ok(maps) => maps,
+            Err(why) => {
+                warn!("Error while retrieving maps from DB: {}", why);
+                HashMap::default()
+            }
+        }
     };
 
     // Memoize which maps are already in the DB
@@ -104,52 +85,40 @@ async fn recent_send(
     let first_score = scores.first().unwrap();
     let first_id = first_score.beatmap_id.unwrap();
     #[allow(clippy::map_entry)]
-    {
-        if !maps.contains_key(&first_id) {
-            let data = ctx.data.read().await;
-            let osu = data.get::<Osu>().unwrap();
-            let map = match first_score.get_beatmap(osu).await {
-                Ok(map) => map,
-                Err(why) => {
-                    msg.respond(&ctx, OSU_API_ISSUE).await?;
-                    return Err(why.into());
-                }
-            };
-            maps.insert(first_id, map);
-        }
-    }
-
-    // Retrieving the user's top 100 and the map's global top 50
-    let best = {
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
-        match user.get_top_scores(osu, 100, mode).await {
-            Ok(scores) => scores,
+    if !maps.contains_key(&first_id) {
+        let map = match first_score.get_beatmap(osu).await {
+            Ok(map) => map,
             Err(why) => {
                 msg.respond(&ctx, OSU_API_ISSUE).await?;
                 return Err(why.into());
             }
+        };
+        maps.insert(first_id, map);
+    }
+
+    // Retrieving the user's top 100 and the map's global top 50
+    let best = match user.get_top_scores(osu, 100, mode).await {
+        Ok(scores) => scores,
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
         }
     };
     let first_map = maps.get(&first_id).unwrap();
     let mut global = HashMap::with_capacity(50);
-    {
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
-        match first_map.approval_status {
-            Ranked | Loved | Qualified | Approved => {
-                match first_map.get_global_leaderboard(osu, 50).await {
-                    Ok(scores) => {
-                        global.insert(first_map.beatmap_id, scores);
-                    }
-                    Err(why) => {
-                        msg.respond(&ctx, OSU_API_ISSUE).await?;
-                        return Err(why.into());
-                    }
+    match first_map.approval_status {
+        Ranked | Loved | Qualified | Approved => {
+            match first_map.get_global_leaderboard(osu, 50).await {
+                Ok(scores) => {
+                    global.insert(first_map.beatmap_id, scores);
+                }
+                Err(why) => {
+                    msg.respond(&ctx, OSU_API_ISSUE).await?;
+                    return Err(why.into());
                 }
             }
-            _ => {}
         }
+        _ => {}
     }
 
     // Accumulate all necessary data
@@ -160,48 +129,53 @@ async fn recent_send(
         })
         .count();
     let global_scores = global.get(&first_map.beatmap_id).unwrap();
-    let embed_data =
-        match RecentEmbed::new(&user, first_score, first_map, &best, global_scores, ctx).await {
-            Ok(data) => data,
-            Err(why) => {
-                msg.respond(&ctx, GENERAL_ISSUE).await?;
-                return Err(why.into());
-            }
-        };
+    let data = match RecentEmbed::new(
+        &user,
+        first_score,
+        first_map,
+        &best,
+        global_scores,
+        ctx.clone(),
+    )
+    .await
+    {
+        Ok(data) => data,
+        Err(why) => {
+            msg.respond(&ctx, GENERAL_ISSUE).await?;
+            return Err(why);
+        }
+    };
 
     // Creating the embed
-    let resp = msg
-        .channel_id
-        .send_message(ctx, |m| {
-            m.content(format!("Try #{}", tries))
-                .embed(|e| embed_data.build(e))
-        })
+    let embed = data.build().build();
+    let response = ctx
+        .http
+        .create_message(msg.channel_id)
+        .content(format!("Try #{}", tries))?
+        .embed(embed)?
         .await?;
 
     // Skip pagination if too few entries
     if scores.len() <= 1 {
-        resp.reaction_delete(ctx, msg.author.id).await;
+        response.reaction_delete(&ctx, msg.author.id);
         return Ok(());
     }
 
     // Pagination
     let pagination = RecentPagination::new(
-        ctx,
-        resp,
-        msg.author.id,
+        ctx.clone(),
+        response,
         user,
         scores,
         maps,
         best,
         global,
         map_ids,
-        embed_data,
-    )
-    .await;
-    let cache = Arc::clone(&ctx.cache);
-    let http = Arc::clone(&ctx.http);
+        data,
+    );
+    let owner = msg.author.id;
     tokio::spawn(async move {
-        if let Err(why) = pagination.start(cache, http).await {
+        if let Err(why) = pagination.start(&ctx, owner, 90).await {
             warn!("Pagination error: {}", why)
         }
     });
@@ -213,7 +187,7 @@ async fn recent_send(
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("r", "rs")]
-pub async fn recent(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn recent(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     recent_send(GameMode::STD, ctx, msg, args).await
 }
 
@@ -222,7 +196,7 @@ pub async fn recent(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("rm")]
-pub async fn recentmania(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn recentmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     recent_send(GameMode::MNA, ctx, msg, args).await
 }
 
@@ -231,7 +205,7 @@ pub async fn recentmania(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("rt")]
-pub async fn recenttaiko(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn recenttaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     recent_send(GameMode::TKO, ctx, msg, args).await
 }
 
@@ -240,6 +214,6 @@ pub async fn recenttaiko(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("rc")]
-pub async fn recentctb(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn recentctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     recent_send(GameMode::CTB, ctx, msg, args).await
 }

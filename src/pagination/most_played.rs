@@ -14,7 +14,7 @@ pub struct MostPlayedPagination {
 }
 
 impl MostPlayedPagination {
-    pub async fn new(msg: Message, user: User, maps: Vec<MostPlayedMap>) -> Self {
+    pub fn new(msg: Message, user: User, maps: Vec<MostPlayedMap>) -> Self {
         Self {
             msg,
             pages: Pages::new(10, maps.len()),

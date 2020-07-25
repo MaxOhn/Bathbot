@@ -17,12 +17,13 @@ impl Context {
             .map(|guard| guard.value().to_owned())
     }
 
-    pub async fn add_link(&self, discord_id: u64, osu_name: String) -> BotResult<()> {
+    pub async fn add_link(&self, discord_id: u64, osu_name: impl Into<String>) -> BotResult<()> {
+        let name = osu_name.into();
         self.clients
             .psql
-            .add_discord_link(discord_id, &osu_name)
+            .add_discord_link(discord_id, &name)
             .await?;
-        self.data.discord_links.insert(discord_id, osu_name);
+        self.data.discord_links.insert(discord_id, name);
         Ok(())
     }
 

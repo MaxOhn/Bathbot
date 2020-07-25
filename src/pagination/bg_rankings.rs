@@ -16,7 +16,7 @@ pub struct BGRankingPagination {
 }
 
 impl BGRankingPagination {
-    pub async fn new(
+    pub fn new(
         ctx: Arc<Context>,
         msg: Message,
         author_idx: Option<usize>,

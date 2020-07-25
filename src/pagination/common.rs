@@ -18,8 +18,7 @@ pub struct CommonPagination {
 }
 
 impl CommonPagination {
-    #[allow(clippy::too_many_arguments)]
-    pub async fn new(
+    pub fn new(
         ctx: &Context,
         msg: Message,
         users: HashMap<u32, User>,

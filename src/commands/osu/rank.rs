@@ -23,10 +23,9 @@ async fn rank_main(
         Ok(args) => args,
         Err(err_msg) => return msg.respond(&ctx, err_msg).await,
     };
-    let name = if let Some(name) = args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
-        name
-    } else {
-        return require_link(&ctx, msg).await;
+    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+        Some(name) => name,
+        None => return require_link(&ctx, msg).await,
     };
     let country = args.country;
     let rank = args.rank;

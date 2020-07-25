@@ -9,7 +9,7 @@ use rosu::{
     backend::requests::{MatchRequest, UserRequest},
     models::{Match, Team, TeamType},
 };
-use std::{collections::HashMap, fmt::Write};
+use std::{collections::HashMap, fmt::Write, sync::Arc};
 use twilight::model::channel::Message;
 
 #[command]
@@ -28,53 +28,41 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     let args = match MatchArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
-            msg.respond(&ctx, err_msg).await?;
-            return Ok(());
+            return msg.respond(&ctx, err_msg).await;
         }
     };
     let match_id = args.match_id;
     let warmups = args.warmups;
 
     // Retrieve the match
-    let mut osu_match = {
-        let match_req = MatchRequest::with_match_id(match_id);
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
-        match match_req.queue_single(&osu).await {
-            Ok(osu_match) => osu_match,
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
+    let match_req = MatchRequest::with_match_id(match_id);
+    let mut osu_match = match match_req.queue_single(&ctx.clients.osu).await {
+        Ok(osu_match) => osu_match,
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
         }
     };
 
     // Retrieve all usernames of the match
-    let users: HashMap<u32, String> = {
-        let mut users = HashMap::new();
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
-        for game in osu_match.games.iter() {
-            #[allow(clippy::map_entry)]
-            for score in game.scores.iter() {
-                if !users.contains_key(&score.user_id) {
-                    let req = UserRequest::with_user_id(score.user_id);
-                    let name = match req.queue_single(&osu).await {
-                        Ok(result) => match result {
-                            Some(user) => user.username,
-                            None => score.user_id.to_string(),
-                        },
-                        Err(why) => {
-                            msg.respond(&ctx, OSU_API_ISSUE).await?;
-                            return Err(why.into());
-                        }
-                    };
-                    users.insert(score.user_id, name);
-                }
+    let mut users = HashMap::new();
+    for game in osu_match.games.iter() {
+        #[allow(clippy::map_entry)]
+        for score in game.scores.iter() {
+            if !users.contains_key(&score.user_id) {
+                let req = UserRequest::with_user_id(score.user_id);
+                let name = match req.queue_single(&ctx.clients.osu).await {
+                    Ok(Some(user)) => user.username,
+                    Ok(None) => score.user_id.to_string(),
+                    Err(why) => {
+                        msg.respond(&ctx, OSU_API_ISSUE).await?;
+                        return Err(why.into());
+                    }
+                };
+                users.insert(score.user_id, name);
             }
         }
-        users
-    };
+    }
 
     // Process match
     let (description, match_result) = if osu_match.games.len() <= warmups {
@@ -97,23 +85,21 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     let data = MatchCostEmbed::new(osu_match, description, match_result);
 
     // Creating the embed
-    msg.channel_id
-        .send_message(ctx, |m| {
-            if warmups > 0 {
-                let mut content = String::from("Ignoring the first ");
-                if warmups == 1 {
-                    content.push_str("map");
-                } else {
-                    let _ = write!(content, "{} maps", warmups);
-                }
-                content.push_str(" as warmup:");
-                m.content(content);
+    let embed = data.build().build();
+    msg.build_response(&ctx, |mut m| {
+        if warmups > 0 {
+            let mut content = String::from("Ignoring the first ");
+            if warmups == 1 {
+                content.push_str("map");
+            } else {
+                let _ = write!(content, "{} maps", warmups);
             }
-            m.embed(|e| data.build(e))
-        })
-        .await?
-        .reaction_delete(ctx, msg.author.id)
-        .await;
+            content.push_str(" as warmup:");
+            m = m.content(content)?;
+        }
+        m.embed(embed)
+    })
+    .await?;
     Ok(())
 }
 
