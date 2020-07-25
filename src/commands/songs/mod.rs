@@ -31,16 +31,9 @@ use tokio::time;
 use twilight::model::channel::Message;
 
 async fn song_send(lyrics: &[&str], delay: u64, ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    let allow = match msg.guild_id {
-        Some(guild_id) => match ctx.guilds().get(&guild_id) {
-            Some(config) => config.with_lyrics,
-            None => {
-                msg.respond(&ctx, GENERAL_ISSUE).await?;
-                bail!("No config for guild {}", guild_id);
-            }
-        },
-        None => true,
-    };
+    let allow = msg
+        .guild_id
+        .map_or(true, |guild_id| ctx.config_lyrics(guild_id));
     if allow {
         let mut interval = time::interval(time::Duration::from_millis(delay));
         for line in lyrics {
@@ -51,13 +44,8 @@ async fn song_send(lyrics: &[&str], delay: u64, ctx: Arc<Context>, msg: &Message
                 .await?;
         }
     } else {
-        let guard = ctx.guilds().get(&msg.guild_id.unwrap()).unwrap();
-        let prefix = &guard.value().prefixes[0];
-        let content = format!(
-            "The server's big boys disabled song commands. \
-                Server authorities can re-enable them by typing `{}lyrics`",
-            prefix
-        );
+        let content = "The server's big boys disabled song commands. \
+            Server authorities can re-enable them with the `lyrics` command";
         msg.respond(&ctx, content).await?;
     }
     Ok(())

@@ -7,21 +7,7 @@ use twilight::model::channel::Message;
 #[short_desc("List all streams that are tracked in a channel")]
 #[aliases("tracked")]
 async fn trackedstreams(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
-    let channel = msg.channel_id.0;
-    let twitch_ids: Vec<_> = ctx
-        .data
-        .tracked_streams
-        .read()
-        .await
-        .iter()
-        .filter_map(|(user, channels)| {
-            if channels.contains(&channel) {
-                Some(*user)
-            } else {
-                None
-            }
-        })
-        .collect();
+    let twitch_ids = ctx.tracked_users_in(msg.channel_id);
     let twitch = &ctx.clients.twitch;
     let mut twitch_users: Vec<_> = match twitch.get_users(&twitch_ids).await {
         Ok(users) => users.into_iter().map(|user| user.display_name).collect(),

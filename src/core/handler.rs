@@ -51,9 +51,7 @@ pub async fn handle_event(
         Event::ReactionAdd(reaction_add) => {
             let reaction = &reaction_add.0;
             if let Some(guild_id) = reaction.guild_id {
-                let key = (reaction.channel_id.0, reaction.message_id.0);
-                if let Some(guard) = ctx.data.role_assigns.get(&key) {
-                    let role_id = RoleId(*guard.value());
+                if let Some(role_id) = ctx.get_role_assign(reaction) {
                     if let Err(why) = ctx.http.add_role(guild_id, reaction.user_id, role_id).await {
                         error!("Error while assigning react-role to user: {}", why);
                     }
@@ -64,9 +62,7 @@ pub async fn handle_event(
         Event::ReactionRemove(reaction_remove) => {
             let reaction = &reaction_remove.0;
             if let Some(guild_id) = reaction.guild_id {
-                let key = (reaction.channel_id.0, reaction.message_id.0);
-                if let Some(guard) = ctx.data.role_assigns.get(&key) {
-                    let role_id = RoleId(*guard.value());
+                if let Some(role_id) = ctx.get_role_assign(reaction) {
                     if let Err(why) = ctx
                         .http
                         .remove_guild_member_role(guild_id, reaction.user_id, role_id)
@@ -198,50 +194,45 @@ fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>> {
     if let Some(true) = ctx.cache.has_admin_permission(msg.author.id, guild_id) {
         return Ok(None);
     }
-    if let Some(guard) = ctx.guilds().get(&guild_id) {
-        let config = guard.value();
-        let auth_roles: Vec<_> = config.authorities.iter().map(|id| RoleId(*id)).collect();
-        if auth_roles.is_empty() {
-            let prefix = &config.prefixes[0];
-            let content = format!(
-                "You need admin permissions to use this command.\n\
+    let auth_roles = ctx.config_authorities_collect(guild_id, RoleId);
+    if auth_roles.is_empty() {
+        let prefix = ctx.config_first_prefix(guild_id);
+        let content = format!(
+            "You need admin permissions to use this command.\n\
                     (`{}help authorities` to adjust authority status for this guild)",
+            prefix
+        );
+        return Ok(Some(content));
+    } else if let Some(member) = ctx.cache.get_member(msg.author.id, guild_id) {
+        if !member.roles.iter().any(|role| auth_roles.contains(role)) {
+            let mut roles = Vec::with_capacity(auth_roles.len());
+            for role in auth_roles {
+                match ctx.cache.get_role(role, guild_id) {
+                    Some(role) => roles.push(role.name.clone()),
+                    None => warn!("Role {} not cached for guild {}", role, guild_id),
+                }
+            }
+            let role_len: usize = roles.iter().map(|role| role.len()).sum();
+            let mut content = String::from(
+                "You need either admin permissions or \
+                    any of these roles to use this command:\n",
+            );
+            content.reserve_exact(role_len + (roles.len() - 1) * 2);
+            let mut roles = roles.into_iter();
+            content.push_str(&roles.next().unwrap());
+            for role in roles {
+                let _ = write!(content, ", {}", role);
+            }
+            let prefix = ctx.config_first_prefix(guild_id);
+            let _ = write!(
+                content,
+                "\n(`{}help authorities` to adjust authority status for this guild)",
                 prefix
             );
             return Ok(Some(content));
-        } else if let Some(member) = ctx.cache.get_member(msg.author.id, guild_id) {
-            if !member.roles.iter().any(|role| auth_roles.contains(role)) {
-                let mut roles = Vec::with_capacity(auth_roles.len());
-                for role in auth_roles {
-                    match ctx.cache.get_role(role, guild_id) {
-                        Some(role) => roles.push(role.name.clone()),
-                        None => warn!("Role {} not cached for guild {}", role, guild_id),
-                    }
-                }
-                let role_len: usize = roles.iter().map(|role| role.len()).sum();
-                let mut content = String::from(
-                    "You need either admin permissions or \
-                    any of these roles to use this command:\n",
-                );
-                content.reserve_exact(role_len + (roles.len() - 1) * 2);
-                let mut roles = roles.into_iter();
-                content.push_str(&roles.next().unwrap());
-                for role in roles {
-                    let _ = write!(content, ", {}", role);
-                }
-                let prefix = &config.prefixes[0];
-                let _ = write!(
-                    content,
-                    "\n(`{}help authorities` to adjust authority status for this guild)",
-                    prefix
-                );
-                return Ok(Some(content));
-            }
-        } else {
-            bail!("Member {} not cached for guild {}", msg.author.id, guild_id);
         }
     } else {
-        bail!("Guild {} not in cache", guild_id);
+        bail!("Member {} not cached for guild {}", msg.author.id, guild_id);
     }
     Ok(None)
 }

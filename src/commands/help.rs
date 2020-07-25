@@ -14,20 +14,19 @@ use twilight::model::{
     id::{ChannelId, GuildId, RoleId, UserId},
 };
 
-fn description(ctx: &Context, guild: Option<GuildId>) -> String {
-    let (custom_prefix, first_prefix) = if let Some(guild) = guild {
-        // Certain to be contained because of handle_event
-        let config = ctx.guilds().get(&guild).unwrap();
-        if config.prefixes == ["<", "!!"] {
-            (None, "<".to_string())
+fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
+    let (custom_prefix, first_prefix) = if let Some(guild_id) = guild_id {
+        let mut prefixes = ctx.config_prefixes(guild_id);
+        if &prefixes == &["<", "!!"] {
+            (None, prefixes.remove(0))
         } else {
-            let mut prefix_iter = config.prefixes.iter();
-            let mut prefixes = String::with_capacity(9);
-            let _ = write!(prefixes, "`{}`", prefix_iter.next().unwrap());
+            let mut prefix_iter = prefixes.iter();
+            let mut prefixes_str = String::with_capacity(9);
+            let _ = write!(prefixes_str, "`{}`", prefix_iter.next().unwrap());
             for prefix in prefix_iter {
-                let _ = write!(prefixes, ", `{}`", prefix);
+                let _ = write!(prefixes_str, ", `{}`", prefix);
             }
-            (Some(prefixes), config.prefixes.first().unwrap().clone())
+            (Some(prefixes_str), prefixes.remove(0))
         }
     } else {
         (None, "<".to_string())
@@ -133,24 +132,17 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
         eb = eb.add_field("Aliases", value).inline().commit();
     }
     if cmd.authority {
-        let value = if let Some(guild) = msg.guild_id {
-            if let Some(guard) = ctx.guilds().get(&guild) {
-                let config = guard.value();
-                let mut value = "You need admin permission".to_owned();
-                if !config.authorities.is_empty() {
-                    let mut iter = config.authorities.iter();
-                    let _ = write!(value, " or any of these roles: @{}", iter.next().unwrap());
-                    for role in iter {
-                        let _ = write!(value, ", @{}", role);
-                    }
+        let value = if let Some(guild_id) = msg.guild_id {
+            let authorities = ctx.config_authorities(guild_id);
+            let mut value = "You need admin permission".to_owned();
+            if !authorities.is_empty() {
+                let mut iter = authorities.iter();
+                let _ = write!(value, " or any of these roles: @{}", iter.next().unwrap());
+                for role in iter {
+                    let _ = write!(value, ", @{}", role);
                 }
-                value
-            } else {
-                error!("No config for guild {}", guild);
-                "Admin permission or any role that \
-                was setup as authority in this guild"
-                    .to_owned()
             }
+            value
         } else {
             "Admin permission or any role that \
             was setup as authority in a guild"

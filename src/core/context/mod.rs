@@ -42,7 +42,7 @@ pub struct Context {
     pub buckets: Buckets,
     pub backend: BackendData,
     pub clients: Clients,
-    pub data: ContextData,
+    data: ContextData,
 }
 
 pub struct Clients {
@@ -65,7 +65,7 @@ pub struct ContextData {
     pub stored_values: StoredValues,
     pub perf_calc_mutex: Mutex<()>,
     // Mapping twitch user ids to vec of discord channel ids
-    pub tracked_streams: RwLock<HashMap<u64, Vec<u64>>>,
+    pub tracked_streams: DashMap<u64, Vec<u64>>,
     // Mapping (channel id, message id) to role id
     pub role_assigns: DashMap<(u64, u64), u64>,
     pub discord_links: DashMap<u64, String>,

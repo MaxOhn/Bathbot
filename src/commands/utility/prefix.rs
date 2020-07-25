@@ -27,16 +27,9 @@ use twilight::model::channel::Message;
 async fn prefix(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     let guild_id = msg.guild_id.unwrap();
     if args.is_empty() {
-        let guard = match ctx.guilds().get(&guild_id) {
-            Some(guard) => guard,
-            None => {
-                msg.respond(&ctx, GENERAL_ISSUE).await?;
-                bail!("No config for guild {}", guild_id);
-            }
-        };
-        let config = guard.value();
+        let prefixes = ctx.config_prefixes(guild_id);
         let mut content = String::new();
-        current_prefixes(&mut content, &config.prefixes);
+        current_prefixes(&mut content, &prefixes);
         msg.respond(&ctx, content).await?;
         return Ok(());
     }

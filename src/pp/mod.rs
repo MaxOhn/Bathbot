@@ -355,7 +355,7 @@ async fn calculate_stars(
 async fn parse_calculation(mut cmd: Command, ctx: &Context) -> Result<f32, PPError> {
     let calculation = time::timeout(time::Duration::from_secs(10), cmd.output());
     let output = {
-        let _lock = ctx.data.perf_calc_mutex.lock().await;
+        let _lock = ctx.pp_lock().lock().await;
         match calculation.await {
             Ok(output) => output.map_err(|e| PPError::CommandLine(e.to_string()))?,
             Err(_) => return Err(PPError::Timeout),

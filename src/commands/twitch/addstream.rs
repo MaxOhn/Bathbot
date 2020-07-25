@@ -32,21 +32,7 @@ async fn addstream(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResul
         }
     };
     let channel = msg.channel_id.0;
-    {
-        let mut tracked_streams =
-            match timeout(Duration::from_secs(10), ctx.data.tracked_streams.write()).await {
-                Ok(tracks) => tracks,
-                Err(_) => {
-                    msg.respond(&ctx, GENERAL_ISSUE).await?;
-                    bail!("Timed out while waiting for write access");
-                }
-            };
-        let channels = tracked_streams.entry(twitch_id).or_default();
-        if !channels.contains(&channel) {
-            channels.push(channel);
-        }
-    }
-
+    ctx.add_tracking(twitch_id, channel);
     let psql = &ctx.clients.psql;
     if let Err(why) = psql.add_stream_track(channel, twitch_id).await {
         error!("Error while inserting stream track into DB: {}", why);

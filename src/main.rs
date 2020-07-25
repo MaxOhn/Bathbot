@@ -124,7 +124,7 @@ async fn run(
     let guilds = clients.psql.get_guilds().await?;
 
     // Tracked streams
-    let tracked_streams = RwLock::new(clients.psql.get_stream_tracks().await?);
+    let tracked_streams = clients.psql.get_stream_tracks().await?;
 
     // Reaction-role-assign
     let role_assigns = clients.psql.get_role_assigns().await?;

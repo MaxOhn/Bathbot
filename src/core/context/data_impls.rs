@@ -3,7 +3,11 @@ use crate::{core::stored_values::Values, database::GuildConfig, BotResult, Conte
 use dashmap::DashMap;
 use rosu::models::GameMode;
 use std::{sync::Arc, time::Instant};
-use twilight::model::id::GuildId;
+use tokio::sync::Mutex;
+use twilight::model::{
+    channel::Reaction,
+    id::{ChannelId, GuildId, MessageId, RoleId},
+};
 
 impl Context {
     pub fn get_link(&self, discord_id: u64) -> Option<String> {
@@ -33,6 +37,14 @@ impl Context {
         config.authorities.clone()
     }
 
+    pub fn config_authorities_collect<F, T>(&self, guild_id: GuildId, f: F) -> Vec<T>
+    where
+        F: FnMut(u64) -> T,
+    {
+        let config = self.data.guilds.entry(guild_id).or_default();
+        config.authorities.iter().copied().map(f).collect()
+    }
+
     pub fn config_prefixes(&self, guild_id: GuildId) -> Vec<String> {
         let config = self.data.guilds.entry(guild_id).or_default();
         config.prefixes.clone()
@@ -56,11 +68,6 @@ impl Context {
         f(config.value_mut());
     }
 
-    // TODO: Remove
-    pub fn guilds(&self) -> &DashMap<GuildId, GuildConfig> {
-        &self.data.guilds
-    }
-
     pub fn pp(&self, mode: GameMode) -> &Values {
         match mode {
             GameMode::MNA => &self.data.stored_values.mania_pp,
@@ -69,12 +76,80 @@ impl Context {
         }
     }
 
+    pub fn add_role_assign(&self, channel_id: ChannelId, msg_id: MessageId, role_id: RoleId) {
+        self.data
+            .role_assigns
+            .insert((channel_id.0, msg_id.0), role_id.0);
+    }
+
+    pub fn get_role_assign(&self, reaction: &Reaction) -> Option<RoleId> {
+        self.data
+            .role_assigns
+            .get(&(reaction.channel_id.0, reaction.message_id.0))
+            .map(|guard| RoleId(*guard.value()))
+    }
+
     pub fn stars(&self, mode: GameMode) -> &Values {
         match mode {
             GameMode::MNA => &self.data.stored_values.mania_stars,
             GameMode::CTB => &self.data.stored_values.ctb_stars,
             _ => unreachable!(),
         }
+    }
+
+    pub fn add_tracking(&self, twitch_id: u64, channel_id: u64) {
+        self.data
+            .tracked_streams
+            .entry(twitch_id)
+            .or_default()
+            .push(channel_id);
+    }
+
+    pub fn remove_tracking(&self, twitch_id: u64, channel_id: u64) {
+        self.data
+            .tracked_streams
+            .entry(twitch_id)
+            .and_modify(|channels| {
+                if let Some(idx) = channels.iter().position(|&id| id == channel_id) {
+                    channels.remove(idx);
+                };
+            });
+    }
+
+    pub fn tracked_users(&self) -> Vec<u64> {
+        self.data
+            .tracked_streams
+            .iter()
+            .map(|guard| *guard.key())
+            .collect()
+    }
+
+    pub fn tracked_channels_for(&self, twitch_id: u64) -> Option<Vec<ChannelId>> {
+        self.data.tracked_streams.get(&twitch_id).map(|guard| {
+            guard
+                .value()
+                .iter()
+                .map(|&channel| ChannelId(channel))
+                .collect()
+        })
+    }
+
+    pub fn tracked_users_in(&self, channel: ChannelId) -> Vec<u64> {
+        self.data
+            .tracked_streams
+            .iter()
+            .filter_map(|guard| {
+                if guard.value().contains(&channel.0) {
+                    Some(*guard.key())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    pub fn pp_lock(&self) -> &Mutex<()> {
+        &self.data.perf_calc_mutex
     }
 
     /// Intended to use before shutdown

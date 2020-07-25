@@ -35,17 +35,9 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
     // Check if the user just wants to see the current authorities
     match args.current().unwrap_or_default() {
         "-show" | "show" => {
-            let guard = match ctx.guilds().get(&guild_id) {
-                Some(guard) => guard,
-                None => {
-                    msg.respond(&ctx, GENERAL_ISSUE).await?;
-                    bail!("No config for guild {}", guild_id);
-                }
-            };
-            let config = guard.value();
+            let roles = ctx.config_authorities(guild_id);
             let mut content = "Current authority roles for this server: ".to_owned();
-            let roles = config.authorities.as_slice();
-            role_string(&ctx, roles, guild_id, &mut content);
+            role_string(&ctx, &roles, guild_id, &mut content);
 
             // Send the message
             msg.respond(&ctx, content).await?;
