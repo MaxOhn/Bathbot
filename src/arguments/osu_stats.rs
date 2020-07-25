@@ -9,9 +9,12 @@ pub struct OsuStatsArgs {
 }
 
 impl OsuStatsArgs {
-    pub fn new(args: Args, mut username: Option<String>, mode: GameMode) -> ArgResult<Self> {
-        let iter = args.iter().take(8).map(|arg| arg.to_owned());
-        let mut args = Vec::from_iter(iter);
+    pub fn new(
+        args: Args,
+        mut username: Option<String>,
+        mode: GameMode,
+    ) -> Result<Self, &'static str> {
+        let mut args = args.take(8).map(|arg| arg.to_owned()).collect();
         // Parse min and max rank
         let mut rank_min = None;
         let mut rank_max = None;
@@ -24,16 +27,16 @@ impl OsuStatsArgs {
                         rank_min = min;
                         rank_max = Some(max);
                     }
-                    None => return Err(String::from(
-                        "After the rank keyword you must specify either an integer for max rank \
-                        or two integers of the form `a..b` for min and max rank",
-                    )),
+                    None => {
+                        return Err("After the rank keyword you must specify either \
+                            an integer for max rank or two integers of the form \
+                            `a..b` for min and max rank")
+                    }
                 }
             } else {
-                return Err(String::from(
-                    "After the rank keyword you must specify either an integer for max rank \
-                    or two decimal numbers of the form `a..b` for min and max rank",
-                ));
+                return Err("After the rank keyword you must specify either \
+                    an integer for max rank or two decimal numbers of the \
+                    form `a..b` for min and max rank");
             }
         }
         // Parse min and max acc
@@ -48,17 +51,16 @@ impl OsuStatsArgs {
                         acc_min = min;
                         acc_max = Some(max);
                     }
-                    None =>
-                    return Err(String::from(
-                        "After the acc keyword you must specify either a decimal number for max acc \
-                        or two decimal numbers of the form `a..b` for min and max acc",
-                    )),
+                    None => {
+                        return Err("After the acc keyword you must specify either \
+                            a decimal number for max acc or two decimal numbers \
+                            of the form `a..b` for min and max acc")
+                    }
                 }
             } else {
-                return Err(String::from(
-                    "After the acc keyword you must specify either a decimal number for max acc \
-                    or two decimal numbers of the form `a..b` for min and max acc",
-                ));
+                return Err("After the acc keyword you must specify either \
+                    a decimal number for max acc or two decimal numbers \
+                    of the form `a..b` for min and max acc");
             }
         }
         // Parse mods
@@ -85,11 +87,10 @@ impl OsuStatsArgs {
         if let Some(name) = args.pop() {
             username = Some(name);
         }
+        // TODO: Shift username check to command
         if username.is_none() {
-            return Err(String::from(
-                "Either specify an osu name or link your discord \
-                                    to an osu profile via `<link osuname`",
-            ));
+            return Err("Either specify an osu name or link your discord \
+                        to an osu profile via `<link osuname`");
         }
         // Put values into parameter variable
         let mut params = OsuStatsParams::new(username.unwrap())

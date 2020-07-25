@@ -1,8 +1,7 @@
 use crate::{
-    arguments::Args,
     bail,
     util::{constants::GENERAL_ISSUE, content_safe, matcher, MessageExt},
-    BotResult, Context,
+    Args, BotResult, Context,
 };
 
 use regex::Regex;
@@ -29,9 +28,9 @@ use twilight::model::{
 #[example("-show")]
 #[example("@Moderator @Mod 83794728403223 @BotCommander")]
 #[aliases("authority")]
-async fn authorities(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let guild_id = msg.guild_id.unwrap();
-    let args = Args::new(msg.content.clone());
+    let args = args.take_n(10);
 
     // Check if the user just wants to see the current authorities
     match args.current().unwrap_or_default() {
@@ -57,7 +56,7 @@ async fn authorities(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 
     // Make sure arguments are roles of the guild
     let mut new_auths = Vec::with_capacity(10);
-    for arg in args.iter().take(10) {
+    for arg in args {
         let role_id = match matcher::get_mention_role(arg) {
             Some(id) => id,
             None => {

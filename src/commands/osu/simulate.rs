@@ -33,8 +33,8 @@ use twilight::model::channel::Message;
 #[example("1980365 -a 99.3 -300 1422 -m 1")]
 #[example("https://osu.ppy.sh/beatmapsets/948199#osu/1980365")]
 #[aliases("s")]
-async fn simulate(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    let args = match SimulateMapArgs::new(Args::new(msg.content.clone())) {
+async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    let args = match SimulateMapArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
             msg.respond(&ctx, err_msg).await?;

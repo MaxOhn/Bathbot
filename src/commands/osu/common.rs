@@ -22,8 +22,13 @@ use std::{
 use twilight::model::channel::Message;
 
 #[allow(clippy::cognitive_complexity)]
-async fn common_send(mode: GameMode, ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    let mut args = MultNameArgs::new(Args::new(msg.content.clone()), 10);
+async fn common_send(
+    mode: GameMode,
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+) -> BotResult<()> {
+    let mut args = MultNameArgs::new(args, 10);
     let names = match args.names.len() {
         0 => {
             let content = "You need to specify at least one osu username. \

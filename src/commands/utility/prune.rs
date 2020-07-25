@@ -1,4 +1,4 @@
-use crate::{arguments::Args, util::MessageExt, BotResult, Context};
+use crate::{util::MessageExt, Args, BotResult, Context};
 
 use std::sync::Arc;
 use tokio::time::{self, Duration};
@@ -6,33 +6,28 @@ use twilight::model::channel::Message;
 
 #[command]
 #[only_guilds()]
-// #[checks(Authority)]
+#[authority()]
 #[short_desc("Prune messages in a channel")]
 #[long_desc(
     "Optionally provide a number to delete this \
-                 many of the latest messages of a channel, defaults to 1. \
-                 Amount must be between 1 and 99."
+     many of the latest messages of a channel, defaults to 1. \
+     Amount must be between 1 and 99."
 )]
 #[usage("[number]")]
 #[example("3")]
 #[aliases("purge")]
-async fn prune(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    let mut args = Args::new(msg.content.clone());
+async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     let amount = if !args.is_empty() {
         match args.single::<u64>() {
             Ok(val) => {
                 if val < 1 || val > 99 {
-                    msg.respond(&ctx, "First argument must be an integer between 1 and 99")
-                        .await?;
-                    return Ok(());
+                    return wrong_argument(&ctx, msg).await;
                 } else {
                     val + 1
                 }
             }
             Err(_) => {
-                msg.respond(&ctx, "First argument must be an integer between 1 and 99")
-                    .await?;
-                return Ok(());
+                return wrong_argument(&ctx, msg).await;
             }
         }
     } else {
@@ -65,4 +60,9 @@ async fn prune(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
         .delete_message(response.channel_id, response.id)
         .await?;
     Ok(())
+}
+
+async fn wrong_argument(ctx: &Context, msg: &Message) -> BotResult<()> {
+    msg.respond(&ctx, "First argument must be an integer between 1 and 99")
+        .await
 }

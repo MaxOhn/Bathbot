@@ -12,7 +12,7 @@ use rosu::{
 use std::sync::Arc;
 use twilight::model::channel::Message;
 
-async fn pp_send(mode: GameMode, ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn pp_send(mode: GameMode, ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = match NameFloatArgs::new(Args::new(msg.content.clone())) {
         Ok(args) => args,
         Err(err_msg) => {
@@ -93,11 +93,11 @@ async fn pp_send(mode: GameMode, ctx: Arc<Context>, msg: &Message) -> BotResult<
 #[short_desc("How many pp are missing to reach the given amount?")]
 #[long_desc(
     "Calculate what score a user is missing to \
-                 reach the given total pp amount"
+     reach the given total pp amount"
 )]
 #[usage("[username] [number]")]
 #[example("badewanne3 8000")]
-pub async fn pp(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn pp(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     pp_send(GameMode::STD, ctx, msg, args).await
 }
 
@@ -105,12 +105,12 @@ pub async fn pp(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[short_desc("How many pp are missing to reach the given amount?")]
 #[long_desc(
     "Calculate what score a mania user is missing to \
-                 reach the given total pp amount"
+     reach the given total pp amount"
 )]
 #[usage("[username] [number]")]
 #[example("badewanne3 8000")]
 #[aliases("ppm")]
-pub async fn ppmania(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn ppmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     pp_send(GameMode::MNA, ctx, msg, args).await
 }
 
@@ -118,12 +118,12 @@ pub async fn ppmania(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[short_desc("How many pp are missing to reach the given amount?")]
 #[long_desc(
     "Calculate what score a taiko user is missing to \
-                 reach the given total pp amount"
+     reach the given total pp amount"
 )]
 #[usage("[username] [number]")]
 #[example("badewanne3 8000")]
 #[aliases("ppt")]
-pub async fn pptaiko(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn pptaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     pp_send(GameMode::TKO, ctx, msg, args).await
 }
 
@@ -131,11 +131,11 @@ pub async fn pptaiko(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[short_desc("How many pp are missing to reach the given amount?")]
 #[long_desc(
     "Calculate what score a ctb user is missing to \
-                 reach the given total pp amount"
+     reach the given total pp amount"
 )]
 #[usage("[username] [number]")]
 #[example("badewanne3 8000")]
 #[aliases("ppc")]
-pub async fn ppctb(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn ppctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     pp_send(GameMode::CTB, ctx, msg, args).await
 }

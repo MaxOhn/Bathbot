@@ -18,8 +18,13 @@ use std::{
 use twilight::model::channel::Message;
 
 #[allow(clippy::cognitive_complexity)]
-async fn profile_send(mode: GameMode, ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    let args = NameArgs::new(Args::new(msg.content.clone()));
+async fn profile_send(
+    mode: GameMode,
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+) -> BotResult<()> {
+    let args = NameArgs::new(args);
     let name = if let Some(name) = args.name {
         name
     } else {

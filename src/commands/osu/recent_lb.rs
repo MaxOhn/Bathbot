@@ -26,6 +26,7 @@ async fn recent_lb_send(
     national: bool,
     ctx: Arc<Context>,
     msg: &Message,
+    args: Args,
 ) -> BotResult<()> {
     let author_name = {
         let data = ctx.data.read().await;

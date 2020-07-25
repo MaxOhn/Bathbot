@@ -1,7 +1,7 @@
 use crate::{
     bail,
     util::{constants::GENERAL_ISSUE, MessageExt},
-    BotResult, Context,
+    Args, BotResult, Context,
 };
 
 use std::{collections::hash_map::Entry, sync::Arc};
@@ -9,13 +9,13 @@ use twilight::model::channel::Message;
 
 #[command]
 #[only_guilds()]
-// #[checks(Authority)]
+#[authority()]
 #[short_desc("Toggle availability of song commands")]
 #[long_desc(
     "Toggle whether song commands can be used in this server. \
     Defaults to `true`"
 )]
-async fn lyrics(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn lyrics(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     let guild_id = msg.guild_id.unwrap();
     let mut with_lyrics = false;
     ctx.update_config(guild_id, |config| {

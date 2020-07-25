@@ -20,8 +20,13 @@ use tokio::time::{self, Duration};
 use twilight::model::channel::Message;
 
 #[allow(clippy::cognitive_complexity)]
-async fn simulate_recent_send(mode: GameMode, ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    let args = match SimulateNameArgs::new(Args::new(msg.content.clone())) {
+async fn simulate_recent_send(
+    mode: GameMode,
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+) -> BotResult<()> {
+    let args = match SimulateNameArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
             msg.respond(&ctx, err_msg).await?;

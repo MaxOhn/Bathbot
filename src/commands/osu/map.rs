@@ -37,7 +37,7 @@ const H: u32 = 150;
 #[example("2240404 +hddt")]
 #[example("https://osu.ppy.sh/beatmapsets/902425 +hr")]
 #[aliases("beatmap", "maps", "beatmaps", "mapinfo")]
-async fn map(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = MapModArgs::new(args);
     let map_id = if let Some(id) = args.map_id {
         id

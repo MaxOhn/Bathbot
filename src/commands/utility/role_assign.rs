@@ -26,8 +26,7 @@ use twilight::model::{
 )]
 #[usage("[channel mention / channel id] [message id] [role mention / role id]")]
 #[example("#general 681871156168753193 @Meetup")]
-async fn roleassign(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    let args = Args::new(msg.content.clone());
+async fn roleassign(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = match RoleAssignArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {

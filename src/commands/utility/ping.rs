@@ -1,4 +1,4 @@
-use crate::{util::MessageExt, BotResult, Context};
+use crate::{util::MessageExt, Args, BotResult, Context};
 
 use std::{sync::Arc, time::Instant};
 use twilight::model::channel::Message;
@@ -10,7 +10,7 @@ use twilight::model::channel::Message;
     The latency indicates how fast I receive messages from Discord."
 )]
 #[aliases("p")]
-async fn ping(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn ping(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     let start = Instant::now();
     let response = ctx
         .http

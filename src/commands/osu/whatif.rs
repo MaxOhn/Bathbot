@@ -12,7 +12,12 @@ use rosu::{
 use std::sync::Arc;
 use twilight::model::channel::Message;
 
-async fn whatif_send(mode: GameMode, ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn whatif_send(
+    mode: GameMode,
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+) -> BotResult<()> {
     let args = match NameFloatArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {

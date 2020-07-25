@@ -14,8 +14,8 @@ use twilight::model::channel::Message;
 #[short_desc("Display the 10 most played maps of a user")]
 #[usage("[username]")]
 #[example("badewanne3")]
-async fn mostplayed(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    let args = NameArgs::new(Args::new(msg.content.clone()));
+async fn mostplayed(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    let args = NameArgs::new(args);
     let name = if let Some(name) = args.name {
         name
     } else {

@@ -3,10 +3,11 @@ use quote::{format_ident, quote, ToTokens};
 use syn::{
     parenthesized,
     parse::{Parse, ParseStream, Result},
+    parse_quote,
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Comma, Mut},
-    Ident, Lifetime, Lit, Type,
+    Ident, Lifetime, Lit, PathArguments, Type,
 };
 
 macro_rules! propagate_err {
@@ -112,40 +113,23 @@ impl<T> Default for AsOption<T> {
     }
 }
 
-// #[inline]
-// fn validation_stmt(actual: &Type, intended: &Type) -> Stmt {
-//     parse_quote! {
-//         static_assertions::assert_type_eq_all!(#actual, #intended);
-//     }
-// }
-
-// pub fn create_declaration_validations(fun: &mut CommandFun) {
-//     if fun.args.len() != 2 {
-//         panic!("command function requires ctx and msg as arguments");
-//     }
-
-//     let intended_types: Vec<Type> = vec![
-//         parse_quote!(std::sync::Arc<crate::Context>), // first arg
-//         parse_quote!(&twilight::model::channel::Message), // second arg
-//         parse_quote!(crate::BotResult<()>),           // return value
-//     ];
-//     let validations = fun
-//         .args
-//         .iter()
-//         .map(|arg| &arg.kind)
-//         .chain(std::iter::once(&fun.ret))
-//         .zip(intended_types.iter())
-//         .map(|(actual, intended)| validation_stmt(actual, intended));
-//     for validation in validations {
-//         fun.body.insert(0, validation);
-//     }
-// }
-
 #[inline]
 pub fn populate_fut_lifetimes_on_refs(args: &mut Vec<Argument>) {
     for arg in args {
-        if let Type::Reference(ref mut reference) = arg.kind {
-            reference.lifetime = Some(Lifetime::new("'fut", Span::call_site()));
+        match &mut arg.kind {
+            Type::Reference(reference) => {
+                reference.lifetime = Some(Lifetime::new("'fut", Span::call_site()))
+            }
+            Type::Path(path) => {
+                if path.path.is_ident("Args") {
+                    if let Some(segment) = path.path.segments.last_mut() {
+                        let arg = parse_quote! { <'fut> };
+                        let generics = PathArguments::AngleBracketed(arg);
+                        segment.arguments = generics;
+                    }
+                }
+            }
+            _ => {}
         }
     }
 }

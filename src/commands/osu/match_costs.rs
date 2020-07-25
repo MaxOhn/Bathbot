@@ -24,8 +24,8 @@ use twilight::model::channel::Message;
 #[example("58320988 1")]
 #[example("https://osu.ppy.sh/community/matches/58320988")]
 #[aliases("mc", "matchcost")]
-async fn matchcosts(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    let args = match MatchArgs::new(Args::new(msg.content.clone())) {
+async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    let args = match MatchArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
             msg.respond(&ctx, err_msg).await?;

@@ -1,5 +1,5 @@
 use super::song_send;
-use crate::{BotResult, Context};
+use crate::{Args, BotResult, Context};
 
 use std::sync::Arc;
 use twilight::model::channel::Message;
@@ -7,7 +7,7 @@ use twilight::model::channel::Message;
 #[command]
 #[short_desc("https://youtu.be/la9C0n7jSsI")]
 #[bucket("songs")]
-pub async fn flamingo(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn flamingo(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     let lyrics = &[
         "How many shrimps do you have to eat",
         "before you make your skin turn pink?",

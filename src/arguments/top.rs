@@ -15,9 +15,8 @@ pub struct TopArgs {
 }
 
 impl TopArgs {
-    pub fn new(args: Args) -> Result<Self, String> {
-        let iter = args.iter().take(8).map(|arg| arg.to_owned());
-        let mut args = Vec::from_iter(iter);
+    pub fn new(args: Args) -> Result<Self, &'static str> {
+        let mut args = args.take(8).map(|arg| arg.to_owned()).collect();
         let acc = super::acc(&mut args)?;
         let combo = super::combo(&mut args)?;
         let grade = super::grade(&mut args)?;

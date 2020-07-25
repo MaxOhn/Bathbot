@@ -35,7 +35,7 @@ fn mods(args: &mut Vec<String>) -> Option<(GameMods, ModSelection)> {
     None
 }
 
-fn acc(args: &mut Vec<String>) -> Result<Option<f32>, String> {
+fn acc(args: &mut Vec<String>) -> Result<Option<f32>, &'static str> {
     if let Some(idx) = args.iter().position(|arg| arg == "-a" || arg == "-acc") {
         args.remove(idx);
         if let Some(num) = args.get(idx) {
@@ -44,10 +44,9 @@ fn acc(args: &mut Vec<String>) -> Result<Option<f32>, String> {
                     args.remove(idx);
                     Ok(Some(acc))
                 }
-                Err(_) => Err(
-                    "Could not parse given accuracy, try a decimal number between 0 and 100"
-                        .to_string(),
-                ),
+                Err(_) => {
+                    Err("Could not parse given accuracy, try a decimal number between 0 and 100")
+                }
             }
         } else {
             Ok(None)
@@ -57,7 +56,7 @@ fn acc(args: &mut Vec<String>) -> Result<Option<f32>, String> {
     }
 }
 
-fn combo(args: &mut Vec<String>) -> Result<Option<u32>, String> {
+fn combo(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     if let Some(idx) = args.iter().position(|arg| arg == "-c" || arg == "-combo") {
         args.remove(idx);
         if let Some(num) = args.get(idx) {
@@ -66,9 +65,7 @@ fn combo(args: &mut Vec<String>) -> Result<Option<u32>, String> {
                     args.remove(idx);
                     Ok(Some(combo))
                 }
-                Err(_) => {
-                    Err("Could not parse given combo, try a non-negative integer".to_string())
-                }
+                Err(_) => Err("Could not parse given combo, try a non-negative integer"),
             }
         } else {
             Ok(None)
@@ -78,7 +75,7 @@ fn combo(args: &mut Vec<String>) -> Result<Option<u32>, String> {
     }
 }
 
-fn grade(args: &mut Vec<String>) -> Result<Option<Grade>, String> {
+fn grade(args: &mut Vec<String>) -> Result<Option<Grade>, &'static str> {
     if let Some(idx) = args.iter().position(|arg| arg == "-g" || arg == "-grade") {
         args.remove(idx);
         if let Some(arg) = args.get(idx) {
@@ -87,7 +84,7 @@ fn grade(args: &mut Vec<String>) -> Result<Option<Grade>, String> {
                     args.remove(idx);
                     Ok(Some(grade))
                 }
-                Err(_) => Err("Could not parse given grade, try SS, S, A, B, C, or D".to_string()),
+                Err(_) => Err("Could not parse given grade, try SS, S, A, B, C, or D"),
             }
         } else {
             Ok(None)
@@ -97,7 +94,7 @@ fn grade(args: &mut Vec<String>) -> Result<Option<Grade>, String> {
     }
 }
 
-fn n300(args: &mut Vec<String>) -> Result<Option<u32>, String> {
+fn n300(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     if let Some(idx) = args.iter().position(|arg| arg == "-300" || arg == "-n300") {
         args.remove(idx);
         if let Some(num) = args.get(idx) {
@@ -106,7 +103,7 @@ fn n300(args: &mut Vec<String>) -> Result<Option<u32>, String> {
                     args.remove(idx);
                     Ok(Some(n300))
                 }
-                Err(_) => Err("Could not parse given n300, try a non-negative integer".to_string()),
+                Err(_) => Err("Could not parse given n300, try a non-negative integer"),
             }
         } else {
             Ok(None)
@@ -116,7 +113,7 @@ fn n300(args: &mut Vec<String>) -> Result<Option<u32>, String> {
     }
 }
 
-fn n100(args: &mut Vec<String>) -> Result<Option<u32>, String> {
+fn n100(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     if let Some(idx) = args.iter().position(|arg| arg == "-100" || arg == "-n100") {
         args.remove(idx);
         if let Some(num) = args.get(idx) {
@@ -125,7 +122,7 @@ fn n100(args: &mut Vec<String>) -> Result<Option<u32>, String> {
                     args.remove(idx);
                     Ok(Some(n100))
                 }
-                Err(_) => Err("Could not parse given n100, try a non-negative integer".to_string()),
+                Err(_) => Err("Could not parse given n100, try a non-negative integer"),
             }
         } else {
             Ok(None)
@@ -135,7 +132,7 @@ fn n100(args: &mut Vec<String>) -> Result<Option<u32>, String> {
     }
 }
 
-fn n50(args: &mut Vec<String>) -> Result<Option<u32>, String> {
+fn n50(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     if let Some(idx) = args.iter().position(|arg| arg == "-50" || arg == "-n50") {
         args.remove(idx);
         if let Some(num) = args.get(idx) {
@@ -144,7 +141,7 @@ fn n50(args: &mut Vec<String>) -> Result<Option<u32>, String> {
                     args.remove(idx);
                     Ok(Some(n50))
                 }
-                Err(_) => Err("Could not parse given n50, try a non-negative integer".to_string()),
+                Err(_) => Err("Could not parse given n50, try a non-negative integer"),
             }
         } else {
             Ok(None)
@@ -154,7 +151,7 @@ fn n50(args: &mut Vec<String>) -> Result<Option<u32>, String> {
     }
 }
 
-fn score(args: &mut Vec<String>) -> Result<Option<u32>, String> {
+fn score(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     if let Some(idx) = args.iter().position(|arg| arg == "-s" || arg == "-score") {
         args.remove(idx);
         if let Some(num) = args.get(idx) {
@@ -163,9 +160,7 @@ fn score(args: &mut Vec<String>) -> Result<Option<u32>, String> {
                     args.remove(idx);
                     Ok(Some(score))
                 }
-                Err(_) => {
-                    Err("Could not parse given score, try a non-negative integer".to_string())
-                }
+                Err(_) => Err("Could not parse given score, try a non-negative integer"),
             }
         } else {
             Ok(None)
@@ -175,7 +170,7 @@ fn score(args: &mut Vec<String>) -> Result<Option<u32>, String> {
     }
 }
 
-fn miss(args: &mut Vec<String>) -> Result<Option<u32>, String> {
+fn miss(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     if let Some(idx) = args.iter().position(|arg| arg == "-x" || arg == "-m") {
         args.remove(idx);
         if let Some(num) = args.get(idx) {
@@ -184,10 +179,7 @@ fn miss(args: &mut Vec<String>) -> Result<Option<u32>, String> {
                     args.remove(idx);
                     Ok(Some(misses))
                 }
-                Err(_) => Err(
-                    "Could not parse given amount of misses, try a non-negative integer"
-                        .to_string(),
-                ),
+                Err(_) => Err("Could not parse given amount of misses, try a non-negative integer"),
             }
         } else {
             Ok(None)

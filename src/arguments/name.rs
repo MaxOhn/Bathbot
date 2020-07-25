@@ -17,7 +17,7 @@ pub struct DiscordUserArgs {
 }
 
 impl DiscordUserArgs {
-    pub async fn new(mut args: Args, ctx: &Context, guild: GuildId) -> ArgResult<Self> {
+    pub async fn new(mut args: Args<'_>, ctx: &Context, guild: GuildId) -> ArgResult<Self> {
         if args.is_empty() {
             return Err("You need to provide a user as full discord tag, \
                         as user id, or just as mention"
@@ -62,7 +62,7 @@ pub struct MultNameArgs {
 
 impl MultNameArgs {
     pub fn new(args: Args, n: usize) -> Self {
-        let iter = args.iter().take(n).map(|arg| arg.to_owned());
+        let iter = args.take(n).map(|arg| arg.to_owned());
         Self {
             names: HashSet::from_iter(iter),
         }
@@ -75,14 +75,14 @@ pub struct NameFloatArgs {
 }
 
 impl NameFloatArgs {
-    pub fn new(args: Args) -> ArgResult<Self> {
-        let mut iter = args.iter();
-        let float = match iter.next_back().and_then(|arg| f32::from_str(&arg).ok()) {
+    pub fn new(args: Args) -> Result<Self, &'static str> {
+        let mut args = args.take_all();
+        let float = match args.next_back().and_then(|arg| f32::from_str(&arg).ok()) {
             Some(float) => float,
-            None => return Err("You need to provide a decimal number as last argument".to_string()),
+            None => return Err("You need to provide a decimal number as last argument"),
         };
         Ok(Self {
-            name: iter.next().map(|arg| arg.to_owned()),
+            name: args.next().map(|arg| arg.to_owned()),
             float,
         })
     }
@@ -95,10 +95,9 @@ pub struct NameIntArgs {
 
 impl NameIntArgs {
     pub fn new(args: Args) -> Self {
-        let iter = args.iter();
         let mut name = None;
         let mut number = None;
-        for arg in iter {
+        for arg in args {
             let res = u32::from_str(arg).ok();
             if res.is_some() {
                 number = res;
@@ -117,10 +116,9 @@ pub struct NameModArgs {
 
 impl NameModArgs {
     pub fn new(args: Args) -> Self {
-        let iter = args.iter();
         let mut name = None;
         let mut mods = None;
-        for arg in iter {
+        for arg in args {
             let res = matcher::get_mods(arg);
             if res.is_some() {
                 mods = res;

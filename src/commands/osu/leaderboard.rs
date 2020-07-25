@@ -20,7 +20,12 @@ use std::sync::Arc;
 use twilight::model::channel::Message;
 
 #[allow(clippy::cognitive_complexity)]
-async fn leaderboard_send(national: bool, ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn leaderboard_send(
+    national: bool,
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+) -> BotResult<()> {
     let author_name = {
         let data = ctx.data.read().await;
         data.get::<DiscordLinks>()

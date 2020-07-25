@@ -1,8 +1,7 @@
 use crate::{
-    arguments::Args,
     bail,
     util::{constants::GENERAL_ISSUE, MessageExt},
-    BotResult, Context,
+    Args, BotResult, Context,
 };
 
 use std::sync::Arc;
@@ -15,8 +14,7 @@ use twilight::model::channel::Message;
 #[aliases("streamadd", "trackstream")]
 #[usage("[stream name]")]
 #[example("loltyler1")]
-async fn addstream(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    let mut args = Args::new(msg.content.clone());
+async fn addstream(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     // Parse the stream name
     if args.is_empty() {
         let content = "The first argument must be the name of the stream";

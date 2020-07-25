@@ -17,8 +17,7 @@ use twilight::model::channel::Message;
 #[aliases("pfp")]
 #[usage("[username]")]
 #[example("Badewanne3")]
-async fn avatar(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    let args = Args::new(msg.content.clone());
+async fn avatar(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let name = match NameArgs::new(args).name {
         Some(name) => name,
         None => {

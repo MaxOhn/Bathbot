@@ -1,4 +1,4 @@
-use crate::{commands::command_groups, BotResult, Context};
+use crate::{commands::command_groups, Args, BotResult, Context};
 
 use futures::future::BoxFuture;
 use radix_trie::Trie;
@@ -17,7 +17,8 @@ pub struct Command {
     pub authority: bool,
     pub bucket: Option<&'static str>,
     pub sub_commands: &'static [&'static Command],
-    pub fun: for<'fut> fn(Arc<Context>, &'fut Message) -> BoxFuture<'fut, BotResult<()>>,
+    pub fun:
+        for<'fut> fn(Arc<Context>, &'fut Message, Args<'fut>) -> BoxFuture<'fut, BotResult<()>>,
 }
 
 impl fmt::Debug for Command {

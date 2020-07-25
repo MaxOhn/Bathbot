@@ -2,7 +2,7 @@ use crate::{
     embeds::{CommandCounterEmbed, EmbedData},
     pagination::{CommandCountPagination, Pagination},
     util::numbers,
-    BotResult, Context,
+    Args, BotResult, Context,
 };
 
 use prometheus::core::Collector;
@@ -12,7 +12,7 @@ use twilight::model::channel::Message;
 #[command]
 #[short_desc("List of popular command")]
 #[long_desc("Let me show you my most popular commands since my last reboot")]
-async fn commands(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn commands(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     let mut cmds = ctx
         .cache
         .stats

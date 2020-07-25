@@ -20,8 +20,8 @@ use twilight::model::channel::Message;
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("ratio")]
-async fn ratios(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    let args = NameArgs::new(Args::new(msg.content.clone()));
+async fn ratios(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    let args = NameArgs::new(args);
     let name = if let Some(name) = args.name {
         name
     } else {

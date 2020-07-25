@@ -3,7 +3,7 @@ use crate::{
     commands::help::{failed_help, help, help_command},
     core::{Command, CommandGroups, Context},
     util::MessageExt,
-    BotResult, Error,
+    Args, BotResult, Error,
 };
 
 use std::{
@@ -18,7 +18,7 @@ use uwl::Stream;
 
 pub async fn handle_event(
     shard_id: u64,
-    event: Event,
+    event: &Event,
     ctx: Arc<Context>,
     cmds: Arc<CommandGroups>,
 ) -> BotResult<()> {
@@ -32,7 +32,7 @@ pub async fn handle_event(
         Event::Resumed => info!("Shard {} successfully resumed", shard_id),
         Event::GatewayReconnect => info!("Gateway requested shard {} to reconnect", shard_id),
         Event::GatewayInvalidateSession(recon) => {
-            if recon {
+            if *recon {
                 warn!(
                     "Gateway has invalidated session for shard {}, but its reconnectable",
                     shard_id
@@ -49,7 +49,7 @@ pub async fn handle_event(
         // ## Reaction ##
         // ##############
         Event::ReactionAdd(reaction_add) => {
-            let reaction = reaction_add.0;
+            let reaction = &reaction_add.0;
             if let Some(guild_id) = reaction.guild_id {
                 let key = (reaction.channel_id.0, reaction.message_id.0);
                 if let Some(guard) = ctx.data.role_assigns.get(&key) {
@@ -62,7 +62,7 @@ pub async fn handle_event(
         }
 
         Event::ReactionRemove(reaction_remove) => {
-            let reaction = reaction_remove.0;
+            let reaction = &reaction_remove.0;
             if let Some(guild_id) = reaction.guild_id {
                 let key = (reaction.channel_id.0, reaction.message_id.0);
                 if let Some(guard) = ctx.data.role_assigns.get(&key) {
@@ -81,38 +81,46 @@ pub async fn handle_event(
         // #############
         // ## Message ##
         // #############
-        Event::MessageCreate(mut msg) => {
+        Event::MessageCreate(msg) => {
             ctx.cache.stats.new_message(&ctx, msg.deref());
+
+            // Ignore bots and webhooks
             if msg.author.bot || msg.webhook_id.is_some() {
                 return Ok(());
             }
+
+            // Get guild / default prefixes
             let prefixes = match msg.guild_id {
                 Some(guild_id) => ctx.config_prefixes(guild_id),
                 None => vec!["<".to_owned(), "!!".to_owned()],
             };
 
-            let (invoke, content) = {
-                let mut stream = Stream::new(&msg.content);
-                stream.take_while_char(|c| c.is_whitespace());
-                if !(find_prefix(&prefixes, &mut stream) || msg.guild_id.is_none()) {
-                    return Ok(());
-                }
-                stream.take_while_char(|c| c.is_whitespace());
-                let invoke = parse_invoke(&mut stream, &cmds);
-                let content = stream.rest().to_owned();
-                (invoke, content)
-            };
-            let msg = msg.deref_mut();
-            msg.content = content;
+            // Parse msg content for prefixes
+            let mut stream = Stream::new(&msg.content);
+            stream.take_while_char(|c| c.is_whitespace());
+            if !(find_prefix(&prefixes, &mut stream) || msg.guild_id.is_none()) {
+                return Ok(());
+            }
+            stream.take_while_char(|c| c.is_whitespace());
+
+            // Parse msg content for commands
+            let invoke = parse_invoke(&mut stream, &cmds);
+
+            // Process invoke
+            let msg = msg.deref();
             let command_result = match &invoke {
-                Invoke::Command(cmd) => process_command(cmd, ctx.clone(), msg).await,
-                Invoke::SubCommand { sub, .. } => process_command(sub, ctx.clone(), msg).await,
+                Invoke::Command(cmd) => process_command(cmd, ctx.clone(), msg, stream).await,
+                Invoke::SubCommand { sub, .. } => {
+                    process_command(sub, ctx.clone(), msg, stream).await
+                }
                 Invoke::Help(None) => help(&ctx, &cmds, msg).await,
                 Invoke::Help(Some(cmd)) => help_command(&ctx, cmd, msg).await,
                 Invoke::FailedHelp(arg) => failed_help(&ctx, arg, &cmds, msg).await,
-                Invoke::UnrecognisedCommand(_name) => Ok(()),
+                Invoke::UnrecognisedCommand(_name) => return Ok(()),
             };
             let name = invoke.name();
+
+            // Handle processing result
             match invoke {
                 Invoke::UnrecognisedCommand(_) => {}
                 _ => {
@@ -129,13 +137,19 @@ pub async fn handle_event(
     Ok(())
 }
 
-async fn process_command(cmd: &Command, ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn process_command(
+    cmd: &Command,
+    ctx: Arc<Context>,
+    msg: &Message,
+    stream: Stream<'_>,
+) -> BotResult<()> {
     // Only in guilds?
     if (cmd.authority || cmd.only_guilds) && msg.guild_id.is_none() {
         msg.respond(&ctx, "That command is only available in guilds")
             .await?;
         return Ok(());
     }
+
     // Ratelimited?
     if let Some(bucket) = cmd.bucket {
         if let Some(cooldown) = check_ratelimit(&ctx, msg, bucket).await {
@@ -148,6 +162,7 @@ async fn process_command(cmd: &Command, ctx: Arc<Context>, msg: &Message) -> Bot
             return Ok(());
         }
     }
+
     // Only for authorities?
     if cmd.authority {
         match check_authority(&ctx, msg) {
@@ -167,8 +182,12 @@ async fn process_command(cmd: &Command, ctx: Arc<Context>, msg: &Message) -> Bot
             }
         }
     }
+
+    // Prepare lightweight arguments
+    let args = Args::new(&msg.content, stream);
+
     // Call command function
-    (cmd.fun)(ctx, msg).await
+    (cmd.fun)(ctx, msg, args).await
 }
 
 // Is authority -> Ok(None)
@@ -279,16 +298,12 @@ fn parse_invoke(stream: &mut Stream<'_>, groups: &CommandGroups) -> Invoke {
                     if sub_cmd.names.contains(&name.as_str()) {
                         stream.increment(name.chars().count());
                         stream.take_while_char(|c| c.is_whitespace());
-                        // TODO: Check permissions & co
-                        // check_discrepancy(ctx, msg, config, &cmd.options)?;
                         return Invoke::SubCommand {
                             main: cmd,
                             sub: sub_cmd,
                         };
                     }
                 }
-                // TODO: Check permissions & co
-                // check_discrepancy(ctx, msg, config, &cmd.options)?;
                 Invoke::Command(cmd)
             } else {
                 Invoke::UnrecognisedCommand(name)

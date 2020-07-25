@@ -12,8 +12,8 @@ use rosu::{
 use std::sync::Arc;
 use twilight::model::channel::Message;
 
-async fn rank_send(mode: GameMode, ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    let args = match RankArgs::new(Args::new(msg.content.clone())) {
+async fn rank_send(mode: GameMode, ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    let args = match RankArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
             msg.respond(&ctx, err_msg).await?;

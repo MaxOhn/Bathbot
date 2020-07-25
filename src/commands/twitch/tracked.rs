@@ -1,4 +1,4 @@
-use crate::{util::MessageExt, BotResult, Context};
+use crate::{util::MessageExt, Args, BotResult, Context};
 
 use std::{fmt::Write, sync::Arc};
 use twilight::model::channel::Message;
@@ -6,7 +6,7 @@ use twilight::model::channel::Message;
 #[command]
 #[short_desc("List all streams that are tracked in a channel")]
 #[aliases("tracked")]
-async fn trackedstreams(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn trackedstreams(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     let channel = msg.channel_id.0;
     let twitch_ids: Vec<_> = ctx
         .data

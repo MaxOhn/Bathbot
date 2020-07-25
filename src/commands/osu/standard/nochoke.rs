@@ -8,7 +8,7 @@ use crate::{
         pp::{Calculations, PPCalculator},
         MessageExt,
     },
-    BotResult, Context,
+    Args, BotResult, Context,
 };
 
 use rosu::{
@@ -33,7 +33,7 @@ use std::{cmp::Ordering, collections::HashMap, sync::Arc};
 #[example("badewanne3")]
 #[example("vaxei 5")]
 #[aliases("nc", "nochoke")]
-async fn nochokes(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = NameIntArgs::new(args);
     let name = if let Some(name) = args.name {
         name

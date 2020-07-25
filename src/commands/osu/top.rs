@@ -23,8 +23,9 @@ async fn top_send(
     top_type: TopType,
     ctx: Arc<Context>,
     msg: &Message,
+    args: Args,
 ) -> BotResult<()> {
-    let args = match TopArgs::new(Args::new(msg.content.clone())) {
+    let args = match TopArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
             msg.respond(&ctx, err_msg).await?;

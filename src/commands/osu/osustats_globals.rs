@@ -14,7 +14,12 @@ use rosu::{backend::requests::UserRequest, models::GameMode};
 use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 use twilight::model::channel::Message;
 
-async fn osustats_send(mode: GameMode, ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn osustats_send(
+    mode: GameMode,
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+) -> BotResult<()> {
     let name = {
         let data = ctx.data.read().await;
         let links = data.get::<DiscordLinks>().unwrap();
@@ -140,7 +145,7 @@ async fn osustats_send(mode: GameMode, ctx: Arc<Context>, msg: &Message) -> BotR
 #[example("badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc")]
 #[example("vaxei +hdhr -r 1..5 --r")]
 #[aliases("osg")]
-pub async fn osustatsglobals(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn osustatsglobals(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     osustats_send(GameMode::STD, ctx, msg, args).await
 }
 
@@ -162,7 +167,7 @@ pub async fn osustatsglobals(ctx: Arc<Context>, msg: &Message) -> BotResult<()> 
 #[example("badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc")]
 #[example("vaxei +hdhr -r 1..5 --r")]
 #[aliases("osgm")]
-pub async fn osustatsglobalsmania(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn osustatsglobalsmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     osustats_send(GameMode::MNA, ctx, msg, args).await
 }
 
@@ -184,7 +189,7 @@ pub async fn osustatsglobalsmania(ctx: Arc<Context>, msg: &Message) -> BotResult
 #[example("badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc")]
 #[example("vaxei +dtmr -r 1..5 --r")]
 #[aliases("osgt")]
-pub async fn osustatsglobalstaiko(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn osustatsglobalstaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     osustats_send(GameMode::TKO, ctx, msg, args).await
 }
 
@@ -206,6 +211,6 @@ pub async fn osustatsglobalstaiko(ctx: Arc<Context>, msg: &Message) -> BotResult
 #[example("badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc")]
 #[example("vaxei +hdhr -r 1..5 --r")]
 #[aliases("osgc")]
-pub async fn osustatsglobalsctb(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn osustatsglobalsctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     osustats_send(GameMode::CTB, ctx, msg, args).await
 }

@@ -1,7 +1,6 @@
 use crate::{
-    arguments::Args,
     util::{constants::GENERAL_ISSUE, MessageExt},
-    BotResult, Context,
+    Args, BotResult, Context,
 };
 
 use std::sync::Arc;
@@ -11,14 +10,13 @@ use twilight::model::channel::Message;
 #[short_desc("Link your discord account to an osu name")]
 #[long_desc(
     "Link your discord account to an osu name. \
-                 If no arguments are provided, I will unlink \
-                 your discord account from any osu name."
+     If no arguments are provided, I will unlink \
+     your discord account from any osu name."
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
 #[example("\"nathan on osu\"")]
-async fn link(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    let mut args = Args::new(msg.content.clone());
+async fn link(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     let id = *msg.author.id.as_u64();
     if args.is_empty() {
         {

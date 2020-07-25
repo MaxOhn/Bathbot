@@ -15,6 +15,7 @@ mod twitch;
 mod util;
 
 use crate::{
+    arguments::Args,
     core::{
         handle_event, logging, BotConfig, BotStats, Cache, ColdRebootData, CommandGroups, Context,
     },
@@ -287,7 +288,7 @@ async fn run(
         let c = ctx.clone();
         let cmds = cmd_groups.clone();
         tokio::spawn(async move {
-            if let Err(why) = handle_event(shard, event, c, cmds).await {
+            if let Err(why) = handle_event(shard, &event, c, cmds).await {
                 error!("Error while handling event: {}", why);
             }
         });

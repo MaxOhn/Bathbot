@@ -1,8 +1,7 @@
 use crate::{
-    arguments::Args,
     bail,
     util::{constants::GENERAL_ISSUE, MessageExt},
-    BotResult, Context,
+    Args, BotResult, Context,
 };
 
 use std::{cmp::Ordering, fmt::Write, sync::Arc};
@@ -19,13 +18,13 @@ use twilight::model::channel::Message;
     characters or strings you want to add or remove as prefix.\n\
     Guilds must have between one and five prefixes."
 )]
+#[only_guilds()]
 #[authority()]
 #[usage("[add / remove] [prefix]")]
 #[example("add $ new_pref :eggplant:")]
 #[example("remove < !!")]
 #[aliases("prefixes")]
-async fn prefix(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    let mut args = Args::new(msg.content.clone());
+async fn prefix(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     let guild_id = msg.guild_id.unwrap();
     if args.is_empty() {
         let guard = match ctx.guilds().get(&guild_id) {
@@ -60,7 +59,7 @@ async fn prefix(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
         return Ok(());
     }
     ctx.update_config(guild_id, |config| {
-        let args = args.iter().take(5);
+        let args = args.take(5);
         match action {
             Action::Add => {
                 config.prefixes.extend(args.map(|arg| arg.to_owned()));

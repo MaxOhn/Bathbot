@@ -24,8 +24,8 @@ use twilight::model::channel::Message;
 #[example("badewanne3 2240404")]
 #[example("badewanne3 https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
 #[aliases("c", "compare")]
-async fn scores(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    let args = NameMapArgs::new(Args::new(msg.content.clone()));
+async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    let args = NameMapArgs::new(args);
     let map_id = if let Some(map_id) = args.map_id {
         map_id
     } else {

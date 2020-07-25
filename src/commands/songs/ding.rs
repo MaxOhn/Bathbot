@@ -1,5 +1,5 @@
 use super::song_send;
-use crate::{BotResult, Context};
+use crate::{Args, BotResult, Context};
 
 use std::sync::Arc;
 use twilight::model::channel::Message;
@@ -7,7 +7,7 @@ use twilight::model::channel::Message;
 #[command]
 #[short_desc("https://youtu.be/_yWU0lFghxU?t=54")]
 #[bucket("songs")]
-pub async fn ding(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn ding(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     let lyrics = &[
         "Oh-oh-oh, hübsches Ding",
         "Ich versteck' mein' Ehering",

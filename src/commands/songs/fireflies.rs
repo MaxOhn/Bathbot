@@ -1,5 +1,5 @@
 use super::song_send;
-use crate::{BotResult, Context};
+use crate::{Args, BotResult, Context};
 
 use std::sync::Arc;
 use twilight::model::channel::Message;
@@ -7,7 +7,7 @@ use twilight::model::channel::Message;
 #[command]
 #[short_desc("https://youtu.be/psuRGfAaju4?t=25")]
 #[bucket("songs")]
-pub async fn fireflies(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn fireflies(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     let lyrics = &[
         "You would not believe your eyes",
         "If ten million fireflies",

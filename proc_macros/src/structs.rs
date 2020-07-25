@@ -47,19 +47,23 @@ impl Parse for CommandFun {
             .map(parse_argument)
             .collect::<Result<Vec<_>>>()?;
         let mut iter = args.iter();
-        let valid = match iter.next() {
-            Some(arg) => &arg.kind == &parse_quote! { Arc<Context> },
-            None => false,
-        };
-        if !valid {
+        if iter
+            .next()
+            .map_or(true, |arg| &arg.kind != &parse_quote! { Arc<Context> })
+        {
             return Err(input.error("expected first argument of type `Arc<Context>`"));
         }
-        let valid = match iter.next() {
-            Some(arg) => &arg.kind == &parse_quote! { &Message },
-            None => false,
-        };
-        if !valid {
+        if iter
+            .next()
+            .map_or(true, |arg| &arg.kind != &parse_quote! { &Message })
+        {
             return Err(input.error("expected second argument of type `&Message`"));
+        }
+        if iter
+            .next()
+            .map_or(true, |arg| &arg.kind != &parse_quote! { Args })
+        {
+            return Err(input.error("expected third argument of type `Args`"));
         }
 
         // -> BotResult<()>
