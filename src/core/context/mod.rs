@@ -1,3 +1,4 @@
+mod client_impls;
 mod data_impls;
 
 use super::ShardState;

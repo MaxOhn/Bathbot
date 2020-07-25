@@ -1,3 +1,4 @@
+use super::require_link;
 use crate::{
     arguments::{Args, NameFloatArgs},
     embeds::{EmbedData, WhatIfEmbed},
@@ -12,85 +13,53 @@ use rosu::{
 use std::sync::Arc;
 use twilight::model::channel::Message;
 
-async fn whatif_send(
+async fn whatif_main(
     mode: GameMode,
     ctx: Arc<Context>,
     msg: &Message,
-    args: Args,
+    args: Args<'_>,
 ) -> BotResult<()> {
     let args = match NameFloatArgs::new(args) {
         Ok(args) => args,
-        Err(err_msg) => {
-            msg.respond(&ctx, err_msg).await?;
-            return Ok(());
-        }
+        Err(err_msg) => return msg.respond(&ctx, err_msg).await,
     };
-    let name = if let Some(name) = args.name {
+    let name = if let Some(name) = args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         name
     } else {
-        let data = ctx.data.read().await;
-        let links = data.get::<DiscordLinks>().unwrap();
-        match links.get(msg.author.id.as_u64()) {
-            Some(name) => name.clone(),
-            None => {
-                msg.channel_id
-                    .say(
-                        ctx,
-                        "Either specify an osu name or link your discord \
-                        to an osu profile via `<link osuname`",
-                    )
-                    .await?
-                    .reaction_delete(ctx, msg.author.id)
-                    .await;
-                return Ok(());
-            }
-        }
+        return require_link(&ctx, msg).await;
     };
     let pp = args.float;
     if pp < 0.0 {
-        msg.respond(&ctx, "The pp number must be non-negative")
-            .await?;
-        return Ok(());
+        let content = "The pp number must be non-negative";
+        return msg.respond(&ctx, content).await;
     }
 
     // Retrieve the user and its top scores
-    let (user, scores): (User, Vec<Score>) = {
-        let user_req = UserRequest::with_username(&name).mode(mode);
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
-        let user = match user_req.queue_single(&osu).await {
-            Ok(result) => match result {
-                Some(user) => user,
-                None => {
-                    let content = format!("User `{}` was not found", name);
-                    msg.respond(&ctx, content).await?;
-                    return Ok(());
-                }
-            },
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
-        };
-        let scores = match user.get_top_scores(&osu, 100, mode).await {
-            Ok(scores) => scores,
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
-        };
-        (user, scores)
+    let user = match ctx.osu_user(&name, mode).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            let content = format!("User `{}` was not found", name);
+            return msg.respond(&ctx, content).await;
+        }
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
+        }
+    };
+    let scores = match user.get_top_scores(&ctx.clients.osu, 100, mode).await {
+        Ok(scores) => scores,
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
+        }
     };
 
     // Accumulate all necessary data
     let data = WhatIfEmbed::new(user, scores, mode, pp);
 
     // Sending the embed
-    msg.channel_id
-        .send_message(ctx, |m| m.embed(|e| data.build(e)))
-        .await?
-        .reaction_delete(ctx, msg.author.id)
-        .await;
+    let embed = data.build().build();
+    msg.build_response(&ctx, |m| m.embed(embed)).await?;
     Ok(())
 }
 
@@ -103,8 +72,8 @@ async fn whatif_send(
 #[usage("[username] [number]")]
 #[example("badewanne3 321.98")]
 #[aliases("wi")]
-pub async fn whatif(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    whatif_send(GameMode::STD, ctx, msg, args).await
+pub async fn whatif(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    whatif_main(GameMode::STD, ctx, msg, args).await
 }
 
 #[command]
@@ -116,8 +85,8 @@ pub async fn whatif(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[usage("[username] [number]")]
 #[example("badewanne3 321.98")]
 #[aliases("wim")]
-pub async fn whatifmania(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    whatif_send(GameMode::MNA, ctx, msg, args).await
+pub async fn whatifmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    whatif_main(GameMode::MNA, ctx, msg, args).await
 }
 
 #[command]
@@ -129,8 +98,8 @@ pub async fn whatifmania(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[usage("[username] [number]")]
 #[example("badewanne3 321.98")]
 #[aliases("wit")]
-pub async fn whatiftaiko(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    whatif_send(GameMode::TKO, ctx, msg, args).await
+pub async fn whatiftaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    whatif_main(GameMode::TKO, ctx, msg, args).await
 }
 
 #[command]
@@ -142,6 +111,6 @@ pub async fn whatiftaiko(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[usage("[username] [number]")]
 #[example("badewanne3 321.98")]
 #[aliases("wic")]
-pub async fn whatifctb(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    whatif_send(GameMode::CTB, ctx, msg, args).await
+pub async fn whatifctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    whatif_main(GameMode::CTB, ctx, msg, args).await
 }

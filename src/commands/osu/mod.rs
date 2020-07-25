@@ -1,36 +1,72 @@
-mod common;
-mod fruits;
-mod leaderboard;
-mod link;
-mod mania;
-mod map;
-mod match_costs;
-mod most_played;
-mod most_played_common;
-mod osustats_globals;
-mod pp;
-mod profile;
+// mod common;
+// mod fruits;
+// mod leaderboard;
+// mod link;
+// mod mania;
+// mod map;
+// mod match_costs;
+// mod most_played;
+// mod most_played_common;
+// mod osustats_globals;
+// mod pp;
+// mod profile;
 mod rank;
-mod recent;
-mod recent_lb;
-mod scores;
-mod simulate;
-mod simulate_recent;
-mod standard;
-mod taiko;
-mod top;
+// mod recent;
+// mod recent_lb;
+// mod scores;
+// mod simulate;
+// mod simulate_recent;
+// mod standard;
+// mod taiko;
+// mod top;
 mod whatif;
 
+mod fruits;
+// mod mania;
+// mod standard;
+mod taiko;
+
 pub use fruits::*;
-pub use mania::*;
-pub use standard::*;
+// pub use mania::*;
+// pub use standard::*;
 pub use taiko::*;
 
-pub use leaderboard::*;
-pub use link::*;
-pub use map::*;
-pub use match_costs::*;
-pub use most_played::*;
-pub use most_played_common::*;
-pub use scores::*;
-pub use simulate::*;
+// pub use common::*;
+// pub use fruits::*;
+// pub use leaderboard::*;
+// pub use link::*;
+// pub use mania::*;
+// pub use map::*;
+// pub use match_costs::*;
+// pub use most_played::*;
+// pub use most_played_common::*;
+// pub use osustats_globals::*;
+// pub use pp::*;
+// pub use profile::*;
+pub use rank::*;
+// pub use recent::*;
+// pub use recent_lb::*;
+// pub use scores::*;
+// pub use simulate::*;
+// pub use simulate_recent::*;
+// pub use standard::*;
+// pub use taiko::*;
+// pub use top::*;
+pub use whatif::*;
+
+use crate::{util::MessageExt, BotResult, Context};
+
+use twilight::model::channel::Message;
+
+async fn require_link(ctx: &Context, msg: &Message) -> BotResult<()> {
+    let prefix = match msg.guild_id {
+        Some(guild_id) => ctx.config_first_prefix(guild_id),
+        None => String::from("<"),
+    };
+    let content = format!(
+        "Either specify an osu name or link your discord \
+        to an osu profile via `{}link osuname`",
+        prefix
+    );
+    msg.respond(ctx, content).await
+}

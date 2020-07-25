@@ -17,7 +17,7 @@ pub struct RankEmbed {
 impl RankEmbed {
     pub fn new(
         user: User,
-        scores: Vec<Score>,
+        scores: Option<Vec<Score>>,
         rank: usize,
         country: Option<String>,
         rank_holder: User,
@@ -40,18 +40,7 @@ impl RankEmbed {
                 name = user.username,
                 pp = round_and_comma(user.pp_raw)
             )
-        } else if scores.is_empty() {
-            format!(
-                "Rank {country}{rank} is currently held by {holder_name} with \
-                 **{holder_pp}pp**, so {name} is missing **{holder_pp}** raw pp, \
-                 achievable by a single score worth **{holder_pp}pp**.",
-                country = country,
-                rank = rank,
-                holder_name = rank_holder.username,
-                holder_pp = round_and_comma(rank_holder.pp_raw),
-                name = user.username,
-            )
-        } else {
+        } else if let Some(scores) = scores {
             let (required, _) = pp_missing(user.pp_raw, rank_holder.pp_raw, &scores);
             format!(
                 "Rank {country}{rank} is currently held by {holder_name} with \
@@ -64,6 +53,17 @@ impl RankEmbed {
                 name = user.username,
                 missing = round_and_comma(rank_holder.pp_raw - user.pp_raw),
                 pp = round_and_comma(required),
+            )
+        } else {
+            format!(
+                "Rank {country}{rank} is currently held by {holder_name} with \
+                 **{holder_pp}pp**, so {name} is missing **{holder_pp}** raw pp, \
+                 achievable by a single score worth **{holder_pp}pp**.",
+                country = country,
+                rank = rank,
+                holder_name = rank_holder.username,
+                holder_pp = round_and_comma(rank_holder.pp_raw),
+                name = user.username,
             )
         };
         Self {

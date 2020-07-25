@@ -1,14 +1,14 @@
 pub mod bg_game;
 pub mod fun;
 pub mod help;
-// pub mod osu;
+pub mod osu;
 pub mod songs;
 pub mod twitch;
 pub mod utility;
 
-// use osu::*;
 use bg_game::*;
 use fun::*;
+use osu::*;
 use songs::*;
 use twitch::*;
 use utility::*;
@@ -17,7 +17,6 @@ use crate::core::CommandGroup;
 
 pub fn command_groups() -> Vec<CommandGroup> {
     vec![
-        // TODO: Re-enable when used
         // CommandGroup::new("all osu! modes", vec![
         //     &LINK_CMD,
         //     &SCORES_CMD,
@@ -29,62 +28,74 @@ pub fn command_groups() -> Vec<CommandGroup> {
         //     &LEADERBOARD_CMD,
         //     &GLOBALLEADERBOARD_CMD,
         // ]),
-        // CommandGroup::new("osu!standard", vec![
-        //     &RECENT_CMD,
-        //     &TOP_CMD,
-        //     &RECENTBEST_CMD,
-        //     &PROFILE_CMD,
-        //     &PP_CMD,
-        //     &WHATIF_CMD,
-        //     &RANK_CMD,
-        //     &COMMON_CMD,
-        //     &RECENTLEADERBOARD_CMD,
-        //     &RECENTGLOBALLEADERBOARD_CMD,
-        //     &OSUSTATSGLOBALS_CMD,
-        //     &SIMULATERECENT_CMD,
-        //     &NOCHOKES_CMD,
-        //     &SOTARKS_CMD,
-        // ]),
-        // CommandGroup::new("osu!mania", vec![
-        //     &RECENTMANIA_CMD,
-        //     &TOPMANIA_CMD,
-        //     &RECENTBESTMANIA_CMD,
-        //     &PROFILEMANIAJ_CMD,
-        //     &PPMANIA_CMD,
-        //     &WHATIFMANIAJ_CMD,
-        //     &RANKMANIAJ_CMD,
-        //     &COMMONMANIA_CMD,
-        //     &RECENTMANIALEADERBOARD_CMD,
-        //     &RECENTMANIAGLOBALLEADERBOARD_CMD,
-        //     &OSUSTATSGLOBALSMANIA_CMD,
-        //     &RATIOS_CMD,
-        // ]),
-        // CommandGroup::new("osu!taiko", vec![
-        //     &RECENTTAIKO_CMD,
-        //     &TOPTAIKO_CMD,
-        //     &RECENTBESTTAIKO_CMD,
-        //     &PROFILETAIKO_CMD,
-        //     &PPTAIKO_CMD,
-        //     &WHATIFTAIKO_CMD,
-        //     &RANKTAIKO_CMD,
-        //     &COMMONTAIKO_CMD,
-        //     &RECENTTAIKOLEADERBOARD_CMD,
-        //     &RECENTTAIKOGLOBALLEADERBOARD_CMD,
-        //     &OSUSTATSGLOBALSTAIKO_CMD
-        // ]),
-        // CommandGroup::new("osu!catch the beat", vec![
-        //     &RECENTCTB_CMD,
-        //     &TOPCTB_CMD,
-        //     &RECENTBESTCTB_CMD,
-        //     &PROFILECTB_CMD,
-        //     &PPCTB_CMD,
-        //     &WHATIFCTB_CMD,
-        //     &RANKCTB_CMD,
-        //     &COMMONCTB_CMD,
-        //     &RECENTCTBLEADERBOARD_CMD,
-        //     &RECENTCTBGLOBALLEADERBOARD_CMD,
-        //     &OSUSTATSGLOBALSCTB_CMD
-        // ]),
+        CommandGroup::new(
+            "osu!standard",
+            vec![
+                //     &RECENT_CMD,
+                //     &TOP_CMD,
+                //     &RECENTBEST_CMD,
+                //     &PROFILE_CMD,
+                //     &PP_CMD,
+                &WHATIF_CMD,
+                &RANK_CMD,
+                //     &COMMON_CMD,
+                //     &RECENTLEADERBOARD_CMD,
+                //     &RECENTGLOBALLEADERBOARD_CMD,
+                //     &OSUSTATSGLOBALS_CMD,
+                //     &SIMULATERECENT_CMD,
+                //     &NOCHOKES_CMD,
+                //     &SOTARKS_CMD,
+            ],
+        ),
+        CommandGroup::new(
+            "osu!mania",
+            vec![
+                //     &RECENTMANIA_CMD,
+                //     &TOPMANIA_CMD,
+                //     &RECENTBESTMANIA_CMD,
+                //     &PROFILEMANIAJ_CMD,
+                //     &PPMANIA_CMD,
+                &WHATIFMANIA_CMD,
+                &RANKMANIA_CMD,
+                //     &COMMONMANIA_CMD,
+                //     &RECENTMANIALEADERBOARD_CMD,
+                //     &RECENTMANIAGLOBALLEADERBOARD_CMD,
+                //     &OSUSTATSGLOBALSMANIA_CMD,
+                //     &RATIOS_CMD,
+            ],
+        ),
+        CommandGroup::new(
+            "osu!taiko",
+            vec![
+                //     &RECENTTAIKO_CMD,
+                //     &TOPTAIKO_CMD,
+                //     &RECENTBESTTAIKO_CMD,
+                //     &PROFILETAIKO_CMD,
+                //     &PPTAIKO_CMD,
+                &WHATIFTAIKO_CMD,
+                &RANKTAIKO_CMD,
+                //     &COMMONTAIKO_CMD,
+                //     &RECENTTAIKOLEADERBOARD_CMD,
+                //     &RECENTTAIKOGLOBALLEADERBOARD_CMD,
+                //     &OSUSTATSGLOBALSTAIKO_CMD
+            ],
+        ),
+        CommandGroup::new(
+            "osu!catch the beat",
+            vec![
+                //     &RECENTCTB_CMD,
+                //     &TOPCTB_CMD,
+                //     &RECENTBESTCTB_CMD,
+                //     &PROFILECTB_CMD,
+                //     &PPCTB_CMD,
+                &WHATIFCTB_CMD,
+                &RANKCTB_CMD,
+                //     &COMMONCTB_CMD,
+                //     &RECENTCTBLEADERBOARD_CMD,
+                //     &RECENTCTBGLOBALLEADERBOARD_CMD,
+                //     &OSUSTATSGLOBALSCTB_CMD
+            ],
+        ),
         CommandGroup::new(
             "twitch",
             vec![&ADDSTREAM_CMD, &REMOVESTREAM_CMD, &TRACKEDSTREAMS_CMD],
