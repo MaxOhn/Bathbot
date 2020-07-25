@@ -87,13 +87,7 @@ pub async fn handle_event(
                 return Ok(());
             }
             let prefixes = match msg.guild_id {
-                Some(guild) => {
-                    if !ctx.guilds().contains_key(&guild) {
-                        let config = ctx.clients.psql.insert_guild(guild.0).await?;
-                        ctx.guilds().insert(guild, config);
-                    }
-                    ctx.guilds().get(&guild).unwrap().prefixes.clone()
-                }
+                Some(guild_id) => ctx.config_prefixes(guild_id),
                 None => vec!["<".to_owned(), "!!".to_owned()],
             };
 

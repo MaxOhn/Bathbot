@@ -1,6 +1,5 @@
 use super::is_default;
 
-use dashmap::ElementGuard;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use twilight::model::{
@@ -43,17 +42,17 @@ impl CachedRole {
     }
 }
 
-impl From<ElementGuard<RoleId, Arc<CachedRole>>> for CachedRole {
-    fn from(guard: ElementGuard<RoleId, Arc<CachedRole>>) -> Self {
+impl From<Arc<CachedRole>> for CachedRole {
+    fn from(role: Arc<CachedRole>) -> Self {
         CachedRole {
-            id: guard.id,
-            name: guard.name.clone(),
-            color: guard.color,
-            hoisted: guard.hoisted,
-            position: guard.position,
-            permissions: guard.permissions,
-            managed: guard.managed,
-            mentionable: guard.mentionable,
+            id: role.id,
+            name: role.name.clone(),
+            color: role.color,
+            hoisted: role.hoisted,
+            position: role.position,
+            permissions: role.permissions,
+            managed: role.managed,
+            mentionable: role.mentionable,
         }
     }
 }

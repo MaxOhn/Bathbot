@@ -72,8 +72,8 @@ impl Database {
                 Some((*guard.key(), mod_map))
             }
         });
-        let mut counter = 0;
         let mut txn = self.pool.begin().await?;
+        let mut counter = 0;
         for (map_id, mod_map) in value_iter {
             let query = format!(
                 "

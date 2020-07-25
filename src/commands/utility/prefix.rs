@@ -59,13 +59,12 @@ async fn prefix(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
         msg.respond(&ctx, content).await?;
         return Ok(());
     }
-    let config = ctx.guilds().update_get(&guild_id, |_, config| {
-        let mut new_config = config.clone();
+    ctx.update_config(guild_id, |config| {
         let args = args.iter().take(5);
         match action {
             Action::Add => {
-                new_config.prefixes.extend(args.map(|arg| arg.to_owned()));
-                new_config.prefixes.sort_unstable_by(|a, b| {
+                config.prefixes.extend(args.map(|arg| arg.to_owned()));
+                config.prefixes.sort_unstable_by(|a, b| {
                     if a == "<" {
                         Ordering::Less
                     } else if b == "<" {
@@ -74,30 +73,25 @@ async fn prefix(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
                         a.cmp(&b)
                     }
                 });
-                new_config.prefixes.dedup();
-                new_config.prefixes.truncate(5);
+                config.prefixes.dedup();
+                config.prefixes.truncate(5);
             }
             Action::Remove => {
                 for arg in args {
-                    new_config.prefixes.retain(|p| p.as_str() != arg);
-                    if new_config.prefixes.is_empty() {
-                        new_config.prefixes.push(arg.to_owned());
+                    config.prefixes.retain(|p| p.as_str() != arg);
+                    if config.prefixes.is_empty() {
+                        config.prefixes.push(arg.to_owned());
                         break;
                     }
                 }
             }
         }
-        new_config
     });
-    if let Some(config) = config {
-        let mut content = "Prefixes updated!\n".to_owned();
-        current_prefixes(&mut content, &config.prefixes);
-        msg.respond(&ctx, content).await?;
-        Ok(())
-    } else {
-        msg.respond(&ctx, GENERAL_ISSUE).await?;
-        bail!("Unsuccessful update of guild prefixes");
-    }
+    let mut content = "Prefixes updated!\n".to_owned();
+    let prefixes = ctx.config_prefixes(guild_id);
+    current_prefixes(&mut content, &prefixes);
+    msg.respond(&ctx, content).await?;
+    Ok(())
 }
 
 enum Action {

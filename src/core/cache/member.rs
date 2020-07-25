@@ -1,7 +1,6 @@
 use super::is_default;
 use crate::core::cache::{Cache, CachedUser};
 
-use dashmap::ElementGuard;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use twilight::model::{
@@ -91,8 +90,8 @@ pub struct ColdStorageMember {
     // pub server_muted: bool,
 }
 
-impl From<ElementGuard<UserId, Arc<CachedMember>>> for ColdStorageMember {
-    fn from(member: ElementGuard<UserId, Arc<CachedMember>>) -> Self {
+impl From<Arc<CachedMember>> for ColdStorageMember {
+    fn from(member: Arc<CachedMember>) -> Self {
         ColdStorageMember {
             id: member.user.id,
             nickname: member.nickname.clone(),

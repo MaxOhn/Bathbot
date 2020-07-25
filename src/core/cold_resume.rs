@@ -92,7 +92,7 @@ impl Cache {
         let mut to_dump = Vec::with_capacity(todo.len());
         for key in todo {
             debug!("[take_removing key {}]", key);
-            let g = self.guilds.remove_take(&key).unwrap();
+            let g = self.guilds.remove(&key).unwrap().1;
             debug!("[got entry]");
             to_dump.push(ColdStorageGuild::from(g));
         }
@@ -124,7 +124,7 @@ impl Cache {
         let mut connection = redis.get().await;
         let mut chunk = Vec::with_capacity(todo.len());
         for key in todo {
-            let user = self.users.remove_take(&key).unwrap();
+            let user = self.users.remove(&key).unwrap().1;
             chunk.push(CachedUser {
                 id: user.id,
                 username: user.username.clone(),

@@ -92,29 +92,14 @@ async fn authorities(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
         return Ok(());
     }
 
-    let config = ctx.guilds().update_get(&guild_id, |_, config| {
-        let mut new_config = config.clone();
-        new_config.authorities = new_auths.iter().map(|role| role.id.0).collect();
-        new_config
+    ctx.update_config(guild_id, move |config| {
+        config.authorities = new_auths.into_iter().map(|role| role.id.0).collect();
     });
-    let config = if let Some(config) = config {
-        let psql = &ctx.clients.psql;
-        if let Err(why) = psql.set_guild_config(guild_id.0, config.value()).await {
-            error!(
-                "Error while storing new auth roles for guild {}: {}",
-                guild_id, why
-            );
-        }
-        config
-    } else {
-        msg.respond(&ctx, GENERAL_ISSUE).await?;
-        bail!("No success while updating guild config");
-    };
 
     // Send the message
     let mut content = "Successfully changed the authority roles to: ".to_owned();
-    let roles = config.authorities.as_slice();
-    role_string(&ctx, roles, guild_id, &mut content);
+    let roles = ctx.config_authorities(guild_id);
+    role_string(&ctx, &roles, guild_id, &mut content);
     msg.respond(&ctx, content).await?;
     Ok(())
 }

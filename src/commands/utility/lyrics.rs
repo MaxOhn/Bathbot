@@ -17,25 +17,12 @@ use twilight::model::channel::Message;
 )]
 async fn lyrics(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     let guild_id = msg.guild_id.unwrap();
-    let mut available = false;
-    let config = ctx.guilds().update_get(&guild_id, |_, config| {
-        let mut new_config = config.clone();
-        new_config.with_lyrics = !config.with_lyrics;
-        available = new_config.with_lyrics;
-        new_config
+    let mut with_lyrics = false;
+    ctx.update_config(guild_id, |config| {
+        config.with_lyrics = !config.with_lyrics;
+        with_lyrics = config.with_lyrics;
     });
-    if let Some(config) = config {
-        let psql = &ctx.clients.psql;
-        match psql.set_guild_config(guild_id.0, config.value()).await {
-            Ok(_) => debug!("Updated lyrics for guild id {}", guild_id.0),
-            Err(why) => warn!("Could not set lyrics of guild: {}", why),
-        }
-    } else {
-        msg.respond(&ctx, GENERAL_ISSUE).await?;
-        bail!("GuildId {} not found in guilds", guild_id);
-    }
-
-    let content = if available {
+    let content = if with_lyrics {
         "Song commands can now be used in this server"
     } else {
         "Song commands can no longer be used in this server"

@@ -367,8 +367,8 @@ impl Cache {
             Event::MemberRemove(event) => {
                 debug!("{} left {}", event.user.id, event.guild_id);
                 match self.get_guild(event.guild_id) {
-                    Some(guild) => match guild.members.remove_take(&event.user.id) {
-                        Some(member) => {
+                    Some(guild) => match guild.members.remove(&event.user.id) {
+                        Some((_, member)) => {
                             let servers = member.user.mutual_servers.fetch_sub(1, Ordering::SeqCst);
                             if servers == 1 {
                                 self.users.remove(&member.user.id);
@@ -565,8 +565,7 @@ impl Cache {
 
     pub fn get_role(&self, role_id: RoleId, guild_id: GuildId) -> Option<Arc<CachedRole>> {
         self.get_guild(guild_id)
-            .and_then(|guild| guild.roles.get(&role_id))
-            .map(|guard| guard.value().clone())
+            .and_then(|guild| Some(guild.roles.get(&role_id)?.value().clone()))
     }
 
     pub fn get_guild_channel(
@@ -575,14 +574,12 @@ impl Cache {
         guild_id: GuildId,
     ) -> Option<Arc<CachedChannel>> {
         self.get_guild(guild_id)
-            .and_then(|guild| guild.channels.get(&channel_id))
-            .map(|guard| guard.value().clone())
+            .and_then(|guild| Some(guild.channels.get(&channel_id)?.value().clone()))
     }
 
     pub fn get_member(&self, user_id: UserId, guild_id: GuildId) -> Option<Arc<CachedMember>> {
         self.get_guild(guild_id)
-            .and_then(|guild| guild.members.get(&user_id))
-            .map(|guard| guard.value().clone())
+            .and_then(|guild| Some(guild.members.get(&user_id)?.value().clone()))
     }
 
     pub fn has_admin_permission(&self, user_id: UserId, guild_id: GuildId) -> Option<bool> {

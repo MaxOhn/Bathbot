@@ -5,23 +5,6 @@ use sqlx::{types::Json, FromRow, Row};
 use twilight::model::id::GuildId;
 
 impl Database {
-    pub async fn get_guild_config(&self, guild_id: u64) -> BotResult<GuildConfig> {
-        let query = format!("SELECT config from guilds where guild_id={}", guild_id);
-        match sqlx::query_as::<_, GuildConfig>(&query)
-            .fetch_optional(&self.pool)
-            .await?
-        {
-            Some(config) => Ok(config),
-            None => {
-                info!(
-                    "No config found for guild {}, inserting blank one",
-                    guild_id
-                );
-                self.insert_guild(guild_id).await
-            }
-        }
-    }
-
     pub async fn get_guilds(&self) -> BotResult<DashMap<GuildId, GuildConfig>> {
         let guilds = sqlx::query("SELECT * FROM guilds")
             .fetch_all(&self.pool)
@@ -36,30 +19,29 @@ impl Database {
         Ok(guilds)
     }
 
-    pub async fn set_guild_config(&self, guild_id: u64, config: &GuildConfig) -> BotResult<()> {
-        sqlx::query("UPDATE guilds SET config=$1 WHERE guild_id=$2")
-            .bind(Json(config))
-            .bind(guild_id as i64)
-            .execute(&self.pool)
-            .await?;
-        Ok(())
-    }
-
-    pub async fn insert_guild(&self, guild_id: u64) -> BotResult<GuildConfig> {
-        let query = "
+    pub async fn insert_guilds(&self, configs: &DashMap<GuildId, GuildConfig>) -> BotResult<usize> {
+        configs.retain(|_, config| config.modified);
+        let mut txn = self.pool.begin().await?;
+        let mut counter = 0;
+        for guard in configs.iter() {
+            let query = format!(
+                "
 INSERT INTO
     guilds
 VALUES
-    ($1,$2)
+    ({},$1)
 ON CONFLICT DO
-    NOTHING
-RETURNING
-    config";
-        sqlx::query(query)
-            .bind(guild_id as i64)
-            .bind(Json(GuildConfig::default()))
-            .execute(&self.pool)
-            .await?;
-        Ok(GuildConfig::default())
+    UPDATE
+        SET config=$1",
+                guard.key()
+            );
+            sqlx::query(&query)
+                .bind(Json(guard.value()))
+                .execute(&mut *txn)
+                .await?;
+            counter += 1;
+        }
+        txn.commit().await?;
+        Ok(counter)
     }
 }

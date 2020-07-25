@@ -8,6 +8,8 @@ pub struct GuildConfig {
     pub with_lyrics: bool,
     pub prefixes: Vec<String>,
     pub authorities: Vec<u64>,
+    #[serde(default, skip_serializing)]
+    pub modified: bool,
 }
 
 impl<'c> FromRow<'c, PgRow> for GuildConfig {
@@ -22,6 +24,7 @@ impl Default for GuildConfig {
             with_lyrics: true,
             prefixes: vec!["<".to_owned(), "!!".to_owned()],
             authorities: vec![],
+            modified: true,
         }
     }
 }

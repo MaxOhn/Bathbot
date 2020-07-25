@@ -28,8 +28,32 @@ impl Context {
         Ok(())
     }
 
-    pub async fn get_config(guild_id: &GuildId) -> Option<Arc<GuildConfig>> {
-        todo!()
+    pub fn config_authorities(&self, guild_id: GuildId) -> Vec<u64> {
+        let config = self.data.guilds.entry(guild_id).or_default();
+        config.authorities.clone()
+    }
+
+    pub fn config_prefixes(&self, guild_id: GuildId) -> Vec<String> {
+        let config = self.data.guilds.entry(guild_id).or_default();
+        config.prefixes.clone()
+    }
+
+    pub fn config_first_prefix(&self, guild_id: GuildId) -> String {
+        let config = self.data.guilds.entry(guild_id).or_default();
+        config.prefixes[0].clone()
+    }
+
+    pub fn config_lyrics(&self, guild_id: GuildId) -> bool {
+        let config = self.data.guilds.entry(guild_id).or_default();
+        config.with_lyrics
+    }
+
+    pub fn update_config<F>(&self, guild_id: GuildId, f: F)
+    where
+        F: FnOnce(&mut GuildConfig),
+    {
+        let mut config = self.data.guilds.entry(guild_id).or_default();
+        f(config.value_mut());
     }
 
     // TODO: Remove
@@ -51,6 +75,20 @@ impl Context {
             GameMode::CTB => &self.data.stored_values.ctb_stars,
             _ => unreachable!(),
         }
+    }
+
+    /// Intended to use before shutdown
+    pub async fn store_configs(&self) -> BotResult<()> {
+        let start = Instant::now();
+        let guilds = &self.data.guilds;
+        let count = self.clients.psql.insert_guilds(guilds).await?;
+        let end = Instant::now();
+        info!(
+            "Stored {} guild configs in {}ms",
+            count,
+            (end - start).as_millis()
+        );
+        Ok(())
     }
 
     /// Intended to use before shutdown

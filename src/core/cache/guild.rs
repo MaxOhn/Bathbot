@@ -4,7 +4,7 @@ use crate::{
     util::constants::OWNER_USER_ID,
 };
 
-use dashmap::{DashMap, ElementGuard};
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::{
     str::FromStr,
@@ -302,9 +302,8 @@ pub struct ColdStorageGuild {
     pub preferred_locale: String,
 }
 
-impl From<ElementGuard<GuildId, Arc<CachedGuild>>> for ColdStorageGuild {
-    fn from(guard: ElementGuard<GuildId, Arc<CachedGuild>>) -> Self {
-        let guild = guard.value();
+impl From<Arc<CachedGuild>> for ColdStorageGuild {
+    fn from(guild: Arc<CachedGuild>) -> Self {
         let mut csg = ColdStorageGuild {
             id: guild.id,
             name: guild.name.clone(),
@@ -331,7 +330,7 @@ impl From<ElementGuard<GuildId, Arc<CachedGuild>>> for ColdStorageGuild {
             preferred_locale: guild.preferred_locale.clone(),
         };
         for role in &guild.roles {
-            csg.roles.push(CachedRole::from(role));
+            csg.roles.push(CachedRole::from(role.value().clone()));
         }
         guild.roles.clear();
 
@@ -339,7 +338,8 @@ impl From<ElementGuard<GuildId, Arc<CachedGuild>>> for ColdStorageGuild {
             csg.emoji.push(emoji.as_ref().clone());
         }
         for member in &guild.members {
-            csg.members.push(ColdStorageMember::from(member));
+            csg.members
+                .push(ColdStorageMember::from(member.value().clone()));
         }
         guild.members.clear();
         for channel in &guild.channels {

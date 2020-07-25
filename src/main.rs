@@ -247,10 +247,14 @@ async fn run(
     let shutdown_ctx = ctx.clone();
     ctrlc::set_handler(move || {
         let _ = Runtime::new().unwrap().block_on(async {
-            let (store_result, cold_resume_result) = tokio::join!(
+            let (config_result, store_result, cold_resume_result) = tokio::join!(
+                shutdown_ctx.store_configs(),
                 shutdown_ctx.store_values(),
                 shutdown_ctx.initiate_cold_resume()
             );
+            if let Err(why) = config_result {
+                error!("Error while storing configs: {}", why);
+            }
             if let Err(why) = store_result {
                 error!("Error while storing values: {}", why);
             }

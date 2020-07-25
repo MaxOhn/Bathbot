@@ -265,16 +265,16 @@ async fn calculate_max_pp(
             // Store value
             if let Ranked | Loved | Approved = data.approval_status.unwrap() {
                 let mods = data.mods.unwrap_or_default();
-                let updated = ctx.pp(mode).update(&map_id, |_, value_map| {
-                    let mut new_map = value_map.clone();
-                    new_map.insert(mods, (max_pp, true));
-                    new_map
-                });
-                if !updated {
-                    let mut new_map = HashMap::new();
-                    new_map.insert(mods, (max_pp, true));
-                    ctx.pp(mode).insert(map_id, new_map);
-                }
+                ctx.pp(mode)
+                    .entry(map_id)
+                    .and_modify(|value_map| {
+                        value_map.insert(mods, (max_pp, true));
+                    })
+                    .or_insert_with(|| {
+                        let mut value_map = HashMap::new();
+                        value_map.insert(mods, (max_pp, true));
+                        value_map
+                    });
             }
             Ok(Some(max_pp))
         }
@@ -336,16 +336,16 @@ async fn calculate_stars(
             // Store value
             if let Ranked | Loved | Approved = data.approval_status.unwrap() {
                 let mods = data.mods.unwrap_or_default();
-                let updated = ctx.stars(mode).update(&map_id, |_, value_map| {
-                    let mut new_map = value_map.clone();
-                    new_map.insert(mods, (stars, true));
-                    new_map
-                });
-                if !updated {
-                    let mut new_map = HashMap::new();
-                    new_map.insert(mods, (stars, true));
-                    ctx.stars(mode).insert(map_id, new_map);
-                }
+                ctx.stars(mode)
+                    .entry(map_id)
+                    .and_modify(|value_map| {
+                        value_map.insert(mods, (stars, true));
+                    })
+                    .or_insert_with(|| {
+                        let mut value_map = HashMap::new();
+                        value_map.insert(mods, (stars, true));
+                        value_map
+                    });
             }
             Ok(Some(stars))
         }

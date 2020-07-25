@@ -18,7 +18,7 @@ use rosu::{
     models::{GameMode, GameMods},
     Osu,
 };
-use std::{collections::HashMap, sync::Arc, time::Instant};
+use std::{collections::HashMap, time::Instant};
 use tokio::sync::Mutex;
 use tokio::sync::RwLock;
 use twilight::gateway::Cluster;
@@ -100,6 +100,7 @@ impl Context {
         self.cache.bot_user.id == other.author.id
     }
 
+    /// Intended to use before shutdown
     pub async fn initiate_cold_resume(&self) -> BotResult<()> {
         info!("Preparing for cold resume");
         let activity_result = self
