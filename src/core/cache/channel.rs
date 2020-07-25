@@ -20,19 +20,11 @@ pub enum CachedChannel {
         id: ChannelId,
         #[serde(rename = "b")]
         guild_id: GuildId,
-        #[serde(rename = "c", default, skip_serializing_if = "is_default")]
-        position: i64,
         // should be always present in guild create,
         #[serde(rename = "d", default, skip_serializing_if = "is_default")]
         permission_overrides: Vec<PermissionOverwrite>,
         #[serde(rename = "e")]
         name: String,
-        #[serde(rename = "f", default, skip_serializing_if = "is_default")]
-        topic: Option<String>,
-        #[serde(rename = "g", default, skip_serializing_if = "is_default")]
-        nsfw: bool,
-        #[serde(rename = "h", default, skip_serializing_if = "is_default")]
-        slowmode: Option<u64>,
         #[serde(rename = "i", default, skip_serializing_if = "is_default")]
         parent_id: Option<ChannelId>,
     },
@@ -45,17 +37,11 @@ pub enum CachedChannel {
         id: ChannelId,
         #[serde(rename = "b")]
         guild_id: GuildId,
-        #[serde(rename = "c", default, skip_serializing_if = "is_default")]
-        position: i64,
         // should be always present in guild create,
         #[serde(rename = "d", default, skip_serializing_if = "is_default")]
         permission_overrides: Vec<PermissionOverwrite>,
         #[serde(rename = "e")]
         name: String,
-        #[serde(rename = "f", default, skip_serializing_if = "is_default")]
-        bitrate: u64,
-        #[serde(rename = "g", default, skip_serializing_if = "is_default")]
-        user_limit: Option<u64>,
         #[serde(rename = "h", default, skip_serializing_if = "is_default")]
         parent_id: Option<ChannelId>,
     },
@@ -68,8 +54,6 @@ pub enum CachedChannel {
         id: ChannelId,
         #[serde(rename = "b")]
         guild_id: GuildId,
-        #[serde(rename = "c", default, skip_serializing_if = "is_default")]
-        position: i64,
         // should be always present in guild create,
         #[serde(rename = "d", default, skip_serializing_if = "is_default")]
         permission_overrides: Vec<PermissionOverwrite>,
@@ -81,8 +65,6 @@ pub enum CachedChannel {
         id: ChannelId,
         #[serde(rename = "b")]
         guild_id: GuildId,
-        #[serde(rename = "c", default, skip_serializing_if = "is_default")]
-        position: i64,
         // should be always present in guild create,
         #[serde(rename = "d", default, skip_serializing_if = "is_default")]
         permission_overrides: Vec<PermissionOverwrite>,
@@ -94,7 +76,6 @@ pub enum CachedChannel {
     StoreChannel {
         id: ChannelId,
         guild_id: GuildId,
-        position: i64,
         // should be always present in guild create,
         name: String,
         parent_id: Option<ChannelId>,
@@ -130,20 +111,6 @@ impl CachedChannel {
         }
     }
 
-    /// Gets the position of this channel
-    /// returns 0 for DM (group) channels
-    pub fn get_position(&self) -> i64 {
-        match self {
-            CachedChannel::TextChannel { position, .. } => *position,
-            CachedChannel::DM { .. } => 0,
-            CachedChannel::VoiceChannel { position, .. } => *position,
-            CachedChannel::GroupDM { .. } => 0,
-            CachedChannel::Category { position, .. } => *position,
-            CachedChannel::AnnouncementsChannel { position, .. } => *position,
-            CachedChannel::StoreChannel { position, .. } => *position,
-        }
-    }
-
     pub fn get_name(&self) -> &str {
         match self {
             CachedChannel::TextChannel { name, .. } => name,
@@ -153,18 +120,6 @@ impl CachedChannel {
             CachedChannel::Category { name, .. } => name,
             CachedChannel::AnnouncementsChannel { name, .. } => name,
             CachedChannel::StoreChannel { name, .. } => name,
-        }
-    }
-
-    pub fn get_topic(&self) -> &Option<String> {
-        match self {
-            CachedChannel::TextChannel { topic, .. } => topic,
-            CachedChannel::DM { .. } => &None,
-            CachedChannel::VoiceChannel { .. } => &None,
-            CachedChannel::GroupDM { .. } => &None,
-            CachedChannel::Category { .. } => &None,
-            CachedChannel::AnnouncementsChannel { .. } => &None,
-            CachedChannel::StoreChannel { .. } => &None,
         }
     }
 
@@ -195,13 +150,6 @@ impl CachedChannel {
         }
     }
 
-    pub fn is_nsfw(&self) -> bool {
-        match self {
-            CachedChannel::TextChannel { nsfw, .. } => *nsfw,
-            _ => false,
-        }
-    }
-
     pub fn is_dm(&self) -> bool {
         match self {
             CachedChannel::DM { .. } => true,
@@ -212,57 +160,27 @@ impl CachedChannel {
 
 impl CachedChannel {
     pub fn from_guild_channel(channel: &GuildChannel, guild_id: GuildId) -> Self {
-        let (
-            kind,
-            id,
-            position,
-            permission_overrides,
-            name,
-            topic,
-            nsfw,
-            slowmode,
-            parent_id,
-            bitrate,
-            user_limit,
-        ) = match channel {
+        let (kind, id, permission_overrides, name, parent_id) = match channel {
             GuildChannel::Category(category) => (
                 category.kind,
                 category.id,
-                category.position,
                 category.permission_overwrites.clone(),
                 category.name.clone(),
-                None,
-                false,
-                None,
-                None,
-                0,
                 None,
             ),
             GuildChannel::Text(text) => (
                 text.kind,
                 text.id,
-                text.position,
                 text.permission_overwrites.clone(),
                 text.name.clone(),
-                text.topic.clone(),
-                text.nsfw,
-                text.rate_limit_per_user,
                 text.parent_id,
-                0,
-                None,
             ),
             GuildChannel::Voice(voice) => (
                 voice.kind,
                 voice.id,
-                voice.position,
                 voice.permission_overwrites.clone(),
                 voice.name.clone(),
-                None,
-                false,
-                None,
                 voice.parent_id,
-                voice.bitrate,
-                voice.user_limit,
             ),
         };
 
@@ -270,37 +188,28 @@ impl CachedChannel {
             ChannelType::GuildText => CachedChannel::TextChannel {
                 id,
                 guild_id,
-                position,
                 permission_overrides,
                 name,
-                topic,
-                nsfw,
-                slowmode,
                 parent_id,
             },
             ChannelType::Private => unreachable!(),
             ChannelType::GuildVoice => CachedChannel::VoiceChannel {
                 id,
                 guild_id,
-                position,
                 permission_overrides,
                 name,
-                bitrate,
-                user_limit,
                 parent_id,
             },
             ChannelType::Group => unreachable!(),
             ChannelType::GuildCategory => CachedChannel::Category {
                 id,
                 guild_id,
-                position,
                 permission_overrides,
                 name,
             },
             ChannelType::GuildNews => CachedChannel::AnnouncementsChannel {
                 id,
                 guild_id,
-                position,
                 permission_overrides,
                 name,
                 parent_id,
@@ -308,7 +217,6 @@ impl CachedChannel {
             ChannelType::GuildStore => CachedChannel::StoreChannel {
                 id,
                 guild_id,
-                position,
                 name,
                 parent_id,
                 permission_overrides,

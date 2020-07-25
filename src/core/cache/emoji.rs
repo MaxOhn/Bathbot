@@ -15,8 +15,6 @@ pub struct CachedEmoji {
     pub name: String,
     #[serde(rename = "c", default, skip_serializing_if = "is_default")]
     pub roles: Vec<RoleId>,
-    #[serde(rename = "d", default, skip_serializing_if = "is_default")]
-    pub created_by: Option<UserId>,
     #[serde(rename = "i", default, skip_serializing_if = "is_default")]
     pub requires_colons: bool,
     #[serde(rename = "j", default, skip_serializing_if = "is_default")]
@@ -29,15 +27,10 @@ pub struct CachedEmoji {
 
 impl From<Emoji> for CachedEmoji {
     fn from(emoji: Emoji) -> Self {
-        let creator = match emoji.user {
-            Some(e) => Some(e.id),
-            None => None,
-        };
         CachedEmoji {
             id: emoji.id,
             name: emoji.name,
             roles: emoji.roles,
-            created_by: creator,
             requires_colons: emoji.require_colons,
             managed: emoji.managed,
             animated: emoji.animated,

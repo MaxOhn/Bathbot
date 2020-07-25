@@ -302,8 +302,6 @@ impl Cache {
                 }
             },
             Event::ChannelDelete(channel) => {
-                // TODO: Add more info
-                trace!("Received channel delete event for a channel");
                 match &channel.0 {
                     Channel::Group(_group) => {}
                     Channel::Guild(guild_channel) => {
