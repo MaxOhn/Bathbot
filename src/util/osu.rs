@@ -14,9 +14,10 @@ use twilight::model::id::EmojiId;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ModSelection {
-    Include,
-    Exclude,
-    Exact,
+    Include(GameMods),
+    Exclude(GameMods),
+    Exact(GameMods),
+    None,
 }
 
 pub fn grade_emote(grade: Grade, ctx: &Context) -> Arc<CachedEmoji> {

@@ -97,22 +97,21 @@ pub fn get_osu_match_id(msg: &str) -> Option<u32> {
         .and_then(|c| c.as_str().parse::<u32>().ok())
 }
 
-pub fn get_mods(msg: &str) -> Option<(GameMods, ModSelection)> {
-    let (mods, selection) = if let Some(captures) = MOD_PLUS_MATCHER.captures(msg) {
-        let mods = captures.get(1)?.as_str();
-        let selection = if msg.ends_with('!') {
-            ModSelection::Exact
+pub fn get_mods(msg: &str) -> Option<ModSelection> {
+    let selection = if let Some(captures) = MOD_PLUS_MATCHER.captures(msg) {
+        let mods = GameMods::try_from(captures.get(1)?.as_str()).ok()?;
+        if msg.ends_with('!') {
+            ModSelection::Exact(mods)
         } else {
-            ModSelection::Include
-        };
-        (mods, selection)
+            ModSelection::Include(mods)
+        }
     } else if let Some(captures) = MOD_MINUS_MATCHER.captures(msg) {
-        (captures.get(1)?.as_str(), ModSelection::Exclude)
+        let mods = GameMods::try_from(captures.get(1)?.as_str()).ok()?;
+        ModSelection::Exclude(mods)
     } else {
         return None;
     };
-    let mods = GameMods::try_from(mods).ok()?;
-    Some((mods, selection))
+    Some(selection)
 }
 
 lazy_static! {

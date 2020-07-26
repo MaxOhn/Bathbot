@@ -1,12 +1,15 @@
+use super::require_link;
 use crate::{
-    arguments::{Args, ModSelection, TopArgs},
+    arguments::{Args, TopArgs},
     embeds::{EmbedData, TopEmbed},
     pagination::{Pagination, TopPagination},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        numbers, MessageExt,
+        numbers,
+        osu::ModSelection,
+        MessageExt,
     },
-    BotResult, Context, DiscordLinks, Osu,
+    BotResult, Context,
 };
 
 use regex::Regex;
@@ -23,7 +26,7 @@ async fn top_send(
     top_type: TopType,
     ctx: Arc<Context>,
     msg: &Message,
-    args: Args,
+    args: Args<'_>,
 ) -> BotResult<()> {
     let args = match TopArgs::new(args) {
         Ok(args) => args,
@@ -32,67 +35,38 @@ async fn top_send(
             return Ok(());
         }
     };
-    let (mods, selection) = args
-        .mods
-        .unwrap_or_else(|| (GameMods::default(), ModSelection::None));
+    let selection = args.mods.unwrap_or_else(|| ModSelection::None);
     let combo = args.combo.unwrap_or(0);
     let acc = args.acc.unwrap_or(0.0);
     let grade = args.grade;
-    let name = if let Some(name) = args.name {
-        name
-    } else {
-        let data = ctx.data.read().await;
-        let links = data.get::<DiscordLinks>().unwrap();
-        match links.get(msg.author.id.as_u64()) {
-            Some(name) => name.clone(),
-            None => {
-                msg.channel_id
-                    .say(
-                        ctx,
-                        "Either specify an osu name or link your discord \
-                        to an osu profile via `<link osuname`",
-                    )
-                    .await?
-                    .reaction_delete(ctx, msg.author.id)
-                    .await;
-                return Ok(());
-            }
-        }
+    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+        Some(name) => name,
+        None => return require_link(&ctx, msg).await,
     };
 
     // Retrieve the user and its top scores
-    let (user, scores): (User, Vec<Score>) = {
-        let user_req = UserRequest::with_username(&name).mode(mode);
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
-        let user = match user_req.queue_single(&osu).await {
-            Ok(result) => match result {
-                Some(user) => user,
-                None => {
-                    let content = format!("User `{}` was not found", name);
-                    msg.respond(&ctx, content).await?;
-                    return Ok(());
-                }
-            },
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
-        };
-        let scores = match user.get_top_scores(&osu, 100, mode).await {
-            Ok(scores) => scores,
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
-        };
-        (user, scores)
+    let user = match ctx.osu_user(&name, mode).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            let content = format!("User `{}` was not found", name);
+            return msg.respond(&ctx, content).await;
+        }
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
+        }
     };
-    let contains_nm = mods.is_empty();
+    let scores = match user.get_top_scores(&ctx.clients.osu, 100, mode).await {
+        Ok(scores) => scores,
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
+        }
+    };
 
     // Filter scores according to mods, combo, acc, and grade
     let mut scores_indices: Vec<(usize, Score)> = scores
-        .into_par_iter()
+        .into_iter()
         .enumerate()
         .filter(|(_, s)| {
             if let Some(grade) = grade {
@@ -102,25 +76,25 @@ async fn top_send(
             }
             let mod_bool = match selection {
                 ModSelection::None => true,
-                ModSelection::Exact => {
-                    if contains_nm {
+                ModSelection::Exact(mods) => {
+                    if mods.is_empty() {
                         s.enabled_mods.is_empty()
                     } else {
                         mods == s.enabled_mods
                     }
                 }
-                ModSelection::Includes => {
-                    if contains_nm {
+                ModSelection::Include(mods) => {
+                    if mods.is_empty() {
                         s.enabled_mods.is_empty()
                     } else {
-                        mods.iter().all(|m| s.enabled_mods.contains(m))
+                        s.enabled_mods.contains(mods)
                     }
                 }
-                ModSelection::Excludes => {
-                    if contains_nm && s.enabled_mods.is_empty() {
+                ModSelection::Exclude(mods) => {
+                    if mods.is_empty() && s.enabled_mods.is_empty() {
                         false
                     } else {
-                        mods.iter().all(|m| !s.enabled_mods.contains(m))
+                        !s.enabled_mods.contains(mods)
                     }
                 }
             };
@@ -161,15 +135,14 @@ async fn top_send(
     // Get all relevant maps from the database
     let map_ids: Vec<u32> = scores_indices
         .iter()
-        .map(|(_, s)| s.beatmap_id.unwrap())
+        .filter_map(|(_, s)| s.beatmap_id)
         .collect();
-    let mut maps = {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        mysql
-            .get_beatmaps(&map_ids)
-            .await
-            .unwrap_or_else(|_| HashMap::default())
+    let mut maps = match ctx.clients.psql.get_beatmaps(&map_ids).await {
+        Ok(maps) => maps,
+        Err(why) => {
+            warn!("Error while getting maps from DB: {}", why);
+            HashMap::default()
+        }
     };
     debug!(
         "Found {}/{} beatmaps in DB",
@@ -181,7 +154,7 @@ async fn top_send(
             "Retrieving {} maps from the api...",
             scores_indices.len() - maps.len()
         );
-        let responde = ctx
+        let response = ctx
             .http
             .create_message(msg.channel_id)
             .content(content)?
@@ -197,15 +170,13 @@ async fn top_send(
     let mut missing_maps = None;
     {
         let dont_filter_sotarks = top_type != TopType::Sotarks;
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
         let mut curr_missing_maps = Vec::with_capacity(8);
         for (i, score) in scores_indices.into_iter() {
             let map_id = score.beatmap_id.unwrap();
             let map = if maps.contains_key(&map_id) {
                 maps.remove(&map_id).unwrap()
             } else {
-                match score.get_beatmap(osu).await {
+                match score.get_beatmap(&ctx.clients.osu).await {
                     Ok(map) => {
                         curr_missing_maps.push(map.clone());
                         map
@@ -252,7 +223,15 @@ async fn top_send(
         }
     };
     let pages = numbers::div_euclid(5, scores_data.len());
-    let data = match TopEmbed::new(&user, scores_data.iter().take(5), mode, (1, pages), ctx).await {
+    let data = match TopEmbed::new(
+        &user,
+        scores_data.iter().take(5),
+        mode,
+        (1, pages),
+        ctx.clone(),
+    )
+    .await
+    {
         Ok(data) => data,
         Err(why) => {
             msg.respond(&ctx, GENERAL_ISSUE).await?;
@@ -261,21 +240,22 @@ async fn top_send(
     };
 
     if let Some(msg) = retrieving_msg {
-        let _ = msg.delete(&ctx.http).await;
+        let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;
     }
 
     // Creating the embed
-    let resp = msg
-        .channel_id
-        .send_message(ctx, |m| m.content(content).embed(|e| data.build(e)))
-        .await;
+    let embed = data.build().build();
+    let response = ctx
+        .http
+        .create_message(msg.channel_id)
+        .content(content)?
+        .embed(embed)?
+        .await?;
 
     // Add missing maps to database
     if let Some(maps) = missing_maps {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
         let len = maps.len();
-        match mysql.insert_beatmaps(&maps).await {
+        match ctx.clients.psql.insert_beatmaps(&maps).await {
             Ok(_) if len == 1 => {}
             Ok(_) => info!("Added {} maps to DB", len),
             Err(why) => warn!("Error while adding maps to DB: {}", why),
@@ -284,16 +264,15 @@ async fn top_send(
 
     // Skip pagination if too few entries
     if scores_data.len() <= 5 {
-        resp?.reaction_delete(ctx, msg.author.id).await;
+        response.reaction_delete(&ctx, msg.author.id);
         return Ok(());
     }
 
     // Pagination
-    let pagination = TopPagination::new(ctx, resp?, msg.author.id, user, scores_data, mode).await;
-    let cache = Arc::clone(&ctx.cache);
-    let http = Arc::clone(&ctx.http);
+    let pagination = TopPagination::new(ctx.clone(), response, user, scores_data, mode);
+    let owner = msg.author.id;
     tokio::spawn(async move {
-        if let Err(why) = pagination.start(cache, http).await {
+        if let Err(why) = pagination.start(&ctx, owner, 90).await {
             warn!("Pagination error: {}", why)
         }
     });
@@ -312,7 +291,7 @@ async fn top_send(
 #[example("badewanne3 -a 97.34 -grade A +hdhr --c")]
 #[example("vaxei -c 1234 -dt! --a")]
 #[aliases("topscores", "osutop")]
-pub async fn top(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn top(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_send(GameMode::STD, TopType::Top, ctx, msg, args).await
 }
 
@@ -328,7 +307,7 @@ pub async fn top(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[example("badewanne3 -a 97.34 -grade A +hdhr --c")]
 #[example("vaxei -c 1234 -dt! --a")]
 #[aliases("topm")]
-pub async fn topmania(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn topmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_send(GameMode::MNA, TopType::Top, ctx, msg, args).await
 }
 
@@ -344,7 +323,7 @@ pub async fn topmania(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[example("badewanne3 -a 97.34 -grade A +hdhr --c")]
 #[example("vaxei -c 1234 -dt! --a")]
 #[aliases("topt")]
-pub async fn toptaiko(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn toptaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_send(GameMode::TKO, TopType::Top, ctx, msg, args).await
 }
 
@@ -360,7 +339,7 @@ pub async fn toptaiko(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[example("badewanne3 -a 97.34 -grade A +hdhr --c")]
 #[example("vaxei -c 1234 -dt! --a")]
 #[aliases("topc")]
-pub async fn topctb(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn topctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_send(GameMode::CTB, TopType::Top, ctx, msg, args).await
 }
 
@@ -375,7 +354,7 @@ pub async fn topctb(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[example("badewanne3 -a 97.34 -grade A +hdhr")]
 #[example("vaxei -c 1234 -dt!")]
 #[aliases("rb")]
-pub async fn recentbest(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn recentbest(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_send(GameMode::STD, TopType::Recent, ctx, msg, args).await
 }
 
@@ -390,7 +369,7 @@ pub async fn recentbest(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[example("badewanne3 -a 97.34 -grade A +hdhr")]
 #[example("vaxei -c 1234 -dt!")]
 #[aliases("rbm")]
-pub async fn recentbestmania(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_send(GameMode::MNA, TopType::Recent, ctx, msg, args).await
 }
 
@@ -405,7 +384,7 @@ pub async fn recentbestmania(ctx: &Context, msg: &Message, args: Args) -> Comman
 #[example("badewanne3 -a 97.34 -grade A +hdhr")]
 #[example("vaxei -c 1234 -dt!")]
 #[aliases("rbt")]
-pub async fn recentbesttaiko(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_send(GameMode::TKO, TopType::Recent, ctx, msg, args).await
 }
 
@@ -420,7 +399,7 @@ pub async fn recentbesttaiko(ctx: Arc<Context>, msg: &Message) -> BotResult<()> 
 #[example("badewanne3 -a 97.34 -grade A +hdhr")]
 #[example("vaxei -c 1234 -dt!")]
 #[aliases("rbc")]
-pub async fn recentbestctb(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn recentbestctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_send(GameMode::CTB, TopType::Recent, ctx, msg, args).await
 }
 
@@ -428,7 +407,7 @@ pub async fn recentbestctb(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[short_desc("How many maps of a user's top100 are made by Sotarks?")]
 #[usage("[username]")]
 #[example("badewanne3")]
-pub async fn sotarks(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn sotarks(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_send(GameMode::STD, TopType::Sotarks, ctx, msg, args).await
 }
 

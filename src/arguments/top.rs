@@ -1,13 +1,12 @@
 use super::{ArgResult, Args};
-use crate::util::osu::ModSelection;
-// use crate::comands::osu::top::TopSortBy;
+use crate::{commands::osu::TopSortBy, util::osu::ModSelection};
 
 use rosu::models::{GameMods, Grade};
 use std::iter::FromIterator;
 
 pub struct TopArgs {
     pub name: Option<String>,
-    pub mods: Option<(GameMods, ModSelection)>,
+    pub mods: Option<ModSelection>,
     pub acc: Option<f32>,
     pub combo: Option<u32>,
     pub grade: Option<Grade>,

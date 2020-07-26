@@ -1,7 +1,8 @@
+use super::require_link;
 use crate::{
     arguments::{Args, NameArgs},
+    custom_client::OsuStatsParams,
     embeds::{EmbedData, ProfileEmbed},
-    scraper::OsuStatsParams,
     util::{constants::OSU_API_ISSUE, numbers, MessageExt},
     BotResult, Context,
 };
@@ -11,78 +12,51 @@ use rosu::{
     models::{Beatmap, GameMode, GameMods, Score, User},
 };
 use std::{
-    cmp::Ordering::Equal,
+    cmp::{Ordering::Equal, PartialOrd},
     collections::{BTreeMap, HashMap},
+    ops::{AddAssign, Div},
     sync::Arc,
 };
-use twilight::model::channel::Message;
+use twilight::model::{channel::Message, id::ChannelId};
 
 #[allow(clippy::cognitive_complexity)]
 async fn profile_send(
     mode: GameMode,
     ctx: Arc<Context>,
     msg: &Message,
-    args: Args,
+    args: Args<'_>,
 ) -> BotResult<()> {
     let args = NameArgs::new(args);
-    let name = if let Some(name) = args.name {
-        name
-    } else {
-        let data = ctx.data.read().await;
-        let links = data.get::<DiscordLinks>().unwrap();
-        match links.get(msg.author.id.as_u64()) {
-            Some(name) => name.clone(),
-            None => {
-                msg.channel_id
-                    .say(
-                        ctx,
-                        "Either specify an osu name or link your discord \
-                        to an osu profile via `<link osuname`",
-                    )
-                    .await?
-                    .reaction_delete(ctx, msg.author.id)
-                    .await;
-                return Ok(());
-            }
-        }
+    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+        Some(name) => name,
+        None => return require_link(&ctx, msg).await,
     };
 
     // Retrieve the user and its top scores
-    let (user, scores): (User, Vec<Score>) = {
-        let user_req = UserRequest::with_username(&name).mode(mode);
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
-        let user = match user_req.queue_single(&osu).await {
-            Ok(result) => match result {
-                Some(user) => user,
-                None => {
-                    let content = format!("User `{}` was not found", name);
-                    msg.respond(&ctx, content).await?;
-                    return Ok(());
-                }
-            },
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
-        };
-        let scores = match user.get_top_scores(&osu, 100, mode).await {
-            Ok(scores) => scores,
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
-        };
-        (user, scores)
+    let user = match ctx.osu_user(&name, mode).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            let content = format!("User `{}` was not found", name);
+            return msg.respond(&ctx, content).await;
+        }
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
+        }
+    };
+    let scores = match user.get_top_scores(&ctx.clients.osu, 100, mode).await {
+        Ok(scores) => scores,
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
+        }
     };
 
     let (profile_result, missing_maps, retrieving_msg, globals_count) = match tokio::try_join!(
-        process_maps(ctx, mode, scores, msg.channel_id),
-        get_globals_count(ctx, user.username.clone(), mode)
+        process_maps(&ctx, mode, scores, msg.channel_id),
+        get_globals_count(&ctx, user.username.clone(), mode)
     ) {
-        Ok(((profile_result, missing_maps, retrieving_msg), globals_count)) => {
-            (profile_result, missing_maps, retrieving_msg, globals_count)
-        }
+        Ok(((a, b, c), d)) => (a, b, c, d),
         Err(why) => {
             msg.respond(&ctx, OSU_API_ISSUE).await?;
             return Err(why);
@@ -90,30 +64,30 @@ async fn profile_send(
     };
 
     // Accumulate all necessary data
-    let data = ProfileEmbed::new(user, profile_result, globals_count, &ctx.cache).await;
+    let data = ProfileEmbed::new(user, profile_result, globals_count, &ctx).await;
 
     if let Some(msg) = retrieving_msg {
-        msg.delete(ctx).await?;
+        let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;
     }
 
     // Send the embed
-    let response = msg
-        .channel_id
-        .send_message(ctx, |m| m.embed(|e| data.build(e)))
-        .await;
+    let embed = data.build().build();
+    let response = ctx
+        .http
+        .create_message(msg.channel_id)
+        .embed(embed)?
+        .await?;
 
     // Add missing maps to database
     if let Some(maps) = missing_maps {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
         let len = maps.len();
-        match mysql.insert_beatmaps(&maps).await {
+        match ctx.clients.psql.insert_beatmaps(&maps).await {
             Ok(_) if len == 1 => {}
             Ok(_) => info!("Added {} maps to DB", len),
             Err(why) => warn!("Error while adding maps to DB: {}", why),
         }
     }
-    response?.reaction_delete(ctx, msg.author.id).await;
+    response.reaction_delete(&ctx, msg.author.id);
     Ok(())
 }
 
@@ -122,16 +96,15 @@ async fn process_maps(
     mode: GameMode,
     scores: Vec<Score>,
     channel: ChannelId,
-) -> Result<(Option<ProfileResult>, Option<Vec<Beatmap>>, Option<Message>), CommandError> {
+) -> BotResult<(Option<ProfileResult>, Option<Vec<Beatmap>>, Option<Message>)> {
     // Get all relevant maps from the database
     let map_ids: Vec<u32> = scores.iter().map(|s| s.beatmap_id.unwrap()).collect();
-    let mut maps = {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        mysql
-            .get_beatmaps(&map_ids)
-            .await
-            .unwrap_or_else(|_| HashMap::default())
+    let mut maps = match ctx.clients.psql.get_beatmaps(&map_ids).await {
+        Ok(maps) => maps,
+        Err(why) => {
+            warn!("Error while getting maps from DB: {}", why);
+            HashMap::default()
+        }
     };
     debug!("Found {}/{} beatmaps in DB", maps.len(), scores.len());
     let retrieving_msg = if scores.len() - maps.len() > 15 {
@@ -139,7 +112,11 @@ async fn process_maps(
             "Retrieving {} maps from the api...",
             scores.len() - maps.len()
         );
-        channel.say(ctx, content).await.ok()
+        ctx.http
+            .create_message(channel)
+            .content(content)?
+            .await
+            .ok()
     } else {
         None
     };
@@ -147,15 +124,13 @@ async fn process_maps(
     let mut score_maps = Vec::with_capacity(scores.len());
     let mut missing_indices = Vec::with_capacity(scores.len() / 2);
     {
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
         for (i, score) in scores.into_iter().enumerate() {
             let map_id = score.beatmap_id.unwrap();
             let map = if maps.contains_key(&map_id) {
                 maps.remove(&map_id).unwrap()
             } else {
                 missing_indices.push(i);
-                score.get_beatmap(osu).await?
+                score.get_beatmap(&ctx.clients.osu).await?
             };
             score_maps.push((score, map));
         }
@@ -163,14 +138,13 @@ async fn process_maps(
     let missing_maps: Option<Vec<Beatmap>> = if missing_indices.is_empty() {
         None
     } else {
-        Some(
-            score_maps
-                .par_iter()
-                .enumerate()
-                .filter(|(i, _)| missing_indices.contains(i))
-                .map(|(_, (_, map))| map.clone())
-                .collect(),
-        )
+        let maps = score_maps
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| missing_indices.contains(i))
+            .map(|(_, (_, map))| map.clone())
+            .collect();
+        Some(maps)
     };
     let profile_result = if score_maps.is_empty() {
         None
@@ -184,21 +158,19 @@ async fn get_globals_count(
     ctx: &Context,
     name: String,
     mode: GameMode,
-) -> Result<BTreeMap<usize, String>, CommandError> {
-    let data = ctx.data.read().await;
-    let scraper = data.get::<Scraper>().unwrap();
+) -> BotResult<BTreeMap<usize, String>> {
     let mut counts = BTreeMap::new();
     let mut params = OsuStatsParams::new(name).mode(mode);
     let mut get_amount = true;
     for rank in [50, 25, 15, 8, 1].iter() {
         if !get_amount {
-            counts.insert(*rank, 0);
+            counts.insert(*rank, "0".to_owned());
             continue;
         }
         params = params.rank_max(*rank);
-        match scraper.get_global_scores(&params).await {
+        match ctx.clients.custom.get_global_scores(&params).await {
             Ok((_, count)) => {
-                counts.insert(*rank, numbers::with_comma_u64(count as u64));
+                counts.insert(*rank, numbers::with_comma_int(count as u64));
                 if count == 0 {
                     get_amount = false;
                 }
@@ -214,7 +186,7 @@ async fn get_globals_count(
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("osu")]
-pub async fn profile(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn profile(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     profile_send(GameMode::STD, ctx, msg, args).await
 }
 
@@ -223,7 +195,7 @@ pub async fn profile(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("mania", "maniaprofile", "profilem")]
-pub async fn profilemania(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn profilemania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     profile_send(GameMode::MNA, ctx, msg, args).await
 }
 
@@ -232,7 +204,7 @@ pub async fn profilemania(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("taiko", "taikoprofile", "profilet")]
-pub async fn profiletaiko(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn profiletaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     profile_send(GameMode::TKO, ctx, msg, args).await
 }
 
@@ -241,32 +213,20 @@ pub async fn profiletaiko(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("ctb", "ctbprofile", "profilec")]
-pub async fn profilectb(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn profilectb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     profile_send(GameMode::CTB, ctx, msg, args).await
 }
 
 pub struct ProfileResult {
     pub mode: GameMode,
 
-    pub min_acc: f32,
-    pub max_acc: f32,
-    pub avg_acc: f32,
-
-    pub min_pp: f32,
-    pub max_pp: f32,
-    pub avg_pp: f32,
-
-    pub min_combo: u32,
-    pub max_combo: u32,
-    pub avg_combo: u32,
+    pub acc: MinMaxAvgF32,
+    pub pp: MinMaxAvgF32,
     pub map_combo: u32,
-
-    pub min_len: u32,
-    pub max_len: u32,
-    pub avg_len: u32,
+    pub combo: MinMaxAvgU32,
+    pub map_len: MinMaxAvgU32,
 
     pub mappers: Vec<(String, u32, f32)>,
-
     pub mod_combs_count: Option<Vec<(GameMods, u32)>>,
     pub mod_combs_pp: Option<Vec<(GameMods, f32)>>,
     pub mods_count: Vec<(GameMods, u32)>,
@@ -275,36 +235,26 @@ pub struct ProfileResult {
 
 impl ProfileResult {
     fn calc(mode: GameMode, tuples: Vec<(Score, Beatmap)>) -> Self {
-        let (mut min_acc, mut max_acc, mut avg_acc) = (f32::MAX, 0.0_f32, 0.0);
-        let (mut min_pp, mut max_pp, mut avg_pp) = (f32::MAX, 0.0_f32, 0.0);
-        let (mut min_combo, mut max_combo, mut avg_combo, mut map_combo) = (u32::MAX, 0, 0, 0);
-        let (mut min_len, mut max_len, mut avg_len) = (f32::MAX, 0.0_f32, 0.0);
+        let mut acc = MinMaxAvgF32::new();
+        let mut pp = MinMaxAvgF32::new();
+        let mut combo = MinMaxAvgU32::new();
+        let mut map_len = MinMaxAvgF32::new();
+        let mut map_combo = 0;
+        let mut mappers = HashMap::with_capacity(tuples.len());
         let len = tuples.len() as f32;
-        let mut mappers = HashMap::with_capacity(len as usize);
         let mut mod_combs = HashMap::with_capacity(5);
         let mut mods = HashMap::with_capacity(5);
         let mut factor = 1.0;
         let mut mult_mods = false;
         for (score, map) in tuples {
-            let acc = score.accuracy(mode);
-            min_acc = min_acc.min(acc);
-            max_acc = max_acc.max(acc);
-            avg_acc += acc;
-
-            if let Some(pp) = score.pp {
-                min_pp = min_pp.min(pp);
-                max_pp = max_pp.max(pp);
-                avg_pp += pp;
+            acc.add(score.accuracy(mode));
+            if let Some(score_pp) = score.pp {
+                pp.add(score_pp);
             }
-
-            min_combo = min_combo.min(score.max_combo);
-            max_combo = max_combo.max(score.max_combo);
-            avg_combo += score.max_combo;
-
+            combo.add(score.max_combo);
             if let Some(combo) = map.max_combo {
                 map_combo += combo;
             }
-
             let seconds_drain = if score.enabled_mods.contains(GameMods::DoubleTime) {
                 map.seconds_drain as f32 / 1.5
             } else if score.enabled_mods.contains(GameMods::HalfTime) {
@@ -312,10 +262,7 @@ impl ProfileResult {
             } else {
                 map.seconds_drain as f32
             };
-
-            min_len = min_len.min(seconds_drain);
-            max_len = max_len.max(seconds_drain);
-            avg_len += seconds_drain;
+            map_len.add(seconds_drain);
 
             let mut mapper = mappers
                 .entry(map.creator.to_lowercase())
@@ -336,16 +283,12 @@ impl ProfileResult {
             } else {
                 mult_mods |= score.enabled_mods.len() > 1;
                 for m in score.enabled_mods {
-                    let mut r#mod = mods.entry(m).or_insert((0, 0.0));
-                    r#mod.0 += 1;
-                    r#mod.1 += weighted_pp;
+                    let mut mod_entry = mods.entry(m).or_insert((0, 0.0));
+                    mod_entry.0 += 1;
+                    mod_entry.1 += weighted_pp;
                 }
             }
         }
-        avg_acc /= len;
-        avg_pp /= len;
-        avg_combo /= len as u32;
-        avg_len /= len;
         map_combo /= len as u32;
         mod_combs
             .values_mut()
@@ -390,24 +333,136 @@ impl ProfileResult {
         mods_pp.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Equal));
         Self {
             mode,
-            min_acc,
-            max_acc,
-            avg_acc,
-            min_pp,
-            max_pp,
-            avg_pp,
-            min_combo,
-            max_combo,
-            avg_combo,
+            acc,
+            pp,
+            combo,
             map_combo,
-            min_len: min_len as u32,
-            max_len: max_len as u32,
-            avg_len: avg_len as u32,
+            map_len: map_len.into(),
             mappers,
             mod_combs_count,
             mod_combs_pp,
             mods_count,
             mods_pp,
         }
+    }
+}
+
+pub trait MinMaxAvgBasic {
+    type Value: PartialOrd + AddAssign + Inc + Div<Output = Self::Value> + Copy;
+
+    // Implement these
+    fn new() -> Self;
+
+    fn get(&self) -> (Self::Value, Self::Value, Self::Value, Self::Value);
+
+    fn get_mut(
+        &mut self,
+    ) -> (
+        &mut Self::Value,
+        &mut Self::Value,
+        &mut Self::Value,
+        &mut Self::Value,
+    );
+
+    // Don't implement these
+    fn add(&mut self, value: Self::Value) {
+        let (min, max, sum, len) = self.get_mut();
+        if *min > value {
+            *min = value;
+        }
+        if *max < value {
+            *max = value;
+        }
+        *sum += value;
+        len.inc();
+    }
+    fn min(&self) -> Self::Value {
+        let (min, _, _, _) = self.get();
+        min
+    }
+    fn max(&self) -> Self::Value {
+        let (_, max, _, _) = self.get();
+        max
+    }
+    fn avg(&self) -> Self::Value {
+        let (_, _, sum, len) = self.get();
+        sum / len
+    }
+}
+
+pub struct MinMaxAvgU32 {
+    min: u32,
+    max: u32,
+    sum: u32,
+    len: u32,
+}
+
+impl MinMaxAvgBasic for MinMaxAvgU32 {
+    type Value = u32;
+    fn new() -> Self {
+        Self {
+            min: u32::MAX,
+            max: 0,
+            sum: 0,
+            len: 0,
+        }
+    }
+    fn get(&self) -> (u32, u32, u32, u32) {
+        (self.min, self.max, self.sum, self.len)
+    }
+    fn get_mut(&mut self) -> (&mut u32, &mut u32, &mut u32, &mut u32) {
+        (&mut self.min, &mut self.max, &mut self.sum, &mut self.len)
+    }
+}
+
+impl From<MinMaxAvgF32> for MinMaxAvgU32 {
+    fn from(val: MinMaxAvgF32) -> Self {
+        Self {
+            min: val.min as u32,
+            max: val.max as u32,
+            sum: val.sum as u32,
+            len: val.len as u32,
+        }
+    }
+}
+
+pub struct MinMaxAvgF32 {
+    min: f32,
+    max: f32,
+    sum: f32,
+    len: f32,
+}
+
+impl MinMaxAvgBasic for MinMaxAvgF32 {
+    type Value = f32;
+    fn new() -> Self {
+        Self {
+            min: f32::MAX,
+            max: 0.0,
+            sum: 0.0,
+            len: 0.0,
+        }
+    }
+    fn get(&self) -> (f32, f32, f32, f32) {
+        (self.min, self.max, self.sum, self.len)
+    }
+    fn get_mut(&mut self) -> (&mut f32, &mut f32, &mut f32, &mut f32) {
+        (&mut self.min, &mut self.max, &mut self.sum, &mut self.len)
+    }
+}
+
+pub trait Inc {
+    fn inc(&mut self);
+}
+
+impl Inc for f32 {
+    fn inc(&mut self) {
+        *self += 1.0;
+    }
+}
+
+impl Inc for u32 {
+    fn inc(&mut self) {
+        *self += 1;
     }
 }

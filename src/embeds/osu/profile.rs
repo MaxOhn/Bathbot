@@ -1,5 +1,5 @@
 use crate::{
-    commands::osu::ProfileResult,
+    commands::osu::{MinMaxAvgBasic, ProfileResult},
     embeds::{osu, Author, EmbedData, Footer},
     util::{
         constants::AVATAR_URL,
@@ -72,22 +72,22 @@ impl ProfileEmbed {
             ),
         ];
         let description = if let Some(values) = profile_result {
-            let mut combo = String::from(&values.avg_combo.to_string());
+            let mut combo = String::from(&values.combo.avg().to_string());
             match values.mode {
                 GameMode::STD | GameMode::CTB => {
                     let _ = write!(combo, "/{}", values.map_combo);
                 }
                 _ => {}
             }
-            let _ = write!(combo, " [{} - {}]", values.min_combo, values.max_combo);
+            let _ = write!(combo, " [{} - {}]", values.combo.min(), values.combo.max());
             fields.extend(vec![
                 (
                     "Unweighted accuracy:".to_owned(),
                     format!(
                         "{}% [{}% - {}%]",
-                        round(values.avg_acc),
-                        round(values.min_acc),
-                        round(values.max_acc)
+                        round(values.acc.avg()),
+                        round(values.acc.min()),
+                        round(values.acc.max())
                     ),
                     true,
                 ),
@@ -95,15 +95,15 @@ impl ProfileEmbed {
                     "Grades:".to_owned(),
                     format!(
                         "{}{} {}{} {}{} {}{} {}{}",
-                        grade_emote(Grade::XH, ctx).await,
+                        grade_emote(Grade::XH, ctx),
                         user.count_ssh,
-                        grade_emote(Grade::X, ctx).await,
+                        grade_emote(Grade::X, ctx),
                         user.count_ss,
-                        grade_emote(Grade::SH, ctx).await,
+                        grade_emote(Grade::SH, ctx),
                         user.count_sh,
-                        grade_emote(Grade::S, ctx).await,
+                        grade_emote(Grade::S, ctx),
                         user.count_s,
-                        grade_emote(Grade::A, ctx).await,
+                        grade_emote(Grade::A, ctx),
                         user.count_a,
                     ),
                     false,
@@ -112,62 +112,68 @@ impl ProfileEmbed {
                     "Average PP:".to_owned(),
                     format!(
                         "{}pp [{} - {}]",
-                        round(values.avg_pp),
-                        round(values.min_pp),
-                        round(values.max_pp)
+                        round(values.pp.avg()),
+                        round(values.pp.min()),
+                        round(values.pp.max())
                     ),
                     true,
                 ),
                 ("Average Combo:".to_owned(), combo, true),
             ]);
             if let Some(mod_combs_count) = values.mod_combs_count {
-                fields.push((
-                    "Favourite mod combinations:".to_owned(),
-                    mod_combs_count
-                        .into_iter()
-                        .map(|(mods, count)| format!("`{} {}%`", mods, count))
-                        .join(" > "),
-                    false,
-                ));
+                let len = mod_combs_count.len();
+                let mut value = String::with_capacity(len * 14);
+                let mut iter = mod_combs_count.iter();
+                let (mods, count) = iter.next().unwrap();
+                let _ = write!(value, "`{} {}%`", mods, count);
+                for (mods, count) in iter {
+                    let _ = write!(value, "` > {} {}%`", mods, count);
+                }
+                fields.push(("Favourite mod combinations:".to_owned(), value, false));
             }
             fields.reserve(if values.mod_combs_pp.is_some() { 6 } else { 5 });
-            fields.push((
-                "Favourite mods:".to_owned(),
-                values
-                    .mods_count
-                    .into_iter()
-                    .map(|(mods, count)| format!("`{} {}%`", mods, count))
-                    .join(" > "),
-                false,
-            ));
-            if let Some(mod_combs_pp) = values.mod_combs_pp {
-                fields.push((
-                    "PP earned with mod combination:".to_owned(),
-                    mod_combs_pp
-                        .into_iter()
-                        .map(|(mods, pp)| format!("`{} {}pp`", mods, round(pp)))
-                        .join(" > "),
-                    false,
-                ));
+            let len = values.mods_count.len();
+            let mut value = String::with_capacity(len * 14);
+            let mut iter = values.mods_count.iter();
+            let (mods, count) = iter.next().unwrap();
+            let _ = write!(value, "`{} {}%`", mods, count);
+            for (mods, count) in iter {
+                let _ = write!(value, "` > {} {}%`", mods, count);
             }
-            fields.push((
-                "PP earned with mod:".to_owned(),
-                values
-                    .mods_pp
-                    .into_iter()
-                    .map(|(mods, pp)| format!("`{} {}pp`", mods, round(pp)))
-                    .join(" > "),
-                false,
-            ));
-            fields.push((
-                "Mappers in top 100:".to_owned(),
-                values
-                    .mappers
-                    .into_iter()
-                    .map(|(name, count, pp)| format!("{}: {}pp ({})", name, round(pp), count))
-                    .join("\n"),
-                true,
-            ));
+            fields.push(("Favourite mods:".to_owned(), value, false));
+            if let Some(mod_combs_pp) = values.mod_combs_pp {
+                let len = mod_combs_pp.len();
+                let mut value = String::with_capacity(len * 15);
+                let mut iter = mod_combs_pp.iter();
+                let (mods, pp) = iter.next().unwrap();
+                let _ = write!(value, "`{} {}pp`", mods, pp);
+                for (mods, pp) in iter {
+                    let _ = write!(value, "` > {} {}pp`", mods, pp);
+                }
+                fields.push(("PP earned with mod combination:".to_owned(), value, false));
+            }
+            let len = values.mods_pp.len();
+            let mut value = String::with_capacity(len * 15);
+            let mut iter = values.mods_pp.iter();
+            let (mods, pp) = iter.next().unwrap();
+            let _ = write!(value, "`{} {}pp`", mods, pp);
+            for (mods, pp) in iter {
+                let _ = write!(value, "` > {} {}pp`", mods, pp);
+            }
+            fields.push(("PP earned with mod:".to_owned(), value, false));
+            let len = values
+                .mappers
+                .iter()
+                .map(|(name, _, _)| name.len() + 12)
+                .sum();
+            let mut value = String::with_capacity(len);
+            let mut iter = values.mappers.iter();
+            let (name, count, pp) = iter.next().unwrap();
+            let _ = writeln!(value, "{}: {}pp ({})", name, round(*pp), count);
+            for (name, count, pp) in iter {
+                let _ = writeln!(value, "{}: {}pp ({})", name, round(*pp), count);
+            }
+            fields.push(("Mappers in top 100:".to_owned(), value, true));
             let count_len = globals_count
                 .iter()
                 .fold(0, |max, (_, count)| max.max(count.len()));
@@ -188,9 +194,9 @@ impl ProfileEmbed {
                 "Average map length:".to_owned(),
                 format!(
                     "{} [{} - {}]",
-                    sec_to_minsec(values.avg_len),
-                    sec_to_minsec(values.min_len),
-                    sec_to_minsec(values.max_len)
+                    sec_to_minsec(values.map_len.avg()),
+                    sec_to_minsec(values.map_len.min()),
+                    sec_to_minsec(values.map_len.max())
                 ),
                 false,
             ));

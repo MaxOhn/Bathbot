@@ -1,16 +1,15 @@
 mod deserialize;
 mod most_played;
-// mod osu_stats;
+mod osu_stats;
 mod score;
 
 pub use most_played::MostPlayedMap;
-// pub use osu_stats::*;
+pub use osu_stats::*;
 use score::ScraperScores;
 pub use score::{ScraperBeatmap, ScraperScore};
 
 use crate::{
-    // arguments::ModSelection,
-    util::{constants::OSU_BASE, error::CustomClientError},
+    util::{constants::OSU_BASE, error::CustomClientError, osu::ModSelection},
     BotResult,
 };
 
@@ -72,51 +71,50 @@ impl CustomClient {
         Ok(response.error_for_status()?)
     }
 
-    // pub async fn get_global_scores(
-    //     &self,
-    //     params: &OsuStatsParams,
-    // ) -> BotResult<(Vec<OsuStatsScore>, usize)> {
-    //     let mut form = Form::new()
-    //         .text("accMin", params.acc_min.to_string())
-    //         .text("accMax", params.acc_max.to_string())
-    //         .text("rankMin", params.rank_min.to_string())
-    //         .text("rankMax", params.rank_max.to_string())
-    //         .text("gamemode", (params.mode as u8).to_string())
-    //         .text("sortBy", (params.order as u8).to_string())
-    //         .text("sortOrder", (!params.descending as u8).to_string())
-    //         .text("page", params.page.to_string())
-    //         .text("u1", params.username.clone());
-    //     if let Some((mods, selection)) = params.mods {
-    //         let mut mod_str = String::with_capacity(3);
-    //         match selection {
-    //             ModSelection::None => {}
-    //             ModSelection::Includes => mod_str.push('+'),
-    //             ModSelection::Excludes => mod_str.push('-'),
-    //             ModSelection::Exact => mod_str.push('!'),
-    //         }
-    //         let _ = write!(mod_str, "{}", mods);
-    //         form = form.text("mods", mod_str);
-    //     }
-    //     let request = self
-    //         .client
-    //         .post("https://osustats.ppy.sh/api/getScores")
-    //         .multipart(form);
-    //     self.ratelimit(Site::OsuStats).await;
-    //     let response = request.send().await?;
-    //     // let text = response.text().await?;
-    //     // let result: Value = serde_json::from_str(&text)?;
-    //     let bytes = response.bytes().await?;
-    //     let result: Value = serde_json::from_slice(&bytes)?;
-    //     let (scores, amount) = if let Value::Array(mut array) = result {
-    //         let mut values = array.drain(..2);
-    //         let scores = serde_json::from_value(values.next().unwrap())?;
-    //         let amount = serde_json::from_value(values.next().unwrap())?;
-    //         (scores, amount)
-    //     } else {
-    //         (Vec::new(), 0)
-    //     };
-    //     Ok((scores, amount))
-    // }
+    pub async fn get_global_scores(
+        &self,
+        params: &OsuStatsParams,
+    ) -> BotResult<(Vec<OsuStatsScore>, usize)> {
+        let mut form = Form::new()
+            .text("accMin", params.acc_min.to_string())
+            .text("accMax", params.acc_max.to_string())
+            .text("rankMin", params.rank_min.to_string())
+            .text("rankMax", params.rank_max.to_string())
+            .text("gamemode", (params.mode as u8).to_string())
+            .text("sortBy", (params.order as u8).to_string())
+            .text("sortOrder", (!params.descending as u8).to_string())
+            .text("page", params.page.to_string())
+            .text("u1", params.username.clone());
+        if let Some(selection) = params.mods {
+            let mut mod_str = String::with_capacity(3);
+            let _ = match selection {
+                ModSelection::None => Ok(()),
+                ModSelection::Include(mods) => write!(mod_str, "+{}", mods),
+                ModSelection::Exclude(mods) => write!(mod_str, "-{}", mods),
+                ModSelection::Exact(mods) => write!(mod_str, "!{}", mods),
+            };
+            form = form.text("mods", mod_str);
+        }
+        let request = self
+            .client
+            .post("https://osustats.ppy.sh/api/getScores")
+            .multipart(form);
+        self.ratelimit(Site::OsuStats).await;
+        let response = request.send().await?;
+        // let text = response.text().await?;
+        // let result: Value = serde_json::from_str(&text)?;
+        let bytes = response.bytes().await?;
+        let result: Value = serde_json::from_slice(&bytes)?;
+        let (scores, amount) = if let Value::Array(mut array) = result {
+            let mut values = array.drain(..2);
+            let scores = serde_json::from_value(values.next().unwrap())?;
+            let amount = serde_json::from_value(values.next().unwrap())?;
+            (scores, amount)
+        } else {
+            (Vec::new(), 0)
+        };
+        Ok((scores, amount))
+    }
 
     // Retrieve the most played maps of a user
     pub async fn get_most_played(

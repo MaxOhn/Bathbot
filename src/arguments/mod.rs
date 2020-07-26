@@ -5,7 +5,7 @@ mod osu_id;
 // mod osu_stats;
 mod rank;
 mod simulate;
-// mod top;
+mod top;
 
 pub use args::Args;
 pub use discord::*;
@@ -14,7 +14,7 @@ pub use osu_id::*;
 // pub use osu_stats::*;
 pub use rank::*;
 pub use simulate::*;
-// pub use top::*;
+pub use top::*;
 
 use crate::util::{matcher, osu::ModSelection};
 
@@ -24,7 +24,7 @@ use std::{borrow::Cow, convert::TryFrom, str::FromStr, vec::IntoIter};
 
 type ArgResult<T> = Result<T, String>;
 
-fn mods(args: &mut Vec<String>) -> Option<(GameMods, ModSelection)> {
+fn mods(args: &mut Vec<String>) -> Option<ModSelection> {
     for (i, arg) in args.iter().enumerate() {
         let mods = matcher::get_mods(arg);
         if mods.is_some() {

@@ -28,7 +28,7 @@ impl MatchArgs {
 
 pub struct MapModArgs {
     pub map_id: Option<u32>,
-    pub mods: Option<(GameMods, ModSelection)>,
+    pub mods: Option<ModSelection>,
 }
 
 impl MapModArgs {

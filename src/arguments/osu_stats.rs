@@ -109,8 +109,9 @@ impl OsuStatsArgs {
         if let Some(rank_max) = rank_max {
             params = params.rank_max(rank_max);
         }
-        if let Some((mods, selection)) = mods {
-            params = params.mods(mods, selection);
+        if let Some(selection) = mods {
+            // TODO
+            // params = params.mods(mods, selection);
         }
         Ok(Self { params })
     }

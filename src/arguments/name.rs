@@ -111,7 +111,7 @@ impl NameIntArgs {
 
 pub struct NameModArgs {
     pub name: Option<String>,
-    pub mods: Option<(GameMods, ModSelection)>,
+    pub mods: Option<ModSelection>,
 }
 
 impl NameModArgs {

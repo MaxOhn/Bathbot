@@ -1,12 +1,12 @@
+use super::require_link;
 use crate::{
     arguments::NameIntArgs,
     embeds::{EmbedData, NoChokeEmbed},
     pagination::{NoChokePagination, Pagination},
+    pp::{Calculations, PPCalculator},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        numbers, osu,
-        pp::{Calculations, PPCalculator},
-        MessageExt,
+        numbers, osu, MessageExt,
     },
     Args, BotResult, Context,
 };
@@ -15,12 +15,8 @@ use rosu::{
     backend::requests::UserRequest,
     models::{Beatmap, GameMode, Score, User},
 };
-use serenity::{
-    framework::standard::{macros::command, Args, CommandResult},
-    model::{channel::Message, misc::Mentionable},
-    prelude::Context,
-};
 use std::{cmp::Ordering, collections::HashMap, sync::Arc};
+use twilight::model::channel::Message;
 
 #[command]
 #[short_desc("Unchoke a user's top100")]
@@ -35,67 +31,41 @@ use std::{cmp::Ordering, collections::HashMap, sync::Arc};
 #[aliases("nc", "nochoke")]
 async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = NameIntArgs::new(args);
-    let name = if let Some(name) = args.name {
-        name
-    } else {
-        let data = ctx.data.read().await;
-        let links = data.get::<DiscordLinks>().unwrap();
-        match links.get(msg.author.id.as_u64()) {
-            Some(name) => name.clone(),
-            None => {
-                msg.channel_id
-                    .say(
-                        ctx,
-                        "Either specify an osu name or link your discord \
-                        to an osu profile via `<link osuname`",
-                    )
-                    .await?
-                    .reaction_delete(ctx, msg.author.id)
-                    .await;
-                return Ok(());
-            }
-        }
+    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+        Some(name) => name,
+        None => return require_link(&ctx, msg).await,
     };
     let miss_limit = args.number;
 
     // Retrieve the user and its top scores
-    let (user, scores): (User, Vec<Score>) = {
-        let user_req = UserRequest::with_username(&name).mode(GameMode::STD);
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
-        let user = match user_req.queue_single(&osu).await {
-            Ok(result) => match result {
-                Some(user) => user,
-                None => {
-                    let content = format!("User `{}` was not found", name);
-                    msg.respond(&ctx, content).await?;
-                    return Ok(());
-                }
-            },
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
-        };
-        let scores = match user.get_top_scores(osu, 100, GameMode::STD).await {
-            Ok(scores) => scores,
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
-        };
-        (user, scores)
+    let user = match ctx.osu_user(&name, GameMode::STD).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            let content = format!("User `{}` was not found", name);
+            return msg.respond(&ctx, content).await;
+        }
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
+        }
+    };
+    let score_fut = user.get_top_scores(&ctx.clients.osu, 100, GameMode::STD);
+    let scores = match score_fut.await {
+        Ok(scores) => scores,
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
+        }
     };
 
     // Get all relevant maps from the database
     let map_ids: Vec<u32> = scores.iter().map(|s| s.beatmap_id.unwrap()).collect();
-    let mut maps = {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        mysql
-            .get_beatmaps(&map_ids)
-            .await
-            .unwrap_or_else(|_| HashMap::default())
+    let mut maps = match ctx.clients.psql.get_beatmaps(&map_ids).await {
+        Ok(maps) => maps,
+        Err(why) => {
+            warn!("Error while getting maps from DB: {}", why);
+            HashMap::default()
+        }
     };
     debug!("Found {}/{} beatmaps in DB", maps.len(), scores.len());
 
@@ -118,14 +88,12 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     let (scores_data, missing_maps): (Vec<_>, Option<Vec<Beatmap>>) = {
         let mut scores_data = Vec::with_capacity(scores.len());
         let mut missing_maps = Vec::new();
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
         for (i, score) in scores.into_iter().enumerate() {
             let map_id = score.beatmap_id.unwrap();
             let map = if maps.contains_key(&map_id) {
                 maps.remove(&map_id).unwrap()
             } else {
-                let map = match score.get_beatmap(osu).await {
+                let map = match score.get_beatmap(&ctx.clients.osu).await {
                     Ok(map) => map,
                     Err(why) => {
                         msg.respond(&ctx, OSU_API_ISSUE).await?;
@@ -159,10 +127,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
 
         // Sort by unchoked pp
         scores_data.sort_by(|(_, _, s1, _), (_, _, s2, _)| {
-            s2.pp
-                .unwrap()
-                .partial_cmp(&s1.pp.unwrap())
-                .unwrap_or_else(|| Ordering::Equal)
+            s2.pp.partial_cmp(&s1.pp).unwrap_or(Ordering::Equal)
         });
         (scores_data, missing_maps)
     };
@@ -187,7 +152,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         scores_data.iter().take(5),
         unchoked_pp,
         (1, pages),
-        &ctx.cache,
+        &ctx,
     )
     .await
     {
@@ -197,27 +162,24 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
             return Err(why);
         }
     };
-    let mention = msg.author.mention();
 
     if let Some(msg) = retrieving_msg {
-        msg.delete(&ctx.http).await?;
+        let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;
     }
 
     // Creating the embed
-    let resp = msg
-        .channel_id
-        .send_message(ctx, |m| {
-            m.content(format!("{} No-choke top scores for `{}`:", mention, name))
-                .embed(|e| data.build(e))
-        })
-        .await;
+    let embed = data.build().build();
+    let response = ctx
+        .http
+        .create_message(msg.channel_id)
+        .content(format!("No-choke top scores for `{}`:", name))?
+        .embed(embed)?
+        .await?;
 
     // Add missing maps to database
     if let Some(maps) = missing_maps {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
         let len = maps.len();
-        match mysql.insert_beatmaps(&maps).await {
+        match ctx.clients.psql.insert_beatmaps(&maps).await {
             Ok(_) if len == 1 => {}
             Ok(_) => info!("Added {} maps to DB", len),
             Err(why) => warn!("Error while adding maps to DB: {}", why),
@@ -226,17 +188,15 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
 
     // Skip pagination if too few entries
     if scores_data.len() <= 5 {
-        resp?.reaction_delete(ctx, msg.author.id).await;
+        response.reaction_delete(&ctx, msg.author.id);
         return Ok(());
     }
 
     // Pagination
-    let pagination =
-        NoChokePagination::new(ctx, resp?, msg.author.id, user, scores_data, unchoked_pp).await;
-    let cache = Arc::clone(&ctx.cache);
-    let http = Arc::clone(&ctx.http);
+    let pagination = NoChokePagination::new(ctx.clone(), response, user, scores_data, unchoked_pp);
+    let owner = msg.author.id;
     tokio::spawn(async move {
-        if let Err(why) = pagination.start(cache, http).await {
+        if let Err(why) = pagination.start(&ctx, owner, 90).await {
             warn!("Pagination error: {}", why)
         }
     });

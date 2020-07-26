@@ -5,7 +5,7 @@ use rosu::models::GameMods;
 use std::iter::FromIterator;
 
 pub struct SimulateArgs {
-    pub mods: Option<(GameMods, ModSelection)>,
+    pub mods: Option<ModSelection>,
     pub score: Option<u32>,
     pub n300: Option<u32>,
     pub n100: Option<u32>,
@@ -60,7 +60,7 @@ impl Into<SimulateArgs> for SimulateNameArgs {
 
 pub struct SimulateMapArgs {
     pub map_id: Option<u32>,
-    pub mods: Option<(GameMods, ModSelection)>,
+    pub mods: Option<ModSelection>,
     pub score: Option<u32>,
     pub n300: Option<u32>,
     pub n100: Option<u32>,
@@ -72,7 +72,7 @@ pub struct SimulateMapArgs {
 
 pub struct SimulateNameArgs {
     pub name: Option<String>,
-    pub mods: Option<(GameMods, ModSelection)>,
+    pub mods: Option<ModSelection>,
     pub score: Option<u32>,
     pub n300: Option<u32>,
     pub n100: Option<u32>,

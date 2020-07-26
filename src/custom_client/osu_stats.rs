@@ -1,6 +1,6 @@
 use super::deserialize::*;
 
-use crate::arguments::ModSelection;
+use crate::util::osu::ModSelection;
 
 use chrono::{DateTime, Utc};
 use rosu::models::{ApprovalStatus, GameMode, GameMods, Grade};
@@ -103,7 +103,7 @@ pub struct OsuStatsParams {
     pub acc_min: f32,
     pub acc_max: f32,
     pub order: OsuStatsOrder,
-    pub mods: Option<(GameMods, ModSelection)>,
+    pub mods: Option<ModSelection>,
     pub descending: bool,
 }
 
@@ -150,8 +150,8 @@ impl OsuStatsParams {
         self.descending = descending;
         self
     }
-    pub fn mods(mut self, mods: GameMods, selection: ModSelection) -> Self {
-        self.mods = Some((mods, selection));
+    pub fn mods(mut self, selection: ModSelection) -> Self {
+        self.mods = Some(selection);
         self
     }
     pub fn page(&mut self, page: usize) {
