@@ -1,7 +1,10 @@
+// TODO: modularize error.rs
+
 use crate::pp::roppai::OppaiErr;
 
 use chrono::format::ParseError as ChronoParseError;
 use darkredis::Error as RedisError;
+use image::ImageError;
 use reqwest::{header::InvalidHeaderValue, Error as ReqwestError};
 use rosu::{models::GameMode, OsuError};
 use serde_json::Error as SerdeJsonError;
@@ -40,6 +43,7 @@ pub enum Error {
     CustomClient(CustomClientError),
     Database(DBError),
     Fmt(fmt::Error),
+    Image(ImageError),
     InvalidConfig(TomlError),
     InvalidSession(u64),
     MapDownload(MapDownloadError),
@@ -77,6 +81,7 @@ impl fmt::Display for Error {
             Self::CustomClient(e) => write!(f, "custom client error: {}", e),
             Self::Database(e) => write!(f, "database error occured: {}", e),
             Self::Fmt(e) => write!(f, "fmt error: {}", e),
+            Self::Image(e) => write!(f, "image error: {}", e),
             Self::InvalidConfig(e) => write!(f, "config file was not in correct format: {}", e),
             Self::InvalidSession(shard) => write!(
                 f,
@@ -135,6 +140,13 @@ impl From<fmt::Error> for Error {
         Error::Fmt(e)
     }
 }
+
+impl From<ImageError> for Error {
+    fn from(e: ImageError) -> Self {
+        Error::Image(e)
+    }
+}
+
 impl From<MapDownloadError> for Error {
     fn from(e: MapDownloadError) -> Self {
         Error::MapDownload(e)

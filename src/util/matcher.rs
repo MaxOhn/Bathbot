@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use rosu::models::GameMods;
 use std::convert::TryFrom;
+use twilight::model::channel::embed::EmbedField;
 
 enum MentionType {
     Channel,
@@ -114,6 +115,10 @@ pub fn get_mods(msg: &str) -> Option<ModSelection> {
     Some(selection)
 }
 
+pub fn is_hit_results(msg: &str) -> bool {
+    HIT_RESULTS_MATCHER.is_match(msg)
+}
+
 lazy_static! {
     static ref EMOJI_MATCHER: Regex = Regex::new(r"<(a?):([^:\n]+):(\d+)>").unwrap();
 }
@@ -149,4 +154,8 @@ lazy_static! {
 lazy_static! {
     static ref MOD_PLUS_MATCHER: Regex = Regex::new(r"^+(\w+)!?$").unwrap();
     static ref MOD_MINUS_MATCHER: Regex = Regex::new(r"^-(\w+)!$").unwrap();
+}
+
+lazy_static! {
+    static ref HIT_RESULTS_MATCHER: Regex = Regex::new(r".*\{(\d+/){2,}\d+}.*").unwrap();
 }

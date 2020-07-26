@@ -5,6 +5,7 @@ use crate::{
     Context,
 };
 
+use itertools::Itertools;
 use rosu::models::GameMods;
 use std::{collections::HashSet, iter::FromIterator, str::FromStr, sync::Arc};
 use twilight::model::{
@@ -57,15 +58,13 @@ impl NameArgs {
 }
 
 pub struct MultNameArgs {
-    pub names: HashSet<String>,
+    pub names: Vec<String>,
 }
 
 impl MultNameArgs {
     pub fn new(args: Args, n: usize) -> Self {
-        let iter = args.take(n).map(|arg| arg.to_owned());
-        Self {
-            names: HashSet::from_iter(iter),
-        }
+        let names = args.take(n).unique().map(|arg| arg.to_owned()).collect();
+        Self { names }
     }
 }
 

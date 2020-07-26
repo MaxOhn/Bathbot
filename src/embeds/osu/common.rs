@@ -9,6 +9,7 @@ use std::{collections::HashMap, fmt::Write};
 #[derive(Clone)]
 pub struct CommonEmbed {
     description: String,
+    thumbnail: &'static str,
 }
 
 impl CommonEmbed {
@@ -56,12 +57,18 @@ impl CommonEmbed {
             }
             description.push('\n');
         }
-        Self { description }
+        Self {
+            description,
+            thumbnail: "attachment://avatar_fuse.png",
+        }
     }
 }
 
 impl EmbedData for CommonEmbed {
     fn description(&self) -> Option<&str> {
         Some(&self.description)
+    }
+    fn thumbnail(&self) -> Option<&str> {
+        Some(self.thumbnail)
     }
 }

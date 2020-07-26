@@ -21,7 +21,7 @@ use std::{cmp::Ordering, collections::HashMap, sync::Arc};
 use twilight::model::channel::Message;
 
 #[allow(clippy::cognitive_complexity)]
-async fn top_send(
+async fn top_main(
     mode: GameMode,
     top_type: TopType,
     ctx: Arc<Context>,
@@ -292,7 +292,7 @@ async fn top_send(
 #[example("vaxei -c 1234 -dt! --a")]
 #[aliases("topscores", "osutop")]
 pub async fn top(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    top_send(GameMode::STD, TopType::Top, ctx, msg, args).await
+    top_main(GameMode::STD, TopType::Top, ctx, msg, args).await
 }
 
 #[command]
@@ -308,7 +308,7 @@ pub async fn top(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
 #[example("vaxei -c 1234 -dt! --a")]
 #[aliases("topm")]
 pub async fn topmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    top_send(GameMode::MNA, TopType::Top, ctx, msg, args).await
+    top_main(GameMode::MNA, TopType::Top, ctx, msg, args).await
 }
 
 #[command]
@@ -324,7 +324,7 @@ pub async fn topmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult
 #[example("vaxei -c 1234 -dt! --a")]
 #[aliases("topt")]
 pub async fn toptaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    top_send(GameMode::TKO, TopType::Top, ctx, msg, args).await
+    top_main(GameMode::TKO, TopType::Top, ctx, msg, args).await
 }
 
 #[command]
@@ -340,7 +340,7 @@ pub async fn toptaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult
 #[example("vaxei -c 1234 -dt! --a")]
 #[aliases("topc")]
 pub async fn topctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    top_send(GameMode::CTB, TopType::Top, ctx, msg, args).await
+    top_main(GameMode::CTB, TopType::Top, ctx, msg, args).await
 }
 
 #[command]
@@ -355,7 +355,7 @@ pub async fn topctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 #[example("vaxei -c 1234 -dt!")]
 #[aliases("rb")]
 pub async fn recentbest(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    top_send(GameMode::STD, TopType::Recent, ctx, msg, args).await
+    top_main(GameMode::STD, TopType::Recent, ctx, msg, args).await
 }
 
 #[command]
@@ -370,7 +370,7 @@ pub async fn recentbest(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
 #[example("vaxei -c 1234 -dt!")]
 #[aliases("rbm")]
 pub async fn recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    top_send(GameMode::MNA, TopType::Recent, ctx, msg, args).await
+    top_main(GameMode::MNA, TopType::Recent, ctx, msg, args).await
 }
 
 #[command]
@@ -385,7 +385,7 @@ pub async fn recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
 #[example("vaxei -c 1234 -dt!")]
 #[aliases("rbt")]
 pub async fn recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    top_send(GameMode::TKO, TopType::Recent, ctx, msg, args).await
+    top_main(GameMode::TKO, TopType::Recent, ctx, msg, args).await
 }
 
 #[command]
@@ -400,7 +400,7 @@ pub async fn recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
 #[example("vaxei -c 1234 -dt!")]
 #[aliases("rbc")]
 pub async fn recentbestctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    top_send(GameMode::CTB, TopType::Recent, ctx, msg, args).await
+    top_main(GameMode::CTB, TopType::Recent, ctx, msg, args).await
 }
 
 #[command]
@@ -408,7 +408,7 @@ pub async fn recentbestctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotR
 #[usage("[username]")]
 #[example("badewanne3")]
 pub async fn sotarks(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    top_send(GameMode::STD, TopType::Sotarks, ctx, msg, args).await
+    top_main(GameMode::STD, TopType::Sotarks, ctx, msg, args).await
 }
 
 #[derive(Eq, PartialEq)]

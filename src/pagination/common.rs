@@ -14,18 +14,15 @@ pub struct CommonPagination {
     scores: HashMap<u32, Vec<Score>>,
     maps: HashMap<u32, Beatmap>,
     id_pps: Vec<(u32, f32)>,
-    thumbnail: String,
 }
 
 impl CommonPagination {
     pub fn new(
-        ctx: &Context,
         msg: Message,
         users: HashMap<u32, User>,
         scores: HashMap<u32, Vec<Score>>,
         maps: HashMap<u32, Beatmap>,
         id_pps: Vec<(u32, f32)>,
-        thumbnail: String,
     ) -> Self {
         Self {
             pages: Pages::new(10, scores.len()),
@@ -34,7 +31,6 @@ impl CommonPagination {
             scores,
             maps,
             id_pps,
-            thumbnail,
         }
     }
 }
@@ -50,9 +46,6 @@ impl Pagination for CommonPagination {
     }
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
-    }
-    fn thumbnail(&self) -> Option<String> {
-        Some(self.thumbnail.clone())
     }
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         Ok(CommonEmbed::new(

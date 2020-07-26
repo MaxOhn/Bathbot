@@ -1,4 +1,4 @@
-// mod common;
+mod common;
 // mod leaderboard;
 mod link;
 // mod map;
@@ -19,9 +19,9 @@ mod ratios;
 mod top;
 mod whatif;
 
+pub use common::*;
 pub use nochoke::*;
 pub use ratios::*;
-// pub use common::*;
 // pub use leaderboard::*;
 pub use link::*;
 // pub use map::*;
