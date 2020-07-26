@@ -5,6 +5,8 @@ use crate::{
     BotResult, Context,
 };
 
+use futures::future::{try_join_all, TryFutureExt};
+use itertools::Itertools;
 use rosu::{
     backend::requests::{MatchRequest, UserRequest},
     models::{Match, Team, TeamType},
@@ -43,26 +45,43 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
             return Err(why.into());
         }
     };
+    let mode = osu_match
+        .games
+        .first()
+        .map(|game| game.mode)
+        .unwrap_or_default();
 
-    // Retrieve all usernames of the match
-    let mut users = HashMap::new();
-    for game in osu_match.games.iter() {
-        #[allow(clippy::map_entry)]
-        for score in game.scores.iter() {
-            if !users.contains_key(&score.user_id) {
-                let req = UserRequest::with_user_id(score.user_id);
-                let name = match req.queue_single(&ctx.clients.osu).await {
-                    Ok(Some(user)) => user.username,
-                    Ok(None) => score.user_id.to_string(),
-                    Err(why) => {
-                        msg.respond(&ctx, OSU_API_ISSUE).await?;
-                        return Err(why.into());
-                    }
-                };
-                users.insert(score.user_id, name);
-            }
+    // Retrieve all users of the match
+    let requests = osu_match
+        .games
+        .iter()
+        .map(|game| game.scores.iter())
+        .flatten()
+        .map(|s| s.user_id)
+        .unique()
+        .map(|id| {
+            UserRequest::with_user_id(id)
+                .mode(mode)
+                .queue_single(&ctx.clients.osu)
+                .map_ok(move |user| (id, user))
+        })
+        .collect_vec();
+    let users_fut = try_join_all(requests);
+    let users = match users_fut.await {
+        Ok(users) => users
+            .into_iter()
+            .map(|(id, user)| {
+                user.map_or_else(
+                    || (id, id.to_string()),
+                    |user| (user.user_id, user.username),
+                )
+            })
+            .collect(),
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
         }
-    }
+    };
 
     // Process match
     let (description, match_result) = if osu_match.games.len() <= warmups {

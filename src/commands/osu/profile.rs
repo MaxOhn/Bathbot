@@ -4,11 +4,12 @@ use crate::{
     custom_client::OsuStatsParams,
     embeds::{EmbedData, ProfileEmbed},
     util::{constants::OSU_API_ISSUE, numbers, MessageExt},
-    BotResult, Context,
+    BotResult, Context, Error,
 };
 
+use futures::future::TryFutureExt;
 use rosu::{
-    backend::requests::UserRequest,
+    backend::{BestRequest, UserRequest},
     models::{Beatmap, GameMode, GameMods, Score, User},
 };
 use std::{
@@ -20,7 +21,7 @@ use std::{
 use twilight::model::{channel::Message, id::ChannelId};
 
 #[allow(clippy::cognitive_complexity)]
-async fn profile_send(
+async fn profile_main(
     mode: GameMode,
     ctx: Arc<Context>,
     msg: &Message,
@@ -32,35 +33,80 @@ async fn profile_send(
         None => return require_link(&ctx, msg).await,
     };
 
-    // Retrieve the user and its top scores
-    let user = match ctx.osu_user(&name, mode).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
+    // Retrieve the user and their top scores
+    let scores_fut = BestRequest::with_username(&name)
+        .mode(mode)
+        .limit(100)
+        .queue(&ctx.clients.osu);
+    let join_result = tokio::try_join!(
+        ctx.osu_user(&name, mode).map_err(Error::Osu),
+        scores_fut.map_err(Error::Osu),
+        get_globals_count(&ctx, &name, mode)
+    );
+    let (user, scores, globals_count) = match join_result {
+        Ok((Some(user), scores, count)) => (user, scores, count),
+        Ok((None, ..)) => {
             let content = format!("User `{}` was not found", name);
             return msg.respond(&ctx, content).await;
         }
         Err(why) => {
             msg.respond(&ctx, OSU_API_ISSUE).await?;
-            return Err(why.into());
-        }
-    };
-    let scores = match user.get_top_scores(&ctx.clients.osu, 100, mode).await {
-        Ok(scores) => scores,
-        Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
-            return Err(why.into());
+            return Err(why);
         }
     };
 
-    let (profile_result, missing_maps, retrieving_msg, globals_count) = match tokio::try_join!(
-        process_maps(&ctx, mode, scores, msg.channel_id),
-        get_globals_count(&ctx, user.username.clone(), mode)
-    ) {
-        Ok(((a, b, c), d)) => (a, b, c, d),
+    // Get all relevant maps from the database
+    let map_ids: Vec<u32> = scores.iter().flat_map(|s| s.beatmap_id).collect();
+    let mut maps = match ctx.clients.psql.get_beatmaps(&map_ids).await {
+        Ok(maps) => maps,
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
-            return Err(why);
+            warn!("Error while getting maps from DB: {}", why);
+            HashMap::default()
         }
+    };
+    debug!("Found {}/{} beatmaps in DB", maps.len(), scores.len());
+    let retrieving_msg = if scores.len() - maps.len() > 10 {
+        let content = format!(
+            "Retrieving {} maps from the api...",
+            scores.len() - maps.len()
+        );
+        ctx.http
+            .create_message(msg.channel_id)
+            .content(content)?
+            .await
+            .ok()
+    } else {
+        None
+    };
+
+    // Retrieving all missing beatmaps
+    let mut score_maps = Vec::with_capacity(scores.len());
+    let mut missing_indices = Vec::with_capacity(scores.len() / 2);
+    for (i, score) in scores.into_iter().enumerate() {
+        let map_id = score.beatmap_id.unwrap();
+        let map = if maps.contains_key(&map_id) {
+            maps.remove(&map_id).unwrap()
+        } else {
+            missing_indices.push(i);
+            score.get_beatmap(&ctx.clients.osu).await?
+        };
+        score_maps.push((score, map));
+    }
+    let missing_maps: Option<Vec<Beatmap>> = if missing_indices.is_empty() {
+        None
+    } else {
+        let maps = score_maps
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| missing_indices.contains(i))
+            .map(|(_, (_, map))| map.clone())
+            .collect();
+        Some(maps)
+    };
+    let profile_result = if score_maps.is_empty() {
+        None
+    } else {
+        Some(ProfileResult::calc(mode, score_maps))
     };
 
     // Accumulate all necessary data
@@ -156,11 +202,11 @@ async fn process_maps(
 
 async fn get_globals_count(
     ctx: &Context,
-    name: String,
+    name: &str,
     mode: GameMode,
 ) -> BotResult<BTreeMap<usize, String>> {
     let mut counts = BTreeMap::new();
-    let mut params = OsuStatsParams::new(name).mode(mode);
+    let mut params = OsuStatsParams::new(name.to_owned()).mode(mode);
     let mut get_amount = true;
     for rank in [50, 25, 15, 8, 1].iter() {
         if !get_amount {
@@ -187,7 +233,7 @@ async fn get_globals_count(
 #[example("badewanne3")]
 #[aliases("osu")]
 pub async fn profile(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    profile_send(GameMode::STD, ctx, msg, args).await
+    profile_main(GameMode::STD, ctx, msg, args).await
 }
 
 #[command]
@@ -196,7 +242,7 @@ pub async fn profile(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
 #[example("badewanne3")]
 #[aliases("mania", "maniaprofile", "profilem")]
 pub async fn profilemania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    profile_send(GameMode::MNA, ctx, msg, args).await
+    profile_main(GameMode::MNA, ctx, msg, args).await
 }
 
 #[command]
@@ -205,7 +251,7 @@ pub async fn profilemania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 #[example("badewanne3")]
 #[aliases("taiko", "taikoprofile", "profilet")]
 pub async fn profiletaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    profile_send(GameMode::TKO, ctx, msg, args).await
+    profile_main(GameMode::TKO, ctx, msg, args).await
 }
 
 #[command]
@@ -214,7 +260,7 @@ pub async fn profiletaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 #[example("badewanne3")]
 #[aliases("ctb", "ctbprofile", "profilec")]
 pub async fn profilectb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    profile_send(GameMode::CTB, ctx, msg, args).await
+    profile_main(GameMode::CTB, ctx, msg, args).await
 }
 
 pub struct ProfileResult {

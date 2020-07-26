@@ -12,7 +12,7 @@ use crate::{
 };
 
 use rosu::{
-    backend::requests::UserRequest,
+    backend::requests::BestRequest,
     models::{Beatmap, GameMode, Score, User},
 };
 use std::{cmp::Ordering, collections::HashMap, sync::Arc};
@@ -37,21 +37,18 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     };
     let miss_limit = args.number;
 
-    // Retrieve the user and its top scores
-    let user = match ctx.osu_user(&name, GameMode::STD).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
+    // Retrieve the user and their top scores
+    let scores_fut = BestRequest::with_username(&name)
+        .mode(GameMode::STD)
+        .limit(100)
+        .queue(&ctx.clients.osu);
+    let join_result = tokio::try_join!(ctx.osu_user(&name, GameMode::STD), scores_fut);
+    let (user, scores) = match join_result {
+        Ok((Some(user), scores)) => (user, scores),
+        Ok((None, _)) => {
             let content = format!("User `{}` was not found", name);
             return msg.respond(&ctx, content).await;
         }
-        Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
-            return Err(why.into());
-        }
-    };
-    let score_fut = user.get_top_scores(&ctx.clients.osu, 100, GameMode::STD);
-    let scores = match score_fut.await {
-        Ok(scores) => scores,
         Err(why) => {
             msg.respond(&ctx, OSU_API_ISSUE).await?;
             return Err(why.into());
@@ -85,52 +82,49 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     };
 
     // Further prepare data and retrieve missing maps
-    let (scores_data, missing_maps): (Vec<_>, Option<Vec<Beatmap>>) = {
-        let mut scores_data = Vec::with_capacity(scores.len());
-        let mut missing_maps = Vec::new();
-        for (i, score) in scores.into_iter().enumerate() {
-            let map_id = score.beatmap_id.unwrap();
-            let map = if maps.contains_key(&map_id) {
-                maps.remove(&map_id).unwrap()
-            } else {
-                let map = match score.get_beatmap(&ctx.clients.osu).await {
-                    Ok(map) => map,
-                    Err(why) => {
-                        msg.respond(&ctx, OSU_API_ISSUE).await?;
-                        return Err(why.into());
-                    }
-                };
-                missing_maps.push(map.clone());
-                map
-            };
-
-            // Unchoke the score
-            let mut unchoked = score.clone();
-            if score.max_combo != map.max_combo.unwrap()
-                && (miss_limit.is_none() || score.count_miss <= *miss_limit.as_ref().unwrap())
-            {
-                osu::unchoke_score(&mut unchoked, &map);
-                let mut calculator = PPCalculator::new().score(&unchoked).map(&map);
-                if let Err(why) = calculator.calculate(Calculations::PP).await {
-                    msg.respond(&ctx, GENERAL_ISSUE).await?;
-                    return Err(why);
-                }
-                unchoked.pp = calculator.pp();
-            }
-            scores_data.push((i + 1, score, unchoked, map));
-        }
-        let missing_maps = if missing_maps.is_empty() {
-            None
+    let mut scores_data = Vec::with_capacity(scores.len());
+    let mut missing_maps = Vec::new();
+    for (i, score) in scores.into_iter().enumerate() {
+        let map_id = score.beatmap_id.unwrap();
+        let map = if maps.contains_key(&map_id) {
+            maps.remove(&map_id).unwrap()
         } else {
-            Some(missing_maps)
+            let map = match score.get_beatmap(&ctx.clients.osu).await {
+                Ok(map) => map,
+                Err(why) => {
+                    msg.respond(&ctx, OSU_API_ISSUE).await?;
+                    return Err(why.into());
+                }
+            };
+            missing_maps.push(map.clone());
+            map
         };
 
-        // Sort by unchoked pp
-        scores_data.sort_by(|(_, _, s1, _), (_, _, s2, _)| {
-            s2.pp.partial_cmp(&s1.pp).unwrap_or(Ordering::Equal)
-        });
-        (scores_data, missing_maps)
+        // Unchoke the score
+        let mut unchoked = score.clone();
+        if score.max_combo != map.max_combo.unwrap()
+            && (miss_limit.is_none() || score.count_miss <= *miss_limit.as_ref().unwrap())
+        {
+            osu::unchoke_score(&mut unchoked, &map);
+            let mut calculator = PPCalculator::new().score(&unchoked).map(&map);
+            if let Err(why) = calculator.calculate(Calculations::PP).await {
+                msg.respond(&ctx, GENERAL_ISSUE).await?;
+                return Err(why);
+            }
+            unchoked.pp = calculator.pp();
+        }
+        scores_data.push((i + 1, score, unchoked, map));
+    }
+    let missing_maps = if missing_maps.is_empty() {
+        None
+    } else {
+        Some(missing_maps)
     };
+
+    // Sort by unchoked pp
+    scores_data.sort_by(|(_, _, s1, _), (_, _, s2, _)| {
+        s2.pp.partial_cmp(&s1.pp).unwrap_or(Ordering::Equal)
+    });
 
     // Calculate total user pp without chokes
     let mut factor: f64 = 1.0;
