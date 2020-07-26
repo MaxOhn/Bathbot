@@ -10,7 +10,7 @@ use crate::{
 };
 
 use rosu::{
-    backend::requests::UserRequest,
+    backend::BestRequest,
     models::{GameMode, Score, User},
 };
 use std::sync::Arc;
@@ -28,21 +28,23 @@ async fn ratios(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         None => return require_link(&ctx, msg).await,
     };
 
-    // Retrieve the user and its top scores
-    let user = match ctx.osu_user(&name, GameMode::MNA).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
-            let content = format!("User `{}` was not found", name);
-            return msg.respond(&ctx, content).await;
+    // Retrieve the user and their top scores
+    let join_result = tokio::try_join!(
+        ctx.osu_user(&name, GameMode::MNA),
+        BestRequest::with_username(&name)
+            .mode(GameMode::MNA)
+            .limit(100)
+            .queue(&ctx.clients.osu)
+    );
+    let (user, scores) = match join_result {
+        Ok((user, scores)) => {
+            if let Some(user) = user {
+                (user, scores)
+            } else {
+                let content = format!("User `{}` was not found", name);
+                return msg.respond(&ctx, content).await;
+            }
         }
-        Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
-            return Err(why.into());
-        }
-    };
-    let score_fut = user.get_top_scores(&ctx.clients.osu, 100, GameMode::MNA);
-    let scores = match score_fut.await {
-        Ok(scores) => scores,
         Err(why) => {
             msg.respond(&ctx, OSU_API_ISSUE).await?;
             return Err(why.into());

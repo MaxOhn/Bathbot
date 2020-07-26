@@ -44,7 +44,7 @@ async fn top_main(
         None => return require_link(&ctx, msg).await,
     };
 
-    // Retrieve the user and its top scores
+    // Retrieve the user and their top scores
     let user = match ctx.osu_user(&name, mode).await {
         Ok(Some(user)) => user,
         Ok(None) => {
@@ -154,12 +154,11 @@ async fn top_main(
             "Retrieving {} maps from the api...",
             scores_indices.len() - maps.len()
         );
-        let response = ctx
-            .http
+        ctx.http
             .create_message(msg.channel_id)
             .content(content)?
-            .await?;
-        Some(response)
+            .await
+            .ok()
     } else {
         None
     };

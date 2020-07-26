@@ -33,7 +33,7 @@ async fn whatif_main(
         return msg.respond(&ctx, content).await;
     }
 
-    // Retrieve the user and its top scores
+    // Retrieve the user and their top scores
     let user = match ctx.osu_user(&name, mode).await {
         Ok(Some(user)) => user,
         Ok(None) => {

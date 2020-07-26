@@ -24,7 +24,7 @@ use std::{
 use twilight::model::channel::Message;
 
 #[allow(clippy::cognitive_complexity)]
-async fn recent_send(
+async fn recent_main(
     mode: GameMode,
     ctx: Arc<Context>,
     msg: &Message,
@@ -36,28 +36,25 @@ async fn recent_send(
         None => return require_link(&ctx, msg).await,
     };
 
-    // Retrieve the recent scores
-    let request = RecentRequest::with_username(&name).mode(mode).limit(50);
-    let osu = &ctx.clients.osu;
-    let scores = match request.queue(osu).await {
-        Ok(scores) => scores,
-        Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
-            return Err(why.into());
-        }
-    };
-    if scores.is_empty() {
-        let content = format!("No recent plays found for user `{}`", name);
-        return msg.respond(&ctx, content).await;
-    }
-
-    // Retrieving the score's user
-    let req = UserRequest::with_username(&name).mode(mode);
-    let user = match req.queue_single(osu).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
-            let content = format!("User `{}` was not found", name);
-            return msg.respond(&ctx, content).await;
+    // Retrieve the user and their recent scores
+    let join_result = tokio::try_join!(
+        ctx.osu_user(&name, mode),
+        RecentRequest::with_username(&name)
+            .mode(mode)
+            .limit(50)
+            .queue(&ctx.clients.osu)
+    );
+    let (user, scores) = match join_result {
+        Ok((user, scores)) => {
+            if scores.is_empty() {
+                let content = format!("No recent plays found for user `{}`", name);
+                return msg.respond(&ctx, content).await;
+            } else if let Some(user) = user {
+                (user, scores)
+            } else {
+                let content = format!("User `{}` was not found", name);
+                return msg.respond(&ctx, content).await;
+            }
         }
         Err(why) => {
             msg.respond(&ctx, OSU_API_ISSUE).await?;
@@ -82,43 +79,56 @@ async fn recent_send(
     // Memoize which maps are already in the DB
     map_ids.retain(|id| maps.contains_key(&id));
 
+    // Prepare retrieval of the first map, the user's top 100, and the map's global top 50
     let first_score = scores.first().unwrap();
     let first_id = first_score.beatmap_id.unwrap();
-    #[allow(clippy::map_entry)]
-    if !maps.contains_key(&first_id) {
-        let map = match first_score.get_beatmap(osu).await {
-            Ok(map) => map,
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
+    let map_fut = async {
+        if !maps.contains_key(&first_id) {
+            Some(first_score.get_beatmap(&ctx.clients.osu).await)
+        } else {
+            None
+        }
+    };
+    let globals_fut = async {
+        let first_map = maps.get(&first_id).unwrap();
+        match first_map.approval_status {
+            Ranked | Loved | Qualified | Approved => {
+                Some(first_map.get_global_leaderboard(&ctx.clients.osu, 50).await)
             }
-        };
-        maps.insert(first_id, map);
-    }
+            _ => None,
+        }
+    };
 
-    // Retrieving the user's top 100 and the map's global top 50
-    let best = match user.get_top_scores(osu, 100, mode).await {
-        Ok(scores) => scores,
-        Err(why) => {
+    // Retrieve and process responses
+    let (map_result, best_result, globals_result) = tokio::join!(
+        map_fut,
+        user.get_top_scores(&ctx.clients.osu, 100, mode),
+        globals_fut
+    );
+    match map_result {
+        None => {}
+        Some(Ok(map)) => {
+            maps.insert(first_id, map);
+        }
+        Some(Err(why)) => {
             msg.respond(&ctx, OSU_API_ISSUE).await?;
             return Err(why.into());
         }
-    };
-    let first_map = maps.get(&first_id).unwrap();
-    let mut global = HashMap::with_capacity(50);
-    match first_map.approval_status {
-        Ranked | Loved | Qualified | Approved => {
-            match first_map.get_global_leaderboard(osu, 50).await {
-                Ok(scores) => {
-                    global.insert(first_map.beatmap_id, scores);
-                }
-                Err(why) => {
-                    msg.respond(&ctx, OSU_API_ISSUE).await?;
-                    return Err(why.into());
-                }
-            }
+    }
+    let best = match best_result {
+        Ok(scores) => scores,
+        Err(why) => {
+            warn!("Error while getting top scores: {}", why);
+            Vec::new()
         }
-        _ => {}
+    };
+    let mut global = HashMap::with_capacity(50);
+    match globals_result {
+        None => {}
+        Some(Ok(scores)) => {
+            global.insert(first_id, scores);
+        }
+        Some(Err(why)) => warn!("Error while getting global scores: {}", why),
     }
 
     // Accumulate all necessary data
@@ -128,7 +138,8 @@ async fn recent_send(
             s.beatmap_id.unwrap() == first_id && s.enabled_mods == first_score.enabled_mods
         })
         .count();
-    let global_scores = global.get(&first_map.beatmap_id).unwrap();
+    let global_scores = global.get(&first_id).unwrap();
+    let first_map = maps.get(&first_id).unwrap();
     let data = match RecentEmbed::new(
         &user,
         first_score,
@@ -188,7 +199,7 @@ async fn recent_send(
 #[example("badewanne3")]
 #[aliases("r", "rs")]
 pub async fn recent(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    recent_send(GameMode::STD, ctx, msg, args).await
+    recent_main(GameMode::STD, ctx, msg, args).await
 }
 
 #[command]
@@ -197,7 +208,7 @@ pub async fn recent(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 #[example("badewanne3")]
 #[aliases("rm")]
 pub async fn recentmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    recent_send(GameMode::MNA, ctx, msg, args).await
+    recent_main(GameMode::MNA, ctx, msg, args).await
 }
 
 #[command]
@@ -206,7 +217,7 @@ pub async fn recentmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 #[example("badewanne3")]
 #[aliases("rt")]
 pub async fn recenttaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    recent_send(GameMode::TKO, ctx, msg, args).await
+    recent_main(GameMode::TKO, ctx, msg, args).await
 }
 
 #[command]
@@ -215,5 +226,5 @@ pub async fn recenttaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 #[example("badewanne3")]
 #[aliases("rc")]
 pub async fn recentctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    recent_send(GameMode::CTB, ctx, msg, args).await
+    recent_main(GameMode::CTB, ctx, msg, args).await
 }
