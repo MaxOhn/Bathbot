@@ -36,9 +36,7 @@ use twilight::model::channel::Message;
 async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = match SimulateMapArgs::new(args) {
         Ok(args) => args,
-        Err(err_msg) => {
-            return msg.respond(&ctx, err_msg).await;
-        }
+        Err(err_msg) => return msg.respond(&ctx, err_msg).await,
     };
     let map_id = if let Some(map_id) = args.map_id {
         map_id

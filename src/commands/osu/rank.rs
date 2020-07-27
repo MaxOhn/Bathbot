@@ -61,7 +61,7 @@ async fn rank_main(
 
     // Retrieve rank-holding user
     let req = UserRequest::with_user_id(rank_holder_id).mode(mode);
-    let rank_holder = match req.queue_single(&ctx.clients.osu).await {
+    let rank_holder = match req.queue_single(ctx.osu()).await {
         Ok(Some(user)) => user,
         Ok(None) => {
             let content = format!("User id `{}` was not found", rank_holder_id);
@@ -77,7 +77,7 @@ async fn rank_main(
     let scores = if user.pp_raw > rank_holder.pp_raw {
         None
     } else {
-        match user.get_top_scores(&ctx.clients.osu, 100, mode).await {
+        match user.get_top_scores(ctx.osu(), 100, mode).await {
             Ok(scores) => Some(scores),
             Err(why) => {
                 msg.respond(&ctx, OSU_API_ISSUE).await?;

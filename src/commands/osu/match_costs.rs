@@ -62,7 +62,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         .map(|id| {
             UserRequest::with_user_id(id)
                 .mode(mode)
-                .queue_single(&ctx.clients.osu)
+                .queue_single(ctx.osu())
                 .map_ok(move |user| (id, user))
         })
         .collect_vec();

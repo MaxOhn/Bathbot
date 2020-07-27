@@ -42,7 +42,7 @@ async fn recent_main(
         RecentRequest::with_username(&name)
             .mode(mode)
             .limit(50)
-            .queue(&ctx.clients.osu)
+            .queue(ctx.osu())
     );
     let (user, scores) = match join_result {
         Ok((user, scores)) => {
@@ -66,7 +66,7 @@ async fn recent_main(
     let mut map_ids: HashSet<u32> = scores.iter().filter_map(|s| s.beatmap_id).collect();
     let mut maps = {
         let dedubed_ids: Vec<u32> = map_ids.iter().copied().collect();
-        let map_result = ctx.clients.psql.get_beatmaps(&dedubed_ids).await;
+        let map_result = ctx.psql().get_beatmaps(&dedubed_ids).await;
         match map_result {
             Ok(maps) => maps,
             Err(why) => {
@@ -84,7 +84,7 @@ async fn recent_main(
     let first_id = first_score.beatmap_id.unwrap();
     let map_fut = async {
         if !maps.contains_key(&first_id) {
-            Some(first_score.get_beatmap(&ctx.clients.osu).await)
+            Some(first_score.get_beatmap(ctx.osu()).await)
         } else {
             None
         }
@@ -93,7 +93,7 @@ async fn recent_main(
         let first_map = maps.get(&first_id).unwrap();
         match first_map.approval_status {
             Ranked | Loved | Qualified | Approved => {
-                Some(first_map.get_global_leaderboard(&ctx.clients.osu, 50).await)
+                Some(first_map.get_global_leaderboard(ctx.osu(), 50).await)
             }
             _ => None,
         }
@@ -102,7 +102,7 @@ async fn recent_main(
     // Retrieve and process responses
     let (map_result, best_result, globals_result) = tokio::join!(
         map_fut,
-        user.get_top_scores(&ctx.clients.osu, 100, mode),
+        user.get_top_scores(ctx.osu(), 100, mode),
         globals_fut
     );
     match map_result {

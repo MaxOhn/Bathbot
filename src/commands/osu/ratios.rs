@@ -34,16 +34,13 @@ async fn ratios(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         BestRequest::with_username(&name)
             .mode(GameMode::MNA)
             .limit(100)
-            .queue(&ctx.clients.osu)
+            .queue(ctx.osu())
     );
     let (user, scores) = match join_result {
-        Ok((user, scores)) => {
-            if let Some(user) = user {
-                (user, scores)
-            } else {
-                let content = format!("User `{}` was not found", name);
-                return msg.respond(&ctx, content).await;
-            }
+        Ok((Some(user), scores)) => (user, scores),
+        Ok((None, _)) => {
+            let content = format!("User `{}` was not found", name);
+            return msg.respond(&ctx, content).await;
         }
         Err(why) => {
             msg.respond(&ctx, OSU_API_ISSUE).await?;

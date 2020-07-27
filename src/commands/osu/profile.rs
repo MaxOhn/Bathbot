@@ -37,7 +37,7 @@ async fn profile_main(
     let scores_fut = BestRequest::with_username(&name)
         .mode(mode)
         .limit(100)
-        .queue(&ctx.clients.osu);
+        .queue(ctx.osu());
     // TODO: Dont fail on get_globals_count error
     let join_result = tokio::try_join!(
         ctx.osu_user(&name, mode).map_err(Error::Osu),
@@ -58,7 +58,7 @@ async fn profile_main(
 
     // Get all relevant maps from the database
     let map_ids: Vec<u32> = scores.iter().flat_map(|s| s.beatmap_id).collect();
-    let mut maps = match ctx.clients.psql.get_beatmaps(&map_ids).await {
+    let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
         Ok(maps) => maps,
         Err(why) => {
             warn!("Error while getting maps from DB: {}", why);
@@ -81,6 +81,7 @@ async fn profile_main(
     };
 
     // Retrieving all missing beatmaps
+    // TODO: Make use of async while retrieving
     let mut score_maps = Vec::with_capacity(scores.len());
     let mut missing_indices = Vec::with_capacity(scores.len() / 2);
     for (i, score) in scores.into_iter().enumerate() {
@@ -89,7 +90,7 @@ async fn profile_main(
             maps.remove(&map_id).unwrap()
         } else {
             missing_indices.push(i);
-            score.get_beatmap(&ctx.clients.osu).await?
+            score.get_beatmap(ctx.osu()).await?
         };
         score_maps.push((score, map));
     }
@@ -128,7 +129,7 @@ async fn profile_main(
     // Add missing maps to database
     if let Some(maps) = missing_maps {
         let len = maps.len();
-        match ctx.clients.psql.insert_beatmaps(&maps).await {
+        match ctx.psql().insert_beatmaps(&maps).await {
             Ok(_) if len == 1 => {}
             Ok(_) => info!("Added {} maps to DB", len),
             Err(why) => warn!("Error while adding maps to DB: {}", why),
@@ -136,69 +137,6 @@ async fn profile_main(
     }
     response.reaction_delete(&ctx, msg.author.id);
     Ok(())
-}
-
-async fn process_maps(
-    ctx: &Context,
-    mode: GameMode,
-    scores: Vec<Score>,
-    channel: ChannelId,
-) -> BotResult<(Option<ProfileResult>, Option<Vec<Beatmap>>, Option<Message>)> {
-    // Get all relevant maps from the database
-    let map_ids: Vec<u32> = scores.iter().map(|s| s.beatmap_id.unwrap()).collect();
-    let mut maps = match ctx.clients.psql.get_beatmaps(&map_ids).await {
-        Ok(maps) => maps,
-        Err(why) => {
-            warn!("Error while getting maps from DB: {}", why);
-            HashMap::default()
-        }
-    };
-    debug!("Found {}/{} beatmaps in DB", maps.len(), scores.len());
-    let retrieving_msg = if scores.len() - maps.len() > 15 {
-        let content = format!(
-            "Retrieving {} maps from the api...",
-            scores.len() - maps.len()
-        );
-        ctx.http
-            .create_message(channel)
-            .content(content)?
-            .await
-            .ok()
-    } else {
-        None
-    };
-    // Retrieving all missing beatmaps
-    let mut score_maps = Vec::with_capacity(scores.len());
-    let mut missing_indices = Vec::with_capacity(scores.len() / 2);
-    {
-        for (i, score) in scores.into_iter().enumerate() {
-            let map_id = score.beatmap_id.unwrap();
-            let map = if maps.contains_key(&map_id) {
-                maps.remove(&map_id).unwrap()
-            } else {
-                missing_indices.push(i);
-                score.get_beatmap(&ctx.clients.osu).await?
-            };
-            score_maps.push((score, map));
-        }
-    }
-    let missing_maps: Option<Vec<Beatmap>> = if missing_indices.is_empty() {
-        None
-    } else {
-        let maps = score_maps
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| missing_indices.contains(i))
-            .map(|(_, (_, map))| map.clone())
-            .collect();
-        Some(maps)
-    };
-    let profile_result = if score_maps.is_empty() {
-        None
-    } else {
-        Some(ProfileResult::calc(mode, score_maps))
-    };
-    Ok((profile_result, missing_maps, retrieving_msg))
 }
 
 async fn get_globals_count(

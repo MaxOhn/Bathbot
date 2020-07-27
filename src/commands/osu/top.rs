@@ -14,7 +14,7 @@ use crate::{
 
 use regex::Regex;
 use rosu::{
-    backend::{BestRequest, UserRequest},
+    backend::BestRequest,
     models::{Beatmap, GameMode, GameMods, Score, User},
 };
 use std::{cmp::Ordering, collections::HashMap, sync::Arc};
@@ -28,18 +28,11 @@ async fn top_main(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let args = match TopArgs::new(args) {
+    let mut args = match TopArgs::new(args) {
         Ok(args) => args,
-        Err(err_msg) => {
-            msg.respond(&ctx, err_msg).await?;
-            return Ok(());
-        }
+        Err(err_msg) => return msg.respond(&ctx, err_msg).await,
     };
-    let selection = args.mods;
-    let combo = args.combo.unwrap_or(0);
-    let acc = args.acc.unwrap_or(0.0);
-    let grade = args.grade;
-    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+    let name = match args.name.take().or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
         None => return require_link(&ctx, msg).await,
     };
@@ -48,7 +41,7 @@ async fn top_main(
     let scores_fut = BestRequest::with_username(&name)
         .mode(mode)
         .limit(100)
-        .queue(&ctx.clients.osu);
+        .queue(ctx.osu());
     let join_result = tokio::try_join!(ctx.osu_user(&name, mode), scores_fut);
     let (user, scores) = match join_result {
         Ok((Some(user), scores)) => (user, scores),
@@ -63,79 +56,15 @@ async fn top_main(
     };
 
     // Filter scores according to mods, combo, acc, and grade
-    let mut scores_indices: Vec<(usize, Score)> = scores
-        .into_iter()
-        .enumerate()
-        .filter(|(_, s)| {
-            if let Some(grade) = grade {
-                if !s.grade.eq_letter(grade) {
-                    return false;
-                }
-            }
-            let mod_bool = match selection {
-                None => true,
-                Some(ModSelection::Exact(mods)) => {
-                    if mods.is_empty() {
-                        s.enabled_mods.is_empty()
-                    } else {
-                        mods == s.enabled_mods
-                    }
-                }
-                Some(ModSelection::Include(mods)) => {
-                    if mods.is_empty() {
-                        s.enabled_mods.is_empty()
-                    } else {
-                        s.enabled_mods.contains(mods)
-                    }
-                }
-                Some(ModSelection::Exclude(mods)) => {
-                    if mods.is_empty() && s.enabled_mods.is_empty() {
-                        false
-                    } else {
-                        !s.enabled_mods.contains(mods)
-                    }
-                }
-            };
-            if !mod_bool {
-                return false;
-            }
-            let acc_bool = if acc > 0.0 {
-                s.accuracy(mode) >= acc
-            } else {
-                true
-            };
-            acc_bool && s.max_combo >= combo
-        })
-        .collect();
+    let scores_indices = filter_scores(top_type, scores, mode, args);
     let amount = scores_indices.len();
-    match args.sort_by {
-        TopSortBy::Acc => {
-            let acc_cache: HashMap<_, _> = scores_indices
-                .iter()
-                .map(|(i, s)| (*i, s.accuracy(mode)))
-                .collect();
-            scores_indices.sort_by(|(a, _), (b, _)| {
-                acc_cache
-                    .get(&b)
-                    .unwrap()
-                    .partial_cmp(acc_cache.get(&a).unwrap())
-                    .unwrap_or(Ordering::Equal)
-            });
-        }
-        TopSortBy::Combo => scores_indices.sort_by(|(_, a), (_, b)| b.max_combo.cmp(&a.max_combo)),
-        TopSortBy::None => {}
-    }
-    if top_type == TopType::Recent {
-        scores_indices.sort_by(|(_, a), (_, b)| b.date.cmp(&a.date));
-    }
-    scores_indices.iter_mut().for_each(|(i, _)| *i += 1);
 
     // Get all relevant maps from the database
     let map_ids: Vec<u32> = scores_indices
         .iter()
         .filter_map(|(_, s)| s.beatmap_id)
         .collect();
-    let mut maps = match ctx.clients.psql.get_beatmaps(&map_ids).await {
+    let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
         Ok(maps) => maps,
         Err(why) => {
             warn!("Error while getting maps from DB: {}", why);
@@ -162,8 +91,8 @@ async fn top_main(
     };
 
     // Retrieving all missing beatmaps
+    // TODO: Make use of async while retrieving
     let mut scores_data = Vec::with_capacity(scores_indices.len());
-    // let mut missing_indices = Vec::with_capacity(scores_indices.len());
     let mut missing_maps = None;
     {
         let dont_filter_sotarks = top_type != TopType::Sotarks;
@@ -173,7 +102,7 @@ async fn top_main(
             let map = if maps.contains_key(&map_id) {
                 maps.remove(&map_id).unwrap()
             } else {
-                match score.get_beatmap(&ctx.clients.osu).await {
+                match score.get_beatmap(ctx.osu()).await {
                     Ok(map) => {
                         curr_missing_maps.push(map.clone());
                         map
@@ -252,7 +181,7 @@ async fn top_main(
     // Add missing maps to database
     if let Some(maps) = missing_maps {
         let len = maps.len();
-        match ctx.clients.psql.insert_beatmaps(&maps).await {
+        match ctx.psql().insert_beatmaps(&maps).await {
             Ok(_) if len == 1 => {}
             Ok(_) => info!("Added {} maps to DB", len),
             Err(why) => warn!("Error while adding maps to DB: {}", why),
@@ -269,7 +198,7 @@ async fn top_main(
     let pagination = TopPagination::new(ctx.clone(), response, user, scores_data, mode);
     let owner = msg.author.id;
     tokio::spawn(async move {
-        if let Err(why) = pagination.start(&ctx, owner, 90).await {
+        if let Err(why) = pagination.start(&ctx, owner, 60).await {
             warn!("Pagination error: {}", why)
         }
     });
@@ -408,7 +337,7 @@ pub async fn sotarks(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
     top_main(GameMode::STD, TopType::Sotarks, ctx, msg, args).await
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Copy, Clone)]
 enum TopType {
     Top,
     Recent,
@@ -431,4 +360,82 @@ fn is_sotarks_map(map: &Beatmap) -> bool {
         false
     };
     version.contains("sotarks") || guest_diff
+}
+
+fn filter_scores(
+    top_type: TopType,
+    scores: Vec<Score>,
+    mode: GameMode,
+    args: TopArgs,
+) -> Vec<(usize, Score)> {
+    let selection = args.mods;
+    let combo = args.combo.unwrap_or(0);
+    let acc = args.acc.unwrap_or(0.0);
+    let grade = args.grade;
+    let mut scores_indices: Vec<(usize, Score)> = scores
+        .into_iter()
+        .enumerate()
+        .filter(|(_, s)| {
+            if let Some(grade) = grade {
+                if !s.grade.eq_letter(grade) {
+                    return false;
+                }
+            }
+            let mod_bool = match selection {
+                None => true,
+                Some(ModSelection::Exact(mods)) => {
+                    if mods.is_empty() {
+                        s.enabled_mods.is_empty()
+                    } else {
+                        mods == s.enabled_mods
+                    }
+                }
+                Some(ModSelection::Include(mods)) => {
+                    if mods.is_empty() {
+                        s.enabled_mods.is_empty()
+                    } else {
+                        s.enabled_mods.contains(mods)
+                    }
+                }
+                Some(ModSelection::Exclude(mods)) => {
+                    if mods.is_empty() && s.enabled_mods.is_empty() {
+                        false
+                    } else {
+                        !s.enabled_mods.contains(mods)
+                    }
+                }
+            };
+            if !mod_bool {
+                return false;
+            }
+            let acc_bool = if acc > 0.0 {
+                s.accuracy(mode) >= acc
+            } else {
+                true
+            };
+            acc_bool && s.max_combo >= combo
+        })
+        .collect();
+    match args.sort_by {
+        TopSortBy::Acc => {
+            let acc_cache: HashMap<_, _> = scores_indices
+                .iter()
+                .map(|(i, s)| (*i, s.accuracy(mode)))
+                .collect();
+            scores_indices.sort_by(|(a, _), (b, _)| {
+                acc_cache
+                    .get(&b)
+                    .unwrap()
+                    .partial_cmp(acc_cache.get(&a).unwrap())
+                    .unwrap_or(Ordering::Equal)
+            });
+        }
+        TopSortBy::Combo => scores_indices.sort_by(|(_, a), (_, b)| b.max_combo.cmp(&a.max_combo)),
+        TopSortBy::None => {}
+    }
+    if top_type == TopType::Recent {
+        scores_indices.sort_by(|(_, a), (_, b)| b.date.cmp(&a.date));
+    }
+    scores_indices.iter_mut().for_each(|(i, _)| *i += 1);
+    scores_indices
 }

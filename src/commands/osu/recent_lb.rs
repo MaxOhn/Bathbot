@@ -39,7 +39,7 @@ async fn recent_lb_main(
 
     // Retrieve the recent scores
     let req = RecentRequest::with_username(&name).mode(mode).limit(1);
-    let score = match req.queue(&ctx.clients.osu).await {
+    let score = match req.queue(ctx.osu()).await {
         Ok(mut scores) => match scores.pop() {
             Some(score) => score,
             None => {
@@ -56,10 +56,10 @@ async fn recent_lb_main(
 
     // Retrieving the score's beatmap
     let (map_to_db, map) = {
-        match ctx.clients.psql.get_beatmap(map_id).await {
+        match ctx.psql().get_beatmap(map_id).await {
             Ok(map) => (false, map),
             Err(_) => {
-                let map = match score.get_beatmap(&ctx.clients.osu).await {
+                let map = match score.get_beatmap(ctx.osu()).await {
                     Ok(m) => m,
                     Err(why) => {
                         msg.respond(&ctx, OSU_API_ISSUE).await?;
@@ -134,7 +134,7 @@ async fn recent_lb_main(
 
     // Add map to database if its not in already
     if let Some(map) = map_copy {
-        if let Err(why) = ctx.clients.psql.insert_beatmap(&map).await {
+        if let Err(why) = ctx.psql().insert_beatmap(&map).await {
             warn!("Could not add map to DB: {}", why);
         }
     }

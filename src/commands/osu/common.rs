@@ -90,7 +90,7 @@ async fn common_main(
     // Retrieve each user's top scores
     let score_futs = users
         .iter()
-        .map(|(_, user)| user.get_top_scores(&ctx.clients.osu, 100, mode));
+        .map(|(_, user)| user.get_top_scores(ctx.osu(), 100, mode));
     let mut all_scores = match try_join_all(score_futs).await {
         Ok(all_scores) => all_scores,
         Err(why) => {
@@ -143,7 +143,7 @@ async fn common_main(
     // Try retrieving all maps of common scores from the database
     let mut maps = {
         let map_id_vec = map_ids.iter().copied().collect_vec();
-        match ctx.clients.psql.get_beatmaps(&map_id_vec).await {
+        match ctx.psql().get_beatmaps(&map_id_vec).await {
             Ok(maps) => maps,
             Err(why) => {
                 warn!("Error while getting maps from DB: {}", why);
@@ -161,7 +161,7 @@ async fn common_main(
         let map_futs = map_ids.into_iter().map(|id| {
             BeatmapRequest::new()
                 .map_id(id)
-                .queue_single(&ctx.clients.osu)
+                .queue_single(ctx.osu())
                 .map_ok(move |map| (id, map))
         });
         match try_join_all(map_futs).await {
@@ -242,7 +242,7 @@ async fn common_main(
     // Add missing maps to database
     if let Some(maps) = missing_maps {
         let len = maps.len();
-        match ctx.clients.psql.insert_beatmaps(&maps).await {
+        match ctx.psql().insert_beatmaps(&maps).await {
             Ok(_) if len == 1 => {}
             Ok(_) => info!("Added {} maps to DB", len),
             Err(why) => warn!("Error while adding maps to DB: {}", why),

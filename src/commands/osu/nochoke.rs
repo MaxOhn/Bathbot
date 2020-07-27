@@ -41,7 +41,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     let scores_fut = BestRequest::with_username(&name)
         .mode(GameMode::STD)
         .limit(100)
-        .queue(&ctx.clients.osu);
+        .queue(ctx.osu());
     let join_result = tokio::try_join!(ctx.osu_user(&name, GameMode::STD), scores_fut);
     let (user, scores) = match join_result {
         Ok((Some(user), scores)) => (user, scores),
@@ -57,7 +57,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
 
     // Get all relevant maps from the database
     let map_ids: Vec<u32> = scores.iter().map(|s| s.beatmap_id.unwrap()).collect();
-    let mut maps = match ctx.clients.psql.get_beatmaps(&map_ids).await {
+    let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
         Ok(maps) => maps,
         Err(why) => {
             warn!("Error while getting maps from DB: {}", why);
@@ -82,6 +82,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     };
 
     // Further prepare data and retrieve missing maps
+    // TODO: Make use of async while retrieving
     let mut scores_data = Vec::with_capacity(scores.len());
     let mut missing_maps = Vec::new();
     for (i, score) in scores.into_iter().enumerate() {
@@ -89,7 +90,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         let map = if maps.contains_key(&map_id) {
             maps.remove(&map_id).unwrap()
         } else {
-            let map = match score.get_beatmap(&ctx.clients.osu).await {
+            let map = match score.get_beatmap(ctx.osu()).await {
                 Ok(map) => map,
                 Err(why) => {
                     msg.respond(&ctx, OSU_API_ISSUE).await?;
@@ -173,7 +174,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     // Add missing maps to database
     if let Some(maps) = missing_maps {
         let len = maps.len();
-        match ctx.clients.psql.insert_beatmaps(&maps).await {
+        match ctx.psql().insert_beatmaps(&maps).await {
             Ok(_) if len == 1 => {}
             Ok(_) => info!("Added {} maps to DB", len),
             Err(why) => warn!("Error while adding maps to DB: {}", why),

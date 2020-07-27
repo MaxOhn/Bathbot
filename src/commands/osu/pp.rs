@@ -21,9 +21,7 @@ async fn pp_main(
 ) -> BotResult<()> {
     let args = match NameFloatArgs::new(args) {
         Ok(args) => args,
-        Err(err_msg) => {
-            return msg.respond(&ctx, err_msg).await;
-        }
+        Err(err_msg) => return msg.respond(&ctx, err_msg).await,
     };
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
@@ -39,7 +37,7 @@ async fn pp_main(
     let scores_fut = BestRequest::with_username(&name)
         .mode(mode)
         .limit(100)
-        .queue(&ctx.clients.osu);
+        .queue(ctx.osu());
     let join_result = tokio::try_join!(ctx.osu_user(&name, mode), scores_fut);
     let (user, scores) = match join_result {
         Ok((Some(user), scores)) => (user, scores),
