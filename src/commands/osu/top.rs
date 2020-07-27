@@ -91,34 +91,27 @@ async fn top_main(
     };
 
     // Retrieving all missing beatmaps
-    // TODO: Make use of async while retrieving
     let mut scores_data = Vec::with_capacity(scores_indices.len());
-    let mut missing_maps = None;
-    {
-        let dont_filter_sotarks = top_type != TopType::Sotarks;
-        let mut curr_missing_maps = Vec::with_capacity(8);
-        for (i, score) in scores_indices.into_iter() {
-            let map_id = score.beatmap_id.unwrap();
-            let map = if maps.contains_key(&map_id) {
-                maps.remove(&map_id).unwrap()
-            } else {
-                match score.get_beatmap(ctx.osu()).await {
-                    Ok(map) => {
-                        curr_missing_maps.push(map.clone());
-                        map
-                    }
-                    Err(why) => {
-                        msg.respond(&ctx, OSU_API_ISSUE).await?;
-                        return Err(why.into());
-                    }
+    let dont_filter_sotarks = top_type != TopType::Sotarks;
+    let mut missing_maps = Vec::new();
+    for (i, score) in scores_indices.into_iter() {
+        let map_id = score.beatmap_id.unwrap();
+        let map = if maps.contains_key(&map_id) {
+            maps.remove(&map_id).unwrap()
+        } else {
+            match score.get_beatmap(ctx.osu()).await {
+                Ok(map) => {
+                    missing_maps.push(map.clone());
+                    map
                 }
-            };
-            if dont_filter_sotarks || is_sotarks_map(&map) {
-                scores_data.push((i, score, map));
+                Err(why) => {
+                    msg.respond(&ctx, OSU_API_ISSUE).await?;
+                    return Err(why.into());
+                }
             }
-        }
-        if !curr_missing_maps.is_empty() {
-            missing_maps = Some(curr_missing_maps);
+        };
+        if dont_filter_sotarks || is_sotarks_map(&map) {
+            scores_data.push((i, score, map));
         }
     }
 
@@ -172,9 +165,9 @@ async fn top_main(
         .await?;
 
     // Add missing maps to database
-    if let Some(maps) = missing_maps {
-        let len = maps.len();
-        match ctx.psql().insert_beatmaps(&maps).await {
+    if !missing_maps.is_empty() {
+        let len = missing_maps.len();
+        match ctx.psql().insert_beatmaps(&missing_maps).await {
             Ok(_) if len == 1 => {}
             Ok(_) => info!("Added {} maps to DB", len),
             Err(why) => warn!("Error while adding maps to DB: {}", why),

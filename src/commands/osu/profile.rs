@@ -81,9 +81,8 @@ async fn profile_main(
     };
 
     // Retrieving all missing beatmaps
-    // TODO: Make use of async while retrieving
     let mut score_maps = Vec::with_capacity(scores.len());
-    let mut missing_indices = Vec::with_capacity(scores.len() / 2);
+    let mut missing_indices = Vec::new();
     for (i, score) in scores.into_iter().enumerate() {
         let map_id = score.beatmap_id.unwrap();
         let map = if maps.contains_key(&map_id) {

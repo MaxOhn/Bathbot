@@ -11,6 +11,7 @@ use crate::{
     Args, BotResult, Context,
 };
 
+use futures::future::try_join_all;
 use rosu::{
     backend::requests::BestRequest,
     models::{Beatmap, GameMode, Score, User},
@@ -82,7 +83,6 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     };
 
     // Further prepare data and retrieve missing maps
-    // TODO: Make use of async while retrieving
     let mut scores_data = Vec::with_capacity(scores.len());
     let mut missing_maps = Vec::new();
     for (i, score) in scores.into_iter().enumerate() {
@@ -100,26 +100,28 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
             missing_maps.push(map.clone());
             map
         };
+        scores_data.push((i + 1, score, map));
+    }
 
-        // Unchoke the score
+    // Unchoke scores
+    let unchoke_fut = scores_data.into_iter().map(|(i, score, map)| async move {
         let mut unchoked = score.clone();
         if score.max_combo != map.max_combo.unwrap()
-            && (miss_limit.is_none() || score.count_miss <= *miss_limit.as_ref().unwrap())
+            && (miss_limit.is_none() || score.count_miss <= miss_limit.unwrap())
         {
             osu::unchoke_score(&mut unchoked, &map);
             let mut calculator = PPCalculator::new().score(&unchoked).map(&map);
-            if let Err(why) = calculator.calculate(Calculations::PP, None).await {
-                msg.respond(&ctx, GENERAL_ISSUE).await?;
-                return Err(why);
-            }
+            calculator.calculate(Calculations::PP, None).await?;
             unchoked.pp = calculator.pp();
         }
-        scores_data.push((i + 1, score, unchoked, map));
-    }
-    let missing_maps = if missing_maps.is_empty() {
-        None
-    } else {
-        Some(missing_maps)
+        Ok((i, score, unchoked, map))
+    });
+    let mut scores_data = match try_join_all(unchoke_fut).await {
+        Ok(scores_data) => scores_data,
+        Err(why) => {
+            msg.respond(&ctx, GENERAL_ISSUE).await?;
+            return Err(why);
+        }
     };
 
     // Sort by unchoked pp
@@ -172,9 +174,9 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         .await?;
 
     // Add missing maps to database
-    if let Some(maps) = missing_maps {
-        let len = maps.len();
-        match ctx.psql().insert_beatmaps(&maps).await {
+    if missing_maps.is_empty() {
+        let len = missing_maps.len();
+        match ctx.psql().insert_beatmaps(&missing_maps).await {
             Ok(_) if len == 1 => {}
             Ok(_) => info!("Added {} maps to DB", len),
             Err(why) => warn!("Error while adding maps to DB: {}", why),
