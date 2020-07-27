@@ -23,11 +23,11 @@ pub struct NoChokeEmbed {
 
 impl NoChokeEmbed {
     pub async fn new<'i, S>(
+        ctx: &Context,
         user: &User,
         scores_data: S,
         unchoked_pp: f64,
         pages: (usize, usize),
-        ctx: &Context,
     ) -> BotResult<Self>
     where
         S: Iterator<Item = &'i (usize, Score, Score, Beatmap)>,
@@ -37,7 +37,7 @@ impl NoChokeEmbed {
         for (idx, original, unchoked, map) in scores_data {
             let calculations = Calculations::MAX_PP | Calculations::STARS;
             let mut calculator = PPCalculator::new().score(original).map(map);
-            calculator.calculate(calculations).await?;
+            calculator.calculate(calculations, None).await?;
             let stars = osu::get_stars(calculator.stars().unwrap());
             let max_pp = round(calculator.max_pp().unwrap());
             let _ = writeln!(

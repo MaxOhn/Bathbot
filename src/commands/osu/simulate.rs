@@ -94,7 +94,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     }
 
     // Accumulate all necessary data
-    let data = match SimulateEmbed::new(None, &map, args.into(), ctx.clone()).await {
+    let data = match SimulateEmbed::new(&ctx, None, &map, args.into()).await {
         Ok(data) => data,
         Err(why) => {
             msg.respond(&ctx, GENERAL_ISSUE).await?;

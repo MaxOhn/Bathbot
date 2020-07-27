@@ -98,7 +98,7 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
 
     // Accumulate all necessary data
-    let data = match ScoresEmbed::new(user, &map, scores, ctx.clone()).await {
+    let data = match ScoresEmbed::new(&ctx, user, &map, scores).await {
         Ok(data) => data,
         Err(why) => {
             msg.respond(&ctx, GENERAL_ISSUE).await?;

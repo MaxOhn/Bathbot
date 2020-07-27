@@ -126,14 +126,6 @@ impl Pagination for RecentPagination {
         };
         let global_lb = self.global.get(&map.beatmap_id).unwrap();
         // Create embed data
-        RecentEmbed::new(
-            &self.user,
-            score,
-            map,
-            &self.best,
-            &global_lb,
-            self.ctx.clone(),
-        )
-        .await
+        RecentEmbed::new(&self.ctx, &self.user, score, map, &self.best, &global_lb).await
     }
 }

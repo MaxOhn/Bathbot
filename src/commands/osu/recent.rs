@@ -140,22 +140,14 @@ async fn recent_main(
         .count();
     let global_scores = global.get(&first_id).unwrap();
     let first_map = maps.get(&first_id).unwrap();
-    let data = match RecentEmbed::new(
-        &user,
-        first_score,
-        first_map,
-        &best,
-        global_scores,
-        ctx.clone(),
-    )
-    .await
-    {
-        Ok(data) => data,
-        Err(why) => {
-            msg.respond(&ctx, GENERAL_ISSUE).await?;
-            return Err(why);
-        }
-    };
+    let data =
+        match RecentEmbed::new(&ctx, &user, first_score, first_map, &best, global_scores).await {
+            Ok(data) => data,
+            Err(why) => {
+                msg.respond(&ctx, GENERAL_ISSUE).await?;
+                return Err(why);
+            }
+        };
 
     // Creating the embed
     let embed = data.build().build();

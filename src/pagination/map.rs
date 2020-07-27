@@ -58,7 +58,7 @@ impl Pagination for MapPagination {
     }
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         MapEmbed::new(
-            self.ctx.clone(),
+            &self.ctx,
             &self.maps[self.pages.index],
             self.mods,
             self.with_thumbnail,

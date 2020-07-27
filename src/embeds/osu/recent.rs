@@ -41,12 +41,12 @@ pub struct RecentEmbed {
 
 impl RecentEmbed {
     pub async fn new(
+        ctx: &Context,
         user: &User,
         score: &Score,
         map: &Beatmap,
         personal: &[Score],
         global: &[Score],
-        ctx: Arc<Context>,
     ) -> BotResult<Self> {
         let personal_idx = personal.iter().position(|s| s == score);
         let global_idx = global.iter().position(|s| s == score);
@@ -75,8 +75,8 @@ impl RecentEmbed {
         };
         let grade_completion_mods = score.grade_completion_mods(map.mode, &ctx);
         let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
-        let mut calculator = PPCalculator::new().score(score).map(map).ctx(ctx.clone());
-        calculator.calculate(calculations).await?;
+        let mut calculator = PPCalculator::new().score(score).map(map);
+        calculator.calculate(calculations, Some(ctx)).await?;
         let max_pp = calculator.max_pp();
         let stars = round(calculator.stars().unwrap());
         let (pp, combo, hits) = (
@@ -102,7 +102,7 @@ impl RecentEmbed {
             let mut unchoked = score.clone();
             unchoke_score(&mut unchoked, &map);
             let mut calculator = PPCalculator::new().score(&unchoked).map(map);
-            if let Err(why) = calculator.calculate(Calculations::PP).await {
+            if let Err(why) = calculator.calculate(Calculations::PP, None).await {
                 warn!("Error while calculating pp of <recent score: {}", why);
                 None
             } else {

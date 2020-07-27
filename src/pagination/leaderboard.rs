@@ -57,7 +57,7 @@ impl Pagination for LeaderboardPagination {
             .skip(self.pages.index)
             .take(self.pages.per_page);
         LeaderboardEmbed::new(
-            self.ctx.clone(),
+            &self.ctx,
             self.author_name.as_deref(),
             &self.map,
             Some(scores),

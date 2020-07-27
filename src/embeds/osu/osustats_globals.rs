@@ -25,7 +25,7 @@ pub struct OsuStatsGlobalsEmbed {
 
 impl OsuStatsGlobalsEmbed {
     pub async fn new(
-        ctx: Arc<Context>,
+        ctx: &Context,
         user: &User,
         scores: &BTreeMap<usize, OsuStatsScore>,
         total: usize,
@@ -45,11 +45,8 @@ impl OsuStatsGlobalsEmbed {
         for (_, score) in entries {
             let grade = grade_emote(score.grade, &ctx);
             let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
-            let mut calculator = PPCalculator::new()
-                .score(score)
-                .map(&score.map)
-                .ctx(ctx.clone());
-            calculator.calculate(calculations).await?;
+            let mut calculator = PPCalculator::new().score(score).map(&score.map);
+            calculator.calculate(calculations, Some(ctx)).await?;
             let stars = osu::get_stars(calculator.stars().unwrap());
             let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
             let mut combo = format!("**{}x**/", score.max_combo);

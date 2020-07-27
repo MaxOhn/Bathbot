@@ -103,7 +103,7 @@ async fn leaderboard_main(
         .first()
         .map(|s| format!("{}{}", AVATAR_URL, s.user_id));
     let data = match LeaderboardEmbed::new(
-        ctx.clone(),
+        &ctx,
         author_name.as_deref(),
         &map,
         if scores.is_empty() {

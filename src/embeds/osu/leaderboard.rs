@@ -24,7 +24,7 @@ pub struct LeaderboardEmbed {
 
 impl LeaderboardEmbed {
     pub async fn new<'i, S>(
-        ctx: Arc<Context>,
+        ctx: &Context,
         init_name: Option<&str>,
         map: &Beatmap,
         scores: Option<S>,
@@ -113,18 +113,18 @@ impl EmbedData for LeaderboardEmbed {
 }
 
 async fn get_pp(
-    ctx: Arc<Context>,
+    ctx: &Context,
     mod_map: &mut HashMap<u32, f32>,
     score: &ScraperScore,
     map: &Beatmap,
 ) -> BotResult<String> {
-    let mut calculator = PPCalculator::new().score(score).map(map).ctx(ctx);
+    let mut calculator = PPCalculator::new().score(score).map(map);
     let mut calculations = Calculations::PP;
     let bits = score.enabled_mods.bits();
     if !mod_map.contains_key(&bits) {
         calculations |= Calculations::MAX_PP;
     }
-    calculator.calculate(calculations).await?;
+    calculator.calculate(calculations, Some(ctx)).await?;
     Ok(format!(
         "**{}**/{}PP",
         round(calculator.pp().unwrap()),

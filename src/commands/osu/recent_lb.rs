@@ -100,7 +100,7 @@ async fn recent_lb_main(
         .first()
         .map(|s| format!("{}{}", AVATAR_URL, s.user_id));
     let data_fut = LeaderboardEmbed::new(
-        ctx.clone(),
+        &ctx,
         author_name.as_deref(),
         &map,
         if scores.is_empty() {

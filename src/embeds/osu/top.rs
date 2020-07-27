@@ -24,11 +24,11 @@ pub struct TopEmbed {
 
 impl TopEmbed {
     pub async fn new<'i, S>(
+        ctx: &Context,
         user: &User,
         scores_data: S,
         mode: GameMode,
         pages: (usize, usize),
-        ctx: Arc<Context>,
     ) -> BotResult<Self>
     where
         S: Iterator<Item = &'i (usize, Score, Beatmap)>,
@@ -37,8 +37,8 @@ impl TopEmbed {
         for (idx, score, map) in scores_data {
             let grade = score.grade_emote(mode, &ctx).name.clone();
             let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
-            let mut calculator = PPCalculator::new().score(score).map(map).ctx(ctx.clone());
-            calculator.calculate(calculations).await?;
+            let mut calculator = PPCalculator::new().score(score).map(map);
+            calculator.calculate(calculations, Some(ctx)).await?;
             let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));
             let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
             let _ = writeln!(

@@ -30,7 +30,7 @@ pub struct MapEmbed {
 
 impl MapEmbed {
     pub async fn new(
-        ctx: Arc<Context>,
+        ctx: &Context,
         map: &Beatmap,
         mods: GameMods,
         with_thumbnail: bool,
@@ -63,8 +63,8 @@ impl MapEmbed {
             }
             GameMode::MNA | GameMode::CTB => {
                 let calculations = Calculations::MAX_PP | Calculations::STARS;
-                let mut calculator = PPCalculator::new().map(map).ctx(ctx);
-                if let Err(why) = calculator.calculate(calculations).await {
+                let mut calculator = PPCalculator::new().map(map);
+                if let Err(why) = calculator.calculate(calculations, Some(ctx)).await {
                     warn!("Error while calculating pp for <map: {}", why);
                 }
                 (

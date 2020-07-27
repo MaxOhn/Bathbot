@@ -61,14 +61,13 @@ async fn osustats_main(
 
     // Accumulate all necessary data
     let pages = numbers::div_euclid(5, amount);
-    let data =
-        match OsuStatsGlobalsEmbed::new(ctx.clone(), &user, &scores, amount, (1, pages)).await {
-            Ok(data) => data,
-            Err(why) => {
-                msg.respond(&ctx, GENERAL_ISSUE).await?;
-                return Err(why);
-            }
-        };
+    let data = match OsuStatsGlobalsEmbed::new(&ctx, &user, &scores, amount, (1, pages)).await {
+        Ok(data) => data,
+        Err(why) => {
+            msg.respond(&ctx, GENERAL_ISSUE).await?;
+            return Err(why);
+        }
+    };
     let mut content = format!(
         "`Acc: {acc_min}% - {acc_max}%` ~ \
         `Rank: {rank_min} - {rank_max}` ~ \

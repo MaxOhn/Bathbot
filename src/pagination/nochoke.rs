@@ -49,6 +49,7 @@ impl Pagination for NoChokePagination {
     }
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         NoChokeEmbed::new(
+            &self.ctx,
             &self.user,
             self.scores
                 .iter()
@@ -56,7 +57,6 @@ impl Pagination for NoChokePagination {
                 .take(self.pages.per_page),
             self.unchoked_pp,
             (self.page(), self.pages.total_pages),
-            &self.ctx,
         )
         .await
     }

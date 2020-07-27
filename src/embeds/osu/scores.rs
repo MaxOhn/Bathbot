@@ -26,10 +26,10 @@ pub struct ScoresEmbed {
 
 impl ScoresEmbed {
     pub async fn new(
+        ctx: &Context,
         user: User,
         map: &Beatmap,
         scores: Vec<Score>,
-        ctx: Arc<Context>,
     ) -> BotResult<Self> {
         let description = if scores.is_empty() {
             Some("No scores found")
@@ -39,8 +39,8 @@ impl ScoresEmbed {
         let mut fields = Vec::with_capacity(scores.len());
         for (i, score) in scores.into_iter().enumerate() {
             let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
-            let mut calculator = PPCalculator::new().score(&score).map(map).ctx(ctx.clone());
-            calculator.calculate(calculations).await?;
+            let mut calculator = PPCalculator::new().score(&score).map(map);
+            calculator.calculate(calculations, Some(ctx)).await?;
             let stars = osu::get_stars(calculator.stars().unwrap());
             let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
             let mut name = format!(

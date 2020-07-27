@@ -149,14 +149,7 @@ async fn top_main(
         }
     };
     let pages = numbers::div_euclid(5, scores_data.len());
-    let data = match TopEmbed::new(
-        &user,
-        scores_data.iter().take(5),
-        mode,
-        (1, pages),
-        ctx.clone(),
-    )
-    .await
+    let data = match TopEmbed::new(&ctx, &user, scores_data.iter().take(5), mode, (1, pages)).await
     {
         Ok(data) => data,
         Err(why) => {

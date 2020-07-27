@@ -39,9 +39,6 @@ pub struct PPCalculator {
     default_stars: Option<f32>,
     approval_status: Option<ApprovalStatus>,
 
-    // TODO: Remove this
-    ctx: Option<Arc<Context>>,
-
     pp: Option<f32>,
     max_pp: Option<f32>,
     stars: Option<f32>,
@@ -70,10 +67,6 @@ impl PPCalculator {
         self.approval_status = Some(map.approval_status());
         self
     }
-    pub fn ctx(mut self, ctx: Arc<Context>) -> Self {
-        self.ctx = Some(ctx);
-        self
-    }
     fn total_hits_oppai(&self) -> Option<u32> {
         let mut amount = self.count_300? + self.count_100? + self.count_miss?;
         if self.mode? == GameMode::STD {
@@ -81,15 +74,19 @@ impl PPCalculator {
         }
         Some(amount)
     }
-    pub async fn calculate(&mut self, calculations: Calculations) -> BotResult<()> {
+    pub async fn calculate(
+        &mut self,
+        calculations: Calculations,
+        ctx: Option<&Context>,
+    ) -> BotResult<()> {
         let map_path = match self.map_id {
             Some(map_id) => prepare_beatmap_file(map_id).await?,
             None => return Err(PPError::NoMapId.into()),
         };
         let (pp, max_pp, stars) = tokio::join!(
-            calculate_pp(&self, calculations, &map_path),
-            calculate_max_pp(&self, calculations, &map_path),
-            calculate_stars(&self, calculations, &map_path)
+            calculate_pp(&self, calculations, &map_path, ctx),
+            calculate_max_pp(&self, calculations, &map_path, ctx),
+            calculate_stars(&self, calculations, &map_path, ctx)
         );
         if let Ok(Some(pp)) = pp {
             self.pp = Some(pp);
@@ -121,6 +118,7 @@ async fn calculate_pp(
     data: &PPCalculator,
     calculations: Calculations,
     map_path: &str,
+    ctx: Option<&Context>,
 ) -> Result<Option<f32>, PPError> {
     // Do we want to calculate pp?
     if !calculations.contains(Calculations::PP) {
@@ -157,10 +155,7 @@ async fn calculate_pp(
         }
         // osu-tools for MNA and CTB
         GameMode::MNA | GameMode::CTB => {
-            let ctx = match data.ctx {
-                Some(ref ctx) => ctx,
-                None => return Err(PPError::NoContext(mode)),
-            };
+            let ctx = ctx.ok_or(PPError::NoContext(mode))?;
             let mut cmd = Command::new("dotnet");
             cmd.kill_on_drop(true)
                 .arg(env::var("PERF_CALC").unwrap())
@@ -206,6 +201,7 @@ async fn calculate_max_pp(
     data: &PPCalculator,
     calculations: Calculations,
     map_path: &str,
+    ctx: Option<&Context>,
 ) -> Result<Option<f32>, PPError> {
     // Do we want to calculate max pp?
     if !calculations.contains(Calculations::MAX_PP) {
@@ -225,10 +221,7 @@ async fn calculate_max_pp(
         }
         // osu-tools for MNA and CTB
         GameMode::MNA | GameMode::CTB => {
-            let ctx = match data.ctx {
-                Some(ref ctx) => ctx,
-                None => return Err(PPError::NoContext(mode)),
-            };
+            let ctx = ctx.ok_or(PPError::NoContext(mode))?;
             // Is value already stored?
             let mods = data.mods.unwrap_or_default();
             let stored = ctx.pp(mode);
@@ -286,6 +279,7 @@ async fn calculate_stars(
     data: &PPCalculator,
     calculations: Calculations,
     map_path: &str,
+    ctx: Option<&Context>,
 ) -> Result<Option<f32>, PPError> {
     if !calculations.contains(Calculations::STARS) {
         return Ok(None);
@@ -308,10 +302,7 @@ async fn calculate_stars(
             Ok(Some(oppai.calculate(map_path)?.get_stars()))
         }
         GameMode::MNA | GameMode::CTB => {
-            let ctx = match data.ctx {
-                Some(ref ctx) => ctx,
-                None => return Err(PPError::NoContext(mode)),
-            };
+            let ctx = ctx.ok_or(PPError::NoContext(mode))?;
             // Is value already stored?
             let mods = data.mods.unwrap_or_default();
             let stored = ctx.stars(mode);

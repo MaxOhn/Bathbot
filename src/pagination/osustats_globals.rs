@@ -81,7 +81,7 @@ impl Pagination for OsuStatsGlobalsPagination {
             self.scores.extend(iter);
         }
         OsuStatsGlobalsEmbed::new(
-            self.ctx.clone(),
+            &self.ctx,
             &self.user,
             &self.scores,
             self.total,

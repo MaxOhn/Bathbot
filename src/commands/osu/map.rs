@@ -165,7 +165,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
     // Accumulate all necessary data
     let data_fut = MapEmbed::new(
-        ctx.clone(),
+        &ctx,
         &maps[map_idx],
         mods,
         graph.is_none(),

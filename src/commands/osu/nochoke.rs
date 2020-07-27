@@ -108,7 +108,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         {
             osu::unchoke_score(&mut unchoked, &map);
             let mut calculator = PPCalculator::new().score(&unchoked).map(&map);
-            if let Err(why) = calculator.calculate(Calculations::PP).await {
+            if let Err(why) = calculator.calculate(Calculations::PP, None).await {
                 msg.respond(&ctx, GENERAL_ISSUE).await?;
                 return Err(why);
             }
@@ -143,11 +143,11 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     // Accumulate all necessary data
     let pages = numbers::div_euclid(5, scores_data.len());
     let data = match NoChokeEmbed::new(
+        &ctx,
         &user,
         scores_data.iter().take(5),
         unchoked_pp,
         (1, pages),
-        &ctx,
     )
     .await
     {

@@ -39,10 +39,10 @@ pub struct SimulateEmbed {
 
 impl SimulateEmbed {
     pub async fn new(
+        ctx: &Context,
         score: Option<Score>,
         map: &Beatmap,
         args: SimulateArgs,
-        ctx: Arc<Context>,
     ) -> BotResult<Self> {
         let is_some = args.is_some();
         let title = if map.mode == GameMode::MNA {
@@ -51,8 +51,8 @@ impl SimulateEmbed {
             map.to_string()
         };
         let (prev_pp, prev_combo, prev_hits, misses) = if let Some(ref s) = score {
-            let mut calculator = PPCalculator::new().score(s).map(map).ctx(ctx.clone());
-            calculator.calculate(Calculations::PP).await?;
+            let mut calculator = PPCalculator::new().score(s).map(map);
+            calculator.calculate(Calculations::PP, Some(ctx)).await?;
             let prev_pp = Some(round(calculator.pp().unwrap()));
             let prev_combo = if map.mode == GameMode::STD {
                 Some(s.max_combo)
@@ -74,11 +74,8 @@ impl SimulateEmbed {
         }
         let grade_completion_mods = unchoked_score.grade_completion_mods(map.mode, &ctx);
         let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
-        let mut calculator = PPCalculator::new()
-            .score(&unchoked_score)
-            .map(map)
-            .ctx(ctx.clone());
-        calculator.calculate(calculations).await?;
+        let mut calculator = PPCalculator::new().score(&unchoked_score).map(map);
+        calculator.calculate(calculations, Some(ctx)).await?;
         let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
         let stars = round(calculator.stars().unwrap());
         let hits = unchoked_score.hits_string(map.mode);
