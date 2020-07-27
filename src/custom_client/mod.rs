@@ -9,7 +9,11 @@ use score::ScraperScores;
 pub use score::{ScraperBeatmap, ScraperScore};
 
 use crate::{
-    util::{constants::OSU_BASE, error::CustomClientError, osu::ModSelection},
+    util::{
+        constants::{AVATAR_URL, OSU_BASE},
+        error::CustomClientError,
+        osu::ModSelection,
+    },
     BotResult,
 };
 
@@ -34,6 +38,7 @@ enum Site {
     OsuWebsite,
     OsuStats,
     OsuHiddenApi,
+    OsuAvatar,
 }
 
 pub struct CustomClient {
@@ -88,7 +93,6 @@ impl CustomClient {
         if let Some(selection) = params.mods {
             let mut mod_str = String::with_capacity(3);
             let _ = match selection {
-                ModSelection::None => Ok(()),
                 ModSelection::Include(mods) => write!(mod_str, "+{}", mods),
                 ModSelection::Exclude(mods) => write!(mod_str, "-{}", mods),
                 ModSelection::Exact(mods) => write!(mod_str, "!{}", mods),
@@ -139,7 +143,7 @@ impl CustomClient {
         &self,
         map_id: u32,
         national: bool,
-        mods: Option<&GameMods>,
+        mods: Option<GameMods>,
     ) -> BotResult<Vec<ScraperScore>> {
         let mut scores = self._get_leaderboard(map_id, national, mods).await?;
         let mods = mods.and_then(|mods| {
@@ -156,9 +160,7 @@ impl CustomClient {
             }
         });
         if mods.is_some() {
-            let mut new_scores = self
-                ._get_leaderboard(map_id, national, mods.as_ref())
-                .await?;
+            let mut new_scores = self._get_leaderboard(map_id, national, mods).await?;
             scores.append(&mut new_scores);
             scores.sort_by(|a, b| b.score.cmp(&a.score));
             let mut uniques = HashSet::with_capacity(50);
@@ -172,7 +174,7 @@ impl CustomClient {
         &self,
         map_id: u32,
         national: bool,
-        mods: Option<&GameMods>,
+        mods: Option<GameMods>,
     ) -> BotResult<Vec<ScraperScore>> {
         let mut url = format!("{base}beatmaps/{id}/scores?", base = OSU_BASE, id = map_id);
         if national {
@@ -190,6 +192,12 @@ impl CustomClient {
         let response = self.make_request(url, Site::OsuHiddenApi).await?;
         let scores: ScraperScores = serde_json::from_slice(&response.bytes().await?)?;
         Ok(scores.get())
+    }
+
+    pub async fn get_avatar(&self, user_id: u32) -> BotResult<Vec<u8>> {
+        let url = format!("{}{}", AVATAR_URL, user_id);
+        let response = self.make_request(url, Site::OsuAvatar).await?;
+        Ok(response.bytes().await?.to_vec())
     }
 
     pub async fn get_userid_of_rank(

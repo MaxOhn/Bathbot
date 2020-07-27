@@ -10,10 +10,11 @@ use std::{collections::HashMap, fmt::Write};
 #[derive(Clone)]
 pub struct MostPlayedCommonEmbed {
     description: String,
+    thumbnail: &'static str,
 }
 
 impl MostPlayedCommonEmbed {
-    pub async fn new(
+    pub fn new(
         users: &HashMap<u32, User>,
         maps: &[MostPlayedMap],
         users_count: &HashMap<u32, HashMap<u32, u32>>,
@@ -60,12 +61,18 @@ impl MostPlayedCommonEmbed {
             }
             description.push('\n');
         }
-        Self { description }
+        Self {
+            description,
+            thumbnail: "attachment://avatar_fuse.png",
+        }
     }
 }
 
 impl EmbedData for MostPlayedCommonEmbed {
     fn description(&self) -> Option<&str> {
         Some(&self.description)
+    }
+    fn thumbnail(&self) -> Option<&str> {
+        Some(self.thumbnail)
     }
 }

@@ -56,6 +56,11 @@ version = "0.23"
 default-features = false
 features = ["jpeg", "png"]
 
+[dependencies.plotters]
+version = "0.2"
+default-features = false
+features = [ "image_encoder", "line_series" ]
+
 [dependencies.reqwest]
 version = "0.10"
 default_features = false

@@ -5,9 +5,9 @@ use crate::{
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
-        discord::CacheData,
         numbers::with_comma_int,
-        osu, ScoreExt,
+        osu::grade_emote,
+        ScoreExt,
     },
     BotResult, Context,
 };
@@ -24,16 +24,13 @@ pub struct OsuStatsGlobalsEmbed {
 }
 
 impl OsuStatsGlobalsEmbed {
-    pub async fn new<D>(
+    pub async fn new(
+        ctx: Arc<Context>,
         user: &User,
         scores: &BTreeMap<usize, OsuStatsScore>,
         total: usize,
         pages: (usize, usize),
-        ctx: Arc<Context>,
-    ) -> BotResult<Self>
-    where
-        D: CacheData,
-    {
+    ) -> BotResult<Self> {
         if scores.is_empty() {
             return Ok(Self {
                 author: osu::get_user_author(&user),
@@ -46,7 +43,7 @@ impl OsuStatsGlobalsEmbed {
         let entries = scores.range(index..index + 5);
         let mut description = String::with_capacity(1024);
         for (_, score) in entries {
-            let grade = { grade_emote(score.grade, cache_data.cache()).await };
+            let grade = grade_emote(score.grade, &ctx);
             let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
             let mut calculator = PPCalculator::new()
                 .score(score)

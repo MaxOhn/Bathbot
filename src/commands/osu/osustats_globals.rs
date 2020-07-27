@@ -1,11 +1,14 @@
+use super::require_link;
 use crate::{
-    arguments::{Args, ModSelection, OsuStatsArgs},
+    arguments::{Args, OsuStatsArgs},
+    custom_client::OsuStatsScore,
     embeds::{EmbedData, OsuStatsGlobalsEmbed},
     pagination::{OsuStatsGlobalsPagination, Pagination},
-    scraper::{OsuStatsScore, Scraper},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        numbers, MessageExt,
+        numbers,
+        osu::ModSelection,
+        MessageExt,
     },
     BotResult, Context,
 };
@@ -14,69 +17,58 @@ use rosu::{backend::requests::UserRequest, models::GameMode};
 use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 use twilight::model::channel::Message;
 
-async fn osustats_send(
+async fn osustats_main(
     mode: GameMode,
     ctx: Arc<Context>,
     msg: &Message,
-    args: Args,
+    args: Args<'_>,
 ) -> BotResult<()> {
-    let name = {
-        let data = ctx.data.read().await;
-        let links = data.get::<DiscordLinks>().unwrap();
-        links.get(msg.author.id.as_u64()).cloned()
+    let name = ctx.get_link(msg.author.id.0);
+    let params = match OsuStatsArgs::new(args, name, mode) {
+        Ok(args) => args.params,
+        Err(err_msg) => return msg.respond(&ctx, err_msg).await,
     };
-    let args = match OsuStatsArgs::new(args, name, mode) {
-        Ok(args) => args,
-        Err(err_msg) => {
-            msg.respond(&ctx, err_msg).await?;
-            return Ok(());
+
+    // Retrieve user and their top global scores
+    let (user_result, scores_result) = tokio::join!(
+        ctx.osu_user(&params.username, mode),
+        ctx.clients.custom.get_global_scores(&params)
+    );
+    let user = match user_result {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            let content = format!("User `{}` was not found", params.username);
+            return msg.respond(&ctx, content).await;
+        }
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
         }
     };
-    let params = args.params;
-    let user = {
-        let req = UserRequest::with_username(&params.username).mode(mode);
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
-        match req.queue_single(osu).await {
-            Ok(Some(user)) => user,
-            Ok(None) => {
-                let content = format!("User `{}` was not found", params.username);
-                msg.respond(&ctx, content).await?;
-                return Ok(());
-            }
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
-        }
-    };
-    let (scores, amount) = {
-        let data = ctx.data.read().await;
-        let scraper = data.get::<Scraper>().unwrap();
-        match scraper.get_global_scores(&params).await {
-            Ok((scores, amount)) => (
-                scores
-                    .into_iter()
-                    .enumerate()
-                    .collect::<BTreeMap<usize, OsuStatsScore>>(),
-                amount,
-            ),
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
+    let (scores, amount) = match scores_result {
+        Ok((scores, amount)) => (
+            scores
+                .into_iter()
+                .enumerate()
+                .collect::<BTreeMap<usize, OsuStatsScore>>(),
+            amount,
+        ),
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why);
         }
     };
 
     // Accumulate all necessary data
     let pages = numbers::div_euclid(5, amount);
-    let data = match OsuStatsGlobalsEmbed::new(&user, &scores, amount, (1, pages), ctx).await {
-        Ok(data) => data,
-        Err(why) => {
-            msg.respond(&ctx, GENERAL_ISSUE).await?;
-            return Err(why.into());
-        }
-    };
+    let data =
+        match OsuStatsGlobalsEmbed::new(ctx.clone(), &user, &scores, amount, (1, pages)).await {
+            Ok(data) => data,
+            Err(why) => {
+                msg.respond(&ctx, GENERAL_ISSUE).await?;
+                return Err(why);
+            }
+        };
     let mut content = format!(
         "`Acc: {acc_min}% - {acc_max}%` ~ \
         `Rank: {rank_min} - {rank_max}` ~ \
@@ -88,39 +80,39 @@ async fn osustats_send(
         order = params.order,
         descending = if params.descending { "Desc" } else { "Asc" },
     );
-    if let Some((mods, selection)) = params.mods {
+    if let Some(selection) = params.mods {
         let _ = write!(
             content,
-            " ~ `Mods: {}{}`",
+            " ~ `Mods: {}`",
             match selection {
-                ModSelection::Exact => "",
-                ModSelection::Excludes => "Exclude ",
-                ModSelection::Includes | ModSelection::None => "Include ",
+                ModSelection::Exact(mods) => mods.to_string(),
+                ModSelection::Exclude(mods) => format!("Exclude {}", mods),
+                ModSelection::Include(mods) => format!("Include {}", mods),
             },
-            mods
         );
     }
 
     // Creating the embed
-    let resp = msg
-        .channel_id
-        .send_message(ctx, |m| m.content(content).embed(|e| data.build(e)))
+    let embed = data.build().build();
+    let response = ctx
+        .http
+        .create_message(msg.channel_id)
+        .content(content)?
+        .embed(embed)?
         .await?;
 
     // Skip pagination if too few entries
     if scores.len() <= 5 {
-        resp.reaction_delete(ctx, msg.author.id).await;
+        response.reaction_delete(&ctx, msg.author.id);
         return Ok(());
     }
 
     // Pagination
     let pagination =
-        OsuStatsGlobalsPagination::new(ctx, resp, msg.author.id, user, scores, amount, params)
-            .await;
-    let cache = Arc::clone(&ctx.cache);
-    let http = Arc::clone(&ctx.http);
+        OsuStatsGlobalsPagination::new(ctx.clone(), response, user, scores, amount, params);
+    let owner = msg.author.id;
     tokio::spawn(async move {
-        if let Err(why) = pagination.start(cache, http).await {
+        if let Err(why) = pagination.start(&ctx, owner, 60).await {
             warn!("Pagination error: {}", why)
         }
     });
@@ -146,7 +138,7 @@ async fn osustats_send(
 #[example("vaxei +hdhr -r 1..5 --r")]
 #[aliases("osg")]
 pub async fn osustatsglobals(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    osustats_send(GameMode::STD, ctx, msg, args).await
+    osustats_main(GameMode::STD, ctx, msg, args).await
 }
 
 #[command]
@@ -168,7 +160,7 @@ pub async fn osustatsglobals(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
 #[example("vaxei +hdhr -r 1..5 --r")]
 #[aliases("osgm")]
 pub async fn osustatsglobalsmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    osustats_send(GameMode::MNA, ctx, msg, args).await
+    osustats_main(GameMode::MNA, ctx, msg, args).await
 }
 
 #[command]
@@ -190,7 +182,7 @@ pub async fn osustatsglobalsmania(ctx: Arc<Context>, msg: &Message, args: Args) 
 #[example("vaxei +dtmr -r 1..5 --r")]
 #[aliases("osgt")]
 pub async fn osustatsglobalstaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    osustats_send(GameMode::TKO, ctx, msg, args).await
+    osustats_main(GameMode::TKO, ctx, msg, args).await
 }
 
 #[command]
@@ -212,5 +204,5 @@ pub async fn osustatsglobalstaiko(ctx: Arc<Context>, msg: &Message, args: Args) 
 #[example("vaxei +hdhr -r 1..5 --r")]
 #[aliases("osgc")]
 pub async fn osustatsglobalsctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    osustats_send(GameMode::CTB, ctx, msg, args).await
+    osustats_main(GameMode::CTB, ctx, msg, args).await
 }

@@ -17,7 +17,6 @@ pub enum ModSelection {
     Include(GameMods),
     Exclude(GameMods),
     Exact(GameMods),
-    None,
 }
 
 pub fn grade_emote(grade: Grade, ctx: &Context) -> Arc<CachedEmoji> {

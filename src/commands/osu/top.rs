@@ -35,7 +35,7 @@ async fn top_main(
             return Ok(());
         }
     };
-    let selection = args.mods.unwrap_or_else(|| ModSelection::None);
+    let selection = args.mods;
     let combo = args.combo.unwrap_or(0);
     let acc = args.acc.unwrap_or(0.0);
     let grade = args.grade;
@@ -73,22 +73,22 @@ async fn top_main(
                 }
             }
             let mod_bool = match selection {
-                ModSelection::None => true,
-                ModSelection::Exact(mods) => {
+                None => true,
+                Some(ModSelection::Exact(mods)) => {
                     if mods.is_empty() {
                         s.enabled_mods.is_empty()
                     } else {
                         mods == s.enabled_mods
                     }
                 }
-                ModSelection::Include(mods) => {
+                Some(ModSelection::Include(mods)) => {
                     if mods.is_empty() {
                         s.enabled_mods.is_empty()
                     } else {
                         s.enabled_mods.contains(mods)
                     }
                 }
-                ModSelection::Exclude(mods) => {
+                Some(ModSelection::Exclude(mods)) => {
                     if mods.is_empty() && s.enabled_mods.is_empty() {
                         false
                     } else {

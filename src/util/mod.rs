@@ -49,17 +49,11 @@ pub fn levenshtein_distance(word_a: &str, word_b: &str) -> usize {
     costs[word_b.len()]
 }
 
-pub async fn get_combined_thumbnail(user_ids: &[u32]) -> BotResult<Vec<u8>> {
+pub async fn get_combined_thumbnail(ctx: &Context, user_ids: &[u32]) -> BotResult<Vec<u8>> {
     let mut combined = DynamicImage::new_rgba8(128, 128);
     let amount = user_ids.len() as u32;
     let w = 128 / amount;
-    let client = Client::new();
-    let pfp_futs = user_ids.iter().map(|id| {
-        client
-            .get(&format!("{}{}", AVATAR_URL, id))
-            .send()
-            .and_then(|response| response.bytes())
-    });
+    let pfp_futs = user_ids.iter().map(|id| ctx.clients.custom.get_avatar(*id));
     let pfps = try_join_all(pfp_futs).await?;
     for (i, pfp) in pfps.iter().enumerate() {
         let img = image::load_from_memory(pfp)?.resize_exact(128, 128, FilterType::Lanczos3);

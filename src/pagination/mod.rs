@@ -5,7 +5,7 @@ mod common;
 mod most_played;
 mod most_played_common;
 mod nochoke;
-// mod osustats_globals;
+mod osustats_globals;
 mod recent;
 mod top;
 
@@ -16,7 +16,7 @@ pub use common::CommonPagination;
 pub use most_played::MostPlayedPagination;
 pub use most_played_common::MostPlayedCommonPagination;
 pub use nochoke::NoChokePagination;
-// pub use osustats_globals::OsuStatsGlobalsPagination;
+pub use osustats_globals::OsuStatsGlobalsPagination;
 pub use recent::RecentPagination;
 pub use top::TopPagination;
 

@@ -13,7 +13,6 @@ pub struct MostPlayedCommonPagination {
     users: HashMap<u32, User>,
     users_count: HashMap<u32, HashMap<u32, u32>>,
     maps: Vec<MostPlayedMap>,
-    thumbnail: String,
 }
 
 impl MostPlayedCommonPagination {
@@ -22,7 +21,6 @@ impl MostPlayedCommonPagination {
         users: HashMap<u32, User>,
         users_count: HashMap<u32, HashMap<u32, u32>>,
         maps: Vec<MostPlayedMap>,
-        thumbnail: String,
     ) -> Self {
         Self {
             pages: Pages::new(10, maps.len()),
@@ -30,7 +28,6 @@ impl MostPlayedCommonPagination {
             users,
             users_count,
             maps,
-            thumbnail,
         }
     }
 }
@@ -47,16 +44,12 @@ impl Pagination for MostPlayedCommonPagination {
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
-    fn thumbnail(&self) -> Option<String> {
-        Some(self.thumbnail.clone())
-    }
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         Ok(MostPlayedCommonEmbed::new(
             &self.users,
             &self.maps[self.pages.index..(self.pages.index + 10).min(self.maps.len())],
             &self.users_count,
             self.pages.index,
-        )
-        .await)
+        ))
     }
 }

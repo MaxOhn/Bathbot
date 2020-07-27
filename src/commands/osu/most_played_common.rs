@@ -1,13 +1,18 @@
 use crate::{
     arguments::{Args, MultNameArgs},
+    custom_client::MostPlayedMap,
     embeds::{EmbedData, MostPlayedCommonEmbed},
     pagination::{MostPlayedCommonPagination, Pagination},
-    scraper::MostPlayedMap,
-    util::{constants::OSU_API_ISSUE, discord, MessageExt},
+    util::{constants::OSU_API_ISSUE, get_combined_thumbnail, MessageExt},
     BotResult, Context,
 };
 
-use rosu::{backend::requests::UserRequest, models::User};
+use futures::future::{try_join_all, TryFutureExt};
+use itertools::Itertools;
+use rosu::{
+    backend::UserRequest,
+    models::{GameMode, User},
+};
 use std::{
     collections::{HashMap, HashSet},
     fmt::Write,
@@ -31,77 +36,82 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
         0 => {
             let content = "You need to specify at least one osu username. \
                     If you're not linked, you must specify at least two names.";
-            msg.respond(&ctx, content).await;
-            return Ok(());
+            return msg.respond(&ctx, content).await;
         }
-        1 => {
-            let data = ctx.data.read().await;
-            let links = data.get::<DiscordLinks>().unwrap();
-            match links.get(msg.author.id.as_u64()) {
-                Some(name) => {
-                    args.names.insert(name.clone());
-                }
-                None => {
-                    let content = "Since you're not linked via `<link`, \
-                            you must specify at least two names.";
-                    msg.respond(&ctx, content).await?;
-                    return Ok(());
-                }
+        1 => match ctx.get_link(msg.author.id.0) {
+            Some(name) => {
+                args.names.push(name);
+                args.names
             }
-            args.names
-        }
+            None => {
+                let prefix = match msg.guild_id {
+                    Some(guild_id) => ctx.config_first_prefix(guild_id),
+                    None => "<".to_owned(),
+                };
+                let content = format!(
+                    "Since you're not linked via `{}link`, \
+                    you must specify at least two names.",
+                    prefix
+                );
+                return msg.respond(&ctx, content).await;
+            }
+        },
         _ => args.names,
     };
-    // TODO: better .len() ?
-    if names.iter().collect::<HashSet<_>>().len() == 1 {
-        msg.respond(&ctx, "Give at least two different names.")
-            .await?;
-        return Ok(());
+
+    if names.iter().unique().count() == 1 {
+        let content = "Give at least two different names";
+        return msg.respond(&ctx, content).await;
     }
 
-    // Retrieve users and their most played maps
-    let mut users: HashMap<u32, User> = HashMap::with_capacity(names.len());
-    let mut users_count: HashMap<u32, HashMap<u32, u32>> = HashMap::with_capacity(names.len());
-    let mut all_maps: HashSet<MostPlayedMap> = HashSet::with_capacity(names.len() * 99);
-    {
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
-        let scraper = data.get::<Scraper>().unwrap();
-        for name in names.iter() {
-            let req = UserRequest::with_username(&name);
-            let user = match req.queue_single(&osu).await {
-                Ok(result) => match result {
-                    Some(user) => user,
-                    None => {
-                        msg.respond(&ctx, format!("User `{}` was not found", name))
-                            .await?;
-                        return Ok(());
-                    }
-                },
-                Err(why) => {
-                    msg.respond(&ctx, OSU_API_ISSUE).await?;
-                    return Err(why.into());
-                }
-            };
-            let maps = {
-                match scraper.get_most_played(user.user_id, 100).await {
-                    Ok(maps) => maps,
-                    Err(why) => {
-                        msg.respond(&ctx, OSU_API_ISSUE).await?;
-                        return Err(why.into());
-                    }
-                }
-            };
-            users_count.insert(
-                user.user_id,
-                maps.iter()
-                    .map(|map| (map.beatmap_id, map.count))
-                    .collect::<HashMap<u32, u32>>(),
-            );
-            users.insert(user.user_id, user);
-            all_maps.extend(maps.into_iter());
+    // Retrieve all users
+    let user_futs = names.iter().enumerate().map(|(i, name)| {
+        ctx.osu_user(&name, GameMode::STD)
+            .map_ok(move |user| (i, user))
+    });
+    let users: HashMap<u32, User> = match try_join_all(user_futs).await {
+        Ok(users) => match users.iter().find(|(_, user)| user.is_none()) {
+            Some((idx, _)) => {
+                let content = format!("User `{}` was not found", names[*idx]);
+                return msg.respond(&ctx, content).await;
+            }
+            None => users
+                .into_iter()
+                .filter_map(|(_, user)| user.map(|user| (user.user_id, user)))
+                .collect(),
+        },
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
         }
-    }
+    };
+
+    // Retrieve all most played maps and store their count for each user
+    let map_futs = users.keys().map(|&id| {
+        ctx.clients
+            .custom
+            .get_most_played(id, 100)
+            .map_ok(move |maps| (id, maps))
+    });
+    let mut users_count: HashMap<u32, HashMap<u32, u32>> = HashMap::with_capacity(users.len());
+    let all_maps: HashSet<_> = match try_join_all(map_futs).await {
+        Ok(all_maps) => all_maps
+            .into_iter()
+            .map(|(id, maps)| {
+                let map_counts = maps
+                    .iter()
+                    .map(|map| (map.beatmap_id, map.count))
+                    .collect::<HashMap<u32, u32>>();
+                users_count.insert(id, map_counts);
+                maps.into_iter()
+            })
+            .flatten()
+            .collect(),
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
+        }
+    };
 
     // Consider only maps that appear in each users map list
     let mut maps: Vec<_> = all_maps
@@ -118,8 +128,8 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     let total_counts: HashMap<u32, u32> = users_count.iter().fold(
         HashMap::with_capacity(maps.len()),
         |mut counts, (_, user_entry)| {
-            for (map_id, count) in user_entry {
-                *counts.entry(*map_id).or_insert(0) += count;
+            for (&map_id, count) in user_entry {
+                *counts.entry(map_id).or_default() += count;
             }
             counts
         },
@@ -131,14 +141,13 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     });
 
     // Accumulate all necessary data
-    let len = names.len();
-    let names_join = names
-        .into_iter()
-        .collect::<Vec<_>>()
-        .chunks(len - 1)
-        .map(|chunk| chunk.join("`, `"))
-        .join("` and `");
-    let mut content = format!("`{}`", names_join);
+    let len = names.iter().map(|name| name.len() + 4).sum();
+    let mut content = String::with_capacity(len);
+    let mut iter = names.into_iter();
+    let _ = write!(content, "`{}`", iter.next().unwrap());
+    for name in iter {
+        let _ = write!(content, ", `{}`", name);
+    }
     if amount_common == 0 {
         content.push_str(" don't share any maps in their 100 most played maps");
     } else {
@@ -151,52 +160,47 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     }
 
     // Keys have no strict order, hence inconsistent result
-    let user_ids: Vec<u32> = users.keys().copied().collect();
-    let thumbnail = match discord::get_combined_thumbnail(&user_ids).await {
-        Ok(thumbnail) => thumbnail,
+    let thumbnail_fut = async {
+        let user_ids: Vec<u32> = users.keys().copied().collect();
+        get_combined_thumbnail(&ctx, &user_ids).await
+    };
+    let data_fut = async {
+        let initial_maps = &maps[..10.min(maps.len())];
+        MostPlayedCommonEmbed::new(&users, initial_maps, &users_count, 0)
+    };
+    let (thumbnail_result, data) = tokio::join!(thumbnail_fut, data_fut);
+    let thumbnail = match thumbnail_result {
+        Ok(thumbnail) => Some(thumbnail),
         Err(why) => {
             warn!("Error while combining avatars: {}", why);
-            Vec::default()
+            None
         }
     };
 
-    let initial_maps = &maps[..10.min(maps.len())];
-    let data = MostPlayedCommonEmbed::new(&users, initial_maps, &users_count, 0).await;
-
     // Creating the embed
-    let resp = msg
-        .channel_id
-        .send_message(ctx, |m| {
-            if !thumbnail.is_empty() {
-                let bytes: &[u8] = &thumbnail;
-                m.add_file((bytes, "avatar_fuse.png"));
-            }
-            m.content(content)
-                .embed(|e| data.build(e).thumbnail("attachment://avatar_fuse.png"))
-        })
-        .await?;
+    let embed = data.build().build();
+    let m = ctx
+        .http
+        .create_message(msg.channel_id)
+        .content(content)?
+        .embed(embed)?;
+    let response = if let Some(thumbnail) = thumbnail {
+        m.attachment("avatar_fuse.png", thumbnail).await?
+    } else {
+        m.await?
+    };
 
     // Skip pagination if too few entries
     if maps.len() <= 10 {
-        resp.reaction_delete(ctx, msg.author.id).await;
+        response.reaction_delete(&ctx, msg.author.id);
         return Ok(());
     }
 
     // Pagination
-    let pagination = MostPlayedCommonPagination::new(
-        ctx,
-        resp,
-        msg.author.id,
-        users,
-        users_count,
-        maps,
-        "attachment://avatar_fuse.png".to_owned(),
-    )
-    .await;
-    let cache = Arc::clone(&ctx.cache);
-    let http = Arc::clone(&ctx.http);
+    let pagination = MostPlayedCommonPagination::new(response, users, users_count, maps);
+    let owner = msg.author.id;
     tokio::spawn(async move {
-        if let Err(why) = pagination.start(cache, http).await {
+        if let Err(why) = pagination.start(&ctx, owner, 60).await {
             warn!("Pagination error: {}", why)
         }
     });

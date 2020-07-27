@@ -14,7 +14,7 @@ impl OsuStatsArgs {
         mut username: Option<String>,
         mode: GameMode,
     ) -> Result<Self, &'static str> {
-        let mut args = args.take(8).map(|arg| arg.to_owned()).collect();
+        let mut args: Vec<_> = args.take(8).map(|arg| arg.to_owned()).collect();
         // Parse min and max rank
         let mut rank_min = None;
         let mut rank_max = None;
@@ -87,10 +87,9 @@ impl OsuStatsArgs {
         if let Some(name) = args.pop() {
             username = Some(name);
         }
-        // TODO: Shift username check to command
         if username.is_none() {
             return Err("Either specify an osu name or link your discord \
-                        to an osu profile via `<link osuname`");
+                        to an osu profile via `link osuname`");
         }
         // Put values into parameter variable
         let mut params = OsuStatsParams::new(username.unwrap())
@@ -110,8 +109,7 @@ impl OsuStatsArgs {
             params = params.rank_max(rank_max);
         }
         if let Some(selection) = mods {
-            // TODO
-            // params = params.mods(mods, selection);
+            params = params.mods(selection);
         }
         Ok(Self { params })
     }

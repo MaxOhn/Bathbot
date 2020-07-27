@@ -1,9 +1,8 @@
 use super::{Pages, Pagination};
-
 use crate::{
+    custom_client::{OsuStatsParams, OsuStatsScore},
     embeds::OsuStatsGlobalsEmbed,
-    scraper::{OsuStatsParams, OsuStatsScore},
-    BotResult, Context, Scraper,
+    BotResult, Context,
 };
 
 use async_trait::async_trait;
@@ -69,9 +68,12 @@ impl Pagination for OsuStatsGlobalsPagination {
         if count < 5 && self.total - self.pages.index > count {
             let osustats_page = (self.pages.index / 24) + 1;
             self.params.page(osustats_page);
-            let data = self.data.read().await;
-            let scraper = data.get::<Scraper>().unwrap();
-            let (scores, _) = scraper.get_global_scores(&self.params).await?;
+            let (scores, _) = self
+                .ctx
+                .clients
+                .custom
+                .get_global_scores(&self.params)
+                .await?;
             let iter = scores
                 .into_iter()
                 .enumerate()
@@ -79,11 +81,11 @@ impl Pagination for OsuStatsGlobalsPagination {
             self.scores.extend(iter);
         }
         OsuStatsGlobalsEmbed::new(
+            self.ctx.clone(),
             &self.user,
             &self.scores,
             self.total,
             (self.page(), self.pages.total_pages),
-            &self.ctx,
         )
         .await
     }

@@ -1,5 +1,6 @@
 use crate::{
     core::CachedEmoji,
+    custom_client::{OsuStatsScore, ScraperScore},
     util::{
         constants::{emotes::*, DEV_GUILD_ID},
         osu::grade_emote,
@@ -275,91 +276,97 @@ impl ScoreExt for &Score {
     }
 }
 
-// impl ScoreExt for &OsuStatsScore {
-//     fn count_miss(&self) -> u32 {
-//         self.count_miss
-//     }
-//     fn count_50(&self) -> u32 {
-//         self.count50
-//     }
-//     fn count_100(&self) -> u32 {
-//         self.count100
-//     }
-//     fn count_300(&self) -> u32 {
-//         self.count300
-//     }
-//     fn count_geki(&self) -> u32 {
-//         self.count_geki
-//     }
-//     fn count_katu(&self) -> u32 {
-//         self.count_katu
-//     }
-//     fn max_combo(&self) -> u32 {
-//         self.max_combo
-//     }
-//     fn mods(&self) -> GameMods {
-//         self.enabled_mods
-//     }
-//     fn hits(&self, _mode: GameMode) -> u32 {
-//         let mut amount = self.count300 + self.count100 + self.count_miss;
-//         let mode = self.map.mode;
-//         if mode != GameMode::TKO {
-//             amount += self.count50;
-//             if mode != GameMode::STD {
-//                 amount += self.count_katu;
-//                 if mode != GameMode::CTB {
-//                     amount += self.count_geki;
-//                 }
-//             }
-//         }
-//         amount
-//     }
-//     fn grade(&self) -> Grade {
-//         self.grade
-//     }
-//     fn score(&self) -> u32 {
-//         self.score
-//     }
-//     fn pp(&self) -> Option<f32> {
-//         self.pp
-//     }
-// }
+impl ScoreExt for &OsuStatsScore {
+    fn count_miss(&self) -> u32 {
+        self.count_miss
+    }
+    fn count_50(&self) -> u32 {
+        self.count50
+    }
+    fn count_100(&self) -> u32 {
+        self.count100
+    }
+    fn count_300(&self) -> u32 {
+        self.count300
+    }
+    fn count_geki(&self) -> u32 {
+        self.count_geki
+    }
+    fn count_katu(&self) -> u32 {
+        self.count_katu
+    }
+    fn max_combo(&self) -> u32 {
+        self.max_combo
+    }
+    fn mods(&self) -> GameMods {
+        self.enabled_mods
+    }
+    fn hits(&self, _mode: GameMode) -> u32 {
+        let mut amount = self.count300 + self.count100 + self.count_miss;
+        let mode = self.map.mode;
+        if mode != GameMode::TKO {
+            amount += self.count50;
+            if mode != GameMode::STD {
+                amount += self.count_katu;
+                if mode != GameMode::CTB {
+                    amount += self.count_geki;
+                }
+            }
+        }
+        amount
+    }
+    fn grade(&self, _: GameMode) -> Grade {
+        self.grade
+    }
+    fn score(&self) -> u32 {
+        self.score
+    }
+    fn pp(&self) -> Option<f32> {
+        self.pp
+    }
+    fn acc(&self, _: GameMode) -> f32 {
+        self.accuracy
+    }
+}
 
-// impl ScoreExt for &ScraperScore {
-//     fn count_miss(&self) -> u32 {
-//         self.count_miss
-//     }
-//     fn count_50(&self) -> u32 {
-//         self.count50
-//     }
-//     fn count_100(&self) -> u32 {
-//         self.count100
-//     }
-//     fn count_300(&self) -> u32 {
-//         self.count300
-//     }
-//     fn count_geki(&self) -> u32 {
-//         self.count_geki
-//     }
-//     fn count_katu(&self) -> u32 {
-//         self.count_katu
-//     }
-//     fn max_combo(&self) -> u32 {
-//         self.max_combo
-//     }
-//     fn mods(&self) -> GameMods {
-//         self.enabled_mods
-//     }
-//     fn hits(&self, _: GameMode) -> u32 {
-//         self.total_hits()
-//     }
-//     fn grade(&self) -> Grade {
-//         self.grade
-//     }
-//     fn score(&self) -> u32 {
-//         self.score
-//     }
-//     fn pp(&self) -> Option<f32> {
-//         self.pp
-//     }
-// }
+impl ScoreExt for &ScraperScore {
+    fn count_miss(&self) -> u32 {
+        self.count_miss
+    }
+    fn count_50(&self) -> u32 {
+        self.count50
+    }
+    fn count_100(&self) -> u32 {
+        self.count100
+    }
+    fn count_300(&self) -> u32 {
+        self.count300
+    }
+    fn count_geki(&self) -> u32 {
+        self.count_geki
+    }
+    fn count_katu(&self) -> u32 {
+        self.count_katu
+    }
+    fn max_combo(&self) -> u32 {
+        self.max_combo
+    }
+    fn mods(&self) -> GameMods {
+        self.enabled_mods
+    }
+    fn hits(&self, _: GameMode) -> u32 {
+        self.total_hits()
+    }
+    fn grade(&self, _: GameMode) -> Grade {
+        self.grade
+    }
+    fn score(&self) -> u32 {
+        self.score
+    }
+    fn pp(&self) -> Option<f32> {
+        self.pp
+    }
+    fn acc(&self, _: GameMode) -> f32 {
+        self.accuracy
+    }
+}

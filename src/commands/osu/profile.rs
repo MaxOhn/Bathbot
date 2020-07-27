@@ -38,6 +38,7 @@ async fn profile_main(
         .mode(mode)
         .limit(100)
         .queue(&ctx.clients.osu);
+    // TODO: Dont fail on get_globals_count error
     let join_result = tokio::try_join!(
         ctx.osu_user(&name, mode).map_err(Error::Osu),
         scores_fut.map_err(Error::Osu),

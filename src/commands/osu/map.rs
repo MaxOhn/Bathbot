@@ -5,7 +5,6 @@ use crate::{
     pp::roppai::Oppai,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        discord,
         osu::prepare_beatmap_file,
         MessageExt,
     },
@@ -26,6 +25,7 @@ const W: u32 = 590;
 const H: u32 = 150;
 
 #[command]
+#[short_desc("Display a bunch of stats about a map(set)")]
 #[long_desc(
     "Display stats about a beatmap. Mods can be specified.\n\
     If no map(set) is specified by either url or id, I will choose the last map \
@@ -33,7 +33,7 @@ const H: u32 = 150;
     If the mapset is specified by id but there is some map with the same id, \
     I will choose the latter."
 )]
-#[usage("[map(set) url / map(set) id] [mods]")]
+#[usage("[map(set) url / map(set) id] [+mods]")]
 #[example("2240404 +hddt")]
 #[example("https://osu.ppy.sh/beatmapsets/902425 +hr")]
 #[aliases("beatmap", "maps", "beatmaps", "mapinfo")]

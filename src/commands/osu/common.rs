@@ -60,7 +60,6 @@ async fn common_main(
         _ => args.names,
     };
 
-    // Remove duplicates, hence HashSet
     if names.iter().unique().count() == 1 {
         let content = "Give at least two different names";
         return msg.respond(&ctx, content).await;
@@ -210,16 +209,22 @@ async fn common_main(
     }
 
     // Keys have no strict order, hence inconsistent result
-    let user_ids: Vec<u32> = users.keys().copied().collect();
-    let thumbnail = match get_combined_thumbnail(&user_ids).await {
+    let thumbnail_fut = async {
+        let user_ids: Vec<u32> = users.keys().copied().collect();
+        get_combined_thumbnail(&ctx, &user_ids).await
+    };
+    let data_fut = async {
+        let id_pps = &pp_avg[..10.min(pp_avg.len())];
+        CommonEmbed::new(&users, &all_scores, &maps, id_pps, 0)
+    };
+    let (thumbnail_result, data) = tokio::join!(thumbnail_fut, data_fut);
+    let thumbnail = match thumbnail_result {
         Ok(thumbnail) => Some(thumbnail),
         Err(why) => {
             warn!("Error while combining avatars: {}", why);
             None
         }
     };
-    let id_pps = &pp_avg[..10.min(pp_avg.len())];
-    let data = CommonEmbed::new(&users, &all_scores, &maps, id_pps, 0);
 
     // Creating the embed
     let embed = data.build().build();
