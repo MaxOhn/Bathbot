@@ -93,7 +93,11 @@ impl SimulateMapArgs {
         let n100 = super::n100(&mut args)?;
         let n50 = super::n50(&mut args)?;
         let score = super::score(&mut args)?;
-        let map_id = args.pop().and_then(|arg| matcher::get_osu_map_id(&arg));
+        let map_id = args
+            .pop()
+            .as_deref()
+            .and_then(matcher::get_osu_map_id)
+            .map(|id| id.id());
         Ok(Self {
             map_id,
             mods,

@@ -1,5 +1,8 @@
 use super::{ArgResult, Args};
-use crate::util::{matcher, osu::ModSelection};
+use crate::util::{
+    matcher,
+    osu::{MapIdType, ModSelection},
+};
 
 use rosu::models::GameMods;
 use std::str::FromStr;
@@ -27,7 +30,7 @@ impl MatchArgs {
 }
 
 pub struct MapModArgs {
-    pub map_id: Option<u32>,
+    pub map_id: Option<MapIdType>,
     pub mods: Option<ModSelection>,
 }
 
@@ -36,8 +39,12 @@ impl MapModArgs {
         let mut map_id = None;
         let mut mods = None;
         for arg in args {
-            let maybe_map_id = matcher::get_osu_map_id(arg);
-            let maybe_mods = maybe_map_id.map_or_else(|| matcher::get_mods(arg), |_| None);
+            let maybe_map_id =
+                matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg));
+            let maybe_mods = match maybe_map_id {
+                Some(_) => None,
+                None => matcher::get_mods(arg),
+            };
             if map_id.is_none() && maybe_map_id.is_some() {
                 map_id = maybe_map_id;
             } else if mods.is_none() && maybe_mods.is_some() {
@@ -50,7 +57,7 @@ impl MapModArgs {
 
 pub struct NameMapArgs {
     pub name: Option<String>,
-    pub map_id: Option<u32>,
+    pub map_id: Option<MapIdType>,
 }
 
 impl NameMapArgs {
@@ -59,10 +66,12 @@ impl NameMapArgs {
         let (name, map_id) = args.next_back().map_or_else(
             || (None, None),
             |arg| {
-                matcher::get_osu_map_id(arg).map_or_else(
-                    || (Some(arg.to_owned()), None),
-                    |id| (args.next().map(|a| a.to_owned()), Some(id)),
-                )
+                matcher::get_osu_map_id(arg)
+                    .or_else(|| matcher::get_osu_mapset_id(arg))
+                    .map_or_else(
+                        || (Some(arg.to_owned()), None),
+                        |id| (args.next().map(|a| a.to_owned()), Some(id)),
+                    )
             },
         );
         Self { name, map_id }

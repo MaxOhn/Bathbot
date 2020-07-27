@@ -5,11 +5,12 @@ use crate::pp::roppai::OppaiErr;
 use chrono::format::ParseError as ChronoParseError;
 use darkredis::Error as RedisError;
 use image::ImageError;
+use plotters::drawing::DrawingAreaErrorKind as DrawingError;
 use reqwest::{header::InvalidHeaderValue, Error as ReqwestError};
 use rosu::{models::GameMode, OsuError};
 use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
-use std::{borrow::Cow, error, fmt};
+use std::{borrow::Cow, error::Error as StdError, fmt};
 use tokio::io::Error as TokioIOError;
 use toml::de::Error as TomlError;
 use twilight::gateway::cluster::Error as ClusterError;
@@ -50,6 +51,7 @@ pub enum Error {
     NoConfig,
     NoLoggingSpec,
     Osu(OsuError),
+    Plotter(String),
     PP(PPError),
     Redis(RedisError),
     Reqwest(ReqwestError),
@@ -60,7 +62,7 @@ pub enum Error {
     UpdateMessage(UpdateMessageError),
 }
 
-impl error::Error for Error {}
+impl StdError for Error {}
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -92,6 +94,7 @@ impl fmt::Display for Error {
             Self::NoConfig => f.write_str("config file was not found"),
             Self::NoLoggingSpec => f.write_str("logging config was not found"),
             Self::Osu(e) => write!(f, "osu error: {}", e),
+            Self::Plotter(e) => write!(f, "plotter error: {}", e),
             Self::PP(e) => write!(f, "error while using PPCalculator: {}", e),
             Self::Redis(e) => write!(f, "error while communicating with redis cache: {}", e),
             Self::Reqwest(e) => write!(f, "reqwest error: {}", e),
@@ -156,6 +159,12 @@ impl From<MapDownloadError> for Error {
 impl From<OsuError> for Error {
     fn from(e: OsuError) -> Self {
         Error::Osu(e)
+    }
+}
+
+impl<T: StdError + Send + Sync> From<DrawingError<T>> for Error {
+    fn from(e: DrawingError<T>) -> Self {
+        Error::Plotter(e.to_string())
     }
 }
 
@@ -240,7 +249,7 @@ impl From<OppaiErr> for PPError {
     }
 }
 
-impl error::Error for PPError {}
+impl StdError for PPError {}
 
 #[derive(Debug)]
 pub enum MapDownloadError {
@@ -271,7 +280,7 @@ impl From<ReqwestError> for MapDownloadError {
     }
 }
 
-impl error::Error for MapDownloadError {}
+impl StdError for MapDownloadError {}
 
 #[derive(Debug)]
 pub enum CustomClientError {
@@ -294,7 +303,7 @@ impl fmt::Display for CustomClientError {
     }
 }
 
-impl error::Error for CustomClientError {}
+impl StdError for CustomClientError {}
 
 #[derive(Debug)]
 pub enum TwitchError {
@@ -335,4 +344,4 @@ impl From<SerdeJsonError> for TwitchError {
     }
 }
 
-impl error::Error for TwitchError {}
+impl StdError for TwitchError {}

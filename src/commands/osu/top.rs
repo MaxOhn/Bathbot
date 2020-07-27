@@ -5,7 +5,7 @@ use crate::{
     pagination::{Pagination, TopPagination},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        numbers,
+        matcher, numbers,
         osu::ModSelection,
         MessageExt,
     },
@@ -352,14 +352,10 @@ pub enum TopSortBy {
 
 fn is_sotarks_map(map: &Beatmap) -> bool {
     let version = map.version.to_lowercase();
-    let guest_diff = if map.creator.to_lowercase() == "sotarks" {
-        !Regex::new(".*'s? (easy|normal|hard|insane|expert|extra|extreme)")
-            .unwrap()
-            .is_match(&version)
-    } else {
-        false
-    };
-    version.contains("sotarks") || guest_diff
+    if version.contains("sotarks") {
+        return true;
+    }
+    !(map.creator.to_lowercase() == "sotarks" && matcher::is_general_diff(&version))
 }
 
 fn filter_scores(

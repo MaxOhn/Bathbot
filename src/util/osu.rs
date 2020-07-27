@@ -3,6 +3,7 @@ use crate::{
     util::{
         constants::{emotes::*, DEV_GUILD_ID, OSU_BASE},
         error::MapDownloadError,
+        matcher,
     },
     BotResult, Context,
 };
@@ -10,13 +11,21 @@ use crate::{
 use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score};
 use std::{env, path::Path, sync::Arc};
 use tokio::{fs::File, io::AsyncWriteExt};
-use twilight::model::id::EmojiId;
+use twilight::model::{channel::Message, id::EmojiId};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ModSelection {
     Include(GameMods),
     Exclude(GameMods),
     Exact(GameMods),
+}
+
+impl ModSelection {
+    pub fn mods(&self) -> GameMods {
+        match self {
+            Self::Include(m) | Self::Exclude(m) | Self::Exact(m) => *m,
+        }
+    }
 }
 
 pub fn grade_emote(grade: Grade, ctx: &Context) -> Arc<CachedEmoji> {
@@ -189,4 +198,45 @@ pub fn pp_missing(start: f32, goal: f32, scores: &[Score]) -> (f32, usize) {
         required -= pp_values[size - 1] * 0.95_f32.powi(size as i32 - 1);
     }
     (required, idx)
+}
+
+pub async fn map_id_from_history(ctx: &Context, msgs: Vec<Message>) -> Option<MapIdType> {
+    for msg in msgs {
+        if !ctx.is_own(&msg) {
+            continue;
+        }
+        for embed in msg.embeds {
+            let url = embed.author.and_then(|author| author.url);
+            if let Some(id) = url.as_deref().and_then(matcher::get_osu_map_id) {
+                return Some(id);
+            }
+            if let Some(id) = url.as_deref().and_then(matcher::get_osu_mapset_id) {
+                return Some(id);
+            }
+            if embed.fields.is_empty() {
+                continue;
+            }
+            let url = embed.url.as_deref();
+            if let Some(id) = url.and_then(matcher::get_osu_map_id) {
+                return Some(id);
+            }
+            if let Some(id) = url.and_then(matcher::get_osu_mapset_id) {
+                return Some(id);
+            }
+        }
+    }
+    None
+}
+
+pub enum MapIdType {
+    Map(u32),
+    Mapset(u32),
+}
+
+impl MapIdType {
+    pub fn id(&self) -> u32 {
+        match self {
+            Self::Map(id) | Self::Mapset(id) => *id,
+        }
+    }
 }

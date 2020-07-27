@@ -1,14 +1,15 @@
 use crate::{
-    arguments::{Args, MapModArgs, ID},
+    arguments::{Args, MapModArgs},
+    bail,
     embeds::{EmbedData, MapEmbed},
     pagination::{MapPagination, Pagination},
     pp::roppai::Oppai,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        osu::prepare_beatmap_file,
+        osu::{map_id_from_history, prepare_beatmap_file, MapIdType},
         MessageExt,
     },
-    BotResult, Context,
+    BotResult, Context, Error,
 };
 
 use chrono::Duration;
@@ -42,12 +43,16 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let map_id = if let Some(id) = args.map_id {
         id
     } else {
-        let msgs = msg
-            .channel_id
-            .messages(ctx, |retriever| retriever.limit(50))
-            .await?;
-        match discord::map_id_from_history(msgs, &ctx.cache).await {
-            Some(id) => ID::Map(id),
+        let msg_fut = ctx.http.channel_messages(msg.channel_id).limit(50).unwrap();
+        let msgs = match msg_fut.await {
+            Ok(msgs) => msgs,
+            Err(why) => {
+                msg.respond(&ctx, "Error while retrieving messages").await?;
+                return Err(why.into());
+            }
+        };
+        match map_id_from_history(&ctx, msgs).await {
+            Some(id) => id,
             None => {
                 let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map(set) either by url to the map, \
@@ -57,75 +62,69 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         }
     };
     let mods = match args.mods {
-        Some((mods, _)) => mods,
+        Some(selection) => selection.mods(),
         None => GameMods::NoMod,
     };
 
     // Retrieving the beatmaps
-    let (maps, first_map_id) = {
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
-        let (mapset_id, map_id) = match map_id {
-            // If its given as map id, try to convert into mapset id
-            ID::Map(id) => {
-                // Check if map is in DB
-                let mysql = data.get::<MySQL>().unwrap();
-                match mysql.get_beatmap(id).await {
-                    Ok(map) => (map.beatmapset_id, Some(id)),
-                    Err(_) => {
-                        // If not in DB, request through API
-                        let map_req = BeatmapRequest::new().map_id(id);
-                        match map_req.queue_single(&osu).await {
-                            Ok(Some(map)) => (map.beatmapset_id, Some(id)),
-                            Ok(None) => (id, None),
-                            Err(why) => {
-                                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                                return Err(why.into());
-                            }
+    let (mapset_id, map_id) = match map_id {
+        // If its given as map id, try to convert into mapset id
+        MapIdType::Map(id) => {
+            // Check if map is in DB
+            match ctx.psql().get_beatmap(id).await {
+                Ok(map) => (map.beatmapset_id, Some(id)),
+                Err(_) => {
+                    // If not in DB, request through API
+                    let map_req = BeatmapRequest::new().map_id(id);
+                    match map_req.queue_single(ctx.osu()).await {
+                        Ok(Some(map)) => (map.beatmapset_id, Some(id)),
+                        Ok(None) => (id, None),
+                        Err(why) => {
+                            msg.respond(&ctx, OSU_API_ISSUE).await?;
+                            return Err(why.into());
                         }
                     }
                 }
             }
-            // If its already given as mapset id, do nothing
-            ID::Set(id) => (id, None),
-        };
-        // Request mapset through API
-        let map_req = BeatmapRequest::new().mapset_id(mapset_id);
-        let maps = match map_req.queue(&osu).await {
-            Ok(mut maps) => {
-                // For mania sort first by mania key, then star rating
-                if maps.first().map(|map| map.mode).unwrap_or_default() == GameMode::MNA {
-                    maps.sort_by(|m1, m2| {
-                        m1.diff_cs
-                            .partial_cmp(&m2.diff_cs)
-                            .unwrap_or_else(|| std::cmp::Ordering::Equal)
-                            .then(
-                                m1.stars
-                                    .partial_cmp(&m2.stars)
-                                    .unwrap_or_else(|| std::cmp::Ordering::Equal),
-                            )
-                    })
-                // For other mods just sort by star rating
-                } else {
-                    maps.sort_by(|m1, m2| {
-                        m1.stars
-                            .partial_cmp(&m2.stars)
-                            .unwrap_or_else(|| std::cmp::Ordering::Equal)
-                    })
-                }
-                maps
-            }
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
-        };
-        if maps.is_empty() {
-            return msg.respond(&ctx, "API returned no map for this id").await;
         }
-        let first_map_id = map_id.unwrap_or_else(|| maps.first().unwrap().beatmap_id);
-        (maps, first_map_id)
+        // If its already given as mapset id, do nothing
+        MapIdType::Mapset(id) => (id, None),
     };
+    // Request mapset through API
+    let map_req = BeatmapRequest::new().mapset_id(mapset_id);
+    let maps = match map_req.queue(ctx.osu()).await {
+        Ok(mut maps) => {
+            // For mania sort first by mania key, then star rating
+            if maps.first().map(|map| map.mode).unwrap_or_default() == GameMode::MNA {
+                maps.sort_by(|m1, m2| {
+                    m1.diff_cs
+                        .partial_cmp(&m2.diff_cs)
+                        .unwrap_or_else(|| std::cmp::Ordering::Equal)
+                        .then(
+                            m1.stars
+                                .partial_cmp(&m2.stars)
+                                .unwrap_or_else(|| std::cmp::Ordering::Equal),
+                        )
+                })
+            // For other mods just sort by star rating
+            } else {
+                maps.sort_by(|m1, m2| {
+                    m1.stars
+                        .partial_cmp(&m2.stars)
+                        .unwrap_or_else(|| std::cmp::Ordering::Equal)
+                })
+            }
+            maps
+        }
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
+        }
+    };
+    if maps.is_empty() {
+        return msg.respond(&ctx, "API returned no map for this id").await;
+    }
+    let first_map_id = map_id.unwrap_or_else(|| maps.first().unwrap().beatmap_id);
 
     let map_idx = maps
         .iter()
@@ -135,14 +134,15 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     // Try creating the strain graph for the map (only STD & TKO)
     let graph = match map.mode {
         GameMode::STD | GameMode::TKO => {
-            let (oppai_values, img) = tokio::join!(oppai_values(map.beatmap_id, mods), async {
+            let bg_fut = async {
                 let url = format!(
                     "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
                     map.beatmapset_id
                 );
                 let res = reqwest::get(&url).await?.bytes().await?;
                 Ok::<_, Error>(image::load_from_memory(res.as_ref())?.thumbnail_exact(W, H))
-            });
+            };
+            let (oppai_values, img) = tokio::join!(oppai_values(map.beatmap_id, mods), bg_fut);
             if let Err(why) = oppai_values {
                 warn!("Error while creating oppai_values: {}", why);
                 None
@@ -165,11 +165,11 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
     // Accumulate all necessary data
     let data_fut = MapEmbed::new(
+        ctx.clone(),
         &maps[map_idx],
         mods,
         graph.is_none(),
         (map_idx + 1, maps.len()),
-        Arc::clone(&ctx.data),
     );
     let data = match data_fut.await {
         Ok(data) => data,
@@ -180,16 +180,13 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
 
     // Sending the embed
-    let resp = msg
-        .channel_id
-        .send_message(ctx, |m| {
-            if graph.is_some() {
-                let bytes = graph.as_deref().unwrap();
-                m.add_file((bytes, "map_graph.png"));
-            }
-            m.embed(|e| data.build(e))
-        })
-        .await?;
+    let embed = data.build().build();
+    let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
+    let response = if let Some(ref graph) = graph {
+        m.attachment("map_graph.png", graph.clone()).await?
+    } else {
+        m.await?
+    };
 
     // Add missing maps to database
     let len = maps.len();
@@ -201,12 +198,13 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
     // Skip pagination if too few entries
     if maps.len() < 2 {
-        response.reaction_delete(ctx, msg.author.id);
+        response.reaction_delete(&ctx, msg.author.id);
         return Ok(());
     }
 
     // Pagination
-    let pagination = MapPagination::new(ctx, response, maps, mods, map_idx, graph.is_none()).await;
+    let pagination =
+        MapPagination::new(ctx.clone(), response, maps, mods, map_idx, graph.is_none());
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -216,11 +214,13 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     Ok(())
 }
 
-async fn oppai_values(map_id: u32, mods: GameMods) -> Result<(Vec<u32>, Vec<f32>), Error> {
+async fn oppai_values(map_id: u32, mods: GameMods) -> BotResult<(Vec<u32>, Vec<f32>)> {
     // Prepare oppai
     let map_path = prepare_beatmap_file(map_id).await?;
     let mut oppai = Oppai::new();
-    oppai.set_mods(mods.bits()).calculate(&map_path)?;
+    if let Err(why) = oppai.set_mods(mods.bits()).calculate(&map_path) {
+        bail!("error while using oppai: {}", why);
+    }
     const MAX_COUNT: usize = 1000;
     let object_count = oppai.get_object_count();
     let mods = oppai.get_mods();
@@ -248,7 +248,7 @@ async fn oppai_values(map_id: u32, mods: GameMods) -> Result<(Vec<u32>, Vec<f32>
     Ok((time, strain))
 }
 
-fn graph(oppai_values: (Vec<u32>, Vec<f32>), background: DynamicImage) -> Result<Vec<u8>, Error> {
+fn graph(oppai_values: (Vec<u32>, Vec<f32>), background: DynamicImage) -> BotResult<Vec<u8>> {
     static LEN: usize = W as usize * H as usize;
     let (time, strain) = oppai_values;
     let max_strain = strain

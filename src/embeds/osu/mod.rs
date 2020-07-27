@@ -1,5 +1,6 @@
 mod common;
 mod leaderboard;
+mod map;
 mod match_costs;
 mod most_played;
 mod most_played_common;
@@ -17,6 +18,7 @@ mod whatif;
 
 pub use common::CommonEmbed;
 pub use leaderboard::LeaderboardEmbed;
+pub use map::MapEmbed;
 pub use match_costs::MatchCostEmbed;
 pub use most_played::MostPlayedEmbed;
 pub use most_played_common::MostPlayedCommonEmbed;

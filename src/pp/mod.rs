@@ -39,6 +39,7 @@ pub struct PPCalculator {
     default_stars: Option<f32>,
     approval_status: Option<ApprovalStatus>,
 
+    // TODO: Remove this
     ctx: Option<Arc<Context>>,
 
     pp: Option<f32>,

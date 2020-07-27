@@ -1,4 +1,7 @@
-use super::{constants::OSU_BASE, osu::ModSelection};
+use super::{
+    constants::OSU_BASE,
+    osu::{MapIdType, ModSelection},
+};
 
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -59,9 +62,9 @@ fn get_mention(mention_type: MentionType, msg: &str) -> Option<u64> {
         .and_then(|c| c.as_str().parse::<u64>().ok())
 }
 
-pub fn get_osu_map_id(msg: &str) -> Option<u32> {
+pub fn get_osu_map_id(msg: &str) -> Option<MapIdType> {
     if let Ok(id) = msg.parse::<u32>() {
-        return Some(id);
+        return Some(MapIdType::Map(id));
     }
     if !msg.contains(OSU_BASE) {
         return None;
@@ -71,12 +74,12 @@ pub fn get_osu_map_id(msg: &str) -> Option<u32> {
     } else {
         OSU_URL_MAP_NEW_MATCHER.captures(msg).and_then(|c| c.get(2))
     };
-    matcher.and_then(|c| c.as_str().parse::<u32>().ok())
+    matcher.and_then(|c| c.as_str().parse::<u32>().ok().map(MapIdType::Map))
 }
 
-pub fn get_osu_mapset_id(msg: &str) -> Option<u32> {
+pub fn get_osu_mapset_id(msg: &str) -> Option<MapIdType> {
     if let Ok(id) = msg.parse::<u32>() {
-        return Some(id);
+        return Some(MapIdType::Mapset(id));
     }
     if !msg.contains(OSU_BASE) {
         return None;
@@ -86,6 +89,7 @@ pub fn get_osu_mapset_id(msg: &str) -> Option<u32> {
         .or_else(|| OSU_URL_MAP_NEW_MATCHER.captures(msg))
         .and_then(|c| c.get(1))
         .and_then(|c| c.as_str().parse::<u32>().ok())
+        .map(MapIdType::Mapset)
 }
 
 pub fn get_osu_match_id(msg: &str) -> Option<u32> {
@@ -117,6 +121,10 @@ pub fn get_mods(msg: &str) -> Option<ModSelection> {
 
 pub fn is_hit_results(msg: &str) -> bool {
     HIT_RESULTS_MATCHER.is_match(msg)
+}
+
+pub fn is_general_diff(msg: &str) -> bool {
+    OSU_DIFF_MATCHER.is_match(msg)
 }
 
 lazy_static! {
@@ -158,4 +166,9 @@ lazy_static! {
 
 lazy_static! {
     static ref HIT_RESULTS_MATCHER: Regex = Regex::new(r".*\{(\d+/){2,}\d+}.*").unwrap();
+}
+
+lazy_static! {
+    static ref OSU_DIFF_MATCHER: Regex =
+        Regex::new(".*'s? (easy|normal|hard|insane|expert|extra|extreme)").unwrap();
 }

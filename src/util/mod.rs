@@ -70,36 +70,3 @@ pub async fn get_combined_thumbnail(ctx: &Context, user_ids: &[u32]) -> BotResul
     png_encoder.encode(&combined.to_bytes(), 128, 128, ColorType::Rgba8)?;
     Ok(png_bytes)
 }
-
-pub async fn map_id_from_history(ctx: &Context, msgs: Vec<Message>) -> Option<MapIdType> {
-    for msg in msgs {
-        if !ctx.is_own(&msg) {
-            continue;
-        }
-        for embed in msg.embeds {
-            let url = embed.author.and_then(|author| author.url);
-            if let Some(id) = url.as_deref().and_then(matcher::get_osu_map_id) {
-                return Some(MapIdType::Map(id));
-            }
-            if let Some(id) = url.as_deref().and_then(matcher::get_osu_mapset_id) {
-                return Some(MapIdType::Mapset(id));
-            }
-            if embed.fields.is_empty() {
-                continue;
-            }
-            let url = embed.url.as_deref();
-            if let Some(id) = url.and_then(matcher::get_osu_map_id) {
-                return Some(MapIdType::Map(id));
-            }
-            if let Some(id) = url.and_then(matcher::get_osu_mapset_id) {
-                return Some(MapIdType::Mapset(id));
-            }
-        }
-    }
-    None
-}
-
-pub enum MapIdType {
-    Map(u32),
-    Mapset(u32),
-}

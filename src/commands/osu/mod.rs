@@ -1,7 +1,7 @@
 mod common;
 // mod leaderboard;
 mod link;
-// mod map;
+mod map;
 mod match_costs;
 mod most_played;
 mod most_played_common;
@@ -25,7 +25,7 @@ pub use nochoke::*;
 pub use ratios::*;
 // pub use leaderboard::*;
 pub use link::*;
-// pub use map::*;
+pub use map::*;
 pub use match_costs::*;
 pub use most_played::*;
 pub use most_played_common::*;
