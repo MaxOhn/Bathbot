@@ -1,10 +1,11 @@
 use crate::{
-    arguments::{Args, MapModArgs, ModSelection},
+    arguments::{Args, MapModArgs},
     embeds::{EmbedData, LeaderboardEmbed},
     pagination::{LeaderboardPagination, Pagination},
     util::{
         constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE},
-        discord, MessageExt,
+        osu::{map_id_from_history, MapIdType, ModSelection},
+        MessageExt,
     },
     BotResult, Context,
 };
@@ -20,92 +21,77 @@ use std::sync::Arc;
 use twilight::model::channel::Message;
 
 #[allow(clippy::cognitive_complexity)]
-async fn leaderboard_send(
+async fn leaderboard_main(
     national: bool,
     ctx: Arc<Context>,
     msg: &Message,
-    args: Args,
+    args: Args<'_>,
 ) -> BotResult<()> {
-    let author_name = {
-        let data = ctx.data.read().await;
-        data.get::<DiscordLinks>()
-            .and_then(|links| links.get(msg.author.id.as_u64()).cloned())
-    };
+    let author_name = ctx.get_link(msg.author.id.0);
     let args = MapModArgs::new(args);
     let map_id = if let Some(id) = args.map_id {
-        id.get()
+        id.id()
     } else {
-        let msgs = msg
-            .channel_id
-            .messages(ctx, |retriever| retriever.limit(50))
-            .await?;
-        match discord::map_id_from_history(msgs, &ctx.cache).await {
-            Some(id) => id,
+        let msg_fut = ctx.http.channel_messages(msg.channel_id).limit(50).unwrap();
+        let msgs = match msg_fut.await {
+            Ok(msgs) => msgs,
+            Err(why) => {
+                msg.respond(&ctx, "Error while retrieving messages").await?;
+                return Err(why.into());
+            }
+        };
+        match map_id_from_history(&ctx, msgs).await {
+            Some(MapIdType::Map(id)) => id,
+            Some(MapIdType::Set(_)) => {
+                let content = "Looks like you gave me a mapset id, I need a map id though";
+                return msg.respond(&ctx, content).await;
+            }
             None => {
                 let content = "No beatmap specified and none found in recent channel history. \
-                        Try specifying a map either by url to the map, or just by map id.";
-                msg.respond(&ctx, content).await?;
-                return Ok(());
+                    Try specifying a map either by url to the map, or just by map id.";
+                return msg.respond(&ctx, content).await;
             }
         }
     };
-    let (mods, selection) = args
-        .mods
-        .unwrap_or_else(|| (GameMods::default(), ModSelection::None));
+    let selection = args.mods;
 
     // Retrieving the beatmap
-    let (map_to_db, map) = {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_beatmap(map_id).await {
-            Ok(map) => (false, map),
-            Err(_) => {
-                let map_req = BeatmapRequest::new().map_id(map_id);
-                let osu = data.get::<Osu>().unwrap();
-                let map = match map_req.queue_single(&osu).await {
-                    Ok(result) => match result {
-                        Some(map) => map,
-                        None => {
-                            let content = format!(
-                                "Could not find beatmap with id `{}`. \
-                                Did you give me a mapset id instead of a map id?",
-                                map_id
-                            );
-                            msg.respond(&ctx, content).await?;
-                            return Ok(());
-                        }
-                    },
-                    Err(why) => {
-                        msg.respond(ctx, OSU_API_ISSUE).await?;
-                        return Err(why.into());
-                    }
-                };
-                (
-                    map.approval_status == Ranked
-                        || map.approval_status == Loved
-                        || map.approval_status == Approved,
-                    map,
-                )
+    let map = match ctx.psql().get_beatmap(map_id).await {
+        Ok(map) => map,
+        Err(_) => {
+            let map_req = BeatmapRequest::new().map_id(map_id);
+            match map_req.queue_single(ctx.osu()).await {
+                Ok(Some(map)) => map,
+                Ok(None) => {
+                    let content = format!(
+                        "Could not find beatmap with id `{}`. \
+                        Did you give me a mapset id instead of a map id?",
+                        map_id
+                    );
+                    return msg.respond(&ctx, content).await;
+                }
+                Err(why) => {
+                    msg.respond(&ctx, OSU_API_ISSUE).await?;
+                    return Err(why.into());
+                }
             }
         }
     };
 
     // Retrieve the map's leaderboard
     let scores = {
-        let data = ctx.data.read().await;
-        let scraper = data.get::<Scraper>().unwrap();
-        let scores_future = scraper.get_leaderboard(
+        let scores_future = ctx.clients.custom.get_leaderboard(
             map_id,
             national,
             match selection {
-                ModSelection::Excludes | ModSelection::None => None,
-                _ => Some(&mods),
+                Some(ModSelection::Exclude(_)) | None => None,
+                Some(ModSelection::Include(mods)) | Some(ModSelection::Exact(mods)) => Some(mods),
             },
         );
         match scores_future.await {
             Ok(scores) => scores,
             Err(why) => {
-                msg.respond(&ctx.http, OSU_API_ISSUE).await?;
+                msg.respond(&ctx, OSU_API_ISSUE).await?;
                 return Err(why.into());
             }
         }
@@ -113,12 +99,12 @@ async fn leaderboard_send(
     let amount = scores.len();
 
     // Accumulate all necessary data
-    let map_copy = if map_to_db { Some(map.clone()) } else { None };
     let first_place_icon = scores
         .first()
         .map(|s| format!("{}{}", AVATAR_URL, s.user_id));
     let data = match LeaderboardEmbed::new(
-        &author_name.as_deref(),
+        ctx.clone(),
+        author_name.as_deref(),
         &map,
         if scores.is_empty() {
             None
@@ -127,7 +113,6 @@ async fn leaderboard_send(
         },
         &first_place_icon,
         0,
-        ctx,
     )
     .await
     {
@@ -139,52 +124,41 @@ async fn leaderboard_send(
     };
 
     // Sending the embed
-    let response = msg
-        .channel_id
-        .send_message(&ctx.http, |m| {
-            let content = format!(
-                "I found {} scores with the specified mods on the map's leaderboard",
-                amount
-            );
-            m.content(content).embed(|e| data.build(e))
-        })
-        .await;
+    let embed = data.build().build();
+    let content = format!(
+        "I found {} scores with the specified mods on the map's leaderboard",
+        amount
+    );
+    let response = ctx
+        .http
+        .create_message(msg.channel_id)
+        .content(content)?
+        .embed(embed)?
+        .await?;
 
     // Add map to database if its not in already
-    if let Some(map) = map_copy {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        if let Err(why) = mysql.insert_beatmap(&map).await {
-            warn!("Could not add map of recent command to DB: {}", why);
-        }
-    }
-    let resp = response?;
-    if scores.is_empty() {
-        resp.reaction_delete(ctx, msg.author.id).await;
-        return Ok(());
+    if let Err(why) = ctx.psql().insert_beatmap(&map).await {
+        warn!("Could not add map to DB: {}", why);
     }
 
     // Skip pagination if too few entries
     if scores.len() <= 10 {
-        resp.reaction_delete(ctx, msg.author.id).await;
+        response.reaction_delete(&ctx, msg.author.id);
         return Ok(());
     }
 
     // Pagination
     let pagination = LeaderboardPagination::new(
-        ctx,
-        resp,
-        msg.author.id,
+        ctx.clone(),
+        response,
         map,
         scores,
         author_name,
         first_place_icon,
-    )
-    .await;
-    let cache = Arc::clone(&ctx.cache);
-    let http = Arc::clone(&ctx.http);
+    );
+    let owner = msg.author.id;
     tokio::spawn(async move {
-        if let Err(why) = pagination.start(cache, http).await {
+        if let Err(why) = pagination.start(&ctx, owner, 60).await {
             warn!("Pagination error: {}", why)
         }
     });
@@ -202,8 +176,8 @@ async fn leaderboard_send(
 #[example("2240404")]
 #[example("https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
 #[aliases("lb")]
-pub async fn leaderboard(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    leaderboard_send(true, ctx, msg, args).await
+pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    leaderboard_main(true, ctx, msg, args).await
 }
 
 #[command]
@@ -217,6 +191,6 @@ pub async fn leaderboard(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[example("2240404")]
 #[example("https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
 #[aliases("glb")]
-pub async fn globalleaderboard(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    leaderboard_send(false, ctx, msg, args).await
+pub async fn globalleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    leaderboard_main(false, ctx, msg, args).await
 }

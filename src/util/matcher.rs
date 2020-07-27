@@ -79,7 +79,7 @@ pub fn get_osu_map_id(msg: &str) -> Option<MapIdType> {
 
 pub fn get_osu_mapset_id(msg: &str) -> Option<MapIdType> {
     if let Ok(id) = msg.parse::<u32>() {
-        return Some(MapIdType::Mapset(id));
+        return Some(MapIdType::Set(id));
     }
     if !msg.contains(OSU_BASE) {
         return None;
@@ -89,7 +89,7 @@ pub fn get_osu_mapset_id(msg: &str) -> Option<MapIdType> {
         .or_else(|| OSU_URL_MAP_NEW_MATCHER.captures(msg))
         .and_then(|c| c.get(1))
         .and_then(|c| c.as_str().parse::<u32>().ok())
-        .map(MapIdType::Mapset)
+        .map(MapIdType::Set)
 }
 
 pub fn get_osu_match_id(msg: &str) -> Option<u32> {

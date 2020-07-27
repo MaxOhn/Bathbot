@@ -88,7 +88,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             }
         }
         // If its already given as mapset id, do nothing
-        MapIdType::Mapset(id) => (id, None),
+        MapIdType::Set(id) => (id, None),
     };
     // Request mapset through API
     let map_req = BeatmapRequest::new().mapset_id(mapset_id);

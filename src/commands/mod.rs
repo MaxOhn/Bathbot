@@ -21,14 +21,14 @@ pub fn command_groups() -> Vec<CommandGroup> {
             "all osu! modes",
             vec![
                 &LINK_CMD,
-                //     &SCORES_CMD,
-                //     &SIMULATE_CMD,
+                &SCORES_CMD,
+                &SIMULATE_CMD,
                 &MAP_CMD,
                 &MATCHCOSTS_CMD,
                 &MOSTPLAYED_CMD,
                 &MOSTPLAYEDCOMMON_CMD,
-                //     &LEADERBOARD_CMD,
-                //     &GLOBALLEADERBOARD_CMD,
+                &LEADERBOARD_CMD,
+                &GLOBALLEADERBOARD_CMD,
             ],
         ),
         CommandGroup::new(

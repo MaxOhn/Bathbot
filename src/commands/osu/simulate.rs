@@ -3,7 +3,8 @@ use crate::{
     embeds::{EmbedData, SimulateEmbed},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        discord, MessageExt,
+        osu::{map_id_from_history, MapIdType},
+        MessageExt,
     },
     BotResult, Context,
 };
@@ -19,13 +20,14 @@ use std::sync::Arc;
 use tokio::time::{self, Duration};
 use twilight::model::channel::Message;
 
+// TODO: Split up into STD / MNA commands
 #[command]
 #[short_desc("Simulate a score on a map")]
 #[long_desc(
     "Simulate a (perfect) score on the given map. \
-                 If no map is given, I will choose the last map \
-                 I can find in my embeds of this channel.\n\
-                 The `-s` argument is only relevant for mania."
+     If no map is given, I will choose the last map \
+     I can find in my embeds of this channel.\n\
+     The `-s` argument is only relevant for mania."
 )]
 #[usage(
     "[map url / map id] [-a acc%] [-300 #300s] [-100 #100s] [-50 #50s] [-m #misses] [-s score]"
@@ -38,56 +40,50 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         Ok(args) => args,
         Err(err_msg) => return msg.respond(&ctx, err_msg).await,
     };
-    let map_id = if let Some(map_id) = args.map_id {
-        map_id
+    let map_id = if let Some(id) = args.map_id {
+        id
     } else {
-        let msgs = msg
-            .channel_id
-            .messages(ctx, |retriever| retriever.limit(50))
-            .await?;
-        match discord::map_id_from_history(msgs, &ctx.cache).await {
-            Some(id) => id,
+        let msg_fut = ctx.http.channel_messages(msg.channel_id).limit(50).unwrap();
+        let msgs = match msg_fut.await {
+            Ok(msgs) => msgs,
+            Err(why) => {
+                msg.respond(&ctx, "Error while retrieving messages").await?;
+                return Err(why.into());
+            }
+        };
+        match map_id_from_history(&ctx, msgs).await {
+            Some(MapIdType::Map(id)) => id,
+            Some(MapIdType::Set(_)) => {
+                let content = "Looks like you gave me a mapset id, I need a map id though";
+                return msg.respond(&ctx, content).await;
+            }
             None => {
-                let content = "No map embed found in this channel's recent history.\n\
-                        Try specifying a map either by url to the map, \
-                        or just by map id.";
+                let content = "No beatmap specified and none found in recent channel history. \
+                    Try specifying a map either by url to the map, or just by map id.";
                 return msg.respond(&ctx, content).await;
             }
         }
     };
 
     // Retrieving the beatmap
-    let (map_to_db, map) = {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_beatmap(map_id).await {
-            Ok(map) => (false, map),
-            Err(_) => {
-                let map_req = BeatmapRequest::new().map_id(map_id);
-                let osu = data.get::<Osu>().unwrap();
-                let map = match map_req.queue_single(&osu).await {
-                    Ok(result) => match result {
-                        Some(map) => map,
-                        None => {
-                            let content = format!(
-                                "Could not find beatmap with id `{}`. \
-                                        Did you give me a mapset id instead of a map id?",
-                                map_id
-                            );
-                            return msg.respond(&ctx, content).await;
-                        }
-                    },
-                    Err(why) => {
-                        msg.respond(&ctx, OSU_API_ISSUE).await?;
-                        return Err(why.into());
-                    }
-                };
-                (
-                    map.approval_status == Ranked
-                        || map.approval_status == Loved
-                        || map.approval_status == Approved,
-                    map,
-                )
+    let map = match ctx.psql().get_beatmap(map_id).await {
+        Ok(map) => map,
+        Err(_) => {
+            let map_req = BeatmapRequest::new().map_id(map_id);
+            match map_req.queue_single(ctx.osu()).await {
+                Ok(Some(map)) => map,
+                Ok(None) => {
+                    let content = format!(
+                        "Could not find beatmap with id `{}`. \
+                        Did you give me a mapset id instead of a map id?",
+                        map_id
+                    );
+                    return msg.respond(&ctx, content).await;
+                }
+                Err(why) => {
+                    msg.respond(&ctx, OSU_API_ISSUE).await?;
+                    return Err(why.into());
+                }
             }
         }
     };
@@ -98,8 +94,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     }
 
     // Accumulate all necessary data
-    let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match SimulateEmbed::new(None, map, args.into(), ctx).await {
+    let data = match SimulateEmbed::new(None, &map, args.into(), ctx.clone()).await {
         Ok(data) => data,
         Err(why) => {
             msg.respond(&ctx, GENERAL_ISSUE).await?;
@@ -116,12 +111,10 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         .await?;
 
     // Add map to database if its not in already
-    if let Some(map) = map_copy {
-        if let Err(why) = ctx.clients.psql.insert_beatmap(&map).await {
-            warn!("Could not add map to DB: {}", why);
-        }
+    if let Err(why) = ctx.psql().insert_beatmap(&map).await {
+        warn!("Could not add map to DB: {}", why);
     }
-    response.reaction_delete(ctx, msg.author.id);
+    response.reaction_delete(&ctx, msg.author.id);
 
     // Minimize embed after delay
     time::delay_for(Duration::from_secs(45)).await;

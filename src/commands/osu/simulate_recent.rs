@@ -51,33 +51,21 @@ async fn simulate_recent_main(
             return Err(why.into());
         }
     };
-    let map_id = score.beatmap_id.unwrap();
 
     // Retrieving the score's beatmap
-    let (map_to_db, map) = {
-        match ctx.psql().get_beatmap(map_id).await {
-            Ok(map) => (false, map),
-            Err(_) => {
-                let map = match score.get_beatmap(ctx.osu()).await {
-                    Ok(m) => m,
-                    Err(why) => {
-                        msg.respond(&ctx, OSU_API_ISSUE).await?;
-                        return Err(why.into());
-                    }
-                };
-                (
-                    map.approval_status == Ranked
-                        || map.approval_status == Loved
-                        || map.approval_status == Approved,
-                    map,
-                )
+    let map = match ctx.psql().get_beatmap(score.beatmap_id.unwrap()).await {
+        Ok(map) => map,
+        Err(_) => match score.get_beatmap(ctx.osu()).await {
+            Ok(m) => m,
+            Err(why) => {
+                msg.respond(&ctx, OSU_API_ISSUE).await?;
+                return Err(why.into());
             }
-        }
+        },
     };
 
     // Accumulate all necessary data
-    let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match SimulateEmbed::new(Some(score), map, args.into(), ctx.clone()).await {
+    let data = match SimulateEmbed::new(Some(score), &map, args.into(), ctx.clone()).await {
         Ok(data) => data,
         Err(why) => {
             msg.respond(&ctx, GENERAL_ISSUE).await?;
@@ -95,10 +83,8 @@ async fn simulate_recent_main(
         .await?;
 
     // Add map to database if its not in already
-    if let Some(map) = map_copy {
-        if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-            warn!("Could not add map to DB: {}", why);
-        }
+    if let Err(why) = ctx.psql().insert_beatmap(&map).await {
+        warn!("Could not add map to DB: {}", why);
     }
 
     response.reaction_delete(&ctx, msg.author.id);

@@ -40,18 +40,18 @@ pub struct SimulateEmbed {
 impl SimulateEmbed {
     pub async fn new(
         score: Option<Score>,
-        map: Beatmap,
+        map: &Beatmap,
         args: SimulateArgs,
         ctx: Arc<Context>,
     ) -> BotResult<Self> {
         let is_some = args.is_some();
         let title = if map.mode == GameMode::MNA {
-            format!("{} {}", osu::get_keys(GameMods::default(), &map), map)
+            format!("{} {}", osu::get_keys(GameMods::default(), map), map)
         } else {
             map.to_string()
         };
         let (prev_pp, prev_combo, prev_hits, misses) = if let Some(ref s) = score {
-            let mut calculator = PPCalculator::new().score(s).map(&map).ctx(ctx.clone());
+            let mut calculator = PPCalculator::new().score(s).map(map).ctx(ctx.clone());
             calculator.calculate(Calculations::PP).await?;
             let prev_pp = Some(round(calculator.pp().unwrap()));
             let prev_combo = if map.mode == GameMode::STD {
@@ -66,17 +66,17 @@ impl SimulateEmbed {
         };
         let mut unchoked_score = score.unwrap_or_default();
         if is_some {
-            // simulate_score(&mut unchoked_score, &map, args);
+            // simulate_score(&mut unchoked_score, map, args);
             // TODO
             todo!()
         } else {
-            unchoke_score(&mut unchoked_score, &map);
+            unchoke_score(&mut unchoked_score, map);
         }
         let grade_completion_mods = unchoked_score.grade_completion_mods(map.mode, &ctx);
         let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
         let mut calculator = PPCalculator::new()
             .score(&unchoked_score)
-            .map(&map)
+            .map(map)
             .ctx(ctx.clone());
         calculator.calculate(calculations).await?;
         let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
@@ -84,7 +84,7 @@ impl SimulateEmbed {
         let hits = unchoked_score.hits_string(map.mode);
         let (combo, acc) = match map.mode {
             GameMode::STD => (
-                osu::get_combo(&unchoked_score, &map),
+                osu::get_combo(&unchoked_score, map),
                 round(unchoked_score.accuracy(map.mode)),
             ),
             GameMode::MNA => (String::from("**-**/-"), 100.0),
@@ -121,7 +121,6 @@ impl SimulateEmbed {
                 "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
                 map.beatmapset_id
             ),
-
             grade_completion_mods,
             stars,
             score,
@@ -129,7 +128,7 @@ impl SimulateEmbed {
             pp,
             combo,
             hits,
-            map_info: osu::get_map_info(&map),
+            map_info: osu::get_map_info(map),
             removed_misses: misses,
             prev_hits,
             prev_combo,

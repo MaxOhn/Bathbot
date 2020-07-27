@@ -4,6 +4,7 @@ use crate::{
     embeds::{EmbedData, ScoresEmbed},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        osu::{map_id_from_history, MapIdType},
         MessageExt,
     },
     BotResult, Context,
@@ -27,8 +28,8 @@ use twilight::model::channel::Message;
 #[aliases("c", "compare")]
 async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = NameMapArgs::new(args);
-    let map_id = if let Some(map_id) = args.map_id {
-        map_id
+    let map_id = if let Some(id) = args.map_id {
+        id.id()
     } else {
         let msg_fut = ctx.http.channel_messages(msg.channel_id).limit(50).unwrap();
         let msgs = match msg_fut.await {
@@ -38,12 +39,15 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
                 return Err(why.into());
             }
         };
-        match discord::map_id_from_history(msgs, &ctx).await {
-            Some(id) => id,
+        match map_id_from_history(&ctx, msgs).await {
+            Some(MapIdType::Map(id)) => id,
+            Some(MapIdType::Set(_)) => {
+                let content = "Looks like you gave me a mapset id, I need a map id though";
+                return msg.respond(&ctx, content).await;
+            }
             None => {
-                let content = "No map embed found in this channel's recent history.\n\
-                         Try specifying a map as last argument either by url to the map, \
-                         or just by map id.";
+                let content = "No beatmap specified and none found in recent channel history. \
+                    Try specifying a map either by url to the map, or just by map id.";
                 return msg.respond(&ctx, content).await;
             }
         }
@@ -54,51 +58,36 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
 
     // Retrieving the beatmap
-    let map = {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_beatmap(map_id).await {
-            Ok(map) => map,
-            Err(_) => {
-                let map_req = BeatmapRequest::new().map_id(map_id);
-                let osu = data.get::<Osu>().unwrap();
-                match map_req.queue_single(&osu).await {
-                    Ok(result) => match result {
-                        Some(map) => map,
-                        None => {
-                            let content = format!(
-                                "Could not find beatmap with id `{}`. \
-                                Did you give me a mapset id instead of a map id?",
-                                map_id
-                            );
-                            msg.respond(&ctx, content).await?;
-                            return Ok(());
-                        }
-                    },
-                    Err(why) => {
-                        msg.respond(&ctx, OSU_API_ISSUE).await?;
-                        return Err(why.into());
-                    }
+    let map = match ctx.psql().get_beatmap(map_id).await {
+        Ok(map) => map,
+        Err(_) => {
+            let map_req = BeatmapRequest::new().map_id(map_id);
+            match map_req.queue_single(ctx.osu()).await {
+                Ok(Some(map)) => map,
+                Ok(None) => {
+                    let content = format!(
+                        "Could not find beatmap with id `{}`. \
+                        Did you give me a mapset id instead of a map id?",
+                        map_id
+                    );
+                    return msg.respond(&ctx, content).await;
+                }
+                Err(why) => {
+                    msg.respond(&ctx, OSU_API_ISSUE).await?;
+                    return Err(why.into());
                 }
             }
         }
     };
 
     // Retrieve user and user's scores on the map
-    let osu = &ctx.clients.osu;
     let score_req = ScoreRequest::with_map_id(map_id)
         .username(&name)
         .mode(map.mode);
-    let scores = match score_req.queue(osu).await {
-        Ok(scores) => scores,
-        Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
-            return Err(why.into());
-        }
-    };
-    let user = match ctx.osu_user(&name, map.mode).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
+    let join_result = tokio::try_join!(ctx.osu_user(&name, map.mode), score_req.queue(ctx.osu()));
+    let (user, scores) = match join_result {
+        Ok((Some(user), scores)) => (user, scores),
+        Ok((None, _)) => {
             let content = format!("Could not find user `{}`", name);
             return msg.respond(&ctx, content).await;
         }
@@ -109,7 +98,7 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
 
     // Accumulate all necessary data
-    let data = match ScoresEmbed::new(user, &map, scores, ctx).await {
+    let data = match ScoresEmbed::new(user, &map, scores, ctx.clone()).await {
         Ok(data) => data,
         Err(why) => {
             msg.respond(&ctx, GENERAL_ISSUE).await?;

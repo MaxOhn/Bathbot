@@ -25,9 +25,9 @@ pub struct ScoresEmbed {
 }
 
 impl ScoresEmbed {
-    pub async fn new<D>(
+    pub async fn new(
         user: User,
-        map: Beatmap,
+        map: &Beatmap,
         scores: Vec<Score>,
         ctx: Arc<Context>,
     ) -> BotResult<Self> {
@@ -39,7 +39,7 @@ impl ScoresEmbed {
         let mut fields = Vec::with_capacity(scores.len());
         for (i, score) in scores.into_iter().enumerate() {
             let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
-            let mut calculator = PPCalculator::new().score(&score).map(&map).ctx(ctx.clone());
+            let mut calculator = PPCalculator::new().score(&score).map(map).ctx(ctx.clone());
             calculator.calculate(calculations).await?;
             let stars = osu::get_stars(calculator.stars().unwrap());
             let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
@@ -52,12 +52,12 @@ impl ScoresEmbed {
                 acc = score.acc_string(map.mode),
             );
             if map.mode == GameMode::MNA {
-                let _ = write!(name, "\t{}", osu::get_keys(score.enabled_mods, &map));
+                let _ = write!(name, "\t{}", osu::get_keys(score.enabled_mods, map));
             }
             let value = format!(
                 "{pp}\t[ {combo} ]\t {hits}\t{ago}",
                 pp = pp,
-                combo = osu::get_combo(&score, &map),
+                combo = osu::get_combo(&score, map),
                 hits = score.hits_string(map.mode),
                 ago = how_long_ago(&score.date)
             );

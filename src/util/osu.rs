@@ -230,13 +230,13 @@ pub async fn map_id_from_history(ctx: &Context, msgs: Vec<Message>) -> Option<Ma
 
 pub enum MapIdType {
     Map(u32),
-    Mapset(u32),
+    Set(u32),
 }
 
 impl MapIdType {
     pub fn id(&self) -> u32 {
         match self {
-            Self::Map(id) | Self::Mapset(id) => *id,
+            Self::Map(id) | Self::Set(id) => *id,
         }
     }
 }
