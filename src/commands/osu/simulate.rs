@@ -37,8 +37,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     let args = match SimulateMapArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
-            msg.respond(&ctx, err_msg).await?;
-            return Ok(());
+            return msg.respond(&ctx, err_msg).await;
         }
     };
     let map_id = if let Some(map_id) = args.map_id {
@@ -54,8 +53,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
                 let content = "No map embed found in this channel's recent history.\n\
                         Try specifying a map either by url to the map, \
                         or just by map id.";
-                msg.respond(&ctx, content).await?;
-                return Ok(());
+                return msg.respond(&ctx, content).await;
             }
         }
     };
@@ -78,8 +76,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
                                         Did you give me a mapset id instead of a map id?",
                                 map_id
                             );
-                            msg.respond(&ctx, content).await?;
-                            return Ok(());
+                            return msg.respond(&ctx, content).await;
                         }
                     },
                     Err(why) => {
@@ -97,13 +94,9 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         }
     };
 
-    match map.mode {
-        GameMode::TKO | GameMode::CTB => {
-            let content = format!("I can only simulate STD and MNA maps, not {}", map.mode);
-            msg.respond(&ctx, content).await?;
-            return Ok(());
-        }
-        _ => {}
+    if let GameMode::TKO | GameMode::CTB = map.mode {
+        let content = format!("I can only simulate STD and MNA maps, not {}", map.mode);
+        return msg.respond(&ctx, content).await;
     }
 
     // Accumulate all necessary data
@@ -117,24 +110,29 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     };
 
     // Creating the embed
-    let mut response = msg
-        .channel_id
-        .send_message(ctx, |m| m.embed(|e| data.build(e)))
+    let embed = data.build().build();
+    let response = ctx
+        .http
+        .create_message(msg.channel_id)
+        .embed(embed)?
         .await?;
 
     // Add map to database if its not in already
     if let Some(map) = map_copy {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        if let Err(why) = mysql.insert_beatmap(&map).await {
-            warn!("Could not add map of simulaterecent command to DB: {}", why);
+        if let Err(why) = ctx.clients.psql.insert_beatmap(&map).await {
+            warn!("Could not add map to DB: {}", why);
         }
     }
-    response.clone().reaction_delete(ctx, msg.author.id).await;
+    response.reaction_delete(ctx, msg.author.id);
 
     // Minimize embed after delay
     time::delay_for(Duration::from_secs(45)).await;
-    if let Err(why) = response.edit(ctx, |m| m.embed(|e| data.minimize(e))).await {
+    let embed = data.minimize().build();
+    let edit_fut = ctx
+        .http
+        .update_message(response.channel_id, response.id)
+        .embed(embed)?;
+    if let Err(why) = edit_fut.await {
         warn!("Error while minimizing simulate msg: {}", why);
     }
     Ok(())

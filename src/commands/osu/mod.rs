@@ -10,12 +10,12 @@ mod pp;
 mod profile;
 mod rank;
 mod recent;
-// mod recent_lb;
+mod recent_lb;
 // mod scores;
 // mod simulate;
-// mod simulate_recent;
 mod nochoke;
 mod ratios;
+mod simulate_recent;
 mod top;
 mod whatif;
 
@@ -34,10 +34,10 @@ pub use pp::*;
 pub use profile::*;
 pub use rank::*;
 pub use recent::*;
-// pub use recent_lb::*;
+pub use recent_lb::*;
 // pub use scores::*;
 // pub use simulate::*;
-// pub use simulate_recent::*;
+pub use simulate_recent::*;
 pub use top::*;
 pub use whatif::*;
 

@@ -1,6 +1,6 @@
 use super::{Pages, Pagination};
 
-use crate::{embeds::LeaderboardEmbed, scraper::ScraperScore, BotResult, Context};
+use crate::{custom_client::ScraperScore, embeds::LeaderboardEmbed, BotResult, Context};
 
 use async_trait::async_trait;
 use rosu::models::Beatmap;
@@ -57,12 +57,12 @@ impl Pagination for LeaderboardPagination {
             .skip(self.pages.index)
             .take(self.pages.per_page);
         LeaderboardEmbed::new(
-            &self.author_name.as_deref(),
+            self.ctx.clone(),
+            self.author_name.as_deref(),
             &self.map,
             Some(scores),
             &self.first_place_icon,
             self.pages.index,
-            &self.ctx,
         )
         .await
     }

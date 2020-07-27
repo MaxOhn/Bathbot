@@ -1,7 +1,7 @@
 // mod bg_rankings;
 mod command_count;
 mod common;
-// mod leaderboard;
+mod leaderboard;
 mod most_played;
 mod most_played_common;
 mod nochoke;
@@ -12,7 +12,7 @@ mod top;
 // pub use bg_rankings::BGRankingPagination;
 pub use command_count::CommandCountPagination;
 pub use common::CommonPagination;
-// pub use leaderboard::LeaderboardPagination;
+pub use leaderboard::LeaderboardPagination;
 pub use most_played::MostPlayedPagination;
 pub use most_played_common::MostPlayedCommonPagination;
 pub use nochoke::NoChokePagination;

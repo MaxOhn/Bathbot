@@ -44,8 +44,7 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
                 let content = "No map embed found in this channel's recent history.\n\
                          Try specifying a map as last argument either by url to the map, \
                          or just by map id.";
-                msg.respond(&ctx, content).await?;
-                return Ok(());
+                return msg.respond(&ctx, content).await;
             }
         }
     };

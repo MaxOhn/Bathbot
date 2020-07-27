@@ -1,3 +1,4 @@
+use super::require_link;
 use crate::{
     arguments::{Args, SimulateNameArgs},
     embeds::{EmbedData, SimulateEmbed},
@@ -20,72 +21,44 @@ use tokio::time::{self, Duration};
 use twilight::model::channel::Message;
 
 #[allow(clippy::cognitive_complexity)]
-async fn simulate_recent_send(
+async fn simulate_recent_main(
     mode: GameMode,
     ctx: Arc<Context>,
     msg: &Message,
-    args: Args,
+    args: Args<'_>,
 ) -> BotResult<()> {
-    let args = match SimulateNameArgs::new(args) {
+    let mut args = match SimulateNameArgs::new(args) {
         Ok(args) => args,
-        Err(err_msg) => {
-            msg.respond(&ctx, err_msg).await?;
-            return Ok(());
-        }
+        Err(err_msg) => return msg.respond(&ctx, err_msg).await,
     };
-    let name = if let Some(name) = args.name.as_ref() {
-        name.clone()
-    } else {
-        let data = ctx.data.read().await;
-        let links = data.get::<DiscordLinks>().unwrap();
-        match links.get(msg.author.id.as_u64()) {
-            Some(name) => name.clone(),
-            None => {
-                msg.channel_id
-                    .say(
-                        ctx,
-                        "Either specify an osu name or link your discord \
-                        to an osu profile via `<link osuname`",
-                    )
-                    .await?
-                    .reaction_delete(ctx, msg.author.id)
-                    .await;
-                return Ok(());
-            }
-        }
+    let name = match args.name.take().or_else(|| ctx.get_link(msg.author.id.0)) {
+        Some(name) => name,
+        None => return require_link(&ctx, msg).await,
     };
 
     // Retrieve the recent score
-    let score = {
-        let request = RecentRequest::with_username(&name).mode(mode).limit(1);
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
-        let mut scores = match request.queue(osu).await {
-            Ok(scores) => scores,
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
-        };
-        match scores.pop() {
+    let request = RecentRequest::with_username(&name).mode(mode).limit(1);
+    let score = match request.queue(&ctx.clients.osu).await {
+        Ok(mut scores) => match scores.pop() {
             Some(score) => score,
             None => {
                 let content = format!("No recent plays found for user `{}`", name);
-                msg.respond(&ctx, content).await?;
-                return Ok(());
+                return msg.respond(&ctx, content).await;
             }
+        },
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
         }
     };
+    let map_id = score.beatmap_id.unwrap();
 
     // Retrieving the score's beatmap
     let (map_to_db, map) = {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_beatmap(score.beatmap_id.unwrap()).await {
+        match ctx.clients.psql.get_beatmap(map_id).await {
             Ok(map) => (false, map),
             Err(_) => {
-                let osu = data.get::<Osu>().unwrap();
-                let map = match score.get_beatmap(osu).await {
+                let map = match score.get_beatmap(&ctx.clients.osu).await {
                     Ok(m) => m,
                     Err(why) => {
                         msg.respond(&ctx, OSU_API_ISSUE).await?;
@@ -104,7 +77,7 @@ async fn simulate_recent_send(
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
-    let data = match SimulateEmbed::new(Some(score), map, args.into(), ctx).await {
+    let data = match SimulateEmbed::new(Some(score), map, args.into(), ctx.clone()).await {
         Ok(data) => data,
         Err(why) => {
             msg.respond(&ctx, GENERAL_ISSUE).await?;
@@ -113,27 +86,31 @@ async fn simulate_recent_send(
     };
 
     // Creating the embed
-    let mut response = msg
-        .channel_id
-        .send_message(&ctx.http, |m| {
-            m.content("Simulated score:").embed(|e| data.build(e))
-        })
+    let embed = data.build().build();
+    let response = ctx
+        .http
+        .create_message(msg.channel_id)
+        .content("Simulated score:")?
+        .embed(embed)?
         .await?;
 
     // Add map to database if its not in already
     if let Some(map) = map_copy {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        if let Err(why) = mysql.insert_beatmap(&map).await {
-            warn!("Could not add map of simulaterecent command to DB: {}", why);
+        if let Err(why) = ctx.clients.psql.insert_beatmap(&map).await {
+            warn!("Could not add map to DB: {}", why);
         }
     }
 
-    response.clone().reaction_delete(ctx, msg.author.id).await;
+    response.reaction_delete(&ctx, msg.author.id);
 
     // Minimize embed after delay
     time::delay_for(Duration::from_secs(45)).await;
-    if let Err(why) = response.edit(ctx, |m| m.embed(|e| data.minimize(e))).await {
+    let embed = data.minimize().build();
+    let edit_fut = ctx
+        .http
+        .update_message(response.channel_id, response.id)
+        .embed(embed)?;
+    if let Err(why) = edit_fut.await {
         warn!("Error while minimizing simulate recent msg: {}", why);
     }
     Ok(())
@@ -144,8 +121,8 @@ async fn simulate_recent_send(
 #[usage("[username] [+mods] [-a acc%] [-300 #300s] [-100 #100s] [-50 #50s] [-m #misses]")]
 #[example("badewanne3 +hr -a 99.3 -300 1422 -m 1")]
 #[aliases("sr")]
-pub async fn simulaterecent(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    simulate_recent_send(GameMode::STD, ctx, msg, args).await
+pub async fn simulaterecent(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    simulate_recent_main(GameMode::STD, ctx, msg, args).await
 }
 
 #[command]
@@ -153,6 +130,6 @@ pub async fn simulaterecent(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 #[usage("[username] [+mods] [-s score]")]
 #[example("badewanne3 +dt -s 8950000")]
 #[aliases("srm")]
-pub async fn simulaterecentmania(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    simulate_recent_send(GameMode::MNA, ctx, msg, args).await
+pub async fn simulaterecentmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    simulate_recent_main(GameMode::MNA, ctx, msg, args).await
 }

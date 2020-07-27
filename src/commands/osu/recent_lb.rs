@@ -1,10 +1,11 @@
+use super::require_link;
 use crate::{
-    arguments::{Args, ModSelection, NameModArgs},
+    arguments::{Args, NameModArgs},
     embeds::{EmbedData, LeaderboardEmbed},
     pagination::{LeaderboardPagination, Pagination},
-    scraper::Scraper,
     util::{
         constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE},
+        osu::ModSelection,
         MessageExt,
     },
     BotResult, Context,
@@ -21,76 +22,44 @@ use std::sync::Arc;
 use twilight::model::channel::Message;
 
 #[allow(clippy::cognitive_complexity)]
-async fn recent_lb_send(
+async fn recent_lb_main(
     mode: GameMode,
     national: bool,
     ctx: Arc<Context>,
     msg: &Message,
-    args: Args,
+    args: Args<'_>,
 ) -> BotResult<()> {
-    let author_name = {
-        let data = ctx.data.read().await;
-        let links = data.get::<DiscordLinks>().unwrap();
-        links.get(msg.author.id.as_u64()).cloned()
-    };
+    let author_name = ctx.get_link(msg.author.id.0);
     let args = NameModArgs::new(args);
-    let (mods, selection) = args
-        .mods
-        .unwrap_or_else(|| (GameMods::default(), ModSelection::None));
-    let name = if let Some(name) = args.name {
-        name
-    } else {
-        let data = ctx.data.read().await;
-        let links = data.get::<DiscordLinks>().unwrap();
-        match links.get(msg.author.id.as_u64()) {
-            Some(name) => name.clone(),
-            None => {
-                msg.channel_id
-                    .say(
-                        ctx,
-                        "Either specify an osu name or link your discord \
-                        to an osu profile via `<link osuname`",
-                    )
-                    .await?
-                    .reaction_delete(ctx, msg.author.id)
-                    .await;
-                return Ok(());
-            }
-        }
+    let selection = args.mods;
+    let name = match args.name.or_else(|| author_name.clone()) {
+        Some(name) => name,
+        None => return require_link(&ctx, msg).await,
     };
 
     // Retrieve the recent scores
-    let score = {
-        let request = RecentRequest::with_username(&name).mode(mode).limit(1);
-        let data = ctx.data.read().await;
-        let osu = data.get::<Osu>().unwrap();
-        match request.queue(osu).await {
-            Ok(mut score) => {
-                if let Some(score) = score.pop() {
-                    score
-                } else {
-                    let content = format!("No recent plays found for user `{}`", name);
-                    msg.respond(&ctx, content).await?;
-                    return Ok(());
-                }
+    let req = RecentRequest::with_username(&name).mode(mode).limit(1);
+    let score = match req.queue(&ctx.clients.osu).await {
+        Ok(mut scores) => match scores.pop() {
+            Some(score) => score,
+            None => {
+                let content = format!("No recent plays found for user `{}`", name);
+                return msg.respond(&ctx, content).await;
             }
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
+        },
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why.into());
         }
     };
     let map_id = score.beatmap_id.unwrap();
 
     // Retrieving the score's beatmap
     let (map_to_db, map) = {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        match mysql.get_beatmap(map_id).await {
+        match ctx.clients.psql.get_beatmap(map_id).await {
             Ok(map) => (false, map),
             Err(_) => {
-                let osu = data.get::<Osu>().unwrap();
-                let map = match score.get_beatmap(osu).await {
+                let map = match score.get_beatmap(&ctx.clients.osu).await {
                     Ok(m) => m,
                     Err(why) => {
                         msg.respond(&ctx, OSU_API_ISSUE).await?;
@@ -108,23 +77,19 @@ async fn recent_lb_send(
     };
 
     // Retrieve the map's leaderboard
-    let scores = {
-        let data = ctx.data.read().await;
-        let scraper = data.get::<Scraper>().unwrap();
-        let scores_future = scraper.get_leaderboard(
-            map_id,
-            national,
-            match selection {
-                ModSelection::Excludes | ModSelection::None => None,
-                _ => Some(&mods),
-            },
-        );
-        match scores_future.await {
-            Ok(scores) => scores,
-            Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
-            }
+    let scores_fut = ctx.clients.custom.get_leaderboard(
+        map_id,
+        national,
+        match selection {
+            Some(ModSelection::Exclude(_)) | None => None,
+            Some(ModSelection::Include(mods)) | Some(ModSelection::Exact(mods)) => Some(mods),
+        },
+    );
+    let scores = match scores_fut.await {
+        Ok(scores) => scores,
+        Err(why) => {
+            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            return Err(why);
         }
     };
     let amount = scores.len();
@@ -134,8 +99,9 @@ async fn recent_lb_send(
     let first_place_icon = scores
         .first()
         .map(|s| format!("{}{}", AVATAR_URL, s.user_id));
-    let data = match LeaderboardEmbed::new(
-        &author_name.as_deref(),
+    let data_fut = LeaderboardEmbed::new(
+        ctx.clone(),
+        author_name.as_deref(),
         &map,
         if scores.is_empty() {
             None
@@ -144,10 +110,8 @@ async fn recent_lb_send(
         },
         &first_place_icon,
         0,
-        ctx,
-    )
-    .await
-    {
+    );
+    let data = match data_fut.await {
         Ok(data) => data,
         Err(why) => {
             msg.respond(&ctx, GENERAL_ISSUE).await?;
@@ -156,47 +120,43 @@ async fn recent_lb_send(
     };
 
     // Sending the embed
-    let resp = msg
-        .channel_id
-        .send_message(&ctx.http, |m| {
-            let content = format!(
-                "I found {} scores with the specified mods on the map's leaderboard",
-                amount
-            );
-            m.content(content).embed(|e| data.build(e))
-        })
-        .await;
+    let embed = data.build().build();
+    let content = format!(
+        "I found {} scores with the specified mods on the map's leaderboard",
+        amount
+    );
+    let response = ctx
+        .http
+        .create_message(msg.channel_id)
+        .content(content)?
+        .embed(embed)?
+        .await?;
 
     // Add map to database if its not in already
     if let Some(map) = map_copy {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        if let Err(why) = mysql.insert_beatmap(&map).await {
-            warn!("Could not add map of recent command to DB: {}", why);
+        if let Err(why) = ctx.clients.psql.insert_beatmap(&map).await {
+            warn!("Could not add map to DB: {}", why);
         }
     }
 
     // Skip pagination if too few entries
     if scores.len() <= 10 {
-        resp?.reaction_delete(ctx, msg.author.id).await;
+        response.reaction_delete(&ctx, msg.author.id);
         return Ok(());
     }
 
     // Pagination
     let pagination = LeaderboardPagination::new(
-        ctx,
-        resp?,
-        msg.author.id,
+        ctx.clone(),
+        response,
         map,
         scores,
         author_name,
         first_place_icon,
-    )
-    .await;
-    let cache = Arc::clone(&ctx.cache);
-    let http = Arc::clone(&ctx.http);
+    );
+    let owner = msg.author.id;
     tokio::spawn(async move {
-        if let Err(why) = pagination.start(cache, http).await {
+        if let Err(why) = pagination.start(&ctx, owner, 60).await {
             warn!("Pagination error: {}", why)
         }
     });
@@ -212,8 +172,8 @@ async fn recent_lb_send(
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rlb")]
-pub async fn recentleaderboard(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    recent_lb_send(GameMode::STD, true, ctx, msg, args).await
+pub async fn recentleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    recent_lb_main(GameMode::STD, true, ctx, msg, args).await
 }
 
 #[command]
@@ -225,19 +185,21 @@ pub async fn recentleaderboard(ctx: Arc<Context>, msg: &Message) -> BotResult<()
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rmlb")]
-pub async fn recentmanialeaderboard(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    recent_lb_send(GameMode::MNA, true, ctx, msg, args).await
+pub async fn recentmanialeaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    recent_lb_main(GameMode::MNA, true, ctx, msg, args).await
 }
 
 #[command]
 #[short_desc("Belgian leaderboard of a map that a user recently played")]
-#[description = "Display the belgian leaderboard of a map \
-                 that a taiko user recently played. Mods can be specified"]
-#[usage = "[username] [+mods]"]
-#[example = "badewanne3 +hdhr"]
+#[long_desc(
+    "Display the belgian leaderboard of a map \
+     that a taiko user recently played. Mods can be specified"
+)]
+#[usage("[username] [+mods]")]
+#[example("badewanne3 +hdhr")]
 #[aliases("rtlb")]
-pub async fn recenttaikoleaderboard(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    recent_lb_send(GameMode::TKO, true, ctx, msg, args).await
+pub async fn recenttaikoleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    recent_lb_main(GameMode::TKO, true, ctx, msg, args).await
 }
 
 #[command]
@@ -249,8 +211,8 @@ pub async fn recenttaikoleaderboard(ctx: Arc<Context>, msg: &Message) -> BotResu
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rclb")]
-pub async fn recentctbleaderboard(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    recent_lb_send(GameMode::CTB, true, ctx, msg, args).await
+pub async fn recentctbleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    recent_lb_main(GameMode::CTB, true, ctx, msg, args).await
 }
 
 #[command]
@@ -262,8 +224,12 @@ pub async fn recentctbleaderboard(ctx: Arc<Context>, msg: &Message) -> BotResult
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rglb")]
-pub async fn recentgloballeaderboard(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    recent_lb_send(GameMode::STD, false, ctx, msg, args).await
+pub async fn recentgloballeaderboard(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+) -> BotResult<()> {
+    recent_lb_main(GameMode::STD, false, ctx, msg, args).await
 }
 
 #[command]
@@ -275,8 +241,12 @@ pub async fn recentgloballeaderboard(ctx: Arc<Context>, msg: &Message) -> BotRes
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rmglb")]
-pub async fn recentmaniagloballeaderboard(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    recent_lb_send(GameMode::MNA, false, ctx, msg, args).await
+pub async fn recentmaniagloballeaderboard(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+) -> BotResult<()> {
+    recent_lb_main(GameMode::MNA, false, ctx, msg, args).await
 }
 
 #[command]
@@ -288,8 +258,12 @@ pub async fn recentmaniagloballeaderboard(ctx: Arc<Context>, msg: &Message) -> B
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rtglb")]
-pub async fn recenttaikogloballeaderboard(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    recent_lb_send(GameMode::TKO, false, ctx, msg, args).await
+pub async fn recenttaikogloballeaderboard(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+) -> BotResult<()> {
+    recent_lb_main(GameMode::TKO, false, ctx, msg, args).await
 }
 
 #[command]
@@ -298,9 +272,13 @@ pub async fn recenttaikogloballeaderboard(ctx: Arc<Context>, msg: &Message) -> B
     "Display the global leaderboard of a map \
      that a ctb user recently played. Mods can be specified"
 )]
-#[usagei("[username] [+mods]")]
+#[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rcglb")]
-pub async fn recentctbgloballeaderboard(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    recent_lb_send(GameMode::CTB, false, ctx, msg, args).await
+pub async fn recentctbgloballeaderboard(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+) -> BotResult<()> {
+    recent_lb_main(GameMode::CTB, false, ctx, msg, args).await
 }

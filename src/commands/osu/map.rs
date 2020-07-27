@@ -49,11 +49,10 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         match discord::map_id_from_history(msgs, &ctx.cache).await {
             Some(id) => ID::Map(id),
             None => {
-                let content =
-                        "No beatmap specified and none found in recent channel history. \
-                        Try specifying a map(set) either by url to the map, or just by map(set) id.";
-                msg.respond(&ctx, content).await;
-                return Ok(());
+                let content = "No beatmap specified and none found in recent channel history. \
+                    Try specifying a map(set) either by url to the map, \
+                    or just by map(set) id.";
+                return msg.respond(&ctx, content).await;
             }
         }
     };
@@ -122,8 +121,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             }
         };
         if maps.is_empty() {
-            msg.respond(&ctx, "API returned no map for this id").await?;
-            return Ok(());
+            return msg.respond(&ctx, "API returned no map for this id").await;
         }
         let first_map_id = map_id.unwrap_or_else(|| maps.first().unwrap().beatmap_id);
         (maps, first_map_id)
@@ -166,19 +164,18 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
 
     // Accumulate all necessary data
-    let data = match MapEmbed::new(
+    let data_fut = MapEmbed::new(
         &maps[map_idx],
         mods,
         graph.is_none(),
         (map_idx + 1, maps.len()),
         Arc::clone(&ctx.data),
-    )
-    .await
-    {
+    );
+    let data = match data_fut.await {
         Ok(data) => data,
         Err(why) => {
             msg.respond(&ctx, GENERAL_ISSUE).await?;
-            return Err(why.into());
+            return Err(why);
         }
     };
 
@@ -195,38 +192,24 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         .await?;
 
     // Add missing maps to database
-    {
-        let data = ctx.data.read().await;
-        let mysql = data.get::<MySQL>().unwrap();
-        let len = maps.len();
-        match mysql.insert_beatmaps(&maps).await {
-            Ok(_) if len == 1 => {}
-            Ok(_) => info!("Added {} maps to DB", len),
-            Err(why) => warn!("Error while adding maps to DB: {}", why),
-        }
+    let len = maps.len();
+    match ctx.clients.psql.insert_beatmaps(&maps).await {
+        Ok(_) if len == 1 => {}
+        Ok(_) => info!("Added {} maps to DB", len),
+        Err(why) => warn!("Error while adding maps to DB: {}", why),
     }
 
     // Skip pagination if too few entries
     if maps.len() < 2 {
-        resp.reaction_delete(ctx, msg.author.id).await;
+        response.reaction_delete(ctx, msg.author.id);
         return Ok(());
     }
 
     // Pagination
-    let pagination = MapPagination::new(
-        ctx,
-        resp,
-        msg.author.id,
-        maps,
-        mods,
-        map_idx,
-        graph.is_none(),
-    )
-    .await;
-    let cache = Arc::clone(&ctx.cache);
-    let http = Arc::clone(&ctx.http);
+    let pagination = MapPagination::new(ctx, response, maps, mods, map_idx, graph.is_none()).await;
+    let owner = msg.author.id;
     tokio::spawn(async move {
-        if let Err(why) = pagination.start(cache, http).await {
+        if let Err(why) = pagination.start(&ctx, owner, 60).await {
             warn!("Pagination error: {}", why)
         }
     });

@@ -1,19 +1,17 @@
 use crate::{
+    custom_client::ScraperScore,
     embeds::{Author, EmbedData, Footer},
-    scraper::ScraperScore,
+    pp::{Calculations, PPCalculator},
     util::{
+        constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
-        discord::CacheData,
-        globals::{AVATAR_URL, HOMEPAGE, MAP_THUMB_URL},
-        numbers::{round, with_comma_u64},
-        osu,
-        pp::{Calculations, PPCalculator},
+        numbers::{round, with_comma_int},
+        osu, ScoreExt,
     },
+    BotResult, Context,
 };
 
-use failure::Error;
 use rosu::models::{Beatmap, GameMode};
-use serenity::prelude::{RwLock, TypeMap};
 use std::{collections::HashMap, fmt::Write, sync::Arc};
 
 #[derive(Clone)]
@@ -25,17 +23,16 @@ pub struct LeaderboardEmbed {
 }
 
 impl LeaderboardEmbed {
-    pub async fn new<'i, S, D>(
-        init_name: &Option<&str>,
+    pub async fn new<'i, S>(
+        ctx: Arc<Context>,
+        init_name: Option<&str>,
         map: &Beatmap,
         scores: Option<S>,
         author_icon: &Option<String>,
         idx: usize,
-        cache_data: D,
-    ) -> Result<Self, Error>
+    ) -> BotResult<Self>
     where
         S: Iterator<Item = &'i ScraperScore>,
-        D: CacheData,
     {
         let mut author_text = String::with_capacity(32);
         if map.mode == GameMode::MNA {
@@ -56,7 +53,7 @@ impl LeaderboardEmbed {
                     username,
                     "[{name}]({base}users/{id})",
                     name = score.username,
-                    base = HOMEPAGE,
+                    base = OSU_BASE,
                     id = score.user_id
                 );
                 if found_author {
@@ -67,18 +64,16 @@ impl LeaderboardEmbed {
                     "**{idx}.** {grade} **{name}**: {score} [ {combo} ]{mods}\n\
                     - {pp} ~ {acc}% ~ {ago}",
                     idx = idx + i + 1,
-                    grade = osu::grade_emote(score.grade, cache_data.cache())
-                        .await
-                        .to_string(),
+                    grade = score.grade_emote(map.mode, &ctx),
                     name = username,
-                    score = with_comma_u64(score.score as u64),
+                    score = with_comma_int(score.score),
                     combo = get_combo(&score, &map),
                     mods = if score.enabled_mods.is_empty() {
                         String::new()
                     } else {
                         format!(" **+{}**", score.enabled_mods)
                     },
-                    pp = get_pp(&mut mod_map, &score, &map, Arc::clone(cache_data.data())).await?,
+                    pp = get_pp(ctx.clone(), &mut mod_map, &score, &map).await?,
                     acc = round(score.accuracy),
                     ago = how_long_ago(&score.date),
                 );
@@ -87,7 +82,7 @@ impl LeaderboardEmbed {
         } else {
             "No scores found".to_string()
         };
-        let mut author = Author::new(author_text).url(format!("{}b/{}", HOMEPAGE, map.beatmap_id));
+        let mut author = Author::new(author_text).url(format!("{}b/{}", OSU_BASE, map.beatmap_id));
         if let Some(ref author_icon) = author_icon {
             author = author.icon_url(author_icon.to_owned());
         }
@@ -118,12 +113,12 @@ impl EmbedData for LeaderboardEmbed {
 }
 
 async fn get_pp(
+    ctx: Arc<Context>,
     mod_map: &mut HashMap<u32, f32>,
     score: &ScraperScore,
     map: &Beatmap,
-    data: Arc<RwLock<TypeMap>>,
-) -> Result<String, Error> {
-    let mut calculator = PPCalculator::new().score(score).map(map).data(data);
+) -> BotResult<String> {
+    let mut calculator = PPCalculator::new().score(score).map(map).ctx(ctx);
     let mut calculations = Calculations::PP;
     let bits = score.enabled_mods.bits();
     if !mod_map.contains_key(&bits) {
@@ -138,7 +133,7 @@ async fn get_pp(
 }
 
 fn get_combo(score: &ScraperScore, map: &Beatmap) -> String {
-    let mut combo = format!("**{}x**/", score.max_combo.to_string());
+    let mut combo = format!("**{}x**/", score.max_combo);
     let _ = if let Some(amount) = map.max_combo {
         write!(combo, "{}x", amount)
     } else {
