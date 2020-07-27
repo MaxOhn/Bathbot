@@ -5,7 +5,7 @@ use crate::{
     util::{
         constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
         numbers::{round, with_comma_int},
-        osu::unchoke_score,
+        osu::{simulate_score, unchoke_score},
         ScoreExt,
     },
     BotResult, Context,
@@ -66,9 +66,7 @@ impl SimulateEmbed {
         };
         let mut unchoked_score = score.unwrap_or_default();
         if is_some {
-            // simulate_score(&mut unchoked_score, map, args);
-            // TODO
-            todo!()
+            simulate_score(&mut unchoked_score, map, args);
         } else {
             unchoke_score(&mut unchoked_score, map);
         }

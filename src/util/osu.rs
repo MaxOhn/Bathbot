@@ -1,4 +1,5 @@
 use crate::{
+    arguments::SimulateArgs,
     core::CachedEmoji,
     util::{
         constants::{emotes::*, DEV_GUILD_ID, OSU_BASE},
@@ -64,66 +65,67 @@ pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadErro
     Ok(map_path)
 }
 
-// pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
-//     if let Some((mods, selection)) = args.mods {
-//         if selection == ModSelection::Exact || selection == ModSelection::Includes {
-//             score.enabled_mods = mods;
-//         }
-//     }
-//     match map.mode {
-//         GameMode::STD => {
-//             let acc = args.acc.unwrap_or_else(|| {
-//                 let acc = score.accuracy(map.mode);
-//                 if acc.is_nan() {
-//                     100.0
-//                 } else {
-//                     acc
-//                 }
-//             }) / 100.0;
-//             let n50 = args.n50.unwrap_or(0);
-//             let n100 = args.n100.unwrap_or(0);
-//             let miss = args.miss.unwrap_or(0);
-//             let total_objects = map.count_objects();
-//             let combo = args
-//                 .combo
-//                 .or_else(|| map.max_combo)
-//                 .unwrap_or_else(|| panic!("Combo of args / beatmap not found"));
-//             if n50 > 0 || n100 > 0 {
-//                 score.count300 = total_objects - n100.max(0) - n50.max(0) - miss;
-//                 score.count100 = n100;
-//                 score.count50 = n50;
-//             } else {
-//                 let target_total = (acc * 6.0 * total_objects as f32) as u32;
-//                 let delta = target_total + miss - total_objects;
-//                 score.count300 = (delta as f32 / 5.0) as u32;
-//                 score.count100 = delta % 5;
-//                 score.count50 = total_objects - score.count300 - score.count100 - miss;
-//             }
-//             score.count_miss = miss;
-//             score.max_combo = combo;
-//             score.recalculate_grade(GameMode::STD, Some(acc * 100.0));
-//         }
-//         GameMode::MNA => {
-//             score.max_combo = 0;
-//             score.score = args.score.unwrap_or(1_000_000);
-//             score.count_geki = map.count_objects();
-//             score.count300 = 0;
-//             score.count_katu = 0;
-//             score.count100 = 0;
-//             score.count50 = 0;
-//             score.count_miss = 0;
-//             score.grade = if score
-//                 .enabled_mods
-//                 .intersects(GameMods::Flashlight | GameMods::Hidden)
-//             {
-//                 Grade::XH
-//             } else {
-//                 Grade::X
-//             };
-//         }
-//         _ => panic!("Can only simulate STD and MNA scores, not {:?}", map.mode,),
-//     }
-// }
+pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
+    match args.mods {
+        Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) => {
+            score.enabled_mods = mods
+        }
+        _ => {}
+    }
+    match map.mode {
+        GameMode::STD => {
+            let acc = args.acc.unwrap_or_else(|| {
+                let acc = score.accuracy(map.mode);
+                if acc.is_nan() {
+                    100.0
+                } else {
+                    acc
+                }
+            }) / 100.0;
+            let n50 = args.n50.unwrap_or(0);
+            let n100 = args.n100.unwrap_or(0);
+            let miss = args.miss.unwrap_or(0);
+            let total_objects = map.count_objects();
+            let combo = args
+                .combo
+                .or_else(|| map.max_combo)
+                .unwrap_or_else(|| panic!("Combo of args / beatmap not found"));
+            if n50 > 0 || n100 > 0 {
+                score.count300 = total_objects - n100.max(0) - n50.max(0) - miss;
+                score.count100 = n100;
+                score.count50 = n50;
+            } else {
+                let target_total = (acc * 6.0 * total_objects as f32) as u32;
+                let delta = target_total + miss - total_objects;
+                score.count300 = (delta as f32 / 5.0) as u32;
+                score.count100 = delta % 5;
+                score.count50 = total_objects - score.count300 - score.count100 - miss;
+            }
+            score.count_miss = miss;
+            score.max_combo = combo;
+            score.recalculate_grade(GameMode::STD, Some(acc * 100.0));
+        }
+        GameMode::MNA => {
+            score.max_combo = 0;
+            score.score = args.score.unwrap_or(1_000_000);
+            score.count_geki = map.count_objects();
+            score.count300 = 0;
+            score.count_katu = 0;
+            score.count100 = 0;
+            score.count50 = 0;
+            score.count_miss = 0;
+            score.grade = if score
+                .enabled_mods
+                .intersects(GameMods::Flashlight | GameMods::Hidden)
+            {
+                Grade::XH
+            } else {
+                Grade::X
+            };
+        }
+        _ => panic!("Can only simulate STD and MNA scores, not {:?}", map.mode,),
+    }
+}
 
 pub fn unchoke_score(score: &mut Score, map: &Beatmap) {
     score.pp = None;
