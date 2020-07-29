@@ -1,3 +1,4 @@
+use super::ReactionWrapper;
 use crate::{
     bg_game::MapsetTags,
     database::MapsetTagWrapper,
@@ -7,7 +8,7 @@ use crate::{
 };
 
 use rosu::models::GameMode;
-use std::{ops::Deref, sync::Arc};
+use std::sync::Arc;
 use tokio::{stream::StreamExt, time::Duration};
 use twilight::model::{
     channel::{Message, Reaction, ReactionType},
@@ -38,21 +39,6 @@ pub async fn start(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResul
     Ok(())
 }
 
-enum ReactionWrapper {
-    Add(Reaction),
-    Remove(Reaction),
-}
-
-impl Deref for ReactionWrapper {
-    type Target = Reaction;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            Self::Add(r) | Self::Remove(r) => r,
-        }
-    }
-}
-
 async fn get_mapsets(
     ctx: &Context,
     msg: &Message,
@@ -74,14 +60,16 @@ async fn get_mapsets(
     let self_id = ctx.cache.bot_user.id;
     let reaction_add_stream = ctx
         .standby
-        .wait_for_reaction_stream(msg.id, move |event: &ReactionAdd| event.user_id != self_id)
+        .wait_for_reaction_stream(response.id, move |event: &ReactionAdd| {
+            event.user_id != self_id
+        })
         .filter_map(|reaction: ReactionAdd| Some(ReactionWrapper::Add(reaction.0)));
     let reaction_remove_stream = ctx
         .standby
-        .wait_for_event_stream(EventType::ReactionRemove, |event: &Event| true)
+        .wait_for_event_stream(EventType::ReactionRemove, |_: &Event| true)
         .filter_map(|event: Event| {
             if let Event::ReactionRemove(reaction) = event {
-                if reaction.0.message_id == msg.id && reaction.0.user_id != self_id {
+                if reaction.0.message_id == response.id && reaction.0.user_id != self_id {
                     return Some(ReactionWrapper::Remove(reaction.0));
                 }
             }
@@ -122,7 +110,7 @@ async fn get_mapsets(
 
     // Start collecting
     while let Some(Ok(reaction)) = reaction_stream.next().await {
-        let tag = if let ReactionType::Unicode { ref name } = reaction.emoji {
+        let tag = if let ReactionType::Unicode { ref name } = reaction.as_deref().emoji {
             match name.as_str() {
                 "🍋" => MapsetTags::Easy,
                 "🤓" => MapsetTags::Hard,
@@ -137,8 +125,8 @@ async fn get_mapsets(
                 "🎨" => MapsetTags::Weeb,
                 "🌀" => MapsetTags::Streams,
                 "🍨" => MapsetTags::Kpop,
-                "✅" if reaction.user_id == msg.author.id => break,
-                "❌" if reaction.user_id == msg.author.id => {
+                "✅" if reaction.as_deref().user_id == msg.author.id => break,
+                "❌" if reaction.as_deref().user_id == msg.author.id => {
                     msg.reply(ctx, "Game cancelled").await?;
                     return Ok(Vec::new());
                 }

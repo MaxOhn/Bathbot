@@ -101,7 +101,15 @@ pub fn command_groups() -> Vec<CommandGroup> {
             "twitch",
             vec![&ADDSTREAM_CMD, &REMOVESTREAM_CMD, &TRACKEDSTREAMS_CMD],
         ),
-        CommandGroup::new("fun", vec![&BACKGROUNDGAME_CMD, &MINESWEEPER_CMD]),
+        CommandGroup::new(
+            "fun",
+            vec![
+                &MINESWEEPER_CMD,
+                &BACKGROUNDGAME_CMD,
+                &BGTAGS_CMD,
+                &BGTAGSMANUAL_CMD,
+            ],
+        ),
         CommandGroup::new(
             "utility",
             vec![
@@ -116,6 +124,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &AUTHORITIES_CMD,
                 &ROLEASSIGN_CMD,
                 &LYRICS_CMD,
+                &ADDBG_CMD,
             ],
         ),
         CommandGroup::new(
