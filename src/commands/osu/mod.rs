@@ -52,5 +52,5 @@ async fn require_link(ctx: &Context, msg: &Message) -> BotResult<()> {
         to an osu profile via `{}link osuname`",
         prefix
     );
-    msg.respond(ctx, content).await
+    msg.error(ctx, content).await
 }

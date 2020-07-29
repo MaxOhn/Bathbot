@@ -1,6 +1,7 @@
 use super::require_link;
 use crate::{
     arguments::{Args, NameModArgs},
+    bail,
     embeds::{EmbedData, LeaderboardEmbed},
     pagination::{LeaderboardPagination, Pagination},
     util::{
@@ -44,11 +45,11 @@ async fn recent_lb_main(
             Some(score) => score,
             None => {
                 let content = format!("No recent plays found for user `{}`", name);
-                return msg.respond(&ctx, content).await;
+                return msg.error(&ctx, content).await;
             }
         },
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };
@@ -62,7 +63,7 @@ async fn recent_lb_main(
                 let map = match score.get_beatmap(ctx.osu()).await {
                     Ok(m) => m,
                     Err(why) => {
-                        msg.respond(&ctx, OSU_API_ISSUE).await?;
+                        let _ = msg.error(&ctx, OSU_API_ISSUE).await;
                         return Err(why.into());
                     }
                 };
@@ -88,7 +89,7 @@ async fn recent_lb_main(
     let scores = match scores_fut.await {
         Ok(scores) => scores,
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why);
         }
     };
@@ -114,8 +115,8 @@ async fn recent_lb_main(
     let data = match data_fut.await {
         Ok(data) => data,
         Err(why) => {
-            msg.respond(&ctx, GENERAL_ISSUE).await?;
-            return Err(why);
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            bail!("Error while creating embed: {}", why);
         }
     };
 

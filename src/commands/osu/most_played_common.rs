@@ -36,7 +36,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
         0 => {
             let content = "You need to specify at least one osu username. \
                     If you're not linked, you must specify at least two names.";
-            return msg.respond(&ctx, content).await;
+            return msg.error(&ctx, content).await;
         }
         1 => match ctx.get_link(msg.author.id.0) {
             Some(name) => {
@@ -50,7 +50,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
                     you must specify at least two names.",
                     prefix
                 );
-                return msg.respond(&ctx, content).await;
+                return msg.error(&ctx, content).await;
             }
         },
         _ => args.names,
@@ -58,7 +58,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 
     if names.iter().unique().count() == 1 {
         let content = "Give at least two different names";
-        return msg.respond(&ctx, content).await;
+        return msg.error(&ctx, content).await;
     }
 
     // Retrieve all users
@@ -70,7 +70,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
         Ok(users) => match users.iter().find(|(_, user)| user.is_none()) {
             Some((idx, _)) => {
                 let content = format!("User `{}` was not found", names[*idx]);
-                return msg.respond(&ctx, content).await;
+                return msg.error(&ctx, content).await;
             }
             None => users
                 .into_iter()
@@ -78,7 +78,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
                 .collect(),
         },
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };
@@ -105,7 +105,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
             .flatten()
             .collect(),
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };

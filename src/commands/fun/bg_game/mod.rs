@@ -40,7 +40,7 @@ pub async fn backgroundgame(ctx: Arc<Context>, msg: &Message, mut args: Args) ->
                 "That's not a valid subcommand. Check `{}bg` for more help.",
                 prefix
             );
-            msg.respond(&ctx, content).await
+            msg.error(&ctx, content).await
         }
     }
 }

@@ -14,7 +14,7 @@ async fn about(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     let data = match AboutEmbed::new(&ctx).await {
         Ok(data) => data,
         Err(why) => {
-            msg.respond(&ctx, GENERAL_ISSUE).await?;
+            msg.error(&ctx, GENERAL_ISSUE).await?;
             return Err(why);
         }
     };

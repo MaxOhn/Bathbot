@@ -1,6 +1,7 @@
 use super::require_link;
 use crate::{
     arguments::{Args, TopArgs},
+    bail,
     embeds::{EmbedData, TopEmbed},
     pagination::{Pagination, TopPagination},
     util::{
@@ -30,7 +31,7 @@ async fn top_main(
 ) -> BotResult<()> {
     let mut args = match TopArgs::new(args) {
         Ok(args) => args,
-        Err(err_msg) => return msg.respond(&ctx, err_msg).await,
+        Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
     let name = match args.name.take().or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
@@ -47,10 +48,10 @@ async fn top_main(
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
             let content = format!("User `{}` was not found", name);
-            return msg.respond(&ctx, content).await;
+            return msg.error(&ctx, content).await;
         }
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };
@@ -105,7 +106,7 @@ async fn top_main(
                     map
                 }
                 Err(why) => {
-                    msg.respond(&ctx, OSU_API_ISSUE).await?;
+                    let _ = msg.error(&ctx, OSU_API_ISSUE).await;
                     return Err(why.into());
                 }
             }
@@ -146,8 +147,8 @@ async fn top_main(
     {
         Ok(data) => data,
         Err(why) => {
-            msg.respond(&ctx, GENERAL_ISSUE).await?;
-            return Err(why);
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            bail!("Error while creating embed: {}", why);
         }
     };
 

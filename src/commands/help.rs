@@ -49,7 +49,15 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
 
 pub async fn help(ctx: &Context, cmds: &CommandGroups, msg: &Message) -> BotResult<()> {
     // TODO: Check permission to DM
-    let channel = ctx.http.create_private_channel(msg.author.id).await?;
+    let channel = match ctx.http.create_private_channel(msg.author.id).await {
+        Ok(channel) => channel,
+        Err(why) => {
+            let content = "Your DMs seem blocked :(\n\
+               Did you disable messages from other guild members?";
+            debug!("Error while creating DM channel: {}", why);
+            return msg.error(&ctx, content).await;
+        }
+    };
     let author = msg.author.id;
     if msg.guild_id.is_some() {
         let content = "Don't mind me sliding into your DMs :eyes:";

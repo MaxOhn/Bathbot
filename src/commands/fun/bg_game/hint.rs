@@ -1,4 +1,5 @@
 use crate::{
+    bail,
     util::{constants::GENERAL_ISSUE, error::BgGameError, MessageExt},
     Args, BotResult, Context,
 };
@@ -23,11 +24,11 @@ pub async fn hint(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
                 "No running game in this channel.\nStart one with `{}bg start`.",
                 prefix
             );
-            msg.respond(&ctx, content).await
+            msg.error(&ctx, content).await
         }
         Err(why) => {
-            msg.respond(&ctx, GENERAL_ISSUE).await?;
-            Err(why.into())
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            bail!("Error while getting hint: {}", why);
         }
     }
 }

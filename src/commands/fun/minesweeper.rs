@@ -22,7 +22,7 @@ async fn minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRes
         Some("extreme") => Difficulty::Extreme,
         _ => {
             let content = "The argument must be either `Easy`, `Medium`, `Hard`, or `Extreme`";
-            return msg.respond(&ctx, content).await;
+            return msg.error(&ctx, content).await;
         }
     };
     let game = difficulty.create();

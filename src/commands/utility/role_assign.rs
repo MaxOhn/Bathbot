@@ -29,27 +29,22 @@ use twilight::model::{
 async fn roleassign(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = match RoleAssignArgs::new(args) {
         Ok(args) => args,
-        Err(err_msg) => {
-            msg.respond(&ctx, err_msg).await?;
-            return Ok(());
-        }
+        Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
     let channel = args.channel_id;
     let msg_id = args.message_id;
     let role = args.role_id;
     let guild = msg.guild_id.unwrap();
     if ctx.cache.get_role(role, guild).is_none() {
-        msg.respond(&ctx, "Role not found in this guild").await?;
-        return Ok(());
+        return msg.error(&ctx, "Role not found in this guild").await;
     }
     if ctx.cache.get_guild_channel(channel, guild).is_none() {
-        msg.respond(&ctx, "Channel not found in this guild").await?;
-        return Ok(());
+        return msg.error(&ctx, "Channel not found in this guild").await;
     }
     let message = match ctx.http.message(channel, msg_id).await? {
         Some(message) => message,
         None => {
-            msg.respond(&ctx, "No message found with this id").await?;
+            let _ = msg.respond(&ctx, "No message found with this id").await;
             warn!(
                 "(Channel,Message) ({},{}) for roleassign was not found",
                 channel, msg_id
@@ -57,12 +52,15 @@ async fn roleassign(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
             return Ok(());
         }
     };
-    let psql = &ctx.clients.psql;
-    match psql.add_role_assign(channel.0, msg_id.0, role.0).await {
+    match ctx
+        .psql()
+        .add_role_assign(channel.0, msg_id.0, role.0)
+        .await
+    {
         Ok(_) => debug!("Inserted into role_assign table"),
         Err(why) => {
-            msg.respond(&ctx, GENERAL_ISSUE).await?;
-            return Err(why);
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            bail!("Error while getting role_assigns: {}", why);
         }
     }
     ctx.add_role_assign(channel, msg_id, role);

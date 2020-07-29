@@ -1,5 +1,6 @@
 use super::ReactionWrapper;
 use crate::{
+    bail,
     bg_game::MapsetTags,
     database::MapsetTagWrapper,
     embeds::{BGStartEmbed, BGTagsEmbed, EmbedData},
@@ -19,6 +20,7 @@ use twilight::model::{
 };
 
 #[command]
+#[bucket("bg_start")]
 #[short_desc("Start the bg game or skip the current background")]
 #[aliases("s", "resolve", "r", "skip")]
 pub async fn start(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
@@ -29,8 +31,8 @@ pub async fn start(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResul
     let mapsets = match get_mapsets(&ctx, msg, mode).await {
         Ok(mapsets) => mapsets,
         Err(why) => {
-            msg.respond(&ctx, GENERAL_ISSUE).await?;
-            return Err(why);
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            bail!("Error while getting mapsets: {}", why);
         }
     };
     if !mapsets.is_empty() {
@@ -169,8 +171,8 @@ async fn get_mapsets(
     {
         Ok(mapsets) => mapsets,
         Err(why) => {
-            msg.respond(ctx, GENERAL_ISSUE).await?;
-            return Err(why);
+            let _ = msg.error(ctx, GENERAL_ISSUE).await;
+            bail!("Error while getting specific tags: {}", why);
         }
     };
     let data = BGTagsEmbed::new(included, excluded, mapsets.len());

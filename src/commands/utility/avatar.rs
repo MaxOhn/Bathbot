@@ -21,24 +21,21 @@ async fn avatar(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let name = match NameArgs::new(args).name {
         Some(name) => name,
         None => {
-            msg.respond(&ctx, "You must specify a username").await?;
-            return Ok(());
+            return msg.error(&ctx, "You must specify a username").await;
         }
     };
     let user = {
         let req = UserRequest::with_username(&name);
-        let osu = &ctx.clients.osu;
-        match req.queue_single(osu).await {
+        match req.queue_single(ctx.osu()).await {
             Ok(user) => match user {
                 Some(user) => user,
                 None => {
-                    msg.respond(&ctx, format!("User `{}` was not found", name))
-                        .await?;
-                    return Ok(());
+                    let content = format!("User `{}` was not found", name);
+                    return msg.error(&ctx, content).await;
                 }
             },
             Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
+                msg.error(&ctx, OSU_API_ISSUE).await?;
                 return Err(why.into());
             }
         }

@@ -42,14 +42,12 @@ async fn prefix(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                 must be either `add` or `remove`, not `{}`",
                 other
             );
-            msg.respond(&ctx, content).await?;
-            return Ok(());
+            return msg.error(&ctx, content).await;
         }
     };
     if args.is_empty() {
         let content = "After the first argument you should specify some prefix(es)";
-        msg.respond(&ctx, content).await?;
-        return Ok(());
+        return msg.error(&ctx, content).await;
     }
     ctx.update_config(guild_id, |config| {
         let args = args.take(5);

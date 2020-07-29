@@ -1,6 +1,7 @@
 use super::require_link;
 use crate::{
     arguments::{Args, OsuStatsArgs},
+    bail,
     custom_client::OsuStatsScore,
     embeds::{EmbedData, OsuStatsGlobalsEmbed},
     pagination::{OsuStatsGlobalsPagination, Pagination},
@@ -26,7 +27,7 @@ async fn osustats_main(
     let name = ctx.get_link(msg.author.id.0);
     let params = match OsuStatsArgs::new(args, name, mode) {
         Ok(args) => args.params,
-        Err(err_msg) => return msg.respond(&ctx, err_msg).await,
+        Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
 
     // Retrieve user and their top global scores
@@ -38,10 +39,10 @@ async fn osustats_main(
         Ok(Some(user)) => user,
         Ok(None) => {
             let content = format!("User `{}` was not found", params.username);
-            return msg.respond(&ctx, content).await;
+            return msg.error(&ctx, content).await;
         }
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            msg.error(&ctx, OSU_API_ISSUE).await?;
             return Err(why.into());
         }
     };
@@ -54,7 +55,7 @@ async fn osustats_main(
             amount,
         ),
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            msg.error(&ctx, OSU_API_ISSUE).await?;
             return Err(why);
         }
     };
@@ -64,8 +65,8 @@ async fn osustats_main(
     let data = match OsuStatsGlobalsEmbed::new(&ctx, &user, &scores, amount, (1, pages)).await {
         Ok(data) => data,
         Err(why) => {
-            msg.respond(&ctx, GENERAL_ISSUE).await?;
-            return Err(why);
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            bail!("Error while creating embed: {}", why);
         }
     };
     let mut content = format!(

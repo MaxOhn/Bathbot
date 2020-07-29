@@ -22,7 +22,7 @@ async fn rank_main(
 ) -> BotResult<()> {
     let args = match RankArgs::new(args) {
         Ok(args) => args,
-        Err(err_msg) => return msg.respond(&ctx, err_msg).await,
+        Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
@@ -43,7 +43,7 @@ async fn rank_main(
     let rank_holder_id = match rank_holder_id_result {
         Ok(id) => id,
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why);
         }
     };
@@ -51,10 +51,10 @@ async fn rank_main(
         Ok(Some(user)) => user,
         Ok(None) => {
             let content = format!("User `{}` was not found", name);
-            return msg.respond(&ctx, content).await;
+            return msg.error(&ctx, content).await;
         }
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why);
         }
     };
@@ -65,10 +65,10 @@ async fn rank_main(
         Ok(Some(user)) => user,
         Ok(None) => {
             let content = format!("User id `{}` was not found", rank_holder_id);
-            return msg.respond(&ctx, content).await;
+            return msg.error(&ctx, content).await;
         }
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };
@@ -80,7 +80,7 @@ async fn rank_main(
         match user.get_top_scores(ctx.osu(), 100, mode).await {
             Ok(scores) => Some(scores),
             Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
                 return Err(why.into());
             }
         }

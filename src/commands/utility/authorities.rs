@@ -53,7 +53,7 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
             Some(id) => id,
             None => {
                 let content = format!("Expected role mention or role id, got `{}`", arg);
-                msg.respond(&ctx, content).await?;
+                msg.error(&ctx, content).await?;
                 return Ok(());
             }
         };
@@ -61,7 +61,7 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
             Some(role) => new_auths.push(role),
             None => {
                 let content = format!("No role with id {} found in this guild", role_id);
-                msg.respond(&ctx, content).await?;
+                msg.error(&ctx, content).await?;
                 return Ok(());
             }
         }
@@ -71,7 +71,7 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
     let mut member_roles = match ctx.cache.get_member(msg.author.id, guild_id) {
         Some(member) => member.roles.clone(),
         None => {
-            msg.respond(&ctx, GENERAL_ISSUE).await?;
+            msg.error(&ctx, GENERAL_ISSUE).await?;
             bail!("Member {} not cached for guild {}", msg.author.id, guild_id);
         }
     };
@@ -79,7 +79,7 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
     if !is_auth_with_roles(&ctx, &member_roles, guild_id) {
         let content = "You cannot set authority roles to something \
                 that would make you lose authority status.";
-        msg.respond(&ctx, content).await?;
+        msg.error(&ctx, content).await?;
         return Ok(());
     }
 
