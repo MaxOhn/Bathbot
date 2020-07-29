@@ -1,15 +1,18 @@
 pub mod constants;
 pub mod datetime;
-#[macro_use]
-pub mod error;
 pub mod exts;
 pub mod matcher;
+pub mod matrix;
 pub mod numbers;
 pub mod osu;
 mod safe_content;
 
+#[macro_use]
+pub mod error;
+
 use constants::DISCORD_CDN;
 pub use exts::*;
+pub use matrix::Matrix;
 pub use safe_content::content_safe;
 
 use crate::{util::constants::AVATAR_URL, BotResult, Context};
