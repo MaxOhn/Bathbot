@@ -17,6 +17,7 @@ impl<'m> Iterator for Args<'m> {
 }
 
 impl<'m> Args<'m> {
+    #[inline]
     pub fn new(msg: &'m str, stream: Stream<'m>) -> Self {
         Self { msg, stream }
     }

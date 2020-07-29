@@ -9,12 +9,12 @@ pub trait CustomSQL: Sized + std::fmt::Write {
         I: IntoIterator<Item = T>,
         T: std::fmt::Display,
     {
-        let _ = write!(self, " (");
+        let _ = self.write_str(" (");
         for value in values {
             let _ = write!(self, "{},", value);
         }
         self.pop();
-        let _ = write!(self, ")");
+        let _ = self.write_char(')');
         self
     }
 

@@ -77,7 +77,6 @@ RETURNING score
         tags: MapsetTags,
         value: bool,
     ) -> BotResult<()> {
-        // TODO: Set length beforehand
         let mut query = String::from("UPDATE map_tags SET").set_tags(",", tags, value)?;
         write!(query, " WHERE beatmapset_id={}", mapset_id)?;
         sqlx::query(&query).execute(&self.pool).await?;
@@ -130,7 +129,6 @@ FROM
         if included.is_empty() && excluded.is_empty() {
             return self.get_all_tags_mapset(mode).await;
         }
-        // TODO: Set length beforehand
         let mut query = format!("SELECT * FROM map_tags WHERE mode={}", mode as u8);
         query.push_str(" AND");
         if !included.is_empty() {

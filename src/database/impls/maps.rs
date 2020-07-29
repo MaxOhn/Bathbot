@@ -46,7 +46,6 @@ FROM
         if map_ids.is_empty() {
             return Ok(HashMap::new());
         }
-        // TODO: Improve in_clause ...
         let subquery = String::from("SELECT * FROM maps WHERE beatmap_id IN").in_clause(map_ids);
         let query = format!(
             "SELECT * FROM ({}) as m JOIN mapsets as ms ON m.beatmapset_id=ms.beatmapset_id",
@@ -84,7 +83,6 @@ FROM
         }
         let mut success = 0;
         let mut txn = self.pool.begin().await?;
-        // TODO: try_join?
         for map in maps.iter() {
             if _insert_map(&mut *txn, map).await? {
                 success += 1
