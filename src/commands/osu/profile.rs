@@ -57,7 +57,7 @@ async fn profile_main(
     let scores = match scores_result {
         Ok(scores) => scores,
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why);
         }
     };
