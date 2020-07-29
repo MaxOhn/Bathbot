@@ -1,4 +1,4 @@
-use crate::util::bg_game::MapsetTags;
+use crate::bg_game::MapsetTags;
 
 use rosu::models::GameMode;
 use sqlx::{postgres::PgRow, Error, FromRow};

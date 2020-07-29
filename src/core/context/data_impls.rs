@@ -1,4 +1,10 @@
-use crate::{core::stored_values::Values, database::GuildConfig, BotResult, Context};
+use crate::{
+    bg_game::GameWrapper,
+    core::stored_values::Values,
+    database::{GuildConfig, MapsetTagWrapper},
+    util::error::BgGameError,
+    BotResult, Context,
+};
 
 use dashmap::DashMap;
 use rosu::models::GameMode;
@@ -51,9 +57,14 @@ impl Context {
         config.prefixes.clone()
     }
 
-    pub fn config_first_prefix(&self, guild_id: GuildId) -> String {
-        let config = self.data.guilds.entry(guild_id).or_default();
-        config.prefixes[0].clone()
+    pub fn config_first_prefix(&self, guild_id: Option<GuildId>) -> String {
+        match guild_id {
+            Some(guild_id) => {
+                let config = self.data.guilds.entry(guild_id).or_default();
+                config.prefixes[0].clone()
+            }
+            None => "<".to_owned(),
+        }
     }
 
     pub fn config_lyrics(&self, guild_id: GuildId) -> bool {
@@ -151,6 +162,50 @@ impl Context {
 
     pub fn pp_lock(&self) -> &Mutex<()> {
         &self.data.perf_calc_mutex
+    }
+
+    pub fn add_game_and_start(
+        &self,
+        ctx: Arc<Context>,
+        channel: ChannelId,
+        mapsets: Vec<MapsetTagWrapper>,
+    ) {
+        if self.data.bg_games.get(&channel).is_some() {
+            self.data.bg_games.remove(&channel);
+        }
+        self.data
+            .bg_games
+            .entry(channel)
+            .or_insert_with(GameWrapper::new)
+            .start(ctx, channel, mapsets);
+    }
+
+    pub async fn stop_and_remove_game(&self, channel: ChannelId) -> BotResult<()> {
+        if let Some(mut game) = self.data.bg_games.get_mut(&channel) {
+            game.stop().await?;
+        }
+        self.data.bg_games.remove(&channel);
+        Ok(())
+    }
+
+    pub async fn game_hint(&self, channel: ChannelId) -> Result<String, BgGameError> {
+        match self.data.bg_games.get_mut(&channel) {
+            Some(game) => match game.hint().await? {
+                Some(hint) => Ok(hint),
+                None => Err(BgGameError::NotStarted),
+            },
+            None => Err(BgGameError::NoGame),
+        }
+    }
+
+    pub async fn game_bigger(&self, channel: ChannelId) -> Result<Vec<u8>, BgGameError> {
+        match self.data.bg_games.get_mut(&channel) {
+            Some(mut game) => match game.sub_image().await? {
+                Some(img) => Ok(img),
+                None => Err(BgGameError::NotStarted),
+            },
+            None => Err(BgGameError::NoGame),
+        }
     }
 
     /// Intended to use before shutdown

@@ -1,4 +1,4 @@
-use crate::{bail, util::bg_game::MapsetTags, BotResult};
+use crate::{bail, bg_game::MapsetTags, BotResult};
 
 pub trait CustomSQL: Sized + std::fmt::Write {
     fn pop(&mut self) -> Option<char>;

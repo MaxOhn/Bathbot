@@ -1,0 +1,17 @@
+bg_path = "path/to/bg/folder"
+
+[tokens]
+discord = ""
+osu = ""
+osu_session = ""
+twitch_client_id = ""
+twitch_token = ""
+
+[database]
+postgres = "postgres://user:password@localhost/db_name"
+redis = "localhost:port"
+
+[emoji]
+XH = "<:XH:515354675059621888>"
+F  = "<:F_:515623098947600385>"
+

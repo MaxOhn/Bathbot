@@ -1,6 +1,14 @@
-// TODO: modularize error.rs
+mod bg_game;
+mod custom_client;
+mod map_download;
+mod pp;
+mod twitch;
 
-use crate::pp::roppai::OppaiErr;
+pub use bg_game::BgGameError;
+pub use custom_client::CustomClientError;
+pub use map_download::MapDownloadError;
+pub use pp::PPError;
+pub use twitch::TwitchError;
 
 use chrono::format::ParseError as ChronoParseError;
 use darkredis::Error as RedisError;
@@ -11,7 +19,6 @@ use rosu::{models::GameMode, OsuError};
 use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
 use std::{borrow::Cow, error::Error as StdError, fmt};
-use tokio::io::Error as TokioIOError;
 use toml::de::Error as TomlError;
 use twilight::gateway::cluster::Error as ClusterError;
 use twilight::http::{
@@ -37,6 +44,7 @@ macro_rules! format_err {
 
 #[derive(Debug)]
 pub enum Error {
+    BgGame(BgGameError),
     CacheDefrost(&'static str, Box<Error>),
     CreateMessage(CreateMessageError),
     ChronoParse(ChronoParseError),
@@ -67,6 +75,7 @@ impl StdError for Error {}
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Self::BgGame(e) => write!(f, "background game error: {}", e),
             Self::CacheDefrost(reason, e) => {
                 write!(f, "error defrosting cache ({}): {}", reason, e)
             }
@@ -111,6 +120,12 @@ impl fmt::Display for Error {
                 }
             }
         }
+    }
+}
+
+impl From<BgGameError> for Error {
+    fn from(e: BgGameError) -> Self {
+        Error::BgGame(e)
     }
 }
 
@@ -215,133 +230,3 @@ impl From<UpdateMessageError> for Error {
         Error::UpdateMessage(e)
     }
 }
-
-#[derive(Debug)]
-pub enum PPError {
-    CommandLine(String),
-    MaxPP(Box<PPError>),
-    NoContext(GameMode),
-    NoMapId,
-    Oppai(OppaiErr),
-    PP(Box<PPError>),
-    Stars(Box<PPError>),
-    Timeout,
-}
-
-impl fmt::Display for PPError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::CommandLine(e) => write!(f, "command line error: {}", e),
-            Self::MaxPP(e) => write!(f, "error for max pp: {}", e),
-            Self::NoContext(m) => write!(f, "missing context for {:?}", m),
-            Self::NoMapId => f.write_str("missing map id"),
-            Self::Oppai(e) => write!(f, "error while using oppai: {}", e),
-            Self::PP(e) => write!(f, "error for pp: {}", e),
-            Self::Stars(e) => write!(f, "error for stars: {}", e),
-            Self::Timeout => f.write_str("calculation took too long, timed out"),
-        }
-    }
-}
-
-impl From<OppaiErr> for PPError {
-    fn from(e: OppaiErr) -> Self {
-        Self::Oppai(e)
-    }
-}
-
-impl StdError for PPError {}
-
-#[derive(Debug)]
-pub enum MapDownloadError {
-    CreateFile(TokioIOError),
-    NoEnv,
-    Reqwest(ReqwestError),
-}
-
-impl fmt::Display for MapDownloadError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::CreateFile(e) => write!(f, "could not create file: {}", e),
-            Self::NoEnv => f.write_str("no `BEATMAP_PATH` variable in .env file"),
-            Self::Reqwest(e) => write!(f, "reqwest error: {}", e),
-        }
-    }
-}
-
-impl From<TokioIOError> for MapDownloadError {
-    fn from(e: TokioIOError) -> Self {
-        Self::CreateFile(e)
-    }
-}
-
-impl From<ReqwestError> for MapDownloadError {
-    fn from(e: ReqwestError) -> Self {
-        Self::Reqwest(e)
-    }
-}
-
-impl StdError for MapDownloadError {}
-
-#[derive(Debug)]
-pub enum CustomClientError {
-    DataUserId,
-    RankIndex(usize),
-    RankingPageTable,
-    RankNode(u8),
-    TBody,
-}
-
-impl fmt::Display for CustomClientError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::DataUserId => f.write_str("no attribute `data-user-id`"),
-            Self::RankIndex(n) => write!(f, "expected rank between 1 and 10_000, got {}", n),
-            Self::RankingPageTable => f.write_str("no class `ranking-page-table`"),
-            Self::RankNode(n) => write!(f, "error at unwrap {}, expected  child", n),
-            Self::TBody => f.write_str("no element `tbody`"),
-        }
-    }
-}
-
-impl StdError for CustomClientError {}
-
-#[derive(Debug)]
-pub enum TwitchError {
-    InvalidAuth(SerdeJsonError),
-    InvalidHeader(InvalidHeaderValue),
-    NoUserResult(String),
-    Reqwest(ReqwestError),
-    Serde(SerdeJsonError),
-}
-
-impl fmt::Display for TwitchError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::InvalidAuth(e) => write!(f, "invalid auth response: {}", e),
-            Self::InvalidHeader(e) => write!(f, "invalid client id: {}", e),
-            Self::NoUserResult(n) => write!(f, "no result for name `{}`", n),
-            Self::Reqwest(e) => write!(f, "reqwest error: {}", e),
-            Self::Serde(e) => write!(f, "error while deserializing: {}", e),
-        }
-    }
-}
-
-impl From<InvalidHeaderValue> for TwitchError {
-    fn from(e: InvalidHeaderValue) -> Self {
-        Self::InvalidHeader(e)
-    }
-}
-
-impl From<ReqwestError> for TwitchError {
-    fn from(e: ReqwestError) -> Self {
-        Self::Reqwest(e)
-    }
-}
-
-impl From<SerdeJsonError> for TwitchError {
-    fn from(e: SerdeJsonError) -> Self {
-        Self::Serde(e)
-    }
-}
-
-impl StdError for TwitchError {}

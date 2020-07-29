@@ -1,6 +1,6 @@
 use crate::{
+    bg_game::MapsetTags,
     database::{util::CustomSQL, MapsetTagWrapper},
-    util::bg_game::MapsetTags,
     BotResult, Database,
 };
 

@@ -4,13 +4,14 @@ mod data_impls;
 use super::ShardState;
 
 use crate::{
+    bg_game::GameWrapper,
     core::{
         buckets::{Bucket, Ratelimit},
         stored_values::{StoredValues, Values},
         Cache, ColdRebootData,
     },
     database::{Database, GuildConfig},
-    BotResult, CustomClient, Twitch,
+    BotConfig, BotResult, CustomClient, Twitch,
 };
 
 use darkredis::ConnectionPool;
@@ -30,7 +31,7 @@ use twilight::model::{
         payload::UpdateStatus,
         presence::{Activity, ActivityType, Status},
     },
-    id::GuildId,
+    id::{ChannelId, GuildId},
 };
 use twilight::standby::Standby;
 
@@ -43,6 +44,8 @@ pub struct Context {
     pub buckets: Buckets,
     pub backend: BackendData,
     pub clients: Clients,
+    pub config: BotConfig,
+    // private to avoid deadlocks by messing up references
     data: ContextData,
 }
 
@@ -70,6 +73,7 @@ pub struct ContextData {
     // Mapping (channel id, message id) to role id
     pub role_assigns: DashMap<(u64, u64), u64>,
     pub discord_links: DashMap<u64, String>,
+    pub bg_games: DashMap<ChannelId, GameWrapper>,
 }
 
 impl Context {
@@ -79,6 +83,7 @@ impl Context {
         clients: Clients,
         backend: BackendData,
         data: ContextData,
+        config: BotConfig,
     ) -> Self {
         cache
             .stats
@@ -93,6 +98,7 @@ impl Context {
             backend,
             data,
             buckets: buckets(),
+            config,
         }
     }
 

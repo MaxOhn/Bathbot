@@ -1,4 +1,4 @@
-// mod bg_rankings;
+mod bg_rankings;
 mod command_count;
 mod common;
 mod leaderboard;
@@ -10,7 +10,7 @@ mod osustats_globals;
 mod recent;
 mod top;
 
-// pub use bg_rankings::BGRankingPagination;
+pub use bg_rankings::BGRankingPagination;
 pub use command_count::CommandCountPagination;
 pub use common::CommonPagination;
 pub use leaderboard::LeaderboardPagination;

@@ -29,8 +29,8 @@ pub struct DBMapSet {
     pub title: String,
     creator_id: u32,
     creator: String,
-    genre: u8,
-    language: u8,
+    genre: i8,
+    language: i8,
     approval_status: i8,
     approved_date: Option<DateTime<Utc>>,
 }

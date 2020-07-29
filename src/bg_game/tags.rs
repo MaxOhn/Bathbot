@@ -1,4 +1,4 @@
-#![allow(dead_code, non_upper_case_globals)]
+#![allow(non_upper_case_globals)]
 use bitflags::bitflags;
 use std::{fmt::Write, str::FromStr};
 

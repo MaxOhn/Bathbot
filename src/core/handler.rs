@@ -196,7 +196,7 @@ fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>> {
     }
     let auth_roles = ctx.config_authorities_collect(guild_id, RoleId);
     if auth_roles.is_empty() {
-        let prefix = ctx.config_first_prefix(guild_id);
+        let prefix = ctx.config_first_prefix(Some(guild_id));
         let content = format!(
             "You need admin permissions to use this command.\n\
                     (`{}help authorities` to adjust authority status for this guild)",
@@ -223,7 +223,7 @@ fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>> {
             for role in roles {
                 let _ = write!(content, ", {}", role);
             }
-            let prefix = ctx.config_first_prefix(guild_id);
+            let prefix = ctx.config_first_prefix(Some(guild_id));
             let _ = write!(
                 content,
                 "\n(`{}help authorities` to adjust authority status for this guild)",
@@ -239,7 +239,13 @@ fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>> {
 
 async fn check_ratelimit(ctx: &Context, msg: &Message, bucket: &str) -> Option<i64> {
     let rate_limit = {
-        let guard = ctx.buckets.get(bucket).unwrap();
+        let guard = match ctx.buckets.get(bucket) {
+            Some(guard) => guard,
+            None => {
+                error!("No bucket called `{}`", bucket);
+                return None;
+            }
+        };
         let mutex = guard.value();
         let mut bucket = mutex.lock().await;
         bucket.take(msg.author.id.0)

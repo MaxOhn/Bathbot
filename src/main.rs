@@ -1,9 +1,8 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-// TODO: Use emotes from config
-
 mod arguments;
+mod bg_game;
 mod commands;
 mod core;
 mod custom_client;
@@ -70,7 +69,7 @@ async fn async_main() -> BotResult<()> {
     logging::initialize()?;
 
     // Load config file
-    let config = BotConfig::new("config.toml")?;
+    let config = BotConfig::new("config.toml").await?;
 
     // Connect to osu! API
     let osu = Osu::new(config.tokens.osu.clone());
@@ -142,6 +141,7 @@ async fn run(
         stored_values,
         perf_calc_mutex: Mutex::new(()),
         discord_links,
+        bg_games: DashMap::new(),
     };
 
     // Shard-cluster config
@@ -242,7 +242,7 @@ async fn run(
     };
 
     // Final context
-    let ctx = Arc::new(Context::new(cache, http, clients, backend, data).await);
+    let ctx = Arc::new(Context::new(cache, http, clients, backend, data, config).await);
 
     // Setup graceful shutdown
     let shutdown_ctx = ctx.clone();

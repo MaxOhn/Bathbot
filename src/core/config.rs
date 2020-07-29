@@ -1,13 +1,15 @@
-use crate::util::{error::Error, matcher};
+use crate::{util::matcher, BotResult, Error};
 
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
-use std::{collections::HashMap, fs};
+use std::{collections::HashMap, path::PathBuf};
+use tokio::fs;
 
 #[derive(Deserialize, Debug)]
 pub struct BotConfig {
     pub tokens: Tokens,
     pub database: Database,
+    pub bg_path: PathBuf,
     pub emoji: HashMap<String, String>,
 }
 
@@ -26,11 +28,14 @@ pub struct Database {
     pub redis: String,
 }
 
+// TODO: Use this for emojis
 pub static EMOJI_OVERRIDES: OnceCell<HashMap<String, String>> = OnceCell::new();
 
 impl BotConfig {
-    pub fn new(filename: &str) -> Result<Self, Error> {
-        let config_file = fs::read_to_string(filename).map_err(|_| Error::NoConfig)?;
+    pub async fn new(filename: &str) -> BotResult<Self> {
+        let config_file = fs::read_to_string(filename)
+            .await
+            .map_err(|_| Error::NoConfig)?;
         toml::from_str::<BotConfig>(&config_file)
             .map(|c| {
                 let mut override_map: HashMap<String, String> = HashMap::new();

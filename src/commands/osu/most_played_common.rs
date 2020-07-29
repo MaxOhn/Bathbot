@@ -44,10 +44,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
                 args.names
             }
             None => {
-                let prefix = match msg.guild_id {
-                    Some(guild_id) => ctx.config_first_prefix(guild_id),
-                    None => "<".to_owned(),
-                };
+                let prefix = ctx.config_first_prefix(msg.guild_id);
                 let content = format!(
                     "Since you're not linked via `{}link`, \
                     you must specify at least two names.",

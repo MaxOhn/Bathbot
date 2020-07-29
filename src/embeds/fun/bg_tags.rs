@@ -1,4 +1,4 @@
-use crate::{commands::utility::MapsetTags, embeds::EmbedData};
+use crate::{bg_game::MapsetTags, embeds::EmbedData};
 
 #[derive(Clone)]
 pub struct BGTagsEmbed {

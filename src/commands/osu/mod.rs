@@ -46,10 +46,7 @@ use crate::{util::MessageExt, BotResult, Context};
 use twilight::model::channel::Message;
 
 async fn require_link(ctx: &Context, msg: &Message) -> BotResult<()> {
-    let prefix = match msg.guild_id {
-        Some(guild_id) => ctx.config_first_prefix(guild_id),
-        None => String::from("<"),
-    };
+    let prefix = ctx.config_first_prefix(msg.guild_id);
     let content = format!(
         "Either specify an osu name or link your discord \
         to an osu profile via `{}link osuname`",

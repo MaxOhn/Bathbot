@@ -1,5 +1,5 @@
 use crate::{
-    database::{util::CustomSQL, BeatmapWrapper},
+    database::{util::CustomSQL, BeatmapWrapper, DBMapSet},
     BotResult, Database,
 };
 
@@ -34,13 +34,13 @@ FROM
         Ok(map.into())
     }
 
-    // pub async fn get_beatmapset(&self, mapset_id: u32) -> BotResult<DBMapSet> {
-    //     let mapset: DBMapSet = sqlx::query_as("SELECT * FROM mapsets WHERE beatmapset_id=?")
-    //         .bind(mapset_id)
-    //         .fetch_one(&self.pool)
-    //         .await?;
-    //     Ok(mapset)
-    // }
+    pub async fn get_beatmapset(&self, mapset_id: u32) -> BotResult<DBMapSet> {
+        let mapset: DBMapSet = sqlx::query_as("SELECT * FROM mapsets WHERE beatmapset_id=?")
+            .bind(mapset_id)
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(mapset)
+    }
 
     pub async fn get_beatmaps(&self, map_ids: &[u32]) -> BotResult<HashMap<u32, Beatmap>> {
         if map_ids.is_empty() {
