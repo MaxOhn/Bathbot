@@ -73,36 +73,21 @@ pub struct BotStats {
 }
 
 impl BotStats {
+    #[rustfmt::skip]
     pub fn new() -> Self {
-        let event_counter = IntCounterVec::new(
-            Opts::new("gateway_events", "Events received from the gateway"),
-            &["events"],
-        )
-        .unwrap();
-        let message_counter =
-            IntCounterVec::new(Opts::new("messages", "Recieved messages"), &["sender_type"])
-                .unwrap();
-        let user_counter =
-            IntGaugeVec::new(Opts::new("user_counts", "User counts"), &["type"]).unwrap();
-        let shard_counter = IntGaugeVec::new(
-            Opts::new("shard_counts", "State counts for our shards"),
-            &["state"],
-        )
-        .unwrap();
+        let event_counter = IntCounterVec::new(Opts::new("gateway_events", "Events received from the gateway"), &["events"]).unwrap();
+        let message_counter =IntCounterVec::new(Opts::new("messages", "Recieved messages"), &["sender_type"]).unwrap();
+        let user_counter =IntGaugeVec::new(Opts::new("user_counts", "User counts"), &["type"]).unwrap();
+        let shard_counter = IntGaugeVec::new(Opts::new("shard_counts", "State counts for our shards"),&["state"],).unwrap();
         let channel_count = IntGauge::with_opts(Opts::new("channels", "Channel count")).unwrap();
-        let guild_counter =
-            IntGaugeVec::new(Opts::new("guild_counts", "State of the guilds"), &["state"]).unwrap();
-        let command_counts =
-            IntCounterVec::new(Opts::new("commands", "Executed commands"), &["name"]).unwrap();
+        let guild_counter =IntGaugeVec::new(Opts::new("guild_counts", "State of the guilds"), &["state"]).unwrap();
+        let command_counts =IntCounterVec::new(Opts::new("commands", "Executed commands"), &["name"]).unwrap();
 
         let mut static_labels = HashMap::new();
         static_labels.insert(String::from("cluster"), 0.to_string());
-        let registry =
-            Registry::new_custom(Some(String::from("bathbot")), Some(static_labels)).unwrap();
+        let registry =Registry::new_custom(Some(String::from("bathbot")), Some(static_labels)).unwrap();
         registry.register(Box::new(event_counter.clone())).unwrap();
-        registry
-            .register(Box::new(message_counter.clone()))
-            .unwrap();
+        registry.register(Box::new(message_counter.clone())).unwrap();
         registry.register(Box::new(user_counter.clone())).unwrap();
         registry.register(Box::new(shard_counter.clone())).unwrap();
         registry.register(Box::new(channel_count.clone())).unwrap();
@@ -112,132 +97,54 @@ impl BotStats {
             registry,
             start_time: Utc::now(),
             event_counts: EventStats {
-                channel_create: event_counter
-                    .get_metric_with_label_values(&["ChannelCreate"])
-                    .unwrap(),
-                channel_delete: event_counter
-                    .get_metric_with_label_values(&["ChannelDelete"])
-                    .unwrap(),
-                gateway_reconnect: event_counter
-                    .get_metric_with_label_values(&["GatewayReconnect"])
-                    .unwrap(),
-                channel_pins_update: event_counter
-                    .get_metric_with_label_values(&["ChannelPinsUpdate"])
-                    .unwrap(),
-                guild_create: event_counter
-                    .get_metric_with_label_values(&["GuildCreate"])
-                    .unwrap(),
-                guild_delete: event_counter
-                    .get_metric_with_label_values(&["GuildDelete"])
-                    .unwrap(),
-                guild_update: event_counter
-                    .get_metric_with_label_values(&["GuildUpdate"])
-                    .unwrap(),
-                member_add: event_counter
-                    .get_metric_with_label_values(&["MemberAdd"])
-                    .unwrap(),
-                member_remove: event_counter
-                    .get_metric_with_label_values(&["MemberRemove"])
-                    .unwrap(),
-                member_update: event_counter
-                    .get_metric_with_label_values(&["MemberUpdate"])
-                    .unwrap(),
-                member_chunk: event_counter
-                    .get_metric_with_label_values(&["MemberChunk"])
-                    .unwrap(),
-                message_create: event_counter
-                    .get_metric_with_label_values(&["MessageCreate"])
-                    .unwrap(),
-                message_delete: event_counter
-                    .get_metric_with_label_values(&["MessageDelete"])
-                    .unwrap(),
-                message_delete_bulk: event_counter
-                    .get_metric_with_label_values(&["MessageDeleteBulk"])
-                    .unwrap(),
-                message_update: event_counter
-                    .get_metric_with_label_values(&["MessageUpdate"])
-                    .unwrap(),
-                presence_update: event_counter
-                    .get_metric_with_label_values(&["PresenceUpdate"])
-                    .unwrap(),
-                presences_replace: event_counter
-                    .get_metric_with_label_values(&["PresencesReplace"])
-                    .unwrap(),
-                reaction_add: event_counter
-                    .get_metric_with_label_values(&["ReactionAdd"])
-                    .unwrap(),
-                reaction_remove: event_counter
-                    .get_metric_with_label_values(&["ReactionRemove"])
-                    .unwrap(),
-                reaction_remove_all: event_counter
-                    .get_metric_with_label_values(&["ReactionRemoveAll"])
-                    .unwrap(),
-                reaction_remove_emoji: event_counter
-                    .get_metric_with_label_values(&["ReactionRemoveEmoji"])
-                    .unwrap(),
-                unavailable_guild: event_counter
-                    .get_metric_with_label_values(&["UnavailableGuild"])
-                    .unwrap(),
-                user_update: event_counter
-                    .get_metric_with_label_values(&["UserUpdate"])
-                    .unwrap(),
+                channel_create: event_counter.get_metric_with_label_values(&["ChannelCreate"]).unwrap(),
+                channel_delete: event_counter.get_metric_with_label_values(&["ChannelDelete"]).unwrap(),
+                gateway_reconnect: event_counter.get_metric_with_label_values(&["GatewayReconnect"]).unwrap(),
+                channel_pins_update: event_counter.get_metric_with_label_values(&["ChannelPinsUpdate"]).unwrap(),
+                guild_create: event_counter.get_metric_with_label_values(&["GuildCreate"]).unwrap(),
+                guild_delete: event_counter.get_metric_with_label_values(&["GuildDelete"]).unwrap(),
+                guild_update: event_counter.get_metric_with_label_values(&["GuildUpdate"]).unwrap(),
+                member_add: event_counter.get_metric_with_label_values(&["MemberAdd"]).unwrap(),
+                member_remove: event_counter.get_metric_with_label_values(&["MemberRemove"]).unwrap(),
+                member_update: event_counter.get_metric_with_label_values(&["MemberUpdate"]).unwrap(),
+                member_chunk: event_counter.get_metric_with_label_values(&["MemberChunk"]).unwrap(),
+                message_create: event_counter.get_metric_with_label_values(&["MessageCreate"]).unwrap(),
+                message_delete: event_counter.get_metric_with_label_values(&["MessageDelete"]).unwrap(),
+                message_delete_bulk: event_counter.get_metric_with_label_values(&["MessageDeleteBulk"]).unwrap(),
+                message_update: event_counter.get_metric_with_label_values(&["MessageUpdate"]).unwrap(),
+                presence_update: event_counter.get_metric_with_label_values(&["PresenceUpdate"]).unwrap(),
+                presences_replace: event_counter.get_metric_with_label_values(&["PresencesReplace"]).unwrap(),
+                reaction_add: event_counter.get_metric_with_label_values(&["ReactionAdd"]).unwrap(),
+                reaction_remove: event_counter.get_metric_with_label_values(&["ReactionRemove"]).unwrap(),
+                reaction_remove_all: event_counter.get_metric_with_label_values(&["ReactionRemoveAll"]).unwrap(),
+                reaction_remove_emoji: event_counter.get_metric_with_label_values(&["ReactionRemoveEmoji"]).unwrap(),
+                unavailable_guild: event_counter.get_metric_with_label_values(&["UnavailableGuild"]).unwrap(),
+                user_update: event_counter.get_metric_with_label_values(&["UserUpdate"]).unwrap(),
             },
             message_counts: MessageCounters {
-                user_messages: message_counter
-                    .get_metric_with_label_values(&["user"])
-                    .unwrap(),
-                other_bot_messages: message_counter
-                    .get_metric_with_label_values(&["bot"])
-                    .unwrap(),
-                own_messages: message_counter
-                    .get_metric_with_label_values(&["own"])
-                    .unwrap(),
+                user_messages: message_counter.get_metric_with_label_values(&["user"]).unwrap(),
+                other_bot_messages: message_counter.get_metric_with_label_values(&["bot"]).unwrap(),
+                own_messages: message_counter.get_metric_with_label_values(&["own"]).unwrap(),
             },
             user_counts: UserCounters {
-                unique: user_counter
-                    .get_metric_with_label_values(&["unique"])
-                    .unwrap(),
-                total: user_counter
-                    .get_metric_with_label_values(&["total"])
-                    .unwrap(),
+                unique: user_counter.get_metric_with_label_values(&["unique"]).unwrap(),
+                total: user_counter.get_metric_with_label_values(&["total"]).unwrap(),
             },
             guild_counts: GuildCounters {
-                partial: guild_counter
-                    .get_metric_with_label_values(&["partial"])
-                    .unwrap(),
-                loaded: guild_counter
-                    .get_metric_with_label_values(&["loaded"])
-                    .unwrap(),
-                outage: guild_counter
-                    .get_metric_with_label_values(&["outage"])
-                    .unwrap(),
+                partial: guild_counter.get_metric_with_label_values(&["partial"]).unwrap(),
+                loaded: guild_counter.get_metric_with_label_values(&["loaded"]).unwrap(),
+                outage: guild_counter.get_metric_with_label_values(&["outage"]).unwrap(),
             },
             channel_count,
             shard_counts: ShardStats {
-                pending: shard_counter
-                    .get_metric_with_label_values(&["pending"])
-                    .unwrap(),
-                connecting: shard_counter
-                    .get_metric_with_label_values(&["connecting"])
-                    .unwrap(),
-                identifying: shard_counter
-                    .get_metric_with_label_values(&["identifying"])
-                    .unwrap(),
-                connected: shard_counter
-                    .get_metric_with_label_values(&["connected"])
-                    .unwrap(),
-                ready: shard_counter
-                    .get_metric_with_label_values(&["ready"])
-                    .unwrap(),
-                resuming: shard_counter
-                    .get_metric_with_label_values(&["resuming"])
-                    .unwrap(),
-                reconnecting: shard_counter
-                    .get_metric_with_label_values(&["reconnecting"])
-                    .unwrap(),
-                disconnected: shard_counter
-                    .get_metric_with_label_values(&["disconnected"])
-                    .unwrap(),
+                pending: shard_counter.get_metric_with_label_values(&["pending"]).unwrap(),
+                connecting: shard_counter.get_metric_with_label_values(&["connecting"]).unwrap(),
+                identifying: shard_counter.get_metric_with_label_values(&["identifying"]).unwrap(),
+                connected: shard_counter.get_metric_with_label_values(&["connected"]).unwrap(),
+                ready: shard_counter.get_metric_with_label_values(&["ready"]).unwrap(),
+                resuming: shard_counter.get_metric_with_label_values(&["resuming"]).unwrap(),
+                reconnecting: shard_counter.get_metric_with_label_values(&["reconnecting"]).unwrap(),
+                disconnected: shard_counter.get_metric_with_label_values(&["disconnected"]).unwrap(),
             },
             command_counts,
         }
