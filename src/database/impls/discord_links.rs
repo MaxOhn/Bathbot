@@ -10,7 +10,7 @@ INSERT INTO
     discord_users
 VALUES
     ($1,$2)
-ON CONFLICT DO
+ON CONFLICT (discord_id) DO
     UPDATE
         SET osu_name=$2
 ";

@@ -81,7 +81,7 @@ INSERT INTO
     {}
 VALUES
     ({},$1)
-ON CONFLICT DO
+ON CONFLICT (beatmap_id) DO
     UPDATE
         SET values=$1",
                 table, map_id

@@ -17,7 +17,7 @@ INSERT INTO
     bggame_stats
 VALUES
     ({},1)
-ON CONFLICT DO
+ON CONFLICT (discord_id) DO
     UPDATE
         SET score=score+1
 RETURNING score

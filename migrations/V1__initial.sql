@@ -38,47 +38,47 @@ CREATE TABLE maps (
 
 CREATE TABLE ctb_pp (
     beatmap_id INT NOT NULL,
-    values JSON NOT NULL,
-    FOREIGN KEY (beatmap_id) REFERENCES maps(beatmap_id),
-    PRIMARY KEY (beatmap_id)
+    values
+        JSON NOT NULL,
+        FOREIGN KEY (beatmap_id) REFERENCES maps(beatmap_id),
+        PRIMARY KEY (beatmap_id)
 );
 
 CREATE TABLE ctb_stars (
     beatmap_id INT NOT NULL,
-    values JSON NOT NULL,
-    FOREIGN KEY (beatmap_id) REFERENCES maps(beatmap_id),
-    PRIMARY KEY (beatmap_id)
+    values
+        JSON NOT NULL,
+        FOREIGN KEY (beatmap_id) REFERENCES maps(beatmap_id),
+        PRIMARY KEY (beatmap_id)
 );
 
 CREATE TABLE mania_pp (
     beatmap_id INT NOT NULL,
-    values JSON NOT NULL,
-    FOREIGN KEY (beatmap_id) REFERENCES maps(beatmap_id),
-    PRIMARY KEY (beatmap_id)
+    values
+        JSON NOT NULL,
+        FOREIGN KEY (beatmap_id) REFERENCES maps(beatmap_id),
+        PRIMARY KEY (beatmap_id)
 );
 
 CREATE TABLE mania_stars (
     beatmap_id INT NOT NULL,
-    values JSON NOT NULL,
-    FOREIGN KEY (beatmap_id) REFERENCES maps(beatmap_id),
-    PRIMARY KEY (beatmap_id)
+    values
+        JSON NOT NULL,
+        FOREIGN KEY (beatmap_id) REFERENCES maps(beatmap_id),
+        PRIMARY KEY (beatmap_id)
 );
 
 CREATE TABLE role_assign (
     channel BIGINT NOT NULL,
     message BIGINT NOT NULL,
-    role BIGINT NOT NULL
-);
-
-CREATE TABLE twitch_users (
-    user_id BIGINT PRIMARY KEY NOT NULL,
-    name VARCHAR(31) NOT NULL
+    role BIGINT NOT NULL,
+    PRIMARY KEY (channel, message, role)
 );
 
 CREATE TABLE stream_tracks (
     channel_id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES twitch_users(user_id)
+    PRIMARY KEY (channel_id, user_id)
 );
 
 CREATE TABLE bggame_stats (
@@ -114,7 +114,7 @@ CREATE TABLE guilds (
 
 CREATE TABLE ratio_table (
     name VARCHAR(31) PRIMARY KEY NOT NULL,
-    scores CHAR[] NOT NULL,
-    ratios REAL[] NOT NULL,
-    misses REAL[] NOT NULL
+    scores CHAR [] NOT NULL,
+    ratios REAL [] NOT NULL,
+    misses REAL [] NOT NULL
 )

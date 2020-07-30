@@ -26,7 +26,7 @@ INSERT INTO
     role_assign
 VALUES
     ({},{},{role})
-ON CONFLICT DO
+ON CONFLICT (channel, message, role) DO
     UPDATE
         SET role={role}
 ",

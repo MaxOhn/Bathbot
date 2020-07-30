@@ -17,5 +17,5 @@ pub async fn rockefeller(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult
         "down the Rockefeller street.",
         "Everything is more than surreal",
     ];
-    song_send(lyrics, 2500, ctx, msg).await
+    song_send(lyrics, 2250, ctx, msg).await
 }
