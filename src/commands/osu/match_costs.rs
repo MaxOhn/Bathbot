@@ -30,7 +30,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     let args = match MatchArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => {
-            return msg.respond(&ctx, err_msg).await;
+            return msg.error(&ctx, err_msg).await;
         }
     };
     let match_id = args.match_id;
@@ -41,7 +41,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     let mut osu_match = match match_req.queue_single(&ctx.clients.osu).await {
         Ok(osu_match) => osu_match,
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };
@@ -78,7 +78,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
             })
             .collect(),
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };

@@ -47,17 +47,17 @@ async fn profile_main(
         Ok(Some(user)) => user,
         Ok(None) => {
             let content = format!("User `{}` was not found", name);
-            return msg.respond(&ctx, content).await;
+            return msg.error(&ctx, content).await;
         }
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why);
         }
     };
     let scores = match scores_result {
         Ok(scores) => scores,
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why);
         }
     };

@@ -141,9 +141,8 @@ async fn process_command(
 ) -> BotResult<()> {
     // Only in guilds?
     if (cmd.authority || cmd.only_guilds) && msg.guild_id.is_none() {
-        msg.respond(&ctx, "That command is only available in guilds")
-            .await?;
-        return Ok(());
+        let content = "That command is only available in guilds";
+        return msg.error(&ctx, content).await;
     }
 
     // Ratelimited?
@@ -154,7 +153,7 @@ async fn process_command(
                 msg.author.id, cmd.names[0], cooldown,
             );
             let content = format!("Command on cooldown, try again in {} seconds", cooldown);
-            msg.respond(&ctx, content).await?;
+            msg.error(&ctx, content).await?;
             return Ok(());
         }
     }
@@ -168,13 +167,13 @@ async fn process_command(
                     "Non-authority user {} tried using command `{}`",
                     msg.author.id, cmd.names[0]
                 );
-                msg.respond(&ctx, content).await?;
+                msg.error(&ctx, content).await?;
                 return Ok(());
             }
             Err(why) => {
-                msg.respond(&ctx, "Error while checking authority status")
-                    .await?;
-                return Err(why);
+                let content = "Error while checking authority status";
+                let _ = msg.error(&ctx, content).await;
+                bail!("Error while checking authorty status: {}", why);
             }
         }
     }
@@ -199,7 +198,7 @@ fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>> {
         let prefix = ctx.config_first_prefix(Some(guild_id));
         let content = format!(
             "You need admin permissions to use this command.\n\
-                    (`{}help authorities` to adjust authority status for this guild)",
+            (`{}help authorities` to adjust authority status for this guild)",
             prefix
         );
         return Ok(Some(content));
@@ -215,7 +214,7 @@ fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>> {
             let role_len: usize = roles.iter().map(|role| role.len()).sum();
             let mut content = String::from(
                 "You need either admin permissions or \
-                    any of these roles to use this command:\n",
+                any of these roles to use this command:\n",
             );
             content.reserve_exact(role_len + (roles.len() - 1) * 2);
             let mut roles = roles.into_iter();

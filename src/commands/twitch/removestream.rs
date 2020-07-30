@@ -17,8 +17,7 @@ async fn removestream(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     // Parse the stream name
     if args.is_empty() {
         let content = "The first argument must be the name of the stream";
-        msg.respond(&ctx, content).await?;
-        return Ok(());
+        return msg.error(&ctx, content).await;
     }
     let name = args.single::<String>().unwrap().to_lowercase();
     let twitch = &ctx.clients.twitch;
@@ -26,15 +25,13 @@ async fn removestream(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
         Ok(user) => user.user_id,
         Err(_) => {
             let content = format!("Twitch user `{}` was not found", name);
-            msg.respond(&ctx, content).await?;
-            return Ok(());
+            return msg.error(&ctx, content).await;
         }
     };
     let channel = msg.channel_id.0;
     ctx.remove_tracking(twitch_id, channel);
-    let psql = &ctx.clients.psql;
-    if let Err(why) = psql.remove_stream_track(channel, twitch_id).await {
-        msg.respond(&ctx, GENERAL_ISSUE).await?;
+    if let Err(why) = ctx.psql().remove_stream_track(channel, twitch_id).await {
+        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
         bail!("Error while removing stream track from DB: {}", why);
     }
     debug!(

@@ -1,6 +1,7 @@
 use super::require_link;
 use crate::{
     arguments::{Args, NameArgs},
+    bail,
     embeds::{EmbedData, RatioEmbed},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -40,10 +41,10 @@ async fn ratios(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
             let content = format!("User `{}` was not found", name);
-            return msg.respond(&ctx, content).await;
+            return msg.error(&ctx, content).await;
         }
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };
@@ -52,8 +53,8 @@ async fn ratios(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let data = match RatioEmbed::new(user, scores, &ctx).await {
         Ok(data) => data,
         Err(why) => {
-            msg.respond(&ctx, GENERAL_ISSUE).await?;
-            return Err(why);
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await?;
+            bail!("Error while creating embed: {}", why);
         }
     };
 

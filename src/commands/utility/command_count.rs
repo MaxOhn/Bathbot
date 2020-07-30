@@ -42,10 +42,10 @@ async fn commands(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     // Creating the embed
     let embed = data.build().build();
     let channel = msg.channel_id;
-    let resp = ctx.http.create_message(channel).embed(embed)?.await?;
+    let response = ctx.http.create_message(channel).embed(embed)?.await?;
 
     // Pagination
-    let pagination = CommandCountPagination::new(&ctx, resp, cmds);
+    let pagination = CommandCountPagination::new(&ctx, response, cmds);
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 90).await {

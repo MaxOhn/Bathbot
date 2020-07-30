@@ -1,6 +1,7 @@
 use super::require_link;
 use crate::{
     arguments::NameIntArgs,
+    bail,
     embeds::{EmbedData, NoChokeEmbed},
     pagination::{NoChokePagination, Pagination},
     pp::{Calculations, PPCalculator},
@@ -8,7 +9,7 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         numbers, osu, MessageExt,
     },
-    Args, BotResult, Context,
+    Args, BotResult, Context, Error,
 };
 
 use futures::future::try_join_all;
@@ -48,10 +49,10 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
             let content = format!("User `{}` was not found", name);
-            return msg.respond(&ctx, content).await;
+            return msg.error(&ctx, content).await;
         }
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };
@@ -93,7 +94,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
             let map = match score.get_beatmap(ctx.osu()).await {
                 Ok(map) => map,
                 Err(why) => {
-                    msg.respond(&ctx, OSU_API_ISSUE).await?;
+                    let _ = msg.error(&ctx, OSU_API_ISSUE).await;
                     return Err(why.into());
                 }
             };
@@ -114,13 +115,13 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
             calculator.calculate(Calculations::PP, None).await?;
             unchoked.pp = calculator.pp();
         }
-        Ok((i, score, unchoked, map))
+        Ok::<_, Error>((i, score, unchoked, map))
     });
     let mut scores_data = match try_join_all(unchoke_fut).await {
         Ok(scores_data) => scores_data,
         Err(why) => {
-            msg.respond(&ctx, GENERAL_ISSUE).await?;
-            return Err(why);
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            bail!("Error while unchoking scores: {}", why);
         }
     };
 
@@ -155,8 +156,8 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     {
         Ok(data) => data,
         Err(why) => {
-            msg.respond(&ctx, GENERAL_ISSUE).await?;
-            return Err(why);
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            bail!("Error while creating embed: {}", why);
         }
     };
 

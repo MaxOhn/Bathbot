@@ -20,8 +20,8 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     let mut scores = match ctx.psql().all_bggame_scores().await {
         Ok(scores) => scores,
         Err(why) => {
-            msg.respond(&ctx, GENERAL_ISSUE).await?;
-            return Err(why);
+            msg.error(&ctx, GENERAL_ISSUE).await?;
+            bail!("Error while getting all bggame scores: {}", why);
         }
     };
 
@@ -31,7 +31,7 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
         let member_ids: Vec<_> = match ctx.cache.get_guild(guild_id) {
             Some(guild) => guild.members.iter().map(|guard| guard.key().0).collect(),
             None => {
-                msg.respond(&ctx, GENERAL_ISSUE).await?;
+                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
                 bail!("Guild {} not in cache", guild_id);
             }
         };

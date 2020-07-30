@@ -1,6 +1,7 @@
 use super::require_link;
 use crate::{
     arguments::{Args, NameArgs},
+    bail,
     embeds::{EmbedData, RecentEmbed},
     pagination::{Pagination, RecentPagination},
     util::{
@@ -48,16 +49,16 @@ async fn recent_main(
         Ok((user, scores)) => {
             if scores.is_empty() {
                 let content = format!("No recent plays found for user `{}`", name);
-                return msg.respond(&ctx, content).await;
+                return msg.error(&ctx, content).await;
             } else if let Some(user) = user {
                 (user, scores)
             } else {
                 let content = format!("User `{}` was not found", name);
-                return msg.respond(&ctx, content).await;
+                return msg.error(&ctx, content).await;
             }
         }
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };
@@ -111,7 +112,7 @@ async fn recent_main(
             maps.insert(first_id, map);
         }
         Some(Err(why)) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     }
@@ -144,8 +145,8 @@ async fn recent_main(
         match RecentEmbed::new(&ctx, &user, first_score, first_map, &best, global_scores).await {
             Ok(data) => data,
             Err(why) => {
-                msg.respond(&ctx, GENERAL_ISSUE).await?;
-                return Err(why);
+                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+                bail!("Error while creating embed: {}", why);
             }
         };
 

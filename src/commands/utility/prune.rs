@@ -1,4 +1,8 @@
-use crate::{util::MessageExt, Args, BotResult, Context};
+use crate::{
+    bail,
+    util::{constants::GENERAL_ISSUE, MessageExt},
+    Args, BotResult, Context,
+};
 
 use std::sync::Arc;
 use tokio::time::{self, Duration};
@@ -21,7 +25,7 @@ async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
         Ok(amount) => {
             if amount < 1 || amount > 99 {
                 let content = "First argument must be an integer between 1 and 99";
-                return msg.respond(&ctx, content).await;
+                return msg.error(&ctx, content).await;
             } else {
                 amount + 1
             }
@@ -37,13 +41,13 @@ async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
     {
         Ok(msgs) => msgs.into_iter().map(|msg| msg.id).collect::<Vec<_>>(),
         Err(why) => {
-            msg.respond(&ctx, "Error while retrieving messages").await?;
-            return Err(why.into());
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            bail!("Error while retrieving messages: {}", why);
         }
     };
     if let Err(why) = ctx.http.delete_messages(msg.channel_id, messages).await {
-        msg.respond(&ctx, "Error while deleting messages").await?;
-        return Err(why.into());
+        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+        bail!("Error while deleting messages: {}", why);
     }
     let response = ctx
         .http

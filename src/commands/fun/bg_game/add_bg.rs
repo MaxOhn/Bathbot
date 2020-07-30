@@ -22,12 +22,12 @@ async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
     if msg.author.id.0 != OWNER_USER_ID {
         let content = "This command can only be used by the creator of the bot.\n\
             If you have suggestions for backgrounds, feel free to let Badewanne3 know :)";
-        return msg.respond(&ctx, content).await;
+        return msg.error(&ctx, content).await;
     }
     // Check if msg has attachement
     if msg.attachments.is_empty() {
         let content = "You must attach an image to the command that has the mapset id as name";
-        return msg.respond(&ctx, content).await;
+        return msg.error(&ctx, content).await;
     }
     // Parse arguments as mode
     let mode = match args.next() {
@@ -37,7 +37,7 @@ async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
             _ => {
                 let content = "Could not parse first argument as mode. \
                     Provide either `mna`, or `std`";
-                return msg.respond(&ctx, content).await;
+                return msg.error(&ctx, content).await;
             }
         },
         None => GameMode::STD,
@@ -50,7 +50,7 @@ async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
         None | Some(Err(_)) => {
             let content = "Provided image has no appropriate name. \
                 Be sure to let the name be the mapset id, e.g. 948199.png";
-            return msg.respond(&ctx, content).await;
+            return msg.error(&ctx, content).await;
         }
     };
     // Check if attachement has proper file type
@@ -59,7 +59,7 @@ async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
         _ => {
             let content = "Provided image has no appropriate file type. \
                 It must be either `.jpg`, `.jpeg`, or `.png`";
-            return msg.respond(&ctx, content).await;
+            return msg.error(&ctx, content).await;
         }
     };
     // Download attachement
@@ -76,19 +76,19 @@ async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
             let mut file = match File::create(&path).await {
                 Ok(file) => file,
                 Err(why) => {
-                    let _ = msg.respond(&ctx, GENERAL_ISSUE).await;
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
                     bail!("Error while creating file: {}", why);
                 }
             };
             // Store in file
             if let Err(why) = file.write_all(&content).await {
-                let _ = msg.respond(&ctx, GENERAL_ISSUE).await;
+                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
                 bail!("Error while writing to file: {}", why);
             }
             path
         }
         Err(why) => {
-            let _ = msg.respond(&ctx, GENERAL_ISSUE).await;
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
             bail!("Error while downloading image: {}", why);
         }
     };

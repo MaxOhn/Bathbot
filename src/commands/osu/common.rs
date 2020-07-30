@@ -35,8 +35,8 @@ async fn common_main(
     let names = match args.names.len() {
         0 => {
             let content = "You need to specify at least one osu username. \
-                    If you're not linked, you must specify at least two names.";
-            return msg.respond(&ctx, content).await;
+                If you're not linked, you must specify at least two names.";
+            return msg.error(&ctx, content).await;
         }
         1 => match ctx.get_link(msg.author.id.0) {
             Some(name) => {
@@ -47,10 +47,10 @@ async fn common_main(
                 let prefix = ctx.config_first_prefix(msg.guild_id);
                 let content = format!(
                     "Since you're not linked via `{}link`, \
-                        you must specify at least two names.",
+                    you must specify at least two names.",
                     prefix
                 );
-                return msg.respond(&ctx, content).await;
+                return msg.error(&ctx, content).await;
             }
         },
         _ => args.names,
@@ -58,7 +58,7 @@ async fn common_main(
 
     if names.iter().unique().count() == 1 {
         let content = "Give at least two different names";
-        return msg.respond(&ctx, content).await;
+        return msg.error(&ctx, content).await;
     }
 
     // Retrieve all users
@@ -70,7 +70,7 @@ async fn common_main(
         Ok(users) => match users.iter().find(|(_, user)| user.is_none()) {
             Some((idx, _)) => {
                 let content = format!("User `{}` was not found", names[*idx]);
-                return msg.respond(&ctx, content).await;
+                return msg.error(&ctx, content).await;
             }
             None => users
                 .into_iter()
@@ -78,7 +78,7 @@ async fn common_main(
                 .collect(),
         },
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            msg.error(&ctx, OSU_API_ISSUE).await?;
             return Err(why.into());
         }
     };
@@ -90,7 +90,7 @@ async fn common_main(
     let mut all_scores = match try_join_all(score_futs).await {
         Ok(all_scores) => all_scores,
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            msg.error(&ctx, OSU_API_ISSUE).await?;
             return Err(why.into());
         }
     };
@@ -164,7 +164,7 @@ async fn common_main(
             Ok(maps_result) => match maps_result.iter().find(|(_, map)| map.is_none()) {
                 Some((id, _)) => {
                     let content = format!("API returned no result for map id {}", id);
-                    return msg.respond(&ctx, content).await;
+                    return msg.error(&ctx, content).await;
                 }
                 None => {
                     let maps = maps_result
@@ -179,7 +179,7 @@ async fn common_main(
                 }
             },
             Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
+                msg.error(&ctx, OSU_API_ISSUE).await?;
                 return Err(why.into());
             }
         }

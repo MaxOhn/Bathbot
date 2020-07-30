@@ -1,8 +1,9 @@
-use crate::{BotResult, Context};
+use crate::{util::constants::RED, BotResult, Context};
 
 use async_trait::async_trait;
 use std::fmt::Display;
 use tokio::time::{timeout, Duration};
+use twilight::builders::embed::EmbedBuilder;
 use twilight::http::request::channel::message::create_message::{
     CreateMessage, CreateMessageError,
 };
@@ -26,6 +27,11 @@ pub trait MessageExt {
     ///
     /// Includes reaction_delete
     async fn respond<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()>;
+
+    /// Response for an error message
+    ///
+    /// Includes reaction_delete
+    async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()>;
 
     /// Response with simple content by tagging the author
     ///
@@ -52,6 +58,16 @@ impl MessageExt for Message {
         ctx.http
             .create_message(self.channel_id)
             .content(content)?
+            .await?
+            .reaction_delete(ctx, self.author.id);
+        Ok(())
+    }
+
+    async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
+        let embed = EmbedBuilder::new().color(RED).description(content).build();
+        ctx.http
+            .create_message(self.channel_id)
+            .embed(embed)?
             .await?
             .reaction_delete(ctx, self.author.id);
         Ok(())

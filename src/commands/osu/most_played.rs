@@ -27,17 +27,17 @@ async fn mostplayed(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         Ok(Some(user)) => user,
         Ok(None) => {
             let content = format!("User `{}` was not found", name);
-            return msg.respond(&ctx, content).await;
+            return msg.error(&ctx, content).await;
         }
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };
     let maps = match ctx.clients.custom.get_most_played(user.user_id, 50).await {
         Ok(maps) => maps,
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why);
         }
     };

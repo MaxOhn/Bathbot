@@ -47,8 +47,8 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         let msgs = match msg_fut.await {
             Ok(msgs) => msgs,
             Err(why) => {
-                msg.respond(&ctx, "Error while retrieving messages").await?;
-                return Err(why.into());
+                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+                bail!("Error while retrieving messages: {}", why);
             }
         };
         match map_id_from_history(&ctx, msgs).await {
@@ -57,7 +57,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
                 let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map(set) either by url to the map, \
                     or just by map(set) id.";
-                return msg.respond(&ctx, content).await;
+                return msg.error(&ctx, content).await;
             }
         }
     };
@@ -80,7 +80,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
                         Ok(Some(map)) => (map.beatmapset_id, Some(id)),
                         Ok(None) => (id, None),
                         Err(why) => {
-                            msg.respond(&ctx, OSU_API_ISSUE).await?;
+                            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
                             return Err(why.into());
                         }
                     }
@@ -117,12 +117,12 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             maps
         }
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };
     if maps.is_empty() {
-        return msg.respond(&ctx, "API returned no map for this id").await;
+        return msg.error(&ctx, "API returned no map for this id").await;
     }
     let first_map_id = map_id.unwrap_or_else(|| maps.first().unwrap().beatmap_id);
 
@@ -174,8 +174,8 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let data = match data_fut.await {
         Ok(data) => data,
         Err(why) => {
-            msg.respond(&ctx, GENERAL_ISSUE).await?;
-            return Err(why);
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            bail!("Error while creating embed: {}", why);
         }
     };
 

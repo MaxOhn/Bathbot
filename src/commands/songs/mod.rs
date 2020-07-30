@@ -42,7 +42,7 @@ async fn song_send(lyrics: &[&str], delay: u64, ctx: Arc<Context>, msg: &Message
     } else {
         let content = "The server's big boys disabled song commands. \
             Server authorities can re-enable them with the `lyrics` command";
-        msg.respond(&ctx, content).await?;
+        msg.error(&ctx, content).await?;
     }
     Ok(())
 }

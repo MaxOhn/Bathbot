@@ -41,7 +41,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     let verified_users_init = match ctx.psql().get_bg_verified().await {
         Ok(users) => users,
         Err(why) => {
-            let _ = msg.respond(&ctx, GENERAL_ISSUE).await;
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
             bail!("Error while retrieving verified users: {}", why);
         }
     };
@@ -49,14 +49,14 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
         let content = "This command is only for verified people.\n\
             If you're interested in helping out tagging backgrounds, \
             feel free to let Badewanne3 know :)";
-        return msg.respond(&ctx, content).await;
+        return msg.error(&ctx, content).await;
     }
     // Parse mapset id
     let mapset_id = match args.next().map(u32::from_str) {
         Some(Ok(num)) => num,
         Some(Err(_)) => {
             let content = "Could not parse mapset id. Be sure to specify it as first argument";
-            return msg.respond(&ctx, content).await;
+            return msg.error(&ctx, content).await;
         }
         None => {
             let content = "Arguments: `[mapset id] [add/a/remove/r] [list of tags]`\n\
@@ -69,7 +69,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     // Check if there is background for the given mapset id
     if ctx.psql().get_tags_mapset(mapset_id).await.is_err() {
         let content = "No background entry found with this id";
-        return msg.respond(&ctx, content).await;
+        return msg.error(&ctx, content).await;
     }
     // Parse action
     let action = match args.next().map(Action::from_str) {
@@ -77,7 +77,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
         None | Some(Err(_)) => {
             let content = "Could not parse action. \
                 Be sure to specify `r`, `remove`, `a`, or `add` as second argument";
-            return msg.respond(&ctx, content).await;
+            return msg.error(&ctx, content).await;
         }
     };
     // Parse tags
@@ -93,7 +93,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
                     easy, hard, tech, weeb, bluesky, english`",
                     tag
                 );
-                return msg.respond(&ctx, content).await;
+                return msg.error(&ctx, content).await;
             }
             None => unreachable!(),
         }
@@ -117,7 +117,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
             msg.respond(&ctx, content).await?;
         }
         Err(why) => {
-            let _ = msg.respond(&ctx, GENERAL_ISSUE).await;
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
             bail!("Error while updating bg mapset tag: {}", why);
         }
     }

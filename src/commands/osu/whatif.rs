@@ -18,7 +18,7 @@ async fn whatif_main(
 ) -> BotResult<()> {
     let args = match NameFloatArgs::new(args) {
         Ok(args) => args,
-        Err(err_msg) => return msg.respond(&ctx, err_msg).await,
+        Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
@@ -27,7 +27,7 @@ async fn whatif_main(
     let pp = args.float;
     if pp < 0.0 {
         let content = "The pp number must be non-negative";
-        return msg.respond(&ctx, content).await;
+        return msg.error(&ctx, content).await;
     }
 
     // Retrieve the user and their top scores
@@ -40,10 +40,10 @@ async fn whatif_main(
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
             let content = format!("User `{}` was not found", name);
-            return msg.respond(&ctx, content).await;
+            return msg.error(&ctx, content).await;
         }
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };

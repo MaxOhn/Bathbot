@@ -1,6 +1,7 @@
 use super::require_link;
 use crate::{
     arguments::{Args, NameMapArgs},
+    bail,
     embeds::{EmbedData, ScoresEmbed},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -35,20 +36,20 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         let msgs = match msg_fut.await {
             Ok(msgs) => msgs,
             Err(why) => {
-                msg.respond(&ctx, "Error while retrieving messages").await?;
-                return Err(why.into());
+                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+                bail!("Error while retrieving messages: {}", why);
             }
         };
         match map_id_from_history(&ctx, msgs).await {
             Some(MapIdType::Map(id)) => id,
             Some(MapIdType::Set(_)) => {
                 let content = "Looks like you gave me a mapset id, I need a map id though";
-                return msg.respond(&ctx, content).await;
+                return msg.error(&ctx, content).await;
             }
             None => {
                 let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";
-                return msg.respond(&ctx, content).await;
+                return msg.error(&ctx, content).await;
             }
         }
     };
@@ -70,10 +71,10 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
                         Did you give me a mapset id instead of a map id?",
                         map_id
                     );
-                    return msg.respond(&ctx, content).await;
+                    return msg.error(&ctx, content).await;
                 }
                 Err(why) => {
-                    msg.respond(&ctx, OSU_API_ISSUE).await?;
+                    let _ = msg.error(&ctx, OSU_API_ISSUE).await;
                     return Err(why.into());
                 }
             }
@@ -89,10 +90,10 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
             let content = format!("Could not find user `{}`", name);
-            return msg.respond(&ctx, content).await;
+            return msg.error(&ctx, content).await;
         }
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };
@@ -101,8 +102,8 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let data = match ScoresEmbed::new(&ctx, user, &map, scores).await {
         Ok(data) => data,
         Err(why) => {
-            msg.respond(&ctx, GENERAL_ISSUE).await?;
-            return Err(why);
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            bail!("Error while creating embed: {}", why);
         }
     };
 

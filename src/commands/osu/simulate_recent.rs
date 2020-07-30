@@ -28,7 +28,7 @@ async fn simulate_recent_main(
 ) -> BotResult<()> {
     let mut args = match SimulateNameArgs::new(args) {
         Ok(args) => args,
-        Err(err_msg) => return msg.respond(&ctx, err_msg).await,
+        Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
     let name = match args.name.take().or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
@@ -42,11 +42,11 @@ async fn simulate_recent_main(
             Some(score) => score,
             None => {
                 let content = format!("No recent plays found for user `{}`", name);
-                return msg.respond(&ctx, content).await;
+                return msg.error(&ctx, content).await;
             }
         },
         Err(why) => {
-            msg.respond(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };
@@ -57,7 +57,7 @@ async fn simulate_recent_main(
         Err(_) => match score.get_beatmap(ctx.osu()).await {
             Ok(m) => m,
             Err(why) => {
-                msg.respond(&ctx, OSU_API_ISSUE).await?;
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
                 return Err(why.into());
             }
         },
@@ -67,7 +67,7 @@ async fn simulate_recent_main(
     let data = match SimulateEmbed::new(&ctx, Some(score), &map, args.into()).await {
         Ok(data) => data,
         Err(why) => {
-            msg.respond(&ctx, GENERAL_ISSUE).await?;
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
             return Err(why);
         }
     };
@@ -89,15 +89,18 @@ async fn simulate_recent_main(
     response.reaction_delete(&ctx, msg.author.id);
 
     // Minimize embed after delay
-    time::delay_for(Duration::from_secs(45)).await;
-    let embed = data.minimize().build();
-    let edit_fut = ctx
-        .http
-        .update_message(response.channel_id, response.id)
-        .embed(embed)?;
-    if let Err(why) = edit_fut.await {
-        warn!("Error while minimizing simulate recent msg: {}", why);
-    }
+    tokio::spawn(async move {
+        time::delay_for(Duration::from_secs(45)).await;
+        let embed = data.minimize().build();
+        let edit_fut = ctx
+            .http
+            .update_message(response.channel_id, response.id)
+            .embed(embed)
+            .unwrap();
+        if let Err(why) = edit_fut.await {
+            warn!("Error while minimizing simulate recent msg: {}", why);
+        }
+    });
     Ok(())
 }
 
