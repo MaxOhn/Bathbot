@@ -17,7 +17,7 @@ use twilight::model::{
 fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
     let (custom_prefix, first_prefix) = if let Some(guild_id) = guild_id {
         let mut prefixes = ctx.config_prefixes(guild_id);
-        if prefixes == ["<", "!!"] {
+        if prefixes == ["<"] {
             (None, prefixes.remove(0))
         } else {
             let mut prefix_iter = prefixes.iter();
@@ -32,8 +32,8 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         (None, "<".to_string())
     };
     let prefix_desc = custom_prefix.map_or_else(
-        || String::from("Prefix: `<` or `!!` (none required in DMs)"),
-        |p| format!("Server prefix: {}\nDM prefix: `<`, `!!`, or none at all", p),
+        || String::from("Prefix: `<` (none required in DMs)"),
+        |p| format!("Server prefix: {}\nDM prefix: `<` or none at all", p),
     );
     format!("{}\nMost commands have (shorter) aliases, e.g. `{prefix}glb` instead of `{prefix}globalleaderboard`. \
             To check those out or get more info about a command in general, \

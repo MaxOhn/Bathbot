@@ -6,12 +6,7 @@ use crate::{
     Args, BotResult, Error,
 };
 
-use std::{
-    borrow::Cow,
-    fmt::Write,
-    ops::{Deref, },
-    sync::Arc,
-};
+use std::{borrow::Cow, fmt::Write, ops::Deref, sync::Arc};
 use twilight::gateway::Event;
 use twilight::model::{channel::Message, id::RoleId};
 use uwl::Stream;
@@ -88,7 +83,7 @@ pub async fn handle_event(
             // Get guild / default prefixes
             let prefixes = match msg.guild_id {
                 Some(guild_id) => ctx.config_prefixes(guild_id),
-                None => vec!["<".to_owned(), "!!".to_owned()],
+                None => vec!["<".to_owned()],
             };
 
             // Parse msg content for prefixes

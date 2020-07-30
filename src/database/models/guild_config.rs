@@ -20,7 +20,7 @@ impl Default for GuildConfig {
     fn default() -> Self {
         GuildConfig {
             with_lyrics: true,
-            prefixes: vec!["<".to_owned(), "!!".to_owned()],
+            prefixes: vec!["<".to_owned()],
             authorities: vec![],
             modified: true,
         }
