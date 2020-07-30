@@ -1,5 +1,6 @@
 use super::ReactionWrapper;
 use crate::{
+    bail,
     bg_game::MapsetTags,
     database::MapsetTagWrapper,
     embeds::{BGStartEmbed, BGTagsEmbed, EmbedData},
@@ -22,6 +23,14 @@ use twilight::model::{
 #[short_desc("Start the bg game or skip the current background")]
 #[aliases("s", "resolve", "r", "skip")]
 pub async fn start(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
+    match ctx.restart_game(msg.channel_id).await {
+        Ok(true) => return Ok(()),
+        Ok(false) => {}
+        Err(why) => {
+            let _ = msg.respond(&ctx, GENERAL_ISSUE).await;
+            bail!("Error while restarting game: {}", why);
+        }
+    }
     let mode = match args.next() {
         Some("m") | Some("mania") => GameMode::MNA,
         _ => GameMode::STD,
