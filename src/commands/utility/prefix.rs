@@ -92,6 +92,6 @@ fn current_prefixes(content: &mut String, prefixes: &[String]) {
     let mut prefixes = prefixes.iter();
     let _ = write!(content, "`{}`", prefixes.next().unwrap());
     for prefix in prefixes {
-        let _ = write!(content, ", {}", prefix);
+        let _ = write!(content, ", `{}`", prefix);
     }
 }

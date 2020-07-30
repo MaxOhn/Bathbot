@@ -42,5 +42,6 @@ impl Context {
     {
         let mut config = self.data.guilds.entry(guild_id).or_default();
         f(config.value_mut());
+        config.modified = true;
     }
 }

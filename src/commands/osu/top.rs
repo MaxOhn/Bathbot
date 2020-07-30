@@ -15,7 +15,7 @@ use crate::{
 
 use rosu::{
     backend::BestRequest,
-    models::{Beatmap, GameMode,  Score, },
+    models::{Beatmap, GameMode, Score},
 };
 use std::{cmp::Ordering, collections::HashMap, sync::Arc};
 use twilight::model::channel::Message;
@@ -208,7 +208,7 @@ pub async fn top(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
 }
 
 #[command]
-#[short_desc("Display a user's top plays")]
+#[short_desc("Display a user's top mania plays")]
 #[long_desc(
     "Display a user's top mania plays.\n\
      Mods can be specified, aswell as minimal acc \
@@ -224,7 +224,7 @@ pub async fn topmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult
 }
 
 #[command]
-#[short_desc("Display a user's top plays")]
+#[short_desc("Display a user's top taiko plays")]
 #[long_desc(
     "Display a user's top taiko plays.\n\
      Mods can be specified, aswell as minimal acc \
@@ -240,7 +240,7 @@ pub async fn toptaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult
 }
 
 #[command]
-#[short_desc("Display a user's top plays")]
+#[short_desc("Display a user's top ctb plays")]
 #[long_desc(
     "Display a user's top ctb plays.\n\
      Mods can be specified, aswell as minimal acc \
@@ -271,7 +271,7 @@ pub async fn recentbest(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
 }
 
 #[command]
-#[short_desc("Sort a user's top plays by date")]
+#[short_desc("Sort a user's top mania plays by date")]
 #[long_desc(
     "Display a user's most recent top mania plays.\n\
      Mods can be specified, aswell as minimal acc \
@@ -286,7 +286,7 @@ pub async fn recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
 }
 
 #[command]
-#[short_desc("Sort a user's top plays by date")]
+#[short_desc("Sort a user's top taiko plays by date")]
 #[long_desc(
     "Display a user's most recent top taiko plays.\n\
      Mods can be specified, aswell as minimal acc \
@@ -301,7 +301,7 @@ pub async fn recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
 }
 
 #[command]
-#[short_desc("Sort a user's top plays by date")]
+#[short_desc("Sort a user's top ctb plays by date")]
 #[long_desc(
     "Display a user's most recent top ctb plays.\n\
      Mods can be specified, aswell as minimal acc \

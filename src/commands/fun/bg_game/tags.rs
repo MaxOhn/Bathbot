@@ -23,7 +23,7 @@ use twilight::model::{
 };
 
 #[command]
-#[short_desc("Help tagging background by tagging them manually")]
+#[short_desc("Help tagging backgrounds by tagging them manually")]
 #[long_desc(
     "Manage the tags of a background for the bg game.\n\
     First argument must be the mapset id, second argument must be either \
@@ -125,7 +125,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
 }
 
 #[command]
-#[short_desc("Help out tagging background")]
+#[short_desc("Help out tagging backgrounds")]
 #[long_desc(
     "Let me give you mapsets that still need to be tagged.\n\
     React to them properly, then lock it in by reacting with ✅.\n\

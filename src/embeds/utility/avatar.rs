@@ -11,7 +11,7 @@ pub struct AvatarEmbed {
 
 impl AvatarEmbed {
     pub fn new(user: User) -> Self {
-        let title_text = "{}'s osu! avatar:".to_owned();
+        let title_text = format!("{}'s osu! avatar:", user.username);
         let url = format!("{}{}", AVATAR_URL, user.user_id);
         Self {
             title: title_text,

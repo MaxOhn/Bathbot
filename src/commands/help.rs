@@ -48,7 +48,6 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
 }
 
 pub async fn help(ctx: &Context, cmds: &CommandGroups, msg: &Message) -> BotResult<()> {
-    // TODO: Check permission to DM
     let channel = match ctx.http.create_private_channel(msg.author.id).await {
         Ok(channel) => channel,
         Err(why) => {
@@ -112,20 +111,22 @@ async fn send_help_chunk(
 
 pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotResult<()> {
     let name = cmd.names[0];
+    let prefix = ctx.config_first_prefix(msg.guild_id);
     let mut eb = EmbedBuilder::new()
         .color(DARK_GREEN)
         .title(name)
         .description(cmd.long_desc.unwrap_or(cmd.short_desc));
     if let Some(usage) = cmd.usage {
-        eb = eb.add_field("How to use", usage).inline().commit();
+        let value = format!("`{}{} {}`", prefix, name, usage);
+        eb = eb.add_field("How to use", value).inline().commit();
     }
     if !cmd.examples.is_empty() {
         let len: usize = cmd.examples.iter().map(|&e| name.len() + e.len() + 4).sum();
         let mut value = String::with_capacity(len);
         let mut examples = cmd.examples.iter();
-        writeln!(value, "`{} {}`", name, examples.next().unwrap())?;
+        writeln!(value, "`{}{} {}`", prefix, name, examples.next().unwrap())?;
         for example in examples {
-            writeln!(value, "`{} {}`", name, example)?;
+            writeln!(value, "`{}{} {}`", prefix, name, example)?;
         }
         eb = eb.add_field("Examples", value).inline().commit();
     }

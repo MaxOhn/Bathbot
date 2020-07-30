@@ -19,12 +19,14 @@ async fn commands(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
         .command_counts
         .collect()
         .into_iter()
-        .map(|metric_family| {
-            let metric = &metric_family.get_metric()[0];
-            (
-                metric.get_label()[0].get_value().to_owned(),
-                metric.get_counter().get_value() as u32,
-            )
+        .next()
+        .unwrap()
+        .get_metric()
+        .iter()
+        .map(|metric| {
+            let name = metric.get_label()[0].get_value();
+            let count = metric.get_counter().get_value();
+            (name.to_owned(), count as u32)
         })
         .collect::<Vec<_>>();
     cmds.sort_by(|&(_, a), &(_, b)| b.cmp(&a));

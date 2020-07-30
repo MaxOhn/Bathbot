@@ -21,8 +21,8 @@ impl Database {
 
     pub async fn insert_guilds(&self, configs: &DashMap<GuildId, GuildConfig>) -> BotResult<usize> {
         configs.retain(|_, config| config.modified);
-        let mut txn = self.pool.begin().await?;
         let mut counter = 0;
+        let mut result = Ok(());
         for guard in configs.iter() {
             let query = format!(
                 "
@@ -35,13 +35,14 @@ ON CONFLICT (guild_id) DO
         SET config=$1",
                 guard.key()
             );
-            sqlx::query(&query)
+            result = sqlx::query(&query)
                 .bind(Json(guard.value()))
-                .execute(&mut *txn)
-                .await?;
+                .execute(&self.pool)
+                .await
+                .and(result);
             counter += 1;
         }
-        txn.commit().await?;
+        result?;
         Ok(counter)
     }
 }

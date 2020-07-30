@@ -92,12 +92,15 @@ pub async fn handle_event(
             if !(find_prefix(&prefixes, &mut stream) || msg.guild_id.is_none()) {
                 return Ok(());
             }
-            stream.take_while_char(|c| c.is_whitespace());
 
             // Parse msg content for commands
             let invoke = parse_invoke(&mut stream, &cmds);
+            if let Invoke::UnrecognisedCommand(_) = invoke {
+                return Ok(());
+            }
 
             // Process invoke
+            log_invoke(&ctx, msg);
             let msg = msg.deref();
             let command_result = match &invoke {
                 Invoke::Command(cmd) => process_command(cmd, ctx.clone(), msg, stream).await,
@@ -107,7 +110,7 @@ pub async fn handle_event(
                 Invoke::Help(None) => help(&ctx, &cmds, msg).await,
                 Invoke::Help(Some(cmd)) => help_command(&ctx, cmd, msg).await,
                 Invoke::FailedHelp(arg) => failed_help(&ctx, arg, &cmds, msg).await,
-                Invoke::UnrecognisedCommand(_name) => return Ok(()),
+                Invoke::UnrecognisedCommand(_name) => unreachable!(),
             };
             let name = invoke.name();
 
@@ -126,6 +129,22 @@ pub async fn handle_event(
         _ => (),
     }
     Ok(())
+}
+
+fn log_invoke(ctx: &Context, msg: &Message) {
+    let mut location = String::with_capacity(31);
+    match msg.guild_id.and_then(|id| ctx.cache.get_guild(id)) {
+        Some(guild) => {
+            let _ = write!(location, "{}", guild.name);
+            location.push(':');
+            match ctx.cache.guild_channels.get(&msg.channel_id) {
+                Some(guard) => location.push_str(guard.value().get_name()),
+                None => location.push_str("<uncached channel>"),
+            }
+        }
+        None => location.push_str("Private"),
+    }
+    info!("[{}] {}: {}", location, msg.author.name, msg.content);
 }
 
 async fn process_command(
@@ -260,7 +279,7 @@ pub fn find_prefix<'a>(prefixes: &[String], stream: &mut Stream<'a>) -> bool {
         }
     });
     if let Some(prefix) = &prefix {
-        stream.increment(prefix.chars().count());
+        stream.advance_char(prefix.chars().count());
     }
     prefix.is_some()
 }
