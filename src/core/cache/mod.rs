@@ -3,6 +3,7 @@ mod emoji;
 mod guild;
 mod member;
 mod role;
+mod serde;
 mod user;
 
 pub use channel::CachedChannel;

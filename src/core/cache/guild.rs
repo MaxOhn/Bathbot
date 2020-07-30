@@ -181,7 +181,7 @@ impl CachedGuild {
             let member = guard.value();
             let name_matches = member.user.username == name;
             let discrim_matches = match discrim {
-                Some(discrim) => u16::from_str(&member.user.discriminator).unwrap() == discrim,
+                Some(discrim) => member.user.discriminator == discrim,
                 None => true,
             };
             if name_matches && discrim_matches {

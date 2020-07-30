@@ -124,7 +124,7 @@ impl Cache {
             users.push(CachedUser {
                 id: user.id,
                 username: user.username.clone(),
-                discriminator: user.discriminator.clone(),
+                discriminator: user.discriminator,
                 avatar: user.avatar.clone(),
                 bot_user: user.bot_user,
                 system_user: user.system_user,
