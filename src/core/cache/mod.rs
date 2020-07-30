@@ -91,7 +91,7 @@ impl Cache {
                     .insert(shard_id, AtomicU64::new(ready.guilds.len() as u64));
             }
             Event::GuildCreate(e) => {
-                trace!("Received guild create event for \"{}\" ({})", e.name, e.id);
+                trace!("Received guild create event for `{}` ({})", e.name, e.id);
                 let cached_guild = self.guilds.get(&e.id);
                 if let Some(cached_guild) = cached_guild {
                     if !cached_guild.complete.load(Ordering::SeqCst) {
@@ -114,7 +114,7 @@ impl Cache {
                 let mut list = self.unavailable_guilds.write().unwrap();
                 if let Some(index) = list.iter().position(|id| id.0 == guild.id.0) {
                     list.remove(index);
-                    info!("Guild \"{}\" ({}) available again", guild.name, guild.id);
+                    info!("Guild `{}` ({}) available again", guild.name, guild.id);
                 }
                 // Trigger member chunk events
                 let data = RequestGuildMembers::new_all(guild.id, None);
@@ -128,19 +128,14 @@ impl Cache {
                 self.stats.guild_counts.partial.inc();
             }
             Event::GuildUpdate(update) => {
-                trace!(
-                    "Receive guild update for \"{}\" ({})",
-                    update.name,
-                    update.id
-                );
-                debug!("{:?}", update);
+                trace!("Receive guild update for `{}` ({})", update.name, update.id);
                 match self.get_guild(update.id) {
                     Some(old_guild) => {
                         old_guild.update(&update.0);
                     }
                     None => {
                         warn!(
-                            "Got guild update for \"{}\" ({}) but guild was not found in cache",
+                            "Got guild update for `{}` ({}) but guild was not found in cache",
                             update.name, update.id
                         );
                     }
@@ -178,7 +173,7 @@ impl Cache {
                         self.stats.user_counts.total.add(chunk.members.len() as i64);
                         if (chunk.chunk_count - 1) == chunk.chunk_index && chunk.nonce.is_none() {
                             debug!(
-                                "Finished processing chunks for \"{}\" ({}), {:?} guilds to go...",
+                                "Finished processing chunks for `{}` ({}), {:?} guilds to go...",
                                 guild.name,
                                 guild.id.0,
                                 self.stats.guild_counts.partial.get()
@@ -239,7 +234,8 @@ impl Cache {
                         };
                         match guild_id {
                             Some(guild_id) => {
-                                let channel = CachedChannel::from_guild_channel(guild_channel, guild_id);
+                                let channel =
+                                    CachedChannel::from_guild_channel(guild_channel, guild_id);
                                 match self.get_guild(guild_id) {
                                     Some(guild) => {
                                         let arced = Arc::new(channel);
@@ -248,7 +244,7 @@ impl Cache {
                                         self.stats.channel_count.inc();
                                     }
                                     None => error!(
-                                        "Channel create received for #{} **``{}``** in guild **``{}``** but this guild does not exist in cache!",
+                                        "Channel create received for `{}` ({}) in guild {} but guild not cached",
                                         channel.get_name(),
                                         channel.get_id(),
                                         guild_id
@@ -256,7 +252,7 @@ impl Cache {
                                 }
                             }
                             None => warn!(
-                                "We got a channel create event for a guild type channel without guild id!"
+                                "Got channel create event for guild type channel without guild id"
                             ),
                         }
                     }
@@ -287,9 +283,7 @@ impl Cache {
                                 guild_id
                             ),
                         },
-                        None => {
-                            warn!("Got channel update for guild type channel without guild id!")
-                        }
+                        None => warn!("Got channel update for guild type channel without guild id"),
                     }
                 }
                 Channel::Private(private) => {
@@ -312,7 +306,7 @@ impl Cache {
                                     self.stats.channel_count.dec();
                                 }
                                 None => {
-                                    warn!("Got channel delete event for channel {} for guild {} but guild not in cache", channel_id, guild_id);
+                                    warn!("Got channel delete event for channel {} for guild {} but guild not cached", channel_id, guild_id);
                                 }
                             },
                             None => {
@@ -376,7 +370,7 @@ impl Cache {
                         }
                     },
                     None => warn!(
-                        "Received member remove event for guild {} but guild not in cache",
+                        "Received member remove event for guild {} but guild not cached",
                         event.guild_id
                     ),
                 }
@@ -389,7 +383,7 @@ impl Cache {
                         .insert(event.role.id, Arc::new(CachedRole::from_role(&event.role)));
                 }
                 None => warn!(
-                    "Received role create event for guild {} but guild not in cache",
+                    "Received role create event for guild {} but guild not cached",
                     event.guild_id
                 ),
             },
@@ -400,7 +394,7 @@ impl Cache {
                         .insert(event.role.id, Arc::new(CachedRole::from_role(&event.role)));
                 }
                 None => warn!(
-                    "Received role update event for guild {} but guild not in cache",
+                    "Received role update event for guild {} but guild not cached",
                     event.guild_id
                 ),
             },
@@ -409,7 +403,7 @@ impl Cache {
                     guild.roles.remove(&event.role_id);
                 }
                 None => warn!(
-                    "Received role delete event for guild {} but guild not in cache",
+                    "Received role delete event for guild {} but guild not cached",
                     event.guild_id
                 ),
             },
@@ -509,7 +503,7 @@ impl Cache {
 
     fn guild_unavailable(&self, guild: &CachedGuild) {
         warn!(
-            "Guild \"{}\" ({}) became unavailable due to outage",
+            "Guild `{}` ({}) became unavailable due to outage",
             guild.name, guild.id
         );
         self.stats.guild_counts.outage.inc();

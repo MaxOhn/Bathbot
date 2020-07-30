@@ -1,7 +1,7 @@
-use crate::{ BotResult, Error};
+use crate::{BotResult, Error};
 
 use serde::Deserialize;
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
 use tokio::fs;
 
 #[derive(Deserialize, Debug)]
@@ -9,7 +9,6 @@ pub struct BotConfig {
     pub tokens: Tokens,
     pub database: Database,
     pub bg_path: PathBuf,
-    pub emoji: HashMap<String, String>,
 }
 
 #[derive(Deserialize, Debug)]
