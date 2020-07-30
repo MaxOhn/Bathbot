@@ -1,8 +1,7 @@
-use super::{ArgResult, Args};
+use super::Args;
 use crate::{commands::osu::TopSortBy, util::osu::ModSelection};
 
-use rosu::models::{GameMods, Grade};
-use std::iter::FromIterator;
+use rosu::models::Grade;
 
 pub struct TopArgs {
     pub name: Option<String>,

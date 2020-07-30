@@ -9,8 +9,8 @@ use crate::{
 
 use futures::future::TryFutureExt;
 use rosu::{
-    backend::{BestRequest, UserRequest},
-    models::{Beatmap, GameMode, GameMods, Score, User},
+    backend::{BestRequest},
+    models::{Beatmap, GameMode, GameMods, Score},
 };
 use std::{
     cmp::{Ordering::Equal, PartialOrd},
@@ -18,7 +18,7 @@ use std::{
     ops::{AddAssign, Div},
     sync::Arc,
 };
-use twilight::model::{channel::Message, id::ChannelId};
+use twilight::model::{channel::Message};
 
 #[allow(clippy::cognitive_complexity)]
 async fn profile_main(

@@ -1,11 +1,10 @@
-use super::require_link;
 use crate::{
     arguments::{Args, MultNameArgs},
-    bail,
+    
     embeds::{CommonEmbed, EmbedData},
     pagination::{CommonPagination, Pagination},
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{ OSU_API_ISSUE},
         get_combined_thumbnail, MessageExt,
     },
     BotResult, Context,
@@ -14,8 +13,8 @@ use crate::{
 use futures::future::{try_join_all, TryFutureExt};
 use itertools::Itertools;
 use rosu::{
-    backend::requests::{BeatmapRequest, UserRequest},
-    models::{Beatmap, GameMode, Score, User},
+    backend::requests::{BeatmapRequest, },
+    models::{ GameMode, Score, User},
 };
 use std::{
     cmp::Ordering,

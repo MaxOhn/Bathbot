@@ -1,16 +1,12 @@
 use crate::{
     arguments::{Args, RoleAssignArgs},
-    bail,
     embeds::{EmbedData, RoleAssignEmbed},
     util::{constants::GENERAL_ISSUE, MessageExt},
     BotResult, Context,
 };
 
 use std::sync::Arc;
-use twilight::model::{
-    channel::Message,
-    id::{ChannelId, MessageId, RoleId},
-};
+use twilight::model::channel::Message;
 
 #[command]
 #[only_guilds()]

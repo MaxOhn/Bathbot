@@ -4,7 +4,7 @@ use crate::{custom_client::MostPlayedMap, embeds::MostPlayedEmbed, BotResult};
 
 use async_trait::async_trait;
 use rosu::models::User;
-use twilight::model::{channel::Message, id::UserId};
+use twilight::model::channel::Message;
 
 pub struct MostPlayedPagination {
     msg: Message,

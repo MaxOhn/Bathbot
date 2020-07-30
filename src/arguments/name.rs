@@ -1,4 +1,4 @@
-use super::{ArgResult, Args};
+use super::Args;
 use crate::{
     core::CachedUser,
     util::{matcher, osu::ModSelection},
@@ -6,23 +6,22 @@ use crate::{
 };
 
 use itertools::Itertools;
-use rosu::models::GameMods;
-use std::{collections::HashSet, iter::FromIterator, str::FromStr, sync::Arc};
-use twilight::model::{
-    id::{GuildId, UserId},
-    user::User,
-};
+use std::{str::FromStr, sync::Arc};
+use twilight::model::id::GuildId;
 
 pub struct DiscordUserArgs {
     pub user: Arc<CachedUser>,
 }
 
 impl DiscordUserArgs {
-    pub async fn new(mut args: Args<'_>, ctx: &Context, guild: GuildId) -> ArgResult<Self> {
+    pub async fn new(
+        mut args: Args<'_>,
+        ctx: &Context,
+        guild: GuildId,
+    ) -> Result<Self, &'static str> {
         if args.is_empty() {
             return Err("You need to provide a user as full discord tag, \
-                        as user id, or just as mention"
-                .to_string());
+                        as user id, or just as mention");
         }
         let arg = args.single::<String>().unwrap();
         let user = match matcher::get_mention_user(&arg) {
@@ -30,14 +29,14 @@ impl DiscordUserArgs {
                 let user = ctx.http.user(id).await;
                 match user {
                     Ok(Some(user)) => Arc::new(CachedUser::from_user(&user)),
-                    _ => return Err("Error while retrieving user".to_owned()),
+                    _ => return Err("Error while retrieving user"),
                 }
             }
             None => {
                 let guild = ctx.cache.guilds.get(&guild);
                 match guild.and_then(|guild| guild.member_named(&arg)) {
                     Some(member) => member.user.clone(),
-                    None => return Err(format!("Could not get user from argument `{}`", arg)),
+                    None => return Err("Could not get user from argument"),
                 }
             }
         };

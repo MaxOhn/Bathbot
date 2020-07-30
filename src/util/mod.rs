@@ -15,14 +15,13 @@ pub use exts::*;
 pub use matrix::Matrix;
 pub use safe_content::content_safe;
 
-use crate::{util::constants::AVATAR_URL, BotResult, Context};
+use crate::{BotResult, Context};
 
-use futures::future::{try_join_all, FutureExt, TryFutureExt};
+use futures::future::try_join_all;
 use image::{
     imageops::FilterType, png::PNGEncoder, ColorType, DynamicImage, GenericImage, GenericImageView,
 };
-use reqwest::Client;
-use twilight::model::{channel::Message, id::UserId};
+use twilight::model::id::UserId;
 
 pub fn discord_avatar(user_id: UserId, hash: &str) -> String {
     format!("{}avatars/{}/{}.webp?size=1024", DISCORD_CDN, user_id, hash)

@@ -1,16 +1,12 @@
 use crate::{
     core::CachedEmoji,
     custom_client::{OsuStatsScore, ScraperScore},
-    util::{
-        constants::{emotes::*, DEV_GUILD_ID},
-        osu::grade_emote,
-    },
+    util::osu::grade_emote,
     Context,
 };
 
 use rosu::models::{GameMode, GameMods, Grade, Score};
 use std::{fmt::Write, sync::Arc};
-use twilight::model::id::EmojiId;
 
 pub trait ScoreExt: Sized {
     // Required to implement

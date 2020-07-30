@@ -7,33 +7,12 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use rosu::models::GameMods;
 use std::convert::TryFrom;
-use twilight::model::channel::embed::EmbedField;
 
 enum MentionType {
     Channel,
     Role,
+    #[allow(dead_code)]
     User,
-}
-
-pub struct EmojiInfo {
-    pub animated: bool,
-    pub name: String,
-    pub id: u64,
-}
-
-pub fn get_emoji_parts(msg: &str) -> Vec<EmojiInfo> {
-    if !EMOJI_MATCHER.is_match(msg) {
-        return vec![];
-    }
-    let mut results: Vec<EmojiInfo> = vec![];
-    for m in EMOJI_MATCHER.captures_iter(msg) {
-        results.push(EmojiInfo {
-            animated: &m[0] == "a",
-            name: m[1].to_owned(),
-            id: m[3].parse::<u64>().unwrap(),
-        });
-    }
-    results
 }
 
 pub fn get_mention_channel(msg: &str) -> Option<u64> {
@@ -44,6 +23,7 @@ pub fn get_mention_role(msg: &str) -> Option<u64> {
     get_mention(MentionType::Role, msg)
 }
 
+#[allow(dead_code)]
 pub fn get_mention_user(msg: &str) -> Option<u64> {
     get_mention(MentionType::User, msg)
 }
@@ -119,16 +99,13 @@ pub fn get_mods(msg: &str) -> Option<ModSelection> {
     Some(selection)
 }
 
+#[allow(dead_code)]
 pub fn is_hit_results(msg: &str) -> bool {
     HIT_RESULTS_MATCHER.is_match(msg)
 }
 
 pub fn is_general_diff(msg: &str) -> bool {
     OSU_DIFF_MATCHER.is_match(msg)
-}
-
-lazy_static! {
-    static ref EMOJI_MATCHER: Regex = Regex::new(r"<(a?):([^:\n]+):(\d+)>").unwrap();
 }
 
 lazy_static! {

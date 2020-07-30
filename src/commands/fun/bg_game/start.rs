@@ -11,10 +11,10 @@ use rosu::models::GameMode;
 use std::sync::Arc;
 use tokio::{stream::StreamExt, time::Duration};
 use twilight::model::{
-    channel::{Message, Reaction, ReactionType},
+    channel::{Message, ReactionType},
     gateway::{
         event::{Event, EventType},
-        payload::{ReactionAdd, ReactionRemove},
+        payload::ReactionAdd,
     },
 };
 

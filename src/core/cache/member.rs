@@ -46,17 +46,6 @@ impl CachedMember {
     }
 }
 
-impl CachedMember {
-    pub fn replace_user(&self, user: Arc<CachedUser>) -> Self {
-        CachedMember {
-            user,
-            nickname: self.nickname.clone(),
-            roles: self.roles.clone(),
-            joined_at: self.joined_at.clone(),
-        }
-    }
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ColdStorageMember {
     #[serde(rename = "i", default, skip_serializing_if = "is_default")]

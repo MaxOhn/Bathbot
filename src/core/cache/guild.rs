@@ -6,18 +6,12 @@ use crate::{
 
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
-use std::{
-    str::FromStr,
-    sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
-        Arc,
-    },
+use std::sync::{
+    atomic::{AtomicBool, AtomicU64, Ordering},
+    Arc,
 };
 use twilight::model::{
-    guild::{
-        DefaultMessageNotificationLevel, Guild, PartialGuild, Permissions, PremiumTier,
-        VerificationLevel,
-    },
+    guild::{Guild, PartialGuild, Permissions},
     id::{ChannelId, GuildId, RoleId, UserId},
 };
 
@@ -159,6 +153,7 @@ impl CachedGuild {
         guild
     }
 
+    #[allow(dead_code)]
     pub fn member_named(&self, name: &str) -> Option<Arc<CachedMember>> {
         let (name, discrim) = if let Some(pos) = name.rfind('#') {
             let split = name.split_at(pos + 1);

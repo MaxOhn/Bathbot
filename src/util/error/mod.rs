@@ -14,11 +14,11 @@ use chrono::format::ParseError as ChronoParseError;
 use darkredis::Error as RedisError;
 use image::ImageError;
 use plotters::drawing::DrawingAreaErrorKind as DrawingError;
-use reqwest::{header::InvalidHeaderValue, Error as ReqwestError};
-use rosu::{models::GameMode, OsuError};
+use reqwest::Error as ReqwestError;
+use rosu::OsuError;
 use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
-use std::{borrow::Cow, error::Error as StdError, fmt};
+use std::{error::Error as StdError, fmt};
 use toml::de::Error as TomlError;
 use twilight::gateway::cluster::Error as ClusterError;
 use twilight::http::{

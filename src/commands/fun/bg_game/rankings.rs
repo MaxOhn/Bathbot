@@ -2,8 +2,8 @@ use crate::{
     bail,
     embeds::{BGRankingEmbed, EmbedData},
     pagination::{BGRankingPagination, Pagination},
-    util::{constants::GENERAL_ISSUE, error::BgGameError, numbers, MessageExt},
-    Args, BotResult, Context, Error,
+    util::{constants::GENERAL_ISSUE, numbers, MessageExt},
+    Args, BotResult, Context,
 };
 
 use std::{collections::HashMap, sync::Arc};

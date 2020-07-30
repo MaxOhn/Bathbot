@@ -1,11 +1,8 @@
 use crate::{
-    arguments::{Args, DiscordUserArgs, NameArgs},
+    arguments::{Args, NameArgs},
     embeds::{AvatarEmbed, EmbedData},
-    util::{
-        constants::{AVATAR_URL, OSU_API_ISSUE},
-        MessageExt,
-    },
-    BotResult, Context, Osu,
+    util::{constants::OSU_API_ISSUE, MessageExt},
+    BotResult, Context,
 };
 
 use rosu::backend::UserRequest;

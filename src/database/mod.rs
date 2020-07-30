@@ -2,7 +2,7 @@ mod impls;
 mod models;
 mod util;
 
-pub use models::{BeatmapWrapper, DBMapSet, GuildConfig, MapsetTagWrapper, Ratios, StreamTrack};
+pub use models::{BeatmapWrapper, DBMapSet, GuildConfig, MapsetTagWrapper, Ratios};
 
 use crate::BotResult;
 

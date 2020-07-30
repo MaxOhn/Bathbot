@@ -1,8 +1,5 @@
-use super::{ArgResult, Args};
+use super::Args;
 use crate::util::{matcher, osu::ModSelection};
-
-use rosu::models::GameMods;
-use std::iter::FromIterator;
 
 pub struct SimulateArgs {
     pub mods: Option<ModSelection>,

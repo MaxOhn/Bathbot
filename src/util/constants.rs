@@ -22,6 +22,7 @@ pub const DISCORD_CDN: &str = "https://cdn.discordapp.com/";
 
 // Discord ids
 pub const OWNER_USER_ID: u64 = 219905108316520448;
+#[allow(dead_code)]
 pub const DEV_GUILD_ID: u64 = 297072529426612224;
 
 // Error messages

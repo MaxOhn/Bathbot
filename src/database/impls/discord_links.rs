@@ -2,7 +2,6 @@ use crate::{BotResult, Database};
 
 use dashmap::DashMap;
 use sqlx::Row;
-use std::collections::HashMap;
 
 impl Database {
     pub async fn add_discord_link(&self, user_id: u64, name: &str) -> BotResult<()> {

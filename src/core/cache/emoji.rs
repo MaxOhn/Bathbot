@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use twilight::model::{
     guild::Emoji,
-    id::{EmojiId, RoleId, UserId},
+    id::{EmojiId, RoleId},
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -5,7 +5,7 @@ use crate::{embeds::NoChokeEmbed, BotResult, Context};
 use async_trait::async_trait;
 use rosu::models::{Beatmap, Score, User};
 use std::sync::Arc;
-use twilight::model::{channel::Message, id::UserId};
+use twilight::model::channel::Message;
 
 pub struct NoChokePagination {
     msg: Message,

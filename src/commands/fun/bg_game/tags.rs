@@ -12,16 +12,13 @@ use crate::{
 
 use rand::RngCore;
 use rosu::models::GameMode;
-use std::{
-    convert::TryFrom, env, fmt::Write, hash::Hash, path::PathBuf, str::FromStr, sync::Arc,
-    time::Duration,
-};
+use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::{fs, stream::StreamExt};
 use twilight::model::{
-    channel::{Message, Reaction, ReactionType},
+    channel::{Message, ReactionType},
     gateway::{
         event::{Event, EventType},
-        payload::{ReactionAdd, ReactionRemove},
+        payload::ReactionAdd,
     },
 };
 

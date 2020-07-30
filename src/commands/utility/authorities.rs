@@ -4,8 +4,7 @@ use crate::{
     Args, BotResult, Context,
 };
 
-use regex::Regex;
-use std::{collections::hash_map::Entry, fmt::Write, str::FromStr, sync::Arc};
+use std::{fmt::Write, sync::Arc};
 use twilight::model::{
     channel::Message,
     guild::Permissions,

@@ -6,13 +6,13 @@ use crate::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
         numbers::{round, with_comma_int},
-        osu, ScoreExt,
+        ScoreExt,
     },
     BotResult, Context,
 };
 
 use rosu::models::{Beatmap, GameMode};
-use std::{collections::HashMap, fmt::Write, sync::Arc};
+use std::{collections::HashMap, fmt::Write};
 
 #[derive(Clone)]
 pub struct LeaderboardEmbed {

@@ -1,11 +1,7 @@
-use crate::{
-    database::{util::CustomSQL, StreamTrack},
-    BotResult, Database,
-};
+use crate::{BotResult, Database};
 
 use dashmap::DashMap;
 use sqlx::Row;
-use std::collections::{HashMap, HashSet};
 
 impl Database {
     pub async fn add_stream_track(&self, channel: u64, user: u64) -> BotResult<()> {

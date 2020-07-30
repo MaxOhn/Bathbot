@@ -10,8 +10,6 @@ use twilight::model::{
     id::{ChannelId, GuildId},
 };
 
-const NO_PERMISSIONS: &[PermissionOverwrite] = &[];
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum CachedChannel {
@@ -98,6 +96,7 @@ impl CachedChannel {
         }
     }
 
+    #[allow(dead_code)]
     /// Returns the guild id
     pub fn get_guild_id(&self) -> Option<GuildId> {
         match self {
@@ -123,33 +122,7 @@ impl CachedChannel {
         }
     }
 
-    pub fn get_permission_overrides(&self) -> &[PermissionOverwrite] {
-        match self {
-            CachedChannel::TextChannel {
-                permission_overrides,
-                ..
-            } => permission_overrides,
-            CachedChannel::DM { .. } => NO_PERMISSIONS,
-            CachedChannel::VoiceChannel {
-                permission_overrides,
-                ..
-            } => permission_overrides,
-            CachedChannel::GroupDM { .. } => NO_PERMISSIONS,
-            CachedChannel::Category {
-                permission_overrides,
-                ..
-            } => permission_overrides,
-            CachedChannel::AnnouncementsChannel {
-                permission_overrides,
-                ..
-            } => permission_overrides,
-            CachedChannel::StoreChannel {
-                permission_overrides,
-                ..
-            } => permission_overrides,
-        }
-    }
-
+    #[allow(dead_code)]
     pub fn is_dm(&self) -> bool {
         match self {
             CachedChannel::DM { .. } => true,

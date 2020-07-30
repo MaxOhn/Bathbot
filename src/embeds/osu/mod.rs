@@ -44,7 +44,7 @@ use crate::{
     },
 };
 
-use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score, User};
+use rosu::models::{Beatmap, GameMods, User};
 use std::{borrow::Cow, fmt::Write};
 
 pub fn get_user_author(user: &User) -> Author {

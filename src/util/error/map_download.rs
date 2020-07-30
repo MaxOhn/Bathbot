@@ -1,5 +1,4 @@
-use reqwest::{header::InvalidHeaderValue, Error as ReqwestError};
-use sqlx::Error as DBError;
+use reqwest::Error as ReqwestError;
 use std::{error::Error as StdError, fmt};
 use tokio::io::Error as TokioIOError;
 

@@ -22,9 +22,11 @@ impl MapsetTagWrapper {
     pub fn untagged(&self) -> bool {
         self.tags.is_empty()
     }
+    #[allow(dead_code)]
     pub fn any(&self) -> bool {
         !self.tags.is_empty()
     }
+    #[allow(dead_code)]
     pub fn has_tags(&self, tags: MapsetTags) -> bool {
         self.contains(tags)
     }

@@ -1,7 +1,6 @@
-use super::{ArgResult, Args};
+use super::Args;
 use crate::util::matcher;
 
-use regex::Regex;
 use std::str::FromStr;
 use twilight::model::id::{ChannelId, MessageId, RoleId};
 

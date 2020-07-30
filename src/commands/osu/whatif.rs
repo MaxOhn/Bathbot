@@ -6,10 +6,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::{
-    backend::BestRequest,
-    models::{GameMode, Score, User},
-};
+use rosu::{backend::BestRequest, models::GameMode};
 use std::sync::Arc;
 use twilight::model::channel::Message;
 

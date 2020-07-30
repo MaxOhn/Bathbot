@@ -7,7 +7,7 @@ use crate::{
     bg_game::GameWrapper,
     core::{
         buckets::{Bucket, Ratelimit},
-        stored_values::{StoredValues, Values},
+        stored_values::{StoredValues, },
         Cache, ColdRebootData,
     },
     database::{Database, GuildConfig},
@@ -17,12 +17,10 @@ use crate::{
 use darkredis::ConnectionPool;
 use dashmap::DashMap;
 use rosu::{
-    models::{GameMode, GameMods},
     Osu,
 };
 use std::{collections::HashMap, time::Instant};
 use tokio::sync::Mutex;
-use tokio::sync::RwLock;
 use twilight::gateway::Cluster;
 use twilight::http::Client as HttpClient;
 use twilight::model::{

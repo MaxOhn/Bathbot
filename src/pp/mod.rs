@@ -10,9 +10,9 @@ use crate::{
 use bitflags::bitflags;
 use rosu::models::{
     ApprovalStatus::{self, Approved, Loved, Ranked},
-    Beatmap, GameMode, GameMods, Grade, Score,
+    GameMode, GameMods,
 };
-use std::{collections::HashMap, env, str::FromStr, sync::Arc};
+use std::{collections::HashMap, env, str::FromStr};
 use tokio::{process::Command, time};
 
 bitflags! {

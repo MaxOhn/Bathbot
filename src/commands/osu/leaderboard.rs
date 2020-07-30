@@ -12,10 +12,6 @@ use crate::{
 
 use rosu::{
     backend::requests::BeatmapRequest,
-    models::{
-        ApprovalStatus::{Approved, Loved, Ranked},
-        GameMods,
-    },
 };
 use std::sync::Arc;
 use twilight::model::channel::Message;

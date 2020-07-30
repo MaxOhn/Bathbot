@@ -25,16 +25,12 @@ pub use top::TopPagination;
 use crate::{embeds::EmbedData, util::numbers, BotResult, Context};
 
 use async_trait::async_trait;
-use std::{convert::TryFrom, sync::Arc, time::Duration};
+use std::time::Duration;
 use tokio::stream::StreamExt;
-use twilight::{
-    builders::embed::EmbedBuilder,
-    model::{
-        channel::{Message, Reaction, ReactionType},
-        gateway::payload::ReactionAdd,
-        id::UserId,
-    },
-    standby::WaitForReactionStream,
+use twilight::model::{
+    channel::{Message, Reaction, ReactionType},
+    gateway::payload::ReactionAdd,
+    id::UserId,
 };
 
 #[async_trait]

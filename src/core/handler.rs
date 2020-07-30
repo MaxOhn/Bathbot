@@ -9,7 +9,7 @@ use crate::{
 use std::{
     borrow::Cow,
     fmt::Write,
-    ops::{Deref, DerefMut},
+    ops::{Deref, },
     sync::Arc,
 };
 use twilight::gateway::Event;

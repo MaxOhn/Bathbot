@@ -1,7 +1,4 @@
-use std::{
-    char,
-    ops::{DivAssign, Rem},
-};
+use std::char;
 
 pub fn round(n: f32) -> f32 {
     (100.0 * n).round() / 100.0

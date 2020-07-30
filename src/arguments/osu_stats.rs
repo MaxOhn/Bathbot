@@ -1,8 +1,8 @@
-use super::{ArgResult, Args};
+use super::Args;
 use crate::custom_client::{OsuStatsOrder, OsuStatsParams};
 
 use rosu::models::GameMode;
-use std::{iter::FromIterator, str::FromStr};
+use std::str::FromStr;
 
 pub struct OsuStatsArgs {
     pub params: OsuStatsParams,

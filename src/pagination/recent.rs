@@ -11,10 +11,7 @@ use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
-use twilight::{
-    builders::embed::EmbedBuilder,
-    model::{channel::Message, id::UserId},
-};
+use twilight::model::channel::Message;
 
 pub struct RecentPagination {
     msg: Message,

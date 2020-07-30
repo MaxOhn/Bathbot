@@ -7,20 +7,10 @@ use crate::{
 
 use image::GenericImageView;
 use rosu::models::GameMode;
-use std::{collections::VecDeque, env, fmt::Write, path::PathBuf, sync::Arc};
-use tokio::{
-    fs,
-    stream::StreamExt,
-    sync::{
-        watch::{channel, Receiver, Sender},
-        RwLock,
-    },
-    time::{delay_for, timeout, Duration},
-};
-use twilight::model::{gateway::payload::MessageCreate, id::ChannelId};
+use std::collections::VecDeque;
+use tokio::{fs, stream::StreamExt, sync::RwLock};
+use twilight::model::id::ChannelId;
 use twilight::standby::WaitForMessageStream;
-
-const TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct Game {
     pub title: String,

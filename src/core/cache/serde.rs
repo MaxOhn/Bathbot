@@ -1,7 +1,6 @@
-use serde::de::{Error as DeError, MapAccess, Visitor};
-use serde::ser::{Serialize, SerializeSeq, Serializer};
-use serde::{Deserialize, Deserializer};
-use std::{collections::HashMap, fmt, hash::Hash};
+use serde::de::{Error as DeError, Visitor};
+use serde::Deserializer;
+use std::fmt;
 
 pub fn deserialize_u16<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u16, D::Error> {
     deserializer.deserialize_any(U16Visitor)

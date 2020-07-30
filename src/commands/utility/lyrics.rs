@@ -1,10 +1,6 @@
-use crate::{
-    bail,
-    util::{constants::GENERAL_ISSUE, MessageExt},
-    Args, BotResult, Context,
-};
+use crate::{util::MessageExt, Args, BotResult, Context};
 
-use std::{collections::hash_map::Entry, sync::Arc};
+use std::sync::Arc;
 use twilight::model::channel::Message;
 
 #[command]

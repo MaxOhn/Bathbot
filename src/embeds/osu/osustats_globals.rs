@@ -13,7 +13,7 @@ use crate::{
 };
 
 use rosu::models::User;
-use std::{collections::BTreeMap, fmt::Write, sync::Arc};
+use std::{collections::BTreeMap, fmt::Write};
 
 #[derive(Clone)]
 pub struct OsuStatsGlobalsEmbed {

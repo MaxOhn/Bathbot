@@ -17,11 +17,7 @@ use crate::{
     BotResult,
 };
 
-use governor::{
-    clock::DefaultClock,
-    state::{keyed::DashMapStateStore, StateStore},
-    Quota, RateLimiter,
-};
+use governor::{clock::DefaultClock, state::keyed::DashMapStateStore, Quota, RateLimiter};
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
     multipart::Form,
@@ -30,7 +26,7 @@ use reqwest::{
 use rosu::models::{GameMode, GameMods};
 use scraper::{Html, Node, Selector};
 use serde_json::Value;
-use std::{collections::HashSet, convert::TryFrom, env, fmt::Write, hash::Hash, num::NonZeroU32};
+use std::{collections::HashSet, convert::TryFrom, fmt::Write, hash::Hash, num::NonZeroU32};
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
 #[allow(clippy::enum_variant_names)]

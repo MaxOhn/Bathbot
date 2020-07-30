@@ -14,7 +14,7 @@ use crate::{
 use futures::future::try_join_all;
 use rosu::{
     backend::requests::BestRequest,
-    models::{Beatmap, GameMode, Score, User},
+    models::{ GameMode},
 };
 use std::{cmp::Ordering, collections::HashMap, sync::Arc};
 use twilight::model::channel::Message;

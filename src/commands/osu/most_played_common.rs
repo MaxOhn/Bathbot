@@ -1,6 +1,5 @@
 use crate::{
     arguments::{Args, MultNameArgs},
-    custom_client::MostPlayedMap,
     embeds::{EmbedData, MostPlayedCommonEmbed},
     pagination::{MostPlayedCommonPagination, Pagination},
     util::{constants::OSU_API_ISSUE, get_combined_thumbnail, MessageExt},
@@ -10,13 +9,11 @@ use crate::{
 use futures::future::{try_join_all, TryFutureExt};
 use itertools::Itertools;
 use rosu::{
-    backend::UserRequest,
     models::{GameMode, User},
 };
 use std::{
     collections::{HashMap, HashSet},
     fmt::Write,
-    iter::Extend,
     sync::Arc,
 };
 use twilight::model::channel::Message;

@@ -15,7 +15,7 @@ use rosu::{
     backend::requests::RecentRequest,
     models::{
         ApprovalStatus::{Approved, Loved, Ranked},
-        GameMode, GameMods,
+        GameMode, 
     },
 };
 use std::sync::Arc;

@@ -10,7 +10,6 @@ use std::{
 };
 use strfmt::strfmt;
 use tokio::time;
-use twilight::{builders::embed::EmbedBuilder, model::id::ChannelId};
 
 pub async fn twitch_loop(ctx: Arc<Context>) {
     // Formatting of the embed image

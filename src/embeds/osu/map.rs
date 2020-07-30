@@ -14,7 +14,7 @@ use crate::{
 
 use chrono::{DateTime, Utc};
 use rosu::models::{Beatmap, GameMode, GameMods};
-use std::{fmt::Write, sync::Arc};
+use std::fmt::Write;
 
 #[derive(Clone)]
 pub struct MapEmbed {

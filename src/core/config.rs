@@ -1,6 +1,5 @@
-use crate::{util::matcher, BotResult, Error};
+use crate::{ BotResult, Error};
 
-use once_cell::sync::OnceCell;
 use serde::Deserialize;
 use std::{collections::HashMap, path::PathBuf};
 use tokio::fs;

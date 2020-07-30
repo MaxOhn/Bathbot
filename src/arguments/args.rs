@@ -112,6 +112,7 @@ impl<'m> ArgsFull<'m> {
     }
 
     #[inline]
+    #[allow(dead_code)]
     pub fn single<T: FromStr>(&mut self) -> Result<T, ArgError<T::Err>> {
         let (start, end) = self.limits.pop_front().ok_or(ArgError::Eos)?;
         let arg = &self.msg[start..end];
@@ -119,6 +120,7 @@ impl<'m> ArgsFull<'m> {
     }
 
     #[inline]
+    #[allow(dead_code)]
     pub fn single_back<T: FromStr>(&mut self) -> Result<T, ArgError<T::Err>> {
         let (start, end) = self.limits.pop_back().ok_or(ArgError::Eos)?;
         let arg = &self.msg[start..end];

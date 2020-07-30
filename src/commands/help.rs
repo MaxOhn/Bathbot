@@ -7,11 +7,11 @@ use crate::{
     BotResult, Context,
 };
 
-use std::{collections::BTreeMap, fmt::Write, sync::Arc};
+use std::{collections::BTreeMap, fmt::Write};
 use twilight::builders::embed::EmbedBuilder;
 use twilight::model::{
     channel::{embed::Embed, Message},
-    id::{ChannelId, GuildId, RoleId, UserId},
+    id::{ChannelId, GuildId, UserId},
 };
 
 fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {

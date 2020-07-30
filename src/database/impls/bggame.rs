@@ -28,15 +28,6 @@ RETURNING score
         Ok(row.get::<i64, _>(0) as usize)
     }
 
-    pub async fn get_bggame_score(&self, user_id: u64) -> BotResult<usize> {
-        let query = format!(
-            "SELECT score FROM bggame_stats WHERE discord_id={}",
-            user_id
-        );
-        let row = sqlx::query(&query).fetch_one(&self.pool).await?;
-        Ok(row.get::<i64, _>(0) as usize)
-    }
-
     pub async fn all_bggame_scores(&self) -> BotResult<Vec<(u64, u32)>> {
         let scores = sqlx::query("SELECT * FROM bggame_stats")
             .fetch_all(&self.pool)

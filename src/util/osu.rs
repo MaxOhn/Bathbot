@@ -2,11 +2,11 @@ use crate::{
     arguments::SimulateArgs,
     core::CachedEmoji,
     util::{
-        constants::{emotes::*, DEV_GUILD_ID, OSU_BASE},
+        constants::{emotes::*, OSU_BASE},
         error::MapDownloadError,
         matcher,
     },
-    BotResult, Context,
+    Context,
 };
 
 use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score};

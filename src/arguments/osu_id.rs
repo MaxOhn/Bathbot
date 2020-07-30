@@ -1,10 +1,9 @@
-use super::{ArgResult, Args};
+use super::Args;
 use crate::util::{
     matcher,
     osu::{MapIdType, ModSelection},
 };
 
-use rosu::models::GameMods;
 use std::str::FromStr;
 
 pub struct MatchArgs {

@@ -7,6 +7,7 @@ pub fn date_to_string(date: &DateTime<Utc>) -> String {
     date.format(DATE_FORMAT).to_string()
 }
 
+#[allow(dead_code)]
 pub fn string_to_date(date: String) -> BotResult<DateTime<Utc>> {
     Ok(Utc.datetime_from_str(&date, DATE_FORMAT)?)
 }

@@ -1,16 +1,12 @@
-use super::{game_loop, util, Game, GameResult, Hints, ImageReveal, LoopResult};
+use super::{game_loop, Game, GameResult, LoopResult};
 use crate::{
     database::MapsetTagWrapper,
     util::{constants::OSU_BASE, error::BgGameError},
-    BotResult, Context,
+    Context,
 };
 
-use image::GenericImageView;
-use rosu::models::GameMode;
-use std::{collections::VecDeque, env, fmt::Write, path::PathBuf, sync::Arc};
+use std::{collections::VecDeque, sync::Arc};
 use tokio::{
-    fs,
-    stream::StreamExt,
     sync::{
         mpsc::{self, Receiver, Sender},
         RwLock,
@@ -18,7 +14,6 @@ use tokio::{
     time::{delay_for, timeout, Duration},
 };
 use twilight::model::{gateway::payload::MessageCreate, id::ChannelId};
-use twilight::standby::WaitForMessageStream;
 
 const TIMEOUT: Duration = Duration::from_secs(10);
 const GAME_LEN: Duration = Duration::from_secs(180);

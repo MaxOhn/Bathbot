@@ -11,7 +11,7 @@ use crate::{
 
 use rosu::{
     backend::BestRequest,
-    models::{GameMode, Score, User},
+    models::{GameMode},
 };
 use std::sync::Arc;
 use twilight::model::channel::Message;

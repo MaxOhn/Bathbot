@@ -18,11 +18,8 @@ pub use top::*;
 
 use crate::util::{matcher, osu::ModSelection};
 
-use regex::Regex;
-use rosu::models::{GameMods, Grade};
-use std::{borrow::Cow, convert::TryFrom, str::FromStr, vec::IntoIter};
-
-type ArgResult<T> = Result<T, String>;
+use rosu::models::Grade;
+use std::{convert::TryFrom, str::FromStr};
 
 fn mods(args: &mut Vec<String>) -> Option<ModSelection> {
     for (i, arg) in args.iter().enumerate() {

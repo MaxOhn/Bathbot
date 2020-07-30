@@ -12,7 +12,7 @@ use crate::{
 };
 
 use rosu::models::{Beatmap, GameMode, GameMods, Score};
-use std::{fmt::Write, sync::Arc};
+use std::fmt::Write;
 use twilight::builders::embed::EmbedBuilder;
 
 #[derive(Clone)]

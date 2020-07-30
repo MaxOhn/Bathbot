@@ -6,7 +6,6 @@ use crate::{
     BotResult, Context,
 };
 
-use dashmap::DashMap;
 use rosu::models::GameMode;
 use std::{sync::Arc, time::Instant};
 use tokio::sync::Mutex;

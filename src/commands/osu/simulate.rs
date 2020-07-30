@@ -12,7 +12,6 @@ use crate::{
 use rosu::{
     backend::requests::BeatmapRequest,
     models::{
-        ApprovalStatus::{Approved, Loved, Ranked},
         GameMode,
     },
 };

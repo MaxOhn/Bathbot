@@ -5,14 +5,13 @@ use crate::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
         numbers::with_comma_int,
-        osu::grade_emote,
-        BeatmapExt, ScoreExt,
+        ScoreExt,
     },
     BotResult, Context,
 };
 
 use rosu::models::{Beatmap, GameMode, Score, User};
-use std::{fmt::Write, sync::Arc};
+use std::fmt::Write;
 
 #[derive(Clone)]
 pub struct TopEmbed {

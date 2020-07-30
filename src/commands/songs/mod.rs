@@ -20,11 +20,7 @@ pub use rockefeller::*;
 pub use saygoodbye::*;
 pub use tijdmachine::*;
 
-use crate::{
-    bail,
-    util::{constants::GENERAL_ISSUE, MessageExt},
-    BotResult, Context,
-};
+use crate::{util::MessageExt, BotResult, Context};
 
 use std::sync::Arc;
 use tokio::time;

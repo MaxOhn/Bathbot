@@ -1,4 +1,3 @@
-use super::require_link;
 use crate::{
     arguments::{Args, OsuStatsArgs},
     custom_client::OsuStatsScore,
@@ -13,7 +12,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::{backend::requests::UserRequest, models::GameMode};
+use rosu::{ models::GameMode};
 use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 use twilight::model::channel::Message;
 

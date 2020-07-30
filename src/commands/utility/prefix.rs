@@ -1,8 +1,4 @@
-use crate::{
-    bail,
-    util::{constants::GENERAL_ISSUE, MessageExt},
-    Args, BotResult, Context,
-};
+use crate::{util::MessageExt, Args, BotResult, Context};
 
 use std::{cmp::Ordering, fmt::Write, sync::Arc};
 use twilight::model::channel::Message;

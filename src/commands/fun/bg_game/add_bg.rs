@@ -8,7 +8,7 @@ use crate::{
 };
 
 use rosu::{backend::BeatmapRequest, models::GameMode};
-use std::{path::PathBuf, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 use tokio::{
     fs::{remove_file, File},
     io::AsyncWriteExt,

@@ -1,11 +1,11 @@
 use super::{Pages, Pagination};
 
-use crate::{embeds::CommonEmbed, BotResult, Context};
+use crate::{embeds::CommonEmbed, BotResult};
 
 use async_trait::async_trait;
 use rosu::models::{Beatmap, Score, User};
 use std::collections::HashMap;
-use twilight::model::{channel::Message, id::UserId};
+use twilight::model::channel::Message;
 
 pub struct CommonPagination {
     msg: Message,

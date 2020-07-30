@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use sqlx::{postgres::PgRow, types::Json, Error, FromRow, Row};
-use std::ops::Deref;
+use sqlx::{postgres::PgRow, Error, FromRow, Row};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct GuildConfig {

@@ -5,7 +5,6 @@ use crate::{
 };
 
 use std::sync::Arc;
-use tokio::time::{timeout, Duration};
 use twilight::model::channel::Message;
 
 #[command]

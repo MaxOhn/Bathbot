@@ -4,7 +4,7 @@ use crate::{
         constants::{INVITE_LINK, OWNER_USER_ID},
         datetime::how_long_ago,
         discord_avatar,
-        numbers::{round, with_comma_int},
+        numbers::round,
     },
     BotResult, Context,
 };

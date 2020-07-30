@@ -13,7 +13,7 @@ use crate::{
 
 use chrono::{DateTime, Utc};
 use rosu::models::{Beatmap, GameMode, Grade, Score, User};
-use std::{fmt::Write, sync::Arc};
+use std::fmt::Write;
 use twilight::builders::embed::EmbedBuilder;
 
 #[derive(Clone)]

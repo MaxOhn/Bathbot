@@ -3,13 +3,13 @@ use crate::{
     arguments::{Args, RankArgs},
     embeds::{EmbedData, RankEmbed},
     util::{constants::OSU_API_ISSUE, MessageExt},
-    BotResult, Context, Error,
+    BotResult, Context,
 };
 
 use futures::future::TryFutureExt;
 use rosu::{
     backend::requests::UserRequest,
-    models::{GameMode, Score, User},
+    models::{GameMode},
 };
 use std::sync::Arc;
 use twilight::model::channel::Message;

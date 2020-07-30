@@ -10,7 +10,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::backend::requests::{BeatmapRequest, ScoreRequest, UserRequest};
+use rosu::backend::requests::{BeatmapRequest, ScoreRequest};
 use std::sync::Arc;
 use twilight::model::channel::Message;
 

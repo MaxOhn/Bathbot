@@ -1,6 +1,3 @@
-#![allow(dead_code)]
-#![allow(unused_imports)]
-
 mod arguments;
 mod bg_game;
 mod commands;
@@ -33,7 +30,7 @@ use clap::{App, Arg};
 use darkredis::ConnectionPool;
 use dashmap::DashMap;
 use prometheus::{Encoder, TextEncoder};
-use rosu::{models::GameMods, Osu};
+use rosu::Osu;
 use std::{
     collections::HashMap,
     process,
@@ -41,12 +38,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use tokio::{
-    runtime::Runtime,
-    stream::StreamExt,
-    sync::{Mutex, RwLock},
-    time,
-};
+use tokio::{runtime::Runtime, stream::StreamExt, sync::Mutex, time};
 use twilight::gateway::{
     cluster::config::ShardScheme, shard::ResumeSession, Cluster, ClusterConfig,
 };
@@ -161,17 +153,17 @@ async fn run(
     let stats = Arc::new(BotStats::new());
 
     // Provide stats to locale address
-    // let s = stats.clone();
-    // tokio::spawn(async move {
-    //     let hello = warp::path!("metrics").map(move || {
-    //         let mut buffer = vec![];
-    //         let encoder = TextEncoder::new();
-    //         let metric_families = s.registry.gather();
-    //         encoder.encode(&metric_families, &mut buffer).unwrap();
-    //         String::from_utf8(buffer).unwrap()
-    //     });
-    //     warp::serve(hello).run(([127, 0, 0, 1], 9091)).await;
-    // });
+    let s = stats.clone();
+    tokio::spawn(async move {
+        let _hello = warp::path!("metrics").map(move || {
+            let mut buffer = vec![];
+            let encoder = TextEncoder::new();
+            let metric_families = s.registry.gather();
+            encoder.encode(&metric_families, &mut buffer).unwrap();
+            String::from_utf8(buffer).unwrap()
+        });
+        // warp::serve(hello).run(([127, 0, 0, 1], 9091)).await;
+    });
 
     // Prepare cluster builder
     let cache = Cache::new(bot_user, stats);

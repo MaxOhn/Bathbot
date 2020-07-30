@@ -1,5 +1,4 @@
 use chrono::Utc;
-use futures::future::BoxFuture;
 use std::collections::HashMap;
 
 pub struct Ratelimit {

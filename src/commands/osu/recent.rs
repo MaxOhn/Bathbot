@@ -11,7 +11,7 @@ use crate::{
 };
 
 use rosu::{
-    backend::requests::{RecentRequest, UserRequest},
+    backend::requests::{RecentRequest},
     models::{
         ApprovalStatus::{Approved, Loved, Qualified, Ranked},
         GameMode,

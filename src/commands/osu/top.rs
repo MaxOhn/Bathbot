@@ -12,10 +12,9 @@ use crate::{
     BotResult, Context,
 };
 
-use regex::Regex;
 use rosu::{
     backend::BestRequest,
-    models::{Beatmap, GameMode, GameMods, Score, User},
+    models::{Beatmap, GameMode,  Score, },
 };
 use std::{cmp::Ordering, collections::HashMap, sync::Arc};
 use twilight::model::channel::Message;

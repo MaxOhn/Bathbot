@@ -1,4 +1,4 @@
-use crate::{BotResult, Context, Database};
+use crate::{ Context, Database};
 
 use rosu::{
     backend::UserRequest,
