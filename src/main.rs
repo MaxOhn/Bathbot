@@ -182,10 +182,10 @@ async fn run(
     // Check for resume data, pass to builder if present
     {
         let mut connection = clients.redis.get().await;
-        if let Some(d) = connection.get("cb_cluster_data_0").await.ok().flatten() {
+        if let Some(d) = connection.get("cb_cluster_data").await.ok().flatten() {
             let cold_cache: ColdRebootData = serde_json::from_str(&*String::from_utf8(d).unwrap())?;
             debug!("ColdRebootData:\n{:#?}", cold_cache);
-            connection.del("cb_cluster_data_0").await?;
+            connection.del("cb_cluster_data").await?;
             if cold_cache.total_shards == total_shards
                 && cold_cache.shard_count == shards_per_cluster
             {

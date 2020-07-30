@@ -17,7 +17,7 @@ use twilight::model::{
 fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
     let (custom_prefix, first_prefix) = if let Some(guild_id) = guild_id {
         let mut prefixes = ctx.config_prefixes(guild_id);
-        if &prefixes == &["<", "!!"] {
+        if prefixes == ["<", "!!"] {
             (None, prefixes.remove(0))
         } else {
             let mut prefix_iter = prefixes.iter();

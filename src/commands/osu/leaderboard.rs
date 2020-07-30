@@ -92,7 +92,7 @@ async fn leaderboard_main(
             Ok(scores) => scores,
             Err(why) => {
                 msg.respond(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
+                return Err(why);
             }
         }
     };

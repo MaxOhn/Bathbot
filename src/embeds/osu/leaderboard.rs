@@ -73,7 +73,7 @@ impl LeaderboardEmbed {
                     } else {
                         format!(" **+{}**", score.enabled_mods)
                     },
-                    pp = get_pp(ctx.clone(), &mut mod_map, &score, &map).await?,
+                    pp = get_pp(ctx, &mut mod_map, &score, &map).await?,
                     acc = round(score.accuracy),
                     ago = how_long_ago(&score.date),
                 );

@@ -49,19 +49,19 @@ impl Parse for CommandFun {
         let mut iter = args.iter();
         if iter
             .next()
-            .map_or(true, |arg| &arg.kind != &parse_quote! { Arc<Context> })
+            .map_or(true, |arg| arg.kind != parse_quote! { Arc<Context> })
         {
             return Err(input.error("expected first argument of type `Arc<Context>`"));
         }
         if iter
             .next()
-            .map_or(true, |arg| &arg.kind != &parse_quote! { &Message })
+            .map_or(true, |arg| arg.kind != parse_quote! { &Message })
         {
             return Err(input.error("expected second argument of type `&Message`"));
         }
         if iter
             .next()
-            .map_or(true, |arg| &arg.kind != &parse_quote! { Args })
+            .map_or(true, |arg| arg.kind != parse_quote! { Args })
         {
             return Err(input.error("expected third argument of type `Args`"));
         }
@@ -69,7 +69,7 @@ impl Parse for CommandFun {
         // -> BotResult<()>
         let ret = match input.parse::<ReturnType>()? {
             ReturnType::Type(_, t) => {
-                if &t == &parse_quote! { BotResult<()> } {
+                if t == parse_quote! { BotResult<()> } {
                     *t
                 } else {
                     return Err(input.error("expected return type `BotResult<()>`"));

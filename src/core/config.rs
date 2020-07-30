@@ -28,26 +28,11 @@ pub struct Database {
     pub redis: String,
 }
 
-// TODO: Use this for emojis
-pub static EMOJI_OVERRIDES: OnceCell<HashMap<String, String>> = OnceCell::new();
-
 impl BotConfig {
     pub async fn new(filename: &str) -> BotResult<Self> {
         let config_file = fs::read_to_string(filename)
             .await
             .map_err(|_| Error::NoConfig)?;
-        toml::from_str::<BotConfig>(&config_file)
-            .map(|c| {
-                let mut override_map: HashMap<String, String> = HashMap::new();
-                let mut id_map: HashMap<String, u64> = HashMap::new();
-                for (name, value) in c.emoji.iter() {
-                    override_map.insert(name.clone(), value.clone());
-                    let id: u64 = matcher::get_emoji_parts(value)[0].id;
-                    id_map.insert(name.clone(), id);
-                }
-                EMOJI_OVERRIDES.set(override_map).unwrap();
-                Ok(c)
-            })
-            .map_err(Error::InvalidConfig)?
+        toml::from_str::<BotConfig>(&config_file).map_err(Error::InvalidConfig)
     }
 }

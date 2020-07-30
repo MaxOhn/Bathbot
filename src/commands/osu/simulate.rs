@@ -20,7 +20,6 @@ use std::sync::Arc;
 use tokio::time::{self, Duration};
 use twilight::model::channel::Message;
 
-// TODO: Split up into STD / MNA commands
 #[command]
 #[short_desc("Simulate a score on a map")]
 #[long_desc(

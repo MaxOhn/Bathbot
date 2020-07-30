@@ -13,8 +13,6 @@ use twilight::model::{
 };
 use twilight_mention::Mention;
 
-// TODO: Check permissions
-
 #[async_trait]
 pub trait MessageExt {
     /// Response with content, embed, attachment, ...

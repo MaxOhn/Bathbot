@@ -80,17 +80,17 @@ impl Cache {
     async fn _prepare_cold_resume_guild(
         &self,
         redis: &ConnectionPool,
-        todo: Vec<GuildId>,
+        orders: Vec<GuildId>,
         index: usize,
     ) -> Result<(), Error> {
         debug!(
             "Guild dumper {} started freezing {} guilds",
             index,
-            todo.len()
+            orders.len()
         );
         let mut connection = redis.get().await;
-        let mut to_dump = Vec::with_capacity(todo.len());
-        for key in todo {
+        let mut to_dump = Vec::with_capacity(orders.len());
+        for key in orders {
             debug!("[take_removing key {}]", key);
             let g = self.guilds.remove(&key).unwrap().1;
             debug!("[got entry]");
@@ -99,16 +99,12 @@ impl Cache {
         debug!("[got to_dump]");
         let serialized = serde_json::to_string(&to_dump).unwrap();
         let dump_task = connection
-            .set_and_expire_seconds(
-                format!("cb_cluster_{}_guild_chunk_{}", self.cluster_id, index),
-                serialized,
-                180,
-            )
+            .set_and_expire_seconds(format!("cb_cluster_guild_chunk_{}", index), serialized, 180)
             .await;
         if let Err(why) = dump_task {
             debug!(
-                "Error while setting redis' `cb_cluster_{}_guild_chunk_{}`: {}",
-                self.cluster_id, index, why
+                "Error while setting redis' `cb_cluster_guild_chunk_{}`: {}",
+                index, why
             );
         }
         Ok(())
@@ -117,15 +113,15 @@ impl Cache {
     async fn _prepare_cold_resume_user(
         &self,
         redis: &ConnectionPool,
-        todo: Vec<UserId>,
+        chunk: Vec<UserId>,
         index: usize,
     ) -> Result<(), Error> {
-        debug!("Worker {} freezing {} users", index, todo.len());
+        debug!("Worker {} freezing {} users", index, chunk.len());
         let mut connection = redis.get().await;
-        let mut chunk = Vec::with_capacity(todo.len());
-        for key in todo {
+        let mut users = Vec::with_capacity(chunk.len());
+        for key in chunk {
             let user = self.users.remove(&key).unwrap().1;
-            chunk.push(CachedUser {
+            users.push(CachedUser {
                 id: user.id,
                 username: user.username.clone(),
                 discriminator: user.discriminator.clone(),
@@ -136,18 +132,14 @@ impl Cache {
                 mutual_servers: AtomicU64::new(0),
             });
         }
-        let serialized = serde_json::to_string(&chunk).unwrap();
+        let serialized = serde_json::to_string(&users).unwrap();
         let worker_task = connection
-            .set_and_expire_seconds(
-                format!("cb_cluster_{}_user_chunk_{}", self.cluster_id, index),
-                serialized,
-                180,
-            )
+            .set_and_expire_seconds(format!("cb_cluster_user_chunk_{}", index), serialized, 180)
             .await;
         if let Err(why) = worker_task {
             debug!(
-                "Error while setting redis' `cb_cluster_{}_user_chunk_{}`: {}",
-                self.cluster_id, index, why
+                "Error while setting redis' `cb_cluster_user_chunk_{}`: {}",
+                index, why
             );
         }
         Ok(())
@@ -158,7 +150,7 @@ impl Cache {
     // ###################
 
     async fn defrost_users(&self, redis: &ConnectionPool, index: usize) -> BotResult<()> {
-        let key = format!("cb_cluster_{}_user_chunk_{}", self.cluster_id, index);
+        let key = format!("cb_cluster_user_chunk_{}", index);
         let mut connection = redis.get().await;
         let mut users: Vec<CachedUser> = serde_json::from_str(
             &String::from_utf8(connection.get(&key).await?.unwrap()).unwrap(),
@@ -173,7 +165,7 @@ impl Cache {
     }
 
     async fn defrost_guilds(&self, redis: &ConnectionPool, index: usize) -> BotResult<()> {
-        let key = format!("cb_cluster_{}_guild_chunk_{}", self.cluster_id, index);
+        let key = format!("cb_cluster_guild_chunk_{}", index);
         let mut connection = redis.get().await;
         let mut guilds: Vec<ColdStorageGuild> = serde_json::from_str(
             &String::from_utf8(connection.get(&key).await?.unwrap()).unwrap(),

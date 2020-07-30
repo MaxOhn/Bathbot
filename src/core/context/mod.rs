@@ -142,10 +142,9 @@ impl Context {
             shard_count: self.backend.shards_per_cluster,
             user_chunks,
         };
-        // TODO: remove 0 from redis name
         connection
             .set_and_expire_seconds(
-                "cb_cluster_data_0",
+                "cb_cluster_data",
                 &serde_json::to_value(data).unwrap().to_string().into_bytes(),
                 180,
             )

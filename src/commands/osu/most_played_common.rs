@@ -106,7 +106,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
             .collect(),
         Err(why) => {
             msg.respond(&ctx, OSU_API_ISSUE).await?;
-            return Err(why.into());
+            return Err(why);
         }
     };
 

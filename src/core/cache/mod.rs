@@ -37,9 +37,6 @@ use twilight::model::{
 };
 
 pub struct Cache {
-    // cluster info
-    pub cluster_id: u64,
-
     //cache
     pub bot_user: CurrentUser,
     pub guilds: DashMap<GuildId, Arc<CachedGuild>>,
@@ -61,7 +58,6 @@ pub struct Cache {
 impl Cache {
     pub fn new(bot_user: CurrentUser, stats: Arc<BotStats>) -> Self {
         Cache {
-            cluster_id: 0,
             bot_user,
             guilds: DashMap::new(),
             guild_channels: DashMap::new(),
@@ -215,10 +211,7 @@ impl Cache {
                                     .iter()
                                     .all(|state| state.value() == &ShardState::Ready)
                             {
-                                info!(
-                                    "Initial cache filling completed for cluster {}",
-                                    self.cluster_id
-                                );
+                                info!("Initial cache filling completed for cluster",);
                                 self.filling.store(false, Ordering::SeqCst);
                             }
                         }
