@@ -13,7 +13,7 @@ impl Database {
         ratio_table
     VALUES
         ($1,$2,$3,$4)
-    ON CONFLICT DO
+    ON CONFLICT (name) DO
         UPDATE
             SET scores=$2,ratios=$3,misses=$4
     RETURNING *

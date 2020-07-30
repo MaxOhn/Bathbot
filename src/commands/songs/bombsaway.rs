@@ -17,5 +17,5 @@ pub async fn bombsaway(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<(
         "Tick tick tock and it's bombs awayyyy",
         "Now we're falling -- now we're falling doooown",
     ];
-    song_send(lyrics, 2500, ctx, msg).await
+    song_send(lyrics, 2750, ctx, msg).await
 }

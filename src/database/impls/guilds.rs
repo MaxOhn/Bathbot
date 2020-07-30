@@ -30,7 +30,7 @@ INSERT INTO
     guilds
 VALUES
     ({},$1)
-ON CONFLICT DO
+ON CONFLICT (guild_id) DO
     UPDATE
         SET config=$1",
                 guard.key()

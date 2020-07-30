@@ -112,7 +112,7 @@ INSERT INTO
     mapsets
 VALUES
     ({},$1,$2,{},$3,{},{},{},$4)
-ON CONFLICT DO
+ON CONFLICT (beatmapset_id) DO
     NOTHING
 ",
         map.beatmapset_id,
@@ -138,7 +138,7 @@ async fn _insert_beatmap(conn: &mut PgConnection, map: &Beatmap) -> BotResult<()
         maps
     VALUES
         ({},{},{},$1,{},{},{},{},{},{},{},{},{},{},$2)
-    ON CONFLICT DO
+    ON CONFLICT (beatmap_id) DO
         NOTHING
     ",
         map.beatmap_id,

@@ -14,5 +14,5 @@ pub async fn catchit(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()>
         "If it does, then you can't blame me",
         "Just like I said - too catchy",
     ];
-    song_send(lyrics, 3000, ctx, msg).await
+    song_send(lyrics, 2500, ctx, msg).await
 }

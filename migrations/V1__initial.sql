@@ -71,7 +71,8 @@ CREATE TABLE mania_stars (
 CREATE TABLE role_assign (
     channel BIGINT NOT NULL,
     message BIGINT NOT NULL,
-    role BIGINT NOT NULL
+    role BIGINT NOT NULL,
+    PRIMARY KEY (channel, message, role)
 );
 
 CREATE TABLE stream_tracks (
