@@ -15,11 +15,12 @@ use crate::{
 use chrono::Duration;
 use image::{png::PNGEncoder, ColorType, DynamicImage};
 use plotters::prelude::*;
+use rayon::prelude::*;
 use rosu::{
     backend::requests::BeatmapRequest,
     models::{GameMode, GameMods},
 };
-use std::sync::Arc;
+use std::{cmp::Ordering, sync::Arc};
 use twilight::model::channel::Message;
 
 const W: u32 = 590;
@@ -96,7 +97,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         Ok(mut maps) => {
             // For mania sort first by mania key, then star rating
             if maps.first().map(|map| map.mode).unwrap_or_default() == GameMode::MNA {
-                maps.sort_by(|m1, m2| {
+                maps.sort_unstable_by(|m1, m2| {
                     m1.diff_cs
                         .partial_cmp(&m2.diff_cs)
                         .unwrap_or_else(|| std::cmp::Ordering::Equal)
@@ -108,7 +109,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
                 })
             // For other mods just sort by star rating
             } else {
-                maps.sort_by(|m1, m2| {
+                maps.sort_unstable_by(|m1, m2| {
                     m1.stars
                         .partial_cmp(&m2.stars)
                         .unwrap_or_else(|| std::cmp::Ordering::Equal)
@@ -252,8 +253,10 @@ fn graph(oppai_values: (Vec<u32>, Vec<f32>), background: DynamicImage) -> BotRes
     static LEN: usize = W as usize * H as usize;
     let (time, strain) = oppai_values;
     let max_strain = strain
-        .iter()
-        .fold(0.0, |max, &next| if next > max { next } else { max });
+        .par_iter()
+        .copied()
+        .max_by(|a, b| a.partial_cmp(&b).unwrap_or(Ordering::Equal))
+        .unwrap_or(0.0);
     let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
 
     {
@@ -264,17 +267,15 @@ fn graph(oppai_values: (Vec<u32>, Vec<f32>), background: DynamicImage) -> BotRes
             .build_ranged(0..*time.last().unwrap(), 0.0..max_strain)?;
 
         // Take as line color whatever is represented least in the background
-        let (r, g, b) =
-            background
-                .to_rgba()
-                .enumerate_pixels()
-                .fold((0, 0, 0), |(r, g, b), pixel| {
-                    (
-                        r + pixel.2[0] as u64,
-                        g + pixel.2[1] as u64,
-                        b + pixel.2[2] as u64,
-                    )
-                });
+        let (r, g, b) = background
+            .to_rgba()
+            .pixels()
+            .par_bridge()
+            .map(|pixel| (pixel[0] as u64, pixel[1] as u64, pixel[2] as u64))
+            .reduce(
+                || (0, 0, 0),
+                |(sum_r, sum_g, sum_b), (r, g, b)| (sum_r + r, sum_g + g, sum_b + b),
+            );
         let b = (b as f32 * 1.1) as u64;
         let line_color = match r.min(g).min(b) {
             min if min == r => &RED,

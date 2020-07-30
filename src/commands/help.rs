@@ -7,6 +7,7 @@ use crate::{
     BotResult, Context,
 };
 
+use rayon::prelude::*;
 use std::{collections::BTreeMap, fmt::Write};
 use twilight::builders::embed::EmbedBuilder;
 use twilight::model::{
@@ -69,7 +70,7 @@ pub async fn help(ctx: &Context, cmds: &CommandGroups, msg: &Message) -> BotResu
     for group in &cmds.groups {
         let len: usize = group
             .commands
-            .iter()
+            .par_iter()
             .map(|&c| c.names[0].len() + 5 + c.short_desc.len())
             .sum();
         let mut value = String::with_capacity(len);
@@ -131,7 +132,7 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
         eb = eb.add_field("Examples", value).inline().commit();
     }
     if cmd.names.len() > 1 {
-        let len: usize = cmd.names.iter().skip(1).map(|n| 4 + n.len()).sum();
+        let len: usize = cmd.names.par_iter().skip(1).map(|n| 4 + n.len()).sum();
         let mut value = String::with_capacity(len);
         let mut aliases = cmd.names.iter().skip(1);
         write!(value, "`{}`", aliases.next().unwrap())?;
@@ -175,18 +176,13 @@ pub async fn failed_help(
     cmds: &CommandGroups,
     msg: &Message,
 ) -> BotResult<()> {
-    let names = cmds
+    let dists: BTreeMap<_, _> = cmds
         .groups
-        .iter()
-        .flat_map(|group| group.commands.iter().flat_map(|&cmd| cmd.names))
-        .collect::<Vec<_>>();
-    let mut dists = BTreeMap::new();
-    for name in names {
-        let dist = levenshtein_distance(arg, name);
-        if dist < 4 {
-            dists.insert(dist, name);
-        }
-    }
+        .par_iter()
+        .flat_map(|group| group.commands.par_iter().flat_map(|&cmd| cmd.names))
+        .map(|name| (levenshtein_distance(arg, name), name))
+        .filter(|(dist, _)| *dist < 4)
+        .collect();
     let (content, color) = if dists.is_empty() {
         (String::from("There is no such command"), RED)
     } else {

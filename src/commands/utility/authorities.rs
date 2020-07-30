@@ -4,6 +4,7 @@ use crate::{
     Args, BotResult, Context,
 };
 
+use rayon::prelude::*;
 use std::{fmt::Write, sync::Arc};
 use twilight::model::{
     channel::Message,
@@ -39,8 +40,7 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
             role_string(&ctx, &roles, guild_id, &mut content);
 
             // Send the message
-            msg.respond(&ctx, content).await?;
-            return Ok(());
+            return msg.respond(&ctx, content).await;
         }
         _ => {}
     }
@@ -52,16 +52,14 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
             Some(id) => id,
             None => {
                 let content = format!("Expected role mention or role id, got `{}`", arg);
-                msg.error(&ctx, content).await?;
-                return Ok(());
+                return msg.error(&ctx, content).await;
             }
         };
         match ctx.cache.get_role(RoleId(role_id), guild_id) {
             Some(role) => new_auths.push(role),
             None => {
                 let content = format!("No role with id {} found in this guild", role_id);
-                msg.error(&ctx, content).await?;
-                return Ok(());
+                return msg.error(&ctx, content).await;
             }
         }
     }
@@ -71,7 +69,7 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
         let mut member_roles = match ctx.cache.get_member(msg.author.id, guild_id) {
             Some(member) => member.roles.clone(),
             None => {
-                msg.error(&ctx, GENERAL_ISSUE).await?;
+                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
                 bail!("Member {} not cached for guild {}", msg.author.id, guild_id);
             }
         };
@@ -110,12 +108,8 @@ fn role_string(ctx: &Context, roles: &[u64], guild_id: GuildId, content: &mut St
 }
 
 fn is_auth_with_roles(ctx: &Context, role_ids: &[RoleId], guild_id: GuildId) -> bool {
-    for &role_id in role_ids {
-        if let Some(role) = ctx.cache.get_role(role_id, guild_id) {
-            if role.permissions.contains(Permissions::ADMINISTRATOR) {
-                return true;
-            }
-        }
-    }
-    false
+    role_ids
+        .par_iter()
+        .filter_map(|&role_id| ctx.cache.get_role(role_id, guild_id))
+        .any(|role| role.permissions.contains(Permissions::ADMINISTRATOR))
 }

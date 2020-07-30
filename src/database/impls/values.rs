@@ -1,6 +1,7 @@
 use crate::{core::Values, BotResult, Database};
 
 use dashmap::DashMap;
+use rayon::prelude::*;
 use rosu::models::GameMods;
 use sqlx::{types::Json, Row};
 use std::collections::HashMap;
@@ -61,7 +62,7 @@ impl Database {
         let value_iter = values.iter().filter_map(|guard| {
             let mod_map: HashMap<_, _> = guard
                 .value()
-                .iter()
+                .par_iter()
                 .filter_map(
                     |(mods, (pp, to_insert))| if *to_insert { Some((*mods, *pp)) } else { None },
                 )

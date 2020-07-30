@@ -74,21 +74,19 @@ async fn leaderboard_main(
     };
 
     // Retrieve the map's leaderboard
-    let scores = {
-        let scores_future = ctx.clients.custom.get_leaderboard(
-            map_id,
-            national,
-            match selection {
-                Some(ModSelection::Exclude(_)) | None => None,
-                Some(ModSelection::Include(mods)) | Some(ModSelection::Exact(mods)) => Some(mods),
-            },
-        );
-        match scores_future.await {
-            Ok(scores) => scores,
-            Err(why) => {
-                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-                return Err(why);
-            }
+    let scores_future = ctx.clients.custom.get_leaderboard(
+        map_id,
+        national,
+        match selection {
+            Some(ModSelection::Exclude(_)) | None => None,
+            Some(ModSelection::Include(m)) | Some(ModSelection::Exact(m)) => Some(m),
+        },
+    );
+    let scores = match scores_future.await {
+        Ok(scores) => scores,
+        Err(why) => {
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            return Err(why);
         }
     };
     let amount = scores.len();

@@ -9,12 +9,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::{
-    backend::requests::RecentRequest,
-    models::{
-        GameMode,
-    },
-};
+use rosu::{backend::requests::RecentRequest, models::GameMode};
 use std::sync::Arc;
 use tokio::time::{self, Duration};
 use twilight::model::channel::Message;

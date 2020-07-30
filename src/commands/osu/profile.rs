@@ -8,8 +8,9 @@ use crate::{
 };
 
 use futures::future::TryFutureExt;
+use rayon::prelude::*;
 use rosu::{
-    backend::{BestRequest},
+    backend::BestRequest,
     models::{Beatmap, GameMode, GameMods, Score},
 };
 use std::{
@@ -18,7 +19,7 @@ use std::{
     ops::{AddAssign, Div},
     sync::Arc,
 };
-use twilight::model::{channel::Message};
+use twilight::model::channel::Message;
 
 #[allow(clippy::cognitive_complexity)]
 async fn profile_main(
@@ -110,7 +111,7 @@ async fn profile_main(
         None
     } else {
         let maps = score_maps
-            .iter()
+            .par_iter()
             .enumerate()
             .filter(|(i, _)| missing_indices.contains(i))
             .map(|(_, (_, map))| map.clone())
@@ -296,24 +297,24 @@ impl ProfileResult {
             .into_iter()
             .map(|(name, (count, pp))| (name, count, pp))
             .collect();
-        mappers.sort_by(
-            |(_, count_a, pp_a), (_, count_b, pp_b)| match count_b.cmp(&count_a) {
+        mappers.sort_unstable_by(|(_, count_a, pp_a), (_, count_b, pp_b)| {
+            match count_b.cmp(&count_a) {
                 Equal => pp_b.partial_cmp(pp_a).unwrap_or(Equal),
                 other => other,
-            },
-        );
+            }
+        });
         mappers = mappers[..5.min(mappers.len())].to_vec();
         let (mod_combs_count, mod_combs_pp) = if mult_mods {
             let mut mod_combs_count: Vec<_> = mod_combs
                 .iter()
                 .map(|(name, (count, _))| (*name, *count))
                 .collect();
-            mod_combs_count.sort_by(|a, b| b.1.cmp(&a.1));
+            mod_combs_count.sort_unstable_by(|a, b| b.1.cmp(&a.1));
             let mut mod_combs_pp: Vec<_> = mod_combs
                 .into_iter()
                 .map(|(name, (_, avg))| (name, avg))
                 .collect();
-            mod_combs_pp.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Equal));
+            mod_combs_pp.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Equal));
             (Some(mod_combs_count), Some(mod_combs_pp))
         } else {
             (None, None)
@@ -322,12 +323,12 @@ impl ProfileResult {
             .iter()
             .map(|(name, (count, _))| (*name, *count))
             .collect();
-        mods_count.sort_by(|a, b| b.1.cmp(&a.1));
+        mods_count.sort_unstable_by(|a, b| b.1.cmp(&a.1));
         let mut mods_pp: Vec<_> = mods
             .into_iter()
             .map(|(name, (_, avg))| (name, avg))
             .collect();
-        mods_pp.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Equal));
+        mods_pp.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Equal));
         Self {
             mode,
             acc,

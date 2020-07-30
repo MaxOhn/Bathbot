@@ -8,6 +8,7 @@ use crate::{
 
 use futures::future::{try_join_all, TryFutureExt};
 use itertools::Itertools;
+use rayon::prelude::*;
 use rosu::models::{GameMode, User};
 use std::{
     collections::{HashMap, HashSet},
@@ -30,7 +31,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     let names = match args.names.len() {
         0 => {
             let content = "You need to specify at least one osu username. \
-                    If you're not linked, you must specify at least two names.";
+                If you're not linked, you must specify at least two names.";
             return msg.error(&ctx, content).await;
         }
         1 => match ctx.get_link(msg.author.id.0) {
@@ -62,7 +63,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
             .map_ok(move |user| (i, user))
     });
     let users: HashMap<u32, User> = match try_join_all(user_futs).await {
-        Ok(users) => match users.iter().find(|(_, user)| user.is_none()) {
+        Ok(users) => match users.par_iter().find_any(|(_, user)| user.is_none()) {
             Some((idx, _)) => {
                 let content = format!("User `{}` was not found", names[*idx]);
                 return msg.error(&ctx, content).await;
@@ -107,10 +108,10 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 
     // Consider only maps that appear in each users map list
     let mut maps: Vec<_> = all_maps
-        .into_iter()
+        .into_par_iter()
         .filter(|map| {
             users_count
-                .iter()
+                .par_iter()
                 .all(|(_, count_map)| count_map.contains_key(&map.beatmap_id))
         })
         .collect();
@@ -126,7 +127,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
             counts
         },
     );
-    maps.sort_by(|a, b| {
+    maps.sort_unstable_by(|a, b| {
         total_counts
             .get(&b.beatmap_id)
             .cmp(&total_counts.get(&a.beatmap_id))

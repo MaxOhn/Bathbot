@@ -11,6 +11,7 @@ use crate::{
 };
 
 use rand::RngCore;
+use rayon::prelude::*;
 use rosu::models::GameMode;
 use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::{fs, stream::StreamExt};
@@ -164,7 +165,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         None => GameMode::STD,
     };
     let untagged = match ctx.psql().get_all_tags_mapset(mode).await {
-        Ok(tags) => tags.iter().filter(|tag| tag.untagged()).count() > 0,
+        Ok(tags) => tags.par_iter().any(|tag| tag.untagged()),
         Err(why) => {
             let _ = msg.respond(&ctx, GENERAL_ISSUE).await;
             bail!("Error while getting all tags: {}", why);
@@ -189,7 +190,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         let mapsets = match tags_result {
             Ok(tags) => {
                 if untagged {
-                    tags.into_iter().filter(|tag| tag.untagged()).collect()
+                    tags.into_par_iter().filter(|tag| tag.untagged()).collect()
                 } else {
                     tags
                 }

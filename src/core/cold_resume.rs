@@ -5,6 +5,7 @@ use crate::{
 
 use darkredis::ConnectionPool;
 use futures::future;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -89,14 +90,12 @@ impl Cache {
             orders.len()
         );
         let mut connection = redis.get().await;
-        let mut to_dump = Vec::with_capacity(orders.len());
-        for key in orders {
-            debug!("[take_removing key {}]", key);
-            let g = self.guilds.remove(&key).unwrap().1;
-            debug!("[got entry]");
-            to_dump.push(ColdStorageGuild::from(g));
-        }
-        debug!("[got to_dump]");
+        let to_dump: Vec<_> = orders
+            .into_par_iter()
+            .filter_map(|key| self.guilds.remove(&key))
+            .map(|(_, g)| g)
+            .map(ColdStorageGuild::from)
+            .collect();
         let serialized = serde_json::to_string(&to_dump).unwrap();
         let dump_task = connection
             .set_and_expire_seconds(format!("cb_cluster_guild_chunk_{}", index), serialized, 180)
@@ -118,10 +117,10 @@ impl Cache {
     ) -> Result<(), Error> {
         debug!("Worker {} freezing {} users", index, chunk.len());
         let mut connection = redis.get().await;
-        let mut users = Vec::with_capacity(chunk.len());
-        for key in chunk {
-            let user = self.users.remove(&key).unwrap().1;
-            users.push(CachedUser {
+        let users: Vec<_> = chunk
+            .into_par_iter()
+            .filter_map(|key| self.users.remove(&key))
+            .map(|(_, user)| CachedUser {
                 id: user.id,
                 username: user.username.clone(),
                 discriminator: user.discriminator,
@@ -130,8 +129,8 @@ impl Cache {
                 system_user: user.system_user,
                 public_flags: user.public_flags,
                 mutual_servers: AtomicU64::new(0),
-            });
-        }
+            })
+            .collect();
         let serialized = serde_json::to_string(&users).unwrap();
         let worker_task = connection
             .set_and_expire_seconds(format!("cb_cluster_user_chunk_{}", index), serialized, 180)
@@ -195,19 +194,17 @@ impl Cache {
         guild_chunks: usize,
         user_chunks: usize,
     ) -> BotResult<()> {
-        let mut user_defrosters = Vec::with_capacity(user_chunks);
-        for i in 0..user_chunks {
-            user_defrosters.push(self.defrost_users(redis, i));
-        }
+        let user_defrosters: Vec<_> = (0..user_chunks)
+            .map(|i| self.defrost_users(redis, i))
+            .collect();
         for result in future::join_all(user_defrosters).await {
             if let Err(why) = result {
                 return Err(Error::CacheDefrost("users", Box::new(why)));
             }
         }
-        let mut guild_defrosters = Vec::with_capacity(guild_chunks);
-        for i in 0..guild_chunks {
-            guild_defrosters.push(self.defrost_guilds(redis, i));
-        }
+        let guild_defrosters: Vec<_> = (0..guild_chunks)
+            .map(|i| self.defrost_guilds(redis, i))
+            .collect();
         for result in future::join_all(guild_defrosters).await {
             if let Err(why) = result {
                 return Err(Error::CacheDefrost("guilds", Box::new(why)));

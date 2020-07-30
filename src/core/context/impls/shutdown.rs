@@ -25,12 +25,14 @@ impl Context {
         let (guild_chunks, user_chunks) = self.cache.prepare_cold_resume(&self.clients.redis).await;
 
         // Prepare resume data
-        let mut map = HashMap::new();
-        for (shard_id, data) in resume_data {
-            if let Some(info) = data {
-                map.insert(shard_id, (info.session_id, info.sequence));
-            }
-        }
+        let map: HashMap<_, _> = resume_data
+            .into_iter()
+            .filter(|(_, data)| data.is_some())
+            .map(|(shard_id, data)| {
+                let info = data.unwrap();
+                (shard_id, (info.session_id, info.sequence))
+            })
+            .collect();
         let data = ColdRebootData {
             resume_data: map,
             total_shards: self.backend.total_shards,

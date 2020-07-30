@@ -16,7 +16,7 @@ use rosu::{
     backend::requests::RecentRequest,
     models::{
         ApprovalStatus::{Approved, Loved, Ranked},
-        GameMode, 
+        GameMode,
     },
 };
 use std::sync::Arc;
@@ -83,7 +83,7 @@ async fn recent_lb_main(
         national,
         match selection {
             Some(ModSelection::Exclude(_)) | None => None,
-            Some(ModSelection::Include(mods)) | Some(ModSelection::Exact(mods)) => Some(mods),
+            Some(ModSelection::Include(m)) | Some(ModSelection::Exact(m)) => Some(m),
         },
     );
     let scores = match scores_fut.await {

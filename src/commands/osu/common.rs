@@ -1,20 +1,17 @@
 use crate::{
     arguments::{Args, MultNameArgs},
-    
     embeds::{CommonEmbed, EmbedData},
     pagination::{CommonPagination, Pagination},
-    util::{
-        constants::{ OSU_API_ISSUE},
-        get_combined_thumbnail, MessageExt,
-    },
+    util::{constants::OSU_API_ISSUE, get_combined_thumbnail, MessageExt},
     BotResult, Context,
 };
 
 use futures::future::{try_join_all, TryFutureExt};
 use itertools::Itertools;
+use rayon::prelude::*;
 use rosu::{
-    backend::requests::{BeatmapRequest, },
-    models::{ GameMode, Score, User},
+    backend::requests::BeatmapRequest,
+    models::{GameMode, Score, User},
 };
 use std::{
     cmp::Ordering,
@@ -67,7 +64,7 @@ async fn common_main(
         .enumerate()
         .map(|(i, name)| ctx.osu_user(&name, mode).map_ok(move |user| (i, user)));
     let users: HashMap<u32, User> = match try_join_all(user_futs).await {
-        Ok(users) => match users.iter().find(|(_, user)| user.is_none()) {
+        Ok(users) => match users.par_iter().find_any(|(_, user)| user.is_none()) {
             Some((idx, _)) => {
                 let content = format!("User `{}` was not found", names[*idx]);
                 return msg.error(&ctx, content).await;
@@ -78,7 +75,7 @@ async fn common_main(
                 .collect(),
         },
         Err(why) => {
-            msg.error(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };
@@ -90,29 +87,29 @@ async fn common_main(
     let mut all_scores = match try_join_all(score_futs).await {
         Ok(all_scores) => all_scores,
         Err(why) => {
-            msg.error(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };
 
     // Consider only scores on common maps
     let mut map_ids: HashSet<u32> = all_scores
-        .iter()
-        .map(|scores| scores.iter().flat_map(|s| s.beatmap_id))
+        .par_iter()
+        .map(|scores| scores.par_iter().flat_map(|s| s.beatmap_id))
         .flatten()
         .collect();
     map_ids.retain(|&id| {
         all_scores
-            .iter()
-            .all(|scores| scores.iter().any(|s| s.beatmap_id.unwrap() == id))
+            .par_iter()
+            .all(|scores| scores.par_iter().any(|s| s.beatmap_id.unwrap() == id))
     });
     all_scores
-        .iter_mut()
+        .par_iter_mut()
         .for_each(|scores| scores.retain(|s| map_ids.contains(&s.beatmap_id.unwrap())));
 
     // Flatten scores, sort by beatmap id, then group by beatmap id
-    let mut all_scores: Vec<Score> = all_scores.into_iter().flatten().collect();
-    all_scores.sort_by(|s1, s2| s1.beatmap_id.cmp(&s2.beatmap_id));
+    let mut all_scores: Vec<Score> = all_scores.into_par_iter().flatten().collect();
+    all_scores.sort_unstable_by(|s1, s2| s1.beatmap_id.cmp(&s2.beatmap_id));
     let mut all_scores: HashMap<u32, Vec<Score>> = all_scores
         .into_iter()
         .group_by(|score| score.beatmap_id.unwrap())
@@ -121,20 +118,20 @@ async fn common_main(
         .collect();
 
     // Sort each group by pp value, then take the best 3
-    all_scores.iter_mut().for_each(|(_, scores)| {
-        scores.sort_by(|s1, s2| s2.pp.partial_cmp(&s1.pp).unwrap_or(Ordering::Equal));
+    all_scores.par_iter_mut().for_each(|(_, scores)| {
+        scores.sort_unstable_by(|s1, s2| s2.pp.partial_cmp(&s1.pp).unwrap_or(Ordering::Equal));
         scores.truncate(3);
     });
 
     // Consider only the top 10 maps with the highest avg pp among the users
     let mut pp_avg: Vec<(u32, f32)> = all_scores
-        .iter()
+        .par_iter()
         .map(|(&map_id, scores)| {
             let sum = scores.iter().fold(0.0, |sum, next| sum + next.pp.unwrap());
             (map_id, sum / scores.len() as f32)
         })
         .collect();
-    pp_avg.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
+    pp_avg.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
 
     // Try retrieving all maps of common scores from the database
     let mut maps = {
@@ -161,7 +158,7 @@ async fn common_main(
                 .map_ok(move |map| (id, map))
         });
         match try_join_all(map_futs).await {
-            Ok(maps_result) => match maps_result.iter().find(|(_, map)| map.is_none()) {
+            Ok(maps_result) => match maps_result.par_iter().find_any(|(_, map)| map.is_none()) {
                 Some((id, _)) => {
                     let content = format!("API returned no result for map id {}", id);
                     return msg.error(&ctx, content).await;
@@ -179,7 +176,7 @@ async fn common_main(
                 }
             },
             Err(why) => {
-                msg.error(&ctx, OSU_API_ISSUE).await?;
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
                 return Err(why.into());
             }
         }

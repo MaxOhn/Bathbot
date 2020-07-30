@@ -13,7 +13,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::{ models::GameMode};
+use rosu::models::GameMode;
 use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 use twilight::model::channel::Message;
 
@@ -41,7 +41,7 @@ async fn osustats_main(
             return msg.error(&ctx, content).await;
         }
         Err(why) => {
-            msg.error(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };
@@ -54,7 +54,7 @@ async fn osustats_main(
             amount,
         ),
         Err(why) => {
-            msg.error(&ctx, OSU_API_ISSUE).await?;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why);
         }
     };

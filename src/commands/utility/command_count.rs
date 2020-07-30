@@ -6,6 +6,7 @@ use crate::{
 };
 
 use prometheus::core::Collector;
+use rayon::prelude::*;
 use std::sync::Arc;
 use twilight::model::channel::Message;
 
@@ -22,14 +23,14 @@ async fn commands(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
         .next()
         .unwrap()
         .get_metric()
-        .iter()
+        .par_iter()
         .map(|metric| {
             let name = metric.get_label()[0].get_value();
             let count = metric.get_counter().get_value();
             (name.to_owned(), count as u32)
         })
         .collect::<Vec<_>>();
-    cmds.sort_by(|&(_, a), &(_, b)| b.cmp(&a));
+    cmds.sort_unstable_by(|&(_, a), &(_, b)| b.cmp(&a));
 
     // Prepare embed data
     let boot_time = ctx.cache.stats.start_time;

@@ -5,7 +5,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::backend::UserRequest;
+use rosu::models::GameMode;
 use std::sync::Arc;
 use twilight::model::channel::Message;
 
@@ -17,24 +17,19 @@ use twilight::model::channel::Message;
 async fn avatar(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let name = match NameArgs::new(args).name {
         Some(name) => name,
-        None => {
-            return msg.error(&ctx, "You must specify a username").await;
-        }
+        None => return msg.error(&ctx, "You must specify a username").await,
     };
-    let user = {
-        let req = UserRequest::with_username(&name);
-        match req.queue_single(ctx.osu()).await {
-            Ok(user) => match user {
-                Some(user) => user,
-                None => {
-                    let content = format!("User `{}` was not found", name);
-                    return msg.error(&ctx, content).await;
-                }
-            },
-            Err(why) => {
-                msg.error(&ctx, OSU_API_ISSUE).await?;
-                return Err(why.into());
+    let user = match ctx.osu_user(&name, GameMode::STD).await {
+        Ok(user) => match user {
+            Some(user) => user,
+            None => {
+                let content = format!("User `{}` was not found", name);
+                return msg.error(&ctx, content).await;
             }
+        },
+        Err(why) => {
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            return Err(why.into());
         }
     };
     let embed = AvatarEmbed::new(user).build().build();

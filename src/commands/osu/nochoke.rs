@@ -13,10 +13,7 @@ use crate::{
 };
 
 use futures::future::try_join_all;
-use rosu::{
-    backend::requests::BestRequest,
-    models::{ GameMode},
-};
+use rosu::{backend::requests::BestRequest, models::GameMode};
 use std::{cmp::Ordering, collections::HashMap, sync::Arc};
 use twilight::model::channel::Message;
 
@@ -58,7 +55,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     };
 
     // Get all relevant maps from the database
-    let map_ids: Vec<u32> = scores.iter().map(|s| s.beatmap_id.unwrap()).collect();
+    let map_ids: Vec<u32> = scores.iter().filter_map(|s| s.beatmap_id).collect();
     let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
         Ok(maps) => maps,
         Err(why) => {
@@ -126,7 +123,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     };
 
     // Sort by unchoked pp
-    scores_data.sort_by(|(_, _, s1, _), (_, _, s2, _)| {
+    scores_data.sort_unstable_by(|(_, _, s1, _), (_, _, s2, _)| {
         s2.pp.partial_cmp(&s1.pp).unwrap_or(Ordering::Equal)
     });
 

@@ -4,6 +4,7 @@ use crate::{
     Context,
 };
 
+use rayon::prelude::*;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -56,7 +57,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
 
                 // Put streams into a more suitable data type and process the thumbnail url
                 let streams: Vec<(u64, TwitchStream)> = streams
-                    .into_iter()
+                    .into_par_iter()
                     .map(|mut stream| {
                         if let Ok(thumbnail) = strfmt(&stream.thumbnail_url, &fmt_data) {
                             stream.thumbnail_url = thumbnail;

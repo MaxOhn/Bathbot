@@ -39,22 +39,6 @@ pub struct ScraperScore {
     pub count_miss: u32,
 }
 
-impl ScraperScore {
-    pub fn total_hits(&self) -> u32 {
-        let mut amount = self.count300 + self.count100 + self.count_miss;
-        if self.mode != GameMode::TKO {
-            amount += self.count50;
-            if self.mode != GameMode::STD {
-                amount += self.count_katu;
-                if self.mode != GameMode::CTB {
-                    amount += self.count_geki;
-                }
-            }
-        }
-        amount
-    }
-}
-
 impl<'de> Deserialize<'de> for ScraperScore {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

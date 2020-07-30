@@ -4,6 +4,7 @@ use crate::{
     BotResult, Database,
 };
 
+use rayon::prelude::*;
 use rosu::models::GameMode;
 use sqlx::Row;
 use std::{collections::HashSet, fmt::Write};
@@ -42,7 +43,7 @@ RETURNING score
         let users = sqlx::query("SELECT user_id FROM bg_verified")
             .fetch_all(&self.pool)
             .await?
-            .into_iter()
+            .into_par_iter()
             .map(|row| UserId(row.get::<i64, _>(0) as u64))
             .collect();
         Ok(users)

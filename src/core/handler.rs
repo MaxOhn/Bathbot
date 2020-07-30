@@ -6,6 +6,7 @@ use crate::{
     Args, BotResult, Error,
 };
 
+use rayon::prelude::*;
 use std::{borrow::Cow, fmt::Write, ops::Deref, sync::Arc};
 use twilight::gateway::Event;
 use twilight::model::{channel::Message, id::RoleId};
@@ -169,8 +170,7 @@ async fn process_command(
                 msg.author.id, cmd.names[0], cooldown,
             );
             let content = format!("Command on cooldown, try again in {} seconds", cooldown);
-            msg.error(&ctx, content).await?;
-            return Ok(());
+            return msg.error(&ctx, content).await;
         }
     }
 
@@ -183,8 +183,7 @@ async fn process_command(
                     "Non-authority user {} tried using command `{}`",
                     msg.author.id, cmd.names[0]
                 );
-                msg.error(&ctx, content).await?;
-                return Ok(());
+                return msg.error(&ctx, content).await;
             }
             Err(why) => {
                 let content = "Error while checking authority status";
@@ -219,14 +218,23 @@ fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>> {
         );
         return Ok(Some(content));
     } else if let Some(member) = ctx.cache.get_member(msg.author.id, guild_id) {
-        if !member.roles.iter().any(|role| auth_roles.contains(role)) {
-            let mut roles = Vec::with_capacity(auth_roles.len());
-            for role in auth_roles {
-                match ctx.cache.get_role(role, guild_id) {
-                    Some(role) => roles.push(role.name.clone()),
-                    None => warn!("Role {} not cached for guild {}", role, guild_id),
-                }
-            }
+        if !member
+            .roles
+            .par_iter()
+            .any(|role| auth_roles.contains(role))
+        {
+            let roles: Vec<_> = auth_roles
+                .par_iter()
+                .filter_map(|&role| {
+                    ctx.cache.get_role(role, guild_id).map_or_else(
+                        || {
+                            warn!("Role {} not cached for guild {}", role, guild_id);
+                            None
+                        },
+                        |role| Some(role.name.clone()),
+                    )
+                })
+                .collect();
             let role_len: usize = roles.iter().map(|role| role.len()).sum();
             let mut content = String::from(
                 "You need either admin permissions or \

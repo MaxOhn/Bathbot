@@ -161,11 +161,11 @@ impl Cache {
                 );
                 match self.get_guild(chunk.guild_id) {
                     Some(guild) => {
-                        for (user_id, member) in chunk.members.clone() {
+                        for (user_id, member) in chunk.members.iter() {
                             self.get_or_insert_user(&member.user);
-                            let member = CachedMember::from_member(&member, self);
+                            let member = CachedMember::from_member(member, self);
                             member.user.mutual_servers.fetch_add(1, Ordering::SeqCst);
-                            guild.members.insert(user_id, Arc::new(member));
+                            guild.members.insert(*user_id, Arc::new(member));
                         }
                         self.stats.user_counts.total.add(chunk.members.len() as i64);
                         if (chunk.chunk_count - 1) == chunk.chunk_index && chunk.nonce.is_none() {
@@ -329,7 +329,6 @@ impl Cache {
                         member.user.mutual_servers.fetch_add(1, Ordering::SeqCst);
                         guild.members.insert(event.user.id, Arc::new(member));
                         guild.member_count.fetch_add(1, Ordering::Relaxed);
-
                         self.stats.user_counts.total.inc();
                     }
                     None => warn!(
