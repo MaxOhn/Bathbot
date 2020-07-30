@@ -1,5 +1,6 @@
 mod channel;
 mod emoji;
+mod get_impls;
 mod guild;
 mod member;
 mod role;
@@ -33,8 +34,8 @@ use twilight::model::{
         payload::{MemberUpdate, RequestGuildMembers},
         presence::{ActivityType, Status},
     },
-    id::{ChannelId, EmojiId, GuildId, RoleId, UserId},
-    user::{CurrentUser, User},
+    id::{ChannelId, EmojiId, GuildId, UserId},
+    user::CurrentUser,
 };
 
 pub struct Cache {
@@ -506,12 +507,6 @@ impl Cache {
         }
     }
 
-    pub fn get_guild(&self, guild_id: GuildId) -> Option<Arc<CachedGuild>> {
-        self.guilds
-            .get(&guild_id)
-            .map(|guard| guard.value().clone())
-    }
-
     fn guild_unavailable(&self, guild: &CachedGuild) {
         warn!(
             "Guild \"{}\" ({}) became unavailable due to outage",
@@ -520,22 +515,6 @@ impl Cache {
         self.stats.guild_counts.outage.inc();
         let mut list = self.unavailable_guilds.write().unwrap();
         list.push(guild.id);
-    }
-
-    pub fn get_user(&self, user_id: UserId) -> Option<Arc<CachedUser>> {
-        self.users.get(&user_id).map(|guard| guard.value().clone())
-    }
-
-    pub fn get_or_insert_user(&self, user: &User) -> Arc<CachedUser> {
-        match self.get_user(user.id) {
-            Some(user) => user,
-            None => {
-                let arc = Arc::new(CachedUser::from_user(user));
-                self.users.insert(arc.id, arc.clone());
-                self.stats.user_counts.unique.inc();
-                arc
-            }
-        }
     }
 
     pub fn insert_private_channel(&self, private_channel: &PrivateChannel) -> Arc<CachedChannel> {
@@ -553,25 +532,6 @@ impl Cache {
             Some(atomic) => atomic.value().load(Ordering::Relaxed) == 0,
             None => true, // we cold resumed so have everything
         }
-    }
-
-    pub fn get_role(&self, role_id: RoleId, guild_id: GuildId) -> Option<Arc<CachedRole>> {
-        self.get_guild(guild_id)
-            .and_then(|guild| Some(guild.roles.get(&role_id)?.value().clone()))
-    }
-
-    pub fn get_guild_channel(
-        &self,
-        channel_id: ChannelId,
-        guild_id: GuildId,
-    ) -> Option<Arc<CachedChannel>> {
-        self.get_guild(guild_id)
-            .and_then(|guild| Some(guild.channels.get(&channel_id)?.value().clone()))
-    }
-
-    pub fn get_member(&self, user_id: UserId, guild_id: GuildId) -> Option<Arc<CachedMember>> {
-        self.get_guild(guild_id)
-            .and_then(|guild| Some(guild.members.get(&user_id)?.value().clone()))
     }
 
     pub fn has_admin_permission(&self, user_id: UserId, guild_id: GuildId) -> Option<bool> {

@@ -129,8 +129,8 @@ impl CachedGuild {
             emoji: self.emoji.clone(),
             features: other.features.clone(),
             unavailable: false,
-            members: DashMap::new(),
-            channels: DashMap::new(),
+            members: self.members.clone(),
+            channels: self.channels.clone(),
             max_presences: other.max_presences,
             max_members: other.max_members,
             description: other.description.clone(),
@@ -142,13 +142,6 @@ impl CachedGuild {
             guild
                 .roles
                 .insert(role.id, Arc::new(CachedRole::from_role(role)));
-        }
-        // TODO: replace with dashmap clones once that is available
-        for guard in &self.members {
-            guild.members.insert(guard.user.id, guard.value().clone());
-        }
-        for guard in &self.channels {
-            guild.channels.insert(guard.get_id(), guard.value().clone());
         }
         guild
     }
