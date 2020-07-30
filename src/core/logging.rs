@@ -14,11 +14,12 @@ pub fn initialize() -> Result<(), Error> {
             .log_to_file()
             .directory("logs")
             .format(log_format)
+            .format_for_files(log_format_files)
             .o_timestamp(true)
             .rotate(
                 Criterion::Age(Age::Day),
                 Naming::Timestamps,
-                Cleanup::KeepLogAndZipFiles(10, 30),
+                Cleanup::KeepLogAndZipFiles(10, 25),
             )
             .duplicate_to_stdout(Duplicate::Info)
             .start_with_specfile("logconfig.toml")
@@ -29,12 +30,26 @@ pub fn initialize() -> Result<(), Error> {
     }
     Ok(())
 }
+
 pub fn log_format(
     w: &mut dyn std::io::Write,
     now: &mut DeferredNow,
     record: &Record,
 ) -> Result<(), std::io::Error> {
-    // TODO: Dont include record.file if its handler.rs 149 / 125
+    write!(
+        w,
+        "[{}] {} {}",
+        now.now().format("%y-%m-%d %H:%M:%S"),
+        record.level(),
+        &record.args()
+    )
+}
+
+pub fn log_format_files(
+    w: &mut dyn std::io::Write,
+    now: &mut DeferredNow,
+    record: &Record,
+) -> Result<(), std::io::Error> {
     write!(
         w,
         "[{}] {:^5} [{}:{}] {}",
