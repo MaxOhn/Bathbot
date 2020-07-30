@@ -52,6 +52,10 @@ version = "0.15"
 default_features = false
 features = ["colors", "specfile", "ziplogs"]
 
+[dependencies.hyper]
+version = "0.13"
+default_features = false
+
 [dependencies.image]
 version = "0.23"
 default-features = false
@@ -126,8 +130,3 @@ default_features = false
 # git = "https://github.com/twilight-rs/twilight"
 # branch = "trunk"
 # default_features = false
-
-[dependencies.warp]
-version = "0.2"
-default_features = false
-features = ["tls"]

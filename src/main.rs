@@ -29,10 +29,15 @@ extern crate log;
 use clap::{App, Arg};
 use darkredis::ConnectionPool;
 use dashmap::DashMap;
+use hyper::{
+    service::{make_service_fn, service_fn},
+    Body, Response,
+};
 use prometheus::{Encoder, TextEncoder};
 use rosu::Osu;
 use std::{
     collections::HashMap,
+    convert::Infallible,
     process,
     str::FromStr,
     sync::Arc,
@@ -46,7 +51,6 @@ use twilight::http::{
     request::channel::message::allowed_mentions::AllowedMentionsBuilder, Client as HttpClient,
 };
 use twilight::model::{gateway::GatewayIntents, user::CurrentUser};
-use warp::Filter;
 
 pub type BotResult<T> = std::result::Result<T, Error>;
 
@@ -154,16 +158,7 @@ async fn run(
 
     // Provide stats to locale address
     let s = stats.clone();
-    tokio::spawn(async move {
-        let _hello = warp::path!("metrics").map(move || {
-            let mut buffer = vec![];
-            let encoder = TextEncoder::new();
-            let metric_families = s.registry.gather();
-            encoder.encode(&metric_families, &mut buffer).unwrap();
-            String::from_utf8(buffer).unwrap()
-        });
-        // warp::serve(hello).run(([127, 0, 0, 1], 9091)).await;
-    });
+    tokio::spawn(run_metrics_server(s));
 
     // Prepare cluster builder
     let cache = Cache::new(bot_user, stats);
@@ -321,4 +316,24 @@ fn shard_schema_values() -> Option<(u64, u64)> {
         .flatten()
         .unwrap_or(1);
     Some((shards_per_cluster, total_shards))
+}
+
+async fn run_metrics_server(stats: Arc<BotStats>) {
+    let metric_service = make_service_fn(move |_| {
+        let stats = stats.clone();
+        async move {
+            Ok::<_, Infallible>(service_fn(move |_req| {
+                let mut buffer = Vec::new();
+                let encoder = TextEncoder::new();
+                let metric_families = stats.registry.gather();
+                encoder.encode(&metric_families, &mut buffer).unwrap();
+                async move { Ok::<_, Infallible>(Response::new(Body::from(buffer))) }
+            }))
+        }
+    });
+    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 9091));
+    let server = hyper::Server::bind(&addr).serve(metric_service);
+    if let Err(why) = server.await {
+        error!("Metrics server failed: {}", why);
+    }
 }
