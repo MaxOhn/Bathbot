@@ -66,9 +66,6 @@ async fn async_main() -> BotResult<()> {
     // Connect to osu! API
     let osu = Osu::new(config.tokens.osu.clone());
 
-    // Log custom client into osu!
-    let custom = CustomClient::new(&config.tokens.osu_session).await?;
-
     // Prepare twitch client
     let twitch = Twitch::new(&config.tokens.twitch_client_id, &config.tokens.twitch_token).await?;
 
@@ -92,6 +89,9 @@ async fn async_main() -> BotResult<()> {
     // Connect to psql database and redis cache
     let psql = Database::new(&config.database.postgres).await?;
     let redis = ConnectionPool::create(config.database.redis.clone(), None, 5).await?;
+
+    // Log custom client into osu!
+    let custom = CustomClient::new(&config.tokens.osu_session).await?;
 
     let clients = crate::core::Clients {
         psql,
@@ -240,19 +240,14 @@ async fn run(
     let shutdown_ctx = ctx.clone();
     ctrlc::set_handler(move || {
         let _ = Runtime::new().unwrap().block_on(async {
-            let (config_result, store_result, cold_resume_result) = tokio::join!(
-                shutdown_ctx.store_configs(),
-                shutdown_ctx.store_values(),
-                shutdown_ctx.initiate_cold_resume()
-            );
-            if let Err(why) = config_result {
+            if let Err(why) = shutdown_ctx.initiate_cold_resume().await {
+                error!("Error while freezing cache: {}", why);
+            }
+            if let Err(why) = shutdown_ctx.store_configs().await {
                 error!("Error while storing configs: {}", why);
             }
-            if let Err(why) = store_result {
+            if let Err(why) = shutdown_ctx.store_values().await {
                 error!("Error while storing values: {}", why);
-            }
-            if let Err(why) = cold_resume_result {
-                error!("Error while freezing cache: {}", why);
             }
         });
         info!("Shutting down");

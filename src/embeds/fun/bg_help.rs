@@ -49,6 +49,11 @@ impl BGHelpEmbed {
                 true,
             ),
             (
+                "stop / end / quit".to_owned(),
+                "Resolve the current background and stop the game in this channel".to_owned(),
+                true,
+            ),
+            (
                 "ranking / leaderboard / lb / stats".to_owned(),
                 format!(
                     "Check out the leaderboard of this server.\n\
@@ -56,12 +61,7 @@ impl BGHelpEmbed {
                     to get the leaderboard across all servers",
                     prefix = prefix
                 ),
-                true,
-            ),
-            (
-                "stop / end / quit".to_owned(),
-                "Resolve the current background and stop the game in this channel".to_owned(),
-                true,
+                false,
             ),
         ];
         Self {

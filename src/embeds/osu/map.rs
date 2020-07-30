@@ -107,7 +107,7 @@ impl MapEmbed {
             CS: `{}` AR: `{}` OD: `{}` HP: `{}` Spinners: `{}`",
             sec_to_minsec(seconds_total),
             sec_to_minsec(seconds_drain),
-            bpm,
+            round(bpm),
             map.count_objects(),
             round(cs),
             round(ar),

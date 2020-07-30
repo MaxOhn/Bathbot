@@ -11,7 +11,7 @@ impl BGStartEmbed {
     pub fn new(author: UserId) -> Self {
         let description = format!(
             "**React to include tag, unreact to exclude tag.**\n\
-            @{} react with ✅ when you're ready.\n\
+            <@{}> react with ✅ when you're ready.\n\
             (Not all backgrounds have been tagged yet, \
             I suggest to ✅ right away for now)\n\
             ```\n\

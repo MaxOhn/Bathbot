@@ -15,10 +15,10 @@ impl RoleAssignEmbed {
         let mut content = msg.content.clone();
         content_safe(ctx, &mut content, Some(guild));
         let description = format!(
-            "Whoever reacts to @{author}'s [message]\
+            "Whoever reacts to <@{author}>'s [message]\
             (https://discordapp.com/channels/{guild}/{channel}/{msg})\n\
             ```\n{content}\n```\n\
-            in #{channel_mention} will be assigned the @{role_mention} role!",
+            in <#{channel_mention}> will be assigned the <@&{role_mention}> role!",
             author = msg.author.id,
             guild = guild,
             channel = msg.channel_id,

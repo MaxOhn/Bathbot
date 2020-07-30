@@ -20,18 +20,15 @@ use crate::{
 };
 
 use dashmap::DashMap;
-use std::{
-    sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
-        Arc, RwLock,
-    },
-    time::Duration,
+use std::sync::{
+    atomic::{AtomicBool, AtomicU64, Ordering},
+    Arc, RwLock,
 };
 use twilight::gateway::Event;
 use twilight::model::{
     channel::{Channel, GuildChannel, PrivateChannel},
     gateway::{
-        payload::{MemberUpdate, RequestGuildMembers},
+        payload::RequestGuildMembers,
         presence::{ActivityType, Status},
     },
     id::{ChannelId, EmojiId, GuildId, UserId},
@@ -342,14 +339,63 @@ impl Cache {
                 }
             }
             Event::MemberUpdate(event) => {
-                if !Cache::member_update(shard_id, &ctx, event, true).await {
-                    let e = event.clone();
-                    let c = ctx.clone();
-                    tokio::spawn(async move {
-                        tokio::time::delay_for(Duration::from_millis(100)).await;
-                        Cache::member_update(shard_id, &c, &e, false).await;
-                    });
-                }
+                debug!("Member {} updated in {}", event.user.id, event.guild_id);
+                match ctx.cache.get_guild(event.guild_id) {
+                    Some(guild) => {
+                        match ctx.cache.get_user(event.user.id) {
+                            Some(user) => {
+                                if !user.is_same_as(&event.user) {
+                                    // Just update the global cache if it's different
+                                    // we will receive an event for all mutual servers if the inner user changed
+                                    ctx.cache.users.insert(
+                                        event.user.id,
+                                        Arc::new(CachedUser::from_user(&event.user)),
+                                    );
+                                }
+                            }
+                            None => {
+                                if guild.complete.load(Ordering::SeqCst) {
+                                    warn!(
+                                        "Received member update with uncached inner user: {}",
+                                        event.user.id
+                                    );
+                                    ctx.cache.get_or_insert_user(&event.user);
+                                }
+                            }
+                        }
+                        let member = guild
+                            .members
+                            .get(&event.user.id)
+                            .map(|guard| guard.value().clone());
+                        match member {
+                            Some(member) => {
+                                let updated = member.update(&*event, &ctx.cache);
+                                guild.members.insert(member.user.id, Arc::new(updated));
+                            }
+                            None => {
+                                if guild.complete.load(Ordering::SeqCst) {
+                                    warn!(
+                                        "Received member update for unknown member {} in guild {}",
+                                        event.user.id, guild.id
+                                    );
+                                    let data = RequestGuildMembers::new_single_user_with_nonce(
+                                        guild.id,
+                                        event.user.id,
+                                        None,
+                                        Some(String::from("missing_user")),
+                                    );
+                                    let _ = ctx.backend.cluster.command(shard_id, &data).await;
+                                }
+                            }
+                        }
+                    }
+                    None => {
+                        warn!(
+                            "Received member update for uncached guild {}",
+                            event.guild_id
+                        );
+                    }
+                };
             }
             Event::MemberRemove(event) => {
                 debug!("{} left {}", event.user.id, event.guild_id);
@@ -412,73 +458,6 @@ impl Cache {
         Ok(())
     }
 
-    async fn member_update(
-        shard_id: u64,
-        ctx: &Arc<Context>,
-        event: &MemberUpdate,
-        retry: bool,
-    ) -> bool {
-        debug!("Member {} updated in {}", event.user.id, event.guild_id);
-        match ctx.cache.get_guild(event.guild_id) {
-            Some(guild) => {
-                let member = guild.members.get(&event.user.id);
-                if member.is_none() && retry {
-                    return false;
-                }
-                match ctx.cache.get_user(event.user.id) {
-                    Some(user) => {
-                        if !user.is_same_as(&event.user) {
-                            // Just update the global cache if it's different
-                            // we will receive an event for all mutual servers if the inner user changed
-                            ctx.cache.users.insert(
-                                event.user.id,
-                                Arc::new(CachedUser::from_user(&event.user)),
-                            );
-                        }
-                    }
-                    None => {
-                        if guild.complete.load(Ordering::SeqCst) {
-                            warn!(
-                                "Received member update with uncached inner user: {}",
-                                event.user.id
-                            );
-                            ctx.cache.get_or_insert_user(&event.user);
-                        }
-                    }
-                }
-                match member {
-                    Some(member) => {
-                        guild
-                            .members
-                            .insert(member.user.id, Arc::new(member.update(&*event, &ctx.cache)));
-                    }
-                    None => {
-                        if guild.complete.load(Ordering::SeqCst) {
-                            warn!(
-                                "Received member update for unknown member {} in guild {}",
-                                event.user.id, guild.id
-                            );
-                            let data = RequestGuildMembers::new_single_user_with_nonce(
-                                guild.id,
-                                event.user.id,
-                                None,
-                                Some(String::from("missing_user")),
-                            );
-                            let _ = ctx.backend.cluster.command(shard_id, &data).await;
-                        }
-                    }
-                }
-            }
-            None => {
-                warn!(
-                    "Received member update for uncached guild {}",
-                    event.guild_id
-                );
-            }
-        };
-        true
-    }
-
     // ###################
     // ## Cache updates ##
     // ###################
@@ -526,11 +505,6 @@ impl Cache {
             Some(atomic) => atomic.value().load(Ordering::Relaxed) == 0,
             None => true, // we cold resumed so have everything
         }
-    }
-
-    pub fn has_admin_permission(&self, user_id: UserId, guild_id: GuildId) -> Option<bool> {
-        self.get_guild(guild_id)
-            .and_then(|guild| guild.has_admin_permission(user_id))
     }
 }
 

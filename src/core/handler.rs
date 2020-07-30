@@ -47,8 +47,9 @@ pub async fn handle_event(
             let reaction = &reaction_add.0;
             if let Some(guild_id) = reaction.guild_id {
                 if let Some(role_id) = ctx.get_role_assign(reaction) {
-                    if let Err(why) = ctx.http.add_role(guild_id, reaction.user_id, role_id).await {
-                        error!("Error while assigning react-role to user: {}", why);
+                    match ctx.http.add_role(guild_id, reaction.user_id, role_id).await {
+                        Ok(_) => debug!("Assigned react-role to user"),
+                        Err(why) => error!("Error while assigning react-role to user: {}", why),
                     }
                 }
             }
@@ -58,12 +59,13 @@ pub async fn handle_event(
             let reaction = &reaction_remove.0;
             if let Some(guild_id) = reaction.guild_id {
                 if let Some(role_id) = ctx.get_role_assign(reaction) {
-                    if let Err(why) = ctx
+                    match ctx
                         .http
                         .remove_guild_member_role(guild_id, reaction.user_id, role_id)
                         .await
                     {
-                        error!("Error while removing react-role from user: {}", why);
+                        Ok(_) => debug!("Removed react-role from user"),
+                        Err(why) => error!("Error while removing react-role from user: {}", why),
                     }
                 }
             }

@@ -17,7 +17,7 @@ use twilight::model::channel::Message;
     "Assign a message to a role such that \
      when anyone reacts to that message, the member will \
      gain that role and and if they remove a reaction, \
-     they lose the role\n\
+     they lose the role.\n\
      The first argument must be the channel that contains the message, \
      the second must be the message id, and the third must be the role."
 )]
@@ -41,7 +41,7 @@ async fn roleassign(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     let message = match ctx.http.message(channel, msg_id).await? {
         Some(message) => message,
         None => {
-            let _ = msg.respond(&ctx, "No message found with this id").await;
+            let _ = msg.error(&ctx, "No message found with this id").await;
             warn!(
                 "(Channel,Message) ({},{}) for roleassign was not found",
                 channel, msg_id

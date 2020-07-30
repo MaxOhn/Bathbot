@@ -34,6 +34,7 @@ pub fn log_format(
     now: &mut DeferredNow,
     record: &Record,
 ) -> Result<(), std::io::Error> {
+    // TODO: Dont include record.file if its handler.rs 149 / 125
     write!(
         w,
         "[{}] {:^5} [{}:{}] {}",

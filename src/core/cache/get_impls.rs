@@ -7,6 +7,19 @@ use twilight::model::{
 };
 
 impl Cache {
+    pub fn has_admin_permission(&self, user_id: UserId, guild_id: GuildId) -> Option<bool> {
+        self.guilds
+            .get(&guild_id)
+            .and_then(|guard| guard.value().has_admin_permission(user_id))
+    }
+
+    pub fn is_guild_owner(&self, guild_id: GuildId, user_id: UserId) -> bool {
+        self.guilds
+            .get(&guild_id)
+            .map(|guard| guard.value().owner_id == user_id)
+            .unwrap_or(false)
+    }
+
     pub fn get_guild(&self, guild_id: GuildId) -> Option<Arc<CachedGuild>> {
         self.guilds
             .get(&guild_id)

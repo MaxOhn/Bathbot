@@ -67,19 +67,20 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
     }
 
     // Make sure the author is still an authority after applying new roles
-    let mut member_roles = match ctx.cache.get_member(msg.author.id, guild_id) {
-        Some(member) => member.roles.clone(),
-        None => {
-            msg.error(&ctx, GENERAL_ISSUE).await?;
-            bail!("Member {} not cached for guild {}", msg.author.id, guild_id);
-        }
-    };
-    member_roles.retain(|role| new_auths.iter().any(|new| &new.id == role));
-    if !is_auth_with_roles(&ctx, &member_roles, guild_id) {
-        let content = "You cannot set authority roles to something \
+    if !ctx.cache.is_guild_owner(guild_id, msg.author.id) {
+        let mut member_roles = match ctx.cache.get_member(msg.author.id, guild_id) {
+            Some(member) => member.roles.clone(),
+            None => {
+                msg.error(&ctx, GENERAL_ISSUE).await?;
+                bail!("Member {} not cached for guild {}", msg.author.id, guild_id);
+            }
+        };
+        member_roles.retain(|role| new_auths.iter().any(|new| &new.id == role));
+        if !is_auth_with_roles(&ctx, &member_roles, guild_id) {
+            let content = "You cannot set authority roles to something \
                 that would make you lose authority status.";
-        msg.error(&ctx, content).await?;
-        return Ok(());
+            return msg.error(&ctx, content).await;
+        }
     }
 
     ctx.update_config(guild_id, move |config| {
@@ -100,9 +101,9 @@ fn role_string(ctx: &Context, roles: &[u64], guild_id: GuildId, content: &mut St
     } else {
         content.reserve(roles.len() * 20);
         let mut iter = roles.iter();
-        let _ = write!(content, "`@&{}`", iter.next().unwrap());
+        let _ = write!(content, "`<@&{}>`", iter.next().unwrap());
         for role in iter {
-            let _ = write!(content, ", `@&{}`", role);
+            let _ = write!(content, ", `<@&{}>`", role);
         }
         content_safe(&ctx, content, Some(guild_id));
     }
