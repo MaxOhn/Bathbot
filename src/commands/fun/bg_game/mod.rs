@@ -226,7 +226,7 @@ async fn hint(ctx: &Context, msg: &Message) -> CommandResult {
                 msg.channel_id
                     .say(ctx, "Error while retrieving hint, try again in a moment")
                     .await?;
-                return Err("Timed out while waiting for data in `<bg hint`".into());
+                return Err("Timed out while waiting for data in `<bg h`".into());
             }
         };
         let game = data
@@ -258,7 +258,18 @@ async fn hint(ctx: &Context, msg: &Message) -> CommandResult {
 #[bucket = "bg_bigger"]
 async fn bigger(ctx: &Context, msg: &Message) -> CommandResult {
     let img: Option<Result<Vec<u8>, Error>> = {
-        let mut data = ctx.data.write().await;
+        let mut data = match time::timeout(time::Duration::from_secs(5), ctx.data.write()).await {
+            Ok(data) => data,
+            Err(_) => {
+                msg.channel_id
+                    .say(
+                        ctx,
+                        "Error while increasing image size, try again in a moment",
+                    )
+                    .await?;
+                return Err("Timed out while waiting for data in `<bg b`".into());
+            }
+        };
         let game = data.get_mut::<BgGames>().unwrap().get_mut(&msg.channel_id);
         if let Some(game) = game {
             Some(game.sub_image().await)
