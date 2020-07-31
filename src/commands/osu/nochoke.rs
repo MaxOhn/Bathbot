@@ -142,21 +142,14 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
 
     // Accumulate all necessary data
     let pages = numbers::div_euclid(5, scores_data.len());
-    let data = match NoChokeEmbed::new(
-        &ctx,
-        &user,
-        scores_data.iter().take(5),
-        unchoked_pp,
-        (1, pages),
-    )
-    .await
-    {
-        Ok(data) => data,
-        Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("Error while creating embed: {}", why);
-        }
-    };
+    let data =
+        match NoChokeEmbed::new(&user, scores_data.iter().take(5), unchoked_pp, (1, pages)).await {
+            Ok(data) => data,
+            Err(why) => {
+                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+                bail!("Error while creating embed: {}", why);
+            }
+        };
 
     if let Some(msg) = retrieving_msg {
         let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;
@@ -188,7 +181,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     }
 
     // Pagination
-    let pagination = NoChokePagination::new(ctx.clone(), response, user, scores_data, unchoked_pp);
+    let pagination = NoChokePagination::new(response, user, scores_data, unchoked_pp);
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 90).await {

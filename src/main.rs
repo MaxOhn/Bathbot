@@ -13,7 +13,7 @@ mod util;
 use crate::{
     arguments::Args,
     core::{
-        handle_event, logging, BotConfig, BotStats, Cache, ColdRebootData, CommandGroups, Context,
+        handle_event, logging, BotStats, Cache, ColdRebootData, CommandGroups, Context, CONFIG,
     },
     custom_client::CustomClient,
     database::Database,
@@ -45,12 +45,20 @@ use std::{
 };
 use tokio::{runtime::Runtime, stream::StreamExt, sync::Mutex, time};
 use twilight::gateway::{
-    cluster::config::ShardScheme, shard::ResumeSession, Cluster, ClusterConfig,
+    cluster::config::{ClusterConfigBuilder, ShardScheme},
+    shard::ResumeSession,
+    Cluster, ClusterConfig,
 };
 use twilight::http::{
     request::channel::message::allowed_mentions::AllowedMentionsBuilder, Client as HttpClient,
 };
-use twilight::model::{gateway::GatewayIntents, user::CurrentUser};
+use twilight::model::{
+    gateway::{
+        presence::{ActivityType, Status},
+        GatewayIntents,
+    },
+    user::CurrentUser,
+};
 
 pub type BotResult<T> = std::result::Result<T, Error>;
 
@@ -65,18 +73,22 @@ async fn async_main() -> BotResult<()> {
     logging::initialize()?;
 
     // Load config file
-    let config = BotConfig::new("config.toml").await?;
+    core::BotConfig::init("config.toml").await?;
 
     // Connect to osu! API
-    let osu = Osu::new(config.tokens.osu.clone());
+    let osu = Osu::new(CONFIG.get().unwrap().tokens.osu.clone());
 
     // Prepare twitch client
-    let twitch = Twitch::new(&config.tokens.twitch_client_id, &config.tokens.twitch_token).await?;
+    let twitch = Twitch::new(
+        &CONFIG.get().unwrap().tokens.twitch_client_id,
+        &CONFIG.get().unwrap().tokens.twitch_token,
+    )
+    .await?;
 
     // Connect to the discord http client
     let mut builder = HttpClient::builder();
     builder
-        .token(&config.tokens.discord)
+        .token(&CONFIG.get().unwrap().tokens.discord)
         .default_allowed_mentions(
             AllowedMentionsBuilder::new()
                 .parse_users()
@@ -91,11 +103,12 @@ async fn async_main() -> BotResult<()> {
     );
 
     // Connect to psql database and redis cache
-    let psql = Database::new(&config.database.postgres).await?;
-    let redis = ConnectionPool::create(config.database.redis.clone(), None, 5).await?;
+    let psql = Database::new(&CONFIG.get().unwrap().database.postgres).await?;
+    let redis =
+        ConnectionPool::create(CONFIG.get().unwrap().database.redis.clone(), None, 5).await?;
 
     // Log custom client into osu!
-    let custom = CustomClient::new(&config.tokens.osu_session).await?;
+    let custom = CustomClient::new(&CONFIG.get().unwrap().tokens.osu_session).await?;
 
     let clients = crate::core::Clients {
         psql,
@@ -106,11 +119,10 @@ async fn async_main() -> BotResult<()> {
     };
 
     // Boot everything up
-    run(config, http, bot_user, clients).await
+    run(http, bot_user, clients).await
 }
 
 async fn run(
-    config: BotConfig,
     http: HttpClient,
     bot_user: CurrentUser,
     clients: crate::core::Clients,
@@ -157,60 +169,18 @@ async fn run(
     let stats = Arc::new(BotStats::new());
 
     // Provide stats to locale address
-    let s = stats.clone();
-    tokio::spawn(run_metrics_server(s));
+    // let s = stats.clone();
+    // tokio::spawn(run_metrics_server(s));
 
     // Prepare cluster builder
     let cache = Cache::new(bot_user, stats);
-    let mut cb = ClusterConfig::builder(&config.tokens.discord)
+    let cb = ClusterConfig::builder(&CONFIG.get().unwrap().tokens.discord)
         .shard_scheme(sharding_scheme)
         .intents(intents);
 
     // Check for resume data, pass to builder if present
-    {
-        let mut connection = clients.redis.get().await;
-        if let Some(d) = connection.get("cb_cluster_data").await.ok().flatten() {
-            let cold_cache: ColdRebootData = serde_json::from_str(&*String::from_utf8(d).unwrap())?;
-            debug!("ColdRebootData:\n{:#?}", cold_cache);
-            connection.del("cb_cluster_data").await?;
-            if cold_cache.total_shards == total_shards
-                && cold_cache.shard_count == shards_per_cluster
-            {
-                let mut map = HashMap::new();
-                for (id, data) in cold_cache.resume_data {
-                    map.insert(
-                        id,
-                        ResumeSession {
-                            session_id: data.0,
-                            sequence: data.1,
-                        },
-                    );
-                }
-                let start = Instant::now();
-                let result = cache
-                    .restore_cold_resume(
-                        &clients.redis,
-                        cold_cache.guild_chunks,
-                        cold_cache.user_chunks,
-                    )
-                    .await;
-                match result {
-                    Ok(_) => {
-                        let end = Instant::now();
-                        info!(
-                            "Cold resume defrosting completed in {}ms",
-                            (end - start).as_millis()
-                        );
-                        cb = cb.resume_sessions(map);
-                    }
-                    Err(why) => {
-                        error!("Cold resume defrosting failed: {}", why);
-                        cache.reset();
-                    }
-                }
-            }
-        }
-    }
+    let (cb, resumed) =
+        attempt_cold_resume(cb, &clients.redis, &cache, total_shards, shards_per_cluster).await?;
 
     // Build cluster
     let cluster = Cluster::new(cb.build()).await?;
@@ -229,7 +199,7 @@ async fn run(
     };
 
     // Final context
-    let ctx = Arc::new(Context::new(cache, http, clients, backend, data, config).await);
+    let ctx = Arc::new(Context::new(cache, http, clients, backend, data).await);
 
     // Setup graceful shutdown
     let shutdown_ctx = ctx.clone();
@@ -250,15 +220,25 @@ async fn run(
     })
     .map_err(|why| format_err!("Failed to register shutdown handler: {}", why))?;
 
-    let c = ctx.backend.cluster.clone();
-    tokio::spawn(async move {
-        time::delay_for(Duration::from_secs(1)).await;
-        c.up().await;
-    });
-
     // Spawn twitch worker
     let twitch_ctx = ctx.clone();
     tokio::spawn(twitch::twitch_loop(twitch_ctx));
+
+    // Activate cluster
+    let cluster_ctx = ctx.clone();
+    tokio::spawn(async move {
+        time::delay_for(Duration::from_secs(1)).await;
+        cluster_ctx.backend.cluster.up().await;
+        time::delay_for(Duration::from_secs(2)).await;
+        if resumed {
+            let activity_result = cluster_ctx
+                .set_cluster_activity(Status::Online, ActivityType::Playing, String::from("osu!"))
+                .await;
+            if let Err(why) = activity_result {
+                warn!("Error while setting activity: {}", why);
+            }
+        }
+    });
 
     let mut bot_events = ctx.backend.cluster.events().await;
     let cmd_groups = Arc::new(CommandGroups::new());
@@ -318,7 +298,7 @@ fn shard_schema_values() -> Option<(u64, u64)> {
     Some((shards_per_cluster, total_shards))
 }
 
-async fn run_metrics_server(stats: Arc<BotStats>) {
+async fn _run_metrics_server(stats: Arc<BotStats>) {
     let metric_service = make_service_fn(move |_| {
         let stats = stats.clone();
         async move {
@@ -336,4 +316,50 @@ async fn run_metrics_server(stats: Arc<BotStats>) {
     if let Err(why) = server.await {
         error!("Metrics server failed: {}", why);
     }
+}
+
+async fn attempt_cold_resume(
+    cb: ClusterConfigBuilder,
+    redis: &ConnectionPool,
+    cache: &Cache,
+    total_shards: u64,
+    shards_per_cluster: u64,
+) -> BotResult<(ClusterConfigBuilder, bool)> {
+    let mut connection = redis.get().await;
+    if let Some(d) = connection.get("cb_cluster_data").await.ok().flatten() {
+        let cold_cache: ColdRebootData = serde_json::from_str(&*String::from_utf8(d).unwrap())?;
+        debug!("ColdRebootData:\n{:#?}", cold_cache);
+        connection.del("cb_cluster_data").await?;
+        if cold_cache.total_shards == total_shards && cold_cache.shard_count == shards_per_cluster {
+            let mut map = HashMap::new();
+            for (id, data) in cold_cache.resume_data {
+                map.insert(
+                    id,
+                    ResumeSession {
+                        session_id: data.0,
+                        sequence: data.1,
+                    },
+                );
+            }
+            let start = Instant::now();
+            let result = cache
+                .restore_cold_resume(redis, cold_cache.guild_chunks, cold_cache.user_chunks)
+                .await;
+            match result {
+                Ok(_) => {
+                    let end = Instant::now();
+                    info!(
+                        "Cold resume defrosting completed in {}ms",
+                        (end - start).as_millis()
+                    );
+                    return Ok((cb.resume_sessions(map), true));
+                }
+                Err(why) => {
+                    error!("Cold resume defrosting failed: {}", why);
+                    cache.reset();
+                }
+            }
+        }
+    }
+    Ok((cb, false))
 }

@@ -12,7 +12,7 @@ use crate::{
 };
 
 use rosu::{
-    backend::requests::RecentRequest,
+    backend::RecentRequest,
     models::{
         ApprovalStatus::{Approved, Loved, Qualified, Ranked},
         GameMode,
@@ -90,22 +90,10 @@ async fn recent_main(
             None
         }
     };
-    let globals_fut = async {
-        let first_map = maps.get(&first_id).unwrap();
-        match first_map.approval_status {
-            Ranked | Loved | Qualified | Approved => {
-                Some(first_map.get_global_leaderboard(ctx.osu(), 50).await)
-            }
-            _ => None,
-        }
-    };
 
     // Retrieve and process responses
-    let (map_result, best_result, globals_result) = tokio::join!(
-        map_fut,
-        user.get_top_scores(ctx.osu(), 100, mode),
-        globals_fut
-    );
+    let (map_result, best_result) =
+        tokio::join!(map_fut, user.get_top_scores(ctx.osu(), 100, mode),);
     match map_result {
         None => {}
         Some(Ok(map)) => {
@@ -122,6 +110,13 @@ async fn recent_main(
             warn!("Error while getting top scores: {}", why);
             Vec::new()
         }
+    };
+    let first_map = maps.get(&first_id).unwrap();
+    let globals_result = match first_map.approval_status {
+        Ranked | Loved | Qualified | Approved => {
+            Some(first_map.get_global_leaderboard(ctx.osu(), 50).await)
+        }
+        _ => None,
     };
     let mut global = HashMap::with_capacity(50);
     match globals_result {

@@ -34,15 +34,3 @@ pub const SYMBOLS: [&str; 6] = ["♔", "♕", "♖", "♗", "♘", "♙"];
 pub const DATE_FORMAT: &str = "%F %T";
 pub const INVITE_LINK: &str = "https://discordapp.com/api/oauth2/authorize?scope=bot&\
     client_id=297073686916366336&permissions=268823616";
-
-pub mod emotes {
-    pub const EMOTE_XH_ID: u64 = 515354675059621888;
-    pub const EMOTE_X_ID: u64 = 515354674929336320;
-    pub const EMOTE_SH_ID: u64 = 515354675323600933;
-    pub const EMOTE_S_ID: u64 = 515354674791186433;
-    pub const EMOTE_A_ID: u64 = 515339175222837259;
-    pub const EMOTE_B_ID: u64 = 515354674866683904;
-    pub const EMOTE_C_ID: u64 = 515354674476351492;
-    pub const EMOTE_D_ID: u64 = 515354674963021824;
-    pub const EMOTE_F_ID: u64 = 515623098947600385;
-}

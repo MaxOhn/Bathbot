@@ -70,7 +70,7 @@ impl SimulateEmbed {
         } else {
             unchoke_score(&mut unchoked_score, map);
         }
-        let grade_completion_mods = unchoked_score.grade_completion_mods(map.mode, &ctx);
+        let grade_completion_mods = unchoked_score.grade_completion_mods(map.mode).to_string();
         let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
         let mut calculator = PPCalculator::new().score(&unchoked_score).map(map);
         calculator.calculate(calculations, Some(ctx)).await?;

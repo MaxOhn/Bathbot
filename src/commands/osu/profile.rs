@@ -125,7 +125,7 @@ async fn profile_main(
     };
 
     // Accumulate all necessary data
-    let data = ProfileEmbed::new(user, profile_result, globals_count, &ctx).await;
+    let data = ProfileEmbed::new(user, profile_result, globals_count);
 
     if let Some(msg) = retrieving_msg {
         let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;

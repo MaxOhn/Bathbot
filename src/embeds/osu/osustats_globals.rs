@@ -43,7 +43,7 @@ impl OsuStatsGlobalsEmbed {
         let entries = scores.range(index..index + 5);
         let mut description = String::with_capacity(1024);
         for (_, score) in entries {
-            let grade = grade_emote(score.grade, &ctx);
+            let grade = grade_emote(score.grade);
             let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
             let mut calculator = PPCalculator::new().score(score).map(&score.map);
             calculator.calculate(calculations, Some(ctx)).await?;

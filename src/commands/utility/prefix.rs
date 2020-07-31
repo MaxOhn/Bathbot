@@ -1,4 +1,7 @@
-use crate::{util::MessageExt, Args, BotResult, Context};
+use crate::{
+    util::{matcher, MessageExt},
+    Args, BotResult, Context,
+};
 
 use std::{cmp::Ordering, fmt::Write, sync::Arc};
 use twilight::model::channel::Message;
@@ -17,7 +20,7 @@ use twilight::model::channel::Message;
 #[only_guilds()]
 #[authority()]
 #[usage("[add / remove] [prefix]")]
-#[example("add $ new_pref :eggplant:")]
+#[example("add $ new_pref 🍆")]
 #[example("remove < !!")]
 #[aliases("prefixes")]
 async fn prefix(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
@@ -45,35 +48,37 @@ async fn prefix(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         let content = "After the first argument you should specify some prefix(es)";
         return msg.error(&ctx, content).await;
     }
-    ctx.update_config(guild_id, |config| {
-        let args = args.take(5);
-        match action {
-            Action::Add => {
-                config.prefixes.extend(args.map(|arg| arg.to_owned()));
-                config.prefixes.sort_unstable_by(|a, b| {
-                    if a == "<" {
-                        Ordering::Less
-                    } else if b == "<" {
-                        Ordering::Greater
-                    } else {
-                        a.cmp(&b)
-                    }
-                });
-                config.prefixes.dedup();
-                config.prefixes.truncate(5);
-            }
-            Action::Remove => {
-                for arg in args {
-                    config.prefixes.retain(|p| p.as_str() != arg);
-                    if config.prefixes.is_empty() {
-                        config.prefixes.push(arg.to_owned());
-                        break;
-                    }
+    let args: Vec<_> = args.take(5).map(|arg| arg.to_owned()).collect();
+    if args.iter().any(|arg| matcher::is_custom_emote(arg)) {
+        let content = "Does not work with custom emotes unfortunately \\:(";
+        return msg.error(&ctx, content).await;
+    }
+    ctx.update_config(guild_id, |config| match action {
+        Action::Add => {
+            config.prefixes.extend(args);
+            config.prefixes.sort_unstable_by(|a, b| {
+                if a == "<" {
+                    Ordering::Less
+                } else if b == "<" {
+                    Ordering::Greater
+                } else {
+                    a.cmp(&b)
+                }
+            });
+            config.prefixes.dedup();
+            config.prefixes.truncate(5);
+        }
+        Action::Remove => {
+            for arg in args {
+                config.prefixes.retain(|p| p != &arg);
+                if config.prefixes.is_empty() {
+                    config.prefixes.push(arg);
+                    break;
                 }
             }
         }
     });
-    let mut content = "Prefixes updated!\n".to_owned();
+    let mut content = String::from("Prefixes updated!\n");
     let prefixes = ctx.config_prefixes(guild_id);
     current_prefixes(&mut content, &prefixes);
     msg.respond(&ctx, content).await?;

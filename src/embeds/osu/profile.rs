@@ -7,7 +7,6 @@ use crate::{
         numbers::{round, with_comma_int},
         osu::grade_emote,
     },
-    Context,
 };
 
 use rosu::models::{GameMode, Grade, User};
@@ -23,11 +22,10 @@ pub struct ProfileEmbed {
 }
 
 impl ProfileEmbed {
-    pub async fn new(
+    pub fn new(
         user: User,
         profile_result: Option<ProfileResult>,
         globals_count: BTreeMap<usize, String>,
-        ctx: &Context,
     ) -> Self {
         let footer_text = format!(
             "Joined osu! {} ({})",
@@ -95,15 +93,15 @@ impl ProfileEmbed {
                     "Grades:".to_owned(),
                     format!(
                         "{}{} {}{} {}{} {}{} {}{}",
-                        grade_emote(Grade::XH, ctx),
+                        grade_emote(Grade::XH),
                         user.count_ssh,
-                        grade_emote(Grade::X, ctx),
+                        grade_emote(Grade::X),
                         user.count_ss,
-                        grade_emote(Grade::SH, ctx),
+                        grade_emote(Grade::SH),
                         user.count_sh,
-                        grade_emote(Grade::S, ctx),
+                        grade_emote(Grade::S),
                         user.count_s,
-                        grade_emote(Grade::A, ctx),
+                        grade_emote(Grade::A),
                         user.count_a,
                     ),
                     false,
@@ -127,7 +125,7 @@ impl ProfileEmbed {
                 let (mods, count) = iter.next().unwrap();
                 let _ = write!(value, "`{} {}%`", mods, count);
                 for (mods, count) in iter {
-                    let _ = write!(value, "` > {} {}%`", mods, count);
+                    let _ = write!(value, " > `{} {}%`", mods, count);
                 }
                 fields.push(("Favourite mod combinations:".to_owned(), value, false));
             }
@@ -138,7 +136,7 @@ impl ProfileEmbed {
             let (mods, count) = iter.next().unwrap();
             let _ = write!(value, "`{} {}%`", mods, count);
             for (mods, count) in iter {
-                let _ = write!(value, "` > {} {}%`", mods, count);
+                let _ = write!(value, " > `{} {}%`", mods, count);
             }
             fields.push(("Favourite mods:".to_owned(), value, false));
             if let Some(mod_combs_pp) = values.mod_combs_pp {
@@ -148,7 +146,7 @@ impl ProfileEmbed {
                 let (mods, pp) = iter.next().unwrap();
                 let _ = write!(value, "`{} {}pp`", mods, pp);
                 for (mods, pp) in iter {
-                    let _ = write!(value, "` > {} {}pp`", mods, pp);
+                    let _ = write!(value, " > `{} {}pp`", mods, pp);
                 }
                 fields.push(("PP earned with mod combination:".to_owned(), value, false));
             }
@@ -158,7 +156,7 @@ impl ProfileEmbed {
             let (mods, pp) = iter.next().unwrap();
             let _ = write!(value, "`{} {}pp`", mods, pp);
             for (mods, pp) in iter {
-                let _ = write!(value, "` > {} {}pp`", mods, pp);
+                let _ = write!(value, " > `{} {}pp`", mods, pp);
             }
             fields.push(("PP earned with mod:".to_owned(), value, false));
             let len = values

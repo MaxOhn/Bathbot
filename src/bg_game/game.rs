@@ -1,5 +1,6 @@
 use super::{util, GameResult, Hints, ImageReveal};
 use crate::{
+    core::CONFIG,
     database::MapsetTagWrapper,
     util::{constants::OSU_BASE, error::BgGameError},
     BotResult, Context,
@@ -45,7 +46,7 @@ impl Game {
         mapsets: &[MapsetTagWrapper],
         previous_ids: &mut VecDeque<u32>,
     ) -> GameResult<Self> {
-        let mut path = ctx.config.bg_path.clone();
+        let mut path = CONFIG.get().unwrap().bg_path.clone();
         match mapsets[0].mode {
             GameMode::STD => path.push("osu"),
             GameMode::MNA => path.push("mania"),

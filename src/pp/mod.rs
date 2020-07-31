@@ -3,6 +3,7 @@ pub mod roppai;
 use roppai::Oppai;
 
 use crate::{
+    core::CONFIG,
     util::{error::PPError, osu::prepare_beatmap_file, BeatmapExt, ScoreExt},
     BotResult, Context,
 };
@@ -12,7 +13,7 @@ use rosu::models::{
     ApprovalStatus::{self, Approved, Loved, Ranked},
     GameMode, GameMods,
 };
-use std::{collections::HashMap, env, str::FromStr};
+use std::{collections::HashMap, str::FromStr};
 use tokio::{process::Command, time};
 
 bitflags! {
@@ -158,7 +159,7 @@ async fn calculate_pp(
             let ctx = ctx.ok_or(PPError::NoContext(mode))?;
             let mut cmd = Command::new("dotnet");
             cmd.kill_on_drop(true)
-                .arg(env::var("PERF_CALC").unwrap())
+                .arg(CONFIG.get().unwrap().perf_calc_path.as_os_str())
                 .arg("simulate");
             match mode {
                 GameMode::MNA => cmd.arg("mania"),
@@ -234,7 +235,7 @@ async fn calculate_max_pp(
             // If not, calculate
             let mut cmd = Command::new("dotnet");
             cmd.kill_on_drop(true)
-                .arg(env::var("PERF_CALC").unwrap())
+                .arg(CONFIG.get().unwrap().perf_calc_path.as_os_str())
                 .arg("simulate");
             match mode {
                 GameMode::MNA => cmd.arg("mania"),
@@ -314,7 +315,7 @@ async fn calculate_stars(
             }
             let mut cmd = Command::new("dotnet");
             cmd.kill_on_drop(true)
-                .arg(env::var("PERF_CALC").unwrap())
+                .arg(CONFIG.get().unwrap().perf_calc_path.as_os_str())
                 .arg("difficulty")
                 .arg(map_path);
             if let Some(mods) = data.mods {

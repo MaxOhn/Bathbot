@@ -2,6 +2,7 @@ use super::ReactionWrapper;
 use crate::{
     bail,
     bg_game::MapsetTags,
+    core::CONFIG,
     database::MapsetTagWrapper,
     util::{
         constants::{GENERAL_ISSUE, OSU_BASE},
@@ -200,9 +201,9 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                 bail!("Error while getting all / random tags: {}", why);
             }
         };
-        let (mapset_id, img) = get_random_image(&ctx, mapsets, mode).await;
+        let (mapset_id, img) = get_random_image(mapsets, mode).await;
         let content = format!(
-            "@{} Which tags should this mapsets get: {}beatmapsets/{}\n\
+            "<@{}> Which tags should this mapsets get: {}beatmapsets/{}\n\
             ```\n\
             🍋: Easy 🎨: Weeb 😱: Hard name 🗽: English 💯: Tech\n\
             🤓: Hard 🍨: Kpop 🪀: Alternate 🌀: Streams ✅: Log in\n\
@@ -346,12 +347,8 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
     Ok(())
 }
 
-async fn get_random_image(
-    ctx: &Context,
-    mut mapsets: Vec<MapsetTagWrapper>,
-    mode: GameMode,
-) -> (u32, Vec<u8>) {
-    let mut path = ctx.config.bg_path.clone();
+async fn get_random_image(mut mapsets: Vec<MapsetTagWrapper>, mode: GameMode) -> (u32, Vec<u8>) {
+    let mut path = CONFIG.get().unwrap().bg_path.clone();
     match mode {
         GameMode::STD => path.push("osu"),
         GameMode::MNA => path.push("mania"),

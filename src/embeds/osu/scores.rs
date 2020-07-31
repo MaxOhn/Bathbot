@@ -46,7 +46,7 @@ impl ScoresEmbed {
             let mut name = format!(
                 "**{idx}.** {grade}\t[{stars}]\t{score}\t({acc})",
                 idx = i + 1,
-                grade = score.grade_completion_mods(map.mode, &ctx),
+                grade = score.grade_completion_mods(map.mode),
                 stars = stars,
                 score = with_comma_int(score.score),
                 acc = score.acc_string(map.mode),

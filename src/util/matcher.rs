@@ -8,6 +8,10 @@ use regex::Regex;
 use rosu::models::GameMods;
 use std::convert::TryFrom;
 
+pub fn is_custom_emote(msg: &str) -> bool {
+    EMOJI_MATCHER.is_match(msg)
+}
+
 enum MentionType {
     Channel,
     Role,
@@ -148,4 +152,8 @@ lazy_static! {
 lazy_static! {
     static ref OSU_DIFF_MATCHER: Regex =
         Regex::new(".*'s? (easy|normal|hard|insane|expert|extra|extreme)").unwrap();
+}
+
+lazy_static! {
+    static ref EMOJI_MATCHER: Regex = Regex::new(r"<(a?):([^:\n]+):(\d+)>").unwrap();
 }

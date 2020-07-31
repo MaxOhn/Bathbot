@@ -188,8 +188,8 @@ impl Cache {
                                     ctx.set_shard_activity(
                                         shard_id,
                                         Status::Online,
-                                        ActivityType::Watching,
-                                        String::from("the gears turn"),
+                                        ActivityType::Playing,
+                                        "osu!",
                                     )
                                     .await?
                                 }

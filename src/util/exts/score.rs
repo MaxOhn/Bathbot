@@ -1,12 +1,11 @@
 use crate::{
-    core::CachedEmoji,
+    core::CONFIG,
     custom_client::{OsuStatsScore, ScraperScore},
     util::osu::grade_emote,
-    Context,
 };
 
 use rosu::models::{GameMode, GameMods, Grade, Score};
-use std::{fmt::Write, sync::Arc};
+use std::{borrow::Cow, fmt::Write};
 
 pub trait ScoreExt: Sized {
     // Required to implement
@@ -46,16 +45,18 @@ pub trait ScoreExt: Sized {
     }
 
     // Processing to strings
-    fn grade_emote(&self, mode: GameMode, ctx: &Context) -> Arc<CachedEmoji> {
-        grade_emote(self.grade(mode), ctx)
+    fn grade_emote(&self, mode: GameMode) -> String {
+        grade_emote(self.grade(mode))
     }
-    fn grade_completion_mods(&self, mode: GameMode, ctx: &Context) -> String {
-        let mut res_string = grade_emote(self.grade(mode), ctx).name.clone();
+    fn grade_completion_mods(&self, mode: GameMode) -> Cow<str> {
+        let grade = CONFIG.get().unwrap().grade(self.grade(mode));
+        println!("grade: {}", grade);
         let mods = self.mods();
-        if !mods.is_empty() {
-            let _ = write!(res_string, " +{}", mods);
+        if mods.is_empty() {
+            Cow::Borrowed(grade)
+        } else {
+            Cow::Owned(format!("{} +{}", grade, mods))
         }
-        res_string
     }
     fn hits_string(&self, mode: GameMode) -> String {
         let mut hits = String::from("{");

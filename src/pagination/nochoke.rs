@@ -1,10 +1,9 @@
 use super::{Pages, Pagination};
 
-use crate::{embeds::NoChokeEmbed, BotResult, Context};
+use crate::{embeds::NoChokeEmbed, BotResult};
 
 use async_trait::async_trait;
 use rosu::models::{Beatmap, Score, User};
-use std::sync::Arc;
 use twilight::model::channel::Message;
 
 pub struct NoChokePagination {
@@ -13,12 +12,10 @@ pub struct NoChokePagination {
     user: User,
     scores: Vec<(usize, Score, Score, Beatmap)>,
     unchoked_pp: f64,
-    ctx: Arc<Context>,
 }
 
 impl NoChokePagination {
     pub fn new(
-        ctx: Arc<Context>,
         msg: Message,
         user: User,
         scores: Vec<(usize, Score, Score, Beatmap)>,
@@ -30,7 +27,6 @@ impl NoChokePagination {
             user,
             scores,
             unchoked_pp,
-            ctx,
         }
     }
 }
@@ -49,7 +45,6 @@ impl Pagination for NoChokePagination {
     }
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         NoChokeEmbed::new(
-            &self.ctx,
             &self.user,
             self.scores
                 .iter()

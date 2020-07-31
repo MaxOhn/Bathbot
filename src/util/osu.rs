@@ -1,18 +1,13 @@
 use crate::{
     arguments::SimulateArgs,
-    core::CachedEmoji,
-    util::{
-        constants::{emotes::*, OSU_BASE},
-        error::MapDownloadError,
-        matcher,
-    },
+    core::CONFIG,
+    util::{constants::OSU_BASE, error::MapDownloadError, matcher},
     Context,
 };
 
 use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score};
-use std::{env, path::Path, sync::Arc};
 use tokio::{fs::File, io::AsyncWriteExt};
-use twilight::model::{channel::Message, id::EmojiId};
+use twilight::model::channel::Message;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ModSelection {
@@ -29,40 +24,21 @@ impl ModSelection {
     }
 }
 
-pub fn grade_emote(grade: Grade, ctx: &Context) -> Arc<CachedEmoji> {
-    let emoji_id = match grade {
-        Grade::XH => EmojiId(EMOTE_XH_ID),
-        Grade::X => EmojiId(EMOTE_X_ID),
-        Grade::SH => EmojiId(EMOTE_SH_ID),
-        Grade::S => EmojiId(EMOTE_S_ID),
-        Grade::A => EmojiId(EMOTE_A_ID),
-        Grade::B => EmojiId(EMOTE_B_ID),
-        Grade::C => EmojiId(EMOTE_C_ID),
-        Grade::D => EmojiId(EMOTE_D_ID),
-        Grade::F => EmojiId(EMOTE_F_ID),
-    };
-    ctx.cache
-        .emoji
-        .get(&emoji_id)
-        .unwrap_or_else(|| panic!("Emote {} not found", emoji_id.0))
-        .value()
-        .clone()
+pub fn grade_emote(grade: Grade) -> String {
+    CONFIG.get().unwrap().grade(grade).to_owned()
 }
 
 pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadError> {
-    let map_path = format!(
-        "{base}{id}.osu",
-        base = env::var("BEATMAP_PATH").map_err(|_| MapDownloadError::NoEnv)?,
-        id = map_id
-    );
-    if !Path::new(&map_path).exists() {
+    let mut map_path = CONFIG.get().unwrap().map_path.clone();
+    map_path.push(format!("{}.osu", map_id));
+    if !map_path.exists() {
         let mut file = File::create(&map_path).await?;
         let download_url = format!("{}web/maps/{}", OSU_BASE, map_id);
         let content = reqwest::get(&download_url).await?.bytes().await?;
         file.write_all(&content).await?;
         info!("Downloaded {}.osu successfully", map_id);
     }
-    Ok(map_path)
+    Ok(map_path.to_str().unwrap().to_owned())
 }
 
 pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {

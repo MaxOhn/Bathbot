@@ -5,7 +5,6 @@ use tokio::io::Error as TokioIOError;
 #[derive(Debug)]
 pub enum MapDownloadError {
     CreateFile(TokioIOError),
-    NoEnv,
     Reqwest(ReqwestError),
 }
 
@@ -13,7 +12,6 @@ impl fmt::Display for MapDownloadError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::CreateFile(e) => write!(f, "could not create file: {}", e),
-            Self::NoEnv => f.write_str("no `BEATMAP_PATH` variable in .env file"),
             Self::Reqwest(e) => write!(f, "reqwest error: {}", e),
         }
     }

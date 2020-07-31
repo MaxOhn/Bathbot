@@ -1,5 +1,6 @@
 use crate::{
     bail,
+    core::CONFIG,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE, OWNER_USER_ID},
         MessageExt,
@@ -65,7 +66,7 @@ async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
     // Download attachement
     let path = match download_attachment(&attachment).await {
         Ok(content) => {
-            let mut path = ctx.config.bg_path.clone();
+            let mut path = CONFIG.get().unwrap().bg_path.clone();
             match mode {
                 GameMode::STD => path.push("osu"),
                 GameMode::MNA => path.push("mania"),

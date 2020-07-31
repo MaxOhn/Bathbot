@@ -10,7 +10,7 @@ use crate::{
         Cache,
     },
     database::{Database, GuildConfig},
-    BotConfig, BotResult, CustomClient, Twitch,
+    BotResult, CustomClient, Twitch,
 };
 
 use darkredis::ConnectionPool;
@@ -38,7 +38,6 @@ pub struct Context {
     pub buckets: Buckets,
     pub backend: BackendData,
     pub clients: Clients,
-    pub config: BotConfig,
     // private to avoid deadlocks by messing up references
     data: ContextData,
 }
@@ -77,7 +76,6 @@ impl Context {
         clients: Clients,
         backend: BackendData,
         data: ContextData,
-        config: BotConfig,
     ) -> Self {
         cache
             .stats
@@ -92,7 +90,6 @@ impl Context {
             backend,
             data,
             buckets: buckets(),
-            config,
         }
     }
 
@@ -114,7 +111,7 @@ impl Context {
         shard_id: u64,
         status: Status,
         activity_type: ActivityType,
-        message: String,
+        message: impl Into<String>,
     ) -> BotResult<()> {
         self.backend
             .cluster
@@ -122,7 +119,7 @@ impl Context {
                 shard_id,
                 &UpdateStatus::new(
                     false,
-                    generate_activity(activity_type, message),
+                    generate_activity(activity_type, message.into()),
                     None,
                     status,
                 ),

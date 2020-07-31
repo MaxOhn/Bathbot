@@ -64,7 +64,7 @@ impl LeaderboardEmbed {
                     "**{idx}.** {grade} **{name}**: {score} [ {combo} ]{mods}\n\
                     - {pp} ~ {acc}% ~ {ago}",
                     idx = idx + i + 1,
-                    grade = score.grade_emote(map.mode, &ctx),
+                    grade = score.grade_emote(map.mode),
                     name = username,
                     score = with_comma_int(score.score),
                     combo = get_combo(&score, &map),

@@ -2,7 +2,7 @@ use crate::{
     core::{Command, CommandGroups},
     util::{
         constants::{DARK_GREEN, DESCRIPTION_SIZE, EMBED_SIZE, FIELD_VALUE_SIZE, RED},
-        levenshtein_distance, MessageExt,
+        content_safe, levenshtein_distance, MessageExt,
     },
     BotResult, Context,
 };
@@ -147,11 +147,16 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
             let mut value = "You need admin permission".to_owned();
             if !authorities.is_empty() {
                 let mut iter = authorities.iter();
-                let _ = write!(value, " or any of these roles: @{}", iter.next().unwrap());
+                let _ = write!(
+                    value,
+                    " or any of these roles: <@&{}>",
+                    iter.next().unwrap()
+                );
                 for role in iter {
-                    let _ = write!(value, ", @{}", role);
+                    let _ = write!(value, ", <@&{}>", role);
                 }
             }
+            content_safe(&ctx, &mut value, msg.guild_id);
             value
         } else {
             "Admin permission or any role that \

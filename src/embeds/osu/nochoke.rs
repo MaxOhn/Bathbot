@@ -6,7 +6,7 @@ use crate::{
         numbers::round,
         ScoreExt,
     },
-    BotResult, Context,
+    BotResult,
 };
 
 use rosu::models::{Beatmap, GameMode, Score, User};
@@ -23,7 +23,6 @@ pub struct NoChokeEmbed {
 
 impl NoChokeEmbed {
     pub async fn new<'i, S>(
-        ctx: &Context,
         user: &User,
         scores_data: S,
         unchoked_pp: f64,
@@ -52,7 +51,7 @@ impl NoChokeEmbed {
                 id = map.beatmap_id,
                 mods = osu::get_mods(original.enabled_mods),
                 stars = stars,
-                grade = unchoked.grade_emote(map.mode, ctx).name,
+                grade = unchoked.grade_emote(map.mode),
                 old_pp = round(original.pp.unwrap()),
                 new_pp = round(unchoked.pp.unwrap()),
                 max_pp = max_pp,

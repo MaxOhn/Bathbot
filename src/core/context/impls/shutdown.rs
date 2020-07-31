@@ -10,7 +10,7 @@ impl Context {
             .set_cluster_activity(
                 Status::Idle,
                 ActivityType::Watching,
-                String::from("deploying update, replies might be delayed"),
+                String::from("an update being deployed, replies might be delayed"),
             )
             .await;
         if let Err(why) = activity_result {

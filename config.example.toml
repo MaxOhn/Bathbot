@@ -1,4 +1,6 @@
 bg_path = "path/to/bg/folder"
+map_path = "path/to/folder/containing/.osu/files"
+perf_calc_path = "path/to/osu-tools/PerformanceCalculator/bin/Release/netcoreapp3.1/PerformanceCalculator.dll"
 
 [tokens]
 discord = ""
@@ -10,3 +12,15 @@ twitch_token = ""
 [database]
 postgres = "postgres://user:password@localhost/db_name"
 redis = "localhost:port"
+
+# adjust if necessary
+[emotes]
+F = ":<F_:515623098947600385>"
+D = "<:D_:515354674963021824>"
+C = "<:C_:515354674476351492>"
+B = "<:B_:515354674866683904>"
+A = "<:A_:515339175222837259>"
+S = "<:S_:515354674791186433>"
+X = "<:X_:515354674929336320>"
+SH = "<:SH:515354675323600933>"
+XH = "<:XH:515354675059621888>"

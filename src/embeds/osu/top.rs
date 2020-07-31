@@ -34,7 +34,6 @@ impl TopEmbed {
     {
         let mut description = String::with_capacity(512);
         for (idx, score, map) in scores_data {
-            let grade = score.grade_emote(mode, &ctx).name.clone();
             let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
             let mut calculator = PPCalculator::new().score(score).map(map);
             calculator.calculate(calculations, Some(ctx)).await?;
@@ -51,7 +50,7 @@ impl TopEmbed {
                 id = map.beatmap_id,
                 mods = osu::get_mods(score.enabled_mods),
                 stars = stars,
-                grade = grade,
+                grade = score.grade_emote(mode),
                 pp = pp,
                 acc = score.acc_string(mode),
                 score = with_comma_int(score.score),
