@@ -1,5 +1,8 @@
 use super::Args;
-use crate::util::{matcher, osu::ModSelection};
+use crate::{
+    util::{matcher, osu::ModSelection},
+    Context,
+};
 
 pub struct SimulateArgs {
     pub mods: Option<ModSelection>,
@@ -67,18 +70,6 @@ pub struct SimulateMapArgs {
     pub combo: Option<u32>,
 }
 
-pub struct SimulateNameArgs {
-    pub name: Option<String>,
-    pub mods: Option<ModSelection>,
-    pub score: Option<u32>,
-    pub n300: Option<u32>,
-    pub n100: Option<u32>,
-    pub n50: Option<u32>,
-    pub miss: Option<u32>,
-    pub acc: Option<f32>,
-    pub combo: Option<u32>,
-}
-
 impl SimulateMapArgs {
     pub fn new(args: Args) -> Result<Self, &'static str> {
         let mut args = args.take(16).map(|arg| arg.to_owned()).collect();
@@ -109,8 +100,20 @@ impl SimulateMapArgs {
     }
 }
 
+pub struct SimulateNameArgs {
+    pub name: Option<String>,
+    pub mods: Option<ModSelection>,
+    pub score: Option<u32>,
+    pub n300: Option<u32>,
+    pub n100: Option<u32>,
+    pub n50: Option<u32>,
+    pub miss: Option<u32>,
+    pub acc: Option<f32>,
+    pub combo: Option<u32>,
+}
+
 impl SimulateNameArgs {
-    pub fn new(args: Args) -> Result<Self, &'static str> {
+    pub fn new(ctx: &Context, args: Args) -> Result<Self, &'static str> {
         let mut args = args.take(16).map(|arg| arg.to_owned()).collect();
         let mods = super::mods(&mut args);
         let acc = super::acc(&mut args)?;
@@ -120,7 +123,11 @@ impl SimulateNameArgs {
         let n100 = super::n100(&mut args)?;
         let n50 = super::n50(&mut args)?;
         let score = super::score(&mut args)?;
-        let name = args.pop();
+        let name = args.pop().and_then(|arg| {
+            matcher::get_mention_user(&arg)
+                .and_then(|id| ctx.get_link(id))
+                .or_else(|| Some(arg))
+        });
         Ok(Self {
             name,
             mods,

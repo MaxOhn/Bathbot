@@ -21,7 +21,7 @@ async fn simulate_recent_main(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let mut args = match SimulateNameArgs::new(args) {
+    let mut args = match SimulateNameArgs::new(&ctx, args) {
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };

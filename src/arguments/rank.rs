@@ -1,4 +1,5 @@
-use super::Args;
+use super::{try_link_name, Args};
+use crate::Context;
 
 use std::str::FromStr;
 
@@ -9,7 +10,7 @@ pub struct RankArgs {
 }
 
 impl RankArgs {
-    pub fn new(args: Args) -> Result<Self, &'static str> {
+    pub fn new(ctx: &Context, args: Args) -> Result<Self, &'static str> {
         let mut args = args.take_all();
         let (country, rank) = if let Some(arg) = args.next_back() {
             if let Ok(num) = usize::from_str(arg) {
@@ -24,8 +25,8 @@ impl RankArgs {
                     (Some(country.to_uppercase()), num)
                 } else {
                     return Err("Could not parse rank. Provide it either as positive \
-                                number or as country acronym followed by a positive \
-                                number e.g. `be10`.");
+                        number or as country acronym followed by a positive \
+                        number e.g. `be10`.");
                 }
             }
         } else {
@@ -34,8 +35,9 @@ impl RankArgs {
                  as country acronym followed by a positive number e.g. `be10`.",
             );
         };
+        let name = try_link_name(ctx, args.next());
         Ok(Self {
-            name: args.next().map(|arg| arg.to_owned()),
+            name,
             country,
             rank,
         })

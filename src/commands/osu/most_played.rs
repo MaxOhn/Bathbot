@@ -7,7 +7,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::{ models::GameMode};
+use rosu::models::GameMode;
 use std::sync::Arc;
 use twilight::model::channel::Message;
 
@@ -16,7 +16,7 @@ use twilight::model::channel::Message;
 #[usage("[username]")]
 #[example("badewanne3")]
 async fn mostplayed(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    let args = NameArgs::new(args);
+    let args = NameArgs::new(&ctx, args);
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
         None => return require_link(&ctx, msg).await,

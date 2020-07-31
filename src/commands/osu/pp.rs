@@ -6,10 +6,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::{
-    backend::requests::BestRequest,
-    models::{GameMode},
-};
+use rosu::{backend::requests::BestRequest, models::GameMode};
 use std::sync::Arc;
 use twilight::model::channel::Message;
 
@@ -19,7 +16,7 @@ async fn pp_main(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let args = match NameFloatArgs::new(args) {
+    let args = match NameFloatArgs::new(&ctx, args) {
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };

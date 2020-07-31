@@ -31,7 +31,7 @@ async fn recent_lb_main(
     args: Args<'_>,
 ) -> BotResult<()> {
     let author_name = ctx.get_link(msg.author.id.0);
-    let args = NameModArgs::new(args);
+    let args = NameModArgs::new(&ctx, args);
     let selection = args.mods;
     let name = match args.name.or_else(|| author_name.clone()) {
         Some(name) => name,

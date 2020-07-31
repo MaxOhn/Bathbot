@@ -28,7 +28,7 @@ async fn common_main(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let mut args = MultNameArgs::new(args, 10);
+    let mut args = MultNameArgs::new(&ctx, args, 10);
     let names = match args.names.len() {
         0 => {
             let content = "You need to specify at least one osu username. \

@@ -1,5 +1,9 @@
 use super::Args;
-use crate::{commands::osu::TopSortBy, util::osu::ModSelection};
+use crate::{
+    commands::osu::TopSortBy,
+    util::{matcher, osu::ModSelection},
+    Context,
+};
 
 use rosu::models::Grade;
 
@@ -13,7 +17,7 @@ pub struct TopArgs {
 }
 
 impl TopArgs {
-    pub fn new(args: Args) -> Result<Self, &'static str> {
+    pub fn new(ctx: &Context, args: Args) -> Result<Self, &'static str> {
         let mut args = args.take(8).map(|arg| arg.to_owned()).collect();
         let acc = super::acc(&mut args)?;
         let combo = super::combo(&mut args)?;
@@ -26,7 +30,11 @@ impl TopArgs {
         } else {
             TopSortBy::None
         };
-        let name = args.pop();
+        let name = args.pop().and_then(|arg| {
+            matcher::get_mention_user(&arg)
+                .and_then(|id| ctx.get_link(id))
+                .or_else(|| Some(arg))
+        });
         Ok(Self {
             name,
             mods,

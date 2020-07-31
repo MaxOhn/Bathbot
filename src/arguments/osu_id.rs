@@ -1,7 +1,10 @@
-use super::Args;
-use crate::util::{
-    matcher,
-    osu::{MapIdType, ModSelection},
+use super::{try_link_name, Args};
+use crate::{
+    util::{
+        matcher,
+        osu::{MapIdType, ModSelection},
+    },
+    Context,
 };
 
 use std::str::FromStr;
@@ -60,7 +63,7 @@ pub struct NameMapArgs {
 }
 
 impl NameMapArgs {
-    pub fn new(args: Args) -> Self {
+    pub fn new(ctx: &Context, args: Args) -> Self {
         let mut args = args.take_all();
         let (name, map_id) = args.next_back().map_or_else(
             || (None, None),
@@ -68,8 +71,8 @@ impl NameMapArgs {
                 matcher::get_osu_map_id(arg)
                     .or_else(|| matcher::get_osu_mapset_id(arg))
                     .map_or_else(
-                        || (Some(arg.to_owned()), None),
-                        |id| (args.next().map(|a| a.to_owned()), Some(id)),
+                        || (try_link_name(ctx, Some(arg)), None),
+                        |id| (try_link_name(ctx, args.next()), Some(id)),
                     )
             },
         );

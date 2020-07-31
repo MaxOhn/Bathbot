@@ -27,7 +27,7 @@ use twilight::model::channel::Message;
 #[example("badewanne3 \"nathan on osu\" idke")]
 #[aliases("commonmostplayed", "mpc")]
 async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    let mut args = MultNameArgs::new(args, 10);
+    let mut args = MultNameArgs::new(&ctx, args, 10);
     let names = match args.names.len() {
         0 => {
             let content = "You need to specify at least one osu username. \

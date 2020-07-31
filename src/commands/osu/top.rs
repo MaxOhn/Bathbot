@@ -28,7 +28,7 @@ async fn top_main(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let mut args = match TopArgs::new(args) {
+    let mut args = match TopArgs::new(&ctx, args) {
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };

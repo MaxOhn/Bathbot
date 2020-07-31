@@ -1,5 +1,8 @@
-use super::Args;
-use crate::util::{matcher, osu::ModSelection};
+use super::{try_link_name, Args};
+use crate::{
+    util::{matcher, osu::ModSelection},
+    Context,
+};
 
 use itertools::Itertools;
 use std::str::FromStr;
@@ -9,10 +12,9 @@ pub struct NameArgs {
 }
 
 impl NameArgs {
-    pub fn new(mut args: Args) -> Self {
-        Self {
-            name: args.single::<String>().ok(),
-        }
+    pub fn new(ctx: &Context, mut args: Args) -> Self {
+        let name = try_link_name(ctx, args.next());
+        Self { name }
     }
 }
 
@@ -21,8 +23,12 @@ pub struct MultNameArgs {
 }
 
 impl MultNameArgs {
-    pub fn new(args: Args, n: usize) -> Self {
-        let names = args.take(n).unique().map(|arg| arg.to_owned()).collect();
+    pub fn new(ctx: &Context, args: Args, n: usize) -> Self {
+        let names = args
+            .take(n)
+            .unique()
+            .map(|arg| try_link_name(ctx, Some(arg)).unwrap())
+            .collect();
         Self { names }
     }
 }
@@ -33,16 +39,14 @@ pub struct NameFloatArgs {
 }
 
 impl NameFloatArgs {
-    pub fn new(args: Args) -> Result<Self, &'static str> {
+    pub fn new(ctx: &Context, args: Args) -> Result<Self, &'static str> {
         let mut args = args.take_all();
         let float = match args.next_back().and_then(|arg| f32::from_str(&arg).ok()) {
             Some(float) => float,
             None => return Err("You need to provide a decimal number as last argument"),
         };
-        Ok(Self {
-            name: args.next().map(|arg| arg.to_owned()),
-            float,
-        })
+        let name = try_link_name(ctx, args.next());
+        Ok(Self { name, float })
     }
 }
 
@@ -52,7 +56,7 @@ pub struct NameIntArgs {
 }
 
 impl NameIntArgs {
-    pub fn new(args: Args) -> Self {
+    pub fn new(ctx: &Context, args: Args) -> Self {
         let mut name = None;
         let mut number = None;
         for arg in args {
@@ -60,7 +64,7 @@ impl NameIntArgs {
             if res.is_some() {
                 number = res;
             } else {
-                name = Some(arg.to_owned());
+                name = try_link_name(ctx, Some(arg));
             }
         }
         Self { name, number }
@@ -73,7 +77,7 @@ pub struct NameModArgs {
 }
 
 impl NameModArgs {
-    pub fn new(args: Args) -> Self {
+    pub fn new(ctx: &Context, args: Args) -> Self {
         let mut name = None;
         let mut mods = None;
         for arg in args {
@@ -81,7 +85,7 @@ impl NameModArgs {
             if res.is_some() {
                 mods = res;
             } else {
-                name = Some(arg.to_owned());
+                name = try_link_name(ctx, Some(arg));
             }
         }
         Self { name, mods }

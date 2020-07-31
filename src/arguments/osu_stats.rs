@@ -1,5 +1,9 @@
 use super::Args;
-use crate::custom_client::{OsuStatsOrder, OsuStatsParams};
+use crate::{
+    custom_client::{OsuStatsOrder, OsuStatsParams},
+    util::matcher,
+    Context,
+};
 
 use rosu::models::GameMode;
 use std::str::FromStr;
@@ -10,6 +14,7 @@ pub struct OsuStatsArgs {
 
 impl OsuStatsArgs {
     pub fn new(
+        ctx: &Context,
         args: Args,
         mut username: Option<String>,
         mode: GameMode,
@@ -85,7 +90,9 @@ impl OsuStatsArgs {
         };
         // Parse username
         if let Some(name) = args.pop() {
-            username = Some(name);
+            username = matcher::get_mention_user(&name)
+                .and_then(|id| ctx.get_link(id))
+                .or_else(|| Some(name));
         }
         if username.is_none() {
             return Err("Either specify an osu name or link your discord \

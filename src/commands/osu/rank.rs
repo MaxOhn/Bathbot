@@ -7,10 +7,7 @@ use crate::{
 };
 
 use futures::future::TryFutureExt;
-use rosu::{
-    backend::requests::UserRequest,
-    models::{GameMode},
-};
+use rosu::{backend::requests::UserRequest, models::GameMode};
 use std::sync::Arc;
 use twilight::model::channel::Message;
 
@@ -20,7 +17,7 @@ async fn rank_main(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let args = match RankArgs::new(args) {
+    let args = match RankArgs::new(&ctx, args) {
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };

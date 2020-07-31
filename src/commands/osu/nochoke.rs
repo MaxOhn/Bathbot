@@ -29,7 +29,7 @@ use twilight::model::channel::Message;
 #[example("vaxei 5")]
 #[aliases("nc", "nochoke")]
 async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    let args = NameIntArgs::new(args);
+    let args = NameIntArgs::new(&ctx, args);
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
         None => return require_link(&ctx, msg).await,

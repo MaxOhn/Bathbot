@@ -16,7 +16,7 @@ async fn whatif_main(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let args = match NameFloatArgs::new(args) {
+    let args = match NameFloatArgs::new(&ctx, args) {
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
