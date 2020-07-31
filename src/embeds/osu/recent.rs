@@ -45,14 +45,14 @@ impl RecentEmbed {
         score: &Score,
         map: &Beatmap,
         personal: &[Score],
-        global: &[Score],
+        global: Option<&[Score]>,
         cache_data: D,
     ) -> Result<Self, Error>
     where
         D: CacheData,
     {
         let personal_idx = personal.iter().position(|s| s == score);
-        let global_idx = global.iter().position(|s| s == score);
+        let global_idx = global.and_then(|global| global.iter().position(|s| s == score));
         let description = if personal_idx.is_some() || global_idx.is_some() {
             let mut description = String::with_capacity(25);
             description.push_str("__**");

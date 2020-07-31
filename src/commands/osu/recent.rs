@@ -179,7 +179,9 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
             s.beatmap_id.unwrap() == first_id && s.enabled_mods == first_score.enabled_mods
         })
         .count();
-    let global_scores = global.get(&first_map.beatmap_id).unwrap();
+    let global_scores = global
+        .get(&first_map.beatmap_id)
+        .map(|global| global.as_slice());
     let embed_data =
         match RecentEmbed::new(&user, first_score, first_map, &best, global_scores, ctx).await {
             Ok(data) => data,

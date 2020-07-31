@@ -142,14 +142,17 @@ impl Pagination for RecentPagination {
             let global_lb = map.get_global_leaderboard(&osu, 50).await?;
             self.global.insert(map.beatmap_id, global_lb);
         };
-        let global_lb = self.global.get(&map.beatmap_id).unwrap();
+        let global_lb = self
+            .global
+            .get(&map.beatmap_id)
+            .map(|global| global.as_slice());
         // Create embed data
         RecentEmbed::new(
             &self.user,
             score,
             map,
             &self.best,
-            &global_lb,
+            global_lb,
             (&self.cache, &self.data),
         )
         .await
