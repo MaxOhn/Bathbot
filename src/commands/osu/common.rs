@@ -235,7 +235,7 @@ async fn common_main(
     // Add missing maps to database
     if let Some(maps) = missing_maps {
         match ctx.psql().insert_beatmaps(&maps).await {
-            Ok(n) if n == 1 => {}
+            Ok(n) if n < 2 => {}
             Ok(n) => info!("Added {} maps to DB", n),
             Err(why) => warn!("Error while adding maps to DB: {}", why),
         }

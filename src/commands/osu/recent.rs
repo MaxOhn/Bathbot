@@ -80,45 +80,41 @@ async fn recent_main(
     // Memoize which maps are already in the DB
     map_ids.retain(|id| maps.contains_key(&id));
 
-    // Prepare retrieval of the first map, the user's top 100, and the map's global top 50
+    // Retrieve the first map
     let first_score = scores.first().unwrap();
     let first_id = first_score.beatmap_id.unwrap();
-    let map_fut = async {
-        if !maps.contains_key(&first_id) {
-            Some(first_score.get_beatmap(ctx.osu()).await)
-        } else {
-            None
+    #[allow(clippy::map_entry)]
+    if !maps.contains_key(&first_id) {
+        let map = match first_score.get_beatmap(ctx.osu()).await {
+            Ok(map) => map,
+            Err(why) => {
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+                return Err(why.into());
+            }
+        };
+        maps.insert(first_id, map);
+    }
+
+    // Prepare retrieval of the map's global top 50 and the user's top 100
+    let first_map = maps.get(&first_id).unwrap();
+    let global_fut = async {
+        match first_map.approval_status {
+            Ranked | Loved | Qualified | Approved => {
+                Some(first_map.get_global_leaderboard(ctx.osu(), 50).await)
+            }
+            _ => None,
+        }
+    };
+    let best_fut = async {
+        match first_map.approval_status {
+            Ranked => Some(user.get_top_scores(ctx.osu(), 100, mode).await),
+            _ => None,
         }
     };
 
-    // Retrieve and process responses
-    let (map_result, best_result) =
-        tokio::join!(map_fut, user.get_top_scores(ctx.osu(), 100, mode),);
-    match map_result {
-        None => {}
-        Some(Ok(map)) => {
-            maps.insert(first_id, map);
-        }
-        Some(Err(why)) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-            return Err(why.into());
-        }
-    }
-    let best = match best_result {
-        Ok(scores) => scores,
-        Err(why) => {
-            warn!("Error while getting top scores: {}", why);
-            Vec::new()
-        }
-    };
-    let first_map = maps.get(&first_id).unwrap();
-    let globals_result = match first_map.approval_status {
-        Ranked | Loved | Qualified | Approved => {
-            Some(first_map.get_global_leaderboard(ctx.osu(), 50).await)
-        }
-        _ => None,
-    };
-    let mut global = HashMap::with_capacity(50);
+    // Retrieve and parse response
+    let (globals_result, best_result) = tokio::join!(global_fut, best_fut);
+    let mut global = HashMap::with_capacity(scores.len());
     match globals_result {
         None => {}
         Some(Ok(scores)) => {
@@ -126,6 +122,14 @@ async fn recent_main(
         }
         Some(Err(why)) => warn!("Error while getting global scores: {}", why),
     }
+    let best = match best_result {
+        None => None,
+        Some(Ok(scores)) => Some(scores),
+        Some(Err(why)) => {
+            warn!("Error while getting top scores: {}", why);
+            None
+        }
+    };
 
     // Accumulate all necessary data
     let tries = scores
@@ -134,16 +138,24 @@ async fn recent_main(
             s.beatmap_id.unwrap() == first_id && s.enabled_mods == first_score.enabled_mods
         })
         .count();
-    let global_scores = global.get(&first_id).unwrap();
+    let global_scores = global.get(&first_id).map(|global| global.as_slice());
     let first_map = maps.get(&first_id).unwrap();
-    let data =
-        match RecentEmbed::new(&ctx, &user, first_score, first_map, &best, global_scores).await {
-            Ok(data) => data,
-            Err(why) => {
-                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-                bail!("Error while creating embed: {}", why);
-            }
-        };
+    let data = match RecentEmbed::new(
+        &ctx,
+        &user,
+        first_score,
+        first_map,
+        best.as_deref(),
+        global_scores,
+    )
+    .await
+    {
+        Ok(data) => data,
+        Err(why) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            bail!("Error while creating embed: {}", why);
+        }
+    };
 
     // Creating the embed
     let embed = data.build().build();

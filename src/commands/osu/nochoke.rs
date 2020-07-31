@@ -167,7 +167,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     // Add missing maps to database
     if missing_maps.is_empty() {
         match ctx.psql().insert_beatmaps(&missing_maps).await {
-            Ok(n) if n == 1 => {}
+            Ok(n) if n < 2 => {}
             Ok(n) => info!("Added {} maps to DB", n),
             Err(why) => warn!("Error while adding maps to DB: {}", why),
         }

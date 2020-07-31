@@ -19,7 +19,7 @@ pub struct RecentPagination {
     user: User,
     scores: Vec<Score>,
     maps: HashMap<u32, Beatmap>,
-    best: Vec<Score>,
+    best: Option<Vec<Score>>,
     global: HashMap<u32, Vec<Score>>,
     maps_in_db: HashSet<u32>,
     embed_data: RecentEmbed,
@@ -34,7 +34,7 @@ impl RecentPagination {
         user: User,
         scores: Vec<Score>,
         maps: HashMap<u32, Beatmap>,
-        best: Vec<Score>,
+        best: Option<Vec<Score>>,
         global: HashMap<u32, Vec<Score>>,
         maps_in_db: HashSet<u32>,
         embed_data: RecentEmbed,
@@ -95,7 +95,7 @@ impl Pagination for RecentPagination {
                 .collect();
             let psql = &ctx.clients.psql;
             match psql.insert_beatmaps(&maps).await {
-                Ok(n) if n == 1 => {}
+                Ok(n) if n < 2 => {}
                 Ok(n) => info!("Added {} maps to DB", n),
                 Err(why) => warn!("Error while adding maps to DB: {}", why),
             }
@@ -120,8 +120,19 @@ impl Pagination for RecentPagination {
             let global_lb = map.get_global_leaderboard(&osu, 50).await?;
             self.global.insert(map.beatmap_id, global_lb);
         };
-        let global_lb = self.global.get(&map.beatmap_id).unwrap();
+        let global_lb = self
+            .global
+            .get(&map.beatmap_id)
+            .map(|global| global.as_slice());
         // Create embed data
-        RecentEmbed::new(&self.ctx, &self.user, score, map, &self.best, &global_lb).await
+        RecentEmbed::new(
+            &self.ctx,
+            &self.user,
+            score,
+            map,
+            self.best.as_deref(),
+            global_lb,
+        )
+        .await
     }
 }
