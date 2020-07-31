@@ -27,11 +27,7 @@ impl Context {
         // Prepare resume data
         let map: HashMap<_, _> = resume_data
             .into_iter()
-            .filter(|(_, data)| data.is_some())
-            .map(|(shard_id, data)| {
-                let info = data.unwrap();
-                (shard_id, (info.session_id, info.sequence))
-            })
+            .map(|(shard_id, info)| (shard_id, (info.session_id, info.sequence)))
             .collect();
         let data = ColdRebootData {
             resume_data: map,

@@ -34,7 +34,7 @@ impl MapsetTagWrapper {
 
 impl<'c> FromRow<'c, PgRow> for MapsetTagWrapper {
     fn from_row(row: &PgRow) -> Result<Self, Error> {
-        let row = TagRow::from_row(&row)?;
+        let row = TagRow::from_row(row)?;
         let bits = row.farm as u32
             + ((row.streams as u32) << 1)
             + ((row.alternate as u32) << 2)

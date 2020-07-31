@@ -5,7 +5,6 @@ use syn::{
     parse::{Parse, ParseStream, Result},
     parse_quote,
     punctuated::Punctuated,
-    spanned::Spanned,
     token::{Comma, Mut},
     Ident, Lifetime, Lit, PathArguments, Type,
 };
