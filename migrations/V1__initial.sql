@@ -4,40 +4,40 @@ CREATE TABLE discord_users (
 );
 
 CREATE TABLE mapsets (
-    beatmapset_id INT PRIMARY KEY NOT NULL,
+    beatmapset_id OID PRIMARY KEY NOT NULL,
     artist VARCHAR(255) NOT NULL,
     title VARCHAR(255) NOT NULL,
-    creator_id INT NOT NULL,
+    creator_id OID NOT NULL,
     creator VARCHAR(32) NOT NULL,
-    genre CHAR NOT NULL,
-    language CHAR NOT NULL,
-    approval_status CHAR NOT NULL,
-    approved_date TIMESTAMP DEFAULT NULL
+    genre "char" NOT NULL,
+    language "char" NOT NULL,
+    approval_status "char" NOT NULL,
+    approved_date TIMESTAMPTZ DEFAULT NULL
 );
 
 CREATE TABLE maps (
-    beatmap_id INT NOT NULL,
-    beatmapset_id INT NOT NULL,
-    mode CHAR NOT NULL,
+    beatmap_id OID NOT NULL,
+    beatmapset_id OID NOT NULL,
+    mode "char" NOT NULL,
     version VARCHAR(255) NOT NULL,
-    seconds_drain INT NOT NULL,
-    seconds_total INT NOT NULL,
-    bpm FLOAT NOT NULL,
-    stars FLOAT NOT NULL,
-    diff_cs FLOAT NOT NULL,
-    diff_od FLOAT NOT NULL,
-    diff_ar FLOAT NOT NULL,
-    diff_hp FLOAT NOT NULL,
-    count_circle INT NOT NULL,
-    count_slider INT NOT NULL,
-    count_spinner INT NOT NULL,
-    max_combo INT,
+    seconds_drain OID NOT NULL,
+    seconds_total OID NOT NULL,
+    bpm REAL NOT NULL,
+    stars REAL NOT NULL,
+    diff_cs REAL NOT NULL,
+    diff_od REAL NOT NULL,
+    diff_ar REAL NOT NULL,
+    diff_hp REAL NOT NULL,
+    count_circle OID NOT NULL,
+    count_slider OID NOT NULL,
+    count_spinner OID NOT NULL,
+    max_combo OID,
     PRIMARY KEY (beatmap_id),
     FOREIGN KEY (beatmapset_id) REFERENCES mapsets(beatmapset_id)
 );
 
 CREATE TABLE ctb_pp (
-    beatmap_id INT NOT NULL,
+    beatmap_id OID NOT NULL,
     values
         JSON NOT NULL,
         FOREIGN KEY (beatmap_id) REFERENCES maps(beatmap_id),
@@ -45,7 +45,7 @@ CREATE TABLE ctb_pp (
 );
 
 CREATE TABLE ctb_stars (
-    beatmap_id INT NOT NULL,
+    beatmap_id OID NOT NULL,
     values
         JSON NOT NULL,
         FOREIGN KEY (beatmap_id) REFERENCES maps(beatmap_id),
@@ -53,7 +53,7 @@ CREATE TABLE ctb_stars (
 );
 
 CREATE TABLE mania_pp (
-    beatmap_id INT NOT NULL,
+    beatmap_id OID NOT NULL,
     values
         JSON NOT NULL,
         FOREIGN KEY (beatmap_id) REFERENCES maps(beatmap_id),
@@ -61,7 +61,7 @@ CREATE TABLE mania_pp (
 );
 
 CREATE TABLE mania_stars (
-    beatmap_id INT NOT NULL,
+    beatmap_id OID NOT NULL,
     values
         JSON NOT NULL,
         FOREIGN KEY (beatmap_id) REFERENCES maps(beatmap_id),
@@ -83,15 +83,15 @@ CREATE TABLE stream_tracks (
 
 CREATE TABLE bggame_stats (
     discord_id BIGINT PRIMARY KEY NOT NULL,
-    score INT NOT NULL
+    score OID NOT NULL
 );
 
 CREATE TABLE bg_verified(user_id BIGINT PRIMARY KEY NOT NULL);
 
 CREATE TABLE map_tags(
-    beatmapset_id INT PRIMARY KEY NOT NULL,
+    beatmapset_id OID PRIMARY KEY NOT NULL,
     filetype VARCHAR(7) NOT NULL,
-    mode CHAR NOT NULL,
+    mode "char" NOT NULL,
     farm BOOLEAN DEFAULT false,
     streams BOOLEAN DEFAULT false,
     alternate BOOLEAN DEFAULT false,
@@ -114,7 +114,7 @@ CREATE TABLE guilds (
 
 CREATE TABLE ratio_table (
     name VARCHAR(31) PRIMARY KEY NOT NULL,
-    scores CHAR [] NOT NULL,
+    scores "char" [] NOT NULL,
     ratios REAL [] NOT NULL,
     misses REAL [] NOT NULL
 )

@@ -10,7 +10,7 @@ static LOGGER_HANDLE: OnceCell<ReconfigurationHandle> = OnceCell::new();
 
 pub fn initialize() -> Result<(), Error> {
     let log_init_status = LOGGER_HANDLE.set(
-        Logger::with_env_or_str("info")
+        Logger::with_env_or_str("debug")
             .log_to_file()
             .directory("logs")
             .format(log_format)

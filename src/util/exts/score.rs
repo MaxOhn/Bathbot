@@ -50,7 +50,6 @@ pub trait ScoreExt: Sized {
     }
     fn grade_completion_mods(&self, mode: GameMode) -> Cow<str> {
         let grade = CONFIG.get().unwrap().grade(self.grade(mode));
-        println!("grade: {}", grade);
         let mods = self.mods();
         if mods.is_empty() {
             Cow::Borrowed(grade)

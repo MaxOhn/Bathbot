@@ -111,20 +111,19 @@ async fn _insert_beatmapset(conn: &mut PgConnection, map: &Beatmap) -> BotResult
 INSERT INTO
     mapsets
 VALUES
-    ({},$1,$2,{},$3,{},{},{},$4)
+    ({},$1,$2,{},$3,$4,$5,$6,$7)
 ON CONFLICT (beatmapset_id) DO
     NOTHING
 ",
-        map.beatmapset_id,
-        map.creator_id,
-        map.genre as u8,
-        map.language as u8,
-        map.approval_status as i8,
+        map.beatmapset_id, map.creator_id,
     );
     sqlx::query(&mapset_query)
         .bind(&map.artist)
         .bind(&map.title)
         .bind(&map.creator)
+        .bind(map.genre as i8)
+        .bind(map.language as i8)
+        .bind(map.approval_status as i8)
         .bind(map.approved_date)
         .execute(conn)
         .await?;
@@ -132,32 +131,31 @@ ON CONFLICT (beatmapset_id) DO
 }
 
 async fn _insert_beatmap(conn: &mut PgConnection, map: &Beatmap) -> BotResult<()> {
-    let map_query = format!(
-        "
+    let map_query = "
     INSERT INTO
         maps
     VALUES
-        ({},{},{},$1,{},{},{},{},{},{},{},{},{},{},$2)
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
     ON CONFLICT (beatmap_id) DO
         NOTHING
-    ",
-        map.beatmap_id,
-        map.beatmapset_id,
-        map.mode as u8,
-        map.seconds_drain,
-        map.seconds_total,
-        map.bpm,
-        map.diff_cs,
-        map.diff_od,
-        map.diff_ar,
-        map.diff_hp,
-        map.count_circle,
-        map.count_slider,
-        map.count_spinner
-    );
-    sqlx::query(&map_query)
+    ";
+    sqlx::query(map_query)
+        .bind(map.beatmap_id)
+        .bind(map.beatmapset_id)
+        .bind(map.mode as i8)
         .bind(&map.version)
-        .bind(&map.max_combo)
+        .bind(map.seconds_drain)
+        .bind(map.seconds_total)
+        .bind(map.stars)
+        .bind(map.bpm)
+        .bind(map.diff_cs)
+        .bind(map.diff_od)
+        .bind(map.diff_ar)
+        .bind(map.diff_hp)
+        .bind(map.count_circle)
+        .bind(map.count_slider)
+        .bind(map.count_spinner)
+        .bind(map.max_combo)
         .execute(conn)
         .await?;
     Ok(())

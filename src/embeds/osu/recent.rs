@@ -74,7 +74,6 @@ impl RecentEmbed {
             map.to_string()
         };
         let grade_completion_mods = score.grade_completion_mods(map.mode).to_string();
-        println!("grade_completion_mods: {}", grade_completion_mods);
         let calculations = Calculations::all();
         let mut calculator = PPCalculator::new().score(score).map(map);
         calculator.calculate(calculations, Some(ctx)).await?;
@@ -193,7 +192,6 @@ impl EmbedData for RecentEmbed {
             "{}\t{}\t({}%)\t{}",
             self.grade_completion_mods, self.score, self.acc, self.ago
         );
-        println!("name: {}", name);
         let value = format!("{} [ {} ] {}", self.pp, self.combo, self.hits);
         let title = format!("{} [{}★]", self.title, self.stars);
         if self.description.is_some() {

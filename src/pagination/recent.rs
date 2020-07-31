@@ -94,10 +94,9 @@ impl Pagination for RecentPagination {
                 .map(|(_, map)| map)
                 .collect();
             let psql = &ctx.clients.psql;
-            let len = maps.len();
             match psql.insert_beatmaps(&maps).await {
-                Ok(_) if len == 1 => {}
-                Ok(_) => info!("Added {} maps to DB", len),
+                Ok(n) if n == 1 => {}
+                Ok(n) => info!("Added {} maps to DB", n),
                 Err(why) => warn!("Error while adding maps to DB: {}", why),
             }
         }

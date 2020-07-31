@@ -56,10 +56,13 @@ RETURNING score
         mode: GameMode,
     ) -> BotResult<()> {
         let query = format!(
-            "INSERT INTO map_tags VALUES ({},{},{})",
-            mapset_id, filetype, mode as u8
+            "INSERT INTO map_tags VALUES ({},{},$1)",
+            mapset_id, filetype
         );
-        sqlx::query(&query).execute(&self.pool).await?;
+        sqlx::query(&query)
+            .bind(mode as i8)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -88,8 +91,7 @@ RETURNING score
     }
 
     pub async fn get_random_tags_mapset(&self, mode: GameMode) -> BotResult<MapsetTagWrapper> {
-        let query = format!(
-            "
+        let query = "
 SELECT
     *
 FROM
@@ -100,16 +102,17 @@ FROM
         FROM
             map_tags
         WHERE
-            mode={}
+            mode=$1
         ORDER BY
             RAND()
         LIMIT
             1
     ) as rndm ON mt.beatmapset_id = rndm.beatmapset_id
-",
-            mode as u8
-        );
-        Ok(sqlx::query_as(&query).fetch_one(&self.pool).await?)
+";
+        Ok(sqlx::query_as(query)
+            .bind(mode as i8)
+            .fetch_one(&self.pool)
+            .await?)
     }
 
     pub async fn get_specific_tags_mapset(
@@ -121,7 +124,7 @@ FROM
         if included.is_empty() && excluded.is_empty() {
             return self.get_all_tags_mapset(mode).await;
         }
-        let mut query = format!("SELECT * FROM map_tags WHERE mode={}", mode as u8);
+        let mut query = String::from("SELECT * FROM map_tags WHERE mode=$1");
         query.push_str(" AND");
         if !included.is_empty() {
             query = query.set_tags(" AND ", included, true)?;
@@ -132,6 +135,9 @@ FROM
         if !excluded.is_empty() {
             query = query.set_tags(" AND ", excluded, false)?;
         }
-        Ok(sqlx::query_as(&query).fetch_all(&self.pool).await?)
+        Ok(sqlx::query_as(&query)
+            .bind(mode as i8)
+            .fetch_all(&self.pool)
+            .await?)
     }
 }
