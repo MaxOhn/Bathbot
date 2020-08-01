@@ -218,7 +218,7 @@ async fn run(
         info!("Shutting down");
         process::exit(0);
     })
-    .map_err(|why| format_err!("Failed to register shutdown handler: {}", why))?;
+    .map_err(|why| format_err!("failed to register shutdown handler: {}", why))?;
 
     // Spawn twitch worker
     let twitch_ctx = ctx.clone();
@@ -229,8 +229,8 @@ async fn run(
     tokio::spawn(async move {
         time::delay_for(Duration::from_secs(1)).await;
         cluster_ctx.backend.cluster.up().await;
-        time::delay_for(Duration::from_secs(2)).await;
         if resumed {
+            time::delay_for(Duration::from_secs(10)).await;
             let activity_result = cluster_ctx
                 .set_cluster_activity(Status::Online, ActivityType::Playing, String::from("osu!"))
                 .await;

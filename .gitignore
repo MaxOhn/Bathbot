@@ -3,4 +3,3 @@
 /target
 config.toml
 logs
-Cargo.lock

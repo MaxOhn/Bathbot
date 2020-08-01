@@ -188,13 +188,16 @@ async fn process_command(
             Err(why) => {
                 let content = "Error while checking authority status";
                 let _ = msg.error(&ctx, content).await;
-                bail!("Error while checking authorty status: {}", why);
+                bail!("error while checking authorty status: {}", why);
             }
         }
     }
 
     // Prepare lightweight arguments
     let args = Args::new(&msg.content, stream);
+
+    // Broadcast typing event
+    let _ = ctx.http.create_typing_trigger(msg.channel_id).await;
 
     // Call command function
     (cmd.fun)(ctx, msg, args).await
@@ -255,7 +258,7 @@ fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>> {
             return Ok(Some(content));
         }
     } else {
-        bail!("Member {} not cached for guild {}", msg.author.id, guild_id);
+        bail!("member {} not cached for guild {}", msg.author.id, guild_id);
     }
     Ok(None)
 }

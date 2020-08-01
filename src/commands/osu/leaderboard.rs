@@ -32,7 +32,7 @@ async fn leaderboard_main(
             Ok(msgs) => msgs,
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-                bail!("Error while retrieving messages: {}", why);
+                bail!("error while retrieving messages: {}", why);
             }
         };
         match map_id_from_history(&ctx, msgs).await {
@@ -112,7 +112,7 @@ async fn leaderboard_main(
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("Error while  creating embed: {}", why);
+            bail!("error while  creating embed: {}", why);
         }
     };
 

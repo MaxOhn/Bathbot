@@ -141,7 +141,7 @@ async fn profile_main(
     // Add missing maps to database
     if let Some(maps) = missing_maps {
         match ctx.psql().insert_beatmaps(&maps).await {
-            Ok(n) if n == 1 => {}
+            Ok(n) if n < 2 => {}
             Ok(n) => info!("Added {} maps to DB", n),
             Err(why) => warn!("Error while adding maps to DB: {}", why),
         }
@@ -178,7 +178,7 @@ pub async fn profiletaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 }
 
 #[command]
-#[short_desc("Display statistics of ctb user")]
+#[short_desc("Display statistics of a ctb user")]
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("ctb", "ctbprofile", "profilec")]

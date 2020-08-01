@@ -44,7 +44,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
         Ok(users) => users,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("Error while retrieving verified users: {}", why);
+            bail!("error while retrieving verified users: {}", why);
         }
     };
     if !verified_users_init.contains(&msg.author.id) {
@@ -120,7 +120,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
         }
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("Error while updating bg mapset tag: {}", why);
+            bail!("error while updating bg mapset tag: {}", why);
         }
     }
     Ok(())
@@ -143,7 +143,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         Ok(users) => users,
         Err(why) => {
             let _ = msg.respond(&ctx, GENERAL_ISSUE).await;
-            bail!("Error while retrieving verified users: {}", why);
+            bail!("error while retrieving verified users: {}", why);
         }
     };
     if !verified_users_init.contains(&msg.author.id) {
@@ -169,7 +169,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         Ok(tags) => tags.par_iter().any(|tag| tag.untagged()),
         Err(why) => {
             let _ = msg.respond(&ctx, GENERAL_ISSUE).await;
-            bail!("Error while getting all tags: {}", why);
+            bail!("error while getting all tags: {}", why);
         }
     };
     if !untagged {
@@ -198,7 +198,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
             }
             Err(why) => {
                 let _ = msg.respond(&ctx, GENERAL_ISSUE).await;
-                bail!("Error while getting all / random tags: {}", why);
+                bail!("error while getting all / random tags: {}", why);
             }
         };
         let (mapset_id, img) = get_random_image(mapsets, mode).await;
@@ -335,7 +335,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
             }
             Err(why) => {
                 let _ = msg.respond(&ctx, GENERAL_ISSUE).await;
-                bail!("Error while updating bg mapset tag: {}", why);
+                bail!("error while updating bg mapset tag: {}", why);
             }
         };
         if break_loop {

@@ -147,7 +147,7 @@ async fn top_main(
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("Error while creating embed: {}", why);
+            bail!("error while creating embed: {}", why);
         }
     };
 
@@ -167,7 +167,7 @@ async fn top_main(
     // Add missing maps to database
     if !missing_maps.is_empty() {
         match ctx.psql().insert_beatmaps(&missing_maps).await {
-            Ok(n) if n == 1 => {}
+            Ok(n) if n < 2 => {}
             Ok(n) => info!("Added {} maps to DB", n),
             Err(why) => warn!("Error while adding maps to DB: {}", why),
         }

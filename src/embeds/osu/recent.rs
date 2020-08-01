@@ -45,11 +45,11 @@ impl RecentEmbed {
         user: &User,
         score: &Score,
         map: &Beatmap,
-        personal: &[Score],
-        global: &[Score],
+        personal: Option<&[Score]>,
+        global: Option<&[Score]>,
     ) -> BotResult<Self> {
-        let personal_idx = personal.iter().position(|s| s == score);
-        let global_idx = global.iter().position(|s| s == score);
+        let personal_idx = personal.and_then(|personal| personal.iter().position(|s| s == score));
+        let global_idx = global.and_then(|global| global.iter().position(|s| s == score));
         let description = if personal_idx.is_some() || global_idx.is_some() {
             let mut description = String::with_capacity(25);
             description.push_str("__**");
@@ -114,8 +114,11 @@ impl RecentEmbed {
         } else {
             None
         };
-        let footer = Footer::new(format!("{:?} map by {}", map.approval_status, map.creator))
-            .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
+        let footer = Footer::new(format!(
+            "{:?} map by {}, played",
+            map.approval_status, map.creator
+        ))
+        .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
         Ok(Self {
             description,
             title,

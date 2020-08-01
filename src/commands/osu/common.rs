@@ -221,21 +221,17 @@ async fn common_main(
 
     // Creating the embed
     let embed = data.build().build();
-    let m = ctx
-        .http
-        .create_message(msg.channel_id)
-        .content(content)?
-        .embed(embed)?;
-    let response = if let Some(thumbnail) = thumbnail {
-        m.attachment("avatar_fuse.png", thumbnail).await?
-    } else {
-        m.await?
+    let mut m = ctx.http.create_message(msg.channel_id);
+    m = match thumbnail {
+        Some(bytes) => m.attachment("avatar_fuse.png", bytes),
+        None => m,
     };
+    let response = m.content(content)?.embed(embed)?.await?;
 
     // Add missing maps to database
     if let Some(maps) = missing_maps {
         match ctx.psql().insert_beatmaps(&maps).await {
-            Ok(n) if n == 1 => {}
+            Ok(n) if n < 2 => {}
             Ok(n) => info!("Added {} maps to DB", n),
             Err(why) => warn!("Error while adding maps to DB: {}", why),
         }

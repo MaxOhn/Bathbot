@@ -51,7 +51,7 @@ async fn ratios(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await?;
-            bail!("Error while creating embed: {}", why);
+            bail!("error while creating embed: {}", why);
         }
     };
 
