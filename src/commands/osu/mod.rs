@@ -6,6 +6,7 @@ mod match_costs;
 mod most_played;
 mod most_played_common;
 mod nochoke;
+mod osustats_counts;
 mod osustats_globals;
 mod pp;
 mod profile;
@@ -27,6 +28,7 @@ pub use match_costs::*;
 pub use most_played::*;
 pub use most_played_common::*;
 pub use nochoke::*;
+pub use osustats_counts::*;
 pub use osustats_globals::*;
 pub use pp::*;
 pub use profile::*;
@@ -40,8 +42,14 @@ pub use simulate_recent::*;
 pub use top::*;
 pub use whatif::*;
 
-use crate::{util::MessageExt, BotResult, Context};
+use crate::{
+    custom_client::OsuStatsParams,
+    util::{numbers, MessageExt},
+    BotResult, Context,
+};
 
+use rosu::models::GameMode;
+use std::collections::BTreeMap;
 use twilight::model::channel::Message;
 
 async fn require_link(ctx: &Context, msg: &Message) -> BotResult<()> {
@@ -52,4 +60,27 @@ async fn require_link(ctx: &Context, msg: &Message) -> BotResult<()> {
         prefix
     );
     msg.error(ctx, content).await
+}
+
+async fn get_globals_count(
+    ctx: &Context,
+    name: &str,
+    mode: GameMode,
+) -> BotResult<BTreeMap<usize, String>> {
+    let mut counts = BTreeMap::new();
+    let mut params = OsuStatsParams::new(name.to_owned()).mode(mode);
+    let mut get_amount = true;
+    for rank in [50, 25, 15, 8, 1].iter() {
+        if !get_amount {
+            counts.insert(*rank, "0".to_owned());
+            continue;
+        }
+        params = params.rank_max(*rank);
+        let (_, count) = ctx.clients.custom.get_global_scores(&params).await?;
+        counts.insert(*rank, numbers::with_comma_int(count as u64));
+        if count == 0 {
+            get_amount = false;
+        }
+    }
+    Ok(counts)
 }

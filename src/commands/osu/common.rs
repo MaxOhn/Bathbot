@@ -108,7 +108,7 @@ async fn common_main(
         .for_each(|scores| scores.retain(|s| map_ids.contains(&s.beatmap_id.unwrap())));
 
     // Flatten scores, sort by beatmap id, then group by beatmap id
-    let mut all_scores: Vec<Score> = all_scores.into_par_iter().flatten().collect();
+    let mut all_scores: Vec<Score> = all_scores.into_iter().flatten().collect();
     all_scores.sort_unstable_by(|s1, s2| s1.beatmap_id.cmp(&s2.beatmap_id));
     let mut all_scores: HashMap<u32, Vec<Score>> = all_scores
         .into_iter()

@@ -70,7 +70,7 @@ pub async fn help(ctx: &Context, cmds: &CommandGroups, msg: &Message) -> BotResu
     for group in &cmds.groups {
         let len: usize = group
             .commands
-            .par_iter()
+            .iter()
             .map(|&c| c.names[0].len() + 5 + c.short_desc.len())
             .sum();
         let mut value = String::with_capacity(len);
@@ -132,7 +132,7 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
         eb = eb.add_field("Examples", value).inline().commit();
     }
     if cmd.names.len() > 1 {
-        let len: usize = cmd.names.par_iter().skip(1).map(|n| 4 + n.len()).sum();
+        let len: usize = cmd.names.iter().skip(1).map(|n| 4 + n.len()).sum();
         let mut value = String::with_capacity(len);
         let mut aliases = cmd.names.iter().skip(1);
         write!(value, "`{}`", aliases.next().unwrap())?;

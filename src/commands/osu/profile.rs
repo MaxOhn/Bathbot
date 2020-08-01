@@ -1,9 +1,8 @@
 use super::require_link;
 use crate::{
     arguments::{Args, NameArgs},
-    custom_client::OsuStatsParams,
     embeds::{EmbedData, ProfileEmbed},
-    util::{constants::OSU_API_ISSUE, numbers, MessageExt},
+    util::{constants::OSU_API_ISSUE, MessageExt},
     BotResult, Context, Error,
 };
 
@@ -42,7 +41,7 @@ async fn profile_main(
     let (user_result, scores_result, globals_result) = tokio::join!(
         ctx.osu_user(&name, mode).map_err(Error::Osu),
         scores_fut.map_err(Error::Osu),
-        get_globals_count(&ctx, &name, mode)
+        super::get_globals_count(&ctx, &name, mode)
     );
     let user = match user_result {
         Ok(Some(user)) => user,
@@ -149,33 +148,6 @@ async fn profile_main(
     }
     response.reaction_delete(&ctx, msg.author.id);
     Ok(())
-}
-
-async fn get_globals_count(
-    ctx: &Context,
-    name: &str,
-    mode: GameMode,
-) -> BotResult<BTreeMap<usize, String>> {
-    let mut counts = BTreeMap::new();
-    let mut params = OsuStatsParams::new(name.to_owned()).mode(mode);
-    let mut get_amount = true;
-    for rank in [50, 25, 15, 8, 1].iter() {
-        if !get_amount {
-            counts.insert(*rank, "0".to_owned());
-            continue;
-        }
-        params = params.rank_max(*rank);
-        match ctx.clients.custom.get_global_scores(&params).await {
-            Ok((_, count)) => {
-                counts.insert(*rank, numbers::with_comma_int(count as u64));
-                if count == 0 {
-                    get_amount = false;
-                }
-            }
-            Err(why) => error!("Error while retrieving osustats for profile: {}", why),
-        }
-    }
-    Ok(counts)
 }
 
 #[command]

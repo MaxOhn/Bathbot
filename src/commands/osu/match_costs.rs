@@ -7,7 +7,6 @@ use crate::{
 
 use futures::future::{try_join_all, TryFutureExt};
 use itertools::Itertools;
-use rayon::prelude::*;
 use rosu::{
     backend::requests::{MatchRequest, UserRequest},
     models::{Match, Team, TeamType},
@@ -68,7 +67,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     let users_fut = try_join_all(requests);
     let users = match users_fut.await {
         Ok(users) => users
-            .into_par_iter()
+            .into_iter()
             .map(|(id, user)| {
                 user.map_or_else(
                     || (id, id.to_string()),
@@ -133,8 +132,8 @@ fn process_match(
     let team_vs = games.first().unwrap().team_type == TeamType::TeamVS;
     let mut match_scores = MatchScores(0, 0);
     for game in games {
-        let score_sum: u32 = game.scores.par_iter().map(|s| s.score).sum();
-        let avg = score_sum as f32 / game.scores.par_iter().filter(|s| s.score > 0).count() as f32;
+        let score_sum: u32 = game.scores.iter().map(|s| s.score).sum();
+        let avg = score_sum as f32 / game.scores.iter().filter(|s| s.score > 0).count() as f32;
         let mut team_scores = HashMap::new();
         for score in game.scores.iter().filter(|s| s.score > 0) {
             let point_cost = score.score as f32 / avg + 0.4;
@@ -148,16 +147,15 @@ fn process_match(
                 .and_modify(|e| *e += score.score)
                 .or_insert(score.score);
         }
-        let (winner_team, _) = team_scores.into_par_iter().reduce(
-            || (Team::None, 0),
-            |winner, next| {
+        let (winner_team, _) = team_scores
+            .into_iter()
+            .fold((Team::None, 0), |winner, next| {
                 if next.1 > winner.1 {
                     next
                 } else {
                     winner
                 }
-            },
-        );
+            });
         match_scores.incr(winner_team);
     }
     let mut data = HashMap::new();

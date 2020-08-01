@@ -6,7 +6,6 @@ use crate::{
 };
 
 use prometheus::core::Collector;
-use rayon::prelude::*;
 use std::sync::Arc;
 use twilight::model::channel::Message;
 
@@ -23,7 +22,7 @@ async fn commands(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
         .next()
         .unwrap()
         .get_metric()
-        .par_iter()
+        .iter()
         .map(|metric| {
             let name = metric.get_label()[0].get_value();
             let count = metric.get_counter().get_value();
