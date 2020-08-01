@@ -141,7 +141,7 @@ lazy_static! {
 }
 
 lazy_static! {
-    static ref MOD_PLUS_MATCHER: Regex = Regex::new(r"^+(\w+)!?$").unwrap();
+    static ref MOD_PLUS_MATCHER: Regex = Regex::new(r"^\+(\w+)!?$").unwrap();
     static ref MOD_MINUS_MATCHER: Regex = Regex::new(r"^-(\w+)!$").unwrap();
 }
 

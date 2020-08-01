@@ -206,7 +206,7 @@ pub async fn profiletaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 }
 
 #[command]
-#[short_desc("Display statistics of ctb user")]
+#[short_desc("Display statistics of a ctb user")]
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("ctb", "ctbprofile", "profilec")]

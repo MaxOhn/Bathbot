@@ -196,6 +196,9 @@ async fn process_command(
     // Prepare lightweight arguments
     let args = Args::new(&msg.content, stream);
 
+    // Broadcast typing event
+    let _ = ctx.http.create_typing_trigger(msg.channel_id).await;
+
     // Call command function
     (cmd.fun)(ctx, msg, args).await
 }
