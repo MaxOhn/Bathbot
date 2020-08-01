@@ -53,7 +53,7 @@ async fn ratios(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
 
     // Accumulate all necessary data
-    let data = match RatioEmbed::new(user, scores, &ctx).await {
+    let data = match RatioEmbed::new(&ctx, user, scores).await {
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await?;

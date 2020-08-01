@@ -15,7 +15,7 @@ pub struct RatioEmbed {
 }
 
 impl RatioEmbed {
-    pub async fn new(user: User, scores: Vec<Score>, ctx: &Context) -> BotResult<Self> {
+    pub async fn new(ctx: &Context, user: User, scores: Vec<Score>) -> BotResult<Self> {
         let mut accs = vec![0, 90, 95, 97, 99];
         let mut categories: BTreeMap<u8, RatioCategory> = BTreeMap::new();
         for &acc in accs.iter() {
@@ -63,11 +63,10 @@ impl RatioEmbed {
                 all_misses.push(misses);
             }
         }
-        let previous_ratios = {
-            let psql = &ctx.clients.psql;
-            psql.update_ratios(&user.username, &all_scores, &all_ratios, &all_misses)
-                .await?
-        };
+        let previous_ratios = ctx
+            .psql()
+            .update_ratios(&user.username, &all_scores, &all_ratios, &all_misses)
+            .await?;
         if let Some(ratios) = previous_ratios {
             if ratios.scores != all_scores
                 || ratios.ratios != all_ratios
