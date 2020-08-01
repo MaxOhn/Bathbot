@@ -78,19 +78,19 @@ async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
                 Ok(file) => file,
                 Err(why) => {
                     let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-                    bail!("Error while creating file: {}", why);
+                    bail!("error while creating file: {}", why);
                 }
             };
             // Store in file
             if let Err(why) = file.write_all(&content).await {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-                bail!("Error while writing to file: {}", why);
+                bail!("error while writing to file: {}", why);
             }
             path
         }
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("Error while downloading image: {}", why);
+            bail!("error while downloading image: {}", why);
         }
     };
     // Check if valid mapset id

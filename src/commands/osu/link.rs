@@ -25,7 +25,7 @@ async fn link(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()>
         Ok(name) => {
             if let Err(why) = ctx.add_link(discord_id, &name).await {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-                bail!("Error while adding link: {}", why);
+                bail!("error while adding link: {}", why);
             }
             let content = format!(
                 "I linked discord's `{}` with osu's `{}`",
@@ -36,7 +36,7 @@ async fn link(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()>
         Err(_) => {
             if let Err(why) = ctx.remove_link(discord_id).await {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-                bail!("Error while removing link: {}", why);
+                bail!("error while removing link: {}", why);
             }
             msg.respond(&ctx, "You are no longer linked").await
         }

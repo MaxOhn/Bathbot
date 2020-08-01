@@ -18,7 +18,7 @@ async fn trackedstreams(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<
         Err(why) => {
             let content = "Error while retrieving twitch users";
             let _ = msg.error(&ctx, content).await;
-            bail!("Error while getting twitch users: {}", why);
+            bail!("error while getting twitch users: {}", why);
         }
     };
     twitch_users.sort_unstable_by(|a, b| a.cmp(&b));

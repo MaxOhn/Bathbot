@@ -31,7 +31,7 @@ pub async fn bigger(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> 
         }
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("Error while increasing size of image: {}", why);
+            bail!("error while increasing size of image: {}", why);
         }
     }
 }

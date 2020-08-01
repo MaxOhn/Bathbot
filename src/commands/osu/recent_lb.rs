@@ -116,7 +116,7 @@ async fn recent_lb_main(
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("Error while creating embed: {}", why);
+            bail!("error while creating embed: {}", why);
         }
     };
 

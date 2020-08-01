@@ -218,7 +218,7 @@ async fn run(
         info!("Shutting down");
         process::exit(0);
     })
-    .map_err(|why| format_err!("Failed to register shutdown handler: {}", why))?;
+    .map_err(|why| format_err!("failed to register shutdown handler: {}", why))?;
 
     // Spawn twitch worker
     let twitch_ctx = ctx.clone();

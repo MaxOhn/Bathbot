@@ -22,6 +22,7 @@ use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
+use tokio::time::{delay_for, Duration};
 use twilight::model::channel::Message;
 
 #[allow(clippy::cognitive_complexity)]
@@ -153,22 +154,36 @@ async fn recent_main(
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("Error while creating embed: {}", why);
+            bail!("error while creating embed: {}", why);
         }
     };
 
     // Creating the embed
-    let embed = data.build().build();
     let response = ctx
         .http
         .create_message(msg.channel_id)
         .content(format!("Try #{}", tries))?
-        .embed(embed)?
+        .embed(data.build().build())?
         .await?;
 
     // Skip pagination if too few entries
     if scores.len() <= 1 {
         response.reaction_delete(&ctx, msg.author.id);
+        tokio::spawn(async move {
+            delay_for(Duration::from_secs(60)).await;
+            let embed_result = ctx
+                .http
+                .update_message(response.channel_id, response.id)
+                .embed(data.minimize().build());
+            match embed_result {
+                Ok(m) => {
+                    if let Err(why) = m.await {
+                        warn!("Error while minimizing `recent`: {}", why);
+                    }
+                }
+                Err(why) => warn!("Error while creating `recent` minimize embed: {}", why),
+            }
+        });
         return Ok(());
     }
 

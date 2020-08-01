@@ -70,7 +70,7 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
             Some(member) => member.roles.clone(),
             None => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-                bail!("Member {} not cached for guild {}", msg.author.id, guild_id);
+                bail!("member {} not cached for guild {}", msg.author.id, guild_id);
             }
         };
         member_roles.retain(|role| new_auths.iter().any(|new| &new.id == role));

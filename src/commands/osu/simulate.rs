@@ -10,12 +10,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::{
-    backend::requests::BeatmapRequest,
-    models::{
-        GameMode,
-    },
-};
+use rosu::{backend::requests::BeatmapRequest, models::GameMode};
 use std::sync::Arc;
 use tokio::time::{self, Duration};
 use twilight::model::channel::Message;
@@ -47,7 +42,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
             Ok(msgs) => msgs,
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-                bail!("Error while retrieving messages: {}", why);
+                bail!("error while retrieving messages: {}", why);
             }
         };
         match map_id_from_history(&ctx, msgs).await {
@@ -97,7 +92,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("Error while creating embed: {}", why);
+            bail!("error while creating embed: {}", why);
         }
     };
 

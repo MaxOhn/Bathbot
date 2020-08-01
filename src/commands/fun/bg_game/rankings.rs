@@ -21,7 +21,7 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
         Ok(scores) => scores,
         Err(why) => {
             msg.error(&ctx, GENERAL_ISSUE).await?;
-            bail!("Error while getting all bggame scores: {}", why);
+            bail!("error while getting all bggame scores: {}", why);
         }
     };
 
@@ -32,7 +32,7 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
             Some(guild) => guild.members.iter().map(|guard| guard.key().0).collect(),
             None => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-                bail!("Guild {} not in cache", guild_id);
+                bail!("guild {} not in cache", guild_id);
             }
         };
         scores.retain(|(user, _)| member_ids.iter().any(|member| member == user));

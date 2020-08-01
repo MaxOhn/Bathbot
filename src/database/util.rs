@@ -23,7 +23,7 @@ pub trait CustomSQL: Sized + std::fmt::Write {
         let mut tags = tags.into_iter();
         let first_tag = match tags.next() {
             Some(first_tag) => first_tag,
-            None => bail!("Cannot build update query without tags"),
+            None => bail!("cannot build update query without tags"),
         };
         let _ = write!(self, " {}={}", tag_column(first_tag), value as u8);
         for tag in tags {

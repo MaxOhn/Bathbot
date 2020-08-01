@@ -9,7 +9,7 @@ use twilight::model::channel::Message;
 pub async fn stop(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     if let Err(why) = ctx.stop_and_remove_game(msg.channel_id).await {
         let _ = msg.error(&ctx, "Error while stopping game \\:(").await;
-        bail!("Error while stopping game: {}", why);
+        bail!("error while stopping game: {}", why);
     }
     Ok(())
 }

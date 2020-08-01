@@ -28,7 +28,7 @@ pub async fn hint(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
         }
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("Error while getting hint: {}", why);
+            bail!("error while getting hint: {}", why);
         }
     }
 }

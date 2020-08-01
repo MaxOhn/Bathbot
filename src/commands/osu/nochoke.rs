@@ -118,7 +118,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         Ok(scores_data) => scores_data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("Error while unchoking scores: {}", why);
+            bail!("error while unchoking scores: {}", why);
         }
     };
 
@@ -147,7 +147,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
             Ok(data) => data,
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-                bail!("Error while creating embed: {}", why);
+                bail!("error while creating embed: {}", why);
             }
         };
 

@@ -32,7 +32,7 @@ async fn removestream(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     ctx.remove_tracking(twitch_id, channel);
     if let Err(why) = ctx.psql().remove_stream_track(channel, twitch_id).await {
         let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-        bail!("Error while removing stream track from DB: {}", why);
+        bail!("error while removing stream track from DB: {}", why);
     }
     debug!(
         "No longer tracking {}'s twitch for channel {}",
