@@ -23,6 +23,7 @@ use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
+use tokio::time::{delay_for, Duration};
 
 #[allow(clippy::cognitive_complexity)]
 async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -> CommandResult {
@@ -206,7 +207,19 @@ async fn recent_send(mode: GameMode, ctx: &Context, msg: &Message, args: Args) -
 
     // Skip pagination if too few entries
     if scores.len() <= 1 {
+        let msg_id = resp.id;
+        let channel = resp.channel_id;
+        let http = Arc::clone(&ctx.http);
         resp.reaction_delete(ctx, msg.author.id).await;
+        tokio::spawn(async move {
+            delay_for(Duration::from_secs(60)).await;
+            let minimize_result = channel
+                .edit_message(&http, msg_id, move |m| m.embed(|e| embed_data.minimize(e)))
+                .await;
+            if let Err(why) = minimize_result {
+                warn!("Error while minimizing recent command: {}", why);
+            }
+        });
         return Ok(());
     }
 
