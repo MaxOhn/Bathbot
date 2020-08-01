@@ -118,6 +118,7 @@ impl ProfileEmbed {
                 ),
                 ("Average Combo:".to_owned(), combo, true),
             ]);
+            let mult_mods = values.mod_combs_count.is_some();
             if let Some(mod_combs_count) = values.mod_combs_count {
                 let len = mod_combs_count.len();
                 let mut value = String::with_capacity(len * 14);
@@ -129,7 +130,7 @@ impl ProfileEmbed {
                 }
                 fields.push(("Favourite mod combinations:".to_owned(), value, false));
             }
-            fields.reserve(if values.mod_combs_pp.is_some() { 6 } else { 5 });
+            fields.reserve_exact(5);
             let len = values.mods_count.len();
             let mut value = String::with_capacity(len * 14);
             let mut iter = values.mods_count.iter();
@@ -139,26 +140,20 @@ impl ProfileEmbed {
                 let _ = write!(value, " > `{} {}%`", mods, count);
             }
             fields.push(("Favourite mods:".to_owned(), value, false));
-            if let Some(mod_combs_pp) = values.mod_combs_pp {
-                let len = mod_combs_pp.len();
-                let mut value = String::with_capacity(len * 15);
-                let mut iter = mod_combs_pp.iter();
-                let (mods, pp) = iter.next().unwrap();
-                let _ = write!(value, "`{} {}pp`", mods, pp);
-                for (mods, pp) in iter {
-                    let _ = write!(value, " > `{} {}pp`", mods, pp);
-                }
-                fields.push(("PP earned with mod combination:".to_owned(), value, false));
-            }
-            let len = values.mods_pp.len();
+            let len = values.mod_combs_pp.len();
             let mut value = String::with_capacity(len * 15);
-            let mut iter = values.mods_pp.iter();
+            let mut iter = values.mod_combs_pp.iter();
             let (mods, pp) = iter.next().unwrap();
-            let _ = write!(value, "`{} {}pp`", mods, pp);
+            let _ = write!(value, "`{} {}pp`", mods, round(*pp));
             for (mods, pp) in iter {
-                let _ = write!(value, " > `{} {}pp`", mods, pp);
+                let _ = write!(value, " > `{} {}pp`", mods, round(*pp));
             }
-            fields.push(("PP earned with mod:".to_owned(), value, false));
+            let name = if mult_mods {
+                "PP earned with mod combination:"
+            } else {
+                "PP earned with mod:"
+            };
+            fields.push((name.to_owned(), value, false));
             let len = values
                 .mappers
                 .iter()

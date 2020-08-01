@@ -197,9 +197,8 @@ pub struct ProfileResult {
 
     pub mappers: Vec<(String, u32, f32)>,
     pub mod_combs_count: Option<Vec<(GameMods, u32)>>,
-    pub mod_combs_pp: Option<Vec<(GameMods, f32)>>,
+    pub mod_combs_pp: Vec<(GameMods, f32)>,
     pub mods_count: Vec<(GameMods, u32)>,
-    pub mods_pp: Vec<(GameMods, f32)>,
 }
 
 impl ProfileResult {
@@ -246,15 +245,11 @@ impl ProfileResult {
                 mod_comb.1 += weighted_pp;
             }
             if score.enabled_mods.is_empty() {
-                let mut nm = mods.entry(GameMods::NoMod).or_insert((0, 0.0));
-                nm.0 += 1;
-                nm.1 += weighted_pp;
+                *mods.entry(GameMods::NoMod).or_insert(0) += 1;
             } else {
                 mult_mods |= score.enabled_mods.len() > 1;
                 for m in score.enabled_mods {
-                    let mut mod_entry = mods.entry(m).or_insert((0, 0.0));
-                    mod_entry.0 += 1;
-                    mod_entry.1 += weighted_pp;
+                    *mods.entry(m).or_insert(0) += 1;
                 }
             }
         }
@@ -263,7 +258,7 @@ impl ProfileResult {
             .values_mut()
             .for_each(|(count, _)| *count = (*count as f32 * 100.0 / len) as u32);
         mods.values_mut()
-            .for_each(|(count, _)| *count = (*count as f32 * 100.0 / len) as u32);
+            .for_each(|count| *count = (*count as f32 * 100.0 / len) as u32);
         let mut mappers: Vec<_> = mappers
             .into_iter()
             .map(|(name, (count, pp))| (name, count, pp))
@@ -275,31 +270,26 @@ impl ProfileResult {
             }
         });
         mappers = mappers[..5.min(mappers.len())].to_vec();
-        let (mod_combs_count, mod_combs_pp) = if mult_mods {
+        let mod_combs_count = if mult_mods {
             let mut mod_combs_count: Vec<_> = mod_combs
                 .iter()
                 .map(|(name, (count, _))| (*name, *count))
                 .collect();
             mod_combs_count.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+            Some(mod_combs_count)
+        } else {
+            None
+        };
+        let mod_combs_pp = {
             let mut mod_combs_pp: Vec<_> = mod_combs
                 .into_iter()
                 .map(|(name, (_, avg))| (name, avg))
                 .collect();
             mod_combs_pp.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Equal));
-            (Some(mod_combs_count), Some(mod_combs_pp))
-        } else {
-            (None, None)
+            mod_combs_pp
         };
-        let mut mods_count: Vec<_> = mods
-            .iter()
-            .map(|(name, (count, _))| (*name, *count))
-            .collect();
+        let mut mods_count: Vec<_> = mods.into_iter().collect();
         mods_count.sort_unstable_by(|a, b| b.1.cmp(&a.1));
-        let mut mods_pp: Vec<_> = mods
-            .into_iter()
-            .map(|(name, (_, avg))| (name, avg))
-            .collect();
-        mods_pp.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Equal));
         Self {
             mode,
             acc,
@@ -311,7 +301,6 @@ impl ProfileResult {
             mod_combs_count,
             mod_combs_pp,
             mods_count,
-            mods_pp,
         }
     }
 }

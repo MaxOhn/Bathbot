@@ -27,6 +27,13 @@ async fn rank_main(
     };
     let country = args.country;
     let rank = args.rank;
+    if rank == 0 {
+        let content = "Rank number must be between 1 and 10,000";
+        return msg.error(&ctx, content).await;
+    } else if rank > 10_000 {
+        let content = "Unfortunately I can only provide data for ranks up to 10,000 :(";
+        return msg.error(&ctx, content).await;
+    }
 
     // Retrieve the user and the id of the rank-holding user
     let rank_holder_id_fut = ctx

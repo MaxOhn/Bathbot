@@ -60,7 +60,7 @@ default_features = false
 [dependencies.image]
 version = "0.23"
 default-features = false
-features = ["jpeg", "png"]
+features = ["jpeg", "png", "gif"]
 
 [dependencies.plotters]
 version = "0.2"

@@ -183,12 +183,19 @@ async fn common_main(
     };
 
     // Accumulate all necessary data
-    let len = names.iter().map(|name| name.len() + 4).sum();
+    let len = names.iter().map(|name| name.len() + 4).sum::<usize>() + 4;
     let mut content = String::with_capacity(len);
     let mut iter = names.into_iter();
+    let last = iter.next_back();
     let _ = write!(content, "`{}`", iter.next().unwrap());
     for name in iter {
         let _ = write!(content, ", `{}`", name);
+    }
+    if let Some(name) = last {
+        if len > 2 {
+            content.push(',');
+        }
+        let _ = write!(content, " and `{}`", name);
     }
     if amount_common == 0 {
         content.push_str(" have no common scores");

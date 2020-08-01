@@ -137,9 +137,16 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     let len = names.iter().map(|name| name.len() + 4).sum();
     let mut content = String::with_capacity(len);
     let mut iter = names.into_iter();
+    let last = iter.next_back();
     let _ = write!(content, "`{}`", iter.next().unwrap());
     for name in iter {
         let _ = write!(content, ", `{}`", name);
+    }
+    if let Some(name) = last {
+        if len > 2 {
+            content.push(',');
+        }
+        let _ = write!(content, " and `{}`", name);
     }
     if amount_common == 0 {
         content.push_str(" don't share any maps in their 100 most played maps");

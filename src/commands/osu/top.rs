@@ -32,6 +32,14 @@ async fn top_main(
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
+    if args.has_dash_r {
+        let prefix = ctx.config_first_prefix(msg.guild_id);
+        let content = format!(
+            "`{prefix}top -r`? I think you meant `{prefix}recentbest` or `{prefix}rb` for short ;)",
+            prefix = prefix
+        );
+        return msg.error(&ctx, content).await;
+    }
     let name = match args.name.take().or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
         None => return require_link(&ctx, msg).await,

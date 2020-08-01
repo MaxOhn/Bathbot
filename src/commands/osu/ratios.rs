@@ -16,6 +16,12 @@ use twilight::model::channel::Message;
 
 #[command]
 #[short_desc("Calculate the average ratios of a user's top100")]
+#[long_desc(
+    "Calculate the average ratios of a user's top100.\n\
+    If the command was used before on the given osu name, \
+    I will also compare the current results with the ones from last time \
+    if they've changed since."
+)]
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("ratio")]

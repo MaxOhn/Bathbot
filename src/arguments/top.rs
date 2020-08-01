@@ -14,6 +14,7 @@ pub struct TopArgs {
     pub combo: Option<u32>,
     pub grade: Option<Grade>,
     pub sort_by: TopSortBy,
+    pub has_dash_r: bool,
 }
 
 impl TopArgs {
@@ -30,6 +31,7 @@ impl TopArgs {
         } else {
             TopSortBy::None
         };
+        let has_dash_r = super::keywords(&mut args, &["-r"]);
         let name = args.pop().and_then(|arg| {
             matcher::get_mention_user(&arg)
                 .and_then(|id| ctx.get_link(id))
@@ -42,6 +44,7 @@ impl TopArgs {
             combo,
             grade,
             sort_by,
+            has_dash_r,
         })
     }
 }
