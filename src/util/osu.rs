@@ -206,6 +206,7 @@ pub async fn map_id_from_history(ctx: &Context, msgs: Vec<Message>) -> Option<Ma
     None
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum MapIdType {
     Map(u32),
     Set(u32),

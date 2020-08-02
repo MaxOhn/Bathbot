@@ -1,4 +1,3 @@
-use super::require_link;
 use crate::{
     arguments::{Args, NameMapArgs},
     bail,
@@ -30,7 +29,13 @@ use twilight::model::channel::Message;
 async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = NameMapArgs::new(&ctx, args);
     let map_id = if let Some(id) = args.map_id {
-        id.id()
+        match id {
+            MapIdType::Map(id) => id,
+            MapIdType::Set(_) => {
+                let content = "Looks like you gave me a mapset id, I need a map id though";
+                return msg.error(&ctx, content).await;
+            }
+        }
     } else {
         let msg_fut = ctx.http.channel_messages(msg.channel_id).limit(50).unwrap();
         let msgs = match msg_fut.await {
@@ -55,7 +60,7 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
-        None => return require_link(&ctx, msg).await,
+        None => return super::require_link(&ctx, msg).await,
     };
 
     // Retrieving the beatmap

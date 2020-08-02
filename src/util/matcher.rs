@@ -15,7 +15,6 @@ pub fn is_custom_emote(msg: &str) -> bool {
 enum MentionType {
     Channel,
     Role,
-    #[allow(dead_code)]
     User,
 }
 
@@ -27,7 +26,6 @@ pub fn get_mention_role(msg: &str) -> Option<u64> {
     get_mention(MentionType::Role, msg)
 }
 
-#[allow(dead_code)]
 pub fn get_mention_user(msg: &str) -> Option<u64> {
     get_mention(MentionType::User, msg)
 }
@@ -126,7 +124,8 @@ lazy_static! {
 
 lazy_static! {
     static ref OSU_URL_MAP_NEW_MATCHER: Regex =
-        Regex::new(r"https://osu.ppy.sh/beatmapsets/(\d+)#[osu|mania|taiko|fruits]/(\d+)").unwrap();
+        Regex::new(r"https://osu.ppy.sh/beatmapsets/(\d+)(?:#(?:osu|mania|taiko|fruits)/(\d+))?")
+            .unwrap();
 }
 
 lazy_static! {

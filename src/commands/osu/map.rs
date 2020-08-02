@@ -256,6 +256,9 @@ fn graph(oppai_values: (Vec<u32>, Vec<f32>), background: DynamicImage) -> BotRes
         .copied()
         .max_by(|a, b| a.partial_cmp(&b).unwrap_or(Ordering::Equal))
         .unwrap_or(0.0);
+    if max_strain <= std::f32::EPSILON {
+        bail!("no non-zero strain point");
+    }
     let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
 
     {
@@ -271,10 +274,7 @@ fn graph(oppai_values: (Vec<u32>, Vec<f32>), background: DynamicImage) -> BotRes
             .pixels()
             .par_bridge()
             .map(|pixel| (pixel[0] as u64, pixel[1] as u64, pixel[2] as u64))
-            .reduce(
-                || (0, 0, 0),
-                |(sum_r, sum_g, sum_b), (r, g, b)| (sum_r + r, sum_g + g, sum_b + b),
-            );
+            .reduce(|| (0, 0, 0), |sums, curr| sums.add(curr));
         let b = (b as f32 * 1.1) as u64;
         let line_color = match r.min(g).min(b) {
             min if min == r => &RED,
@@ -296,6 +296,7 @@ fn graph(oppai_values: (Vec<u32>, Vec<f32>), background: DynamicImage) -> BotRes
             .set_all_tick_mark_size(3)
             .line_style_2(&BLACK.mix(0.0))
             .x_labels(10)
+            .x_label_style(text_style)
             .x_label_formatter(&|timestamp| {
                 if *timestamp == 0 {
                     return String::new();
@@ -305,7 +306,6 @@ fn graph(oppai_values: (Vec<u32>, Vec<f32>), background: DynamicImage) -> BotRes
                 let seconds = d.num_seconds() % 60;
                 format!("{}:{:0>2}", minutes, seconds)
             })
-            .x_label_style(text_style)
             .draw()?;
 
         // Draw line
@@ -320,4 +320,14 @@ fn graph(oppai_values: (Vec<u32>, Vec<f32>), background: DynamicImage) -> BotRes
     let png_encoder = PNGEncoder::new(&mut png_bytes);
     png_encoder.encode(&buf, W, H, ColorType::Rgb8)?;
     Ok(png_bytes)
+}
+
+trait TupleExt: Sized {
+    fn add(self, other: (u64, u64, u64)) -> Self;
+}
+
+impl TupleExt for (u64, u64, u64) {
+    fn add(self, other: (u64, u64, u64)) -> Self {
+        (self.0 + other.0, self.1 + other.1, self.2 + other.2)
+    }
 }

@@ -262,7 +262,7 @@ async fn common_main(
 }
 
 #[command]
-#[short_desc("Compare maps of players' top 100s")]
+#[short_desc("Compare maps of players' top100s")]
 #[long_desc(
     "Compare the users' top 100 and check which \
      maps appear in each top list (up to 10 users)"
@@ -274,7 +274,7 @@ pub async fn common(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 }
 
 #[command]
-#[short_desc("Compare maps of players' top 100s")]
+#[short_desc("Compare maps of players' top100s")]
 #[long_desc(
     "Compare the mania users' top 100 and check which \
      maps appear in each top list (up to 10 users)"
@@ -287,7 +287,7 @@ pub async fn commonmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 }
 
 #[command]
-#[short_desc("Compare maps of players' top 100s")]
+#[short_desc("Compare maps of players' top100s")]
 #[long_desc(
     "Compare the taiko users' top 100 and check which \
      maps appear in each top list (up to 10 users)"
@@ -300,7 +300,7 @@ pub async fn commontaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 }
 
 #[command]
-#[short_desc("Compare maps of players' top 100s")]
+#[short_desc("Compare maps of players' top100s")]
 #[long_desc(
     "Compare the ctb users' top 100 and check which \
      maps appear in each top list (up to 10 users)"

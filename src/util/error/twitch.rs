@@ -8,7 +8,9 @@ pub enum TwitchError {
     InvalidHeader(InvalidHeaderValue),
     NoUserResult(String),
     Reqwest(ReqwestError),
-    Serde(SerdeJsonError),
+    SerdeStreams(SerdeJsonError, String),
+    SerdeUser(SerdeJsonError, String),
+    SerdeUsers(SerdeJsonError, String),
 }
 
 impl fmt::Display for TwitchError {
@@ -18,7 +20,21 @@ impl fmt::Display for TwitchError {
             Self::InvalidHeader(e) => write!(f, "invalid client id: {}", e),
             Self::NoUserResult(n) => write!(f, "no result for name `{}`", n),
             Self::Reqwest(e) => write!(f, "reqwest error: {}", e),
-            Self::Serde(e) => write!(f, "error while deserializing: {}", e),
+            Self::SerdeStreams(e, content) => write!(
+                f,
+                "could not deserialize response for streams: {}\n{}",
+                e, content
+            ),
+            Self::SerdeUser(e, content) => write!(
+                f,
+                "could not deserialize response for user: {}\n{}",
+                e, content
+            ),
+            Self::SerdeUsers(e, content) => write!(
+                f,
+                "could not deserialize response for users: {}\n{}",
+                e, content
+            ),
         }
     }
 }
@@ -32,12 +48,6 @@ impl From<InvalidHeaderValue> for TwitchError {
 impl From<ReqwestError> for TwitchError {
     fn from(e: ReqwestError) -> Self {
         Self::Reqwest(e)
-    }
-}
-
-impl From<SerdeJsonError> for TwitchError {
-    fn from(e: SerdeJsonError) -> Self {
-        Self::Serde(e)
     }
 }
 

@@ -42,10 +42,12 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
             If you want to specify an argument, e.g. a username, that contains \
             spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
             If you used `{prefix}link osuname`, you can ommit the osu username for any command that needs one.\n\
-            Many commands allow you to specify mods. You can do so with `+mods` \
-            for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods.\n\
+            Many commands allow you to __**specify mods**__. You can do so with `+mods` \
+            for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods, \
+            e.g. `-nm!`, `+hdhr`, `+hd!`, `-nfsohdezfl!`\n\
             If you react with :x: to my response, I will delete it.\n\
-            Further help on the spreadsheet: http://bit.ly/badecoms", prefix_desc, prefix = first_prefix)
+            Further help on the spreadsheet: http://bit.ly/badecoms.\n\
+            \nThese are all commands:", prefix_desc, prefix = first_prefix)
 }
 
 pub async fn help(ctx: &Context, cmds: &CommandGroups, msg: &Message) -> BotResult<()> {
@@ -117,19 +119,36 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
         .color(DARK_GREEN)
         .title(name)
         .description(cmd.long_desc.unwrap_or(cmd.short_desc));
+    let mut usage_len = 0;
     if let Some(usage) = cmd.usage {
         let value = format!("`{}{} {}`", prefix, name, usage);
-        eb = eb.add_field("How to use", value).inline().commit();
+        usage_len = value.chars().count();
+        let fb = eb.add_field("How to use", value);
+        eb = if usage_len > 29 {
+            fb.commit()
+        } else {
+            fb.inline().commit()
+        };
     }
     if !cmd.examples.is_empty() {
         let len: usize = cmd.examples.iter().map(|&e| name.len() + e.len() + 4).sum();
         let mut value = String::with_capacity(len);
         let mut examples = cmd.examples.iter();
+        let mut example_len = 0;
+        let cmd_len = prefix.chars().count() + name.chars().count();
         writeln!(value, "`{}{} {}`", prefix, name, examples.next().unwrap())?;
         for example in examples {
             writeln!(value, "`{}{} {}`", prefix, name, example)?;
+            example_len = example_len.max(cmd_len + example.chars().count());
         }
-        eb = eb.add_field("Examples", value).inline().commit();
+        let fb = eb.add_field("Examples", value);
+        eb = if (usage_len <= 29 && cmd.names.len() > 1 && example_len > 27)
+            || ((usage_len > 29 || cmd.names.len() > 1) && example_len > 36)
+        {
+            fb.commit()
+        } else {
+            fb.inline().commit()
+        };
     }
     if cmd.names.len() > 1 {
         let len: usize = cmd.names.iter().skip(1).map(|n| 4 + n.len()).sum();

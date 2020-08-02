@@ -10,7 +10,7 @@ use std::{collections::BTreeMap, fmt::Write};
 pub struct OsuStatsCountsEmbed {
     description: String,
     thumbnail: String,
-    title: &'static str,
+    title: String,
     author: Author,
 }
 
@@ -35,7 +35,7 @@ impl OsuStatsCountsEmbed {
             description,
             author: osu::get_user_author(&user),
             thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
-            title: "**Global leaderboard count**",
+            title: format!("In how many top _ map leaderboards is {}?", user.username),
         }
     }
 }
@@ -51,6 +51,6 @@ impl EmbedData for OsuStatsCountsEmbed {
         Some(&self.author)
     }
     fn title(&self) -> Option<&str> {
-        Some(self.title)
+        Some(&self.title)
     }
 }

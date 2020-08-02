@@ -20,7 +20,7 @@ use twilight::model::channel::Message;
 #[command]
 #[short_desc("Unchoke a user's top100")]
 #[long_desc(
-    "Display a user's top plays if no score in their top 100 \
+    "Display a user's top plays if no score in their top100 \
      would be a choke.\nIf a number is specified, \
      I will only unchoke scores with at most that many misses"
 )]

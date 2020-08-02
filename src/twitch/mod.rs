@@ -74,7 +74,11 @@ impl Twitch {
     pub async fn get_user(&self, name: &str) -> TwitchResult<TwitchUser> {
         let data = vec![("login", name)];
         let response = self.send_request(TWITCH_USERS_ENDPOINT, &data).await?;
-        let mut users: TwitchUsers = serde_json::from_slice(&response.bytes().await?)?;
+        let bytes = response.bytes().await?;
+        let mut users: TwitchUsers = serde_json::from_slice(&bytes).map_err(|e| {
+            let content = String::from_utf8_lossy(&bytes).into_owned();
+            TwitchError::SerdeUser(e, content)
+        })?;
         match users.data.pop() {
             Some(user) => Ok(user),
             None => Err(TwitchError::NoUserResult(name.to_string())),
@@ -89,7 +93,11 @@ impl Twitch {
         for chunk in user_ids.chunks(100) {
             let data: Vec<_> = chunk.iter().map(|&id| ("id", id)).collect();
             let response = self.send_request(TWITCH_USERS_ENDPOINT, &data).await?;
-            let parsed_response: TwitchUsers = serde_json::from_slice(&response.bytes().await?)?;
+            let bytes = response.bytes().await?;
+            let parsed_response: TwitchUsers = serde_json::from_slice(&bytes).map_err(|e| {
+                let content = String::from_utf8_lossy(&bytes).into_owned();
+                TwitchError::SerdeUsers(e, content)
+            })?;
             users.extend(parsed_response.data);
         }
         Ok(users)
@@ -104,7 +112,11 @@ impl Twitch {
             let mut data: Vec<_> = chunk.iter().map(|&id| ("user_id", id)).collect();
             data.push(("first", user_ids.len() as u64));
             let response = self.send_request(TWITCH_STREAM_ENDPOINT, &data).await?;
-            let parsed_response: TwitchStreams = serde_json::from_slice(&response.bytes().await?)?;
+            let bytes = response.bytes().await?;
+            let parsed_response: TwitchStreams = serde_json::from_slice(&bytes).map_err(|e| {
+                let content = String::from_utf8_lossy(&bytes).into_owned();
+                TwitchError::SerdeStreams(e, content)
+            })?;
             streams.extend(parsed_response.data);
         }
         Ok(streams)
