@@ -111,7 +111,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
         .into_par_iter()
         .filter(|map| {
             users_count
-                .par_iter()
+                .iter()
                 .all(|(_, count_map)| count_map.contains_key(&map.beatmap_id))
         })
         .collect();

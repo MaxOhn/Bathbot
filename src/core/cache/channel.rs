@@ -82,8 +82,9 @@ pub enum CachedChannel {
 }
 
 impl CachedChannel {
-    /// returns the channel ID
-    /// Note this is different from userid when DMing users
+    /// Returns the channel ID
+    ///
+    /// Note this is different from UserId when DMing users
     pub fn get_id(&self) -> ChannelId {
         match self {
             CachedChannel::TextChannel { id, .. } => *id,
@@ -96,7 +97,6 @@ impl CachedChannel {
         }
     }
 
-    #[allow(dead_code)]
     /// Returns the guild id
     pub fn get_guild_id(&self) -> Option<GuildId> {
         match self {
@@ -107,6 +107,33 @@ impl CachedChannel {
             CachedChannel::Category { guild_id, .. } => Some(*guild_id),
             CachedChannel::AnnouncementsChannel { guild_id, .. } => Some(*guild_id),
             CachedChannel::StoreChannel { guild_id, .. } => Some(*guild_id),
+        }
+    }
+
+    pub fn get_permission_overrides(&self) -> &[PermissionOverwrite] {
+        match self {
+            CachedChannel::TextChannel {
+                permission_overrides,
+                ..
+            } => permission_overrides,
+            CachedChannel::DM { .. } => &[], // no permissions
+            CachedChannel::VoiceChannel {
+                permission_overrides,
+                ..
+            } => permission_overrides,
+            CachedChannel::GroupDM { .. } => &[], // no permissions
+            CachedChannel::Category {
+                permission_overrides,
+                ..
+            } => permission_overrides,
+            CachedChannel::AnnouncementsChannel {
+                permission_overrides,
+                ..
+            } => permission_overrides,
+            CachedChannel::StoreChannel {
+                permission_overrides,
+                ..
+            } => permission_overrides,
         }
     }
 
@@ -122,7 +149,6 @@ impl CachedChannel {
         }
     }
 
-    #[allow(dead_code)]
     pub fn is_dm(&self) -> bool {
         match self {
             CachedChannel::DM { .. } => true,

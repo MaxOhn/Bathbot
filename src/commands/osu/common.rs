@@ -100,8 +100,8 @@ async fn common_main(
         .collect();
     map_ids.retain(|&id| {
         all_scores
-            .par_iter()
-            .all(|scores| scores.par_iter().any(|s| s.beatmap_id.unwrap() == id))
+            .iter()
+            .all(|scores| scores.iter().any(|s| s.beatmap_id.unwrap() == id))
     });
     all_scores
         .par_iter_mut()

@@ -1,7 +1,6 @@
 use super::is_default;
-use crate::{
-    core::cache::{Cache, CachedChannel, CachedEmoji, CachedMember, CachedRole, ColdStorageMember},
-    util::constants::OWNER_USER_ID,
+use crate::core::cache::{
+    Cache, CachedChannel, CachedEmoji, CachedMember, CachedRole, ColdStorageMember,
 };
 
 use dashmap::DashMap;
@@ -11,7 +10,7 @@ use std::sync::{
     Arc,
 };
 use twilight::model::{
-    guild::{Guild, PartialGuild, Permissions},
+    guild::{Guild, PartialGuild},
     id::{ChannelId, GuildId, RoleId, UserId},
 };
 
@@ -182,20 +181,8 @@ impl CachedGuild {
         nick
     }
 
-    pub fn has_admin_permission(&self, user_id: UserId) -> Option<bool> {
-        if user_id == self.owner_id || user_id.0 == OWNER_USER_ID {
-            return Some(true);
-        }
-        let member_guard = self.members.get(&user_id)?;
-        let member = member_guard.value();
-        for role_id in member.roles.iter() {
-            let role_guard = self.roles.get(role_id)?;
-            let role = role_guard.value();
-            if role.permissions.contains(Permissions::ADMINISTRATOR) {
-                return Some(true);
-            }
-        }
-        Some(false)
+    pub fn get_role(&self, role_id: RoleId) -> Option<Arc<CachedRole>> {
+        self.roles.get(&role_id).map(|guard| guard.value().clone())
     }
 }
 

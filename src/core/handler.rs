@@ -9,7 +9,7 @@ use crate::{
 use rayon::prelude::*;
 use std::{borrow::Cow, fmt::Write, ops::Deref, sync::Arc};
 use twilight::gateway::Event;
-use twilight::model::{channel::Message, id::RoleId};
+use twilight::model::{channel::Message, guild::Permissions, id::RoleId};
 use uwl::Stream;
 
 pub async fn handle_event(
@@ -162,6 +162,15 @@ async fn process_command(
         return msg.error(&ctx, content).await;
     }
 
+    // Does bot have sufficient permissions to send response?
+    let permissions =
+        ctx.cache
+            .get_channel_permissions_for(ctx.cache.bot_user.id, msg.channel_id, msg.guild_id);
+    if !permissions.contains(Permissions::SEND_MESSAGES) {
+        debug!("No SEND_MESSAGE permission, can not respond");
+        return Ok(());
+    }
+
     // Ratelimited?
     if let Some(bucket) = cmd.bucket {
         if let Some(cooldown) = check_ratelimit(&ctx, msg, bucket).await {
@@ -208,7 +217,10 @@ async fn process_command(
 // Couldn't figure out -> Err()
 fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>> {
     let guild_id = msg.guild_id.unwrap();
-    if let Some(true) = ctx.cache.has_admin_permission(msg.author.id, guild_id) {
+    let permissions = ctx
+        .cache
+        .get_guild_permissions_for(msg.author.id, msg.guild_id);
+    if permissions.contains(Permissions::ADMINISTRATOR) {
         return Ok(None);
     }
     let auth_roles = ctx.config_authorities_collect(guild_id, RoleId);

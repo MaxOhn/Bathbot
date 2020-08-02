@@ -25,7 +25,13 @@ async fn leaderboard_main(
     let author_name = ctx.get_link(msg.author.id.0);
     let args = MapModArgs::new(args);
     let map_id = if let Some(id) = args.map_id {
-        id.id()
+        match id {
+            MapIdType::Map(id) => id,
+            MapIdType::Set(_) => {
+                let content = "Looks like you gave me a mapset id, I need a map id though";
+                return msg.error(&ctx, content).await;
+            }
+        }
     } else {
         let msg_fut = ctx.http.channel_messages(msg.channel_id).limit(50).unwrap();
         let msgs = match msg_fut.await {

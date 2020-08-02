@@ -1,4 +1,3 @@
-use super::require_link;
 use crate::{
     arguments::NameIntArgs,
     bail,
@@ -32,7 +31,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     let args = NameIntArgs::new(&ctx, args);
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
-        None => return require_link(&ctx, msg).await,
+        None => return super::require_link(&ctx, msg).await,
     };
     let miss_limit = args.number;
 

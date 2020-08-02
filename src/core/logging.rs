@@ -10,7 +10,7 @@ static LOGGER_HANDLE: OnceCell<ReconfigurationHandle> = OnceCell::new();
 
 pub fn initialize() -> Result<(), Error> {
     let log_init_status = LOGGER_HANDLE.set(
-        Logger::with_env_or_str("debug")
+        Logger::with_str("bathbot_twilight")
             .log_to_file()
             .directory("logs")
             .format(log_format)
@@ -19,7 +19,7 @@ pub fn initialize() -> Result<(), Error> {
             .rotate(
                 Criterion::Age(Age::Day),
                 Naming::Timestamps,
-                Cleanup::KeepLogAndZipFiles(10, 25),
+                Cleanup::KeepLogAndZipFiles(10, 20),
             )
             .duplicate_to_stdout(Duplicate::Info)
             .start_with_specfile("logconfig.toml")

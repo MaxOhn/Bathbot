@@ -1,4 +1,3 @@
-use super::require_link;
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, MostPlayedEmbed},
@@ -15,11 +14,12 @@ use twilight::model::channel::Message;
 #[short_desc("Display the most played maps of a user")]
 #[usage("[username]")]
 #[example("badewanne3")]
+#[aliases("mp")]
 async fn mostplayed(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = NameArgs::new(&ctx, args);
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
-        None => return require_link(&ctx, msg).await,
+        None => return super::require_link(&ctx, msg).await,
     };
 
     // Retrieve the user

@@ -1,4 +1,3 @@
-use super::require_link;
 use crate::{
     arguments::{Args, TopArgs},
     bail,
@@ -42,7 +41,7 @@ async fn top_main(
     }
     let name = match args.name.take().or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
-        None => return require_link(&ctx, msg).await,
+        None => return super::require_link(&ctx, msg).await,
     };
 
     // Retrieve the user and their top scores

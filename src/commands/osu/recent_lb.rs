@@ -1,4 +1,3 @@
-use super::require_link;
 use crate::{
     arguments::{Args, NameModArgs},
     bail,
@@ -35,7 +34,7 @@ async fn recent_lb_main(
     let selection = args.mods;
     let name = match args.name.or_else(|| author_name.clone()) {
         Some(name) => name,
-        None => return require_link(&ctx, msg).await,
+        None => return super::require_link(&ctx, msg).await,
     };
 
     // Retrieve the recent scores

@@ -1,4 +1,3 @@
-use super::require_link;
 use crate::{
     arguments::{Args, NameFloatArgs},
     embeds::{EmbedData, PPMissingEmbed},
@@ -22,7 +21,7 @@ async fn pp_main(
     };
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
-        None => return require_link(&ctx, msg).await,
+        None => return super::require_link(&ctx, msg).await,
     };
     let pp = args.float;
     if pp < 0.0 {
