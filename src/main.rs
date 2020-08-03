@@ -311,7 +311,7 @@ async fn _run_metrics_server(stats: Arc<BotStats>) {
             }))
         }
     });
-    let addr = std::net::SocketAddr::from(([169, 254, 89, 90], 9091));
+    let addr = std::net::SocketAddr::from((CONFIG.get().unwrap().metric_server, 9091));
     let server = hyper::Server::bind(&addr).serve(metric_service);
     debug!("Running metrics server...");
     if let Err(why) = server.await {

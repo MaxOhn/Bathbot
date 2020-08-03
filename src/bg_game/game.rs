@@ -1,9 +1,8 @@
 use super::{util, GameResult, Hints, ImageReveal};
 use crate::{
-    core::CONFIG,
     database::MapsetTagWrapper,
     util::{constants::OSU_BASE, error::BgGameError},
-    BotResult, Context,
+    BotResult, Context, CONFIG,
 };
 
 use image::GenericImageView;

@@ -13,6 +13,7 @@ pub struct BotConfig {
     pub bg_path: PathBuf,
     pub map_path: PathBuf,
     pub perf_calc_path: PathBuf,
+    pub metric_server: [u8; 4],
     pub emotes: HashMap<Grade, String>,
 }
 

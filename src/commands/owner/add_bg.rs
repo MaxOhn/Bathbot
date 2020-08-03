@@ -1,11 +1,10 @@
 use crate::{
     bail,
-    core::CONFIG,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE, OWNER_USER_ID},
         MessageExt,
     },
-    Args, BotResult, Context,
+    Args, BotResult, Context, CONFIG,
 };
 
 use rosu::{backend::BeatmapRequest, models::GameMode};

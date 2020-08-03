@@ -3,9 +3,8 @@ pub mod roppai;
 use roppai::Oppai;
 
 use crate::{
-    core::CONFIG,
     util::{error::PPError, osu::prepare_beatmap_file, BeatmapExt, ScoreExt},
-    BotResult, Context,
+    BotResult, Context, CONFIG,
 };
 
 use bitflags::bitflags;

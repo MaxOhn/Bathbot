@@ -2,13 +2,12 @@ use super::ReactionWrapper;
 use crate::{
     bail,
     bg_game::MapsetTags,
-    core::CONFIG,
     database::MapsetTagWrapper,
     util::{
         constants::{GENERAL_ISSUE, OSU_BASE},
         MessageExt,
     },
-    Args, BotResult, Context,
+    Args, BotResult, Context, CONFIG,
 };
 
 use rand::RngCore;

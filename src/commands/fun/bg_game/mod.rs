@@ -1,4 +1,3 @@
-mod add_bg;
 mod bigger;
 mod hint;
 mod rankings;
@@ -6,7 +5,6 @@ mod start;
 mod stop;
 mod tags;
 
-pub use add_bg::*;
 pub use bigger::*;
 pub use hint::*;
 pub use rankings::*;

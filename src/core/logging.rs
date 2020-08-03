@@ -6,10 +6,10 @@ use flexi_logger::{
 use log::Record;
 use once_cell::sync::OnceCell;
 
-static LOGGER_HANDLE: OnceCell<ReconfigurationHandle> = OnceCell::new();
+static LOGGER: OnceCell<ReconfigurationHandle> = OnceCell::new();
 
 pub fn initialize() -> Result<(), Error> {
-    let log_init_status = LOGGER_HANDLE.set(
+    let log_init_status = LOGGER.set(
         Logger::with_str("bathbot_twilight")
             .log_to_file()
             .directory("logs")
@@ -26,7 +26,7 @@ pub fn initialize() -> Result<(), Error> {
             .map_err(|_| Error::NoLoggingSpec)?,
     );
     if log_init_status.is_err() {
-        error!("Logging system was attempted to be initalized a second time");
+        error!("LOGGER was already set");
     }
     Ok(())
 }

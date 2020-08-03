@@ -1,7 +1,7 @@
 use crate::{
-    core::CONFIG,
     custom_client::{OsuStatsScore, ScraperScore},
     util::osu::grade_emote,
+    CONFIG,
 };
 
 use rosu::models::{GameMode, GameMods, Grade, Score};

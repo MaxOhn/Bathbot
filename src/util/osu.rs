@@ -1,8 +1,7 @@
 use crate::{
     arguments::SimulateArgs,
-    core::CONFIG,
     util::{constants::OSU_BASE, error::MapDownloadError, matcher},
-    Context,
+    Context, CONFIG,
 };
 
 use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score};
