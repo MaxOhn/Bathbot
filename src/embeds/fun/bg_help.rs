@@ -18,18 +18,18 @@ impl BGHelpEmbed {
             (
                 "start / s / skip / resolve / r".to_owned(),
                 format!(
-                    "`If no game is running yet:`\n\
+                    "__If no game is running yet:__\n\
                     Start the game in the current channel.\n\
                     First, you get to choose which kind of backgrounds \
                     you will need to guess.\n\
                     React to require a tag, or react-unreact to exclude a tag.\n\
                     If no tag is chosen, all backgrounds will be selected.\n\
-                    `If the game is already going:`\n\
+                    __If the game is already going:__\n\
                     Resolve the current background and give a new one \
                     with the same tag specs.\n\
                     To change mode or tags, be sure to `{prefix}bg stop` first.\n\
-                    `Mania:`\n\
-                    **Start** the game with the additional argument \
+                    __Mania:__\n\
+                    *Start* the game with the additional argument \
                     `mania` or just `m` e.g. `{prefix}bg s m`. \
                     Once the mania game is running, you can skip with `{prefix}bg s`.",
                     prefix = prefix

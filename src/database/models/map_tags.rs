@@ -49,7 +49,7 @@ impl<'c> FromRow<'c, PgRow> for MapsetTagWrapper {
             + ((row.english as u32) << 11)
             + ((row.kpop as u32) << 12);
         Ok(Self {
-            mapset_id: row.mapset_id,
+            mapset_id: row.beatmapset_id,
             mode: (row.mode as u8).into(),
             tags: MapsetTags::from_bits(bits).unwrap(),
             filetype: row.filetype,
@@ -65,7 +65,7 @@ impl fmt::Display for MapsetTagWrapper {
 
 #[derive(FromRow)]
 struct TagRow {
-    mapset_id: u32,
+    beatmapset_id: u32,
     mode: i8,
     filetype: String,
     farm: bool,

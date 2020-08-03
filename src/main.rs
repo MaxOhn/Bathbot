@@ -169,8 +169,8 @@ async fn run(
     let stats = Arc::new(BotStats::new());
 
     // Provide stats to locale address
-    // let s = stats.clone();
-    // tokio::spawn(run_metrics_server(s));
+    let metrics_stats = stats.clone();
+    tokio::spawn(_run_metrics_server(metrics_stats));
 
     // Prepare cluster builder
     let cache = Cache::new(bot_user, stats);
@@ -311,8 +311,9 @@ async fn _run_metrics_server(stats: Arc<BotStats>) {
             }))
         }
     });
-    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 9091));
+    let addr = std::net::SocketAddr::from(([169, 254, 89, 90], 9091));
     let server = hyper::Server::bind(&addr).serve(metric_service);
+    debug!("Running metrics server...");
     if let Err(why) = server.await {
         error!("Metrics server failed: {}", why);
     }

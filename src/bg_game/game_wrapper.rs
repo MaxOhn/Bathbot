@@ -66,7 +66,7 @@ impl GameWrapper {
     pub fn start(&mut self, ctx: Arc<Context>, channel: ChannelId, mapsets: Vec<MapsetTagWrapper>) {
         let mut msg_stream = ctx
             .standby
-            .wait_for_message_stream(channel, |_: &MessageCreate| true);
+            .wait_for_message_stream(channel, |event: &MessageCreate| !event.author.bot);
         let game_lock = self.game.clone();
         let mut rx = self.rx.take().unwrap();
         let mut previous_ids = VecDeque::with_capacity(50);

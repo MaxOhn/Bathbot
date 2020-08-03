@@ -1,5 +1,9 @@
 use chrono::Utc;
+use dashmap::DashMap;
 use std::collections::HashMap;
+use tokio::sync::Mutex;
+
+pub type Buckets = DashMap<&'static str, Mutex<Bucket>>;
 
 pub struct Ratelimit {
     pub delay: i64,
@@ -43,4 +47,26 @@ impl Bucket {
             0
         }
     }
+}
+
+pub fn buckets() -> Buckets {
+    let buckets = DashMap::new();
+    insert_bucket(&buckets, "songs", 20, 0, 1);
+    insert_bucket(&buckets, "bg_start", 2, 20, 3);
+    insert_bucket(&buckets, "bg_bigger", 1, 10, 3);
+    insert_bucket(&buckets, "bg_hint", 1, 5, 2);
+    buckets
+}
+
+fn insert_bucket(buckets: &Buckets, name: &'static str, delay: i64, time_span: i64, limit: i32) {
+    buckets.insert(
+        name,
+        Mutex::new(Bucket {
+            ratelimit: Ratelimit {
+                delay,
+                limit: Some((time_span, limit)),
+            },
+            users: HashMap::new(),
+        }),
+    );
 }

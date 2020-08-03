@@ -7,9 +7,19 @@ use twilight::model::channel::Message;
 #[short_desc("Stop the bg game")]
 #[aliases("end", "quit")]
 pub async fn stop(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
-    if let Err(why) = ctx.stop_and_remove_game(msg.channel_id).await {
-        let _ = msg.error(&ctx, "Error while stopping game \\:(").await;
-        bail!("error while stopping game: {}", why);
+    match ctx.stop_and_remove_game(msg.channel_id).await {
+        Ok(true) => Ok(()),
+        Ok(false) => {
+            let prefix = ctx.config_first_prefix(msg.guild_id);
+            let content = format!(
+                "No running game in this channel.\nStart one with `{}bg start`.",
+                prefix
+            );
+            msg.error(&ctx, content).await
+        }
+        Err(why) => {
+            let _ = msg.error(&ctx, "Error while stopping game \\:(").await;
+            bail!("error while stopping game: {}", why)
+        }
     }
-    Ok(())
 }

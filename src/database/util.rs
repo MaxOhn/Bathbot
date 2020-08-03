@@ -25,9 +25,9 @@ pub trait CustomSQL: Sized + std::fmt::Write {
             Some(first_tag) => first_tag,
             None => bail!("cannot build update query without tags"),
         };
-        let _ = write!(self, " {}={}", tag_column(first_tag), value as u8);
+        let _ = write!(self, " {}={}", tag_column(first_tag), value);
         for tag in tags {
-            let _ = write!(self, "{}{}={}", delim, tag_column(tag), value as u8);
+            let _ = write!(self, "{}{}={}", delim, tag_column(tag), value);
         }
         Ok(self)
     }

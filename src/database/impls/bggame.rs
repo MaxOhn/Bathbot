@@ -19,13 +19,13 @@ VALUES
     ({},1)
 ON CONFLICT (discord_id) DO
     UPDATE
-        SET score=score+1
+        SET score=bggame_stats.score+1
 RETURNING score
 ",
             user_id
         );
         let row = sqlx::query(&query).fetch_one(&self.pool).await?;
-        Ok(row.get::<i64, _>(0) as usize)
+        Ok(row.get::<i32, _>(0) as usize)
     }
 
     pub async fn all_bggame_scores(&self) -> BotResult<Vec<(u64, u32)>> {
@@ -33,7 +33,7 @@ RETURNING score
             .fetch_all(&self.pool)
             .await?
             .into_iter()
-            .map(|row| (row.get::<i64, _>(0) as u64, row.get(1)))
+            .map(|row| (row.get::<i64, _>(0) as u64, row.get::<i32, _>(1) as u32))
             .collect();
         Ok(scores)
     }
@@ -84,8 +84,11 @@ RETURNING score
     }
 
     pub async fn get_all_tags_mapset(&self, mode: GameMode) -> BotResult<Vec<MapsetTagWrapper>> {
-        let query = format!("SELECT * FROM map_tags WHERE mode={}", mode as u8);
-        let tags = sqlx::query_as(&query).fetch_all(&self.pool).await?;
+        let query = "SELECT * FROM map_tags WHERE mode=$1";
+        let tags = sqlx::query_as(&query)
+            .bind(mode as i8)
+            .fetch_all(&self.pool)
+            .await?;
         Ok(tags)
     }
 
@@ -108,10 +111,11 @@ FROM
             1
     ) as rndm ON mt.beatmapset_id = rndm.beatmapset_id
 ";
-        Ok(sqlx::query_as(query)
+        let tags = sqlx::query_as(query)
             .bind(mode as i8)
             .fetch_one(&self.pool)
-            .await?)
+            .await?;
+        Ok(tags)
     }
 
     pub async fn get_specific_tags_mapset(

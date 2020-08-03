@@ -43,6 +43,7 @@ pub async fn start(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResul
             bail!("error while getting mapsets: {}", why);
         }
     };
+    let _ = ctx.http.create_typing_trigger(msg.channel_id).await;
     if !mapsets.is_empty() {
         ctx.add_game_and_start(ctx.clone(), msg.channel_id, mapsets);
     }
@@ -154,20 +155,6 @@ async fn get_mapsets(
                 excluded.insert(tag);
                 included.remove(tag);
             }
-        }
-    }
-    for &reaction in reactions.iter() {
-        let r = ReactionType::Unicode {
-            name: reaction.to_string(),
-        };
-        if msg.guild_id.is_none() {
-            ctx.http
-                .delete_current_user_reaction(msg.channel_id, msg.id, r)
-                .await?;
-        } else {
-            ctx.http
-                .delete_all_reaction(msg.channel_id, msg.id, r)
-                .await?;
         }
     }
     // Get all mapsets matching the given tags

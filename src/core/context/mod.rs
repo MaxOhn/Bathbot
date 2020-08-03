@@ -5,7 +5,7 @@ use super::ShardState;
 use crate::{
     bg_game::GameWrapper,
     core::{
-        buckets::{Bucket, Ratelimit},
+        buckets::{buckets, Buckets},
         stored_values::StoredValues,
         Cache,
     },
@@ -16,7 +16,6 @@ use crate::{
 use darkredis::ConnectionPool;
 use dashmap::DashMap;
 use rosu::Osu;
-use std::collections::HashMap;
 use tokio::sync::Mutex;
 use twilight::gateway::Cluster;
 use twilight::http::Client as HttpClient;
@@ -28,8 +27,6 @@ use twilight::model::{
     id::{ChannelId, GuildId},
 };
 use twilight::standby::Standby;
-
-type Buckets = DashMap<&'static str, Mutex<Bucket>>;
 
 pub struct Context {
     pub cache: Cache,
@@ -147,26 +144,4 @@ pub fn generate_activity(activity_type: ActivityType, message: String) -> Activi
         timestamps: None,
         url: None,
     }
-}
-
-fn buckets() -> Buckets {
-    let buckets = DashMap::new();
-    insert_bucket(&buckets, "songs", 20, 0, 1);
-    insert_bucket(&buckets, "bg_start", 0, 30, 4);
-    insert_bucket(&buckets, "bg_bigger", 0, 11, 3);
-    insert_bucket(&buckets, "bg_hint", 0, 8, 3);
-    buckets
-}
-
-fn insert_bucket(buckets: &Buckets, name: &'static str, delay: i64, time_span: i64, limit: i32) {
-    buckets.insert(
-        name,
-        Mutex::new(Bucket {
-            ratelimit: Ratelimit {
-                delay,
-                limit: Some((time_span, limit)),
-            },
-            users: HashMap::new(),
-        }),
-    );
 }

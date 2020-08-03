@@ -83,7 +83,7 @@ CREATE TABLE stream_tracks (
 
 CREATE TABLE bggame_stats (
     discord_id BIGINT PRIMARY KEY NOT NULL,
-    score OID NOT NULL
+    score INT4 NOT NULL
 );
 
 CREATE TABLE bg_verified(user_id BIGINT PRIMARY KEY NOT NULL);

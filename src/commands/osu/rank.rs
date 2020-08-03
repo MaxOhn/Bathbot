@@ -100,6 +100,10 @@ async fn rank_main(
 
 #[command]
 #[short_desc("How many pp is a player missing to reach the given rank?")]
+#[long_desc(
+    "How many pp is a player missing to reach the given rank?\n\
+    The number for the rank must be between 1 and 10,000."
+)]
 #[usage("[username] [[country]number]")]
 #[example("badewanne3 be50")]
 #[example("badewanne3 123")]
@@ -110,6 +114,10 @@ pub async fn rank(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
 
 #[command]
 #[short_desc("How many pp is a player missing to reach the given rank?")]
+#[long_desc(
+    "How many pp is a player missing to reach the given rank?\n\
+    The number for the rank must be between 1 and 10,000."
+)]
 #[example("badewanne3 be50")]
 #[example("badewanne3 123")]
 #[aliases("rankm", "reachmania", "reachm")]
@@ -119,6 +127,10 @@ pub async fn rankmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
 
 #[command]
 #[short_desc("How many pp is a player missing to reach the given rank?")]
+#[long_desc(
+    "How many pp is a player missing to reach the given rank?\n\
+    The number for the rank must be between 1 and 10,000."
+)]
 #[example("badewanne3 be50")]
 #[example("badewanne3 123")]
 #[aliases("rankt", "reachtaiko", "reacht")]
@@ -128,6 +140,10 @@ pub async fn ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
 
 #[command]
 #[short_desc("How many pp is a player missing to reach the given rank?")]
+#[long_desc(
+    "How many pp is a player missing to reach the given rank?\n\
+    The number for the rank must be between 1 and 10,000."
+)]
 #[example("badewanne3 be50")]
 #[example("badewanne3 123")]
 #[aliases("rankc", "reachctb", "reachc")]

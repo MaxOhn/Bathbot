@@ -1,7 +1,9 @@
 use crate::{
     core::{Command, CommandGroups},
     util::{
-        constants::{DARK_GREEN, DESCRIPTION_SIZE, EMBED_SIZE, FIELD_VALUE_SIZE, RED},
+        constants::{
+            DARK_GREEN, DESCRIPTION_SIZE, EMBED_SIZE, FIELD_VALUE_SIZE, OWNER_USER_ID, RED,
+        },
         content_safe, levenshtein_distance, MessageExt,
     },
     BotResult, Context,
@@ -60,7 +62,7 @@ pub async fn help(ctx: &Context, cmds: &CommandGroups, msg: &Message) -> BotResu
             return msg.error(&ctx, content).await;
         }
     };
-    let author = msg.author.id;
+    let owner = msg.author.id;
     if msg.guild_id.is_some() {
         let content = "Don't mind me sliding into your DMs :eyes:";
         let _ = msg.reply(ctx, content).await;
@@ -69,7 +71,11 @@ pub async fn help(ctx: &Context, cmds: &CommandGroups, msg: &Message) -> BotResu
     let mut size = desc.len();
     debug_assert!(size < DESCRIPTION_SIZE);
     let mut eb = EmbedBuilder::new().color(DARK_GREEN).description(desc);
-    for group in &cmds.groups {
+    let groups = cmds
+        .groups
+        .iter()
+        .filter(|g| owner.0 == OWNER_USER_ID || g.name != "owner");
+    for group in groups {
         let len: usize = group
             .commands
             .iter()
@@ -83,7 +89,11 @@ pub async fn help(ctx: &Context, cmds: &CommandGroups, msg: &Message) -> BotResu
         let size_addition = group.name.len() + value.len();
         debug_assert!(size_addition < EMBED_SIZE);
         eb = if size + size_addition > EMBED_SIZE {
-            send_help_chunk(ctx, channel.id, author, eb.build()).await?;
+            if let Err(why) = send_help_chunk(ctx, channel.id, owner, eb.build()).await {
+                warn!("Error while sending help chunk: {}", why);
+                let content = "Could not DM you, have you disabled it?";
+                return msg.error(ctx, content).await;
+            }
             size = 0;
             EmbedBuilder::new().color(DARK_GREEN)
         } else {
@@ -93,7 +103,11 @@ pub async fn help(ctx: &Context, cmds: &CommandGroups, msg: &Message) -> BotResu
     }
     let embed = eb.build();
     if !embed.fields.is_empty() {
-        send_help_chunk(ctx, channel.id, author, embed).await?;
+        if let Err(why) = send_help_chunk(ctx, channel.id, owner, embed).await {
+            warn!("Error while sending help chunk: {}", why);
+            let content = "Could not DM you, have you disabled it?";
+            return msg.error(ctx, content).await;
+        }
     }
     Ok(())
 }

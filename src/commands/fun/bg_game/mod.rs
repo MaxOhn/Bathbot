@@ -25,6 +25,10 @@ use twilight::model::channel::{Message, Reaction};
 
 #[command]
 #[short_desc("Play the background guessing game")]
+#[long_desc(
+    "Play the background guessing game.\n\
+    Use this command without arguments to see the full help."
+)]
 #[aliases("bg")]
 #[sub_commands(start, bigger, hint, stop, rankings)]
 pub async fn backgroundgame(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {

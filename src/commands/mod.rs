@@ -15,6 +15,7 @@ use crate::core::CommandGroup;
 
 pub fn command_groups() -> Vec<CommandGroup> {
     vec![
+        CommandGroup::new("owner", vec![&ADDBG_CMD]),
         CommandGroup::new(
             "all osu! modes",
             vec![
@@ -128,7 +129,6 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &AUTHORITIES_CMD,
                 &ROLEASSIGN_CMD,
                 &LYRICS_CMD,
-                &ADDBG_CMD,
             ],
         ),
         CommandGroup::new(
