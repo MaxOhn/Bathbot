@@ -24,8 +24,7 @@ use twilight::model::channel::Message;
      I will only unchoke scores with at most that many misses"
 )]
 #[usage("[username] [number for miss limit]")]
-#[example("badewanne3")]
-#[example("vaxei 5")]
+#[example("badewanne3", "vaxei 5")]
 #[aliases("nc", "nochoke")]
 async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = NameIntArgs::new(&ctx, args);

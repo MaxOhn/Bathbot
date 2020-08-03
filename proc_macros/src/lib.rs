@@ -40,11 +40,7 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
         let name = values.name.to_string();
         let name = name.as_str();
         match name {
-            "example" => {
-                options
-                    .examples
-                    .push(propagate_err!(attributes::parse(values)));
-            }
+            "example" => options.examples = propagate_err!(attributes::parse(values)),
             "authority" => options.authority = true,
             "only_guilds" => options.only_guilds = true,
             _ => {

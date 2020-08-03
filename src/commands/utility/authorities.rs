@@ -25,8 +25,7 @@ use twilight::model::{
     `-show` as argument"
 )]
 #[usage("[@role1] [id of role2] ...")]
-#[example("-show")]
-#[example("@Moderator @Mod 83794728403223 @BotCommander")]
+#[example("-show", "@Moderator @Mod 83794728403223 @BotCommander")]
 #[aliases("authority")]
 async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let guild_id = msg.guild_id.unwrap();

@@ -17,8 +17,7 @@ use twilight::model::channel::Message;
      your discord account from any osu name."
 )]
 #[usage("[username]")]
-#[example("badewanne3")]
-#[example("\"nathan on osu\"")]
+#[example("badewanne3", r"nathan on osu")]
 async fn link(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     let discord_id = msg.author.id.0;
     match args.single::<String>() {

@@ -206,8 +206,7 @@ async fn top_main(
      Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."
 )]
 #[usage("[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [mods] [--a/--c]")]
-#[example("badewanne3 -a 97.34 -grade A +hdhr --c")]
-#[example("vaxei -c 1234 -dt! --a")]
+#[example("badewanne3 -a 97.34 -grade A +hdhr --c", "vaxei -c 1234 -dt! --a")]
 #[aliases("topscores", "osutop")]
 pub async fn top(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_main(GameMode::STD, TopType::Top, ctx, msg, args).await
@@ -222,8 +221,7 @@ pub async fn top(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
      Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."
 )]
 #[usage("[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [mods] [--a/--c]")]
-#[example("badewanne3 -a 97.34 -grade A +hdhr --c")]
-#[example("vaxei -c 1234 -dt! --a")]
+#[example("badewanne3 -a 97.34 -grade A +hdhr --c", "vaxei -c 1234 -dt! --a")]
 #[aliases("topm")]
 pub async fn topmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_main(GameMode::MNA, TopType::Top, ctx, msg, args).await
@@ -238,8 +236,7 @@ pub async fn topmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult
      Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."
 )]
 #[usage("[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [mods] [--a/--c]")]
-#[example("badewanne3 -a 97.34 -grade A +hdhr --c")]
-#[example("vaxei -c 1234 -dt! --a")]
+#[example("badewanne3 -a 97.34 -grade A +hdhr --c", "vaxei -c 1234 -dt! --a")]
 #[aliases("topt")]
 pub async fn toptaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_main(GameMode::TKO, TopType::Top, ctx, msg, args).await
@@ -254,8 +251,7 @@ pub async fn toptaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult
      Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."
 )]
 #[usage("[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [mods] [--a/--c]")]
-#[example("badewanne3 -a 97.34 -grade A +hdhr --c")]
-#[example("vaxei -c 1234 -dt! --a")]
+#[example("badewanne3 -a 97.34 -grade A +hdhr --c", "vaxei -c 1234 -dt! --a")]
 #[aliases("topc")]
 pub async fn topctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_main(GameMode::CTB, TopType::Top, ctx, msg, args).await
@@ -269,8 +265,7 @@ pub async fn topctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
      with `-a`, combo with `-c`, and a grade with `-grade`."
 )]
 #[usage("[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [mods]")]
-#[example("badewanne3 -a 97.34 -grade A +hdhr")]
-#[example("vaxei -c 1234 -dt!")]
+#[example("badewanne3 -a 97.34 -grade A +hdhr", "vaxei -c 1234 -dt!")]
 #[aliases("rb")]
 pub async fn recentbest(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_main(GameMode::STD, TopType::Recent, ctx, msg, args).await
@@ -284,8 +279,7 @@ pub async fn recentbest(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
      with `-a`, combo with `-c`, and a grade with `-grade`."
 )]
 #[usage("[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [mods]")]
-#[example("badewanne3 -a 97.34 -grade A +hdhr")]
-#[example("vaxei -c 1234 -dt!")]
+#[example("badewanne3 -a 97.34 -grade A +hdhr", "vaxei -c 1234 -dt!")]
 #[aliases("rbm")]
 pub async fn recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_main(GameMode::MNA, TopType::Recent, ctx, msg, args).await
@@ -299,8 +293,7 @@ pub async fn recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
      with `-a`, combo with `-c`, and a grade with `-grade`."
 )]
 #[usage("[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [mods]")]
-#[example("badewanne3 -a 97.34 -grade A +hdhr")]
-#[example("vaxei -c 1234 -dt!")]
+#[example("badewanne3 -a 97.34 -grade A +hdhr", "vaxei -c 1234 -dt!")]
 #[aliases("rbt")]
 pub async fn recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_main(GameMode::TKO, TopType::Recent, ctx, msg, args).await
@@ -314,8 +307,7 @@ pub async fn recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
      with `-a`, combo with `-c`, and a grade with `-grade`."
 )]
 #[usage("[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [mods]")]
-#[example("badewanne3 -a 97.34 -grade A +hdhr")]
-#[example("vaxei -c 1234 -dt!")]
+#[example("badewanne3 -a 97.34 -grade A +hdhr", "vaxei -c 1234 -dt!")]
 #[aliases("rbc")]
 pub async fn recentbestctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_main(GameMode::CTB, TopType::Recent, ctx, msg, args).await

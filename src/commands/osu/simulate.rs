@@ -26,8 +26,10 @@ use twilight::model::channel::Message;
 #[usage(
     "[map url / map id] [-a acc%] [-300 #300s] [-100 #100s] [-50 #50s] [-m #misses] [-s score]"
 )]
-#[example("1980365 -a 99.3 -300 1422 -50 2 -m 1")]
-#[example("https://osu.ppy.sh/beatmapsets/948199#osu/1980365")]
+#[example(
+    "1980365 -a 99.3 -300 1422 -50 2 -m 1",
+    "https://osu.ppy.sh/beatmapsets/948199#osu/1980365"
+)]
 #[aliases("s")]
 async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = match SimulateMapArgs::new(args) {

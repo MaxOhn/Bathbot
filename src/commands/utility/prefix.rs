@@ -20,8 +20,7 @@ use twilight::model::channel::Message;
 #[only_guilds()]
 #[authority()]
 #[usage("[add / remove] [prefix]")]
-#[example("add $ new_pref 🍆")]
-#[example("remove < !!")]
+#[example("add $ 🍆 new_pref", "remove < !!")]
 #[aliases("prefixes")]
 async fn prefix(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     let guild_id = msg.guild_id.unwrap();

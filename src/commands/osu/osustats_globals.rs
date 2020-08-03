@@ -133,8 +133,10 @@ async fn osustats_main(
     Check https://osustats.ppy.sh/ for more info."
 )]
 #[usage("[username] [mods] [-a [num..]num] [-r [num..]num] [--a/--c/--p/--r/--s/--m] [--asc]")]
-#[example("badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc")]
-#[example("vaxei +hdhr -r 1..5 --r")]
+#[example(
+    "badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc",
+    "vaxei +hdhr -r 1..5 --r"
+)]
 #[aliases("osg")]
 pub async fn osustatsglobals(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     osustats_main(GameMode::STD, ctx, msg, args).await
@@ -155,8 +157,10 @@ pub async fn osustatsglobals(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
     Check https://osustats.ppy.sh/ for more info."
 )]
 #[usage("[username] [mods] [-a [num..]num] [-r [num..]num] [--a/--c/--p/--r/--s/--m] [--asc]")]
-#[example("badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc")]
-#[example("vaxei +hdhr -r 1..5 --r")]
+#[example(
+    "badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc",
+    "vaxei +hdhr -r 1..5 --r"
+)]
 #[aliases("osgm")]
 pub async fn osustatsglobalsmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     osustats_main(GameMode::MNA, ctx, msg, args).await
@@ -177,8 +181,10 @@ pub async fn osustatsglobalsmania(ctx: Arc<Context>, msg: &Message, args: Args) 
     Check https://osustats.ppy.sh/ for more info."
 )]
 #[usage("[username] [mods] [-a [num..]num] [-r [num..]num] [--a/--c/--p/--r/--s/--m] [--asc]")]
-#[example("badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc")]
-#[example("vaxei +dtmr -r 1..5 --r")]
+#[example(
+    "badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc",
+    "vaxei +hdhr -r 1..5 --r"
+)]
 #[aliases("osgt")]
 pub async fn osustatsglobalstaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     osustats_main(GameMode::TKO, ctx, msg, args).await
@@ -199,8 +205,10 @@ pub async fn osustatsglobalstaiko(ctx: Arc<Context>, msg: &Message, args: Args) 
     Check https://osustats.ppy.sh/ for more info."
 )]
 #[usage("[username] [mods] [-a [num..]num] [-r [num..]num] [--a/--c/--p/--r/--s/--m] [--asc]")]
-#[example("badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc")]
-#[example("vaxei +hdhr -r 1..5 --r")]
+#[example(
+    "badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc",
+    "vaxei +hdhr -r 1..5 --r"
+)]
 #[aliases("osgc")]
 pub async fn osustatsglobalsctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     osustats_main(GameMode::CTB, ctx, msg, args).await

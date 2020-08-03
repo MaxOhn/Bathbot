@@ -142,7 +142,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
     let verified_users_init = match ctx.psql().get_bg_verified().await {
         Ok(users) => users,
         Err(why) => {
-            let _ = msg.respond(&ctx, GENERAL_ISSUE).await;
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
             bail!("error while retrieving verified users: {}", why);
         }
     };
@@ -150,7 +150,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         let content = "This command is only for verified people.\n\
             If you're interested in helping out tagging backgrounds, \
             feel free to let Badewanne3 know :)";
-        return msg.respond(&ctx, content).await;
+        return msg.error(&ctx, content).await;
     }
     // Parse arguments as mode
     let mode = match args.next() {
@@ -160,7 +160,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
             _ => {
                 let content = "Could not parse first argument as mode. \
                 Provide either `mna`, or `std`";
-                return msg.respond(&ctx, content).await;
+                return msg.error(&ctx, content).await;
             }
         },
         None => GameMode::STD,
@@ -168,7 +168,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
     let untagged = match ctx.psql().get_all_tags_mapset(mode).await {
         Ok(tags) => tags.par_iter().any(|tag| tag.untagged()),
         Err(why) => {
-            let _ = msg.respond(&ctx, GENERAL_ISSUE).await;
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
             bail!("error while getting all tags: {}", why);
         }
     };
@@ -197,7 +197,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                 }
             }
             Err(why) => {
-                let _ = msg.respond(&ctx, GENERAL_ISSUE).await;
+                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
                 bail!("error while getting all / random tags: {}", why);
             }
         };

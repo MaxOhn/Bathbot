@@ -8,7 +8,7 @@ pub struct InviteEmbed {
 impl InviteEmbed {
     pub fn new() -> Self {
         let fields = vec![(
-            "Invite me to your server".to_owned(),
+            "Invite me to your server!".to_owned(),
             INVITE_LINK.to_owned(),
             false,
         )];

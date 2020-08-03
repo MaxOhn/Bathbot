@@ -105,8 +105,7 @@ async fn rank_main(
     The number for the rank must be between 1 and 10,000."
 )]
 #[usage("[username] [[country]number]")]
-#[example("badewanne3 be50")]
-#[example("badewanne3 123")]
+#[example("badewanne3 be50", "badewanne3 123")]
 #[aliases("reach")]
 pub async fn rank(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     rank_main(GameMode::STD, ctx, msg, args).await
@@ -118,8 +117,7 @@ pub async fn rank(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     "How many pp is a player missing to reach the given rank?\n\
     The number for the rank must be between 1 and 10,000."
 )]
-#[example("badewanne3 be50")]
-#[example("badewanne3 123")]
+#[example("badewanne3 be50", "badewanne3 123")]
 #[aliases("rankm", "reachmania", "reachm")]
 pub async fn rankmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     rank_main(GameMode::MNA, ctx, msg, args).await
@@ -131,8 +129,7 @@ pub async fn rankmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
     "How many pp is a player missing to reach the given rank?\n\
     The number for the rank must be between 1 and 10,000."
 )]
-#[example("badewanne3 be50")]
-#[example("badewanne3 123")]
+#[example("badewanne3 be50", "badewanne3 123")]
 #[aliases("rankt", "reachtaiko", "reacht")]
 pub async fn ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     rank_main(GameMode::TKO, ctx, msg, args).await
@@ -144,8 +141,7 @@ pub async fn ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
     "How many pp is a player missing to reach the given rank?\n\
     The number for the rank must be between 1 and 10,000."
 )]
-#[example("badewanne3 be50")]
-#[example("badewanne3 123")]
+#[example("badewanne3 be50", "badewanne3 123")]
 #[aliases("rankc", "reachctb", "reachc")]
 pub async fn rankctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     rank_main(GameMode::CTB, ctx, msg, args).await

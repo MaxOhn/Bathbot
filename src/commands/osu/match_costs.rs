@@ -23,8 +23,7 @@ use twilight::model::channel::Message;
      More info over at https://github.com/dain98/Minccino#faq"
 )]
 #[usage("[match url / match id] [amount of warmups]")]
-#[example("58320988 1")]
-#[example("https://osu.ppy.sh/community/matches/58320988")]
+#[example("58320988 1", "https://osu.ppy.sh/community/matches/58320988")]
 #[aliases("mc", "matchcost")]
 async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = match MatchArgs::new(args) {

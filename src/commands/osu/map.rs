@@ -36,8 +36,7 @@ const H: u32 = 150;
     I will choose the latter."
 )]
 #[usage("[map(set) url / map(set) id] [+mods]")]
-#[example("2240404 +hddt")]
-#[example("https://osu.ppy.sh/beatmapsets/902425 +hr")]
+#[example("2240404 +hddt", "https://osu.ppy.sh/beatmapsets/902425 +hr")]
 #[aliases("beatmap", "maps", "beatmaps", "mapinfo")]
 async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = MapModArgs::new(args);

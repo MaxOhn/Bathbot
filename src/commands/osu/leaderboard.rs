@@ -172,8 +172,7 @@ async fn leaderboard_main(
      I can find in my embeds of this channel"
 )]
 #[usage("[map url / map id]")]
-#[example("2240404")]
-#[example("https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
+#[example("2240404", "https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
 #[aliases("lb")]
 pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     leaderboard_main(true, ctx, msg, args).await
@@ -187,8 +186,7 @@ pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
      I can find in my embeds of this channel"
 )]
 #[usage("[map url / map id]")]
-#[example("2240404")]
-#[example("https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
+#[example("2240404", "https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
 #[aliases("glb")]
 pub async fn globalleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     leaderboard_main(false, ctx, msg, args).await

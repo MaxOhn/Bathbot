@@ -22,9 +22,11 @@ use twilight::model::channel::Message;
      I can find in my embeds of this channel"
 )]
 #[usage("[username] [map url / map id]")]
-#[example("badewanne3")]
-#[example("badewanne3 2240404")]
-#[example("badewanne3 https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
+#[example(
+    "badewanne3",
+    "badewanne3 2240404",
+    "badewanne3 https://osu.ppy.sh/beatmapsets/902425#osu/2240404"
+)]
 #[aliases("c", "compare")]
 async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = NameMapArgs::new(&ctx, args);
