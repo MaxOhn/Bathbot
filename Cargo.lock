@@ -194,7 +194,6 @@ dependencies = [
  "tokio",
  "toml",
  "twilight",
- "twilight-mention",
  "uwl",
 ]
 
@@ -777,9 +776,9 @@ checksum = "c34f04666d835ff5d62e058c3995147c06f42fe86ff053337632bca83e42702d"
 
 [[package]]
 name = "error-chain"
-version = "0.12.3"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be51ed50e75656c17216bdd4326914466db0c91b9b246b12962a00284d06566b"
+checksum = "2d2f06b9cac1506ece98fe3231e3cc9c4410ec3d5b1f24ae1c8946f0742cdefc"
 dependencies = [
  "version_check",
 ]
@@ -3321,7 +3320,7 @@ dependencies = [
 [[package]]
 name = "twilight"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22db09220a977d37de5f49366d4a59a01939d2d3"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22bf6d5f365f0bda6eb10c0470e6acf93f03af98"
 dependencies = [
  "twilight-builders",
  "twilight-cache",
@@ -3335,7 +3334,7 @@ dependencies = [
 [[package]]
 name = "twilight-builders"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22db09220a977d37de5f49366d4a59a01939d2d3"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22bf6d5f365f0bda6eb10c0470e6acf93f03af98"
 dependencies = [
  "twilight-model",
 ]
@@ -3343,7 +3342,7 @@ dependencies = [
 [[package]]
 name = "twilight-cache"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22db09220a977d37de5f49366d4a59a01939d2d3"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22bf6d5f365f0bda6eb10c0470e6acf93f03af98"
 dependencies = [
  "twilight-cache-inmemory",
  "twilight-cache-trait",
@@ -3352,7 +3351,7 @@ dependencies = [
 [[package]]
 name = "twilight-cache-inmemory"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22db09220a977d37de5f49366d4a59a01939d2d3"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22bf6d5f365f0bda6eb10c0470e6acf93f03af98"
 dependencies = [
  "async-trait",
  "bitflags",
@@ -3366,7 +3365,7 @@ dependencies = [
 [[package]]
 name = "twilight-cache-trait"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22db09220a977d37de5f49366d4a59a01939d2d3"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22bf6d5f365f0bda6eb10c0470e6acf93f03af98"
 dependencies = [
  "async-trait",
  "twilight-model",
@@ -3375,7 +3374,7 @@ dependencies = [
 [[package]]
 name = "twilight-command-parser"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22db09220a977d37de5f49366d4a59a01939d2d3"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22bf6d5f365f0bda6eb10c0470e6acf93f03af98"
 dependencies = [
  "unicase",
 ]
@@ -3383,7 +3382,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22db09220a977d37de5f49366d4a59a01939d2d3"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22bf6d5f365f0bda6eb10c0470e6acf93f03af98"
 dependencies = [
  "async-trait",
  "async-tungstenite",
@@ -3405,7 +3404,7 @@ dependencies = [
 [[package]]
 name = "twilight-http"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22db09220a977d37de5f49366d4a59a01939d2d3"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22bf6d5f365f0bda6eb10c0470e6acf93f03af98"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -3422,17 +3421,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "twilight-mention"
-version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22db09220a977d37de5f49366d4a59a01939d2d3"
-dependencies = [
- "twilight-model",
-]
-
-[[package]]
 name = "twilight-model"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22db09220a977d37de5f49366d4a59a01939d2d3"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22bf6d5f365f0bda6eb10c0470e6acf93f03af98"
 dependencies = [
  "bitflags",
  "serde",
@@ -3445,7 +3436,7 @@ dependencies = [
 [[package]]
 name = "twilight-standby"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22db09220a977d37de5f49366d4a59a01939d2d3"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#22bf6d5f365f0bda6eb10c0470e6acf93f03af98"
 dependencies = [
  "dashmap",
  "futures-channel",

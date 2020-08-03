@@ -117,11 +117,6 @@ branch = "trunk"
 # default_features = false
 # features = ["rustls"]
 
-[dependencies.twilight-mention]
-git = "https://github.com/twilight-rs/twilight"
-branch = "trunk"
-default_features = false
-
 # [dependencies.twilight-model]
 # git = "https://github.com/twilight-rs/twilight"
 # branch = "trunk"

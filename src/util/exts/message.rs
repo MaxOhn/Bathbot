@@ -12,7 +12,6 @@ use twilight::model::{
     gateway::payload::ReactionAdd,
     id::UserId,
 };
-use twilight_mention::Mention;
 
 #[async_trait]
 pub trait MessageExt {
@@ -74,7 +73,7 @@ impl MessageExt for Message {
     }
 
     async fn reply<C: Display + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
-        let content = format!("{}: {}", self.author.mention(), content);
+        let content = format!("<@{}>: {}", self.author.id, content);
         ctx.http
             .create_message(self.channel_id)
             .content(content)?
