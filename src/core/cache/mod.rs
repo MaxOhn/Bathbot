@@ -176,11 +176,13 @@ impl Cache {
                                 self.stats.guild_counts.partial.get()
                             );
                             guild.complete.store(true, Ordering::SeqCst);
-                            let shard_missing = self
-                                .missing_per_shard
-                                .get(&shard_id)
-                                .unwrap()
-                                .fetch_sub(1, Ordering::Relaxed);
+                            let shard_missing = match self.missing_per_shard.get(&shard_id) {
+                                Some(amount) => amount.fetch_sub(1, Ordering::Relaxed),
+                                None => {
+                                    warn!("shard_id not in self.missing_per_shard");
+                                    0
+                                }
+                            };
                             if shard_missing == 1 {
                                 // this shard is ready
                                 info!("All guilds cached for shard {}", shard_id);
