@@ -10,7 +10,7 @@ use twilight::model::channel::Message;
 #[short_desc("Change my prefixes for a guild")]
 #[long_desc(
     "Change my prefixes for a guild.\n\
-    To check the current prefixes for this guild, \
+    To check the current prefixes for this server, \
     don't pass any arguments.\n\
     Otherwise, the first argument must be either `add` or `remove`.\n\
     Following that must be a space-separated list of \
@@ -90,7 +90,7 @@ enum Action {
 }
 
 fn current_prefixes(content: &mut String, prefixes: &[String]) {
-    content.push_str("Prefixes for this guild: ");
+    content.push_str("Prefixes for this server: ");
     let len = prefixes.iter().map(|p| p.len() + 4).sum();
     content.reserve_exact(len);
     let mut prefixes = prefixes.iter();

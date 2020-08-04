@@ -22,8 +22,6 @@ pub struct EventStats {
     pub message_delete: IntCounter,
     pub message_delete_bulk: IntCounter,
     pub message_update: IntCounter,
-    pub presence_update: IntCounter,
-    pub presences_replace: IntCounter,
     pub reaction_add: IntCounter,
     pub reaction_remove: IntCounter,
     pub reaction_remove_all: IntCounter,
@@ -112,8 +110,6 @@ impl BotStats {
                 message_delete: event_counter.get_metric_with_label_values(&["MessageDelete"]).unwrap(),
                 message_delete_bulk: event_counter.get_metric_with_label_values(&["MessageDeleteBulk"]).unwrap(),
                 message_update: event_counter.get_metric_with_label_values(&["MessageUpdate"]).unwrap(),
-                presence_update: event_counter.get_metric_with_label_values(&["PresenceUpdate"]).unwrap(),
-                presences_replace: event_counter.get_metric_with_label_values(&["PresencesReplace"]).unwrap(),
                 reaction_add: event_counter.get_metric_with_label_values(&["ReactionAdd"]).unwrap(),
                 reaction_remove: event_counter.get_metric_with_label_values(&["ReactionRemove"]).unwrap(),
                 reaction_remove_all: event_counter.get_metric_with_label_values(&["ReactionRemoveAll"]).unwrap(),
@@ -189,8 +185,6 @@ impl Context {
             Event::MessageDelete(_) => self.cache.stats.event_counts.message_delete.inc(),
             Event::MessageDeleteBulk(_) => self.cache.stats.event_counts.message_delete_bulk.inc(),
             Event::MessageUpdate(_) => self.cache.stats.event_counts.message_update.inc(),
-            Event::PresenceUpdate(_) => self.cache.stats.event_counts.presence_update.inc(),
-            Event::PresencesReplace => self.cache.stats.event_counts.presences_replace.inc(),
             Event::ReactionAdd(_) => self.cache.stats.event_counts.reaction_add.inc(),
             Event::ReactionRemove(_) => self.cache.stats.event_counts.reaction_remove.inc(),
             Event::ReactionRemoveAll(_) => self.cache.stats.event_counts.reaction_remove_all.inc(),
@@ -204,7 +198,6 @@ impl Context {
             Event::ShardIdentifying(_) => {
                 self.shard_state_change(shard_id, ShardState::Identifying)
             }
-            // Event::ShardConnecting(_) => self.shard_state_change(shard_id, ShardState::Connecting),
             Event::ShardConnected(_) => self.shard_state_change(shard_id, ShardState::Connected),
             Event::Ready(_) => self.shard_state_change(shard_id, ShardState::Ready),
             Event::Resumed => self.shard_state_change(shard_id, ShardState::Ready),

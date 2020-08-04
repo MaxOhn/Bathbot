@@ -160,7 +160,6 @@ async fn run(
     let intents = Some(
         GatewayIntents::GUILDS
             | GatewayIntents::GUILD_MEMBERS
-            | GatewayIntents::GUILD_PRESENCES
             | GatewayIntents::GUILD_MESSAGES
             | GatewayIntents::GUILD_MESSAGE_REACTIONS
             | GatewayIntents::DIRECT_MESSAGES

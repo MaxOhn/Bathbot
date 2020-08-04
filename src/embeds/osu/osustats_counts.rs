@@ -35,7 +35,7 @@ impl OsuStatsCountsEmbed {
             description,
             author: osu::get_user_author(&user),
             thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
-            title: format!("In how many top _ map leaderboards is {}?", user.username),
+            title: format!("In how many top X map leaderboards is {}?", user.username),
         }
     }
 }

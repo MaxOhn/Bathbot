@@ -228,7 +228,7 @@ fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>> {
         let prefix = ctx.config_first_prefix(Some(guild_id));
         let content = format!(
             "You need admin permissions to use this command.\n\
-            (`{}help authorities` to adjust authority status for this guild)",
+            (`{}help authorities` to adjust authority status for this server)",
             prefix
         );
         return Ok(Some(content));
@@ -264,7 +264,7 @@ fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>> {
             let prefix = ctx.config_first_prefix(Some(guild_id));
             let _ = write!(
                 content,
-                "\n(`{}help authorities` to adjust authority status for this guild)",
+                "\n(`{}help authorities` to adjust authority status for this server)",
                 prefix
             );
             return Ok(Some(content));

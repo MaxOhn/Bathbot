@@ -48,7 +48,7 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         - If you react with :x: to my response, I will delete it.\n\
         __**Mods for osu!**__
         Many commands allow you to specify mods. You can do so with `+mods` \
-        for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods. For example:\
+        for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods. For example:\n\
         `-nm!`: scores that are not NoMod\n\
         `+hdhr`: scores that include at least HD and HR\n\
         `+hd!`: only HD scores\n\
