@@ -1,6 +1,10 @@
 use serde::de::{Error as DeError, Visitor};
 use serde::Deserializer;
-use std::fmt;
+use std::{fmt, sync::atomic::AtomicU64};
+
+pub fn atomic_u64_default<'de, D: Deserializer<'de>>(_deserializer: D) -> Result<AtomicU64, D::Error> {
+    Ok(AtomicU64::default())
+}
 
 pub fn deserialize_u16<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u16, D::Error> {
     deserializer.deserialize_any(U16Visitor)

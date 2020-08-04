@@ -4,12 +4,12 @@ version = "0.1.0"
 authors = ["MaxOhn <ohn.m@hotmail.de>"]
 edition = "2018"
 
-[build-dependencies]
-cc = { version = "1.0", features = ["parallel"] }
+[build-dependencies.cc]
+version = "1.0"
+features = ["parallel"]
 
 [build-dependencies.bindgen]
 version = "0.54"
-default_features = false
 
 [dependencies]
 async-trait  = "0.1"

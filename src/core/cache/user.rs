@@ -1,4 +1,4 @@
-use super::{is_default, serde::deserialize_u16};
+use super::{is_default, serde::{deserialize_u16, atomic_u64_default}};
 
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::AtomicU64;
@@ -23,7 +23,7 @@ pub struct CachedUser {
     pub system_user: bool,
     #[serde(rename = "f", default, skip_serializing_if = "is_default")]
     pub public_flags: Option<UserFlags>,
-    #[serde(skip_serializing, default)]
+    #[serde(skip_serializing, deserialize_with = "atomic_u64_default")]
     pub mutual_servers: AtomicU64,
 }
 

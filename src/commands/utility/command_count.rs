@@ -10,7 +10,7 @@ use std::sync::Arc;
 use twilight::model::channel::Message;
 
 #[command]
-#[short_desc("List of popular command")]
+#[short_desc("List of popular commands")]
 #[long_desc("Let me show you my most popular commands since my last reboot")]
 async fn commands(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     let mut cmds = ctx
