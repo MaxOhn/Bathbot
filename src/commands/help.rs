@@ -38,18 +38,22 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         || String::from("Prefix: `<` (none required in DMs)"),
         |p| format!("Server prefix: {}\nDM prefix: `<` or none at all", p),
     );
-    format!("{}\nMost commands have (shorter) aliases, e.g. `{prefix}glb` instead of `{prefix}globalleaderboard`. \
-            To check those out or get more info about a command in general, \
-            just pass the command as argument i.e. __**`{prefix}help command`**__.\n\
-            If you want to specify an argument, e.g. a username, that contains \
-            spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
-            If you used `{prefix}link osuname`, you can ommit the osu username for any command that needs one.\n\
-            Many commands allow you to __**specify mods**__. You can do so with `+mods` \
-            for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods, \
-            e.g. `-nm!`, `+hdhr`, `+hd!`, `-nfsohdezfl!`\n\
-            If you react with :x: to my response, I will delete it.\n\
-            Further help on the spreadsheet: http://bit.ly/badecoms.\n\
-            \nThese are all commands:", prefix_desc, prefix = first_prefix)
+    format!("{}\n__**General**__\n\
+        - Most commands have (shorter) aliases, e.g. `{prefix}glb` instead of `{prefix}globalleaderboard`. \
+        To check those out or get more info about a command in general, \
+        just pass the command as argument i.e. __**`{prefix}help command`**__.\n\
+        - If you want to specify an argument, e.g. a username, that contains \
+        spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
+        - If you used `{prefix}link osuname`, you can ommit the osu username for any command that needs one.\n\
+        - If you react with :x: to my response, I will delete it.\n\
+        __**Mods for osu!**__
+        Many commands allow you to specify mods. You can do so with `+mods` \
+        for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods. For example:\
+        `-nm!`: scores that are not NoMod\n\
+        `+hdhr`: scores that include at least HD and HR\n\
+        `+hd!`: only HD scores\n\
+        `-nfsohdez!`: scores that have neither NF, SO, HD, or EZ\n\
+        \n__**These are all commands:**__", prefix_desc, prefix = first_prefix)
 }
 
 pub async fn help(ctx: &Context, cmds: &CommandGroups, msg: &Message) -> BotResult<()> {

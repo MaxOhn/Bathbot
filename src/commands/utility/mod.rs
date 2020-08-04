@@ -1,6 +1,5 @@
 mod about;
 mod authorities;
-mod avatar;
 mod command_count;
 mod echo;
 mod invite;
@@ -12,7 +11,6 @@ mod role_assign;
 
 pub use about::*;
 pub use authorities::*;
-pub use avatar::*;
 pub use command_count::*;
 pub use echo::*;
 pub use invite::*;

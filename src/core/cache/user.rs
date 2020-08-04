@@ -23,7 +23,7 @@ pub struct CachedUser {
     pub system_user: bool,
     #[serde(rename = "f", default, skip_serializing_if = "is_default")]
     pub public_flags: Option<UserFlags>,
-    #[serde(skip_serializing, deserialize_with = "atomic_u64_default")]
+    #[serde(skip_serializing, deserialize_with = "atomic_u64_default", default)]
     pub mutual_servers: AtomicU64,
 }
 

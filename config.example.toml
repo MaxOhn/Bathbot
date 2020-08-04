@@ -1,7 +1,8 @@
 bg_path = "path/to/bg/folder"
 map_path = "path/to/folder/containing/.osu/files"
 perf_calc_path = "path/to/osu-tools/PerformanceCalculator/bin/Release/netcoreapp3.1/PerformanceCalculator.dll"
-metric_server = [127, 0, 0, 1]
+metric_server_ip = [127, 0, 0, 1]
+metric_server_port = 9091
 
 [tokens]
 discord = ""

@@ -2,6 +2,7 @@ mod common;
 mod leaderboard;
 mod link;
 mod map;
+mod avatar;
 mod match_costs;
 mod most_played;
 mod most_played_common;
@@ -20,6 +21,7 @@ mod simulate_recent;
 mod top;
 mod whatif;
 
+pub use avatar::*;
 pub use common::*;
 pub use leaderboard::*;
 pub use link::*;
