@@ -5,7 +5,7 @@ use crate::{
         constants::{INVITE_LINK, OWNER_USER_ID},
         datetime::how_long_ago,
         discord_avatar,
-        numbers::round,
+        numbers::{round, with_comma_int},
     },
     BotResult, Context,
 };
@@ -64,13 +64,17 @@ impl AboutEmbed {
         let footer = Footer::new(format!("Owner: {}#{}", owner.name, owner.discriminator))
             .icon_url(discord_avatar(owner.id, owner.avatar.as_deref().unwrap()));
         let fields = vec![
-            ("Guilds".to_owned(), guilds.to_string(), true),
+            ("Guilds".to_owned(), with_comma_int(guilds as u64), true),
             (
                 "Users (unique)".to_owned(),
-                format!("{} ({})", total_users, unique_users),
+                format!(
+                    "{} ({})",
+                    with_comma_int(total_users as u64),
+                    with_comma_int(unique_users as u64)
+                ),
                 true,
             ),
-            ("Channels".to_owned(), channels.to_string(), true),
+            ("Channels".to_owned(), with_comma_int(channels as u64), true),
             ("Shards".to_owned(), shards.to_string(), true),
             ("Process CPU".to_owned(), format!("{}%", process_cpu), true),
             ("Total CPU".to_owned(), format!("{}%", total_cpu), true),

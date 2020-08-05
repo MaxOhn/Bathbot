@@ -85,16 +85,15 @@ async fn async_main() -> BotResult<()> {
     .await?;
 
     // Connect to the discord http client
-    let mut builder = HttpClient::builder();
-    builder
+    let http = HttpClient::builder()
         .token(&CONFIG.get().unwrap().tokens.discord)
         .default_allowed_mentions(
             AllowedMentionsBuilder::new()
                 .parse_users()
                 .parse_roles()
                 .build_solo(),
-        );
-    let http = builder.build()?;
+        )
+        .build()?;
     let bot_user = http.current_user().await?;
     info!(
         "Connecting to Discord as {}#{}...",
@@ -164,7 +163,7 @@ async fn run(
             | GatewayIntents::DIRECT_MESSAGES
             | GatewayIntents::DIRECT_MESSAGE_REACTIONS,
     );
-    let stats = Arc::new(BotStats::new());
+    let stats = Arc::new(BotStats::new(clients.osu.metrics()));
 
     // Provide stats to locale address
     let metrics_stats = stats.clone();

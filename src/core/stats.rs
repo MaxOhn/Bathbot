@@ -68,11 +68,12 @@ pub struct BotStats {
     pub channel_count: IntGauge,
     pub guild_counts: GuildCounters,
     pub command_counts: IntCounterVec,
+    pub osu_metrics: IntCounterVec,
 }
 
 impl BotStats {
     #[rustfmt::skip]
-    pub fn new() -> Self {
+    pub fn new(osu_metrics: IntCounterVec) -> Self {
         let event_counter = IntCounterVec::new(Opts::new("gateway_events", "Events received from the gateway"), &["events"]).unwrap();
         let message_counter =IntCounterVec::new(Opts::new("messages", "Recieved messages"), &["sender_type"]).unwrap();
         let user_counter =IntGaugeVec::new(Opts::new("user_counts", "User counts"), &["type"]).unwrap();
@@ -91,6 +92,7 @@ impl BotStats {
         registry.register(Box::new(channel_count.clone())).unwrap();
         registry.register(Box::new(guild_counter.clone())).unwrap();
         registry.register(Box::new(command_counts.clone())).unwrap();
+        registry.register(Box::new(osu_metrics.clone())).unwrap();
         Self {
             registry,
             start_time: Utc::now(),
@@ -143,6 +145,7 @@ impl BotStats {
                 disconnected: shard_counter.get_metric_with_label_values(&["Disconnected"]).unwrap(),
             },
             command_counts,
+            osu_metrics,
         }
     }
 
