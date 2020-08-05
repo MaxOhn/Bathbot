@@ -41,11 +41,12 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
     format!("{}\n__**General**__\n\
         - Most commands have (shorter) aliases, e.g. `{prefix}glb` instead of `{prefix}globalleaderboard`. \
         To check those out or get more info about a command in general, \
-        just pass the command as argument i.e. __**`{prefix}help command`**__.\n\
+        just pass the command as argument e.g. __**`{prefix}help globalleaderboard`**__.\n\
         - If you want to specify an argument, e.g. a username, that contains \
         spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
         - If you used `{prefix}link osuname`, you can ommit the osu username for any command that needs one.\n\
         - If you react with :x: to my response, I will delete it.\n\
+        - ~~`Strikethrough`~~ commands indicate that you lack authority status in the server.\n\
         __**Mods for osu!**__
         Many commands allow you to specify mods. You can do so with `+mods` \
         for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods. For example:\n\
@@ -56,7 +57,12 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         \n__**These are all commands:**__", prefix_desc, prefix = first_prefix)
 }
 
-pub async fn help(ctx: &Context, cmds: &CommandGroups, msg: &Message) -> BotResult<()> {
+pub async fn help(
+    ctx: &Context,
+    cmds: &CommandGroups,
+    msg: &Message,
+    is_authority: bool,
+) -> BotResult<()> {
     let channel = match ctx.http.create_private_channel(msg.author.id).await {
         Ok(channel) => channel,
         Err(why) => {
@@ -87,7 +93,12 @@ pub async fn help(ctx: &Context, cmds: &CommandGroups, msg: &Message) -> BotResu
             .sum();
         let mut value = String::with_capacity(len);
         for &cmd in &group.commands {
-            writeln!(value, "`{}`: {}", cmd.names[0], cmd.short_desc)?;
+            if cmd.authority && !is_authority {
+                write!(value, "~~`{}`~~", cmd.names[0])?;
+            } else {
+                write!(value, "`{}`", cmd.names[0])?;
+            }
+            writeln!(value, ": {}", cmd.short_desc)?;
         }
         debug_assert!(value.len() < FIELD_VALUE_SIZE);
         let size_addition = group.name.len() + value.len();
@@ -148,13 +159,13 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
             fb.inline().commit()
         };
     }
-    if !cmd.examples.is_empty() {
+    let mut examples = cmd.examples.iter();
+    if let Some(first) = examples.next() {
         let len: usize = cmd.examples.iter().map(|&e| name.len() + e.len() + 4).sum();
         let mut value = String::with_capacity(len);
-        let mut examples = cmd.examples.iter();
         let mut example_len = 0;
         let cmd_len = prefix.chars().count() + name.chars().count();
-        writeln!(value, "`{}{} {}`", prefix, name, examples.next().unwrap())?;
+        writeln!(value, "`{}{} {}`", prefix, name, first)?;
         for example in examples {
             writeln!(value, "`{}{} {}`", prefix, name, example)?;
             example_len = example_len.max(cmd_len + example.chars().count());
@@ -168,11 +179,11 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
             fb.inline().commit()
         };
     }
-    if cmd.names.len() > 1 {
+    let mut aliases = cmd.names.iter().skip(1);
+    if let Some(first) = aliases.next() {
         let len: usize = cmd.names.iter().skip(1).map(|n| 4 + n.len()).sum();
         let mut value = String::with_capacity(len);
-        let mut aliases = cmd.names.iter().skip(1);
-        write!(value, "`{}`", aliases.next().unwrap())?;
+        write!(value, "`{}`", first)?;
         for &alias in aliases {
             write!(value, ", `{}`", alias)?;
         }
@@ -182,13 +193,9 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
         let value = if let Some(guild_id) = msg.guild_id {
             let authorities = ctx.config_authorities(guild_id);
             let mut value = "You need admin permission".to_owned();
-            if !authorities.is_empty() {
-                let mut iter = authorities.iter();
-                let _ = write!(
-                    value,
-                    " or any of these roles: <@&{}>",
-                    iter.next().unwrap()
-                );
+            let mut iter = authorities.iter();
+            if let Some(first) = iter.next() {
+                let _ = write!(value, " or any of these roles: <@&{}>", first);
                 for role in iter {
                     let _ = write!(value, ", <@&{}>", role);
                 }

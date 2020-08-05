@@ -20,6 +20,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
 
     let mut online_streams = HashSet::new();
     let mut interval = time::interval(time::Duration::from_secs(10 * 60));
+    interval.tick().await;
     loop {
         interval.tick().await;
         let now_online = {

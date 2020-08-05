@@ -79,10 +79,11 @@ impl Pagination for RecentPagination {
         // Minimize embed
         let msg = self.msg();
         let embed = self.embed_data.minimize().build();
-        ctx.http
+        let _ = ctx
+            .http
             .update_message(msg.channel_id, msg.id)
             .embed(embed)?
-            .await?;
+            .await;
 
         // Put missing maps into DB
         if self.maps.len() > self.maps_in_db.len() {

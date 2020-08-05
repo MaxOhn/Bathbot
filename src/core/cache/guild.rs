@@ -1,7 +1,5 @@
 use super::is_default;
-use crate::core::cache::{
-    Cache, CachedChannel, CachedEmoji, CachedMember, CachedRole, ColdStorageMember,
-};
+use crate::core::cache::{Cache, CachedChannel, CachedEmoji, CachedMember, CachedRole};
 
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
@@ -105,9 +103,10 @@ impl CachedGuild {
             guild.roles.insert(role.id, Arc::new(role));
         }
         for member in cold_guild.members {
-            guild
-                .members
-                .insert(member.id, Arc::new(CachedMember::defrost(member, cache)));
+            if let Some(user) = cache.get_user(member.user_id) {
+                user.mutual_servers.fetch_add(1, Ordering::SeqCst);
+            }
+            guild.members.insert(member.user_id, Arc::new(member));
         }
         for channel in cold_guild.channels {
             guild.channels.insert(channel.get_id(), Arc::new(channel));
@@ -145,42 +144,6 @@ impl CachedGuild {
         guild
     }
 
-    #[allow(dead_code)]
-    pub fn member_named(&self, name: &str) -> Option<Arc<CachedMember>> {
-        let (name, discrim) = if let Some(pos) = name.rfind('#') {
-            let split = name.split_at(pos + 1);
-            let split2 = (
-                match split.0.get(0..split.0.len() - 1) {
-                    Some(s) => s,
-                    None => "",
-                },
-                split.1,
-            );
-            match split2.1.parse::<u16>() {
-                Ok(discrim_int) => (split2.0, Some(discrim_int)),
-                Err(_) => (name, None),
-            }
-        } else {
-            (&name[..], None)
-        };
-        let mut nick = None;
-        for guard in &self.members {
-            let member = guard.value();
-            let name_matches = member.user.username == name;
-            let discrim_matches = match discrim {
-                Some(discrim) => member.user.discriminator == discrim,
-                None => true,
-            };
-            if name_matches && discrim_matches {
-                return Some(member.clone());
-            }
-            if nick.is_none() && member.nickname.as_ref().map_or(false, |nick| nick == name) {
-                nick = Some(member.clone());
-            }
-        }
-        nick
-    }
-
     pub fn get_role(&self, role_id: RoleId) -> Option<Arc<CachedRole>> {
         self.roles.get(&role_id).map(|guard| guard.value().clone())
     }
@@ -203,7 +166,7 @@ pub struct ColdStorageGuild {
     #[serde(rename = "n", default, skip_serializing_if = "is_default")]
     pub features: Vec<String>,
     #[serde(rename = "o")]
-    pub members: Vec<ColdStorageMember>,
+    pub members: Vec<CachedMember>,
     #[serde(rename = "p")]
     pub channels: Vec<CachedChannel>,
     #[serde(rename = "q", default, skip_serializing_if = "is_default")]
@@ -218,36 +181,30 @@ pub struct ColdStorageGuild {
 
 impl From<Arc<CachedGuild>> for ColdStorageGuild {
     fn from(guild: Arc<CachedGuild>) -> Self {
-        let mut csg = ColdStorageGuild {
-            id: guild.id,
-            name: guild.name.clone(),
-            icon: guild.icon.clone(),
-            owner_id: guild.owner_id,
-            roles: vec![],
-            emoji: vec![],
-            features: guild.features.clone(),
-            members: vec![],
-            channels: vec![],
-            max_presences: guild.max_presences,
-            max_members: guild.max_members,
-            description: guild.description.clone(),
-            preferred_locale: guild.preferred_locale.clone(),
-        };
-        for role in &guild.roles {
-            csg.roles.push(CachedRole::from(role.value().clone()));
-        }
+        let roles = guild
+            .roles
+            .iter()
+            .map(|guard| CachedRole::from(guard.value().clone()))
+            .collect();
         guild.roles.clear();
 
-        for emoji in &guild.emoji {
-            csg.emoji.push(emoji.as_ref().clone());
-        }
-        for member in &guild.members {
-            csg.members
-                .push(ColdStorageMember::from(member.value().clone()));
-        }
+        let emoji = guild
+            .emoji
+            .iter()
+            .map(|emoji| emoji.as_ref().clone())
+            .collect();
+
+        let members = guild
+            .members
+            .iter()
+            .map(|member| member.duplicate())
+            .collect();
         guild.members.clear();
-        for channel in &guild.channels {
-            csg.channels.push(match channel.as_ref() {
+
+        let channels = guild
+            .channels
+            .iter()
+            .map(|channel| match channel.as_ref() {
                 CachedChannel::TextChannel {
                     id,
                     guild_id,
@@ -319,8 +276,23 @@ impl From<Arc<CachedGuild>> for ColdStorageGuild {
                     parent_id: *parent_id,
                     permission_overrides: permission_overrides.clone(),
                 },
-            });
+            })
+            .collect();
+
+        ColdStorageGuild {
+            id: guild.id,
+            name: guild.name.clone(),
+            icon: guild.icon.clone(),
+            owner_id: guild.owner_id,
+            roles,
+            emoji,
+            features: guild.features.clone(),
+            members,
+            channels,
+            max_presences: guild.max_presences,
+            max_members: guild.max_members,
+            description: guild.description.clone(),
+            preferred_locale: guild.preferred_locale.clone(),
         }
-        csg
     }
 }

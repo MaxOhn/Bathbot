@@ -176,9 +176,7 @@ async fn recent_main(
                 .embed(data.minimize().build());
             match embed_result {
                 Ok(m) => {
-                    if let Err(why) = m.await {
-                        warn!("Error while minimizing `recent`: {}", why);
-                    }
+                    let _ = m.await;
                 }
                 Err(why) => warn!("Error while creating `recent` minimize embed: {}", why),
             }

@@ -15,7 +15,7 @@ use std::{cmp::Ordering, collections::HashMap, fmt::Write, sync::Arc};
 use twilight::model::channel::Message;
 
 #[command]
-#[short_desc("Display performance rating for a multiplayer match")]
+#[short_desc("Display performance ratings for a multiplayer match")]
 #[long_desc(
     "Calculate a performance rating for each player \
      in the given multiplayer match. The optional second \

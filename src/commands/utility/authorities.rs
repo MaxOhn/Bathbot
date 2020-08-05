@@ -1,6 +1,9 @@
 use crate::{
     bail,
-    util::{constants::GENERAL_ISSUE, content_safe, matcher, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OWNER_USER_ID},
+        content_safe, matcher, MessageExt,
+    },
     Args, BotResult, Context,
 };
 
@@ -64,7 +67,7 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
     }
 
     // Make sure the author is still an authority after applying new roles
-    if !ctx.cache.is_guild_owner(guild_id, msg.author.id) {
+    if !(ctx.cache.is_guild_owner(guild_id, msg.author.id) || msg.author.id.0 == OWNER_USER_ID) {
         let mut member_roles = match ctx.cache.get_member(msg.author.id, guild_id) {
             Some(member) => member.roles.clone(),
             None => {

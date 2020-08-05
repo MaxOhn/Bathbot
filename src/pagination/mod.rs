@@ -88,19 +88,8 @@ pub trait Pagination: Sync + Sized {
         };
         while let Some(Ok(reaction)) = reaction_stream.next().await {
             match self.next_page(reaction.0, ctx).await {
-                Ok(Some(data)) => {
-                    let msg = self.msg();
-                    let mut update = ctx.http.update_message(msg.channel_id, msg.id);
-                    if let Some(content) = self.content() {
-                        update = update.content(content)?;
-                    }
-                    let mut eb = data.build();
-                    if let Some(thumbnail) = self.thumbnail() {
-                        eb = eb.thumbnail(thumbnail);
-                    }
-                    update.embed(eb.build())?.await?;
-                }
-                Ok(None) => {}
+                Ok(Some(PageChange::Delete)) => return Ok(()),
+                Ok(_) => {}
                 Err(why) => warn!("Error while paginating: {}", why),
             }
         }
@@ -125,23 +114,31 @@ pub trait Pagination: Sync + Sized {
         &mut self,
         reaction: Reaction,
         ctx: &Context,
-    ) -> BotResult<Option<Self::PageData>> {
+    ) -> BotResult<Option<PageChange>> {
         if let ReactionType::Unicode { name: reaction } = reaction.emoji {
-            return match self.process_reaction(reaction.as_str()) {
-                PageChange::None => Ok(None),
+            let result = self.process_reaction(reaction.as_str());
+            match result {
+                PageChange::None => {}
                 PageChange::Change => {
-                    let data = self.build_page().await.map(Some);
-                    if let Ok(Some(ref data)) = data {
-                        self.process_data(data);
+                    let data = self.build_page().await?;
+                    self.process_data(&data);
+                    let msg = self.msg();
+                    let mut update = ctx.http.update_message(msg.channel_id, msg.id);
+                    if let Some(content) = self.content() {
+                        update = update.content(content)?;
                     }
-                    data
+                    let mut eb = data.build();
+                    if let Some(thumbnail) = self.thumbnail() {
+                        eb = eb.thumbnail(thumbnail);
+                    }
+                    update.embed(eb.build())?.await?;
                 }
                 PageChange::Delete => {
                     let msg = self.msg();
                     ctx.http.delete_message(msg.channel_id, msg.id).await?;
-                    Ok(None)
                 }
-            };
+            }
+            return Ok(Some(result));
         }
         Ok(None)
     }

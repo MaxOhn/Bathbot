@@ -86,14 +86,12 @@ async fn simulate_recent_main(
     tokio::spawn(async move {
         time::delay_for(Duration::from_secs(45)).await;
         let embed = data.minimize().build();
-        let edit_fut = ctx
+        let _ = ctx
             .http
             .update_message(response.channel_id, response.id)
             .embed(embed)
-            .unwrap();
-        if let Err(why) = edit_fut.await {
-            warn!("Error while minimizing simulate recent msg: {}", why);
-        }
+            .unwrap()
+            .await;
     });
     Ok(())
 }

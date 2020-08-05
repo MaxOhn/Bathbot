@@ -36,7 +36,6 @@ use hyper::{
 use prometheus::{Encoder, TextEncoder};
 use rosu::Osu;
 use std::{
-    collections::HashMap,
     convert::Infallible,
     process,
     str::FromStr,
@@ -328,21 +327,25 @@ async fn attempt_cold_resume(
     shards_per_cluster: u64,
 ) -> BotResult<(ClusterConfigBuilder, bool)> {
     let mut connection = redis.get().await;
-    if let Some(d) = connection.get("cb_cluster_data").await.ok().flatten() {
+    let key = "cb_cluster_data";
+    if let Some(d) = connection.get(key).await.ok().flatten() {
         let cold_cache: ColdRebootData = serde_json::from_str(&*String::from_utf8(d).unwrap())?;
         debug!("ColdRebootData:\n{:#?}", cold_cache);
-        connection.del("cb_cluster_data").await?;
+        connection.del(key).await?;
         if cold_cache.total_shards == total_shards && cold_cache.shard_count == shards_per_cluster {
-            let mut map = HashMap::new();
-            for (id, data) in cold_cache.resume_data {
-                map.insert(
-                    id,
-                    ResumeSession {
-                        session_id: data.0,
-                        sequence: data.1,
-                    },
-                );
-            }
+            let map = cold_cache
+                .resume_data
+                .into_iter()
+                .map(|(id, data)| {
+                    (
+                        id,
+                        ResumeSession {
+                            session_id: data.0,
+                            sequence: data.1,
+                        },
+                    )
+                })
+                .collect();
             let start = Instant::now();
             let result = cache
                 .restore_cold_resume(redis, cold_cache.guild_chunks, cold_cache.user_chunks)

@@ -110,7 +110,10 @@ pub async fn handle_event(
                 Invoke::SubCommand { sub, .. } => {
                     process_command(sub, ctx.clone(), msg, stream).await
                 }
-                Invoke::Help(None) => help(&ctx, &cmds, msg).await,
+                Invoke::Help(None) => {
+                    let is_authority = check_authority(&ctx, msg).transpose().is_none();
+                    help(&ctx, &cmds, msg, is_authority).await
+                }
                 Invoke::Help(Some(cmd)) => help_command(&ctx, cmd, msg).await,
                 Invoke::FailedHelp(arg) => failed_help(&ctx, arg, &cmds, msg).await,
                 Invoke::UnrecognisedCommand(_name) => unreachable!(),

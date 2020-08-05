@@ -197,18 +197,16 @@ impl Cache {
         let user_defrosters: Vec<_> = (0..user_chunks)
             .map(|i| self.defrost_users(redis, i))
             .collect();
-        for result in future::join_all(user_defrosters).await {
-            if let Err(why) = result {
-                return Err(Error::CacheDefrost("users", Box::new(why)));
-            }
+        let results = future::join_all(user_defrosters).await;
+        if let Some(Err(why)) = results.into_iter().find(|r| r.is_err()) {
+            return Err(Error::CacheDefrost("users", Box::new(why)));
         }
         let guild_defrosters: Vec<_> = (0..guild_chunks)
             .map(|i| self.defrost_guilds(redis, i))
             .collect();
-        for result in future::join_all(guild_defrosters).await {
-            if let Err(why) = result {
-                return Err(Error::CacheDefrost("guilds", Box::new(why)));
-            }
+        let results = future::join_all(guild_defrosters).await;
+        if let Some(Err(why)) = results.into_iter().find(|r| r.is_err()) {
+            return Err(Error::CacheDefrost("guilds", Box::new(why)));
         }
         self.filling.store(false, Ordering::SeqCst);
         info!(

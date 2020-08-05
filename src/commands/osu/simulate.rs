@@ -116,14 +116,12 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     tokio::spawn(async move {
         time::delay_for(Duration::from_secs(45)).await;
         let embed = data.minimize().build();
-        let edit_fut = ctx
+        let _ = ctx
             .http
             .update_message(response.channel_id, response.id)
             .embed(embed)
-            .unwrap();
-        if let Err(why) = edit_fut.await {
-            warn!("Error while minimizing simulate msg: {}", why);
-        }
+            .unwrap()
+            .await;
     });
     Ok(())
 }

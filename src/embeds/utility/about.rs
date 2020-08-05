@@ -1,5 +1,6 @@
 use crate::{
     embeds::{EmbedData, Footer},
+    format_err,
     util::{
         constants::{INVITE_LINK, OWNER_USER_ID},
         datetime::how_long_ago,
@@ -26,8 +27,11 @@ impl AboutEmbed {
         let (process_cpu, process_ram, total_cpu, used_ram, total_ram) = {
             let mut system = System::new_all();
             system.refresh_all();
-            let pid = get_current_pid().unwrap();
-            let process = system.get_process(pid).unwrap();
+            let pid = get_current_pid()
+                .map_err(|why| format_err!("Could not get current PID: {}", why))?;
+            let process = system
+                .get_process(pid)
+                .ok_or_else(|| format_err!("No process with PID {}", pid))?;
             let process_cpu = round(process.cpu_usage());
             let process_ram = process.memory() / 1000;
             let processors = system.get_processors();

@@ -10,7 +10,7 @@ mod user;
 pub use channel::CachedChannel;
 pub use emoji::CachedEmoji;
 pub use guild::{CachedGuild, ColdStorageGuild};
-pub use member::{CachedMember, ColdStorageMember};
+pub use member::CachedMember;
 pub use role::CachedRole;
 pub use user::CachedUser;
 
@@ -22,7 +22,11 @@ use crate::{
 use dashmap::DashMap;
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
-    Arc, RwLock,
+    Arc,
+};
+use tokio::{
+    sync::RwLock,
+    time::{timeout, Duration},
 };
 use twilight::gateway::Event;
 use twilight::model::{
@@ -36,7 +40,6 @@ use twilight::model::{
 };
 
 pub struct Cache {
-    //cache
     pub bot_user: CurrentUser,
     pub guilds: DashMap<GuildId, Arc<CachedGuild>>,
     pub guild_channels: DashMap<ChannelId, Arc<CachedChannel>>,
@@ -44,7 +47,6 @@ pub struct Cache {
     pub dm_channels_by_user: DashMap<UserId, Arc<CachedChannel>>,
     pub users: DashMap<UserId, Arc<CachedUser>>,
     pub emoji: DashMap<EmojiId, Arc<CachedEmoji>>,
-    // is this even possible to get accurate across multiple clusters?
     pub filling: AtomicBool,
 
     pub unavailable_guilds: RwLock<Vec<GuildId>>,
@@ -86,16 +88,16 @@ impl Cache {
             Event::Ready(ready) => {
                 self.missing_per_shard
                     .insert(shard_id, AtomicU64::new(ready.guilds.len() as u64));
+                for gid in ready.guilds.keys() {
+                    if let Some(guild) = self.get_guild(*gid) {
+                        self.nuke_guild_cache(&guild)
+                    }
+                }
             }
             Event::GuildCreate(e) => {
                 trace!("Received guild create event for `{}` ({})", e.name, e.id);
                 let cached_guild = self.guilds.get(&e.id);
                 if let Some(cached_guild) = cached_guild {
-                    if !cached_guild.complete.load(Ordering::SeqCst) {
-                        self.stats.guild_counts.partial.dec();
-                    } else {
-                        self.stats.guild_counts.loaded.dec();
-                    }
                     self.nuke_guild_cache(cached_guild.value())
                 }
                 let guild = CachedGuild::from(e.0.clone());
@@ -108,10 +110,15 @@ impl Cache {
                     self.emoji.insert(emoji.id, emoji.clone());
                 }
                 // We dont need this mutable but acquire a write lock regardless to prevent potential deadlocks
-                let mut list = self.unavailable_guilds.write().unwrap();
-                if let Some(index) = list.iter().position(|id| id.0 == guild.id.0) {
-                    list.remove(index);
-                    info!("Guild `{}` ({}) available again", guild.name, guild.id);
+                let list_fut = timeout(Duration::from_secs(5), self.unavailable_guilds.write());
+                match list_fut.await {
+                    Ok(mut list) => {
+                        if let Some(index) = list.iter().position(|id| id.0 == guild.id.0) {
+                            list.remove(index);
+                            info!("Guild `{}` ({}) available again", guild.name, guild.id);
+                        }
+                    }
+                    Err(_) => error!("Timeout while waiting for cache.unavailable_guilds"),
                 }
                 // Trigger member chunk events
                 let data = RequestGuildMembers::new_all(guild.id, None);
@@ -140,13 +147,8 @@ impl Cache {
             }
             Event::GuildDelete(guild) => {
                 if let Some(cached_guild) = self.get_guild(guild.id) {
-                    if !cached_guild.complete.load(Ordering::SeqCst) {
-                        self.stats.guild_counts.partial.dec();
-                    } else {
-                        self.stats.guild_counts.loaded.dec();
-                    }
                     if guild.unavailable {
-                        self.guild_unavailable(&cached_guild);
+                        self.guild_unavailable(&cached_guild).await;
                     }
                     self.nuke_guild_cache(&cached_guild)
                 }
@@ -161,14 +163,26 @@ impl Cache {
                 );
                 match self.get_guild(chunk.guild_id) {
                     Some(guild) => {
+                        let mut count = 0;
                         for (user_id, member) in chunk.members.iter() {
-                            self.get_or_insert_user(&member.user);
-                            let member = CachedMember::from_member(member, self);
-                            member.user.mutual_servers.fetch_add(1, Ordering::SeqCst);
-                            guild.members.insert(*user_id, Arc::new(member));
+                            if !guild.members.contains_key(user_id) {
+                                count += 1;
+                                self.get_or_insert_user(&member.user);
+                                let member = Arc::new(CachedMember::from_member(member));
+                                if let Some(user) = member.user(self) {
+                                    let count = user.mutual_servers.fetch_add(1, Ordering::SeqCst);
+                                    trace!(
+                                        "{} received for {}, they are now in {} mutuals",
+                                        user_id,
+                                        guild.id,
+                                        count,
+                                    );
+                                }
+                                guild.members.insert(*user_id, member);
+                            }
                         }
-                        self.stats.user_counts.total.add(chunk.members.len() as i64);
-                        if (chunk.chunk_count - 1) == chunk.chunk_index && chunk.nonce.is_none() {
+                        self.stats.user_counts.total.add(count);
+                        if chunk.chunk_count - 1 == chunk.chunk_index && chunk.nonce.is_none() {
                             debug!(
                                 "Finished processing chunks for `{}` ({}), {:?} guilds to go...",
                                 guild.name,
@@ -187,13 +201,21 @@ impl Cache {
                                 // this shard is ready
                                 info!("All guilds cached for shard {}", shard_id);
                                 if chunk.nonce.is_none() && self.shard_cached(shard_id) {
-                                    ctx.set_shard_activity(
-                                        shard_id,
-                                        Status::Online,
-                                        ActivityType::Playing,
-                                        "osu!",
-                                    )
-                                    .await?
+                                    let c = ctx.clone();
+                                    tokio::spawn(async move {
+                                        let fut = c.set_shard_activity(
+                                            shard_id,
+                                            Status::Online,
+                                            ActivityType::Playing,
+                                            "osu!",
+                                        );
+                                        if let Err(why) = fut.await {
+                                            error!(
+                                                "Failed to set shard activity for shard {}: {}",
+                                                shard_id, why
+                                            );
+                                        }
+                                    });
                                 }
                             }
                             self.stats.guild_counts.partial.dec();
@@ -268,20 +290,18 @@ impl Cache {
                         GuildChannel::Text(text) => text.guild_id,
                         GuildChannel::Voice(voice) => voice.guild_id,
                     };
-                    match guild_id {
-                        Some(guild_id) => match self.get_guild(guild_id) {
-                            Some(guild) => {
-                                let channel =
-                                    CachedChannel::from_guild_channel(guild_channel, guild.id);
-                                let arced = Arc::new(channel);
-                                guild.channels.insert(arced.get_id(), arced.clone());
-                                self.guild_channels.insert(arced.get_id(), arced);
-                            }
-                            None => warn!(
-                                "Got channel update for guild {} but guild not cached",
-                                guild_id
-                            ),
-                        },
+                    match guild_id.map(|id| self.get_guild(id)) {
+                        Some(Some(guild)) => {
+                            let channel =
+                                CachedChannel::from_guild_channel(guild_channel, guild.id);
+                            let arced = Arc::new(channel);
+                            guild.channels.insert(arced.get_id(), arced.clone());
+                            self.guild_channels.insert(arced.get_id(), arced);
+                        }
+                        Some(None) => warn!(
+                            "Got channel update for guild {} but guild not cached",
+                            guild_id.unwrap()
+                        ),
                         None => warn!("Got channel update for guild type channel without guild id"),
                     }
                 }
@@ -298,19 +318,23 @@ impl Cache {
                             GuildChannel::Voice(voice) => (voice.guild_id, voice.id),
                             GuildChannel::Category(category) => (category.guild_id, category.id),
                         };
-                        match guild_id {
-                            Some(guild_id) => match self.get_guild(guild_id) {
-                                Some(guild) => {
-                                    guild.channels.remove(&channel_id);
-                                    self.stats.channel_count.dec();
-                                }
-                                None => {
-                                    warn!("Got channel delete event for channel {} for guild {} but guild not cached", channel_id, guild_id);
-                                }
-                            },
-                            None => {
-                                warn!("Got channel delete event for channel {} of some guild but without guild id", channel_id);
+                        match guild_id.map(|id| self.get_guild(id)) {
+                            Some(Some(guild)) => {
+                                self.guild_channels.remove(&channel_id);
+                                guild.channels.remove(&channel_id);
+                                self.stats.channel_count.dec();
                             }
+                            Some(None) => warn!(
+                                "Got channel delete event for channel {} \
+                                for guild {} but guild not cached",
+                                channel_id,
+                                guild_id.unwrap()
+                            ),
+                            None => warn!(
+                                "Got channel delete event for channel {} \
+                                of some guild but without guild id",
+                                channel_id
+                            ),
                         }
                     }
                     // Do these even ever get deleted?
@@ -324,11 +348,13 @@ impl Cache {
             }
 
             Event::MemberAdd(event) => {
-                debug!("{} joined {}", event.user.id, event.guild_id);
+                trace!("{} joined {}", event.user.id, event.guild_id);
                 match self.get_guild(event.guild_id) {
                     Some(guild) => {
-                        let member = CachedMember::from_member(&event.0, &self);
-                        member.user.mutual_servers.fetch_add(1, Ordering::SeqCst);
+                        let member = CachedMember::from_member(&event.0);
+                        if let Some(user) = member.user(self) {
+                            user.mutual_servers.fetch_add(1, Ordering::SeqCst);
+                        }
                         guild.members.insert(event.user.id, Arc::new(member));
                         guild.member_count.fetch_add(1, Ordering::Relaxed);
                         self.stats.user_counts.total.inc();
@@ -340,7 +366,7 @@ impl Cache {
                 }
             }
             Event::MemberUpdate(event) => {
-                debug!("Member {} updated in {}", event.user.id, event.guild_id);
+                trace!("Member {} updated in {}", event.user.id, event.guild_id);
                 match ctx.cache.get_guild(event.guild_id) {
                     Some(guild) => {
                         match ctx.cache.get_user(event.user.id) {
@@ -348,10 +374,12 @@ impl Cache {
                                 if !user.is_same_as(&event.user) {
                                     // Just update the global cache if it's different
                                     // we will receive an event for all mutual servers if the inner user changed
-                                    ctx.cache.users.insert(
-                                        event.user.id,
-                                        Arc::new(CachedUser::from_user(&event.user)),
+                                    let new_user = Arc::new(CachedUser::from_user(&event.user));
+                                    new_user.mutual_servers.store(
+                                        user.mutual_servers.load(Ordering::SeqCst),
+                                        Ordering::SeqCst,
                                     );
+                                    ctx.cache.users.insert(event.user.id, new_user);
                                 }
                             }
                             None => {
@@ -370,8 +398,8 @@ impl Cache {
                             .map(|guard| guard.value().clone());
                         match member {
                             Some(member) => {
-                                let updated = member.update(&*event, &ctx.cache);
-                                guild.members.insert(member.user.id, Arc::new(updated));
+                                let updated = member.update(&*event);
+                                guild.members.insert(member.user_id, Arc::new(updated));
                             }
                             None => {
                                 if guild.complete.load(Ordering::SeqCst) {
@@ -379,13 +407,17 @@ impl Cache {
                                         "Received member update for unknown member {} in guild {}",
                                         event.user.id, guild.id
                                     );
-                                    let data = RequestGuildMembers::new_single_user_with_nonce(
-                                        guild.id,
-                                        event.user.id,
-                                        None,
-                                        Some(String::from("missing_user")),
-                                    );
-                                    let _ = ctx.backend.cluster.command(shard_id, &data).await;
+                                    let user = event.user.id;
+                                    let guild_id = guild.id;
+                                    tokio::spawn(async move {
+                                        let data = RequestGuildMembers::new_single_user_with_nonce(
+                                            guild_id,
+                                            user,
+                                            None,
+                                            Some(String::from("missing_user")),
+                                        );
+                                        let _ = ctx.backend.cluster.command(shard_id, &data).await;
+                                    });
                                 }
                             }
                         }
@@ -399,13 +431,15 @@ impl Cache {
                 };
             }
             Event::MemberRemove(event) => {
-                debug!("{} left {}", event.user.id, event.guild_id);
+                trace!("{} left {}", event.user.id, event.guild_id);
                 match self.get_guild(event.guild_id) {
                     Some(guild) => match guild.members.remove(&event.user.id) {
                         Some((_, member)) => {
-                            let servers = member.user.mutual_servers.fetch_sub(1, Ordering::SeqCst);
-                            if servers == 1 {
-                                self.users.remove(&member.user.id);
+                            let user = member.user(self);
+                            if let Some(1) =
+                                user.map(|u| u.mutual_servers.fetch_sub(1, Ordering::SeqCst))
+                            {
+                                self.users.remove(&member.user_id);
                                 self.stats.user_counts.unique.dec();
                             }
                             self.stats.user_counts.total.dec();
@@ -469,9 +503,9 @@ impl Cache {
         }
         self.stats.channel_count.sub(guild.channels.len() as i64);
         for member in &guild.members {
-            let remaining = member.user.mutual_servers.fetch_sub(1, Ordering::SeqCst);
-            if remaining == 1 {
-                self.users.remove(&member.user.id);
+            let user = member.user(self);
+            if let Some(1) = user.map(|u| u.mutual_servers.fetch_sub(1, Ordering::SeqCst)) {
+                self.users.remove(&member.user_id);
                 self.stats.user_counts.unique.dec();
             }
         }
@@ -481,14 +515,19 @@ impl Cache {
         }
     }
 
-    fn guild_unavailable(&self, guild: &CachedGuild) {
+    async fn guild_unavailable(&self, guild: &CachedGuild) {
         warn!(
             "Guild `{}` ({}) became unavailable due to outage",
             guild.name, guild.id
         );
         self.stats.guild_counts.outage.inc();
-        let mut list = self.unavailable_guilds.write().unwrap();
-        list.push(guild.id);
+        let list_fut = timeout(Duration::from_secs(5), self.unavailable_guilds.write());
+        match list_fut.await {
+            Ok(mut list) => {
+                list.push(guild.id);
+            }
+            Err(_) => error!("Timeout while waiting for cache.unavailable_guilds"),
+        }
     }
 
     pub fn insert_private_channel(&self, private_channel: &PrivateChannel) -> Arc<CachedChannel> {

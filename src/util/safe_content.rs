@@ -103,14 +103,15 @@ fn clean_users(ctx: &Context, s: &mut String, guild: Option<GuildId>) {
                             .get(&UserId(id))
                             .map(|guard| guard.value().clone());
                         if let Some(member) = member {
-                            format!(
-                                "@{}#{:04}",
-                                member
-                                    .nickname
-                                    .as_deref()
-                                    .unwrap_or_else(|| member.user.username.as_str()),
-                                member.user.discriminator
-                            )
+                            let user = member.user(&ctx.cache);
+                            match user {
+                                Some(user) => format!(
+                                    "@{}#{:04}",
+                                    member.nickname.as_deref().unwrap_or_else(|| &user.username),
+                                    user.discriminator
+                                ),
+                                None => String::from("@Unknown-user"),
+                            }
                         } else {
                             "@invalid-user".to_string()
                         }
