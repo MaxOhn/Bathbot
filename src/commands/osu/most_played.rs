@@ -2,7 +2,10 @@ use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, MostPlayedEmbed},
     pagination::{MostPlayedPagination, Pagination},
-    util::{constants::OSU_API_ISSUE, numbers, MessageExt},
+    util::{
+        constants::{OSU_API_ISSUE, OSU_WEB_ISSUE},
+        numbers, MessageExt,
+    },
     BotResult, Context,
 };
 
@@ -37,7 +40,7 @@ async fn mostplayed(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     let maps = match ctx.clients.custom.get_most_played(user.user_id, 50).await {
         Ok(maps) => maps,
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
             return Err(why);
         }
     };

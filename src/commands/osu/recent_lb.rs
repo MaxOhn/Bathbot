@@ -4,7 +4,7 @@ use crate::{
     embeds::{EmbedData, LeaderboardEmbed},
     pagination::{LeaderboardPagination, Pagination},
     util::{
-        constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
         osu::ModSelection,
         MessageExt,
     },
@@ -88,7 +88,7 @@ async fn recent_lb_main(
     let scores = match scores_fut.await {
         Ok(scores) => scores,
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
             return Err(why);
         }
     };

@@ -1,8 +1,8 @@
+mod avatar;
 mod common;
 mod leaderboard;
 mod link;
 mod map;
-mod avatar;
 mod match_costs;
 mod most_played;
 mod most_played_common;
@@ -64,13 +64,14 @@ async fn require_link(ctx: &Context, msg: &Message) -> BotResult<()> {
     msg.error(ctx, content).await
 }
 
+/// Be sure the whitespaces in the given name are __not__ replaced
 async fn get_globals_count(
     ctx: &Context,
     name: &str,
     mode: GameMode,
 ) -> BotResult<BTreeMap<usize, String>> {
     let mut counts = BTreeMap::new();
-    let mut params = OsuStatsParams::new(name.to_owned()).mode(mode);
+    let mut params = OsuStatsParams::new(name).mode(mode);
     let mut get_amount = true;
     for rank in [50, 25, 15, 8, 1].iter() {
         if !get_amount {

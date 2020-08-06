@@ -24,20 +24,16 @@ async fn osustats_main(
     args: Args<'_>,
 ) -> BotResult<()> {
     let name = ctx.get_link(msg.author.id.0);
-    let params = match OsuStatsArgs::new(&ctx, args, name, mode) {
+    let mut params = match OsuStatsArgs::new(&ctx, args, name, mode) {
         Ok(args) => args.params,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
 
-    // Retrieve user and their top global scores
-    let (user_result, scores_result) = tokio::join!(
-        ctx.osu_user(&params.username, mode),
-        ctx.clients.custom.get_global_scores(&params)
-    );
-    let user = match user_result {
+    // Retrieve user
+    let user = match ctx.osu_user(&params.username, mode).await {
         Ok(Some(user)) => user,
         Ok(None) => {
-            let content = format!("User `{}` was not found", params.username);
+            let content = format!("Could not find user `{}`", params.username);
             return msg.error(&ctx, content).await;
         }
         Err(why) => {
@@ -45,7 +41,9 @@ async fn osustats_main(
             return Err(why.into());
         }
     };
-    let (scores, amount) = match scores_result {
+    // Retrieve their top global scores
+    params.username = user.username.clone();
+    let (scores, amount) = match ctx.clients.custom.get_global_scores(&params).await {
         Ok((scores, amount)) => (
             scores
                 .into_iter()
@@ -54,7 +52,8 @@ async fn osustats_main(
             amount,
         ),
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let content = "Some issue with the osustats website, blame bade";
+            let _ = msg.error(&ctx, content).await;
             return Err(why);
         }
     };

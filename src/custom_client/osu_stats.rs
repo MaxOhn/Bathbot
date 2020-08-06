@@ -108,9 +108,9 @@ pub struct OsuStatsParams {
 }
 
 impl OsuStatsParams {
-    pub fn new(username: String) -> Self {
+    pub fn new(username: impl Into<String>) -> Self {
         Self {
-            username,
+            username: username.into(),
             mode: GameMode::STD,
             page: 1,
             rank_min: 1,

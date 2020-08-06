@@ -28,6 +28,7 @@ pub const DEV_GUILD_ID: u64 = 297072529426612224;
 // Error messages
 pub const GENERAL_ISSUE: &str = "Something went wrong, blame bade";
 pub const OSU_API_ISSUE: &str = "Some issue with the osu api, blame bade";
+pub const OSU_WEB_ISSUE: &str = "Some issue with the osu website, DDoS protection?";
 
 // Misc
 pub const SYMBOLS: [&str; 6] = ["♔", "♕", "♖", "♗", "♘", "♙"];

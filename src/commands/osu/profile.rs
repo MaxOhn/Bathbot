@@ -1,7 +1,10 @@
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, ProfileEmbed},
-    util::{constants::OSU_API_ISSUE, MessageExt},
+    util::{
+        constants::OSU_API_ISSUE,
+        MessageExt,
+    },
     BotResult, Context, Error,
 };
 
@@ -37,14 +40,13 @@ async fn profile_main(
         .mode(mode)
         .limit(100)
         .queue(ctx.osu());
-    let (user_result, scores_result, globals_result) = tokio::join!(
+    let join_result = tokio::try_join!(
         ctx.osu_user(&name, mode).map_err(Error::Osu),
         scores_fut.map_err(Error::Osu),
-        super::get_globals_count(&ctx, &name, mode)
     );
-    let user = match user_result {
-        Ok(Some(user)) => user,
-        Ok(None) => {
+    let (user, scores) = match join_result {
+        Ok((Some(user), scores)) => (user, scores),
+        Ok((None, _)) => {
             let content = format!("User `{}` was not found", name);
             return msg.error(&ctx, content).await;
         }
@@ -53,14 +55,7 @@ async fn profile_main(
             return Err(why);
         }
     };
-    let scores = match scores_result {
-        Ok(scores) => scores,
-        Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-            return Err(why);
-        }
-    };
-    let globals_count = match globals_result {
+    let globals_count = match super::get_globals_count(&ctx, &user.username, mode).await {
         Ok(globals_count) => globals_count,
         Err(why) => {
             error!("Error while requesting globals count: {}", why);

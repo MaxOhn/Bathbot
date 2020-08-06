@@ -2,10 +2,9 @@ use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, OsuStatsCountsEmbed},
     util::{constants::OSU_API_ISSUE, MessageExt},
-    BotResult, Context, Error,
+    BotResult, Context,
 };
 
-use futures::future::TryFutureExt;
 use rosu::models::GameMode;
 use std::sync::Arc;
 use twilight::model::channel::Message;
@@ -21,18 +20,22 @@ async fn osustats_main(
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
-    let join_result = tokio::try_join!(
-        ctx.osu_user(&name, mode).map_err(Error::Osu),
-        super::get_globals_count(&ctx, &name, mode)
-    );
-    let (user, counts) = match join_result {
-        Ok((Some(user), counts)) => (user, counts),
-        Ok((None, _)) => {
+    let user = match ctx.osu_user(&name, mode).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
             let content = format!("Could not find user `{}`", name);
             return msg.error(&ctx, content).await;
         }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            return Err(why.into());
+        }
+    };
+    let counts = match super::get_globals_count(&ctx, &user.username, mode).await {
+        Ok(counts) => counts,
+        Err(why) => {
+            let content = "Some issue with the osustats website, blame bade";
+            let _ = msg.error(&ctx, content).await;
             return Err(why);
         }
     };

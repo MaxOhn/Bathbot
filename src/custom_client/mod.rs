@@ -66,12 +66,13 @@ impl CustomClient {
     }
 
     async fn make_request(&self, url: String, site: Site) -> BotResult<Response> {
-        debug!("Scraping url {}", url);
+        debug!("Requesting url {}", url);
         self.ratelimit(site).await;
         let response = self.client.get(&url).send().await?;
         Ok(response.error_for_status()?)
     }
 
+    /// Be sure whitespaces in the username are **not** replaced
     pub async fn get_global_scores(
         &self,
         params: &OsuStatsParams,

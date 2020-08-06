@@ -1,4 +1,7 @@
-use super::{is_default, serde::{deserialize_u16, atomic_u64_default}};
+use super::{
+    is_default,
+    serde::{atomic_u64_default, deserialize_u16},
+};
 
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::AtomicU64;

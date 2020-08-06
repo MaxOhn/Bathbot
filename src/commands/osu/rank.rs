@@ -1,7 +1,10 @@
 use crate::{
     arguments::{Args, RankArgs},
     embeds::{EmbedData, RankEmbed},
-    util::{constants::OSU_API_ISSUE, MessageExt},
+    util::{
+        constants::{OSU_API_ISSUE, OSU_WEB_ISSUE},
+        MessageExt,
+    },
     BotResult, Context,
 };
 
@@ -46,7 +49,7 @@ async fn rank_main(
     let rank_holder_id = match rank_holder_id_result {
         Ok(id) => id,
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
             return Err(why);
         }
     };
