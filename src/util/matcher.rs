@@ -123,9 +123,10 @@ lazy_static! {
 }
 
 lazy_static! {
-    static ref OSU_URL_MAP_NEW_MATCHER: Regex =
-        Regex::new(r"https://osu.ppy.sh/beatmapsets/(\d+)(?:#(?:osu|mania|taiko|fruits)/(\d+))?")
-            .unwrap();
+    static ref OSU_URL_MAP_NEW_MATCHER: Regex = Regex::new(
+        r"https://osu.ppy.sh/beatmapsets/(\d+)(?:(?:#(?:osu|mania|taiko|fruits)|<#\d+>)/(\d+))?"
+    )
+    .unwrap();
 }
 
 lazy_static! {

@@ -88,7 +88,7 @@ pub trait Pagination: Sync + Sized {
         };
         while let Some(Ok(reaction)) = reaction_stream.next().await {
             match self.next_page(reaction.0, ctx).await {
-                Ok(Some(PageChange::Delete)) => return Ok(()),
+                Ok(PageChange::Delete) => return Ok(()),
                 Ok(_) => {}
                 Err(why) => warn!("Error while paginating: {}", why),
             }
@@ -110,11 +110,7 @@ pub trait Pagination: Sync + Sized {
         }
         self.final_processing(ctx).await
     }
-    async fn next_page(
-        &mut self,
-        reaction: Reaction,
-        ctx: &Context,
-    ) -> BotResult<Option<PageChange>> {
+    async fn next_page(&mut self, reaction: Reaction, ctx: &Context) -> BotResult<PageChange> {
         if let ReactionType::Unicode { name: reaction } = reaction.emoji {
             let result = self.process_reaction(reaction.as_str());
             match result {
@@ -138,9 +134,9 @@ pub trait Pagination: Sync + Sized {
                     ctx.http.delete_message(msg.channel_id, msg.id).await?;
                 }
             }
-            return Ok(Some(result));
+            return Ok(result);
         }
-        Ok(None)
+        Ok(PageChange::None)
     }
 
     fn process_reaction(&mut self, reaction: &str) -> PageChange {
@@ -172,28 +168,26 @@ pub trait Pagination: Sync + Sized {
             }
             // Move one index right
             "▶️" => {
-                let next = self.index() + self.single_step();
-                if next <= self.last_index() {
-                    Some(next)
-                } else {
+                if self.index() == self.last_index() {
                     None
+                } else {
+                    Some(self.last_index().min(self.index() + self.single_step()))
                 }
             }
             // Move one page right
             "⏩" => {
-                let next = self.index() + self.multi_step();
-                if next <= self.last_index() {
-                    Some(next)
-                } else {
+                if self.index() == self.last_index() {
                     None
+                } else {
+                    Some(self.last_index().min(self.index() + self.multi_step()))
                 }
             }
             // Move to end
             "⏭️" => {
-                if self.index() < self.last_index() {
-                    Some(self.last_index())
-                } else {
+                if self.index() == self.last_index() {
                     None
+                } else {
+                    Some(self.last_index())
                 }
             }
             "❌" => return PageChange::Delete,
