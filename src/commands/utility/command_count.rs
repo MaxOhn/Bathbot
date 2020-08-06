@@ -13,14 +13,7 @@ use twilight::model::channel::Message;
 #[short_desc("List of popular commands")]
 #[long_desc("Let me show you my most popular commands since my last reboot")]
 async fn commands(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
-    let mut cmds = ctx
-        .cache
-        .stats
-        .command_counts
-        .collect()
-        .into_iter()
-        .next()
-        .unwrap()
+    let mut cmds = ctx.cache.stats.command_counts.collect()[0]
         .get_metric()
         .iter()
         .map(|metric| {

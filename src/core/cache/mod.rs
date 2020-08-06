@@ -85,19 +85,10 @@ impl Cache {
 
     pub async fn update(&self, shard_id: u64, event: &Event, ctx: Arc<Context>) -> BotResult<()> {
         match event {
-            Event::Ready(ready) => {
-                self.missing_per_shard
-                    .insert(shard_id, AtomicU64::new(ready.guilds.len() as u64));
-                for gid in ready.guilds.keys() {
-                    if let Some(guild) = self.get_guild(*gid) {
-                        self.nuke_guild_cache(&guild)
-                    }
-                }
-            }
+            Event::Ready(_ready) => {} // Potential memory leak
             Event::GuildCreate(e) => {
                 trace!("Received guild create event for `{}` ({})", e.name, e.id);
-                let cached_guild = self.guilds.get(&e.id);
-                if let Some(cached_guild) = cached_guild {
+                if let Some(cached_guild) = self.guilds.get(&e.id) {
                     self.nuke_guild_cache(cached_guild.value())
                 }
                 let guild = CachedGuild::from(e.0.clone());
@@ -167,17 +158,15 @@ impl Cache {
                         for (user_id, member) in chunk.members.iter() {
                             if !guild.members.contains_key(user_id) {
                                 count += 1;
-                                self.get_or_insert_user(&member.user);
+                                let user = self.get_or_insert_user(&member.user);
                                 let member = Arc::new(CachedMember::from_member(member));
-                                if let Some(user) = member.user(self) {
-                                    let count = user.mutual_servers.fetch_add(1, Ordering::SeqCst);
-                                    trace!(
-                                        "{} received for {}, they are now in {} mutuals",
-                                        user_id,
-                                        guild.id,
-                                        count,
-                                    );
-                                }
+                                let count = user.mutual_servers.fetch_add(1, Ordering::SeqCst);
+                                trace!(
+                                    "User {} received for guild {}, they are now in {} mutuals",
+                                    user_id,
+                                    guild.id,
+                                    count,
+                                );
                                 guild.members.insert(*user_id, member);
                             }
                         }
@@ -187,7 +176,7 @@ impl Cache {
                                 "Finished processing chunks for `{}` ({}), {:?} guilds to go...",
                                 guild.name,
                                 guild.id.0,
-                                self.stats.guild_counts.partial.get()
+                                self.stats.guild_counts.partial.get() - 1
                             );
                             guild.complete.store(true, Ordering::SeqCst);
                             let shard_missing = match self.missing_per_shard.get(&shard_id) {
@@ -326,7 +315,7 @@ impl Cache {
                             }
                             Some(None) => warn!(
                                 "Got channel delete event for channel {} \
-                                for guild {} but guild not cached",
+                                of guild {} but guild not cached",
                                 channel_id,
                                 guild_id.unwrap()
                             ),

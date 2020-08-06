@@ -60,7 +60,7 @@ impl WhatIfEmbed {
                 potential += pp_value * factor;
                 factor *= 0.95;
             }
-            format!(
+            let mut d = format!(
                 "A {pp}pp play would be {name}'s #{num} best play.\n\
                  Their pp would change by **+{pp_change}** to **{new_pp}pp**.",
                 pp = round(pp),
@@ -68,7 +68,12 @@ impl WhatIfEmbed {
                 num = new_pos.unwrap(),
                 pp_change = round(potential + bonus - user.pp_raw),
                 new_pp = round(potential + bonus)
-            )
+            );
+            let top_pp = scores.first().and_then(|s| s.pp).unwrap_or_default();
+            if pp > top_pp * 2.0 {
+                d.push_str("\nThey'd probably also get banned :^)");
+            }
+            d
         };
         Self {
             title,

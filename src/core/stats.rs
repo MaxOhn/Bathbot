@@ -7,9 +7,9 @@ use std::collections::HashMap;
 use twilight::model::{channel::Message, gateway::event::Event};
 
 pub struct EventStats {
+    pub gateway_reconnect: IntCounter,
     pub channel_create: IntCounter,
     pub channel_delete: IntCounter,
-    pub gateway_reconnect: IntCounter,
     pub channel_pins_update: IntCounter,
     pub guild_create: IntCounter,
     pub guild_delete: IntCounter,

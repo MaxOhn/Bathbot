@@ -27,6 +27,9 @@ async fn pp_main(
     if pp < 0.0 {
         let content = "The pp number must be non-negative";
         return msg.error(&ctx, content).await;
+    } else if pp.is_infinite() {
+        let content = "Number too large";
+        return msg.error(&ctx, content).await;
     }
 
     // Retrieve the user and their top scores
