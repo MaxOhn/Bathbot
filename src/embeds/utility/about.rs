@@ -22,7 +22,11 @@ pub struct AboutEmbed {
 
 impl AboutEmbed {
     pub async fn new(ctx: &Context) -> BotResult<Self> {
-        let owner = ctx.http.user(OWNER_USER_ID).await?.unwrap();
+        let owner = ctx
+            .http
+            .user(OWNER_USER_ID)
+            .await?
+            .ok_or_else(|| format_err!("Cache does not contain user of owner"))?;
 
         let (process_cpu, process_ram, total_cpu, used_ram, total_ram) = {
             let mut system = System::new_all();

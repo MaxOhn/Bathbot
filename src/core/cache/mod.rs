@@ -341,8 +341,13 @@ impl Cache {
                 match self.get_guild(event.guild_id) {
                     Some(guild) => {
                         let member = CachedMember::from_member(&event.0);
-                        if let Some(user) = member.user(self) {
-                            user.mutual_servers.fetch_add(1, Ordering::SeqCst);
+                        match self.get_user(event.user.id) {
+                            Some(user) => {
+                                user.mutual_servers.fetch_add(1, Ordering::SeqCst);
+                            }
+                            None => {
+                                self.get_or_insert_user(&event.user);
+                            }
                         }
                         guild.members.insert(event.user.id, Arc::new(member));
                         guild.member_count.fetch_add(1, Ordering::Relaxed);
@@ -423,16 +428,19 @@ impl Cache {
                 trace!("{} left {}", event.user.id, event.guild_id);
                 match self.get_guild(event.guild_id) {
                     Some(guild) => match guild.members.remove(&event.user.id) {
-                        Some((_, member)) => {
-                            let user = member.user(self);
-                            if let Some(1) =
-                                user.map(|u| u.mutual_servers.fetch_sub(1, Ordering::SeqCst))
-                            {
-                                self.users.remove(&member.user_id);
-                                self.stats.user_counts.unique.dec();
+                        Some((_, member)) => match member.user(self) {
+                            Some(user) => {
+                                if user.mutual_servers.fetch_sub(1, Ordering::SeqCst) == 1 {
+                                    self.users.remove(&member.user_id);
+                                    self.stats.user_counts.unique.dec();
+                                }
+                                self.stats.user_counts.total.dec();
                             }
-                            self.stats.user_counts.total.dec();
-                        }
+                            None => debug!(
+                                "User of member {} not in cache for MemberRemove",
+                                member.user_id
+                            ),
+                        },
                         None => {
                             if guild.complete.load(Ordering::SeqCst) {
                                 warn!("Received member remove event for member that is not in that guild");
@@ -492,10 +500,17 @@ impl Cache {
         }
         self.stats.channel_count.sub(guild.channels.len() as i64);
         for member in &guild.members {
-            let user = member.user(self);
-            if let Some(1) = user.map(|u| u.mutual_servers.fetch_sub(1, Ordering::SeqCst)) {
-                self.users.remove(&member.user_id);
-                self.stats.user_counts.unique.dec();
+            match member.user(self) {
+                Some(user) => {
+                    if user.mutual_servers.fetch_sub(1, Ordering::SeqCst) == 1 {
+                        self.users.remove(&member.user_id);
+                        self.stats.user_counts.unique.dec();
+                    }
+                }
+                None => debug!(
+                    "User of member {} not in cache for nuke_guild_cache",
+                    member.user_id
+                ),
             }
         }
         self.stats.user_counts.total.sub(guild.members.len() as i64);

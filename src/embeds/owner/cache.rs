@@ -25,13 +25,13 @@ impl CacheEmbed {
 
         let _ = writeln!(
             description,
-            "Partial guilds: {}",
-            stats.guild_counts.partial.get()
+            "Loaded guilds: {}",
+            stats.guild_counts.loaded.get()
         );
         let _ = writeln!(
             description,
-            "Loaded guilds: {}",
-            stats.guild_counts.loaded.get()
+            "Partial guilds: {}",
+            stats.guild_counts.partial.get()
         );
         let _ = writeln!(
             description,
@@ -42,22 +42,6 @@ impl CacheEmbed {
         let _ = writeln!(description, "Guild create: {}", events.guild_create.get());
         let _ = writeln!(description, "Guild delete: {}", events.guild_delete.get());
         let _ = writeln!(description, "Guild update: {}\n", events.guild_update.get());
-
-        let _ = writeln!(
-            description,
-            "Channel create: {}",
-            events.channel_create.get()
-        );
-        let _ = writeln!(
-            description,
-            "Channel delete: {}",
-            events.channel_delete.get()
-        );
-        let _ = writeln!(
-            description,
-            "Channel pins: {}\n",
-            events.channel_pins_update.get()
-        );
 
         let _ = writeln!(
             description,
@@ -113,23 +97,6 @@ impl CacheEmbed {
             events.message_update.get()
         );
 
-        let _ = writeln!(description, "Reaction add: {}", events.reaction_add.get());
-        let _ = writeln!(
-            description,
-            "Reaction remove: {}",
-            events.reaction_remove.get()
-        );
-        let _ = writeln!(
-            description,
-            "Reaction remove all: {}",
-            events.reaction_remove_all.get()
-        );
-        let _ = writeln!(
-            description,
-            "Reaction remove emoji: {}\n",
-            events.reaction_remove_emoji.get()
-        );
-
         let _ = writeln!(
             description,
             "Unvailable guilds: {}",
@@ -144,7 +111,7 @@ impl CacheEmbed {
             .iter()
             .map(|guard| (guard.value().members.len(), guard.value().name.clone()))
             .sorted_by(|(a, _), (b, _)| b.cmp(&a))
-            .take(10)
+            .take(15)
             .collect();
 
         let max_name_len = biggest_guilds
@@ -156,7 +123,7 @@ impl CacheEmbed {
         for (members, name) in biggest_guilds {
             let _ = writeln!(
                 guild_value,
-                "{:>len$}: {}",
+                "{:<len$}: {}",
                 name,
                 members,
                 len = max_name_len
@@ -166,18 +133,18 @@ impl CacheEmbed {
         fields.push(("Biggest guilds".to_owned(), guild_value, false));
 
         fields.push((
-            "Private channels".to_owned(),
-            with_comma_int(ctx.cache.private_channels.len() as u64),
-            true,
-        ));
-        fields.push((
             "Users".to_owned(),
             with_comma_int(ctx.cache.users.len() as u64),
             true,
         ));
         fields.push((
-            "Emoji".to_owned(),
-            with_comma_int(ctx.cache.emoji.len() as u64),
+            "Guild channels".to_owned(),
+            with_comma_int(ctx.cache.guild_channels.len() as u64),
+            true,
+        ));
+        fields.push((
+            "Private channels".to_owned(),
+            with_comma_int(ctx.cache.private_channels.len() as u64),
             true,
         ));
 

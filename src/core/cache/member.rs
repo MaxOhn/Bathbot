@@ -41,13 +41,10 @@ impl CachedMember {
     }
 
     pub fn user(&self, cache: &Cache) -> Option<Arc<CachedUser>> {
-        match cache.users.get(&self.user_id) {
-            Some(user) => Some(user.value().clone()),
-            None => {
-                warn!("User of member {} not in cache", self.user_id);
-                None
-            }
-        }
+        cache
+            .users
+            .get(&self.user_id)
+            .map(|guard| guard.value().clone())
     }
 
     pub fn duplicate(&self) -> Self {

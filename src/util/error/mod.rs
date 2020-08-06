@@ -18,7 +18,7 @@ use reqwest::Error as ReqwestError;
 use rosu::OsuError;
 use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
-use std::{error::Error as StdError, fmt};
+use std::{error::Error as StdError, fmt, io::Error as IOError};
 use toml::de::Error as TomlError;
 use twilight::gateway::cluster::Error as ClusterError;
 use twilight::http::{
@@ -55,6 +55,7 @@ pub enum Error {
     Image(ImageError),
     InvalidConfig(TomlError),
     InvalidSession(u64),
+    IO(IOError),
     MapDownload(MapDownloadError),
     NoConfig,
     NoLoggingSpec,
@@ -99,6 +100,7 @@ impl fmt::Display for Error {
                 "gateway invalidated session unrecoverably for shard {}",
                 shard
             ),
+            Self::IO(e) => write!(f, "io error: {}", e),
             Self::MapDownload(e) => write!(f, "error while downloading new map: {}", e),
             Self::NoConfig => f.write_str("config file was not found"),
             Self::NoLoggingSpec => f.write_str("logging config was not found"),
@@ -168,6 +170,12 @@ impl From<ImageError> for Error {
 impl From<MapDownloadError> for Error {
     fn from(e: MapDownloadError) -> Self {
         Error::MapDownload(e)
+    }
+}
+
+impl From<IOError> for Error {
+    fn from(e: IOError) -> Self {
+        Error::IO(e)
     }
 }
 

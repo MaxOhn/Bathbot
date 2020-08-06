@@ -93,7 +93,7 @@ features = ["postgres", "runtime-tokio", "chrono", "macros", "json"]
 [dependencies.tokio]
 version = "0.2"
 default_features = false
-features = ["rt-core", "rt-threaded", "time", "macros", "process", "sync", "stream", "fs"]
+features = ["rt-core", "rt-threaded", "time", "macros", "process", "sync", "stream", "fs", "io-util"]
 
 [dependencies.twilight]
 git = "https://github.com/twilight-rs/twilight"

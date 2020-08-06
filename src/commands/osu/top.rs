@@ -38,6 +38,13 @@ async fn top_main(
             prefix = prefix
         );
         return msg.error(&ctx, content).await;
+    } else if args.has_dash_p {
+        let prefix = ctx.config_first_prefix(msg.guild_id);
+        let content = format!(
+            "`{prefix}top -p`? Try using the arrow reactions instead ;)",
+            prefix = prefix
+        );
+        return msg.error(&ctx, content).await;
     }
     let name = match args.name.take().or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
