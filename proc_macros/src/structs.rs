@@ -157,6 +157,7 @@ pub struct Options {
     pub usage: AsOption<String>,
     pub examples: Vec<String>,
     pub authority: bool,
+    pub owner: bool,
     pub only_guilds: bool,
     pub bucket: AsOption<String>,
     pub sub_commands: Vec<Ident>,

@@ -52,9 +52,9 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         __**Mods for osu!**__
         Many commands allow you to specify mods. You can do so with `+mods` \
         for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods. For example:\n\
-        `-nm!`: scores that are not NoMod\n\
         `+hdhr`: scores that include at least HD and HR\n\
         `+hd!`: only HD scores\n\
+        `-nm!`: scores that are not NoMod\n\
         `-nfsohdez!`: scores that have neither NF, SO, HD, or EZ\n\
         \n__**These are all commands:**__", prefix_desc, prefix = first_prefix)
 }
@@ -94,6 +94,7 @@ pub async fn help(
             .map(|&c| c.names[0].len() + 5 + c.short_desc.len())
             .sum();
         let mut value = String::with_capacity(len);
+        // No owner check so be sure owner commands are in the owner group
         for &cmd in &group.commands {
             if cmd.authority && !is_authority {
                 write!(value, "~~`{}`~~", cmd.names[0])?;
@@ -210,6 +211,12 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
                 .to_owned()
         };
         eb = eb.add_field("Requires authority status", value).commit();
+    }
+    if cmd.owner {
+        eb = eb
+            .author()
+            .name("Can only be used by the bot owner")
+            .commit();
     }
     let footer_text = if cmd.only_guilds || cmd.authority {
         "Only available in guilds"

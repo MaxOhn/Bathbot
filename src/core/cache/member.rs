@@ -44,7 +44,7 @@ impl CachedMember {
         match cache.users.get(&self.user_id) {
             Some(user) => Some(user.value().clone()),
             None => {
-                warn!("User got nuked from the global cache too early!");
+                warn!("User of member {} not in cache", self.user_id);
                 None
             }
         }

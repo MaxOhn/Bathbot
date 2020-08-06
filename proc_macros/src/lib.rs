@@ -42,6 +42,7 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
         match name {
             "example" => options.examples = propagate_err!(attributes::parse(values)),
             "authority" => options.authority = true,
+            "owner" => options.owner = true,
             "only_guilds" => options.only_guilds = true,
             _ => {
                 match_options!(name, values, options, span => [
@@ -63,6 +64,7 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
         examples,
         only_guilds,
         authority,
+        owner,
         bucket,
         sub_commands,
     } = options;
@@ -89,6 +91,7 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
             examples: &[#(#examples),*],
             only_guilds: #only_guilds,
             authority: #authority,
+            owner: #owner,
             bucket: #bucket,
             sub_commands: &[#(&#sub_commands),*],
             fun: #fun_name,

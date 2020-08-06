@@ -1,15 +1,20 @@
+mod checks;
+mod parse;
+
+use checks::{check_authority, check_ratelimit};
+use parse::{find_prefix, parse_invoke, Invoke};
+
 use crate::{
     bail,
     commands::help::{failed_help, help, help_command},
     core::{Command, CommandGroups, Context},
-    util::MessageExt,
+    util::{constants::OWNER_USER_ID, MessageExt},
     Args, BotResult, Error,
 };
 
-use rayon::prelude::*;
-use std::{borrow::Cow, fmt::Write, ops::Deref, sync::Arc};
+use std::{fmt::Write, ops::Deref, sync::Arc};
 use twilight::gateway::Event;
-use twilight::model::{channel::Message, guild::Permissions, id::RoleId};
+use twilight::model::{channel::Message, guild::Permissions};
 use uwl::Stream;
 
 pub async fn handle_event(
@@ -86,7 +91,7 @@ pub async fn handle_event(
             // Get guild / default prefixes
             let prefixes = match msg.guild_id {
                 Some(guild_id) => ctx.config_prefixes(guild_id),
-                None => vec!["<".to_owned()],
+                None => vec![String::from("<")],
             };
 
             // Parse msg content for prefixes
@@ -98,7 +103,7 @@ pub async fn handle_event(
 
             // Parse msg content for commands
             let invoke = parse_invoke(&mut stream, &cmds);
-            if let Invoke::UnrecognisedCommand(_) = invoke {
+            if let Invoke::None = invoke {
                 return Ok(());
             }
 
@@ -112,21 +117,30 @@ pub async fn handle_event(
                 }
                 Invoke::Help(None) => {
                     let is_authority = check_authority(&ctx, msg).transpose().is_none();
-                    help(&ctx, &cmds, msg, is_authority).await
+                    help(&ctx, &cmds, msg, is_authority)
+                        .await
+                        .map(ProcessResult::success)
                 }
-                Invoke::Help(Some(cmd)) => help_command(&ctx, cmd, msg).await,
-                Invoke::FailedHelp(arg) => failed_help(&ctx, arg, &cmds, msg).await,
-                Invoke::UnrecognisedCommand(_name) => unreachable!(),
+                Invoke::Help(Some(cmd)) => help_command(&ctx, cmd, msg)
+                    .await
+                    .map(ProcessResult::success),
+                Invoke::FailedHelp(arg) => failed_help(&ctx, arg, &cmds, msg)
+                    .await
+                    .map(ProcessResult::success),
+                Invoke::None => unreachable!(),
             };
             let name = invoke.name();
 
             // Handle processing result
             match invoke {
-                Invoke::UnrecognisedCommand(_) => {}
+                Invoke::None => {}
                 _ => {
                     ctx.cache.stats.inc_command(name.as_ref());
                     match command_result {
-                        Ok(_) => info!("Processed command `{}`", name),
+                        Ok(ProcessResult::Success) => info!("Processed command `{}`", name),
+                        Ok(process_result) => {
+                            info!("Command `{}` was not processed: {:?}", name, process_result)
+                        }
                         Err(why) => error!("Error while processing command `{}`: {}", name, why),
                     }
                 }
@@ -153,16 +167,40 @@ fn log_invoke(ctx: &Context, msg: &Message) {
     info!("[{}] {}: {}", location, msg.author.name, msg.content);
 }
 
+#[derive(Debug)]
+enum ProcessResult {
+    Success,
+    NoDM,
+    NoSendPermission,
+    Ratelimited,
+    NoOwner,
+    NoAuthority,
+}
+
+impl ProcessResult {
+    fn success(_: ()) -> Self {
+        Self::Success
+    }
+}
+
 async fn process_command(
     cmd: &Command,
     ctx: Arc<Context>,
     msg: &Message,
     stream: Stream<'_>,
-) -> BotResult<()> {
+) -> BotResult<ProcessResult> {
     // Only in guilds?
     if (cmd.authority || cmd.only_guilds) && msg.guild_id.is_none() {
         let content = "That command is only available in guilds";
-        return msg.error(&ctx, content).await;
+        msg.error(&ctx, content).await?;
+        return Ok(ProcessResult::NoDM);
+    }
+
+    // Only for owner?
+    if cmd.owner && msg.author.id.0 != OWNER_USER_ID {
+        let content = "That command can only be used by the bot owner";
+        msg.error(&ctx, content).await?;
+        return Ok(ProcessResult::NoOwner);
     }
 
     // Does bot have sufficient permissions to send response?
@@ -171,7 +209,7 @@ async fn process_command(
             .get_channel_permissions_for(ctx.cache.bot_user.id, msg.channel_id, msg.guild_id);
     if !permissions.contains(Permissions::SEND_MESSAGES) {
         debug!("No SEND_MESSAGE permission, can not respond");
-        return Ok(());
+        return Ok(ProcessResult::NoSendPermission);
     }
 
     // Ratelimited?
@@ -182,7 +220,8 @@ async fn process_command(
                 msg.author.id, cmd.names[0], cooldown,
             );
             let content = format!("Command on cooldown, try again in {} seconds", cooldown);
-            return msg.error(&ctx, content).await;
+            msg.error(&ctx, content).await?;
+            return Ok(ProcessResult::Ratelimited);
         }
     }
 
@@ -195,7 +234,8 @@ async fn process_command(
                     "Non-authority user {} tried using command `{}`",
                     msg.author.id, cmd.names[0]
                 );
-                return msg.error(&ctx, content).await;
+                msg.error(&ctx, content).await?;
+                return Ok(ProcessResult::NoAuthority);
             }
             Err(why) => {
                 let content = "Error while checking authority status";
@@ -212,165 +252,5 @@ async fn process_command(
     let _ = ctx.http.create_typing_trigger(msg.channel_id).await;
 
     // Call command function
-    (cmd.fun)(ctx, msg, args).await
-}
-
-// Is authority -> Ok(None)
-// No authority -> Ok(Some(message to user))
-// Couldn't figure out -> Err()
-fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>> {
-    let guild_id = msg.guild_id.unwrap();
-    let permissions = ctx
-        .cache
-        .get_guild_permissions_for(msg.author.id, msg.guild_id);
-    if permissions.contains(Permissions::ADMINISTRATOR) {
-        return Ok(None);
-    }
-    let auth_roles = ctx.config_authorities_collect(guild_id, RoleId);
-    if auth_roles.is_empty() {
-        let prefix = ctx.config_first_prefix(Some(guild_id));
-        let content = format!(
-            "You need admin permissions to use this command.\n\
-            (`{}help authorities` to adjust authority status for this server)",
-            prefix
-        );
-        return Ok(Some(content));
-    } else if let Some(member) = ctx.cache.get_member(msg.author.id, guild_id) {
-        if !member
-            .roles
-            .par_iter()
-            .any(|role| auth_roles.contains(role))
-        {
-            let roles: Vec<_> = auth_roles
-                .par_iter()
-                .filter_map(|&role| {
-                    ctx.cache.get_role(role, guild_id).map_or_else(
-                        || {
-                            warn!("Role {} not cached for guild {}", role, guild_id);
-                            None
-                        },
-                        |role| Some(role.name.clone()),
-                    )
-                })
-                .collect();
-            let role_len: usize = roles.iter().map(|role| role.len()).sum();
-            let mut content = String::from(
-                "You need either admin permissions or \
-                any of these roles to use this command:\n",
-            );
-            content.reserve_exact(role_len + (roles.len() - 1) * 2);
-            let mut roles = roles.into_iter();
-            content.push_str(&roles.next().unwrap());
-            for role in roles {
-                let _ = write!(content, ", {}", role);
-            }
-            let prefix = ctx.config_first_prefix(Some(guild_id));
-            let _ = write!(
-                content,
-                "\n(`{}help authorities` to adjust authority status for this server)",
-                prefix
-            );
-            return Ok(Some(content));
-        }
-    } else {
-        bail!("member {} not cached for guild {}", msg.author.id, guild_id);
-    }
-    Ok(None)
-}
-
-async fn check_ratelimit(ctx: &Context, msg: &Message, bucket: &str) -> Option<i64> {
-    let rate_limit = {
-        let guard = match ctx.buckets.get(bucket) {
-            Some(guard) => guard,
-            None => {
-                error!("No bucket called `{}`", bucket);
-                return None;
-            }
-        };
-        let mutex = guard.value();
-        let mut bucket = mutex.lock().await;
-        bucket.take(msg.author.id.0)
-    };
-    if rate_limit > 0 {
-        return Some(rate_limit);
-    }
-    None
-}
-
-pub fn find_prefix<'a>(prefixes: &[String], stream: &mut Stream<'a>) -> bool {
-    let prefix = prefixes.iter().find_map(|p| {
-        let peeked = stream.peek_for_char(p.chars().count());
-        if p == peeked {
-            Some(peeked)
-        } else {
-            None
-        }
-    });
-    if let Some(prefix) = &prefix {
-        stream.advance_char(prefix.chars().count());
-    }
-    prefix.is_some()
-}
-
-fn parse_invoke(stream: &mut Stream<'_>, groups: &CommandGroups) -> Invoke {
-    let name = stream.peek_until_char(|c| c.is_whitespace()).to_lowercase();
-    stream.increment(name.chars().count());
-    stream.take_while_char(|c| c.is_whitespace());
-    match name.as_str() {
-        "h" | "help" => {
-            let name = stream.peek_until_char(|c| c.is_whitespace()).to_lowercase();
-            stream.increment(name.chars().count());
-            stream.take_while_char(|c| c.is_whitespace());
-            if name.is_empty() {
-                Invoke::Help(None)
-            } else if let Some(cmd) = groups.get(name.as_str()) {
-                Invoke::Help(Some(cmd))
-            } else {
-                Invoke::FailedHelp(name)
-            }
-        }
-        _ => {
-            if let Some(cmd) = groups.get(name.as_str()) {
-                let name = stream.peek_until_char(|c| c.is_whitespace()).to_lowercase();
-                for sub_cmd in cmd.sub_commands {
-                    if sub_cmd.names.contains(&name.as_str()) {
-                        stream.increment(name.chars().count());
-                        stream.take_while_char(|c| c.is_whitespace());
-                        return Invoke::SubCommand {
-                            main: cmd,
-                            sub: sub_cmd,
-                        };
-                    }
-                }
-                Invoke::Command(cmd)
-            } else {
-                Invoke::UnrecognisedCommand(name)
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum Invoke {
-    Command(&'static Command),
-    SubCommand {
-        main: &'static Command,
-        sub: &'static Command,
-    },
-    Help(Option<&'static Command>),
-    FailedHelp(String),
-    UnrecognisedCommand(String),
-}
-
-impl Invoke {
-    fn name(&self) -> Cow<str> {
-        match self {
-            Invoke::Command(cmd) => Cow::Borrowed(cmd.names[0]),
-            Invoke::SubCommand { main, sub } => {
-                Cow::Owned(format!("{}-{}", main.names[0], sub.names[0]))
-            }
-            Invoke::Help(_) | Invoke::FailedHelp(_) => Cow::Borrowed("help"),
-            Invoke::UnrecognisedCommand(arg) => Cow::Borrowed(arg),
-        }
-    }
+    (cmd.fun)(ctx, msg, args).await.map(ProcessResult::success)
 }

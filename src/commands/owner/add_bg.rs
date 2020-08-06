@@ -1,7 +1,7 @@
 use crate::{
     bail,
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE, OWNER_USER_ID},
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
     Args, BotResult, Context, CONFIG,
@@ -16,14 +16,10 @@ use tokio::{
 use twilight::model::channel::{Attachment, Message};
 
 #[command]
-#[short_desc("Add background for the background game [Badewanne3-only]")]
+#[short_desc("Add background for the background game")]
 #[aliases("bgadd")]
+#[owner()]
 async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
-    if msg.author.id.0 != OWNER_USER_ID {
-        let content = "This command can only be used by the creator of the bot.\n\
-            If you have suggestions for backgrounds, feel free to let Badewanne3 know :)";
-        return msg.error(&ctx, content).await;
-    }
     // Check if msg has attachement
     if msg.attachments.is_empty() {
         let content = "You must attach an image to the command that has the mapset id as name";

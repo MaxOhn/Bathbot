@@ -78,26 +78,7 @@ where
     }
     let mods = s
         .split(',')
-        .map(|m| {
-            // TODO: Simplify this again with rosu 0.2.3
-            let result = GameMods::try_from(m);
-            if result.is_err() {
-                let m = match m {
-                    "K1" => GameMods::Key1,
-                    "K2" => GameMods::Key2,
-                    "K3" => GameMods::Key3,
-                    "K4" => GameMods::Key4,
-                    "K5" => GameMods::Key5,
-                    "K6" => GameMods::Key6,
-                    "K7" => GameMods::Key7,
-                    "K8" => GameMods::Key8,
-                    "K9" => GameMods::Key9,
-                    _ => return result,
-                };
-                return Ok(m);
-            }
-            result
-        })
+        .map(GameMods::try_from)
         .collect::<Result<Vec<GameMods>, _>>()
         .map_err(de::Error::custom)?
         .into_iter()

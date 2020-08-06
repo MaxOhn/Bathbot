@@ -13,8 +13,9 @@ pub struct Command {
     pub long_desc: Option<&'static str>,
     pub usage: Option<&'static str>,
     pub examples: &'static [&'static str],
-    pub only_guilds: bool,
     pub authority: bool,
+    pub owner: bool,
+    pub only_guilds: bool,
     pub bucket: Option<&'static str>,
     pub sub_commands: &'static [&'static Command],
     pub fun:
