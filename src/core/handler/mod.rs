@@ -7,12 +7,16 @@ use parse::{find_prefix, parse_invoke, Invoke};
 use crate::{
     bail,
     commands::help::{failed_help, help, help_command},
-    core::{Command, CommandGroups, Context},
+    core::{buckets::BucketName, Command, CommandGroups, Context},
     util::{constants::OWNER_USER_ID, MessageExt},
     Args, BotResult, Error,
 };
 
-use std::{fmt::Write, ops::Deref, sync::Arc};
+use std::{
+    fmt::{self, Write},
+    ops::Deref,
+    sync::Arc,
+};
 use twilight::gateway::Event;
 use twilight::model::{channel::Message, guild::Permissions};
 use uwl::Stream;
@@ -105,6 +109,12 @@ pub async fn handle_event(
             let invoke = parse_invoke(&mut stream, &cmds);
             if let Invoke::None = invoke {
                 return Ok(());
+            // Each user can invoke at most 30 commands per minute
+            } else if check_ratelimit(&ctx, msg, BucketName::All).await.is_some() {
+                info!(
+                    "Command `{}` was not processed: Ratelimited (All)",
+                    invoke.name(),
+                );
             }
 
             // Process invoke
@@ -172,7 +182,7 @@ enum ProcessResult {
     Success,
     NoDM,
     NoSendPermission,
-    Ratelimited,
+    Ratelimited(BucketName),
     NoOwner,
     NoAuthority,
 }
@@ -180,6 +190,15 @@ enum ProcessResult {
 impl ProcessResult {
     fn success(_: ()) -> Self {
         Self::Success
+    }
+}
+
+impl fmt::Display for ProcessResult {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Ratelimited(bucket) => write!(fmt, "Ratelimited ({:?})", bucket),
+            _ => write!(fmt, "{:?}", self),
+        }
     }
 }
 
@@ -221,7 +240,7 @@ async fn process_command(
             );
             let content = format!("Command on cooldown, try again in {} seconds", cooldown);
             msg.error(&ctx, content).await?;
-            return Ok(ProcessResult::Ratelimited);
+            return Ok(ProcessResult::Ratelimited(bucket.into()));
         }
     }
 

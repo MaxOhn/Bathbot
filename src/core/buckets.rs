@@ -1,9 +1,9 @@
 use chrono::Utc;
 use dashmap::DashMap;
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 use tokio::sync::Mutex;
 
-pub type Buckets = DashMap<&'static str, Mutex<Bucket>>;
+pub type Buckets = DashMap<BucketName, Mutex<Bucket>>;
 
 pub struct Ratelimit {
     pub delay: i64,
@@ -49,16 +49,39 @@ impl Bucket {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash)]
+pub enum BucketName {
+    All,
+    Songs,
+    BgStart,
+    BgBigger,
+    BgHint,
+}
+
+impl From<&str> for BucketName {
+    fn from(s: &str) -> Self {
+        match s {
+            "all" => BucketName::All,
+            "songs" => BucketName::Songs,
+            "bg_start" => BucketName::BgStart,
+            "bg_bigger" => BucketName::BgBigger,
+            "bg_hint" => BucketName::BgHint,
+            _ => panic!("No bucket called `{}`", s),
+        }
+    }
+}
+
 pub fn buckets() -> Buckets {
     let buckets = DashMap::new();
-    insert_bucket(&buckets, "songs", 20, 0, 1);
-    insert_bucket(&buckets, "bg_start", 2, 20, 3);
-    insert_bucket(&buckets, "bg_bigger", 1, 10, 3);
-    insert_bucket(&buckets, "bg_hint", 1, 5, 2);
+    insert_bucket(&buckets, BucketName::All, 1, 60, 30);
+    insert_bucket(&buckets, BucketName::Songs, 20, 0, 1);
+    insert_bucket(&buckets, BucketName::BgStart, 2, 20, 3);
+    insert_bucket(&buckets, BucketName::BgBigger, 1, 10, 3);
+    insert_bucket(&buckets, BucketName::BgHint, 1, 5, 2);
     buckets
 }
 
-fn insert_bucket(buckets: &Buckets, name: &'static str, delay: i64, time_span: i64, limit: i32) {
+fn insert_bucket(buckets: &Buckets, name: BucketName, delay: i64, time_span: i64, limit: i32) {
     buckets.insert(
         name,
         Mutex::new(Bucket {

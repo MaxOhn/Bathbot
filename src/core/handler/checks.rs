@@ -1,4 +1,8 @@
-use crate::{bail, core::Context, BotResult};
+use crate::{
+    bail,
+    core::{buckets::BucketName, Context},
+    BotResult,
+};
 
 use rayon::prelude::*;
 use std::fmt::Write;
@@ -67,15 +71,14 @@ pub fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>
     Ok(None)
 }
 
-pub async fn check_ratelimit(ctx: &Context, msg: &Message, bucket: &str) -> Option<i64> {
+pub async fn check_ratelimit(
+    ctx: &Context,
+    msg: &Message,
+    bucket: impl Into<BucketName>,
+) -> Option<i64> {
     let rate_limit = {
-        let guard = match ctx.buckets.get(bucket) {
-            Some(guard) => guard,
-            None => {
-                error!("No bucket called `{}`", bucket);
-                return None;
-            }
-        };
+        let bucket = bucket.into();
+        let guard = ctx.buckets.get(&bucket).unwrap();
         let mutex = guard.value();
         let mut bucket = mutex.lock().await;
         bucket.take(msg.author.id.0)
