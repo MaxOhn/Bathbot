@@ -51,7 +51,7 @@ impl CommandCounterEmbed {
         Self {
             description,
             footer: Footer::new(footer_text),
-            author: Author::new("Most popular commands:".to_owned()),
+            author: Author::new("Most popular commands:"),
         }
     }
 }

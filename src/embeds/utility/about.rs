@@ -2,7 +2,7 @@ use crate::{
     embeds::{EmbedData, Footer},
     format_err,
     util::{
-        constants::{INVITE_LINK, OWNER_USER_ID},
+        constants::{BATHBOT_WORKSHOP, INVITE_LINK, OWNER_USER_ID},
         datetime::how_long_ago,
         discord_avatar,
         numbers::{round, with_comma_int},
@@ -70,11 +70,11 @@ impl AboutEmbed {
         let fields = vec![
             ("Guilds".to_owned(), with_comma_int(guilds as u64), true),
             (
-                "Users (unique)".to_owned(),
+                "Users (total)".to_owned(),
                 format!(
                     "{} ({})",
+                    with_comma_int(unique_users as u64),
                     with_comma_int(total_users as u64),
-                    with_comma_int(unique_users as u64)
                 ),
                 true,
             ),
@@ -99,6 +99,11 @@ impl AboutEmbed {
                 false,
             ),
             ("Invite link".to_owned(), INVITE_LINK.to_owned(), false),
+            (
+                "Bathbot discord server".to_owned(),
+                BATHBOT_WORKSHOP.to_owned(),
+                false,
+            ),
         ];
         Ok(Self {
             footer,

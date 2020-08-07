@@ -1,23 +1,36 @@
-use crate::{embeds::EmbedData, util::constants::INVITE_LINK};
+use crate::{
+    embeds::{EmbedData, Footer},
+    util::constants::INVITE_LINK,
+};
 
 #[derive(Clone)]
 pub struct InviteEmbed {
-    fields: Vec<(String, String, bool)>,
+    title: &'static str,
+    description: &'static str,
+    footer: Footer,
 }
 
 impl InviteEmbed {
     pub fn new() -> Self {
-        let fields = vec![(
-            "Invite me to your server!".to_owned(),
-            INVITE_LINK.to_owned(),
-            false,
-        )];
-        Self { fields }
+        let title = "Invite me to your server!";
+        let description = INVITE_LINK;
+        let footer = Footer::new("The initial prefix will be <");
+        Self {
+            title,
+            description,
+            footer,
+        }
     }
 }
 
 impl EmbedData for InviteEmbed {
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
-        Some(self.fields.clone())
+    fn title(&self) -> Option<&str> {
+        Some(self.title)
+    }
+    fn description(&self) -> Option<&str> {
+        Some(self.description)
+    }
+    fn footer(&self) -> Option<&Footer> {
+        Some(&self.footer)
     }
 }

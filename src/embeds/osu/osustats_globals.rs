@@ -35,7 +35,7 @@ impl OsuStatsGlobalsEmbed {
             return Ok(Self {
                 author: osu::get_user_author(&user),
                 thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
-                footer: Footer::new(String::from("Page 1/1 ~ Total scores: 0")),
+                footer: Footer::new("Page 1/1 ~ Total scores: 0"),
                 description: String::from("No scores with these parameters were found"),
             });
         }

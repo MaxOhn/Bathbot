@@ -1,6 +1,6 @@
 use crate::{
     embeds::{EmbedData, InviteEmbed},
-    util::MessageExt,
+    util::{constants::BATHBOT_WORKSHOP, MessageExt},
     Args, BotResult, Context,
 };
 
@@ -12,6 +12,7 @@ use twilight::model::channel::Message;
 #[aliases("inv")]
 async fn invite(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     let embed = InviteEmbed::new().build().build();
-    msg.build_response(&ctx, |m| m.embed(embed)).await?;
+    msg.build_response(&ctx, |m| m.content(BATHBOT_WORKSHOP)?.embed(embed))
+        .await?;
     Ok(())
 }

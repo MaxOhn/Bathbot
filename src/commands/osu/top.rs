@@ -31,20 +31,37 @@ async fn top_main(
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
-    if args.has_dash_r {
+    if args.has_dash_r || args.has_dash_p {
+        let mode_long = match mode {
+            GameMode::STD => "",
+            GameMode::MNA => "mania",
+            GameMode::TKO => "taiko",
+            GameMode::CTB => "ctb",
+        };
         let prefix = ctx.config_first_prefix(msg.guild_id);
-        let content = format!(
-            "`{prefix}top -r`? I think you meant `{prefix}recentbest` or `{prefix}rb` for short ;)",
-            prefix = prefix
-        );
-        return msg.error(&ctx, content).await;
-    } else if args.has_dash_p {
-        let prefix = ctx.config_first_prefix(msg.guild_id);
-        let content = format!(
-            "`{prefix}top -p`? Try using the arrow reactions instead ;)",
-            prefix = prefix
-        );
-        return msg.error(&ctx, content).await;
+        if args.has_dash_r {
+            let mode_short = match mode {
+                GameMode::STD => "",
+                GameMode::MNA => "m",
+                GameMode::TKO => "t",
+                GameMode::CTB => "c",
+            };
+            let content = format!(
+                "`{prefix}top{mode_long} -r`? I think you meant `{prefix}recentbest{mode_long}` \
+                or `{prefix}rb{mode_short}` for short ;)",
+                mode_long = mode_long,
+                mode_short = mode_short,
+                prefix = prefix
+            );
+            return msg.error(&ctx, content).await;
+        } else if args.has_dash_p {
+            let content = format!(
+                "`{prefix}top{} -p`? Try using the arrow reactions instead ;)",
+                mode = mode_long,
+                prefix = prefix
+            );
+            return msg.error(&ctx, content).await;
+        }
     }
     let name = match args.name.take().or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,

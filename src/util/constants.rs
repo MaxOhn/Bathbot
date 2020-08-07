@@ -35,3 +35,4 @@ pub const SYMBOLS: [&str; 6] = ["♔", "♕", "♖", "♗", "♘", "♙"];
 pub const DATE_FORMAT: &str = "%F %T";
 pub const INVITE_LINK: &str = "https://discordapp.com/api/oauth2/authorize?scope=bot&\
     client_id=297073686916366336&permissions=268823616";
+pub const BATHBOT_WORKSHOP: &str = "https://discord.gg/n9fFstG";

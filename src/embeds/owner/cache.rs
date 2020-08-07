@@ -150,7 +150,7 @@ impl CacheEmbed {
 
         Self {
             description,
-            footer: Footer::new(String::from("Boot time")),
+            footer: Footer::new("Boot time"),
             timestamp: ctx.cache.stats.start_time,
             fields,
         }

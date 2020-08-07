@@ -110,14 +110,14 @@ pub struct Footer {
 }
 
 impl Footer {
-    pub fn new(text: String) -> Self {
+    pub fn new(text: impl Into<String>) -> Self {
         Self {
-            text,
+            text: text.into(),
             icon_url: None,
         }
     }
-    pub fn icon_url(mut self, icon_url: String) -> Self {
-        self.icon_url = Some(icon_url);
+    pub fn icon_url(mut self, icon_url: impl Into<String>) -> Self {
+        self.icon_url = Some(icon_url.into());
         self
     }
 }
@@ -130,19 +130,19 @@ pub struct Author {
 }
 
 impl Author {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: impl Into<String>) -> Self {
         Self {
-            name,
+            name: name.into(),
             url: None,
             icon_url: None,
         }
     }
-    pub fn url(mut self, url: String) -> Self {
-        self.url = Some(url);
+    pub fn url(mut self, url: impl Into<String>) -> Self {
+        self.url = Some(url.into());
         self
     }
-    pub fn icon_url(mut self, icon_url: String) -> Self {
-        self.icon_url = Some(icon_url);
+    pub fn icon_url(mut self, icon_url: impl Into<String>) -> Self {
+        self.icon_url = Some(icon_url.into());
         self
     }
 }

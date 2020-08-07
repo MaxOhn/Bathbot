@@ -182,7 +182,7 @@ impl Cache {
                             let shard_missing = match self.missing_per_shard.get(&shard_id) {
                                 Some(amount) => amount.fetch_sub(1, Ordering::Relaxed),
                                 None => {
-                                    warn!("shard_id not in self.missing_per_shard");
+                                    warn!("shard_id {} not in self.missing_per_shard", shard_id);
                                     0
                                 }
                             };
