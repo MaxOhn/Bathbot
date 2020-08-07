@@ -1,8 +1,11 @@
+use serde_json::Error as SerdeJsonError;
 use std::{error::Error as StdError, fmt};
 
 #[derive(Debug)]
 pub enum CustomClientError {
     DataUserId,
+    SerdeLeaderboard(SerdeJsonError, String),
+    SerdeMostPlayed(SerdeJsonError, String),
     RankIndex(usize),
     RankingPageTable,
     RankNode(u8),
@@ -13,6 +16,16 @@ impl fmt::Display for CustomClientError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::DataUserId => f.write_str("no attribute `data-user-id`"),
+            Self::SerdeLeaderboard(e, content) => write!(
+                f,
+                "could not deserialize response for leaderboard: {}\n{}",
+                e, content
+            ),
+            Self::SerdeMostPlayed(e, content) => write!(
+                f,
+                "could not deserialize response for most played: {}\n{}",
+                e, content
+            ),
             Self::RankIndex(n) => write!(f, "expected rank between 1 and 10_000, got {}", n),
             Self::RankingPageTable => f.write_str("no class `ranking-page-table`"),
             Self::RankNode(n) => write!(f, "error at unwrap {}, expected  child", n),

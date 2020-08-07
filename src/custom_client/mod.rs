@@ -130,7 +130,11 @@ impl CustomClient {
             limit = amount,
         );
         let response = self.make_request(url, Site::OsuWebsite).await?;
-        let maps: Vec<MostPlayedMap> = serde_json::from_slice(&response.bytes().await?)?;
+        let bytes = response.bytes().await?;
+        let maps: Vec<MostPlayedMap> = serde_json::from_slice(&bytes).map_err(|e| {
+            let content = String::from_utf8_lossy(&bytes).into_owned();
+            CustomClientError::SerdeMostPlayed(e, content)
+        })?;
         Ok(maps)
     }
 
@@ -187,7 +191,11 @@ impl CustomClient {
             }
         }
         let response = self.make_request(url, Site::OsuHiddenApi).await?;
-        let scores: ScraperScores = serde_json::from_slice(&response.bytes().await?)?;
+        let bytes = response.bytes().await?;
+        let scores: ScraperScores = serde_json::from_slice(&bytes).map_err(|e| {
+            let content = String::from_utf8_lossy(&bytes).into_owned();
+            CustomClientError::SerdeLeaderboard(e, content)
+        })?;
         Ok(scores.get())
     }
 

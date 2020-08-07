@@ -22,6 +22,14 @@ impl Context {
             .start(ctx, channel, mapsets);
     }
 
+    pub fn game_channels(&self) -> Vec<ChannelId> {
+        self.data
+            .bg_games
+            .iter()
+            .map(|guard| *guard.key())
+            .collect()
+    }
+
     pub async fn restart_game(&self, channel: ChannelId) -> BotResult<bool> {
         match self.data.bg_games.get_mut(&channel) {
             Some(mut game) => Ok(game.restart().await.map(|_| true)?),
