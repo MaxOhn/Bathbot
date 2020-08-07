@@ -179,14 +179,11 @@ impl Cache {
                                 self.stats.guild_counts.partial.get() - 1
                             );
                             guild.complete.store(true, Ordering::SeqCst);
-                            let shard_missing = match self.missing_per_shard.get(&shard_id) {
-                                Some(amount) => amount.fetch_sub(1, Ordering::Relaxed),
-                                None => {
-                                    warn!("shard_id {} not in self.missing_per_shard", shard_id);
-                                    0
-                                }
-                            };
-                            if shard_missing == 1 {
+                            let shard_missing = self
+                                .missing_per_shard
+                                .get(&shard_id)
+                                .map(|amount| amount.fetch_sub(1, Ordering::Relaxed));
+                            if shard_missing == Some(1) {
                                 // this shard is ready
                                 info!("All guilds cached for shard {}", shard_id);
                                 if chunk.nonce.is_none() && self.shard_cached(shard_id) {
@@ -545,10 +542,10 @@ impl Cache {
     }
 
     pub fn shard_cached(&self, shard_id: u64) -> bool {
-        match self.missing_per_shard.get(&shard_id) {
-            Some(atomic) => atomic.value().load(Ordering::Relaxed) == 0,
-            None => true, // we cold resumed so have everything
-        }
+        // if not present we cold resumed so we already have everything
+        self.missing_per_shard
+            .get(&shard_id)
+            .map_or_else(|| true, |amount| amount.load(Ordering::Relaxed) == 0)
     }
 }
 

@@ -157,7 +157,7 @@ async fn top_main(
         TopType::Sotarks => {
             let amount = scores_data.len();
             let mut content = format!(
-                "I found {amount} Sotarks map{plural} in `{name}`'s top 100, ",
+                "I found {amount} Sotarks map{plural} in `{name}`'s top100, ",
                 amount = amount,
                 plural = if amount != 1 { "s" } else { "" },
                 name = name
@@ -167,7 +167,8 @@ async fn top_main(
                 n if n <= 5 => content.push_str("kinda sad \\:/"),
                 n if n <= 10 => content.push_str("pretty sad \\:("),
                 n if n <= 15 => content.push_str("really sad \\:(("),
-                _ => content.push_str("just sad \\:'("),
+                n if n <= 20 => content.push_str("this is so sad \\:'(("),
+                _ => content.push_str("how do you sleep at night..."),
             }
             content
         }

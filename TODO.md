@@ -2,14 +2,14 @@
 **[TODO]**
 - Fix unreacting for `<bg s` and possibly `<bgt`
 - Update README.md of Bathbot
-- Fix `self.missing_per_shard`
-- Add proper readme and make project public
 
 **[Sometime]**
 - Handle entry on top.gg
 - Write peppy a mail
+- Add proper readme and make project public
 
 **[Done]**
+- ~~Fix `self.missing_per_shard`~~ (20.08.07)
 - ~~Add owner command to monitor active bg games~~ (20.08.07)
 - ~~Mention bot server~~ (20.08.07)
 - ~~Add mode to "`<top -r / -p`?" messages~~ (20.08.07)
