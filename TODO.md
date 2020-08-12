@@ -4,7 +4,6 @@
 - Update README.md of Bathbot
 - If no permission to send twitch notif, remove tracking [__if not dev__]
 - Add metrics counter for error occured
-- Reset guild counter on disconnect
 
 **[Sometime]**
 - Handle entry on top.gg
@@ -12,6 +11,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Reset guild counter on disconnect~~ (20.08.12)
 - ~~Fix `self.missing_per_shard`~~ (20.08.07)
 - ~~Add owner command to monitor active bg games~~ (20.08.07)
 - ~~Mention bot server~~ (20.08.07)

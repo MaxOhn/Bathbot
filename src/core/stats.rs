@@ -47,6 +47,14 @@ pub struct GuildCounters {
     pub outage: IntGauge,
 }
 
+impl GuildCounters {
+    fn reset(&self) {
+        self.partial.set(0);
+        self.loaded.set(0);
+        self.outage.set(0);
+    }
+}
+
 pub struct ShardStats {
     pub pending: IntGauge,
     pub connecting: IntGauge,
@@ -209,6 +217,7 @@ impl Context {
                 self.shard_state_change(shard_id, ShardState::Reconnecting)
             }
             Event::ShardDisconnected(_) => {
+                self.cache.stats.guild_counts.reset();
                 self.shard_state_change(shard_id, ShardState::Disconnected)
             }
             _ => {}
