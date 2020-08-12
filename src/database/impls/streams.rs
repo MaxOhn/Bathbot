@@ -26,6 +26,19 @@ impl Database {
         Ok(tracks)
     }
 
+    pub async fn remove_channel_tracks(&self, channel: u64) -> BotResult<()> {
+        let query = format!(
+            "
+DELETE FROM
+    stream_tracks
+WHERE
+    channel_id={}",
+            channel
+        );
+        sqlx::query(&query).execute(&self.pool).await?;
+        Ok(())
+    }
+
     pub async fn remove_stream_track(&self, channel: u64, user: u64) -> BotResult<()> {
         let query = format!(
             "
@@ -33,8 +46,7 @@ DELETE FROM
     stream_tracks
 WHERE
     channel_id={}
-    AND user_id={}
-",
+    AND user_id={}",
             channel, user
         );
         sqlx::query(&query).execute(&self.pool).await?;

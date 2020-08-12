@@ -5,12 +5,14 @@ use crate::{
 };
 
 use rayon::prelude::*;
+use reqwest::StatusCode;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
 use strfmt::strfmt;
 use tokio::time;
+use twilight::http::Error as TwilightError;
 
 pub async fn twitch_loop(ctx: Arc<Context>) {
     // Formatting of the embed image
@@ -20,7 +22,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
 
     let mut online_streams = HashSet::new();
     let mut interval = time::interval(time::Duration::from_secs(10 * 60));
-    interval.tick().await;
+    // interval.tick().await;
     loop {
         interval.tick().await;
         let now_online = {
@@ -67,6 +69,8 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                     })
                     .collect();
 
+                //
+
                 // Process each stream by notifying all corresponding channels
                 for (user, stream) in streams {
                     let channels = match ctx.tracked_channels_for(user) {
@@ -79,8 +83,25 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                         let msg_fut = ctx.http.create_message(channel);
                         match msg_fut.embed(embed.clone()) {
                             Ok(msg_fut) => {
-                                if let Err(why) = msg_fut.await {
-                                    warn!("Error while sending twitch notif: {}", why);
+                                match msg_fut.await {
+                                    Err(TwilightError::Response {
+                                        status: StatusCode::FORBIDDEN,
+                                        ..
+                                    }) => {
+                                        // If not in debug mode + on an arm system e.g. raspberry pi
+                                        if cfg!(all(not(debug_assertions), target_arch = "arm")) {
+                                            if let Err(why) =
+                                                ctx.psql().remove_channel_tracks(channel.0).await
+                                            {
+                                                warn!(
+                                                    "No permission to send twitch notif in channel \
+                                                    {} but could not remove channel tracks: {}", 
+                                                    channel, why);
+                                            }
+                                        }
+                                    }
+                                    Err(why) => warn!("Error while sending twitch notif: {}", why),
+                                    _ => {}
                                 }
                             }
                             Err(why) => warn!("Invalid embed for twitch notif: {}", why),

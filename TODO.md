@@ -2,7 +2,6 @@
 **[TODO]**
 - Fix unreacting for `<bg s` and possibly `<bgt`
 - Update README.md of Bathbot
-- If no permission to send twitch notif, remove tracking [__if not dev__]
 - Add metrics counter for error occured
 
 **[Sometime]**
@@ -11,6 +10,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~If no permission to send twitch notif, remove tracking [__if not dev__]~~ (20.08.12)
 - ~~Reset guild counter on disconnect~~ (20.08.12)
 - ~~Fix `self.missing_per_shard`~~ (20.08.07)
 - ~~Add owner command to monitor active bg games~~ (20.08.07)
