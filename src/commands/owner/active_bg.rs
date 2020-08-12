@@ -17,7 +17,7 @@ use twilight::model::{channel::Message, id::ChannelId};
 #[owner()]
 async fn activebg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     match args.next().and_then(matcher::get_mention_channel) {
-        Some(channel) => match ctx.stop_and_remove_game(ChannelId(channel)).await {
+        Some(channel) => match ctx.stop_game(ChannelId(channel)).await {
             Ok(true) => msg.respond(&ctx, "Game stopped").await,
             Ok(false) => msg.respond(&ctx, "No game in that channel").await,
             Err(why) => msg.error(&ctx, why.to_string()).await,

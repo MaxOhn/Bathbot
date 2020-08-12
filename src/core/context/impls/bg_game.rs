@@ -37,16 +37,19 @@ impl Context {
         }
     }
 
-    pub async fn stop_and_remove_game(&self, channel: ChannelId) -> BotResult<bool> {
+    pub async fn stop_game(&self, channel: ChannelId) -> BotResult<bool> {
         if self.data.bg_games.contains_key(&channel) {
             if let Some(mut game) = self.data.bg_games.get_mut(&channel) {
                 game.stop().await?;
             }
-            self.data.bg_games.remove(&channel);
             Ok(true)
         } else {
             Ok(false)
         }
+    }
+
+    pub fn remove_game(&self, channel: ChannelId) {
+        self.data.bg_games.remove(&channel);
     }
 
     pub async fn game_hint(&self, channel: ChannelId) -> Result<String, BgGameError> {

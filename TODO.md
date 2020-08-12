@@ -2,6 +2,9 @@
 **[TODO]**
 - Fix unreacting for `<bg s` and possibly `<bgt`
 - Update README.md of Bathbot
+- If no permission to send twitch notif, remove tracking [__if not dev__]
+- Add metrics counter for error occured
+- Reset guild counter on disconnect
 
 **[Sometime]**
 - Handle entry on top.gg

@@ -145,6 +145,7 @@ impl GameWrapper {
                     }
                 }
             }
+            ctx.remove_game(channel);
         });
     }
 }

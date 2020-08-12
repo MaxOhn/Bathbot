@@ -48,14 +48,14 @@ impl WhatIfEmbed {
             let bonus = user.pp_raw - actual;
             let mut potential = 0.0;
             let mut used = false;
-            let mut new_pos = None;
+            let mut new_pos = scores.len();
             let mut factor = 1.0;
             for (i, pp_value) in pp_values.iter().enumerate().take(pp_values.len() - 1) {
                 if !used && *pp_value < pp {
                     used = true;
                     potential += pp * factor;
                     factor *= 0.95;
-                    new_pos = Some(i + 1);
+                    new_pos = i + 1;
                 }
                 potential += pp_value * factor;
                 factor *= 0.95;
@@ -65,7 +65,7 @@ impl WhatIfEmbed {
                  Their pp would change by **+{pp_change}** to **{new_pp}pp**.",
                 pp = round(pp),
                 name = user.username,
-                num = new_pos.unwrap(),
+                num = new_pos,
                 pp_change = round(potential + bonus - user.pp_raw),
                 new_pp = round(potential + bonus)
             );
