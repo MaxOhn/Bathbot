@@ -22,7 +22,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
 
     let mut online_streams = HashSet::new();
     let mut interval = time::interval(time::Duration::from_secs(10 * 60));
-    // interval.tick().await;
+    interval.tick().await;
     loop {
         interval.tick().await;
         let now_online = {
@@ -97,6 +97,12 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                                                     "No permission to send twitch notif in channel \
                                                     {} but could not remove channel tracks: {}", 
                                                     channel, why);
+                                            } else {
+                                                debug!(
+                                                    "Removed tracking in channel {} \
+                                                    because of no SEND_PERMISSION",
+                                                    channel
+                                                );
                                             }
                                         }
                                     }

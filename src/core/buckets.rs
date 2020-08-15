@@ -77,7 +77,7 @@ pub fn buckets() -> Buckets {
     insert_bucket(&buckets, BucketName::Songs, 20, 0, 1);
     insert_bucket(&buckets, BucketName::BgStart, 2, 20, 3);
     insert_bucket(&buckets, BucketName::BgBigger, 1, 10, 3);
-    insert_bucket(&buckets, BucketName::BgHint, 1, 5, 2);
+    insert_bucket(&buckets, BucketName::BgHint, 0, 10, 4);
     buckets
 }
 

@@ -3,6 +3,7 @@
 - Fix unreacting for `<bg s` and possibly `<bgt`
 - Update README.md of Bathbot
 - Add metrics counter for error occured
+- After retrieving new mapset for bg game, store it in DB
 
 **[Sometime]**
 - Handle entry on top.gg
