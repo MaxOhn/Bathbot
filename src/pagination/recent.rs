@@ -78,7 +78,7 @@ impl Pagination for RecentPagination {
     async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
         // Minimize embed
         let msg = self.msg();
-        let embed = self.embed_data.minimize().build();
+        let embed = self.embed_data.minimize().build()?;
         let _ = ctx
             .http
             .update_message(msg.channel_id, msg.id)

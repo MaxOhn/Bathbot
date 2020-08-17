@@ -10,12 +10,13 @@ use crate::{
     BotResult, Context,
 };
 
+use twilight_embed_builder::image_source::ImageSource;
 use sysinfo::{get_current_pid, ProcessExt, ProcessorExt, System, SystemExt};
 
 #[derive(Clone)]
 pub struct AboutEmbed {
     title: String,
-    thumbnail: String,
+    thumbnail: ImageSource,
     footer: Footer,
     fields: Vec<(String, String, bool)>,
 }
@@ -53,7 +54,7 @@ impl AboutEmbed {
 
         let bot_user = &ctx.cache.bot_user;
         let name = bot_user.name.clone();
-        let shards = ctx.backend.cluster.info().await.len();
+        let shards = ctx.backend.cluster.info().len();
         let user_counts = &ctx.cache.stats.user_counts;
         let total_users = user_counts.total.get();
         let unique_users = user_counts.unique.get();
@@ -63,7 +64,7 @@ impl AboutEmbed {
 
         let boot_time = ctx.cache.stats.start_time;
 
-        let thumbnail = discord_avatar(bot_user.id, bot_user.avatar.as_deref().unwrap());
+        let thumbnail = ImageSource::url(discord_avatar(bot_user.id, bot_user.avatar.as_deref().unwrap())).unwrap();
 
         let footer = Footer::new(format!("Owner: {}#{}", owner.name, owner.discriminator))
             .icon_url(discord_avatar(owner.id, owner.avatar.as_deref().unwrap()));
@@ -118,7 +119,7 @@ impl EmbedData for AboutEmbed {
     fn title(&self) -> Option<&str> {
         Some(&self.title)
     }
-    fn thumbnail(&self) -> Option<&str> {
+    fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }
     fn footer(&self) -> Option<&Footer> {

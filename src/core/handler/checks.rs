@@ -12,7 +12,10 @@ use twilight::model::{channel::Message, guild::Permissions, id::RoleId};
 // No authority -> Ok(Some(message to user))
 // Couldn't figure out -> Err()
 pub fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>> {
-    let guild_id = msg.guild_id.unwrap();
+    let guild_id = match msg.guild_id {
+        Some(id) => id,
+        None => return Ok(Some(String::new()))
+    };
     let permissions = ctx
         .cache
         .get_guild_permissions_for(msg.author.id, msg.guild_id);

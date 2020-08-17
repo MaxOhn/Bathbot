@@ -61,7 +61,7 @@ async fn ratios(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
 
     // Creating the embed
-    let embed = data.build().build();
+    let embed = data.build().build()?;
     msg.build_response(&ctx, |m| {
         let content = format!("Average ratios of `{}`'s top 100 in mania:", name);
         m.content(content)?.embed(embed)

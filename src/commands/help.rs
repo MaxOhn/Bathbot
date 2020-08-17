@@ -11,9 +11,9 @@ use crate::{
 
 use rayon::prelude::*;
 use std::{collections::BTreeMap, fmt::Write};
-use twilight::builders::embed::EmbedBuilder;
+use twilight_embed_builder::{builder::EmbedBuilder, author::EmbedAuthorBuilder, footer::EmbedFooterBuilder};
 use twilight::model::{
-    channel::{embed::Embed, Message},
+    channel::{embed::{Embed, EmbedField}, Message},
     id::{ChannelId, GuildId, UserId},
 };
 
@@ -82,7 +82,7 @@ pub async fn help(
     let desc = description(ctx, msg.guild_id);
     let mut size = desc.len();
     debug_assert!(size < DESCRIPTION_SIZE);
-    let mut eb = EmbedBuilder::new().color(DARK_GREEN).description(desc);
+    let mut eb = EmbedBuilder::new().color(DARK_GREEN).unwrap().description(desc)?;
     let groups = cmds
         .groups
         .iter()
@@ -107,19 +107,19 @@ pub async fn help(
         let size_addition = group.name.len() + value.len();
         debug_assert!(size_addition < EMBED_SIZE);
         eb = if size + size_addition > EMBED_SIZE {
-            if let Err(why) = send_help_chunk(ctx, channel.id, owner, eb.build()).await {
+            if let Err(why) = send_help_chunk(ctx, channel.id, owner, eb.build()?).await {
                 warn!("Error while sending help chunk: {}", why);
                 let content = "Could not DM you, have you disabled it?";
                 return msg.error(ctx, content).await;
             }
             size = 0;
-            EmbedBuilder::new().color(DARK_GREEN)
+            EmbedBuilder::new().color(DARK_GREEN).unwrap()
         } else {
             size += size_addition;
-            eb.add_field(&group.name, value).commit()
+            eb.field(EmbedField { name: group.name.clone(), value, inline: false})
         };
     }
-    let embed = eb.build();
+    let embed = eb.build()?;
     if !embed.fields.is_empty() {
         if let Err(why) = send_help_chunk(ctx, channel.id, owner, embed).await {
             warn!("Error while sending help chunk: {}", why);
@@ -148,19 +148,15 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
     let name = cmd.names[0];
     let prefix = ctx.config_first_prefix(msg.guild_id);
     let mut eb = EmbedBuilder::new()
-        .color(DARK_GREEN)
-        .title(name)
-        .description(cmd.long_desc.unwrap_or(cmd.short_desc));
+        .color(DARK_GREEN)?
+        .title(name)?
+        .description(cmd.long_desc.unwrap_or(cmd.short_desc))?;
     let mut usage_len = 0;
     if let Some(usage) = cmd.usage {
         let value = format!("`{}{} {}`", prefix, name, usage);
         usage_len = value.chars().count();
-        let fb = eb.add_field("How to use", value);
-        eb = if usage_len > 29 {
-            fb.commit()
-        } else {
-            fb.inline().commit()
-        };
+        let field = EmbedField { name: String::from("How to use"), value, inline: usage_len <= 29};
+        eb = eb.field(field);
     }
     let mut examples = cmd.examples.iter();
     if let Some(first) = examples.next() {
@@ -173,14 +169,10 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
             writeln!(value, "`{}{} {}`", prefix, name, example)?;
             example_len = example_len.max(cmd_len + example.chars().count());
         }
-        let fb = eb.add_field("Examples", value);
-        eb = if (usage_len <= 29 && cmd.names.len() > 1 && example_len > 27)
-            || ((usage_len > 29 || cmd.names.len() > 1) && example_len > 36)
-        {
-            fb.commit()
-        } else {
-            fb.inline().commit()
-        };
+        let not_inline= (usage_len <= 29 && cmd.names.len() > 1 && example_len > 27)
+        || ((usage_len > 29 || cmd.names.len() > 1) && example_len > 36);
+        let field = EmbedField { name: String::from("Examples"), value, inline: !not_inline};
+        eb = eb.field(field);
     }
     let mut aliases = cmd.names.iter().skip(1);
     if let Some(first) = aliases.next() {
@@ -190,7 +182,7 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
         for &alias in aliases {
             write!(value, ", `{}`", alias)?;
         }
-        eb = eb.add_field("Aliases", value).inline().commit();
+        eb = eb.field(EmbedField { name: String::from("Aliases"), value, inline: true});
     }
     if cmd.authority {
         let value = if let Some(guild_id) = msg.guild_id {
@@ -210,21 +202,20 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
             was setup as authority in a guild"
                 .to_owned()
         };
-        eb = eb.add_field("Requires authority status", value).commit();
+        eb = eb.field(EmbedField { name: String::from("Requires authority status"), value, inline: false});
     }
     if cmd.owner {
-        eb = eb
-            .author()
-            .name("Can only be used by the bot owner")
-            .commit();
+        let ab = EmbedAuthorBuilder::new().name("Can only be used by the bot owner").unwrap();
+        eb = eb.author(ab);
     }
     let footer_text = if cmd.only_guilds || cmd.authority {
         "Only available in guilds"
     } else {
         "Available in guilds and DMs"
     };
-    eb = eb.footer(footer_text).commit();
-    msg.build_response(ctx, |m| m.embed(eb.build())).await?;
+    let fb = EmbedFooterBuilder::new(footer_text).unwrap();
+    let embed = eb.footer(fb).build()?;
+    msg.build_response(ctx, |m| m.embed(embed)).await?;
     Ok(())
 }
 
@@ -255,7 +246,7 @@ pub async fn failed_help(
         content.push('?');
         (content, DARK_GREEN)
     };
-    let eb = EmbedBuilder::new().description(content).color(color);
-    msg.build_response(ctx, |m| m.embed(eb.build())).await?;
+    let embed = EmbedBuilder::new().description(content)?.color(color)?.build()?;
+    msg.build_response(ctx, |m| m.embed(embed)).await?;
     Ok(())
 }

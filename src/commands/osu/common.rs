@@ -227,7 +227,7 @@ async fn common_main(
     };
 
     // Creating the embed
-    let embed = data.build().build();
+    let embed = data.build().build()?;
     let mut m = ctx.http.create_message(msg.channel_id);
     m = match thumbnail {
         Some(bytes) => m.attachment("avatar_fuse.png", bytes),

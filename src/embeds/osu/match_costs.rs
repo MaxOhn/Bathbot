@@ -7,13 +7,14 @@ use crate::{
     },
 };
 
+use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::Match;
 use std::fmt::Write;
 
 #[derive(Clone)]
 pub struct MatchCostEmbed {
     description: String,
-    thumbnail: Option<String>,
+    thumbnail: Option<ImageSource>,
     title: String,
     url: String,
 }
@@ -28,11 +29,11 @@ impl MatchCostEmbed {
         let description = if let Some(description) = description {
             description
         } else {
-            thumbnail = Some(format!(
+            thumbnail = Some(ImageSource::url(format!(
                 "{}{}",
                 AVATAR_URL,
                 match_result.as_ref().unwrap().mvp_id()
-            ));
+            )).unwrap());
             let medals = ["🥇", "🥈", "🥉"];
             let mut description = String::with_capacity(256);
             match match_result {
@@ -135,8 +136,8 @@ impl EmbedData for MatchCostEmbed {
     fn description(&self) -> Option<&str> {
         Some(&self.description)
     }
-    fn thumbnail(&self) -> Option<&str> {
-        self.thumbnail.as_deref()
+    fn thumbnail(&self) -> Option<&ImageSource> {
+        self.thumbnail.as_ref()
     }
     fn title(&self) -> Option<&str> {
         Some(&self.title)

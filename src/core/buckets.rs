@@ -73,7 +73,7 @@ impl From<&str> for BucketName {
 
 pub fn buckets() -> Buckets {
     let buckets = DashMap::new();
-    insert_bucket(&buckets, BucketName::All, 1, 60, 30);
+    insert_bucket(&buckets, BucketName::All, 0, 60, 30);
     insert_bucket(&buckets, BucketName::Songs, 20, 0, 1);
     insert_bucket(&buckets, BucketName::BgStart, 2, 20, 3);
     insert_bucket(&buckets, BucketName::BgBigger, 1, 10, 3);

@@ -10,6 +10,7 @@ use crate::{
     BotResult, Context,
 };
 
+use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::{Beatmap, GameMode, Score, User};
 use std::fmt::Write;
 
@@ -17,7 +18,7 @@ use std::fmt::Write;
 pub struct ScoresEmbed {
     description: Option<&'static str>,
     fields: Vec<(String, String, bool)>,
-    thumbnail: String,
+    thumbnail: ImageSource,
     footer: Footer,
     author: Author,
     title: String,
@@ -79,7 +80,7 @@ impl ScoresEmbed {
         Ok(Self {
             description,
             footer,
-            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id),
+            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id)).unwrap(),
             title: map.to_string(),
             url: format!("{}b/{}", OSU_BASE, map.beatmap_id),
             fields,
@@ -107,7 +108,7 @@ impl EmbedData for ScoresEmbed {
     fn author(&self) -> Option<&Author> {
         Some(&self.author)
     }
-    fn thumbnail(&self) -> Option<&str> {
+    fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }
 }

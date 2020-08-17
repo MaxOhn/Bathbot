@@ -12,13 +12,14 @@ use crate::{
     BotResult, Context,
 };
 
+use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::User;
 use std::{collections::BTreeMap, fmt::Write};
 
 #[derive(Clone)]
 pub struct OsuStatsGlobalsEmbed {
     description: String,
-    thumbnail: String,
+    thumbnail: ImageSource,
     author: Author,
     footer: Footer,
 }
@@ -34,7 +35,7 @@ impl OsuStatsGlobalsEmbed {
         if scores.is_empty() {
             return Ok(Self {
                 author: osu::get_user_author(&user),
-                thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+                thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
                 footer: Footer::new("Page 1/1 ~ Total scores: 0"),
                 description: String::from("No scores with these parameters were found"),
             });
@@ -79,7 +80,7 @@ impl OsuStatsGlobalsEmbed {
         Ok(Self {
             description,
             author: osu::get_user_author(&user),
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
             footer: Footer::new(format!(
                 "Page {}/{} ~ Total scores: {}",
                 pages.0, pages.1, total
@@ -92,7 +93,7 @@ impl EmbedData for OsuStatsGlobalsEmbed {
     fn description(&self) -> Option<&str> {
         Some(&self.description)
     }
-    fn thumbnail(&self) -> Option<&str> {
+    fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }
     fn author(&self) -> Option<&Author> {

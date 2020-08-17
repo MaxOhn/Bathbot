@@ -125,7 +125,7 @@ async fn profile_main(
     }
 
     // Send the embed
-    let embed = data.build().build();
+    let embed = data.build().build()?;
     let response = ctx
         .http
         .create_message(msg.channel_id)

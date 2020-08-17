@@ -10,6 +10,7 @@ use crate::{
     BotResult, Context,
 };
 
+use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::{Beatmap, GameMode, Score, User};
 use std::fmt::Write;
 
@@ -17,7 +18,7 @@ use std::fmt::Write;
 pub struct TopEmbed {
     description: String,
     author: Author,
-    thumbnail: String,
+    thumbnail: ImageSource,
     footer: Footer,
 }
 
@@ -61,7 +62,7 @@ impl TopEmbed {
         }
         description.pop();
         Ok(Self {
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
             description,
             author: osu::get_user_author(user),
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
@@ -73,7 +74,7 @@ impl EmbedData for TopEmbed {
     fn description(&self) -> Option<&str> {
         Some(&self.description)
     }
-    fn thumbnail(&self) -> Option<&str> {
+    fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }
     fn author(&self) -> Option<&Author> {

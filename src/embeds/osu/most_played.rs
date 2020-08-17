@@ -4,6 +4,7 @@ use crate::{
     util::constants::{AVATAR_URL, OSU_BASE},
 };
 
+use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::User;
 use std::fmt::Write;
 
@@ -12,7 +13,7 @@ pub struct MostPlayedEmbed {
     description: String,
     author: Author,
     footer: Footer,
-    thumbnail: String,
+    thumbnail: ImageSource,
     title: &'static str,
 }
 
@@ -21,7 +22,7 @@ impl MostPlayedEmbed {
     where
         M: Iterator<Item = &'m MostPlayedMap>,
     {
-        let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
+        let thumbnail = ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap();
         let mut description = String::with_capacity(10 * 70);
         for map in maps {
             let _ = writeln!(
@@ -56,7 +57,7 @@ impl EmbedData for MostPlayedEmbed {
     fn footer(&self) -> Option<&Footer> {
         Some(&self.footer)
     }
-    fn thumbnail(&self) -> Option<&str> {
+    fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }
     fn title(&self) -> Option<&str> {

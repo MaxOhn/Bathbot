@@ -11,13 +11,14 @@ use crate::{
     BotResult, Context,
 };
 
+use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::{Beatmap, GameMode};
 use std::{collections::HashMap, fmt::Write};
 
 #[derive(Clone)]
 pub struct LeaderboardEmbed {
     description: String,
-    thumbnail: String,
+    thumbnail: ImageSource,
     author: Author,
     footer: Footer,
 }
@@ -92,7 +93,7 @@ impl LeaderboardEmbed {
             author,
             description,
             footer,
-            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id),
+            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id)).unwrap(),
         })
     }
 }
@@ -107,7 +108,7 @@ impl EmbedData for LeaderboardEmbed {
     fn footer(&self) -> Option<&Footer> {
         Some(&self.footer)
     }
-    fn thumbnail(&self) -> Option<&str> {
+    fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }
 }

@@ -154,7 +154,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     }
 
     // Creating the embed
-    let embed = data.build().build();
+    let embed = data.build().build()?;
     let response = ctx
         .http
         .create_message(msg.channel_id)

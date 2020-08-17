@@ -9,6 +9,7 @@ use crate::{
     BotResult,
 };
 
+use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::{Beatmap, GameMode, Score, User};
 use std::fmt::Write;
 
@@ -17,7 +18,7 @@ pub struct NoChokeEmbed {
     description: String,
     title: String,
     author: Author,
-    thumbnail: String,
+    thumbnail: ImageSource,
     footer: Footer,
 }
 
@@ -76,7 +77,7 @@ impl NoChokeEmbed {
             title,
             author: osu::get_user_author(user),
             description,
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
         })
     }
@@ -95,7 +96,7 @@ impl EmbedData for NoChokeEmbed {
     fn footer(&self) -> Option<&Footer> {
         Some(&self.footer)
     }
-    fn thumbnail(&self) -> Option<&str> {
+    fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }
 }

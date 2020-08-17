@@ -4,11 +4,13 @@ use crate::{
     util::constants::TWITCH_BASE,
 };
 
+use twilight_embed_builder::image_source::ImageSource;
+
 #[derive(Clone)]
 pub struct TwitchNotifEmbed {
     description: String,
-    thumbnail: String,
-    image: String,
+    thumbnail: ImageSource,
+    image: ImageSource,
     title: String,
     url: String,
     author: Author,
@@ -19,8 +21,8 @@ impl TwitchNotifEmbed {
         Self {
             title: stream.username.clone(),
             description: stream.title.clone(),
-            thumbnail: user.image_url.clone(),
-            image: stream.thumbnail_url.clone(),
+            thumbnail: ImageSource::url(&user.image_url).unwrap(),
+            image: ImageSource::url(&stream.thumbnail_url).unwrap(),
             url: format!("{}{}", TWITCH_BASE, stream.username),
             author: Author::new("Now live on twitch:"),
         }
@@ -34,10 +36,10 @@ impl EmbedData for TwitchNotifEmbed {
     fn author(&self) -> Option<&Author> {
         Some(&self.author)
     }
-    fn thumbnail(&self) -> Option<&str> {
+    fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }
-    fn image(&self) -> Option<&str> {
+    fn image(&self) -> Option<&ImageSource> {
         Some(&self.image)
     }
     fn title(&self) -> Option<&str> {

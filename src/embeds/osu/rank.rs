@@ -3,6 +3,7 @@ use crate::{
     util::{constants::AVATAR_URL, numbers::round_and_comma, osu::pp_missing},
 };
 
+use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::{Score, User};
 use std::borrow::Cow;
 
@@ -10,7 +11,7 @@ use std::borrow::Cow;
 pub struct RankEmbed {
     description: String,
     title: String,
-    thumbnail: String,
+    thumbnail: ImageSource,
     author: Author,
 }
 
@@ -70,7 +71,7 @@ impl RankEmbed {
             title,
             description,
             author: osu::get_user_author(&user),
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
         }
     }
 }
@@ -79,7 +80,7 @@ impl EmbedData for RankEmbed {
     fn description(&self) -> Option<&str> {
         Some(&self.description)
     }
-    fn thumbnail(&self) -> Option<&str> {
+    fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }
     fn author(&self) -> Option<&Author> {

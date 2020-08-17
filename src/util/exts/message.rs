@@ -3,7 +3,7 @@ use crate::{util::constants::RED, BotResult, Context};
 use async_trait::async_trait;
 use std::fmt::Display;
 use tokio::time::{timeout, Duration};
-use twilight::builders::embed::EmbedBuilder;
+use twilight_embed_builder::builder::EmbedBuilder;
 use twilight::http::request::channel::message::create_message::{
     CreateMessage, CreateMessageError,
 };
@@ -63,7 +63,7 @@ impl MessageExt for Message {
     }
 
     async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
-        let embed = EmbedBuilder::new().color(RED).description(content).build();
+        let embed = EmbedBuilder::new().color(RED)?.description(content)?.build()?;
         ctx.http
             .create_message(self.channel_id)
             .embed(embed)?

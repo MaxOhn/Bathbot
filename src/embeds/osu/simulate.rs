@@ -13,15 +13,16 @@ use crate::{
 
 use rosu::models::{Beatmap, GameMode, GameMods, Score};
 use std::fmt::Write;
-use twilight::builders::embed::EmbedBuilder;
+use twilight::model::channel::embed::EmbedField;
+use twilight_embed_builder::{builder::EmbedBuilder, image_source::ImageSource};
 
 #[derive(Clone)]
 pub struct SimulateEmbed {
     title: String,
     url: String,
     footer: Footer,
-    thumbnail: String,
-    image: String,
+    thumbnail: ImageSource,
+    image: ImageSource,
 
     stars: f32,
     grade_completion_mods: String,
@@ -111,11 +112,11 @@ impl SimulateEmbed {
             title,
             url: format!("{}b/{}", OSU_BASE, map.beatmap_id),
             footer,
-            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id),
-            image: format!(
+            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id)).unwrap(),
+            image: ImageSource::url(format!(
                 "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
                 map.beatmapset_id
-            ),
+            )).unwrap(),
             grade_completion_mods,
             stars,
             score,
@@ -142,7 +143,7 @@ impl EmbedData for SimulateEmbed {
     fn footer(&self) -> Option<&Footer> {
         Some(&self.footer)
     }
-    fn image(&self) -> Option<&str> {
+    fn image(&self) -> Option<&ImageSource> {
         Some(&self.image)
     }
     fn fields(&self) -> Option<Vec<(String, String, bool)>> {
@@ -201,11 +202,10 @@ impl EmbedData for SimulateEmbed {
             combo = combo
         );
         EmbedBuilder::new()
-            .color(DARK_GREEN)
-            .add_field(name, value)
-            .commit()
-            .thumbnail(&self.thumbnail)
+            .color(DARK_GREEN).unwrap()
+            .field(EmbedField { name, value, inline: false})
+            .thumbnail(self.thumbnail.clone())
             .url(&self.url)
-            .title(format!("{} [{}★]", self.title, self.stars))
+            .title(format!("{} [{}★]", self.title, self.stars)).unwrap()
     }
 }

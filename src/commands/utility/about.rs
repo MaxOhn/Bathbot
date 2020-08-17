@@ -18,7 +18,7 @@ async fn about(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
             return Err(why);
         }
     };
-    let embed = data.build().build();
+    let embed = data.build().build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
     Ok(())
 }

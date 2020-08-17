@@ -39,8 +39,8 @@ async fn osustats_main(
             return Err(why);
         }
     };
-    let data = OsuStatsCountsEmbed::new(user, counts);
-    let embed = data.build().build();
+    let data = OsuStatsCountsEmbed::new(user, mode, counts);
+    let embed = data.build().build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
     Ok(())
 }

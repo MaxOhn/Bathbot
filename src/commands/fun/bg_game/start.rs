@@ -14,7 +14,7 @@ use tokio::{stream::StreamExt, time::Duration};
 use twilight::model::{
     channel::{Message, ReactionType},
     gateway::{
-        event::{Event, EventType},
+        event::{Event},
         payload::ReactionAdd,
     },
 };
@@ -43,8 +43,8 @@ pub async fn start(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResul
             bail!("error while getting mapsets: {}", why);
         }
     };
-    let _ = ctx.http.create_typing_trigger(msg.channel_id).await;
     if !mapsets.is_empty() {
+        let _ = ctx.http.create_typing_trigger(msg.channel_id).await;
         ctx.add_game_and_start(ctx.clone(), msg.channel_id, mapsets);
     }
     Ok(())
@@ -60,7 +60,7 @@ async fn get_mapsets(
     }
     // Send initial message
     let data = BGStartEmbed::new(msg.author.id);
-    let embed = data.build().build();
+    let embed = data.build().build()?;
     let response = ctx
         .http
         .create_message(msg.channel_id)
@@ -77,7 +77,7 @@ async fn get_mapsets(
         .filter_map(|reaction: ReactionAdd| Some(ReactionWrapper::Add(reaction.0)));
     let reaction_remove_stream = ctx
         .standby
-        .wait_for_event_stream(EventType::ReactionRemove, |_: &Event| true)
+        .wait_for_event_stream(|_: &Event| true)
         .filter_map(|event: Event| {
             if let Event::ReactionRemove(reaction) = event {
                 if reaction.0.message_id == response.id && reaction.0.user_id != self_id {
@@ -171,7 +171,7 @@ async fn get_mapsets(
         }
     };
     let data = BGTagsEmbed::new(included, excluded, mapsets.len());
-    let embed = data.build().build();
+    let embed = data.build().build()?;
     ctx.http
         .create_message(msg.channel_id)
         .embed(embed)?

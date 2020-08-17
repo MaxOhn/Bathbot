@@ -9,6 +9,7 @@ use crate::{
     },
 };
 
+use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::{GameMode, Grade, User};
 use std::{collections::BTreeMap, fmt::Write};
 
@@ -16,7 +17,7 @@ use std::{collections::BTreeMap, fmt::Write};
 pub struct ProfileEmbed {
     description: Option<String>,
     author: Author,
-    thumbnail: String,
+    thumbnail: ImageSource,
     footer: Footer,
     fields: Vec<(String, String, bool)>,
 }
@@ -200,7 +201,7 @@ impl ProfileEmbed {
         Self {
             description,
             fields,
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
             footer: Footer::new(footer_text),
             author: osu::get_user_author(&user),
         }
@@ -217,7 +218,7 @@ impl EmbedData for ProfileEmbed {
     fn author(&self) -> Option<&Author> {
         Some(&self.author)
     }
-    fn thumbnail(&self) -> Option<&str> {
+    fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }
     fn fields(&self) -> Option<Vec<(String, String, bool)>> {

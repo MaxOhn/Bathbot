@@ -12,6 +12,7 @@ use crate::{
     BotResult, Context,
 };
 
+use twilight_embed_builder::image_source::ImageSource;
 use chrono::{DateTime, Utc};
 use rosu::models::{Beatmap, GameMode, GameMods};
 use std::fmt::Write;
@@ -20,10 +21,10 @@ use std::fmt::Write;
 pub struct MapEmbed {
     title: String,
     url: String,
-    thumbnail: Option<String>,
+    thumbnail: Option<ImageSource>,
     footer: Footer,
     author: Author,
-    image: Option<&'static str>,
+    image: Option<ImageSource>,
     timestamp: DateTime<Utc>,
     fields: Vec<(String, String, bool)>,
 }
@@ -74,14 +75,14 @@ impl MapEmbed {
             }
         };
         let thumbnail = if with_thumbnail {
-            Some(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id))
+            Some(ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id)).unwrap())
         } else {
             None
         };
         let image = if with_thumbnail {
             None
         } else {
-            Some("attachment://map_graph.png")
+            Some(ImageSource::attachment("map_graph.png").unwrap())
         };
         let mut info_value = String::with_capacity(128);
         let _ = write!(info_value, "Max PP: `{}`", round(pp));
@@ -176,8 +177,8 @@ impl MapEmbed {
 }
 
 impl EmbedData for MapEmbed {
-    fn thumbnail(&self) -> Option<&str> {
-        self.thumbnail.as_deref()
+    fn thumbnail(&self) -> Option<&ImageSource> {
+        self.thumbnail.as_ref()
     }
     fn title(&self) -> Option<&str> {
         Some(&self.title)
@@ -185,8 +186,8 @@ impl EmbedData for MapEmbed {
     fn url(&self) -> Option<&str> {
         Some(&self.url)
     }
-    fn image(&self) -> Option<&str> {
-        self.image
+    fn image(&self) -> Option<&ImageSource> {
+        self.image.as_ref()
     }
     fn footer(&self) -> Option<&Footer> {
         Some(&self.footer)

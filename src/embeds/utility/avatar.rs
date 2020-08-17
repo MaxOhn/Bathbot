@@ -1,12 +1,13 @@
 use crate::{embeds::EmbedData, util::constants::AVATAR_URL};
 
+use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::User;
 
 #[derive(Clone)]
 pub struct AvatarEmbed {
     title: String,
     url: String,
-    image: String,
+    image: ImageSource,
 }
 
 impl AvatarEmbed {
@@ -15,7 +16,7 @@ impl AvatarEmbed {
         let url = format!("{}{}", AVATAR_URL, user.user_id);
         Self {
             title: title_text,
-            image: url.clone(),
+            image: ImageSource::url(&url).unwrap(),
             url,
         }
     }
@@ -28,7 +29,7 @@ impl EmbedData for AvatarEmbed {
     fn url(&self) -> Option<&str> {
         Some(&self.url)
     }
-    fn image(&self) -> Option<&str> {
+    fn image(&self) -> Option<&ImageSource> {
         Some(&self.image)
     }
 }

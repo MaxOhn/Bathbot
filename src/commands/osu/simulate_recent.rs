@@ -67,7 +67,7 @@ async fn simulate_recent_main(
     };
 
     // Creating the embed
-    let embed = data.build().build();
+    let embed = data.build().build()?;
     let response = ctx
         .http
         .create_message(msg.channel_id)
@@ -85,7 +85,7 @@ async fn simulate_recent_main(
     // Minimize embed after delay
     tokio::spawn(async move {
         time::delay_for(Duration::from_secs(45)).await;
-        let embed = data.minimize().build();
+        let embed = data.minimize().build().unwrap();
         let _ = ctx
             .http
             .update_message(response.channel_id, response.id)

@@ -35,7 +35,7 @@ async fn commands(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     let data = CommandCounterEmbed::new(sub_vec, &boot_time, 1, (1, pages));
 
     // Creating the embed
-    let embed = data.build().build();
+    let embed = data.build().build()?;
     let channel = msg.channel_id;
     let response = ctx.http.create_message(channel).embed(embed)?.await?;
 

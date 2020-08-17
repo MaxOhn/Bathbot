@@ -33,7 +33,7 @@ pub async fn backgroundgame(ctx: Arc<Context>, msg: &Message, mut args: Args) ->
     match args.next() {
         None | Some("help") => {
             let prefix = ctx.config_first_prefix(msg.guild_id);
-            let embed = BGHelpEmbed::new(prefix).build().build();
+            let embed = BGHelpEmbed::new(prefix).build().build()?;
             msg.build_response(&ctx, |m| m.embed(embed)).await
         }
         _ => {

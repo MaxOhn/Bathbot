@@ -32,6 +32,7 @@ use twilight::model::{
     gateway::payload::ReactionAdd,
     id::UserId,
 };
+use twilight_embed_builder::image_source::ImageSource;
 
 #[async_trait]
 pub trait Pagination: Sync + Sized {
@@ -58,7 +59,7 @@ pub trait Pagination: Sync + Sized {
     fn jump_index(&self) -> Option<usize> {
         None
     }
-    fn thumbnail(&self) -> Option<String> {
+    fn thumbnail(&self) -> Option<ImageSource> {
         None
     }
     fn content(&self) -> Option<String> {
@@ -127,7 +128,7 @@ pub trait Pagination: Sync + Sized {
                     if let Some(thumbnail) = self.thumbnail() {
                         eb = eb.thumbnail(thumbnail);
                     }
-                    update.embed(eb.build())?.await?;
+                    update.embed(eb.build()?)?.await?;
                 }
                 PageChange::Delete => {
                     let msg = self.msg();

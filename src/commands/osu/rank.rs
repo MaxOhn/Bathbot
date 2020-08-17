@@ -96,7 +96,7 @@ async fn rank_main(
     let data = RankEmbed::new(user, scores, rank, country, rank_holder);
 
     // Creating the embed
-    let embed = data.build().build();
+    let embed = data.build().build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
     Ok(())
 }

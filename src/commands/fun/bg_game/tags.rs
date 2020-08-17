@@ -18,7 +18,7 @@ use tokio::{fs, stream::StreamExt};
 use twilight::model::{
     channel::{Message, ReactionType},
     gateway::{
-        event::{Event, EventType},
+        event::{Event},
         payload::ReactionAdd,
     },
 };
@@ -224,7 +224,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         let verified_users = verified_users_init.clone();
         let reaction_remove_stream = ctx
             .standby
-            .wait_for_event_stream(EventType::ReactionRemove, |_: &Event| true)
+            .wait_for_event_stream(|_: &Event| true)
             .filter_map(move |event: Event| {
                 if let Event::ReactionRemove(reaction) = event {
                     if reaction.0.message_id == msg_id

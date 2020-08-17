@@ -180,7 +180,7 @@ async fn run(
         attempt_cold_resume(cb, &clients.redis, &cache, total_shards, shards_per_cluster).await?;
 
     // Build cluster
-    let cluster = Cluster::new(cb.build()).await?;
+    let cluster = Cluster::new(cb.build()).await.map_err(|why| format_err!("Could not start cluster: {}", why))?;
 
     // Shard states
     let shard_states = DashMap::with_capacity(shards_per_cluster as usize);
@@ -237,7 +237,7 @@ async fn run(
         }
     });
 
-    let mut bot_events = ctx.backend.cluster.events().await;
+    let mut bot_events = ctx.backend.cluster.events();
     let cmd_groups = Arc::new(CommandGroups::new());
     while let Some(event) = bot_events.next().await {
         let (shard, event) = event;
@@ -252,7 +252,7 @@ async fn run(
             }
         });
     }
-    ctx.backend.cluster.down().await;
+    ctx.backend.cluster.down();
     Ok(())
 }
 

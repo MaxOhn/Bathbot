@@ -54,7 +54,7 @@ async fn whatif_main(
     let data = WhatIfEmbed::new(user, scores, mode, pp);
 
     // Sending the embed
-    let embed = data.build().build();
+    let embed = data.build().build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
     Ok(())
 }

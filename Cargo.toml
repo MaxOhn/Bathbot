@@ -99,10 +99,10 @@ features = ["rt-core", "rt-threaded", "time", "macros", "process", "sync", "stre
 git = "https://github.com/twilight-rs/twilight"
 branch = "trunk"
 
-# [dependencies.twilight-builders]
-# git = "https://github.com/twilight-rs/twilight"
-# branch = "trunk"
-# default_features = false
+[dependencies.twilight-embed-builder]
+git = "https://github.com/twilight-rs/twilight"
+branch = "trunk"
+default_features = false
 
 # [dependencies.twilight-gateway]
 # git = "https://github.com/twilight-rs/twilight"

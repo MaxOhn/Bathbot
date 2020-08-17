@@ -162,7 +162,7 @@ async fn recent_main(
         .http
         .create_message(msg.channel_id)
         .content(format!("Try #{}", tries))?
-        .embed(data.build().build())?
+        .embed(data.build().build()?)?
         .await?;
 
     // Skip pagination if too few entries
@@ -173,7 +173,7 @@ async fn recent_main(
             let embed_result = ctx
                 .http
                 .update_message(response.channel_id, response.id)
-                .embed(data.minimize().build());
+                .embed(data.minimize().build().unwrap());
             match embed_result {
                 Ok(m) => {
                     let _ = m.await;

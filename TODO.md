@@ -4,6 +4,8 @@
 - Update README.md of Bathbot
 - Add metrics counter for error occured
 - After retrieving new mapset for bg game, store it in DB
+- Improve guild counter for metrics
+- Expire-store osu users (& top scores?) in redis for ~5 min
 
 **[Sometime]**
 - Handle entry on top.gg
@@ -11,8 +13,8 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Fixed `<help` in DMs~~ (20.08.17)
 - ~~If no permission to send twitch notif, remove tracking [__if not dev__]~~ (20.08.12)
-- ~~Reset guild counter on disconnect~~ (20.08.12)
 - ~~Fix `self.missing_per_shard`~~ (20.08.07)
 - ~~Add owner command to monitor active bg games~~ (20.08.07)
 - ~~Mention bot server~~ (20.08.07)

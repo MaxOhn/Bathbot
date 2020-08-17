@@ -62,7 +62,7 @@ async fn roleassign(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     }
     ctx.add_role_assign(channel, msg_id, role);
     let data = RoleAssignEmbed::new(&ctx, message, msg.guild_id.unwrap(), role).await;
-    let embed = data.build().build();
+    let embed = data.build().build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
     Ok(())
 }

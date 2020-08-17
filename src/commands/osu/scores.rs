@@ -115,7 +115,7 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
 
     // Sending the embed
-    let embed = data.build().build();
+    let embed = data.build().build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
 
     // Add map to database if its not in already

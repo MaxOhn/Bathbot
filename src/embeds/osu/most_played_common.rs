@@ -4,13 +4,14 @@ use crate::{
     util::constants::OSU_BASE,
 };
 
+use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::User;
 use std::{collections::HashMap, fmt::Write};
 
 #[derive(Clone)]
 pub struct MostPlayedCommonEmbed {
     description: String,
-    thumbnail: &'static str,
+    thumbnail: ImageSource,
 }
 
 impl MostPlayedCommonEmbed {
@@ -63,7 +64,7 @@ impl MostPlayedCommonEmbed {
         }
         Self {
             description,
-            thumbnail: "attachment://avatar_fuse.png",
+            thumbnail: ImageSource::attachment("avatar_fuse.png").unwrap(),
         }
     }
 }
@@ -72,7 +73,7 @@ impl EmbedData for MostPlayedCommonEmbed {
     fn description(&self) -> Option<&str> {
         Some(&self.description)
     }
-    fn thumbnail(&self) -> Option<&str> {
-        Some(self.thumbnail)
+    fn thumbnail(&self) -> Option<&ImageSource> {
+        Some(&self.thumbnail)
     }
 }

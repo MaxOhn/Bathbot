@@ -20,13 +20,14 @@ use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
 use std::{error::Error as StdError, fmt, io::Error as IOError};
 use toml::de::Error as TomlError;
-use twilight::gateway::cluster::Error as ClusterError;
 use twilight::http::{
     request::channel::message::{
         create_message::CreateMessageError, update_message::UpdateMessageError,
     },
     Error as HttpError,
 };
+use twilight::gateway::cluster::ClusterCommandError;
+use twilight_embed_builder::builder::{EmbedBuildError, EmbedTitleError, EmbedDescriptionError, EmbedColorError};
 
 #[macro_export]
 macro_rules! bail {
@@ -51,6 +52,10 @@ pub enum Error {
     Custom(String),
     CustomClient(CustomClientError),
     Database(DBError),
+    Embed(EmbedBuildError),
+    EmbedColor(EmbedColorError),
+    EmbedDescription(EmbedDescriptionError),
+    EmbedTitle(EmbedTitleError),
     Fmt(fmt::Error),
     Image(ImageError),
     InvalidConfig(TomlError),
@@ -65,8 +70,8 @@ pub enum Error {
     Redis(RedisError),
     Reqwest(ReqwestError),
     Serde(SerdeJsonError),
+    TwilightCluster(ClusterCommandError),
     TwilightHttp(HttpError),
-    TwilightCluster(ClusterError),
     Twitch(TwitchError),
     UpdateMessage(UpdateMessageError),
 }
@@ -82,7 +87,7 @@ impl fmt::Display for Error {
             }
             Self::CreateMessage(e) => {
                 f.write_str("error while creating message: ")?;
-                if let CreateMessageError::EmbedTooLarge { source } = e {
+                if let CreateMessageError::EmbedTooLarge { source, .. } = e {
                     source.fmt(f)
                 } else {
                     e.fmt(f)
@@ -92,6 +97,10 @@ impl fmt::Display for Error {
             Self::Custom(e) => e.fmt(f),
             Self::CustomClient(e) => write!(f, "custom client error: {}", e),
             Self::Database(e) => write!(f, "database error occured: {}", e),
+            Self::Embed(e) => write!(f, "error while building embed: {}", e),
+            Self::EmbedColor(e) => write!(f, "embed color error: {}", e),
+            Self::EmbedDescription(e) => write!(f, "embed description error: {}", e),
+            Self::EmbedTitle(e) => write!(f, "embed title error: {}", e),
             Self::Fmt(e) => write!(f, "fmt error: {}", e),
             Self::Image(e) => write!(f, "image error: {}", e),
             Self::InvalidConfig(e) => write!(f, "config file was not in correct format: {}", e),
@@ -115,7 +124,7 @@ impl fmt::Display for Error {
             Self::Twitch(e) => write!(f, "twitch error: {}", e),
             Self::UpdateMessage(e) => {
                 f.write_str("error while updating message: ")?;
-                if let UpdateMessageError::EmbedTooLarge { source } = e {
+                if let UpdateMessageError::EmbedTooLarge { source, .. } = e {
                     source.fmt(f)
                 } else {
                     e.fmt(f)
@@ -152,6 +161,30 @@ impl From<CustomClientError> for Error {
 impl From<DBError> for Error {
     fn from(e: DBError) -> Self {
         Error::Database(e)
+    }
+}
+
+impl From<EmbedBuildError> for Error {
+    fn from(e: EmbedBuildError) -> Self {
+        Error::Embed(e)
+    }
+}
+
+impl From<EmbedColorError> for Error {
+    fn from(e: EmbedColorError) -> Self {
+        Error::EmbedColor(e)
+    }
+}
+
+impl From<EmbedDescriptionError> for Error {
+    fn from(e: EmbedDescriptionError) -> Self {
+        Error::EmbedDescription(e)
+    }
+}
+
+impl From<EmbedTitleError> for Error {
+    fn from(e: EmbedTitleError) -> Self {
+        Error::EmbedTitle(e)
     }
 }
 
@@ -215,15 +248,15 @@ impl From<SerdeJsonError> for Error {
     }
 }
 
-impl From<HttpError> for Error {
-    fn from(e: HttpError) -> Self {
-        Error::TwilightHttp(e)
+impl From<ClusterCommandError> for Error {
+    fn from(e: ClusterCommandError) -> Self {
+        Error::TwilightCluster(e)
     }
 }
 
-impl From<ClusterError> for Error {
-    fn from(e: ClusterError) -> Self {
-        Error::TwilightCluster(e)
+impl From<HttpError> for Error {
+    fn from(e: HttpError) -> Self {
+        Error::TwilightHttp(e)
     }
 }
 

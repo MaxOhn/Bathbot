@@ -19,16 +19,17 @@ use twilight::model::channel::Message;
 #[short_desc("Simulate a score on a map")]
 #[long_desc(
     "Simulate a (perfect) score on the given map. \
+     Mods can be specified.\n\
      If no map is given, I will choose the last map \
      I can find in my embeds of this channel.\n\
      The `-s` argument is only relevant for mania."
 )]
 #[usage(
-    "[map url / map id] [-a acc%] [-300 #300s] [-100 #100s] [-50 #50s] [-m #misses] [-s score]"
+    "[map url / map id] [+mods] [-a acc%] [-300 #300s] [-100 #100s] [-50 #50s] [-m #misses] [-s score]"
 )]
 #[example(
-    "1980365 -a 99.3 -300 1422 -50 2 -m 1",
-    "https://osu.ppy.sh/beatmapsets/948199#osu/1980365"
+    "1980365 +hddt -a 99.3 -300 1422 -50 2 -m 1",
+    "https://osu.ppy.sh/beatmapsets/948199#osu/1980365 -a 97.56"
 )]
 #[aliases("s")]
 async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
@@ -99,7 +100,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     };
 
     // Creating the embed
-    let embed = data.build().build();
+    let embed = data.build().build()?;
     let response = ctx
         .http
         .create_message(msg.channel_id)
@@ -115,7 +116,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     // Minimize embed after delay
     tokio::spawn(async move {
         time::delay_for(Duration::from_secs(45)).await;
-        let embed = data.minimize().build();
+        let embed = data.minimize().build().unwrap();
         let _ = ctx
             .http
             .update_message(response.channel_id, response.id)

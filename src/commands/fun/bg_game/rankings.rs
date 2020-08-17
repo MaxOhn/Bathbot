@@ -65,7 +65,7 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     let data = BGRankingEmbed::new(author_idx, initial_scores, global, 1, (1, pages));
 
     // Creating the embed
-    let embed = data.build().build();
+    let embed = data.build().build()?;
     let response = ctx
         .http
         .create_message(msg.channel_id)

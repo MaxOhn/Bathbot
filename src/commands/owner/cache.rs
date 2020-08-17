@@ -19,7 +19,7 @@ async fn cache(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
         let _ = msg.error(&ctx, GENERAL_ISSUE).await;
         return Err(why);
     }
-    let embed = CacheEmbed::new(&ctx).build().build();
+    let embed = CacheEmbed::new(&ctx).build().build()?;
     let content = "File with cached user ids is ready";
     msg.build_response(&ctx, |m| m.content(content)?.embed(embed))
         .await?;

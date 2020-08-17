@@ -50,7 +50,7 @@ async fn mostplayed(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     let data = MostPlayedEmbed::new(&user, maps.iter().take(10), (1, pages));
 
     // Creating the embed
-    let embed = data.build().build();
+    let embed = data.build().build()?;
     let response = ctx
         .http
         .create_message(msg.channel_id)

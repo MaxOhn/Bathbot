@@ -13,7 +13,8 @@ pub use utility::*;
 use crate::util::{constants::DARK_GREEN, datetime};
 
 use chrono::{DateTime, Utc};
-use twilight::builders::embed::EmbedBuilder;
+use twilight::model::channel::embed::EmbedField;
+use twilight_embed_builder::{builder::EmbedBuilder, author::EmbedAuthorBuilder, footer::EmbedFooterBuilder, image_source::ImageSource};
 
 pub trait EmbedData: Send + Sync + Sized + Clone {
     // Make these point to the corresponding fields
@@ -26,10 +27,10 @@ pub trait EmbedData: Send + Sync + Sized + Clone {
     fn timestamp(&self) -> Option<&DateTime<Utc>> {
         None
     }
-    fn image(&self) -> Option<&str> {
+    fn image(&self) -> Option<&ImageSource> {
         None
     }
-    fn thumbnail(&self) -> Option<&str> {
+    fn thumbnail(&self) -> Option<&ImageSource> {
         None
     }
     fn footer(&self) -> Option<&Footer> {
@@ -54,7 +55,7 @@ pub trait EmbedData: Send + Sync + Sized + Clone {
     fn build(&self) -> EmbedBuilder {
         let mut eb = EmbedBuilder::new();
         if let Some(title) = self.title() {
-            eb = eb.title(title);
+            eb = eb.title(title).unwrap();
         }
         if let Some(url) = self.url() {
             eb = eb.url(url);
@@ -64,49 +65,44 @@ pub trait EmbedData: Send + Sync + Sized + Clone {
             eb = eb.timestamp(timestamp);
         }
         if let Some(thumbnail) = self.thumbnail() {
-            eb = eb.thumbnail(thumbnail);
+            eb = eb.thumbnail(thumbnail.to_owned());
         }
         if let Some(image) = self.image() {
-            eb = eb.image(image);
+            eb = eb.image(image.to_owned());
         }
         if let Some(footer) = self.footer() {
-            let mut fb = eb.footer(&footer.text);
+            let mut fb = EmbedFooterBuilder::new(&footer.text).unwrap();
             if let Some(ref icon_url) = footer.icon_url {
-                fb = fb.icon_url(icon_url);
+                fb = fb.icon_url(icon_url.to_owned());
             }
-            eb = fb.commit();
+            eb = eb.footer(fb);
         }
         if let Some(author) = self.author() {
-            let mut ab = eb.author().name(&author.name);
+            let mut ab = EmbedAuthorBuilder::new().name(&author.name).unwrap();
             if let Some(ref icon_url) = author.icon_url {
-                ab = ab.icon_url(icon_url);
+                ab = ab.icon_url(icon_url.to_owned());
             }
             if let Some(ref url) = author.url {
                 ab = ab.url(url);
             }
-            eb = ab.commit();
+            eb = eb.author(ab);
         }
         if let Some(description) = self.description() {
-            eb = eb.description(description);
+            eb = eb.description(description).unwrap();
         }
         if let Some(fields) = self.fields() {
             for (name, value, inline) in fields {
-                let field = eb.add_field(name, value);
-                eb = if inline {
-                    field.inline().commit()
-                } else {
-                    field.commit()
-                }
+                eb = eb.field(EmbedField { name, value, inline});
             }
         }
-        eb.color(DARK_GREEN)
+        eb.color(DARK_GREEN).unwrap()
     }
 }
 
 #[derive(Clone)]
 pub struct Footer {
     text: String,
-    icon_url: Option<String>,
+    icon_url: Option<ImageSource>,
 }
 
 impl Footer {
@@ -117,7 +113,7 @@ impl Footer {
         }
     }
     pub fn icon_url(mut self, icon_url: impl Into<String>) -> Self {
-        self.icon_url = Some(icon_url.into());
+        self.icon_url = Some(ImageSource::url(icon_url).unwrap());
         self
     }
 }
@@ -126,7 +122,7 @@ impl Footer {
 pub struct Author {
     name: String,
     url: Option<String>,
-    icon_url: Option<String>,
+    icon_url: Option<ImageSource>,
 }
 
 impl Author {
@@ -142,7 +138,7 @@ impl Author {
         self
     }
     pub fn icon_url(mut self, icon_url: impl Into<String>) -> Self {
-        self.icon_url = Some(icon_url.into());
+        self.icon_url = Some(ImageSource::url(icon_url).unwrap());
         self
     }
 }

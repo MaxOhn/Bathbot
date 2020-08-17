@@ -4,13 +4,14 @@ use crate::{
     BotResult, Context,
 };
 
+use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::{GameMode, Grade, Score, User};
 use std::{collections::BTreeMap, fmt::Write};
 
 #[derive(Clone)]
 pub struct RatioEmbed {
     description: String,
-    thumbnail: String,
+    thumbnail: ImageSource,
     author: Author,
 }
 
@@ -33,7 +34,7 @@ impl RatioEmbed {
                 categories.get_mut(&100).unwrap().add_score(&score);
             }
         }
-        let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
+        let thumbnail = ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap();
         let mut description = String::with_capacity(256);
         let _ = writeln!(
             description,
@@ -130,7 +131,7 @@ impl EmbedData for RatioEmbed {
     fn author(&self) -> Option<&Author> {
         Some(&self.author)
     }
-    fn thumbnail(&self) -> Option<&str> {
+    fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }
 }

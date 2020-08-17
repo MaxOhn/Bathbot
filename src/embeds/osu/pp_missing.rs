@@ -7,13 +7,14 @@ use crate::{
     },
 };
 
+use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::{Score, User};
 
 #[derive(Clone)]
 pub struct PPMissingEmbed {
     description: String,
     title: String,
-    thumbnail: String,
+    thumbnail: ImageSource,
     author: Author,
 }
 
@@ -54,7 +55,7 @@ impl PPMissingEmbed {
             title,
             description,
             author: osu::get_user_author(&user),
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
         }
     }
 }
@@ -63,7 +64,7 @@ impl EmbedData for PPMissingEmbed {
     fn description(&self) -> Option<&str> {
         Some(&self.description)
     }
-    fn thumbnail(&self) -> Option<&str> {
+    fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }
     fn author(&self) -> Option<&Author> {
