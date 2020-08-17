@@ -42,17 +42,10 @@ pub struct UserCounters {
 }
 
 pub struct GuildCounters {
+    pub current: IntGauge,
     pub partial: IntGauge,
     pub loaded: IntGauge,
     pub outage: IntGauge,
-}
-
-impl GuildCounters {
-    fn reset(&self) {
-        self.partial.set(0);
-        self.loaded.set(0);
-        self.outage.set(0);
-    }
 }
 
 pub struct ShardStats {
@@ -137,6 +130,7 @@ impl BotStats {
                 total: user_counter.get_metric_with_label_values(&["Total"]).unwrap(),
             },
             guild_counts: GuildCounters {
+                current: guild_counter.get_metric_with_label_values(&["Current"]).unwrap(),
                 partial: guild_counter.get_metric_with_label_values(&["Partial"]).unwrap(),
                 loaded: guild_counter.get_metric_with_label_values(&["Loaded"]).unwrap(),
                 outage: guild_counter.get_metric_with_label_values(&["Outage"]).unwrap(),
@@ -216,11 +210,15 @@ impl Context {
             Event::ShardReconnecting(_) => {
                 self.shard_state_change(shard_id, ShardState::Reconnecting)
             }
-            Event::ShardDisconnected(_) => {
-                self.cache.stats.guild_counts.reset();
-                self.shard_state_change(shard_id, ShardState::Disconnected)
-            }
+            Event::ShardDisconnected(_) => self.shard_state_change(shard_id, ShardState::Disconnected),
             _ => {}
+        }
+        match event {
+            Event::GuildCreate(_) | Event::GuildDelete(_) | Event::GuildUpdate(_) => {
+                let guilds = self.cache.guilds.len() as i64;
+                self.cache.stats.guild_counts.current.set(guilds);
+            },
+            _ => {},
         }
     }
 

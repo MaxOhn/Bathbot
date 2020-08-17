@@ -59,7 +59,7 @@ impl AboutEmbed {
         let total_users = user_counts.total.get();
         let unique_users = user_counts.unique.get();
         let guild_counts = &ctx.cache.stats.guild_counts;
-        let guilds = guild_counts.loaded.get() + guild_counts.outage.get();
+        let guilds = guild_counts.current.get();
         let channels = ctx.cache.stats.channel_count.get();
 
         let boot_time = ctx.cache.stats.start_time;
