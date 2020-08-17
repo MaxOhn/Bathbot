@@ -3,7 +3,6 @@
 - Fix unreacting for `<bg s` and possibly `<bgt`
 - Update README.md of Bathbot
 - Add metrics counter for error occured
-- After retrieving new mapset for bg game, store it in DB
 - Improve guild counter for metrics
 - Expire-store osu users (& top scores?) in redis for ~5 min
 
@@ -13,6 +12,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~After retrieving new mapset for bg game, store it in DB~~ (20.08.17)
 - ~~Fixed `<help` in DMs~~ (20.08.17)
 - ~~If no permission to send twitch notif, remove tracking [__if not dev__]~~ (20.08.12)
 - ~~Fix `self.missing_per_shard`~~ (20.08.07)

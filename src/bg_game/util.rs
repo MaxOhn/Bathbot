@@ -35,7 +35,12 @@ pub async fn get_title_artist(ctx: &Context, mapset_id: u32) -> GameResult<(Stri
         } else {
             let request = BeatmapRequest::new().mapset_id(mapset_id);
             match request.queue_single(ctx.osu()).await {
-                Ok(Some(map)) => (map.title, map.artist),
+                Ok(Some(map)) => {
+                    if let Err(why) = ctx.psql().insert_beatmap(&map).await {
+                        warn!("Error while inserting bg game map into DB: {}", why);
+                    }
+                    (map.title, map.artist)
+                },
                 Ok(None) => return Err(BgGameError::NoMapResult(mapset_id)),
                 Err(why) => return Err(BgGameError::Osu(why)),
             }
