@@ -70,7 +70,7 @@ async fn top_main(
 
     // Retrieve the user and their top scores
     let scores_fut = match BestRequest::with_username(&name) {
-        Ok(req) => req.mode(GameMode::STD).limit(100).queue(ctx.osu()),
+        Ok(req) => req.mode(mode).limit(100).queue(ctx.osu()),
         Err(_) => {
             let content = format!("Could not build request for osu name `{}`", name);
             return msg.error(&ctx, content).await;
