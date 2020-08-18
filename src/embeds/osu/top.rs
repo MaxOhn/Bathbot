@@ -10,13 +10,13 @@ use crate::{
     BotResult, Context,
 };
 
-use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::{Beatmap, GameMode, Score, User};
 use std::fmt::Write;
+use twilight_embed_builder::image_source::ImageSource;
 
 #[derive(Clone)]
 pub struct TopEmbed {
-    description: String,
+    description: Option<String>,
     author: Author,
     thumbnail: ImageSource,
     footer: Footer,
@@ -61,6 +61,10 @@ impl TopEmbed {
             );
         }
         description.pop();
+        let description = match description.is_empty() {
+            true => None,
+            false => Some(description),
+        };
         Ok(Self {
             thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
             description,
@@ -72,7 +76,7 @@ impl TopEmbed {
 
 impl EmbedData for TopEmbed {
     fn description(&self) -> Option<&str> {
-        Some(&self.description)
+        self.description.as_deref()
     }
     fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
