@@ -11,10 +11,15 @@ use crate::{
 
 use rayon::prelude::*;
 use std::{collections::BTreeMap, fmt::Write};
-use twilight_embed_builder::{builder::EmbedBuilder, author::EmbedAuthorBuilder, footer::EmbedFooterBuilder};
 use twilight::model::{
-    channel::{embed::{Embed, EmbedField}, Message},
+    channel::{
+        embed::{Embed, EmbedField},
+        Message,
+    },
     id::{ChannelId, GuildId, UserId},
+};
+use twilight_embed_builder::{
+    author::EmbedAuthorBuilder, builder::EmbedBuilder, footer::EmbedFooterBuilder,
 };
 
 fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
@@ -82,7 +87,10 @@ pub async fn help(
     let desc = description(ctx, msg.guild_id);
     let mut size = desc.len();
     debug_assert!(size < DESCRIPTION_SIZE);
-    let mut eb = EmbedBuilder::new().color(DARK_GREEN).unwrap().description(desc)?;
+    let mut eb = EmbedBuilder::new()
+        .color(DARK_GREEN)
+        .unwrap()
+        .description(desc)?;
     let groups = cmds
         .groups
         .iter()
@@ -116,7 +124,11 @@ pub async fn help(
             EmbedBuilder::new().color(DARK_GREEN).unwrap()
         } else {
             size += size_addition;
-            eb.field(EmbedField { name: group.name.clone(), value, inline: false})
+            eb.field(EmbedField {
+                name: group.name.clone(),
+                value,
+                inline: false,
+            })
         };
     }
     let embed = eb.build()?;
@@ -155,7 +167,11 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
     if let Some(usage) = cmd.usage {
         let value = format!("`{}{} {}`", prefix, name, usage);
         usage_len = value.chars().count();
-        let field = EmbedField { name: String::from("How to use"), value, inline: usage_len <= 29};
+        let field = EmbedField {
+            name: String::from("How to use"),
+            value,
+            inline: usage_len <= 29,
+        };
         eb = eb.field(field);
     }
     let mut examples = cmd.examples.iter();
@@ -169,9 +185,13 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
             writeln!(value, "`{}{} {}`", prefix, name, example)?;
             example_len = example_len.max(cmd_len + example.chars().count());
         }
-        let not_inline= (usage_len <= 29 && cmd.names.len() > 1 && example_len > 27)
-        || ((usage_len > 29 || cmd.names.len() > 1) && example_len > 36);
-        let field = EmbedField { name: String::from("Examples"), value, inline: !not_inline};
+        let not_inline = (usage_len <= 29 && cmd.names.len() > 1 && example_len > 27)
+            || ((usage_len > 29 || cmd.names.len() > 1) && example_len > 36);
+        let field = EmbedField {
+            name: String::from("Examples"),
+            value,
+            inline: !not_inline,
+        };
         eb = eb.field(field);
     }
     let mut aliases = cmd.names.iter().skip(1);
@@ -182,7 +202,11 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
         for &alias in aliases {
             write!(value, ", `{}`", alias)?;
         }
-        eb = eb.field(EmbedField { name: String::from("Aliases"), value, inline: true});
+        eb = eb.field(EmbedField {
+            name: String::from("Aliases"),
+            value,
+            inline: true,
+        });
     }
     if cmd.authority {
         let value = if let Some(guild_id) = msg.guild_id {
@@ -202,10 +226,16 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
             was setup as authority in a guild"
                 .to_owned()
         };
-        eb = eb.field(EmbedField { name: String::from("Requires authority status"), value, inline: false});
+        eb = eb.field(EmbedField {
+            name: String::from("Requires authority status"),
+            value,
+            inline: false,
+        });
     }
     if cmd.owner {
-        let ab = EmbedAuthorBuilder::new().name("Can only be used by the bot owner").unwrap();
+        let ab = EmbedAuthorBuilder::new()
+            .name("Can only be used by the bot owner")
+            .unwrap();
         eb = eb.author(ab);
     }
     let footer_text = if cmd.only_guilds || cmd.authority {
@@ -246,7 +276,10 @@ pub async fn failed_help(
         content.push('?');
         (content, DARK_GREEN)
     };
-    let embed = EmbedBuilder::new().description(content)?.color(color)?.build()?;
+    let embed = EmbedBuilder::new()
+        .description(content)?
+        .color(color)?
+        .build()?;
     msg.build_response(ctx, |m| m.embed(embed)).await?;
     Ok(())
 }

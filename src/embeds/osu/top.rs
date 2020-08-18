@@ -16,7 +16,7 @@ use twilight_embed_builder::image_source::ImageSource;
 
 #[derive(Clone)]
 pub struct TopEmbed {
-    description: Option<String>,
+    description: String,
     author: Author,
     thumbnail: ImageSource,
     footer: Footer,
@@ -61,10 +61,6 @@ impl TopEmbed {
             );
         }
         description.pop();
-        let description = match description.is_empty() {
-            true => None,
-            false => Some(description),
-        };
         Ok(Self {
             thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
             description,
@@ -76,7 +72,7 @@ impl TopEmbed {
 
 impl EmbedData for TopEmbed {
     fn description(&self) -> Option<&str> {
-        self.description.as_deref()
+        Some(&self.description)
     }
     fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)

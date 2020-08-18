@@ -185,6 +185,7 @@ async fn common_main(
     // Accumulate all necessary data
     let len = names.iter().map(|name| name.len() + 4).sum::<usize>() + 4;
     let mut content = String::with_capacity(len);
+    let len = names.len();
     let mut iter = names.into_iter();
     let last = iter.next_back();
     let _ = write!(content, "`{}`", iter.next().unwrap());

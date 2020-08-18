@@ -14,7 +14,10 @@ use crate::util::{constants::DARK_GREEN, datetime};
 
 use chrono::{DateTime, Utc};
 use twilight::model::channel::embed::EmbedField;
-use twilight_embed_builder::{builder::EmbedBuilder, author::EmbedAuthorBuilder, footer::EmbedFooterBuilder, image_source::ImageSource};
+use twilight_embed_builder::{
+    author::EmbedAuthorBuilder, builder::EmbedBuilder, footer::EmbedFooterBuilder,
+    image_source::ImageSource,
+};
 
 pub trait EmbedData: Send + Sync + Sized + Clone {
     // Make these point to the corresponding fields
@@ -88,11 +91,17 @@ pub trait EmbedData: Send + Sync + Sized + Clone {
             eb = eb.author(ab);
         }
         if let Some(description) = self.description() {
-            eb = eb.description(description).unwrap();
+            if !description.is_empty() {
+                eb = eb.description(description).unwrap();
+            }
         }
         if let Some(fields) = self.fields() {
             for (name, value, inline) in fields {
-                eb = eb.field(EmbedField { name, value, inline});
+                eb = eb.field(EmbedField {
+                    name,
+                    value,
+                    inline,
+                });
             }
         }
         eb.color(DARK_GREEN).unwrap()

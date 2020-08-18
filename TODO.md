@@ -4,6 +4,7 @@
 - Update README.md of Bathbot
 - Add metrics counter for error occured
 - Expire-store osu users (& top scores?) in redis for ~5 min
+- Add ratelimit for downloading maps
 
 **[Sometime]**
 - Handle entry on top.gg
