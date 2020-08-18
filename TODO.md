@@ -3,7 +3,6 @@
 - Fix unreacting for `<bg s` and possibly `<bgt`
 - Update README.md of Bathbot
 - Add metrics counter for error occured
-- Expire-store osu users (& top scores?) in redis for ~5 min
 - Add ratelimit for downloading maps
 
 **[Sometime]**

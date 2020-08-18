@@ -74,9 +74,6 @@ async fn async_main() -> BotResult<()> {
     // Load config file
     core::BotConfig::init("config.toml").await?;
 
-    // Connect to osu! API
-    let osu = Osu::new(CONFIG.get().unwrap().tokens.osu.clone());
-
     // Prepare twitch client
     let twitch = Twitch::new(
         &CONFIG.get().unwrap().tokens.twitch_client_id,
@@ -104,6 +101,15 @@ async fn async_main() -> BotResult<()> {
     let psql = Database::new(&CONFIG.get().unwrap().database.postgres).await?;
     let redis =
         ConnectionPool::create(CONFIG.get().unwrap().database.redis.clone(), None, 5).await?;
+
+    // Connect to osu! API
+    let cached = rosu::backend::OsuCached::User;
+    let osu = Osu::new(
+        CONFIG.get().unwrap().tokens.osu.clone(),
+        redis.clone(),
+        300,
+        cached,
+    );
 
     // Log custom client into osu!
     let custom = CustomClient::new(&CONFIG.get().unwrap().tokens.osu_session).await?;
@@ -180,7 +186,9 @@ async fn run(
         attempt_cold_resume(cb, &clients.redis, &cache, total_shards, shards_per_cluster).await?;
 
     // Build cluster
-    let cluster = Cluster::new(cb.build()).await.map_err(|why| format_err!("Could not start cluster: {}", why))?;
+    let cluster = Cluster::new(cb.build())
+        .await
+        .map_err(|why| format_err!("Could not start cluster: {}", why))?;
 
     // Shard states
     let shard_states = DashMap::with_capacity(shards_per_cluster as usize);

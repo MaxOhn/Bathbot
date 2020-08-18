@@ -30,8 +30,14 @@ async fn simulate_recent_main(
     };
 
     // Retrieve the recent score
-    let request = RecentRequest::with_username(&name).mode(mode).limit(1);
-    let score = match request.queue(ctx.osu()).await {
+    let score_fut = match RecentRequest::with_username(&name) {
+        Ok(req) => req.mode(mode).limit(1),
+        Err(_) => {
+            let content = format!("Could not build request for osu name `{}`", name);
+            return msg.error(&ctx, content).await;
+        }
+    };
+    let score = match score_fut.queue(ctx.osu()).await {
         Ok(mut scores) => match scores.pop() {
             Some(score) => score,
             None => {

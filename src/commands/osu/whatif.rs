@@ -33,10 +33,13 @@ async fn whatif_main(
     }
 
     // Retrieve the user and their top scores
-    let scores_fut = BestRequest::with_username(&name)
-        .mode(mode)
-        .limit(100)
-        .queue(ctx.osu());
+    let scores_fut = match BestRequest::with_username(&name) {
+        Ok(req) => req.mode(GameMode::STD).limit(100).queue(ctx.osu()),
+        Err(_) => {
+            let content = format!("Could not build request for osu name `{}`", name);
+            return msg.error(&ctx, content).await;
+        }
+    };
     let join_result = tokio::try_join!(ctx.osu_user(&name, mode), scores_fut);
     let (user, scores) = match join_result {
         Ok((Some(user), scores)) => (user, scores),

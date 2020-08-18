@@ -73,8 +73,8 @@ default_features = false
 features = ["cookies"]
 
 [dependencies.rosu]
-version = "0.2"
-features = [ "serialize", "metrics" ]
+version = "0.3"
+features = [ "cache", "metrics" ]
 
 [dependencies.scraper]
 version = "0.12"

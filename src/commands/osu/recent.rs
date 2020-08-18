@@ -38,12 +38,16 @@ async fn recent_main(
     };
 
     // Retrieve the user and their recent scores
+    let req = match RecentRequest::with_username(&name) {
+        Ok(req) => req,
+        Err(_) => {
+            let content = format!("Could not build request for osu name `{}`", name);
+            return msg.error(&ctx, content).await;
+        }
+    };
     let join_result = tokio::try_join!(
         ctx.osu_user(&name, mode),
-        RecentRequest::with_username(&name)
-            .mode(mode)
-            .limit(50)
-            .queue(ctx.osu())
+        req.mode(mode).limit(50).queue(ctx.osu())
     );
     let (user, scores) = match join_result {
         Ok((user, scores)) => {
