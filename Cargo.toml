@@ -73,7 +73,8 @@ default_features = false
 features = ["cookies"]
 
 [dependencies.rosu]
-version = "0.3"
+# version = "0.3"
+git = "https://github.com/MaxOhn/rosu"
 features = [ "cache", "metrics" ]
 
 [dependencies.scraper]

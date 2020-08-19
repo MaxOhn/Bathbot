@@ -2305,8 +2305,7 @@ dependencies = [
 [[package]]
 name = "rosu"
 version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c472635921bb8c9bd6c85001bac9d7ed2c5ff411d681d213dc12fbe2fdaf3be4"
+source = "git+https://github.com/MaxOhn/rosu#14f3ef34dedf7bd88cf592be9d29184d3da26259"
 dependencies = [
  "bitflags",
  "chrono",
