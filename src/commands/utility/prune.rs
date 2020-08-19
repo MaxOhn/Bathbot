@@ -32,19 +32,29 @@ async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
         }
         Err(_) => 2,
     };
-    let messages = match ctx
+    let mut messages = match ctx
         .http
         .channel_messages(msg.channel_id)
         .limit(amount)
         .unwrap()
         .await
     {
-        Ok(msgs) => msgs.into_iter().map(|msg| msg.id).collect::<Vec<_>>(),
+        Ok(msgs) => msgs
+            .into_iter()
+            .take(amount as usize)
+            .map(|msg| msg.id)
+            .collect::<Vec<_>>(),
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
             bail!("error while retrieving messages: {}", why);
         }
     };
+    if messages.len() < 2 {
+        if let Some(msg_id) = messages.pop() {
+            ctx.http.delete_message(msg.channel_id, msg_id).await?;
+        }
+        return Ok(());
+    }
     if let Err(why) = ctx.http.delete_messages(msg.channel_id, messages).await {
         let _ = msg.error(&ctx, GENERAL_ISSUE).await;
         bail!("error while deleting messages: {}", why);
