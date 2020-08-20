@@ -9,9 +9,14 @@ use futures::future::{try_join_all, TryFutureExt};
 use itertools::Itertools;
 use rosu::{
     backend::requests::{MatchRequest, UserRequest},
-    models::{Match, Team, TeamType},
+    models::{GameMods, Match, Team, TeamType},
 };
-use std::{cmp::Ordering, collections::HashMap, fmt::Write, sync::Arc};
+use std::{
+    cmp::Ordering,
+    collections::{HashMap, HashSet},
+    fmt::Write,
+    sync::Arc,
+};
 use twilight::model::channel::Message;
 
 #[command]
@@ -20,7 +25,7 @@ use twilight::model::channel::Message;
     "Calculate a performance rating for each player \
      in the given multiplayer match. The optional second \
      argument is the amount of played warmups, defaults to 2.\n\
-     More info over at https://github.com/dain98/Minccino#faq"
+     Here's the current [formula](https://i.imgur.com/mUa7r5F.png)"
 )]
 #[usage("[match url / match id] [amount of warmups]")]
 #[example("58320988 1", "https://osu.ppy.sh/community/matches/58320988")]
@@ -103,7 +108,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     let embed = data.build().build()?;
     msg.build_response(&ctx, |mut m| {
         if warmups > 0 {
-            let mut content = String::from("[Old] Ignoring the first ");
+            let mut content = String::from("Ignoring the first ");
             if warmups == 1 {
                 content.push_str("map");
             } else {
@@ -127,13 +132,18 @@ fn process_match(
     let games_len = games.len() as f32;
     let mut teams = HashMap::new();
     let mut point_costs = HashMap::new();
+    let mut mods: HashMap<_, HashSet<_>> = HashMap::new();
     let team_vs = games.first().unwrap().team_type == TeamType::TeamVS;
     let mut match_scores = MatchScores(0, 0);
+    // Calculate point scores for each score in each game
     for game in games.iter() {
         let score_sum: u32 = game.scores.iter().map(|s| s.score).sum();
         let avg = score_sum as f32 / game.scores.iter().filter(|s| s.score > 0).count() as f32;
         let mut team_scores = HashMap::new();
         for score in game.scores.iter().filter(|s| s.score > 0) {
+            mods.entry(score.user_id)
+                .or_default()
+                .insert(score.enabled_mods.map(|mods| mods - GameMods::NoFail));
             let point_cost = score.score as f32 / avg + 0.4;
             point_costs
                 .entry(score.user_id)
@@ -156,12 +166,12 @@ fn process_match(
             });
         match_scores.incr(winner_team);
     }
-    // Tiebreaker game
+    // Tiebreaker bonus
     if osu_match.end_time.is_some() && match_scores.difference() == 1 {
         let game = games.last().unwrap();
         let score_sum: u32 = game.scores.iter().map(|s| s.score).sum();
         let avg = score_sum as f32 / game.scores.iter().filter(|s| s.score > 0).count() as f32;
-        let mut multipliers: Vec<_> = game
+        let multipliers: Vec<_> = game
             .scores
             .iter()
             .filter(|s| s.score > 0)
@@ -170,21 +180,39 @@ fn process_match(
                 false => None,
             })
             .collect();
-        multipliers.sort_by(|(_, m1), (_, m2)| m1.partial_cmp(&m2).unwrap_or(Ordering::Equal));
-        let max = multipliers.last().map(|(_, m)| *m).unwrap();
+        let max =
+            multipliers
+                .iter()
+                .map(|(_, m)| *m)
+                .fold(0.0, |max, next| if next > max { next } else { max });
         multipliers
             .into_iter()
             .for_each(|(user_id, mut multiplier)| {
-                if max > 1.15 {
-                    multiplier = clamp_map(1.0, max, 1.0, 1.15, multiplier);
+                if max > 1.1 {
+                    multiplier = clamp_map(1.0, max, 1.0, 1.1, multiplier);
                 }
                 point_costs.entry(user_id).and_modify(|point_scores| {
-                    point_scores.iter_mut().for_each(|point_score| {
-                        *point_score *= multiplier;
-                    });
+                    point_scores
+                        .iter_mut()
+                        .for_each(|point_score| *point_score *= multiplier)
                 });
             });
     }
+    // Mod combinations bonus
+    let mods: Vec<_> = mods
+        .into_iter()
+        .filter(|(_, mods)| mods.len() > 2)
+        .map(|(id, mods)| (id, mods.len() - 2))
+        .collect();
+    mods.into_iter().for_each(|(user_id, mods)| {
+        let multiplier = 1.0 + mods as f32 * 0.02;
+        point_costs.entry(user_id).and_modify(|point_scores| {
+            point_scores
+                .iter_mut()
+                .for_each(|point_score| *point_score *= multiplier);
+        });
+    });
+    // Calculate match costs by combining point costs
     let mut data = HashMap::new();
     let mut highest_cost = 0.0;
     let mut mvp_id = 0;
