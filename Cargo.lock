@@ -1367,9 +1367,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libc"
-version = "0.2.74"
+version = "0.2.76"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2f02823cf78b754822df5f7f268fb59822e7296276d3e069d8e8cb26a14bd10"
+checksum = "755456fae044e6fa1ebbbd1b3e902ae19e73097ed4ed87bb79934a867c007bc3"
 
 [[package]]
 name = "libloading"
@@ -2016,9 +2016,9 @@ dependencies = [
 
 [[package]]
 name = "ppv-lite86"
-version = "0.2.8"
+version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "237a5ed80e274dbc66f86bd59c1e25edc039660be53194b5fe0a482e0f2612ea"
+checksum = "c36fa947111f5c62a733b652544dd0016a43ce89619538a8ef92724a6f501a20"
 
 [[package]]
 name = "precomputed-hash"
@@ -2699,7 +2699,7 @@ dependencies = [
 [[package]]
 name = "sqlx"
 version = "0.4.0-beta.1"
-source = "git+https://github.com/launchbadge/sqlx/#3076a2dc09263a4794bf8dbd03db50dc93cc3236"
+source = "git+https://github.com/launchbadge/sqlx/#67099d993c5c9eb575ca530c0c94c9a9066c1ebd"
 dependencies = [
  "sqlx-core",
  "sqlx-macros",
@@ -2708,7 +2708,7 @@ dependencies = [
 [[package]]
 name = "sqlx-core"
 version = "0.4.0-beta.1"
-source = "git+https://github.com/launchbadge/sqlx/#3076a2dc09263a4794bf8dbd03db50dc93cc3236"
+source = "git+https://github.com/launchbadge/sqlx/#67099d993c5c9eb575ca530c0c94c9a9066c1ebd"
 dependencies = [
  "atoi",
  "base64 0.12.3",
@@ -2752,7 +2752,7 @@ dependencies = [
 [[package]]
 name = "sqlx-macros"
 version = "0.4.0-beta.1"
-source = "git+https://github.com/launchbadge/sqlx/#3076a2dc09263a4794bf8dbd03db50dc93cc3236"
+source = "git+https://github.com/launchbadge/sqlx/#67099d993c5c9eb575ca530c0c94c9a9066c1ebd"
 dependencies = [
  "dotenv",
  "either",
@@ -2770,7 +2770,7 @@ dependencies = [
 [[package]]
 name = "sqlx-rt"
 version = "0.1.1"
-source = "git+https://github.com/launchbadge/sqlx/#3076a2dc09263a4794bf8dbd03db50dc93cc3236"
+source = "git+https://github.com/launchbadge/sqlx/#67099d993c5c9eb575ca530c0c94c9a9066c1ebd"
 dependencies = [
  "native-tls",
  "once_cell",
@@ -3225,7 +3225,7 @@ dependencies = [
 [[package]]
 name = "twilight"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#823665a4567c2310e56596e32789e6fb89f713c9"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#0685ac859d864f684751e585548b5aa0f26a813b"
 dependencies = [
  "twilight-cache",
  "twilight-command-parser",
@@ -3238,7 +3238,7 @@ dependencies = [
 [[package]]
 name = "twilight-cache"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#823665a4567c2310e56596e32789e6fb89f713c9"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#0685ac859d864f684751e585548b5aa0f26a813b"
 dependencies = [
  "twilight-cache-inmemory",
  "twilight-cache-trait",
@@ -3247,7 +3247,7 @@ dependencies = [
 [[package]]
 name = "twilight-cache-inmemory"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#823665a4567c2310e56596e32789e6fb89f713c9"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#0685ac859d864f684751e585548b5aa0f26a813b"
 dependencies = [
  "async-trait",
  "bitflags",
@@ -3261,7 +3261,7 @@ dependencies = [
 [[package]]
 name = "twilight-cache-trait"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#823665a4567c2310e56596e32789e6fb89f713c9"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#0685ac859d864f684751e585548b5aa0f26a813b"
 dependencies = [
  "async-trait",
 ]
@@ -3269,7 +3269,7 @@ dependencies = [
 [[package]]
 name = "twilight-command-parser"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#823665a4567c2310e56596e32789e6fb89f713c9"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#0685ac859d864f684751e585548b5aa0f26a813b"
 dependencies = [
  "unicase",
 ]
@@ -3277,7 +3277,7 @@ dependencies = [
 [[package]]
 name = "twilight-embed-builder"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#823665a4567c2310e56596e32789e6fb89f713c9"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#0685ac859d864f684751e585548b5aa0f26a813b"
 dependencies = [
  "twilight-model",
 ]
@@ -3285,7 +3285,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#823665a4567c2310e56596e32789e6fb89f713c9"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#0685ac859d864f684751e585548b5aa0f26a813b"
 dependencies = [
  "async-trait",
  "async-tungstenite",
@@ -3307,7 +3307,7 @@ dependencies = [
 [[package]]
 name = "twilight-http"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#823665a4567c2310e56596e32789e6fb89f713c9"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#0685ac859d864f684751e585548b5aa0f26a813b"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -3326,7 +3326,7 @@ dependencies = [
 [[package]]
 name = "twilight-model"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#823665a4567c2310e56596e32789e6fb89f713c9"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#0685ac859d864f684751e585548b5aa0f26a813b"
 dependencies = [
  "bitflags",
  "serde",
@@ -3339,7 +3339,7 @@ dependencies = [
 [[package]]
 name = "twilight-standby"
 version = "0.1.0"
-source = "git+https://github.com/twilight-rs/twilight?branch=trunk#823665a4567c2310e56596e32789e6fb89f713c9"
+source = "git+https://github.com/twilight-rs/twilight?branch=trunk#0685ac859d864f684751e585548b5aa0f26a813b"
 dependencies = [
  "dashmap",
  "futures-channel",
