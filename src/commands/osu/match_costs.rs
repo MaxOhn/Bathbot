@@ -1,7 +1,7 @@
 use crate::{
     arguments::{Args, MatchArgs},
     embeds::{EmbedData, MatchCostEmbed},
-    util::{constants::OSU_API_ISSUE, MessageExt},
+    util::{constants::OSU_API_ISSUE, numbers::clamp_map, MessageExt},
     BotResult, Context,
 };
 
@@ -35,7 +35,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 
     // Retrieve the match
     let match_req = MatchRequest::with_match_id(match_id);
-    let mut osu_match = match match_req.queue_single(&ctx.clients.osu).await {
+    let osu_match = match match_req.queue_single(&ctx.clients.osu).await {
         Ok(osu_match) => osu_match,
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
@@ -63,8 +63,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
                 .map_ok(move |user| (id, user))
         })
         .collect_vec();
-    let users_fut = try_join_all(requests);
-    let users = match users_fut.await {
+    let users: HashMap<_, _> = match try_join_all(requests).await {
         Ok(users) => users
             .into_iter()
             .map(|(id, user)| {
@@ -93,18 +92,18 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         }
         (Some(description), None)
     } else {
-        let result = process_match(users, &mut osu_match, warmups);
+        let result = process_match(users.clone(), &osu_match, warmups);
         (None, Some(result))
     };
 
     // Accumulate all necessary data
-    let data = MatchCostEmbed::new(osu_match, description, match_result);
+    let data = MatchCostEmbed::new(osu_match.clone(), description, match_result);
 
     // Creating the embed
     let embed = data.build().build()?;
     msg.build_response(&ctx, |mut m| {
         if warmups > 0 {
-            let mut content = String::from("Ignoring the first ");
+            let mut content = String::from("[Old] Ignoring the first ");
             if warmups == 1 {
                 content.push_str("map");
             } else {
@@ -121,16 +120,16 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 
 fn process_match(
     mut users: HashMap<u32, String>,
-    r#match: &mut Match,
+    osu_match: &Match,
     warmups: usize,
 ) -> MatchResult {
-    let games: Vec<_> = r#match.games.iter_mut().skip(warmups).collect();
+    let games: Vec<_> = osu_match.games.iter().skip(warmups).collect();
     let games_len = games.len() as f32;
     let mut teams = HashMap::new();
     let mut point_costs = HashMap::new();
     let team_vs = games.first().unwrap().team_type == TeamType::TeamVS;
     let mut match_scores = MatchScores(0, 0);
-    for game in games {
+    for game in games.iter() {
         let score_sum: u32 = game.scores.iter().map(|s| s.score).sum();
         let avg = score_sum as f32 / game.scores.iter().filter(|s| s.score > 0).count() as f32;
         let mut team_scores = HashMap::new();
@@ -156,6 +155,35 @@ fn process_match(
                 }
             });
         match_scores.incr(winner_team);
+    }
+    // Tiebreaker game
+    if osu_match.end_time.is_some() && match_scores.difference() == 1 {
+        let game = games.last().unwrap();
+        let score_sum: u32 = game.scores.iter().map(|s| s.score).sum();
+        let avg = score_sum as f32 / game.scores.iter().filter(|s| s.score > 0).count() as f32;
+        let mut multipliers: Vec<_> = game
+            .scores
+            .iter()
+            .filter(|s| s.score > 0)
+            .filter_map(|s| match s.score as f32 > avg {
+                true => Some((s.user_id, s.score as f32 / avg)),
+                false => None,
+            })
+            .collect();
+        multipliers.sort_by(|(_, m1), (_, m2)| m1.partial_cmp(&m2).unwrap_or(Ordering::Equal));
+        let max = multipliers.last().map(|(_, m)| *m).unwrap();
+        multipliers
+            .into_iter()
+            .for_each(|(user_id, mut multiplier)| {
+                if max > 1.15 {
+                    multiplier = clamp_map(1.0, max, 1.0, 1.15, multiplier);
+                }
+                point_costs.entry(user_id).and_modify(|point_scores| {
+                    point_scores.iter_mut().for_each(|point_score| {
+                        *point_score *= multiplier;
+                    });
+                });
+            });
     }
     let mut data = HashMap::new();
     let mut highest_cost = 0.0;
@@ -202,15 +230,16 @@ fn process_match(
 type TeamResult = Vec<(String, f32)>;
 
 pub enum MatchResult {
-    #[allow(dead_code)] // c'mon rust...
     TeamVS {
         blue: TeamResult,
         red: TeamResult,
         mvp: u32,
         match_scores: MatchScores,
     },
-    #[allow(dead_code)]
-    HeadToHead { players: TeamResult, mvp: u32 },
+    HeadToHead {
+        players: TeamResult,
+        mvp: u32,
+    },
 }
 
 impl MatchResult {
@@ -249,5 +278,10 @@ impl MatchScores {
     }
     pub fn red(self) -> u8 {
         self.1
+    }
+    fn difference(&self) -> u8 {
+        let min = self.0.min(self.1);
+        let max = self.0.max(self.1);
+        max - min
     }
 }

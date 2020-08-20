@@ -1,5 +1,9 @@
 use std::char;
 
+pub fn clamp_map(in_min: f32, in_max: f32, out_min: f32, out_max: f32, input: f32) -> f32 {
+    out_min + ((out_max - out_min) / (in_max - in_min)) * (input - in_min)
+}
+
 pub fn round(n: f32) -> f32 {
     (100.0 * n).round() / 100.0
 }
