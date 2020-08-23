@@ -1,6 +1,6 @@
 use crate::{
     arguments::SimulateArgs,
-    util::{constants::OSU_BASE, error::MapDownloadError, matcher},
+    util::{constants::OSU_BASE, error::MapDownloadError, matcher, BeatmapExt, ScoreExt},
     Context, CONFIG,
 };
 
@@ -25,6 +25,27 @@ impl ModSelection {
 
 pub fn grade_emote(grade: Grade) -> String {
     CONFIG.get().unwrap().grade(grade).to_owned()
+}
+
+pub fn grade_completion_mods(score: &impl ScoreExt, map: &Beatmap) -> String {
+    let mode = map.mode();
+    let grade = CONFIG.get().unwrap().grade(score.grade(mode));
+    let mods = score.mods();
+    match (
+        mods.is_empty(),
+        score.grade(mode) == Grade::F && mode != GameMode::CTB,
+    ) {
+        (true, true) => format!("{} ({}%)", grade, completion(score, map)),
+        (false, true) => format!("{} ({}%) +{}", grade, completion(score, map), mods),
+        (true, false) => grade.to_owned(),
+        (false, false) => format!("{} +{}", grade, mods),
+    }
+}
+
+fn completion(score: &impl ScoreExt, map: &Beatmap) -> u32 {
+    let passed = score.hits(map.mode());
+    let total = map.count_objects();
+    100 * passed / total
 }
 
 pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadError> {

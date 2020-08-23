@@ -1,11 +1,10 @@
 use crate::{
     custom_client::{OsuStatsScore, ScraperScore},
     util::osu::grade_emote,
-    CONFIG,
 };
 
 use rosu::models::{GameMode, GameMods, Grade, Score};
-use std::{borrow::Cow, fmt::Write};
+use std::fmt::Write;
 
 pub trait ScoreExt: Sized {
     // Required to implement
@@ -47,15 +46,6 @@ pub trait ScoreExt: Sized {
     // Processing to strings
     fn grade_emote(&self, mode: GameMode) -> String {
         grade_emote(self.grade(mode))
-    }
-    fn grade_completion_mods(&self, mode: GameMode) -> Cow<str> {
-        let grade = CONFIG.get().unwrap().grade(self.grade(mode));
-        let mods = self.mods();
-        if mods.is_empty() {
-            Cow::Borrowed(grade)
-        } else {
-            Cow::Owned(format!("{} +{}", grade, mods))
-        }
     }
     fn hits_string(&self, mode: GameMode) -> String {
         let mut hits = String::from("{");

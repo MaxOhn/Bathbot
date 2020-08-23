@@ -5,14 +5,15 @@ use crate::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
         numbers::{round_and_comma, with_comma_int},
+        osu::grade_completion_mods,
         ScoreExt,
     },
     BotResult, Context,
 };
 
-use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::{Beatmap, GameMode, Score, User};
 use std::fmt::Write;
+use twilight_embed_builder::image_source::ImageSource;
 
 #[derive(Clone)]
 pub struct ScoresEmbed {
@@ -47,7 +48,7 @@ impl ScoresEmbed {
             let mut name = format!(
                 "**{idx}.** {grade}\t[{stars}]\t{score}\t({acc})",
                 idx = i + 1,
-                grade = score.grade_completion_mods(map.mode),
+                grade = grade_completion_mods(&score, map),
                 stars = stars,
                 score = with_comma_int(score.score),
                 acc = score.acc_string(map.mode),
@@ -80,7 +81,8 @@ impl ScoresEmbed {
         Ok(Self {
             description,
             footer,
-            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id)).unwrap(),
+            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id))
+                .unwrap(),
             title: map.to_string(),
             url: format!("{}b/{}", OSU_BASE, map.beatmap_id),
             fields,

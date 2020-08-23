@@ -5,7 +5,7 @@ use crate::{
         constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
         numbers::{round, with_comma_int},
-        osu::unchoke_score,
+        osu::{grade_completion_mods, unchoke_score},
         ScoreExt,
     },
     BotResult, Context,
@@ -15,7 +15,9 @@ use chrono::{DateTime, Utc};
 use rosu::models::{Beatmap, GameMode, Grade, Score, User};
 use std::fmt::Write;
 use twilight::model::channel::embed::EmbedField;
-use twilight_embed_builder::{builder::EmbedBuilder, author::EmbedAuthorBuilder, image_source::ImageSource};
+use twilight_embed_builder::{
+    author::EmbedAuthorBuilder, builder::EmbedBuilder, image_source::ImageSource,
+};
 
 #[derive(Clone)]
 pub struct RecentEmbed {
@@ -74,7 +76,7 @@ impl RecentEmbed {
         } else {
             map.to_string()
         };
-        let grade_completion_mods = score.grade_completion_mods(map.mode).to_string();
+        let grade_completion_mods = grade_completion_mods(score, map);
         let calculations = Calculations::all();
         let mut calculator = PPCalculator::new().score(score).map(map);
         calculator.calculate(calculations, Some(ctx)).await?;
@@ -127,11 +129,13 @@ impl RecentEmbed {
             author: osu::get_user_author(&user),
             footer,
             timestamp: score.date,
-            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id)).unwrap(),
+            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id))
+                .unwrap(),
             image: ImageSource::url(format!(
                 "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
                 map.beatmapset_id
-            )).unwrap(),
+            ))
+            .unwrap(),
             grade_completion_mods,
             stars,
             score: with_comma_int(score.score),
@@ -201,12 +205,22 @@ impl EmbedData for RecentEmbed {
         if self.description.is_some() {
             eb = eb.description(self.description.as_ref().unwrap()).unwrap();
         }
-        let ab = EmbedAuthorBuilder::new().name(&self.author.name).unwrap().url(self.author.url.as_ref().unwrap()).icon_url(self.author.icon_url.clone().unwrap());
-        eb.color(DARK_GREEN).unwrap()
+        let ab = EmbedAuthorBuilder::new()
+            .name(&self.author.name)
+            .unwrap()
+            .url(self.author.url.as_ref().unwrap())
+            .icon_url(self.author.icon_url.clone().unwrap());
+        eb.color(DARK_GREEN)
+            .unwrap()
             .thumbnail(self.thumbnail.clone())
-            .title(title).unwrap()
+            .title(title)
+            .unwrap()
             .url(&self.url)
-            .field(EmbedField {name, value, inline: false})
+            .field(EmbedField {
+                name,
+                value,
+                inline: false,
+            })
             .author(ab)
     }
 }

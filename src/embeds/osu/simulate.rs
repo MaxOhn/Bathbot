@@ -5,7 +5,7 @@ use crate::{
     util::{
         constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
         numbers::{round, with_comma_int},
-        osu::{simulate_score, unchoke_score},
+        osu::{grade_completion_mods, simulate_score, unchoke_score},
         ScoreExt,
     },
     BotResult, Context,
@@ -71,7 +71,7 @@ impl SimulateEmbed {
         } else {
             unchoke_score(&mut unchoked_score, map);
         }
-        let grade_completion_mods = unchoked_score.grade_completion_mods(map.mode).to_string();
+        let grade_completion_mods = grade_completion_mods(&unchoked_score, map);
         let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
         let mut calculator = PPCalculator::new().score(&unchoked_score).map(map);
         calculator.calculate(calculations, Some(ctx)).await?;
@@ -112,11 +112,13 @@ impl SimulateEmbed {
             title,
             url: format!("{}b/{}", OSU_BASE, map.beatmap_id),
             footer,
-            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id)).unwrap(),
+            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id))
+                .unwrap(),
             image: ImageSource::url(format!(
                 "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
                 map.beatmapset_id
-            )).unwrap(),
+            ))
+            .unwrap(),
             grade_completion_mods,
             stars,
             score,
@@ -202,10 +204,16 @@ impl EmbedData for SimulateEmbed {
             combo = combo
         );
         EmbedBuilder::new()
-            .color(DARK_GREEN).unwrap()
-            .field(EmbedField { name, value, inline: false})
+            .color(DARK_GREEN)
+            .unwrap()
+            .field(EmbedField {
+                name,
+                value,
+                inline: false,
+            })
             .thumbnail(self.thumbnail.clone())
             .url(&self.url)
-            .title(format!("{} [{}★]", self.title, self.stars)).unwrap()
+            .title(format!("{} [{}★]", self.title, self.stars))
+            .unwrap()
     }
 }
