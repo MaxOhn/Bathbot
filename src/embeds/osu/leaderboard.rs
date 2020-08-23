@@ -11,9 +11,9 @@ use crate::{
     BotResult, Context,
 };
 
-use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::{Beatmap, GameMode};
 use std::{collections::HashMap, fmt::Write};
+use twilight_embed_builder::image_source::ImageSource;
 
 #[derive(Clone)]
 pub struct LeaderboardEmbed {
@@ -74,7 +74,7 @@ impl LeaderboardEmbed {
                     } else {
                         format!(" **+{}**", score.enabled_mods)
                     },
-                    pp = get_pp(ctx, &mut mod_map, &score, &map).await?,
+                    pp = get_pp(ctx, &mut mod_map, &score, &map).await,
                     acc = round(score.accuracy),
                     ago = how_long_ago(&score.date),
                 );
@@ -93,7 +93,8 @@ impl LeaderboardEmbed {
             author,
             description,
             footer,
-            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id)).unwrap(),
+            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id))
+                .unwrap(),
         })
     }
 }
@@ -118,19 +119,31 @@ async fn get_pp(
     mod_map: &mut HashMap<u32, f32>,
     score: &ScraperScore,
     map: &Beatmap,
-) -> BotResult<String> {
+) -> String {
     let mut calculator = PPCalculator::new().score(score).map(map);
     let mut calculations = Calculations::PP;
     let bits = score.enabled_mods.bits();
     if !mod_map.contains_key(&bits) {
         calculations |= Calculations::MAX_PP;
     }
-    calculator.calculate(calculations, Some(ctx)).await?;
-    Ok(format!(
-        "**{}**/{}PP",
-        round(calculator.pp().unwrap()),
-        round(calculator.max_pp().unwrap())
-    ))
+    let (pp, max_pp) = match calculator.calculate(calculations, Some(ctx)).await {
+        Ok(_) => {
+            let pp = calculator.pp().unwrap();
+            let max_pp = match calculator.max_pp() {
+                Some(pp) => {
+                    mod_map.insert(bits, pp);
+                    pp
+                }
+                None => *mod_map.get(&bits).unwrap(),
+            };
+            (pp, max_pp)
+        }
+        Err(why) => {
+            warn!("Error while calculating pp, defaulting to 0: {}", why);
+            (0.0, 0.0)
+        }
+    };
+    format!("**{}**/{}PP", round(pp), round(max_pp))
 }
 
 fn get_combo(score: &ScraperScore, map: &Beatmap) -> String {
