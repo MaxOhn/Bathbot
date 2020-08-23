@@ -44,9 +44,9 @@ use std::{
 };
 use tokio::{runtime::Runtime, stream::StreamExt, sync::Mutex, time};
 use twilight::gateway::{
-    cluster::config::{ClusterConfigBuilder, ShardScheme},
+    cluster::{ClusterBuilder, ShardScheme},
     shard::ResumeSession,
-    Cluster, ClusterConfig,
+    Cluster,
 };
 use twilight::http::{
     request::channel::message::allowed_mentions::AllowedMentionsBuilder, Client as HttpClient,
@@ -177,7 +177,7 @@ async fn run(
 
     // Prepare cluster builder
     let cache = Cache::new(bot_user, stats);
-    let cb = ClusterConfig::builder(&CONFIG.get().unwrap().tokens.discord)
+    let cb = Cluster::builder(&CONFIG.get().unwrap().tokens.discord)
         .shard_scheme(sharding_scheme)
         .intents(intents);
 
@@ -186,7 +186,8 @@ async fn run(
         attempt_cold_resume(cb, &clients.redis, &cache, total_shards, shards_per_cluster).await?;
 
     // Build cluster
-    let cluster = Cluster::new(cb.build())
+    let cluster = cb
+        .build()
         .await
         .map_err(|why| format_err!("Could not start cluster: {}", why))?;
 
@@ -327,12 +328,12 @@ async fn _run_metrics_server(stats: Arc<BotStats>) {
 }
 
 async fn attempt_cold_resume(
-    cb: ClusterConfigBuilder,
+    cb: ClusterBuilder,
     redis: &ConnectionPool,
     cache: &Cache,
     total_shards: u64,
     shards_per_cluster: u64,
-) -> BotResult<(ClusterConfigBuilder, bool)> {
+) -> BotResult<(ClusterBuilder, bool)> {
     let mut connection = redis.get().await;
     let key = "cb_cluster_data";
     if let Some(d) = connection.get(key).await.ok().flatten() {
