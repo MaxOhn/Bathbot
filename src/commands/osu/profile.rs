@@ -148,8 +148,8 @@ async fn profile_main(
 #[short_desc("Display statistics of a user")]
 #[usage("[username]")]
 #[example("badewanne3")]
-#[aliases("osu")]
-pub async fn profile(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+#[aliases("profile")]
+pub async fn osu(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     profile_main(GameMode::STD, ctx, msg, args).await
 }
 
@@ -157,8 +157,8 @@ pub async fn profile(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
 #[short_desc("Display statistics of a mania user")]
 #[usage("[username]")]
 #[example("badewanne3")]
-#[aliases("mania", "maniaprofile", "profilem")]
-pub async fn profilemania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+#[aliases("profilemania", "maniaprofile", "profilem")]
+pub async fn mania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     profile_main(GameMode::MNA, ctx, msg, args).await
 }
 
@@ -166,8 +166,8 @@ pub async fn profilemania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 #[short_desc("Display statistics of a taiko user")]
 #[usage("[username]")]
 #[example("badewanne3")]
-#[aliases("taiko", "taikoprofile", "profilet")]
-pub async fn profiletaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+#[aliases("profiletaiko", "taikoprofile", "profilet")]
+pub async fn taiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     profile_main(GameMode::TKO, ctx, msg, args).await
 }
 
@@ -175,8 +175,8 @@ pub async fn profiletaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 #[short_desc("Display statistics of a ctb user")]
 #[usage("[username]")]
 #[example("badewanne3")]
-#[aliases("ctb", "ctbprofile", "profilec")]
-pub async fn profilectb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+#[aliases("profilectb", "ctbprofile", "profilec")]
+pub async fn ctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     profile_main(GameMode::CTB, ctx, msg, args).await
 }
 
