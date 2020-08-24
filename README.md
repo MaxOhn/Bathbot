@@ -1,3 +1,5 @@
+## [2020.08.01] This is the previous Bathbot version. The current version is not (yet?) public so this repo will serve as public interface.
+
 # Bathbot
 Fully fledged discord bot with functionalities all around [osu!](https://osu.ppy.sh/home), aswell as some general utility and stream tracking.
 
@@ -16,7 +18,7 @@ With the bot's osu! commands you can
 
 Moreover, the majority of commands is accessible for **all** gamemodes.
 ### To invite the bot to your server, use [this link](https://discordapp.com/api/oauth2/authorize?client_id=297073686916366336&permissions=268823616&scope=bot)
-A spreadsheet with all current commands can be found [here](http://bit.ly/badecoms) although I can't guarantee the sheet will stay up-to-date
+~~A spreadsheet with all current commands can be found [here](http://bit.ly/badecoms) although I can't guarantee the sheet will stay up-to-date~~
 
 ## Setup
 In case you want to get the bot running yourself to either modify a custom instance for you, or just to contribute to the project, here's what you need to do:
@@ -41,10 +43,10 @@ In case you want to get the bot running yourself to either modify a custom insta
 - Assign all other variables of the `.env.example` file into your `.env` file
 
 ## Todos
-- Allow username provision via discord user mention
-- Update spreadsheet (`<mostplayed`, `pagination`, ...)
+- ~~Allow username provision via discord user mention~~
+- ~~Update spreadsheet (`<mostplayed`, `pagination`, ...)~~
 - Automize the bot setup via docker
-- Move from serenity to twilight
-- Update Readme regarding database migration
+- ~~Move from serenity to twilight~~
+- Update Readme regarding database migration (now using sqlx)
   ### Commands
   - None as of now
