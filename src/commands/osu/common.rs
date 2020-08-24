@@ -80,6 +80,11 @@ async fn common_main(
         }
     };
 
+    if users.values().map(|u| u.user_id).unique().count() == 1 {
+        let content = "Give at least two different users";
+        return msg.error(&ctx, content).await;
+    }
+
     // Retrieve each user's top scores
     let score_futs = users
         .iter()

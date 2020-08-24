@@ -3,9 +3,9 @@ use crate::{
     util::{constants::OSU_BASE, numbers::round},
 };
 
-use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::{Beatmap, Score, User};
 use std::{collections::HashMap, fmt::Write};
+use twilight_embed_builder::image_source::ImageSource;
 
 #[derive(Clone)]
 pub struct CommonEmbed {
