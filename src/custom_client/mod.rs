@@ -2,11 +2,13 @@ mod deserialize;
 mod most_played;
 mod osu_stats;
 mod score;
+mod snipe_score;
 
 pub use most_played::MostPlayedMap;
 pub use osu_stats::*;
 use score::ScraperScores;
 pub use score::{ScraperBeatmap, ScraperScore};
+use snipe_score::SnipeScore;
 
 use crate::{
     util::{
@@ -23,6 +25,7 @@ use reqwest::{
     multipart::Form,
     Client, Response,
 };
+use rosu::models::User;
 use rosu::models::{GameMode, GameMods};
 use scraper::{Html, Node, Selector};
 use serde_json::Value;
@@ -35,6 +38,7 @@ enum Site {
     OsuStats,
     OsuHiddenApi,
     OsuAvatar,
+    OsuSnipe,
 }
 
 pub struct CustomClient {
@@ -70,6 +74,21 @@ impl CustomClient {
         self.ratelimit(site).await;
         let response = self.client.get(&url).send().await?;
         Ok(response.error_for_status()?)
+    }
+
+    pub async fn get_national_firsts(&self, user: &User) -> BotResult<Vec<SnipeScore>> {
+        let url = format!(
+            "https://api.huismetbenen.nl/player/{}/{}/all",
+            user.country.to_lowercase(),
+            user.user_id
+        );
+        let response = self.make_request(url, Site::OsuSnipe).await?;
+        let bytes = response.bytes().await?;
+        let scores: Vec<SnipeScore> = serde_json::from_slice(&bytes).map_err(|e| {
+            let content = String::from_utf8_lossy(&bytes).into_owned();
+            CustomClientError::SerdeSnipeScore(e, content)
+        })?;
+        Ok(scores)
     }
 
     /// Be sure whitespaces in the username are **not** replaced
