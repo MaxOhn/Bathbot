@@ -2,13 +2,13 @@ mod deserialize;
 mod most_played;
 mod osu_stats;
 mod score;
-mod snipe_score;
+mod snipe;
 
 pub use most_played::MostPlayedMap;
 pub use osu_stats::*;
 use score::ScraperScores;
 pub use score::{ScraperBeatmap, ScraperScore};
-use snipe_score::SnipeScore;
+use snipe::SnipeScore;
 
 use crate::{
     util::{
@@ -76,7 +76,8 @@ impl CustomClient {
         Ok(response.error_for_status()?)
     }
 
-    pub async fn get_national_firsts(&self, user: &User) -> BotResult<Vec<SnipeScore>> {
+    /// BAD! DO NOT USE YET!
+    pub async fn _get_national_firsts(&self, user: &User) -> BotResult<Vec<SnipeScore>> {
         let url = format!(
             "https://api.huismetbenen.nl/player/{}/{}/all",
             user.country.to_lowercase(),
