@@ -51,7 +51,7 @@ impl Bucket {
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash)]
 pub enum BucketName {
-    All,
+    // All,
     Songs,
     BgStart,
     BgBigger,
@@ -61,7 +61,7 @@ pub enum BucketName {
 impl From<&str> for BucketName {
     fn from(s: &str) -> Self {
         match s {
-            "all" => BucketName::All,
+            // "all" => BucketName::All,
             "songs" => BucketName::Songs,
             "bg_start" => BucketName::BgStart,
             "bg_bigger" => BucketName::BgBigger,
@@ -73,7 +73,7 @@ impl From<&str> for BucketName {
 
 pub fn buckets() -> Buckets {
     let buckets = DashMap::new();
-    insert_bucket(&buckets, BucketName::All, 0, 60, 30);
+    // insert_bucket(&buckets, BucketName::All, 0, 60, 30);
     insert_bucket(&buckets, BucketName::Songs, 20, 0, 1);
     insert_bucket(&buckets, BucketName::BgStart, 2, 20, 3);
     insert_bucket(&buckets, BucketName::BgBigger, 1, 10, 3);

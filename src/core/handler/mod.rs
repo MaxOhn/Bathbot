@@ -109,12 +109,6 @@ pub async fn handle_event(
             let invoke = parse_invoke(&mut stream, &cmds);
             if let Invoke::None = invoke {
                 return Ok(());
-            // Each user can invoke at most 30 commands per minute
-            } else if check_ratelimit(&ctx, msg, BucketName::All).await.is_some() {
-                info!(
-                    "Command `{}` was not processed: Ratelimited(All)",
-                    invoke.name(),
-                );
             }
 
             // Process invoke

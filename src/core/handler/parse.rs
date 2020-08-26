@@ -45,7 +45,7 @@ pub fn find_prefix<'a>(prefixes: &[String], stream: &mut Stream<'a>) -> bool {
 
 pub fn parse_invoke(stream: &mut Stream<'_>, groups: &CommandGroups) -> Invoke {
     let name = stream.peek_until_char(|c| c.is_whitespace()).to_lowercase();
-    stream.increment(name.chars().count());
+    stream.increment(name.len());
     stream.take_while_char(|c| c.is_whitespace());
     match name.as_str() {
         "h" | "help" => {
