@@ -50,6 +50,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &SIMULATERECENT_CMD,
                 &NOCHOKES_CMD,
                 &PLAYERSNIPESTATS_CMD,
+                &COUNTRYSNIPESTATS_CMD,
                 &SOTARKS_CMD,
             ],
         ),

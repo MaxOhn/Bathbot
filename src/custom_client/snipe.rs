@@ -52,6 +52,8 @@ pub struct SnipeCountryPlayer {
     pub avg_pp: f32,
     #[serde(rename = "average_sr")]
     pub avg_sr: f32,
+    #[serde(rename = "weighted_pp")]
+    pub pp: f32,
     #[serde(rename = "count")]
     pub count_first: u32,
 }

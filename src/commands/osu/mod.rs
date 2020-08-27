@@ -1,5 +1,6 @@
 mod avatar;
 mod common;
+mod country_snipe_stats;
 mod leaderboard;
 mod link;
 mod map;
@@ -24,6 +25,7 @@ mod whatif;
 
 pub use avatar::*;
 pub use common::*;
+pub use country_snipe_stats::*;
 pub use leaderboard::*;
 pub use link::*;
 pub use map::*;

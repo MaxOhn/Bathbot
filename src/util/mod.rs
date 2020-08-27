@@ -1,4 +1,5 @@
 pub mod constants;
+mod country;
 pub mod datetime;
 pub mod exts;
 pub mod matcher;
@@ -11,6 +12,7 @@ mod safe_content;
 pub mod error;
 
 use constants::DISCORD_CDN;
+pub use country::{Country, SNIPE_COUNTRIES};
 pub use exts::*;
 pub use matrix::Matrix;
 pub use safe_content::content_safe;

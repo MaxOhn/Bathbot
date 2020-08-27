@@ -44,7 +44,7 @@ impl PlayerSnipeStatsEmbed {
             let mut description = String::with_capacity(256);
             let _ = writeln!(
                 description,
-                "**Total#1s: {}** | ranked: {} | loved: {}",
+                "**Total #1s: {}** | ranked: {} | loved: {}",
                 player.count_first, player.count_ranked, player.count_loved
             );
             fields.push((

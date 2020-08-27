@@ -1,7 +1,7 @@
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
-    util::{constants::OSU_API_ISSUE, MessageExt},
+    util::{constants::OSU_API_ISSUE, MessageExt, SNIPE_COUNTRIES},
     BotResult, Context,
 };
 
@@ -17,6 +17,10 @@ use twilight::model::channel::Message;
 
 #[command]
 #[short_desc("Various stats about a user's scores in their country leaderbords")]
+#[long_desc(
+    "Various stats about a user's scores in their country leaderboards.\n\
+    All data originates from Mr Helix's website [huismetbenen](https://snipe.huismetbenen.nl/)."
+)]
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("pss")]
@@ -38,11 +42,15 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
             return Err(why.into());
         }
     };
+    if !SNIPE_COUNTRIES.contains_key(&user.country) {
+        let content = format!("The country {} is not supported :(", user.country);
+        return msg.error(&ctx, content).await;
+    }
     let req = ctx.clients.custom.get_snipe_player(&user);
     let player = match req.await {
         Ok(counts) => counts,
         Err(why) => {
-            let content = "That player has never had any national #1s :(";
+            let content = format!("`{}` has never had any national #1s", name);
             let _ = msg.respond(&ctx, content).await;
             return Err(why);
         }

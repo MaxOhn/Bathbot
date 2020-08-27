@@ -94,7 +94,7 @@ impl CustomClient {
         Ok(player)
     }
 
-    pub async fn _get_snipe_country(&self, country: String) -> BotResult<Vec<SnipeCountryPlayer>> {
+    pub async fn get_snipe_country(&self, country: &str) -> BotResult<Vec<SnipeCountryPlayer>> {
         let url = format!("{}rankings/{}/pp/weighted", HUISMETBENEN, country);
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
@@ -106,11 +106,23 @@ impl CustomClient {
         Ok(country_players)
     }
 
-    pub async fn _get_national_biggest_difference(
+    pub async fn get_country_unplayed_amount(&self, country: &str) -> BotResult<u32> {
+        let url = format!(
+            "{}beatmaps/unplayed/{}",
+            HUISMETBENEN,
+            country.to_lowercase()
+        );
+        let response = self.make_request(url, Site::OsuSnipe).await?;
+        let bytes = response.bytes().await?;
+        let amount = serde_json::from_slice(&bytes)?;
+        Ok(amount)
+    }
+
+    pub async fn get_country_biggest_difference(
         &self,
-        user: &User,
+        country: &str,
     ) -> BotResult<(SnipeTopDifference, SnipeTopDifference)> {
-        let country = user.country.to_lowercase();
+        let country = country.to_lowercase();
         let url_gain = format!("{}rankings/{}/topgain", HUISMETBENEN, country);
         let url_loss = format!("{}rankings/{}/toploss", HUISMETBENEN, country);
         let gain = self
