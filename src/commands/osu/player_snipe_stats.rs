@@ -76,16 +76,34 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
         let score_req = ScoreRequest::with_map_id(map_id)
             .user_id(player.user_id)
             .mode(GameMode::STD)
-            .queue_single(ctx.osu());
+            .queue(ctx.osu());
         let map_req = BeatmapRequest::new()
             .map_id(map_id)
             .mode(GameMode::STD)
             .queue_single(ctx.osu());
         match tokio::try_join!(score_req, map_req) {
-            Ok((Some(score), Some(map))) => Some((score, map)),
-            Ok((None, _)) => {
-                warn!("No api result for score");
-                None
+            Ok((scores, Some(map))) => {
+                // Take the score with the date closest to the target
+                let mut iter = scores.into_iter();
+                match iter.next() {
+                    Some(first) => {
+                        let target = oldest.date.timestamp();
+                        let score = iter.fold(first, |closest, next| {
+                            if (closest.date.timestamp() - target).abs()
+                                > (next.date.timestamp() - target).abs()
+                            {
+                                next
+                            } else {
+                                closest
+                            }
+                        });
+                        Some((score, map))
+                    }
+                    None => {
+                        warn!("No api result for score");
+                        None
+                    }
+                }
             }
             Ok((_, None)) => {
                 warn!("No api result for beatmap");
