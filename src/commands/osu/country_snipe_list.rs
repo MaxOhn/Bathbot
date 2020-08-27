@@ -26,8 +26,7 @@ use twilight::model::channel::Message;
     website [huismetbenen](https://snipe.huismetbenen.nl/)."
 )]
 #[usage("[country acronym] [count / pp / stars / weighted pp]")]
-#[example("global stars")]
-#[example("fr weighted pp")]
+#[example("global stars", "fr weighted pp", "be")]
 #[aliases("csl", "countrysnipeleaderboard", "cslb")]
 #[bucket("snipe")]
 async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {

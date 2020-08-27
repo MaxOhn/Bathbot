@@ -94,15 +94,18 @@ pub fn get_combo(score: impl ScoreExt, map: impl BeatmapExt) -> String {
 }
 
 pub fn get_pp(actual: Option<f32>, max: Option<f32>) -> String {
-    let actual = actual.map_or_else(
+    let pp = actual.map_or_else(
         || Cow::Borrowed("-"),
         |pp| Cow::Owned(round(pp).to_string()),
     );
     let max = max.map_or_else(
         || Cow::Borrowed("-"),
-        |pp| Cow::Owned(round(pp).to_string()),
+        |max_pp| match actual {
+            Some(pp) => Cow::Owned(round(max_pp.max(pp)).to_string()),
+            None => Cow::Owned(round(max_pp).to_string()),
+        },
     );
-    format!("**{}**/{}PP", actual, max)
+    format!("**{}**/{}PP", pp, max)
 }
 
 pub fn get_keys(mods: GameMods, map: &Beatmap) -> String {

@@ -15,15 +15,14 @@ use twilight::model::channel::Message;
 #[command]
 #[short_desc("Snipe / #1 count related stats for a country")]
 #[long_desc(
-    "Some snipe related stats for a country.\n\
+    "Some snipe / #1 count related stats for a country.\n\
     As argument, provide either `global`, or a country acronym, e.g. `be`.\n\
     If no country is specified, I will take the country of the linked user.\n\
     All data originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
     website [huismetbenen](https://snipe.huismetbenen.nl/)."
 )]
 #[usage("[country acronym]")]
-#[example("fr")]
-#[example("global")]
+#[example("fr", "global")]
 #[aliases("css")]
 #[bucket("snipe")]
 async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
@@ -96,7 +95,7 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
         }
     };
     let graph = match graphs(&players) {
-        Ok(graph_option) => graph_option,
+        Ok(graph_option) => Some(graph_option),
         Err(why) => {
             warn!("Error while creating snipe country graph: {}", why);
             None
@@ -122,7 +121,7 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
 const W: u32 = 1350;
 const H: u32 = 350;
 
-fn graphs(players: &[SnipeCountryPlayer]) -> BotResult<Option<Vec<u8>>> {
+fn graphs(players: &[SnipeCountryPlayer]) -> BotResult<Vec<u8>> {
     static LEN: usize = W as usize * H as usize;
     let mut pp: Vec<_> = players
         .iter()
@@ -151,7 +150,7 @@ fn graphs(players: &[SnipeCountryPlayer]) -> BotResult<Option<Vec<u8>>> {
         let (left, right) = root.split_horizontally(W / 2);
         let mut chart = ChartBuilder::on(&left)
             .x_label_area_size(30)
-            .y_label_area_size(50)
+            .y_label_area_size(60)
             .margin_right(15)
             .caption("Weighted pp from #1s", ("sans-serif", 30))
             .build_ranged(0..pp.len() - 1, 0.0..pp_max)?;
@@ -226,5 +225,5 @@ fn graphs(players: &[SnipeCountryPlayer]) -> BotResult<Option<Vec<u8>>> {
     let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
     let png_encoder = PNGEncoder::new(&mut png_bytes);
     png_encoder.encode(&buf, W, H, ColorType::Rgb8)?;
-    Ok(Some(png_bytes))
+    Ok(png_bytes)
 }

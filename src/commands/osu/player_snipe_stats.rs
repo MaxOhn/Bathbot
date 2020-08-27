@@ -18,8 +18,9 @@ use twilight::model::channel::Message;
 #[command]
 #[short_desc("Stats about a user's #1 scores in their country leaderbords")]
 #[long_desc(
-    "Various stats about a user's scores in their country leaderboards.\n\
-    All data originates from Mr Helix's website [huismetbenen](https://snipe.huismetbenen.nl/)."
+    "Stats about a user's #1 scores in their country leaderboards.\n\
+    All data originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
+    website [huismetbenen](https://snipe.huismetbenen.nl/)."
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
@@ -42,11 +43,19 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
             return Err(why.into());
         }
     };
-    if !SNIPE_COUNTRIES.contains_key(&user.country) {
-        let content = format!("The country {} is not supported :(", user.country);
-        return msg.error(&ctx, content).await;
-    }
-    let req = ctx.clients.custom.get_snipe_player(&user);
+    let req = match SNIPE_COUNTRIES.get(&user.country) {
+        Some(country) => ctx
+            .clients
+            .custom
+            .get_snipe_player(&country.snipe, user.user_id),
+        None => {
+            let content = format!(
+                "`{}`'s country {} is not supported :(",
+                user.username, user.country
+            );
+            return msg.error(&ctx, content).await;
+        }
+    };
     let player = match req.await {
         Ok(counts) => counts,
         Err(why) => {

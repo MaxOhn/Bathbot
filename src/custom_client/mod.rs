@@ -78,13 +78,8 @@ impl CustomClient {
         Ok(response.error_for_status()?)
     }
 
-    pub async fn get_snipe_player(&self, user: &User) -> BotResult<SnipePlayer> {
-        let url = format!(
-            "{}player/{}/{}?type=id",
-            HUISMETBENEN,
-            user.country.to_ascii_lowercase(),
-            user.user_id
-        );
+    pub async fn get_snipe_player(&self, country: &str, user_id: u32) -> BotResult<SnipePlayer> {
+        let url = format!("{}player/{}/{}?type=id", HUISMETBENEN, country, user_id);
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
         let player: SnipePlayer = serde_json::from_slice(&bytes).map_err(|e| {

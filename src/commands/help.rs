@@ -50,7 +50,7 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         - If you want to specify an argument, e.g. a username, that contains \
         spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
         - If you used `{prefix}link osuname`, you can ommit the osu username for any command that needs one.\n\
-        - If you react with :x: to my response, I will delete it.\n\
+        - If you react with :x: within one minute to my response, I will delete it.\n\
         - With reactions like :track_previous: or :fast_forward: you can scroll through pages \
         e.g. check an earlier play than the most recent one
         - ~~`Strikethrough`~~ commands indicate that you lack authority status in the server.\n\
