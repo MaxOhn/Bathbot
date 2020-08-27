@@ -185,7 +185,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 90).await {
-            warn!("Pagination error: {}", why)
+            warn!("Pagination error (nochokes): {}", why)
         }
     });
     Ok(())

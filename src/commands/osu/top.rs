@@ -219,7 +219,7 @@ async fn top_main(
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            warn!("Pagination error: {}", why)
+            warn!("Pagination error (top): {}", why)
         }
     });
     Ok(())

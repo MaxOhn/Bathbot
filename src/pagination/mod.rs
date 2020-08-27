@@ -1,6 +1,7 @@
 mod bg_rankings;
 mod command_count;
 mod common;
+mod country_snipe_list;
 mod leaderboard;
 mod map;
 mod most_played;
@@ -13,6 +14,7 @@ mod top;
 pub use bg_rankings::BGRankingPagination;
 pub use command_count::CommandCountPagination;
 pub use common::CommonPagination;
+pub use country_snipe_list::*;
 pub use leaderboard::LeaderboardPagination;
 pub use map::MapPagination;
 pub use most_played::MostPlayedPagination;
@@ -157,7 +159,7 @@ pub trait Pagination: Sync + Sized {
             // Move to specific position
             "*️⃣" => {
                 if let Some(index) = self.jump_index() {
-                    let i = numbers::last_multiple(self.per_page(), index);
+                    let i = numbers::last_multiple(self.per_page(), index + 1);
                     if i != self.index() {
                         Some(i)
                     } else {

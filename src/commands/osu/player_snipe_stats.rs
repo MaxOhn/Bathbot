@@ -16,7 +16,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use twilight::model::channel::Message;
 
 #[command]
-#[short_desc("Various stats about a user's scores in their country leaderbords")]
+#[short_desc("Stats about a user's #1 scores in their country leaderbords")]
 #[long_desc(
     "Various stats about a user's scores in their country leaderboards.\n\
     All data originates from Mr Helix's website [huismetbenen](https://snipe.huismetbenen.nl/)."

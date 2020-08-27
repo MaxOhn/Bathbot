@@ -13,11 +13,11 @@ use std::sync::Arc;
 use twilight::model::channel::Message;
 
 #[command]
-#[short_desc("Some snipe related stats for a country")]
+#[short_desc("Snipe / #1 count related stats for a country")]
 #[long_desc(
     "Some snipe related stats for a country.\n\
     As argument, provide either `global`, or a country acronym, e.g. `be`.\n\
-    If no country is specified, I will take the country of the linked user.
+    If no country is specified, I will take the country of the linked user.\n\
     All data originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
     website [huismetbenen](https://snipe.huismetbenen.nl/)."
 )]
@@ -69,7 +69,8 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
                 }
             }
             None => {
-                let content = "You must specify a country acronym, e.g. `fr`";
+                let content =
+                    "Since you're not linked, you must specify a country acronym, e.g. `fr`";
                 return msg.error(&ctx, content).await;
             }
         },
@@ -101,12 +102,10 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
             None
         }
     };
-    println!("country: {}", country);
     let country = SNIPE_COUNTRIES
         .iter()
         .find(|(_, c)| c.snipe == country)
         .map(|(_, country)| country);
-    println!("country: {:?}", country);
     let data = CountrySnipeStatsEmbed::new(country, differences, unplayed);
 
     // Sending the embed
@@ -129,13 +128,13 @@ fn graphs(players: &[SnipeCountryPlayer]) -> BotResult<Option<Vec<u8>>> {
         .iter()
         .map(|player| (&player.username, player.pp))
         .collect();
-    pp.sort_by(|(_, pp1), (_, pp2)| pp2.partial_cmp(pp1).unwrap());
+    pp.sort_unstable_by(|(_, pp1), (_, pp2)| pp2.partial_cmp(pp1).unwrap());
     pp.truncate(11);
     let mut count: Vec<_> = players
         .iter()
         .map(|player| (&player.username, player.count_first as i32))
         .collect();
-    count.sort_by(|(_, c1), (_, c2)| c2.cmp(c1));
+    count.sort_unstable_by(|(_, c1), (_, c2)| c2.cmp(c1));
     count.truncate(11);
     let pp_max = pp
         .iter()
@@ -164,7 +163,13 @@ fn graphs(players: &[SnipeCountryPlayer]) -> BotResult<Option<Vec<u8>>> {
             .line_style_1(&WHITE.mix(0.3))
             .x_label_offset(30)
             .x_label_style(("sans-serif", 10))
-            .x_label_formatter(&|idx| format!("{}", if *idx < 10 { pp[*idx].0 } else { "" }))
+            .x_label_formatter(&|idx| {
+                if *idx < 10 {
+                    pp[*idx].0.to_string()
+                } else {
+                    String::new()
+                }
+            })
             .draw()?;
 
         // Histogram bars
@@ -194,7 +199,13 @@ fn graphs(players: &[SnipeCountryPlayer]) -> BotResult<Option<Vec<u8>>> {
             .line_style_1(&WHITE.mix(0.3))
             .x_label_offset(30)
             .x_label_style(("sans-serif", 10))
-            .x_label_formatter(&|idx| format!("{}", if *idx < 10 { count[*idx].0 } else { "" }))
+            .x_label_formatter(&|idx| {
+                if *idx < 10 {
+                    count[*idx].0.to_string()
+                } else {
+                    String::new()
+                }
+            })
             .draw()?;
 
         // Histogram bars

@@ -22,7 +22,9 @@ mod simulate;
 mod simulate_recent;
 mod top;
 mod whatif;
+mod country_snipe_list;
 
+pub use country_snipe_list::*;
 pub use avatar::*;
 pub use common::*;
 pub use country_snipe_stats::*;

@@ -49,8 +49,6 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &OSUSTATSCOUNT_CMD,
                 &SIMULATERECENT_CMD,
                 &NOCHOKES_CMD,
-                &PLAYERSNIPESTATS_CMD,
-                &COUNTRYSNIPESTATS_CMD,
                 &SOTARKS_CMD,
             ],
         ),
@@ -104,6 +102,14 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &RECENTCTBGLOBALLEADERBOARD_CMD,
                 &OSUSTATSGLOBALSCTB_CMD,
                 &OSUSTATSCOUNTCTB_CMD,
+            ],
+        ),
+        CommandGroup::new(
+            "osu!snipes (std only)",
+            vec![
+                &PLAYERSNIPESTATS_CMD,
+                &COUNTRYSNIPESTATS_CMD,
+                &COUNTRYSNIPELIST_CMD,
             ],
         ),
         CommandGroup::new(
