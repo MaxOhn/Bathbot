@@ -8,17 +8,19 @@ pub use most_played::MostPlayedMap;
 pub use osu_stats::*;
 use score::ScraperScores;
 pub use score::{ScraperBeatmap, ScraperScore};
-use snipe::SnipeScore;
+pub use snipe::*;
 
 use crate::{
     util::{
-        constants::{AVATAR_URL, OSU_BASE},
+        constants::{AVATAR_URL, HUISMETBENEN, OSU_BASE},
         error::CustomClientError,
         osu::ModSelection,
     },
     BotResult,
 };
 
+use chrono::{DateTime, Utc};
+use futures::future::FutureExt;
 use governor::{clock::DefaultClock, state::keyed::DashMapStateStore, Quota, RateLimiter};
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
@@ -76,10 +78,99 @@ impl CustomClient {
         Ok(response.error_for_status()?)
     }
 
+    pub async fn get_snipe_player(&self, user: &User) -> BotResult<SnipePlayer> {
+        let url = format!(
+            "{}player/{}/{}?type=id",
+            HUISMETBENEN,
+            user.country.to_ascii_lowercase(),
+            user.user_id
+        );
+        let response = self.make_request(url, Site::OsuSnipe).await?;
+        let bytes = response.bytes().await?;
+        let player: SnipePlayer = serde_json::from_slice(&bytes).map_err(|e| {
+            let content = String::from_utf8_lossy(&bytes).into_owned();
+            CustomClientError::SerdeSnipePlayer(e, content)
+        })?;
+        Ok(player)
+    }
+
+    pub async fn _get_snipe_country(&self, country: String) -> BotResult<Vec<SnipeCountryPlayer>> {
+        let url = format!("{}rankings/{}/pp/weighted", HUISMETBENEN, country);
+        let response = self.make_request(url, Site::OsuSnipe).await?;
+        let bytes = response.bytes().await?;
+        let country_players: Vec<SnipeCountryPlayer> =
+            serde_json::from_slice(&bytes).map_err(|e| {
+                let content = String::from_utf8_lossy(&bytes).into_owned();
+                CustomClientError::SerdeSnipeCountry(e, content)
+            })?;
+        Ok(country_players)
+    }
+
+    pub async fn _get_national_biggest_difference(
+        &self,
+        user: &User,
+    ) -> BotResult<(SnipeTopDifference, SnipeTopDifference)> {
+        let country = user.country.to_lowercase();
+        let url_gain = format!("{}rankings/{}/topgain", HUISMETBENEN, country);
+        let url_loss = format!("{}rankings/{}/toploss", HUISMETBENEN, country);
+        let gain = self
+            .make_request(url_gain, Site::OsuSnipe)
+            .then(|res| async {
+                match res {
+                    Ok(response) => response.bytes().await.map_err(|e| e.into()),
+                    Err(why) => Err(why),
+                }
+            });
+        let loss = self
+            .make_request(url_loss, Site::OsuSnipe)
+            .then(|res| async {
+                match res {
+                    Ok(response) => response.bytes().await.map_err(|e| e.into()),
+                    Err(why) => Err(why),
+                }
+            });
+        let (gain, loss) = tokio::try_join!(gain, loss)?;
+        let gain: SnipeTopDifference = serde_json::from_slice(&gain).map_err(|e| {
+            let content = String::from_utf8_lossy(&gain).into_owned();
+            CustomClientError::SerdeSnipeDifference(e, content)
+        })?;
+        let loss: SnipeTopDifference = serde_json::from_slice(&loss).map_err(|e| {
+            let content = String::from_utf8_lossy(&loss).into_owned();
+            CustomClientError::SerdeSnipeDifference(e, content)
+        })?;
+        Ok((gain, loss))
+    }
+
+    pub async fn _get_national_snipes(
+        &self,
+        user: &User,
+        sniper: bool,
+        from: DateTime<Utc>,
+        until: DateTime<Utc>,
+    ) -> BotResult<Vec<SnipeRecent>> {
+        let date_format = "%FT%TZ";
+        let url = format!(
+            "{}snipes/{}/{}?since={}&until={}",
+            HUISMETBENEN,
+            user.user_id,
+            if sniper { "new" } else { "old" },
+            from.format(date_format).to_string(),
+            until.format(date_format).to_string()
+        );
+        let response = self.make_request(url, Site::OsuSnipe).await?;
+        let bytes = response.bytes().await?;
+        let snipes: Vec<SnipeRecent> = serde_json::from_slice(&bytes).map_err(|e| {
+            let content = String::from_utf8_lossy(&bytes).into_owned();
+            CustomClientError::SerdeSnipeRecent(e, content)
+        })?;
+        Ok(snipes)
+    }
+
     /// BAD! DO NOT USE YET!
     pub async fn _get_national_firsts(&self, user: &User) -> BotResult<Vec<SnipeScore>> {
         let url = format!(
-            "https://api.huismetbenen.nl/player/{}/{}/all",
+            "{}player/{}/{}/all",
+            HUISMETBENEN,
             user.country.to_lowercase(),
             user.user_id
         );

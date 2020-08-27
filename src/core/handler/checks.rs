@@ -14,7 +14,7 @@ use twilight::model::{channel::Message, guild::Permissions, id::RoleId};
 pub fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>> {
     let guild_id = match msg.guild_id {
         Some(id) => id,
-        None => return Ok(Some(String::new()))
+        None => return Ok(Some(String::new())),
     };
     let permissions = ctx
         .cache
@@ -83,8 +83,11 @@ pub async fn check_ratelimit(
         let bucket = bucket.into();
         let guard = ctx.buckets.get(&bucket).unwrap();
         let mutex = guard.value();
-        let mut bucket = mutex.lock().await;
-        bucket.take(msg.author.id.0)
+        let mut bucket_elem = mutex.lock().await;
+        match bucket {
+            BucketName::Snipe => bucket_elem.take(0), // same bucket for everyone
+            _ => bucket_elem.take(msg.author.id.0),
+        }
     };
     if rate_limit > 0 {
         return Some(rate_limit);

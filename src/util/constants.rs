@@ -11,6 +11,7 @@ pub const FIELD_VALUE_SIZE: usize = 1024;
 pub const OSU_BASE: &str = "https://osu.ppy.sh/";
 pub const MAP_THUMB_URL: &str = "https://b.ppy.sh/thumb/";
 pub const AVATAR_URL: &str = "https://a.ppy.sh/";
+pub const HUISMETBENEN: &str = "https://api.huismetbenen.nl/";
 
 // twitch
 pub const TWITCH_BASE: &str = "https://www.twitch.tv/";

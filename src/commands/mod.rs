@@ -49,6 +49,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &OSUSTATSCOUNT_CMD,
                 &SIMULATERECENT_CMD,
                 &NOCHOKES_CMD,
+                &PLAYERSNIPESTATS_CMD,
                 &SOTARKS_CMD,
             ],
         ),

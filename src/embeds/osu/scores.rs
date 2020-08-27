@@ -40,7 +40,7 @@ impl ScoresEmbed {
         };
         let mut fields = Vec::with_capacity(scores.len());
         for (i, score) in scores.into_iter().enumerate() {
-            let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
+            let calculations = Calculations::all();
             let mut calculator = PPCalculator::new().score(&score).map(map);
             calculator.calculate(calculations, Some(ctx)).await?;
             let stars = osu::get_stars(calculator.stars().unwrap());

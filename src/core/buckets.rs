@@ -56,6 +56,7 @@ pub enum BucketName {
     BgStart,
     BgBigger,
     BgHint,
+    Snipe,
 }
 
 impl From<&str> for BucketName {
@@ -66,6 +67,7 @@ impl From<&str> for BucketName {
             "bg_start" => BucketName::BgStart,
             "bg_bigger" => BucketName::BgBigger,
             "bg_hint" => BucketName::BgHint,
+            "snipe" => BucketName::Snipe,
             _ => panic!("No bucket called `{}`", s),
         }
     }
@@ -78,6 +80,7 @@ pub fn buckets() -> Buckets {
     insert_bucket(&buckets, BucketName::BgStart, 2, 20, 3);
     insert_bucket(&buckets, BucketName::BgBigger, 1, 10, 3);
     insert_bucket(&buckets, BucketName::BgHint, 0, 10, 4);
+    insert_bucket(&buckets, BucketName::Snipe, 0, 600, 5);
     buckets
 }
 

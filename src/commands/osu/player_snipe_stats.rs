@@ -1,5 +1,6 @@
 use crate::{
     arguments::{Args, NameArgs},
+    embeds::{EmbedData, PlayerSnipeStatsEmbed},
     util::{constants::OSU_API_ISSUE, MessageExt},
     BotResult, Context,
 };
@@ -7,7 +8,10 @@ use crate::{
 use chrono::{Date, Datelike, Utc};
 use image::{png::PNGEncoder, ColorType};
 use plotters::{coord::IntoMonthly, prelude::*};
-use rosu::models::GameMode;
+use rosu::{
+    backend::{BeatmapRequest, ScoreRequest},
+    models::GameMode,
+};
 use std::{collections::BTreeMap, sync::Arc};
 use twilight::model::channel::Message;
 
@@ -15,8 +19,9 @@ use twilight::model::channel::Message;
 #[short_desc("Various stats about a user's scores in their country leaderbords")]
 #[usage("[username]")]
 #[example("badewanne3")]
-#[aliases("ns")]
-async fn nationalstats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+#[aliases("pss")]
+#[bucket("snipe")]
+async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = NameArgs::new(&ctx, args);
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
@@ -33,29 +38,84 @@ async fn nationalstats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
             return Err(why.into());
         }
     };
-    // let counts = match super::get_globals_count(&ctx, &user.username, mode).await {
-    //     Ok(counts) => counts,
-    //     Err(why) => {
-    //         let content = "Some issue with the osustats website, blame bade";
-    //         let _ = msg.error(&ctx, content).await;
-    //         return Err(why);
-    //     }
-    // };
+    let req = ctx.clients.custom.get_snipe_player(&user);
+    let player = match req.await {
+        Ok(counts) => counts,
+        Err(why) => {
+            let content = "That player has never had any national #1s :(";
+            let _ = msg.respond(&ctx, content).await;
+            return Err(why);
+        }
+    };
+    let graph = match graphs(&player.count_first_history, &player.count_sr_spread) {
+        Ok(graph_option) => graph_option,
+        Err(why) => {
+            warn!("Error while creating snipe player graph: {}", why);
+            None
+        }
+    };
+    let first_score = if let Some(ref oldest) = player.oldest_first {
+        let map_id = oldest.beatmap_id;
+        let score_req = ScoreRequest::with_map_id(map_id)
+            .user_id(player.user_id)
+            .mode(GameMode::STD)
+            .queue_single(ctx.osu());
+        let map_req = BeatmapRequest::new()
+            .map_id(map_id)
+            .mode(GameMode::STD)
+            .queue_single(ctx.osu());
+        match tokio::try_join!(score_req, map_req) {
+            Ok((Some(score), Some(map))) => Some((score, map)),
+            Ok((None, _)) => {
+                warn!("No api result for score");
+                None
+            }
+            Ok((_, None)) => {
+                warn!("No api result for beatmap");
+                None
+            }
+            Err(why) => {
+                warn!("Error while retrieving oldest data: {}", why);
+                None
+            }
+        }
+    } else {
+        None
+    };
+    let data = PlayerSnipeStatsEmbed::new(user, player, first_score).await;
+
+    // Sending the embed
+    let embed = data.build().build()?;
+    let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
+    if let Some(graph) = graph {
+        m.attachment("stats_graph.png", graph).await?
+    } else {
+        m.await?
+    };
     Ok(())
 }
 
-const W: u32 = 1250;
+const W: u32 = 1350;
 const H: u32 = 350;
 
-fn graphs(history: &BTreeMap<Date<Utc>, u32>, stars: &BTreeMap<u8, u32>) -> BotResult<Vec<u8>> {
+fn graphs(
+    history: &BTreeMap<Date<Utc>, u32>,
+    stars: &BTreeMap<u8, u32>,
+) -> BotResult<Option<Vec<u8>>> {
+    if history.is_empty() {
+        return Ok(None);
+    }
     static LEN: usize = W as usize * H as usize;
-    let (mut min, max) = history
+    let (min, max) = history
         .iter()
         .map(|(_, n)| *n)
         .fold((u32::MAX, 0), |(min, max), curr| {
             (min.min(curr), max.max(curr))
         });
-    min -= min / 10;
+    let min = match min < 20 {
+        true => 0,
+        false => min - min / 11,
+    };
     let first = *history.keys().next().unwrap();
     let last = *history.keys().last().unwrap();
     let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
@@ -117,7 +177,6 @@ fn graphs(history: &BTreeMap<Date<Utc>, u32>, stars: &BTreeMap<u8, u32>) -> BotR
             .disable_x_mesh()
             .line_style_1(&WHITE.mix(0.3))
             .x_label_offset(30)
-            .x_desc("Stars")
             .draw()?;
 
         // Histogram bars
@@ -132,5 +191,5 @@ fn graphs(history: &BTreeMap<Date<Utc>, u32>, stars: &BTreeMap<u8, u32>) -> BotR
     let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
     let png_encoder = PNGEncoder::new(&mut png_bytes);
     png_encoder.encode(&buf, W, H, ColorType::Rgb8)?;
-    Ok(png_bytes)
+    Ok(Some(png_bytes))
 }

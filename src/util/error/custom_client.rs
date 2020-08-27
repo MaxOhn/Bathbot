@@ -6,6 +6,10 @@ pub enum CustomClientError {
     DataUserId,
     SerdeLeaderboard(SerdeJsonError, String),
     SerdeMostPlayed(SerdeJsonError, String),
+    SerdeSnipeCountry(SerdeJsonError, String),
+    SerdeSnipeDifference(SerdeJsonError, String),
+    SerdeSnipePlayer(SerdeJsonError, String),
+    SerdeSnipeRecent(SerdeJsonError, String),
     SerdeSnipeScore(SerdeJsonError, String),
     RankIndex(usize),
     RankingPageTable,
@@ -25,6 +29,26 @@ impl fmt::Display for CustomClientError {
             Self::SerdeMostPlayed(e, content) => write!(
                 f,
                 "could not deserialize response for most played: {}\n{}",
+                e, content
+            ),
+            Self::SerdeSnipeCountry(e, content) => write!(
+                f,
+                "could not deserialize response for snipe country: {}\n{}",
+                e, content
+            ),
+            Self::SerdeSnipeDifference(e, content) => write!(
+                f,
+                "could not deserialize response for snipe difference: {}\n{}",
+                e, content
+            ),
+            Self::SerdeSnipePlayer(e, content) => write!(
+                f,
+                "could not deserialize response for snipe player: {}\n{}",
+                e, content
+            ),
+            Self::SerdeSnipeRecent(e, content) => write!(
+                f,
+                "could not deserialize response for snipe recent: {}\n{}",
                 e, content
             ),
             Self::SerdeSnipeScore(e, content) => write!(

@@ -65,7 +65,7 @@ features = ["png", "gif"]
 [dependencies.plotters]
 version = "0.2"
 default-features = false
-features = [ "image_encoder", "line_series" ]
+features = ["image_encoder", "line_series", "datetime", "area_series", "histogram"]
 
 [dependencies.reqwest]
 version = "0.10"
@@ -75,7 +75,7 @@ features = ["cookies"]
 [dependencies.rosu]
 # version = "0.3"
 git = "https://github.com/MaxOhn/rosu"
-features = [ "cache", "metrics" ]
+features = ["cache", "metrics"]
 
 [dependencies.scraper]
 version = "0.12"
