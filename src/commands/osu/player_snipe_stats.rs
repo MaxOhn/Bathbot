@@ -204,14 +204,14 @@ fn graphs(
             .y_label_area_size(40)
             .margin_right(15)
             .caption("Star rating spread", ("sans-serif", 30))
-            .build_ranged(first..last, 0..max)?;
+            .build_ranged(first..last + 1, 0..max)?;
 
         // Mesh and labels
         chart
             .configure_mesh()
             .disable_x_mesh()
-            .line_style_1(&WHITE.mix(0.3))
             .x_label_offset(30)
+            .x_labels(15)
             .draw()?;
 
         // Histogram bars

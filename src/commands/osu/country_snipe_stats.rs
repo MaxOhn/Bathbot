@@ -159,7 +159,6 @@ fn graphs(players: &[SnipeCountryPlayer]) -> BotResult<Vec<u8>> {
         chart
             .configure_mesh()
             .disable_x_mesh()
-            .line_style_1(&WHITE.mix(0.3))
             .x_label_offset(30)
             .x_label_style(("sans-serif", 10))
             .x_label_formatter(&|idx| {
@@ -195,7 +194,6 @@ fn graphs(players: &[SnipeCountryPlayer]) -> BotResult<Vec<u8>> {
         chart
             .configure_mesh()
             .disable_x_mesh()
-            .line_style_1(&WHITE.mix(0.3))
             .x_label_offset(30)
             .x_label_style(("sans-serif", 10))
             .x_label_formatter(&|idx| {
