@@ -2,7 +2,7 @@ use crate::{
     core::{Command, CommandGroups},
     util::{
         constants::{
-            DARK_GREEN, DESCRIPTION_SIZE, EMBED_SIZE, FIELD_VALUE_SIZE, OWNER_USER_ID, RED,
+            DARK_GREEN, DESCRIPTION_SIZE, EMBED_SIZE, FIELD_VALUE_SIZE, OWNER_USER_ID, RED, BATHBOT_WORKSHOP
         },
         content_safe, levenshtein_distance, MessageExt,
     },
@@ -54,6 +54,8 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         - With reactions like :track_previous: or :fast_forward: you can scroll through pages \
         e.g. check an earlier play than the most recent one
         - ~~`Strikethrough`~~ commands indicate that you lack authority status in the server.\n\
+        - If you have questions, complains, or suggestions for the bot, feel free to join its \
+        [discord server]({discord_url}) and let Badewanne3 know.
         __**Mods for osu!**__
         Many commands allow you to specify mods. You can do so with `+mods` \
         for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods. For example:\n\
@@ -61,7 +63,7 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         `+hd!`: only HD scores\n\
         `-nm!`: scores that are not NoMod\n\
         `-nfsohdez!`: scores that have neither NF, SO, HD, or EZ\n\
-        \n__**These are all commands:**__", prefix_desc, prefix = first_prefix)
+        \n__**These are all commands:**__", prefix_desc, prefix = first_prefix, discord_url = BATHBOT_WORKSHOP)
 }
 
 pub async fn help(

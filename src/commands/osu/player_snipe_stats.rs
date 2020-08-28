@@ -59,9 +59,9 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     let player = match req.await {
         Ok(counts) => counts,
         Err(why) => {
+            warn!("Error for command `playersnipestats`: {}", why);
             let content = format!("`{}` has never had any national #1s", name);
-            let _ = msg.respond(&ctx, content).await;
-            return Err(why);
+            return msg.respond(&ctx, content).await;
         }
     };
     let graph = match graphs(&player.count_first_history, &player.count_sr_spread) {
