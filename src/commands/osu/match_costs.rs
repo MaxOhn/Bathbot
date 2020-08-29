@@ -1,7 +1,7 @@
 use crate::{
     arguments::{Args, MatchArgs},
     embeds::{EmbedData, MatchCostEmbed},
-    util::{constants::OSU_API_ISSUE, numbers::clamp_map, MessageExt},
+    util::{constants::OSU_API_ISSUE, MessageExt},
     BotResult, Context,
 };
 
@@ -25,7 +25,7 @@ use twilight::model::channel::Message;
     "Calculate a performance rating for each player \
      in the given multiplayer match. The optional second \
      argument is the amount of played warmups, defaults to 2.\n\
-     Here's the current [formula](https://i.imgur.com/mUa7r5F.png)"
+     Here's the current [formula](https://i.imgur.com/9u6JB2h.png)"
 )]
 #[usage("[match url / match id] [amount of warmups]")]
 #[example("58320988 1", "https://osu.ppy.sh/community/matches/58320988")]
@@ -123,6 +123,18 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     Ok(())
 }
 
+// flat additive bonus for each participated game
+const FLAT_PARTICIPATION_BONUS: f32 = 0.5;
+// exponent base, the higher - the higher is the difference
+// between players who played a lot and players who played fewer
+const BASE_PARTICIPATION_BONUS: f32 = 1.4;
+// exponent, low: logithmically ~ high: linear
+const EXP_PARTICIPATION_BONUS: f32 = 0.6;
+// instead of considering tb score once, consider it this many times
+const TIEBREAKER_BONUS: f32 = 2.0;
+// global multiplier per combination (if at least 3)
+const MOD_BONUS: f32 = 0.02;
+
 fn process_match(
     mut users: HashMap<u32, String>,
     osu_match: &Match,
@@ -144,7 +156,7 @@ fn process_match(
             mods.entry(score.user_id)
                 .or_default()
                 .insert(score.enabled_mods.map(|mods| mods - GameMods::NoFail));
-            let point_cost = score.score as f32 / avg + 0.5;
+            let point_cost = score.score as f32 / avg + FLAT_PARTICIPATION_BONUS;
             point_costs
                 .entry(score.user_id)
                 .or_insert_with(Vec::new)
@@ -169,34 +181,11 @@ fn process_match(
     // Tiebreaker bonus
     if osu_match.end_time.is_some() && match_scores.difference() == 1 {
         let game = games.last().unwrap();
-        let score_sum: u32 = game.scores.iter().map(|s| s.score).sum();
-        let avg = score_sum as f32 / game.scores.iter().filter(|s| s.score > 0).count() as f32;
-        let multipliers: Vec<_> = game
-            .scores
-            .iter()
-            .filter(|s| s.score > 0)
-            .filter_map(|s| match s.score as f32 > avg {
-                true => Some((s.user_id, s.score as f32 / avg)),
-                false => None,
-            })
-            .collect();
-        let max =
-            multipliers
-                .iter()
-                .map(|(_, m)| *m)
-                .fold(0.0, |max, next| if next > max { next } else { max });
-        multipliers
-            .into_iter()
-            .for_each(|(user_id, mut multiplier)| {
-                if max > 1.1 {
-                    multiplier = clamp_map(1.0, max, 1.0, 1.1, multiplier);
-                }
-                point_costs.entry(user_id).and_modify(|point_scores| {
-                    point_scores
-                        .iter_mut()
-                        .for_each(|point_score| *point_score *= multiplier)
-                });
-            });
+        point_costs
+            .iter_mut()
+            .filter(|(&user_id, _)| game.scores.iter().any(|score| score.user_id == user_id))
+            .map(|(_, costs)| costs.last_mut().unwrap())
+            .for_each(|value| *value = (*value * TIEBREAKER_BONUS) - FLAT_PARTICIPATION_BONUS);
     }
     // Mod combinations bonus
     let mods: Vec<_> = mods
@@ -205,7 +194,7 @@ fn process_match(
         .map(|(id, mods)| (id, mods.len() - 2))
         .collect();
     mods.into_iter().for_each(|(user_id, mods)| {
-        let multiplier = 1.0 + mods as f32 * 0.02;
+        let multiplier = 1.0 + mods as f32 * MOD_BONUS;
         point_costs.entry(user_id).and_modify(|point_scores| {
             point_scores
                 .iter_mut()
@@ -221,7 +210,8 @@ fn process_match(
         let sum: f32 = point_costs.iter().sum();
         let costs_len = point_costs.len() as f32;
         let mut match_cost = sum / costs_len;
-        match_cost *= 1.4_f32.powf(((costs_len - 1.0) / (games_len - 1.0)).powf(0.6));
+        match_cost *= BASE_PARTICIPATION_BONUS
+            .powf(((costs_len - 1.0) / (games_len - 1.0)).powf(EXP_PARTICIPATION_BONUS));
         data.entry(*teams.get(&user).unwrap())
             .or_insert_with(Vec::new)
             .push((name, match_cost));
