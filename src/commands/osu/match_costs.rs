@@ -144,7 +144,7 @@ fn process_match(
             mods.entry(score.user_id)
                 .or_default()
                 .insert(score.enabled_mods.map(|mods| mods - GameMods::NoFail));
-            let point_cost = score.score as f32 / avg + 0.4;
+            let point_cost = score.score as f32 / avg + 0.5;
             point_costs
                 .entry(score.user_id)
                 .or_insert_with(Vec::new)
@@ -221,7 +221,7 @@ fn process_match(
         let sum: f32 = point_costs.iter().sum();
         let costs_len = point_costs.len() as f32;
         let mut match_cost = sum / costs_len;
-        match_cost *= 1.2_f32.powf((costs_len / games_len).powf(0.4));
+        match_cost *= 1.4_f32.powf(((costs_len - 1.0) / (games_len - 1.0)).powf(0.6));
         data.entry(*teams.get(&user).unwrap())
             .or_insert_with(Vec::new)
             .push((name, match_cost));
