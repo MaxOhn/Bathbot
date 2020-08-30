@@ -2,6 +2,7 @@
 **[TODO]**
 - Fix unreacting for `<bg s` and possibly `<bgt`
 - Add ratelimit for downloading maps
+- Check on multiple `<bg start`'s in a row
 
 **[Sometime]**
 - Handle entry on top.gg

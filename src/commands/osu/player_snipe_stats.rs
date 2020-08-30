@@ -71,7 +71,13 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
             None
         }
     };
-    let first_score = if let Some(ref oldest) = player.oldest_first {
+    let first_score = if player
+        .oldest_first
+        .as_ref()
+        .and_then(|oldest| oldest.date)
+        .is_some()
+    {
+        let oldest = player.oldest_first.as_ref().unwrap();
         let map_id = oldest.beatmap_id;
         let score_req = ScoreRequest::with_map_id(map_id)
             .user_id(player.user_id)
@@ -87,7 +93,7 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
                 let mut iter = scores.into_iter();
                 match iter.next() {
                     Some(first) => {
-                        let target = oldest.date.timestamp();
+                        let target = oldest.date.unwrap().timestamp();
                         let score = iter.fold(first, |closest, next| {
                             if (closest.date.timestamp() - target).abs()
                                 > (next.date.timestamp() - target).abs()

@@ -30,7 +30,11 @@ pub struct SnipePlayer {
     pub count_ranked: u32,
     #[serde(rename = "total_top_national_difference")]
     pub difference: i32,
-    #[serde(rename = "mods_count", deserialize_with = "deserialize_mod_count")]
+    #[serde(
+        rename = "mods_count",
+        deserialize_with = "deserialize_mod_count",
+        default
+    )]
     pub count_mods: Option<Vec<(GameMods, u32)>>,
     #[serde(
         rename = "history_total_top_national",
@@ -73,7 +77,7 @@ pub struct SnipePlayerOldest {
     pub beatmap_id: u32,
     pub map: String,
     #[serde(deserialize_with = "deserialize_date")]
-    pub date: DateTime<Utc>,
+    pub date: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug)]
@@ -398,9 +402,11 @@ pub fn deserialize_signed<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Err
     }
 }
 
-pub fn deserialize_date<'de, D: Deserializer<'de>>(d: D) -> Result<DateTime<Utc>, D::Error> {
+pub fn deserialize_date<'de, D: Deserializer<'de>>(
+    d: D,
+) -> Result<Option<DateTime<Utc>>, D::Error> {
     let date: &str = Deserialize::deserialize(d)?;
-    Utc.datetime_from_str(&date, "%F %T").map_err(Error::custom)
+    Ok(Utc.datetime_from_str(&date, "%F %T").ok())
 }
 
 fn deserialize_mod_count<'de, D>(d: D) -> Result<Option<Vec<(GameMods, u32)>>, D::Error>
