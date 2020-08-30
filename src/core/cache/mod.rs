@@ -112,7 +112,9 @@ impl Cache {
                     Err(_) => error!("Timeout while waiting for cache.unavailable_guilds"),
                 }
                 // Trigger member chunk events
-                let data = RequestGuildMembers::new_all(guild.id, None);
+                let data = RequestGuildMembers::builder(guild.id)
+                    .presences(false)
+                    .query("", None);
                 ctx.backend
                     .cluster
                     .command(shard_id, &data)
@@ -401,12 +403,10 @@ impl Cache {
                                     let user = event.user.id;
                                     let guild_id = guild.id;
                                     tokio::spawn(async move {
-                                        let data = RequestGuildMembers::new_single_user_with_nonce(
-                                            guild_id,
-                                            user,
-                                            None,
-                                            Some(String::from("missing_user")),
-                                        );
+                                        let data = RequestGuildMembers::builder(guild_id)
+                                            .nonce("missing_user")
+                                            .presences(false)
+                                            .user_id(user);
                                         let _ = ctx.backend.cluster.command(shard_id, &data).await;
                                     });
                                 }

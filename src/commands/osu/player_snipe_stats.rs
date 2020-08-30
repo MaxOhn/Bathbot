@@ -169,7 +169,6 @@ fn graphs(
         chart
             .configure_mesh()
             .disable_x_mesh()
-            .disable_y_mesh()
             .x_labels(10)
             .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month()))
             .draw()?;
