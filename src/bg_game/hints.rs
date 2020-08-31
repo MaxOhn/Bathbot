@@ -7,7 +7,7 @@ pub struct Hints {
     hint_level: u8,
     title_mask: Vec<bool>,
     indices: Vec<usize>,
-    tags: MapsetTags,
+    _tags: MapsetTags,
 }
 
 impl Hints {
@@ -32,7 +32,7 @@ impl Hints {
             hint_level: 0,
             title_mask,
             indices,
-            tags,
+            _tags: tags,
         }
     }
 
@@ -57,14 +57,14 @@ impl Hints {
                 "Here's my second hint: The artist looks like `{}`",
                 artist_hint
             )
-        } else if !self.tags.is_empty()
-            && ((self.hint_level == 2 && self.artist_guessed) || self.hint_level == 3)
-        {
-            self.hint_level = self.hint_level.saturating_add(1);
-            format!(
-                "Another hint: The map's tags are `{}`",
-                self.tags.join(", ")
-            )
+        // } else if !self.tags.is_empty()
+        //     && ((self.hint_level == 2 && self.artist_guessed) || self.hint_level == 3)
+        // {
+        //     self.hint_level = self.hint_level.saturating_add(1);
+        //     format!(
+        //         "Another hint: The map's tags are `{}`",
+        //         self.tags.join(", ")
+        //     )
         } else if let Some(i) = self.indices.pop() {
             self.title_mask[i] = true;
             let title_hint: String = self
