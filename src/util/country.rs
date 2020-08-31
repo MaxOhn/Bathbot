@@ -28,7 +28,7 @@ pub struct Country {
 
 lazy_static::lazy_static! {
     pub static ref SNIPE_COUNTRIES: HashMap<String, Country> = {
-        let mut c = std::collections::HashMap::with_capacity(22);
+        let mut c = std::collections::HashMap::with_capacity(23);
         country!(c, "Australia", AU, aus);
         country!(c, "Belgium", BE);
         country!(c, "Brazil", BR);
@@ -49,6 +49,7 @@ lazy_static::lazy_static! {
         country!(c, "Slovakia", SK);
         country!(c, "Spain", ES, spain);
         country!(c, "Sweden", SE);
+        country!(c, "Thailand", TH);
         country!(c, "United Kingdom", GB, uk);
         country!(c, "United States", US, usa);
         c

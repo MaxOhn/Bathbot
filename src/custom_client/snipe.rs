@@ -28,7 +28,7 @@ pub struct SnipePlayer {
     pub count_first: u32,
     pub count_loved: u32,
     pub count_ranked: u32,
-    #[serde(rename = "total_top_national_difference")]
+    #[serde(rename = "total_top_national_difference", default)]
     pub difference: i32,
     #[serde(
         rename = "mods_count",
@@ -38,7 +38,8 @@ pub struct SnipePlayer {
     pub count_mods: Option<Vec<(GameMods, u32)>>,
     #[serde(
         rename = "history_total_top_national",
-        deserialize_with = "deserialize_history"
+        deserialize_with = "deserialize_history",
+        default
     )]
     pub count_first_history: BTreeMap<Date<Utc>, u32>,
     #[serde(rename = "sr_spread")]

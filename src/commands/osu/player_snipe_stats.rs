@@ -143,58 +143,57 @@ fn graphs(
     history: &BTreeMap<Date<Utc>, u32>,
     stars: &BTreeMap<u8, u32>,
 ) -> BotResult<Option<Vec<u8>>> {
-    if history.is_empty() {
-        return Ok(None);
-    }
     static LEN: usize = W as usize * H as usize;
-    let (min, max) = history
-        .iter()
-        .map(|(_, n)| *n)
-        .fold((u32::MAX, 0), |(min, max), curr| {
-            (min.min(curr), max.max(curr))
-        });
-    let min = match min < 20 {
-        true => 0,
-        false => min - min / 11,
-    };
-    let first = *history.keys().next().unwrap();
-    let last = *history.keys().last().unwrap();
     let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
     {
         let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
         root.fill(&WHITE)?;
         let (left, right) = root.split_horizontally(3 * W / 5);
-        let mut chart = ChartBuilder::on(&left)
-            .margin(9)
-            .caption("National #1 Count History", ("sans-serif", 30))
-            .x_label_area_size(20)
-            .y_label_area_size(40)
-            .build_ranged((first..last).monthly(), min..max)?;
-
-        // Mesh and labels
-        chart
-            .configure_mesh()
-            .disable_x_mesh()
-            .x_labels(10)
-            .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month()))
-            .draw()?;
-
-        // Draw area
-        chart.draw_series(
-            AreaSeries::new(
-                history.iter().map(|(date, n)| (*date, *n)),
-                min,
-                &BLUE.mix(0.2),
-            )
-            .border_style(&BLUE),
-        )?;
-
-        // Draw circles
-        chart.draw_series(
-            history
+        if !history.is_empty() {
+            let (min, max) = history
                 .iter()
-                .map(|(y, m)| Circle::new((*y, *m), 2, BLUE.filled())),
-        )?;
+                .map(|(_, n)| *n)
+                .fold((u32::MAX, 0), |(min, max), curr| {
+                    (min.min(curr), max.max(curr))
+                });
+            let min = match min < 20 {
+                true => 0,
+                false => min - min / 11,
+            };
+            let first = *history.keys().next().unwrap();
+            let last = *history.keys().last().unwrap();
+            let mut chart = ChartBuilder::on(&left)
+                .margin(9)
+                .caption("National #1 Count History", ("sans-serif", 30))
+                .x_label_area_size(20)
+                .y_label_area_size(40)
+                .build_ranged((first..last).monthly(), min..max)?;
+
+            // Mesh and labels
+            chart
+                .configure_mesh()
+                .disable_x_mesh()
+                .x_labels(10)
+                .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month()))
+                .draw()?;
+
+            // Draw area
+            chart.draw_series(
+                AreaSeries::new(
+                    history.iter().map(|(date, n)| (*date, *n)),
+                    min,
+                    &BLUE.mix(0.2),
+                )
+                .border_style(&BLUE),
+            )?;
+
+            // Draw circles
+            chart.draw_series(
+                history
+                    .iter()
+                    .map(|(y, m)| Circle::new((*y, *m), 2, BLUE.filled())),
+            )?;
+        }
 
         // Star spread graph
         let max = stars
