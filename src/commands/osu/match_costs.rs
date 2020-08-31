@@ -141,7 +141,6 @@ fn process_match(
     warmups: usize,
 ) -> MatchResult {
     let games: Vec<_> = osu_match.games.iter().skip(warmups).collect();
-    let games_len = games.len() as f32;
     let mut teams = HashMap::new();
     let mut point_costs = HashMap::new();
     let mut mods: HashMap<_, HashSet<_>> = HashMap::new();
@@ -179,7 +178,7 @@ fn process_match(
         match_scores.incr(winner_team);
     }
     // Tiebreaker bonus
-    if osu_match.end_time.is_some() && match_scores.difference() == 1 {
+    if osu_match.end_time.is_some() && osu_match.games.len() > 2 && match_scores.difference() == 1 {
         let game = games.last().unwrap();
         point_costs
             .iter_mut()
@@ -210,8 +209,11 @@ fn process_match(
         let sum: f32 = point_costs.iter().sum();
         let costs_len = point_costs.len() as f32;
         let mut match_cost = sum / costs_len;
-        match_cost *= BASE_PARTICIPATION_BONUS
-            .powf(((costs_len - 1.0) / (games_len - 1.0)).powf(EXP_PARTICIPATION_BONUS));
+        let exp = match games.len() {
+            1 => 0.0,
+            len => (costs_len - 1.0) / (len as f32 - 1.0),
+        };
+        match_cost *= BASE_PARTICIPATION_BONUS.powf(exp.powf(EXP_PARTICIPATION_BONUS));
         data.entry(*teams.get(&user).unwrap())
             .or_insert_with(Vec::new)
             .push((name, match_cost));
@@ -220,8 +222,9 @@ fn process_match(
             mvp_id = user;
         }
     }
-    let player_comparer =
-        |a: &(String, f32), b: &(String, f32)| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal);
+    let player_comparer = |(_, a): &(String, f32), (_, b): &(String, f32)| {
+        b.partial_cmp(&a).unwrap_or(Ordering::Equal)
+    };
     if team_vs {
         let blue = match data.remove(&Team::Blue) {
             Some(mut team) => {
