@@ -118,3 +118,11 @@ CREATE TABLE ratio_table (
     ratios REAL [] NOT NULL,
     misses REAL [] NOT NULL
 )
+
+CREATE TABLE osu_tracking (
+    user_id OID NOT NULL,
+    mode "char" NOT NULL,
+    last_top_score TIMESTAMPTZ NOT NULL,
+    channels JSON NOT NULL,
+    PRIMARY KEY (user_id, mode)
+)

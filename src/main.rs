@@ -7,6 +7,7 @@ mod database;
 mod embeds;
 mod pagination;
 mod pp;
+mod tracking;
 mod twitch;
 mod util;
 
@@ -17,6 +18,7 @@ use crate::{
     },
     custom_client::CustomClient,
     database::Database,
+    tracking::OsuTracking,
     twitch::Twitch,
     util::error::Error,
 };
@@ -42,7 +44,12 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use tokio::{runtime::Runtime, stream::StreamExt, sync::Mutex, time};
+use tokio::{
+    runtime::Runtime,
+    stream::StreamExt,
+    sync::{Mutex, RwLock},
+    time,
+};
 use twilight::gateway::{
     cluster::{ClusterBuilder, ShardScheme},
     shard::ResumeSession,
@@ -146,6 +153,9 @@ async fn run(
     // Stored pp and star values for mania and ctb
     let stored_values = core::StoredValues::new(&clients.psql).await?;
 
+    // osu! top score tracking
+    let osu_tracking = Arc::new(RwLock::new(OsuTracking::new(&clients.psql).await?));
+
     let data = crate::core::ContextData {
         guilds,
         tracked_streams,
@@ -154,6 +164,7 @@ async fn run(
         perf_calc_mutex: Mutex::new(()),
         discord_links,
         bg_games: DashMap::new(),
+        osu_tracking: osu_tracking.clone(),
     };
 
     // Shard-cluster config
@@ -229,6 +240,10 @@ async fn run(
     // Spawn twitch worker
     let twitch_ctx = ctx.clone();
     tokio::spawn(twitch::twitch_loop(twitch_ctx));
+
+    // Spawn osu tracking worker
+    let osu_tracking_ctx = ctx.clone();
+    tokio::spawn(tracking::tracking_loop(osu_tracking_ctx, osu_tracking));
 
     // Activate cluster
     let cluster_ctx = ctx.clone();

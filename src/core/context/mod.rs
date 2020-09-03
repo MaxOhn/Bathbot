@@ -10,13 +10,14 @@ use crate::{
         Cache,
     },
     database::{Database, GuildConfig},
-    BotResult, CustomClient, Twitch,
+    BotResult, CustomClient, OsuTracking, Twitch,
 };
 
 use darkredis::ConnectionPool;
 use dashmap::DashMap;
 use rosu::Osu;
-use tokio::sync::Mutex;
+use std::sync::Arc;
+use tokio::sync::{Mutex, RwLock};
 use twilight::gateway::Cluster;
 use twilight::http::Client as HttpClient;
 use twilight::model::{
@@ -64,6 +65,7 @@ pub struct ContextData {
     pub role_assigns: DashMap<(u64, u64), u64>,
     pub discord_links: DashMap<u64, String>,
     pub bg_games: DashMap<ChannelId, GameWrapper>,
+    pub osu_tracking: Arc<RwLock<OsuTracking>>,
 }
 
 impl Context {

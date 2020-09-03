@@ -155,6 +155,7 @@ dependencies = [
  "log",
  "once_cell",
  "plotters",
+ "priority-queue",
  "proc_macros",
  "prometheus",
  "radix_trie",
@@ -2020,6 +2021,16 @@ name = "precomputed-hash"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "925383efa346730478fb4838dbe9137d2a47675ad789c546d150a6e1dd4ab31c"
+
+[[package]]
+name = "priority-queue"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ce18e1ee7a46cbd356679b420c77ee6c40f0a91ed012c925ca203041c0ef68d"
+dependencies = [
+ "autocfg",
+ "indexmap",
+]
 
 [[package]]
 name = "proc-macro-hack"

@@ -3,6 +3,10 @@
 - Fix unreacting for `<bg s` and possibly `<bgt`
 - Add ratelimit for downloading maps
 - Check on multiple `<bg start`'s in a row
+- Add MR scores to `<lb`
+- Maybe add `<mapper` command?
+- Add more `<sotarks` messages
+- Make sure the embed of `<scores` is valid
 
 **[Sometime]**
 - Handle entry on top.gg

@@ -17,10 +17,7 @@ use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::{fs, stream::StreamExt};
 use twilight::model::{
     channel::{Message, ReactionType},
-    gateway::{
-        event::{Event},
-        payload::ReactionAdd,
-    },
+    gateway::{event::Event, payload::ReactionAdd},
 };
 
 #[command]
@@ -205,7 +202,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
             "<@{}> Which tags should this mapsets get: {}beatmapsets/{}\n\
             ```\n\
             🍋: Easy 🎨: Weeb 😱: Hard name 🗽: English 💯: Tech\n\
-            🤓: Hard 🍨: Kpop 🪀: Alternate 🌀: Streams ✅: Log in\n\
+            🤓: Hard 🍨: Kpop 🪀: Alternate 🌀: Streams ✅: Lock in\n\
             🤡: Meme 👨‍🌾: Farm 🟦: Blue sky  👴: Old     ❌: Exit loop\n\
             ```",
             owner, OSU_BASE, mapset_id

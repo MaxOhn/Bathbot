@@ -95,21 +95,23 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                                         ..
                                     }) => {
                                         // If not in debug mode + on an arm system e.g. raspberry pi
-                                        if cfg!(all(not(debug_assertions), target_arch = "arm")) {
-                                            if let Err(why) =
-                                                ctx.psql().remove_channel_tracks(channel.0).await
-                                            {
-                                                warn!(
-                                                    "No permission to send twitch notif in channel \
-                                                    {} but could not remove channel tracks: {}", 
-                                                    channel, why);
-                                            } else {
-                                                debug!(
-                                                    "Removed tracking in channel {} \
-                                                    because of no SEND_PERMISSION",
-                                                    channel
-                                                );
-                                            }
+                                        if cfg!(any(debug_assertions, not(target_arch = "arm"))) {
+                                            continue;
+                                        }
+                                        if let Err(why) =
+                                            ctx.psql().remove_channel_tracks(channel.0).await
+                                        {
+                                            warn!(
+                                                "No permission to send twitch notif in channel \
+                                                {} but could not remove channel tracks: {}",
+                                                channel, why
+                                            );
+                                        } else {
+                                            debug!(
+                                                "Removed twitch tracking in channel {} \
+                                                because of no SEND_PERMISSION",
+                                                channel
+                                            );
                                         }
                                     }
                                     Err(why) => warn!("Error while sending twitch notif: {}", why),

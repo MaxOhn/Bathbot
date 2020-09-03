@@ -3,6 +3,7 @@ pub mod help;
 pub mod osu;
 pub mod owner;
 pub mod songs;
+pub mod tracking;
 pub mod twitch;
 pub mod utility;
 
@@ -10,6 +11,7 @@ use fun::*;
 use osu::*;
 use owner::*;
 use songs::*;
+use tracking::*;
 use twitch::*;
 use utility::*;
 
@@ -102,6 +104,21 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &RECENTCTBGLOBALLEADERBOARD_CMD,
                 &OSUSTATSGLOBALSCTB_CMD,
                 &OSUSTATSCOUNTCTB_CMD,
+            ],
+        ),
+        CommandGroup::new(
+            "osu!tracking",
+            vec![
+                &TRACK_CMD,
+                &TRACKMANIA_CMD,
+                &TRACKTAIKO_CMD,
+                &TRACKCTB_CMD,
+                &TRACKLIST_CMD,
+                &UNTRACK_CMD,
+                &UNTRACKMANIA_CMD,
+                &UNTRACKTAIKO_CMD,
+                &UNTRACKCTB_CMD,
+                &UNTRACKALL_CMD,
             ],
         ),
         CommandGroup::new(
