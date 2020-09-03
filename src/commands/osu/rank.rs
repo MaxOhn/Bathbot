@@ -1,6 +1,7 @@
 use crate::{
     arguments::{Args, RankArgs},
     embeds::{EmbedData, RankEmbed},
+    tracking::process_tracking,
     util::{
         constants::{OSU_API_ISSUE, OSU_WEB_ISSUE},
         MessageExt,
@@ -10,7 +11,7 @@ use crate::{
 
 use futures::future::TryFutureExt;
 use rosu::{backend::requests::UserRequest, models::GameMode};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use twilight::model::channel::Message;
 
 async fn rank_main(
@@ -91,6 +92,12 @@ async fn rank_main(
             }
         }
     };
+
+    if let Some(ref scores) = scores {
+        // Process user and their top scores for tracking
+        let mut maps = HashMap::new();
+        process_tracking(&ctx, mode, scores, Some(&user), &mut maps).await;
+    }
 
     // Accumulate all necessary data
     let data = RankEmbed::new(user, scores, rank, country, rank_holder);

@@ -1,6 +1,6 @@
 mod tracking_loop;
 
-pub use tracking_loop::tracking_loop;
+pub use tracking_loop::{process_tracking, tracking_loop};
 
 use crate::{database::TrackingUser, BotResult, Database};
 
@@ -46,20 +46,23 @@ impl OsuTracking {
         })
     }
 
-    pub async fn reset(
+    pub async fn reset(&mut self, user: u32, mode: GameMode) {
+        let mut queue = self.queue.write().await;
+        let now = Utc::now();
+        self.last_date = Some(now);
+        queue.push_decrease((user, mode), Reverse(now));
+    }
+
+    pub async fn update_last_date(
         &mut self,
         user_id: u32,
         mode: GameMode,
         new_date: DateTime<Utc>,
         psql: &Database,
     ) -> BotResult<()> {
-        let mut queue = self.queue.write().await;
-        let now = Utc::now();
-        self.last_date = Some(now);
-        queue.push_decrease((user_id, mode), Reverse(now));
-        if let Some(mut user) = self.users.get_mut(&(user_id, mode)) {
-            user.last_top_score = new_date;
-            psql.update_osu_tracking(user_id, mode, new_date, &user.channels)
+        if let Some(mut tracked_user) = self.users.get_mut(&(user_id, mode)) {
+            tracked_user.last_top_score = new_date;
+            psql.update_osu_tracking(user_id, mode, new_date, &tracked_user.channels)
                 .await?;
         }
         Ok(())

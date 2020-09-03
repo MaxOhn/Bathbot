@@ -2,6 +2,7 @@ use crate::{
     arguments::{Args, MultNameArgs},
     embeds::{CommonEmbed, EmbedData},
     pagination::{CommonPagination, Pagination},
+    tracking::process_tracking,
     util::{constants::OSU_API_ISSUE, get_combined_thumbnail, MessageExt},
     BotResult, Context,
 };
@@ -86,34 +87,46 @@ async fn common_main(
     }
 
     // Retrieve each user's top scores
-    let score_futs = users
-        .iter()
-        .map(|(_, user)| user.get_top_scores(ctx.osu(), 100, mode));
-    let mut all_scores = match try_join_all(score_futs).await {
-        Ok(all_scores) => all_scores,
+    let score_futs = users.iter().map(|(_, user)| {
+        user.get_top_scores(ctx.osu(), 100, mode)
+            .map_ok(move |scores| (user.user_id, scores))
+    });
+    let mut all_scores: HashMap<u32, Vec<Score>> = match try_join_all(score_futs).await {
+        Ok(all_scores) => all_scores.into_iter().collect(),
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };
 
+    // Process users and their top scores for tracking
+    for (user_id, user) in users.iter() {
+        let scores = all_scores.get(user_id).unwrap();
+        let mut maps = HashMap::new();
+        process_tracking(&ctx, mode, scores, Some(user), &mut maps).await;
+    }
+
     // Consider only scores on common maps
     let mut map_ids: HashSet<u32> = all_scores
         .par_iter()
-        .map(|scores| scores.par_iter().flat_map(|s| s.beatmap_id))
+        .map(|(_, scores)| scores.par_iter().flat_map(|s| s.beatmap_id))
         .flatten()
         .collect();
     map_ids.retain(|&id| {
         all_scores
             .iter()
-            .all(|scores| scores.iter().any(|s| s.beatmap_id.unwrap() == id))
+            .all(|(_, scores)| scores.iter().any(|s| s.beatmap_id.unwrap() == id))
     });
     all_scores
         .par_iter_mut()
-        .for_each(|scores| scores.retain(|s| map_ids.contains(&s.beatmap_id.unwrap())));
+        .for_each(|(_, scores)| scores.retain(|s| map_ids.contains(&s.beatmap_id.unwrap())));
 
     // Flatten scores, sort by beatmap id, then group by beatmap id
-    let mut all_scores: Vec<Score> = all_scores.into_iter().flatten().collect();
+    let mut all_scores: Vec<Score> = all_scores
+        .into_iter()
+        .map(|(_, scores)| scores)
+        .flatten()
+        .collect();
     all_scores.sort_unstable_by(|s1, s2| s1.beatmap_id.cmp(&s2.beatmap_id));
     let mut all_scores: HashMap<u32, Vec<Score>> = all_scores
         .into_iter()

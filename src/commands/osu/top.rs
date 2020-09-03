@@ -3,6 +3,7 @@ use crate::{
     bail,
     embeds::{EmbedData, TopEmbed},
     pagination::{Pagination, TopPagination},
+    tracking::process_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher, numbers,
@@ -89,6 +90,10 @@ async fn top_main(
         }
     };
 
+    // Process user and their top scores for tracking
+    let mut maps = HashMap::new();
+    process_tracking(&ctx, mode, &scores, Some(&user), &mut maps).await;
+
     // Filter scores according to mods, combo, acc, and grade
     let scores_indices = filter_scores(top_type, scores, mode, args);
     let amount = scores_indices.len();
@@ -105,6 +110,7 @@ async fn top_main(
             HashMap::default()
         }
     };
+
     debug!(
         "Found {}/{} beatmaps in DB",
         maps.len(),

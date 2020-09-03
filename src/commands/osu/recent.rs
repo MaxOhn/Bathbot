@@ -3,6 +3,7 @@ use crate::{
     bail,
     embeds::{EmbedData, RecentEmbed},
     pagination::{Pagination, RecentPagination},
+    tracking::process_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
@@ -134,6 +135,11 @@ async fn recent_main(
             None
         }
     };
+
+    // Process user and their top scores for tracking
+    if let Some(ref scores) = best {
+        process_tracking(&ctx, mode, scores, Some(&user), &mut maps).await;
+    }
 
     // Accumulate all necessary data
     let tries = scores

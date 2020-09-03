@@ -2,6 +2,7 @@ use crate::{
     arguments::{Args, NameArgs},
     bail,
     embeds::{EmbedData, RatioEmbed},
+    tracking::process_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
@@ -10,7 +11,7 @@ use crate::{
 };
 
 use rosu::{backend::BestRequest, models::GameMode};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use twilight::model::channel::Message;
 
 #[command]
@@ -54,6 +55,10 @@ async fn ratios(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             return Err(why.into());
         }
     };
+
+    // Process user and their top scores for tracking
+    let mut maps = HashMap::new();
+    process_tracking(&ctx, GameMode::MNA, &scores, Some(&user), &mut maps).await;
 
     // Accumulate all necessary data
     let data = match RatioEmbed::new(&ctx, user, scores).await {

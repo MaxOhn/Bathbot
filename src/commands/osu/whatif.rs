@@ -1,12 +1,13 @@
 use crate::{
     arguments::{Args, NameFloatArgs},
     embeds::{EmbedData, WhatIfEmbed},
+    tracking::process_tracking,
     util::{constants::OSU_API_ISSUE, MessageExt},
     BotResult, Context,
 };
 
 use rosu::{backend::BestRequest, models::GameMode};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use twilight::model::channel::Message;
 
 async fn whatif_main(
@@ -52,6 +53,10 @@ async fn whatif_main(
             return Err(why.into());
         }
     };
+
+    // Process user and their top scores for tracking
+    let mut maps = HashMap::new();
+    process_tracking(&ctx, mode, &scores, Some(&user), &mut maps).await;
 
     // Accumulate all necessary data
     let data = WhatIfEmbed::new(user, scores, mode, pp);

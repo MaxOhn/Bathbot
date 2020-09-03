@@ -4,6 +4,7 @@ use crate::{
     embeds::{EmbedData, NoChokeEmbed},
     pagination::{NoChokePagination, Pagination},
     pp::{Calculations, PPCalculator},
+    tracking::process_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         numbers, osu, MessageExt,
@@ -54,6 +55,10 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
             return Err(why.into());
         }
     };
+
+    // Process user and their top scores for tracking
+    let mut maps = HashMap::new();
+    process_tracking(&ctx, GameMode::STD, &scores, Some(&user), &mut maps).await;
 
     // Get all relevant maps from the database
     let map_ids: Vec<u32> = scores.iter().filter_map(|s| s.beatmap_id).collect();

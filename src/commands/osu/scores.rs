@@ -88,7 +88,7 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         }
     };
 
-    // Retrieve user and user's scores on the map
+    // Retrieve user and their scores on the map
     let score_req = ScoreRequest::with_map_id(map_id)
         .username(&name)
         .mode(map.mode);

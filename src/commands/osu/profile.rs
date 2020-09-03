@@ -1,6 +1,7 @@
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, ProfileEmbed},
+    tracking::process_tracking,
     util::{constants::OSU_API_ISSUE, MessageExt},
     BotResult, Context, Error,
 };
@@ -72,6 +73,10 @@ async fn profile_main(
             HashMap::default()
         }
     };
+
+    // Process user and their top scores for tracking
+    process_tracking(&ctx, mode, &scores, Some(&user), &mut maps).await;
+
     debug!("Found {}/{} beatmaps in DB", maps.len(), scores.len());
     let retrieving_msg = if scores.len() - maps.len() > 10 {
         let content = format!(

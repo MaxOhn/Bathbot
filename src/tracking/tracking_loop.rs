@@ -150,13 +150,14 @@ pub async fn process_tracking(
                 Err(why) => warn!("Invalid embed for osu!tracking notification: {}", why),
             }
         }
-        let mut t = ctx.tracking().write().await;
-        let user = user.user_id;
-        if let Err(why) = t.reset(user, mode, score.date, ctx.psql()).await {
+        let mut tracking = ctx.tracking().write().await;
+        let update_fut = tracking.update_last_date(user_id, mode, score.date, ctx.psql());
+        if let Err(why) = update_fut.await {
             warn!(
                 "Error while updating tracking date for user ({},{}): {}",
-                user, mode, why
+                user_id, mode, why
             );
         }
     }
+    ctx.tracking().write().await.reset(user_id, mode).await;
 }
