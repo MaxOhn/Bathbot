@@ -172,6 +172,15 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &TIJDMACHINE_CMD,
             ],
         ),
-        CommandGroup::new("owner", vec![&ADDBG_CMD, &CACHE_CMD, &ACTIVEBG_CMD]),
+        CommandGroup::new(
+            "owner",
+            vec![
+                &ADDBG_CMD,
+                &CACHE_CMD,
+                &ACTIVEBG_CMD,
+                &TRACKINGCOOLDOWN_CMD,
+                &TRACKINGINTERVAL_CMD,
+            ],
+        ),
     ]
 }

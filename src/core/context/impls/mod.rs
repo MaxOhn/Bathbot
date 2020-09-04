@@ -8,7 +8,6 @@ mod twitch;
 
 use crate::{Context, OsuTracking};
 
-use tokio::sync::RwLock;
 use twilight::model::{
     channel::{Message, Reaction},
     id::RoleId,
@@ -27,7 +26,7 @@ impl Context {
             .map(|guard| RoleId(*guard.value()))
     }
 
-    pub fn tracking(&self) -> &RwLock<OsuTracking> {
+    pub fn tracking(&self) -> &OsuTracking {
         &self.data.osu_tracking
     }
 }

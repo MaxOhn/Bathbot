@@ -1,6 +1,6 @@
 use crate::{
     embeds::{EmbedData, TrackNotificationEmbed},
-    Context, OsuTracking,
+    Context,
 };
 
 use futures::future::{join_all, FutureExt};
@@ -10,13 +10,19 @@ use rosu::{
     models::{Beatmap, GameMode, Score, User},
 };
 use std::{collections::HashMap, sync::Arc};
-use tokio::sync::RwLock;
+use tokio::time;
 use twilight::http::Error as TwilightError;
 
-pub async fn tracking_loop(ctx: Arc<Context>, tracking: Arc<RwLock<OsuTracking>>) {
+pub async fn tracking_loop(ctx: Arc<Context>) {
     loop {
         // Get all users that should be tracked in this iteration
-        let tracked = tracking.write().await.pop().await.unwrap();
+        let tracked = match ctx.tracking().pop().await {
+            Some(tracked) => tracked,
+            None => {
+                time::delay_for(time::Duration::from_secs(30)).await;
+                continue;
+            }
+        };
         // Build top score requests for each
         let score_futs = tracked.keys().map(|(user_id, mode)| {
             BestRequest::with_user_id(*user_id)
@@ -43,16 +49,17 @@ pub async fn tracking_loop(ctx: Arc<Context>, tracking: Arc<RwLock<OsuTracking>>
 pub async fn process_tracking(
     ctx: &Context,
     mode: GameMode,
-    scores: &Vec<Score>,
+    #[allow(clippy::ptr_arg)] scores: &Vec<Score>,
     user: Option<&User>,
     maps: &mut HashMap<u32, Beatmap>,
 ) {
     let user_id = scores.first().unwrap().user_id;
-    let (last, channels) = match ctx.tracking().read().await.get_tracked(user_id, mode) {
+    let (last, channels) = match ctx.tracking().get_tracked(user_id, mode) {
         Some(tuple) => tuple,
         None => return,
     };
-    for (idx, score) in scores.iter().enumerate() {
+    let max = channels.values().copied().max().unwrap();
+    for (idx, score) in scores.iter().enumerate().take(max) {
         // Skip if its an older score
         if score.date < last {
             continue;
@@ -109,7 +116,10 @@ pub async fn process_tracking(
             }
         };
         // Send the embed to each tracking channel
-        for &channel in channels.iter() {
+        for (&channel, &limit) in channels.iter() {
+            if idx + 1 > limit {
+                continue;
+            }
             // Try to build and send the message
             match ctx.http.create_message(channel).embed(embed.clone()) {
                 Ok(msg_fut) => {
@@ -123,12 +133,8 @@ pub async fn process_tracking(
                             if cfg!(any(debug_assertions, not(target_arch = "arm"))) {
                                 continue;
                             }
-                            if let Err(why) = ctx
-                                .tracking()
-                                .write()
-                                .await
-                                .remove_all(channel, None, ctx.psql())
-                                .await
+                            if let Err(why) =
+                                ctx.tracking().remove_all(channel, None, ctx.psql()).await
                             {
                                 warn!(
                                     "No permission to send tracking notif in channel \
@@ -150,8 +156,9 @@ pub async fn process_tracking(
                 Err(why) => warn!("Invalid embed for osu!tracking notification: {}", why),
             }
         }
-        let mut tracking = ctx.tracking().write().await;
-        let update_fut = tracking.update_last_date(user_id, mode, score.date, ctx.psql());
+        let update_fut = ctx
+            .tracking()
+            .update_last_date(user_id, mode, score.date, ctx.psql());
         if let Err(why) = update_fut.await {
             warn!(
                 "Error while updating tracking date for user ({},{}): {}",
@@ -159,5 +166,5 @@ pub async fn process_tracking(
             );
         }
     }
-    ctx.tracking().write().await.reset(user_id, mode).await;
+    ctx.tracking().reset(user_id, mode).await;
 }

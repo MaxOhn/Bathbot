@@ -2,9 +2,10 @@ use crate::{
     core::{Command, CommandGroups},
     util::{
         constants::{
-            DARK_GREEN, DESCRIPTION_SIZE, EMBED_SIZE, FIELD_VALUE_SIZE, OWNER_USER_ID, RED, BATHBOT_WORKSHOP
+            BATHBOT_WORKSHOP, DARK_GREEN, DESCRIPTION_SIZE, EMBED_SIZE, FIELD_VALUE_SIZE,
+            OWNER_USER_ID, RED,
         },
-        content_safe, levenshtein_distance, MessageExt,
+        levenshtein_distance, MessageExt,
     },
     BotResult, Context,
 };
@@ -221,7 +222,6 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
                     let _ = write!(value, ", <@&{}>", role);
                 }
             }
-            content_safe(&ctx, &mut value, msg.guild_id);
             value
         } else {
             "Admin permission or any role that \

@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use rosu::models::GameMode;
 use sqlx::{types::Json, Row};
-use std::collections::HashSet;
+use std::collections::HashMap;
 use twilight::model::id::ChannelId;
 
 impl Database {
@@ -23,7 +23,7 @@ impl Database {
         user_id: u32,
         mode: GameMode,
         last_top_score: DateTime<Utc>,
-        channels: &HashSet<ChannelId>,
+        channels: &HashMap<ChannelId, usize>,
     ) -> BotResult<()> {
         let query = "
 UPDATE
@@ -57,7 +57,8 @@ WHERE
         user_id: u32,
         mode: GameMode,
         last_top_score: DateTime<Utc>,
-        channel: u64,
+        channel: ChannelId,
+        limit: usize,
     ) -> BotResult<()> {
         let query = "
 INSERT INTO
@@ -66,12 +67,12 @@ VALUES
     ($1,$2,$3,$4)
 ON CONFLICT
     (user_id, mode)
-UPDATE SET
+DO UPDATE SET
     last_top_score=$3
 RETURNING channels";
-        let mut set = HashSet::with_capacity(1);
-        set.insert(channel);
-        let mut channels: Json<HashSet<i64>> = sqlx::query(query)
+        let mut set = HashMap::with_capacity(1);
+        set.insert(channel, limit);
+        let mut channels: Json<HashMap<ChannelId, usize>> = sqlx::query(query)
             .bind(user_id)
             .bind(mode as i8)
             .bind(last_top_score)
@@ -79,7 +80,7 @@ RETURNING channels";
             .fetch_one(&self.pool)
             .await?
             .get(0);
-        if channels.insert(channel as i64) {
+        if channels.insert(channel, limit).is_none() {
             let query = "UPDATE osu_tracking SET channels=$3 WHERE user_id=$1 AND mode=$2";
             sqlx::query(query)
                 .bind(user_id)

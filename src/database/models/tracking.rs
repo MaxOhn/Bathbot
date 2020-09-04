@@ -2,14 +2,15 @@ use chrono::{DateTime, Utc};
 use rosu::models::GameMode;
 use serde_json::Value;
 use sqlx::{types::Json, ColumnIndex, Decode, Error, FromRow, Row, Type};
-use std::collections::HashSet;
+use std::{collections::HashMap, str::FromStr};
 use twilight::model::id::ChannelId;
 
+#[derive(Debug)]
 pub struct TrackingUser {
     pub user_id: u32,
     pub mode: GameMode,
     pub last_top_score: DateTime<Utc>,
-    pub channels: HashSet<ChannelId>,
+    pub channels: HashMap<ChannelId, usize>,
 }
 
 impl TrackingUser {
@@ -18,9 +19,10 @@ impl TrackingUser {
         mode: GameMode,
         last_top_score: DateTime<Utc>,
         channel: ChannelId,
+        limit: usize,
     ) -> Self {
-        let mut channels = HashSet::with_capacity(1);
-        channels.insert(channel);
+        let mut channels = HashMap::with_capacity(1);
+        channels.insert(channel, limit);
         Self {
             user_id,
             mode,
@@ -30,7 +32,7 @@ impl TrackingUser {
     }
 
     pub fn remove_channel(&mut self, channel: ChannelId) -> bool {
-        self.channels.remove(&channel)
+        self.channels.remove(&channel).is_none()
     }
 }
 
@@ -52,14 +54,17 @@ where
         let mode: i8 = row.try_get(1)?;
         let mode = GameMode::from(mode as u8);
         let last_top_score: DateTime<Utc> = row.try_get(2)?;
-        let channels = match serde_json::from_value(row.try_get(3)?) {
-            Ok(channels) => channels,
+        let channels = match serde_json::from_value::<HashMap<String, usize>>(row.try_get(3)?) {
+            Ok(channels) => channels
+                .into_iter()
+                .map(|(id, limit)| (ChannelId(u64::from_str(&id).unwrap()), limit))
+                .collect(),
             Err(why) => {
                 warn!(
                     "Could not deserialize tracking channels value for ({},{}): {}",
                     user_id, mode, why
                 );
-                HashSet::new()
+                HashMap::new()
             }
         };
         Ok(Self {

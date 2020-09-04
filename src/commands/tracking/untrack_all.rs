@@ -9,6 +9,7 @@ use std::sync::Arc;
 use twilight::model::channel::Message;
 
 #[command]
+#[authority()]
 #[short_desc("Untrack all users in a channel")]
 #[long_desc(
     "Stop notifying a channel about new plays in any user's top100.\n\
@@ -32,8 +33,6 @@ async fn untrackall(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResu
     };
     match ctx
         .tracking()
-        .write()
-        .await
         .remove_all(msg.channel_id, mode, ctx.psql())
         .await
     {

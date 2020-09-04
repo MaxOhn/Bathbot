@@ -15,8 +15,9 @@ impl TrackEmbed {
         success: Vec<String>,
         failure: Vec<String>,
         failed: Option<String>,
+        limit: usize,
     ) -> Self {
-        let title = format!("Top score tracking for mode {}", mode);
+        let title = format!("Top score tracking | mode={} | limit={}", mode, limit);
         let mut fields = Vec::new();
         let mut iter = success.iter();
         if let Some(first) = iter.next() {

@@ -11,13 +11,13 @@ pub struct TrackListEmbed {
 }
 
 impl TrackListEmbed {
-    pub fn new(users: Vec<(String, GameMode)>) -> Vec<Self> {
+    pub fn new(users: Vec<(String, GameMode, usize)>) -> Vec<Self> {
         let mut embeds = Vec::with_capacity(1);
-        let title = "Tracked osu! users in this channel";
+        let title = "Tracked osu! users in this channel (limit)";
         let mut description = String::with_capacity(256);
         users
             .into_iter()
-            .group_by(|(_, mode)| *mode)
+            .group_by(|(_, mode, _)| *mode)
             .into_iter()
             .for_each(|(mode, group)| {
                 let mode = match mode {
@@ -27,9 +27,9 @@ impl TrackListEmbed {
                     GameMode::CTB => "osu!ctb",
                 };
                 description.reserve(256);
-                let mut names = group.map(|(name, _)| name);
-                let first = names.next().unwrap();
-                let len = description.chars().count() + mode.len() + first.chars().count() + 2;
+                let mut names = group.map(|(name, _, limit)| (name, limit));
+                let (first_name, first_limit) = names.next().unwrap();
+                let len = description.chars().count() + mode.len() + first_name.chars().count() + 7;
                 if len > DESCRIPTION_SIZE {
                     embeds.push(Self {
                         title,
@@ -38,10 +38,10 @@ impl TrackListEmbed {
                     description.clear();
                 }
                 let _ = writeln!(description, "__**{}**__", mode);
-                let _ = write!(description, "`{}`", first);
+                let _ = write!(description, "`{}` ({})", first_name, first_limit);
                 let mut with_comma = true;
-                for name in names {
-                    let len = description.chars().count() + name.chars().count() + 4;
+                for (name, limit) in names {
+                    let len = description.chars().count() + name.chars().count() + 9;
                     if len > DESCRIPTION_SIZE {
                         embeds.push(Self {
                             title,
@@ -53,13 +53,18 @@ impl TrackListEmbed {
                     }
                     let _ = write!(
                         description,
-                        "{}`{}`",
+                        "{}`{}` ({})",
                         if with_comma { ", " } else { "" },
-                        name
+                        name,
+                        limit,
                     );
                     with_comma = true;
                 }
+                description.push('\n');
             });
+        if description.lines().count() > 1 {
+            embeds.push(Self { title, description });
+        }
         embeds
     }
 }
@@ -69,6 +74,6 @@ impl EmbedData for TrackListEmbed {
         Some(self.title)
     }
     fn description(&self) -> Option<&str> {
-        Some(&self.title)
+        Some(&self.description)
     }
 }

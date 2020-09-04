@@ -33,6 +33,41 @@ impl MultNameArgs {
     }
 }
 
+pub struct MultNameLimitArgs {
+    pub names: Vec<String>,
+    pub limit: Option<usize>,
+}
+
+impl MultNameLimitArgs {
+    pub fn new(ctx: &Context, args: Args, n: usize) -> Result<Self, &'static str> {
+        let mut args: Vec<_> = args.take_all().unique().take(n + 2).collect();
+        let limit = match args
+            .iter()
+            .position(|&arg| arg == "-limit" || arg == "-l" || arg == "-top" || arg == "-t")
+        {
+            Some(idx) => {
+                args.remove(idx);
+                match args.get(idx).map(|&arg| usize::from_str(arg)) {
+                    Some(Ok(limit)) => {
+                        args.remove(idx);
+                        Some(limit)
+                    }
+                    Some(Err(_)) => {
+                        return Err("Could not parse given limit, try a non-negative integer")
+                    }
+                    None => None,
+                }
+            }
+            None => None,
+        };
+        let names = args
+            .into_iter()
+            .map(|arg| try_link_name(ctx, Some(arg)).unwrap())
+            .collect();
+        Ok(Self { names, limit })
+    }
+}
+
 pub struct NameFloatArgs {
     pub name: Option<String>,
     pub float: f32,

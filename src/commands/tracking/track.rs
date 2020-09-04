@@ -1,13 +1,13 @@
 use crate::{
-    arguments::{Args, MultNameArgs},
+    arguments::{Args, MultNameLimitArgs},
     embeds::{EmbedData, TrackEmbed},
     util::{constants::OSU_API_ISSUE, MessageExt},
     BotResult, Context,
 };
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use futures::future::{try_join_all, TryFutureExt};
-use rosu::{backend::BestRequest, models::GameMode};
+use rosu::{backend::UserRequest, models::GameMode};
 use std::{collections::HashSet, sync::Arc};
 use twilight::model::channel::Message;
 
@@ -17,7 +17,15 @@ async fn track_main(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let args = MultNameArgs::new(&ctx, args, 10);
+    let guild_id = msg.guild_id.unwrap().0;
+    if guild_id != 277469642908237826 && guild_id != 297072529426612224 {
+        let content = "Top score tracking is currently in its testing phase, hence unavailable.";
+        return msg.error(&ctx, content).await;
+    }
+    let args = match MultNameLimitArgs::new(&ctx, args, 10) {
+        Ok(args) => args,
+        Err(err_msg) => return msg.error(&ctx, err_msg).await,
+    };
     let names = if args.names.is_empty() {
         let content = "You need to specify at least one osu username";
         return msg.error(&ctx, content).await;
@@ -29,58 +37,64 @@ async fn track_main(
         return msg.error(&ctx, content).await;
     }
 
-    // Retrieve all users' top scores
-    let req_futs = names.into_iter().map(|name| {
-        BestRequest::with_username(&name)
+    let limit = match args.limit {
+        Some(limit) if limit == 0 || limit > 100 => {
+            let content = "The given limit must be between 1 and 100";
+            return msg.error(&ctx, content).await;
+        }
+        Some(limit) => limit,
+        None => 100,
+    };
+
+    // Retrieve all users
+    let user_futs = names.into_iter().map(|name| {
+        UserRequest::with_username(&name)
             .unwrap_or_else(|why| panic!("Invalid username `{}`: {}", name, why))
             .mode(mode)
-            .queue(ctx.osu())
-            .map_ok(move |scores| (name, scores))
+            .queue_single(ctx.osu())
+            .map_ok(move |user| (name, user))
     });
-    let last_dates: Vec<(u32, String, DateTime<Utc>)> = match try_join_all(req_futs).await {
-        Ok(all_scores) => all_scores
-            .into_iter()
-            .filter_map(|(name, scores)| match scores.first() {
-                Some(score) => {
-                    let user_id = score.user_id;
-                    let last_date = scores.into_iter().map(|score| score.date).max().unwrap();
-                    Some((user_id, name, last_date))
-                }
-                None => None,
-            })
-            .collect(),
+    let users: Vec<(u32, String)> = match try_join_all(user_futs).await {
+        Ok(users) => match users.iter().find(|(_, user)| user.is_none()) {
+            Some((name, _)) => {
+                let content = format!("User `{}` was not found", name);
+                return msg.error(&ctx, content).await;
+            }
+            None => users
+                .into_iter()
+                .filter_map(|(name, user)| user.map(|user| (user.user_id, name)))
+                .collect(),
+        },
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
         }
     };
-    if last_dates.is_empty() {
-        let content = "None of the given users have any top scores";
+    if users.is_empty() {
+        let content = "None of the given users were found by the API";
         return msg.error(&ctx, content).await;
     }
     let channel = msg.channel_id;
-    let mut success = Vec::with_capacity(last_dates.len());
+    let mut success = Vec::with_capacity(users.len());
     let mut failure = Vec::new();
-    for (user_id, username, last_top_score) in last_dates {
+    for (user_id, username) in users {
         match ctx
             .tracking()
-            .write()
-            .await
-            .add(user_id, mode, channel, last_top_score, ctx.psql())
+            .add(user_id, mode, Utc::now(), channel, limit, ctx.psql())
             .await
         {
             Ok(true) => success.push(username),
             Ok(false) => failure.push(username),
             Err(why) => {
                 warn!("Error while adding tracked entry: {}", why);
-                let embed = TrackEmbed::new(mode, success, failure, Some(username))
+                let embed = TrackEmbed::new(mode, success, failure, Some(username), limit)
                     .build()
                     .build()?;
                 return msg.build_response(&ctx, |m| m.embed(embed)).await;
             }
         }
     }
-    let embed = TrackEmbed::new(mode, success, failure, None)
+    let embed = TrackEmbed::new(mode, success, failure, None, limit)
         .build()
         .build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
@@ -88,19 +102,27 @@ async fn track_main(
 }
 
 #[command]
+#[authority()]
 #[short_desc("Track a user's top scores")]
 #[long_desc(
     "Track a user's top scores and notify a channel \
     about new plays in their top100.\n\
-    You can specify up to ten usernames per command invokation."
+    You can specify up to ten usernames per command invokation.\n\
+    To provide a limit, specify `-limit` followed by a number \
+    between 1 and 100, defaults to 100."
 )]
-#[usage("[username1] [username2] ...")]
-#[example("badewanne3 cookiezi \"freddie benson\" peppy")]
+#[usage("[-limit number] [username1] [username2] ...")]
+#[example(
+    "badewanne3 \"freddie benson\" peppy -limit 23",
+    "-limit 45 cookiezi whitecat",
+    "\"freddie benson\""
+)]
 pub async fn track(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     track_main(GameMode::STD, ctx, msg, args).await
 }
 
 #[command]
+#[authority()]
 #[short_desc("Track a mania user's top scores")]
 #[long_desc(
     "Track a mania user's top scores and notify a channel \
@@ -115,6 +137,7 @@ pub async fn trackmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
 }
 
 #[command]
+#[authority()]
 #[short_desc("Track a taiko user's top scores")]
 #[long_desc(
     "Track a taiko user's top scores and notify a channel \
@@ -129,6 +152,7 @@ pub async fn tracktaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
 }
 
 #[command]
+#[authority()]
 #[short_desc("Track a ctb user's top scores")]
 #[long_desc(
     "Track a ctb user's top scores and notify a channel \

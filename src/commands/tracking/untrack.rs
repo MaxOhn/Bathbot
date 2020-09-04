@@ -63,9 +63,12 @@ async fn untrack_main(
     let mut success = Vec::with_capacity(users.len());
     let mut failure = Vec::new();
     {
-        let mut tracking = ctx.tracking().write().await;
         for (name, User { user_id, .. }) in users {
-            match tracking.remove(user_id, mode, channel, ctx.psql()).await {
+            match ctx
+                .tracking()
+                .remove(user_id, mode, channel, ctx.psql())
+                .await
+            {
                 Ok(true) => success.push(name),
                 Ok(false) => failure.push(name),
                 Err(why) => {
@@ -86,7 +89,8 @@ async fn untrack_main(
 }
 
 #[command]
-#[short_desc("Untrack a user in a channel")]
+#[authority()]
+#[short_desc("Untrack user(s) in a channel")]
 #[long_desc(
     "Stop notifying a channel about new plays in a user's top100.\n\
     You can specify up to ten usernames per command invokation."
@@ -98,6 +102,7 @@ pub async fn untrack(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
 }
 
 #[command]
+#[authority()]
 #[short_desc("Untrack a maniauser in a channel")]
 #[long_desc(
     "Stop notifying a channel about new plays in a user's top100.\n\
@@ -111,6 +116,7 @@ pub async fn untrackmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 }
 
 #[command]
+#[authority()]
 #[short_desc("Untrack a taiko user in a channel")]
 #[long_desc(
     "Stop notifying a channel about new plays in a user's top100.\n\
@@ -124,6 +130,7 @@ pub async fn untracktaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 }
 
 #[command]
+#[authority()]
 #[short_desc("Untrack a ctb user in a channel")]
 #[long_desc(
     "Stop notifying a channel about new plays in a user's top100.\n\

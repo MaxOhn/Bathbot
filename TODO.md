@@ -7,6 +7,7 @@
 - Maybe add `<mapper` command?
 - Add more `<sotarks` messages
 - Make sure the embed of `<scores` is valid
+- Add commands for `https://osustats.ppy.sh/r`
 
 **[Sometime]**
 - Handle entry on top.gg

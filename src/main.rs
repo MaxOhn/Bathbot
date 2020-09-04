@@ -44,12 +44,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use tokio::{
-    runtime::Runtime,
-    stream::StreamExt,
-    sync::{Mutex, RwLock},
-    time,
-};
+use tokio::{runtime::Runtime, stream::StreamExt, sync::Mutex, time};
 use twilight::gateway::{
     cluster::{ClusterBuilder, ShardScheme},
     shard::ResumeSession,
@@ -154,7 +149,7 @@ async fn run(
     let stored_values = core::StoredValues::new(&clients.psql).await?;
 
     // osu! top score tracking
-    let osu_tracking = Arc::new(RwLock::new(OsuTracking::new(&clients.psql).await?));
+    let osu_tracking = OsuTracking::new(&clients.psql).await?;
 
     let data = crate::core::ContextData {
         guilds,
@@ -164,7 +159,7 @@ async fn run(
         perf_calc_mutex: Mutex::new(()),
         discord_links,
         bg_games: DashMap::new(),
-        osu_tracking: osu_tracking.clone(),
+        osu_tracking,
     };
 
     // Shard-cluster config
@@ -243,7 +238,7 @@ async fn run(
 
     // Spawn osu tracking worker
     let osu_tracking_ctx = ctx.clone();
-    tokio::spawn(tracking::tracking_loop(osu_tracking_ctx, osu_tracking));
+    tokio::spawn(tracking::tracking_loop(osu_tracking_ctx));
 
     // Activate cluster
     let cluster_ctx = ctx.clone();
