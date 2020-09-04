@@ -33,7 +33,7 @@ async fn untrackall(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResu
     };
     match ctx
         .tracking()
-        .remove_all(msg.channel_id, mode, ctx.psql())
+        .remove_channel(msg.channel_id, mode, ctx.psql())
         .await
     {
         Ok(amount) => {

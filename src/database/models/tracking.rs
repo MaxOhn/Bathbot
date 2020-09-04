@@ -32,7 +32,7 @@ impl TrackingUser {
     }
 
     pub fn remove_channel(&mut self, channel: ChannelId) -> bool {
-        self.channels.remove(&channel).is_none()
+        self.channels.remove(&channel).is_some()
     }
 }
 

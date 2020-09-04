@@ -61,7 +61,7 @@ pub async fn process_tracking(
     let max = channels.values().copied().max().unwrap();
     for (idx, score) in scores.iter().enumerate().take(max) {
         // Skip if its an older score
-        if score.date < last {
+        if score.date <= last {
             continue;
         }
         // Prepare beatmap
@@ -134,7 +134,7 @@ pub async fn process_tracking(
                                 continue;
                             }
                             if let Err(why) =
-                                ctx.tracking().remove_all(channel, None, ctx.psql()).await
+                                ctx.tracking().remove_channel(channel, None, ctx.psql()).await
                             {
                                 warn!(
                                     "No permission to send tracking notif in channel \

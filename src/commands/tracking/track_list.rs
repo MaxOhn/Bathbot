@@ -32,7 +32,7 @@ async fn tracklist(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
             for (user_id, mode, ..) in not_found {
                 if let Err(why) = ctx
                     .tracking()
-                    .remove(user_id, mode, msg.channel_id, ctx.psql())
+                    .remove_user(user_id, msg.channel_id, ctx.psql())
                     .await
                 {
                     warn!(
@@ -53,9 +53,14 @@ async fn tracklist(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     };
     users.sort_by(|(u1, m1, _), (u2, m2, _)| (*m1 as u8).cmp(&(*m2 as u8)).then(u1.cmp(&u2)));
     let embeds = TrackListEmbed::new(users);
-    for data in embeds {
-        let embed = data.build().build()?;
-        msg.build_response(&ctx, |m| m.embed(embed)).await?;
+    if embeds.is_empty() {
+        let content = "No tracked users in this channel";
+        msg.respond(&ctx, content).await?;
+    } else {
+        for data in embeds {
+            let embed = data.build().build()?;
+            msg.build_response(&ctx, |m| m.embed(embed)).await?;
+        }
     }
     Ok(())
 }

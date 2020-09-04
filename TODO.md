@@ -8,6 +8,7 @@
 - Add more `<sotarks` messages
 - Make sure the embed of `<scores` is valid
 - Add commands for `https://osustats.ppy.sh/r`
+- Add commands for `https://ameobea.me/osutrack/`
 
 **[Sometime]**
 - Handle entry on top.gg

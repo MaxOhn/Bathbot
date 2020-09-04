@@ -1,22 +1,16 @@
 use crate::embeds::EmbedData;
 
-use rosu::models::GameMode;
 use std::fmt::Write;
 
 #[derive(Clone)]
 pub struct UntrackEmbed {
-    title: String,
+    title: &'static str,
     fields: Vec<(String, String, bool)>,
 }
 
 impl UntrackEmbed {
-    pub fn new(
-        mode: GameMode,
-        success: Vec<String>,
-        failure: Vec<String>,
-        failed: Option<String>,
-    ) -> Self {
-        let title = format!("Top score tracking for mode {}", mode);
+    pub fn new(success: Vec<&String>, failed: Option<&String>) -> Self {
+        let title = "Top score tracking";
         let mut fields = Vec::new();
         let mut iter = success.iter();
         if let Some(first) = iter.next() {
@@ -27,16 +21,6 @@ impl UntrackEmbed {
                 let _ = write!(value, ", `{}`", name);
             }
             fields.push(("No longer tracking:".to_owned(), value, false));
-        }
-        let mut iter = failure.iter();
-        if let Some(first) = iter.next() {
-            let names_len: usize = success.iter().map(|name| name.len() + 4).sum();
-            let mut value = String::with_capacity(names_len);
-            let _ = write!(value, "`{}`", first);
-            for name in iter {
-                let _ = write!(value, ", `{}`", name);
-            }
-            fields.push(("Not tracked in the first place:".to_owned(), value, false));
         }
         if let Some(failed) = failed {
             fields.push((
@@ -51,7 +35,7 @@ impl UntrackEmbed {
 
 impl EmbedData for UntrackEmbed {
     fn title(&self) -> Option<&str> {
-        Some(&self.title)
+        Some(self.title)
     }
     fn fields(&self) -> Option<Vec<(String, String, bool)>> {
         Some(self.fields.clone())

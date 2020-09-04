@@ -103,9 +103,9 @@ async fn track_main(
 
 #[command]
 #[authority()]
-#[short_desc("Track a user's top scores")]
+#[short_desc("Track osu!standard user(s)' top scores")]
 #[long_desc(
-    "Track a user's top scores and notify a channel \
+    "Track osu! standarf user(s)' top scores and notify a channel \
     about new plays in their top100.\n\
     You can specify up to ten usernames per command invokation.\n\
     To provide a limit, specify `-limit` followed by a number \
@@ -123,14 +123,20 @@ pub async fn track(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()
 
 #[command]
 #[authority()]
-#[short_desc("Track a mania user's top scores")]
+#[short_desc("Track mania user(s)' top scores")]
 #[long_desc(
-    "Track a mania user's top scores and notify a channel \
+    "Track mania user(s)' top scores and notify a channel \
     about new plays in their top100.\n\
-    You can specify up to ten usernames per command invokation."
+    You can specify up to ten usernames per command invokation.\n\
+    To provide a limit, specify `-limit` followed by a number \
+    between 1 and 100, defaults to 100."
 )]
-#[usage("[username1] [username2] ...")]
-#[example("badewanne3 cookiezi \"freddie benson\" peppy")]
+#[usage("[-limit number] [username1] [username2] ...")]
+#[example(
+    "badewanne3 \"freddie benson\" peppy -limit 23",
+    "-limit 45 cookiezi whitecat",
+    "\"freddie benson\""
+)]
 #[aliases("tm")]
 pub async fn trackmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     track_main(GameMode::MNA, ctx, msg, args).await
@@ -138,14 +144,20 @@ pub async fn trackmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
 
 #[command]
 #[authority()]
-#[short_desc("Track a taiko user's top scores")]
+#[short_desc("Track taiko user(s)' top scores")]
 #[long_desc(
-    "Track a taiko user's top scores and notify a channel \
+    "Track taiko user(s)' top scores and notify a channel \
     about new plays in their top100.\n\
-    You can specify up to ten usernames per command invokation."
+    You can specify up to ten usernames per command invokation.\n\
+    To provide a limit, specify `-limit` followed by a number \
+    between 1 and 100, defaults to 100."
 )]
-#[usage("[username1] [username2] ...")]
-#[example("badewanne3 cookiezi \"freddie benson\" peppy")]
+#[usage("[-limit number] [username1] [username2] ...")]
+#[example(
+    "badewanne3 \"freddie benson\" peppy -limit 23",
+    "-limit 45 cookiezi whitecat",
+    "\"freddie benson\""
+)]
 #[aliases("tt")]
 pub async fn tracktaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     track_main(GameMode::TKO, ctx, msg, args).await
@@ -153,14 +165,20 @@ pub async fn tracktaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
 
 #[command]
 #[authority()]
-#[short_desc("Track a ctb user's top scores")]
+#[short_desc("Track ctb user(s)' top scores")]
 #[long_desc(
-    "Track a ctb user's top scores and notify a channel \
+    "Track ctb user(s)' top scores and notify a channel \
     about new plays in their top100.\n\
-    You can specify up to ten usernames per command invokation."
+    You can specify up to ten usernames per command invokation.\n\
+    To provide a limit, specify `-limit` followed by a number \
+    between 1 and 100, defaults to 100."
 )]
-#[usage("[username1] [username2] ...")]
-#[example("badewanne3 cookiezi \"freddie benson\" peppy")]
+#[usage("[-limit number] [username1] [username2] ...")]
+#[example(
+    "badewanne3 \"freddie benson\" peppy -limit 23",
+    "-limit 45 cookiezi whitecat",
+    "\"freddie benson\""
+)]
 #[aliases("tc")]
 pub async fn trackctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     track_main(GameMode::CTB, ctx, msg, args).await

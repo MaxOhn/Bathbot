@@ -67,8 +67,7 @@ impl TrackNotificationEmbed {
             score.hits_string(map.mode),
         );
         let footer = Footer::new(format!(
-            "{:?} map by {}, played {}",
-            map.approval_status,
+            "Mapped by {}, played {}",
             map.creator,
             how_long_ago(&score.date)
         ))
@@ -108,5 +107,8 @@ impl EmbedData for TrackNotificationEmbed {
     }
     fn fields(&self) -> Option<Vec<(String, String, bool)>> {
         Some(self.fields.clone())
+    }
+    fn thumbnail(&self) -> Option<&ImageSource> {
+        Some(&self.thumbnail)
     }
 }

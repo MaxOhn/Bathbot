@@ -115,41 +115,52 @@ impl OsuTracking {
         Some(elems)
     }
 
-    pub async fn remove(
+    pub async fn remove_user(
         &self,
         user_id: u32,
-        mode: GameMode,
         channel: ChannelId,
         psql: &Database,
-    ) -> BotResult<bool> {
-        let key = (user_id, mode);
-        let removed = self
+    ) -> BotResult<()> {
+        let removed: Vec<_> = self
             .users
-            .get_mut(&key)
-            .map(|mut guard| guard.value_mut().remove_channel(channel));
-        if let None | Some(false) = removed {
-            return Ok(false);
-        }
-        let guard = self.users.get(&key).unwrap();
-        let tracked_user = guard.value();
-        if tracked_user.channels.is_empty() {
-            debug!("Removing ({},{}) from tracking", user_id, mode);
-            psql.remove_osu_tracking(user_id, mode).await?;
-            self.queue.write().await.remove(&key);
-            self.users.remove(&key);
-        } else {
-            psql.update_osu_tracking(
-                user_id,
-                mode,
-                tracked_user.last_top_score,
-                &tracked_user.channels,
+            .iter_mut()
+            .filter(|guard| guard.key().0 == user_id)
+            .filter_map(
+                |mut guard| match guard.value_mut().remove_channel(channel) {
+                    true => Some(guard.key().1),
+                    false => None,
+                },
             )
-            .await?
+            .collect();
+        for mode in removed {
+            let key = (user_id, mode);
+            match self
+                .users
+                .get(&key)
+                .map(|guard| guard.value().channels.is_empty())
+            {
+                Some(true) => {
+                    debug!("Removing ({},{}) from tracking", user_id, mode);
+                    psql.remove_osu_tracking(user_id, mode).await?;
+                    println!("removed");
+                    self.queue.write().await.remove(&key);
+                    println!("wrote");
+                    self.users.remove(&key);
+                    println!("done");
+                }
+                Some(false) => {
+                    let guard = self.users.get(&key).unwrap();
+                    let user = guard.value();
+                    psql.update_osu_tracking(user_id, mode, user.last_top_score, &user.channels)
+                        .await?
+                }
+                None => warn!("Should not be reachable"),
+            }
         }
-        Ok(true)
+        Ok(())
     }
 
-    pub async fn remove_all(
+    pub async fn remove_channel(
         &self,
         channel: ChannelId,
         mode: Option<GameMode>,
