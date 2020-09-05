@@ -9,6 +9,7 @@ use crate::{
     },
 };
 
+use chrono::Utc;
 use rosu::models::{GameMode, Grade, User};
 use std::{collections::BTreeMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
@@ -64,11 +65,6 @@ impl ProfileEmbed {
             ),
             ("Level:".to_owned(), format!("{:.2}", user.level), true),
             ("Bonus PP:".to_owned(), format!("{}pp", bonus_pp), true),
-            (
-                "Accuracy:".to_owned(),
-                format!("{:.2}%", user.accuracy),
-                true,
-            ),
         ];
         let description = if let Some(values) = profile_result {
             let mut combo = String::from(&values.combo.avg().to_string());
@@ -79,15 +75,27 @@ impl ProfileEmbed {
                 _ => {}
             }
             let _ = write!(combo, " [{} - {}]", values.combo.min(), values.combo.max());
+            let days = (Utc::now() - user.join_date).num_days() as f32;
+            let pp_per_month = 30.67 * user.pp_raw / days;
             fields.extend(vec![
                 (
-                    "Unweighted accuracy:".to_owned(),
+                    "Average map length:".to_owned(),
                     format!(
-                        "{:.2}% [{:.2}% - {:.2}%]",
-                        values.acc.avg(),
-                        values.acc.min(),
-                        values.acc.max()
+                        "{} [{} - {}]",
+                        sec_to_minsec(values.map_len.avg()),
+                        sec_to_minsec(values.map_len.min()),
+                        sec_to_minsec(values.map_len.max())
                     ),
+                    true,
+                ),
+                (
+                    "Accuracy:".to_owned(),
+                    format!("{:.2}%", user.accuracy),
+                    true,
+                ),
+                (
+                    "PP / month:".to_owned(),
+                    format!("{:.2}pp", pp_per_month),
                     true,
                 ),
                 (
@@ -185,17 +193,22 @@ impl ProfileEmbed {
             count_str.push_str("```");
             fields.push(("Global leaderboard count".to_owned(), count_str, true));
             fields.push((
-                "Average map length:".to_owned(),
+                "Unweighted accuracy:".to_owned(),
                 format!(
-                    "{} [{} - {}]",
-                    sec_to_minsec(values.map_len.avg()),
-                    sec_to_minsec(values.map_len.min()),
-                    sec_to_minsec(values.map_len.max())
+                    "{:.2}% [{:.2}% - {:.2}%]",
+                    values.acc.avg(),
+                    values.acc.min(),
+                    values.acc.max()
                 ),
                 false,
             ));
             None
         } else {
+            fields.push((
+                "Accuracy:".to_owned(),
+                format!("{:.2}%", user.accuracy),
+                true,
+            ));
             Some("No Top scores".to_string())
         };
         Self {
