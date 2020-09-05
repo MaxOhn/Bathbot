@@ -10,6 +10,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Added `<sotarks` messages~~ (20.09.05)
 - ~~Update README.md of Bathbot~~ (20.08.25)
 - ~~Improve guild counter for metrics~~ (20.08.17)
 - ~~After retrieving new mapset for bg game, store it in DB~~ (20.08.17)
