@@ -4,14 +4,15 @@ use crate::{
     util::{
         constants::AVATAR_URL,
         datetime::{date_to_string, how_long_ago, sec_to_minsec},
-        numbers::{round, with_comma_int},
+        numbers::with_comma_int,
         osu::grade_emote,
     },
 };
 
-use twilight_embed_builder::image_source::ImageSource;
+use chrono::Utc;
 use rosu::models::{GameMode, Grade, User};
 use std::{collections::BTreeMap, fmt::Write};
+use twilight_embed_builder::image_source::ImageSource;
 
 #[derive(Clone)]
 pub struct ProfileEmbed {
@@ -62,13 +63,8 @@ impl ProfileEmbed {
                 ),
                 true,
             ),
-            ("Level:".to_owned(), round(user.level).to_string(), true),
+            ("Level:".to_owned(), format!("{:.2}", user.level), true),
             ("Bonus PP:".to_owned(), format!("{}pp", bonus_pp), true),
-            (
-                "Accuracy:".to_owned(),
-                format!("{}%", round(user.accuracy)),
-                true,
-            ),
         ];
         let description = if let Some(values) = profile_result {
             let mut combo = String::from(&values.combo.avg().to_string());
@@ -79,15 +75,27 @@ impl ProfileEmbed {
                 _ => {}
             }
             let _ = write!(combo, " [{} - {}]", values.combo.min(), values.combo.max());
+            let days = (Utc::now() - user.join_date).num_days() as f32;
+            let pp_per_month = 30.67 * user.pp_raw / days;
             fields.extend(vec![
                 (
-                    "Unweighted accuracy:".to_owned(),
+                    "Average map length:".to_owned(),
                     format!(
-                        "{}% [{}% - {}%]",
-                        round(values.acc.avg()),
-                        round(values.acc.min()),
-                        round(values.acc.max())
+                        "{} [{} - {}]",
+                        sec_to_minsec(values.map_len.avg()),
+                        sec_to_minsec(values.map_len.min()),
+                        sec_to_minsec(values.map_len.max())
                     ),
+                    true,
+                ),
+                (
+                    "Accuracy:".to_owned(),
+                    format!("{:.2}%", user.accuracy),
+                    true,
+                ),
+                (
+                    "PP / month:".to_owned(),
+                    format!("{:.2}pp", pp_per_month),
                     true,
                 ),
                 (
@@ -110,10 +118,10 @@ impl ProfileEmbed {
                 (
                     "Average PP:".to_owned(),
                     format!(
-                        "{}pp [{} - {}]",
-                        round(values.pp.avg()),
-                        round(values.pp.min()),
-                        round(values.pp.max())
+                        "{:.2}pp [{:.2} - {:.2}]",
+                        values.pp.avg(),
+                        values.pp.min(),
+                        values.pp.max()
                     ),
                     true,
                 ),
@@ -145,9 +153,9 @@ impl ProfileEmbed {
             let mut value = String::with_capacity(len * 15);
             let mut iter = values.mod_combs_pp.iter();
             let (mods, pp) = iter.next().unwrap();
-            let _ = write!(value, "`{} {}pp`", mods, round(*pp));
+            let _ = write!(value, "`{} {:.2}pp`", mods, *pp);
             for (mods, pp) in iter {
-                let _ = write!(value, " > `{} {}pp`", mods, round(*pp));
+                let _ = write!(value, " > `{} {:.2}pp`", mods, *pp);
             }
             let name = if mult_mods {
                 "PP earned with mod combination:"
@@ -163,9 +171,9 @@ impl ProfileEmbed {
             let mut value = String::with_capacity(len);
             let mut iter = values.mappers.iter();
             let (name, count, pp) = iter.next().unwrap();
-            let _ = writeln!(value, "{}: {}pp ({})", name, round(*pp), count);
+            let _ = writeln!(value, "{}: {:.2}pp ({})", name, *pp, count);
             for (name, count, pp) in iter {
-                let _ = writeln!(value, "{}: {}pp ({})", name, round(*pp), count);
+                let _ = writeln!(value, "{}: {:.2}pp ({})", name, *pp, count);
             }
             fields.push(("Mappers in top 100:".to_owned(), value, true));
             let count_len = globals_count
@@ -185,17 +193,22 @@ impl ProfileEmbed {
             count_str.push_str("```");
             fields.push(("Global leaderboard count".to_owned(), count_str, true));
             fields.push((
-                "Average map length:".to_owned(),
+                "Unweighted accuracy:".to_owned(),
                 format!(
-                    "{} [{} - {}]",
-                    sec_to_minsec(values.map_len.avg()),
-                    sec_to_minsec(values.map_len.min()),
-                    sec_to_minsec(values.map_len.max())
+                    "{:.2}% [{:.2}% - {:.2}%]",
+                    values.acc.avg(),
+                    values.acc.min(),
+                    values.acc.max()
                 ),
                 false,
             ));
             None
         } else {
+            fields.push((
+                "Accuracy:".to_owned(),
+                format!("{:.2}%", user.accuracy),
+                true,
+            ));
             Some("No Top scores".to_string())
         };
         Self {

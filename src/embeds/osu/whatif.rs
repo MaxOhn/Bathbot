@@ -1,10 +1,10 @@
 use crate::{
     embeds::{osu, Author, EmbedData},
-    util::{constants::AVATAR_URL, numbers::round},
+    util::constants::AVATAR_URL,
 };
 
-use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::{GameMode, Score, User};
+use twilight_embed_builder::image_source::ImageSource;
 
 #[derive(Clone)]
 pub struct WhatIfEmbed {
@@ -17,7 +17,7 @@ pub struct WhatIfEmbed {
 impl WhatIfEmbed {
     pub fn new(user: User, scores: Vec<Score>, _mode: GameMode, pp: f32) -> Self {
         let title = format!(
-            "What if {name} got a new {pp_given}pp score?",
+            "What if {name} got a new {pp_given:.2}pp score?",
             name = user.username,
             pp_given = pp
         );
@@ -27,14 +27,14 @@ impl WhatIfEmbed {
             .collect();
         let description = if scores.is_empty() {
             format!(
-                "A {pp}pp play would be {name}'s #1 best play.\n\
-                 Their pp would change by **+{pp}** to **{pp}pp**.",
-                pp = round(pp),
+                "A {pp:.2}pp play would be {name}'s #1 best play.\n\
+                 Their pp would change by **+{pp:.2}** to **{pp:.2}pp**.",
+                pp = pp,
                 name = user.username,
             )
         } else if pp < pp_values[pp_values.len() - 1] {
             format!(
-                "A {pp_given}pp play wouldn't even be in {name}'s top 100 plays.\n\
+                "A {pp_given:.2}pp play wouldn't even be in {name}'s top 100 plays.\n\
                  There would not be any significant pp change.",
                 pp_given = pp,
                 name = user.username
@@ -62,13 +62,13 @@ impl WhatIfEmbed {
                 factor *= 0.95;
             }
             let mut d = format!(
-                "A {pp}pp play would be {name}'s #{num} best play.\n\
-                 Their pp would change by **+{pp_change}** to **{new_pp}pp**.",
-                pp = round(pp),
+                "A {pp:.2}pp play would be {name}'s #{num} best play.\n\
+                 Their pp would change by **+{pp_change:.2}** to **{new_pp:.2}pp**.",
+                pp = pp,
                 name = user.username,
                 num = new_pos,
-                pp_change = round(potential + bonus - user.pp_raw),
-                new_pp = round(potential + bonus)
+                pp_change = potential + bonus - user.pp_raw,
+                new_pp = potential + bonus
             );
             let top_pp = scores.first().and_then(|s| s.pp).unwrap_or_default();
             if pp > top_pp * 2.0 {

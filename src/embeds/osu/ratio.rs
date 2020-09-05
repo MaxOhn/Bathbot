@@ -1,12 +1,12 @@
 use crate::{
     embeds::{osu, Author, EmbedData},
-    util::{constants::AVATAR_URL, numbers::round_precision},
+    util::constants::AVATAR_URL,
     BotResult, Context,
 };
 
-use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::{GameMode, Grade, Score, User};
 use std::{collections::BTreeMap, fmt::Write};
+use twilight_embed_builder::image_source::ImageSource;
 
 #[derive(Clone)]
 pub struct RatioEmbed {
@@ -52,7 +52,7 @@ impl RatioEmbed {
                 let misses = c.miss_percent();
                 let _ = writeln!(
                     description,
-                    "{}{:>2}%: {:>7} | {:>6} | {:>7}%",
+                    "{}{:>2}%: {:>7} | {:>6.3} | {:>7.3}%",
                     if acc < 100 { ">" } else { "" },
                     acc,
                     scores,
@@ -95,21 +95,15 @@ impl RatioEmbed {
                     if any_changes {
                         let _ = writeln!(
                             description,
-                            "{}{:>2}%: {:>+7} | {:>+6} | {:>+7}%",
+                            "{}{:>2}%: {:>+7} | {:>+6.3} | {:>+7.3}%",
                             if *acc < 100 { ">" } else { "" },
                             acc,
                             *all_scores.get(i).unwrap_or_else(|| &0)
                                 - *ratios.scores.get(i).unwrap_or_else(|| &0),
-                            round_precision(
-                                *all_ratios.get(i).unwrap_or_else(|| &0.0)
-                                    - *ratios.ratios.get(i).unwrap_or_else(|| &0.0),
-                                3
-                            ),
-                            round_precision(
-                                *all_misses.get(i).unwrap_or_else(|| &0.0)
-                                    - *ratios.misses.get(i).unwrap_or_else(|| &0.0),
-                                3
-                            ),
+                            *all_ratios.get(i).unwrap_or_else(|| &0.0)
+                                - *ratios.ratios.get(i).unwrap_or_else(|| &0.0),
+                            *all_misses.get(i).unwrap_or_else(|| &0.0)
+                                - *ratios.misses.get(i).unwrap_or_else(|| &0.0),
                         );
                     }
                 }
@@ -158,16 +152,13 @@ impl RatioCategory {
         if self.count_300 == 0 {
             self.count_geki as f32
         } else {
-            round_precision(self.count_geki as f32 / self.count_300 as f32, 3)
+            self.count_geki as f32 / self.count_300 as f32
         }
     }
 
     fn miss_percent(&self) -> f32 {
         if self.count_objects > 0 {
-            round_precision(
-                100.0 * self.count_miss as f32 / self.count_objects as f32,
-                3,
-            )
+            100.0 * self.count_miss as f32 / self.count_objects as f32
         } else {
             0.0
         }

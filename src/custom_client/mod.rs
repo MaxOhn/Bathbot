@@ -258,27 +258,43 @@ impl CustomClient {
 
     // Retrieve the leaderboard of a map (national / global)
     // If mods contain DT / NC, it will do another request for the opposite
+    // If mods dont contains Mirror and its a mania map, it will perform the
+    // same requests again but with Mirror enabled
     pub async fn get_leaderboard(
         &self,
         map_id: u32,
         national: bool,
         mods: Option<GameMods>,
+        mode: GameMode,
     ) -> BotResult<Vec<ScraperScore>> {
         let mut scores = self._get_leaderboard(map_id, national, mods).await?;
-        let mods = mods.and_then(|mods| {
-            let dt = GameMods::DoubleTime.bits();
-            let nc = GameMods::NightCore.bits();
-            if mods.contains(GameMods::DoubleTime) {
-                let mods = mods.bits() - dt + nc;
-                Some(GameMods::try_from(mods).unwrap())
-            } else if mods.contains(GameMods::NightCore) {
-                let mods = mods.bits() - nc + dt;
-                Some(GameMods::try_from(mods).unwrap())
-            } else {
-                None
+        let non_mirror = mods
+            .map(|mods| !mods.contains(GameMods::Mirror))
+            .unwrap_or(true);
+        if mode == GameMode::MNA && non_mirror {
+            let mods = match mods {
+                None => Some(GameMods::Mirror),
+                Some(mods) => Some(mods | GameMods::Mirror),
+            };
+            let mut new_scores = self._get_leaderboard(map_id, national, mods).await?;
+            scores.append(&mut new_scores);
+            scores.sort_by(|a, b| b.score.cmp(&a.score));
+            let mut uniques = HashSet::with_capacity(50);
+            scores.retain(|s| uniques.insert(s.user_id));
+        }
+        let mods = match mods {
+            Some(mods) if mods.contains(GameMods::DoubleTime) => Some(mods | GameMods::NightCore),
+            Some(mods) if mods.contains(GameMods::NightCore) => {
+                Some(mods - GameMods::NightCore | GameMods::DoubleTime)
             }
-        });
+            Some(_) | None => None,
+        };
         if mods.is_some() {
+            if mode == GameMode::MNA && non_mirror {
+                let mods = mods.map(|mods| mods | GameMods::Mirror);
+                let mut new_scores = self._get_leaderboard(map_id, national, mods).await?;
+                scores.append(&mut new_scores);
+            }
             let mut new_scores = self._get_leaderboard(map_id, national, mods).await?;
             scores.append(&mut new_scores);
             scores.sort_by(|a, b| b.score.cmp(&a.score));

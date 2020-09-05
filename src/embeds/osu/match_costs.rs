@@ -1,15 +1,12 @@
 use crate::{
     commands::osu::MatchResult,
     embeds::EmbedData,
-    util::{
-        constants::{AVATAR_URL, OSU_BASE},
-        numbers::round,
-    },
+    util::constants::{AVATAR_URL, OSU_BASE},
 };
 
-use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::Match;
 use std::fmt::Write;
+use twilight_embed_builder::image_source::ImageSource;
 
 #[derive(Clone)]
 pub struct MatchCostEmbed {
@@ -29,11 +26,14 @@ impl MatchCostEmbed {
         let description = if let Some(description) = description {
             description
         } else {
-            thumbnail = Some(ImageSource::url(format!(
-                "{}{}",
-                AVATAR_URL,
-                match_result.as_ref().unwrap().mvp_id()
-            )).unwrap());
+            thumbnail = Some(
+                ImageSource::url(format!(
+                    "{}{}",
+                    AVATAR_URL,
+                    match_result.as_ref().unwrap().mvp_id()
+                ))
+                .unwrap(),
+            );
             let medals = ["🥇", "🥈", "🥉"];
             let mut description = String::with_capacity(256);
             match match_result {
@@ -73,12 +73,12 @@ impl MatchCostEmbed {
                         };
                         let _ = writeln!(
                             description,
-                            "**{idx}**: [{name}]({base}users/{name_r}) - **{cost}** {medal}",
+                            "**{idx}**: [{name}]({base}users/{name_r}) - **{cost:.2}** {medal}",
                             idx = i + 1,
                             name = name,
                             base = OSU_BASE,
                             name_r = name.replace(" ", "%20"),
-                            cost = round(cost),
+                            cost = cost,
                             medal = medal,
                         );
                     }
@@ -92,12 +92,12 @@ impl MatchCostEmbed {
                         };
                         let _ = writeln!(
                             description,
-                            "**{idx}**: [{name}]({base}users/{name_r}) - **{cost}** {medal}",
+                            "**{idx}**: [{name}]({base}users/{name_r}) - **{cost:.2}** {medal}",
                             idx = i + 1,
                             name = name,
                             base = OSU_BASE,
                             name_r = name.replace(" ", "%20"),
-                            cost = round(cost),
+                            cost = cost,
                             medal = medal,
                         );
                     }
@@ -106,12 +106,12 @@ impl MatchCostEmbed {
                     for (i, (name, cost)) in players.into_iter().enumerate() {
                         let _ = writeln!(
                             description,
-                            "**{idx}**: [{name}]({base}users/{name_r}) - **{cost}** {medal}",
+                            "**{idx}**: [{name}]({base}users/{name_r}) - **{cost:.2}** {medal}",
                             idx = i + 1,
                             name = name,
                             base = OSU_BASE,
                             name_r = name.replace(" ", "%20"),
-                            cost = round(cost),
+                            cost = cost,
                             medal = if i < medals.len() { medals[i] } else { "" },
                         );
                     }

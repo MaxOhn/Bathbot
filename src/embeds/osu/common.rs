@@ -1,7 +1,4 @@
-use crate::{
-    embeds::EmbedData,
-    util::{constants::OSU_BASE, numbers::round},
-};
+use crate::{embeds::EmbedData, util::constants::OSU_BASE};
 
 use rosu::models::{Beatmap, Score, User};
 use std::{collections::HashMap, fmt::Write};
@@ -40,20 +37,20 @@ impl CommonEmbed {
             let second_user = users.get(&second_score.user_id).unwrap();
             let _ = write!(
                 description,
-                "- :first_place: `{}`: {}pp :second_place: `{}`: {}pp",
+                "- :first_place: `{}`: {:.2}pp :second_place: `{}`: {:.2}pp",
                 first_user.username,
-                round(first_score.pp.unwrap()),
+                first_score.pp.unwrap(),
                 second_user.username,
-                round(second_score.pp.unwrap())
+                second_score.pp.unwrap()
             );
             if users.len() > 2 {
                 let third_score = scores.get(2).unwrap();
                 let third_user = users.get(&third_score.user_id).unwrap();
                 let _ = write!(
                     description,
-                    " :third_place: `{}`: {}pp",
+                    " :third_place: `{}`: {:.2}pp",
                     third_user.username,
-                    round(third_score.pp.unwrap())
+                    third_score.pp.unwrap()
                 );
             }
             description.push('\n');

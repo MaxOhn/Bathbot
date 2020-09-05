@@ -47,13 +47,13 @@ use crate::{
     util::{
         constants::OSU_BASE,
         datetime::sec_to_minsec,
-        numbers::{round, round_and_comma, with_comma_int},
+        numbers::{round_and_comma, with_comma_int},
         BeatmapExt, ScoreExt,
     },
 };
 
 use rosu::models::{Beatmap, GameMods, User};
-use std::{borrow::Cow, fmt::Write};
+use std::fmt::Write;
 
 pub fn get_user_author(user: &User) -> Author {
     let text = format!(
@@ -70,7 +70,7 @@ pub fn get_user_author(user: &User) -> Author {
 }
 
 pub fn get_stars(stars: f32) -> String {
-    format!("{}★", round(stars))
+    format!("{:.2}★", stars)
 }
 
 pub fn get_mods(mods: GameMods) -> String {
@@ -94,18 +94,22 @@ pub fn get_combo(score: impl ScoreExt, map: impl BeatmapExt) -> String {
 }
 
 pub fn get_pp(actual: Option<f32>, max: Option<f32>) -> String {
-    let pp = actual.map_or_else(
-        || Cow::Borrowed("-"),
-        |pp| Cow::Owned(round(pp).to_string()),
-    );
-    let max = max.map_or_else(
-        || Cow::Borrowed("-"),
-        |max_pp| match actual {
-            Some(pp) => Cow::Owned(round(max_pp.max(pp)).to_string()),
-            None => Cow::Owned(round(max_pp).to_string()),
-        },
-    );
-    format!("**{}**/{}PP", pp, max)
+    let mut result = String::with_capacity(16);
+    result.push_str("**");
+    if let Some(pp) = actual {
+        let _ = write!(result, "{:.2}", pp);
+    } else {
+        result.push('-');
+    }
+    result.push('/');
+    if let Some(max) = max {
+        let pp = actual.map(|pp| pp.max(max)).unwrap_or(max);
+        let _ = write!(result, "{:.2}", pp);
+    } else {
+        result.push('-');
+    }
+    result.push_str("PP");
+    result
 }
 
 pub fn get_keys(mods: GameMods, map: &Beatmap) -> String {
@@ -118,16 +122,16 @@ pub fn get_keys(mods: GameMods, map: &Beatmap) -> String {
 
 pub fn get_map_info(map: &Beatmap) -> String {
     format!(
-        "Length: `{}` (`{}`) BPM: `{}` Objects: `{}`\n\
-        CS: `{}` AR: `{}` OD: `{}` HP: `{}` Stars: `{}`",
+        "Length: `{}` (`{}`) BPM: `{:.2}` Objects: `{}`\n\
+        CS: `{:.2}` AR: `{:.2}` OD: `{:.2}` HP: `{:.2}` Stars: `{:.2}`",
         sec_to_minsec(map.seconds_total),
         sec_to_minsec(map.seconds_drain),
-        round(map.bpm),
+        map.bpm,
         map.count_objects(),
-        round(map.diff_cs),
-        round(map.diff_ar),
-        round(map.diff_od),
-        round(map.diff_hp),
-        round(map.stars)
+        map.diff_cs,
+        map.diff_ar,
+        map.diff_od,
+        map.diff_hp,
+        map.stars
     )
 }

@@ -5,7 +5,7 @@ use crate::{
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
-        numbers::{round, round_and_comma, with_comma_int},
+        numbers::{round_and_comma, with_comma_int},
         osu::grade_completion_mods,
         ScoreExt,
     },
@@ -54,12 +54,12 @@ impl PlayerSnipeStatsEmbed {
             ));
             fields.push((
                 String::from("Average acc:"),
-                round(player.avg_acc).to_string() + "%",
+                format!("{:.2}%", player.avg_acc),
                 true,
             ));
             fields.push((
                 String::from("Average stars:"),
-                round(player.avg_stars).to_string() + "★",
+                format!("{:.2}★", player.avg_stars),
                 true,
             ));
             let (score, map) = first_score.unwrap();

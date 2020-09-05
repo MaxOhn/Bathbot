@@ -4,7 +4,7 @@ use crate::{
     embeds::{EmbedData, Footer},
     util::{
         constants::OSU_BASE,
-        numbers::{round, round_and_comma, with_comma_int},
+        numbers::{round_and_comma, with_comma_int},
         Country,
     },
 };
@@ -64,7 +64,7 @@ impl CountrySnipeListEmbed {
             let _ = writeln!(
                 description,
                 "**{idx}. [{name}]({base}users/{id})**: {w}Weighted pp: {weighted}{w}\n\
-                {c}Count: {count}{c} ~ {p}Avg pp: {pp}{p} ~ {s}Avg stars: {stars}★{s}",
+                {c}Count: {count}{c} ~ {p}Avg pp: {pp}{p} ~ {s}Avg stars: {stars:.2}★{s}",
                 idx = idx,
                 name = player.username,
                 base = OSU_BASE,
@@ -79,7 +79,7 @@ impl CountrySnipeListEmbed {
                 },
                 count = with_comma_int(player.count_first),
                 pp = round_and_comma(player.avg_pp),
-                stars = round(player.avg_sr).to_string(),
+                stars = player.avg_sr,
                 weighted = round_and_comma(player.pp),
             );
         }

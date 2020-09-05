@@ -3,7 +3,6 @@
 - Fix unreacting for `<bg s` and possibly `<bgt`
 - Add ratelimit for downloading maps
 - Check on multiple `<bg start`'s in a row
-- Add MR scores to `<lb`
 - Maybe add `<mapper` command?
 - Make sure the embed of `<scores` is valid (vaxei's big black)
 - Add commands for `https://osustats.ppy.sh/r`
@@ -15,6 +14,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Make `<lb` include Mirror mod if it's not specified already~~ (20.09.05)
 - ~~Add more `<sotarks` messages~~ (20.09.05)
 - ~~Add commands for tracking stats (+ stop tracking?)~~ (20.09.05)
 - ~~Push tracked users back in case of API error or similar~~ (20.09.05)
