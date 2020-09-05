@@ -14,12 +14,13 @@ use tokio::time;
 use twilight::http::Error as TwilightError;
 
 pub async fn tracking_loop(ctx: Arc<Context>) {
+    let delay = time::Duration::from_secs(60);
     loop {
         // Get all users that should be tracked in this iteration
         let tracked = match ctx.tracking().pop().await {
             Some(tracked) => tracked,
             None => {
-                time::delay_for(time::Duration::from_secs(30)).await;
+                time::delay_for(delay).await;
                 continue;
             }
         };
@@ -37,10 +38,13 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
                     let mut maps: HashMap<u32, Beatmap> = HashMap::new();
                     process_tracking(&ctx, mode, &scores, None, &mut maps).await;
                 }
-                Err(why) => warn!(
-                    "API issue while retrieving user ({},{}) for tracking: {}",
-                    user_id, mode, why
-                ),
+                Err(why) => {
+                    warn!(
+                        "API issue while retrieving user ({},{}) for tracking: {}",
+                        user_id, mode, why
+                    );
+                    ctx.tracking().reset(user_id, mode).await;
+                }
             }
         }
     }
@@ -53,7 +57,10 @@ pub async fn process_tracking(
     user: Option<&User>,
     maps: &mut HashMap<u32, Beatmap>,
 ) {
-    let user_id = scores.first().unwrap().user_id;
+    let user_id = match scores.first() {
+        Some(score) => score.user_id,
+        None => return,
+    };
     let (last, channels) = match ctx.tracking().get_tracked(user_id, mode) {
         Some(tuple) => tuple,
         None => return,
@@ -133,8 +140,10 @@ pub async fn process_tracking(
                             if cfg!(any(debug_assertions, not(target_arch = "arm"))) {
                                 continue;
                             }
-                            if let Err(why) =
-                                ctx.tracking().remove_channel(channel, None, ctx.psql()).await
+                            if let Err(why) = ctx
+                                .tracking()
+                                .remove_channel(channel, None, ctx.psql())
+                                .await
                             {
                                 warn!(
                                     "No permission to send tracking notif in channel \

@@ -8,23 +8,42 @@ use chrono::{DateTime, Duration, Utc};
 use dashmap::DashMap;
 use priority_queue::PriorityQueue;
 use rosu::models::GameMode;
-use std::{cmp::Reverse, collections::HashMap, iter};
+use std::{
+    cmp::Reverse,
+    collections::HashMap,
+    iter,
+    sync::atomic::{AtomicBool, Ordering},
+};
 use tokio::{sync::RwLock, time};
 use twilight::model::id::ChannelId;
 
 lazy_static::lazy_static! {
     pub static ref OSU_TRACKING_INTERVAL: Duration = Duration::seconds(3600);
-    pub static ref OSU_TRACKING_COOLDOWN: Duration = Duration::seconds(5);
+    pub static ref OSU_TRACKING_COOLDOWN: f32 = 5000.0; // ms
 }
 
 type TrackingQueue = RwLock<PriorityQueue<(u32, GameMode), Reverse<DateTime<Utc>>>>;
+
+pub struct TrackingStats {
+    pub next_pop: (u32, GameMode),
+    pub len: usize,
+    pub last_pop: DateTime<Utc>,
+    pub interval: i64,
+    pub cooldown: i64,
+    pub tracking: bool,
+    pub wait_interval: i64,
+    pub ms_per_track: i64,
+    pub amount: usize,
+    pub delay: u64,
+}
 
 pub struct OsuTracking {
     queue: TrackingQueue,
     users: DashMap<(u32, GameMode), TrackingUser>,
     last_date: RwLock<DateTime<Utc>>,
+    cooldown: RwLock<f32>,
     pub interval: RwLock<Duration>,
-    pub cooldown: RwLock<Duration>,
+    pub stop_tracking: AtomicBool,
 }
 
 impl OsuTracking {
@@ -41,9 +60,44 @@ impl OsuTracking {
             queue: RwLock::new(queue),
             users,
             last_date: RwLock::new(Utc::now()),
-            interval: RwLock::new(*OSU_TRACKING_INTERVAL),
             cooldown: RwLock::new(*OSU_TRACKING_COOLDOWN),
+            interval: RwLock::new(*OSU_TRACKING_INTERVAL),
+            stop_tracking: AtomicBool::new(false),
         })
+    }
+
+    pub async fn stats(&self) -> TrackingStats {
+        let next_pop = self.queue.read().await.peek().map(|(&key, _)| key).unwrap();
+        let len = self.users.len();
+        let last_pop = *self.last_date.read().await;
+        let interval = *self.interval.read().await;
+        let cooldown = *self.cooldown.read().await;
+        let tracking = !self.stop_tracking.load(Ordering::Relaxed);
+
+        let wait_interval = (last_pop + interval - Utc::now()).num_milliseconds();
+        let ms_per_track = wait_interval as f32 / len as f32;
+        let amount = (cooldown / ms_per_track).max(1.0);
+        let delay = (ms_per_track * amount) as u64;
+        TrackingStats {
+            next_pop,
+            len,
+            last_pop,
+            interval: interval.num_seconds(),
+            cooldown: cooldown as i64,
+            tracking,
+            wait_interval: wait_interval / 1000,
+            ms_per_track: ms_per_track as i64,
+            amount: amount as usize,
+            delay,
+        }
+    }
+
+    // ms
+    pub async fn set_cooldown(&self, new_cooldown: f32) -> f32 {
+        let mut cooldown = self.cooldown.write().await;
+        let result = *cooldown;
+        *cooldown = new_cooldown;
+        result
     }
 
     pub async fn reset(&self, user: u32, mode: GameMode) {
@@ -80,19 +134,16 @@ impl OsuTracking {
 
     pub async fn pop(&self) -> Option<HashMap<(u32, GameMode), DateTime<Utc>>> {
         let len = self.queue.read().await.len();
-        debug!(
-            "[Popping] Amount: {} ~ Last pop: {:?}",
-            len,
-            *self.last_date.read().await
-        );
-        if len == 0 {
+        if len == 0 || self.stop_tracking.load(Ordering::Relaxed) {
             return None;
         }
+        let last_date = *self.last_date.read().await;
+        debug!("[Popping] Amount: {} ~ Last pop: {:?}", len, last_date);
         // Calculate how many users need to be popped for this iteration
         // so that _all_ users will be popped within the next INTERVAL
-        let interval = *self.last_date.read().await + *self.interval.read().await - Utc::now();
+        let interval = last_date + *self.interval.read().await - Utc::now();
         let ms_per_track = interval.num_milliseconds() as f32 / len as f32;
-        let amount = (self.cooldown.read().await.num_milliseconds() as f32 / ms_per_track).max(1.0);
+        let amount = (*self.cooldown.read().await / ms_per_track).max(1.0);
         let delay = (ms_per_track * amount) as u64;
         time::delay_for(time::Duration::from_millis(delay)).await;
         debug!(

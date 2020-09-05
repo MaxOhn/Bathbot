@@ -72,14 +72,17 @@ impl TrackNotificationEmbed {
             how_long_ago(&score.date)
         ))
         .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
+        let mut author = super::super::osu::get_user_author(user);
+        author.icon_url =
+            Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap());
         Self {
             title,
             footer,
+            author,
             description,
             timestamp: score.date,
             fields: vec![(name, value, false)],
             url: format!("{}b/{}", OSU_BASE, map.beatmap_id),
-            author: super::super::osu::get_user_author(user),
             thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id))
                 .unwrap(),
         }

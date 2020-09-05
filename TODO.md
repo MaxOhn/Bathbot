@@ -6,7 +6,7 @@
 - Add MR scores to `<lb`
 - Maybe add `<mapper` command?
 - Add more `<sotarks` messages
-- Make sure the embed of `<scores` is valid
+- Make sure the embed of `<scores` is valid (vaxei's big black)
 - Add commands for `https://osustats.ppy.sh/r`
 - Add commands for `https://ameobea.me/osutrack/`
 
@@ -16,6 +16,8 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Add commands for tracking stats (+ stop tracking?)~~ (20.09.05)
+- ~~Push tracked users back in case of API error or similar~~ (20.09.05)
 - ~~Update README.md of Bathbot~~ (20.08.25)
 - ~~Improve guild counter for metrics~~ (20.08.17)
 - ~~After retrieving new mapset for bg game, store it in DB~~ (20.08.17)
