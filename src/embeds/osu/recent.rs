@@ -89,7 +89,7 @@ impl RecentEmbed {
                 if score.count300 > 0 {
                     ratio /= score.count300 as f32
                 }
-                format!("**{}x** / {}", &score.max_combo, round(ratio))
+                format!("**{}x** / {:.2}", &score.max_combo, ratio)
             } else {
                 osu::get_combo(score, map)
             },

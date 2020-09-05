@@ -3,15 +3,14 @@ use crate::{
     pp::{Calculations, PPCalculator},
     util::{
         constants::{AVATAR_URL, OSU_BASE},
-        numbers::round,
         ScoreExt,
     },
     BotResult,
 };
 
-use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::{Beatmap, GameMode, Score, User};
 use std::fmt::Write;
+use twilight_embed_builder::image_source::ImageSource;
 
 #[derive(Clone)]
 pub struct NoChokeEmbed {
@@ -39,11 +38,10 @@ impl NoChokeEmbed {
             let mut calculator = PPCalculator::new().score(original).map(map);
             calculator.calculate(calculations, None).await?;
             let stars = osu::get_stars(calculator.stars().unwrap());
-            let max_pp = round(calculator.max_pp().unwrap());
             let _ = writeln!(
                 description,
                 "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
-                {grade} {old_pp} → **{new_pp}pp**/{max_pp}PP ~ ({old_acc} → **{new_acc}%**)\n\
+                {grade} {old_pp:.2} → **{new_pp:.2}pp**/{max_pp:.2}PP ~ ({old_acc:.2} → **{new_acc:.2}%**)\n\
                 [ {old_combo} → **{new_combo}x**/{max_combo}x ] ~ *Removed {misses} miss{plural}*",
                 idx = idx,
                 title = map.title,
@@ -53,14 +51,14 @@ impl NoChokeEmbed {
                 mods = osu::get_mods(original.enabled_mods),
                 stars = stars,
                 grade = unchoked.grade_emote(map.mode),
-                old_pp = round(original.pp.unwrap()),
-                new_pp = round(unchoked.pp.unwrap()),
-                max_pp = max_pp,
-                old_acc = round(original.accuracy(GameMode::STD)),
-                new_acc = round(unchoked.accuracy(GameMode::STD)),
+                old_pp = original.pp.unwrap_or(0.0),
+                new_pp = unchoked.pp.unwrap_or(0.0),
+                max_pp = calculator.max_pp().unwrap_or(0.0),
+                old_acc = original.accuracy(GameMode::STD),
+                new_acc = unchoked.accuracy(GameMode::STD),
                 old_combo = original.max_combo,
                 new_combo = unchoked.max_combo,
-                max_combo = map.max_combo.unwrap(),
+                max_combo = map.max_combo.unwrap_or(0),
                 misses = original.count_miss - unchoked.count_miss,
                 plural = if original.count_miss - unchoked.count_miss != 1 {
                     "es"

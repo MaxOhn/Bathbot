@@ -5,7 +5,7 @@ use crate::{
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
-        numbers::{round, with_comma_int},
+        numbers::with_comma_int,
         ScoreExt,
     },
     BotResult, Context,
@@ -39,7 +39,7 @@ impl LeaderboardEmbed {
         if map.mode == GameMode::MNA {
             let _ = write!(author_text, "[{}K] ", map.diff_cs as u32);
         }
-        let _ = write!(author_text, "{} [{}★]", map, round(map.stars));
+        let _ = write!(author_text, "{} [{:.2}★]", map, map.stars);
         let description = if let Some(scores) = scores {
             let mut mod_map = HashMap::new();
             let mut description = String::with_capacity(256);
@@ -63,7 +63,7 @@ impl LeaderboardEmbed {
                 let _ = writeln!(
                     description,
                     "**{idx}.** {grade} **{name}**: {score} [ {combo} ]{mods}\n\
-                    - {pp} ~ {acc}% ~ {ago}",
+                    - {pp} ~ {acc:.2}% ~ {ago}",
                     idx = idx + i + 1,
                     grade = score.grade_emote(map.mode),
                     name = username,
@@ -75,7 +75,7 @@ impl LeaderboardEmbed {
                         format!(" **+{}**", score.enabled_mods)
                     },
                     pp = get_pp(ctx, &mut mod_map, &score, &map).await,
-                    acc = round(score.accuracy),
+                    acc = score.accuracy,
                     ago = how_long_ago(&score.date),
                 );
             }
@@ -143,7 +143,7 @@ async fn get_pp(
             (0.0, 0.0)
         }
     };
-    format!("**{}**/{}PP", round(pp), round(max_pp))
+    format!("**{:.2}**/{:.2}PP", pp, max_pp)
 }
 
 fn get_combo(score: &ScraperScore, map: &Beatmap) -> String {

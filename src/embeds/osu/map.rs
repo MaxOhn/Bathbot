@@ -6,16 +6,16 @@ use crate::{
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::sec_to_minsec,
-        numbers::{round, with_comma_int},
+        numbers::with_comma_int,
         osu::prepare_beatmap_file,
     },
     BotResult, Context,
 };
 
-use twilight_embed_builder::image_source::ImageSource;
 use chrono::{DateTime, Utc};
 use rosu::models::{Beatmap, GameMode, GameMods};
 use std::fmt::Write;
+use twilight_embed_builder::image_source::ImageSource;
 
 #[derive(Clone)]
 pub struct MapEmbed {
@@ -85,11 +85,11 @@ impl MapEmbed {
             Some(ImageSource::attachment("map_graph.png").unwrap())
         };
         let mut info_value = String::with_capacity(128);
-        let _ = write!(info_value, "Max PP: `{}`", round(pp));
+        let _ = write!(info_value, "Max PP: `{:.2}`", pp);
         if let Some(combo) = map.max_combo {
             let _ = write!(info_value, " Combo: `{}x`", combo);
         }
-        let _ = writeln!(info_value, " Stars: `{}★`", round(stars));
+        let _ = writeln!(info_value, " Stars: `{:.2}★`", stars);
         let mut seconds_total = map.seconds_total;
         let mut seconds_drain = map.seconds_drain;
         let mut bpm = map.bpm;
@@ -104,16 +104,16 @@ impl MapEmbed {
         }
         let _ = write!(
             info_value,
-            "Length: `{}` (`{}`) BPM: `{}` Objects: `{}`\n\
-            CS: `{}` AR: `{}` OD: `{}` HP: `{}` Spinners: `{}`",
+            "Length: `{}` (`{}`) BPM: `{:.2}` Objects: `{}`\n\
+            CS: `{:.2}` AR: `{:.2}` OD: `{:.2}` HP: `{:.2}` Spinners: `{}`",
             sec_to_minsec(seconds_total),
             sec_to_minsec(seconds_drain),
-            round(bpm),
+            bpm,
             map.count_objects(),
-            round(cs),
-            round(ar),
-            round(od),
-            round(hp),
+            cs,
+            ar,
+            od,
+            hp,
             map.count_spinner,
         );
         let mut info_name = format!("__[{}]__", map.version);

@@ -5,13 +5,13 @@ use crate::{
         constants::{BATHBOT_WORKSHOP, INVITE_LINK, OWNER_USER_ID},
         datetime::how_long_ago,
         discord_avatar,
-        numbers::{round, with_comma_int},
+        numbers::with_comma_int,
     },
     BotResult, Context,
 };
 
-use twilight_embed_builder::image_source::ImageSource;
 use sysinfo::{get_current_pid, ProcessExt, ProcessorExt, System, SystemExt};
+use twilight_embed_builder::image_source::ImageSource;
 
 #[derive(Clone)]
 pub struct AboutEmbed {
@@ -37,16 +37,14 @@ impl AboutEmbed {
             let process = system
                 .get_process(pid)
                 .ok_or_else(|| format_err!("No process with PID {}", pid))?;
-            let process_cpu = round(process.cpu_usage());
+            let process_cpu = process.cpu_usage();
             let process_ram = process.memory() / 1000;
             let processors = system.get_processors();
-            let total_cpu: f32 = round(
-                processors
-                    .iter()
-                    .map(ProcessorExt::get_cpu_usage)
-                    .sum::<f32>()
-                    / processors.len() as f32,
-            );
+            let total_cpu: f32 = processors
+                .iter()
+                .map(ProcessorExt::get_cpu_usage)
+                .sum::<f32>()
+                / processors.len() as f32;
             let used_ram = (system.get_used_memory() + system.get_used_swap()) / 1000;
             let total_ram = (system.get_total_memory() + system.get_total_swap()) / 1000;
             (process_cpu, process_ram, total_cpu, used_ram, total_ram)
@@ -64,7 +62,11 @@ impl AboutEmbed {
 
         let boot_time = ctx.cache.stats.start_time;
 
-        let thumbnail = ImageSource::url(discord_avatar(bot_user.id, bot_user.avatar.as_deref().unwrap())).unwrap();
+        let thumbnail = ImageSource::url(discord_avatar(
+            bot_user.id,
+            bot_user.avatar.as_deref().unwrap(),
+        ))
+        .unwrap();
 
         let footer = Footer::new(format!("Owner: {}#{}", owner.name, owner.discriminator))
             .icon_url(discord_avatar(owner.id, owner.avatar.as_deref().unwrap()));
@@ -81,8 +83,12 @@ impl AboutEmbed {
             ),
             ("Channels".to_owned(), with_comma_int(channels as u64), true),
             ("Shards".to_owned(), shards.to_string(), true),
-            ("Process CPU".to_owned(), format!("{}%", process_cpu), true),
-            ("Total CPU".to_owned(), format!("{}%", total_cpu), true),
+            (
+                "Process CPU".to_owned(),
+                format!("{:.2}%", process_cpu),
+                true,
+            ),
+            ("Total CPU".to_owned(), format!("{:.2}%", total_cpu), true),
             ("Boot time".to_owned(), how_long_ago(&boot_time), true),
             (
                 "Process RAM".to_owned(),
