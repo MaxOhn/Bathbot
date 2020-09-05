@@ -171,14 +171,21 @@ async fn top_main(
                 plural = if amount != 1 { "s" } else { "" },
                 name = name
             );
-            match amount {
-                0 => content.push_str("proud of you \\:)"),
-                n if n <= 5 => content.push_str("kinda sad \\:/"),
-                n if n <= 10 => content.push_str("pretty sad \\:("),
-                n if n <= 15 => content.push_str("really sad \\:(("),
-                n if n <= 20 => content.push_str("this is so sad \\:'(("),
-                _ => content.push_str("how do you sleep at night..."),
-            }
+            let to_push = match amount {
+                0 => "proud of you \\:)",
+                n if n <= 5 => "that's already too many...",
+                n if n <= 10 => "kinda sad \\:/",
+                n if n <= 15 => "pretty sad \\:(",
+                n if n <= 25 => "this is so sad \\:((",
+                n if n <= 30 => "bruuh stop \\:'((",
+                n if n <= 35 => "you have a serious problem...",
+                n if n >= 80 => "so close to ultimate disaster...",
+                n if n >= 90 => "i'm not even mad, that's just impressive",
+                50 => "that's half. HALF.",
+                100 => "you did it. \"Congrats\".",
+                _ => "how do you sleep at night...",
+            };
+            content.push_str(to_push);
             content
         }
     };
