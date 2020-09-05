@@ -90,6 +90,7 @@ async fn recent_lb_main(
             Some(ModSelection::Exclude(_)) | None => None,
             Some(ModSelection::Include(m)) | Some(ModSelection::Exact(m)) => Some(m),
         },
+        mode,
     );
     let scores = match scores_fut.await {
         Ok(scores) => scores,
