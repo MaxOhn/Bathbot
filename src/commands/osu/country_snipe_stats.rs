@@ -6,7 +6,7 @@ use crate::{
     BotResult, Context,
 };
 
-use image::{png::PNGEncoder, ColorType};
+use image::{png::PngEncoder, ColorType};
 use plotters::prelude::*;
 use rosu::models::GameMode;
 use std::sync::Arc;
@@ -153,7 +153,7 @@ fn graphs(players: &[SnipeCountryPlayer]) -> BotResult<Vec<u8>> {
             .y_label_area_size(60)
             .margin_right(15)
             .caption("Weighted pp from #1s", ("sans-serif", 30))
-            .build_ranged(0..pp.len() - 1, 0.0..pp_max)?;
+            .build_cartesian_2d(0..pp.len() - 1, 0.0..pp_max)?;
 
         // Mesh and labels
         chart
@@ -188,7 +188,7 @@ fn graphs(players: &[SnipeCountryPlayer]) -> BotResult<Vec<u8>> {
             .y_label_area_size(35)
             .margin_right(15)
             .caption("#1 Count", ("sans-serif", 30))
-            .build_ranged(0..count.len() - 1, 0..count_max)?;
+            .build_cartesian_2d(0..count.len() - 1, 0..count_max)?;
 
         // Mesh and labels
         chart
@@ -221,7 +221,7 @@ fn graphs(players: &[SnipeCountryPlayer]) -> BotResult<Vec<u8>> {
 
     // Encode buf to png
     let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
-    let png_encoder = PNGEncoder::new(&mut png_bytes);
+    let png_encoder = PngEncoder::new(&mut png_bytes);
     png_encoder.encode(&buf, W, H, ColorType::Rgb8)?;
     Ok(png_bytes)
 }

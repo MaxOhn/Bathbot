@@ -4,9 +4,9 @@ use crate::{
     util::constants::OSU_BASE,
 };
 
-use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::User;
 use std::{collections::HashMap, fmt::Write};
+use twilight_embed_builder::image_source::ImageSource;
 
 #[derive(Clone)]
 pub struct MostPlayedCommonEmbed {
@@ -37,7 +37,7 @@ impl MostPlayedCommonEmbed {
                 .iter()
                 .map(|(user_id, entry)| (*user_id, *entry.get(&map.beatmap_id).unwrap()))
                 .collect();
-            top_users.sort_by(|a, b| b.1.cmp(&a.1));
+            top_users.sort_unstable_by(|a, b| b.1.cmp(&a.1));
             let mut top_users = top_users.into_iter().take(3);
             let (first_name, first_count) = top_users
                 .next()

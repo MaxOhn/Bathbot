@@ -21,7 +21,7 @@ use crate::{BotResult, Context};
 
 use futures::future::try_join_all;
 use image::{
-    imageops::FilterType, png::PNGEncoder, ColorType, DynamicImage, GenericImage, GenericImageView,
+    imageops::FilterType, DynamicImage, GenericImage, GenericImageView, ImageOutputFormat::Png,
 };
 use twilight::model::id::UserId;
 
@@ -69,7 +69,6 @@ pub async fn get_combined_thumbnail(ctx: &Context, user_ids: &[u32]) -> BotResul
         }
     }
     let mut png_bytes: Vec<u8> = Vec::with_capacity(16_384); // 2^14 = 128x128
-    let png_encoder = PNGEncoder::new(&mut png_bytes);
-    png_encoder.encode(&combined.to_bytes(), 128, 128, ColorType::Rgba8)?;
+    combined.write_to(&mut png_bytes, Png)?;
     Ok(png_bytes)
 }

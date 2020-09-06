@@ -278,7 +278,7 @@ impl CustomClient {
             };
             let mut new_scores = self._get_leaderboard(map_id, national, mods).await?;
             scores.append(&mut new_scores);
-            scores.sort_by(|a, b| b.score.cmp(&a.score));
+            scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
             let mut uniques = HashSet::with_capacity(50);
             scores.retain(|s| uniques.insert(s.user_id));
         }
@@ -297,7 +297,7 @@ impl CustomClient {
             }
             let mut new_scores = self._get_leaderboard(map_id, national, mods).await?;
             scores.append(&mut new_scores);
-            scores.sort_by(|a, b| b.score.cmp(&a.score));
+            scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
             let mut uniques = HashSet::with_capacity(50);
             scores.retain(|s| uniques.insert(s.user_id));
         }

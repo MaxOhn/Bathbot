@@ -24,7 +24,7 @@ lazy_static  = "1.4"
 log          = "0.4"
 once_cell    = "1.4"
 proc_macros  = { path = "./proc_macros" }
-prometheus   = "0.9"
+prometheus   = "0.10"
 radix_trie   = "0.2"
 rand         = "0.7"
 rayon        = "1.3"
@@ -63,9 +63,9 @@ default-features = false
 features = ["png", "gif"]
 
 [dependencies.plotters]
-version = "0.2"
+version = "0.3"
 default-features = false
-features = ["image_encoder", "line_series", "datetime", "area_series", "histogram"]
+features = ["bitmap_backend", "image", "line_series", "datetime", "area_series", "histogram"]
 
 [dependencies.reqwest]
 version = "0.10"

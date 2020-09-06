@@ -54,7 +54,7 @@ use twilight::http::{
 use twilight::model::{
     gateway::{
         presence::{ActivityType, Status},
-        GatewayIntents,
+        Intents,
     },
     user::CurrentUser,
 };
@@ -162,12 +162,12 @@ async fn run(
             (to, total, ShardScheme::Range { from: 0, to, total })
         });
     let intents = Some(
-        GatewayIntents::GUILDS
-            | GatewayIntents::GUILD_MEMBERS
-            | GatewayIntents::GUILD_MESSAGES
-            | GatewayIntents::GUILD_MESSAGE_REACTIONS
-            | GatewayIntents::DIRECT_MESSAGES
-            | GatewayIntents::DIRECT_MESSAGE_REACTIONS,
+        Intents::GUILDS
+            | Intents::GUILD_MEMBERS
+            | Intents::GUILD_MESSAGES
+            | Intents::GUILD_MESSAGE_REACTIONS
+            | Intents::DIRECT_MESSAGES
+            | Intents::DIRECT_MESSAGE_REACTIONS,
     );
     let stats = Arc::new(BotStats::new(clients.osu.metrics()));
 
