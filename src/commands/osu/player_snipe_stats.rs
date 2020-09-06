@@ -6,8 +6,8 @@ use crate::{
 };
 
 use chrono::{Date, Datelike, Utc};
-use image::{png::PNGEncoder, ColorType};
-use plotters::{coord::IntoMonthly, prelude::*};
+use image::{png::PngEncoder, ColorType};
+use plotters::prelude::*;
 use rosu::{
     backend::{BeatmapRequest, ScoreRequest},
     models::GameMode,
@@ -167,7 +167,7 @@ fn graphs(
                 .caption("National #1 Count History", ("sans-serif", 30))
                 .x_label_area_size(20)
                 .y_label_area_size(40)
-                .build_ranged((first..last).monthly(), min..max)?;
+                .build_cartesian_2d((first..last).monthly(), min..max)?;
 
             // Mesh and labels
             chart
@@ -208,7 +208,7 @@ fn graphs(
             .y_label_area_size(40)
             .margin_right(15)
             .caption("Star rating spread", ("sans-serif", 30))
-            .build_ranged(first..last + 1, 0..max)?;
+            .build_cartesian_2d(first..last + 1, 0..max)?;
 
         // Mesh and labels
         chart
@@ -228,7 +228,7 @@ fn graphs(
 
     // Encode buf to png
     let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
-    let png_encoder = PNGEncoder::new(&mut png_bytes);
+    let png_encoder = PngEncoder::new(&mut png_bytes);
     png_encoder.encode(&buf, W, H, ColorType::Rgb8)?;
     Ok(Some(png_bytes))
 }

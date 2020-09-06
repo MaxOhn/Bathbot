@@ -65,14 +65,26 @@ pub async fn process_tracking(
         Some(tuple) => tuple,
         None => return,
     };
-    let max = channels.values().copied().max().unwrap();
+    let max = match channels.values().copied().max() {
+        Some(max) => max,
+        None => {
+            warn!("No tracked channels for ({},{})", user_id, mode);
+            return;
+        }
+    };
     for (idx, score) in scores.iter().enumerate().take(max) {
         // Skip if its an older score
         if score.date <= last {
             continue;
         }
         // Prepare beatmap
-        let map_id = score.beatmap_id.unwrap();
+        let map_id = match score.beatmap_id {
+            Some(id) => id,
+            None => {
+                warn!("No beatmap_id for ({},{})'s score", user_id, mode);
+                continue;
+            }
+        };
         if !maps.contains_key(&map_id) {
             match ctx.psql().get_beatmap(map_id).await {
                 Ok(map) => maps.insert(map_id, map),

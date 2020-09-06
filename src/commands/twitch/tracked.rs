@@ -17,7 +17,7 @@ async fn trackedstreams(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<
             bail!("error while getting twitch users: {}", why);
         }
     };
-    twitch_users.sort_unstable_by(|a, b| a.cmp(&b));
+    twitch_users.sort_unstable();
     let mut content = "Tracked twitch streams in this channel:\n".to_owned();
     if twitch_users.is_empty() {
         content.push_str("None");

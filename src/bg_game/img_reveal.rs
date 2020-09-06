@@ -1,6 +1,6 @@
 use super::GameResult;
 
-use image::{png::PNGEncoder, ColorType, DynamicImage, GenericImageView};
+use image::{DynamicImage, GenericImageView, ImageOutputFormat::Png};
 use rand::RngCore;
 
 pub struct ImageReveal {
@@ -37,20 +37,16 @@ impl ImageReveal {
         let (w, h) = self.dim;
         let w = (self.x + self.radius).min(w) - cx;
         let h = (self.y + self.radius).min(h) - cy;
-        let sub_image = self.original.view(cx, cy, w, h).to_image().into_vec();
+        let sub_image = self.original.crop_imm(cx, cy, w, h);
         let mut png_bytes: Vec<u8> = Vec::with_capacity((w * h) as usize);
-        let png_encoder = PNGEncoder::new(&mut png_bytes);
-        png_encoder.encode(&sub_image, w, h, ColorType::Rgba8)?;
+        sub_image.write_to(&mut png_bytes, Png)?;
         Ok(png_bytes)
     }
 
     pub fn full(&self) -> GameResult<Vec<u8>> {
         let (w, h) = self.dim;
         let mut png_bytes: Vec<u8> = Vec::with_capacity((w * h) as usize);
-        let png_encoder = PNGEncoder::new(&mut png_bytes);
-        // doesn't work without next line for some reason
-        let img = self.original.view(0, 0, w, h).to_image().into_vec();
-        png_encoder.encode(&img, w, h, ColorType::Rgba8)?;
+        self.original.write_to(&mut png_bytes, Png)?;
         Ok(png_bytes)
     }
 }

@@ -4,7 +4,6 @@
 - Add ratelimit for downloading maps
 - Check on multiple `<bg start`'s in a row
 - Maybe add `<mapper` command?
-- Make sure the embed of `<scores` is valid (vaxei's big black)
 - Add commands for `https://osustats.ppy.sh/r`
 - Add commands for `https://ameobea.me/osutrack/`
 
@@ -14,6 +13,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Add pagination for `<scores`~~ (20.09.06)
 - ~~Make `<lb` include Mirror mod if it's not specified already~~ (20.09.05)
 - ~~Add more `<sotarks` messages~~ (20.09.05)
 - ~~Add commands for tracking stats (+ stop tracking?)~~ (20.09.05)

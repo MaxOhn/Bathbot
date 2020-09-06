@@ -443,7 +443,7 @@ fn filter_scores(
                 .iter()
                 .map(|(i, s)| (*i, s.accuracy(mode)))
                 .collect();
-            scores_indices.sort_by(|(a, _), (b, _)| {
+            scores_indices.sort_unstable_by(|(a, _), (b, _)| {
                 acc_cache
                     .get(&b)
                     .unwrap()
@@ -451,11 +451,13 @@ fn filter_scores(
                     .unwrap_or(Ordering::Equal)
             });
         }
-        TopSortBy::Combo => scores_indices.sort_by(|(_, a), (_, b)| b.max_combo.cmp(&a.max_combo)),
+        TopSortBy::Combo => {
+            scores_indices.sort_unstable_by(|(_, a), (_, b)| b.max_combo.cmp(&a.max_combo))
+        }
         TopSortBy::None => {}
     }
     if top_type == TopType::Recent {
-        scores_indices.sort_by(|(_, a), (_, b)| b.date.cmp(&a.date));
+        scores_indices.sort_unstable_by(|(_, a), (_, b)| b.date.cmp(&a.date));
     }
     scores_indices.iter_mut().for_each(|(i, _)| *i += 1);
     scores_indices

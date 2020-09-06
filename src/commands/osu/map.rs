@@ -13,7 +13,7 @@ use crate::{
 };
 
 use chrono::Duration;
-use image::{png::PNGEncoder, ColorType, DynamicImage};
+use image::{png::PngEncoder, ColorType, DynamicImage};
 use plotters::prelude::*;
 use rayon::prelude::*;
 use rosu::{
@@ -265,7 +265,7 @@ fn graph(oppai_values: (Vec<u32>, Vec<f32>), background: DynamicImage) -> BotRes
         root.fill(&WHITE)?;
         let mut chart = ChartBuilder::on(&root)
             .x_label_area_size(17)
-            .build_ranged(0..*time.last().unwrap(), 0.0..max_strain)?;
+            .build_cartesian_2d(0..*time.last().unwrap(), 0.0..max_strain)?;
 
         // Take as line color whatever is represented least in the background
         let (r, g, b) = background
@@ -293,7 +293,7 @@ fn graph(oppai_values: (Vec<u32>, Vec<f32>), background: DynamicImage) -> BotRes
             .disable_y_mesh()
             .disable_y_axis()
             .set_all_tick_mark_size(3)
-            .line_style_2(&BLACK.mix(0.0))
+            .light_line_style(&BLACK.mix(0.0))
             .x_labels(10)
             .x_label_style(text_style)
             .x_label_formatter(&|timestamp| {
@@ -316,7 +316,7 @@ fn graph(oppai_values: (Vec<u32>, Vec<f32>), background: DynamicImage) -> BotRes
 
     // Encode buf to png
     let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
-    let png_encoder = PNGEncoder::new(&mut png_bytes);
+    let png_encoder = PngEncoder::new(&mut png_bytes);
     png_encoder.encode(&buf, W, H, ColorType::Rgb8)?;
     Ok(png_bytes)
 }

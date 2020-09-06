@@ -2,6 +2,7 @@ use crate::{
     arguments::{Args, NameMapArgs},
     bail,
     embeds::{EmbedData, ScoresEmbed},
+    pagination::{Pagination, ScoresPagination},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         osu::{map_id_from_history, MapIdType},
@@ -104,9 +105,10 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             return Err(why.into());
         }
     };
+    let init_scores = scores.iter().take(10);
 
     // Accumulate all necessary data
-    let data = match ScoresEmbed::new(&ctx, user, &map, scores).await {
+    let data = match ScoresEmbed::new(&ctx, &user, &map, init_scores, 0).await {
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
@@ -116,11 +118,30 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
     // Sending the embed
     let embed = data.build().build()?;
-    msg.build_response(&ctx, |m| m.embed(embed)).await?;
+    let response = ctx
+        .http
+        .create_message(msg.channel_id)
+        .embed(embed)?
+        .await?;
 
     // Add map to database if its not in already
     if let Err(why) = ctx.clients.psql.insert_beatmap(&map).await {
         warn!("Error while adding new map to DB: {}", why);
     }
+
+    // Skip pagination if too few entries
+    if scores.len() <= 10 {
+        response.reaction_delete(&ctx, msg.author.id);
+        return Ok(());
+    }
+
+    // Pagination
+    let pagination = ScoresPagination::new(ctx.clone(), response, user, map, scores);
+    let owner = msg.author.id;
+    tokio::spawn(async move {
+        if let Err(why) = pagination.start(&ctx, owner, 60).await {
+            warn!("Pagination error (scores): {}", why)
+        }
+    });
     Ok(())
 }

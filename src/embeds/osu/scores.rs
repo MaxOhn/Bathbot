@@ -27,27 +27,26 @@ pub struct ScoresEmbed {
 }
 
 impl ScoresEmbed {
-    pub async fn new(
+    pub async fn new<'i, S>(
         ctx: &Context,
-        user: User,
+        user: &User,
         map: &Beatmap,
-        scores: Vec<Score>,
-    ) -> BotResult<Self> {
-        let description = if scores.is_empty() {
-            Some("No scores found")
-        } else {
-            None
-        };
-        let mut fields = Vec::with_capacity(scores.len());
-        for (i, score) in scores.into_iter().enumerate() {
+        scores: S,
+        idx: usize,
+    ) -> BotResult<Self>
+    where
+        S: Iterator<Item = &'i Score>,
+    {
+        let mut fields = Vec::with_capacity(4);
+        for (i, score) in scores.enumerate() {
             let calculations = Calculations::all();
-            let mut calculator = PPCalculator::new().score(&score).map(map);
+            let mut calculator = PPCalculator::new().score(score).map(map);
             calculator.calculate(calculations, Some(ctx)).await?;
-            let stars = osu::get_stars(calculator.stars().unwrap());
+            let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));
             let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
             let mut name = format!(
                 "**{idx}.** {grade}\t[{stars}]\t{score}\t({acc})",
-                idx = i + 1,
+                idx = idx + i + 1,
                 grade = grade_completion_mods(&score, map),
                 stars = stars,
                 score = with_comma_int(score.score),
@@ -59,7 +58,7 @@ impl ScoresEmbed {
             let value = format!(
                 "{pp}\t[ {combo} ]\t {hits}\t{ago}",
                 pp = pp,
-                combo = osu::get_combo(&score, map),
+                combo = osu::get_combo(score, map),
                 hits = score.hits_string(map.mode),
                 ago = how_long_ago(&score.date)
             );
@@ -78,6 +77,10 @@ impl ScoresEmbed {
         let author = Author::new(author_text)
             .url(format!("{}u/{}", OSU_BASE, user.user_id))
             .icon_url(format!("{}{}", AVATAR_URL, user.user_id));
+        let description = match fields.is_empty() {
+            true => Some("No scores found"),
+            false => None,
+        };
         Ok(Self {
             description,
             footer,
