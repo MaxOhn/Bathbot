@@ -7,7 +7,8 @@ use chrono::{DateTime, Utc};
 
 #[derive(Clone)]
 pub struct TrackingStatsEmbed {
-    description: String,
+    title: String,
+    fields: Vec<(String, String, bool)>,
     footer: Footer,
     timestamp: DateTime<Utc>,
 }
@@ -15,43 +16,64 @@ pub struct TrackingStatsEmbed {
 impl TrackingStatsEmbed {
     pub fn new(stats: TrackingStats) -> Self {
         let (user_id, mode) = stats.next_pop;
-        let description = format!(
-            "Currently tracking: {}\n\
-            Tracked users: {}\n\
-            Interval per user: {}s\n\
-            Minimal cooldown: {}ms\n\
-            Next pop: {} | {}\n\n\
-            Wait interval: {}s\n\
-            Milliseconds per user: {}ms\n\
-            Next pop amount: {}\n\
-            Current delay: {}ms",
-            stats.tracking,
-            stats.len,
-            stats.interval,
-            stats.cooldown,
-            user_id,
-            mode,
-            stats.wait_interval,
-            stats.ms_per_track,
-            stats.amount,
-            stats.delay
-        );
+        let fields = vec![
+            (
+                "Currently tracking".to_owned(),
+                stats.tracking.to_string(),
+                true,
+            ),
+            (
+                "Interval per user".to_owned(),
+                format!("{}s", stats.interval),
+                true,
+            ),
+            (
+                "Minimal cooldown".to_owned(),
+                format!("{}ms", stats.cooldown),
+                true,
+            ),
+            (
+                "Current delay".to_owned(),
+                format!("{}ms", stats.delay),
+                true,
+            ),
+            (
+                "Wait interval".to_owned(),
+                format!("{}s", stats.wait_interval),
+                true,
+            ),
+            (
+                "Milliseconds per user".to_owned(),
+                format!("{}ms", stats.ms_per_track),
+                true,
+            ),
+            (
+                "Next pop".to_owned(),
+                format!("{} | {}", user_id, mode),
+                true,
+            ),
+            ("Next pop amount".to_owned(), stats.amount.to_string(), true),
+        ];
         Self {
-            description,
+            fields,
             footer: Footer::new("Last pop"),
             timestamp: stats.last_pop,
+            title: format!("Tracked users: {}", stats.len),
         }
     }
 }
 
 impl EmbedData for TrackingStatsEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
+    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
+        Some(self.fields.clone())
     }
     fn footer(&self) -> Option<&Footer> {
         Some(&self.footer)
     }
     fn timestamp(&self) -> Option<&DateTime<Utc>> {
         Some(&self.timestamp)
+    }
+    fn title(&self) -> Option<&str> {
+        Some(&self.title)
     }
 }
