@@ -94,14 +94,14 @@ pub fn get_combo(score: impl ScoreExt, map: impl BeatmapExt) -> String {
 }
 
 pub fn get_pp(actual: Option<f32>, max: Option<f32>) -> String {
-    let mut result = String::with_capacity(16);
+    let mut result = String::with_capacity(17);
     result.push_str("**");
     if let Some(pp) = actual {
         let _ = write!(result, "{:.2}", pp);
     } else {
         result.push('-');
     }
-    result.push('/');
+    result.push_str("**/");
     if let Some(max) = max {
         let pp = actual.map(|pp| pp.max(max)).unwrap_or(max);
         let _ = write!(result, "{:.2}", pp);

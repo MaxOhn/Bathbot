@@ -10,7 +10,9 @@ mod nochoke;
 mod osustats_globals;
 mod recent;
 mod top;
+mod scores;
 
+pub use scores::ScoresPagination;
 pub use bg_rankings::BGRankingPagination;
 pub use command_count::CommandCountPagination;
 pub use common::CommonPagination;

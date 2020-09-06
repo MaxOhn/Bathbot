@@ -10,7 +10,8 @@
 - Add proper readme and make project public
 
 **[Done]**
-- ~~Make `<lb` include Mirror mod if it's not specified already~~
+- ~~Add pagination for `<scores`~~ (20.09.06)
+- ~~Make `<lb` include Mirror mod if it's not specified already~~ (20.09.05)
 - ~~Added `<sotarks` messages~~ (20.09.05)
 - ~~Update README.md of Bathbot~~ (20.08.25)
 - ~~Improve guild counter for metrics~~ (20.08.17)
