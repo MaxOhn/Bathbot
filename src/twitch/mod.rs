@@ -18,8 +18,7 @@ use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
     Client, Response,
 };
-use serde::Serialize;
-use serde_derive::Deserialize;
+use serde::{Serialize, Deserialize};
 use std::{convert::TryFrom, fmt, num::NonZeroU32};
 
 type TwitchResult<T> = Result<T, TwitchError>;

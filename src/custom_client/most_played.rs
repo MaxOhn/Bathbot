@@ -2,7 +2,6 @@ use super::deserialize::adjust_mode;
 
 use rosu::models::GameMode;
 use serde::{Deserialize, Deserializer};
-use serde_derive::Deserialize as DeserializeDerive;
 use std::hash::{Hash, Hasher};
 
 #[derive(Debug)]
@@ -31,11 +30,8 @@ impl PartialEq for MostPlayedMap {
 impl Eq for MostPlayedMap {}
 
 impl<'de> Deserialize<'de> for MostPlayedMap {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(DeserializeDerive)]
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
         struct Outer {
             beatmap_id: u32,
             count: u32,
@@ -43,7 +39,7 @@ impl<'de> Deserialize<'de> for MostPlayedMap {
             beatmapset: InnerMapset,
         }
 
-        #[derive(DeserializeDerive)]
+        #[derive(Deserialize)]
         pub struct InnerMap {
             #[serde(deserialize_with = "adjust_mode")]
             mode: GameMode,
@@ -51,7 +47,7 @@ impl<'de> Deserialize<'de> for MostPlayedMap {
             difficulty_rating: f32,
         }
 
-        #[derive(DeserializeDerive)]
+        #[derive(Deserialize)]
         pub struct InnerMapset {
             title: String,
             artist: String,

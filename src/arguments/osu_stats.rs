@@ -1,12 +1,50 @@
 use super::Args;
 use crate::{
-    custom_client::{OsuStatsOrder, OsuStatsParams},
+    custom_client::{OsuStatsListParams, OsuStatsOrder, OsuStatsParams},
     util::matcher,
     Context,
 };
 
 use rosu::models::GameMode;
 use std::str::FromStr;
+
+pub struct OsuStatsListArgs {
+    pub params: OsuStatsListParams,
+}
+
+impl OsuStatsListArgs {
+    pub fn new(args: Args, mode: GameMode) -> Result<Self, &'static str> {
+        let mut country = None;
+        let mut rank_min = None;
+        let mut rank_max = None;
+        let mut args = args.take(3);
+        while let Some(arg) = args.next() {
+            if arg == "-r" || arg == "-rank" {
+                if let Some((min, max)) = args.next().and_then(parse_dotted) {
+                    rank_min = min;
+                    rank_max = Some(max);
+                } else {
+                    return Err("After the rank keyword you must specify either \
+                                an integer for max rank or two decimal numbers of the \
+                                form `a..b` for min and max rank");
+                }
+            } else if country.is_none() {
+                country = Some(arg.to_uppercase());
+            } else {
+                break;
+            }
+        }
+        // Put values into parameter variable
+        let mut params = OsuStatsListParams::new(country).mode(mode);
+        if let Some(rank_min) = rank_min {
+            params = params.rank_min(rank_min);
+        }
+        if let Some(rank_max) = rank_max {
+            params = params.rank_max(rank_max);
+        }
+        Ok(Self { params })
+    }
+}
 
 pub struct OsuStatsArgs {
     pub params: OsuStatsParams,
@@ -25,23 +63,14 @@ impl OsuStatsArgs {
         let mut rank_max = None;
         if let Some(idx) = args.iter().position(|arg| arg == "-r" || arg == "-rank") {
             args.remove(idx);
-            if let Some(arg) = args.get(idx) {
-                match parse_dotted(arg) {
-                    Some((min, max)) => {
-                        args.remove(idx);
-                        rank_min = min;
-                        rank_max = Some(max);
-                    }
-                    None => {
-                        return Err("After the rank keyword you must specify either \
-                            an integer for max rank or two integers of the form \
-                            `a..b` for min and max rank")
-                    }
-                }
+            if let Some((min, max)) = args.get(idx).and_then(parse_dotted) {
+                args.remove(idx);
+                rank_min = min;
+                rank_max = Some(max);
             } else {
                 return Err("After the rank keyword you must specify either \
-                    an integer for max rank or two decimal numbers of the \
-                    form `a..b` for min and max rank");
+                            an integer for max rank or two decimal numbers of the \
+                            form `a..b` for min and max rank");
             }
         }
         // Parse min and max acc
@@ -49,19 +78,10 @@ impl OsuStatsArgs {
         let mut acc_max = None;
         if let Some(idx) = args.iter().position(|arg| arg == "-a" || arg == "-acc") {
             args.remove(idx);
-            if let Some(arg) = args.get(idx) {
-                match parse_dotted(arg) {
-                    Some((min, max)) => {
-                        args.remove(idx);
-                        acc_min = min;
-                        acc_max = Some(max);
-                    }
-                    None => {
-                        return Err("After the acc keyword you must specify either \
-                            a decimal number for max acc or two decimal numbers \
-                            of the form `a..b` for min and max acc")
-                    }
-                }
+            if let Some((min, max)) = args.get(idx).and_then(parse_dotted) {
+                args.remove(idx);
+                acc_min = min;
+                acc_max = Some(max);
             } else {
                 return Err("After the acc keyword you must specify either \
                     a decimal number for max acc or two decimal numbers \
@@ -122,8 +142,8 @@ impl OsuStatsArgs {
     }
 }
 
-fn parse_dotted<T: FromStr>(arg: &str) -> Option<(Option<T>, T)> {
-    let mut split = arg.split("..");
+fn parse_dotted<T: FromStr>(arg: impl AsRef<str>) -> Option<(Option<T>, T)> {
+    let mut split = arg.as_ref().split("..");
     let val = T::from_str(split.next()?).ok()?;
     match split.next() {
         Some(another) => Some((Some(val), T::from_str(another).ok()?)),

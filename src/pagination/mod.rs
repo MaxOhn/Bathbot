@@ -8,11 +8,11 @@ mod most_played;
 mod most_played_common;
 mod nochoke;
 mod osustats_globals;
+mod osustats_list;
 mod recent;
-mod top;
 mod scores;
+mod top;
 
-pub use scores::ScoresPagination;
 pub use bg_rankings::BGRankingPagination;
 pub use command_count::CommandCountPagination;
 pub use common::CommonPagination;
@@ -23,7 +23,9 @@ pub use most_played::MostPlayedPagination;
 pub use most_played_common::MostPlayedCommonPagination;
 pub use nochoke::NoChokePagination;
 pub use osustats_globals::OsuStatsGlobalsPagination;
+pub use osustats_list::OsuStatsListPagination;
 pub use recent::RecentPagination;
+pub use scores::ScoresPagination;
 pub use top::TopPagination;
 
 use crate::{embeds::EmbedData, util::numbers, BotResult, Context};
@@ -147,17 +149,20 @@ pub trait Pagination: Sync + Sized {
     fn process_reaction(&mut self, reaction: &str) -> PageChange {
         let next_index = match reaction {
             // Move to start
-            "⏮️" => {
-                if self.index() > 0 {
-                    Some(0)
-                } else {
-                    None
-                }
-            }
+            "⏮️" => match self.index() {
+                0 => None,
+                _ => Some(0),
+            },
             // Move one page left
-            "⏪" => self.index().checked_sub(self.multi_step()),
+            "⏪" => match self.index() {
+                0 => None,
+                idx => Some(idx.saturating_sub(self.multi_step())),
+            },
             // Move one index left
-            "◀️" => self.index().checked_sub(self.single_step()),
+            "◀️" => match self.index() {
+                0 => None,
+                idx => Some(idx.saturating_sub(self.single_step())),
+            },
             // Move to specific position
             "*️⃣" => {
                 if let Some(index) = self.jump_index() {
