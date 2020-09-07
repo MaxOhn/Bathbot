@@ -79,9 +79,11 @@ impl RecentEmbed {
         let grade_completion_mods = grade_completion_mods(score, map);
         let calculations = Calculations::all();
         let mut calculator = PPCalculator::new().score(score).map(map);
-        calculator.calculate(calculations, Some(ctx)).await?;
+        if let Err(why) = calculator.calculate(calculations, Some(ctx)).await {
+            warn!("Error while calculating <recent pp: {}", why);
+        }
         let max_pp = calculator.max_pp();
-        let stars = round(calculator.stars().unwrap());
+        let stars = round(calculator.stars().unwrap_or(0.0));
         let (pp, combo, hits) = (
             osu::get_pp(calculator.pp(), max_pp),
             if map.mode == GameMode::MNA {

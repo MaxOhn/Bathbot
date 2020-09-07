@@ -72,9 +72,8 @@ impl TrackNotificationEmbed {
             how_long_ago(&score.date)
         ))
         .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
-        let mut author = super::super::osu::get_user_author(user);
-        author.icon_url =
-            Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap());
+        let author = super::super::osu::get_user_author(user)
+            .icon_url(format!("{}{}", AVATAR_URL, user.user_id));
         Self {
             title,
             footer,
