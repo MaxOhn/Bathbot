@@ -1,5 +1,4 @@
 use serde::{de, Deserialize, Deserializer};
-use serde_derive::Deserialize as DeserializeDerive;
 use std::str::FromStr;
 
 fn str_to_u64<'de, D>(d: D) -> std::result::Result<u64, D::Error>
@@ -22,7 +21,7 @@ where
     }
 }
 
-#[derive(DeserializeDerive, Debug)]
+#[derive(Deserialize, Debug)]
 pub struct TwitchUser {
     #[serde(rename = "id", deserialize_with = "str_to_u64")]
     pub user_id: u64,
@@ -32,12 +31,12 @@ pub struct TwitchUser {
     pub image_url: String,
 }
 
-#[derive(DeserializeDerive)]
+#[derive(Deserialize)]
 pub struct TwitchUsers {
     pub data: Vec<TwitchUser>,
 }
 
-#[derive(DeserializeDerive, Debug)]
+#[derive(Deserialize, Debug)]
 pub struct TwitchStream {
     #[serde(rename = "game_id", deserialize_with = "str_to_maybe_u64")]
     pub game_id: Option<u64>,
@@ -67,7 +66,7 @@ where
     Ok(s == "live")
 }
 
-#[derive(DeserializeDerive)]
+#[derive(Deserialize)]
 pub struct TwitchStreams {
     pub data: Vec<TwitchStream>,
 }

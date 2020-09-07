@@ -4,8 +4,41 @@ use crate::util::osu::ModSelection;
 
 use chrono::{DateTime, Utc};
 use rosu::models::{ApprovalStatus, GameMode, GameMods, Grade};
-use serde_derive::Deserialize;
-use std::fmt;
+use serde::{de::Error, Deserialize, Deserializer};
+use std::{fmt, str::FromStr};
+
+#[derive(Debug)]
+pub struct OsuStatsPlayer {
+    pub user_id: u32,
+    pub count: u32,
+    pub username: String,
+}
+
+#[derive(Deserialize)]
+struct Outer {
+    #[serde(rename = "userId")]
+    user_id: u32,
+    count: String,
+    #[serde(rename = "osu_user")]
+    user: Inner,
+}
+
+#[derive(serde::Deserialize)]
+pub struct Inner {
+    #[serde(rename = "userName")]
+    username: String,
+}
+
+impl<'de> Deserialize<'de> for OsuStatsPlayer {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let helper = Outer::deserialize(d)?;
+        Ok(OsuStatsPlayer {
+            user_id: helper.user_id,
+            count: u32::from_str(&helper.count).map_err(D::Error::custom)?,
+            username: helper.user.username,
+        })
+    }
+}
 
 #[derive(Debug, Deserialize)]
 pub struct OsuStatsScore {
@@ -156,5 +189,38 @@ impl OsuStatsParams {
     }
     pub fn page(&mut self, page: usize) {
         self.page = page;
+    }
+}
+
+#[derive(Debug)]
+pub struct OsuStatsListParams {
+    pub country: Option<String>,
+    pub mode: GameMode,
+    pub page: usize,
+    pub rank_min: usize,
+    pub rank_max: usize,
+}
+
+impl OsuStatsListParams {
+    pub fn new(country: Option<impl Into<String>>) -> Self {
+        Self {
+            country: country.map(|c| c.into()),
+            mode: GameMode::STD,
+            page: 1,
+            rank_min: 1,
+            rank_max: 100,
+        }
+    }
+    pub fn mode(mut self, mode: GameMode) -> Self {
+        self.mode = mode;
+        self
+    }
+    pub fn rank_min(mut self, rank_min: usize) -> Self {
+        self.rank_min = rank_min;
+        self
+    }
+    pub fn rank_max(mut self, rank_max: usize) -> Self {
+        self.rank_max = rank_max.min(100);
+        self
     }
 }

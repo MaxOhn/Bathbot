@@ -89,7 +89,12 @@ pub async fn help(
     }
     let desc = description(ctx, msg.guild_id);
     let mut size = desc.len();
-    debug_assert!(size < DESCRIPTION_SIZE);
+    debug_assert!(
+        size < DESCRIPTION_SIZE,
+        "description size {} > {}",
+        size,
+        DESCRIPTION_SIZE
+    );
     let mut eb = EmbedBuilder::new()
         .color(DARK_GREEN)
         .unwrap()
@@ -114,9 +119,19 @@ pub async fn help(
             }
             writeln!(value, ": {}", cmd.short_desc)?;
         }
-        debug_assert!(value.len() < FIELD_VALUE_SIZE);
+        debug_assert!(
+            value.chars().count() < FIELD_VALUE_SIZE,
+            "field value size {} > {}",
+            value.chars().count(),
+            FIELD_VALUE_SIZE
+        );
         let size_addition = group.name.len() + value.len();
-        debug_assert!(size_addition < EMBED_SIZE);
+        debug_assert!(
+            size_addition < EMBED_SIZE,
+            "embed size {} > {}",
+            size_addition,
+            EMBED_SIZE
+        );
         eb = if size + size_addition > EMBED_SIZE {
             if let Err(why) = send_help_chunk(ctx, channel.id, owner, eb.build()?).await {
                 warn!("Error while sending help chunk: {}", why);
@@ -262,7 +277,7 @@ pub async fn failed_help(
         .par_iter()
         .flat_map(|group| group.commands.par_iter().flat_map(|&cmd| cmd.names))
         .map(|name| (levenshtein_distance(arg, name), name))
-        .filter(|(dist, _)| *dist < 4)
+        .filter(|(dist, _)| *dist < 3)
         .collect();
     let (content, color) = if dists.is_empty() {
         (String::from("There is no such command"), RED)

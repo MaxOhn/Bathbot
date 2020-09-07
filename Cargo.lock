@@ -166,7 +166,6 @@ dependencies = [
  "rosu",
  "scraper",
  "serde",
- "serde_derive",
  "serde_json",
  "sqlx",
  "strfmt",

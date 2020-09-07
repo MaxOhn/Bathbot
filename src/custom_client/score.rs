@@ -1,10 +1,9 @@
 use chrono::{DateTime, Utc};
 use rosu::models::{ApprovalStatus, GameMode, GameMods, Grade};
 use serde::{de, Deserialize, Deserializer};
-use serde_derive::Deserialize as DeserializeDerive;
 use std::convert::TryFrom;
 
-#[derive(DeserializeDerive)]
+#[derive(Deserialize)]
 pub struct ScraperScores {
     scores: Vec<ScraperScore>,
 }
@@ -44,7 +43,7 @@ impl<'de> Deserialize<'de> for ScraperScore {
     where
         D: Deserializer<'de>,
     {
-        #[derive(DeserializeDerive)]
+        #[derive(Deserialize)]
         struct Outer {
             id: u64,
             user_id: u32,
@@ -68,7 +67,7 @@ impl<'de> Deserialize<'de> for ScraperScore {
             user: ScraperUser,
         }
 
-        #[derive(DeserializeDerive)]
+        #[derive(Deserialize)]
         pub struct ScraperScoreStatistics {
             #[serde(default)]
             count_50: u32,
@@ -84,7 +83,7 @@ impl<'de> Deserialize<'de> for ScraperScore {
             count_miss: u32,
         }
 
-        #[derive(DeserializeDerive)]
+        #[derive(Deserialize)]
         pub struct ScraperUser {
             username: String,
             country_code: String,
@@ -117,7 +116,7 @@ impl<'de> Deserialize<'de> for ScraperScore {
     }
 }
 
-#[derive(DeserializeDerive)]
+#[derive(Deserialize)]
 pub struct ScraperBeatmap {
     pub id: u32,
     pub beatmapset_id: u32,

@@ -9,6 +9,7 @@ mod most_played_common;
 mod nochoke;
 mod osustats_counts;
 mod osustats_globals;
+mod osustats_list;
 mod player_snipe_stats;
 mod pp_missing;
 mod profile;
@@ -31,6 +32,7 @@ pub use most_played_common::MostPlayedCommonEmbed;
 pub use nochoke::NoChokeEmbed;
 pub use osustats_counts::OsuStatsCountsEmbed;
 pub use osustats_globals::OsuStatsGlobalsEmbed;
+pub use osustats_list::*;
 pub use player_snipe_stats::PlayerSnipeStatsEmbed;
 pub use pp_missing::PPMissingEmbed;
 pub use profile::ProfileEmbed;
@@ -47,7 +49,7 @@ use crate::{
     util::{
         constants::OSU_BASE,
         datetime::sec_to_minsec,
-        numbers::{round_and_comma, with_comma_int},
+        numbers::{round, round_and_comma, with_comma_int},
         BeatmapExt, ScoreExt,
     },
 };
@@ -122,16 +124,16 @@ pub fn get_keys(mods: GameMods, map: &Beatmap) -> String {
 
 pub fn get_map_info(map: &Beatmap) -> String {
     format!(
-        "Length: `{}` (`{}`) BPM: `{:.2}` Objects: `{}`\n\
-        CS: `{:.2}` AR: `{:.2}` OD: `{:.2}` HP: `{:.2}` Stars: `{:.2}`",
+        "Length: `{}` (`{}`) BPM: `{}` Objects: `{}`\n\
+        CS: `{}` AR: `{}` OD: `{}` HP: `{}` Stars: `{}`",
         sec_to_minsec(map.seconds_total),
         sec_to_minsec(map.seconds_drain),
-        map.bpm,
+        round(map.bpm),
         map.count_objects(),
-        map.diff_cs,
-        map.diff_ar,
-        map.diff_od,
-        map.diff_hp,
-        map.stars
+        round(map.diff_cs),
+        round(map.diff_ar),
+        round(map.diff_od),
+        round(map.diff_hp),
+        round(map.stars)
     )
 }

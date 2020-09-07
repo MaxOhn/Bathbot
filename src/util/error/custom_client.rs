@@ -4,57 +4,114 @@ use std::{error::Error as StdError, fmt};
 #[derive(Debug)]
 pub enum CustomClientError {
     DataUserId,
-    SerdeLeaderboard(SerdeJsonError, String),
-    SerdeMostPlayed(SerdeJsonError, String),
-    SerdeSnipeCountry(SerdeJsonError, String),
-    SerdeSnipeDifference(SerdeJsonError, String),
-    SerdeSnipePlayer(SerdeJsonError, String),
-    SerdeSnipeRecent(SerdeJsonError, String),
-    SerdeSnipeScore(SerdeJsonError, String),
     RankIndex(usize),
     RankingPageTable,
     RankNode(u8),
+    Request(RequestError),
     TBody,
+}
+
+#[derive(Debug)]
+enum RequestType {
+    GlobalsList,
+    Leaderboard,
+    MostPlayed,
+    SnipeCountry,
+    SnipeDifference,
+    SnipePlayer,
+    SnipeRecent,
+    SnipeScore,
+}
+
+#[derive(Debug)]
+pub struct RequestError {
+    request: RequestType,
+    error: SerdeJsonError,
+    content: String,
+}
+
+impl CustomClientError {
+    pub fn globals_list(error: SerdeJsonError, content: String) -> Self {
+        Self::Request(RequestError {
+            request: RequestType::GlobalsList,
+            error,
+            content,
+        })
+    }
+    pub fn leaderboard(error: SerdeJsonError, content: String) -> Self {
+        Self::Request(RequestError {
+            request: RequestType::Leaderboard,
+            error,
+            content,
+        })
+    }
+    pub fn most_played(error: SerdeJsonError, content: String) -> Self {
+        Self::Request(RequestError {
+            request: RequestType::MostPlayed,
+            error,
+            content,
+        })
+    }
+    pub fn snipe_country(error: SerdeJsonError, content: String) -> Self {
+        Self::Request(RequestError {
+            request: RequestType::SnipeCountry,
+            error,
+            content,
+        })
+    }
+    pub fn snipe_difference(error: SerdeJsonError, content: String) -> Self {
+        Self::Request(RequestError {
+            request: RequestType::SnipeDifference,
+            error,
+            content,
+        })
+    }
+    pub fn snipe_recent(error: SerdeJsonError, content: String) -> Self {
+        Self::Request(RequestError {
+            request: RequestType::SnipeRecent,
+            error,
+            content,
+        })
+    }
+    pub fn snipe_score(error: SerdeJsonError, content: String) -> Self {
+        Self::Request(RequestError {
+            request: RequestType::SnipeScore,
+            error,
+            content,
+        })
+    }
+    pub fn snipe_player(error: SerdeJsonError, content: String) -> Self {
+        Self::Request(RequestError {
+            request: RequestType::SnipePlayer,
+            error,
+            content,
+        })
+    }
 }
 
 impl fmt::Display for CustomClientError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::DataUserId => f.write_str("no attribute `data-user-id`"),
-            Self::SerdeLeaderboard(e, content) => write!(
+            Self::Request(RequestError {
+                request,
+                error,
+                content,
+            }) => write!(
                 f,
-                "could not deserialize response for leaderboard: {}\n{}",
-                e, content
-            ),
-            Self::SerdeMostPlayed(e, content) => write!(
-                f,
-                "could not deserialize response for most played: {}\n{}",
-                e, content
-            ),
-            Self::SerdeSnipeCountry(e, content) => write!(
-                f,
-                "could not deserialize response for snipe country: {}\n{}",
-                e, content
-            ),
-            Self::SerdeSnipeDifference(e, content) => write!(
-                f,
-                "could not deserialize response for snipe difference: {}\n{}",
-                e, content
-            ),
-            Self::SerdeSnipePlayer(e, content) => write!(
-                f,
-                "could not deserialize response for snipe player: {}\n{}",
-                e, content
-            ),
-            Self::SerdeSnipeRecent(e, content) => write!(
-                f,
-                "could not deserialize response for snipe recent: {}\n{}",
-                e, content
-            ),
-            Self::SerdeSnipeScore(e, content) => write!(
-                f,
-                "could not deserialize response for snipe scores: {}\n{}",
-                e, content
+                "could not deserialize response for {}: {}\n{}",
+                match request {
+                    RequestType::GlobalsList => "globals list",
+                    RequestType::Leaderboard => "leaderboard",
+                    RequestType::MostPlayed => "most played",
+                    RequestType::SnipeCountry => "snipe country",
+                    RequestType::SnipeDifference => "snipe difference",
+                    RequestType::SnipePlayer => "snipe player",
+                    RequestType::SnipeRecent => "snipe recent",
+                    RequestType::SnipeScore => "snipe score",
+                },
+                error,
+                content
             ),
             Self::RankIndex(n) => write!(f, "expected rank between 1 and 10_000, got {}", n),
             Self::RankingPageTable => f.write_str("no class `ranking-page-table`"),

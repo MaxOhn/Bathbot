@@ -4,14 +4,13 @@ use serde::{
     de::{Deserializer, Error, MapAccess, Visitor},
     Deserialize,
 };
-use serde_derive::Deserialize as DerivedDeserialize;
 use std::{
     collections::{BTreeMap, HashMap},
     convert::TryFrom,
     fmt,
 };
 
-#[derive(Debug, DerivedDeserialize)]
+#[derive(Debug, Deserialize)]
 pub struct SnipePlayer {
     #[serde(rename = "name")]
     pub username: String,
@@ -48,7 +47,7 @@ pub struct SnipePlayer {
     pub oldest_first: Option<SnipePlayerOldest>,
 }
 
-#[derive(Debug, DerivedDeserialize)]
+#[derive(Debug, Deserialize)]
 pub struct SnipeCountryPlayer {
     #[serde(rename = "name")]
     pub username: String,
@@ -63,7 +62,7 @@ pub struct SnipeCountryPlayer {
     pub count_first: u32,
 }
 
-#[derive(Debug, DerivedDeserialize)]
+#[derive(Debug, Deserialize)]
 pub struct SnipeTopDifference {
     pub name: String,
     #[serde(rename = "most_recent_top_national")]
@@ -72,7 +71,7 @@ pub struct SnipeTopDifference {
     pub difference: i32,
 }
 
-#[derive(Debug, DerivedDeserialize)]
+#[derive(Debug, Deserialize)]
 pub struct SnipePlayerOldest {
     #[serde(rename = "map_id", deserialize_with = "deserialize_signed")]
     pub beatmap_id: u32,
@@ -237,7 +236,7 @@ impl<'de> Deserialize<'de> for SnipeRecent {
     }
 }
 
-#[derive(DerivedDeserialize)]
+#[derive(Deserialize)]
 struct InnerScore {
     player_id: u32,
     player: String,

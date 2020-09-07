@@ -20,14 +20,16 @@ use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
 use std::{error::Error as StdError, fmt, io::Error as IOError};
 use toml::de::Error as TomlError;
+use twilight::gateway::cluster::ClusterCommandError;
 use twilight::http::{
     request::channel::message::{
         create_message::CreateMessageError, update_message::UpdateMessageError,
     },
     Error as HttpError,
 };
-use twilight::gateway::cluster::ClusterCommandError;
-use twilight_embed_builder::builder::{EmbedBuildError, EmbedTitleError, EmbedDescriptionError, EmbedColorError};
+use twilight_embed_builder::builder::{
+    EmbedBuildError, EmbedColorError, EmbedDescriptionError, EmbedTitleError,
+};
 
 #[macro_export]
 macro_rules! bail {

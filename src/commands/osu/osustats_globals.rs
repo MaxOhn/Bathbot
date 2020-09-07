@@ -24,6 +24,7 @@ async fn osustats_main(
     args: Args<'_>,
 ) -> BotResult<()> {
     let name = ctx.get_link(msg.author.id.0);
+    // Parse arguments
     let mut params = match OsuStatsArgs::new(&ctx, args, name, mode) {
         Ok(args) => args.params,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,

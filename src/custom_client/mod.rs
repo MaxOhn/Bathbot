@@ -84,7 +84,7 @@ impl CustomClient {
         let bytes = response.bytes().await?;
         let player: SnipePlayer = serde_json::from_slice(&bytes).map_err(|e| {
             let content = String::from_utf8_lossy(&bytes).into_owned();
-            CustomClientError::SerdeSnipePlayer(e, content)
+            CustomClientError::snipe_player(e, content)
         })?;
         Ok(player)
     }
@@ -96,7 +96,7 @@ impl CustomClient {
         let country_players: Vec<SnipeCountryPlayer> =
             serde_json::from_slice(&bytes).map_err(|e| {
                 let content = String::from_utf8_lossy(&bytes).into_owned();
-                CustomClientError::SerdeSnipeCountry(e, content)
+                CustomClientError::snipe_country(e, content)
             })?;
         Ok(country_players)
     }
@@ -139,11 +139,11 @@ impl CustomClient {
         let (gain, loss) = tokio::try_join!(gain, loss)?;
         let gain: SnipeTopDifference = serde_json::from_slice(&gain).map_err(|e| {
             let content = String::from_utf8_lossy(&gain).into_owned();
-            CustomClientError::SerdeSnipeDifference(e, content)
+            CustomClientError::snipe_difference(e, content)
         })?;
         let loss: SnipeTopDifference = serde_json::from_slice(&loss).map_err(|e| {
             let content = String::from_utf8_lossy(&loss).into_owned();
-            CustomClientError::SerdeSnipeDifference(e, content)
+            CustomClientError::snipe_difference(e, content)
         })?;
         Ok((gain, loss))
     }
@@ -168,7 +168,7 @@ impl CustomClient {
         let bytes = response.bytes().await?;
         let snipes: Vec<SnipeRecent> = serde_json::from_slice(&bytes).map_err(|e| {
             let content = String::from_utf8_lossy(&bytes).into_owned();
-            CustomClientError::SerdeSnipeRecent(e, content)
+            CustomClientError::snipe_recent(e, content)
         })?;
         Ok(snipes)
     }
@@ -185,9 +185,34 @@ impl CustomClient {
         let bytes = response.bytes().await?;
         let scores: Vec<SnipeScore> = serde_json::from_slice(&bytes).map_err(|e| {
             let content = String::from_utf8_lossy(&bytes).into_owned();
-            CustomClientError::SerdeSnipeScore(e, content)
+            CustomClientError::snipe_score(e, content)
         })?;
         Ok(scores)
+    }
+
+    pub async fn get_country_globals(
+        &self,
+        params: &OsuStatsListParams,
+    ) -> BotResult<Vec<OsuStatsPlayer>> {
+        let mut form = Form::new()
+            .text("rankMin", params.rank_min.to_string())
+            .text("rankMax", params.rank_max.to_string())
+            .text("gamemode", (params.mode as u8).to_string())
+            .text("page", params.page.to_string());
+        if let Some(ref country) = params.country {
+            form = form.text("country", country.to_owned());
+        }
+        let url = "https://osustats.ppy.sh/api/getScoreRanking";
+        debug!("Requesting POST from url {} [page {}]", url, params.page);
+        let request = self.client.post(url).multipart(form);
+        self.ratelimit(Site::OsuStats).await;
+        let response = request.send().await?;
+        let bytes = response.bytes().await?;
+        let players: Vec<OsuStatsPlayer> = serde_json::from_slice(&bytes).map_err(|e| {
+            let content = String::from_utf8_lossy(&bytes).into_owned();
+            CustomClientError::globals_list(e, content)
+        })?;
+        Ok(players)
     }
 
     /// Be sure whitespaces in the username are **not** replaced
@@ -214,14 +239,11 @@ impl CustomClient {
             };
             form = form.text("mods", mod_str);
         }
-        let request = self
-            .client
-            .post("https://osustats.ppy.sh/api/getScores")
-            .multipart(form);
+        let url = "https://osustats.ppy.sh/api/getScores";
+        debug!("Requesting POST from url {}", url);
+        let request = self.client.post(url).multipart(form);
         self.ratelimit(Site::OsuStats).await;
         let response = request.send().await?;
-        // let text = response.text().await?;
-        // let result: Value = serde_json::from_str(&text)?;
         let bytes = response.bytes().await?;
         let result: Value = serde_json::from_slice(&bytes)?;
         let (scores, amount) = if let Value::Array(mut array) = result {
@@ -251,7 +273,7 @@ impl CustomClient {
         let bytes = response.bytes().await?;
         let maps: Vec<MostPlayedMap> = serde_json::from_slice(&bytes).map_err(|e| {
             let content = String::from_utf8_lossy(&bytes).into_owned();
-            CustomClientError::SerdeMostPlayed(e, content)
+            CustomClientError::most_played(e, content)
         })?;
         Ok(maps)
     }
@@ -328,7 +350,7 @@ impl CustomClient {
         let bytes = response.bytes().await?;
         let scores: ScraperScores = serde_json::from_slice(&bytes).map_err(|e| {
             let content = String::from_utf8_lossy(&bytes).into_owned();
-            CustomClientError::SerdeLeaderboard(e, content)
+            CustomClientError::leaderboard(e, content)
         })?;
         Ok(scores.get())
     }
