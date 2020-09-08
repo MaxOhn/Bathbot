@@ -65,7 +65,7 @@ async fn common_main(
         .enumerate()
         .map(|(i, name)| ctx.osu_user(&name, mode).map_ok(move |user| (i, user)));
     let users: HashMap<u32, User> = match try_join_all(user_futs).await {
-        Ok(users) => match users.par_iter().find_any(|(_, user)| user.is_none()) {
+        Ok(users) => match users.iter().find(|(_, user)| user.is_none()) {
             Some((idx, _)) => {
                 let content = format!("User `{}` was not found", names[*idx]);
                 return msg.error(&ctx, content).await;

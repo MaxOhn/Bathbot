@@ -262,7 +262,6 @@ pub async fn mapper(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 )]
 #[usage("[username] [mapper]")]
 #[example("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
-#[aliases("mm")]
 pub async fn mappermania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     mapper_main(GameMode::MNA, ctx, msg, None, args).await
 }
@@ -277,7 +276,6 @@ pub async fn mappermania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 )]
 #[usage("[username] [mapper]")]
 #[example("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
-#[aliases("mt")]
 pub async fn mappertaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     mapper_main(GameMode::TKO, ctx, msg, None, args).await
 }
@@ -292,7 +290,6 @@ pub async fn mappertaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 )]
 #[usage("[username] [mapper]")]
 #[example("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
-#[aliases("mc")]
 async fn mapperctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     mapper_main(GameMode::CTB, ctx, msg, None, args).await
 }
