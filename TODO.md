@@ -4,8 +4,6 @@
 - Add ratelimit for downloading maps
 - Check on multiple `<bg start`'s in a row
 - Maybe add `<mapper` command?
-- Add commands for `https://osustats.ppy.sh/r`
-- Add commands for `https://ameobea.me/osutrack/`
 
 **[Sometime]**
 - Handle entry on top.gg

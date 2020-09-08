@@ -29,7 +29,7 @@ pub struct TrackNotificationEmbed {
 
 impl TrackNotificationEmbed {
     pub async fn new(ctx: &Context, user: &User, score: &Score, map: &Beatmap, idx: usize) -> Self {
-        let description = format!("__**Personal Best #{}**__", idx + 1);
+        let description = format!("__**Personal Best #{}**__", idx);
         let calculations = Calculations::MAX_PP | Calculations::STARS;
         let mut calculator = PPCalculator::new().score(score).map(map);
         if let Err(why) = calculator.calculate(calculations, Some(ctx)).await {
