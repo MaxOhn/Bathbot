@@ -54,7 +54,8 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         - If you react with :x: within one minute to my response, I will delete it.\n\
         - With reactions like :track_previous: or :fast_forward: you can scroll through pages \
         e.g. check an earlier play than the most recent one
-        - ~~`Strikethrough`~~ commands indicate that you lack authority status in the server.\n\
+        - ~~`Strikethrough`~~ commands indicate that either you can't use them in DMs or \
+        you lack authority status in the server.\n\
         - If you have questions, complains, or suggestions for the bot, feel free to join its \
         [discord server]({discord_url}) and let Badewanne3 know.
         __**Mods for osu!**__
@@ -140,8 +141,15 @@ pub async fn help(
                 let content = "Could not DM you, have you disabled it?";
                 return msg.error(ctx, content).await;
             }
-            size = 0;
-            EmbedBuilder::new().color(DARK_GREEN).unwrap()
+            size = size_addition;
+            EmbedBuilder::new()
+                .color(DARK_GREEN)
+                .unwrap()
+                .field(EmbedField {
+                    name: group.name.clone(),
+                    value,
+                    inline: false,
+                })
         } else {
             size += size_addition;
             eb.field(EmbedField {

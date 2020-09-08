@@ -17,11 +17,11 @@ async fn track_main(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let guild_id = msg.guild_id.unwrap().0;
-    if guild_id != 277469642908237826 && guild_id != 297072529426612224 {
-        let content = "Top score tracking is currently in its testing phase, hence unavailable.";
-        return msg.error(&ctx, content).await;
-    }
+    // let guild_id = msg.guild_id.unwrap().0;
+    // if guild_id != 277469642908237826 && guild_id != 297072529426612224 {
+    //     let content = "Top score tracking is currently in its testing phase, hence unavailable.";
+    //     return msg.error(&ctx, content).await;
+    // }
     let args = match MultNameLimitArgs::new(&ctx, args, 10) {
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
