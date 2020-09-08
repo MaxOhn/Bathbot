@@ -61,6 +61,7 @@ impl Pagination for OsuStatsListPagination {
     }
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let page = self.page();
+        #[allow(clippy::map_entry)]
         if !self.players.contains_key(&page) {
             self.params.page = page;
             let players = self

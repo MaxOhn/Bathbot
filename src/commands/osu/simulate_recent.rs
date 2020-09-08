@@ -103,7 +103,7 @@ async fn simulate_recent_main(
 }
 
 #[command]
-#[short_desc("Display an unchoked version of user's most recent play")]
+#[short_desc("Unchoke a user's most recent play")]
 #[usage("[username] [+mods] [-a acc%] [-300 #300s] [-100 #100s] [-50 #50s] [-m #misses]")]
 #[example("badewanne3 +hr -a 99.3 -300 1422 -m 1")]
 #[aliases("sr")]
@@ -112,9 +112,9 @@ pub async fn simulaterecent(ctx: Arc<Context>, msg: &Message, args: Args) -> Bot
 }
 
 #[command]
-#[short_desc("Display a perfect play on a user's most recently played mania map")]
+#[short_desc("Display a perfect play on a user's most recently played map")]
 #[usage("[username] [+mods] [-s score]")]
-#[example("badewanne3 +dt -s 8950000")]
+#[example("badewanne3 +dt -s 895000")]
 #[aliases("srm")]
 pub async fn simulaterecentmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     simulate_recent_main(GameMode::MNA, ctx, msg, args).await

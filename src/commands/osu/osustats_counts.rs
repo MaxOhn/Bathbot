@@ -46,7 +46,7 @@ async fn osustats_main(
 }
 
 #[command]
-#[short_desc("Display in how many top 1-50 map leaderboards the user has a score")]
+#[short_desc("Count how often a user appears on top of a map's leaderboard")]
 #[long_desc(
     "Display in how many top 1-50 map leaderboards the user has a score.\n\
     This command shows the same stats as the globals count section for the \
@@ -60,7 +60,7 @@ pub async fn osustatscount(ctx: Arc<Context>, msg: &Message, args: Args) -> BotR
 }
 
 #[command]
-#[short_desc("Display in how many top 1-50 map leaderboards the user has a score")]
+#[short_desc("Count how often a user appears on top of a mania map's leaderboard")]
 #[long_desc(
     "Display in how many top 1-50 map leaderboards the user has a score.\n\
     This command shows the same stats as the globals count section for the \
@@ -74,7 +74,7 @@ pub async fn osustatscountmania(ctx: Arc<Context>, msg: &Message, args: Args) ->
 }
 
 #[command]
-#[short_desc("Display in how many top 1-50 map leaderboards the user has a score")]
+#[short_desc("Count how often a user appears on top of a taiko map's leaderboard")]
 #[long_desc(
     "Display in how many top 1-50 map leaderboards the user has a score.\n\
     This command shows the same stats as the globals count section for the \
@@ -88,7 +88,7 @@ pub async fn osustatscounttaiko(ctx: Arc<Context>, msg: &Message, args: Args) ->
 }
 
 #[command]
-#[short_desc("Display in how many top 1-50 map leaderboards the user has a score")]
+#[short_desc("Count how often a user appears on top of a ctb map's leaderboard")]
 #[long_desc(
     "Display in how many top 1-50 map leaderboards the user has a score.\n\
     This command shows the same stats as the globals count section for the \

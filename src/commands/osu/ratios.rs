@@ -15,7 +15,7 @@ use std::{collections::HashMap, sync::Arc};
 use twilight::model::channel::Message;
 
 #[command]
-#[short_desc("Calculate the average ratios of a user's top100")]
+#[short_desc("Ratio related stats about a user's top100")]
 #[long_desc(
     "Calculate the average ratios of a user's top100.\n\
     If the command was used before on the given osu name, \

@@ -307,7 +307,7 @@ impl CustomClient {
         let mods = match mods {
             Some(mods) if mods.contains(GameMods::DoubleTime) => Some(mods | GameMods::NightCore),
             Some(mods) if mods.contains(GameMods::NightCore) => {
-                Some(mods - GameMods::NightCore | GameMods::DoubleTime)
+                Some((mods - GameMods::NightCore) | GameMods::DoubleTime)
             }
             Some(_) | None => None,
         };

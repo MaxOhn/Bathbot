@@ -92,5 +92,5 @@ async fn send_message(
 ) -> BotResult<()> {
     let success = success.into_iter().collect();
     let embed = UntrackEmbed::new(success, name).build().build()?;
-    return msg.build_response(&ctx, |m| m.embed(embed)).await;
+    msg.build_response(&ctx, |m| m.embed(embed)).await
 }
