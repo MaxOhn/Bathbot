@@ -22,6 +22,13 @@ async fn osustats_main(
         Ok(args) => args.params,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
+    if let Some(true) = params
+        .country
+        .as_ref()
+        .map(|country| country.chars().count() != 2)
+    {
+        return msg.error(&ctx, "Invalid country acronym").await;
+    }
 
     // Retrieve leaderboard
     let (amount, players) = match prepare_players(&ctx, &mut params).await {
@@ -32,8 +39,8 @@ async fn osustats_main(
             return Err(why);
         }
     };
+    let country = params.country.as_deref().unwrap_or("Global");
     if players.is_empty() {
-        let country = params.country.as_deref().unwrap_or("Global");
         let content = format!(
             "No entries found for country `{}`.\n\
             Be sure to specify it with its acronym, e.g. `de` for germany.",
@@ -48,7 +55,7 @@ async fn osustats_main(
     let data = OsuStatsListEmbed::new(&players[&1], &params.country, first_place_id, (1, pages));
     let content = format!(
         "Country: `{country}` ~ `Rank: {rank_min} - {rank_max}`",
-        country = params.country.as_deref().unwrap_or("Global"),
+        country = country,
         rank_min = params.rank_min,
         rank_max = params.rank_max,
     );
