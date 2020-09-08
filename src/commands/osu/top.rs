@@ -5,7 +5,7 @@ use crate::{
     pagination::{Pagination, TopPagination},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        matcher, numbers,
+        numbers,
         osu::ModSelection,
         MessageExt,
     },
@@ -14,12 +14,11 @@ use crate::{
 
 use rosu::{
     backend::BestRequest,
-    models::{Beatmap, GameMode, Score},
+    models::{GameMode, Score},
 };
 use std::{cmp::Ordering, collections::HashMap, sync::Arc};
 use twilight::model::channel::Message;
 
-#[allow(clippy::cognitive_complexity)]
 async fn top_main(
     mode: GameMode,
     top_type: TopType,
@@ -126,7 +125,6 @@ async fn top_main(
 
     // Retrieving all missing beatmaps
     let mut scores_data = Vec::with_capacity(scores_indices.len());
-    let dont_filter_sotarks = top_type != TopType::Sotarks;
     let mut missing_maps = Vec::new();
     for (i, score) in scores_indices.into_iter() {
         let map_id = score.beatmap_id.unwrap();
@@ -144,9 +142,7 @@ async fn top_main(
                 }
             }
         };
-        if dont_filter_sotarks || is_sotarks_map(&map) {
-            scores_data.push((i, score, map));
-        }
+        scores_data.push((i, score, map));
     }
 
     // Accumulate all necessary data
@@ -157,31 +153,6 @@ async fn top_main(
             plural = if amount != 1 { "s" } else { "" }
         ),
         TopType::Recent => format!("Most recent scores in `{}`'s top 100:", name),
-        TopType::Sotarks => {
-            let amount = scores_data.len();
-            let mut content = format!(
-                "I found {amount} Sotarks map{plural} in `{name}`'s top100, ",
-                amount = amount,
-                plural = if amount != 1 { "s" } else { "" },
-                name = name
-            );
-            let to_push = match amount {
-                0 => "proud of you \\:)",
-                n if n <= 5 => "that's already too many...",
-                n if n <= 10 => "kinda sad \\:/",
-                n if n <= 15 => "pretty sad \\:(",
-                n if n <= 25 => "this is so sad \\:((",
-                n if n <= 30 => "bruuh stop \\:'((",
-                n if n <= 35 => "you have a serious problem...",
-                n if n >= 80 => "so close to ultimate disaster...",
-                n if n >= 90 => "i'm not even mad, that's just impressive",
-                50 => "that's half. HALF.",
-                100 => "you did it. \"Congrats\".",
-                _ => "how do you sleep at night...",
-            };
-            content.push_str(to_push);
-            content
-        }
     };
     let pages = numbers::div_euclid(5, scores_data.len());
     let data = match TopEmbed::new(&ctx, &user, scores_data.iter().take(5), mode, (1, pages)).await
@@ -189,7 +160,7 @@ async fn top_main(
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("error while creating embed: {}", why);
+            bail!("error while creating top embed: {}", why);
         }
     };
 
@@ -348,33 +319,16 @@ pub async fn recentbestctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotR
     top_main(GameMode::CTB, TopType::Recent, ctx, msg, args).await
 }
 
-#[command]
-#[short_desc("How many maps of a user's top100 are made by Sotarks?")]
-#[usage("[username]")]
-#[example("badewanne3")]
-pub async fn sotarks(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    top_main(GameMode::STD, TopType::Sotarks, ctx, msg, args).await
-}
-
 #[derive(Eq, PartialEq, Copy, Clone)]
 enum TopType {
     Top,
     Recent,
-    Sotarks,
 }
 
 pub enum TopSortBy {
     None,
     Acc,
     Combo,
-}
-
-fn is_sotarks_map(map: &Beatmap) -> bool {
-    let version = map.version.to_lowercase();
-    if version.contains("sotarks") {
-        return true;
-    }
-    map.creator.to_lowercase() == "sotarks" && !matcher::is_general_diff(&version)
 }
 
 fn filter_scores(

@@ -119,7 +119,7 @@ async fn osustats_main(
 }
 
 #[command]
-#[short_desc("All scores of a player that are on map's global leaderboard")]
+#[short_desc("All scores of a player that are on a map's global leaderboard")]
 #[long_desc(
     "Show all scores of a player that are on a map's global leaderboard.\n\
     Rank and accuracy range can be specified with `-r` and `-a`. \
@@ -143,7 +143,7 @@ pub async fn osustatsglobals(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
 }
 
 #[command]
-#[short_desc("All scores of a player that are on map's global leaderboard")]
+#[short_desc("All scores of a player that are on a map's global leaderboard")]
 #[long_desc(
     "Show all scores of a player that are on a mania map's global leaderboard.\n\
     Rank and accuracy range can be specified with `-r` and `-a`. \
@@ -167,7 +167,7 @@ pub async fn osustatsglobalsmania(ctx: Arc<Context>, msg: &Message, args: Args) 
 }
 
 #[command]
-#[short_desc("All scores of a player that are on map's global leaderboard")]
+#[short_desc("All scores of a player that are on a map's global leaderboard")]
 #[long_desc(
     "Show all scores of a player that are on a taiko map's global leaderboard.\n\
     Rank and accuracy range can be specified with `-r` and `-a`. \
@@ -191,7 +191,7 @@ pub async fn osustatsglobalstaiko(ctx: Arc<Context>, msg: &Message, args: Args) 
 }
 
 #[command]
-#[short_desc("All scores of a player that are on map's global leaderboard")]
+#[short_desc("All scores of a player that are on a map's global leaderboard")]
 #[long_desc(
     "Show all scores of a player that are on a ctb map's global leaderboard.\n\
     Rank and accuracy range can be specified with `-r` and `-a`. \

@@ -10,6 +10,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Add `<mapper` command~~ (20.09.08)
 - ~~Add command for `https://osustats.ppy.sh/r`~~ (20.09.07)
 - ~~Add pagination for `<scores`~~ (20.09.06)
 - ~~Make `<lb` include Mirror mod if it's not specified already~~ (20.09.05)

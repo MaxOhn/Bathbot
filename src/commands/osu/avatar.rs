@@ -10,7 +10,7 @@ use std::sync::Arc;
 use twilight::model::channel::Message;
 
 #[command]
-#[short_desc("Displaying someone's osu! profile picture")]
+#[short_desc("Display someone's osu! profile picture")]
 #[aliases("pfp")]
 #[usage("[username]")]
 #[example("Badewanne3")]

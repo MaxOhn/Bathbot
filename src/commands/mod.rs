@@ -51,6 +51,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &SIMULATERECENT_CMD,
                 &NOCHOKES_CMD,
                 &SOTARKS_CMD,
+                &MAPPER_CMD,
             ],
         ),
         CommandGroup::new(
@@ -70,6 +71,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &OSUSTATSCOUNTMANIA_CMD,
                 &OSUSTATSLISTMANIA_CMD,
                 &RATIOS_CMD,
+                &MAPPERMANIA_CMD,
             ],
         ),
         CommandGroup::new(
@@ -88,6 +90,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &OSUSTATSGLOBALSTAIKO_CMD,
                 &OSUSTATSCOUNTTAIKO_CMD,
                 &OSUSTATSLISTTAIKO_CMD,
+                &MAPPERTAIKO_CMD,
             ],
         ),
         CommandGroup::new(
@@ -106,6 +109,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &OSUSTATSGLOBALSCTB_CMD,
                 &OSUSTATSCOUNTCTB_CMD,
                 &OSUSTATSLISTCTB_CMD,
+                &MAPPERCTB_CMD,
             ],
         ),
         CommandGroup::new(

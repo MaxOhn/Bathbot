@@ -106,7 +106,7 @@ pub fn is_hit_results(msg: &str) -> bool {
     HIT_RESULTS_MATCHER.is_match(msg)
 }
 
-pub fn is_general_diff(msg: &str) -> bool {
+pub fn is_guest_diff(msg: &str) -> bool {
     OSU_DIFF_MATCHER.is_match(msg)
 }
 
@@ -151,7 +151,8 @@ lazy_static! {
 
 lazy_static! {
     static ref OSU_DIFF_MATCHER: Regex =
-        Regex::new(".*'s? (easy|normal|hard|insane|expert|extra|extreme)").unwrap();
+        Regex::new(".*'s? (easy|normal|hard|insane|expert|extra|extreme|emotions|repetition)")
+            .unwrap();
 }
 
 lazy_static! {

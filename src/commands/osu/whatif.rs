@@ -63,7 +63,7 @@ async fn whatif_main(
 }
 
 #[command]
-#[short_desc("How would a player's pp change if they got a _ pp score?")]
+#[short_desc("Display the impact of a new X pp score for a user")]
 #[long_desc(
     "Calculate the gain in pp if the user were \
      to get a score with the given pp value"
@@ -76,7 +76,7 @@ pub async fn whatif(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 }
 
 #[command]
-#[short_desc("How would a player's pp change if they got a _ pp score?")]
+#[short_desc("Display the impact of a new X pp score for a mania user")]
 #[long_desc(
     "Calculate the gain in pp if the mania user were \
      to get a score with the given pp value"
@@ -89,7 +89,7 @@ pub async fn whatifmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 }
 
 #[command]
-#[short_desc("How would a player's pp change if they got a _ pp score?")]
+#[short_desc("Display the impact of a new X pp score for a taiko user")]
 #[long_desc(
     "Calculate the gain in pp if the taiko user were \
      to get a score with the given pp value"
@@ -102,7 +102,7 @@ pub async fn whatiftaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 }
 
 #[command]
-#[short_desc("How would a player's pp change if they got a _ pp score?")]
+#[short_desc("Display the impact of a new X pp score for a ctb user")]
 #[long_desc(
     "Calculate the gain in pp if the ctb user were \
      to get a score with the given pp value"

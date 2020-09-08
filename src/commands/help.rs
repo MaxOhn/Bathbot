@@ -93,7 +93,7 @@ pub async fn help(
         size < DESCRIPTION_SIZE,
         "description size {} > {}",
         size,
-        DESCRIPTION_SIZE
+        DESCRIPTION_SIZE,
     );
     let mut eb = EmbedBuilder::new()
         .color(DARK_GREEN)
@@ -121,16 +121,18 @@ pub async fn help(
         }
         debug_assert!(
             value.chars().count() < FIELD_VALUE_SIZE,
-            "field value size {} > {}",
+            "field value size {} > {} [{}]",
             value.chars().count(),
-            FIELD_VALUE_SIZE
+            FIELD_VALUE_SIZE,
+            group.name,
         );
         let size_addition = group.name.len() + value.len();
         debug_assert!(
             size_addition < EMBED_SIZE,
-            "embed size {} > {}",
+            "embed size {} > {} [{}]",
             size_addition,
-            EMBED_SIZE
+            EMBED_SIZE,
+            group.name
         );
         eb = if size + size_addition > EMBED_SIZE {
             if let Err(why) = send_help_chunk(ctx, channel.id, owner, eb.build()?).await {
