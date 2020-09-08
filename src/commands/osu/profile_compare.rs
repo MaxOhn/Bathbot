@@ -6,6 +6,12 @@ use crate::{
     BotResult, Context,
 };
 
+use image::{
+    imageops::{overlay, FilterType},
+    DynamicImage, ImageBuffer,
+    ImageOutputFormat::Png,
+    Rgba,
+};
 use itertools::Itertools;
 use rosu::{
     backend::BeatmapRequest,
@@ -157,14 +163,29 @@ async fn compare_main(
     let profile_result1 = CompareResult::calc(mode, &scores1, &maps);
     let profile_result2 = CompareResult::calc(mode, &scores2, &maps);
 
-    // Accumulate all necessary data
-    let data = ProfileCompareEmbed::new(user1, user2, profile_result1, profile_result2);
+    if let Some(msg) = retrieving_msg {
+        let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;
+    }
 
-    // TODO: Combine thumbnails
+    // Create the thumbnail
+    let thumbnail = match get_combined_thumbnail(&ctx, user1.user_id, user2.user_id).await {
+        Ok(thumbnail) => Some(thumbnail),
+        Err(why) => {
+            warn!("Error while combining avatars: {}", why);
+            None
+        }
+    };
+
+    // Accumulate all necessary data
+    let data = ProfileCompareEmbed::new(mode, user1, user2, profile_result1, profile_result2);
 
     // Creating the embed
     let embed = data.build().build()?;
-    msg.build_response(&ctx, |m| m.embed(embed)).await?;
+    msg.build_response(&ctx, |m| match thumbnail {
+        Some(bytes) => m.attachment("avatar_fuse.png", bytes).embed(embed),
+        None => m.embed(embed),
+    })
+    .await?;
     Ok(())
 }
 
@@ -206,20 +227,17 @@ pub async fn ctbcompare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
 pub struct CompareResult {
     pub mode: GameMode,
     pub pp: MinMaxAvgF32,
-    pub max_combo: u32,
     pub map_len: MinMaxAvgU32,
 }
 
 impl CompareResult {
     fn calc(mode: GameMode, scores: &[Score], maps: &HashMap<u32, Beatmap>) -> Self {
         let mut pp = MinMaxAvgF32::new();
-        let mut max_combo = 0;
         let mut map_len = MinMaxAvgF32::new();
         for score in scores.iter() {
             if let Some(score_pp) = score.pp {
                 pp.add(score_pp);
             }
-            max_combo = max_combo.max(score.max_combo);
             let map = maps.get(&score.beatmap_id.unwrap()).unwrap();
             let seconds_drain = if score.enabled_mods.contains(GameMods::DoubleTime) {
                 map.seconds_drain as f32 / 1.5
@@ -233,8 +251,22 @@ impl CompareResult {
         Self {
             mode,
             pp,
-            max_combo,
             map_len: map_len.into(),
         }
     }
+}
+
+async fn get_combined_thumbnail(ctx: &Context, user_id1: u32, user_id2: u32) -> BotResult<Vec<u8>> {
+    let mut img = DynamicImage::ImageRgba8(ImageBuffer::from_pixel(720, 128, Rgba([0, 0, 0, 0])));
+    let (pfp1, pfp2) = tokio::try_join!(
+        ctx.clients.custom.get_avatar(user_id1),
+        ctx.clients.custom.get_avatar(user_id2),
+    )?;
+    let pfp1 = image::load_from_memory(&pfp1)?.resize_exact(128, 128, FilterType::Lanczos3);
+    let pfp2 = image::load_from_memory(&pfp2)?.resize_exact(128, 128, FilterType::Lanczos3);
+    overlay(&mut img, &pfp1, 10, 0);
+    overlay(&mut img, &pfp2, 582, 0);
+    let mut png_bytes: Vec<u8> = Vec::with_capacity(92_160); // 720x128
+    img.write_to(&mut png_bytes, Png)?;
+    Ok(png_bytes)
 }
