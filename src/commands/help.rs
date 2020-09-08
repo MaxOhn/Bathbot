@@ -1,5 +1,5 @@
 use crate::{
-    core::{Command, CommandGroups},
+    core::{Command, CommandGroup, CommandGroups},
     util::{
         constants::{
             BATHBOT_WORKSHOP, DARK_GREEN, DESCRIPTION_SIZE, EMBED_SIZE, FIELD_VALUE_SIZE,
@@ -77,7 +77,7 @@ pub async fn help(
         Ok(channel) => channel,
         Err(why) => {
             let content = "Your DMs seem blocked :(\n\
-               Did you disable messages from other guild members?";
+               Did you disable messages from other server members?";
             debug!("Error while creating DM channel: {}", why);
             return msg.error(&ctx, content).await;
         }
@@ -104,52 +104,39 @@ pub async fn help(
         .iter()
         .filter(|g| owner.0 == OWNER_USER_ID || g.name != "owner");
     for group in groups {
-        let len: usize = group
-            .commands
-            .iter()
-            .map(|&c| c.names[0].len() + 5 + c.short_desc.len())
-            .sum();
-        let mut value = String::with_capacity(len);
-        // No owner check so be sure owner commands are in the owner group
-        for &cmd in &group.commands {
-            if cmd.authority && !is_authority {
-                write!(value, "~~`{}`~~", cmd.names[0])?;
+        for (name, value) in create_group_fields(group, is_authority) {
+            let size_addition = name.chars().count() + value.chars().count();
+            debug_assert!(
+                size_addition < EMBED_SIZE,
+                "embed size {} > {} [{}]",
+                size_addition,
+                EMBED_SIZE,
+                group.name
+            );
+            eb = if size + size_addition > EMBED_SIZE {
+                if let Err(why) = send_help_chunk(ctx, channel.id, owner, eb.build()?).await {
+                    warn!("Error while sending help chunk: {}", why);
+                    let content = "Could not DM you, have you disabled it?";
+                    return msg.error(ctx, content).await;
+                }
+                size = size_addition;
+                EmbedBuilder::new()
+                    .color(DARK_GREEN)
+                    .unwrap()
+                    .field(EmbedField {
+                        name,
+                        value,
+                        inline: false,
+                    })
             } else {
-                write!(value, "`{}`", cmd.names[0])?;
-            }
-            writeln!(value, ": {}", cmd.short_desc)?;
+                size += size_addition;
+                eb.field(EmbedField {
+                    name,
+                    value,
+                    inline: false,
+                })
+            };
         }
-        debug_assert!(
-            value.chars().count() < FIELD_VALUE_SIZE,
-            "field value size {} > {} [{}]",
-            value.chars().count(),
-            FIELD_VALUE_SIZE,
-            group.name,
-        );
-        let size_addition = group.name.len() + value.len();
-        debug_assert!(
-            size_addition < EMBED_SIZE,
-            "embed size {} > {} [{}]",
-            size_addition,
-            EMBED_SIZE,
-            group.name
-        );
-        eb = if size + size_addition > EMBED_SIZE {
-            if let Err(why) = send_help_chunk(ctx, channel.id, owner, eb.build()?).await {
-                warn!("Error while sending help chunk: {}", why);
-                let content = "Could not DM you, have you disabled it?";
-                return msg.error(ctx, content).await;
-            }
-            size = 0;
-            EmbedBuilder::new().color(DARK_GREEN).unwrap()
-        } else {
-            size += size_addition;
-            eb.field(EmbedField {
-                name: group.name.clone(),
-                value,
-                inline: false,
-            })
-        };
     }
     let embed = eb.build()?;
     if !embed.fields.is_empty() {
@@ -160,6 +147,47 @@ pub async fn help(
         }
     }
     Ok(())
+}
+
+fn create_group_fields(group: &CommandGroup, is_authority: bool) -> Vec<(String, String)> {
+    let mut fields = Vec::with_capacity(1);
+    let len = group
+        .commands
+        .iter()
+        .map(|&c| c.names[0].len() + 5 + c.short_desc.len())
+        .sum::<usize>()
+        .min(FIELD_VALUE_SIZE);
+    let mut value = String::with_capacity(len);
+    // No owner check so be sure owner commands are in the owner group
+    for &cmd in &group.commands {
+        let next_line = format!(
+            "{strikethrough}`{}`{strikethrough}: {}",
+            cmd.names[0],
+            cmd.short_desc,
+            strikethrough = if cmd.authority && !is_authority {
+                "~~"
+            } else {
+                ""
+            }
+        );
+        if value.chars().count() + next_line.chars().count() > FIELD_VALUE_SIZE {
+            if fields.is_empty() {
+                fields.push((group.name.to_owned(), value));
+            } else {
+                let name = format!("More {}", group.name);
+                fields.push((name, value));
+            }
+            value = String::with_capacity(128);
+        }
+        let _ = writeln!(value, "{}", next_line);
+    }
+    if fields.is_empty() {
+        fields.push((group.name.to_owned(), value));
+    } else {
+        let name = format!("More {}", group.name);
+        fields.push((name, value));
+    }
+    fields
 }
 
 async fn send_help_chunk(

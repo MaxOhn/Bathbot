@@ -1,3 +1,4 @@
+use super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, ProfileEmbed},
@@ -14,12 +15,10 @@ use rosu::{
 use std::{
     cmp::{Ordering::Equal, PartialOrd},
     collections::{BTreeMap, HashMap},
-    ops::{AddAssign, Div},
     sync::Arc,
 };
 use twilight::model::channel::Message;
 
-#[allow(clippy::cognitive_complexity)]
 async fn profile_main(
     mode: GameMode,
     ctx: Arc<Context>,
@@ -296,125 +295,5 @@ impl ProfileResult {
             mod_combs_pp,
             mods_count,
         }
-    }
-}
-
-pub trait MinMaxAvgBasic {
-    type Value: PartialOrd + AddAssign + Inc + Div<Output = Self::Value> + Copy;
-
-    // Implement these
-    fn new() -> Self;
-
-    fn get(&self) -> (Self::Value, Self::Value, Self::Value, Self::Value);
-
-    fn get_mut(
-        &mut self,
-    ) -> (
-        &mut Self::Value,
-        &mut Self::Value,
-        &mut Self::Value,
-        &mut Self::Value,
-    );
-
-    // Don't implement these
-    fn add(&mut self, value: Self::Value) {
-        let (min, max, sum, len) = self.get_mut();
-        if *min > value {
-            *min = value;
-        }
-        if *max < value {
-            *max = value;
-        }
-        *sum += value;
-        len.inc();
-    }
-    fn min(&self) -> Self::Value {
-        let (min, _, _, _) = self.get();
-        min
-    }
-    fn max(&self) -> Self::Value {
-        let (_, max, _, _) = self.get();
-        max
-    }
-    fn avg(&self) -> Self::Value {
-        let (_, _, sum, len) = self.get();
-        sum / len
-    }
-}
-
-pub struct MinMaxAvgU32 {
-    min: u32,
-    max: u32,
-    sum: u32,
-    len: u32,
-}
-
-impl MinMaxAvgBasic for MinMaxAvgU32 {
-    type Value = u32;
-    fn new() -> Self {
-        Self {
-            min: u32::MAX,
-            max: 0,
-            sum: 0,
-            len: 0,
-        }
-    }
-    fn get(&self) -> (u32, u32, u32, u32) {
-        (self.min, self.max, self.sum, self.len)
-    }
-    fn get_mut(&mut self) -> (&mut u32, &mut u32, &mut u32, &mut u32) {
-        (&mut self.min, &mut self.max, &mut self.sum, &mut self.len)
-    }
-}
-
-impl From<MinMaxAvgF32> for MinMaxAvgU32 {
-    fn from(val: MinMaxAvgF32) -> Self {
-        Self {
-            min: val.min as u32,
-            max: val.max as u32,
-            sum: val.sum as u32,
-            len: val.len as u32,
-        }
-    }
-}
-
-pub struct MinMaxAvgF32 {
-    min: f32,
-    max: f32,
-    sum: f32,
-    len: f32,
-}
-
-impl MinMaxAvgBasic for MinMaxAvgF32 {
-    type Value = f32;
-    fn new() -> Self {
-        Self {
-            min: f32::MAX,
-            max: 0.0,
-            sum: 0.0,
-            len: 0.0,
-        }
-    }
-    fn get(&self) -> (f32, f32, f32, f32) {
-        (self.min, self.max, self.sum, self.len)
-    }
-    fn get_mut(&mut self) -> (&mut f32, &mut f32, &mut f32, &mut f32) {
-        (&mut self.min, &mut self.max, &mut self.sum, &mut self.len)
-    }
-}
-
-pub trait Inc {
-    fn inc(&mut self);
-}
-
-impl Inc for f32 {
-    fn inc(&mut self) {
-        *self += 1.0;
-    }
-}
-
-impl Inc for u32 {
-    fn inc(&mut self) {
-        *self += 1;
     }
 }
