@@ -248,7 +248,6 @@ async fn mapper_main(
 )]
 #[usage("[username] [mapper]")]
 #[example("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
-#[aliases("topscores", "osutop")]
 pub async fn mapper(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     mapper_main(GameMode::STD, ctx, msg, None, args).await
 }
