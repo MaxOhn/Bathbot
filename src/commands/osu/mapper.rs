@@ -1,5 +1,5 @@
 use crate::{
-    arguments::Args,
+    arguments::{try_link_name, Args},
     bail,
     embeds::{EmbedData, TopEmbed},
     pagination::{Pagination, TopPagination},
@@ -20,14 +20,15 @@ async fn mapper_main(
     ctx: Arc<Context>,
     msg: &Message,
     mut mapper: Option<String>,
-    mut args: Args<'_>,
+    args: Args<'_>,
 ) -> BotResult<()> {
     // Parse arguments
+    let mut args = args.map(|arg| try_link_name(&ctx, Some(arg)).unwrap());
     let first;
     let user;
     if mapper.is_none() {
         match args.next() {
-            Some(arg) => first = Some(arg.to_lowercase()),
+            Some(arg) => first = arg,
             None => {
                 let content = "You need to specify at least one osu username for the mapper. \
                 If you're not linked, you must specify at least two names.";
@@ -41,8 +42,8 @@ async fn mapper_main(
             }
             None => match ctx.get_link(msg.author.id.0) {
                 Some(name) => {
-                    mapper = first;
-                    user = Some(name);
+                    mapper = Some(first.to_lowercase());
+                    user = name;
                 }
                 None => {
                     let prefix = ctx.config_first_prefix(msg.guild_id);
@@ -57,29 +58,28 @@ async fn mapper_main(
         }
     } else {
         match args.next() {
-            Some(arg) => user = Some(arg.to_lowercase()),
+            Some(arg) => user = arg.to_lowercase(),
             None => match ctx.get_link(msg.author.id.0) {
-                Some(name) => user = Some(name),
+                Some(name) => user = name,
                 None => return super::require_link(&ctx, msg).await,
             },
         }
     }
-    let name = user.unwrap();
     let mapper = mapper.unwrap();
 
     // Retrieve the user and their top scores
-    let scores_fut = match BestRequest::with_username(&name) {
+    let scores_fut = match BestRequest::with_username(&user) {
         Ok(req) => req.mode(mode).limit(100).queue(ctx.osu()),
         Err(_) => {
-            let content = format!("Could not build request for osu name `{}`", name);
+            let content = format!("Could not build request for osu name `{}`", user);
             return msg.error(&ctx, content).await;
         }
     };
-    let join_result = tokio::try_join!(ctx.osu_user(&name, mode), scores_fut);
+    let join_result = tokio::try_join!(ctx.osu_user(&user, mode), scores_fut);
     let (user, scores) = match join_result {
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
-            let content = format!("User `{}` was not found", name);
+            let content = format!("User `{}` was not found", user);
             return msg.error(&ctx, content).await;
         }
         Err(why) => {
@@ -158,7 +158,7 @@ async fn mapper_main(
                 "I found {amount} Sotarks map{plural} in `{name}`'s top100, ",
                 amount = amount,
                 plural = if amount != 1 { "s" } else { "" },
-                name = name
+                name = user.username
             );
             let to_push = match amount {
                 0 => "proud of you \\:)",

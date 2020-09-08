@@ -7,9 +7,9 @@ use std::{cmp::Ordering, fmt::Write, sync::Arc};
 use twilight::model::channel::Message;
 
 #[command]
-#[short_desc("Change my prefixes for a guild")]
+#[short_desc("Change my prefixes for a server")]
 #[long_desc(
-    "Change my prefixes for a guild.\n\
+    "Change my prefixes for a server.\n\
     To check the current prefixes for this server, \
     don't pass any arguments.\n\
     Otherwise, the first argument must be either `add` or `remove`.\n\

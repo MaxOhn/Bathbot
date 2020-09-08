@@ -175,7 +175,7 @@ fn keywords(args: &mut Vec<String>, keys: &[&str]) -> bool {
     false
 }
 
-fn try_link_name(ctx: &Context, msg: Option<&str>) -> Option<String> {
+pub fn try_link_name(ctx: &Context, msg: Option<&str>) -> Option<String> {
     msg.and_then(|arg| {
         matcher::get_mention_user(arg)
             .and_then(|id| ctx.get_link(id))
