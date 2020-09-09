@@ -1,4 +1,5 @@
 mod avatar;
+mod bws;
 mod common;
 mod country_snipe_list;
 mod country_snipe_stats;
@@ -28,6 +29,7 @@ mod top;
 mod whatif;
 
 pub use avatar::*;
+pub use bws::*;
 pub use common::*;
 pub use country_snipe_list::*;
 pub use country_snipe_stats::*;

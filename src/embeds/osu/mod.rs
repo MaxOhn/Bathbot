@@ -1,3 +1,4 @@
+mod bws;
 mod common;
 mod country_snipe_list;
 mod country_snipe_stats;
@@ -22,6 +23,7 @@ mod simulate;
 mod top;
 mod whatif;
 
+pub use bws::BWSEmbed;
 pub use common::CommonEmbed;
 pub use country_snipe_list::*;
 pub use country_snipe_stats::*;

@@ -18,7 +18,7 @@ use twilight::model::channel::Message;
 #[command]
 #[short_desc("Each mod's top score from a player on a map")]
 #[long_desc(
-    "Display a user's top score for each mod on a given map. \
+    "Display a user's top score for each mod on a given map. \n\
      If no map is given, I will choose the last map \
      I can find in my embeds of this channel"
 )]
