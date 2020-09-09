@@ -1,10 +1,12 @@
 mod deserialize;
 mod most_played;
+mod osu_profile;
 mod osu_stats;
 mod score;
 mod snipe;
 
 pub use most_played::MostPlayedMap;
+pub use osu_profile::*;
 pub use osu_stats::*;
 use score::ScraperScores;
 pub use score::{ScraperBeatmap, ScraperScore};
@@ -71,10 +73,11 @@ impl CustomClient {
         self.ratelimiter.until_key_ready(&site).await
     }
 
-    async fn make_request(&self, url: String, site: Site) -> BotResult<Response> {
+    async fn make_request(&self, url: impl AsRef<str>, site: Site) -> BotResult<Response> {
+        let url = url.as_ref();
         debug!("Requesting url {}", url);
         self.ratelimit(site).await;
-        let response = self.client.get(&url).send().await?;
+        let response = self.client.get(url).send().await?;
         Ok(response.error_for_status()?)
     }
 
@@ -361,6 +364,43 @@ impl CustomClient {
         Ok(response.bytes().await?.to_vec())
     }
 
+    pub async fn get_osu_profile(
+        &self,
+        user_id: u32,
+        mode: GameMode,
+        with_all_achievements: bool,
+    ) -> BotResult<(OsuProfile, OsuAchievements)> {
+        let url = format!(
+            "{base}users/{user_id}/{mode}",
+            base = OSU_BASE,
+            user_id = user_id,
+            mode = get_mode_str(mode)
+        );
+        let body = self
+            .make_request(url, Site::OsuWebsite)
+            .await?
+            .text()
+            .await?;
+        let html = Html::parse_document(&body);
+        let user_element = Selector::parse("#json-user").unwrap();
+        let json = match html.select(&user_element).next() {
+            Some(element) => element.first_child().unwrap().value().as_text().unwrap(),
+            None => return Err(CustomClientError::MissingElement("#json-user").into()),
+        };
+        let user: OsuProfile = serde_json::from_str(json.trim())?;
+        let achievements = if with_all_achievements {
+            let achievement_element = Selector::parse("#json-achievements").unwrap();
+            let json = match html.select(&achievement_element).next() {
+                Some(element) => element.first_child().unwrap().value().as_text().unwrap(),
+                None => return Err(CustomClientError::MissingElement("#json-achievements").into()),
+            };
+            serde_json::from_str::<Vec<OsuAchievement>>(json.trim())?.into()
+        } else {
+            OsuAchievements::default()
+        };
+        Ok((user, achievements))
+    }
+
     pub async fn get_userid_of_rank(
         &self,
         rank: usize,
@@ -370,11 +410,10 @@ impl CustomClient {
         if rank < 1 || 10_000 < rank {
             return Err(CustomClientError::RankIndex(rank).into());
         }
-        let mode = get_mode_str(mode);
         let mut url = format!(
             "{base}rankings/{mode}/performance?",
             base = OSU_BASE,
-            mode = mode,
+            mode = get_mode_str(mode),
         );
         if let Some(country) = country_acronym {
             let _ = write!(url, "country={}&", country);
@@ -394,12 +433,12 @@ impl CustomClient {
         let ranking_page_table = html
             .select(&ranking_page_table)
             .next()
-            .ok_or_else(|| CustomClientError::RankingPageTable)?;
+            .ok_or_else(|| CustomClientError::MissingElement(".ranking-page-table"))?;
         let tbody = Selector::parse("tbody").unwrap();
         let tbody = ranking_page_table
             .select(&tbody)
             .next()
-            .ok_or_else(|| CustomClientError::TBody)?;
+            .ok_or_else(|| CustomClientError::MissingElement("tbody"))?;
         let child = tbody
             .children()
             .enumerate()
@@ -422,15 +461,15 @@ impl CustomClient {
                 if let Some(id) = e.attr("data-user-id") {
                     Ok(id.parse::<u32>().unwrap())
                 } else {
-                    Err(CustomClientError::DataUserId.into())
+                    Err(CustomClientError::MissingElement("attribute data-user-id").into())
                 }
             }
-            _ => Err(CustomClientError::DataUserId.into()),
+            _ => Err(CustomClientError::MissingElement("attribute data-user-id").into()),
         }
     }
 }
 
-fn get_mode_str<'s>(mode: GameMode) -> &'s str {
+fn get_mode_str(mode: GameMode) -> &'static str {
     match mode {
         GameMode::STD => "osu",
         GameMode::MNA => "mania",

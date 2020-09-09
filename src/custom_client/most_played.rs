@@ -30,7 +30,7 @@ impl PartialEq for MostPlayedMap {
 impl Eq for MostPlayedMap {}
 
 impl<'de> Deserialize<'de> for MostPlayedMap {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
         struct Outer {
             beatmap_id: u32,
@@ -53,7 +53,7 @@ impl<'de> Deserialize<'de> for MostPlayedMap {
             artist: String,
         }
 
-        let helper = Outer::deserialize(deserializer)?;
+        let helper = Outer::deserialize(d)?;
         Ok(MostPlayedMap {
             beatmap_id: helper.beatmap_id,
             count: helper.count,
