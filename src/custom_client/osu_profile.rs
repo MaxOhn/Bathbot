@@ -20,10 +20,10 @@ pub struct OsuProfile {
     pub username: String,
     pub cover_url: String,
     pub has_supported: bool,
-    pub interests: Option<String>,
     #[serde(deserialize_with = "str_to_datetime")]
     pub join_date: DateTime<Utc>,
     pub kudosu: OsuProfileKudosu,
+    pub interests: Option<String>,
     pub location: Option<String>,
     pub occupation: Option<String>,
     #[serde(rename = "playmode", deserialize_with = "adjust_mode")]
@@ -117,7 +117,7 @@ impl From<(Date<Utc>, u32)> for DateCount {
 #[derive(Debug, Deserialize)]
 pub struct OsuProfileKudosu {
     pub total: u32,
-    pub available: u32,
+    pub available: i32,
 }
 
 #[derive(Debug)]

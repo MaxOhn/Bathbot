@@ -12,8 +12,8 @@ use crate::{
 };
 
 use chrono::{Date, Datelike, Utc};
-use futures::future::TryFutureExt;
-use image::{png::PngEncoder, ColorType};
+use futures::future::{try_join_all, TryFutureExt};
+use image::{imageops::FilterType::Lanczos3, load_from_memory, png::PngEncoder, ColorType};
 use plotters::prelude::*;
 use rayon::prelude::*;
 use rosu::{
@@ -140,7 +140,7 @@ async fn profile_main(
     } else {
         Some(ProfileResult::calc(mode, score_maps))
     };
-    let graph = match graphs(profile) {
+    let graph = match graphs(&profile).await {
         Ok(graph_option) => graph_option,
         Err(why) => {
             warn!("Error while creating profile graph: {}", why);
@@ -149,7 +149,7 @@ async fn profile_main(
     };
 
     // Accumulate all necessary data
-    let data = ProfileEmbed::new(user, profile_result, globals_count);
+    let data = ProfileEmbed::new(user, profile_result, globals_count, profile);
 
     if let Some(msg) = retrieving_msg {
         let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;
@@ -331,15 +331,73 @@ impl ProfileResult {
     }
 }
 
-const W: u32 = 1920;
-const H: u32 = 400;
+const W: u32 = 1350;
+const H: u32 = 350;
 
-fn graphs(profile: OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error>> {
+async fn graphs(profile: &OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error>> {
     static LEN: usize = W as usize * H as usize;
     let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
     {
+        // Request all badge images
+        let badges = match profile.badges.is_empty() {
+            true => Vec::new(),
+            false => {
+                let badge_futs = profile.badges.iter().map(|badge| {
+                    reqwest::get(&badge.image_url).and_then(|response| response.bytes())
+                });
+                try_join_all(badge_futs).await?
+            }
+        };
+
+        // Setup total canvas
         let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
         root.fill(&WHITE)?;
+
+        // Draw badges if there are any
+        let canvas = if badges.is_empty() {
+            root
+        } else {
+            let max_badges_per_row = 10;
+            let margin = 5;
+            let inner_margin = 3;
+            let badge_count = badges.len() as u32;
+            let badge_rows = ((badge_count - 1) / max_badges_per_row) + 1;
+            let badge_total_height = (badge_rows * 60).min(H / 2);
+            let badge_height = badge_total_height / badge_rows;
+            let (top, bottom) = root.split_vertically(badge_total_height);
+            let mut rows = Vec::with_capacity(badge_rows as usize);
+            let mut last = top;
+            for _ in 0..badge_rows {
+                let (curr, remain) = last.split_vertically(badge_height);
+                rows.push(curr);
+                last = remain;
+            }
+            let badge_width =
+                (W - 2 * margin - (max_badges_per_row - 1) * inner_margin) / max_badges_per_row;
+            // Draw each row of badges
+            for (row, chunk) in badges.chunks(max_badges_per_row as usize).enumerate() {
+                let x_offset = (max_badges_per_row - chunk.len() as u32) * badge_width / 2;
+                let mut chart_row = ChartBuilder::on(&rows[row])
+                    .margin(margin)
+                    .build_cartesian_2d(0..W, 0..badge_height)?;
+                chart_row
+                    .configure_mesh()
+                    .disable_x_axis()
+                    .disable_y_axis()
+                    .disable_x_mesh()
+                    .disable_y_mesh()
+                    .draw()?;
+                for (idx, badge) in chunk.into_iter().enumerate() {
+                    let badge_img =
+                        load_from_memory(badge)?.resize_exact(badge_width, badge_height, Lanczos3);
+                    let x = x_offset + idx as u32 * badge_width + idx as u32 * inner_margin;
+                    let y = badge_height;
+                    let elem: BitMapElement<_> = ((x, y), badge_img).into();
+                    chart_row.draw_series(std::iter::once(elem))?;
+                }
+            }
+            bottom
+        };
 
         let mut monthly_playcount = profile.monthly_playcounts.clone();
         let mut replays = profile.replays_watched_counts.clone();
@@ -382,7 +440,7 @@ fn graphs(profile: OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::error::Er
             .max()
             .unwrap();
 
-        let mut chart = ChartBuilder::on(&root)
+        let mut chart = ChartBuilder::on(&canvas)
             .margin(9)
             .x_label_area_size(20)
             .y_label_area_size(75)
@@ -393,8 +451,9 @@ fn graphs(profile: OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::error::Er
         // Mesh and labels
         chart
             .configure_mesh()
-            .bold_line_style(&BLACK.mix(0.0))
-            .disable_y_mesh()
+            .light_line_style(&BLACK.mix(0.0))
+            // .disable_y_mesh()
+            .disable_x_mesh()
             .x_labels(10)
             .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month()))
             .y_desc("Monthly playcount")
@@ -406,16 +465,20 @@ fn graphs(profile: OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::error::Er
             .label_style(("sans-serif", 20))
             .draw()?;
 
-        // Draw playcount line
+        // Draw playcount area
         chart
-            .draw_series(LineSeries::new(
-                monthly_playcount
-                    .iter()
-                    .map(|DateCount { start_date, count }| (*start_date, *count)),
-                &BLUE,
-            ))?
+            .draw_series(
+                AreaSeries::new(
+                    monthly_playcount
+                        .iter()
+                        .map(|DateCount { start_date, count }| (*start_date, *count)),
+                    0,
+                    &BLUE.mix(0.2),
+                )
+                .border_style(&BLUE),
+            )?
             .label("Monthly playcount")
-            .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));
+            .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], BLUE.stroke_width(2)));
 
         // Draw circles
         chart.draw_series(
@@ -426,15 +489,20 @@ fn graphs(profile: OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::error::Er
                 }),
         )?;
 
+        // Draw replay watched area
         chart
-            .draw_secondary_series(LineSeries::new(
-                replays
-                    .iter()
-                    .map(|DateCount { start_date, count }| (*start_date, *count)),
-                &RED,
-            ))?
+            .draw_secondary_series(
+                AreaSeries::new(
+                    replays
+                        .iter()
+                        .map(|DateCount { start_date, count }| (*start_date, *count)),
+                    0,
+                    &RED.mix(0.2),
+                )
+                .border_style(&RED),
+            )?
             .label("Replays watched")
-            .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
+            .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], RED.stroke_width(2)));
 
         // Draw circles
         chart.draw_secondary_series(replays.iter().map(|DateCount { start_date, count }| {
@@ -460,12 +528,6 @@ fn graphs(profile: OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::error::Er
 fn spoof_date_count(vec: &mut Vec<DateCount>, prefix: Vec<Date<Utc>>) {
     vec.reserve_exact(prefix.len());
     for date in prefix.into_iter().rev() {
-        vec.insert(
-            0,
-            DateCount {
-                start_date: date,
-                count: 0,
-            },
-        );
+        vec.insert(0, (date, 0).into());
     }
 }
