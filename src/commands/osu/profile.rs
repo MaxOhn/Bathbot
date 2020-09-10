@@ -1,13 +1,20 @@
 use super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
 use crate::{
     arguments::{Args, NameArgs},
+    custom_client::{DateCount, OsuProfile},
     embeds::{EmbedData, ProfileEmbed},
     tracking::process_tracking,
-    util::{constants::OSU_API_ISSUE, MessageExt},
+    util::{
+        constants::{OSU_API_ISSUE, OSU_WEB_ISSUE},
+        MessageExt,
+    },
     BotResult, Context, Error,
 };
 
+use chrono::{Date, Datelike, Utc};
 use futures::future::TryFutureExt;
+use image::{png::PngEncoder, ColorType};
+use plotters::prelude::*;
 use rayon::prelude::*;
 use rosu::{
     backend::BestRequest,
@@ -55,11 +62,24 @@ async fn profile_main(
             return Err(why);
         }
     };
-    let globals_count = match super::get_globals_count(&ctx, &user.username, mode).await {
+    let (globals_result, profile_result) = tokio::join!(
+        super::get_globals_count(&ctx, &user.username, mode),
+        ctx.clients
+            .custom
+            .get_osu_profile(user.user_id, mode, false)
+    );
+    let globals_count = match globals_result {
         Ok(globals_count) => globals_count,
         Err(why) => {
             error!("Error while requesting globals count: {}", why);
             BTreeMap::new()
+        }
+    };
+    let profile = match profile_result {
+        Ok((profile, _)) => profile,
+        Err(why) => {
+            let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
+            return Err(why);
         }
     };
 
@@ -120,6 +140,13 @@ async fn profile_main(
     } else {
         Some(ProfileResult::calc(mode, score_maps))
     };
+    let graph = match graphs(profile) {
+        Ok(graph_option) => graph_option,
+        Err(why) => {
+            warn!("Error while creating profile graph: {}", why);
+            None
+        }
+    };
 
     // Accumulate all necessary data
     let data = ProfileEmbed::new(user, profile_result, globals_count);
@@ -130,11 +157,13 @@ async fn profile_main(
 
     // Send the embed
     let embed = data.build().build()?;
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .embed(embed)?
-        .await?;
+    let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
+    let response = if let Some(graph) = graph {
+        m.attachment("profile_graph.png", graph).await?
+    } else {
+        m.await?
+    };
+    response.reaction_delete(&ctx, msg.author.id);
 
     // Add missing maps to database
     if let Some(maps) = missing_maps {
@@ -144,7 +173,6 @@ async fn profile_main(
             Err(why) => warn!("Error while adding maps to DB: {}", why),
         }
     }
-    response.reaction_delete(&ctx, msg.author.id);
     Ok(())
 }
 
@@ -300,5 +328,144 @@ impl ProfileResult {
             mod_combs_pp,
             mods_count,
         }
+    }
+}
+
+const W: u32 = 1920;
+const H: u32 = 400;
+
+fn graphs(profile: OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error>> {
+    static LEN: usize = W as usize * H as usize;
+    let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
+    {
+        let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
+        root.fill(&WHITE)?;
+
+        let mut monthly_playcount = profile.monthly_playcounts.clone();
+        let mut replays = profile.replays_watched_counts.clone();
+
+        let first = monthly_playcount
+            .first()
+            .unwrap()
+            .start_date
+            .max(replays.first().unwrap().start_date);
+
+        let left_first: Vec<_> = monthly_playcount
+            .iter()
+            .take_while(|date_count| date_count.start_date < first)
+            .map(|date_count| date_count.start_date)
+            .collect();
+        let right_first: Vec<_> = replays
+            .iter()
+            .take_while(|date_count| date_count.start_date < first)
+            .map(|date_count| date_count.start_date)
+            .collect();
+
+        match left_first.len() > right_first.len() {
+            true => spoof_date_count(&mut replays, left_first),
+            false => spoof_date_count(&mut monthly_playcount, right_first),
+        }
+
+        let left_first = monthly_playcount.first().unwrap().start_date;
+        let left_last = monthly_playcount.last().unwrap().start_date;
+        let left_max = monthly_playcount
+            .iter()
+            .map(|date_count| date_count.count)
+            .max()
+            .unwrap();
+
+        let right_first = replays.first().unwrap().start_date;
+        let right_last = replays.last().unwrap().start_date;
+        let right_max = replays
+            .iter()
+            .map(|date_count| date_count.count)
+            .max()
+            .unwrap();
+
+        let mut chart = ChartBuilder::on(&root)
+            .margin(9)
+            .x_label_area_size(20)
+            .y_label_area_size(75)
+            .right_y_label_area_size(75)
+            .build_cartesian_2d((left_first..left_last).monthly(), 0..left_max)?
+            .set_secondary_coord((right_first..right_last).monthly(), 0..right_max);
+
+        // Mesh and labels
+        chart
+            .configure_mesh()
+            .bold_line_style(&BLACK.mix(0.0))
+            .disable_y_mesh()
+            .x_labels(10)
+            .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month()))
+            .y_desc("Monthly playcount")
+            .label_style(("sans-serif", 20))
+            .draw()?;
+        chart
+            .configure_secondary_axes()
+            .y_desc("Replays watched")
+            .label_style(("sans-serif", 20))
+            .draw()?;
+
+        // Draw playcount line
+        chart
+            .draw_series(LineSeries::new(
+                monthly_playcount
+                    .iter()
+                    .map(|DateCount { start_date, count }| (*start_date, *count)),
+                &BLUE,
+            ))?
+            .label("Monthly playcount")
+            .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));
+
+        // Draw circles
+        chart.draw_series(
+            monthly_playcount
+                .iter()
+                .map(|DateCount { start_date, count }| {
+                    Circle::new((*start_date, *count), 2, BLUE.filled())
+                }),
+        )?;
+
+        chart
+            .draw_secondary_series(LineSeries::new(
+                replays
+                    .iter()
+                    .map(|DateCount { start_date, count }| (*start_date, *count)),
+                &RED,
+            ))?
+            .label("Replays watched")
+            .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
+
+        // Draw circles
+        chart.draw_secondary_series(replays.iter().map(|DateCount { start_date, count }| {
+            Circle::new((*start_date, *count), 2, RED.filled())
+        }))?;
+
+        // Legend
+        chart
+            .configure_series_labels()
+            .background_style(&RGBColor(192, 192, 192))
+            .position(SeriesLabelPosition::UpperLeft)
+            .legend_area_size(45)
+            .label_font(("sans-serif", 20))
+            .draw()?;
+    }
+    // Encode buf to png
+    let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
+    let png_encoder = PngEncoder::new(&mut png_bytes);
+    png_encoder.encode(&buf, W, H, ColorType::Rgb8)?;
+    Ok(Some(png_bytes))
+}
+
+fn spoof_date_count(vec: &mut Vec<DateCount>, prefix: Vec<Date<Utc>>) {
+    vec.reserve_exact(prefix.len());
+    for date in prefix.into_iter().rev() {
+        vec.insert(
+            0,
+            DateCount {
+                start_date: date,
+                count: 0,
+            },
+        );
     }
 }

@@ -6,131 +6,6 @@ use serde::{de, Deserialize, Deserializer};
 use serde_json::Value;
 use std::{collections::HashMap, fmt, ops::Deref};
 
-#[derive(Debug)]
-pub struct OsuAchievements(HashMap<u32, OsuAchievement>);
-
-impl From<Vec<OsuAchievement>> for OsuAchievements {
-    fn from(achievements: Vec<OsuAchievement>) -> Self {
-        let achievements = achievements
-            .into_iter()
-            .map(|achievement| (achievement.achievement_id, achievement))
-            .collect();
-        Self(achievements)
-    }
-}
-
-impl Deref for OsuAchievements {
-    type Target = HashMap<u32, OsuAchievement>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl Default for OsuAchievements {
-    fn default() -> Self {
-        Self(HashMap::default())
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct OsuAchievement {
-    pub name: String,
-    pub achievement_id: u32,
-    pub description: String,
-    pub grouping: String,
-    pub icon_url: String,
-    #[serde(rename = "id")]
-    #[serde(deserialize_with = "trim_instructions")]
-    pub instructions: Option<String>,
-    #[serde(deserialize_with = "adjust_mode_maybe")]
-    pub mode: Option<GameMode>,
-    pub ordering: u32,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct DateCount {
-    #[serde(deserialize_with = "str_to_date")]
-    pub start_date: Date<Utc>,
-    pub count: u32,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct OsuProfileKudosu {
-    pub total: u32,
-    pub available: u32,
-}
-
-#[derive(Debug)]
-pub enum OsuProfilePlaystyle {
-    Mouse,
-    Keyboard,
-    Tablet,
-}
-
-impl fmt::Display for OsuProfilePlaystyle {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl<'de> Deserialize<'de> for OsuProfilePlaystyle {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let s: &str = Deserialize::deserialize(d)?;
-        let playstyle = match s {
-            "mouse" => Self::Mouse,
-            "keyboard" => Self::Keyboard,
-            "tablet" => Self::Tablet,
-            _ => return Err(de::Error::custom(&format!("Unknown playstyle: {}", s))),
-        };
-        Ok(playstyle)
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct OsuProfileBadge {
-    #[serde(deserialize_with = "str_to_datetime")]
-    pub awarded_at: DateTime<Utc>,
-    pub description: String,
-    pub image_url: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct OsuProfileGrades {
-    pub ss: u32,
-    pub ssh: u32,
-    pub s: u32,
-    pub sh: u32,
-    pub a: u32,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct OsuProfileStatistics {
-    pub pp: f32,
-    pub pp_rank: u32,
-    pub ranked_score: u64,
-    pub total_score: u64,
-    #[serde(rename = "hit_accuracy")]
-    pub accuracy: f32,
-    #[serde(rename = "play_count")]
-    pub playcount: u32,
-    #[serde(rename = "play_time")]
-    pub playtime: u32,
-    pub total_hits: u32,
-    #[serde(rename = "maximum_combo")]
-    pub max_combo: u32,
-    #[serde(rename = "replays_watched_by_others")]
-    pub replays_watched: u32,
-    pub grade_counts: OsuProfileGrades,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct OsuProfileAchievement {
-    #[serde(deserialize_with = "str_to_datetime")]
-    pub achieved_at: DateTime<Utc>,
-    pub achievement_id: u32,
-}
-
 #[derive(Debug, Deserialize)]
 pub struct OsuProfile {
     pub avatar_url: String,
@@ -182,6 +57,139 @@ pub struct OsuProfile {
     pub rank_history: Option<Vec<u32>>,
     #[serde(rename = "user_achievements")]
     pub achievements: Vec<OsuProfileAchievement>,
+}
+
+#[derive(Debug)]
+pub struct OsuAchievements(HashMap<u32, OsuAchievement>);
+
+impl From<Vec<OsuAchievement>> for OsuAchievements {
+    fn from(achievements: Vec<OsuAchievement>) -> Self {
+        let achievements = achievements
+            .into_iter()
+            .map(|achievement| (achievement.achievement_id, achievement))
+            .collect();
+        Self(achievements)
+    }
+}
+
+impl Deref for OsuAchievements {
+    type Target = HashMap<u32, OsuAchievement>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Default for OsuAchievements {
+    fn default() -> Self {
+        Self(HashMap::default())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OsuAchievement {
+    pub name: String,
+    #[serde(rename = "id")]
+    pub achievement_id: u32,
+    pub description: String,
+    pub grouping: String,
+    pub icon_url: String,
+    #[serde(deserialize_with = "trim_instructions")]
+    pub instructions: Option<String>,
+    #[serde(deserialize_with = "adjust_mode_maybe")]
+    pub mode: Option<GameMode>,
+    pub ordering: u32,
+}
+
+#[derive(Copy, Clone, Debug, Deserialize)]
+pub struct DateCount {
+    #[serde(deserialize_with = "str_to_date")]
+    pub start_date: Date<Utc>,
+    pub count: u32,
+}
+
+impl From<(Date<Utc>, u32)> for DateCount {
+    fn from((start_date, count): (Date<Utc>, u32)) -> Self {
+        Self { start_date, count }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OsuProfileKudosu {
+    pub total: u32,
+    pub available: u32,
+}
+
+#[derive(Debug)]
+pub enum OsuProfilePlaystyle {
+    Mouse,
+    Keyboard,
+    Tablet,
+    Touch,
+}
+
+impl fmt::Display for OsuProfilePlaystyle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl<'de> Deserialize<'de> for OsuProfilePlaystyle {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s: &str = Deserialize::deserialize(d)?;
+        let playstyle = match s {
+            "mouse" => Self::Mouse,
+            "keyboard" => Self::Keyboard,
+            "tablet" => Self::Tablet,
+            "touch" => Self::Touch,
+            _ => return Err(de::Error::custom(&format!("Unknown playstyle `{}`", s))),
+        };
+        Ok(playstyle)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OsuProfileBadge {
+    #[serde(deserialize_with = "str_to_datetime")]
+    pub awarded_at: DateTime<Utc>,
+    pub description: String,
+    pub image_url: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OsuProfileGrades {
+    pub ss: u32,
+    pub ssh: u32,
+    pub s: u32,
+    pub sh: u32,
+    pub a: u32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OsuProfileStatistics {
+    pub pp: f32,
+    pub pp_rank: u32,
+    pub ranked_score: u64,
+    pub total_score: u64,
+    #[serde(rename = "hit_accuracy")]
+    pub accuracy: f32,
+    #[serde(rename = "play_count")]
+    pub playcount: u32,
+    #[serde(rename = "play_time")]
+    pub playtime: u32,
+    pub total_hits: u32,
+    #[serde(rename = "maximum_combo")]
+    pub max_combo: u32,
+    #[serde(rename = "replays_watched_by_others")]
+    pub replays_watched: u32,
+    pub grade_counts: OsuProfileGrades,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OsuProfileAchievement {
+    #[serde(deserialize_with = "str_to_datetime")]
+    pub achieved_at: DateTime<Utc>,
+    pub achievement_id: u32,
 }
 
 pub fn adjust_mode_maybe<'de, D>(d: D) -> Result<Option<GameMode>, D::Error>

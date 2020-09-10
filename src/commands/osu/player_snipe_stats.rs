@@ -128,11 +128,12 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     // Sending the embed
     let embed = data.build().build()?;
     let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
-    if let Some(graph) = graph {
+    let response = if let Some(graph) = graph {
         m.attachment("stats_graph.png", graph).await?
     } else {
         m.await?
     };
+    response.reaction_delete(&ctx, msg.author.id);
     Ok(())
 }
 

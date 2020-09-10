@@ -19,6 +19,7 @@ pub struct ProfileEmbed {
     description: Option<String>,
     author: Author,
     thumbnail: ImageSource,
+    image: ImageSource,
     footer: Footer,
     fields: Vec<(String, String, bool)>,
 }
@@ -214,9 +215,10 @@ impl ProfileEmbed {
         Self {
             description,
             fields,
-            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
             footer: Footer::new(footer_text),
             author: osu::get_user_author(&user),
+            image: ImageSource::attachment("profile_graph.png").unwrap(),
+            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
         }
     }
 }
@@ -236,5 +238,8 @@ impl EmbedData for ProfileEmbed {
     }
     fn fields(&self) -> Option<Vec<(String, String, bool)>> {
         Some(self.fields.clone())
+    }
+    fn image(&self) -> Option<&ImageSource> {
+        Some(&self.image)
     }
 }
