@@ -56,6 +56,9 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &NOCHOKES_CMD,
                 &SOTARKS_CMD,
                 &MAPPER_CMD,
+                &PLAYERSNIPESTATS_CMD,
+                &COUNTRYSNIPESTATS_CMD,
+                &COUNTRYSNIPELIST_CMD,
             ],
         ),
         CommandGroup::new(
@@ -129,14 +132,6 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &TRACKLIST_CMD,
                 &UNTRACK_CMD,
                 &UNTRACKALL_CMD,
-            ],
-        ),
-        CommandGroup::new(
-            "osu!snipes (std only)",
-            vec![
-                &PLAYERSNIPESTATS_CMD,
-                &COUNTRYSNIPESTATS_CMD,
-                &COUNTRYSNIPELIST_CMD,
             ],
         ),
         CommandGroup::new(
