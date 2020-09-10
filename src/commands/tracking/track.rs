@@ -103,7 +103,7 @@ async fn track_main(
 
 #[command]
 #[authority()]
-#[short_desc("Track osu!standard user(s)' top scores")]
+#[short_desc("Track osu!standard user(s') top scores")]
 #[long_desc(
     "Track osu! standarf user(s)' top scores and notify a channel \
     about new plays in their top100.\n\
@@ -123,7 +123,7 @@ pub async fn track(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()
 
 #[command]
 #[authority()]
-#[short_desc("Track mania user(s)' top scores")]
+#[short_desc("Track mania user(s') top scores")]
 #[long_desc(
     "Track mania user(s)' top scores and notify a channel \
     about new plays in their top100.\n\
@@ -144,7 +144,7 @@ pub async fn trackmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
 
 #[command]
 #[authority()]
-#[short_desc("Track taiko user(s)' top scores")]
+#[short_desc("Track taiko user(s') top scores")]
 #[long_desc(
     "Track taiko user(s)' top scores and notify a channel \
     about new plays in their top100.\n\
@@ -165,7 +165,7 @@ pub async fn tracktaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
 
 #[command]
 #[authority()]
-#[short_desc("Track ctb user(s)' top scores")]
+#[short_desc("Track ctb user(s') top scores")]
 #[long_desc(
     "Track ctb user(s)' top scores and notify a channel \
     about new plays in their top100.\n\

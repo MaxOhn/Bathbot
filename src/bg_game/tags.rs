@@ -49,15 +49,20 @@ impl FromStr for MapsetTags {
 }
 
 impl MapsetTags {
+    #[inline]
+    pub fn size(self) -> usize {
+        self.bits().count_ones() as usize
+    }
+
     pub fn join(self, separator: impl std::fmt::Display) -> String {
-        let mut tags = self.into_iter();
-        let first_tag = match tags.next() {
+        let mut iter = self.into_iter();
+        let first_tag = match iter.next() {
             Some(first_tag) => first_tag,
             None => return "None".to_owned(),
         };
-        let mut result = String::with_capacity(16);
+        let mut result = String::with_capacity(self.size() * 6);
         let _ = write!(result, "{:?}", first_tag);
-        for element in tags {
+        for element in iter {
             let _ = write!(result, "{}{:?}", separator, element);
         }
         result

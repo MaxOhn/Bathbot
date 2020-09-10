@@ -3,6 +3,9 @@
 - Fix unreacting for `<bg s` and possibly `<bgt`
 - Add ratelimit for downloading maps
 - Check on multiple `<bg start`'s in a row
+- Owner command to adjust bot status
+- Fix guild & user count on dashboard
+- Fix +/- issue on `<pp` & re-check on its f32 formatting
 
 **[Sometime]**
 - Handle entry on top.gg
