@@ -100,7 +100,17 @@ impl ProfileCompareEmbed {
         );
         write_line(
             &mut d,
-            "Play count",
+            "Playtime",
+            left.play_time,
+            right.play_time,
+            user1.total_seconds_played,
+            user2.total_seconds_played,
+            max_left,
+            max_right,
+        );
+        write_line(
+            &mut d,
+            "Playcount",
             left.play_count,
             right.play_count,
             user1.playcount,
@@ -108,13 +118,25 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+        let left_peak = profile1
+            .monthly_playcounts
+            .iter()
+            .map(|date_count| date_count.count)
+            .max()
+            .unwrap_or(0);
+        let right_peak = profile2
+            .monthly_playcounts
+            .iter()
+            .map(|date_count| date_count.count)
+            .max()
+            .unwrap_or(0);
         write_line(
             &mut d,
-            "Play time",
-            left.play_time,
-            right.play_time,
-            user1.total_seconds_played,
-            user2.total_seconds_played,
+            "PC peak",
+            with_comma_int(left_peak),
+            with_comma_int(right_peak),
+            left_peak,
+            right_peak,
             max_left,
             max_right,
         );
@@ -200,16 +222,6 @@ impl ProfileCompareEmbed {
         );
         write_line(
             &mut d,
-            "PP per month",
-            left.pp_per_month,
-            right.pp_per_month,
-            left.pp_per_month_num,
-            right.pp_per_month_num,
-            max_left,
-            max_right,
-        );
-        write_line(
-            &mut d,
             "PP spread",
             left.pp_spread,
             right.pp_spread,
@@ -225,6 +237,26 @@ impl ProfileCompareEmbed {
             right.avg_pp,
             result1.pp.avg(),
             result2.pp.avg(),
+            max_left,
+            max_right,
+        );
+        write_line(
+            &mut d,
+            "PP per month",
+            left.pp_per_month,
+            right.pp_per_month,
+            left.pp_per_month_num,
+            right.pp_per_month_num,
+            max_left,
+            max_right,
+        );
+        write_line(
+            &mut d,
+            "Join date",
+            user1.join_date.format("%F").to_string(),
+            user2.join_date.format("%F").to_string(),
+            Reverse(user1.join_date),
+            Reverse(user2.join_date),
             max_left,
             max_right,
         );
@@ -261,10 +293,20 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Followers",
-            profile1.follower_count.to_string(),
-            profile2.follower_count.to_string(),
+            with_comma_int(profile1.follower_count),
+            with_comma_int(profile2.follower_count),
             profile1.follower_count,
             profile2.follower_count,
+            max_left,
+            max_right,
+        );
+        write_line(
+            &mut d,
+            "Replays seen",
+            with_comma_int(profile1.statistics.replays_watched),
+            with_comma_int(profile2.statistics.replays_watched),
+            profile1.statistics.replays_watched,
+            profile2.statistics.replays_watched,
             max_left,
             max_right,
         );

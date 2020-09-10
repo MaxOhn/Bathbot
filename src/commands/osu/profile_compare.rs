@@ -223,6 +223,12 @@ async fn compare_main(
 
 #[command]
 #[short_desc("Compare profile stats between two players")]
+#[long_desc(
+    "Compare profile stats between two players.\n\
+    Note:\n \
+    - PC peak = Monthly playcount peak\n \
+    - PP spread = PP difference between top score and 100th score"
+)]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
 #[aliases("oc", "compareosu", "co")]
@@ -232,6 +238,12 @@ pub async fn osucompare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
 
 #[command]
 #[short_desc("Compare profile stats between two mania players")]
+#[long_desc(
+    "Compare profile stats between two mania players.\n\
+    Note:\n \
+    - PC peak = Monthly playcount peak\n \
+    - PP spread = PP difference between top score and 100th score"
+)]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
 #[aliases("mc", "comparemania", "cm")]
@@ -241,6 +253,12 @@ pub async fn maniacompare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 
 #[command]
 #[short_desc("Compare profile stats between two taiko players")]
+#[long_desc(
+    "Compare profile stats between two taiko players.\n\
+    Note:\n \
+    - PC peak = Monthly playcount peak\n \
+    - PP spread = PP difference between top score and 100th score"
+)]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
 #[aliases("tc", "comparetaiko", "ct")]
@@ -250,6 +268,12 @@ pub async fn taikocompare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 
 #[command]
 #[short_desc("Compare profile stats between two ctb players")]
+#[long_desc(
+    "Compare profile stats between two ctb players.\n\
+    Note:\n \
+    - PC peak = Monthly playcount peak\n \
+    - PP spread = PP difference between top score and 100th score"
+)]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
 #[aliases("cc", "comparectb")]
