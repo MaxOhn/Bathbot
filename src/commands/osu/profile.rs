@@ -416,11 +416,12 @@ async fn graphs(profile: &OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::er
         let mut monthly_playcount = profile.monthly_playcounts.clone();
         let mut replays = profile.replays_watched_counts.clone();
 
-        let first = monthly_playcount
-            .first()
-            .unwrap()
-            .start_date
-            .max(replays.first().unwrap().start_date);
+        let first = monthly_playcount.first().unwrap().start_date.max(
+            replays
+                .first()
+                .unwrap_or_else(|| monthly_playcount.last().unwrap())
+                .start_date,
+        );
 
         let left_first: Vec<_> = monthly_playcount
             .iter()
@@ -452,13 +453,23 @@ async fn graphs(profile: &OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::er
             .iter()
             .map(|date_count| date_count.count)
             .max()
-            .unwrap();
+            .unwrap()
+            .max(1);
+
+        let right_label_area = match right_max {
+            n if n < 10 => 40,
+            n if n < 100 => 50,
+            n if n < 1000 => 60,
+            n if n < 10_000 => 70,
+            n if n < 100_000 => 80,
+            _ => 90,
+        };
 
         let mut chart = ChartBuilder::on(&canvas)
             .margin(9)
             .x_label_area_size(20)
             .y_label_area_size(75)
-            .right_y_label_area_size(75)
+            .right_y_label_area_size(right_label_area)
             .build_cartesian_2d((left_first..left_last).monthly(), 0..left_max)?
             .set_secondary_coord((right_first..right_last).monthly(), 0..right_max);
 
