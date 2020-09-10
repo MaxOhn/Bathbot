@@ -135,6 +135,20 @@ async fn profile_main(
             .collect();
         Some(maps)
     };
+
+    // Check if user has top scores on their own maps
+    let own_top_scores =
+        if profile.ranked_and_approved_beatmapset_count + profile.loved_beatmapset_count > 0 {
+            score_maps
+                .iter()
+                .map(|(_, map)| map)
+                .filter(|map| map.creator == user.username)
+                .count()
+        } else {
+            0
+        };
+
+    // Calculate profile stats
     let profile_result = if score_maps.is_empty() {
         None
     } else {
@@ -149,7 +163,7 @@ async fn profile_main(
     };
 
     // Accumulate all necessary data
-    let data = ProfileEmbed::new(user, profile_result, globals_count, profile);
+    let data = ProfileEmbed::new(user, profile_result, globals_count, profile, own_top_scores);
 
     if let Some(msg) = retrieving_msg {
         let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;

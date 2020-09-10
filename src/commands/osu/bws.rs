@@ -18,7 +18,8 @@ use twilight::model::channel::Message;
     "Show the badge weighted seeding for a player. \n\
     The current formula is `rank^(0.9937^(badges^2))`.\n\
     Next to the player's username, you can specify a rank \
-    to check how the bws would change towards that rank."
+    to check how the bws would change towards that rank.\n\
+    This command considers __all__ current badges of a user."
 )]
 #[usage("[username] [rank]")]
 #[example("badewanne3", "badewanne3 42", "badewanne3 1234567")]

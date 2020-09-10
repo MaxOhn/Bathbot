@@ -31,6 +31,7 @@ impl ProfileEmbed {
         profile_result: Option<ProfileResult>,
         globals_count: BTreeMap<usize, String>,
         profile: OsuProfile,
+        own_top_scores: usize,
     ) -> Self {
         let footer_text = format!(
             "Joined osu! {} ({})",
@@ -192,6 +193,23 @@ impl ProfileEmbed {
                 "PP earned with mod"
             };
             fields.push((name.to_owned(), value, false));
+            if profile.ranked_and_approved_beatmapset_count + profile.loved_beatmapset_count > 0 {
+                let mut mapper_stats = String::with_capacity(64);
+                let _ = writeln!(
+                    mapper_stats,
+                    "`Ranked {}` • `Unranked {}`",
+                    profile.ranked_and_approved_beatmapset_count, profile.unranked_beatmapset_count,
+                );
+                let _ = writeln!(
+                    mapper_stats,
+                    "`Loved {}` • `Graveyard {}`",
+                    profile.loved_beatmapset_count, profile.graveyard_beatmapset_count,
+                );
+                if own_top_scores > 0 {
+                    let _ = writeln!(mapper_stats, "Own maps in top scores: {}", own_top_scores);
+                }
+                fields.push(("Mapsets from player".to_owned(), mapper_stats, false));
+            }
             let len = values
                 .mappers
                 .iter()
