@@ -3,10 +3,14 @@ use crate::{
     arguments::{Args, MultNameArgs},
     embeds::{EmbedData, ProfileCompareEmbed},
     tracking::process_tracking,
-    util::{constants::OSU_API_ISSUE, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        MessageExt,
+    },
     BotResult, Context,
 };
 
+use futures::future::TryFutureExt;
 use image::{
     imageops::{overlay, FilterType},
     DynamicImage, ImageBuffer,
@@ -87,13 +91,27 @@ async fn compare_main(
     }
 
     // Retrieve each user's top scores
-    let score_fut1 = user1.get_top_scores(ctx.osu(), 100, mode);
-    let score_fut2 = user2.get_top_scores(ctx.osu(), 100, mode);
-    let (scores1, scores2) = match tokio::try_join!(score_fut1, score_fut2) {
-        Ok(scores) => scores,
+    let fut = tokio::try_join!(
+        user1
+            .get_top_scores(ctx.osu(), 100, mode)
+            .map_err(|e| e.into()),
+        user2
+            .get_top_scores(ctx.osu(), 100, mode)
+            .map_err(|e| e.into()),
+        ctx.clients
+            .custom
+            .get_osu_profile(user1.user_id, mode, false),
+        ctx.clients
+            .custom
+            .get_osu_profile(user2.user_id, mode, false)
+    );
+    let (scores1, scores2, profile1, profile2) = match fut {
+        Ok((scores1, scores2, (profile1, _), (profile2, _))) => {
+            (scores1, scores2, profile1, profile2)
+        }
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-            return Err(why.into());
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            return Err(why);
         }
     };
     let content = if scores1.is_empty() {
@@ -183,7 +201,15 @@ async fn compare_main(
     };
 
     // Accumulate all necessary data
-    let data = ProfileCompareEmbed::new(mode, user1, user2, profile_result1, profile_result2);
+    let data = ProfileCompareEmbed::new(
+        mode,
+        user1,
+        user2,
+        profile_result1,
+        profile_result2,
+        profile1,
+        profile2,
+    );
 
     // Creating the embed
     let embed = data.build().build()?;

@@ -1,5 +1,6 @@
 use crate::{
     commands::osu::{CompareResult, MinMaxAvgBasic},
+    custom_client::OsuProfile,
     embeds::EmbedData,
     util::{
         datetime::sec_to_minsec,
@@ -25,6 +26,8 @@ impl ProfileCompareEmbed {
         user2: User,
         result1: CompareResult,
         result2: CompareResult,
+        profile1: OsuProfile,
+        profile2: OsuProfile,
     ) -> Self {
         let left = CompareStrings::new(&user1, &result1);
         let max_left = left.max().max(user1.username.chars().count());
@@ -177,6 +180,16 @@ impl ProfileCompareEmbed {
         );
         write_line(
             &mut d,
+            "Max Combo",
+            with_comma_int(profile1.statistics.max_combo),
+            with_comma_int(profile2.statistics.max_combo),
+            profile1.statistics.max_combo,
+            profile2.statistics.max_combo,
+            max_left,
+            max_right,
+        );
+        write_line(
+            &mut d,
             "Bonus PP",
             left.bonus_pp,
             right.bonus_pp,
@@ -222,6 +235,36 @@ impl ProfileCompareEmbed {
             right.avg_map_len,
             result1.map_len.avg(),
             result2.map_len.avg(),
+            max_left,
+            max_right,
+        );
+        write_line(
+            &mut d,
+            "Achievements",
+            profile1.achievements.len().to_string(),
+            profile2.achievements.len().to_string(),
+            profile1.achievements.len(),
+            profile2.achievements.len(),
+            max_left,
+            max_right,
+        );
+        write_line(
+            &mut d,
+            "Badges",
+            profile1.badges.len().to_string(),
+            profile2.badges.len().to_string(),
+            profile1.badges.len(),
+            profile2.badges.len(),
+            max_left,
+            max_right,
+        );
+        write_line(
+            &mut d,
+            "Followers",
+            profile1.follower_count.to_string(),
+            profile2.follower_count.to_string(),
+            profile1.follower_count,
+            profile2.follower_count,
             max_left,
             max_right,
         );

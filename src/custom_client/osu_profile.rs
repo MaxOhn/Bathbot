@@ -8,7 +8,6 @@ use std::{collections::HashMap, fmt, ops::Deref};
 
 #[derive(Debug, Deserialize)]
 pub struct OsuProfile {
-    pub avatar_url: String,
     pub country_code: String,
     #[serde(rename = "id")]
     pub user_id: u32,
