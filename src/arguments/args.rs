@@ -14,6 +14,16 @@ impl<'m> Iterator for Args<'m> {
         let (start, end) = self.lex()?;
         Some(&self.msg[start..end])
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let lower = match self.stream.current_char() {
+            Some(c) => !c.is_whitespace() as usize,
+            None => 0,
+        };
+        let upper = self.stream.rest().split_whitespace().count();
+        (lower, Some(upper))
+    }
 }
 
 impl<'m> Args<'m> {
@@ -93,6 +103,23 @@ impl<'m> Iterator for ArgsFull<'m> {
     fn next(&mut self) -> Option<Self::Item> {
         let (start, end) = self.limits.pop_front()?;
         Some(&self.msg[start..end])
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let exact = self.limits.len();
+        (exact, Some(exact))
+    }
+
+    #[inline]
+    fn count(self) -> usize {
+        self.limits.len()
+    }
+
+    #[inline]
+    fn last(self) -> Option<Self::Item> {
+        let (start, end) = self.limits.back()?;
+        Some(&self.msg[*start..*end])
     }
 }
 

@@ -160,7 +160,6 @@ async fn compare_main(
         if !maps.contains_key(&map_id) {
             let map_fut = BeatmapRequest::new()
                 .map_id(map_id)
-                .mode(mode)
                 .limit(1)
                 .queue_single(ctx.osu());
             match map_fut.await {

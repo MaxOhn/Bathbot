@@ -3,7 +3,6 @@
 - Fix unreacting for `<bg s` and possibly `<bgt`
 - Add ratelimit for downloading maps
 - Check on multiple `<bg start`'s in a row
-- Owner command to adjust bot status
 - Fix guild & user count on dashboard
 - Fix +/- issue on `<pp` & re-check on its f32 formatting
 
@@ -13,6 +12,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Owner command to adjust bot status~~ (20.09.11)
 - ~~Add `<mapper` command~~ (20.09.08)
 - ~~Add command for `https://osustats.ppy.sh/r`~~ (20.09.07)
 - ~~Add pagination for `<scores`~~ (20.09.06)

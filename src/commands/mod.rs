@@ -183,6 +183,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &ADDBG_CMD,
                 &CACHE_CMD,
                 &ACTIVEBG_CMD,
+                &CHANGEGAME_CMD,
                 &TRACKINGTOGGLE_CMD,
                 &TRACKINGSTATS_CMD,
                 &TRACKINGCOOLDOWN_CMD,
