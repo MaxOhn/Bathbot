@@ -168,7 +168,7 @@ pub fn unchoke_score(score: &mut Score, map: &Beatmap) {
 ///
 /// Second element: Index of hypothetical pp in scores
 pub fn pp_missing(start: f32, goal: f32, scores: &[Score]) -> (f32, usize) {
-    let pp_values: Vec<f32> = scores.iter().map(|score| score.pp.unwrap()).collect();
+    let pp_values: Vec<f32> = scores.iter().filter_map(|score| score.pp).collect();
     let size: usize = pp_values.len();
     let mut idx: usize = size - 1;
     let mut factor: f32 = 0.95_f32.powi(idx as i32);

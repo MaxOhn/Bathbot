@@ -3,9 +3,9 @@ use crate::{
     util::{constants::AVATAR_URL, numbers::round_and_comma, osu::pp_missing},
 };
 
-use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::{Score, User};
 use std::borrow::Cow;
+use twilight_embed_builder::image_source::ImageSource;
 
 #[derive(Clone)]
 pub struct RankEmbed {

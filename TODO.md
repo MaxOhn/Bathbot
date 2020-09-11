@@ -4,7 +4,6 @@
 - Add ratelimit for downloading maps
 - Check on multiple `<bg start`'s in a row
 - Fix guild & user count on dashboard
-- Fix +/- issue on `<pp` & re-check on its f32 formatting
 
 **[Sometime]**
 - Handle entry on top.gg
@@ -12,6 +11,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Fix +/- issue on `<pp` & re-check on its f32 formatting~~ (20.09.11)
 - ~~Owner command to adjust bot status~~ (20.09.11)
 - ~~Add `<mapper` command~~ (20.09.08)
 - ~~Add command for `https://osustats.ppy.sh/r`~~ (20.09.07)
