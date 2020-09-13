@@ -142,8 +142,9 @@ impl Cache {
                 if let Some(cached_guild) = self.get_guild(guild.id) {
                     if guild.unavailable {
                         self.guild_unavailable(&cached_guild).await;
+                    } else {
+                        self.nuke_guild_cache(&cached_guild)
                     }
-                    self.nuke_guild_cache(&cached_guild)
                 }
             }
             Event::MemberChunk(chunk) => {
@@ -208,6 +209,7 @@ impl Cache {
                             }
                             self.stats.guild_counts.partial.dec();
                             self.stats.guild_counts.loaded.inc();
+                            ctx.update_guilds();
                             // if we were at 1 we are now at 0
                             if self.stats.guild_counts.partial.get() == 0
                                 && self.filling.load(Ordering::Relaxed)

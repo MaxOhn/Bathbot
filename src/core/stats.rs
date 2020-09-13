@@ -210,16 +210,22 @@ impl Context {
             Event::ShardReconnecting(_) => {
                 self.shard_state_change(shard_id, ShardState::Reconnecting)
             }
-            Event::ShardDisconnected(_) => self.shard_state_change(shard_id, ShardState::Disconnected),
+            Event::ShardDisconnected(_) => {
+                self.shard_state_change(shard_id, ShardState::Disconnected)
+            }
             _ => {}
         }
         match event {
             Event::GuildCreate(_) | Event::GuildDelete(_) | Event::GuildUpdate(_) => {
-                let guilds = self.cache.guilds.len() as i64;
-                self.cache.stats.guild_counts.current.set(guilds);
-            },
-            _ => {},
+                self.update_guilds();
+            }
+            _ => {}
         }
+    }
+
+    pub fn update_guilds(&self) {
+        let guilds = self.cache.guilds.len() as i64;
+        self.cache.stats.guild_counts.current.set(guilds);
     }
 
     pub fn shard_state_change(&self, shard: u64, new_state: ShardState) {
