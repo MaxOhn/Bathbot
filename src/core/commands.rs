@@ -61,7 +61,12 @@ impl CommandGroups {
         for group in groups.iter() {
             for &cmd in group.commands.iter() {
                 for &name in cmd.names {
-                    trie.insert(name, cmd);
+                    if let Some(value) = trie.insert(name, cmd) {
+                        panic!(
+                            "Tried to insert command `{}` for `{}` but name already inserted for `{}`",
+                            name, cmd.names[0], value.names[0]
+                        );
+                    }
                 }
             }
         }

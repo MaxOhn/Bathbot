@@ -245,8 +245,8 @@ pub async fn osucompare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
 )]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
-#[aliases("mc", "comparemania", "cm")]
-pub async fn maniacompare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+#[aliases("ocm")]
+pub async fn osucomparemania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     compare_main(GameMode::MNA, ctx, msg, args).await
 }
 
@@ -260,8 +260,8 @@ pub async fn maniacompare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 )]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
-#[aliases("tc", "comparetaiko", "ct")]
-pub async fn taikocompare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+#[aliases("oct")]
+pub async fn osucomparetaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     compare_main(GameMode::TKO, ctx, msg, args).await
 }
 
@@ -275,8 +275,8 @@ pub async fn taikocompare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 )]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
-#[aliases("cc", "comparectb")]
-pub async fn ctbcompare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+#[aliases("occ")]
+pub async fn osucomparectb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     compare_main(GameMode::CTB, ctx, msg, args).await
 }
 pub struct CompareResult {

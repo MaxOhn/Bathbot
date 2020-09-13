@@ -401,7 +401,7 @@ async fn graphs(profile: &OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::er
                     .disable_x_mesh()
                     .disable_y_mesh()
                     .draw()?;
-                for (idx, badge) in chunk.into_iter().enumerate() {
+                for (idx, badge) in chunk.iter().enumerate() {
                     let badge_img =
                         load_from_memory(badge)?.resize_exact(badge_width, badge_height, Lanczos3);
                     let x = x_offset + idx as u32 * badge_width + idx as u32 * inner_margin;

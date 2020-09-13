@@ -42,7 +42,7 @@ impl BWSEmbed {
                 let max: Vec<_> = (0..=2)
                     .map(|n| {
                         bwss.values()
-                            .map(|bwss| bwss.iter().skip(n).next().unwrap().len())
+                            .map(|bwss| bwss.get(n).unwrap().len())
                             .fold(0, |max, next| max.max(next))
                     })
                     .collect();

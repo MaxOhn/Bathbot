@@ -27,7 +27,7 @@ pub struct OsuProfile {
     pub occupation: Option<String>,
     #[serde(rename = "playmode", deserialize_with = "adjust_mode")]
     pub mode: GameMode,
-    pub playstyle: Vec<OsuProfilePlaystyle>,
+    pub playstyle: Option<Vec<OsuProfilePlaystyle>>,
     pub post_count: u32,
     pub discord: Option<String>,
     pub twitter: Option<String>,
@@ -215,7 +215,7 @@ where
     Ok(s.map(|mut s| {
         s.replace_range(0..=2, "");
         let offset = s.chars().count() - 4;
-        s.replace_range(0 + offset..=3 + offset, "");
+        s.replace_range(offset..=3 + offset, "");
         s
     }))
 }
