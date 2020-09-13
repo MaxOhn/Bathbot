@@ -26,7 +26,8 @@ type TrackingQueue = RwLock<PriorityQueue<(u32, GameMode), Reverse<DateTime<Utc>
 
 pub struct TrackingStats {
     pub next_pop: (u32, GameMode),
-    pub len: usize,
+    pub users: usize,
+    pub queue: usize,
     pub last_pop: DateTime<Utc>,
     pub interval: i64,
     pub cooldown: i64,
@@ -68,19 +69,21 @@ impl OsuTracking {
 
     pub async fn stats(&self) -> TrackingStats {
         let next_pop = self.queue.read().await.peek().map(|(&key, _)| key).unwrap();
-        let len = self.users.len();
+        let users = self.users.len();
+        let queue = self.queue.read().await.len();
         let last_pop = *self.last_date.read().await;
         let interval = *self.interval.read().await;
         let cooldown = *self.cooldown.read().await;
         let tracking = !self.stop_tracking.load(Ordering::Relaxed);
 
         let wait_interval = (last_pop + interval - Utc::now()).num_milliseconds();
-        let ms_per_track = wait_interval as f32 / len as f32;
+        let ms_per_track = wait_interval as f32 / queue as f32;
         let amount = (cooldown / ms_per_track).max(1.0);
         let delay = (ms_per_track * amount) as u64;
         TrackingStats {
             next_pop,
-            len,
+            users,
+            queue,
             last_pop,
             interval: interval.num_seconds(),
             cooldown: cooldown as i64,
