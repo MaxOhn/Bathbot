@@ -1,7 +1,7 @@
 use crate::{BotResult, Error};
 
 use once_cell::sync::OnceCell;
-use rosu::models::Grade;
+use rosu::models::{GameMode, Grade};
 use serde::Deserialize;
 use std::{collections::HashMap, path::PathBuf};
 use tokio::fs;
@@ -15,7 +15,8 @@ pub struct BotConfig {
     pub perf_calc_path: PathBuf,
     pub metric_server_ip: [u8; 4],
     pub metric_server_port: u16,
-    pub emotes: HashMap<Grade, String>,
+    grades: HashMap<Grade, String>,
+    modes: HashMap<GameMode, String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -45,9 +46,14 @@ impl BotConfig {
         Ok(())
     }
     pub fn grade(&self, grade: Grade) -> &str {
-        self.emotes
+        self.grades
             .get(&grade)
             .unwrap_or_else(|| panic!("No grade emote for grade {} in config", grade))
+    }
+    pub fn mode(&self, mode: GameMode) -> &str {
+        self.modes
+            .get(&mode)
+            .unwrap_or_else(|| panic!("No mode emote for mode {} in config", mode))
     }
 }
 

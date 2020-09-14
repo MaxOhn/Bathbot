@@ -27,6 +27,10 @@ pub fn grade_emote(grade: Grade) -> String {
     CONFIG.get().unwrap().grade(grade).to_owned()
 }
 
+pub fn mode_emote(mode: GameMode) -> String {
+    CONFIG.get().unwrap().mode(mode).to_owned()
+}
+
 pub fn grade_completion_mods(score: &impl ScoreExt, map: &Beatmap) -> String {
     let mode = map.mode();
     let grade = CONFIG.get().unwrap().grade(score.grade(mode));

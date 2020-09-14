@@ -6,8 +6,8 @@ use crate::{
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::sec_to_minsec,
-        numbers::with_comma_int,
-        osu::prepare_beatmap_file,
+        numbers::{round, with_comma_int},
+        osu::{mode_emote, prepare_beatmap_file},
     },
     BotResult, Context,
 };
@@ -104,19 +104,19 @@ impl MapEmbed {
         }
         let _ = write!(
             info_value,
-            "Length: `{}` (`{}`) BPM: `{:.2}` Objects: `{}`\n\
-            CS: `{:.2}` AR: `{:.2}` OD: `{:.2}` HP: `{:.2}` Spinners: `{}`",
+            "Length: `{}` (`{}`) BPM: `{}` Objects: `{}`\n\
+            CS: `{}` AR: `{}` OD: `{}` HP: `{}` Spinners: `{}`",
             sec_to_minsec(seconds_total),
             sec_to_minsec(seconds_drain),
-            bpm,
+            round(bpm),
             map.count_objects(),
-            cs,
-            ar,
-            od,
-            hp,
+            round(cs),
+            round(ar),
+            round(od),
+            round(hp),
             map.count_spinner,
         );
-        let mut info_name = format!("__[{}]__", map.version);
+        let mut info_name = format!("{} __[{}]__", mode_emote(map.mode), map.version);
         if !mods.is_empty() {
             let _ = write!(info_name, " +{}", mods);
         }
@@ -136,13 +136,7 @@ impl MapEmbed {
             ),
             (
                 format!(
-                    "osu!{}  :heart: {}  :play_pause: {}",
-                    match map.mode {
-                        GameMode::STD => "standard",
-                        GameMode::TKO => "taiko",
-                        GameMode::CTB => "fruits",
-                        GameMode::MNA => "mania",
-                    },
+                    ":heart: {}  :play_pause: {}",
                     with_comma_int(map.favourite_count),
                     with_comma_int(map.playcount)
                 ),

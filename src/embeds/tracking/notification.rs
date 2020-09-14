@@ -5,7 +5,7 @@ use crate::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
         numbers::{round, with_comma_int},
-        osu::grade_completion_mods,
+        osu::{grade_completion_mods, mode_emote},
         ScoreExt,
     },
     Context,
@@ -29,7 +29,7 @@ pub struct TrackNotificationEmbed {
 
 impl TrackNotificationEmbed {
     pub async fn new(ctx: &Context, user: &User, score: &Score, map: &Beatmap, idx: usize) -> Self {
-        let description = format!("__**[{}] Personal Best #{}**__", map.mode, idx);
+        let description = format!("{} __**Personal Best #{}**__", mode_emote(map.mode), idx);
         let calculations = Calculations::MAX_PP | Calculations::STARS;
         let mut calculator = PPCalculator::new().score(score).map(map);
         if let Err(why) = calculator.calculate(calculations, Some(ctx)).await {
