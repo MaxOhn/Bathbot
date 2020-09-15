@@ -24,6 +24,7 @@ use rosu::{
 use std::{
     cmp::{Ordering::Equal, PartialOrd},
     collections::{BTreeMap, HashMap},
+    iter::FromIterator,
     sync::Arc,
 };
 use twilight_model::{
@@ -471,27 +472,32 @@ async fn graphs(profile: &OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::er
         let mut monthly_playcount = profile.monthly_playcounts.clone();
         let mut replays = profile.replays_watched_counts.clone();
 
-        let first = monthly_playcount.first().unwrap().start_date.max(
-            replays
-                .first()
-                .unwrap_or_else(|| monthly_playcount.last().unwrap())
-                .start_date,
-        );
+        if replays.is_empty() {
+            let iter = monthly_playcount
+                .iter()
+                .map(|DateCount { start_date, .. }| (*start_date, 0).into());
+            replays = Vec::from_iter(iter);
+        } else {
+            let mut first = monthly_playcount.first().unwrap().start_date;
+            if !replays.is_empty() {
+                first = first.max(replays.first().unwrap().start_date);
+            }
 
-        let left_first: Vec<_> = monthly_playcount
-            .iter()
-            .take_while(|date_count| date_count.start_date < first)
-            .map(|date_count| date_count.start_date)
-            .collect();
-        let right_first: Vec<_> = replays
-            .iter()
-            .take_while(|date_count| date_count.start_date < first)
-            .map(|date_count| date_count.start_date)
-            .collect();
+            let left_first: Vec<_> = monthly_playcount
+                .iter()
+                .take_while(|date_count| date_count.start_date < first)
+                .map(|date_count| date_count.start_date)
+                .collect();
+            let right_first: Vec<_> = replays
+                .iter()
+                .take_while(|date_count| date_count.start_date < first)
+                .map(|date_count| date_count.start_date)
+                .collect();
 
-        match left_first.len() > right_first.len() {
-            true => spoof_date_count(&mut replays, left_first),
-            false => spoof_date_count(&mut monthly_playcount, right_first),
+            match left_first.len() > right_first.len() {
+                true => spoof_date_count(&mut replays, left_first),
+                false => spoof_date_count(&mut monthly_playcount, right_first),
+            }
         }
 
         let left_first = monthly_playcount.first().unwrap().start_date;
