@@ -6,6 +6,7 @@ use crate::{
 };
 
 use async_trait::async_trait;
+use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::channel::Message;
 
 pub struct CountrySnipeListPagination {
@@ -51,8 +52,30 @@ impl Pagination for CountrySnipeListPagination {
     fn jump_index(&self) -> Option<usize> {
         self.author_idx
     }
-    fn reactions() -> &'static [&'static str] {
-        &["⏮️", "⏪", "◀️", "*️⃣", "▶️", "⏩", "⏭️"]
+    fn reactions() -> Vec<RequestReactionType> {
+        vec![
+            RequestReactionType::Unicode {
+                name: "⏮️".to_owned(),
+            },
+            RequestReactionType::Unicode {
+                name: "⏪".to_owned(),
+            },
+            RequestReactionType::Unicode {
+                name: "◀️".to_owned(),
+            },
+            RequestReactionType::Unicode {
+                name: "*️⃣".to_owned(),
+            },
+            RequestReactionType::Unicode {
+                name: "▶️".to_owned(),
+            },
+            RequestReactionType::Unicode {
+                name: "⏩".to_owned(),
+            },
+            RequestReactionType::Unicode {
+                name: "⏭️".to_owned(),
+            },
+        ]
     }
     fn single_step(&self) -> usize {
         self.pages.per_page

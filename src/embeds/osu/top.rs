@@ -14,7 +14,6 @@ use rosu::models::{Beatmap, GameMode, Score, User};
 use std::fmt::Write;
 use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct TopEmbed {
     description: String,
     author: Author,

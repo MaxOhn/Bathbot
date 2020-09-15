@@ -3,7 +3,7 @@ use crate::{BotResult, Error};
 use once_cell::sync::OnceCell;
 use rosu::models::{GameMode, Grade};
 use serde::Deserialize;
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, str::FromStr};
 use tokio::fs;
 
 #[derive(Deserialize, Debug)]
@@ -54,6 +54,20 @@ impl BotConfig {
         self.modes
             .get(&mode)
             .unwrap_or_else(|| panic!("No mode emote for mode {} in config", mode))
+    }
+    pub fn all_modes(&self) -> [(u64, &str); 4] {
+        let std = self.single_mode(GameMode::STD);
+        let tko = self.single_mode(GameMode::TKO);
+        let ctb = self.single_mode(GameMode::CTB);
+        let mna = self.single_mode(GameMode::MNA);
+        [std, tko, ctb, mna]
+    }
+    fn single_mode(&self, mode: GameMode) -> (u64, &str) {
+        let mut split = self.modes.get(&mode).unwrap().split(':');
+        let name = split.nth(1).unwrap();
+        let id = split.next().unwrap();
+        let id = u64::from_str(&id[0..id.len() - 1]).unwrap();
+        (id, name)
     }
 }
 

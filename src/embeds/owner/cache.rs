@@ -8,7 +8,6 @@ use chrono::{DateTime, Utc};
 use itertools::Itertools;
 use std::fmt::Write;
 
-#[derive(Clone)]
 pub struct CacheEmbed {
     description: String,
     footer: Footer,

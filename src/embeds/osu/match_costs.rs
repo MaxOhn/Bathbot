@@ -8,7 +8,6 @@ use rosu::models::Match;
 use std::fmt::Write;
 use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct MatchCostEmbed {
     description: String,
     thumbnail: Option<ImageSource>,

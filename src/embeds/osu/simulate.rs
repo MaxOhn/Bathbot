@@ -16,7 +16,6 @@ use std::fmt::Write;
 use twilight_embed_builder::{builder::EmbedBuilder, image_source::ImageSource};
 use twilight_model::channel::embed::EmbedField;
 
-#[derive(Clone)]
 pub struct SimulateEmbed {
     title: String,
     url: String,

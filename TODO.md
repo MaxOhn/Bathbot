@@ -2,6 +2,7 @@
 **[TODO]**
 - Add ratelimit for downloading maps
 - Check on multiple `<bg start`'s in a row
+- Fix tracking's double posting
 
 **[Sometime]**
 - Handle entry on top.gg

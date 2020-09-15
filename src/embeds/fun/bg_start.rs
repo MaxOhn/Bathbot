@@ -2,7 +2,6 @@ use crate::embeds::EmbedData;
 
 use twilight_model::id::UserId;
 
-#[derive(Clone)]
 pub struct BGStartEmbed {
     description: String,
 }

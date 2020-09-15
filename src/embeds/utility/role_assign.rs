@@ -5,7 +5,6 @@ use twilight_model::{
     id::{GuildId, RoleId},
 };
 
-#[derive(Clone)]
 pub struct RoleAssignEmbed {
     description: String,
 }

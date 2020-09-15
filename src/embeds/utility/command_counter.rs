@@ -6,7 +6,6 @@ use crate::{
 use chrono::{DateTime, Utc};
 use std::fmt::Write;
 
-#[derive(Clone)]
 pub struct CommandCounterEmbed {
     description: String,
     footer: Footer,

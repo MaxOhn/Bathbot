@@ -7,7 +7,6 @@ use rosu::models::{Score, User};
 use std::borrow::Cow;
 use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct RankEmbed {
     description: String,
     title: String,

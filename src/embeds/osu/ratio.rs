@@ -8,7 +8,6 @@ use rosu::models::{GameMode, Grade, Score, User};
 use std::{collections::BTreeMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct RatioEmbed {
     description: String,
     thumbnail: ImageSource,

@@ -5,7 +5,6 @@ use crate::{
 
 use std::fmt::Write;
 
-#[derive(Clone)]
 pub struct BGRankingEmbed {
     author: Author,
     description: String,

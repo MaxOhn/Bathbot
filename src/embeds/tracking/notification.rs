@@ -15,7 +15,6 @@ use chrono::{DateTime, Utc};
 use rosu::models::{Beatmap, GameMode, Score, User};
 use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct TrackNotificationEmbed {
     fields: Vec<(String, String, bool)>,
     description: String,

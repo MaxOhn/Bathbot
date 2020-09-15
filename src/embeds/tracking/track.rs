@@ -3,7 +3,6 @@ use crate::embeds::EmbedData;
 use rosu::models::GameMode;
 use std::fmt::Write;
 
-#[derive(Clone)]
 pub struct TrackEmbed {
     title: String,
     fields: Vec<(String, String, bool)>,

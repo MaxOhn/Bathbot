@@ -1,6 +1,5 @@
 use crate::{bg_game::MapsetTags, embeds::EmbedData};
 
-#[derive(Clone)]
 pub struct BGTagsEmbed {
     title: &'static str,
     description: Option<&'static str>,

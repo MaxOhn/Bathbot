@@ -9,6 +9,7 @@ mod most_played_common;
 mod nochoke;
 mod osustats_globals;
 mod osustats_list;
+mod profile;
 mod recent;
 mod scores;
 mod top;
@@ -24,11 +25,12 @@ pub use most_played_common::MostPlayedCommonPagination;
 pub use nochoke::NoChokePagination;
 pub use osustats_globals::OsuStatsGlobalsPagination;
 pub use osustats_list::OsuStatsListPagination;
+pub use profile::ProfilePagination;
 pub use recent::RecentPagination;
 pub use scores::ScoresPagination;
 pub use top::TopPagination;
 
-use crate::{embeds::EmbedData, util::numbers, BotResult, Context};
+use crate::{embeds::EmbedData, util::numbers, BotResult, Context, CONFIG};
 
 use async_trait::async_trait;
 use std::time::Duration;
@@ -38,7 +40,7 @@ use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{
     channel::{Message, Reaction, ReactionType},
     gateway::payload::ReactionAdd,
-    id::UserId,
+    id::{EmojiId, UserId},
 };
 
 #[async_trait]
@@ -54,8 +56,46 @@ pub trait Pagination: Sync + Sized {
     async fn build_page(&mut self) -> BotResult<Self::PageData>;
 
     // Optionally implement these
-    fn reactions() -> &'static [&'static str] {
-        &["⏮️", "⏪", "⏩", "⏭️"]
+    fn reactions() -> Vec<RequestReactionType> {
+        Self::arrow_reactions()
+    }
+    fn arrow_reactions() -> Vec<RequestReactionType> {
+        vec![
+            RequestReactionType::Unicode {
+                name: "⏮️".to_owned(),
+            },
+            RequestReactionType::Unicode {
+                name: "⏪".to_owned(),
+            },
+            RequestReactionType::Unicode {
+                name: "⏩".to_owned(),
+            },
+            RequestReactionType::Unicode {
+                name: "⏭️".to_owned(),
+            },
+        ]
+    }
+    fn arrow_reactions_full() -> Vec<RequestReactionType> {
+        vec![
+            RequestReactionType::Unicode {
+                name: "⏮️".to_owned(),
+            },
+            RequestReactionType::Unicode {
+                name: "⏪".to_owned(),
+            },
+            RequestReactionType::Unicode {
+                name: "◀️".to_owned(),
+            },
+            RequestReactionType::Unicode {
+                name: "▶️".to_owned(),
+            },
+            RequestReactionType::Unicode {
+                name: "⏩".to_owned(),
+            },
+            RequestReactionType::Unicode {
+                name: "⏭️".to_owned(),
+            },
+        ]
     }
     fn single_step(&self) -> usize {
         1
@@ -72,22 +112,22 @@ pub trait Pagination: Sync + Sized {
     fn content(&self) -> Option<String> {
         None
     }
+    fn main_reactions(&self) -> MainReactions {
+        MainReactions::Arrows
+    }
     fn process_data(&mut self, _data: &Self::PageData) {}
+    async fn change_mode(&mut self) {}
     async fn final_processing(mut self, _ctx: &Context) -> BotResult<()> {
         Ok(())
     }
 
     // Don't implement anything else
     async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> BotResult<()> {
-        let reactions = Self::reactions();
         let mut reaction_stream = {
             let msg = self.msg();
-            for &reaction in reactions.iter() {
-                let emote = RequestReactionType::Unicode {
-                    name: reaction.to_string(),
-                };
+            for emoji in Self::reactions() {
                 ctx.http
-                    .create_reaction(msg.channel_id, msg.id, emote)
+                    .create_reaction(msg.channel_id, msg.id, emoji)
                     .await?;
             }
             ctx.standby
@@ -101,53 +141,103 @@ pub trait Pagination: Sync + Sized {
                 Err(why) => warn!("Error while paginating: {}", why),
             }
         }
-        for &reaction in reactions.iter() {
-            let r = RequestReactionType::Unicode {
-                name: reaction.to_string(),
-            };
+        for emoji in Self::reactions() {
             let msg = self.msg();
             if msg.guild_id.is_none() {
                 ctx.http
-                    .delete_current_user_reaction(msg.channel_id, msg.id, r)
+                    .delete_current_user_reaction(msg.channel_id, msg.id, emoji)
                     .await?;
             } else {
                 ctx.http
-                    .delete_all_reaction(msg.channel_id, msg.id, r)
+                    .delete_all_reaction(msg.channel_id, msg.id, emoji)
                     .await?;
             }
         }
         self.final_processing(ctx).await
     }
     async fn next_page(&mut self, reaction: Reaction, ctx: &Context) -> BotResult<PageChange> {
-        if let ReactionType::Unicode { name: reaction } = reaction.emoji {
-            let result = self.process_reaction(reaction.as_str());
-            match result {
-                PageChange::None => {}
-                PageChange::Change => {
-                    let data = self.build_page().await?;
-                    self.process_data(&data);
-                    let msg = self.msg();
-                    let mut update = ctx.http.update_message(msg.channel_id, msg.id);
-                    if let Some(content) = self.content() {
-                        update = update.content(content)?;
-                    }
-                    let mut eb = data.build();
-                    if let Some(thumbnail) = self.thumbnail() {
-                        eb = eb.thumbnail(thumbnail);
-                    }
-                    update.embed(eb.build()?)?.await?;
+        let change = match self.process_reaction(&reaction.emoji).await {
+            PageChange::None => PageChange::None,
+            PageChange::Change => {
+                let data = self.build_page().await?;
+                self.process_data(&data);
+                let msg = self.msg();
+                let mut update = ctx.http.update_message(msg.channel_id, msg.id);
+                if let Some(content) = self.content() {
+                    update = update.content(content)?;
                 }
-                PageChange::Delete => {
-                    let msg = self.msg();
-                    ctx.http.delete_message(msg.channel_id, msg.id).await?;
+                let mut eb = data.build();
+                if let Some(thumbnail) = self.thumbnail() {
+                    eb = eb.thumbnail(thumbnail);
                 }
+                update.embed(eb.build()?)?.await?;
+                PageChange::Change
             }
-            return Ok(result);
-        }
-        Ok(PageChange::None)
+            PageChange::Delete => {
+                let msg = self.msg();
+                ctx.http.delete_message(msg.channel_id, msg.id).await?;
+                PageChange::Delete
+            }
+        };
+        Ok(change)
     }
 
-    fn process_reaction(&mut self, reaction: &str) -> PageChange {
+    async fn process_reaction(&mut self, reaction: &ReactionType) -> PageChange {
+        let change_result = match self.main_reactions() {
+            MainReactions::Arrows => {
+                if let ReactionType::Unicode { name } = reaction {
+                    self.process_arrows(name.as_str())
+                } else {
+                    return PageChange::None;
+                }
+            }
+            MainReactions::Modes => {
+                if let ReactionType::Custom {
+                    name: Some(name), ..
+                } = reaction
+                {
+                    self.process_modes(name.as_str())
+                } else {
+                    return PageChange::None;
+                }
+            }
+        };
+        match change_result {
+            Ok(Some(index)) => {
+                *self.index_mut() = index;
+                self.change_mode().await;
+                PageChange::Change
+            }
+            Ok(None) => PageChange::None,
+            Err(page_change) => page_change,
+        }
+    }
+
+    fn process_modes(&self, reaction: &str) -> Result<Option<usize>, PageChange> {
+        let next_index = match reaction {
+            "osu_std" => match self.index() {
+                0 => None,
+                _ => Some(0),
+            },
+            "osu_taiko" => match self.index() {
+                1 => None,
+                _ => Some(1),
+            },
+            "osu_ctb" => match self.index() {
+                2 => None,
+                _ => Some(2),
+            },
+            "osu_mania" => match self.index() {
+                3 => None,
+                _ => Some(3),
+            },
+            "❌" => return Err(PageChange::Delete),
+            _ => None,
+        };
+        Ok(next_index)
+    }
+
+    fn process_arrows(&self, reaction: &str) -> Result<Option<usize>, PageChange> {
         let next_index = match reaction {
             // Move to start
             "⏮️" => match self.index() {
@@ -201,15 +291,20 @@ pub trait Pagination: Sync + Sized {
                     Some(self.last_index())
                 }
             }
-            "❌" => return PageChange::Delete,
+            "❌" => return Err(PageChange::Delete),
             _ => None,
         };
-        if let Some(index) = next_index {
-            *self.index_mut() = index;
-            PageChange::Change
-        } else {
-            PageChange::None
-        }
+        Ok(next_index)
+    }
+    fn mode_reactions() -> Vec<RequestReactionType> {
+        CONFIG
+            .get()
+            .unwrap()
+            .all_modes()
+            .iter()
+            .map(|(id, name)| (EmojiId(*id), Some(name.to_string())))
+            .map(|(id, name)| RequestReactionType::Custom { id, name })
+            .collect()
     }
 
     fn index(&self) -> usize {
@@ -258,4 +353,9 @@ impl Pages {
             last_index: numbers::last_multiple(per_page, amount),
         }
     }
+}
+
+pub enum MainReactions {
+    Arrows,
+    Modes,
 }

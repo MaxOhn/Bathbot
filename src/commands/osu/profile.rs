@@ -3,6 +3,7 @@ use crate::{
     arguments::{Args, NameArgs},
     custom_client::{DateCount, OsuProfile},
     embeds::{EmbedData, ProfileEmbed},
+    pagination::{Pagination, ProfilePagination},
     tracking::process_tracking,
     util::{
         constants::{OSU_API_ISSUE, OSU_WEB_ISSUE},
@@ -25,7 +26,10 @@ use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
 };
-use twilight_model::channel::Message;
+use twilight_model::{
+    channel::Message,
+    id::{ChannelId, UserId},
+};
 
 async fn profile_main(
     mode: GameMode,
@@ -38,13 +42,62 @@ async fn profile_main(
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
+    let (data, profile) =
+        match profile_embed(&ctx, &name, mode, Some(msg.author.id), msg.channel_id).await? {
+            Some(data) => data,
+            None => return Ok(()),
+        };
 
+    // Draw the graph
+    let graph = match graphs(&profile).await {
+        Ok(graph_option) => graph_option,
+        Err(why) => {
+            warn!("Error while creating profile graph: {}", why);
+            None
+        }
+    };
+
+    // Send the embed
+    let embed = data.build().build()?;
+    let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
+    let response = if let Some(graph) = graph {
+        m.attachment("profile_graph.png", graph).await?
+    } else {
+        m.await?
+    };
+
+    // Pagination
+    let pagination =
+        ProfilePagination::new(ctx.clone(), response, msg.channel_id, mode, name, data);
+    let owner = msg.author.id;
+    tokio::spawn(async move {
+        if let Err(why) = pagination.start(&ctx, owner, 90).await {
+            warn!("Pagination error (nochokes): {}", why)
+        }
+    });
+    Ok(())
+}
+
+pub async fn profile_embed(
+    ctx: &Context,
+    name: &str,
+    mode: GameMode,
+    owner: Option<UserId>,
+    channel: ChannelId,
+) -> BotResult<Option<(ProfileEmbed, OsuProfile)>> {
     // Retrieve the user and their top scores
     let scores_fut = match BestRequest::with_username(&name) {
         Ok(req) => req.mode(mode).limit(100).queue(ctx.osu()),
         Err(_) => {
-            let content = format!("Could not build request for osu name `{}`", name);
-            return msg.error(&ctx, content).await;
+            if let Some(owner) = owner {
+                let content = format!("Could not build request for osu name `{}`", name);
+                ctx.http
+                    .create_message(channel)
+                    .content(content)?
+                    .await?
+                    .reaction_delete(ctx, owner);
+            }
+            return Ok(None);
         }
     };
     let join_result = tokio::try_join!(
@@ -54,11 +107,24 @@ async fn profile_main(
     let (user, scores) = match join_result {
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
-            let content = format!("User `{}` was not found", name);
-            return msg.error(&ctx, content).await;
+            if let Some(owner) = owner {
+                let content = format!("User `{}` was not found", name);
+                ctx.http
+                    .create_message(channel)
+                    .content(content)?
+                    .await?
+                    .reaction_delete(ctx, owner);
+            }
+            return Ok(None);
         }
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            if let Some(owner) = owner {
+                ctx.http
+                    .create_message(channel)
+                    .content(OSU_API_ISSUE)?
+                    .await?
+                    .reaction_delete(ctx, owner);
+            }
             return Err(why);
         }
     };
@@ -78,7 +144,13 @@ async fn profile_main(
     let profile = match profile_result {
         Ok((profile, _)) => profile,
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
+            if let Some(owner) = owner {
+                ctx.http
+                    .create_message(channel)
+                    .content(OSU_WEB_ISSUE)?
+                    .await?
+                    .reaction_delete(ctx, owner);
+            }
             return Err(why);
         }
     };
@@ -103,7 +175,7 @@ async fn profile_main(
             scores.len() - maps.len()
         );
         ctx.http
-            .create_message(msg.channel_id)
+            .create_message(channel)
             .content(content)?
             .await
             .ok()
@@ -124,16 +196,19 @@ async fn profile_main(
         };
         score_maps.push((score, map));
     }
-    let missing_maps: Option<Vec<Beatmap>> = if missing_indices.is_empty() {
-        None
-    } else {
-        let maps = score_maps
+    // Add missing maps to database
+    if !missing_indices.is_empty() {
+        let maps: Vec<_> = score_maps
             .par_iter()
             .enumerate()
             .filter(|(i, _)| missing_indices.contains(i))
             .map(|(_, (_, map))| map.clone())
             .collect();
-        Some(maps)
+        match ctx.psql().insert_beatmaps(&maps).await {
+            Ok(n) if n < 2 => {}
+            Ok(n) => info!("Added {} maps to DB", n),
+            Err(why) => warn!("Error while adding maps to DB: {}", why),
+        }
     };
 
     // Check if user has top scores on their own maps
@@ -154,40 +229,20 @@ async fn profile_main(
     } else {
         Some(ProfileResult::calc(mode, score_maps))
     };
-    let graph = match graphs(&profile).await {
-        Ok(graph_option) => graph_option,
-        Err(why) => {
-            warn!("Error while creating profile graph: {}", why);
-            None
-        }
-    };
 
     // Accumulate all necessary data
-    let data = ProfileEmbed::new(user, profile_result, globals_count, profile, own_top_scores);
+    let data = ProfileEmbed::new(
+        user,
+        profile_result,
+        globals_count,
+        &profile,
+        own_top_scores,
+    );
 
     if let Some(msg) = retrieving_msg {
         let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;
     }
-
-    // Send the embed
-    let embed = data.build().build()?;
-    let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
-    let response = if let Some(graph) = graph {
-        m.attachment("profile_graph.png", graph).await?
-    } else {
-        m.await?
-    };
-    response.reaction_delete(&ctx, msg.author.id);
-
-    // Add missing maps to database
-    if let Some(maps) = missing_maps {
-        match ctx.psql().insert_beatmaps(&maps).await {
-            Ok(n) if n < 2 => {}
-            Ok(n) => info!("Added {} maps to DB", n),
-            Err(why) => warn!("Error while adding maps to DB: {}", why),
-        }
-    }
-    Ok(())
+    Ok(Some((data, profile)))
 }
 
 #[command]

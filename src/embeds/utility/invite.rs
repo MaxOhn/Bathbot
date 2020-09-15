@@ -3,7 +3,6 @@ use crate::{
     util::constants::INVITE_LINK,
 };
 
-#[derive(Clone)]
 pub struct InviteEmbed {
     title: &'static str,
     description: &'static str,

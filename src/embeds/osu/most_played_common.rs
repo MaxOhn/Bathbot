@@ -8,7 +8,6 @@ use rosu::models::User;
 use std::{collections::HashMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct MostPlayedCommonEmbed {
     description: String,
     thumbnail: ImageSource,

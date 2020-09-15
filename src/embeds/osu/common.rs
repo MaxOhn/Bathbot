@@ -4,7 +4,6 @@ use rosu::models::{Beatmap, Score, User};
 use std::{collections::HashMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct CommonEmbed {
     description: String,
     thumbnail: ImageSource,

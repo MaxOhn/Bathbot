@@ -2,7 +2,6 @@ use crate::embeds::EmbedData;
 
 use std::fmt::Write;
 
-#[derive(Clone)]
 pub struct UntrackEmbed {
     title: &'static str,
     fields: Vec<(String, String, bool)>,

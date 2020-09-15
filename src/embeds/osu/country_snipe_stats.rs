@@ -6,7 +6,6 @@ use crate::{
 
 use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct CountrySnipeStatsEmbed {
     thumbnail: Option<ImageSource>,
     title: String,

@@ -4,7 +4,6 @@ use itertools::Itertools;
 use rosu::models::GameMode;
 use std::fmt::Write;
 
-#[derive(Clone)]
 pub struct TrackListEmbed {
     title: &'static str,
     description: String,

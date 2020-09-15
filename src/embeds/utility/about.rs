@@ -14,7 +14,6 @@ use sysinfo::{get_current_pid, ProcessExt, ProcessorExt, System, SystemExt};
 use twilight_embed_builder::image_source::ImageSource;
 use twilight_model::id::UserId;
 
-#[derive(Clone)]
 pub struct AboutEmbed {
     title: String,
     thumbnail: ImageSource,

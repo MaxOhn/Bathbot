@@ -30,7 +30,7 @@ impl ProfileEmbed {
         user: User,
         profile_result: Option<ProfileResult>,
         globals_count: BTreeMap<usize, String>,
-        profile: OsuProfile,
+        profile: &OsuProfile,
         own_top_scores: usize,
     ) -> Self {
         let footer_text = format!(

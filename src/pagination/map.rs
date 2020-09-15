@@ -5,6 +5,7 @@ use crate::{embeds::MapEmbed, BotResult, Context};
 use async_trait::async_trait;
 use rosu::models::{Beatmap, GameMods};
 use std::sync::Arc;
+use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::channel::Message;
 
 pub struct MapPagination {
@@ -53,8 +54,8 @@ impl Pagination for MapPagination {
     fn multi_step(&self) -> usize {
         3
     }
-    fn reactions() -> &'static [&'static str] {
-        &["⏮️", "⏪", "◀️", "▶️", "⏩", "⏭️"]
+    fn reactions() -> Vec<RequestReactionType> {
+        Self::arrow_reactions_full()
     }
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         MapEmbed::new(

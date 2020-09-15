@@ -11,6 +11,7 @@ use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
+use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::channel::Message;
 
 pub struct RecentPagination {
@@ -66,8 +67,8 @@ impl Pagination for RecentPagination {
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
-    fn reactions() -> &'static [&'static str] {
-        &["⏮️", "⏪", "◀️", "▶️", "⏩", "⏭️"]
+    fn reactions() -> Vec<RequestReactionType> {
+        Self::arrow_reactions_full()
     }
     fn process_data(&mut self, data: &Self::PageData) {
         self.embed_data = data.clone();

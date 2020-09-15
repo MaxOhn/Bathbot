@@ -1,6 +1,5 @@
 use crate::embeds::EmbedData;
 
-#[derive(Clone)]
 pub struct BGHelpEmbed {
     title: &'static str,
     description: &'static str,

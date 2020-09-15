@@ -15,7 +15,6 @@ use rosu::models::{Beatmap, GameMode};
 use std::{collections::HashMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct LeaderboardEmbed {
     description: String,
     thumbnail: ImageSource,

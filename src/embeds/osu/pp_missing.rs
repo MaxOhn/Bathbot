@@ -6,7 +6,6 @@ use crate::{
 use rosu::models::{Score, User};
 use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct PPMissingEmbed {
     description: String,
     title: String,

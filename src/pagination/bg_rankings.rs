@@ -3,6 +3,7 @@ use crate::{embeds::BGRankingEmbed, BotResult, Context};
 
 use async_trait::async_trait;
 use std::{collections::HashMap, sync::Arc};
+use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{channel::Message, id::UserId};
 
 pub struct BGRankingPagination {
@@ -51,8 +52,24 @@ impl Pagination for BGRankingPagination {
     fn jump_index(&self) -> Option<usize> {
         self.author_idx
     }
-    fn reactions() -> &'static [&'static str] {
-        &["⏮️", "⏪", "*️⃣", "⏩", "⏭️"]
+    fn reactions() -> Vec<RequestReactionType> {
+        vec![
+            RequestReactionType::Unicode {
+                name: "⏮️".to_owned(),
+            },
+            RequestReactionType::Unicode {
+                name: "⏪".to_owned(),
+            },
+            RequestReactionType::Unicode {
+                name: "*️⃣".to_owned(),
+            },
+            RequestReactionType::Unicode {
+                name: "⏩".to_owned(),
+            },
+            RequestReactionType::Unicode {
+                name: "⏭️".to_owned(),
+            },
+        ]
     }
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         for id in self

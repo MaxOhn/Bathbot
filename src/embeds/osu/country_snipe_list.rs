@@ -12,7 +12,6 @@ use crate::{
 use std::fmt::Write;
 use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct CountrySnipeListEmbed {
     thumbnail: Option<ImageSource>,
     description: String,

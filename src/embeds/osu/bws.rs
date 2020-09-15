@@ -8,7 +8,6 @@ use rosu::models::User;
 use std::{collections::BTreeMap, fmt::Write, iter};
 use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct BWSEmbed {
     description: String,
     title: String,

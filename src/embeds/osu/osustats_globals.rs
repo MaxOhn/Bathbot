@@ -16,7 +16,6 @@ use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::User;
 use std::{collections::BTreeMap, fmt::Write};
 
-#[derive(Clone)]
 pub struct OsuStatsGlobalsEmbed {
     description: String,
     thumbnail: ImageSource,

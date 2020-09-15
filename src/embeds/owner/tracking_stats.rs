@@ -5,7 +5,6 @@ use crate::{
 
 use chrono::{DateTime, Utc};
 
-#[derive(Clone)]
 pub struct TrackingStatsEmbed {
     title: String,
     fields: Vec<(String, String, bool)>,

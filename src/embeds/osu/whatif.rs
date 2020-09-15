@@ -9,7 +9,6 @@ use crate::{
 use rosu::models::{GameMode, Score, User};
 use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct WhatIfEmbed {
     description: String,
     title: String,

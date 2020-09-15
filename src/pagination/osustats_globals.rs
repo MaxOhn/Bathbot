@@ -8,6 +8,7 @@ use crate::{
 use async_trait::async_trait;
 use rosu::models::User;
 use std::{collections::BTreeMap, iter::Extend, sync::Arc};
+use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::channel::Message;
 
 pub struct OsuStatsGlobalsPagination {
@@ -53,8 +54,8 @@ impl Pagination for OsuStatsGlobalsPagination {
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
-    fn reactions() -> &'static [&'static str] {
-        &["⏮️", "⏪", "◀️", "▶️", "⏩", "⏭️"]
+    fn reactions() -> Vec<RequestReactionType> {
+        Self::arrow_reactions_full()
     }
     fn single_step(&self) -> usize {
         5

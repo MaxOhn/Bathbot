@@ -6,7 +6,6 @@ use crate::{
 
 use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct TwitchNotifEmbed {
     description: String,
     thumbnail: ImageSource,

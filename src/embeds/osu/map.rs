@@ -17,7 +17,6 @@ use rosu::models::{Beatmap, GameMode, GameMods};
 use std::fmt::Write;
 use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct MapEmbed {
     title: String,
     url: String,

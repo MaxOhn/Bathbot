@@ -10,7 +10,6 @@ use crate::{
 use std::fmt::Write;
 use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct OsuStatsListEmbed {
     description: String,
     thumbnail: ImageSource,

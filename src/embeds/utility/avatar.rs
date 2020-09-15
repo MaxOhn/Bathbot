@@ -1,9 +1,8 @@
 use crate::{embeds::EmbedData, util::constants::AVATAR_URL};
 
-use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::User;
+use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct AvatarEmbed {
     title: String,
     url: String,

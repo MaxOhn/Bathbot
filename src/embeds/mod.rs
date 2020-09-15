@@ -21,7 +21,7 @@ use twilight_embed_builder::{
 };
 use twilight_model::channel::embed::EmbedField;
 
-pub trait EmbedData: Send + Sync + Sized + Clone {
+pub trait EmbedData: Send + Sync + Sized {
     // Make these point to the corresponding fields
     fn title(&self) -> Option<&str> {
         None

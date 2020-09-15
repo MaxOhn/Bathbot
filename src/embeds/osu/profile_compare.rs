@@ -13,7 +13,6 @@ use rosu::models::{GameMode, User};
 use std::{cmp::Reverse, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct ProfileCompareEmbed {
     description: String,
     image: ImageSource,

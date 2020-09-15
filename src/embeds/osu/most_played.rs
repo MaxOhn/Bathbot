@@ -4,11 +4,10 @@ use crate::{
     util::constants::{AVATAR_URL, OSU_BASE},
 };
 
-use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::User;
 use std::fmt::Write;
+use twilight_embed_builder::image_source::ImageSource;
 
-#[derive(Clone)]
 pub struct MostPlayedEmbed {
     description: String,
     author: Author,
