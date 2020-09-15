@@ -98,9 +98,9 @@ impl MapEmbed {
             seconds_drain = (seconds_drain as f32 * 2.0 / 3.0) as u32;
             bpm *= 1.5;
         } else if mods.contains(GameMods::HalfTime) {
-            seconds_total = (seconds_total as f32 * 3.0 / 2.0) as u32;
-            seconds_drain = (seconds_drain as f32 * 3.0 / 2.0) as u32;
-            bpm /= 1.5;
+            seconds_total = (seconds_total as f32 * 4.0 / 3.0) as u32;
+            seconds_drain = (seconds_drain as f32 * 4.0 / 3.0) as u32;
+            bpm *= 0.75;
         }
         let _ = write!(
             info_value,
