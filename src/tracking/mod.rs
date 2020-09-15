@@ -104,10 +104,12 @@ impl OsuTracking {
     }
 
     pub async fn reset(&self, user: u32, mode: GameMode) {
-        let mut queue = self.queue.write().await;
         let now = Utc::now();
         *self.last_date.write().await = now;
-        queue.push_decrease((user, mode), Reverse(now));
+        self.queue
+            .write()
+            .await
+            .push_decrease((user, mode), Reverse(now));
     }
 
     pub async fn update_last_date(
@@ -165,7 +167,6 @@ impl OsuTracking {
                 })
                 .collect()
         };
-        *self.last_date.write().await = Utc::now();
         Some(elems)
     }
 

@@ -53,25 +53,30 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
 pub async fn process_tracking(
     ctx: &Context,
     mode: GameMode,
-    #[allow(clippy::ptr_arg)] scores: &Vec<Score>,
+    scores: &[Score],
     user: Option<&User>,
     maps: &mut HashMap<u32, Beatmap>,
 ) {
-    let user_id = match scores.first() {
-        Some(score) => score.user_id,
+    let id_option = scores
+        .first()
+        .map(|s| s.user_id)
+        .or_else(|| user.map(|u| u.user_id));
+    let user_id = match id_option {
+        Some(id) => id,
         None => return,
     };
     let (last, channels) = match ctx.tracking().get_tracked(user_id, mode) {
         Some(tuple) => tuple,
         None => return,
     };
-    let max = match channels.values().copied().max() {
-        Some(max) => max,
+    let max = match channels.values().max() {
+        Some(max) => *max,
         None => {
             warn!("No tracked channels for ({},{})", user_id, mode);
             return;
         }
     };
+    let new_last = scores.iter().map(|s| s.date).max();
     for (idx, score) in scores.iter().enumerate().take(max) {
         // Skip if its an older score
         if score.date <= last {
@@ -177,9 +182,11 @@ pub async fn process_tracking(
                 Err(why) => warn!("Invalid embed for osu!tracking notification: {}", why),
             }
         }
+    }
+    if let Some(new_date) = new_last {
         let update_fut = ctx
             .tracking()
-            .update_last_date(user_id, mode, score.date, ctx.psql());
+            .update_last_date(user_id, mode, new_date, ctx.psql());
         if let Err(why) = update_fut.await {
             warn!(
                 "Error while updating tracking date for user ({},{}): {}",
