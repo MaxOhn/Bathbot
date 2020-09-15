@@ -2,7 +2,7 @@ use super::song_send;
 use crate::{Args, BotResult, Context};
 
 use std::sync::Arc;
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("https://youtu.be/_yWU0lFghxU?t=54")]

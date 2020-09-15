@@ -70,7 +70,7 @@ use std::{
     collections::BTreeMap,
     ops::{AddAssign, Div},
 };
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 async fn require_link(ctx: &Context, msg: &Message) -> BotResult<()> {
     let prefix = ctx.config_first_prefix(msg.guild_id);

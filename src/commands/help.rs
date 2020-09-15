@@ -12,15 +12,15 @@ use crate::{
 
 use rayon::prelude::*;
 use std::{collections::BTreeMap, fmt::Write};
-use twilight::model::{
+use twilight_embed_builder::{
+    author::EmbedAuthorBuilder, builder::EmbedBuilder, footer::EmbedFooterBuilder,
+};
+use twilight_model::{
     channel::{
         embed::{Embed, EmbedField},
         Message,
     },
     id::{ChannelId, GuildId, UserId},
-};
-use twilight_embed_builder::{
-    author::EmbedAuthorBuilder, builder::EmbedBuilder, footer::EmbedFooterBuilder,
 };
 
 fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {

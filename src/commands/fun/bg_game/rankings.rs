@@ -7,7 +7,7 @@ use crate::{
 };
 
 use std::{collections::HashMap, sync::Arc};
-use twilight::model::{channel::Message, id::UserId};
+use twilight_model::{channel::Message, id::UserId};
 
 #[command]
 #[short_desc("Show the user rankings for the game")]

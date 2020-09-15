@@ -1,6 +1,6 @@
 use crate::{BotResult, Context};
 
-use twilight::model::id::{ChannelId, MessageId, RoleId};
+use twilight_model::id::{ChannelId, MessageId, RoleId};
 
 impl Context {
     pub fn get_link(&self, discord_id: u64) -> Option<String> {

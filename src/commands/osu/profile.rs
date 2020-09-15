@@ -25,7 +25,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
 };
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 async fn profile_main(
     mode: GameMode,

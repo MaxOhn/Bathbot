@@ -17,7 +17,7 @@ use std::{
     fmt::Write,
     sync::Arc,
 };
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Display performance ratings for a multiplayer match")]

@@ -13,7 +13,7 @@ use tokio::{
     },
     time::{delay_for, timeout, Duration},
 };
-use twilight::model::{gateway::payload::MessageCreate, id::ChannelId};
+use twilight_model::{gateway::payload::MessageCreate, id::ChannelId};
 
 const TIMEOUT: Duration = Duration::from_secs(10);
 const GAME_LEN: Duration = Duration::from_secs(180);

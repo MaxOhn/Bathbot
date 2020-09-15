@@ -10,7 +10,7 @@ use image::{png::PngEncoder, ColorType};
 use plotters::prelude::*;
 use rosu::models::GameMode;
 use std::sync::Arc;
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Snipe / #1 count related stats for a country")]

@@ -1,7 +1,7 @@
 use crate::Context;
 
 use rayon::prelude::*;
-use twilight::model::id::ChannelId;
+use twilight_model::id::ChannelId;
 
 impl Context {
     pub fn add_tracking(&self, twitch_id: u64, channel_id: u64) {

@@ -13,8 +13,8 @@ use crate::{
 
 use rosu::models::{Beatmap, GameMode, GameMods, Score};
 use std::fmt::Write;
-use twilight::model::channel::embed::EmbedField;
 use twilight_embed_builder::{builder::EmbedBuilder, image_source::ImageSource};
+use twilight_model::channel::embed::EmbedField;
 
 #[derive(Clone)]
 pub struct SimulateEmbed {

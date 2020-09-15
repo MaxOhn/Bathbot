@@ -23,7 +23,7 @@ use std::{
     sync::Arc,
 };
 use tokio::time::{delay_for, Duration};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[allow(clippy::cognitive_complexity)]
 async fn recent_main(

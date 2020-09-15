@@ -9,7 +9,7 @@ use tokio::{
     fs::File,
     io::{AsyncWriteExt, BufWriter},
 };
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Display stats about the internal cache")]

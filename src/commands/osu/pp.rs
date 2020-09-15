@@ -8,7 +8,7 @@ use crate::{
 
 use rosu::{backend::requests::BestRequest, models::GameMode};
 use std::{collections::HashMap, sync::Arc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 async fn pp_main(
     mode: GameMode,

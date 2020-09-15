@@ -23,7 +23,7 @@ use rosu::{
     models::{Beatmap, GameMode, GameMods, Score},
 };
 use std::{collections::HashMap, sync::Arc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 async fn compare_main(
     mode: GameMode,

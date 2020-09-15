@@ -1,7 +1,7 @@
 use crate::Context;
 
 use std::str::FromStr;
-use twilight::model::id::{ChannelId, GuildId, RoleId, UserId};
+use twilight_model::id::{ChannelId, GuildId, RoleId, UserId};
 
 pub fn content_safe(ctx: &Context, content: &mut String, guild_id: Option<GuildId>) {
     if let Some(guild_id) = guild_id {

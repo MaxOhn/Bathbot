@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use log::info;
 use prometheus::{IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry};
 use std::collections::HashMap;
-use twilight::model::{channel::Message, gateway::event::Event};
+use twilight_model::{channel::Message, gateway::event::Event};
 
 pub struct EventStats {
     pub gateway_reconnect: IntCounter,

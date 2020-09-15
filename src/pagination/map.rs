@@ -5,7 +5,7 @@ use crate::{embeds::MapEmbed, BotResult, Context};
 use async_trait::async_trait;
 use rosu::models::{Beatmap, GameMods};
 use std::sync::Arc;
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 pub struct MapPagination {
     msg: Message,

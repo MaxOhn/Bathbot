@@ -6,7 +6,7 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 pub struct CountrySnipeListPagination {
     msg: Message,

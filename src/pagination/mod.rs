@@ -33,12 +33,13 @@ use crate::{embeds::EmbedData, util::numbers, BotResult, Context};
 use async_trait::async_trait;
 use std::time::Duration;
 use tokio::stream::StreamExt;
-use twilight::model::{
+use twilight_embed_builder::image_source::ImageSource;
+use twilight_http::request::channel::reaction::RequestReactionType;
+use twilight_model::{
     channel::{Message, Reaction, ReactionType},
     gateway::payload::ReactionAdd,
     id::UserId,
 };
-use twilight_embed_builder::image_source::ImageSource;
 
 #[async_trait]
 pub trait Pagination: Sync + Sized {
@@ -82,7 +83,7 @@ pub trait Pagination: Sync + Sized {
         let mut reaction_stream = {
             let msg = self.msg();
             for &reaction in reactions.iter() {
-                let emote = ReactionType::Unicode {
+                let emote = RequestReactionType::Unicode {
                     name: reaction.to_string(),
                 };
                 ctx.http
@@ -101,7 +102,7 @@ pub trait Pagination: Sync + Sized {
             }
         }
         for &reaction in reactions.iter() {
-            let r = ReactionType::Unicode {
+            let r = RequestReactionType::Unicode {
                 name: reaction.to_string(),
             };
             let msg = self.msg();

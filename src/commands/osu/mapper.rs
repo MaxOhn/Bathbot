@@ -13,7 +13,7 @@ use crate::{
 
 use rosu::{backend::BestRequest, models::GameMode};
 use std::{collections::HashMap, sync::Arc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 async fn mapper_main(
     mode: GameMode,

@@ -8,7 +8,7 @@ use crate::{
 use async_trait::async_trait;
 use rosu::models::User;
 use std::{collections::BTreeMap, iter::Extend, sync::Arc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 pub struct OsuStatsGlobalsPagination {
     msg: Message,

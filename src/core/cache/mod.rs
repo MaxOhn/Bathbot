@@ -28,8 +28,8 @@ use tokio::{
     sync::RwLock,
     time::{timeout, Duration},
 };
-use twilight::gateway::Event;
-use twilight::model::{
+use twilight_gateway::Event;
+use twilight_model::{
     channel::{Channel, GuildChannel, PrivateChannel},
     gateway::{
         payload::RequestGuildMembers,

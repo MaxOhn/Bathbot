@@ -13,7 +13,7 @@ use tokio::{
     fs::{remove_file, File},
     io::AsyncWriteExt,
 };
-use twilight::model::channel::{Attachment, Message};
+use twilight_model::channel::{Attachment, Message};
 
 #[command]
 #[short_desc("Add background for the background game")]

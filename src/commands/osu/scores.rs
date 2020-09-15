@@ -13,7 +13,7 @@ use crate::{
 
 use rosu::backend::requests::{BeatmapRequest, ScoreRequest};
 use std::sync::Arc;
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Each mod's top score from a player on a map")]

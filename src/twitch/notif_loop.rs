@@ -12,7 +12,7 @@ use std::{
 };
 use strfmt::strfmt;
 use tokio::time;
-use twilight::http::Error as TwilightError;
+use twilight_http::Error as TwilightError;
 
 pub async fn twitch_loop(ctx: Arc<Context>) {
     // Formatting of the embed image

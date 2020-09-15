@@ -15,7 +15,7 @@ use std::{
     fmt::Write,
     sync::Arc,
 };
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Compare the 100 most played maps of multiple users")]

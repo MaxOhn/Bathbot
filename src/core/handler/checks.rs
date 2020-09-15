@@ -6,7 +6,7 @@ use crate::{
 
 use rayon::prelude::*;
 use std::fmt::Write;
-use twilight::model::{channel::Message, guild::Permissions, id::RoleId};
+use twilight_model::{channel::Message, guild::Permissions, id::RoleId};
 
 // Is authority -> Ok(None)
 // No authority -> Ok(Some(message to user))

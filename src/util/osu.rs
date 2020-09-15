@@ -6,7 +6,7 @@ use crate::{
 
 use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score};
 use tokio::{fs::File, io::AsyncWriteExt};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ModSelection {

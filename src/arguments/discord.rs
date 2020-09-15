@@ -2,7 +2,7 @@ use super::Args;
 use crate::util::matcher;
 
 use std::str::FromStr;
-use twilight::model::id::{ChannelId, MessageId, RoleId};
+use twilight_model::id::{ChannelId, MessageId, RoleId};
 
 pub struct RoleAssignArgs {
     pub channel_id: ChannelId,

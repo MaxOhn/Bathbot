@@ -2,7 +2,7 @@ use super::{Cache, CachedChannel, CachedGuild, CachedMember, CachedRole, CachedU
 use crate::util::constants::OWNER_USER_ID;
 
 use std::sync::Arc;
-use twilight::model::{
+use twilight_model::{
     channel::permission_overwrite::PermissionOverwriteType,
     guild::Permissions,
     id::{ChannelId, GuildId, RoleId, UserId},

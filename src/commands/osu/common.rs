@@ -20,7 +20,7 @@ use std::{
     fmt::Write,
     sync::Arc,
 };
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[allow(clippy::cognitive_complexity)]
 async fn common_main(

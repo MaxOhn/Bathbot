@@ -4,7 +4,7 @@ use crate::{
 };
 
 use std::{cmp::Ordering, fmt::Write, sync::Arc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Change my prefixes for a server")]

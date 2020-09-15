@@ -23,7 +23,7 @@ use futures::future::try_join_all;
 use image::{
     imageops::FilterType, DynamicImage, GenericImage, GenericImageView, ImageOutputFormat::Png,
 };
-use twilight::model::id::UserId;
+use twilight_model::id::UserId;
 
 pub fn discord_avatar(user_id: UserId, hash: &str) -> String {
     format!("{}avatars/{}/{}.webp?size=1024", DISCORD_CDN, user_id, hash)

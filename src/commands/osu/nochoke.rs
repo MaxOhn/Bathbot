@@ -15,7 +15,7 @@ use crate::{
 use futures::future::try_join_all;
 use rosu::{backend::requests::BestRequest, models::GameMode};
 use std::{cmp::Ordering, collections::HashMap, sync::Arc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Unchoke a user's top100")]

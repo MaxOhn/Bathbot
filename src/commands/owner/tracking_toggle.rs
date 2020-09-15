@@ -1,7 +1,7 @@
 use crate::{util::MessageExt, Args, BotResult, Context};
 
 use std::sync::{atomic::Ordering, Arc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Toggle osu!tracking")]

@@ -12,7 +12,7 @@ use crate::{
 use futures::future::TryFutureExt;
 use rosu::{backend::requests::UserRequest, models::GameMode};
 use std::{collections::HashMap, sync::Arc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 async fn rank_main(
     mode: GameMode,

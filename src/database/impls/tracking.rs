@@ -5,7 +5,7 @@ use dashmap::DashMap;
 use rosu::models::GameMode;
 use sqlx::{types::Json, Row};
 use std::collections::HashMap;
-use twilight::model::id::ChannelId;
+use twilight_model::id::ChannelId;
 
 impl Database {
     pub async fn get_osu_trackings(&self) -> BotResult<DashMap<(u32, GameMode), TrackingUser>> {

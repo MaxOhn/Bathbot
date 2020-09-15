@@ -19,7 +19,7 @@ use crate::{
 };
 
 use std::sync::Arc;
-use twilight::model::channel::{Message, Reaction};
+use twilight_model::channel::{Message, Reaction};
 
 #[command]
 #[short_desc("Play the background guessing game")]

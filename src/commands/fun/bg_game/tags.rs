@@ -15,10 +15,11 @@ use rayon::prelude::*;
 use rosu::models::GameMode;
 use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::{fs, stream::StreamExt};
-use twilight::model::{
+use twilight_model::{
     channel::{Message, ReactionType},
     gateway::{event::Event, payload::ReactionAdd},
 };
+use twilight_http::request::channel::reaction::RequestReactionType;
 
 #[command]
 #[short_desc("Help tagging backgrounds by tagging them manually")]
@@ -262,7 +263,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
             "❌",
         ];
         for &reaction in reactions.iter() {
-            let emote = ReactionType::Unicode {
+            let emote = RequestReactionType::Unicode {
                 name: reaction.to_string(),
             };
             ctx.http

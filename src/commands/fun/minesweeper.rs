@@ -8,7 +8,7 @@ use std::{
     fmt::{self, Write},
     sync::Arc,
 };
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Play a game of minesweeper")]

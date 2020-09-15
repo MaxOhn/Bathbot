@@ -9,7 +9,7 @@ use crate::{
 
 use rayon::prelude::*;
 use std::{fmt::Write, sync::Arc};
-use twilight::model::{
+use twilight_model::{
     channel::Message,
     guild::Permissions,
     id::{GuildId, RoleId},

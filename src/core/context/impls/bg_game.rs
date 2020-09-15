@@ -3,7 +3,7 @@ use crate::{
 };
 
 use std::sync::Arc;
-use twilight::model::id::ChannelId;
+use twilight_model::id::ChannelId;
 
 impl Context {
     pub fn add_game_and_start(

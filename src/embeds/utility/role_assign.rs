@@ -1,6 +1,6 @@
 use crate::{embeds::EmbedData, util::content_safe, Context};
 
-use twilight::model::{
+use twilight_model::{
     channel::Message,
     id::{GuildId, RoleId},
 };

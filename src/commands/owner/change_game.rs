@@ -5,7 +5,7 @@ use crate::{
 };
 
 use std::sync::Arc;
-use twilight::model::{
+use twilight_model::{
     channel::Message,
     gateway::presence::{ActivityType, Status},
 };

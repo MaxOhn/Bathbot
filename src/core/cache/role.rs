@@ -2,7 +2,7 @@ use super::is_default;
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use twilight::model::{
+use twilight_model::{
     guild::{Permissions, Role},
     id::RoleId,
 };

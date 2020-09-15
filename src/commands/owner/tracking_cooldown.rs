@@ -1,7 +1,7 @@
 use crate::{tracking::OSU_TRACKING_COOLDOWN, util::MessageExt, Args, BotResult, Context};
 
 use std::{str::FromStr, sync::Arc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Adjust the tracking cooldown (in ms) - default 5000")]

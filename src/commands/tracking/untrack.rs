@@ -15,7 +15,7 @@ use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[authority()]

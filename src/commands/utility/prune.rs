@@ -6,7 +6,7 @@ use crate::{
 
 use std::sync::Arc;
 use tokio::time::{self, Duration};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[only_guilds()]

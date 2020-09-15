@@ -13,7 +13,7 @@ use crate::{
 use rosu::{backend::requests::BeatmapRequest, models::GameMode};
 use std::sync::Arc;
 use tokio::time::{self, Duration};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Simulate a score on a map")]

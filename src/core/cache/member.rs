@@ -1,13 +1,11 @@
-use std::sync::Arc;
-
-use serde::{Deserialize, Serialize};
-use twilight::model::guild::Member;
-use twilight::model::id::{RoleId, UserId};
-
+use super::is_default;
 use crate::core::cache::{Cache, CachedUser};
 
-use super::is_default;
-use twilight::model::gateway::payload::MemberUpdate;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use twilight_model::gateway::payload::MemberUpdate;
+use twilight_model::guild::Member;
+use twilight_model::id::{RoleId, UserId};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CachedMember {

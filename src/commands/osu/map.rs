@@ -21,7 +21,7 @@ use rosu::{
     models::{GameMode, GameMods},
 };
 use std::{cmp::Ordering, sync::Arc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 const W: u32 = 590;
 const H: u32 = 150;

@@ -11,7 +11,7 @@ use rosu::{
 };
 use std::{collections::HashMap, sync::Arc};
 use tokio::time;
-use twilight::http::Error as TwilightError;
+use twilight_http::Error as TwilightError;
 
 pub async fn tracking_loop(ctx: Arc<Context>) {
     let delay = time::Duration::from_secs(60);

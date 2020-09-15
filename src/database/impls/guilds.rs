@@ -2,7 +2,7 @@ use crate::{database::GuildConfig, BotResult, Database};
 
 use dashmap::DashMap;
 use sqlx::{types::Json, FromRow, Row};
-use twilight::model::id::GuildId;
+use twilight_model::id::GuildId;
 
 impl Database {
     pub async fn get_guilds(&self) -> BotResult<DashMap<GuildId, GuildConfig>> {

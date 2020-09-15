@@ -18,7 +18,7 @@ use rosu::{
     models::{GameMode, Score},
 };
 use std::{cmp::Ordering, collections::HashMap, sync::Arc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 async fn top_main(
     mode: GameMode,

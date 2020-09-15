@@ -4,7 +4,7 @@ use crate::{
 };
 
 use std::{fmt::Write, sync::Arc};
-use twilight::model::{channel::Message, id::ChannelId};
+use twilight_model::{channel::Message, id::ChannelId};
 
 #[command]
 #[short_desc("Display active bg games")]

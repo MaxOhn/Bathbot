@@ -11,7 +11,7 @@ use crate::{
 use rosu::{backend::requests::RecentRequest, models::GameMode};
 use std::sync::Arc;
 use tokio::time::{self, Duration};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[allow(clippy::cognitive_complexity)]
 async fn simulate_recent_main(

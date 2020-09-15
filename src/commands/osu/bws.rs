@@ -10,7 +10,7 @@ use crate::{
 
 use rosu::models::GameMode;
 use std::sync::Arc;
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Show the badge weighted seeding for a player")]

@@ -17,16 +17,16 @@ use darkredis::ConnectionPool;
 use dashmap::DashMap;
 use rosu::Osu;
 use tokio::sync::Mutex;
-use twilight::gateway::Cluster;
-use twilight::http::Client as HttpClient;
-use twilight::model::{
+use twilight_gateway::Cluster;
+use twilight_http::Client as HttpClient;
+use twilight_model::{
     gateway::{
         payload::UpdateStatus,
         presence::{Activity, ActivityType, Status},
     },
     id::{ChannelId, GuildId},
 };
-use twilight::standby::Standby;
+use twilight_standby::Standby;
 
 pub struct Context {
     pub cache: Cache,

@@ -7,7 +7,7 @@ use crate::{
 
 use async_trait::async_trait;
 use std::{collections::HashMap, sync::Arc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 pub struct OsuStatsListPagination {
     msg: Message,

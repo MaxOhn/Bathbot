@@ -45,15 +45,15 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::{runtime::Runtime, stream::StreamExt, sync::Mutex, time};
-use twilight::gateway::{
+use twilight_gateway::{
     cluster::{ClusterBuilder, ShardScheme},
     shard::ResumeSession,
     Cluster,
 };
-use twilight::http::{
+use twilight_http::{
     request::channel::message::allowed_mentions::AllowedMentionsBuilder, Client as HttpClient,
 };
-use twilight::model::{
+use twilight_model::{
     gateway::{
         presence::{ActivityType, Status},
         Intents,
@@ -167,14 +167,12 @@ async fn run(
         .map_or((1, 1, ShardScheme::Auto), |(to, total)| {
             (to, total, ShardScheme::Range { from: 0, to, total })
         });
-    let intents = Some(
-        Intents::GUILDS
-            | Intents::GUILD_MEMBERS
-            | Intents::GUILD_MESSAGES
-            | Intents::GUILD_MESSAGE_REACTIONS
-            | Intents::DIRECT_MESSAGES
-            | Intents::DIRECT_MESSAGE_REACTIONS,
-    );
+    let intents = Intents::GUILDS
+        | Intents::GUILD_MEMBERS
+        | Intents::GUILD_MESSAGES
+        | Intents::GUILD_MESSAGE_REACTIONS
+        | Intents::DIRECT_MESSAGES
+        | Intents::DIRECT_MESSAGE_REACTIONS;
     let stats = Arc::new(BotStats::new(clients.osu.metrics()));
 
     // Provide stats to locale address

@@ -9,8 +9,8 @@ use image::GenericImageView;
 use rosu::models::GameMode;
 use std::collections::VecDeque;
 use tokio::{fs, stream::StreamExt, sync::RwLock};
-use twilight::model::id::ChannelId;
-use twilight::standby::WaitForMessageStream;
+use twilight_model::id::ChannelId;
+use twilight_standby::WaitForMessageStream;
 
 pub struct Game {
     pub title: String,

@@ -8,7 +8,7 @@ mod twitch;
 
 use crate::{Context, OsuTracking};
 
-use twilight::model::{
+use twilight_model::{
     channel::{Message, Reaction},
     id::RoleId,
 };

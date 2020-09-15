@@ -7,7 +7,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
     Arc,
 };
-use twilight::model::{
+use twilight_model::{
     guild::{Guild, PartialGuild},
     id::{ChannelId, GuildId, RoleId, UserId},
 };

@@ -96,33 +96,23 @@ version = "0.2"
 default_features = false
 features = ["rt-core", "rt-threaded", "time", "macros", "process", "sync", "stream", "fs", "io-util"]
 
-[dependencies.twilight]
-git = "https://github.com/twilight-rs/twilight"
-branch = "trunk"
-
 [dependencies.twilight-embed-builder]
-git = "https://github.com/twilight-rs/twilight"
-branch = "trunk"
+version = "0.1"
 default_features = false
 
-# [dependencies.twilight-gateway]
-# git = "https://github.com/twilight-rs/twilight"
-# branch = "trunk"
-# default_features = false
-# features = ["serde_json", "rustls"]
+[dependencies.twilight-gateway]
+version = "0.1"
+features = ["simd-json"]
 
-# [dependencies.twilight-http]
-# git = "https://github.com/twilight-rs/twilight"
-# branch = "trunk"
-# default_features = false
-# features = ["rustls"]
+[dependencies.twilight-http]
+version = "0.1"
+default_features = false
+features = ["rustls", "simd-json"]
 
-# [dependencies.twilight-model]
-# git = "https://github.com/twilight-rs/twilight"
-# branch = "trunk"
-# default_features = false
+[dependencies.twilight-model]
+version = "0.1"
+default_features = false
 
-# [dependencies.twilight-standby]
-# git = "https://github.com/twilight-rs/twilight"
-# branch = "trunk"
-# default_features = false
+[dependencies.twilight-standby]
+version = "0.1"
+default_features = false

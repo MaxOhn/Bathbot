@@ -1,6 +1,5 @@
 
 **[TODO]**
-- Fix unreacting for `<bg s` and possibly `<bgt`
 - Add ratelimit for downloading maps
 - Check on multiple `<bg start`'s in a row
 
@@ -10,6 +9,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Fix unreacting for `<bg s` and possibly `<bgt`~~ (20.09.15)
 - ~~Fix guild & user count on dashboard~~ (20.09.13)
 - ~~Fix +/- issue on `<pp` & re-check on its f32 formatting~~ (20.09.11)
 - ~~Owner command to adjust bot status~~ (20.09.11)

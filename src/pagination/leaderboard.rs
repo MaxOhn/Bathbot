@@ -5,7 +5,7 @@ use crate::{custom_client::ScraperScore, embeds::LeaderboardEmbed, BotResult, Co
 use async_trait::async_trait;
 use rosu::models::Beatmap;
 use std::sync::Arc;
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 pub struct LeaderboardPagination {
     msg: Message,

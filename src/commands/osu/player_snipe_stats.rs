@@ -13,7 +13,7 @@ use rosu::{
     models::GameMode,
 };
 use std::{collections::BTreeMap, sync::Arc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Stats about a user's #1 scores in their country leaderbords")]

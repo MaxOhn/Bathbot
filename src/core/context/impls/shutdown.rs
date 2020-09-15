@@ -1,7 +1,7 @@
 use crate::{core::ColdRebootData, BotResult, Context};
 
 use std::{collections::HashMap, time::Instant};
-use twilight::model::gateway::presence::{ActivityType, Status};
+use twilight_model::gateway::presence::{ActivityType, Status};
 
 impl Context {
     pub async fn initiate_cold_resume(&self) -> BotResult<()> {

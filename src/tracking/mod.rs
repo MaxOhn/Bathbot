@@ -15,7 +15,7 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 use tokio::{sync::RwLock, time};
-use twilight::model::id::ChannelId;
+use twilight_model::id::ChannelId;
 
 lazy_static::lazy_static! {
     pub static ref OSU_TRACKING_INTERVAL: Duration = Duration::seconds(3600);

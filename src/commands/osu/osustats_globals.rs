@@ -15,7 +15,7 @@ use crate::{
 
 use rosu::models::GameMode;
 use std::{collections::BTreeMap, fmt::Write, sync::Arc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 async fn osustats_main(
     mode: GameMode,

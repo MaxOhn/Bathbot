@@ -12,6 +12,7 @@ use crate::{
 
 use sysinfo::{get_current_pid, ProcessExt, ProcessorExt, System, SystemExt};
 use twilight_embed_builder::image_source::ImageSource;
+use twilight_model::id::UserId;
 
 #[derive(Clone)]
 pub struct AboutEmbed {
@@ -25,7 +26,7 @@ impl AboutEmbed {
     pub async fn new(ctx: &Context) -> BotResult<Self> {
         let owner = ctx
             .http
-            .user(OWNER_USER_ID)
+            .user(UserId(OWNER_USER_ID))
             .await?
             .ok_or_else(|| format_err!("Cache does not contain user of owner"))?;
 

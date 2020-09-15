@@ -11,12 +11,10 @@ use crate::{
 use rosu::models::GameMode;
 use std::sync::Arc;
 use tokio::{stream::StreamExt, time::Duration};
-use twilight::model::{
+use twilight_http::request::channel::reaction::RequestReactionType;
+use twilight_model::{
     channel::{Message, ReactionType},
-    gateway::{
-        event::{Event},
-        payload::ReactionAdd,
-    },
+    gateway::{event::Event, payload::ReactionAdd},
 };
 
 #[command]
@@ -109,7 +107,7 @@ async fn get_mapsets(
         "❌",
     ];
     for &reaction in reactions.iter() {
-        let emote = ReactionType::Unicode {
+        let emote = RequestReactionType::Unicode {
             name: reaction.to_string(),
         };
         ctx.http

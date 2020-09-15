@@ -5,7 +5,7 @@ use crate::{custom_client::MostPlayedMap, embeds::MostPlayedCommonEmbed, BotResu
 use async_trait::async_trait;
 use rosu::models::User;
 use std::collections::HashMap;
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 pub struct MostPlayedCommonPagination {
     msg: Message,

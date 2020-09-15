@@ -13,7 +13,7 @@ use crate::{
 
 use rosu::backend::requests::BeatmapRequest;
 use std::sync::Arc;
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[allow(clippy::cognitive_complexity)]
 async fn leaderboard_main(

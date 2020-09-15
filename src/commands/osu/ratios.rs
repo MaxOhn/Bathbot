@@ -12,7 +12,7 @@ use crate::{
 
 use rosu::{backend::BestRequest, models::GameMode};
 use std::{collections::HashMap, sync::Arc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Ratio related stats about a user's top100")]

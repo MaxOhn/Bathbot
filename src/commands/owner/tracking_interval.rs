@@ -2,7 +2,7 @@ use crate::{tracking::OSU_TRACKING_INTERVAL, util::MessageExt, Args, BotResult, 
 
 use chrono::Duration;
 use std::{str::FromStr, sync::Arc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Adjust the tracking interval (in seconds) - default 3600")]

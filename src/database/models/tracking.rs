@@ -3,7 +3,7 @@ use rosu::models::GameMode;
 use serde_json::Value;
 use sqlx::{types::Json, ColumnIndex, Decode, Error, FromRow, Row, Type};
 use std::{collections::HashMap, str::FromStr};
-use twilight::model::id::ChannelId;
+use twilight_model::id::ChannelId;
 
 #[derive(Debug)]
 pub struct TrackingUser {

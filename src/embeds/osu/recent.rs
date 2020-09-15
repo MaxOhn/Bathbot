@@ -14,10 +14,10 @@ use crate::{
 use chrono::{DateTime, Utc};
 use rosu::models::{Beatmap, GameMode, Grade, Score, User};
 use std::fmt::Write;
-use twilight::model::channel::embed::EmbedField;
 use twilight_embed_builder::{
     author::EmbedAuthorBuilder, builder::EmbedBuilder, image_source::ImageSource,
 };
+use twilight_model::channel::embed::EmbedField;
 
 #[derive(Clone)]
 pub struct RecentEmbed {

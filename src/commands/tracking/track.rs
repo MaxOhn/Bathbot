@@ -9,7 +9,7 @@ use chrono::Utc;
 use futures::future::{try_join_all, TryFutureExt};
 use rosu::{backend::UserRequest, models::GameMode};
 use std::{collections::HashSet, sync::Arc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 async fn track_main(
     mode: GameMode,

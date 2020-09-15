@@ -17,8 +17,8 @@ use std::{
     ops::Deref,
     sync::Arc,
 };
-use twilight::gateway::Event;
-use twilight::model::{channel::Message, guild::Permissions};
+use twilight_gateway::Event;
+use twilight_model::{channel::Message, guild::Permissions};
 use uwl::Stream;
 
 pub async fn handle_event(

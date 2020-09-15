@@ -8,7 +8,7 @@ use crate::{
 use futures::future::{try_join_all, TryFutureExt};
 use rosu::{backend::UserRequest, models::GameMode};
 use std::sync::Arc;
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[authority()]

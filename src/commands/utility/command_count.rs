@@ -7,7 +7,7 @@ use crate::{
 
 use prometheus::core::Collector;
 use std::sync::Arc;
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("List of popular commands")]

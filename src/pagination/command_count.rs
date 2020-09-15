@@ -4,7 +4,7 @@ use crate::{embeds::CommandCounterEmbed, BotResult, Context};
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 pub struct CommandCountPagination {
     msg: Message,

@@ -1,6 +1,6 @@
 use crate::{database::GuildConfig, Context};
 
-use twilight::model::id::GuildId;
+use twilight_model::id::GuildId;
 
 impl Context {
     pub fn config_authorities(&self, guild_id: GuildId) -> Vec<u64> {

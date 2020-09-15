@@ -24,7 +24,7 @@ use crate::{util::MessageExt, BotResult, Context};
 
 use std::sync::Arc;
 use tokio::time;
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 async fn song_send(lyrics: &[&str], delay: u64, ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     let allow = msg

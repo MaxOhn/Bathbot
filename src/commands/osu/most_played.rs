@@ -11,7 +11,7 @@ use crate::{
 
 use rosu::models::GameMode;
 use std::sync::Arc;
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Display the most played maps of a user")]

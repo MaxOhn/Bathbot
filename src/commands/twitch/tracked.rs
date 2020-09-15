@@ -1,7 +1,7 @@
 use crate::{bail, util::MessageExt, Args, BotResult, Context};
 
 use std::{fmt::Write, sync::Arc};
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("List all streams that are tracked in a channel")]

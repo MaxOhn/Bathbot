@@ -14,7 +14,7 @@ use std::{
         Arc,
     },
 };
-use twilight::model::id::{GuildId, UserId};
+use twilight_model::id::{GuildId, UserId};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ColdRebootData {

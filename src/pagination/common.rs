@@ -5,7 +5,7 @@ use crate::{embeds::CommonEmbed, BotResult};
 use async_trait::async_trait;
 use rosu::models::{Beatmap, Score, User};
 use std::collections::HashMap;
-use twilight::model::channel::Message;
+use twilight_model::channel::Message;
 
 pub struct CommonPagination {
     msg: Message,

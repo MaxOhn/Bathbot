@@ -15,11 +15,11 @@ pub use utility::*;
 use crate::util::{constants::DARK_GREEN, datetime};
 
 use chrono::{DateTime, Utc};
-use twilight::model::channel::embed::EmbedField;
 use twilight_embed_builder::{
     author::EmbedAuthorBuilder, builder::EmbedBuilder, footer::EmbedFooterBuilder,
     image_source::ImageSource,
 };
+use twilight_model::channel::embed::EmbedField;
 
 pub trait EmbedData: Send + Sync + Sized + Clone {
     // Make these point to the corresponding fields
