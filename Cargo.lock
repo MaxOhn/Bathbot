@@ -793,15 +793,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "float-cmp"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "499a1bfa03d254b047e7e5c1fc8dd23a8cf6b344a8eb7e622ae4bc76bfac8e68"
-dependencies = [
- "num-traits",
-]
-
-[[package]]
 name = "float-ord"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1088,26 +1079,6 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
-]
-
-[[package]]
-name = "halfbrown"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c12499524b5585419ab2f51545a19b842263a373580a83c0eb98a0142a260a10"
-dependencies = [
- "hashbrown 0.7.2",
- "serde",
-]
-
-[[package]]
-name = "hashbrown"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96282e96bfcd3da0d3aa9938bedf1e50df3269b6db08b4876d2da0bb1a0841cf"
-dependencies = [
- "ahash",
- "autocfg",
 ]
 
 [[package]]
@@ -2712,18 +2683,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "simd-json"
-version = "0.3.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7084403c2d566bfcbc3ad3a33b4bf8a255c936050a382b921749e015ee8066c3"
-dependencies = [
- "halfbrown",
- "serde",
- "serde_json",
- "value-trait",
-]
-
-[[package]]
 name = "siphasher"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3310,7 +3269,6 @@ dependencies = [
  "once_cell",
  "serde",
  "serde_json",
- "simd-json",
  "tokio",
  "tracing",
  "twilight-http",
@@ -3332,7 +3290,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_repr",
- "simd-json",
  "tokio",
  "tracing",
  "twilight-model",
@@ -3445,18 +3402,6 @@ name = "uwl"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f4bf03e0ca70d626ecc4ba6b0763b934b6f2976e8c744088bb3c1d646fbb1ad0"
-
-[[package]]
-name = "value-trait"
-version = "0.1.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76116a6dbf85bfa0e5cd6bf9debee40e853f814d376f5713cabe5516283bcc89"
-dependencies = [
- "float-cmp",
- "halfbrown",
- "itoa",
- "ryu",
-]
 
 [[package]]
 name = "vcpkg"

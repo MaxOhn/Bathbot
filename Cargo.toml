@@ -102,12 +102,11 @@ default_features = false
 
 [dependencies.twilight-gateway]
 version = "0.1"
-features = ["simd-json"]
 
 [dependencies.twilight-http]
 version = "0.1"
 default_features = false
-features = ["rustls", "simd-json"]
+features = ["rustls"]
 
 [dependencies.twilight-model]
 version = "0.1"
