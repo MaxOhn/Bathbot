@@ -115,3 +115,8 @@ default_features = false
 [dependencies.twilight-standby]
 version = "0.1"
 default_features = false
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+# panic = "abort" # careful with that one
