@@ -136,11 +136,6 @@ async fn recent_main(
         }
     };
 
-    // Process user and their top scores for tracking
-    if let Some(ref scores) = best {
-        process_tracking(&ctx, mode, scores, Some(&user), &mut maps).await;
-    }
-
     // Accumulate all necessary data
     let tries = scores
         .iter()
@@ -174,6 +169,11 @@ async fn recent_main(
         .content(format!("Try #{}", tries))?
         .embed(data.build().build()?)?
         .await?;
+
+    // Process user and their top scores for tracking
+    if let Some(ref scores) = best {
+        process_tracking(&ctx, mode, scores, Some(&user), &mut maps).await;
+    }
 
     // Skip pagination if too few entries
     if scores.len() <= 1 {

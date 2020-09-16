@@ -51,38 +51,70 @@ impl RecentEmbed {
         personal: Option<&[Score]>,
         global: Option<&[Score]>,
     ) -> BotResult<Self> {
-        let personal_idx = personal.and_then(|personal| personal.iter().position(|s| s == score));
-        let global_idx = global.and_then(|global| global.iter().position(|s| s == score));
-        let description = if personal_idx.is_some() || global_idx.is_some() {
-            let mut description = String::with_capacity(25);
-            description.push_str("__**");
-            if let Some(idx) = personal_idx {
-                let _ = write!(description, "Personal Best #{}", idx + 1);
-                if global_idx.is_some() {
-                    description.reserve(19);
-                    description.push_str(" and ");
-                }
-            }
-            if let Some(idx) = global_idx {
-                let _ = write!(description, "Global Top #{}", idx + 1);
-            }
-            description.push_str("**__");
-            Some(description)
-        } else {
-            None
-        };
-        let title = if map.mode == GameMode::MNA {
-            format!("{} {}", osu::get_keys(score.enabled_mods, &map), map)
-        } else {
-            map.to_string()
-        };
-        let grade_completion_mods = grade_completion_mods(score, map);
         let calculations = Calculations::all();
         let mut calculator = PPCalculator::new().score(score).map(map);
-        if let Err(why) = calculator.calculate(calculations, Some(ctx)).await {
+        let async_work = async {
+            let personal_idx =
+                personal.and_then(|personal| personal.iter().position(|s| s == score));
+            let global_idx = global.and_then(|global| global.iter().position(|s| s == score));
+            let description = if personal_idx.is_some() || global_idx.is_some() {
+                let mut description = String::with_capacity(25);
+                description.push_str("__**");
+                if let Some(idx) = personal_idx {
+                    let _ = write!(description, "Personal Best #{}", idx + 1);
+                    if global_idx.is_some() {
+                        description.reserve(19);
+                        description.push_str(" and ");
+                    }
+                }
+                if let Some(idx) = global_idx {
+                    let _ = write!(description, "Global Top #{}", idx + 1);
+                }
+                description.push_str("**__");
+                Some(description)
+            } else {
+                None
+            };
+            let title = if map.mode == GameMode::MNA {
+                format!("{} {}", osu::get_keys(score.enabled_mods, &map), map)
+            } else {
+                map.to_string()
+            };
+            let grade_completion_mods = grade_completion_mods(score, map);
+            (description, title, grade_completion_mods)
+        };
+        let async_if_fc = async {
+            let got_s = match score.grade {
+                Grade::S | Grade::SH | Grade::X | Grade::XH => true,
+                _ => false,
+            };
+            if map.mode == GameMode::STD && (!got_s || score.max_combo < map.max_combo.unwrap() - 5)
+            {
+                let mut unchoked = score.clone();
+                unchoke_score(&mut unchoked, &map);
+                let mut calculator = PPCalculator::new().score(&unchoked).map(map);
+                if let Err(why) = calculator.calculate(Calculations::PP, None).await {
+                    warn!("Error while calculating pp of <recent score: {}", why);
+                    None
+                } else {
+                    let combo = osu::get_combo(&unchoked, map);
+                    let hits = unchoked.hits_string(map.mode);
+                    Some((calculator.pp(), combo, hits))
+                }
+            } else {
+                None
+            }
+        };
+        let (calc_result, (description, title, grade_completion_mods), if_fc) = tokio::join!(
+            calculator.calculate(calculations, Some(ctx)),
+            async_work,
+            async_if_fc
+        );
+        if let Err(why) = calc_result {
             warn!("Error while calculating <recent pp: {}", why);
         }
         let max_pp = calculator.max_pp();
+        let if_fc = if_fc.map(|(pp, x, y)| (osu::get_pp(pp, max_pp), x, y));
         let stars = round(calculator.stars().unwrap_or(0.0));
         let (pp, combo, hits) = (
             osu::get_pp(calculator.pp(), max_pp),
@@ -97,28 +129,6 @@ impl RecentEmbed {
             },
             score.hits_string(map.mode),
         );
-        let got_s = match score.grade {
-            Grade::S | Grade::SH | Grade::X | Grade::XH => true,
-            _ => false,
-        };
-        let if_fc = if map.mode == GameMode::STD
-            && (!got_s || score.max_combo < map.max_combo.unwrap() - 5)
-        {
-            let mut unchoked = score.clone();
-            unchoke_score(&mut unchoked, &map);
-            let mut calculator = PPCalculator::new().score(&unchoked).map(map);
-            if let Err(why) = calculator.calculate(Calculations::PP, None).await {
-                warn!("Error while calculating pp of <recent score: {}", why);
-                None
-            } else {
-                let pp = osu::get_pp(calculator.pp(), max_pp);
-                let combo = osu::get_combo(&unchoked, map);
-                let hits = unchoked.hits_string(map.mode);
-                Some((pp, combo, hits))
-            }
-        } else {
-            None
-        };
         let footer = Footer::new(format!(
             "{:?} map by {}, played",
             map.approval_status, map.creator
