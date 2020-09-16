@@ -174,7 +174,7 @@ pub struct OsuProfileStatistics {
     pub accuracy: f32,
     #[serde(rename = "play_count")]
     pub playcount: u32,
-    #[serde(rename = "play_time")]
+    #[serde(rename = "play_time", deserialize_with = "defaulting_u32")]
     pub playtime: u32,
     pub total_hits: u32,
     #[serde(rename = "maximum_combo")]
@@ -247,6 +247,11 @@ where
     let s: String = Deserialize::deserialize(d)?;
     let naive_date = NaiveDate::parse_from_str(&s, "%Y-%m-%d").map_err(de::Error::custom)?;
     Ok(Date::from_utc(naive_date, Utc))
+}
+
+pub fn defaulting_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
+    let u: Option<u32> = Deserialize::deserialize(d)?;
+    Ok(u.unwrap_or_default())
 }
 
 pub fn rank_history_vec<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Vec<u32>>, D::Error> {

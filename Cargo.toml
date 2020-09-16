@@ -62,6 +62,10 @@ version = "0.23"
 default-features = false
 features = ["png", "gif"]
 
+[dependencies.openssl]
+version = "0.10"
+optional = true
+
 [dependencies.plotters]
 version = "0.3"
 default-features = false
@@ -73,7 +77,6 @@ default_features = false
 features = ["cookies"]
 
 [dependencies.rosu]
-# version = "0.3"
 git = "https://github.com/MaxOhn/rosu"
 features = ["cache", "metrics"]
 
@@ -116,7 +119,5 @@ default_features = false
 version = "0.1"
 default_features = false
 
-[profile.release]
-lto = "fat"
-codegen-units = 1
-# panic = "abort" # careful with that one
+[features]
+vendored-openssl = ["openssl/vendored"]
