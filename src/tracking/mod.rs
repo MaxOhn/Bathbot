@@ -120,9 +120,21 @@ impl OsuTracking {
         psql: &Database,
     ) -> BotResult<()> {
         if let Some(mut tracked_user) = self.users.get_mut(&(user_id, mode)) {
-            tracked_user.last_top_score = new_date;
-            psql.update_osu_tracking(user_id, mode, new_date, &tracked_user.channels)
-                .await?;
+            if new_date > tracked_user.last_top_score {
+                tracked_user.last_top_score = new_date;
+                psql.update_osu_tracking(user_id, mode, new_date, &tracked_user.channels)
+                    .await?;
+            } else {
+                debug!(
+                    "[update_last_date] ({},{})'s date {} is already greater than {}",
+                    user_id, mode, tracked_user.last_top_score, new_date
+                );
+            }
+        } else {
+            debug!(
+                "[update_last_date] ({},{}) not found in users",
+                user_id, mode
+            );
         }
         Ok(())
     }

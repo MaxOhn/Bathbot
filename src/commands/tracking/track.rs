@@ -78,11 +78,10 @@ async fn track_main(
     let mut success = Vec::with_capacity(users.len());
     let mut failure = Vec::new();
     for (user_id, username) in users {
-        match ctx
+        let add_fut = ctx
             .tracking()
-            .add(user_id, mode, Utc::now(), channel, limit, ctx.psql())
-            .await
-        {
+            .add(user_id, mode, Utc::now(), channel, limit, ctx.psql());
+        match add_fut.await {
             Ok(true) => success.push(username),
             Ok(false) => failure.push(username),
             Err(why) => {

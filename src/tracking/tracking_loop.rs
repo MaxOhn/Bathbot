@@ -100,6 +100,10 @@ pub async fn process_tracking(
         if score.date <= last {
             continue;
         }
+        debug!(
+            "[new top score] ({},{}): new {} | old {}",
+            user_id, mode, score.date, last
+        );
         // Prepare beatmap
         let map_id = match score.beatmap_id {
             Some(id) => id,
