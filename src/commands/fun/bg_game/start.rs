@@ -41,7 +41,7 @@ pub async fn start(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResul
             bail!("error while getting mapsets: {}", why);
         }
     };
-    if !mapsets.is_empty() {
+    if !(mapsets.is_empty() || ctx.has_running_game(msg.channel_id)) {
         let _ = ctx.http.create_typing_trigger(msg.channel_id).await;
         ctx.add_game_and_start(ctx.clone(), msg.channel_id, mapsets);
     }

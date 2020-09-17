@@ -22,6 +22,14 @@ impl Context {
             .start(ctx, channel, mapsets);
     }
 
+    pub fn has_running_game(&self, channel: ChannelId) -> bool {
+        self.data
+            .bg_games
+            .iter()
+            .find(|guard| *guard.key() == channel)
+            .is_some()
+    }
+
     pub fn game_channels(&self) -> Vec<ChannelId> {
         self.data
             .bg_games

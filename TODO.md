@@ -1,7 +1,6 @@
 
 **[TODO]**
 - Add ratelimit for downloading maps
-- Check on multiple `<bg start`'s in a row
 - Fix tracking's double posting
 
 **[Sometime]**
@@ -10,6 +9,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Check on multiple `<bg start`'s in a row~~ (20.09.17)
 - ~~Fix unreacting for `<bg s` and possibly `<bgt`~~ (20.09.15)
 - ~~Fix guild & user count on dashboard~~ (20.09.13)
 - ~~Fix +/- issue on `<pp` & re-check on its f32 formatting~~ (20.09.11)
