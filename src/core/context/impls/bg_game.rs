@@ -26,8 +26,7 @@ impl Context {
         self.data
             .bg_games
             .iter()
-            .find(|guard| *guard.key() == channel)
-            .is_some()
+            .any(|guard| *guard.key() == channel)
     }
 
     pub fn game_channels(&self) -> Vec<ChannelId> {

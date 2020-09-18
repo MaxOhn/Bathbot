@@ -42,7 +42,7 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
         for (user_id, mode, result) in join_all(score_futs).await {
             let _ = writeln!(
                 file,
-                "[{:0>}-{:0>} {:0>}:{:0>}:{:0>}] {},{}",
+                "[{:0>2}-{:0>2} {:0>2}:{:0>2}:{:0>2}] {},{}",
                 now.month(),
                 now.day(),
                 now.hour(),
@@ -94,7 +94,7 @@ pub async fn process_tracking(
             return;
         }
     };
-    let new_last = scores.iter().map(|s| s.date).max();
+    let new_last = scores.iter().map(|s| s.date).max().filter(|&d| d > last);
     for (idx, score) in scores.iter().enumerate().take(max) {
         // Skip if its an older score
         if score.date <= last {

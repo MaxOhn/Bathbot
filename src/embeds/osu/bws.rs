@@ -43,6 +43,7 @@ impl BWSEmbed {
                         bwss.values()
                             .map(|bwss| bwss.get(n).unwrap().len())
                             .fold(0, |max, next| max.max(next))
+                            .max(2)
                     })
                     .collect();
                 let mut content = String::with_capacity(256);
@@ -92,6 +93,9 @@ impl BWSEmbed {
                 let bws1 = with_comma_int(bws(user.pp_rank, badges));
                 let bws2 = with_comma_int(bws(user.pp_rank, badges + 1));
                 let bws3 = with_comma_int(bws(user.pp_rank, badges + 2));
+                let len1 = bws1.len().max(2);
+                let len2 = bws2.len().max(2);
+                let len3 = bws3.len().max(2);
                 let mut content = String::with_capacity(128);
                 content.push_str("```\n");
                 let _ = writeln!(
@@ -100,19 +104,19 @@ impl BWSEmbed {
                     badges,
                     badges + 1,
                     badges + 2,
-                    len1 = bws1.len(),
-                    len2 = bws2.len(),
-                    len3 = bws3.len(),
+                    len1 = len1,
+                    len2 = len2,
+                    len3 = len3,
                 );
                 let _ = writeln!(
                     content,
-                    "-------+-{:-^len1$}-+-{:-^len2$}-+-{:-^len3$}",
+                    "-------+-{:-^len1$}-+-{:-^len2$}-+-{:-^len3$}-",
                     "-",
                     "-",
                     "-",
-                    len1 = bws1.len(),
-                    len2 = bws2.len(),
-                    len3 = bws3.len(),
+                    len1 = len1,
+                    len2 = len2,
+                    len3 = len3,
                 );
                 let _ = writeln!(
                     content,
@@ -120,17 +124,18 @@ impl BWSEmbed {
                     bws1,
                     bws2,
                     bws3,
-                    len1 = bws1.len(),
-                    len2 = bws2.len(),
-                    len3 = bws3.len(),
+                    len1 = len1,
+                    len2 = len2,
+                    len3 = len3,
                 );
                 content.push_str("```");
                 content
             }
         };
         let title = format!(
-            "Current BWS for {} badges: {}",
+            "Current BWS for {} badge{}: {}",
             badges,
+            if badges == 1 { "" } else { "s" },
             with_comma_int(bws(user.pp_rank, badges))
         );
         Self {

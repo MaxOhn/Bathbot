@@ -328,9 +328,7 @@ impl ProfileResult {
             };
             map_len.add(seconds_drain);
 
-            let mut mapper = mappers
-                .entry(map.creator.to_lowercase())
-                .or_insert((0, 0.0));
+            let mut mapper = mappers.entry(map.creator).or_insert((0, 0.0));
             let weighted_pp = score.pp.unwrap_or(0.0) * factor;
             factor *= 0.95;
             mapper.0 += 1;
