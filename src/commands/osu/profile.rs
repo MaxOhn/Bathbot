@@ -403,7 +403,7 @@ const W: u32 = 1350;
 const H: u32 = 350;
 
 async fn graphs(profile: &OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error>> {
-    if profile.monthly_playcounts.is_empty() {
+    if profile.monthly_playcounts.len() < 2 {
         return Ok(None);
     }
     static LEN: usize = W as usize * H as usize;
