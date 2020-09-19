@@ -4,7 +4,7 @@ use crate::{
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
-        numbers::{round_and_comma, with_comma_u64},
+        numbers::{with_comma, with_comma_u64},
         osu::grade_completion_mods,
         ScoreExt,
     },
@@ -68,7 +68,7 @@ impl ScoresEmbed {
         let author_text = format!(
             "{name}: {pp}pp (#{global} {country}{national})",
             name = user.username,
-            pp = round_and_comma(user.pp_raw),
+            pp = with_comma(user.pp_raw),
             global = with_comma_u64(user.pp_rank as u64),
             country = user.country,
             national = user.pp_country_rank

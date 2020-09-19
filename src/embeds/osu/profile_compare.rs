@@ -4,7 +4,7 @@ use crate::{
     embeds::EmbedData,
     util::{
         datetime::sec_to_minsec,
-        numbers::{round_and_comma, with_comma_u64},
+        numbers::{with_comma, with_comma_u64},
     },
 };
 
@@ -384,7 +384,7 @@ impl CompareStrings {
         let days = (Utc::now() - user.join_date).num_days() as f32;
         let pp_per_month_num = 30.67 * user.pp_raw / days;
         Self {
-            pp: round_and_comma(user.pp_raw) + "pp",
+            pp: with_comma(user.pp_raw) + "pp",
             rank: format!("#{}", with_comma_u64(user.pp_rank as u64)),
             ranked_score: with_comma_u64(user.ranked_score),
             total_score: with_comma_u64(user.total_score),

@@ -3,9 +3,9 @@ use crate::{
     util::constants::AVATAR_URL,
 };
 
-use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::{GameMode, User};
 use std::{collections::BTreeMap, fmt::Write};
+use twilight_embed_builder::image_source::ImageSource;
 
 pub struct OsuStatsCountsEmbed {
     description: String,
@@ -24,7 +24,7 @@ impl OsuStatsCountsEmbed {
         for (rank, count) in counts {
             let _ = writeln!(
                 description,
-                "Top {:<2}: {:>count_len$}",
+                "Top {:>2}: {:>count_len$}",
                 rank,
                 count,
                 count_len = count_len,

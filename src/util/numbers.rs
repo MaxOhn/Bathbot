@@ -4,6 +4,7 @@ pub fn _clamp_map(in_min: f32, in_max: f32, out_min: f32, out_max: f32, input: f
     out_min + ((out_max - out_min) / (in_max - in_min)) * (input - in_min)
 }
 
+/// Round with two decimal positions
 pub fn round(n: f32) -> f32 {
     (100.0 * n).round() / 100.0
 }
@@ -60,10 +61,6 @@ pub fn with_comma_u64(mut n: u64) -> String {
     writer
 }
 
-pub fn round_and_comma(n: f32) -> String {
-    with_comma(round(n))
-}
-
 pub fn div_euclid(group: usize, total: usize) -> usize {
     if total % group == 0 && total > 0 {
         total / group
@@ -101,10 +98,5 @@ mod tests {
     #[test]
     fn test_with_comma_f32() {
         assert_eq!(with_comma(31_925.53), "31,925.53".to_owned());
-    }
-
-    #[test]
-    fn test_round_and_comma() {
-        assert_eq!(round_and_comma(1926.5358), "1,926.54".to_owned());
     }
 }

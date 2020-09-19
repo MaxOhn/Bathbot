@@ -2,7 +2,7 @@ use crate::{
     embeds::{osu, Author, EmbedData},
     util::{
         constants::AVATAR_URL,
-        numbers::{round, round_and_comma},
+        numbers::{round, with_comma},
     },
 };
 
@@ -31,7 +31,7 @@ impl WhatIfEmbed {
             format!(
                 "A {pp}pp play would be {name}'s #1 best play.\n\
                  Their pp would change by **+{pp}** to **{pp}pp**.",
-                pp = round_and_comma(pp),
+                pp = with_comma(pp),
                 name = user.username,
             )
         } else if pp < pp_values[pp_values.len() - 1] {
@@ -73,7 +73,7 @@ impl WhatIfEmbed {
                 name = user.username,
                 num = new_pos,
                 pp_change = potential + bonus - user.pp_raw,
-                new_pp = round_and_comma(potential + bonus)
+                new_pp = with_comma(potential + bonus)
             );
             let top_pp = scores.first().and_then(|s| s.pp).unwrap_or(0.0);
             if pp > top_pp * 2.0 {

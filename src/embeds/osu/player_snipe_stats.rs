@@ -5,7 +5,7 @@ use crate::{
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
-        numbers::{round_and_comma, with_comma_u64},
+        numbers::{with_comma, with_comma_u64},
         osu::grade_completion_mods,
         ScoreExt,
     },
@@ -46,11 +46,7 @@ impl PlayerSnipeStatsEmbed {
                 "**Total #1s: {}** | ranked: {} | loved: {}",
                 player.count_first, player.count_ranked, player.count_loved
             );
-            fields.push((
-                String::from("Average PP:"),
-                round_and_comma(player.avg_pp),
-                true,
-            ));
+            fields.push((String::from("Average PP:"), with_comma(player.avg_pp), true));
             fields.push((
                 String::from("Average acc:"),
                 format!("{:.2}%", player.avg_acc),

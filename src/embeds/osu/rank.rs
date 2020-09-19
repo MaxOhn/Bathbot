@@ -1,6 +1,6 @@
 use crate::{
     embeds::{osu, Author, EmbedData},
-    util::{constants::AVATAR_URL, numbers::round_and_comma, osu::pp_missing},
+    util::{constants::AVATAR_URL, numbers::with_comma, osu::pp_missing},
 };
 
 use rosu::models::{Score, User};
@@ -36,33 +36,33 @@ impl RankEmbed {
                 country = country,
                 rank = rank,
                 holder_name = rank_holder.username,
-                holder_pp = round_and_comma(rank_holder.pp_raw),
+                holder_pp = with_comma(rank_holder.pp_raw),
                 name = user.username,
-                pp = round_and_comma(user.pp_raw)
+                pp = with_comma(user.pp_raw)
             )
         } else if let Some(scores) = scores {
             let (required, _) = pp_missing(user.pp_raw, rank_holder.pp_raw, &scores);
             format!(
                 "Rank {country}{rank} is currently held by {holder_name} with \
                  **{holder_pp}pp**, so {name} is missing **{missing}** raw pp, \
-                 achievable by a single score worth **{pp}pp**.",
+                 achievable with a single score worth **{pp}pp**.",
                 country = country,
                 rank = rank,
                 holder_name = rank_holder.username,
-                holder_pp = round_and_comma(rank_holder.pp_raw),
+                holder_pp = with_comma(rank_holder.pp_raw),
                 name = user.username,
-                missing = round_and_comma(rank_holder.pp_raw - user.pp_raw),
-                pp = round_and_comma(required),
+                missing = with_comma(rank_holder.pp_raw - user.pp_raw),
+                pp = with_comma(required),
             )
         } else {
             format!(
                 "Rank {country}{rank} is currently held by {holder_name} with \
                  **{holder_pp}pp**, so {name} is missing **{holder_pp}** raw pp, \
-                 achievable by a single score worth **{holder_pp}pp**.",
+                 achievable with a single score worth **{holder_pp}pp**.",
                 country = country,
                 rank = rank,
                 holder_name = rank_holder.username,
-                holder_pp = round_and_comma(rank_holder.pp_raw),
+                holder_pp = with_comma(rank_holder.pp_raw),
                 name = user.username,
             )
         };
