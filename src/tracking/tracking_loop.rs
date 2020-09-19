@@ -94,14 +94,21 @@ pub async fn process_tracking(
             return;
         }
     };
-    let new_last = scores.iter().map(|s| s.date).max().filter(|&d| d > last);
+    let new_last = scores.iter().map(|s| s.date).max();
+    debug!(
+        "[Tracking] ({},{}): last {} | curr {}",
+        user_id,
+        mode,
+        last,
+        new_last.unwrap()
+    );
     for (idx, score) in scores.iter().enumerate().take(max) {
         // Skip if its an older score
         if score.date <= last {
             continue;
         }
         debug!(
-            "[new top score] ({},{}): new {} | old {}",
+            "[New top score] ({},{}): new {} | old {}",
             user_id, mode, score.date, last
         );
         // Prepare beatmap
@@ -205,7 +212,14 @@ pub async fn process_tracking(
             }
         }
     }
-    if let Some(new_date) = new_last {
+    if let Some(new_date) = new_last.filter(|&d| d > last) {
+        debug!(
+            "[Tracking] Updating for ({},{}): {} -> {}",
+            user_id,
+            mode,
+            last,
+            new_last.unwrap()
+        );
         let update_fut = ctx
             .tracking()
             .update_last_date(user_id, mode, new_date, ctx.psql());
