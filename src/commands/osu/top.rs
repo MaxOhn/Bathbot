@@ -94,7 +94,7 @@ async fn top_main(
     process_tracking(&ctx, mode, &scores, Some(&user), &mut maps).await;
 
     // Filter scores according to mods, combo, acc, and grade
-    let scores_indices = filter_scores(top_type, scores, mode, args);
+    let scores_indices = filter_scores(top_type, scores, mode, &args);
     let amount = scores_indices.len();
 
     // Get all relevant maps from the database
@@ -153,12 +153,23 @@ async fn top_main(
 
     // Accumulate all necessary data
     let content = match top_type {
-        TopType::Top => format!(
-            "Found {num} top score{plural} with the specified properties:",
-            num = amount,
-            plural = if amount != 1 { "s" } else { "" }
-        ),
-        TopType::Recent => format!("Most recent scores in `{}`'s top 100:", name),
+        TopType::Top => {
+            let cond = args.mods.is_some()
+                || args.acc.is_some()
+                || args.combo.is_some()
+                || args.grade.is_some();
+            if cond {
+                let content = format!(
+                    "Found {num} top score{plural} with the specified properties:",
+                    num = amount,
+                    plural = if amount != 1 { "s" } else { "" }
+                );
+                Some(content)
+            } else {
+                None
+            }
+        }
+        TopType::Recent => Some(format!("Most recent scores in `{}`'s top 100:", name)),
     };
     let pages = numbers::div_euclid(5, scores_data.len());
     let data = match TopEmbed::new(&ctx, &user, scores_data.iter().take(5), mode, (1, pages)).await
@@ -176,12 +187,11 @@ async fn top_main(
 
     // Creating the embed
     let embed = data.build().build()?;
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .content(content)?
-        .embed(embed)?
-        .await?;
+    let create_msg = ctx.http.create_message(msg.channel_id).embed(embed)?;
+    let response = match content {
+        Some(content) => create_msg.content(content)?.await?,
+        None => create_msg.await?,
+    };
 
     // Add missing maps to database
     if !missing_maps.is_empty() {
@@ -341,7 +351,7 @@ fn filter_scores(
     top_type: TopType,
     scores: Vec<Score>,
     mode: GameMode,
-    args: TopArgs,
+    args: &TopArgs,
 ) -> Vec<(usize, Score)> {
     let selection = args.mods;
     let combo = args.combo.unwrap_or(0);

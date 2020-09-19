@@ -73,7 +73,7 @@ async fn profile_main(
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 90).await {
-            warn!("Pagination error (nochokes): {}", why)
+            warn!("Pagination error (profile): {}", why)
         }
     });
     Ok(())
