@@ -1,6 +1,6 @@
 use crate::{
     embeds::{EmbedData, Footer},
-    util::numbers::with_comma_int,
+    util::numbers::with_comma_u64,
     Context,
 };
 
@@ -133,17 +133,17 @@ impl CacheEmbed {
 
         fields.push((
             "Users".to_owned(),
-            with_comma_int(ctx.cache.users.len() as u64),
+            with_comma_u64(ctx.cache.users.len() as u64),
             true,
         ));
         fields.push((
             "Guild channels".to_owned(),
-            with_comma_int(ctx.cache.guild_channels.len() as u64),
+            with_comma_u64(ctx.cache.guild_channels.len() as u64),
             true,
         ));
         fields.push((
             "Private channels".to_owned(),
-            with_comma_int(ctx.cache.private_channels.len() as u64),
+            with_comma_u64(ctx.cache.private_channels.len() as u64),
             true,
         ));
 

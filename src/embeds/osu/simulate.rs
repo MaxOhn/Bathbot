@@ -4,7 +4,7 @@ use crate::{
     pp::{Calculations, PPCalculator},
     util::{
         constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
-        numbers::{round, with_comma_int},
+        numbers::{round, with_comma_u64},
         osu::{grade_completion_mods, simulate_score, unchoke_score},
         ScoreExt,
     },
@@ -165,7 +165,7 @@ impl EmbedData for SimulateEmbed {
         };
         if let Some(score) = self.score {
             fields.push(("PP".to_owned(), pp, true));
-            fields.push(("Score".to_owned(), with_comma_int(score), true));
+            fields.push(("Score".to_owned(), with_comma_u64(score), true));
         } else {
             fields.push(("PP".to_owned(), pp, false));
         }
@@ -194,7 +194,7 @@ impl EmbedData for SimulateEmbed {
         } else {
             self.combo.clone()
         };
-        let score = self.score.map(with_comma_int).unwrap_or_default();
+        let score = self.score.map(with_comma_u64).unwrap_or_default();
         let name = format!(
             "{grade} {score}({acc}%) [ {combo} ]",
             grade = self.grade_completion_mods,

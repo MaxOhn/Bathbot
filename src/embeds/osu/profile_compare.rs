@@ -4,7 +4,7 @@ use crate::{
     embeds::EmbedData,
     util::{
         datetime::sec_to_minsec,
-        numbers::{round_and_comma, with_comma_int},
+        numbers::{round_and_comma, with_comma_u64},
     },
 };
 
@@ -132,8 +132,8 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "PC peak",
-            with_comma_int(left_peak),
-            with_comma_int(right_peak),
+            with_comma_u64(left_peak as u64),
+            with_comma_u64(right_peak as u64),
             left_peak,
             right_peak,
             max_left,
@@ -202,8 +202,8 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Max Combo",
-            with_comma_int(profile1.statistics.max_combo),
-            with_comma_int(profile2.statistics.max_combo),
+            with_comma_u64(profile1.statistics.max_combo as u64),
+            with_comma_u64(profile2.statistics.max_combo as u64),
             profile1.statistics.max_combo,
             profile2.statistics.max_combo,
             max_left,
@@ -292,8 +292,8 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Followers",
-            with_comma_int(profile1.follower_count),
-            with_comma_int(profile2.follower_count),
+            with_comma_u64(profile1.follower_count as u64),
+            with_comma_u64(profile2.follower_count as u64),
             profile1.follower_count,
             profile2.follower_count,
             max_left,
@@ -302,8 +302,8 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Replays seen",
-            with_comma_int(profile1.statistics.replays_watched),
-            with_comma_int(profile2.statistics.replays_watched),
+            with_comma_u64(profile1.statistics.replays_watched as u64),
+            with_comma_u64(profile2.statistics.replays_watched as u64),
             profile1.statistics.replays_watched,
             profile2.statistics.replays_watched,
             max_left,
@@ -385,12 +385,12 @@ impl CompareStrings {
         let pp_per_month_num = 30.67 * user.pp_raw / days;
         Self {
             pp: round_and_comma(user.pp_raw) + "pp",
-            rank: format!("#{}", with_comma_int(user.pp_rank)),
-            ranked_score: with_comma_int(user.ranked_score),
-            total_score: with_comma_int(user.total_score),
-            total_hits: with_comma_int(user.total_hits()),
-            play_count: with_comma_int(user.playcount),
-            play_time: with_comma_int(user.total_seconds_played / 3600) + "hrs",
+            rank: format!("#{}", with_comma_u64(user.pp_rank as u64)),
+            ranked_score: with_comma_u64(user.ranked_score),
+            total_score: with_comma_u64(user.total_score),
+            total_hits: with_comma_u64(user.total_hits()),
+            play_count: with_comma_u64(user.playcount as u64),
+            play_time: with_comma_u64(user.total_seconds_played as u64 / 3600) + "hrs",
             level: format!("{:.2}", user.level),
             bonus_pp: format!("{:.2}pp", bonus_pp_num),
             bonus_pp_num,
@@ -398,9 +398,9 @@ impl CompareStrings {
             accuracy: format!("{:.2}%", user.accuracy),
             pp_per_month: format!("{:.2}pp", pp_per_month_num),
             pp_per_month_num,
-            count_ss: with_comma_int(user.count_ssh + user.count_ss),
-            count_s: with_comma_int(user.count_sh + user.count_s),
-            count_a: with_comma_int(user.count_a),
+            count_ss: with_comma_u64(user.count_ssh as u64 + user.count_ss as u64),
+            count_s: with_comma_u64(user.count_sh as u64 + user.count_s as u64),
+            count_a: with_comma_u64(user.count_a as u64),
             avg_pp: format!("{:.2}pp", result.pp.avg()),
             pp_spread: format!("{:.2}pp", result.pp.max() - result.pp.min()),
         }

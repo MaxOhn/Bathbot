@@ -5,7 +5,7 @@ use crate::{
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
-        numbers::{round_and_comma, with_comma_int},
+        numbers::{round_and_comma, with_comma_u64},
         osu::grade_completion_mods,
         ScoreExt,
     },
@@ -86,7 +86,7 @@ impl PlayerSnipeStatsEmbed {
                 id = map.beatmap_id,
                 grade = grade_completion_mods(&score, &map),
                 stars = stars,
-                score = with_comma_int(score.score),
+                score = with_comma_u64(score.score as u64),
                 acc = score.acc_string(GameMode::STD),
                 pp = pp,
                 combo = osu::get_combo(&score, &map),

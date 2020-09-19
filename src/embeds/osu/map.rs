@@ -6,7 +6,7 @@ use crate::{
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::sec_to_minsec,
-        numbers::{round, with_comma_int},
+        numbers::{round, with_comma_u64},
         osu::{mode_emote, prepare_beatmap_file},
     },
     BotResult, Context,
@@ -136,8 +136,8 @@ impl MapEmbed {
             (
                 format!(
                     ":heart: {}  :play_pause: {}",
-                    with_comma_int(map.favourite_count),
-                    with_comma_int(map.playcount)
+                    with_comma_u64(map.favourite_count as u64),
+                    with_comma_u64(map.playcount as u64)
                 ),
                 format!("{:?}, {:?}", map.language, map.genre),
                 false,

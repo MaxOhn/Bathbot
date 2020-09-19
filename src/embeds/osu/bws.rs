@@ -1,6 +1,6 @@
 use crate::{
     embeds::{osu, Author, EmbedData},
-    util::{constants::AVATAR_URL, numbers::with_comma_int},
+    util::{constants::AVATAR_URL, numbers::with_comma_u64},
 };
 
 use itertools::Itertools;
@@ -32,7 +32,7 @@ impl BWSEmbed {
                     .unique()
                     .map(|rank| {
                         let bwss = (badges..=badges + 2)
-                            .map(move |badges| with_comma_int(bws(rank, badges)))
+                            .map(move |badges| with_comma_u64(bws(rank, badges)))
                             .collect::<Vec<_>>();
                         (rank, bwss)
                     })
@@ -90,9 +90,9 @@ impl BWSEmbed {
                 content
             }
             None => {
-                let bws1 = with_comma_int(bws(user.pp_rank, badges));
-                let bws2 = with_comma_int(bws(user.pp_rank, badges + 1));
-                let bws3 = with_comma_int(bws(user.pp_rank, badges + 2));
+                let bws1 = with_comma_u64(bws(user.pp_rank, badges));
+                let bws2 = with_comma_u64(bws(user.pp_rank, badges + 1));
+                let bws3 = with_comma_u64(bws(user.pp_rank, badges + 2));
                 let len1 = bws1.len().max(2);
                 let len2 = bws2.len().max(2);
                 let len3 = bws3.len().max(2);
@@ -136,7 +136,7 @@ impl BWSEmbed {
             "Current BWS for {} badge{}: {}",
             badges,
             if badges == 1 { "" } else { "s" },
-            with_comma_int(bws(user.pp_rank, badges))
+            with_comma_u64(bws(user.pp_rank, badges))
         );
         Self {
             title,
@@ -162,8 +162,8 @@ impl EmbedData for BWSEmbed {
     }
 }
 
-fn bws(rank: u32, badges: usize) -> u32 {
+fn bws(rank: u32, badges: usize) -> u64 {
     let rank = rank as f64;
     let badges = badges as i32;
-    rank.powf(0.9937_f64.powi(badges * badges)).round() as u32
+    rank.powf(0.9937_f64.powi(badges * badges)).round() as u64
 }

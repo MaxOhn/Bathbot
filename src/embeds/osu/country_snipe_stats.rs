@@ -1,7 +1,7 @@
 use crate::{
     custom_client::SnipeTopDifference,
     embeds::EmbedData,
-    util::{constants::OSU_BASE, numbers::with_comma_int, Country},
+    util::{constants::OSU_BASE, numbers::with_comma_u64, Country},
 };
 
 use twilight_embed_builder::image_source::ImageSource;
@@ -17,7 +17,7 @@ impl CountrySnipeStatsEmbed {
     pub fn new(
         country: Option<&Country>,
         differences: Option<(SnipeTopDifference, SnipeTopDifference)>,
-        unplayed: u32,
+        unplayed: u64,
     ) -> Self {
         let mut fields = if let Some((gain, loss)) = differences {
             vec![
@@ -37,7 +37,7 @@ impl CountrySnipeStatsEmbed {
         };
         fields.push((
             String::from("Unplayed maps"),
-            with_comma_int(unplayed),
+            with_comma_u64(unplayed),
             true,
         ));
         let (title, thumbnail) = match country {

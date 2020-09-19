@@ -5,16 +5,16 @@ use crate::{
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
-        numbers::with_comma_int,
+        numbers::with_comma_u64,
         osu::grade_emote,
         ScoreExt,
     },
     BotResult, Context,
 };
 
-use twilight_embed_builder::image_source::ImageSource;
 use rosu::models::User;
 use std::{collections::BTreeMap, fmt::Write};
+use twilight_embed_builder::image_source::ImageSource;
 
 pub struct OsuStatsGlobalsEmbed {
     description: String,
@@ -70,7 +70,7 @@ impl OsuStatsGlobalsEmbed {
                 grade = grade,
                 pp = pp,
                 acc = score.accuracy,
-                score = with_comma_int(score.score),
+                score = with_comma_u64(score.score as u64),
                 combo = combo,
                 hits = score.hits_string(score.map.mode),
                 ago = how_long_ago(&score.date)

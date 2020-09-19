@@ -3,7 +3,7 @@ use crate::{
     embeds::{Author, EmbedData, Footer},
     util::{
         constants::{AVATAR_URL, OSU_BASE},
-        numbers::with_comma_int,
+        numbers::with_comma_u64,
     },
 };
 
@@ -37,7 +37,7 @@ impl OsuStatsListEmbed {
                 player.username,
                 OSU_BASE,
                 player.user_id,
-                with_comma_int(player.count)
+                with_comma_u64(player.count as u64)
             );
         }
         let thumbnail = ImageSource::url(format!("{}{}", AVATAR_URL, first_place_id)).unwrap();

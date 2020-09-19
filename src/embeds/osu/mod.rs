@@ -53,7 +53,7 @@ use crate::{
     util::{
         constants::OSU_BASE,
         datetime::sec_to_minsec,
-        numbers::{round, round_and_comma, with_comma_int},
+        numbers::{round, round_and_comma, with_comma_u64},
         BeatmapExt, ScoreExt,
     },
 };
@@ -66,7 +66,7 @@ pub fn get_user_author(user: &User) -> Author {
         "{name}: {pp}pp (#{global} {country}{national})",
         name = user.username,
         pp = round_and_comma(user.pp_raw),
-        global = with_comma_int(user.pp_rank),
+        global = with_comma_u64(user.pp_rank as u64),
         country = user.country,
         national = user.pp_country_rank
     );

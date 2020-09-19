@@ -4,7 +4,7 @@ use crate::{
     util::{
         constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
-        numbers::{round, with_comma_int},
+        numbers::{round, with_comma_u64},
         osu::{grade_completion_mods, unchoke_score},
         ScoreExt,
     },
@@ -150,7 +150,7 @@ impl RecentEmbed {
             .unwrap(),
             grade_completion_mods,
             stars,
-            score: with_comma_int(score.score),
+            score: with_comma_u64(score.score as u64),
             acc: round(score.accuracy(map.mode)),
             ago: how_long_ago(&score.date),
             pp,

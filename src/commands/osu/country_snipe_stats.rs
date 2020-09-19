@@ -105,7 +105,7 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
         .iter()
         .find(|(_, c)| c.snipe == country)
         .map(|(_, country)| country);
-    let data = CountrySnipeStatsEmbed::new(country, differences, unplayed);
+    let data = CountrySnipeStatsEmbed::new(country, differences, unplayed as u64);
 
     // Sending the embed
     let embed = data.build().build()?;

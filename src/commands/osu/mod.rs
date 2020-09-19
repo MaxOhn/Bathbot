@@ -98,7 +98,7 @@ async fn get_globals_count(
         }
         params = params.rank_max(*rank);
         let (_, count) = ctx.clients.custom.get_global_scores(&params).await?;
-        counts.insert(*rank, numbers::with_comma_int(count as u64));
+        counts.insert(*rank, numbers::with_comma_u64(count as u64));
         if count == 0 {
             get_amount = false;
         }

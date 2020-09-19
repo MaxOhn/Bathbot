@@ -5,7 +5,7 @@ use crate::{
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
-        numbers::with_comma_int,
+        numbers::with_comma_u64,
         ScoreExt,
     },
     BotResult, Context,
@@ -66,7 +66,7 @@ impl LeaderboardEmbed {
                     idx = idx + i + 1,
                     grade = score.grade_emote(map.mode),
                     name = username,
-                    score = with_comma_int(score.score),
+                    score = with_comma_u64(score.score as u64),
                     combo = get_combo(&score, &map),
                     mods = if score.enabled_mods.is_empty() {
                         String::new()

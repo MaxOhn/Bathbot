@@ -1,4 +1,4 @@
-use std::char;
+use std::fmt::Write;
 
 pub fn _clamp_map(in_min: f32, in_max: f32, out_min: f32, out_max: f32, input: f32) -> f32 {
     out_min + ((out_max - out_min) / (in_max - in_min)) * (input - in_min)
@@ -9,57 +9,55 @@ pub fn round(n: f32) -> f32 {
 }
 
 pub fn with_comma(n: f32) -> String {
-    let dec = (100.0 * n.fract()).round() / 100.0;
-    let int = n.trunc();
-    assert!(int >= 0.0);
-    let mut int = int as u32;
-    let mut writer = String::new();
-    loop {
-        for _ in 0..3 {
-            writer.push(char::from_digit(int % 10, 10).unwrap());
-            int /= 10;
-            if int == 0 {
-                break;
-            }
-        }
-        if int > 0 {
-            writer.push(',');
-        } else {
-            break;
-        }
+    let mut int = n.trunc() as i32;
+    assert!(int >= 0, "cannot round negative f32");
+    let size = match int {
+        _ if int < 1000 => 6,
+        _ if int < 1_000_000 => 10,
+        _ => 14,
+    };
+    let mut writer = String::with_capacity(size);
+    let mut rev = 0;
+    while int > 0 {
+        rev = rev * 1000 + int % 1000;
+        int /= 1000;
     }
-    let mut writer: String = writer.chars().rev().collect();
-    if dec > 0.0 {
-        let d = dec.to_string();
-        writer.push_str(&d[1..d.len()])
+    let _ = write!(writer, "{}", rev % 1000);
+    rev /= 1000;
+    while rev > 0 {
+        let _ = write!(writer, ",{:0>3}", rev % 1000);
+        rev /= 1000;
+    }
+    let mut dec = (100.0 * n.fract()).round() as u32;
+    if dec > 0 {
+        if dec % 10 == 0 {
+            dec /= 10;
+        }
+        let _ = write!(writer, ".{}", dec);
     }
     writer
 }
 
-pub trait Integer: Into<u64> {}
-
-impl Integer for u16 {}
-impl Integer for u32 {}
-impl Integer for u64 {}
-
-pub fn with_comma_int(n: impl Integer) -> String {
-    let mut writer = String::with_capacity(10);
-    let mut n: u64 = n.into();
-    loop {
-        for _ in 0..3 {
-            writer.push(char::from_digit((n % 10) as u32, 10).unwrap());
-            n /= 10;
-            if n == 0 {
-                break;
-            }
-        }
-        if n > 0 {
-            writer.push(',');
-        } else {
-            break;
-        }
+pub fn with_comma_u64(mut n: u64) -> String {
+    let size = match n {
+        _ if n < 1000 => 3,
+        _ if n < 1_000_000 => 7,
+        _ if n < 1_000_000_000 => 11,
+        _ => 15,
+    };
+    let mut writer = String::with_capacity(size);
+    let mut rev = 0;
+    while n > 0 {
+        rev = rev * 1000 + n % 1000;
+        n /= 1000;
     }
-    writer.chars().rev().collect()
+    let _ = write!(writer, "{}", rev % 1000);
+    rev /= 1000;
+    while rev > 0 {
+        let _ = write!(writer, ",{:0>3}", rev % 1000);
+        rev /= 1000;
+    }
+    writer
 }
 
 pub fn round_and_comma(n: f32) -> String {
@@ -97,7 +95,7 @@ mod tests {
 
     #[test]
     fn test_with_comma_u64() {
-        assert_eq!(with_comma_int(31_415_926_u32), "31,415,926".to_owned());
+        assert_eq!(with_comma_u64(31_415_926_u64), "31,415,926".to_owned());
     }
 
     #[test]
