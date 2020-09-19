@@ -390,7 +390,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1373a16a4937bc34efec7b391f9c1500c30b8478a701a4f44c9165cc0475a6e0"
 dependencies = [
  "percent-encoding",
- "time 0.2.19",
+ "time 0.2.20",
  "version_check",
 ]
 
@@ -406,7 +406,7 @@ dependencies = [
  "publicsuffix",
  "serde",
  "serde_json",
- "time 0.2.19",
+ "time 0.2.20",
  "url",
 ]
 
@@ -697,9 +697,9 @@ checksum = "3a68a4904193147e0a8dec3314640e6db742afd5f6e634f428a6af230d9b3591"
 
 [[package]]
 name = "either"
-version = "1.6.0"
+version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd56b59865bce947ac5958779cfa508f6c3b9497cc762b7e24a12d11ccde2c4f"
+checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
 name = "encoding_rs"
@@ -1174,6 +1174,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd179ae861f0c2e53da70d892f5f3029f9594be0c41dc5269cd371691b1dc2f9"
 
 [[package]]
+name = "httpdate"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "494b4d60369511e7dea41cf646832512a94e542f68bb9c49e54518e0f468eb47"
+
+[[package]]
 name = "humantime"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1184,9 +1190,9 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "0.13.7"
+version = "0.13.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e68a8dd9716185d9e64ea473ea6ef63529252e3e27623295a0378a19665d5eb"
+checksum = "2f3afcfae8af5ad0576a31e768415edb627824129e8e5a29b8bfccb2f234e835"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -1196,10 +1202,10 @@ dependencies = [
  "http",
  "http-body",
  "httparse",
+ "httpdate",
  "itoa",
  "pin-project",
  "socket2",
- "time 0.1.44",
  "tokio",
  "tower-service",
  "tracing",
@@ -2237,9 +2243,9 @@ dependencies = [
 
 [[package]]
 name = "rayon-core"
-version = "1.8.0"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91739a34c4355b5434ce54c9086c5895604a9c278586d1f1aa95e04f66b525a0"
+checksum = "e8c4fec834fb6e6d2dd5eece3c7b432a52f0ba887cf40e595190c4107edc08bf"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-deque",
@@ -2320,7 +2326,7 @@ dependencies = [
  "rustls",
  "serde",
  "serde_urlencoded",
- "time 0.2.19",
+ "time 0.2.20",
  "tokio",
  "tokio-rustls",
  "url",
@@ -3071,9 +3077,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.2.19"
+version = "0.2.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80c1a1fd93112fc50b11c43a1def21f926be3c18884fad676ea879572da070a1"
+checksum = "0d4953c513c9bf1b97e9cdd83f11d60c4b0a83462880a360d80d96953a953fee"
 dependencies = [
  "const_fn",
  "libc",
@@ -3289,9 +3295,9 @@ dependencies = [
 
 [[package]]
 name = "twilight-http"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2beb7b23d44775f872a49b45ce8a23e488245e8294a29c677848f3a0c1b6c568"
+checksum = "55cf3712f5607c98e806f29fd0189170030aa5ada08f399e1e01cb9971afeae4"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -3309,9 +3315,9 @@ dependencies = [
 
 [[package]]
 name = "twilight-model"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "847ee1c2f170dfc153968611545917daeaec6b6ff3a97319158009857d986a28"
+checksum = "5ad95c38079c411dc705ff816489e6f3daff30e60b2920b9d6937c955d5a0dcb"
 dependencies = [
  "bitflags",
  "serde",
