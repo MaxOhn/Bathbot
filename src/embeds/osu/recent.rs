@@ -5,7 +5,7 @@ use crate::{
         constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
         numbers::{round, with_comma_u64},
-        osu::{grade_completion_mods, unchoke_score},
+        osu::{grade_completion_mods, prepare_beatmap_file, unchoke_score},
         ScoreExt,
     },
     BotResult, Context,
@@ -105,6 +105,8 @@ impl RecentEmbed {
                 None
             }
         };
+        // Prepare map file here so that it's not requested potentially two times
+        prepare_beatmap_file(map.beatmap_id).await?;
         let (calc_result, (description, title, grade_completion_mods), if_fc) = tokio::join!(
             calculator.calculate(calculations, Some(ctx)),
             async_work,

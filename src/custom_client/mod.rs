@@ -296,6 +296,7 @@ impl CustomClient {
         let non_mirror = mods
             .map(|mods| !mods.contains(GameMods::Mirror))
             .unwrap_or(true);
+        // Check another request for mania's MR is needed
         if mode == GameMode::MNA && non_mirror {
             let mods = match mods {
                 None => Some(GameMods::Mirror),
@@ -306,7 +307,9 @@ impl CustomClient {
             scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
             let mut uniques = HashSet::with_capacity(50);
             scores.retain(|s| uniques.insert(s.user_id));
+            scores.truncate(50);
         }
+        // Check if DT / NC is included
         let mods = match mods {
             Some(mods) if mods.contains(GameMods::DoubleTime) => Some(mods | GameMods::NightCore),
             Some(mods) if mods.contains(GameMods::NightCore) => {
@@ -314,6 +317,7 @@ impl CustomClient {
             }
             Some(_) | None => None,
         };
+        // If DT / NC included, make another request
         if mods.is_some() {
             if mode == GameMode::MNA && non_mirror {
                 let mods = mods.map(|mods| mods | GameMods::Mirror);
@@ -325,6 +329,7 @@ impl CustomClient {
             scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
             let mut uniques = HashSet::with_capacity(50);
             scores.retain(|s| uniques.insert(s.user_id));
+            scores.truncate(50);
         }
         Ok(scores)
     }
