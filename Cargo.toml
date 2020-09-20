@@ -49,9 +49,9 @@ version = "3.11"
 features = ["serde"]
 
 [dependencies.flexi_logger]
-version = "0.15"
+version = "0.16"
 default_features = false
-features = ["colors", "specfile", "ziplogs"]
+features = ["colors", "specfile", "compress"]
 
 [dependencies.hyper]
 version = "0.13"

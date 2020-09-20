@@ -19,7 +19,7 @@ pub fn initialize() -> Result<(), Error> {
             .rotate(
                 Criterion::Age(Age::Day),
                 Naming::Timestamps,
-                Cleanup::KeepLogAndZipFiles(10, 20),
+                Cleanup::KeepLogAndCompressedFiles(10, 20),
             )
             .duplicate_to_stdout(Duplicate::Info)
             .start_with_specfile("logconfig.toml")
