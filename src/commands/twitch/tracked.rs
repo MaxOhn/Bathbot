@@ -1,4 +1,8 @@
-use crate::{bail, util::MessageExt, Args, BotResult, Context};
+use crate::{
+    bail,
+    util::{constants::GENERAL_ISSUE, MessageExt},
+    Args, BotResult, Context,
+};
 
 use std::{fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
@@ -12,8 +16,7 @@ async fn trackedstreams(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<
     let mut twitch_users: Vec<_> = match twitch.get_users(&twitch_ids).await {
         Ok(users) => users.into_iter().map(|user| user.display_name).collect(),
         Err(why) => {
-            let content = "Error while retrieving twitch users";
-            let _ = msg.error(&ctx, content).await;
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
             bail!("error while getting twitch users: {}", why);
         }
     };

@@ -1,13 +1,22 @@
 use crate::{BotResult, Database};
 
 use dashmap::DashMap;
-use sqlx::Row;
+use sqlx::{Done, Row};
 
 impl Database {
-    pub async fn add_stream_track(&self, channel: u64, user: u64) -> BotResult<()> {
-        let query = format!("INSERT INTO stream_tracks VALUES ({},{})", channel, user);
-        sqlx::query(&query).execute(&self.pool).await?;
-        Ok(())
+    pub async fn add_stream_track(&self, channel: u64, user: u64) -> BotResult<bool> {
+        let query = format!(
+            "
+INSERT INTO
+    stream_tracks 
+VALUES
+    ({},{})
+ON CONFLICT DO
+    NOTHING",
+            channel, user
+        );
+        let done = sqlx::query(&query).execute(&self.pool).await?;
+        Ok(done.rows_affected() > 0)
     }
 
     pub async fn get_stream_tracks(&self) -> BotResult<DashMap<u64, Vec<u64>>> {
@@ -39,7 +48,7 @@ WHERE
         Ok(())
     }
 
-    pub async fn remove_stream_track(&self, channel: u64, user: u64) -> BotResult<()> {
+    pub async fn remove_stream_track(&self, channel: u64, user: u64) -> BotResult<bool> {
         let query = format!(
             "
 DELETE FROM
@@ -49,7 +58,7 @@ WHERE
     AND user_id={}",
             channel, user
         );
-        sqlx::query(&query).execute(&self.pool).await?;
-        Ok(())
+        let done = sqlx::query(&query).execute(&self.pool).await?;
+        Ok(done.rows_affected() > 0)
     }
 }

@@ -18,7 +18,7 @@ use tokio::{sync::RwLock, time};
 use twilight_model::id::ChannelId;
 
 lazy_static::lazy_static! {
-    pub static ref OSU_TRACKING_INTERVAL: Duration = Duration::seconds(3600);
+    pub static ref OSU_TRACKING_INTERVAL: Duration = Duration::minutes(120);
     pub static ref OSU_TRACKING_COOLDOWN: f32 = 5000.0; // ms
 }
 
@@ -155,18 +155,17 @@ impl OsuTracking {
             return None;
         }
         let last_date = *self.last_date.read().await;
-        debug!("[Popping] Amount: {} ~ Last pop: {:?}", len, last_date);
         // Calculate how many users need to be popped for this iteration
         // so that _all_ users will be popped within the next INTERVAL
         let interval = last_date + *self.interval.read().await - Utc::now();
         let ms_per_track = interval.num_milliseconds() as f32 / len as f32;
         let amount = (*self.cooldown.read().await / ms_per_track).max(1.0);
         let delay = (ms_per_track * amount) as u64;
-        time::delay_for(time::Duration::from_millis(delay)).await;
         debug!(
-            "Waited {}ms ~ ms_per_track: {} ~ Popping {}",
-            delay, ms_per_track, amount
+            "[Popping] All: {} ~ Last date: {:?} ~ Amount: {} ~ Delay: {}ms",
+            len, last_date, amount, delay
         );
+        time::delay_for(time::Duration::from_millis(delay)).await;
         // Pop users and return them
         let elems = {
             let mut queue = self.queue.write().await;
@@ -209,11 +208,8 @@ impl OsuTracking {
                 Some(true) => {
                     debug!("Removing ({},{}) from tracking", user_id, mode);
                     psql.remove_osu_tracking(user_id, mode).await?;
-                    println!("removed");
                     self.queue.write().await.remove(&key);
-                    println!("wrote");
                     self.users.remove(&key);
-                    println!("done");
                 }
                 Some(false) => {
                     let guard = self.users.get(&key).unwrap();

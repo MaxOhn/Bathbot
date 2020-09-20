@@ -1,4 +1,7 @@
-use crate::{util::MessageExt, Args, BotResult, Context};
+use crate::{
+    util::{constants::GENERAL_ISSUE, MessageExt},
+    Args, BotResult, Context,
+};
 
 use std::sync::Arc;
 use twilight_model::channel::Message;
@@ -26,19 +29,28 @@ async fn addstream(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResul
     };
     let channel = msg.channel_id.0;
     ctx.add_tracking(twitch_id, channel);
-    if let Err(why) = ctx.psql().add_stream_track(channel, twitch_id).await {
-        error!("Error while inserting stream track into DB: {}", why);
+    match ctx.psql().add_stream_track(channel, twitch_id).await {
+        Ok(true) => {
+            let content = format!(
+                "I'm now tracking `{}`'s twitch stream in this channel",
+                name
+            );
+            debug!(
+                "Now tracking twitch stream {} for channel {}",
+                name, msg.channel_id
+            );
+            msg.respond(&ctx, content).await
+        }
+        Ok(false) => {
+            let content = format!(
+                "Twitch user `{}` is already being tracked in this channel",
+                name
+            );
+            msg.error(&ctx, content).await
+        }
+        Err(why) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            Err(why)
+        }
     }
-
-    // Sending the msg
-    let content = format!(
-        "I'm now tracking `{}`'s twitch stream in this channel",
-        name
-    );
-    debug!(
-        "Now tracking twitch stream {} for channel {}",
-        name, msg.channel_id
-    );
-    msg.respond(&ctx, content).await?;
-    Ok(())
 }

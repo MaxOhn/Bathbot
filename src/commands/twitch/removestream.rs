@@ -1,5 +1,4 @@
 use crate::{
-    bail,
     util::{constants::GENERAL_ISSUE, MessageExt},
     Args, BotResult, Context,
 };
@@ -30,18 +29,25 @@ async fn removestream(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     };
     let channel = msg.channel_id.0;
     ctx.remove_tracking(twitch_id, channel);
-    if let Err(why) = ctx.psql().remove_stream_track(channel, twitch_id).await {
-        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-        bail!("error while removing stream track from DB: {}", why);
+    match ctx.psql().remove_stream_track(channel, twitch_id).await {
+        Ok(true) => {
+            debug!(
+                "No longer tracking {}'s twitch for channel {}",
+                name, channel
+            );
+            let content = format!(
+                "I'm no longer tracking `{}`'s twitch stream in this channel",
+                name
+            );
+            msg.respond(&ctx, content).await
+        }
+        Ok(false) => {
+            let content = format!("Twitch user `{}` was not tracked in this channel", name);
+            msg.error(&ctx, content).await
+        }
+        Err(why) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            Err(why)
+        }
     }
-    debug!(
-        "No longer tracking {}'s twitch for channel {}",
-        name, channel
-    );
-    let content = format!(
-        "I'm no longer tracking `{}`'s twitch stream in this channel",
-        name
-    );
-    msg.respond(&ctx, content).await?;
-    Ok(())
 }
