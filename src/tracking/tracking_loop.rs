@@ -29,6 +29,7 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
         let score_futs = tracked.keys().map(|(user_id, mode)| {
             BestRequest::with_user_id(*user_id)
                 .mode(*mode)
+                .limit(100)
                 .queue(ctx.osu())
                 .map(move |result| (*user_id, *mode, result))
         });
