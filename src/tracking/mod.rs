@@ -305,8 +305,7 @@ impl OsuTracking {
                 self.users.insert(key, tracking_user);
                 let now = Utc::now();
                 *self.last_date.write().await = now;
-                let mut queue = self.queue.write().await;
-                queue.push((user_id, mode), Reverse(now));
+                self.queue.write().await.push((user_id, mode), Reverse(now));
             }
         }
         Ok(true)

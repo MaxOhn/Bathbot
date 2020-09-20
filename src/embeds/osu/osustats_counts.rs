@@ -24,7 +24,7 @@ impl OsuStatsCountsEmbed {
         for (rank, count) in counts {
             let _ = writeln!(
                 description,
-                "Top {:>2}: {:>count_len$}",
+                "Top {:<2}: {:>count_len$}",
                 rank,
                 count,
                 count_len = count_len,

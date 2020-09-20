@@ -42,6 +42,7 @@ impl FromStr for MapsetTags {
             "bluesky" => Self::BlueSky,
             "english" => Self::English,
             "weeb" | "anime" => Self::Weeb,
+            "kpop" => Self::Kpop,
             other => return Err(other.to_owned()),
         };
         Ok(result)

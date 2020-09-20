@@ -54,11 +54,10 @@ RETURNING score
         filetype: &str,
         mode: GameMode,
     ) -> BotResult<()> {
-        let query = format!(
-            "INSERT INTO map_tags VALUES ({},{},$1)",
-            mapset_id, filetype
-        );
+        let query = "INSERT INTO map_tags (beatmapset_id,filetype,mode) VALUES ($1,$2,$3)";
         sqlx::query(&query)
+            .bind(mapset_id)
+            .bind(filetype)
             .bind(mode as i8)
             .execute(&self.pool)
             .await?;
