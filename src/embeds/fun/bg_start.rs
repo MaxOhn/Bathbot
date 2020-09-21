@@ -11,8 +11,6 @@ impl BGStartEmbed {
         let description = format!(
             "**React to include tag, unreact to exclude tag.**\n\
             <@{}> react with ✅ when you're ready.\n\
-            (Not all backgrounds have been tagged yet, \
-            I suggest to ✅ right away for now)\n\
             ```\n\
             🍋: Easy 🎨: Weeb 😱: Hard name 🗽: English 💯: Tech\n\
             🤓: Hard 🍨: Kpop 🪀: Alternate 🌀: Streams ✅: Lock in\n\

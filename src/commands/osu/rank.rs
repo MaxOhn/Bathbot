@@ -85,6 +85,7 @@ async fn rank_main(
         None
     } else {
         match user.get_top_scores(ctx.osu(), 100, mode).await {
+            Ok(scores) if scores.is_empty() => None,
             Ok(scores) => Some(scores),
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_API_ISSUE).await;
