@@ -187,6 +187,10 @@ pub async fn process_tracking(
                             if cfg!(any(debug_assertions, not(target_arch = "arm"))) {
                                 continue;
                             }
+                            debug!(
+                                "Removing osu!tracking in channel {} because no SEND_PERMISSION",
+                                channel
+                            );
                             if let Err(why) = ctx
                                 .tracking()
                                 .remove_channel(channel, None, ctx.psql())
@@ -196,12 +200,6 @@ pub async fn process_tracking(
                                     "No permission to send tracking notif in channel \
                                     {} but could not remove channel tracks: {}",
                                     channel, why
-                                );
-                            } else {
-                                debug!(
-                                    "Removed osu!tracking in channel {} \
-                                    because of no SEND_PERMISSION",
-                                    channel
                                 );
                             }
                         }
@@ -232,4 +230,5 @@ pub async fn process_tracking(
         }
     }
     ctx.tracking().reset(user_id, mode).await;
+    debug!("[Tracking] Reset ({},{})", user_id, mode);
 }

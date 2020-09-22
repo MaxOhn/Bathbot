@@ -182,6 +182,10 @@ async fn compare_main(
     // Process user and their top scores for tracking
     process_tracking(&ctx, mode, &scores1, Some(&user1), &mut maps).await;
     process_tracking(&ctx, mode, &scores2, Some(&user2), &mut maps).await;
+    debug!(
+        "Processed tracking for profile compare ({},{})",
+        user1.username, user2.username
+    );
 
     let profile_result1 = CompareResult::calc(mode, &scores1, &maps);
     let profile_result2 = CompareResult::calc(mode, &scores2, &maps);

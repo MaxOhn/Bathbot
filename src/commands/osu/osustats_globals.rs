@@ -69,8 +69,8 @@ async fn osustats_main(
         }
     };
     let mut content = format!(
-        "`Acc: {acc_min}% - {acc_max}%` ~ \
-        `Rank: {rank_min} - {rank_max}` ~ \
+        "`Rank: {rank_min} - {rank_max}` ~ \
+        `Acc: {acc_min}% - {acc_max}%` ~ \
         `Order: {order} {descending}`",
         acc_min = params.acc_min,
         acc_max = params.acc_max,

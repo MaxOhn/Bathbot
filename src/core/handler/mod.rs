@@ -32,7 +32,7 @@ pub async fn handle_event(
         // ## Gateway status ##
         // ####################
         Event::ShardReconnecting(_) => info!("Shard {} is attempting to reconnect", shard_id),
-        Event::ShardResuming(_) => info!("Shard {} is resuming", shard_id),
+        Event::ShardResuming(_) => {}
         Event::Ready(_) => info!("Shard {} ready to go!", shard_id),
         Event::Resumed => info!("Shard {} successfully resumed", shard_id),
         Event::GatewayReconnect => info!("Gateway requested shard {} to reconnect", shard_id),

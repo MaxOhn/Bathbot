@@ -2,6 +2,7 @@
 **[TODO]**
 - Add ratelimit for downloading maps
 - Fix tracking's double posting
+- Spoof missing months with 0 for profile graph
 
 **[Sometime]**
 - Handle entry on top.gg
