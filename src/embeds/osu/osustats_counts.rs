@@ -4,7 +4,7 @@ use crate::{
 };
 
 use rosu::models::{GameMode, User};
-use std::{collections::BTreeMap, fmt::Write};
+use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct OsuStatsCountsEmbed {
@@ -15,7 +15,7 @@ pub struct OsuStatsCountsEmbed {
 }
 
 impl OsuStatsCountsEmbed {
-    pub fn new(user: User, mode: GameMode, counts: BTreeMap<usize, String>) -> Self {
+    pub fn new(user: User, mode: GameMode, counts: BTreeMap<usize, Cow<'static, str>>) -> Self {
         let count_len = counts
             .iter()
             .fold(0, |max, (_, count)| max.max(count.len()));

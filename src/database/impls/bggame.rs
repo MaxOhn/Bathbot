@@ -105,7 +105,7 @@ FROM
         WHERE
             mode=$1
         ORDER BY
-            RAND()
+            RANDOM()
         LIMIT
             1
     ) as rndm ON mt.beatmapset_id = rndm.beatmapset_id

@@ -238,6 +238,7 @@ pub async fn profile_embed(
         globals_count,
         &profile,
         own_top_scores,
+        mode,
     );
 
     if let Some(msg) = retrieving_msg {

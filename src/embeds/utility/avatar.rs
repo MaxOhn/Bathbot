@@ -1,4 +1,7 @@
-use crate::{embeds::EmbedData, util::constants::AVATAR_URL};
+use crate::{
+    embeds::EmbedData,
+    util::constants::{AVATAR_URL, OSU_BASE},
+};
 
 use rosu::models::User;
 use twilight_embed_builder::image_source::ImageSource;
@@ -11,12 +14,10 @@ pub struct AvatarEmbed {
 
 impl AvatarEmbed {
     pub fn new(user: User) -> Self {
-        let title_text = format!("{}'s osu! avatar:", user.username);
-        let url = format!("{}{}", AVATAR_URL, user.user_id);
         Self {
-            title: title_text,
-            image: ImageSource::url(&url).unwrap(),
-            url,
+            url: format!("{}u/{}", OSU_BASE, user.user_id),
+            title: format!("{}'s osu! avatar:", user.username),
+            image: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
         }
     }
 }

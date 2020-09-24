@@ -13,6 +13,7 @@ pub use score::{ScraperBeatmap, ScraperScore};
 pub use snipe::*;
 
 use crate::{
+    bail,
     util::{
         constants::{AVATAR_URL, HUISMETBENEN, OSU_BASE},
         error::CustomClientError,
@@ -34,6 +35,7 @@ use rosu::models::{GameMode, GameMods};
 use scraper::{Html, Node, Selector};
 use serde_json::Value;
 use std::{collections::HashSet, convert::TryFrom, fmt::Write, hash::Hash, num::NonZeroU32};
+use tokio::time::{timeout, Duration};
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
 #[allow(clippy::enum_variant_names)]
@@ -209,7 +211,10 @@ impl CustomClient {
         debug!("Requesting POST from url {} [page {}]", url, params.page);
         let request = self.client.post(url).multipart(form);
         self.ratelimit(Site::OsuStats).await;
-        let response = request.send().await?;
+        let response = match timeout(Duration::from_secs(3), request.send()).await {
+            Ok(result) => result?,
+            Err(_) => bail!("Timed out while waiting for get_country_globals"),
+        };
         let bytes = response.bytes().await?;
         let players: Vec<OsuStatsPlayer> = serde_json::from_slice(&bytes).map_err(|e| {
             let content = String::from_utf8_lossy(&bytes).into_owned();
@@ -246,7 +251,10 @@ impl CustomClient {
         debug!("Requesting POST from url {}", url);
         let request = self.client.post(url).multipart(form);
         self.ratelimit(Site::OsuStats).await;
-        let response = request.send().await?;
+        let response = match timeout(Duration::from_secs(3), request.send()).await {
+            Ok(result) => result?,
+            Err(_) => bail!("Timed out while waiting for get_global_scores"),
+        };
         let bytes = response.bytes().await?;
         let result: Value = serde_json::from_slice(&bytes)?;
         let (scores, amount) = if let Value::Array(mut array) = result {

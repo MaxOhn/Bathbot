@@ -12,7 +12,7 @@ use crate::{
 
 use chrono::Utc;
 use rosu::models::{GameMode, Grade, User};
-use std::{collections::BTreeMap, fmt::Write};
+use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 
 #[derive(Clone)]
@@ -20,6 +20,7 @@ pub struct ProfileEmbed {
     description: Option<String>,
     author: Author,
     thumbnail: ImageSource,
+    title: String,
     image: ImageSource,
     footer: Footer,
     fields: Vec<(String, String, bool)>,
@@ -29,10 +30,20 @@ impl ProfileEmbed {
     pub fn new(
         user: User,
         profile_result: Option<ProfileResult>,
-        globals_count: BTreeMap<usize, String>,
+        globals_count: BTreeMap<usize, Cow<'static, str>>,
         profile: &OsuProfile,
         own_top_scores: usize,
+        mode: GameMode,
     ) -> Self {
+        let title = format!(
+            "{} statistics:",
+            match mode {
+                GameMode::STD => "osu!",
+                GameMode::TKO => "Taiko",
+                GameMode::CTB => "CtB",
+                GameMode::MNA => "Mania",
+            }
+        );
         let footer_text = format!(
             "Joined osu! {} ({})",
             date_to_string(&user.join_date),
@@ -244,8 +255,9 @@ impl ProfileEmbed {
             Some("No Top scores".to_string())
         };
         Self {
-            description,
+            title,
             fields,
+            description,
             footer: Footer::new(footer_text),
             author: osu::get_user_author(&user),
             image: ImageSource::attachment("profile_graph.png").unwrap(),
@@ -257,6 +269,9 @@ impl ProfileEmbed {
 impl EmbedData for ProfileEmbed {
     fn description(&self) -> Option<&str> {
         self.description.as_deref()
+    }
+    fn title(&self) -> Option<&str> {
+        Some(&self.title)
     }
     fn footer(&self) -> Option<&Footer> {
         Some(&self.footer)

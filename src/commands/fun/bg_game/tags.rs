@@ -15,11 +15,11 @@ use rayon::prelude::*;
 use rosu::models::GameMode;
 use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::{fs, stream::StreamExt};
+use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{
     channel::{Message, ReactionType},
     gateway::{event::Event, payload::ReactionAdd},
 };
-use twilight_http::request::channel::reaction::RequestReactionType;
 
 #[command]
 #[short_desc("Help tagging backgrounds by tagging them manually")]
@@ -162,7 +162,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         },
         None => GameMode::STD,
     };
-    let untagged = match ctx.psql().get_all_tags_mapset(mode).await {
+    let mut untagged = match ctx.psql().get_all_tags_mapset(mode).await {
         Ok(tags) => tags.par_iter().any(|tag| tag.untagged()),
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
@@ -186,9 +186,18 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                 .map(|tags| vec![tags])
         };
         let mapsets = match tags_result {
-            Ok(tags) => {
+            Ok(mut tags) => {
                 if untagged {
-                    tags.into_par_iter().filter(|tag| tag.untagged()).collect()
+                    if tags.iter().any(|tag| tag.untagged()) {
+                        tags.into_par_iter().filter(|tag| tag.untagged()).collect()
+                    } else {
+                        let content = "All backgrounds have been tagged, \
+                            here are some random ones you can review again though";
+                        let _ = msg.respond(&ctx, content).await;
+                        untagged = false;
+                        tags.truncate(1);
+                        tags
+                    }
                 } else {
                     tags
                 }

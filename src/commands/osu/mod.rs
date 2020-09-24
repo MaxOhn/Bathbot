@@ -66,6 +66,7 @@ use crate::{
 
 use rosu::models::GameMode;
 use std::{
+    borrow::Cow,
     cmp::PartialOrd,
     collections::BTreeMap,
     ops::{AddAssign, Div},
@@ -87,18 +88,18 @@ async fn get_globals_count(
     ctx: &Context,
     name: &str,
     mode: GameMode,
-) -> BotResult<BTreeMap<usize, String>> {
+) -> BotResult<BTreeMap<usize, Cow<'static, str>>> {
     let mut counts = BTreeMap::new();
     let mut params = OsuStatsParams::new(name).mode(mode);
     let mut get_amount = true;
     for rank in [50, 25, 15, 8, 1].iter() {
         if !get_amount {
-            counts.insert(*rank, "0".to_owned());
+            counts.insert(*rank, Cow::Borrowed("0"));
             continue;
         }
         params = params.rank_max(*rank);
         let (_, count) = ctx.clients.custom.get_global_scores(&params).await?;
-        counts.insert(*rank, numbers::with_comma_u64(count as u64));
+        counts.insert(*rank, Cow::Owned(numbers::with_comma_u64(count as u64)));
         if count == 0 {
             get_amount = false;
         }

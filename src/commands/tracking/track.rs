@@ -104,7 +104,7 @@ async fn track_main(
 #[authority()]
 #[short_desc("Track osu!standard user(s') top scores")]
 #[long_desc(
-    "Track osu! standarf user(s)' top scores and notify a channel \
+    "Track osu! standard user(s') top scores and notify a channel \
     about new plays in their top100.\n\
     You can specify up to ten usernames per command invokation.\n\
     To provide a limit, specify `-limit` followed by a number \
@@ -124,7 +124,7 @@ pub async fn track(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()
 #[authority()]
 #[short_desc("Track mania user(s') top scores")]
 #[long_desc(
-    "Track mania user(s)' top scores and notify a channel \
+    "Track mania user(s') top scores and notify a channel \
     about new plays in their top100.\n\
     You can specify up to ten usernames per command invokation.\n\
     To provide a limit, specify `-limit` followed by a number \
@@ -145,7 +145,7 @@ pub async fn trackmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
 #[authority()]
 #[short_desc("Track taiko user(s') top scores")]
 #[long_desc(
-    "Track taiko user(s)' top scores and notify a channel \
+    "Track taiko user(s') top scores and notify a channel \
     about new plays in their top100.\n\
     You can specify up to ten usernames per command invokation.\n\
     To provide a limit, specify `-limit` followed by a number \
@@ -166,7 +166,7 @@ pub async fn tracktaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
 #[authority()]
 #[short_desc("Track ctb user(s') top scores")]
 #[long_desc(
-    "Track ctb user(s)' top scores and notify a channel \
+    "Track ctb user(s') top scores and notify a channel \
     about new plays in their top100.\n\
     You can specify up to ten usernames per command invokation.\n\
     To provide a limit, specify `-limit` followed by a number \

@@ -35,7 +35,7 @@ FROM
     }
 
     pub async fn get_beatmapset(&self, mapset_id: u32) -> BotResult<DBMapSet> {
-        let mapset: DBMapSet = sqlx::query_as("SELECT * FROM mapsets WHERE beatmapset_id=?")
+        let mapset: DBMapSet = sqlx::query_as("SELECT * FROM mapsets WHERE beatmapset_id=$1")
             .bind(mapset_id)
             .fetch_one(&self.pool)
             .await?;

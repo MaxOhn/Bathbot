@@ -40,7 +40,7 @@ pub async fn get_title_artist(ctx: &Context, mapset_id: u32) -> GameResult<(Stri
                         warn!("Error while inserting bg game map into DB: {}", why);
                     }
                     (map.title, map.artist)
-                },
+                }
                 Ok(None) => return Err(BgGameError::NoMapResult(mapset_id)),
                 Err(why) => return Err(BgGameError::Osu(why)),
             }
