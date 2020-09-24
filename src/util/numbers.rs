@@ -19,13 +19,15 @@ pub fn with_comma(n: f32) -> String {
     };
     let mut writer = String::with_capacity(size);
     let mut rev = 0;
+    let mut triples = 0;
     while int > 0 {
         rev = rev * 1000 + int % 1000;
         int /= 1000;
+        triples += 1;
     }
     let _ = write!(writer, "{}", rev % 1000);
     rev /= 1000;
-    while rev > 0 {
+    for _ in 0..triples - 1 {
         let _ = write!(writer, ",{:0>3}", rev % 1000);
         rev /= 1000;
     }
@@ -48,13 +50,15 @@ pub fn with_comma_u64(mut n: u64) -> String {
     };
     let mut writer = String::with_capacity(size);
     let mut rev = 0;
+    let mut triples = 0;
     while n > 0 {
         rev = rev * 1000 + n % 1000;
         n /= 1000;
+        triples += 1;
     }
     let _ = write!(writer, "{}", rev % 1000);
     rev /= 1000;
-    while rev > 0 {
+    for _ in 0..triples - 1 {
         let _ = write!(writer, ",{:0>3}", rev % 1000);
         rev /= 1000;
     }
