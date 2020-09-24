@@ -12,7 +12,7 @@ use crate::{
     BotResult, Context, Error,
 };
 
-use chrono::{Date, Datelike, Utc};
+use chrono::Datelike;
 use futures::future::{try_join_all, TryFutureExt};
 use image::{imageops::FilterType::Lanczos3, load_from_memory, png::PngEncoder, ColorType};
 use plotters::prelude::*;
@@ -24,7 +24,6 @@ use rosu::{
 use std::{
     cmp::{Ordering::Equal, PartialOrd},
     collections::{BTreeMap, HashMap},
-    iter::FromIterator,
     sync::Arc,
 };
 use twilight_model::{
@@ -474,31 +473,51 @@ async fn graphs(profile: &OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::er
         let mut monthly_playcount = profile.monthly_playcounts.clone();
         let mut replays = profile.replays_watched_counts.clone();
 
-        if replays.is_empty() {
-            let iter = monthly_playcount
-                .iter()
-                .map(|DateCount { start_date, .. }| (*start_date, 0).into());
-            replays = Vec::from_iter(iter);
-        } else {
-            let mut first = monthly_playcount.first().unwrap().start_date;
-            if !replays.is_empty() {
-                first = first.max(replays.first().unwrap().start_date);
+        // Spoof missing months
+        // Making use of the fact that the dates are always of the form YYYY-MM-01
+        let first_date = monthly_playcount.first().unwrap().start_date;
+        let mut curr_month = first_date.month();
+        let mut curr_year = first_date.year();
+        let mut dates = monthly_playcount
+            .iter()
+            .map(|date_count| date_count.start_date)
+            .enumerate()
+            .collect::<Vec<_>>()
+            .into_iter();
+        let mut inserted = 0;
+        while let Some((i, date)) = dates.next() {
+            while date.month() != curr_month {
+                let spoofed_date = date
+                    .with_month(curr_month)
+                    .unwrap()
+                    .with_year(curr_year)
+                    .unwrap();
+                monthly_playcount.insert(inserted + i, (spoofed_date, 0).into());
+                inserted += 1;
+                curr_month += 1;
+                if curr_month == 13 {
+                    curr_month = 1;
+                    curr_year += 1;
+                }
             }
+            curr_month += 1;
+            if curr_month == 13 {
+                curr_month = 1;
+                curr_year += 1;
+            }
+        }
 
-            let left_first: Vec<_> = monthly_playcount
-                .iter()
-                .take_while(|date_count| date_count.start_date < first)
-                .map(|date_count| date_count.start_date)
-                .collect();
-            let right_first: Vec<_> = replays
-                .iter()
-                .take_while(|date_count| date_count.start_date < first)
-                .map(|date_count| date_count.start_date)
-                .collect();
-
-            match left_first.len() > right_first.len() {
-                true => spoof_date_count(&mut replays, left_first),
-                false => spoof_date_count(&mut monthly_playcount, right_first),
+        // Spoof missing replays
+        let dates = monthly_playcount
+            .iter()
+            .map(|date_count| date_count.start_date)
+            .enumerate();
+        for (i, date) in dates {
+            let cond = replays
+                .get(i)
+                .map(|date_count| date_count.start_date == date);
+            if let None | Some(false) = cond {
+                replays.insert(i, (date, 0).into());
             }
         }
 
@@ -611,11 +630,4 @@ async fn graphs(profile: &OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::er
     let png_encoder = PngEncoder::new(&mut png_bytes);
     png_encoder.encode(&buf, W, H, ColorType::Rgb8)?;
     Ok(Some(png_bytes))
-}
-
-fn spoof_date_count(vec: &mut Vec<DateCount>, prefix: Vec<Date<Utc>>) {
-    vec.reserve_exact(prefix.len());
-    for date in prefix.into_iter().rev() {
-        vec.insert(0, (date, 0).into());
-    }
 }

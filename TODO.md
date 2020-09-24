@@ -1,8 +1,6 @@
 
 **[TODO]**
 - Add ratelimit for downloading maps
-- Fix tracking's double posting
-- Spoof missing months with 0 for profile graph
 
 **[Sometime]**
 - Handle entry on top.gg
@@ -10,6 +8,8 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Spoof missing months with 0 for profile graph~~ (20.09.25)
+- ~~Fix tracking's double posting~~ (20.09.20)
 - ~~Check on multiple `<bg start`'s in a row~~ (20.09.17)
 - ~~Fix unreacting for `<bg s` and possibly `<bgt`~~ (20.09.15)
 - ~~Fix guild & user count on dashboard~~ (20.09.13)
