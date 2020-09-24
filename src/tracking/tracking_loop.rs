@@ -5,14 +5,12 @@ use crate::{
 
 use chrono::{Datelike, Timelike, Utc};
 use futures::future::{join_all, FutureExt};
-use reqwest::StatusCode;
 use rosu::{
     backend::{BestRequest, UserRequest},
     models::{Beatmap, GameMode, Score, User},
 };
 use std::{collections::HashMap, fs::OpenOptions, io::Write, sync::Arc};
 use tokio::time;
-use twilight_http::Error as TwilightError;
 
 pub async fn tracking_loop(ctx: Arc<Context>) {
     let delay = time::Duration::from_secs(60);
@@ -177,34 +175,11 @@ pub async fn process_tracking(
             // Try to build and send the message
             match ctx.http.create_message(channel).embed(embed.clone()) {
                 Ok(msg_fut) => {
-                    match msg_fut.await {
-                        // If no SEND_PERMISSION, remove all osu!trackings of that channel
-                        Err(TwilightError::Response {
-                            status: StatusCode::FORBIDDEN,
-                            ..
-                        }) => {
-                            // If not in debug mode + on an arm system e.g. raspberry pi
-                            if cfg!(any(debug_assertions, not(target_arch = "arm"))) {
-                                continue;
-                            }
-                            debug!(
-                                "Removing osu!tracking in channel {} because no SEND_PERMISSION",
-                                channel
-                            );
-                            if let Err(why) = ctx
-                                .tracking()
-                                .remove_channel(channel, None, ctx.psql())
-                                .await
-                            {
-                                warn!(
-                                    "No permission to send tracking notif in channel \
-                                    {} but could not remove channel tracks: {}",
-                                    channel, why
-                                );
-                            }
-                        }
-                        Err(why) => warn!("Error while sending osu!tracking notif: {}", why),
-                        _ => {} // Success
+                    if let Err(why) = msg_fut.await {
+                        warn!(
+                            "Error while sending osu!tracking notif ({}): {}",
+                            channel, why
+                        );
                     }
                 }
                 Err(why) => warn!("Invalid embed for osu!tracking notification: {}", why),

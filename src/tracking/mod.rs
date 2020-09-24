@@ -229,30 +229,41 @@ impl OsuTracking {
         mode: Option<GameMode>,
         psql: &Database,
     ) -> BotResult<usize> {
-        let iter = self.users.iter_mut().filter(|guard| match mode {
-            Some(mode) => guard.key().1 == mode,
-            None => true,
-        });
         let mut count = 0;
-        for mut guard in iter {
-            if !guard.value_mut().remove_channel(channel) {
-                continue;
-            }
-            let key = guard.key();
-            let tracked_user = guard.value();
-            if tracked_user.channels.is_empty() {
+        let to_remove: Vec<_> = self
+            .users
+            .iter_mut()
+            .filter(|guard| match mode {
+                Some(mode) => guard.key().1 == mode,
+                None => true,
+            })
+            .filter_map(|mut guard| {
+                if guard.value_mut().remove_channel(channel) {
+                    Some(*guard.key())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        for key in to_remove {
+            let is_empty = match self.users.get(&key) {
+                Some(guard) => guard.value().channels.is_empty(),
+                None => continue,
+            };
+            if is_empty {
                 debug!("Removing {:?} from tracking (all)", key);
                 psql.remove_osu_tracking(key.0, key.1).await?;
                 self.queue.write().await.remove(&key);
                 self.users.remove(&key);
             } else {
-                psql.update_osu_tracking(
-                    key.0,
-                    key.1,
-                    tracked_user.last_top_score,
-                    &tracked_user.channels,
-                )
-                .await?
+                let guard = match self.users.get(&key) {
+                    Some(guard) => guard,
+                    None => continue,
+                };
+                let user = guard.value();
+                let (user_id, mode) = key;
+                psql.update_osu_tracking(user_id, mode, user.last_top_score, &user.channels)
+                    .await?
             }
             count += 1;
         }
