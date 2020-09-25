@@ -28,7 +28,7 @@ async fn whatif_main(
     if pp < 0.0 {
         let content = "The pp number must be non-negative";
         return msg.error(&ctx, content).await;
-    } else if pp.is_infinite() {
+    } else if pp > (i64::MAX / 1024) as f32 {
         let content = "Number too large";
         return msg.error(&ctx, content).await;
     }

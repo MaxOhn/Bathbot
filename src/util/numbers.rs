@@ -10,7 +10,7 @@ pub fn round(n: f32) -> f32 {
 }
 
 pub fn with_comma(n: f32) -> String {
-    let mut int = n.trunc() as i32;
+    let mut int = n.trunc() as i64;
     assert!(int >= 0, "cannot round negative f32");
     let size = match int {
         _ if int < 1000 => 6,

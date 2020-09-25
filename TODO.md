@@ -1,6 +1,7 @@
 
 **[TODO]**
 - Add ratelimit for downloading maps
+- Reset game status after gateway session invalidates
 
 **[Sometime]**
 - Handle entry on top.gg
