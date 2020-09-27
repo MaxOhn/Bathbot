@@ -131,9 +131,13 @@ pub fn unchoke_score(score: &mut Score, map: &Beatmap) {
     score.pp = None;
     match map.mode {
         GameMode::STD => {
-            let max_combo = map
-                .max_combo
-                .unwrap_or_else(|| panic!("Max combo of beatmap not found"));
+            let max_combo = match map.max_combo {
+                Some(combo) => combo,
+                None => {
+                    warn!("No max combo on beatmap {} to unchoke", map.beatmap_id);
+                    return;
+                }
+            };
             if score.max_combo == max_combo {
                 return;
             }
@@ -164,7 +168,7 @@ pub fn unchoke_score(score: &mut Score, map: &Beatmap) {
                 Grade::X
             };
         }
-        _ => panic!("Can only unchoke STD and MNA scores, not {:?}", map.mode,),
+        _ => warn!("Can only unchoke STD and MNA scores, not {}", map.mode),
     }
 }
 

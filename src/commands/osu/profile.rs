@@ -478,14 +478,14 @@ async fn graphs(profile: &OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::er
         let first_date = monthly_playcount.first().unwrap().start_date;
         let mut curr_month = first_date.month();
         let mut curr_year = first_date.year();
-        let mut dates = monthly_playcount
+        let dates = monthly_playcount
             .iter()
             .map(|date_count| date_count.start_date)
             .enumerate()
             .collect::<Vec<_>>()
             .into_iter();
         let mut inserted = 0;
-        while let Some((i, date)) = dates.next() {
+        for (i, date) in dates {
             while date.month() != curr_month {
                 let spoofed_date = date
                     .with_month(curr_month)
