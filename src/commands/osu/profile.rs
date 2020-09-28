@@ -486,7 +486,7 @@ async fn graphs(profile: &OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::er
             .into_iter();
         let mut inserted = 0;
         for (i, date) in dates {
-            while date.month() != curr_month {
+            while date.month() != curr_month || date.year() != curr_year {
                 let spoofed_date = date
                     .with_month(curr_month)
                     .unwrap()
