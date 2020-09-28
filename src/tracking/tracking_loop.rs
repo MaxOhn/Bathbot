@@ -3,13 +3,12 @@ use crate::{
     Context,
 };
 
-use chrono::{Datelike, Timelike, Utc};
 use futures::future::{join_all, FutureExt};
 use rosu::{
     backend::{BestRequest, UserRequest},
     models::{Beatmap, GameMode, Score, User},
 };
-use std::{collections::HashMap, fs::OpenOptions, io::Write, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 use tokio::time;
 
 pub async fn tracking_loop(ctx: Arc<Context>) {
@@ -31,25 +30,8 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
                 .queue(ctx.osu())
                 .map(move |result| (*user_id, *mode, result))
         });
-        let mut file = OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open("./tracking")
-            .unwrap();
-        let now = Utc::now();
         // Iterate over the request responses
         for (user_id, mode, result) in join_all(score_futs).await {
-            let _ = writeln!(
-                file,
-                "[{:0>2}-{:0>2} {:0>2}:{:0>2}:{:0>2}] {},{}",
-                now.month(),
-                now.day(),
-                now.hour(),
-                now.minute(),
-                now.second(),
-                user_id,
-                mode
-            );
             match result {
                 Ok(scores) => {
                     let mut maps: HashMap<u32, Beatmap> = HashMap::new();

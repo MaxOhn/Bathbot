@@ -18,7 +18,11 @@ use std::{
     sync::Arc,
 };
 use twilight_gateway::Event;
-use twilight_model::{channel::Message, guild::Permissions};
+use twilight_model::{
+    channel::Message,
+    gateway::presence::{ActivityType, Status},
+    guild::Permissions,
+};
 use uwl::Stream;
 
 pub async fn handle_event(
@@ -32,9 +36,17 @@ pub async fn handle_event(
         // ## Gateway status ##
         // ####################
         Event::ShardReconnecting(_) => info!("Shard {} is attempting to reconnect", shard_id),
-        Event::ShardResuming(_) => {}
-        Event::Ready(_) => info!("Shard {} ready to go!", shard_id),
-        Event::Resumed => info!("Shard {} successfully resumed", shard_id),
+        Event::Ready(_) => {
+            let fut =
+                ctx.set_shard_activity(shard_id, Status::Online, ActivityType::Playing, "osu!");
+            match fut.await {
+                Ok(_) => info!("Game is set for shard {}", shard_id),
+                Err(why) => error!(
+                    "Failed to set shard activity at ready event for shard {}: {}",
+                    shard_id, why
+                ),
+            }
+        }
         Event::GatewayReconnect => info!("Gateway requested shard {} to reconnect", shard_id),
         Event::GatewayInvalidateSession(recon) => {
             if *recon {

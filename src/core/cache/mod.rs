@@ -31,10 +31,7 @@ use tokio::{
 use twilight_gateway::Event;
 use twilight_model::{
     channel::{Channel, GuildChannel, PrivateChannel},
-    gateway::{
-        payload::RequestGuildMembers,
-        presence::{ActivityType, Status},
-    },
+    gateway::payload::RequestGuildMembers,
     id::{ChannelId, EmojiId, GuildId, UserId},
     user::CurrentUser,
 };
@@ -187,25 +184,7 @@ impl Cache {
                                 .get(&shard_id)
                                 .map(|amount| amount.fetch_sub(1, Ordering::Relaxed));
                             if shard_missing == Some(1) {
-                                // this shard is ready
                                 info!("All guilds cached for shard {}", shard_id);
-                                if chunk.nonce.is_none() && self.shard_cached(shard_id) {
-                                    let c = ctx.clone();
-                                    tokio::spawn(async move {
-                                        let fut = c.set_shard_activity(
-                                            shard_id,
-                                            Status::Online,
-                                            ActivityType::Playing,
-                                            "osu!",
-                                        );
-                                        if let Err(why) = fut.await {
-                                            error!(
-                                                "Failed to set shard activity for shard {}: {}",
-                                                shard_id, why
-                                            );
-                                        }
-                                    });
-                                }
                             }
                             self.stats.guild_counts.partial.dec();
                             self.stats.guild_counts.loaded.inc();
@@ -541,13 +520,6 @@ impl Cache {
         }
         self.private_channels.insert(arced.get_id(), arced.clone());
         arced
-    }
-
-    pub fn shard_cached(&self, shard_id: u64) -> bool {
-        // if not present we cold resumed so we already have everything
-        self.missing_per_shard
-            .get(&shard_id)
-            .map_or_else(|| true, |amount| amount.load(Ordering::Relaxed) == 0)
     }
 }
 

@@ -1,15 +1,16 @@
 
 **[TODO]**
-- Reset game status after gateway session invalidates
 - Check why tracking's queue has one less than its users
 - Update taiko pp / stars
+- Add `Icon from syedhassan - pngtree.com` to README
 
 **[Sometime]**
-- Handle entry on top.gg
 - Write peppy a mail
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Reset game status after gateway session invalidates~~ (20.09.28)
+- ~~Handle entry on top.gg (Deleted)~~ (20.09.28)
 - ~~Fix profile table format if pp > 1000~~ (20.09.28)
 - ~~Add ratelimit for downloading maps (Exponential backoff while downloading)~~ (20.09.28)
 - ~~Spoof missing months with 0 for profile graph~~ (20.09.25)
