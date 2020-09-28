@@ -5,7 +5,7 @@ use crate::{
 };
 
 use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score};
-use tokio::{fs::File, io::AsyncWriteExt};
+use tokio::{fs::File, io::AsyncWriteExt, time};
 use twilight_model::channel::Message;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -56,11 +56,29 @@ pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadErro
     let mut map_path = CONFIG.get().unwrap().map_path.clone();
     map_path.push(format!("{}.osu", map_id));
     if !map_path.exists() {
-        let mut file = File::create(&map_path).await?;
         let download_url = format!("{}web/maps/{}", OSU_BASE, map_id);
-        let content = reqwest::get(&download_url).await?.bytes().await?;
+        let mut content;
+        let mut delay = 450;
+        while {
+            content = reqwest::get(&download_url).await?.bytes().await?;
+            content.len() < 6 || &content.slice(0..6)[..] == b"<html>"
+        } {
+            info!("Received invalid {}.osu, {}ms backoff", map_id, delay);
+            time::delay_for(time::Duration::from_millis(delay)).await;
+            if delay >= 3600 {
+                break;
+            }
+            delay *= 2;
+        }
+        let mut file = File::create(&map_path).await?;
         file.write_all(&content).await?;
-        info!("Downloaded {}.osu successfully", map_id);
+        match &content.slice(0..6)[..] == b"<html>" {
+            true => info!(
+                "Failed to download {}.osu after up to {}ms delay",
+                map_id, delay
+            ),
+            false => info!("Downloaded {}.osu successfully", map_id),
+        }
     }
     Ok(map_path.to_str().unwrap().to_owned())
 }

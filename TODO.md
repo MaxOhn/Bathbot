@@ -1,8 +1,9 @@
 
 **[TODO]**
-- Add ratelimit for downloading maps
 - Reset game status after gateway session invalidates
 - Check why tracking's queue has one less than its users
+- Fix profile table format if pp > 1000
+- Update taiko pp / stars
 
 **[Sometime]**
 - Handle entry on top.gg
@@ -10,6 +11,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Add ratelimit for downloading maps (Exponential backoff while downloading)~~ (20.09.28)
 - ~~Spoof missing months with 0 for profile graph~~ (20.09.25)
 - ~~Fix tracking's double posting~~ (20.09.20)
 - ~~Check on multiple `<bg start`'s in a row~~ (20.09.17)
