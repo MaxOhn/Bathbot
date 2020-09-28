@@ -2,7 +2,6 @@
 **[TODO]**
 - Reset game status after gateway session invalidates
 - Check why tracking's queue has one less than its users
-- Fix profile table format if pp > 1000
 - Update taiko pp / stars
 
 **[Sometime]**
@@ -11,6 +10,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Fix profile table format if pp > 1000~~ (20.09.28)
 - ~~Add ratelimit for downloading maps (Exponential backoff while downloading)~~ (20.09.28)
 - ~~Spoof missing months with 0 for profile graph~~ (20.09.25)
 - ~~Fix tracking's double posting~~ (20.09.20)

@@ -132,7 +132,7 @@ impl ProfileEmbed {
             let _ = writeln!(avg_string, "---+--------+-------+-------+--------");
             let _ = writeln!(
                 avg_string,
-                "Min| {:^6.2} | {:^5} | {:^5} | {:^7}",
+                "Min|{:^8.2}|{:^7}|{:^7}| {:^7}",
                 values.pp.min(),
                 round(values.acc.min()),
                 values.combo.min(),
@@ -140,7 +140,7 @@ impl ProfileEmbed {
             );
             let _ = writeln!(
                 avg_string,
-                "Avg| {:^6.2} | {:^5} | {:^5} | {:^7}",
+                "Avg|{:^8.2}|{:^7}|{:^7}| {:^7}",
                 values.pp.avg(),
                 round(values.acc.avg()),
                 values.combo.avg(),
@@ -148,7 +148,7 @@ impl ProfileEmbed {
             );
             let _ = writeln!(
                 avg_string,
-                "Max| {:^6.2} | {:^5} | {:^5} | {:^7}",
+                "Max|{:^8.2}|{:^7}|{:^7}| {:^7}",
                 values.pp.max(),
                 round(values.acc.max()),
                 values.combo.max(),
