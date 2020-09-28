@@ -142,21 +142,21 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
                 let res = reqwest::get(&url).await?.bytes().await?;
                 Ok::<_, Error>(image::load_from_memory(res.as_ref())?.thumbnail_exact(W, H))
             };
-            let (oppai_values, img) = tokio::join!(oppai_values(map.beatmap_id, mods), bg_fut);
-            if let Err(why) = oppai_values {
-                warn!("Error while creating oppai_values: {}", why);
-                None
-            } else if let Err(why) = img {
-                warn!("Error retrieving graph background: {}", why);
-                None
-            } else {
-                let graph = graph(oppai_values?, img?);
-                match graph {
+            match tokio::join!(oppai_values(map.beatmap_id, mods), bg_fut) {
+                (Ok(oppai_values), Ok(img)) => match graph(oppai_values, img) {
                     Ok(graph) => Some(graph),
                     Err(why) => {
                         warn!("Error creating graph: {}", why);
                         None
                     }
+                },
+                (Err(why), _) => {
+                    warn!("Error while creating oppai_values: {}", why);
+                    None
+                }
+                (_, Err(why)) => {
+                    warn!("Error retrieving graph background: {}", why);
+                    None
                 }
             }
         }
@@ -226,7 +226,7 @@ async fn oppai_values(map_id: u32, mods: GameMods) -> BotResult<(Vec<u32>, Vec<f
     let time_coeff = if mods.contains(GameMods::DoubleTime) {
         2.0 / 3.0
     } else if mods.contains(GameMods::HalfTime) {
-        1.5
+        4.0 / 3.0
     } else {
         1.0
     };

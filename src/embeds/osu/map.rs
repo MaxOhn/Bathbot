@@ -1,5 +1,4 @@
 use crate::{
-    bail,
     embeds::{Author, EmbedData, Footer},
     pp::roppai::Oppai,
     pp::{Calculations, PPCalculator},
@@ -51,15 +50,17 @@ impl MapEmbed {
                 let map_path = prepare_beatmap_file(map.beatmap_id).await?;
                 let mut oppai = Oppai::new();
                 if let Err(why) = oppai.set_mods(mods.bits()).calculate(&map_path) {
-                    bail!("error while using oppai: {}", why);
+                    warn!("error while using oppai: {}", why);
+                    (0.0, 0.0)
+                } else {
+                    ar = oppai.get_ar();
+                    od = oppai.get_od();
+                    hp = oppai.get_hp();
+                    cs = oppai.get_cs();
+                    let pp = oppai.get_pp();
+                    let stars = oppai.get_stars();
+                    (pp, stars)
                 }
-                ar = oppai.get_ar();
-                od = oppai.get_od();
-                hp = oppai.get_hp();
-                cs = oppai.get_cs();
-                let pp = oppai.get_pp();
-                let stars = oppai.get_stars();
-                (pp, stars)
             }
             GameMode::MNA | GameMode::CTB => {
                 let calculations = Calculations::MAX_PP | Calculations::STARS;
