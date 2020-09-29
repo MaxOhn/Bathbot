@@ -175,7 +175,7 @@ async fn get_mapsets(
         .embed(embed)?
         .await?;
     if !mapsets.is_empty() {
-        debug!(
+        info!(
             "Starting bg game with included: {} - excluded: {}",
             included.join(','),
             excluded.join(',')

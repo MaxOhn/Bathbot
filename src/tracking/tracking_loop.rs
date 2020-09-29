@@ -31,12 +31,10 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
                 .map(move |result| (*user_id, *mode, result))
         });
         // Iterate over the request responses
+        let mut maps: HashMap<u32, Beatmap> = HashMap::new();
         for (user_id, mode, result) in join_all(score_futs).await {
             match result {
-                Ok(scores) => {
-                    let mut maps: HashMap<u32, Beatmap> = HashMap::new();
-                    process_tracking(&ctx, mode, &scores, None, &mut maps).await;
-                }
+                Ok(scores) => process_tracking(&ctx, mode, &scores, None, &mut maps).await,
                 Err(why) => {
                     warn!(
                         "API issue while retrieving user ({},{}) for tracking: {}",
@@ -83,6 +81,7 @@ pub async fn process_tracking(
         last,
         new_last.unwrap()
     );
+    let mut user_value = None; // will be set if user is None but there is new top score
     for (idx, score) in scores.iter().enumerate().take(max) {
         // Skip if its an older score
         if score.date <= last {
@@ -106,7 +105,7 @@ pub async fn process_tracking(
                 Err(_) => match score.get_beatmap(ctx.osu()).await {
                     Ok(map) => maps.insert(map_id, map),
                     Err(why) => {
-                        warn!("Error while retrieving tracking map: {}", why);
+                        warn!("Error while retrieving tracking map id {}: {}", map_id, why);
                         continue;
                     }
                 },
@@ -114,27 +113,24 @@ pub async fn process_tracking(
         }
         let map = maps.get(&map_id).unwrap();
         // Prepare user
-        let user_value;
-        let user = match user {
-            Some(user) => user,
-            None => {
-                let user_fut = UserRequest::with_user_id(score.user_id)
+        let user = match (user, user_value.as_ref()) {
+            (Some(user), _) => user,
+            (None, Some(user)) => user,
+            (None, None) => {
+                let user_fut = UserRequest::with_user_id(user_id)
                     .mode(mode)
                     .queue_single(ctx.osu());
                 match user_fut.await {
                     Ok(Some(user)) => {
-                        user_value = user;
-                        &user_value
+                        user_value = Some(user);
+                        user_value.as_ref().unwrap()
                     }
                     Ok(None) => {
-                        warn!(
-                            "Empty result while retrieving tracking user id {}",
-                            score.user_id
-                        );
+                        warn!("Empty result while retrieving tracking user {}", user_id);
                         continue;
                     }
                     Err(why) => {
-                        warn!("Error while retrieving tracking user: {}", why);
+                        warn!("Error while retrieving tracking user {}: {}", user_id, why);
                         continue;
                     }
                 }
