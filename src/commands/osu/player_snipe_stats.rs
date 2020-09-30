@@ -149,8 +149,8 @@ fn graphs(
     {
         let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
         root.fill(&WHITE)?;
-        let (left, right) = root.split_horizontally(3 * W / 5);
-        if !history.is_empty() {
+        let star_canvas = if history.len() > 1 {
+            let (left, right) = root.split_horizontally(3 * W / 5);
             let (min, max) = history
                 .iter()
                 .map(|(_, n)| *n)
@@ -194,7 +194,10 @@ fn graphs(
                     .iter()
                     .map(|(y, m)| Circle::new((*y, *m), 2, BLUE.filled())),
             )?;
-        }
+            right
+        } else {
+            root
+        };
 
         // Star spread graph
         let max = stars
@@ -204,7 +207,7 @@ fn graphs(
         let first = *stars.keys().next().unwrap() as u32;
         let last = *stars.keys().last().unwrap() as u32;
 
-        let mut chart = ChartBuilder::on(&right)
+        let mut chart = ChartBuilder::on(&star_canvas)
             .x_label_area_size(30)
             .y_label_area_size(40)
             .margin_right(15)

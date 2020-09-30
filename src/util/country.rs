@@ -3,17 +3,17 @@ use std::collections::HashMap;
 macro_rules! country {
     ($countries:ident, $name:literal, $acronym:ident, $snipe:ident) => {
         let country = Country {
-            name: $name.to_owned(),
-            acronym: stringify!($acronym).to_owned(),
+            name: $name,
+            acronym: stringify!($acronym),
             snipe: stringify!($snipe).to_owned(),
         };
         $countries.insert(stringify!($acronym).to_owned(), country);
     };
     ($countries:ident, $name:literal, $acronym:ident) => {
         let country = Country {
-            name: $name.to_owned(),
-            acronym: stringify!($acronym).to_owned(),
-            snipe: stringify!($acronym).to_owned().to_lowercase(),
+            name: $name,
+            acronym: stringify!($acronym),
+            snipe: stringify!($acronym).to_lowercase(),
         };
         $countries.insert(stringify!($acronym).to_owned(), country);
     };
@@ -21,20 +21,22 @@ macro_rules! country {
 
 #[derive(Debug)]
 pub struct Country {
-    pub name: String,
-    pub acronym: String,
+    pub name: &'static str,
+    pub acronym: &'static str,
     pub snipe: String,
 }
 
 lazy_static::lazy_static! {
     pub static ref SNIPE_COUNTRIES: HashMap<String, Country> = {
-        let mut c = std::collections::HashMap::with_capacity(23);
+        let mut c = std::collections::HashMap::with_capacity(25);
         country!(c, "Australia", AU, aus);
+        country!(c, "Austria", AT);
         country!(c, "Belgium", BE);
         country!(c, "Brazil", BR);
         country!(c, "Bulgaria", BG);
         country!(c, "Canada", CA);
         country!(c, "Chile", CL, chile);
+        country!(c, "China", CN);
         country!(c, "Denmark", DK);
         country!(c, "Finland", FI);
         country!(c, "France", FR);
