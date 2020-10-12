@@ -316,11 +316,14 @@ impl Cache {
                 }
             }
 
+            // MemberAdd event handling; MemberRemove and MemberUpdate look similar
             Event::MemberAdd(event) => {
-                trace!("{} joined {}", event.user.id, event.guild_id);
+                // Is guild in cache?
                 match self.get_guild(event.guild_id) {
+                    // Yup
                     Some(guild) => {
                         let member = CachedMember::from_member(&event.0);
+                        // Handle mutual server count
                         match self.get_user(event.user.id) {
                             Some(user) => {
                                 user.mutual_servers.fetch_add(1, Ordering::SeqCst);
@@ -329,6 +332,7 @@ impl Cache {
                                 self.get_or_insert_user(&event.user);
                             }
                         }
+                        // Put member into guild cache
                         guild.members.insert(event.user.id, Arc::new(member));
                         guild.member_count.fetch_add(1, Ordering::Relaxed);
                         self.stats.user_counts.total.inc();
@@ -340,7 +344,6 @@ impl Cache {
                 }
             }
             Event::MemberUpdate(event) => {
-                trace!("Member {} updated in {}", event.user.id, event.guild_id);
                 match ctx.cache.get_guild(event.guild_id) {
                     Some(guild) => {
                         match ctx.cache.get_user(event.user.id) {

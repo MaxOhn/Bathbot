@@ -136,7 +136,6 @@ pub async fn track(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()
     "-limit 45 cookiezi whitecat",
     "\"freddie benson\""
 )]
-#[aliases("tm")]
 pub async fn trackmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     track_main(GameMode::MNA, ctx, msg, args).await
 }
@@ -157,7 +156,6 @@ pub async fn trackmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
     "-limit 45 cookiezi whitecat",
     "\"freddie benson\""
 )]
-#[aliases("tt")]
 pub async fn tracktaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     track_main(GameMode::TKO, ctx, msg, args).await
 }
@@ -178,7 +176,6 @@ pub async fn tracktaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
     "-limit 45 cookiezi whitecat",
     "\"freddie benson\""
 )]
-#[aliases("tc")]
 pub async fn trackctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     track_main(GameMode::CTB, ctx, msg, args).await
 }

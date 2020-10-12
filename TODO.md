@@ -3,6 +3,10 @@
 - Check why tracking's queue has one less than its users
 - Update taiko pp / stars
 - Add `Icon from syedhassan - pngtree.com` to README
+- Keep msg content after minimizing `<simulate`
+- Check if using Regex' `.find` over `.captures` makes more sense
+- More pp values for `<map`
+- Adjust hitobject distribution for unchoking
 
 **[Sometime]**
 - Write peppy a mail

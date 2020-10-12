@@ -31,7 +31,7 @@ async fn top_main(
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
-    if args.has_dash_r || args.has_dash_p {
+    if top_type == TopType::Top && (args.has_dash_r || args.has_dash_p) {
         let mode_long = match mode {
             GameMode::STD => "",
             GameMode::MNA => "mania",

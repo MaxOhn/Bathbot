@@ -211,7 +211,7 @@ impl CustomClient {
         debug!("Requesting POST from url {} [page {}]", url, params.page);
         let request = self.client.post(url).multipart(form);
         self.ratelimit(Site::OsuStats).await;
-        let response = match timeout(Duration::from_secs(3), request.send()).await {
+        let response = match timeout(Duration::from_secs(4), request.send()).await {
             Ok(result) => result?,
             Err(_) => bail!("Timed out while waiting for get_country_globals"),
         };
@@ -251,7 +251,7 @@ impl CustomClient {
         debug!("Requesting POST from url {}", url);
         let request = self.client.post(url).multipart(form);
         self.ratelimit(Site::OsuStats).await;
-        let response = match timeout(Duration::from_secs(3), request.send()).await {
+        let response = match timeout(Duration::from_secs(4), request.send()).await {
             Ok(result) => result?,
             Err(_) => bail!("Timed out while waiting for get_global_scores"),
         };
@@ -259,8 +259,22 @@ impl CustomClient {
         let result: Value = serde_json::from_slice(&bytes)?;
         let (scores, amount) = if let Value::Array(mut array) = result {
             let mut values = array.drain(..2);
-            let scores = serde_json::from_value(values.next().unwrap())?;
-            let amount = serde_json::from_value(values.next().unwrap())?;
+            let scores = match serde_json::from_value(values.next().unwrap()) {
+                Ok(scores) => scores,
+                Err(why) => {
+                    let content = String::from_utf8_lossy(&bytes);
+                    warn!("JSON (scores): {}", content);
+                    return Err(why.into());
+                }
+            };
+            let amount = match serde_json::from_value(values.next().unwrap()) {
+                Ok(amount) => amount,
+                Err(why) => {
+                    let content = String::from_utf8_lossy(&bytes);
+                    warn!("JSON (amount): {}", content);
+                    return Err(why.into());
+                }
+            };
             (scores, amount)
         } else {
             (Vec::new(), 0)
