@@ -163,8 +163,8 @@ pub fn unchoke_score(score: &mut Score, map: &Beatmap) {
             let passed_objects = score.total_hits(GameMode::STD);
             score.count300 += total_objects.saturating_sub(passed_objects);
             let count_hits = total_objects - score.count_miss;
-            let ratio = score.count300 as f32 / count_hits as f32;
-            let new100s = (ratio * score.count_miss as f32) as u32;
+            let ratio = 1.0 - (score.count300 as f32 / count_hits as f32);
+            let new100s = (ratio * score.count_miss as f32).ceil() as u32;
             score.count100 += new100s;
             score.count300 += score.count_miss.saturating_sub(new100s);
             score.max_combo = max_combo;

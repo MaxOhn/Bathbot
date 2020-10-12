@@ -38,7 +38,7 @@ pub struct RecentEmbed {
     pp: String,
     combo: String,
     hits: String,
-    if_fc: Option<(String, String, String)>,
+    if_fc: Option<(String, f32, String)>,
     map_info: String,
 }
 
@@ -97,9 +97,8 @@ impl RecentEmbed {
                     warn!("Error while calculating pp of <recent score: {}", why);
                     None
                 } else {
-                    let combo = osu::get_combo(&unchoked, map);
                     let hits = unchoked.hits_string(map.mode);
-                    Some((calculator.pp(), combo, hits))
+                    Some((calculator.pp(), unchoked.accuracy(map.mode), hits))
                 }
             } else {
                 None
@@ -200,9 +199,9 @@ impl EmbedData for RecentEmbed {
             true,
         ));
         fields.push(("Hits".to_owned(), self.hits.clone(), true));
-        if let Some((pp, combo, hits)) = &self.if_fc {
+        if let Some((pp, acc, hits)) = &self.if_fc {
             fields.push(("**If FC**: PP".to_owned(), pp.clone(), true));
-            fields.push(("Combo".to_owned(), combo.clone(), true));
+            fields.push(("Acc".to_owned(), format!("{}%", acc), true));
             fields.push(("Hits".to_owned(), hits.clone(), true));
         }
         fields.push(("Map Info".to_owned(), self.map_info.clone(), false));

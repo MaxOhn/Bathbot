@@ -1,15 +1,15 @@
 
 **[TODO]**
-- Check why tracking's queue has one less than its users
+- Check why tracking's queue has less than its users
 - Update taiko pp / stars
 - Add `Icon from syedhassan - pngtree.com` to README
-- Adjust hitobject distribution for unchoking
 
 **[Sometime]**
 - Write peppy a mail
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Adjust hitobject distribution for unchoking~~ (20.10.12)
 - ~~More pp values for `<map`~~ (20.10.12)
 - ~~Check if using Regex' `.find` over `.captures` makes more sense~~ (20.10.12)
 - ~~Keep msg content after minimizing `<simulate`~~ (20.10.12)
