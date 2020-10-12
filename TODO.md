@@ -3,8 +3,6 @@
 - Check why tracking's queue has one less than its users
 - Update taiko pp / stars
 - Add `Icon from syedhassan - pngtree.com` to README
-- Check if using Regex' `.find` over `.captures` makes more sense
-- More pp values for `<map`
 - Adjust hitobject distribution for unchoking
 
 **[Sometime]**
@@ -12,6 +10,8 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~More pp values for `<map`~~ (20.10.12)
+- ~~Check if using Regex' `.find` over `.captures` makes more sense~~ (20.10.12)
 - ~~Keep msg content after minimizing `<simulate`~~ (20.10.12)
 - ~~Reset game status after gateway session invalidates~~ (20.09.28)
 - ~~Handle entry on top.gg (Deleted)~~ (20.09.28)

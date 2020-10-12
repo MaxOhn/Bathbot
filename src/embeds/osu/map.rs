@@ -1,6 +1,6 @@
 use crate::{
     embeds::{Author, EmbedData, Footer},
-    pp::roppai::Oppai,
+    pp::roppai::{Oppai, OppaiErr},
     pp::{Calculations, PPCalculator},
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
@@ -19,6 +19,7 @@ use twilight_embed_builder::image_source::ImageSource;
 pub struct MapEmbed {
     title: String,
     url: String,
+    description: Option<String>,
     thumbnail: Option<ImageSource>,
     footer: Footer,
     author: Author,
@@ -40,26 +41,70 @@ impl MapEmbed {
             let _ = write!(title, "[{}K] ", map.diff_cs as u32);
         }
         let _ = write!(title, "{} - {}", map.artist, map.title);
+        let mut description = None;
         let mut ar = map.diff_ar;
         let mut od = map.diff_od;
         let mut hp = map.diff_hp;
         let mut cs = map.diff_cs;
-        let (pp, stars) = match map.mode {
+        let mut fields = Vec::with_capacity(3);
+        let (max_pp, stars) = match map.mode {
             GameMode::STD | GameMode::TKO => {
                 // Prepare oppai
                 let map_path = prepare_beatmap_file(map.beatmap_id).await?;
                 let mut oppai = Oppai::new();
-                if let Err(why) = oppai.set_mods(mods.bits()).calculate(&map_path) {
-                    warn!("error while using oppai: {}", why);
-                    (0.0, 0.0)
-                } else {
-                    ar = oppai.get_ar();
-                    od = oppai.get_od();
-                    hp = oppai.get_hp();
-                    cs = oppai.get_cs();
-                    let pp = oppai.get_pp();
-                    let stars = oppai.get_stars();
-                    (pp, stars)
+                oppai.set_mods(mods.bits());
+                let pp_result = [95.0, 97.0, 99.0, 100.0]
+                    .iter()
+                    .copied()
+                    .map(|acc| {
+                        oppai.set_accuracy(acc).calculate(&map_path)?;
+                        Ok(oppai.get_pp())
+                    })
+                    .collect::<Result<Vec<_>, OppaiErr>>();
+                match pp_result {
+                    Ok(pps) => {
+                        ar = oppai.get_ar();
+                        od = oppai.get_od();
+                        hp = oppai.get_hp();
+                        cs = oppai.get_cs();
+                        let mut d = String::with_capacity(128);
+                        let len = 6.max(2 + format!("{:.2}", pps[3]).len());
+                        d.push_str("```\n");
+                        let _ = writeln!(
+                            d,
+                            "Acc |{:^len$}|{:^len$}|{:^len$}|{:^len$}",
+                            "95%",
+                            "97%",
+                            "99%",
+                            "100%",
+                            len = len,
+                        );
+                        let _ = writeln!(
+                            d,
+                            "----+{:->len$}+{:->len$}+{:->len$}+{:->len$}",
+                            "-",
+                            "-",
+                            "-",
+                            "-",
+                            len = len,
+                        );
+                        let _ = writeln!(
+                            d,
+                            " PP |{:^len$}|{:^len$}|{:^len$}|{:^len$}",
+                            round(pps[0]),
+                            round(pps[1]),
+                            round(pps[2]),
+                            round(pps[3]),
+                            len = len
+                        );
+                        d.push_str("```");
+                        description = Some(d);
+                        (None, oppai.get_stars())
+                    }
+                    Err(why) => {
+                        warn!("Error while using oppai: {}", why);
+                        (None, 0.0)
+                    }
                 }
             }
             GameMode::MNA | GameMode::CTB => {
@@ -68,10 +113,7 @@ impl MapEmbed {
                 if let Err(why) = calculator.calculate(calculations, Some(ctx)).await {
                     warn!("Error while calculating pp for <map: {}", why);
                 }
-                (
-                    calculator.max_pp().unwrap_or_default(),
-                    calculator.stars().unwrap_or_default(),
-                )
+                (calculator.max_pp(), calculator.stars().unwrap_or_default())
             }
         };
         let thumbnail = if with_thumbnail {
@@ -85,9 +127,11 @@ impl MapEmbed {
             Some(ImageSource::attachment("map_graph.png").unwrap())
         };
         let mut info_value = String::with_capacity(128);
-        let _ = write!(info_value, "Max PP: `{:.2}`", pp);
+        if let Some(pp) = max_pp {
+            let _ = write!(info_value, "Max PP: `{:.2}` ", pp);
+        }
         if let Some(combo) = map.max_combo {
-            let _ = write!(info_value, " Combo: `{}x`", combo);
+            let _ = write!(info_value, "Combo: `{}x`", combo);
         }
         let _ = writeln!(info_value, " Stars: `{:.2}★`", stars);
         let mut seconds_total = map.seconds_total;
@@ -120,30 +164,28 @@ impl MapEmbed {
         if !mods.is_empty() {
             let _ = write!(info_name, " +{}", mods);
         }
-        let fields = vec![
-            (info_name, info_value, true),
-            (
-                "Download".to_owned(),
-                format!(
-                    "[Mapset]({base}d/{mapset_id})\n\
-                    [No Video]({base}d/{mapset_id}n)\n\
-                    [Bloodcat](https://bloodcat.com/osu/s/{mapset_id})\n\
-                    <osu://dl/{mapset_id}>",
-                    base = OSU_BASE,
-                    mapset_id = map.beatmapset_id
-                ),
-                true,
+        fields.push((info_name, info_value, true));
+        fields.push((
+            "Download".to_owned(),
+            format!(
+                "[Mapset]({base}d/{mapset_id})\n\
+                [No Video]({base}d/{mapset_id}n)\n\
+                [Bloodcat](https://bloodcat.com/osu/s/{mapset_id})\n\
+                <osu://dl/{mapset_id}>",
+                base = OSU_BASE,
+                mapset_id = map.beatmapset_id
             ),
-            (
-                format!(
-                    ":heart: {}  :play_pause: {}",
-                    with_comma_u64(map.favourite_count as u64),
-                    with_comma_u64(map.playcount as u64)
-                ),
-                format!("{:?}, {:?}", map.language, map.genre),
-                false,
+            true,
+        ));
+        fields.push((
+            format!(
+                ":heart: {}  :play_pause: {}",
+                with_comma_u64(map.favourite_count as u64),
+                with_comma_u64(map.playcount as u64)
             ),
-        ];
+            format!("{:?}, {:?}", map.language, map.genre),
+            false,
+        ));
         let (date_text, timestamp) = if let Some(approved_date) = map.approved_date {
             (format!("{:?}", map.approval_status), approved_date)
         } else {
@@ -165,6 +207,7 @@ impl MapEmbed {
             author,
             thumbnail,
             timestamp,
+            description,
             url: format!("{}b/{}", OSU_BASE, map.beatmap_id),
         })
     }
@@ -182,6 +225,9 @@ impl EmbedData for MapEmbed {
     }
     fn image(&self) -> Option<&ImageSource> {
         self.image.as_ref()
+    }
+    fn description(&self) -> Option<&str> {
+        self.description.as_deref()
     }
     fn footer(&self) -> Option<&Footer> {
         Some(&self.footer)
