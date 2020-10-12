@@ -104,6 +104,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     let response = ctx
         .http
         .create_message(msg.channel_id)
+        .content("Simulated score:")?
         .embed(embed)?
         .await?;
 

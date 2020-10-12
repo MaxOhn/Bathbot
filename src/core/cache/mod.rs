@@ -84,7 +84,7 @@ impl Cache {
         match event {
             Event::Ready(_ready) => {} // Potential memory leak
             Event::GuildCreate(e) => {
-                trace!("Received guild create event for `{}` ({})", e.name, e.id);
+                // trace!("Received guild create event for `{}` ({})", e.name, e.id);
                 if let Some(cached_guild) = self.guilds.get(&e.id) {
                     self.nuke_guild_cache(cached_guild.value())
                 }
@@ -122,7 +122,7 @@ impl Cache {
                 self.stats.guild_counts.partial.inc();
             }
             Event::GuildUpdate(update) => {
-                trace!("Receive guild update for `{}` ({})", update.name, update.id);
+                // trace!("Receive guild update for `{}` ({})", update.name, update.id);
                 match self.get_guild(update.id) {
                     Some(old_guild) => {
                         old_guild.update(&update.0);
@@ -145,13 +145,13 @@ impl Cache {
                 }
             }
             Event::MemberChunk(chunk) => {
-                trace!(
-                    "Received member chunk {}/{} (nonce: {:?}) for guild {}",
-                    chunk.chunk_index + 1,
-                    chunk.chunk_count,
-                    chunk.nonce,
-                    chunk.guild_id
-                );
+                // trace!(
+                //     "Received member chunk {}/{} (nonce: {:?}) for guild {}",
+                //     chunk.chunk_index + 1,
+                //     chunk.chunk_count,
+                //     chunk.nonce,
+                //     chunk.guild_id
+                // );
                 match self.get_guild(chunk.guild_id) {
                     Some(guild) => {
                         let mut count = 0;
@@ -160,13 +160,13 @@ impl Cache {
                                 count += 1;
                                 let user = self.get_or_insert_user(&member.user);
                                 let member = Arc::new(CachedMember::from_member(member));
-                                let count = user.mutual_servers.fetch_add(1, Ordering::SeqCst);
-                                trace!(
-                                    "User {} received for guild {}, they are now in {} mutuals",
-                                    user_id,
-                                    guild.id,
-                                    count,
-                                );
+                                let _ = user.mutual_servers.fetch_add(1, Ordering::SeqCst);
+                                // trace!(
+                                //     "User {} received for guild {}, they are now in {} mutuals",
+                                //     user_id,
+                                //     guild.id,
+                                //     count,
+                                // );
                                 guild.members.insert(*user_id, member);
                             }
                         }
@@ -213,7 +213,7 @@ impl Cache {
             }
 
             Event::ChannelCreate(event) => {
-                trace!("Received channel create event");
+                // trace!("Received channel create event");
                 match &event.0 {
                     Channel::Group(_group) => {}
                     Channel::Guild(guild_channel) => {
@@ -406,7 +406,7 @@ impl Cache {
                 };
             }
             Event::MemberRemove(event) => {
-                trace!("{} left {}", event.user.id, event.guild_id);
+                // trace!("{} left {}", event.user.id, event.guild_id);
                 match self.get_guild(event.guild_id) {
                     Some(guild) => match guild.members.remove(&event.user.id) {
                         Some((_, member)) => match member.user(self) {
