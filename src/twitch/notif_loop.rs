@@ -69,8 +69,6 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                     })
                     .collect();
 
-                //
-
                 // Process each stream by notifying all corresponding channels
                 for (user, stream) in streams {
                     let channels = match ctx.tracked_channels_for(user) {
@@ -114,7 +112,10 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                                             );
                                         }
                                     }
-                                    Err(why) => warn!("Error while sending twitch notif: {}", why),
+                                    Err(why) => warn!(
+                                        "Error while sending twitch notif (channel {}): {}",
+                                        channel, why
+                                    ),
                                     _ => {}
                                 }
                             }
