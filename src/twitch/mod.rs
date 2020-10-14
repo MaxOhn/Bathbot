@@ -18,7 +18,7 @@ use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
     Client, Response,
 };
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, fmt, num::NonZeroU32};
 
 type TwitchResult<T> = Result<T, TwitchError>;
@@ -109,7 +109,7 @@ impl Twitch {
         let mut streams = Vec::with_capacity(user_ids.len());
         for chunk in user_ids.chunks(100) {
             let mut data: Vec<_> = chunk.iter().map(|&id| ("user_id", id)).collect();
-            data.push(("first", user_ids.len() as u64));
+            data.push(("first", chunk.len() as u64));
             let response = self.send_request(TWITCH_STREAM_ENDPOINT, &data).await?;
             let bytes = response.bytes().await?;
             let parsed_response: TwitchStreams = serde_json::from_slice(&bytes).map_err(|e| {
