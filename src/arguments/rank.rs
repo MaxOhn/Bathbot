@@ -21,12 +21,18 @@ impl RankArgs {
                     number e.g. `be10`.");
             } else {
                 let (country, num) = arg.split_at(2);
-                if let Ok(num) = usize::from_str(num) {
-                    (Some(country.to_uppercase()), num)
-                } else {
-                    return Err("Could not parse rank. Provide it either as positive \
-                        number or as country acronym followed by a positive \
-                        number e.g. `be10`.");
+                match (usize::from_str(num), country.chars().all(|c| c.is_ascii_alphabetic())) {
+                    (Ok(num), true) => (Some(country.to_uppercase()), num),
+                    (Err(_), _) => {
+                        return Err("Could not parse rank. Provide it either as positive \
+                                    number or as country acronym followed by a positive \
+                                    number e.g. `be10`.")
+                    }
+                    (_, false) => {
+                        return Err(
+                            "Could not parse country. Be sure to specify it with two letters, e.g. `be10`.",
+                        )
+                    }
                 }
             }
         } else {

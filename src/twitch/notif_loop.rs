@@ -34,7 +34,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                 Ok(streams) => streams,
                 Err(why) => {
                     warn!("Error while retrieving streams: {}", why);
-                    return;
+                    continue;
                 }
             };
 
@@ -54,7 +54,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                     Ok(users) => users.into_iter().map(|u| (u.user_id, u)).collect(),
                     Err(why) => {
                         warn!("Error while retrieving twitch users: {}", why);
-                        return;
+                        continue;
                     }
                 };
 

@@ -9,6 +9,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Fix stream notifications (removed `return`s)~~ (20.10.14)
 - ~~Adjust hitobject distribution for unchoking~~ (20.10.12)
 - ~~More pp values for `<map`~~ (20.10.12)
 - ~~Check if using Regex' `.find` over `.captures` makes more sense~~ (20.10.12)
