@@ -6,7 +6,10 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use rosu::models::{Beatmap, Score, User};
+use rosu::models::{
+    ApprovalStatus::{Approved, Loved, Qualified, Ranked},
+    Beatmap, Score, User,
+};
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -116,16 +119,26 @@ impl Pagination for RecentPagination {
         }
         let map = self.maps.get(&map_id).unwrap();
         // Make sure map leaderboard is ready
+        let valid_global = matches!(map.approval_status, Ranked | Loved | Qualified | Approved);
         #[allow(clippy::clippy::map_entry)]
-        if !self.global.contains_key(&map.beatmap_id) {
-            let osu = &self.ctx.clients.osu;
-            let global_lb = map.get_global_leaderboard(&osu, 50).await?;
+        if valid_global && !self.global.contains_key(&map.beatmap_id) {
+            let global_lb = map.get_global_leaderboard(self.ctx.osu(), 50).await?;
             self.global.insert(map.beatmap_id, global_lb);
         };
         let global_lb = self
             .global
             .get(&map.beatmap_id)
             .map(|global| global.as_slice());
+        if self.best.is_none() && map.approval_status == Ranked {
+            let user_fut = self.user.get_top_scores(self.ctx.osu(), 100, map.mode);
+            match user_fut.await {
+                Ok(scores) => self.best = Some(scores),
+                Err(why) => warn!(
+                    "Error while getting user top scores for recent pagination: {}",
+                    why
+                ),
+            }
+        }
         // Create embed data
         RecentEmbed::new(
             &self.ctx,
