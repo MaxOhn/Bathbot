@@ -9,6 +9,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Add `https://b.ppy.sh/preview/mapsetid.mp3` to `<map`~~ (20.10.17)
 - ~~Fix stream notifications (removed `return`s)~~ (20.10.14)
 - ~~Adjust hitobject distribution for unchoking~~ (20.10.12)
 - ~~More pp values for `<map`~~ (20.10.12)

@@ -20,6 +20,7 @@ use reqwest::{
 };
 use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, fmt, num::NonZeroU32};
+use tokio::time;
 
 type TwitchResult<T> = Result<T, TwitchError>;
 
@@ -107,7 +108,9 @@ impl Twitch {
             return Ok(Vec::new());
         }
         let mut streams = Vec::with_capacity(user_ids.len());
+        let mut interval = time::interval(time::Duration::from_millis(1000));
         for chunk in user_ids.chunks(100) {
+            interval.tick().await;
             let mut data: Vec<_> = chunk.iter().map(|&id| ("user_id", id)).collect();
             data.push(("first", chunk.len() as u64));
             let response = self.send_request(TWITCH_STREAM_ENDPOINT, &data).await?;
