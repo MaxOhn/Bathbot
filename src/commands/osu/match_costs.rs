@@ -10,6 +10,7 @@ use itertools::Itertools;
 use rosu::{
     backend::requests::{MatchRequest, UserRequest},
     models::{GameMods, Match, Team, TeamType},
+    OsuError,
 };
 use std::{
     cmp::Ordering,
@@ -42,6 +43,10 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     let match_req = MatchRequest::with_match_id(match_id);
     let osu_match = match match_req.queue_single(&ctx.clients.osu).await {
         Ok(osu_match) => osu_match,
+        Err(OsuError::InvalidMultiplayerMatch) => {
+            let content = "Either the mp id was invalid or the match was private";
+            return msg.error(&ctx, content).await;
+        }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());

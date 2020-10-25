@@ -3,12 +3,14 @@
 - Check why tracking's queue has less than its users
 - Update taiko pp / stars
 - Add `Icon from syedhassan - pngtree.com` to README
+- Fix `<mc` formula image (n' * participation bonus)
 
 **[Sometime]**
 - Write peppy a mail
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Parse `{"match":0,"games:[]"}` if match not found / private in rosu~~ (20.10.25)
 - ~~Add `https://b.ppy.sh/preview/mapsetid.mp3` to `<map`~~ (20.10.17)
 - ~~Fix stream notifications (removed `return`s)~~ (20.10.14)
 - ~~Adjust hitobject distribution for unchoking~~ (20.10.12)
