@@ -3,13 +3,13 @@
 - Check why tracking's queue has less than its users
 - Update taiko pp / stars
 - Add `Icon from syedhassan - pngtree.com` to README
-- Fix `<mc` formula image (n' * participation bonus)
 
 **[Sometime]**
 - Write peppy a mail
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Fix `<mc` formula image (n' * participation bonus)~~ (20.10.27)
 - ~~Fix `<osg --a --asc` (dont quit on pp error)~~ (20.10.27)
 - ~~Parse `{"match":0,"games:[]"}` if match not found / private in rosu~~ (20.10.25)
 - ~~Add `https://b.ppy.sh/preview/mapsetid.mp3` to `<map`~~ (20.10.17)
