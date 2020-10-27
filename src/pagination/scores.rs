@@ -53,6 +53,6 @@ impl Pagination for ScoresPagination {
             .iter()
             .skip(self.pages.index)
             .take(self.pages.per_page);
-        ScoresEmbed::new(&self.ctx, &self.user, &self.map, scores, self.pages.index).await
+        Ok(ScoresEmbed::new(&self.ctx, &self.user, &self.map, scores, self.pages.index).await)
     }
 }

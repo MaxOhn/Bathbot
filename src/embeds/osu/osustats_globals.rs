@@ -9,7 +9,7 @@ use crate::{
         osu::grade_emote,
         ScoreExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use rosu::models::User;
@@ -30,14 +30,14 @@ impl OsuStatsGlobalsEmbed {
         scores: &BTreeMap<usize, OsuStatsScore>,
         total: usize,
         pages: (usize, usize),
-    ) -> BotResult<Self> {
+    ) -> Self {
         if scores.is_empty() {
-            return Ok(Self {
+            return Self {
                 author: osu::get_user_author(&user),
                 thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
                 footer: Footer::new("Page 1/1 ~ Total scores: 0"),
                 description: String::from("No scores with these parameters were found"),
-            });
+            };
         }
         let index = (pages.0 - 1) * 5;
         let entries = scores.range(index..index + 5);
@@ -46,8 +46,10 @@ impl OsuStatsGlobalsEmbed {
             let grade = grade_emote(score.grade);
             let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
             let mut calculator = PPCalculator::new().score(score).map(&score.map);
-            calculator.calculate(calculations, Some(ctx)).await?;
-            let stars = osu::get_stars(calculator.stars().unwrap());
+            if let Err(why) = calculator.calculate(calculations, Some(ctx)).await {
+                warn!("Error while calculating pp for osg: {}", why);
+            }
+            let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));
             let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
             let mut combo = format!("**{}x**/", score.max_combo);
             match score.map.max_combo {
@@ -76,7 +78,7 @@ impl OsuStatsGlobalsEmbed {
                 ago = how_long_ago(&score.date)
             );
         }
-        Ok(Self {
+        Self {
             description,
             author: osu::get_user_author(&user),
             thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
@@ -84,7 +86,7 @@ impl OsuStatsGlobalsEmbed {
                 "Page {}/{} ~ Total scores: {}",
                 pages.0, pages.1, total
             )),
-        })
+        }
     }
 }
 

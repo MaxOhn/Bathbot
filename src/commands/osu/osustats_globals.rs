@@ -1,15 +1,9 @@
 use crate::{
     arguments::{Args, OsuStatsArgs},
-    bail,
     custom_client::OsuStatsScore,
     embeds::{EmbedData, OsuStatsGlobalsEmbed},
     pagination::{OsuStatsGlobalsPagination, Pagination},
-    util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        numbers,
-        osu::ModSelection,
-        MessageExt,
-    },
+    util::{constants::OSU_API_ISSUE, numbers, osu::ModSelection, MessageExt},
     BotResult, Context,
 };
 
@@ -61,13 +55,7 @@ async fn osustats_main(
 
     // Accumulate all necessary data
     let pages = numbers::div_euclid(5, amount);
-    let data = match OsuStatsGlobalsEmbed::new(&ctx, &user, &scores, amount, (1, pages)).await {
-        Ok(data) => data,
-        Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("error while creating embed: {}", why);
-        }
-    };
+    let data = OsuStatsGlobalsEmbed::new(&ctx, &user, &scores, amount, (1, pages)).await;
     let mut content = format!(
         "`Rank: {rank_min} - {rank_max}` ~ \
         `Acc: {acc_min}% - {acc_max}%` ~ \
@@ -137,7 +125,7 @@ async fn osustats_main(
     "badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc",
     "vaxei +hdhr -r 1..5 --r"
 )]
-#[aliases("osg")]
+#[aliases("osg", "osustatsglobal")]
 pub async fn osustatsglobals(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     osustats_main(GameMode::STD, ctx, msg, args).await
 }
@@ -161,7 +149,7 @@ pub async fn osustatsglobals(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
     "badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc",
     "vaxei +hdhr -r 1..5 --r"
 )]
-#[aliases("osgm")]
+#[aliases("osgm", "osustatsglobalmania")]
 pub async fn osustatsglobalsmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     osustats_main(GameMode::MNA, ctx, msg, args).await
 }
@@ -185,7 +173,7 @@ pub async fn osustatsglobalsmania(ctx: Arc<Context>, msg: &Message, args: Args) 
     "badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc",
     "vaxei +hdhr -r 1..5 --r"
 )]
-#[aliases("osgt")]
+#[aliases("osgt", "osustatsglobaltaiko")]
 pub async fn osustatsglobalstaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     osustats_main(GameMode::TKO, ctx, msg, args).await
 }
@@ -209,7 +197,7 @@ pub async fn osustatsglobalstaiko(ctx: Arc<Context>, msg: &Message, args: Args) 
     "badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc",
     "vaxei +hdhr -r 1..5 --r"
 )]
-#[aliases("osgc")]
+#[aliases("osgc", "osustatsglobalctb")]
 pub async fn osustatsglobalsctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     osustats_main(GameMode::CTB, ctx, msg, args).await
 }

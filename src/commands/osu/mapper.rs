@@ -1,13 +1,9 @@
 use crate::{
     arguments::{try_link_name, Args},
-    bail,
     embeds::{EmbedData, TopEmbed},
     pagination::{Pagination, TopPagination},
     tracking::process_tracking,
-    util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        matcher, numbers, MessageExt,
-    },
+    util::{constants::OSU_API_ISSUE, matcher, numbers, MessageExt},
     BotResult, Context,
 };
 
@@ -190,14 +186,7 @@ async fn mapper_main(
         ),
     };
     let pages = numbers::div_euclid(5, scores_data.len());
-    let data = match TopEmbed::new(&ctx, &user, scores_data.iter().take(5), mode, (1, pages)).await
-    {
-        Ok(data) => data,
-        Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("error while creating mapper embed: {}", why);
-        }
-    };
+    let data = TopEmbed::new(&ctx, &user, scores_data.iter().take(5), mode, (1, pages)).await;
 
     if let Some(msg) = retrieving_msg {
         let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;

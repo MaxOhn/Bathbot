@@ -70,14 +70,16 @@ pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadErro
             }
             delay *= 2;
         }
-        let mut file = File::create(&map_path).await?;
-        file.write_all(&content).await?;
-        match &content.slice(0..6)[..] == b"<html>" {
+        match content.len() < 6 || &content.slice(0..6)[..] == b"<html>" {
             true => info!(
                 "Failed to download {}.osu after up to {}ms delay",
                 map_id, delay
             ),
-            false => info!("Downloaded {}.osu successfully", map_id),
+            false => {
+                let mut file = File::create(&map_path).await?;
+                file.write_all(&content).await?;
+                info!("Downloaded {}.osu successfully", map_id)
+            }
         }
     }
     Ok(map_path.to_str().unwrap().to_owned())

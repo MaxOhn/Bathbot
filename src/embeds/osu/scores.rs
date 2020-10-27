@@ -8,7 +8,7 @@ use crate::{
         osu::grade_completion_mods,
         ScoreExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use rosu::models::{Beatmap, GameMode, Score, User};
@@ -32,7 +32,7 @@ impl ScoresEmbed {
         map: &Beatmap,
         scores: S,
         idx: usize,
-    ) -> BotResult<Self>
+    ) -> Self
     where
         S: Iterator<Item = &'i Score>,
     {
@@ -40,7 +40,9 @@ impl ScoresEmbed {
         for (i, score) in scores.enumerate() {
             let calculations = Calculations::all();
             let mut calculator = PPCalculator::new().score(score).map(map);
-            calculator.calculate(calculations, Some(ctx)).await?;
+            if let Err(why) = calculator.calculate(calculations, Some(ctx)).await {
+                warn!("Error while calculating pp for scores: {}", why);
+            }
             let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));
             let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
             let mut name = format!(
@@ -80,7 +82,7 @@ impl ScoresEmbed {
             true => Some("No scores found"),
             false => None,
         };
-        Ok(Self {
+        Self {
             description,
             footer,
             thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id))
@@ -89,7 +91,7 @@ impl ScoresEmbed {
             url: format!("{}b/{}", OSU_BASE, map.beatmap_id),
             fields,
             author,
-        })
+        }
     }
 }
 

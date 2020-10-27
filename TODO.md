@@ -10,6 +10,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Fix `<osg --a --asc` (dont quit on pp error)~~ (20.10.27)
 - ~~Parse `{"match":0,"games:[]"}` if match not found / private in rosu~~ (20.10.25)
 - ~~Add `https://b.ppy.sh/preview/mapsetid.mp3` to `<map`~~ (20.10.17)
 - ~~Fix stream notifications (removed `return`s)~~ (20.10.14)

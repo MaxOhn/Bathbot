@@ -7,7 +7,7 @@ use crate::{
         numbers::with_comma_u64,
         ScoreExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use rosu::models::{Beatmap, GameMode, Score, User};
@@ -28,7 +28,7 @@ impl TopEmbed {
         scores_data: S,
         mode: GameMode,
         pages: (usize, usize),
-    ) -> BotResult<Self>
+    ) -> Self
     where
         S: Iterator<Item = &'i (usize, Score, Beatmap)>,
     {
@@ -36,7 +36,9 @@ impl TopEmbed {
         for (idx, score, map) in scores_data {
             let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
             let mut calculator = PPCalculator::new().score(score).map(map);
-            calculator.calculate(calculations, Some(ctx)).await?;
+            if let Err(why) = calculator.calculate(calculations, Some(ctx)).await {
+                warn!("Error while calculating pp for top: {}", why);
+            }
             let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));
             let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
             let _ = writeln!(
@@ -60,12 +62,12 @@ impl TopEmbed {
             );
         }
         description.pop();
-        Ok(Self {
+        Self {
             thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
             description,
             author: osu::get_user_author(user),
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
-        })
+        }
     }
 }
 

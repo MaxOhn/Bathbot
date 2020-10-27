@@ -148,14 +148,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
 
     // Accumulate all necessary data
     let pages = numbers::div_euclid(5, scores_data.len());
-    let data =
-        match NoChokeEmbed::new(&user, scores_data.iter().take(5), unchoked_pp, (1, pages)).await {
-            Ok(data) => data,
-            Err(why) => {
-                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-                bail!("error while creating embed: {}", why);
-            }
-        };
+    let data = NoChokeEmbed::new(&user, scores_data.iter().take(5), unchoked_pp, (1, pages)).await;
 
     if let Some(msg) = retrieving_msg {
         let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;

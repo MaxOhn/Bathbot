@@ -48,7 +48,7 @@ impl Pagination for TopPagination {
         &mut self.pages
     }
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        TopEmbed::new(
+        Ok(TopEmbed::new(
             &self.ctx,
             &self.user,
             self.scores
@@ -58,6 +58,6 @@ impl Pagination for TopPagination {
             self.mode,
             (self.page(), self.pages.total_pages),
         )
-        .await
+        .await)
     }
 }

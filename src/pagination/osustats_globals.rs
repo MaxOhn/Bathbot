@@ -81,13 +81,13 @@ impl Pagination for OsuStatsGlobalsPagination {
                 .map(|(i, s)| ((osustats_page - 1) * 24 + i, s));
             self.scores.extend(iter);
         }
-        OsuStatsGlobalsEmbed::new(
+        Ok(OsuStatsGlobalsEmbed::new(
             &self.ctx,
             &self.user,
             &self.scores,
             self.total,
             (self.page(), self.pages.total_pages),
         )
-        .await
+        .await)
     }
 }

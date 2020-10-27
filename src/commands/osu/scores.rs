@@ -108,13 +108,7 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let init_scores = scores.iter().take(10);
 
     // Accumulate all necessary data
-    let data = match ScoresEmbed::new(&ctx, &user, &map, init_scores, 0).await {
-        Ok(data) => data,
-        Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("error while creating embed: {}", why);
-        }
-    };
+    let data = ScoresEmbed::new(&ctx, &user, &map, init_scores, 0).await;
 
     // Sending the embed
     let embed = data.build().build()?;

@@ -5,7 +5,6 @@ use crate::{
         constants::{AVATAR_URL, OSU_BASE},
         ScoreExt,
     },
-    BotResult,
 };
 
 use rosu::models::{Beatmap, GameMode, Score, User};
@@ -26,7 +25,7 @@ impl NoChokeEmbed {
         scores_data: S,
         unchoked_pp: f64,
         pages: (usize, usize),
-    ) -> BotResult<Self>
+    ) -> Self
     where
         S: Iterator<Item = &'i (usize, Score, Score, Beatmap)>,
     {
@@ -35,8 +34,10 @@ impl NoChokeEmbed {
         for (idx, original, unchoked, map) in scores_data {
             let calculations = Calculations::MAX_PP | Calculations::STARS;
             let mut calculator = PPCalculator::new().score(original).map(map);
-            calculator.calculate(calculations, None).await?;
-            let stars = osu::get_stars(calculator.stars().unwrap());
+            if let Err(why) = calculator.calculate(calculations, None).await {
+                warn!("Error while calculating pp for nochokes: {}", why);
+            }
+            let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));
             let _ = writeln!(
                 description,
                 "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
@@ -70,13 +71,13 @@ impl NoChokeEmbed {
             "Total pp: {} → **{}pp** (+{})",
             user.pp_raw, unchoked_pp, pp_diff
         );
-        Ok(Self {
+        Self {
             title,
             author: osu::get_user_author(user),
             description,
             thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
-        })
+        }
     }
 }
 
