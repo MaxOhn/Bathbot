@@ -23,6 +23,7 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
+use cow_utils::CowUtils;
 use futures::future::FutureExt;
 use governor::{clock::DefaultClock, state::keyed::DashMapStateStore, Quota, RateLimiter};
 use reqwest::{
@@ -37,11 +38,7 @@ use serde_json::Value;
 use std::{collections::HashSet, convert::TryFrom, fmt::Write, hash::Hash, num::NonZeroU32};
 use tokio::time::{timeout, Duration};
 
-static APP_USER_AGENT: &str = concat!(
-    env!("CARGO_PKG_NAME"),
-    "/",
-    env!("CARGO_PKG_VERSION"),
-);
+static APP_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
 #[allow(clippy::enum_variant_names)]
@@ -116,7 +113,7 @@ impl CustomClient {
         let url = format!(
             "{}beatmaps/unplayed/{}",
             HUISMETBENEN,
-            country.to_lowercase()
+            country.cow_to_lowercase()
         );
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
@@ -128,7 +125,7 @@ impl CustomClient {
         &self,
         country: &str,
     ) -> BotResult<(SnipeTopDifference, SnipeTopDifference)> {
-        let country = country.to_lowercase();
+        let country = country.cow_to_lowercase();
         let url_gain = format!("{}rankings/{}/topgain", HUISMETBENEN, country);
         let url_loss = format!("{}rankings/{}/toploss", HUISMETBENEN, country);
         let gain = self

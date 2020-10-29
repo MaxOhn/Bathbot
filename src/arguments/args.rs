@@ -137,22 +137,6 @@ impl<'m> ArgsFull<'m> {
         let (start, end) = self.limits.front()?;
         Some(&self.msg[*start..*end])
     }
-
-    #[inline]
-    #[allow(dead_code)]
-    pub fn single<T: FromStr>(&mut self) -> Result<T, ArgError<T::Err>> {
-        let (start, end) = self.limits.pop_front().ok_or(ArgError::Eos)?;
-        let arg = &self.msg[start..end];
-        T::from_str(arg).map_err(ArgError::Parse)
-    }
-
-    #[inline]
-    #[allow(dead_code)]
-    pub fn single_back<T: FromStr>(&mut self) -> Result<T, ArgError<T::Err>> {
-        let (start, end) = self.limits.pop_back().ok_or(ArgError::Eos)?;
-        let arg = &self.msg[start..end];
-        T::from_str(arg).map_err(ArgError::Parse)
-    }
 }
 
 #[derive(Debug)]

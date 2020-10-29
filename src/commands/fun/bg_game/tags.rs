@@ -10,6 +10,7 @@ use crate::{
     Args, BotResult, Context, CONFIG,
 };
 
+use cow_utils::CowUtils;
 use rand::RngCore;
 use rayon::prelude::*;
 use rosu::models::GameMode;
@@ -151,7 +152,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
     }
     // Parse arguments as mode
     let mode = match args.next() {
-        Some(arg) => match arg.to_lowercase().as_str() {
+        Some(arg) => match arg.cow_to_lowercase().as_ref() {
             "mna" | "mania" | "m" => GameMode::MNA,
             "osu" | "std" | "standard" | "o" => GameMode::STD,
             _ => {
@@ -387,7 +388,7 @@ enum Action {
 impl FromStr for Action {
     type Err = ();
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value.to_lowercase().as_str() {
+        match value.cow_to_lowercase().as_ref() {
             "r" | "remove" => Ok(Self::Remove),
             "a" | "add" => Ok(Self::Add),
             _ => Err(()),

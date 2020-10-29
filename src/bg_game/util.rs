@@ -31,7 +31,7 @@ pub async fn get_random_mapset<'m>(
 pub async fn get_title_artist(ctx: &Context, mapset_id: u32) -> GameResult<(String, String)> {
     let (mut title, artist) = {
         if let Ok(mapset) = ctx.psql().get_beatmapset(mapset_id).await {
-            (mapset.title, mapset.artist)
+            (mapset.title.to_lowercase(), mapset.artist)
         } else {
             let request = BeatmapRequest::new().mapset_id(mapset_id);
             match request.queue_single(ctx.osu()).await {
@@ -39,23 +39,22 @@ pub async fn get_title_artist(ctx: &Context, mapset_id: u32) -> GameResult<(Stri
                     if let Err(why) = ctx.psql().insert_beatmap(&map).await {
                         warn!("Error while inserting bg game map into DB: {}", why);
                     }
-                    (map.title, map.artist)
+                    (map.title.to_lowercase(), map.artist)
                 }
                 Ok(None) => return Err(BgGameError::NoMapResult(mapset_id)),
                 Err(why) => return Err(BgGameError::Osu(why)),
             }
         }
     };
-    if title.contains('(') && title.contains(')') {
-        let idx_open = title.find('(').unwrap();
-        let idx_close = title.find(')').unwrap();
-        title.replace_range(idx_open..=idx_close, "");
+    if let Some(idx_open) = title.find('(') {
+        if let Some(idx_close) = title.rfind(')') {
+            title.replace_range(idx_open..=idx_close, "");
+        }
     }
     if let Some(idx) = title.find("feat.").or_else(|| title.find("ft.")) {
         title.truncate(idx);
     }
-    title = title.trim().to_string().to_lowercase();
-    Ok((title, artist.to_lowercase()))
+    Ok((title.trim().to_owned(), artist.to_lowercase()))
 }
 
 pub fn similarity(word_a: &str, word_b: &str) -> f32 {

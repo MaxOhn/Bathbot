@@ -3,6 +3,7 @@ use crate::{
     Args, BotResult, Context,
 };
 
+use cow_utils::CowUtils;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -18,7 +19,7 @@ async fn removestream(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
         let content = "The first argument must be the name of the stream";
         return msg.error(&ctx, content).await;
     }
-    let name = args.single::<String>().unwrap().to_lowercase();
+    let name = args.next().unwrap().cow_to_lowercase();
     let twitch = &ctx.clients.twitch;
     let twitch_id = match twitch.get_user(&name).await {
         Ok(user) => user.user_id,

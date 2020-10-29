@@ -50,7 +50,7 @@ async fn osustats_main(
 #[long_desc(
     "Display in how many top 1-50 map leaderboards the user has a score.\n\
     This command shows the same stats as the globals count section for the \
-    `profile` command."
+    `osu` command."
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
@@ -64,7 +64,7 @@ pub async fn osustatscount(ctx: Arc<Context>, msg: &Message, args: Args) -> BotR
 #[long_desc(
     "Display in how many top 1-50 map leaderboards the user has a score.\n\
     This command shows the same stats as the globals count section for the \
-    `profilemania` command."
+    `mania` command."
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
@@ -78,7 +78,7 @@ pub async fn osustatscountmania(ctx: Arc<Context>, msg: &Message, args: Args) ->
 #[long_desc(
     "Display in how many top 1-50 map leaderboards the user has a score.\n\
     This command shows the same stats as the globals count section for the \
-    `profiletaiko` command."
+    `taiko` command."
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
@@ -92,7 +92,7 @@ pub async fn osustatscounttaiko(ctx: Arc<Context>, msg: &Message, args: Args) ->
 #[long_desc(
     "Display in how many top 1-50 map leaderboards the user has a score.\n\
     This command shows the same stats as the globals count section for the \
-    `profilectb` command."
+    `ctb` command."
 )]
 #[usage("[username]")]
 #[example("badewanne3")]

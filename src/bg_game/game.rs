@@ -5,6 +5,7 @@ use crate::{
     BotResult, Context, CONFIG,
 };
 
+use cow_utils::CowUtils;
 use image::GenericImageView;
 use rosu::models::GameMode;
 use std::collections::VecDeque;
@@ -163,7 +164,7 @@ pub async fn game_loop(
             return LoopResult::Stop;
         }
         let mut game = game.as_mut().unwrap();
-        match game.check_msg_content(&msg.content) {
+        match game.check_msg_content(msg.content.cow_to_lowercase().as_ref()) {
             // Title correct?
             ContentResult::Title(exact) => {
                 let content = format!(

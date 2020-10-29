@@ -11,8 +11,9 @@ use crate::{
     BotResult, Context,
 };
 
+use cow_utils::CowUtils;
 use rosu::models::{Beatmap, GameMode};
-use std::{collections::HashMap, fmt::Write};
+use std::{borrow::Cow, collections::HashMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct LeaderboardEmbed {
@@ -42,9 +43,9 @@ impl LeaderboardEmbed {
         let description = if let Some(scores) = scores {
             let mut mod_map = HashMap::new();
             let mut description = String::with_capacity(256);
-            let author_name = init_name.map_or_else(String::new, |n| n.to_lowercase());
+            let author_name = init_name.map_or_else(|| Cow::Borrowed(""), |n| n.cow_to_lowercase());
             for (i, score) in scores.enumerate() {
-                let found_author = author_name == score.username.to_lowercase();
+                let found_author = author_name == score.username.cow_to_lowercase();
                 let mut username = String::with_capacity(32);
                 if found_author {
                     username.push_str("__");
