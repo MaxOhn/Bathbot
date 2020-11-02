@@ -181,9 +181,8 @@ async fn run(
 
     // Prepare cluster builder
     let cache = Cache::new(bot_user, stats);
-    let cb = Cluster::builder(&CONFIG.get().unwrap().tokens.discord)
-        .shard_scheme(sharding_scheme)
-        .intents(intents);
+    let cb = Cluster::builder(&CONFIG.get().unwrap().tokens.discord, intents)
+        .shard_scheme(sharding_scheme);
 
     // Check for resume data, pass to builder if present
     let (cb, resumed) =

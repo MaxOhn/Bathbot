@@ -116,8 +116,8 @@ impl Context {
             .command(
                 shard_id,
                 &UpdateStatus::new(
+                    Some(vec![generate_activity(activity_type, message.into())]),
                     false,
-                    generate_activity(activity_type, message.into()),
                     None,
                     status,
                 ),

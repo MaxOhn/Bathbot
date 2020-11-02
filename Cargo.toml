@@ -102,23 +102,23 @@ default_features = false
 features = ["time", "macros", "process", "sync", "stream", "fs", "io-util"]
 
 [dependencies.twilight-embed-builder]
-version = "0.1"
+version = "0.2"
 default_features = false
 
 [dependencies.twilight-gateway]
-version = "0.1"
+version = "0.2"
 
 [dependencies.twilight-http]
-version = "0.1"
+version = "0.2"
 default_features = false
 features = ["rustls"]
 
 [dependencies.twilight-model]
-version = "0.1"
+version = "0.2"
 default_features = false
 
 [dependencies.twilight-standby]
-version = "0.1"
+version = "0.2"
 default_features = false
 
 [features]
