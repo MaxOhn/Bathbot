@@ -34,7 +34,12 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
         let mut maps: HashMap<u32, Beatmap> = HashMap::new();
         for (user_id, mode, result) in join_all(score_futs).await {
             match result {
-                Ok(scores) => process_tracking(&ctx, mode, &scores, None, &mut maps).await,
+                Ok(scores) => {
+                    // Note: If scores are empty, (user_id, mode) will not be reset into the tracking queue
+                    if !scores.is_empty() {
+                        process_tracking(&ctx, mode, &scores, None, &mut maps).await
+                    }
+                }
                 Err(why) => {
                     warn!(
                         "API issue while retrieving user ({},{}) for tracking: {}",
@@ -68,10 +73,7 @@ pub async fn process_tracking(
     };
     let max = match channels.values().max() {
         Some(max) => *max,
-        None => {
-            warn!("No tracked channels for ({},{})", user_id, mode);
-            return;
-        }
+        None => return,
     };
     let new_last = scores.iter().map(|s| s.date).max();
     debug!(

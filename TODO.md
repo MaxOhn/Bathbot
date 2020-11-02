@@ -1,6 +1,5 @@
 
 **[TODO]**
-- Check why tracking's queue has less than its users
 - Update taiko pp / stars
 - Add `Icon from syedhassan - pngtree.com` to README
 
@@ -9,6 +8,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Check why tracking's queue has less than its users (ppl without top scores are filtered)~~ (20.11.02)
 - ~~Fix `<mc` formula image (n' * participation bonus)~~ (20.10.27)
 - ~~Fix `<osg --a --asc` (dont quit on pp error)~~ (20.10.27)
 - ~~Parse `{"match":0,"games:[]"}` if match not found / private in rosu~~ (20.10.25)

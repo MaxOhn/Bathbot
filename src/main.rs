@@ -345,7 +345,6 @@ async fn attempt_cold_resume(
     let key = "cb_cluster_data";
     if let Some(d) = connection.get(key).await.ok().flatten() {
         let cold_cache: ColdRebootData = serde_json::from_str(&*String::from_utf8(d).unwrap())?;
-        debug!("ColdRebootData:\n{:#?}", cold_cache);
         connection.del(key).await?;
         if cold_cache.total_shards == total_shards && cold_cache.shard_count == shards_per_cluster {
             let map = cold_cache

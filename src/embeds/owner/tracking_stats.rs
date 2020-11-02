@@ -57,11 +57,7 @@ impl TrackingStatsEmbed {
             fields,
             footer: Footer::new("Last pop"),
             timestamp: stats.last_pop,
-            title: format!(
-                "Tracked users: {} | queue: {}",
-                stats.users.len(),
-                stats.queue.len()
-            ),
+            title: format!("Tracked users: {} | queue: {}", stats.users, stats.queue),
         }
     }
 }
