@@ -140,9 +140,9 @@ pub async fn handle_event(
             log_invoke(&ctx, msg);
             let msg = msg.deref();
             let command_result = match &invoke {
-                Invoke::Command(cmd) => process_command(cmd, ctx.clone(), msg, stream).await,
+                Invoke::Command(cmd) => process_command(cmd, Arc::clone(&ctx), msg, stream).await,
                 Invoke::SubCommand { sub, .. } => {
-                    process_command(sub, ctx.clone(), msg, stream).await
+                    process_command(sub, Arc::clone(&ctx), msg, stream).await
                 }
                 Invoke::Help(None) => {
                     let is_authority = check_authority(&ctx, msg).transpose().is_none();

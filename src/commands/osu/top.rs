@@ -196,7 +196,7 @@ async fn top_main(
     }
 
     // Pagination
-    let pagination = TopPagination::new(ctx.clone(), response, user, scores_data, mode);
+    let pagination = TopPagination::new(Arc::clone(&ctx), response, user, scores_data, mode);
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {

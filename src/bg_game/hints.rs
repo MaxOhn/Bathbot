@@ -48,7 +48,7 @@ impl Hints {
                 first = title.chars().next().unwrap(),
             )
         } else if self.hint_level == 2 && !self.artist_guessed {
-            let mut artist_hint = String::with_capacity(3 * artist.len());
+            let mut artist_hint = String::with_capacity(3 * artist.len() - 2);
             artist_hint.push(artist.chars().next().unwrap());
             for c in artist.chars().skip(1) {
                 artist_hint.push(if c == ' ' { c } else { '▢' });

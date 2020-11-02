@@ -96,7 +96,7 @@ async fn osustats_main(
 
     // Pagination
     let pagination =
-        OsuStatsGlobalsPagination::new(ctx.clone(), response, user, scores, amount, params);
+        OsuStatsGlobalsPagination::new(Arc::clone(&ctx), response, user, scores, amount, params);
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {

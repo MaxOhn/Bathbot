@@ -176,7 +176,7 @@ async fn run(
     let stats = Arc::new(BotStats::new(clients.osu.metrics()));
 
     // Provide stats to locale address
-    let metrics_stats = stats.clone();
+    let metrics_stats = Arc::clone(&stats);
     tokio::spawn(_run_metrics_server(metrics_stats));
 
     // Prepare cluster builder
@@ -212,7 +212,7 @@ async fn run(
     let ctx = Arc::new(Context::new(cache, http, clients, backend, data).await);
 
     // Setup graceful shutdown
-    let shutdown_ctx = ctx.clone();
+    let shutdown_ctx = Arc::clone(&ctx);
     ctrlc::set_handler(move || {
         let _ = Runtime::new().unwrap().block_on(async {
             if let Err(why) = shutdown_ctx.initiate_cold_resume().await {
@@ -231,15 +231,15 @@ async fn run(
     .map_err(|why| format_err!("failed to register shutdown handler: {}", why))?;
 
     // Spawn twitch worker
-    let twitch_ctx = ctx.clone();
+    let twitch_ctx = Arc::clone(&ctx);
     tokio::spawn(twitch::twitch_loop(twitch_ctx));
 
     // Spawn osu tracking worker
-    let osu_tracking_ctx = ctx.clone();
+    let osu_tracking_ctx = Arc::clone(&ctx);
     tokio::spawn(tracking::tracking_loop(osu_tracking_ctx));
 
     // Activate cluster
-    let cluster_ctx = ctx.clone();
+    let cluster_ctx = Arc::clone(&ctx);
     tokio::spawn(async move {
         time::delay_for(Duration::from_secs(1)).await;
         cluster_ctx.backend.cluster.up().await;
@@ -257,13 +257,12 @@ async fn run(
 
     let mut bot_events = ctx.backend.cluster.events();
     let cmd_groups = Arc::new(CommandGroups::new());
-    while let Some(event) = bot_events.next().await {
-        let (shard, event) = event;
+    while let Some((shard, event)) = bot_events.next().await {
         ctx.update_stats(shard, &event);
-        ctx.cache.update(shard, &event, ctx.clone()).await?;
+        ctx.cache.update(shard, &event, Arc::clone(&ctx)).await;
         ctx.standby.process(&event);
-        let c = ctx.clone();
-        let cmds = cmd_groups.clone();
+        let c = Arc::clone(&ctx);
+        let cmds = Arc::clone(&cmd_groups);
         tokio::spawn(async move {
             if let Err(why) = handle_event(shard, &event, c, cmds).await {
                 error!("Error while handling event: {}", why);
@@ -315,7 +314,7 @@ fn shard_schema_values() -> Option<(u64, u64)> {
 
 async fn _run_metrics_server(stats: Arc<BotStats>) {
     let metric_service = make_service_fn(move |_| {
-        let stats = stats.clone();
+        let stats = Arc::clone(&stats);
         async move {
             Ok::<_, Infallible>(service_fn(move |_req| {
                 let mut buffer = Vec::new();

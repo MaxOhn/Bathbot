@@ -179,7 +179,7 @@ impl Cache {
             }
             self.stats.channel_count.add(guild.channels.len() as i64);
             for emoji in &guild.emoji {
-                self.emoji.insert(emoji.id, emoji.clone());
+                self.emoji.insert(emoji.id, Arc::clone(emoji));
             }
             self.stats.user_counts.total.add(guild.members.len() as i64);
             self.guilds.insert(guild.id, Arc::new(guild));

@@ -42,14 +42,14 @@ async fn profile_main(
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
-    let (data, profile) =
+    let (data, mut profile) =
         match profile_embed(&ctx, &name, mode, Some(msg.author.id), msg.channel_id).await? {
             Some(data) => data,
             None => return Ok(()),
         };
 
     // Draw the graph
-    let graph = match graphs(&profile).await {
+    let graph = match graphs(&mut profile).await {
         Ok(graph_option) => graph_option,
         Err(why) => {
             warn!("Error while creating profile graph: {}", why);
@@ -68,7 +68,7 @@ async fn profile_main(
 
     // Pagination
     let pagination =
-        ProfilePagination::new(ctx.clone(), response, msg.channel_id, mode, name, data);
+        ProfilePagination::new(Arc::clone(&ctx), response, msg.channel_id, mode, name, data);
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 90).await {
@@ -402,7 +402,7 @@ impl ProfileResult {
 const W: u32 = 1350;
 const H: u32 = 350;
 
-async fn graphs(profile: &OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error>> {
+async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error>> {
     if profile.monthly_playcounts.len() < 2 {
         return Ok(None);
     }
@@ -470,8 +470,8 @@ async fn graphs(profile: &OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::er
             bottom
         };
 
-        let mut monthly_playcount = profile.monthly_playcounts.clone();
-        let mut replays = profile.replays_watched_counts.clone();
+        let monthly_playcount = &mut profile.monthly_playcounts;
+        let replays = &mut profile.replays_watched_counts;
 
         // Spoof missing months
         // Making use of the fact that the dates are always of the form YYYY-MM-01

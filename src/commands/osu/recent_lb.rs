@@ -154,7 +154,7 @@ async fn recent_lb_main(
 
     // Pagination
     let pagination = LeaderboardPagination::new(
-        ctx.clone(),
+        Arc::clone(&ctx),
         response,
         map,
         scores,

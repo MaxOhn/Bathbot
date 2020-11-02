@@ -196,7 +196,7 @@ async fn recent_main(
 
     // Pagination
     let pagination = RecentPagination::new(
-        ctx.clone(),
+        Arc::clone(&ctx),
         response,
         user,
         scores,

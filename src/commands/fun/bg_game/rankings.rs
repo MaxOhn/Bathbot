@@ -79,7 +79,8 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     }
 
     // Pagination
-    let pagination = BGRankingPagination::new(ctx.clone(), response, author_idx, scores, global);
+    let pagination =
+        BGRankingPagination::new(Arc::clone(&ctx), response, author_idx, scores, global);
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {

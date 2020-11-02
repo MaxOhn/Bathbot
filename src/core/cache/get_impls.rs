@@ -131,7 +131,7 @@ impl Cache {
             Some(user) => user,
             None => {
                 let arc = Arc::new(CachedUser::from_user(user));
-                self.users.insert(arc.id, arc.clone());
+                self.users.insert(arc.id, Arc::clone(&arc));
                 self.stats.user_counts.unique.inc();
                 arc
             }

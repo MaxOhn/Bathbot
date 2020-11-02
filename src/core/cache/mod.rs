@@ -14,10 +14,7 @@ pub use member::CachedMember;
 pub use role::CachedRole;
 pub use user::CachedUser;
 
-use crate::{
-    core::{BotStats, Context, ShardState},
-    BotResult, Error,
-};
+use crate::core::{BotStats, Context, ShardState};
 
 use dashmap::DashMap;
 use std::sync::{
@@ -80,7 +77,7 @@ impl Cache {
         self.private_channels.clear();
     }
 
-    pub async fn update(&self, shard_id: u64, event: &Event, ctx: Arc<Context>) -> BotResult<()> {
+    pub async fn update(&self, shard_id: u64, event: &Event, ctx: Arc<Context>) {
         match event {
             Event::Ready(_ready) => {} // Potential memory leak
             Event::GuildCreate(e) => {
@@ -95,7 +92,7 @@ impl Cache {
                 }
                 self.stats.channel_count.add(guild.channels.len() as i64);
                 for emoji in &guild.emoji {
-                    self.emoji.insert(emoji.id, emoji.clone());
+                    self.emoji.insert(emoji.id, Arc::clone(emoji));
                 }
                 // We dont need this mutable but acquire a write lock regardless to prevent potential deadlocks
                 let list_fut = timeout(Duration::from_secs(5), self.unavailable_guilds.write());
@@ -112,11 +109,9 @@ impl Cache {
                 let data = RequestGuildMembers::builder(guild.id)
                     .presences(false)
                     .query("", None);
-                ctx.backend
-                    .cluster
-                    .command(shard_id, &data)
-                    .await
-                    .map_err(Error::TwilightCluster)?;
+                if let Err(why) = ctx.backend.cluster.command(shard_id, &data).await {
+                    error!("Error while triggering member chunk events: {}", why);
+                }
                 // Add to cache
                 self.guilds.insert(e.id, Arc::new(guild));
                 self.stats.guild_counts.partial.inc();
@@ -229,7 +224,7 @@ impl Cache {
                                 match self.get_guild(guild_id) {
                                     Some(guild) => {
                                         let arced = Arc::new(channel);
-                                        guild.channels.insert(arced.get_id(), arced.clone());
+                                        guild.channels.insert(arced.get_id(), Arc::clone(&arced));
                                         self.guild_channels.insert(arced.get_id(), arced);
                                         self.stats.channel_count.inc();
                                     }
@@ -264,7 +259,7 @@ impl Cache {
                             let channel =
                                 CachedChannel::from_guild_channel(guild_channel, guild.id);
                             let arced = Arc::new(channel);
-                            guild.channels.insert(arced.get_id(), arced.clone());
+                            guild.channels.insert(arced.get_id(), Arc::clone(&arced));
                             self.guild_channels.insert(arced.get_id(), arced);
                         }
                         Some(None) => warn!(
@@ -468,7 +463,6 @@ impl Cache {
             },
             _ => {}
         }
-        Ok(())
     }
 
     // ###################
@@ -519,9 +513,11 @@ impl Cache {
         let channel = CachedChannel::from_private(private_channel, self);
         let arced = Arc::new(channel);
         if let CachedChannel::DM { receiver, .. } = arced.as_ref() {
-            self.dm_channels_by_user.insert(receiver.id, arced.clone());
+            self.dm_channels_by_user
+                .insert(receiver.id, Arc::clone(&arced));
         }
-        self.private_channels.insert(arced.get_id(), arced.clone());
+        self.private_channels
+            .insert(arced.get_id(), Arc::clone(&arced));
         arced
     }
 }
