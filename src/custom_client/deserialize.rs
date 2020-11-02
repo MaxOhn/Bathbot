@@ -67,3 +67,8 @@ pub fn str_to_grade<'de, D: Deserializer<'de>>(d: D) -> Result<Grade, D::Error> 
     let s: String = Deserialize::deserialize(d)?;
     Grade::try_from(s.as_str()).map_err(de::Error::custom)
 }
+
+pub fn expect_negative_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
+    let i: i32 = Deserialize::deserialize(d)?;
+    Ok(i.max(0) as u32)
+}

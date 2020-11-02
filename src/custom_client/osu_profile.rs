@@ -1,4 +1,4 @@
-use super::deserialize::adjust_mode;
+use super::deserialize::{adjust_mode, expect_negative_u32};
 
 use chrono::{Date, DateTime, NaiveDate, Utc};
 use rosu::models::GameMode;
@@ -157,10 +157,15 @@ pub struct OsuProfileBadge {
 
 #[derive(Debug, Deserialize)]
 pub struct OsuProfileGrades {
+    #[serde(deserialize_with = "expect_negative_u32")]
     pub ss: u32,
+    #[serde(deserialize_with = "expect_negative_u32")]
     pub ssh: u32,
+    #[serde(deserialize_with = "expect_negative_u32")]
     pub s: u32,
+    #[serde(deserialize_with = "expect_negative_u32")]
     pub sh: u32,
+    #[serde(deserialize_with = "expect_negative_u32")]
     pub a: u32,
 }
 
