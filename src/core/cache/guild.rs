@@ -1,5 +1,5 @@
 use super::is_default;
-use crate::core::cache::{Cache, CachedChannel, CachedEmoji, CachedMember, CachedRole};
+use crate::core::cache::{Cache, CachedChannel, CachedMember, CachedRole};
 
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
@@ -20,7 +20,6 @@ pub struct CachedGuild {
     pub icon: Option<String>,
     pub owner_id: UserId,
     pub roles: DashMap<RoleId, Arc<CachedRole>>,
-    pub emoji: Vec<Arc<CachedEmoji>>,
     pub features: Vec<String>,
     pub unavailable: bool,
     pub members: DashMap<UserId, Arc<CachedMember>>,
@@ -40,13 +39,12 @@ pub struct CachedGuild {
 
 impl From<Guild> for CachedGuild {
     fn from(guild: Guild) -> Self {
-        let mut cached_guild = CachedGuild {
+        let cached_guild = CachedGuild {
             id: guild.id,
             name: guild.name,
             icon: guild.icon,
             owner_id: guild.owner_id,
             roles: DashMap::new(),
-            emoji: vec![],
             features: guild.features,
             unavailable: false,
             members: DashMap::new(),
@@ -71,23 +69,18 @@ impl From<Guild> for CachedGuild {
                 Arc::new(CachedChannel::from_guild_channel(&channel, guild.id)),
             );
         }
-        // emoji
-        for (_, emoji) in guild.emojis {
-            cached_guild.emoji.push(Arc::new(CachedEmoji::from(emoji)));
-        }
         cached_guild
     }
 }
 
 impl CachedGuild {
     pub fn defrost(cache: &Cache, cold_guild: ColdStorageGuild) -> Self {
-        let mut guild = CachedGuild {
+        let guild = CachedGuild {
             id: cold_guild.id,
             name: cold_guild.name,
             icon: cold_guild.icon,
             owner_id: cold_guild.owner_id,
             roles: DashMap::new(),
-            emoji: vec![],
             features: vec![],
             unavailable: false,
             members: DashMap::new(),
@@ -111,9 +104,6 @@ impl CachedGuild {
         for channel in cold_guild.channels {
             guild.channels.insert(channel.get_id(), Arc::new(channel));
         }
-        for emoji in cold_guild.emoji {
-            guild.emoji.push(Arc::new(emoji));
-        }
         guild
     }
 
@@ -124,7 +114,6 @@ impl CachedGuild {
             icon: other.icon.clone(),
             owner_id: other.owner_id,
             roles: DashMap::new(),
-            emoji: self.emoji.clone(),
             features: other.features.clone(),
             unavailable: false,
             members: self.members.clone(),
@@ -161,8 +150,6 @@ pub struct ColdStorageGuild {
     pub owner_id: UserId,
     #[serde(rename = "l")]
     pub roles: Vec<CachedRole>,
-    #[serde(rename = "m")]
-    pub emoji: Vec<CachedEmoji>,
     #[serde(rename = "n", default, skip_serializing_if = "is_default")]
     pub features: Vec<String>,
     #[serde(rename = "o")]
@@ -187,12 +174,6 @@ impl From<Arc<CachedGuild>> for ColdStorageGuild {
             .map(|guard| CachedRole::from(guard.value().clone()))
             .collect();
         guild.roles.clear();
-
-        let emoji = guild
-            .emoji
-            .iter()
-            .map(|emoji| emoji.as_ref().clone())
-            .collect();
 
         let members = guild
             .members
@@ -285,7 +266,6 @@ impl From<Arc<CachedGuild>> for ColdStorageGuild {
             icon: guild.icon.clone(),
             owner_id: guild.owner_id,
             roles,
-            emoji,
             features: guild.features.clone(),
             members,
             channels,

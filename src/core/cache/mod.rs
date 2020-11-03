@@ -1,5 +1,4 @@
 mod channel;
-mod emoji;
 mod get_impls;
 mod guild;
 mod member;
@@ -8,7 +7,6 @@ mod serde;
 mod user;
 
 pub use channel::CachedChannel;
-pub use emoji::CachedEmoji;
 pub use guild::{CachedGuild, ColdStorageGuild};
 pub use member::CachedMember;
 pub use role::CachedRole;
@@ -29,7 +27,7 @@ use twilight_gateway::Event;
 use twilight_model::{
     channel::{Channel, GuildChannel, PrivateChannel},
     gateway::payload::RequestGuildMembers,
-    id::{ChannelId, EmojiId, GuildId, UserId},
+    id::{ChannelId, GuildId, UserId},
     user::CurrentUser,
 };
 
@@ -40,7 +38,6 @@ pub struct Cache {
     pub private_channels: DashMap<ChannelId, Arc<CachedChannel>>,
     pub dm_channels_by_user: DashMap<UserId, Arc<CachedChannel>>,
     pub users: DashMap<UserId, Arc<CachedUser>>,
-    pub emoji: DashMap<EmojiId, Arc<CachedEmoji>>,
     pub filling: AtomicBool,
 
     pub unavailable_guilds: RwLock<Vec<GuildId>>,
@@ -59,7 +56,6 @@ impl Cache {
             private_channels: DashMap::new(),
             dm_channels_by_user: DashMap::new(),
             users: DashMap::new(),
-            emoji: DashMap::new(),
             filling: AtomicBool::new(true),
             unavailable_guilds: RwLock::new(vec![]),
             expected: RwLock::new(vec![]),
@@ -72,7 +68,6 @@ impl Cache {
         self.guilds.clear();
         self.guild_channels.clear();
         self.users.clear();
-        self.emoji.clear();
         self.filling.store(true, Ordering::SeqCst);
         self.private_channels.clear();
     }
@@ -91,9 +86,6 @@ impl Cache {
                         .insert(channel.get_id(), channel.value().clone());
                 }
                 self.stats.channel_count.add(guild.channels.len() as i64);
-                for emoji in &guild.emoji {
-                    self.emoji.insert(emoji.id, Arc::clone(emoji));
-                }
                 // We dont need this mutable but acquire a write lock regardless to prevent potential deadlocks
                 let list_fut = timeout(Duration::from_secs(5), self.unavailable_guilds.write());
                 match list_fut.await {
@@ -489,9 +481,6 @@ impl Cache {
             }
         }
         self.stats.user_counts.total.sub(guild.members.len() as i64);
-        for emoji in &guild.emoji {
-            self.emoji.remove(&emoji.id);
-        }
     }
 
     async fn guild_unavailable(&self, guild: &CachedGuild) {
@@ -524,12 +513,4 @@ impl Cache {
 
 fn is_default<T: Default + PartialEq>(t: &T) -> bool {
     t == &T::default()
-}
-
-fn is_true(t: &bool) -> bool {
-    !t
-}
-
-fn get_true() -> bool {
-    true
 }

@@ -40,8 +40,7 @@ impl Cache {
         let mut count = 0;
         let mut list = vec![];
         for guard in self.guilds.iter() {
-            count +=
-                guard.members.len() + guard.channels.len() + guard.emoji.len() + guard.roles.len();
+            count += guard.members.len() + guard.channels.len() + guard.roles.len();
             list.push(*guard.key());
             if count > 100_000 {
                 work_orders.push(list);
@@ -184,9 +183,6 @@ impl Cache {
                     .insert(channel.get_id(), channel.value().clone());
             }
             self.stats.channel_count.add(guild.channels.len() as i64);
-            for emoji in &guild.emoji {
-                self.emoji.insert(emoji.id, Arc::clone(emoji));
-            }
             self.stats.user_counts.total.add(guild.members.len() as i64);
             self.guilds.insert(guild.id, Arc::new(guild));
             self.stats.guild_counts.loaded.inc();
