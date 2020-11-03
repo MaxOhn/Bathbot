@@ -31,12 +31,14 @@ lazy_static::lazy_static! {
         let mut c = std::collections::HashMap::with_capacity(25);
         country!(c, "Australia", AU, aus);
         country!(c, "Austria", AT);
+        country!(c, "Belarus", BY);
         country!(c, "Belgium", BE);
         country!(c, "Brazil", BR);
         country!(c, "Bulgaria", BG);
         country!(c, "Canada", CA);
         country!(c, "Chile", CL, chile);
         country!(c, "China", CN);
+        country!(c, "Colombia", CO);
         country!(c, "Denmark", DK);
         country!(c, "Finland", FI);
         country!(c, "France", FR);
@@ -49,6 +51,7 @@ lazy_static::lazy_static! {
         country!(c, "Netherlands", NL);
         country!(c, "Norway", NO);
         country!(c, "Poland", PL);
+        country!(c, "Portugal", PT);
         country!(c, "Saudi Arabia", SA);
         country!(c, "Singarpore", SG);
         country!(c, "Slovakia", SK);

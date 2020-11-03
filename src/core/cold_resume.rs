@@ -151,12 +151,15 @@ impl Cache {
     async fn defrost_users(&self, redis: &ConnectionPool, index: usize) -> BotResult<()> {
         let key = format!("cb_cluster_user_chunk_{}", index);
         let mut connection = redis.get().await;
-        let mut users: Vec<CachedUser> = serde_json::from_str(
-            &String::from_utf8(connection.get(&key).await?.unwrap()).unwrap(),
-        )?;
+        let cached_data = connection.get(&key).await?.unwrap();
+        let users: Vec<CachedUser> = serde_json::from_slice(&cached_data).map_err(|e| {
+            let data_str = String::from_utf8(cached_data).unwrap();
+            debug!("Data that caused error:\n{}", data_str);
+            e
+        })?;
         connection.del(key).await?;
         debug!("Worker {} found {} users to defrost", index, users.len());
-        for user in users.drain(..) {
+        for user in users {
             self.users.insert(user.id, Arc::new(user));
             self.stats.user_counts.unique.inc();
         }
@@ -166,12 +169,15 @@ impl Cache {
     async fn defrost_guilds(&self, redis: &ConnectionPool, index: usize) -> BotResult<()> {
         let key = format!("cb_cluster_guild_chunk_{}", index);
         let mut connection = redis.get().await;
-        let mut guilds: Vec<ColdStorageGuild> = serde_json::from_str(
-            &String::from_utf8(connection.get(&key).await?.unwrap()).unwrap(),
-        )?;
+        let cached_data = connection.get(&key).await?.unwrap();
+        let guilds: Vec<ColdStorageGuild> = serde_json::from_slice(&cached_data).map_err(|e| {
+            let data_str = String::from_utf8(cached_data).unwrap();
+            debug!("Data that caused error:\n{}", data_str);
+            e
+        })?;
         connection.del(key).await?;
         debug!("Worker {} found {} guilds to defrost", index, guilds.len());
-        for cold_guild in guilds.drain(..) {
+        for cold_guild in guilds {
             let guild = CachedGuild::defrost(&self, cold_guild);
             for channel in &guild.channels {
                 self.guild_channels

@@ -2,6 +2,7 @@
 **[TODO]**
 - Update taiko pp / stars
 - Add `Icon from syedhassan - pngtree.com` to README
+- Fix defrosting `serde error: data did not match any variant of untagged enum CachedChannel` when twilight is on 0.2
 
 **[Sometime]**
 - Write peppy a mail

@@ -71,6 +71,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
 
 [[package]]
+name = "async-tls"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7e7fbc0843fc5ad3d5ca889c5b2bea9130984d34cd0e62db57ab70c2529a8e3"
+dependencies = [
+ "futures",
+ "rustls",
+ "webpki",
+ "webpki-roots 0.20.0",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -83,18 +95,17 @@ dependencies = [
 
 [[package]]
 name = "async-tungstenite"
-version = "0.9.3"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ce503a5cb1e7450af7d211b86b84807791b251f335b2f43f1e26b85a416f315"
+checksum = "a5c45a0dd44b7e6533ac4e7acc38ead1a3b39885f5bbb738140d30ea528abc7c"
 dependencies = [
+ "async-tls",
  "futures-io",
  "futures-util",
  "log",
- "pin-project 1.0.1",
+ "pin-project 0.4.27",
  "tokio",
- "tokio-rustls",
  "tungstenite",
- "webpki-roots 0.20.0",
 ]
 
 [[package]]
@@ -3344,18 +3355,18 @@ dependencies = [
 
 [[package]]
 name = "twilight-embed-builder"
-version = "0.2.0"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4af4505f1442f60f129ba678a222aa8e0f4ec3ec0f1b60e806682d6d067c32c2"
+checksum = "19d40537b15479d6ac56223b515a3009514f204e59cee1ea1265bb871fc08354"
 dependencies = [
  "twilight-model",
 ]
 
 [[package]]
 name = "twilight-gateway"
-version = "0.2.1"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ace215f6d1c69601127b0de429ff408c9781d75f27d59cb68c58ebf02c6b500e"
+checksum = "7aa1f63314418519228ea3b3a63928db3635b22fe3f2a1af7b797978923790ed"
 dependencies = [
  "async-tungstenite",
  "bitflags",
@@ -3376,9 +3387,9 @@ dependencies = [
 
 [[package]]
 name = "twilight-gateway-queue"
-version = "0.2.0"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9eca6f3eae40cbd906fab50754eedcf20218bb379f870ffec748d1ede4019cf7"
+checksum = "73dd340006c12366138cdfe65dafa9cf0f63dbffdd72ec9879b37926e9b110d8"
 dependencies = [
  "futures-channel",
  "futures-util",
@@ -3389,9 +3400,9 @@ dependencies = [
 
 [[package]]
 name = "twilight-http"
-version = "0.2.1"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb809e44c7592454fb33a08da7848bef5a1d55a95f311d1f510fb34431566b54"
+checksum = "74e7e91c0d35104e4967739bb239c257309540101d8d646e32f129131af76497"
 dependencies = [
  "bytes 0.5.6",
  "futures-channel",
@@ -3409,9 +3420,9 @@ dependencies = [
 
 [[package]]
 name = "twilight-model"
-version = "0.2.0"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31d47cb94f8e9dbc5cb2498f5e90158545647fac557a359b3890788861db0512"
+checksum = "03e780a4de1737a3bd50340f242fd347e65f43d4fae0279081649f260ad6b3f7"
 dependencies = [
  "bitflags",
  "serde",
@@ -3423,9 +3434,9 @@ dependencies = [
 
 [[package]]
 name = "twilight-standby"
-version = "0.2.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a74e520f90fab40f542c7b83a11895ffd7881fa170015c44d4a52d8af8a29d5"
+checksum = "d3cbd5d288427c9ba29207c950777b7682bceb0883d63e9555f5fa6bedee85b0"
 dependencies = [
  "dashmap",
  "futures-channel",

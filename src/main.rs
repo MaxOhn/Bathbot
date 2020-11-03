@@ -65,7 +65,9 @@ pub type BotResult<T> = std::result::Result<T, Error>;
 
 fn main() -> BotResult<()> {
     let mut runtime = Runtime::new().expect("Could not start runtime");
-    runtime.block_on(async move { async_main().await })?;
+    if let Err(why) = runtime.block_on(async move { async_main().await }) {
+        error!("Critical error in main: {}", why);
+    }
     runtime.shutdown_timeout(Duration::from_secs(90));
     Ok(())
 }
@@ -181,8 +183,9 @@ async fn run(
 
     // Prepare cluster builder
     let cache = Cache::new(bot_user, stats);
-    let cb = Cluster::builder(&CONFIG.get().unwrap().tokens.discord, intents)
-        .shard_scheme(sharding_scheme);
+    let cb = Cluster::builder(&CONFIG.get().unwrap().tokens.discord)
+        .shard_scheme(sharding_scheme)
+        .intents(intents);
 
     // Check for resume data, pass to builder if present
     let (cb, resumed) =

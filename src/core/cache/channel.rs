@@ -18,7 +18,7 @@ pub enum CachedChannel {
         id: ChannelId,
         #[serde(rename = "b")]
         guild_id: GuildId,
-        // should be always present in guild create,
+        // should always be present in guild create
         #[serde(rename = "d", default, skip_serializing_if = "is_default")]
         permission_overrides: Vec<PermissionOverwrite>,
         #[serde(rename = "e")]
@@ -35,7 +35,7 @@ pub enum CachedChannel {
         id: ChannelId,
         #[serde(rename = "b")]
         guild_id: GuildId,
-        // should be always present in guild create,
+        // should always be present in guild create
         #[serde(rename = "d", default, skip_serializing_if = "is_default")]
         permission_overrides: Vec<PermissionOverwrite>,
         #[serde(rename = "e")]
@@ -52,7 +52,7 @@ pub enum CachedChannel {
         id: ChannelId,
         #[serde(rename = "b")]
         guild_id: GuildId,
-        // should be always present in guild create,
+        // should always be present in guild create
         #[serde(rename = "d", default, skip_serializing_if = "is_default")]
         permission_overrides: Vec<PermissionOverwrite>,
         #[serde(rename = "e")]
@@ -63,7 +63,7 @@ pub enum CachedChannel {
         id: ChannelId,
         #[serde(rename = "b")]
         guild_id: GuildId,
-        // should be always present in guild create,
+        // should always be present in guild create
         #[serde(rename = "d", default, skip_serializing_if = "is_default")]
         permission_overrides: Vec<PermissionOverwrite>,
         #[serde(rename = "e")]
@@ -74,7 +74,7 @@ pub enum CachedChannel {
     StoreChannel {
         id: ChannelId,
         guild_id: GuildId,
-        // should be always present in guild create,
+        // should always be present in guild create
         name: String,
         parent_id: Option<ChannelId>,
         permission_overrides: Vec<PermissionOverwrite>, // they might not allow for text, but they do have overrides
@@ -150,10 +150,7 @@ impl CachedChannel {
     }
 
     pub fn is_dm(&self) -> bool {
-        match self {
-            CachedChannel::DM { .. } => true,
-            _ => false,
-        }
+        matches!(self, CachedChannel::DM { .. })
     }
 }
 
