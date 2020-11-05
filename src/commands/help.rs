@@ -74,14 +74,19 @@ pub async fn help(
     msg: &Message,
     is_authority: bool,
 ) -> BotResult<()> {
-    let channel = match ctx.http.create_private_channel(msg.author.id).await {
-        Ok(channel) => channel,
-        Err(why) => {
-            let content = "Your DMs seem blocked :(\n\
-               Did you disable messages from other server members?";
-            debug!("Error while creating DM channel: {}", why);
-            return msg.error(&ctx, content).await;
-        }
+    let channel = if let Some(channel) = ctx.cache.private_channel(msg.author.id) {
+        channel
+    } else {
+        let channel = match ctx.http.create_private_channel(msg.author.id).await {
+            Ok(channel) => channel,
+            Err(why) => {
+                let content = "Your DMs seem blocked :(\n\
+                   Did you disable messages from other server members?";
+                debug!("Error while creating DM channel: {}", why);
+                return msg.error(&ctx, content).await;
+            }
+        };
+        ctx.cache.cache_private_channel(channel)
     };
     let owner = msg.author.id;
     if msg.guild_id.is_some() {

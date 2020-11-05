@@ -1,18 +1,19 @@
 
 **[TODO]**
 - Update taiko pp / stars
-- Add `Icon from syedhassan - pngtree.com` to README
-- Fix defrosting `serde error: data did not match any variant of untagged enum CachedChannel` when twilight is on 0.2
 - If error code of tracking notif is 10003, remove channel
-- First check msgs in cache before retrieving them for `<c` & co
 - `<nochoketaiko`
+- Check on ` <top Aphxemia -nm!`, should contain all scores
 
 **[Sometime]**
 - `<nochokectb` (https://pakachan.github.io/osustuff/ppcalculator.html)
+- Add `Icon from syedhassan - pngtree.com` to README
 - Write peppy a mail
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Fix defrosting `serde error: data did not match any variant of untagged enum CachedChannel` when twilight is on 0.2~~ (20.11.05)
+- ~~First check msgs in cache before retrieving them for `<c` & co~~ (20.11.05)
 - ~~Check why tracking's queue has less than its users (ppl without top scores are filtered)~~ (20.11.02)
 - ~~Fix `<mc` formula image (n' * participation bonus)~~ (20.10.27)
 - ~~Fix `<osg --a --asc` (dont quit on pp error)~~ (20.10.27)

@@ -242,20 +242,18 @@ async fn process_command(
     }
 
     // Does bot have sufficient permissions to send response?
-    let bot_user = match ctx.cache.current_user() {
-        Some(user) => user,
-        None => {
-            error!("No CurrentUser in cache for permission check");
-            return Ok(ProcessResult::NoSendPermission);
+    match ctx.cache.current_user() {
+        Some(bot_user) => {
+            let permissions =
+                ctx.cache
+                    .get_channel_permissions_for(bot_user.id, msg.channel_id, msg.guild_id);
+            if !permissions.contains(Permissions::SEND_MESSAGES) {
+                debug!("No SEND_MESSAGE permission, can not respond");
+                return Ok(ProcessResult::NoSendPermission);
+            }
         }
+        None => error!("No CurrentUser in cache for permission check"),
     };
-    let permissions =
-        ctx.cache
-            .get_channel_permissions_for(bot_user.id, msg.channel_id, msg.guild_id);
-    if !permissions.contains(Permissions::SEND_MESSAGES) {
-        debug!("No SEND_MESSAGE permission, can not respond");
-        return Ok(ProcessResult::NoSendPermission);
-    }
 
     // Ratelimited?
     if let Some(bucket) = cmd.bucket {

@@ -52,21 +52,25 @@ impl Cache {
         channel_id: ChannelId,
         guild_id: Option<GuildId>,
     ) -> Permissions {
-        let mut permissions = Permissions::empty();
-        if self.private_channel(channel_id).is_some() {
+        let guild_id = if let Some(guild_id) = guild_id {
+            guild_id
+        } else {
+            // Private channel
             return Permissions::SEND_MESSAGES
                 | Permissions::EMBED_LINKS
                 | Permissions::ATTACH_FILES
                 | Permissions::USE_EXTERNAL_EMOJIS
                 | Permissions::ADD_REACTIONS
                 | Permissions::READ_MESSAGE_HISTORY;
-        } else if let Some(channel) = self.guild_channel(channel_id) {
+        };
+        let mut permissions = Permissions::empty();
+        if let Some(channel) = self.guild_channel(channel_id) {
             if let GuildChannel::Text(channel) = channel.deref() {
-                permissions = self.get_guild_permissions_for(user_id, guild_id);
+                permissions = self.get_guild_permissions_for(user_id, Some(guild_id));
                 if permissions.contains(Permissions::ADMINISTRATOR) {
                     return Permissions::all();
                 }
-                if let Some(member) = guild_id.and_then(|id| self.member(id, user_id)) {
+                if let Some(member) = self.member(guild_id, user_id) {
                     let mut everyone_allowed = Permissions::empty();
                     let mut everyone_denied = Permissions::empty();
                     let mut user_allowed = Permissions::empty();

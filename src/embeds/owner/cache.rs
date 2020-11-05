@@ -20,8 +20,13 @@ impl CacheEmbed {
 
         let _ = writeln!(
             description,
-            "Channels: {}",
-            with_comma_u64(stats.channels as u64)
+            "Channels (Guilds): {}",
+            with_comma_u64(stats.channels_guild as u64)
+        );
+        let _ = writeln!(
+            description,
+            "Channels (Private): {}",
+            with_comma_u64(stats.channels_private as u64)
         );
         let _ = writeln!(
             description,
