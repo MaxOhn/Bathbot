@@ -3346,6 +3346,7 @@ dependencies = [
 [[package]]
 name = "twilight-cache-inmemory"
 version = "0.2.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#cdb58f59d240495ab2caf9411593b6e1d8ddcde4"
 dependencies = [
  "bitflags",
  "darkredis",
@@ -3362,6 +3363,7 @@ dependencies = [
 [[package]]
 name = "twilight-embed-builder"
 version = "0.2.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#cdb58f59d240495ab2caf9411593b6e1d8ddcde4"
 dependencies = [
  "twilight-model",
 ]
@@ -3369,6 +3371,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway"
 version = "0.2.1"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#cdb58f59d240495ab2caf9411593b6e1d8ddcde4"
 dependencies = [
  "async-tungstenite",
  "bitflags",
@@ -3390,6 +3393,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway-queue"
 version = "0.2.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#cdb58f59d240495ab2caf9411593b6e1d8ddcde4"
 dependencies = [
  "futures-channel",
  "futures-util",
@@ -3401,6 +3405,7 @@ dependencies = [
 [[package]]
 name = "twilight-http"
 version = "0.2.1"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#cdb58f59d240495ab2caf9411593b6e1d8ddcde4"
 dependencies = [
  "bytes 0.5.6",
  "futures-channel",
@@ -3419,6 +3424,7 @@ dependencies = [
 [[package]]
 name = "twilight-model"
 version = "0.2.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#cdb58f59d240495ab2caf9411593b6e1d8ddcde4"
 dependencies = [
  "bitflags",
  "serde",
@@ -3431,6 +3437,7 @@ dependencies = [
 [[package]]
 name = "twilight-standby"
 version = "0.2.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#cdb58f59d240495ab2caf9411593b6e1d8ddcde4"
 dependencies = [
  "dashmap",
  "futures-channel",
