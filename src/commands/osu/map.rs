@@ -6,7 +6,7 @@ use crate::{
     pp::roppai::Oppai,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        osu::{map_id_from_history, prepare_beatmap_file, MapIdType},
+        osu::{cached_message_extract, map_id_from_history, prepare_beatmap_file, MapIdType},
         MessageExt,
     },
     BotResult, Context, Error,
@@ -42,6 +42,11 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = MapModArgs::new(args);
     let map_id = if let Some(id) = args.map_id {
         id
+    } else if let Some(id) = ctx
+        .cache
+        .message_extract(msg.channel_id, cached_message_extract)
+    {
+        id
     } else {
         let msg_fut = ctx.http.channel_messages(msg.channel_id).limit(50).unwrap();
         let msgs = match msg_fut.await {
@@ -51,7 +56,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
                 bail!("error while retrieving messages: {}", why);
             }
         };
-        match map_id_from_history(&ctx, msgs).await {
+        match map_id_from_history(msgs) {
             Some(id) => id,
             None => {
                 let content = "No beatmap specified and none found in recent channel history. \

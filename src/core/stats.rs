@@ -184,10 +184,18 @@ impl Context {
             Event::ChannelPinsUpdate(_) => self.stats.event_counts.channel_pins_update.inc(),
             Event::GuildCreate(g) => {
                 self.stats.guilds.insert(g.id);
+                self.stats
+                    .guild_counts
+                    .current
+                    .set(self.stats.guilds.len() as i64);
                 self.stats.event_counts.guild_create.inc()
             }
             Event::GuildDelete(g) => {
                 self.stats.guilds.remove(&g.id);
+                self.stats
+                    .guild_counts
+                    .current
+                    .set(self.stats.guilds.len() as i64);
                 self.stats.event_counts.guild_delete.inc()
             }
             Event::GuildUpdate(_) => self.stats.event_counts.guild_update.inc(),
@@ -216,6 +224,10 @@ impl Context {
                 for guild_id in ready.guilds.keys() {
                     self.stats.guilds.insert(*guild_id);
                 }
+                self.stats
+                    .guild_counts
+                    .current
+                    .set(self.stats.guilds.len() as i64);
                 self.shard_state_change(shard_id, ShardState::Ready)
             }
             Event::Resumed => self.shard_state_change(shard_id, ShardState::Ready),

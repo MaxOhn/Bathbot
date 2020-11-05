@@ -102,30 +102,36 @@ default_features = false
 features = ["time", "macros", "process", "sync", "stream", "fs", "io-util"]
 
 [dependencies.twilight-cache-inmemory]
+# path = "../twilight/cache/in-memory"
 branch = "custom-cache"
 git = "https://github.com/MaxOhn/twilight"
 
 [dependencies.twilight-embed-builder]
+# path = "../twilight/embed-builder"
 branch = "custom-cache"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false
 
 [dependencies.twilight-gateway]
+# path = "../twilight/gateway"
 branch = "custom-cache"
 git = "https://github.com/MaxOhn/twilight"
 
 [dependencies.twilight-http]
+# path = "../twilight/http"
 branch = "custom-cache"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false
 features = ["rustls"]
 
 [dependencies.twilight-model]
+# path = "../twilight/model"
 branch = "custom-cache"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false
 
 [dependencies.twilight-standby]
+# path = "../twilight/standby"
 branch = "custom-cache"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false

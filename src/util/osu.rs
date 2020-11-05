@@ -1,12 +1,13 @@
 use crate::{
     arguments::SimulateArgs,
     util::{constants::OSU_BASE, error::MapDownloadError, matcher, BeatmapExt, ScoreExt},
-    Context, CONFIG,
+    CONFIG,
 };
 
 use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score};
 use tokio::{fs::File, io::AsyncWriteExt, time};
-use twilight_model::channel::Message;
+use twilight_cache_inmemory::model::CachedMessage;
+use twilight_model::channel::{embed::Embed, Message};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ModSelection {
@@ -226,29 +227,33 @@ pub fn pp_missing(start: f32, goal: f32, scores: &[Score]) -> (f32, usize) {
     (required, idx)
 }
 
-pub async fn map_id_from_history(ctx: &Context, msgs: Vec<Message>) -> Option<MapIdType> {
+pub fn map_id_from_history(msgs: Vec<Message>) -> Option<MapIdType> {
     for msg in msgs {
-        if !ctx.is_own(&msg) {
-            continue;
+        let option = check_embeds_for_map_id(&msg.embeds);
+        if option.is_some() {
+            return option;
         }
-        for embed in msg.embeds {
-            let url = embed.author.and_then(|author| author.url);
-            if let Some(id) = url.as_deref().and_then(matcher::get_osu_map_id) {
-                return Some(id);
-            }
-            if let Some(id) = url.as_deref().and_then(matcher::get_osu_mapset_id) {
-                return Some(id);
-            }
-            if embed.fields.is_empty() {
-                continue;
-            }
-            let url = embed.url.as_deref();
-            if let Some(id) = url.and_then(matcher::get_osu_map_id) {
-                return Some(id);
-            }
-            if let Some(id) = url.and_then(matcher::get_osu_mapset_id) {
-                return Some(id);
-            }
+    }
+    None
+}
+
+pub fn cached_message_extract(msg: &CachedMessage) -> Option<MapIdType> {
+    check_embeds_for_map_id(&msg.embeds)
+}
+
+fn check_embeds_for_map_id(embeds: &[Embed]) -> Option<MapIdType> {
+    for embed in embeds {
+        let url = embed
+            .author
+            .as_ref()
+            .and_then(|author| author.url.as_deref());
+        let option = url
+            .and_then(matcher::get_osu_map_id)
+            .or_else(|| url.and_then(matcher::get_osu_mapset_id))
+            .or_else(|| embed.url.as_deref().and_then(matcher::get_osu_map_id))
+            .or_else(|| embed.url.as_deref().and_then(matcher::get_osu_mapset_id));
+        if option.is_some() {
+            return option;
         }
     }
     None

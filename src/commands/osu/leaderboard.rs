@@ -5,7 +5,7 @@ use crate::{
     pagination::{LeaderboardPagination, Pagination},
     util::{
         constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
-        osu::{map_id_from_history, MapIdType, ModSelection},
+        osu::{cached_message_extract, map_id_from_history, MapIdType, ModSelection},
         MessageExt,
     },
     BotResult, Context,
@@ -32,6 +32,11 @@ async fn leaderboard_main(
                 return msg.error(&ctx, content).await;
             }
         }
+    } else if let Some(id) = ctx
+        .cache
+        .message_extract(msg.channel_id, cached_message_extract)
+    {
+        id.id()
     } else {
         let msg_fut = ctx.http.channel_messages(msg.channel_id).limit(50).unwrap();
         let msgs = match msg_fut.await {
@@ -41,7 +46,7 @@ async fn leaderboard_main(
                 bail!("error while retrieving messages: {}", why);
             }
         };
-        match map_id_from_history(&ctx, msgs).await {
+        match map_id_from_history(msgs) {
             Some(MapIdType::Map(id)) => id,
             Some(MapIdType::Set(_)) => {
                 let content = "Looks like you gave me a mapset id, I need a map id though";

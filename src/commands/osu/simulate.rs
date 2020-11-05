@@ -4,7 +4,7 @@ use crate::{
     embeds::{EmbedData, SimulateEmbed},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        osu::{map_id_from_history, MapIdType},
+        osu::{cached_message_extract, map_id_from_history, MapIdType},
         MessageExt,
     },
     BotResult, Context,
@@ -39,6 +39,11 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     };
     let map_id = if let Some(id) = args.map_id {
         id
+    } else if let Some(id) = ctx
+        .cache
+        .message_extract(msg.channel_id, cached_message_extract)
+    {
+        id.id()
     } else {
         let msg_fut = ctx.http.channel_messages(msg.channel_id).limit(50).unwrap();
         let msgs = match msg_fut.await {
@@ -48,7 +53,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
                 bail!("error while retrieving messages: {}", why);
             }
         };
-        match map_id_from_history(&ctx, msgs).await {
+        match map_id_from_history(msgs) {
             Some(MapIdType::Map(id)) => id,
             Some(MapIdType::Set(_)) => {
                 let content = "Looks like you gave me a mapset id, I need a map id though";
