@@ -14,9 +14,11 @@ use twilight_model::{
 };
 
 impl Context {
-    /// Returns if a message was sent by us
+    /// Returns whether a message was sent by us
     pub fn is_own(&self, other: &Message) -> bool {
-        self.cache.bot_user.id == other.author.id
+        self.cache
+            .current_user()
+            .map_or(false, |user| user.id == other.author.id)
     }
 
     pub fn get_role_assign(&self, reaction: &Reaction) -> Option<RoleId> {

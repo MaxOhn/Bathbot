@@ -1,10 +1,11 @@
 use crate::core::{Context, ShardState};
 
 use chrono::{DateTime, Utc};
+use dashmap::DashSet;
 use log::info;
 use prometheus::{IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry};
 use std::collections::HashMap;
-use twilight_model::{channel::Message, gateway::event::Event};
+use twilight_model::{channel::Message, gateway::event::Event, id::GuildId};
 
 pub struct EventStats {
     pub gateway_reconnect: IntCounter,
@@ -68,6 +69,7 @@ pub struct BotStats {
     pub shard_counts: ShardStats,
     pub channel_count: IntGauge,
     pub guild_counts: GuildCounters,
+    pub guilds: DashSet<GuildId>,
     pub command_counts: IntCounterVec,
     pub osu_metrics: IntCounterVec,
 }
@@ -135,6 +137,7 @@ impl BotStats {
                 loaded: guild_counter.get_metric_with_label_values(&["Loaded"]).unwrap(),
                 outage: guild_counter.get_metric_with_label_values(&["Outage"]).unwrap(),
             },
+            guilds: DashSet::new(),
             channel_count,
             shard_counts: ShardStats {
                 pending: shard_counter.get_metric_with_label_values(&["Pending"]).unwrap(),
@@ -175,36 +178,46 @@ impl BotStats {
 impl Context {
     pub fn update_stats(&self, shard_id: u64, event: &Event) {
         match event {
-            Event::ChannelCreate(_) => self.cache.stats.event_counts.channel_create.inc(),
-            Event::ChannelDelete(_) => self.cache.stats.event_counts.channel_delete.inc(),
-            Event::GatewayReconnect => self.cache.stats.event_counts.gateway_reconnect.inc(),
-            Event::ChannelPinsUpdate(_) => self.cache.stats.event_counts.channel_pins_update.inc(),
-            Event::GuildCreate(_) => self.cache.stats.event_counts.guild_create.inc(),
-            Event::GuildDelete(_) => self.cache.stats.event_counts.guild_delete.inc(),
-            Event::GuildUpdate(_) => self.cache.stats.event_counts.guild_update.inc(),
-            Event::MemberAdd(_) => self.cache.stats.event_counts.member_add.inc(),
-            Event::MemberRemove(_) => self.cache.stats.event_counts.member_remove.inc(),
-            Event::MemberUpdate(_) => self.cache.stats.event_counts.member_update.inc(),
-            Event::MemberChunk(_) => self.cache.stats.event_counts.member_chunk.inc(),
-            Event::MessageCreate(_) => self.cache.stats.event_counts.message_create.inc(),
-            Event::MessageDelete(_) => self.cache.stats.event_counts.message_delete.inc(),
-            Event::MessageDeleteBulk(_) => self.cache.stats.event_counts.message_delete_bulk.inc(),
-            Event::MessageUpdate(_) => self.cache.stats.event_counts.message_update.inc(),
-            Event::ReactionAdd(_) => self.cache.stats.event_counts.reaction_add.inc(),
-            Event::ReactionRemove(_) => self.cache.stats.event_counts.reaction_remove.inc(),
-            Event::ReactionRemoveAll(_) => self.cache.stats.event_counts.reaction_remove_all.inc(),
-            Event::ReactionRemoveEmoji(_) => {
-                self.cache.stats.event_counts.reaction_remove_emoji.inc()
+            Event::ChannelCreate(_) => self.stats.event_counts.channel_create.inc(),
+            Event::ChannelDelete(_) => self.stats.event_counts.channel_delete.inc(),
+            Event::GatewayReconnect => self.stats.event_counts.gateway_reconnect.inc(),
+            Event::ChannelPinsUpdate(_) => self.stats.event_counts.channel_pins_update.inc(),
+            Event::GuildCreate(g) => {
+                self.stats.guilds.insert(g.id);
+                self.stats.event_counts.guild_create.inc()
             }
-            Event::UnavailableGuild(_) => self.cache.stats.event_counts.unavailable_guild.inc(),
-            Event::UserUpdate(_) => self.cache.stats.event_counts.user_update.inc(),
+            Event::GuildDelete(g) => {
+                self.stats.guilds.remove(&g.id);
+                self.stats.event_counts.guild_delete.inc()
+            }
+            Event::GuildUpdate(_) => self.stats.event_counts.guild_update.inc(),
+            Event::MemberAdd(_) => self.stats.event_counts.member_add.inc(),
+            Event::MemberRemove(_) => self.stats.event_counts.member_remove.inc(),
+            Event::MemberUpdate(_) => self.stats.event_counts.member_update.inc(),
+            Event::MemberChunk(_) => self.stats.event_counts.member_chunk.inc(),
+            Event::MessageCreate(_) => self.stats.event_counts.message_create.inc(),
+            Event::MessageDelete(_) => self.stats.event_counts.message_delete.inc(),
+            Event::MessageDeleteBulk(_) => self.stats.event_counts.message_delete_bulk.inc(),
+            Event::MessageUpdate(_) => self.stats.event_counts.message_update.inc(),
+            Event::ReactionAdd(_) => self.stats.event_counts.reaction_add.inc(),
+            Event::ReactionRemove(_) => self.stats.event_counts.reaction_remove.inc(),
+            Event::ReactionRemoveAll(_) => self.stats.event_counts.reaction_remove_all.inc(),
+            Event::ReactionRemoveEmoji(_) => self.stats.event_counts.reaction_remove_emoji.inc(),
+            Event::UnavailableGuild(_) => self.stats.event_counts.unavailable_guild.inc(),
+            Event::UserUpdate(_) => self.stats.event_counts.user_update.inc(),
 
             Event::ShardConnecting(_) => self.shard_state_change(shard_id, ShardState::Connecting),
             Event::ShardIdentifying(_) => {
                 self.shard_state_change(shard_id, ShardState::Identifying)
             }
+
             Event::ShardConnected(_) => self.shard_state_change(shard_id, ShardState::Connected),
-            Event::Ready(_) => self.shard_state_change(shard_id, ShardState::Ready),
+            Event::Ready(ready) => {
+                for guild_id in ready.guilds.keys() {
+                    self.stats.guilds.insert(*guild_id);
+                }
+                self.shard_state_change(shard_id, ShardState::Ready)
+            }
             Event::Resumed => self.shard_state_change(shard_id, ShardState::Ready),
             Event::ShardResuming(_) => self.shard_state_change(shard_id, ShardState::Resuming),
             Event::ShardReconnecting(_) => {
@@ -215,17 +228,6 @@ impl Context {
             }
             _ => {}
         }
-        match event {
-            Event::GuildCreate(_) | Event::GuildDelete(_) | Event::GuildUpdate(_) => {
-                self.update_guilds();
-            }
-            _ => {}
-        }
-    }
-
-    pub fn update_guilds(&self) {
-        let guilds = self.cache.guilds.len() as i64;
-        self.cache.stats.guild_counts.current.set(guilds);
     }
 
     pub fn shard_state_change(&self, shard: u64, new_state: ShardState) {
@@ -239,14 +241,14 @@ impl Context {
 
     fn get_state_metric(&self, state: &ShardState) -> &IntGauge {
         match state {
-            ShardState::PendingCreation => &self.cache.stats.shard_counts.pending,
-            ShardState::Connecting => &self.cache.stats.shard_counts.connecting,
-            ShardState::Identifying => &self.cache.stats.shard_counts.identifying,
-            ShardState::Connected => &self.cache.stats.shard_counts.connected,
-            ShardState::Ready => &self.cache.stats.shard_counts.ready,
-            ShardState::Resuming => &self.cache.stats.shard_counts.resuming,
-            ShardState::Reconnecting => &self.cache.stats.shard_counts.reconnecting,
-            ShardState::Disconnected => &self.cache.stats.shard_counts.disconnected,
+            ShardState::PendingCreation => &self.stats.shard_counts.pending,
+            ShardState::Connecting => &self.stats.shard_counts.connecting,
+            ShardState::Identifying => &self.stats.shard_counts.identifying,
+            ShardState::Connected => &self.stats.shard_counts.connected,
+            ShardState::Ready => &self.stats.shard_counts.ready,
+            ShardState::Resuming => &self.stats.shard_counts.resuming,
+            ShardState::Reconnecting => &self.stats.shard_counts.reconnecting,
+            ShardState::Disconnected => &self.stats.shard_counts.disconnected,
         }
     }
 }

@@ -84,7 +84,6 @@ impl MessageExt for Message {
     }
 
     fn reaction_delete(&self, ctx: &Context, owner: UserId) {
-        assert_eq!(self.author.id, ctx.cache.bot_user.id);
         let standby = ctx.standby.clone();
         let http = ctx.http.clone();
         let channel_id = self.channel_id;

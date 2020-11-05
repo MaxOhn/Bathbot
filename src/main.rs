@@ -13,9 +13,7 @@ mod util;
 
 use crate::{
     arguments::Args,
-    core::{
-        handle_event, logging, BotStats, Cache, ColdRebootData, CommandGroups, Context, CONFIG,
-    },
+    core::{handle_event, logging, BotStats, Cache, CommandGroups, Context, CONFIG},
     custom_client::CustomClient,
     database::Database,
     tracking::OsuTracking,
@@ -37,28 +35,15 @@ use hyper::{
 };
 use prometheus::{Encoder, TextEncoder};
 use rosu::Osu;
-use std::{
-    convert::Infallible,
-    process,
-    str::FromStr,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{convert::Infallible, process, str::FromStr, sync::Arc, time::Duration};
 use tokio::{runtime::Runtime, stream::StreamExt, sync::Mutex, time};
-use twilight_gateway::{
-    cluster::{ClusterBuilder, ShardScheme},
-    shard::ResumeSession,
-    Cluster,
-};
+use twilight_gateway::{cluster::ShardScheme, Cluster};
 use twilight_http::{
     request::channel::message::allowed_mentions::AllowedMentionsBuilder, Client as HttpClient,
 };
-use twilight_model::{
-    gateway::{
-        presence::{ActivityType, Status},
-        Intents,
-    },
-    user::CurrentUser,
+use twilight_model::gateway::{
+    presence::{ActivityType, Status},
+    Intents,
 };
 
 pub type BotResult<T> = std::result::Result<T, Error>;
@@ -127,14 +112,10 @@ async fn async_main() -> BotResult<()> {
     };
 
     // Boot everything up
-    run(http, bot_user, clients).await
+    run(http, clients).await
 }
 
-async fn run(
-    http: HttpClient,
-    bot_user: CurrentUser,
-    clients: crate::core::Clients,
-) -> BotResult<()> {
+async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     // Guild configs
     let guilds = clients.psql.get_guilds().await?;
 
@@ -182,14 +163,17 @@ async fn run(
     tokio::spawn(_run_metrics_server(metrics_stats));
 
     // Prepare cluster builder
-    let cache = Cache::new(bot_user, stats);
-    let cb = Cluster::builder(&CONFIG.get().unwrap().tokens.discord)
-        .shard_scheme(sharding_scheme)
-        .intents(intents);
+    let mut cb = Cluster::builder(&CONFIG.get().unwrap().tokens.discord, intents)
+        .shard_scheme(sharding_scheme);
 
     // Check for resume data, pass to builder if present
-    let (cb, resumed) =
-        attempt_cold_resume(cb, &clients.redis, &cache, total_shards, shards_per_cluster).await?;
+    let (cache, resume_map) = Cache::new(&clients.redis, total_shards, shards_per_cluster).await;
+    let resumed = if let Some(map) = resume_map {
+        cb = cb.resume_sessions(map);
+        true
+    } else {
+        false
+    };
 
     // Build cluster
     let cluster = cb
@@ -211,15 +195,13 @@ async fn run(
     };
 
     // Final context
-    let ctx = Arc::new(Context::new(cache, http, clients, backend, data).await);
+    let ctx = Arc::new(Context::new(cache, stats, http, clients, backend, data).await);
 
     // Setup graceful shutdown
     let shutdown_ctx = Arc::clone(&ctx);
     ctrlc::set_handler(move || {
         let _ = Runtime::new().unwrap().block_on(async {
-            if let Err(why) = shutdown_ctx.initiate_cold_resume().await {
-                error!("Error while freezing cache: {}", why);
-            }
+            shutdown_ctx.initiate_cold_resume().await;
             if let Err(why) = shutdown_ctx.store_configs().await {
                 error!("Error while storing configs: {}", why);
             }
@@ -246,7 +228,6 @@ async fn run(
         time::delay_for(Duration::from_secs(1)).await;
         cluster_ctx.backend.cluster.up().await;
         if resumed {
-            cluster_ctx.update_guilds();
             time::delay_for(Duration::from_secs(10)).await;
             let activity_result = cluster_ctx
                 .set_cluster_activity(Status::Online, ActivityType::Playing, String::from("osu!"))
@@ -261,12 +242,12 @@ async fn run(
     let cmd_groups = Arc::new(CommandGroups::new());
     while let Some((shard, event)) = bot_events.next().await {
         ctx.update_stats(shard, &event);
-        ctx.cache.update(shard, &event, Arc::clone(&ctx)).await;
+        ctx.cache.update(&event);
         ctx.standby.process(&event);
         let c = Arc::clone(&ctx);
         let cmds = Arc::clone(&cmd_groups);
         tokio::spawn(async move {
-            if let Err(why) = handle_event(shard, &event, c, cmds).await {
+            if let Err(why) = handle_event(shard, event, c, cmds).await {
                 error!("Error while handling event: {}", why);
             }
         });
@@ -335,53 +316,4 @@ async fn _run_metrics_server(stats: Arc<BotStats>) {
     if let Err(why) = server.await {
         error!("Metrics server failed: {}", why);
     }
-}
-
-async fn attempt_cold_resume(
-    cb: ClusterBuilder,
-    redis: &ConnectionPool,
-    cache: &Cache,
-    total_shards: u64,
-    shards_per_cluster: u64,
-) -> BotResult<(ClusterBuilder, bool)> {
-    let mut connection = redis.get().await;
-    let key = "cb_cluster_data";
-    if let Some(d) = connection.get(key).await.ok().flatten() {
-        let cold_cache: ColdRebootData = serde_json::from_str(&*String::from_utf8(d).unwrap())?;
-        connection.del(key).await?;
-        if cold_cache.total_shards == total_shards && cold_cache.shard_count == shards_per_cluster {
-            let map = cold_cache
-                .resume_data
-                .into_iter()
-                .map(|(id, data)| {
-                    (
-                        id,
-                        ResumeSession {
-                            session_id: data.0,
-                            sequence: data.1,
-                        },
-                    )
-                })
-                .collect();
-            let start = Instant::now();
-            let result = cache
-                .restore_cold_resume(redis, cold_cache.guild_chunks, cold_cache.user_chunks)
-                .await;
-            match result {
-                Ok(_) => {
-                    let end = Instant::now();
-                    info!(
-                        "Cold resume defrosting completed in {}ms",
-                        (end - start).as_millis()
-                    );
-                    return Ok((cb.resume_sessions(map), true));
-                }
-                Err(why) => {
-                    error!("Cold resume defrosting failed: {}", why);
-                    cache.reset();
-                }
-            }
-        }
-    }
-    Ok((cb, false))
 }

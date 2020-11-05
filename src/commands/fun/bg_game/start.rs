@@ -66,7 +66,10 @@ async fn get_mapsets(
         .await?;
 
     // Prepare the reaction stream
-    let self_id = ctx.cache.bot_user.id;
+    let self_id = match ctx.cache.current_user() {
+        Some(user) => user.id,
+        None => bail!("No CurrentUser in cache"),
+    };
     let reaction_add_stream = ctx
         .standby
         .wait_for_reaction_stream(response.id, move |event: &ReactionAdd| {

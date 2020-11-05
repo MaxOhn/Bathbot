@@ -4,9 +4,7 @@ use std::str::FromStr;
 use twilight_model::id::{ChannelId, GuildId, RoleId, UserId};
 
 pub fn content_safe(ctx: &Context, content: &mut String, guild_id: Option<GuildId>) {
-    if let Some(guild_id) = guild_id {
-        clean_roles(ctx, content, guild_id);
-    }
+    clean_roles(ctx, content);
     clean_channels(ctx, content);
     clean_users(ctx, content, guild_id);
 
@@ -14,7 +12,7 @@ pub fn content_safe(ctx: &Context, content: &mut String, guild_id: Option<GuildI
     *content = content.replace("@everyone", "@\u{200B}everyone");
 }
 
-fn clean_roles(ctx: &Context, s: &mut String, guild_id: GuildId) {
+fn clean_roles(ctx: &Context, s: &mut String) {
     let mut progress = 0;
     while let Some(mut mention_start) = s[progress..].find("<@&") {
         mention_start += progress;
@@ -23,7 +21,7 @@ fn clean_roles(ctx: &Context, s: &mut String, guild_id: GuildId) {
             mention_start += "<@&".len();
             if let Ok(id) = u64::from_str(&s[mention_start..mention_end]) {
                 let to_replace = format!("<@&{}>", id);
-                if let Some(role) = ctx.cache.get_role(RoleId(id), guild_id) {
+                if let Some(role) = ctx.cache.role(RoleId(id)) {
                     *s = s.replace(&to_replace, &format!("@{}", &role.name))
                 } else {
                     *s = s.replace(&to_replace, &"@deleted-role")
@@ -52,13 +50,8 @@ fn clean_channels(ctx: &Context, s: &mut String) {
             mention_start += "<#".len();
             if let Ok(id) = u64::from_str(&s[mention_start..mention_end]) {
                 let to_replace = format!("<#{}>", &s[mention_start..mention_end]);
-                let channel = ctx
-                    .cache
-                    .guild_channels
-                    .get(&ChannelId(id))
-                    .map(|guard| guard.value().clone());
-                if let Some(channel) = channel {
-                    let replacement = format!("#{}", channel.get_name());
+                if let Some(channel) = ctx.cache.guild_channel(ChannelId(id)) {
+                    let replacement = format!("#{}", channel.name());
                     *s = s.replace(&to_replace, &replacement)
                 } else {
                     *s = s.replace(&to_replace, &"#deleted-channel")
@@ -97,34 +90,17 @@ fn clean_users(ctx: &Context, s: &mut String, guild: Option<GuildId>) {
             };
             if let Ok(id) = u64::from_str(&s[mention_start..mention_end]) {
                 let replacement = if let Some(guild_id) = guild {
-                    if let Some(guild) = ctx.cache.get_guild(guild_id) {
-                        let member = guild
-                            .members
-                            .get(&UserId(id))
-                            .map(|guard| guard.value().clone());
-                        if let Some(member) = member {
-                            match member.user(&ctx.cache) {
-                                Some(user) => format!(
-                                    "@{}#{:04}",
-                                    member.nickname.as_deref().unwrap_or_else(|| &user.username),
-                                    user.discriminator
-                                ),
-                                None => {
-                                    debug!(
-                                        "User of member {} not in cache for clean_users",
-                                        member.user_id
-                                    );
-                                    String::from("@Unknown-user")
-                                }
-                            }
-                        } else {
-                            "@invalid-user".to_string()
-                        }
+                    if let Some(member) = ctx.cache.member(guild_id, UserId(id)) {
+                        format!(
+                            "@{}#{:04}",
+                            member.nick.as_deref().unwrap_or_else(|| &member.user.name),
+                            member.user.discriminator
+                        )
                     } else {
                         "@invalid-user".to_string()
                     }
-                } else if let Some(user) = ctx.cache.get_user(UserId(id)) {
-                    format!("@{}#{:04}", user.username, user.discriminator)
+                } else if let Some(user) = ctx.cache.user(UserId(id)) {
+                    format!("@{}#{:04}", user.name, user.discriminator)
                 } else {
                     "@invalid-user".to_string()
                 };

@@ -27,7 +27,7 @@ use uwl::Stream;
 
 pub async fn handle_event(
     shard_id: u64,
-    event: &Event,
+    event: Event,
     ctx: Arc<Context>,
     cmds: Arc<CommandGroups>,
 ) -> BotResult<()> {
@@ -49,7 +49,7 @@ pub async fn handle_event(
         }
         Event::GatewayReconnect => info!("Gateway requested shard {} to reconnect", shard_id),
         Event::GatewayInvalidateSession(recon) => {
-            if *recon {
+            if recon {
                 warn!(
                     "Gateway has invalidated session for shard {}, but its reconnectable",
                     shard_id
@@ -110,7 +110,7 @@ pub async fn handle_event(
         // ## Message ##
         // #############
         Event::MessageCreate(msg) => {
-            ctx.cache.stats.new_message(&ctx, msg.deref());
+            ctx.stats.new_message(&ctx, msg.deref());
 
             // Ignore bots and webhooks
             if msg.author.bot || msg.webhook_id.is_some() {
@@ -137,7 +137,7 @@ pub async fn handle_event(
             }
 
             // Process invoke
-            log_invoke(&ctx, msg);
+            log_invoke(&ctx, &msg);
             let msg = msg.deref();
             let command_result = match &invoke {
                 Invoke::Command(cmd) => process_command(cmd, Arc::clone(&ctx), msg, stream).await,
@@ -164,7 +164,7 @@ pub async fn handle_event(
             match invoke {
                 Invoke::None => {}
                 _ => {
-                    ctx.cache.stats.inc_command(name.as_ref());
+                    ctx.stats.inc_command(name.as_ref());
                     match command_result {
                         Ok(ProcessResult::Success) => info!("Processed command `{}`", name),
                         Ok(process_result) => {
@@ -182,12 +182,12 @@ pub async fn handle_event(
 
 fn log_invoke(ctx: &Context, msg: &Message) {
     let mut location = String::with_capacity(31);
-    match msg.guild_id.and_then(|id| ctx.cache.get_guild(id)) {
+    match msg.guild_id.and_then(|id| ctx.cache.guild(id)) {
         Some(guild) => {
             let _ = write!(location, "{}", guild.name);
             location.push(':');
-            match ctx.cache.guild_channels.get(&msg.channel_id) {
-                Some(guard) => location.push_str(guard.value().get_name()),
+            match ctx.cache.guild_channel(msg.channel_id) {
+                Some(channel) => location.push_str(channel.name()),
                 None => location.push_str("<uncached channel>"),
             }
         }
@@ -242,9 +242,16 @@ async fn process_command(
     }
 
     // Does bot have sufficient permissions to send response?
+    let bot_user = match ctx.cache.current_user() {
+        Some(user) => user,
+        None => {
+            error!("No CurrentUser in cache for permission check");
+            return Ok(ProcessResult::NoSendPermission);
+        }
+    };
     let permissions =
         ctx.cache
-            .get_channel_permissions_for(ctx.cache.bot_user.id, msg.channel_id, msg.guild_id);
+            .get_channel_permissions_for(bot_user.id, msg.channel_id, msg.guild_id);
     if !permissions.contains(Permissions::SEND_MESSAGES) {
         debug!("No SEND_MESSAGE permission, can not respond");
         return Ok(ProcessResult::NoSendPermission);

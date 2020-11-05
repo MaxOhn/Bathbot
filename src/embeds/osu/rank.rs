@@ -32,7 +32,7 @@ impl RankEmbed {
         let description = if user.pp_raw > rank_holder.pp_raw {
             format!(
                 "Rank {country}{rank} is currently held by {holder_name} with \
-                 **{holder_pp}pp**, so {name} is with **{pp}pp** already above that.",
+                 **{holder_pp}pp**, so {name} is already above that with **{pp}pp**.",
                 country = country,
                 rank = rank,
                 holder_name = rank_holder.username,

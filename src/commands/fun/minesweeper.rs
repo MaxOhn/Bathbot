@@ -3,12 +3,12 @@ use crate::{
     Args, BotResult, Context,
 };
 
+use cow_utils::CowUtils;
 use rand::RngCore;
 use std::{
     fmt::{self, Write},
     sync::Arc,
 };
-use cow_utils::CowUtils;
 use twilight_model::channel::Message;
 
 #[command]
@@ -20,7 +20,7 @@ async fn minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRes
         None | Some("easy") => Difficulty::Easy,
         Some("medium") => Difficulty::Medium,
         Some("hard") => Difficulty::Hard,
-        Some("extreme") => Difficulty::Extreme,
+        Some("extreme") | Some("expert") => Difficulty::Extreme,
         _ => {
             let content = "The argument must be either `Easy`, `Medium`, `Hard`, or `Extreme`";
             return msg.error(&ctx, content).await;

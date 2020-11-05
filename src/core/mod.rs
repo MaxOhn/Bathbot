@@ -1,6 +1,6 @@
 mod buckets;
 mod cache;
-mod cold_resume;
+// mod cold_resume;
 mod commands;
 mod config;
 mod context;
@@ -9,8 +9,8 @@ pub mod logging;
 mod stats;
 mod stored_values;
 
-pub use cache::{Cache, CachedUser};
-pub use cold_resume::ColdRebootData;
+pub use cache::Cache;
+// pub use cold_resume::ColdRebootData;
 pub use commands::{Command, CommandGroup, CommandGroups};
 pub use config::{BotConfig, CONFIG};
 pub use context::{generate_activity, BackendData, Clients, Context, ContextData};

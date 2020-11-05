@@ -1,10 +1,10 @@
-use crate::{core::ColdRebootData, BotResult, Context};
+use crate::{BotResult, Context};
 
-use std::{collections::HashMap, time::Instant};
+use std::time::Instant;
 use twilight_model::gateway::presence::{ActivityType, Status};
 
 impl Context {
-    pub async fn initiate_cold_resume(&self) -> BotResult<()> {
+    pub async fn initiate_cold_resume(&self) {
         info!("Preparing for cold resume");
         let activity_result = self
             .set_cluster_activity(
@@ -16,40 +16,18 @@ impl Context {
         if let Err(why) = activity_result {
             debug!("Error while updating activity for cold resume: {}", why);
         }
-        let start = Instant::now();
-        let mut connection = self.clients.redis.get().await;
 
         // Kill the shards and get their resume info
         // DANGER: WE WILL NOT BE GETTING EVENTS FROM THIS POINT ONWARDS, REBOOT REQUIRED
         let resume_data = self.backend.cluster.down_resumable();
-        let (guild_chunks, user_chunks) = self.cache.prepare_cold_resume(&self.clients.redis).await;
-
-        // Prepare resume data
-        let map: HashMap<_, _> = resume_data
-            .into_iter()
-            .map(|(shard_id, info)| (shard_id, (info.session_id, info.sequence)))
-            .collect();
-        let data = ColdRebootData {
-            resume_data: map,
-            total_shards: self.backend.total_shards,
-            guild_chunks,
-            shard_count: self.backend.shards_per_cluster,
-            user_chunks,
-        };
-        connection
-            .set_and_expire_seconds(
-                "cb_cluster_data",
-                &serde_json::to_value(data).unwrap().to_string().into_bytes(),
-                180,
+        self.cache
+            .prepare_cold_resume(
+                &self.clients.redis,
+                resume_data,
+                self.backend.total_shards,
+                self.backend.shards_per_cluster,
             )
-            .await
-            .unwrap();
-        let end = Instant::now();
-        info!(
-            "Cold resume preparations completed in {}ms",
-            (end - start).as_millis()
-        );
-        Ok(())
+            .await;
     }
 
     pub async fn store_configs(&self) -> BotResult<()> {

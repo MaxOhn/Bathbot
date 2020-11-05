@@ -162,7 +162,7 @@ async fn mapper_main(
                 n if n <= 10 => "kinda sad \\:/",
                 n if n <= 15 => "pretty sad \\:(",
                 n if n <= 25 => "this is so sad \\:((",
-                n if n <= 30 => "bruuh stop \\:'((",
+                n if n <= 30 => "you need to stop this",
                 n if n <= 35 => "you have a serious problem...",
                 n if n >= 80 => "so close to ultimate disaster...",
                 n if n >= 90 => "i'm not even mad, that's just impressive",

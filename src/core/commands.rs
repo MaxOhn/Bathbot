@@ -2,7 +2,7 @@ use crate::{commands::command_groups, Args, BotResult, Context};
 
 use futures::future::BoxFuture;
 use radix_trie::Trie;
-use std::{fmt, ops::Deref, sync::Arc};
+use std::{fmt, sync::Arc};
 use twilight_model::channel::Message;
 
 type CommandTree = Trie<&'static str, &'static Command>;
@@ -72,12 +72,8 @@ impl CommandGroups {
         }
         Self { groups, trie }
     }
-}
 
-impl Deref for CommandGroups {
-    type Target = CommandTree;
-
-    fn deref(&self) -> &Self::Target {
-        &self.trie
+    pub fn get(&self, command: &str) -> Option<&'static Command> {
+        self.trie.get(command).copied()
     }
 }

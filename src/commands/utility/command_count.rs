@@ -13,7 +13,7 @@ use twilight_model::channel::Message;
 #[short_desc("List of popular commands")]
 #[long_desc("Let me show you my most popular commands since my last reboot")]
 async fn commands(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
-    let mut cmds = ctx.cache.stats.command_counts.collect()[0]
+    let mut cmds = ctx.stats.command_counts.collect()[0]
         .get_metric()
         .iter()
         .map(|metric| {
@@ -25,7 +25,7 @@ async fn commands(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     cmds.sort_unstable_by(|&(_, a), &(_, b)| b.cmp(&a));
 
     // Prepare embed data
-    let boot_time = ctx.cache.stats.start_time;
+    let boot_time = ctx.stats.start_time;
     let sub_vec = cmds
         .iter()
         .take(15)

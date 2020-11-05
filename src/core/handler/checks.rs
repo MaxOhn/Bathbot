@@ -31,7 +31,7 @@ pub fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>
             prefix
         );
         return Ok(Some(content));
-    } else if let Some(member) = ctx.cache.get_member(msg.author.id, guild_id) {
+    } else if let Some(member) = ctx.cache.member(guild_id, msg.author.id) {
         if !member
             .roles
             .par_iter()
@@ -40,7 +40,7 @@ pub fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>
             let roles: Vec<_> = auth_roles
                 .par_iter()
                 .filter_map(|&role| {
-                    ctx.cache.get_role(role, guild_id).map_or_else(
+                    ctx.cache.role(role).map_or_else(
                         || {
                             warn!("Role {} not cached for guild {}", role, guild_id);
                             None

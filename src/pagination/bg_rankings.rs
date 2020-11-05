@@ -80,11 +80,11 @@ impl Pagination for BGRankingPagination {
             .map(|(id, _)| id)
         {
             if !self.usernames.contains_key(id) {
-                let name = if let Some(user) = self.ctx.cache.get_user(UserId(*id)) {
-                    user.username.clone()
-                } else {
-                    String::from("Unknown user")
-                };
+                let name = self
+                    .ctx
+                    .cache
+                    .user(UserId(*id))
+                    .map_or_else(|| String::from("Unknown user"), |user| user.name.to_owned());
                 self.usernames.insert(*id, name);
             }
         }

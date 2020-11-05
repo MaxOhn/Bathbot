@@ -15,7 +15,7 @@ pub struct CommandCountPagination {
 
 impl CommandCountPagination {
     pub fn new(ctx: &Context, msg: Message, cmd_counts: Vec<(String, u32)>) -> Self {
-        let booted_up = ctx.cache.stats.start_time;
+        let booted_up = ctx.stats.start_time;
         Self {
             msg,
             pages: Pages::new(15, cmd_counts.len()),

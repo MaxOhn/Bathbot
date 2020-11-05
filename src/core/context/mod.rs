@@ -1,6 +1,6 @@
 mod impls;
 
-use super::ShardState;
+use super::{BotStats, ShardState};
 
 use crate::{
     bg_game::GameWrapper,
@@ -16,6 +16,7 @@ use crate::{
 use darkredis::ConnectionPool;
 use dashmap::DashMap;
 use rosu::Osu;
+use std::sync::Arc;
 use tokio::sync::Mutex;
 use twilight_gateway::Cluster;
 use twilight_http::Client as HttpClient;
@@ -30,6 +31,7 @@ use twilight_standby::Standby;
 
 pub struct Context {
     pub cache: Cache,
+    pub stats: Arc<BotStats>,
     pub http: HttpClient,
     pub standby: Standby,
     pub buckets: Buckets,
@@ -70,18 +72,19 @@ pub struct ContextData {
 impl Context {
     pub async fn new(
         cache: Cache,
+        stats: Arc<BotStats>,
         http: HttpClient,
         clients: Clients,
         backend: BackendData,
         data: ContextData,
     ) -> Self {
-        cache
-            .stats
+        stats
             .shard_counts
             .pending
             .set(backend.shards_per_cluster as i64);
         Context {
             cache,
+            stats,
             http,
             standby: Standby::new(),
             clients,
@@ -116,8 +119,8 @@ impl Context {
             .command(
                 shard_id,
                 &UpdateStatus::new(
+                    Some(vec![generate_activity(activity_type, message.into())]),
                     false,
-                    generate_activity(activity_type, message.into()),
                     None,
                     status,
                 ),

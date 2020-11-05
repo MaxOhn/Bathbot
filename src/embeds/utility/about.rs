@@ -1,4 +1,5 @@
 use crate::{
+    bail,
     embeds::{EmbedData, Footer},
     format_err,
     util::{
@@ -50,17 +51,20 @@ impl AboutEmbed {
             (process_cpu, process_ram, total_cpu, used_ram, total_ram)
         };
 
-        let bot_user = &ctx.cache.bot_user;
+        let bot_user = match ctx.cache.current_user() {
+            Some(user) => user,
+            None => bail!("No CurrentUser in cache"),
+        };
         let name = bot_user.name.clone();
         let shards = ctx.backend.cluster.info().len();
-        let user_counts = &ctx.cache.stats.user_counts;
+        let user_counts = &ctx.stats.user_counts;
         let total_users = user_counts.total.get();
         let unique_users = user_counts.unique.get();
-        let guild_counts = &ctx.cache.stats.guild_counts;
+        let guild_counts = &ctx.stats.guild_counts;
         let guilds = guild_counts.current.get();
-        let channels = ctx.cache.stats.channel_count.get();
+        let channels = ctx.stats.channel_count.get();
 
-        let boot_time = ctx.cache.stats.start_time;
+        let boot_time = ctx.stats.start_time;
 
         let thumbnail = ImageSource::url(discord_avatar(
             bot_user.id,

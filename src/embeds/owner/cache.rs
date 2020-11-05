@@ -1,12 +1,11 @@
 use crate::{
     embeds::{EmbedData, Footer},
     util::numbers::with_comma_u64,
-    Context,
 };
 
 use chrono::{DateTime, Utc};
-use itertools::Itertools;
 use std::fmt::Write;
+use twilight_cache_inmemory::CacheStats;
 
 pub struct CacheEmbed {
     description: String,
@@ -16,141 +15,86 @@ pub struct CacheEmbed {
 }
 
 impl CacheEmbed {
-    pub fn new(ctx: &Context) -> Self {
-        let stats = &ctx.cache.stats;
-        let events = &stats.event_counts;
-
+    pub fn new(stats: CacheStats, start_time: DateTime<Utc>) -> Self {
         let mut description = String::with_capacity(256);
 
         let _ = writeln!(
             description,
-            "Loaded guilds: {}",
-            stats.guild_counts.loaded.get()
+            "Channels: {}",
+            with_comma_u64(stats.channels as u64)
         );
         let _ = writeln!(
             description,
-            "Partial guilds: {}",
-            stats.guild_counts.partial.get()
+            "Emojis: {}",
+            with_comma_u64(stats.emojis as u64)
         );
         let _ = writeln!(
             description,
-            "Outage guilds: {}\n",
-            stats.guild_counts.outage.get()
-        );
-
-        let _ = writeln!(description, "Guild create: {}", events.guild_create.get());
-        let _ = writeln!(description, "Guild delete: {}", events.guild_delete.get());
-        let _ = writeln!(description, "Guild update: {}\n", events.guild_update.get());
-
-        let _ = writeln!(
-            description,
-            "User msgs: {}",
-            stats.message_counts.user_messages.get()
+            "Guilds: {}",
+            with_comma_u64(stats.guilds as u64)
         );
         let _ = writeln!(
             description,
-            "Bot msgs: {}",
-            stats.message_counts.other_bot_messages.get()
+            "Members: {}",
+            with_comma_u64(stats.members as u64)
         );
         let _ = writeln!(
             description,
-            "Own msgs: {}\n",
-            stats.message_counts.own_messages.get()
+            "Messages: {}",
+            with_comma_u64(stats.messages as u64)
         );
-
+        let _ = writeln!(description, "Roles: {}", with_comma_u64(stats.roles as u64));
         let _ = writeln!(
             description,
-            "Users total: {}",
-            stats.user_counts.total.get()
+            "Unavailable guilds: {}",
+            stats.unavailable_guilds
         );
-        let _ = writeln!(
-            description,
-            "Users unique: {}",
-            stats.user_counts.unique.get()
-        );
-        let _ = writeln!(description, "User updates: {}\n", events.user_update.get());
-
-        let _ = writeln!(description, "Member add: {}", events.member_add.get());
-        let _ = writeln!(description, "Member remove: {}", events.member_remove.get());
-        let _ = writeln!(description, "Member update: {}", events.member_update.get());
-        let _ = writeln!(description, "Member chunk: {}\n", events.member_chunk.get());
-
-        let _ = writeln!(
-            description,
-            "Message create: {}",
-            events.message_create.get()
-        );
-        let _ = writeln!(
-            description,
-            "Message delete: {}",
-            events.message_delete.get()
-        );
-        let _ = writeln!(
-            description,
-            "Message delete bulk: {}",
-            events.message_delete_bulk.get()
-        );
-        let _ = writeln!(
-            description,
-            "Message update: {}\n",
-            events.message_update.get()
-        );
-
-        let _ = writeln!(
-            description,
-            "Unvailable guilds: {}",
-            events.unavailable_guild.get()
-        );
+        let _ = writeln!(description, "Users: {}", stats.users);
 
         let mut fields = Vec::new();
 
-        let biggest_guilds: Vec<_> = ctx
-            .cache
-            .guilds
+        let max_name_len = stats
+            .biggest_guilds
             .iter()
-            .map(|guard| (guard.value().members.len(), guard.value().name.clone()))
-            .sorted_by(|(a, _), (b, _)| b.cmp(&a))
-            .take(15)
-            .collect();
-
-        let max_name_len = biggest_guilds
-            .iter()
-            .fold(0, |max, (_, guild)| max.max(guild.chars().count()));
+            .fold(0, |max, guild| max.max(guild.name.chars().count()));
 
         let mut guild_value = String::with_capacity(128);
         guild_value.push_str("```\n");
-        for (members, name) in biggest_guilds {
+        for guild in stats.biggest_guilds {
             let _ = writeln!(
                 guild_value,
                 "{:<len$}: {}",
-                name,
-                members,
+                guild.name,
+                with_comma_u64(guild.member_count as u64),
                 len = max_name_len
             );
         }
         guild_value.push_str("```");
         fields.push(("Biggest guilds".to_owned(), guild_value, false));
 
-        fields.push((
-            "Users".to_owned(),
-            with_comma_u64(ctx.cache.users.len() as u64),
-            true,
-        ));
-        fields.push((
-            "Guild channels".to_owned(),
-            with_comma_u64(ctx.cache.guild_channels.len() as u64),
-            true,
-        ));
-        fields.push((
-            "Private channels".to_owned(),
-            with_comma_u64(ctx.cache.private_channels.len() as u64),
-            true,
-        ));
+        let max_name_len = stats
+            .most_mutuals_users
+            .iter()
+            .fold(0, |max, user| max.max(user.name.chars().count()));
+
+        let mut user_value = String::with_capacity(128);
+        user_value.push_str("```\n");
+        for user in stats.most_mutuals_users {
+            let _ = writeln!(
+                user_value,
+                "{:<len$}: {}",
+                user.name,
+                user.mutual_count,
+                len = max_name_len
+            );
+        }
+        user_value.push_str("```");
+        fields.push(("Most mutual guilds".to_owned(), user_value, false));
 
         Self {
             description,
             footer: Footer::new("Boot time"),
-            timestamp: ctx.cache.stats.start_time,
+            timestamp: start_time,
             fields,
         }
     }

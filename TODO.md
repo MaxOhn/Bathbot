@@ -3,8 +3,12 @@
 - Update taiko pp / stars
 - Add `Icon from syedhassan - pngtree.com` to README
 - Fix defrosting `serde error: data did not match any variant of untagged enum CachedChannel` when twilight is on 0.2
+- If error code of tracking notif is 10003, remove channel
+- First check msgs in cache before retrieving them for `<c` & co
+- `<nochoketaiko`
 
 **[Sometime]**
+- `<nochokectb` (https://pakachan.github.io/osustuff/ppcalculator.html)
 - Write peppy a mail
 - Add proper readme and make project public
 

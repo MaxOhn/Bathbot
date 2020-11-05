@@ -28,14 +28,14 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     // Filter only guild members if not global and in a guild
     if !global && msg.guild_id.is_some() {
         let guild_id = msg.guild_id.unwrap();
-        let member_ids: Vec<_> = match ctx.cache.get_guild(guild_id) {
-            Some(guild) => guild.members.iter().map(|guard| guard.key().0).collect(),
+        let member_ids = match ctx.cache.guild_members(guild_id) {
+            Some(members) => members,
             None => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-                bail!("guild {} not in cache", guild_id);
+                bail!("guild members of {} not in cache", guild_id);
             }
         };
-        scores.retain(|(user, _)| member_ids.iter().any(|member| member == user));
+        scores.retain(|(user, _)| member_ids.iter().any(|member| &member.0 == user));
         if scores.is_empty() {
             let content = "Looks like no one on this server has played the background game yet";
             return msg.respond(&ctx, content).await;
@@ -47,11 +47,10 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     // Gather usernames for initial page
     let mut usernames = HashMap::with_capacity(15);
     for &id in scores.iter().take(15).map(|(id, _)| id) {
-        let name = if let Some(user) = ctx.cache.get_user(UserId(id)) {
-            user.username.clone()
-        } else {
-            String::from("Unknown user")
-        };
+        let name = ctx
+            .cache
+            .user(UserId(id))
+            .map_or_else(|| String::from("Unknown user"), |user| user.name.to_owned());
         usernames.insert(id, name);
     }
     let initial_scores = scores

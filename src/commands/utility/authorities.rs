@@ -7,7 +7,6 @@ use crate::{
     Args, BotResult, Context,
 };
 
-use rayon::prelude::*;
 use std::{fmt::Write, sync::Arc};
 use twilight_model::{
     channel::Message,
@@ -57,7 +56,7 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
                 return msg.error(&ctx, content).await;
             }
         };
-        match ctx.cache.get_role(RoleId(role_id), guild_id) {
+        match ctx.cache.role(RoleId(role_id)) {
             Some(role) => new_auths.push(role),
             None => {
                 let content = format!("No role with id {} found in this guild", role_id);
@@ -68,18 +67,23 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
 
     // Make sure the author is still an authority after applying new roles
     if !(ctx.cache.is_guild_owner(guild_id, msg.author.id) || msg.author.id.0 == OWNER_USER_ID) {
-        let mut member_roles = match ctx.cache.get_member(msg.author.id, guild_id) {
-            Some(member) => member.roles.clone(),
+        match ctx.cache.member(guild_id, msg.author.id) {
+            Some(member) => {
+                let is_auth_with_roles = member
+                    .roles
+                    .iter()
+                    .filter_map(|&role_id| ctx.cache.role(role_id))
+                    .any(|role| role.permissions.contains(Permissions::ADMINISTRATOR));
+                if !is_auth_with_roles {
+                    let content = "You cannot set authority roles to something \
+                        that would make you lose authority status.";
+                    return msg.error(&ctx, content).await;
+                }
+            }
             None => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
                 bail!("member {} not cached for guild {}", msg.author.id, guild_id);
             }
-        };
-        member_roles.retain(|role| new_auths.iter().any(|new| &new.id == role));
-        if !is_auth_with_roles(&ctx, &member_roles, guild_id) {
-            let content = "You cannot set authority roles to something \
-                that would make you lose authority status.";
-            return msg.error(&ctx, content).await;
         }
     }
 
@@ -107,11 +111,4 @@ fn role_string(ctx: &Context, roles: &[u64], guild_id: GuildId, content: &mut St
         }
         content_safe(&ctx, content, Some(guild_id));
     }
-}
-
-fn is_auth_with_roles(ctx: &Context, role_ids: &[RoleId], guild_id: GuildId) -> bool {
-    role_ids
-        .par_iter()
-        .filter_map(|&role_id| ctx.cache.get_role(role_id, guild_id))
-        .any(|role| role.permissions.contains(Permissions::ADMINISTRATOR))
 }
