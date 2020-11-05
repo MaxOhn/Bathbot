@@ -4,7 +4,7 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use std::fmt::Write;
+use std::{fmt::Write, sync::atomic::Ordering::Relaxed};
 use twilight_cache_inmemory::CacheStats;
 
 pub struct CacheEmbed {
@@ -21,51 +21,55 @@ impl CacheEmbed {
         let _ = writeln!(
             description,
             "Channels (Guilds): {}",
-            with_comma_u64(stats.channels_guild as u64)
+            with_comma_u64(stats.metrics.channels_guild.load(Relaxed) as u64)
         );
         let _ = writeln!(
             description,
             "Channels (Private): {}",
-            with_comma_u64(stats.channels_private as u64)
+            with_comma_u64(stats.metrics.channels_private.load(Relaxed) as u64)
         );
         let _ = writeln!(
             description,
             "Emojis: {}",
-            with_comma_u64(stats.emojis as u64)
+            with_comma_u64(stats.metrics.emojis.load(Relaxed) as u64)
         );
         let _ = writeln!(
             description,
             "Guilds: {}",
-            with_comma_u64(stats.guilds as u64)
+            with_comma_u64(stats.metrics.guilds.load(Relaxed) as u64)
         );
         let _ = writeln!(
             description,
             "Members: {}",
-            with_comma_u64(stats.members as u64)
+            with_comma_u64(stats.metrics.members.load(Relaxed) as u64)
         );
         let _ = writeln!(
             description,
             "Messages: {}",
-            with_comma_u64(stats.messages as u64)
+            with_comma_u64(stats.metrics.messages.load(Relaxed) as u64)
         );
-        let _ = writeln!(description, "Roles: {}", with_comma_u64(stats.roles as u64));
+        let _ = writeln!(
+            description,
+            "Roles: {}",
+            with_comma_u64(stats.metrics.roles.load(Relaxed) as u64)
+        );
         let _ = writeln!(
             description,
             "Unavailable guilds: {}",
-            stats.unavailable_guilds
+            stats.metrics.unavailable_guilds.load(Relaxed)
         );
-        let _ = writeln!(description, "Users: {}", stats.users);
+        let _ = writeln!(description, "Users: {}", stats.metrics.users.load(Relaxed));
 
         let mut fields = Vec::new();
 
-        let max_name_len = stats
-            .biggest_guilds
+        let biggest_guilds = stats.biggest_guilds.unwrap();
+        let max_name_len = biggest_guilds
             .iter()
             .fold(0, |max, guild| max.max(guild.name.chars().count()));
 
         let mut guild_value = String::with_capacity(128);
         guild_value.push_str("```\n");
-        for guild in stats.biggest_guilds {
+        for guild in biggest_guilds {
             let _ = writeln!(
                 guild_value,
                 "{:<len$}: {}",
@@ -77,14 +81,14 @@ impl CacheEmbed {
         guild_value.push_str("```");
         fields.push(("Biggest guilds".to_owned(), guild_value, false));
 
-        let max_name_len = stats
-            .most_mutuals_users
+        let most_mutuals_users = stats.most_mutuals_users.unwrap();
+        let max_name_len = most_mutuals_users
             .iter()
             .fold(0, |max, user| max.max(user.name.chars().count()));
 
         let mut user_value = String::with_capacity(128);
         user_value.push_str("```\n");
-        for user in stats.most_mutuals_users {
+        for user in most_mutuals_users {
             let _ = writeln!(
                 user_value,
                 "{:<len$}: {}",

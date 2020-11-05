@@ -24,6 +24,8 @@ impl Cache {
             | EventType::MEMBER_UPDATE
             | EventType::MEMBER_CHUNK
             | EventType::MESSAGE_CREATE
+            | EventType::MESSAGE_DELETE
+            | EventType::MESSAGE_DELETE_BULK
             | EventType::REACTION_ADD
             | EventType::REACTION_REMOVE
             | EventType::REACTION_REMOVE_ALL
@@ -34,7 +36,7 @@ impl Cache {
             | EventType::UNAVAILABLE_GUILD
             | EventType::USER_UPDATE;
         let config = InMemoryCache::builder()
-            .message_cache_size(10)
+            .message_cache_size(5)
             .event_types(events)
             .build()
             .config();

@@ -156,11 +156,6 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         | Intents::GUILD_MESSAGE_REACTIONS
         | Intents::DIRECT_MESSAGES
         | Intents::DIRECT_MESSAGE_REACTIONS;
-    let stats = Arc::new(BotStats::new(clients.osu.metrics()));
-
-    // Provide stats to locale address
-    let metrics_stats = Arc::clone(&stats);
-    tokio::spawn(_run_metrics_server(metrics_stats));
 
     // Prepare cluster builder
     let mut cb = Cluster::builder(&CONFIG.get().unwrap().tokens.discord, intents)
@@ -174,6 +169,13 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     } else {
         false
     };
+
+    let cache_metrics = cache.stats(0, 0);
+    let stats = Arc::new(BotStats::new(clients.osu.metrics(), cache_metrics.metrics));
+
+    // Provide stats to locale address
+    let metrics_stats = Arc::clone(&stats);
+    tokio::spawn(_run_metrics_server(metrics_stats));
 
     // Build cluster
     let cluster = cb

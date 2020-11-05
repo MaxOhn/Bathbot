@@ -3,7 +3,8 @@
 - Update taiko pp / stars
 - If error code of tracking notif is 10003, remove channel
 - `<nochoketaiko`
-- Check on ` <top Aphxemia -nm!`, should contain all scores
+- Check on `<top Aphxemia -nm!`, should contain all scores
+- Make `<link <url to profile>` work
 
 **[Sometime]**
 - `<nochokectb` (https://pakachan.github.io/osustuff/ppcalculator.html)

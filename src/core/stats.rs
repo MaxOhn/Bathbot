@@ -1,17 +1,19 @@
 use crate::core::{Context, ShardState};
 
 use chrono::{DateTime, Utc};
-use dashmap::DashSet;
 use log::info;
 use prometheus::{IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry};
-use std::collections::HashMap;
-use twilight_model::{channel::Message, gateway::event::Event, id::GuildId};
+use std::{
+    collections::HashMap,
+    sync::{atomic::Ordering::Relaxed, Arc},
+};
+use twilight_cache_inmemory::Metrics;
+use twilight_model::{channel::Message, gateway::event::Event};
 
 pub struct EventStats {
     pub gateway_reconnect: IntCounter,
     pub channel_create: IntCounter,
     pub channel_delete: IntCounter,
-    pub channel_pins_update: IntCounter,
     pub guild_create: IntCounter,
     pub guild_delete: IntCounter,
     pub guild_update: IntCounter,
@@ -43,10 +45,8 @@ pub struct UserCounters {
 }
 
 pub struct GuildCounters {
-    pub current: IntGauge,
-    pub partial: IntGauge,
-    pub loaded: IntGauge,
-    pub outage: IntGauge,
+    pub total: IntGauge,
+    pub unavailable: IntGauge,
 }
 
 pub struct ShardStats {
@@ -69,14 +69,14 @@ pub struct BotStats {
     pub shard_counts: ShardStats,
     pub channel_count: IntGauge,
     pub guild_counts: GuildCounters,
-    pub guilds: DashSet<GuildId>,
     pub command_counts: IntCounterVec,
     pub osu_metrics: IntCounterVec,
+    pub cache_metrics: Arc<Metrics>,
 }
 
 impl BotStats {
     #[rustfmt::skip]
-    pub fn new(osu_metrics: IntCounterVec) -> Self {
+    pub fn new(osu_metrics: IntCounterVec, cache_metrics: Arc<Metrics>) -> Self {
         let event_counter = IntCounterVec::new(Opts::new("gateway_events", "Events received from the gateway"), &["events"]).unwrap();
         let message_counter =IntCounterVec::new(Opts::new("messages", "Recieved messages"), &["sender_type"]).unwrap();
         let user_counter =IntGaugeVec::new(Opts::new("user_counts", "User counts"), &["type"]).unwrap();
@@ -103,7 +103,6 @@ impl BotStats {
                 channel_create: event_counter.get_metric_with_label_values(&["ChannelCreate"]).unwrap(),
                 channel_delete: event_counter.get_metric_with_label_values(&["ChannelDelete"]).unwrap(),
                 gateway_reconnect: event_counter.get_metric_with_label_values(&["GatewayReconnect"]).unwrap(),
-                channel_pins_update: event_counter.get_metric_with_label_values(&["ChannelPinsUpdate"]).unwrap(),
                 guild_create: event_counter.get_metric_with_label_values(&["GuildCreate"]).unwrap(),
                 guild_delete: event_counter.get_metric_with_label_values(&["GuildDelete"]).unwrap(),
                 guild_update: event_counter.get_metric_with_label_values(&["GuildUpdate"]).unwrap(),
@@ -132,12 +131,9 @@ impl BotStats {
                 total: user_counter.get_metric_with_label_values(&["Total"]).unwrap(),
             },
             guild_counts: GuildCounters {
-                current: guild_counter.get_metric_with_label_values(&["Current"]).unwrap(),
-                partial: guild_counter.get_metric_with_label_values(&["Partial"]).unwrap(),
-                loaded: guild_counter.get_metric_with_label_values(&["Loaded"]).unwrap(),
-                outage: guild_counter.get_metric_with_label_values(&["Outage"]).unwrap(),
+                total: guild_counter.get_metric_with_label_values(&["Total"]).unwrap(),
+                unavailable: guild_counter.get_metric_with_label_values(&["Unavailable"]).unwrap(),
             },
-            guilds: DashSet::new(),
             channel_count,
             shard_counts: ShardStats {
                 pending: shard_counter.get_metric_with_label_values(&["Pending"]).unwrap(),
@@ -151,6 +147,7 @@ impl BotStats {
             },
             command_counts,
             osu_metrics,
+            cache_metrics
         }
     }
 
@@ -181,28 +178,67 @@ impl Context {
             Event::ChannelCreate(_) => self.stats.event_counts.channel_create.inc(),
             Event::ChannelDelete(_) => self.stats.event_counts.channel_delete.inc(),
             Event::GatewayReconnect => self.stats.event_counts.gateway_reconnect.inc(),
-            Event::ChannelPinsUpdate(_) => self.stats.event_counts.channel_pins_update.inc(),
-            Event::GuildCreate(g) => {
-                self.stats.guilds.insert(g.id);
+            Event::GuildCreate(_) => {
                 self.stats
                     .guild_counts
-                    .current
-                    .set(self.stats.guilds.len() as i64);
+                    .total
+                    .set(self.stats.cache_metrics.guilds.load(Relaxed) as i64);
+                self.stats
+                    .user_counts
+                    .total
+                    .set(self.stats.cache_metrics.members.load(Relaxed) as i64);
+                self.stats
+                    .user_counts
+                    .unique
+                    .set(self.stats.cache_metrics.users.load(Relaxed) as i64);
+                self.stats
+                    .guild_counts
+                    .unavailable
+                    .set(self.stats.cache_metrics.unavailable_guilds.load(Relaxed) as i64);
                 self.stats.event_counts.guild_create.inc()
             }
-            Event::GuildDelete(g) => {
-                self.stats.guilds.remove(&g.id);
+            Event::GuildDelete(_) => {
                 self.stats
                     .guild_counts
-                    .current
-                    .set(self.stats.guilds.len() as i64);
+                    .total
+                    .set(self.stats.cache_metrics.guilds.load(Relaxed) as i64);
                 self.stats.event_counts.guild_delete.inc()
             }
             Event::GuildUpdate(_) => self.stats.event_counts.guild_update.inc(),
-            Event::MemberAdd(_) => self.stats.event_counts.member_add.inc(),
-            Event::MemberRemove(_) => self.stats.event_counts.member_remove.inc(),
+            Event::MemberAdd(_) => {
+                self.stats
+                    .user_counts
+                    .total
+                    .set(self.stats.cache_metrics.members.load(Relaxed) as i64);
+                self.stats
+                    .user_counts
+                    .unique
+                    .set(self.stats.cache_metrics.users.load(Relaxed) as i64);
+                self.stats.event_counts.member_add.inc()
+            }
+            Event::MemberRemove(_) => {
+                self.stats
+                    .user_counts
+                    .total
+                    .set(self.stats.cache_metrics.members.load(Relaxed) as i64);
+                self.stats
+                    .user_counts
+                    .unique
+                    .set(self.stats.cache_metrics.users.load(Relaxed) as i64);
+                self.stats.event_counts.member_remove.inc()
+            }
             Event::MemberUpdate(_) => self.stats.event_counts.member_update.inc(),
-            Event::MemberChunk(_) => self.stats.event_counts.member_chunk.inc(),
+            Event::MemberChunk(_) => {
+                self.stats
+                    .user_counts
+                    .total
+                    .set(self.stats.cache_metrics.members.load(Relaxed) as i64);
+                self.stats
+                    .user_counts
+                    .unique
+                    .set(self.stats.cache_metrics.users.load(Relaxed) as i64);
+                self.stats.event_counts.member_chunk.inc()
+            }
             Event::MessageCreate(_) => self.stats.event_counts.message_create.inc(),
             Event::MessageDelete(_) => self.stats.event_counts.message_delete.inc(),
             Event::MessageDeleteBulk(_) => self.stats.event_counts.message_delete_bulk.inc(),
@@ -220,14 +256,23 @@ impl Context {
             }
 
             Event::ShardConnected(_) => self.shard_state_change(shard_id, ShardState::Connected),
-            Event::Ready(ready) => {
-                for guild_id in ready.guilds.keys() {
-                    self.stats.guilds.insert(*guild_id);
-                }
+            Event::Ready(_) => {
                 self.stats
                     .guild_counts
-                    .current
-                    .set(self.stats.guilds.len() as i64);
+                    .total
+                    .set(self.stats.cache_metrics.guilds.load(Relaxed) as i64);
+                self.stats
+                    .user_counts
+                    .total
+                    .set(self.stats.cache_metrics.members.load(Relaxed) as i64);
+                self.stats
+                    .user_counts
+                    .unique
+                    .set(self.stats.cache_metrics.users.load(Relaxed) as i64);
+                self.stats
+                    .guild_counts
+                    .unavailable
+                    .set(self.stats.cache_metrics.unavailable_guilds.load(Relaxed) as i64);
                 self.shard_state_change(shard_id, ShardState::Ready)
             }
             Event::Resumed => self.shard_state_change(shard_id, ShardState::Ready),

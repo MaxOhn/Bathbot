@@ -45,8 +45,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     {
         id.id()
     } else {
-        let msg_fut = ctx.http.channel_messages(msg.channel_id).limit(50).unwrap();
-        let msgs = match msg_fut.await {
+        let msgs = match ctx.retrieve_channel_history(msg.channel_id).await {
             Ok(msgs) => msgs,
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;

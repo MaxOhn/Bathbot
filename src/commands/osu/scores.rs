@@ -45,13 +45,7 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     {
         id.id()
     } else {
-        let req = ctx.http.channel_messages(msg.channel_id).limit(40).unwrap();
-        let msg_results = if let Some(earliest_cached) = ctx.cache.first_message(msg.channel_id) {
-            req.before(earliest_cached).await
-        } else {
-            req.await
-        };
-        let msgs = match msg_results {
+        let msgs = match ctx.retrieve_channel_history(msg.channel_id).await {
             Ok(msgs) => msgs,
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
