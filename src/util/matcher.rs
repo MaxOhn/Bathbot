@@ -44,6 +44,13 @@ fn get_mention(mention_type: MentionType, msg: &str) -> Option<u64> {
         .and_then(|c| c.as_str().parse::<u64>().ok())
 }
 
+pub fn get_osu_user_id(msg: &str) -> Option<u32> {
+    OSU_URL_USER_MATCHER
+        .captures(msg)
+        .and_then(|c| c.get(1))
+        .and_then(|c| c.as_str().parse::<u32>().ok())
+}
+
 pub fn get_osu_map_id(msg: &str) -> Option<MapIdType> {
     if let Ok(id) = msg.parse::<u32>() {
         return Some(MapIdType::Map(id));
@@ -120,6 +127,10 @@ lazy_static! {
 
 lazy_static! {
     static ref MENTION_MATCHER: Regex = Regex::new(r"<@!?(\d+)>").unwrap();
+}
+
+lazy_static! {
+    static ref OSU_URL_USER_MATCHER: Regex = Regex::new(r"https://osu.ppy.sh/users/(\d+)").unwrap();
 }
 
 lazy_static! {

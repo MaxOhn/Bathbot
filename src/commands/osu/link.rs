@@ -1,9 +1,13 @@
 use crate::{
     bail,
-    util::{constants::GENERAL_ISSUE, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        matcher, MessageExt,
+    },
     Args, BotResult, Context,
 };
 
+use rosu::backend::UserRequest;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -16,12 +20,26 @@ use twilight_model::channel::Message;
      If no arguments are provided, I will unlink \
      your discord account from any osu name."
 )]
-#[usage("[username]")]
-#[example("badewanne3", "\"nathan on osu\"")]
+#[usage("[username / url to user profile]")]
+#[example("badewanne3", "\"nathan on osu\"", "https://osu.ppy.sh/users/2211396")]
 async fn link(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     let discord_id = msg.author.id.0;
-    match args.single::<String>() {
-        Ok(name) => {
+    match args.next() {
+        Some(arg) => {
+            let name = match matcher::get_osu_user_id(arg) {
+                Some(id) => match UserRequest::with_user_id(id).queue_single(ctx.osu()).await {
+                    Ok(Some(user)) => user.username,
+                    Ok(None) => {
+                        let content = "No user found for the given url";
+                        return msg.error(&ctx, content).await;
+                    }
+                    Err(why) => {
+                        let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+                        return Err(why.into());
+                    }
+                },
+                None => arg.to_owned(),
+            };
             if name.chars().count() > 32 {
                 let content = "That name is too long, must be at most 32 characters";
                 return msg.error(&ctx, content).await;
@@ -36,7 +54,7 @@ async fn link(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()>
             );
             msg.respond(&ctx, content).await
         }
-        Err(_) => {
+        None => {
             if let Err(why) = ctx.remove_link(discord_id).await {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
                 bail!("error while removing link: {}", why);

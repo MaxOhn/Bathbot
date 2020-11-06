@@ -4,7 +4,6 @@
 - If error code of tracking notif is 10003, remove channel
 - `<nochoketaiko`
 - Check on `<top Aphxemia -nm!`, should contain all scores
-- Make `<link <url to profile>` work
 
 **[Sometime]**
 - `<nochokectb` (https://pakachan.github.io/osustuff/ppcalculator.html)
@@ -13,6 +12,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Make `<link <url to profile>` work~~ (20.11.06)
 - ~~Fix defrosting `serde error: data did not match any variant of untagged enum CachedChannel` when twilight is on 0.2~~ (20.11.05)
 - ~~First check msgs in cache before retrieving them for `<c` & co~~ (20.11.05)
 - ~~Check why tracking's queue has less than its users (ppl without top scores are filtered)~~ (20.11.02)
