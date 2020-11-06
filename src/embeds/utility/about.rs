@@ -4,13 +4,13 @@ use crate::{
     format_err,
     util::{
         constants::{BATHBOT_WORKSHOP, INVITE_LINK, OWNER_USER_ID},
-        datetime::how_long_ago,
         discord_avatar,
         numbers::with_comma_u64,
     },
     BotResult, Context,
 };
 
+use chrono::{DateTime, Utc};
 use sysinfo::{get_current_pid, ProcessExt, ProcessorExt, System, SystemExt};
 use twilight_embed_builder::image_source::ImageSource;
 use twilight_model::id::UserId;
@@ -18,6 +18,7 @@ use twilight_model::id::UserId;
 pub struct AboutEmbed {
     title: String,
     thumbnail: ImageSource,
+    timestamp: DateTime<Utc>,
     footer: Footer,
     fields: Vec<(String, String, bool)>,
 }
@@ -57,12 +58,8 @@ impl AboutEmbed {
         };
         let name = bot_user.name.clone();
         let shards = ctx.backend.cluster.info().len();
-        let user_counts = &ctx.stats.user_counts;
-        let total_users = user_counts.total.get();
-        let unique_users = user_counts.unique.get();
         let guild_counts = &ctx.stats.guild_counts;
         let guilds = guild_counts.total.get();
-        let channels = ctx.stats.channel_count.get();
 
         let boot_time = ctx.stats.start_time;
 
@@ -72,28 +69,20 @@ impl AboutEmbed {
         ))
         .unwrap();
 
-        let footer = Footer::new(format!("Owner: {}#{}", owner.name, owner.discriminator))
-            .icon_url(discord_avatar(owner.id, owner.avatar.as_deref().unwrap()));
+        let footer = Footer::new(format!(
+            "Owner: {}#{} | Boot time",
+            owner.name, owner.discriminator
+        ))
+        .icon_url(discord_avatar(owner.id, owner.avatar.as_deref().unwrap()));
         let fields = vec![
             ("Guilds".to_owned(), with_comma_u64(guilds as u64), true),
-            (
-                "Users (total)".to_owned(),
-                format!(
-                    "{} ({})",
-                    with_comma_u64(unique_users as u64),
-                    with_comma_u64(total_users as u64),
-                ),
-                true,
-            ),
-            ("Channels".to_owned(), with_comma_u64(channels as u64), true),
-            ("Shards".to_owned(), shards.to_string(), true),
             (
                 "Process CPU".to_owned(),
                 format!("{:.2}%", process_cpu),
                 true,
             ),
             ("Total CPU".to_owned(), format!("{:.2}%", total_cpu), true),
-            ("Boot time".to_owned(), how_long_ago(&boot_time), true),
+            ("Shards".to_owned(), shards.to_string(), true),
             (
                 "Process RAM".to_owned(),
                 format!("{} MB", process_ram),
@@ -120,6 +109,7 @@ impl AboutEmbed {
             footer,
             fields,
             thumbnail,
+            timestamp: boot_time,
             title: format!("About {}", name),
         })
     }
@@ -137,5 +127,8 @@ impl EmbedData for AboutEmbed {
     }
     fn fields(&self) -> Option<Vec<(String, String, bool)>> {
         Some(self.fields.clone())
+    }
+    fn timestamp(&self) -> Option<&DateTime<Utc>> {
+        Some(&self.timestamp)
     }
 }

@@ -96,7 +96,7 @@ impl BotStats {
         registry.register(Box::new(guild_counter.clone())).unwrap();
         registry.register(Box::new(command_counts.clone())).unwrap();
         registry.register(Box::new(osu_metrics.clone())).unwrap();
-        Self {
+        let stats = Self {
             registry,
             start_time: Utc::now(),
             event_counts: EventStats {
@@ -148,7 +148,24 @@ impl BotStats {
             command_counts,
             osu_metrics,
             cache_metrics
-        }
+        };
+        stats
+            .guild_counts
+            .total
+            .set(stats.cache_metrics.guilds.load(Relaxed) as i64);
+        stats
+            .guild_counts
+            .unavailable
+            .set(stats.cache_metrics.unavailable_guilds.load(Relaxed) as i64);
+        stats
+            .user_counts
+            .total
+            .set(stats.cache_metrics.members.load(Relaxed) as i64);
+        stats
+            .user_counts
+            .unique
+            .set(stats.cache_metrics.users.load(Relaxed) as i64);
+        stats
     }
 
     pub fn new_message(&self, ctx: &Context, msg: &Message) {
@@ -184,6 +201,10 @@ impl Context {
                     .total
                     .set(self.stats.cache_metrics.guilds.load(Relaxed) as i64);
                 self.stats
+                    .guild_counts
+                    .unavailable
+                    .set(self.stats.cache_metrics.unavailable_guilds.load(Relaxed) as i64);
+                self.stats
                     .user_counts
                     .total
                     .set(self.stats.cache_metrics.members.load(Relaxed) as i64);
@@ -191,10 +212,6 @@ impl Context {
                     .user_counts
                     .unique
                     .set(self.stats.cache_metrics.users.load(Relaxed) as i64);
-                self.stats
-                    .guild_counts
-                    .unavailable
-                    .set(self.stats.cache_metrics.unavailable_guilds.load(Relaxed) as i64);
                 self.stats.event_counts.guild_create.inc()
             }
             Event::GuildDelete(_) => {
@@ -202,6 +219,18 @@ impl Context {
                     .guild_counts
                     .total
                     .set(self.stats.cache_metrics.guilds.load(Relaxed) as i64);
+                self.stats
+                    .guild_counts
+                    .unavailable
+                    .set(self.stats.cache_metrics.unavailable_guilds.load(Relaxed) as i64);
+                self.stats
+                    .user_counts
+                    .total
+                    .set(self.stats.cache_metrics.members.load(Relaxed) as i64);
+                self.stats
+                    .user_counts
+                    .unique
+                    .set(self.stats.cache_metrics.users.load(Relaxed) as i64);
                 self.stats.event_counts.guild_delete.inc()
             }
             Event::GuildUpdate(_) => self.stats.event_counts.guild_update.inc(),
@@ -247,7 +276,17 @@ impl Context {
             Event::ReactionRemove(_) => self.stats.event_counts.reaction_remove.inc(),
             Event::ReactionRemoveAll(_) => self.stats.event_counts.reaction_remove_all.inc(),
             Event::ReactionRemoveEmoji(_) => self.stats.event_counts.reaction_remove_emoji.inc(),
-            Event::UnavailableGuild(_) => self.stats.event_counts.unavailable_guild.inc(),
+            Event::UnavailableGuild(_) => {
+                self.stats
+                    .guild_counts
+                    .total
+                    .set(self.stats.cache_metrics.guilds.load(Relaxed) as i64);
+                self.stats
+                    .guild_counts
+                    .unavailable
+                    .set(self.stats.cache_metrics.unavailable_guilds.load(Relaxed) as i64);
+                self.stats.event_counts.unavailable_guild.inc()
+            }
             Event::UserUpdate(_) => self.stats.event_counts.user_update.inc(),
 
             Event::ShardConnecting(_) => self.shard_state_change(shard_id, ShardState::Connecting),
@@ -262,6 +301,10 @@ impl Context {
                     .total
                     .set(self.stats.cache_metrics.guilds.load(Relaxed) as i64);
                 self.stats
+                    .guild_counts
+                    .unavailable
+                    .set(self.stats.cache_metrics.unavailable_guilds.load(Relaxed) as i64);
+                self.stats
                     .user_counts
                     .total
                     .set(self.stats.cache_metrics.members.load(Relaxed) as i64);
@@ -269,10 +312,6 @@ impl Context {
                     .user_counts
                     .unique
                     .set(self.stats.cache_metrics.users.load(Relaxed) as i64);
-                self.stats
-                    .guild_counts
-                    .unavailable
-                    .set(self.stats.cache_metrics.unavailable_guilds.load(Relaxed) as i64);
                 self.shard_state_change(shard_id, ShardState::Ready)
             }
             Event::Resumed => self.shard_state_change(shard_id, ShardState::Ready),
