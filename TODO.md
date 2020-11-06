@@ -1,7 +1,6 @@
 
 **[TODO]**
 - Update taiko pp / stars
-- If error code of tracking notif is 10003, remove channel
 - `<nochoketaiko`
 
 **[Sometime]**
@@ -11,6 +10,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~If error code of tracking notif is 10003, remove channel~~ (20.11.06)
 - ~~Check on `<top Aphxemia -nm!`, should contain all scores~~ (20.11.06)
 - ~~Make `<link <url to profile>` work~~ (20.11.06)
 - ~~Fix defrosting `serde error: data did not match any variant of untagged enum CachedChannel` when twilight is on 0.2~~ (20.11.05)

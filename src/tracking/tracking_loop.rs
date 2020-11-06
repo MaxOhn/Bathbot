@@ -10,6 +10,10 @@ use rosu::{
 };
 use std::{collections::HashMap, sync::Arc};
 use tokio::time;
+use twilight_http::{
+    api_error::{ApiError, ErrorCode, GeneralApiError},
+    Error as TwilightError,
+};
 
 pub async fn tracking_loop(ctx: Arc<Context>) {
     let delay = time::Duration::from_secs(60);
@@ -155,9 +159,34 @@ pub async fn process_tracking(
             // Try to build and send the message
             match ctx.http.create_message(channel).embed(embed.clone()) {
                 Ok(msg_fut) => {
-                    if let Err(why) = msg_fut.await {
+                    let result = msg_fut.await;
+                    if let Err(TwilightError::Response { error, .. }) = result {
+                        if let ApiError::General(GeneralApiError {
+                            code: ErrorCode::UnknownChannel,
+                            ..
+                        }) = error
+                        {
+                            let result = ctx
+                                .tracking()
+                                .remove_channel(channel, None, ctx.psql())
+                                .await;
+                            if let Err(why) = result {
+                                warn!(
+                                    "Could not remove osu tracks from unknown channel {}: {}",
+                                    channel, why
+                                );
+                            } else {
+                                debug!("Removed osu tracking of unknown channel {}", channel);
+                            }
+                        } else {
+                            warn!(
+                                "Error from API while sending osu notif (channel {}): {}",
+                                channel, error
+                            )
+                        }
+                    } else if let Err(why) = result {
                         warn!(
-                            "Error while sending osu!tracking notif ({}): {}",
+                            "Error while sending osu notif (channel {}): {}",
                             channel, why
                         );
                     }
