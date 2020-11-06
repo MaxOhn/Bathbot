@@ -372,6 +372,8 @@ fn filter_scores(
                 Some(ModSelection::Exclude(mods)) => {
                     if mods.is_empty() && s.enabled_mods.is_empty() {
                         false
+                    } else if mods.is_empty() {
+                        true
                     } else {
                         !s.enabled_mods.contains(mods)
                     }
