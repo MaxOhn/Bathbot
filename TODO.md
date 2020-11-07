@@ -1,10 +1,11 @@
 
 **[TODO]**
 - Update taiko pp / stars
-- `<nochoketaiko`
+- Fix `<bg lb` members
 
 **[Sometime]**
-- `<nochokectb` (https://pakachan.github.io/osustuff/ppcalculator.html)
+- `<nochokesctb` (https://pakachan.github.io/osustuff/ppcalculator.html) (investigate)
+- `<nochokestaiko` (slider maps have no max combo)
 - Add `Icon from syedhassan - pngtree.com` to README
 - Write peppy a mail
 - Add proper readme and make project public

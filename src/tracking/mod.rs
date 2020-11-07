@@ -172,9 +172,10 @@ impl OsuTracking {
             iter::repeat_with(|| queue.pop().map(|(key, _)| key))
                 .take(amount as usize)
                 .flatten()
-                .map(|key| {
-                    let last_top_score = self.users.get(&key).unwrap().last_top_score;
-                    ((key.0, key.1), last_top_score)
+                .filter_map(|key| {
+                    self.users
+                        .get(&key)
+                        .map(|user| ((key.0, key.1), user.last_top_score))
                 })
                 .collect()
         };
@@ -212,10 +213,11 @@ impl OsuTracking {
                     self.users.remove(&key);
                 }
                 Some(false) => {
-                    let guard = self.users.get(&key).unwrap();
-                    let user = guard.value();
-                    psql.update_osu_tracking(user_id, mode, user.last_top_score, &user.channels)
-                        .await?
+                    if let Some(guard) = self.users.get(&key) {
+                        let user = guard.value();
+                        psql.update_osu_tracking(user_id, mode, user.last_top_score, &user.channels)
+                            .await?
+                    }
                 }
                 None => warn!("Should not be reachable"),
             }
