@@ -10,7 +10,6 @@ pub struct BGRankingPagination {
     msg: Message,
     pages: Pages,
     author_idx: Option<usize>,
-    global: bool,
     scores: Vec<(u64, u32)>,
     usernames: HashMap<u64, String>,
     ctx: Arc<Context>,
@@ -22,7 +21,7 @@ impl BGRankingPagination {
         msg: Message,
         author_idx: Option<usize>,
         scores: Vec<(u64, u32)>,
-        global: bool,
+        usernames: HashMap<u64, String>,
     ) -> Self {
         let per_page = 15;
         Self {
@@ -30,8 +29,7 @@ impl BGRankingPagination {
             pages: Pages::new(per_page, scores.len()),
             author_idx,
             scores,
-            usernames: HashMap::with_capacity(per_page),
-            global,
+            usernames,
             ctx,
         }
     }
@@ -80,11 +78,13 @@ impl Pagination for BGRankingPagination {
             .map(|(id, _)| id)
         {
             if !self.usernames.contains_key(id) {
-                let name = self
-                    .ctx
-                    .cache
-                    .user(UserId(*id))
-                    .map_or_else(|| String::from("Unknown user"), |user| user.name.to_owned());
+                let name = match self.ctx.cache.user(UserId(*id)) {
+                    Some(user) => user.name.to_owned(),
+                    None => match self.ctx.http.user(UserId(*id)).await {
+                        Ok(Some(user)) => user.name,
+                        Ok(None) | Err(_) => String::from("Unknown user"),
+                    },
+                };
                 self.usernames.insert(*id, name);
             }
         }
@@ -98,7 +98,6 @@ impl Pagination for BGRankingPagination {
         Ok(BGRankingEmbed::new(
             self.author_idx,
             scores,
-            self.global,
             self.pages.index + 1,
             (self.page(), self.pages.total_pages),
         ))

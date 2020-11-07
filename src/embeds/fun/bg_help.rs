@@ -54,12 +54,7 @@ impl BGHelpEmbed {
             ),
             (
                 "ranking / leaderboard / lb / stats".to_owned(),
-                format!(
-                    "Check out the leaderboard of this server.\n\
-                    Add the argument `global` or just `g` (e.g. `{prefix}bg lb g`) \
-                    to get the leaderboard across all servers",
-                    prefix = prefix
-                ),
+                "Check out the global leaderboard for amount of correct guesses".to_owned(),
                 false,
             ),
         ];

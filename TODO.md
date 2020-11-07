@@ -1,7 +1,6 @@
 
 **[TODO]**
 - Update taiko pp / stars
-- Fix `<bg lb` members
 
 **[Sometime]**
 - `<nochokesctb` (https://pakachan.github.io/osustuff/ppcalculator.html) (investigate)
@@ -11,6 +10,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Fix `<bg lb` users~~ (20.11.07)
 - ~~If error code of tracking notif is 10003, remove channel~~ (20.11.06)
 - ~~Check on `<top Aphxemia -nm!`, should contain all scores~~ (20.11.06)
 - ~~Make `<link <url to profile>` work~~ (20.11.06)
