@@ -117,8 +117,8 @@ pub trait Pagination: Sync + Sized {
     }
     fn process_data(&mut self, _data: &Self::PageData) {}
     async fn change_mode(&mut self) {}
-    async fn final_processing(mut self, _ctx: &Context) -> BotResult<()> {
-        Ok(())
+    async fn final_processing(mut self, _ctx: &Context) -> BotResult<bool> {
+        Ok(true)
     }
 
     // Don't implement anything else
@@ -141,19 +141,22 @@ pub trait Pagination: Sync + Sized {
                 Err(why) => warn!("Error while paginating: {}", why),
             }
         }
-        for emoji in Self::reactions() {
+        let (guild_id, channel_id, id) = {
             let msg = self.msg();
-            if msg.guild_id.is_none() {
-                ctx.http
-                    .delete_current_user_reaction(msg.channel_id, msg.id, emoji)
-                    .await?;
-            } else {
-                ctx.http
-                    .delete_all_reaction(msg.channel_id, msg.id, emoji)
-                    .await?;
+            (msg.guild_id, msg.channel_id, msg.id)
+        };
+        if self.final_processing(ctx).await? {
+            for emoji in Self::reactions() {
+                if guild_id.is_none() {
+                    ctx.http
+                        .delete_current_user_reaction(channel_id, id, emoji)
+                        .await?;
+                } else {
+                    ctx.http.delete_all_reaction(channel_id, id, emoji).await?;
+                }
             }
         }
-        self.final_processing(ctx).await
+        Ok(())
     }
     async fn next_page(&mut self, reaction: Reaction, ctx: &Context) -> BotResult<PageChange> {
         let change = match self.process_reaction(&reaction.emoji).await {

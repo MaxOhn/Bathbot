@@ -28,7 +28,7 @@ extern crate log;
 
 use clap::{App, Arg};
 use darkredis::ConnectionPool;
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use hyper::{
     service::{make_service_fn, service_fn},
     Body, Response,
@@ -143,6 +143,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         discord_links,
         bg_games: DashMap::new(),
         osu_tracking,
+        msgs_to_minimize: DashSet::new(),
     };
 
     // Shard-cluster config

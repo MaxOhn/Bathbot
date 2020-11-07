@@ -14,7 +14,7 @@ use crate::{
 };
 
 use darkredis::ConnectionPool;
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use rosu::Osu;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -25,7 +25,7 @@ use twilight_model::{
         payload::UpdateStatus,
         presence::{Activity, ActivityType, Status},
     },
-    id::{ChannelId, GuildId},
+    id::{ChannelId, GuildId, MessageId},
 };
 use twilight_standby::Standby;
 
@@ -67,6 +67,7 @@ pub struct ContextData {
     pub discord_links: DashMap<u64, String>,
     pub bg_games: DashMap<ChannelId, GameWrapper>,
     pub osu_tracking: OsuTracking,
+    pub msgs_to_minimize: DashSet<MessageId>,
 }
 
 impl Context {

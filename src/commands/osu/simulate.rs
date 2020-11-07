@@ -111,6 +111,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         .content("Simulated score:")?
         .embed(embed)?
         .await?;
+    ctx.store_msg(response.id);
 
     // Add map to database if its not in already
     if let Err(why) = ctx.psql().insert_beatmap(&map).await {
@@ -121,13 +122,15 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     // Minimize embed after delay
     tokio::spawn(async move {
         time::delay_for(Duration::from_secs(45)).await;
-        let embed = data.minimize().build().unwrap();
-        let _ = ctx
-            .http
-            .update_message(response.channel_id, response.id)
-            .embed(embed)
-            .unwrap()
-            .await;
+        if ctx.remove_msg(response.id) {
+            let embed = data.minimize().build().unwrap();
+            let _ = ctx
+                .http
+                .update_message(response.channel_id, response.id)
+                .embed(embed)
+                .unwrap()
+                .await;
+        }
     });
     Ok(())
 }

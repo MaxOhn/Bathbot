@@ -55,19 +55,6 @@ pub async fn handle_event(
                     shard_id
                 );
             } else {
-                let fut = ctx.set_shard_activity(
-                    shard_id,
-                    Status::DoNotDisturb,
-                    ActivityType::Watching,
-                    "Re-gathering discord data, might take a few minutes",
-                );
-                match fut.await {
-                    Ok(_) => info!("Updated game for shard {}'s session invalidation", shard_id),
-                    Err(why) => error!(
-                        "Failed to set shard activity at GatewayInvalidateSession event for shard {}: {}",
-                        shard_id, why
-                    ),
-                }
                 return Err(Error::InvalidSession(shard_id));
             }
         }
@@ -89,7 +76,6 @@ pub async fn handle_event(
                 }
             }
         }
-
         Event::ReactionRemove(reaction_remove) => {
             let reaction = &reaction_remove.0;
             if let Some(guild_id) = reaction.guild_id {
@@ -109,6 +95,12 @@ pub async fn handle_event(
         // #############
         // ## Message ##
         // #############
+        Event::MessageDelete(msg) => {
+            ctx.remove_msg(msg.id);
+        }
+        Event::MessageDeleteBulk(msgs) => msgs.ids.into_iter().for_each(|id| {
+            ctx.remove_msg(id);
+        }),
         Event::MessageCreate(msg) => {
             ctx.stats.new_message(&ctx, msg.deref());
 

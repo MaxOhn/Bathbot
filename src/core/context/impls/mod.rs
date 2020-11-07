@@ -11,7 +11,7 @@ use crate::{Context, OsuTracking};
 use twilight_http::error::Error as HttpError;
 use twilight_model::{
     channel::{Message, Reaction},
-    id::{ChannelId, RoleId},
+    id::{ChannelId, MessageId, RoleId},
 };
 
 impl Context {
@@ -43,5 +43,13 @@ impl Context {
         } else {
             req.await
         }
+    }
+
+    pub fn store_msg(&self, msg: MessageId) {
+        self.data.msgs_to_minimize.insert(msg);
+    }
+
+    pub fn remove_msg(&self, msg: MessageId) -> bool {
+        self.data.msgs_to_minimize.remove(&msg).is_some()
     }
 }

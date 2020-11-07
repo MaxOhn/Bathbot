@@ -193,6 +193,7 @@ async fn recent_main(
         });
         return Ok(());
     }
+    ctx.store_msg(response.id);
 
     // Pagination
     let pagination = RecentPagination::new(
