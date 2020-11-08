@@ -3372,7 +3372,7 @@ dependencies = [
 [[package]]
 name = "twilight-cache-inmemory"
 version = "0.2.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#2a298ec1531048a57183da5e2d2f1392e824f547"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#37155e10fa14b5ae2f645d565fec6ffccc470438"
 dependencies = [
  "bitflags",
  "darkredis",
@@ -3389,7 +3389,7 @@ dependencies = [
 [[package]]
 name = "twilight-embed-builder"
 version = "0.2.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#2a298ec1531048a57183da5e2d2f1392e824f547"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#37155e10fa14b5ae2f645d565fec6ffccc470438"
 dependencies = [
  "twilight-model",
 ]
@@ -3397,7 +3397,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway"
 version = "0.2.1"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#2a298ec1531048a57183da5e2d2f1392e824f547"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#37155e10fa14b5ae2f645d565fec6ffccc470438"
 dependencies = [
  "async-tungstenite",
  "bitflags",
@@ -3419,7 +3419,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway-queue"
 version = "0.2.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#2a298ec1531048a57183da5e2d2f1392e824f547"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#37155e10fa14b5ae2f645d565fec6ffccc470438"
 dependencies = [
  "futures-channel",
  "futures-util",
@@ -3431,7 +3431,7 @@ dependencies = [
 [[package]]
 name = "twilight-http"
 version = "0.2.1"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#2a298ec1531048a57183da5e2d2f1392e824f547"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#37155e10fa14b5ae2f645d565fec6ffccc470438"
 dependencies = [
  "bytes 0.5.6",
  "futures-channel",
@@ -3450,7 +3450,7 @@ dependencies = [
 [[package]]
 name = "twilight-model"
 version = "0.2.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#2a298ec1531048a57183da5e2d2f1392e824f547"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#37155e10fa14b5ae2f645d565fec6ffccc470438"
 dependencies = [
  "bitflags",
  "serde",
@@ -3463,7 +3463,7 @@ dependencies = [
 [[package]]
 name = "twilight-standby"
 version = "0.2.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#2a298ec1531048a57183da5e2d2f1392e824f547"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#37155e10fa14b5ae2f645d565fec6ffccc470438"
 dependencies = [
  "dashmap",
  "futures-channel",

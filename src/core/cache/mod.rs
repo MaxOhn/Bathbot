@@ -26,6 +26,7 @@ impl Cache {
             | EventType::MESSAGE_CREATE
             | EventType::MESSAGE_DELETE
             | EventType::MESSAGE_DELETE_BULK
+            | EventType::MESSAGE_UPDATE
             | EventType::REACTION_ADD
             | EventType::REACTION_REMOVE
             | EventType::REACTION_REMOVE_ALL
