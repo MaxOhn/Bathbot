@@ -53,7 +53,16 @@ async fn recent_main(
     let (user, scores) = match join_result {
         Ok((user, scores)) => {
             if scores.is_empty() {
-                let content = format!("No recent plays found for user `{}`", name);
+                let content = format!(
+                    "No recent {}plays found for user `{}`",
+                    match mode {
+                        GameMode::STD => "",
+                        GameMode::TKO => "taiko ",
+                        GameMode::CTB => "ctb ",
+                        GameMode::MNA => "mania ",
+                    },
+                    name
+                );
                 return msg.error(&ctx, content).await;
             } else if let Some(user) = user {
                 (user, scores)

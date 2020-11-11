@@ -25,10 +25,10 @@ use twilight_model::channel::Message;
      The `-s` argument is only relevant for mania."
 )]
 #[usage(
-    "[map url / map id] [+mods] [-a acc%] [-300 #300s] [-100 #100s] [-50 #50s] [-m #misses] [-s score]"
+    "[map url / map id] [+mods] [-a acc%] [-c combo] [-300 #300s] [-100 #100s] [-50 #50s] [-m #misses] [-s score]"
 )]
 #[example(
-    "1980365 +hddt -a 99.3 -300 1422 -50 2 -m 1",
+    "1980365 +hddt -a 99.3 -c 1234 -300 1422 -50 2 -m 1",
     "https://osu.ppy.sh/beatmapsets/948199#osu/1980365 -a 97.56"
 )]
 #[aliases("s")]

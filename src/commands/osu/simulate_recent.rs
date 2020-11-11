@@ -41,7 +41,16 @@ async fn simulate_recent_main(
         Ok(mut scores) => match scores.pop() {
             Some(score) => score,
             None => {
-                let content = format!("No recent plays found for user `{}`", name);
+                let content = format!(
+                    "No recent {}plays found for user `{}`",
+                    match mode {
+                        GameMode::STD => "",
+                        GameMode::TKO => "taiko ",
+                        GameMode::CTB => "ctb ",
+                        GameMode::MNA => "mania ",
+                    },
+                    name
+                );
                 return msg.error(&ctx, content).await;
             }
         },
@@ -107,7 +116,9 @@ async fn simulate_recent_main(
 
 #[command]
 #[short_desc("Unchoke a user's most recent play")]
-#[usage("[username] [+mods] [-a acc%] [-300 #300s] [-100 #100s] [-50 #50s] [-m #misses]")]
+#[usage(
+    "[username] [+mods] [-a acc%] [-c combo] [-300 #300s] [-100 #100s] [-50 #50s] [-m #misses]"
+)]
 #[example("badewanne3 +hr -a 99.3 -300 1422 -m 1")]
 #[aliases("sr")]
 pub async fn simulaterecent(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {

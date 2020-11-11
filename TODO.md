@@ -1,6 +1,8 @@
 
 **[TODO]**
 - Update taiko pp / stars
+- Improve msg caching for paginated commands
+- Make use of api endpoint `https://osekai.net/medals/apiv2?medal=True+Torment`
 
 **[Sometime]**
 - `<nochokesctb` (https://pakachan.github.io/osustuff/ppcalculator.html) (investigate)
