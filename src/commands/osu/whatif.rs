@@ -6,7 +6,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::{backend::BestRequest, models::GameMode};
+use rosu::model::GameMode;
 use std::{collections::HashMap, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -34,14 +34,9 @@ async fn whatif_main(
     }
 
     // Retrieve the user and their top scores
-    let scores_fut = match BestRequest::with_username(&name) {
-        Ok(req) => req.mode(mode).limit(100).queue(ctx.osu()),
-        Err(_) => {
-            let content = format!("Could not build request for osu name `{}`", name);
-            return msg.error(&ctx, content).await;
-        }
-    };
-    let join_result = tokio::try_join!(ctx.osu_user(&name, mode), scores_fut);
+    let user_fut = ctx.osu().user(name.as_str()).mode(mode);
+    let scores_fut = ctx.osu().top_scores(name.as_str()).mode(mode).limit(100);
+    let join_result = tokio::try_join!(user_fut, scores_fut);
     let (user, scores) = match join_result {
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {

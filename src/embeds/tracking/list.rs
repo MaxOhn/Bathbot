@@ -1,7 +1,7 @@
 use crate::{embeds::EmbedData, util::constants::DESCRIPTION_SIZE};
 
 use itertools::Itertools;
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use std::fmt::Write;
 
 pub struct TrackListEmbed {

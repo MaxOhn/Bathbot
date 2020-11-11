@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use serde_json::Value;
 use sqlx::{types::Json, ColumnIndex, Decode, Error, FromRow, Row, Type};
 use std::{collections::HashMap, str::FromStr};

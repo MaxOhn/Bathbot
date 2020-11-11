@@ -9,7 +9,7 @@ use crate::{
 };
 
 use chrono::Utc;
-use rosu::models::{GameMode, User};
+use rosu::model::{GameMode, User};
 use std::{cmp::Reverse, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 

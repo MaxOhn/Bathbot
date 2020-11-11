@@ -10,10 +10,7 @@ use crate::{
 use futures::future::{try_join_all, TryFutureExt};
 use itertools::Itertools;
 use rayon::prelude::*;
-use rosu::{
-    backend::requests::BeatmapRequest,
-    models::{GameMode, Score, User},
-};
+use rosu::model::{GameMode, Score, User};
 use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
@@ -60,10 +57,12 @@ async fn common_main(
     }
 
     // Retrieve all users
-    let user_futs = names
-        .iter()
-        .enumerate()
-        .map(|(i, name)| ctx.osu_user(&name, mode).map_ok(move |user| (i, user)));
+    let user_futs = names.iter().enumerate().map(|(i, name)| {
+        ctx.osu()
+            .user(name.as_str())
+            .mode(mode)
+            .map_ok(move |user| (i, user))
+    });
     let users: HashMap<u32, User> = match try_join_all(user_futs).await {
         Ok(users) => match users.iter().find(|(_, user)| user.is_none()) {
             Some((idx, _)) => {
@@ -88,7 +87,9 @@ async fn common_main(
 
     // Retrieve each user's top scores
     let score_futs = users.iter().map(|(_, user)| {
-        user.get_top_scores(ctx.osu(), 100, mode)
+        user.get_top_scores(ctx.osu())
+            .limit(100)
+            .mode(mode)
             .map_ok(move |scores| (user.user_id, scores))
     });
     let mut all_scores: HashMap<u32, Vec<Score>> = match try_join_all(score_futs).await {
@@ -169,12 +170,9 @@ async fn common_main(
     let missing_maps: Option<Vec<_>> = if map_ids.is_empty() {
         None
     } else {
-        let map_futs = map_ids.into_iter().map(|id| {
-            BeatmapRequest::new()
-                .map_id(id)
-                .queue_single(ctx.osu())
-                .map_ok(move |map| (id, map))
-        });
+        let map_futs = map_ids
+            .into_iter()
+            .map(|id| ctx.osu().beatmap().map_id(id).map_ok(move |map| (id, map)));
         match try_join_all(map_futs).await {
             Ok(maps_result) => match maps_result.par_iter().find_any(|(_, map)| map.is_none()) {
                 Some((id, _)) => {

@@ -1,7 +1,7 @@
 use super::deserialize::{adjust_mode, expect_negative_u32};
 
 use chrono::{Date, DateTime, NaiveDate, Utc};
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use serde::{de, Deserialize, Deserializer};
 use serde_json::Value;
 use std::{collections::HashMap, fmt, ops::Deref};

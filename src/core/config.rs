@@ -1,7 +1,7 @@
 use crate::{BotResult, Error};
 
 use once_cell::sync::OnceCell;
-use rosu::models::{GameMode, Grade};
+use rosu::model::{GameMode, Grade};
 use serde::Deserialize;
 use std::{collections::HashMap, path::PathBuf, str::FromStr};
 use tokio::fs;

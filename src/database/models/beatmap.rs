@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
-use rosu::models::Beatmap;
+use rosu::model::{ApprovalStatus, Beatmap};
 use sqlx::{postgres::PgRow, FromRow, Row};
+use std::convert::TryInto;
 
 #[derive(Debug, FromRow)]
 pub struct DBMap {
@@ -78,7 +79,13 @@ impl<'c> FromRow<'c, PgRow> for BeatmapWrapper {
         map.max_combo = row.get("max_combo");
         map.genre = (genre as u8).into();
         map.language = (language as u8).into();
-        map.approval_status = status.into();
+        map.approval_status = match status.try_into() {
+            Ok(status) => status,
+            Err(why) => {
+                warn!("{}", why);
+                ApprovalStatus::WIP
+            }
+        };
         map.approved_date = row.get("approved_date");
         Ok(Self(map))
     }

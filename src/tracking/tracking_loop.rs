@@ -4,10 +4,7 @@ use crate::{
 };
 
 use futures::future::{join_all, FutureExt};
-use rosu::{
-    backend::{BestRequest, UserRequest},
-    models::{Beatmap, GameMode, Score, User},
-};
+use rosu::model::{Beatmap, GameMode, Score, User};
 use std::{collections::HashMap, sync::Arc};
 use tokio::time;
 use twilight_http::{
@@ -28,10 +25,10 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
         };
         // Build top score requests for each
         let score_futs = tracked.keys().map(|(user_id, mode)| {
-            BestRequest::with_user_id(*user_id)
+            ctx.osu()
+                .top_scores(*user_id)
                 .mode(*mode)
                 .limit(100)
-                .queue(ctx.osu())
                 .map(move |result| (*user_id, *mode, result))
         });
         // Iterate over the request responses
@@ -108,8 +105,12 @@ pub async fn process_tracking(
         if !maps.contains_key(&map_id) {
             match ctx.psql().get_beatmap(map_id).await {
                 Ok(map) => maps.insert(map_id, map),
-                Err(_) => match score.get_beatmap(ctx.osu()).await {
-                    Ok(map) => maps.insert(map_id, map),
+                Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
+                    Ok(Some(map)) => maps.insert(map_id, map),
+                    Ok(None) => {
+                        warn!("Beatmap id {} was not found for tracking", map_id);
+                        continue;
+                    }
                     Err(why) => {
                         warn!("Error while retrieving tracking map id {}: {}", map_id, why);
                         continue;
@@ -122,25 +123,20 @@ pub async fn process_tracking(
         let user = match (user, user_value.as_ref()) {
             (Some(user), _) => user,
             (None, Some(user)) => user,
-            (None, None) => {
-                let user_fut = UserRequest::with_user_id(user_id)
-                    .mode(mode)
-                    .queue_single(ctx.osu());
-                match user_fut.await {
-                    Ok(Some(user)) => {
-                        user_value = Some(user);
-                        user_value.as_ref().unwrap()
-                    }
-                    Ok(None) => {
-                        warn!("Empty result while retrieving tracking user {}", user_id);
-                        continue;
-                    }
-                    Err(why) => {
-                        warn!("Error while retrieving tracking user {}: {}", user_id, why);
-                        continue;
-                    }
+            (None, None) => match ctx.osu().user(user_id).mode(mode).await {
+                Ok(Some(user)) => {
+                    user_value = Some(user);
+                    user_value.as_ref().unwrap()
                 }
-            }
+                Ok(None) => {
+                    warn!("Empty result while retrieving tracking user {}", user_id);
+                    continue;
+                }
+                Err(why) => {
+                    warn!("Error while retrieving tracking user {}: {}", user_id, why);
+                    continue;
+                }
+            },
         };
         // Build embed
         let data = TrackNotificationEmbed::new(ctx, user, score, map, idx + 1).await;

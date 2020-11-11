@@ -4,7 +4,7 @@ use crate::{
     BotResult, Database,
 };
 
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use sqlx::Row;
 use std::{collections::HashSet, fmt::Write};
 use twilight_model::id::UserId;

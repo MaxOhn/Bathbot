@@ -3,7 +3,7 @@ use crate::{
     util::osu::grade_emote,
 };
 
-use rosu::models::{GameMode, GameMods, Grade, Score};
+use rosu::model::{GameMode, GameMods, Grade, Score};
 use std::fmt::Write;
 
 pub trait ScoreExt: Sized {

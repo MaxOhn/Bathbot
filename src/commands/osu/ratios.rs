@@ -10,7 +10,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::{backend::BestRequest, models::GameMode};
+use rosu::model::GameMode;
 use std::{collections::HashMap, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -33,16 +33,10 @@ async fn ratios(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
 
     // Retrieve the user and their top scores
-    let req = match BestRequest::with_username(&name) {
-        Ok(req) => req,
-        Err(_) => {
-            let content = format!("Could not build request for osu name `{}`", name);
-            return msg.error(&ctx, content).await;
-        }
-    };
+    let scores_fut = ctx.osu().top_scores(name.as_str());
     let join_result = tokio::try_join!(
-        ctx.osu_user(&name, GameMode::MNA),
-        req.mode(GameMode::MNA).limit(100).queue(ctx.osu())
+        ctx.osu().user(name.as_str()).mode(GameMode::MNA),
+        scores_fut.mode(GameMode::MNA).limit(100)
     );
     let (user, scores) = match join_result {
         Ok((Some(user), scores)) => (user, scores),

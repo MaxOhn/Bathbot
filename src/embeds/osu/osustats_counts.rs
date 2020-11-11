@@ -3,7 +3,7 @@ use crate::{
     util::constants::AVATAR_URL,
 };
 
-use rosu::models::{GameMode, User};
+use rosu::model::{GameMode, User};
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 

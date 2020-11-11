@@ -58,7 +58,7 @@ use crate::{
     },
 };
 
-use rosu::models::{Beatmap, GameMods, User};
+use rosu::model::{Beatmap, GameMods, User};
 use std::fmt::Write;
 
 pub fn get_user_author(user: &User) -> Author {

@@ -11,12 +11,9 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::{
-    backend::RecentRequest,
-    models::{
-        ApprovalStatus::{Approved, Loved, Qualified, Ranked},
-        GameMode,
-    },
+use rosu::model::{
+    ApprovalStatus::{Approved, Loved, Qualified, Ranked},
+    GameMode,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -39,18 +36,9 @@ async fn recent_main(
     };
 
     // Retrieve the user and their recent scores
-    let req = match RecentRequest::with_username(&name) {
-        Ok(req) => req,
-        Err(_) => {
-            let content = format!("Could not build request for osu name `{}`", name);
-            return msg.error(&ctx, content).await;
-        }
-    };
-    let join_result = tokio::try_join!(
-        ctx.osu_user(&name, mode),
-        req.mode(mode).limit(50).queue(ctx.osu())
-    );
-    let (user, scores) = match join_result {
+    let user_fut = ctx.osu().user(name.as_str()).mode(mode);
+    let scores_fut = ctx.osu().recent_scores(name.as_str()).mode(mode).limit(50);
+    let (user, scores) = match tokio::try_join!(user_fut, scores_fut) {
         Ok((user, scores)) => {
             if scores.is_empty() {
                 let content = format!(
@@ -99,8 +87,12 @@ async fn recent_main(
     let first_id = first_score.beatmap_id.unwrap();
     #[allow(clippy::map_entry)]
     if !maps.contains_key(&first_id) {
-        let map = match first_score.get_beatmap(ctx.osu()).await {
-            Ok(map) => map,
+        let map = match ctx.osu().beatmap().map_id(first_id).await {
+            Ok(Some(map)) => map,
+            Ok(None) => {
+                let content = format!("The API returned no beatmap for map id {}", first_id);
+                return msg.error(&ctx, content).await;
+            }
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_API_ISSUE).await;
                 return Err(why.into());
@@ -114,14 +106,14 @@ async fn recent_main(
     let global_fut = async {
         match first_map.approval_status {
             Ranked | Loved | Qualified | Approved => {
-                Some(first_map.get_global_leaderboard(ctx.osu(), 50).await)
+                Some(first_map.get_global_leaderboard(ctx.osu()).limit(50).await)
             }
             _ => None,
         }
     };
     let best_fut = async {
         match first_map.approval_status {
-            Ranked => Some(user.get_top_scores(ctx.osu(), 100, mode).await),
+            Ranked => Some(user.get_top_scores(ctx.osu()).limit(100).mode(mode).await),
             _ => None,
         }
     };

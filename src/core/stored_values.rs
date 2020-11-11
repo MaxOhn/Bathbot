@@ -1,7 +1,7 @@
 use crate::{BotResult, Database};
 
 use dashmap::DashMap;
-use rosu::models::GameMods;
+use rosu::model::GameMods;
 use std::collections::HashMap;
 
 pub type Values = DashMap<u32, HashMap<GameMods, (f32, bool)>>;

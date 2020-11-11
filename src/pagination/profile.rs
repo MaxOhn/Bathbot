@@ -3,7 +3,7 @@ use super::{MainReactions, Pages, Pagination};
 use crate::{commands::osu::profile_embed, embeds::ProfileEmbed, BotResult, Context, Error};
 
 use async_trait::async_trait;
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use std::{collections::HashMap, sync::Arc};
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{channel::Message, id::ChannelId};

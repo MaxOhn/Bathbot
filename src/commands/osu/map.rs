@@ -16,10 +16,7 @@ use chrono::Duration;
 use image::{png::PngEncoder, ColorType, DynamicImage};
 use plotters::prelude::*;
 use rayon::prelude::*;
-use rosu::{
-    backend::requests::BeatmapRequest,
-    models::{GameMode, GameMods},
-};
+use rosu::model::{GameMode, GameMods};
 use std::{cmp::Ordering, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -79,8 +76,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
                 Ok(map) => (map.beatmapset_id, Some(id)),
                 Err(_) => {
                     // If not in DB, request through API
-                    let map_req = BeatmapRequest::new().map_id(id);
-                    match map_req.queue_single(ctx.osu()).await {
+                    match ctx.osu().beatmap().map_id(id).await {
                         Ok(Some(map)) => (map.beatmapset_id, Some(id)),
                         Ok(None) => (id, None),
                         Err(why) => {
@@ -95,8 +91,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         MapIdType::Set(id) => (id, None),
     };
     // Request mapset through API
-    let map_req = BeatmapRequest::new().mapset_id(mapset_id);
-    let maps = match map_req.queue(ctx.osu()).await {
+    let maps = match ctx.osu().beatmaps().mapset_id(mapset_id).await {
         Ok(mut maps) => {
             // For mania sort first by mania key, then star rating
             if maps.first().map(|map| map.mode).unwrap_or_default() == GameMode::MNA {

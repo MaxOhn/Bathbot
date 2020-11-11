@@ -12,7 +12,7 @@ use crate::{
     Context,
 };
 
-use rosu::models::User;
+use rosu::model::User;
 use std::{collections::BTreeMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 

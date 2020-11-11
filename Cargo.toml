@@ -78,8 +78,9 @@ default_features = false
 features = ["cookies"]
 
 [dependencies.rosu]
-version = "0.3.3"
-# git = "https://github.com/MaxOhn/rosu"
+# version = "0.3.3"
+git = "https://github.com/MaxOhn/rosu"
+branch = "api-rewrite"
 features = ["cache", "metrics"]
 
 [dependencies.scraper]

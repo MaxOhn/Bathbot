@@ -2,7 +2,7 @@ use crate::{core::Values, BotResult, Database};
 
 use dashmap::DashMap;
 use rayon::prelude::*;
-use rosu::models::GameMods;
+use rosu::model::GameMods;
 use sqlx::{types::Json, Row};
 use std::collections::HashMap;
 

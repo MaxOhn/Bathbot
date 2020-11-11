@@ -1,6 +1,6 @@
 use super::deserialize::adjust_mode;
 
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use serde::{Deserialize, Deserializer};
 use std::hash::{Hash, Hasher};
 

@@ -11,7 +11,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::models::{Beatmap, GameMode, GameMods, Score};
+use rosu::model::{Beatmap, GameMode, GameMods, Score};
 use std::fmt::Write;
 use twilight_embed_builder::{builder::EmbedBuilder, image_source::ImageSource};
 use twilight_model::channel::embed::EmbedField;

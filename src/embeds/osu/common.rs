@@ -1,6 +1,6 @@
 use crate::{embeds::EmbedData, util::constants::OSU_BASE};
 
-use rosu::models::{Beatmap, Score, User};
+use rosu::model::{Beatmap, Score, User};
 use std::{collections::HashMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 

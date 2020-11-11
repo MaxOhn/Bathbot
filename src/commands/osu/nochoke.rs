@@ -13,7 +13,7 @@ use crate::{
 };
 
 use futures::future::try_join_all;
-use rosu::{backend::requests::BestRequest, models::GameMode};
+use rosu::model::GameMode;
 use std::{cmp::Ordering, collections::HashMap, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -36,14 +36,13 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     let miss_limit = args.number;
 
     // Retrieve the user and their top scores
-    let scores_fut = match BestRequest::with_username(&name) {
-        Ok(req) => req.mode(GameMode::STD).limit(100).queue(ctx.osu()),
-        Err(_) => {
-            let content = format!("Could not build request for osu name `{}`", name);
-            return msg.error(&ctx, content).await;
-        }
-    };
-    let join_result = tokio::try_join!(ctx.osu_user(&name, GameMode::STD), scores_fut);
+    let user_fut = ctx.osu().user(name.as_str()).mode(GameMode::STD);
+    let scores_fut = ctx
+        .osu()
+        .top_scores(name.as_str())
+        .mode(GameMode::STD)
+        .limit(100);
+    let join_result = tokio::try_join!(user_fut, scores_fut);
     let (user, scores) = match join_result {
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
@@ -94,8 +93,12 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         let map = if maps.contains_key(&map_id) {
             maps.remove(&map_id).unwrap()
         } else {
-            let map = match score.get_beatmap(ctx.osu()).await {
-                Ok(map) => map,
+            let map = match ctx.osu().beatmap().map_id(map_id).await {
+                Ok(Some(map)) => map,
+                Ok(None) => {
+                    let content = format!("The API returned no beatmap for map id {}", map_id);
+                    return msg.error(&ctx, content).await;
+                }
                 Err(why) => {
                     let _ = msg.error(&ctx, OSU_API_ISSUE).await;
                     return Err(why.into());

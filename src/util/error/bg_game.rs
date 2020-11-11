@@ -1,5 +1,5 @@
 use image::ImageError;
-use rosu::{models::GameMode, OsuError};
+use rosu::{model::GameMode, OsuError};
 use std::{error::Error as StdError, fmt};
 use tokio::io::Error as TokioIOError;
 use tokio::time::Elapsed;

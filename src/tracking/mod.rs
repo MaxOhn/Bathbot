@@ -7,7 +7,7 @@ use crate::{database::TrackingUser, BotResult, Database};
 use chrono::{DateTime, Duration, Utc};
 use dashmap::DashMap;
 use priority_queue::PriorityQueue;
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use std::{
     cmp::Reverse,
     collections::HashMap,

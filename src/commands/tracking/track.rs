@@ -7,7 +7,7 @@ use crate::{
 
 use chrono::Utc;
 use futures::future::{try_join_all, TryFutureExt};
-use rosu::{backend::UserRequest, models::GameMode};
+use rosu::model::GameMode;
 use std::{collections::HashSet, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -17,11 +17,6 @@ async fn track_main(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    // let guild_id = msg.guild_id.unwrap().0;
-    // if guild_id != 277469642908237826 && guild_id != 297072529426612224 {
-    //     let content = "Top score tracking is currently in its testing phase, hence unavailable.";
-    //     return msg.error(&ctx, content).await;
-    // }
     let args = match MultNameLimitArgs::new(&ctx, args, 10) {
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
@@ -48,10 +43,9 @@ async fn track_main(
 
     // Retrieve all users
     let user_futs = names.into_iter().map(|name| {
-        UserRequest::with_username(&name)
-            .unwrap_or_else(|why| panic!("Invalid username `{}`: {}", name, why))
+        ctx.osu()
+            .user(name.as_str())
             .mode(mode)
-            .queue_single(ctx.osu())
             .map_ok(move |user| (name, user))
     });
     let users: Vec<(u32, String)> = match try_join_all(user_futs).await {

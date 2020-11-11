@@ -8,7 +8,7 @@ use crate::{
     Args, BotResult, Context,
 };
 
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use std::sync::Arc;
 use tokio::{stream::StreamExt, time::Duration};
 use twilight_http::request::channel::reaction::RequestReactionType;

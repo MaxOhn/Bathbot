@@ -31,8 +31,7 @@ use reqwest::{
     multipart::Form,
     Client, Response,
 };
-use rosu::models::User;
-use rosu::models::{GameMode, GameMods};
+use rosu::model::{GameMode, GameMods, User};
 use scraper::{Html, Node, Selector};
 use serde_json::Value;
 use std::{collections::HashSet, convert::TryFrom, fmt::Write, hash::Hash, num::NonZeroU32};

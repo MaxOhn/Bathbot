@@ -9,7 +9,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -26,7 +26,7 @@ async fn mostplayed(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     };
 
     // Retrieve the user
-    let user = match ctx.osu_user(&name, GameMode::STD).await {
+    let user = match ctx.osu().user(name.as_str()).mode(GameMode::STD).await {
         Ok(Some(user)) => user,
         Ok(None) => {
             let content = format!("User `{}` was not found", name);

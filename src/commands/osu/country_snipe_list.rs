@@ -6,7 +6,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -32,7 +32,7 @@ use twilight_model::channel::Message;
 async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     // Retrieve author's osu user to check if they're in the list
     let osu_user = match ctx.get_link(msg.author.id.0) {
-        Some(name) => match ctx.osu_user(&name, GameMode::STD).await {
+        Some(name) => match ctx.osu().user(name.as_str()).mode(GameMode::STD).await {
             Ok(Some(user)) => Some(user),
             Ok(None) => {
                 let content = format!("Could not find user `{}`", name);

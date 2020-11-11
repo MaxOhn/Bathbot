@@ -5,7 +5,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -20,7 +20,7 @@ async fn osustats_main(
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
-    let user = match ctx.osu_user(&name, mode).await {
+    let user = match ctx.osu().user(name.as_str()).mode(mode).await {
         Ok(Some(user)) => user,
         Ok(None) => {
             let content = format!("Could not find user `{}`", name);

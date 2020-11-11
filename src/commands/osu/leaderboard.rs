@@ -11,7 +11,6 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::backend::requests::BeatmapRequest;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -63,24 +62,21 @@ async fn leaderboard_main(
     // Retrieving the beatmap
     let map = match ctx.psql().get_beatmap(map_id).await {
         Ok(map) => map,
-        Err(_) => {
-            let map_req = BeatmapRequest::new().map_id(map_id);
-            match map_req.queue_single(ctx.osu()).await {
-                Ok(Some(map)) => map,
-                Ok(None) => {
-                    let content = format!(
-                        "Could not find beatmap with id `{}`. \
+        Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
+            Ok(Some(map)) => map,
+            Ok(None) => {
+                let content = format!(
+                    "Could not find beatmap with id `{}`. \
                         Did you give me a mapset id instead of a map id?",
-                        map_id
-                    );
-                    return msg.error(&ctx, content).await;
-                }
-                Err(why) => {
-                    let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-                    return Err(why.into());
-                }
+                    map_id
+                );
+                return msg.error(&ctx, content).await;
             }
-        }
+            Err(why) => {
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+                return Err(why.into());
+            }
+        },
     };
 
     // Retrieve the map's leaderboard

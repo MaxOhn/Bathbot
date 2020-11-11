@@ -6,7 +6,7 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use rosu::models::User;
+use rosu::model::User;
 use std::{collections::BTreeMap, iter::Extend, sync::Arc};
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::channel::Message;

@@ -8,7 +8,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -34,7 +34,7 @@ async fn bws(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         let content = "Given rank must be positive";
         return msg.error(&ctx, content).await;
     }
-    let user = match ctx.osu_user(&name, mode).await {
+    let user = match ctx.osu().user(name.as_str()).mode(mode).await {
         Ok(Some(user)) => user,
         Ok(None) => {
             let content = format!("User `{}` was not found", name);

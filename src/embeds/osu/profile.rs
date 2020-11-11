@@ -11,7 +11,7 @@ use crate::{
 };
 
 use chrono::Utc;
-use rosu::models::{GameMode, Grade, User};
+use rosu::model::{GameMode, Grade, User};
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 

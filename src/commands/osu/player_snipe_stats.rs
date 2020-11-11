@@ -8,10 +8,7 @@ use crate::{
 use chrono::{Date, Datelike, Utc};
 use image::{png::PngEncoder, ColorType};
 use plotters::prelude::*;
-use rosu::{
-    backend::{BeatmapRequest, ScoreRequest},
-    models::GameMode,
-};
+use rosu::model::GameMode;
 use std::{collections::BTreeMap, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -32,7 +29,7 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
-    let user = match ctx.osu_user(&name, GameMode::STD).await {
+    let user = match ctx.osu().user(name.as_str()).mode(GameMode::STD).await {
         Ok(Some(user)) => user,
         Ok(None) => {
             let content = format!("Could not find user `{}`", name);
@@ -79,14 +76,12 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     {
         let oldest = player.oldest_first.as_ref().unwrap();
         let map_id = oldest.beatmap_id;
-        let score_req = ScoreRequest::with_map_id(map_id)
-            .user_id(player.user_id)
-            .mode(GameMode::STD)
-            .queue(ctx.osu());
-        let map_req = BeatmapRequest::new()
-            .map_id(map_id)
-            .mode(GameMode::STD)
-            .queue_single(ctx.osu());
+        let score_req = ctx
+            .osu()
+            .scores(map_id)
+            .user(player.user_id)
+            .mode(GameMode::STD);
+        let map_req = ctx.osu().beatmap().map_id(map_id).mode(GameMode::STD);
         match tokio::try_join!(score_req, map_req) {
             Ok((scores, Some(map))) => {
                 // Take the score with the date closest to the target

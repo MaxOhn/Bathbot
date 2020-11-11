@@ -1,5 +1,5 @@
 use chrono::{offset::TimeZone, DateTime, Utc};
-use rosu::models::{ApprovalStatus, GameMode, GameMods, Grade};
+use rosu::model::{ApprovalStatus, GameMode, GameMods, Grade};
 use serde::{de, Deserialize, Deserializer};
 use std::{convert::TryFrom, str::FromStr};
 
@@ -45,7 +45,7 @@ pub fn num_to_mode<'de, D: Deserializer<'de>>(d: D) -> Result<GameMode, D::Error
 
 pub fn str_to_approved<'de, D: Deserializer<'de>>(d: D) -> Result<ApprovalStatus, D::Error> {
     let num: i8 = Deserialize::deserialize(d)?;
-    Ok(ApprovalStatus::from(num))
+    ApprovalStatus::try_from(num).map_err(de::Error::custom)
 }
 
 pub fn adjust_mods<'de, D: Deserializer<'de>>(d: D) -> Result<GameMods, D::Error> {
@@ -55,7 +55,7 @@ pub fn adjust_mods<'de, D: Deserializer<'de>>(d: D) -> Result<GameMods, D::Error
     }
     let mods = s
         .split(',')
-        .map(GameMods::try_from)
+        .map(GameMods::from_str)
         .collect::<Result<Vec<GameMods>, _>>()
         .map_err(de::Error::custom)?
         .into_iter()
@@ -65,7 +65,7 @@ pub fn adjust_mods<'de, D: Deserializer<'de>>(d: D) -> Result<GameMods, D::Error
 
 pub fn str_to_grade<'de, D: Deserializer<'de>>(d: D) -> Result<Grade, D::Error> {
     let s: String = Deserialize::deserialize(d)?;
-    Grade::try_from(s.as_str()).map_err(de::Error::custom)
+    Grade::from_str(s.as_str()).map_err(de::Error::custom)
 }
 
 pub fn expect_negative_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {

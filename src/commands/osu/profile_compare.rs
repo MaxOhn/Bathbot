@@ -18,10 +18,7 @@ use image::{
     Rgba,
 };
 use itertools::Itertools;
-use rosu::{
-    backend::BeatmapRequest,
-    models::{Beatmap, GameMode, GameMods, Score},
-};
+use rosu::model::{Beatmap, GameMode, GameMods, Score};
 use std::{collections::HashMap, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -67,8 +64,8 @@ async fn compare_main(
     }
 
     // Retrieve all users
-    let user_fut1 = ctx.osu_user(&name1, mode);
-    let user_fut2 = ctx.osu_user(&name2, mode);
+    let user_fut1 = ctx.osu().user(name1.as_str()).mode(mode);
+    let user_fut2 = ctx.osu().user(name2.as_str()).mode(mode);
     let (user1, user2) = match tokio::try_join!(user_fut1, user_fut2) {
         Ok((Some(user1), Some(user2))) => (user1, user2),
         Ok((None, _)) => {
@@ -93,10 +90,14 @@ async fn compare_main(
     // Retrieve each user's top scores
     let fut = tokio::try_join!(
         user1
-            .get_top_scores(ctx.osu(), 100, mode)
+            .get_top_scores(ctx.osu())
+            .limit(100)
+            .mode(mode)
             .map_err(|e| e.into()),
         user2
-            .get_top_scores(ctx.osu(), 100, mode)
+            .get_top_scores(ctx.osu())
+            .limit(100)
+            .mode(mode)
             .map_err(|e| e.into()),
         ctx.clients
             .custom
@@ -158,11 +159,7 @@ async fn compare_main(
     let mut missing_maps = Vec::new();
     for map_id in map_ids.into_iter() {
         if !maps.contains_key(&map_id) {
-            let map_fut = BeatmapRequest::new()
-                .map_id(map_id)
-                .limit(1)
-                .queue_single(ctx.osu());
-            match map_fut.await {
+            match ctx.osu().beatmap().map_id(map_id).await {
                 Ok(Some(map)) => {
                     missing_maps.push(map.clone());
                     maps.insert(map.beatmap_id, map);

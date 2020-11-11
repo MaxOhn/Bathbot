@@ -1,13 +1,13 @@
 use chrono::{offset::TimeZone, Date, DateTime, Utc};
-use rosu::models::GameMods;
+use rosu::model::GameMods;
 use serde::{
     de::{Deserializer, Error, MapAccess, Visitor},
     Deserialize,
 };
 use std::{
     collections::{BTreeMap, HashMap},
-    convert::TryFrom,
     fmt,
+    str::FromStr,
 };
 
 #[derive(Debug, Deserialize)]
@@ -167,7 +167,7 @@ impl<'de> Deserialize<'de> for SnipeRecent {
                             let mods_str: String = map.next_value()?;
                             mods = match mods_str.as_str() {
                                 "nomod" => Some(GameMods::NoMod),
-                                other => Some(GameMods::try_from(other).unwrap_or_else(|_| {
+                                other => Some(GameMods::from_str(other).unwrap_or_else(|_| {
                                     debug!("Couldn't deserialize `{}` into GameMods", other);
                                     GameMods::NoMod
                                 })),
@@ -320,7 +320,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
 
                 let mods = match inner_score.mods.as_str() {
                     "nomod" => GameMods::NoMod,
-                    other => GameMods::try_from(other).unwrap_or_else(|_| {
+                    other => GameMods::from_str(other).unwrap_or_else(|_| {
                         debug!("Couldn't deserialize `{}` into GameMods", other);
                         GameMods::NoMod
                     }),
@@ -433,7 +433,7 @@ impl<'de> Visitor<'de> for SnipePlayerModVisitor {
         while let Some(key) = map.next_key()? {
             let mods = match key {
                 "nomod" => GameMods::NoMod,
-                _ => GameMods::try_from(key).unwrap_or_else(|_| {
+                _ => GameMods::from_str(key).unwrap_or_else(|_| {
                     debug!("Couldn't deserialize `{}` into GameMods", key);
                     GameMods::NoMod
                 }),

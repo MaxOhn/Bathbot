@@ -7,10 +7,7 @@ use crate::{
 
 use futures::future::{try_join_all, TryFutureExt};
 use rayon::prelude::*;
-use rosu::{
-    backend::UserRequest,
-    models::{GameMode, User},
-};
+use rosu::model::{GameMode, User};
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -43,10 +40,9 @@ async fn untrack(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
 
     // Retrieve all users
     let user_futs = names.into_iter().map(|name| {
-        UserRequest::with_username(&name)
-            .unwrap_or_else(|why| panic!("Invalid username `{}`: {}", name, why))
+        ctx.osu()
+            .user(name.as_str())
             .mode(mode)
-            .queue_single(ctx.osu())
             .map_ok(move |user| (name, user))
     });
     let users: HashMap<String, User> = match try_join_all(user_futs).await {

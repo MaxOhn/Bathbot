@@ -4,7 +4,7 @@ use crate::{
 };
 
 use itertools::Itertools;
-use rosu::models::User;
+use rosu::model::User;
 use std::{collections::BTreeMap, fmt::Write, iter};
 use twilight_embed_builder::image_source::ImageSource;
 

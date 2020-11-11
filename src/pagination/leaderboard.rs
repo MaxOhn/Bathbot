@@ -3,7 +3,7 @@ use super::{Pages, Pagination};
 use crate::{custom_client::ScraperScore, embeds::LeaderboardEmbed, BotResult, Context};
 
 use async_trait::async_trait;
-use rosu::models::Beatmap;
+use rosu::model::Beatmap;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 

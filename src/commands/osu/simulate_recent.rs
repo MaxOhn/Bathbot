@@ -8,7 +8,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::{backend::requests::RecentRequest, models::GameMode};
+use rosu::model::GameMode;
 use std::sync::Arc;
 use tokio::time::{self, Duration};
 use twilight_model::channel::Message;
@@ -30,14 +30,8 @@ async fn simulate_recent_main(
     };
 
     // Retrieve the recent score
-    let score_fut = match RecentRequest::with_username(&name) {
-        Ok(req) => req.mode(mode).limit(1),
-        Err(_) => {
-            let content = format!("Could not build request for osu name `{}`", name);
-            return msg.error(&ctx, content).await;
-        }
-    };
-    let score = match score_fut.queue(ctx.osu()).await {
+    let scores_fut = ctx.osu().recent_scores(name.as_str()).mode(mode).limit(1);
+    let score = match scores_fut.await {
         Ok(mut scores) => match scores.pop() {
             Some(score) => score,
             None => {
@@ -61,10 +55,15 @@ async fn simulate_recent_main(
     };
 
     // Retrieving the score's beatmap
-    let map = match ctx.psql().get_beatmap(score.beatmap_id.unwrap()).await {
+    let map_id = score.beatmap_id.unwrap();
+    let map = match ctx.psql().get_beatmap(map_id).await {
         Ok(map) => map,
-        Err(_) => match score.get_beatmap(ctx.osu()).await {
-            Ok(m) => m,
+        Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
+            Ok(Some(m)) => m,
+            Ok(None) => {
+                let content = format!("The API returned no beatmap for map id {}", map_id);
+                return msg.error(&ctx, content).await;
+            }
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_API_ISSUE).await;
                 return Err(why.into());

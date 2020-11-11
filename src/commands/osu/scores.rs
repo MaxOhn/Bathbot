@@ -11,7 +11,6 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::backend::requests::{BeatmapRequest, ScoreRequest};
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -73,32 +72,27 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     // Retrieving the beatmap
     let map = match ctx.psql().get_beatmap(map_id).await {
         Ok(map) => map,
-        Err(_) => {
-            let map_req = BeatmapRequest::new().map_id(map_id);
-            match map_req.queue_single(ctx.osu()).await {
-                Ok(Some(map)) => map,
-                Ok(None) => {
-                    let content = format!(
-                        "Could not find beatmap with id `{}`. \
+        Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
+            Ok(Some(map)) => map,
+            Ok(None) => {
+                let content = format!(
+                    "Could not find beatmap with id `{}`. \
                         Did you give me a mapset id instead of a map id?",
-                        map_id
-                    );
-                    return msg.error(&ctx, content).await;
-                }
-                Err(why) => {
-                    let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-                    return Err(why.into());
-                }
+                    map_id
+                );
+                return msg.error(&ctx, content).await;
             }
-        }
+            Err(why) => {
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+                return Err(why.into());
+            }
+        },
     };
 
     // Retrieve user and their scores on the map
-    let score_req = ScoreRequest::with_map_id(map_id)
-        .username(&name)
-        .mode(map.mode);
-    let join_result = tokio::try_join!(ctx.osu_user(&name, map.mode), score_req.queue(ctx.osu()));
-    let (user, scores) = match join_result {
+    let user_fut = ctx.osu().user(name.as_str()).mode(map.mode);
+    let scores_fut = ctx.osu().scores(map_id).user(name.as_str()).mode(map.mode);
+    let (user, scores) = match tokio::try_join!(user_fut, scores_fut) {
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
             let content = format!("Could not find user `{}`", name);

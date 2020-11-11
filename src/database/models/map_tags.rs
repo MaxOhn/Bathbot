@@ -1,6 +1,6 @@
 use crate::bg_game::MapsetTags;
 
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use sqlx::{postgres::PgRow, Error, FromRow};
 use std::{fmt, ops::Deref};
 

@@ -6,7 +6,7 @@ use crate::{
 };
 
 use futures::future::{try_join_all, TryFutureExt};
-use rosu::{backend::UserRequest, models::GameMode};
+use rosu::model::GameMode;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -20,9 +20,9 @@ async fn tracklist(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
             .list(msg.channel_id)
             .into_iter()
             .map(|(user_id, mode, limit)| {
-                UserRequest::with_user_id(user_id)
+                ctx.osu()
+                    .user(user_id)
                     .mode(mode)
-                    .queue_single(ctx.osu())
                     .map_ok(move |user| (user_id, mode, limit, user))
             });
     let mut users: Vec<(String, GameMode, usize)> = match try_join_all(user_futs).await {

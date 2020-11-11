@@ -7,7 +7,7 @@ use crate::{
 
 use cow_utils::CowUtils;
 use image::GenericImageView;
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use std::collections::VecDeque;
 use tokio::{fs, stream::StreamExt, sync::RwLock};
 use twilight_model::id::ChannelId;

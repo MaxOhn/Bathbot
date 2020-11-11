@@ -34,7 +34,7 @@ use hyper::{
     Body, Response,
 };
 use prometheus::{Encoder, TextEncoder};
-use rosu::Osu;
+use rosu::{Osu, OsuCached};
 use std::{convert::Infallible, process, str::FromStr, sync::Arc, time::Duration};
 use tokio::{runtime::Runtime, stream::StreamExt, sync::Mutex, time};
 use twilight_gateway::{cluster::ShardScheme, Cluster};
@@ -92,13 +92,11 @@ async fn async_main() -> BotResult<()> {
         ConnectionPool::create(CONFIG.get().unwrap().database.redis.clone(), None, 5).await?;
 
     // Connect to osu! API
-    let cached = rosu::backend::OsuCached::User;
-    let osu = Osu::new(
-        CONFIG.get().unwrap().tokens.osu.clone(),
-        redis.clone(),
-        300,
-        cached,
-    );
+    let osu_token = &CONFIG.get().unwrap().tokens.osu;
+    let osu = Osu::builder(osu_token, redis.clone())
+        .cache_duration(300)
+        .add_cached(OsuCached::User)
+        .build()?;
 
     // Log custom client into osu!
     let custom = CustomClient::new(&CONFIG.get().unwrap().tokens.osu_session).await?;

@@ -13,7 +13,7 @@ use crate::{
 use cow_utils::CowUtils;
 use rand::RngCore;
 use rayon::prelude::*;
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::{fs, stream::StreamExt};
 use twilight_http::request::channel::reaction::RequestReactionType;

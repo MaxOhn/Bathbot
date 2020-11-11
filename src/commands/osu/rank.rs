@@ -10,7 +10,7 @@ use crate::{
 };
 
 use futures::future::TryFutureExt;
-use rosu::{backend::requests::UserRequest, models::GameMode};
+use rosu::model::GameMode;
 use std::{collections::HashMap, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -45,7 +45,10 @@ async fn rank_main(
         .get_userid_of_rank(rank, mode, country.as_deref());
     let (rank_holder_id_result, user_result) = tokio::join!(
         rank_holder_id_fut,
-        ctx.osu_user(&name, mode).map_err(|e| e.into())
+        ctx.osu()
+            .user(name.as_str())
+            .mode(mode)
+            .map_err(|e| e.into())
     );
     let rank_holder_id = match rank_holder_id_result {
         Ok(id) => id,
@@ -67,8 +70,7 @@ async fn rank_main(
     };
 
     // Retrieve rank-holding user
-    let req = UserRequest::with_user_id(rank_holder_id).mode(mode);
-    let rank_holder = match req.queue_single(ctx.osu()).await {
+    let rank_holder = match ctx.osu().user(rank_holder_id).mode(mode).await {
         Ok(Some(user)) => user,
         Ok(None) => {
             let content = format!("User id `{}` was not found", rank_holder_id);
@@ -84,7 +86,7 @@ async fn rank_main(
     let scores = if user.pp_raw > rank_holder.pp_raw {
         None
     } else {
-        match user.get_top_scores(ctx.osu(), 100, mode).await {
+        match user.get_top_scores(ctx.osu()).limit(100).mode(mode).await {
             Ok(scores) if scores.is_empty() => None,
             Ok(scores) => Some(scores),
             Err(why) => {

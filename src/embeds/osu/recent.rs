@@ -12,7 +12,7 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use rosu::models::{Beatmap, GameMode, Grade, Score, User};
+use rosu::model::{Beatmap, GameMode, Grade, Score, User};
 use std::fmt::Write;
 use twilight_embed_builder::{
     author::EmbedAuthorBuilder, builder::EmbedBuilder, image_source::ImageSource,
@@ -131,7 +131,7 @@ impl RecentEmbed {
             score.hits_string(map.mode),
         );
         let footer = Footer::new(format!(
-            "{:?} map by {}, played",
+            "{:?} map by {} | played",
             map.approval_status, map.creator
         ))
         .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));

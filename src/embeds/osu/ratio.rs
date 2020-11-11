@@ -4,7 +4,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::models::{GameMode, Grade, Score, User};
+use rosu::model::{GameMode, Grade, Score, User};
 use std::{collections::BTreeMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 

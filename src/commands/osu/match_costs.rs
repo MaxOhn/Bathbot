@@ -8,8 +8,7 @@ use crate::{
 use futures::future::{try_join_all, TryFutureExt};
 use itertools::Itertools;
 use rosu::{
-    backend::requests::{MatchRequest, UserRequest},
-    models::{GameMods, Match, Team, TeamType},
+    model::{GameMods, Match, Team, TeamType},
     OsuError,
 };
 use std::{
@@ -40,8 +39,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     let warmups = args.warmups;
 
     // Retrieve the match
-    let match_req = MatchRequest::with_match_id(match_id);
-    let osu_match = match match_req.queue_single(&ctx.clients.osu).await {
+    let osu_match = match ctx.osu().osu_match(match_id).await {
         Ok(osu_match) => osu_match,
         Err(OsuError::InvalidMultiplayerMatch) => {
             let content = "Either the mp id was invalid or the match was private";
@@ -66,12 +64,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         .flatten()
         .map(|s| s.user_id)
         .unique()
-        .map(|id| {
-            UserRequest::with_user_id(id)
-                .mode(mode)
-                .queue_single(ctx.osu())
-                .map_ok(move |user| (id, user))
-        })
+        .map(|id| ctx.osu().user(id).mode(mode).map_ok(move |user| (id, user)))
         .collect_vec();
     let users: HashMap<_, _> = match try_join_all(requests).await {
         Ok(users) => users

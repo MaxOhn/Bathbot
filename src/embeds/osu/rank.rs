@@ -3,7 +3,7 @@ use crate::{
     util::{constants::AVATAR_URL, numbers::with_comma, osu::pp_missing},
 };
 
-use rosu::models::{Score, User};
+use rosu::model::{Score, User};
 use std::borrow::Cow;
 use twilight_embed_builder::image_source::ImageSource;
 

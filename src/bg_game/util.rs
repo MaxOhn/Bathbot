@@ -6,7 +6,6 @@ use crate::{
 };
 
 use rand::RngCore;
-use rosu::backend::BeatmapRequest;
 use std::collections::VecDeque;
 
 pub async fn get_random_mapset<'m>(
@@ -33,8 +32,7 @@ pub async fn get_title_artist(ctx: &Context, mapset_id: u32) -> GameResult<(Stri
         if let Ok(mapset) = ctx.psql().get_beatmapset(mapset_id).await {
             (mapset.title.to_lowercase(), mapset.artist)
         } else {
-            let request = BeatmapRequest::new().mapset_id(mapset_id);
-            match request.queue_single(ctx.osu()).await {
+            match ctx.osu().beatmap().mapset_id(mapset_id).await {
                 Ok(Some(map)) => {
                     if let Err(why) = ctx.psql().insert_beatmap(&map).await {
                         warn!("Error while inserting bg game map into DB: {}", why);

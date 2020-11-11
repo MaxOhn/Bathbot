@@ -12,7 +12,7 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use rosu::models::{Beatmap, GameMode, Score, User};
+use rosu::model::{Beatmap, GameMode, Score, User};
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct TrackNotificationEmbed {

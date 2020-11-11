@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
-use rosu::models::{ApprovalStatus, GameMode, GameMods, Grade};
+use rosu::model::{ApprovalStatus, GameMode, GameMods, Grade};
 use serde::{de, Deserialize, Deserializer};
-use std::convert::TryFrom;
+use std::{convert::TryFrom, str::FromStr};
 
 #[derive(Deserialize)]
 pub struct ScraperScores {
@@ -164,7 +164,7 @@ where
     D: Deserializer<'de>,
 {
     let mods: Vec<&str> = Deserialize::deserialize(d)?;
-    let mods: Result<GameMods, _> = mods.into_iter().map(GameMods::try_from).collect();
+    let mods: Result<GameMods, _> = mods.into_iter().map(GameMods::from_str).collect();
     mods.map_err(de::Error::custom)
 }
 
@@ -173,7 +173,7 @@ where
     D: Deserializer<'de>,
 {
     let g: &str = Deserialize::deserialize(d)?;
-    Grade::try_from(g).map_err(de::Error::custom)
+    Grade::from_str(g).map_err(de::Error::custom)
 }
 
 fn adjust_mode<'de, D>(d: D) -> Result<GameMode, D::Error>

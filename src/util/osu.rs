@@ -4,7 +4,7 @@ use crate::{
     CONFIG,
 };
 
-use rosu::models::{Beatmap, GameMode, GameMods, Grade, Score};
+use rosu::model::{Beatmap, GameMode, GameMods, Grade, Score};
 use tokio::{fs::File, io::AsyncWriteExt, time};
 use twilight_cache_inmemory::model::CachedMessage;
 use twilight_model::channel::{embed::Embed, Message};

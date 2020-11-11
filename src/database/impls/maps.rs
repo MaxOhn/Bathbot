@@ -3,7 +3,7 @@ use crate::{
     BotResult, Database,
 };
 
-use rosu::models::{
+use rosu::model::{
     ApprovalStatus::{Approved, Loved, Ranked},
     Beatmap,
 };

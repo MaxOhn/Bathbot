@@ -1,6 +1,6 @@
 use crate::{core::stored_values::Values, Context};
 
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use tokio::sync::Mutex;
 
 impl Context {

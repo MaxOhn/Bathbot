@@ -6,7 +6,7 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use rosu::models::{
+use rosu::model::{
     ApprovalStatus::{Approved, Loved, Qualified, Ranked},
     Beatmap, Score, User,
 };
@@ -117,8 +117,13 @@ impl Pagination for RecentPagination {
         // Make sure map is ready
         #[allow(clippy::clippy::map_entry)]
         if !self.maps.contains_key(&map_id) {
-            let osu = &self.ctx.clients.osu;
-            let map = score.get_beatmap(osu).await?;
+            let map = self
+                .ctx
+                .osu()
+                .beatmap()
+                .map_id(score.beatmap_id.unwrap())
+                .await?
+                .unwrap();
             self.maps.insert(map_id, map);
         }
         let map = self.maps.get(&map_id).unwrap();
@@ -126,7 +131,7 @@ impl Pagination for RecentPagination {
         let valid_global = matches!(map.approval_status, Ranked | Loved | Qualified | Approved);
         #[allow(clippy::clippy::map_entry)]
         if valid_global && !self.global.contains_key(&map.beatmap_id) {
-            let global_lb = map.get_global_leaderboard(self.ctx.osu(), 50).await?;
+            let global_lb = map.get_global_leaderboard(self.ctx.osu()).limit(50).await?;
             self.global.insert(map.beatmap_id, global_lb);
         };
         let global_lb = self
@@ -134,7 +139,11 @@ impl Pagination for RecentPagination {
             .get(&map.beatmap_id)
             .map(|global| global.as_slice());
         if self.best.is_none() && map.approval_status == Ranked {
-            let user_fut = self.user.get_top_scores(self.ctx.osu(), 100, map.mode);
+            let user_fut = self
+                .user
+                .get_top_scores(self.ctx.osu())
+                .limit(100)
+                .mode(map.mode);
             match user_fut.await {
                 Ok(scores) => self.best = Some(scores),
                 Err(why) => warn!(

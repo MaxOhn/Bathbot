@@ -21,8 +21,8 @@ use crate::{
     Context,
 };
 
-use rosu::models::Grade;
-use std::{convert::TryFrom, str::FromStr};
+use rosu::model::Grade;
+use std::str::FromStr;
 
 fn mods(args: &mut Vec<String>) -> Option<ModSelection> {
     for (i, arg) in args.iter().enumerate() {
@@ -72,7 +72,7 @@ fn combo(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
 fn grade(args: &mut Vec<String>) -> Result<Option<Grade>, &'static str> {
     if let Some(idx) = args.iter().position(|arg| arg == "-g" || arg == "-grade") {
         args.remove(idx);
-        match args.get(idx).map(|arg| Grade::try_from(arg.as_str())) {
+        match args.get(idx).map(|arg| Grade::from_str(arg)) {
             Some(Ok(grade)) => {
                 args.remove(idx);
                 Ok(Some(grade))

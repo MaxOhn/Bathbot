@@ -2,7 +2,7 @@ use crate::{database::TrackingUser, BotResult, Database};
 
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use sqlx::{types::Json, Row};
 use std::collections::HashMap;
 use twilight_model::id::ChannelId;

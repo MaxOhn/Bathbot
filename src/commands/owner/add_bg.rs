@@ -8,7 +8,7 @@ use crate::{
 };
 
 use cow_utils::CowUtils;
-use rosu::{backend::BeatmapRequest, models::GameMode};
+use rosu::model::GameMode;
 use std::{str::FromStr, sync::Arc};
 use tokio::{
     fs::{remove_file, File},
@@ -108,8 +108,7 @@ async fn prepare_mapset(
     mode: GameMode,
 ) -> Result<(), &'static str> {
     if ctx.psql().get_beatmapset(mapset_id).await.is_err() {
-        let req = BeatmapRequest::new().mapset_id(mapset_id);
-        match req.queue(ctx.osu()).await {
+        match ctx.osu().beatmaps().mapset_id(mapset_id).await {
             Ok(maps) => {
                 if maps.is_empty() {
                     return Err("No mapset found with the name of the given file as id");

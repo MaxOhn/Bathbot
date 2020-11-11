@@ -5,8 +5,8 @@ use super::{
 
 use lazy_static::lazy_static;
 use regex::Regex;
-use rosu::models::GameMods;
-use std::convert::TryFrom;
+use rosu::model::GameMods;
+use std::str::FromStr;
 
 pub fn is_custom_emote(msg: &str) -> bool {
     EMOJI_MATCHER.is_match(msg)
@@ -93,14 +93,14 @@ pub fn get_osu_match_id(msg: &str) -> Option<u32> {
 
 pub fn get_mods(msg: &str) -> Option<ModSelection> {
     let selection = if let Some(captures) = MOD_PLUS_MATCHER.captures(msg) {
-        let mods = GameMods::try_from(captures.get(1)?.as_str()).ok()?;
+        let mods = GameMods::from_str(captures.get(1)?.as_str()).ok()?;
         if msg.ends_with('!') {
             ModSelection::Exact(mods)
         } else {
             ModSelection::Include(mods)
         }
     } else if let Some(captures) = MOD_MINUS_MATCHER.captures(msg) {
-        let mods = GameMods::try_from(captures.get(1)?.as_str()).ok()?;
+        let mods = GameMods::from_str(captures.get(1)?.as_str()).ok()?;
         ModSelection::Exclude(mods)
     } else {
         return None;

@@ -1,6 +1,6 @@
 use crate::custom_client::OsuStatsMap;
 
-use rosu::models::{ApprovalStatus, Beatmap, GameMode};
+use rosu::model::{ApprovalStatus, Beatmap, GameMode};
 
 pub trait BeatmapExt {
     fn max_combo(&self) -> Option<u32>;

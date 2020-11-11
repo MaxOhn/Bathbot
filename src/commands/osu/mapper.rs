@@ -7,7 +7,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::{backend::BestRequest, models::GameMode};
+use rosu::model::GameMode;
 use std::{collections::HashMap, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -64,14 +64,9 @@ async fn mapper_main(
     let mapper = mapper.unwrap();
 
     // Retrieve the user and their top scores
-    let scores_fut = match BestRequest::with_username(&user) {
-        Ok(req) => req.mode(mode).limit(100).queue(ctx.osu()),
-        Err(_) => {
-            let content = format!("Could not build request for osu name `{}`", user);
-            return msg.error(&ctx, content).await;
-        }
-    };
-    let join_result = tokio::try_join!(ctx.osu_user(&user, mode), scores_fut);
+    let user_fut = ctx.osu().user(user.as_str()).mode(mode);
+    let scores_fut = ctx.osu().top_scores(user.as_str()).mode(mode).limit(100);
+    let join_result = tokio::try_join!(user_fut, scores_fut);
     let (user, scores) = match join_result {
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
@@ -124,10 +119,14 @@ async fn mapper_main(
         let map = if maps.contains_key(&map_id) {
             maps.remove(&map_id).unwrap()
         } else {
-            match score.get_beatmap(ctx.osu()).await {
-                Ok(map) => {
+            match ctx.osu().beatmap().map_id(map_id).await {
+                Ok(Some(map)) => {
                     missing_maps.push(map.clone());
                     map
+                }
+                Ok(None) => {
+                    let content = format!("The API returned no beatmap for map id {}", map_id);
+                    return msg.error(&ctx, content).await;
                 }
                 Err(why) => {
                     let _ = msg.error(&ctx, OSU_API_ISSUE).await;

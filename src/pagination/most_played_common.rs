@@ -3,7 +3,7 @@ use super::{Pages, Pagination};
 use crate::{custom_client::MostPlayedMap, embeds::MostPlayedCommonEmbed, BotResult};
 
 use async_trait::async_trait;
-use rosu::models::User;
+use rosu::model::User;
 use std::collections::HashMap;
 use twilight_model::channel::Message;
 

@@ -8,7 +8,7 @@ use crate::{
 
 use image::{png::PngEncoder, ColorType};
 use plotters::prelude::*;
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -45,7 +45,7 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
         },
         None => match ctx.get_link(msg.author.id.0) {
             Some(name) => {
-                let user = match ctx.osu_user(&name, GameMode::STD).await {
+                let user = match ctx.osu().user(name.as_str()).mode(GameMode::STD).await {
                     Ok(Some(user)) => user,
                     Ok(None) => {
                         let content = format!("Could not find user `{}`", name);

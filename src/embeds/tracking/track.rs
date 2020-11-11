@@ -1,6 +1,6 @@
 use crate::embeds::EmbedData;
 
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use std::fmt::Write;
 
 pub struct TrackEmbed {

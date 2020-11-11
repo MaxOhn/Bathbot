@@ -5,7 +5,7 @@ use crate::{
     Context,
 };
 
-use rosu::models::Grade;
+use rosu::model::Grade;
 
 pub struct TopArgs {
     pub name: Option<String>,

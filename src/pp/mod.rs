@@ -8,7 +8,7 @@ use crate::{
 };
 
 use bitflags::bitflags;
-use rosu::models::{
+use rosu::model::{
     ApprovalStatus::{self, Approved, Loved, Ranked},
     GameMode, GameMods,
 };

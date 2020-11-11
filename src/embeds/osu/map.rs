@@ -12,7 +12,7 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use rosu::models::{Beatmap, GameMode, GameMods};
+use rosu::model::{Beatmap, GameMode, GameMods};
 use std::fmt::Write;
 use twilight_embed_builder::image_source::ImageSource;
 

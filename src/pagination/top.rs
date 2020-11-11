@@ -3,7 +3,7 @@ use super::{Pages, Pagination};
 use crate::{embeds::TopEmbed, BotResult, Context};
 
 use async_trait::async_trait;
-use rosu::models::{Beatmap, GameMode, Score, User};
+use rosu::model::{Beatmap, GameMode, Score, User};
 use std::sync::Arc;
 use twilight_model::channel::Message;
 

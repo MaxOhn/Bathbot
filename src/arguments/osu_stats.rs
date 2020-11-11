@@ -5,7 +5,7 @@ use crate::{
     Context,
 };
 
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use std::str::FromStr;
 
 pub struct OsuStatsListArgs {

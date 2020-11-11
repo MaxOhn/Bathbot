@@ -4,7 +4,7 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 use super::OppaiErr;
 
-use rosu::models::GameMods;
+use rosu::model::GameMods;
 use std::ffi::{CStr, CString};
 
 /// Wrapper struct for [oppai-ng](https://github.com/Francesco149/oppai-ng)'s `ezpp` struct in C code.

@@ -64,7 +64,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use std::{
     borrow::Cow,
     cmp::PartialOrd,

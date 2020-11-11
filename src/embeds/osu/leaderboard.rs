@@ -12,7 +12,7 @@ use crate::{
 };
 
 use cow_utils::CowUtils;
-use rosu::models::{Beatmap, GameMode};
+use rosu::model::{Beatmap, GameMode};
 use std::{borrow::Cow, collections::HashMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 

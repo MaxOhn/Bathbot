@@ -1,6 +1,7 @@
 use super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
 use crate::{
     arguments::{Args, NameArgs},
+    bail,
     custom_client::{DateCount, OsuProfile},
     embeds::{EmbedData, ProfileEmbed},
     pagination::{Pagination, ProfilePagination},
@@ -17,10 +18,7 @@ use futures::future::{try_join_all, TryFutureExt};
 use image::{imageops::FilterType::Lanczos3, load_from_memory, png::PngEncoder, ColorType};
 use plotters::prelude::*;
 use rayon::prelude::*;
-use rosu::{
-    backend::BestRequest,
-    models::{Beatmap, GameMode, GameMods, Score},
-};
+use rosu::model::{Beatmap, GameMode, GameMods, Score};
 use std::{
     cmp::{Ordering::Equal, PartialOrd},
     collections::{BTreeMap, HashMap},
@@ -86,25 +84,9 @@ pub async fn profile_embed(
     channel: ChannelId,
 ) -> BotResult<Option<(ProfileEmbed, OsuProfile)>> {
     // Retrieve the user and their top scores
-    let scores_fut = match BestRequest::with_username(&name) {
-        Ok(req) => req.mode(mode).limit(100).queue(ctx.osu()),
-        Err(_) => {
-            if let Some(owner) = owner {
-                let content = format!("Could not build request for osu name `{}`", name);
-                ctx.http
-                    .create_message(channel)
-                    .content(content)?
-                    .await?
-                    .reaction_delete(ctx, owner);
-            }
-            return Ok(None);
-        }
-    };
-    let join_result = tokio::try_join!(
-        ctx.osu_user(&name, mode).map_err(Error::Osu),
-        scores_fut.map_err(Error::Osu),
-    );
-    let (user, scores) = match join_result {
+    let user_fut = ctx.osu().user(name).mode(mode).map_err(Error::Osu);
+    let scores_fut = ctx.osu().top_scores(name).mode(mode).limit(100);
+    let (user, scores) = match tokio::try_join!(user_fut, scores_fut.map_err(Error::Osu)) {
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
             if let Some(owner) = owner {
@@ -192,7 +174,10 @@ pub async fn profile_embed(
             maps.remove(&map_id).unwrap()
         } else {
             missing_indices.push(i);
-            score.get_beatmap(ctx.osu()).await?
+            match ctx.osu().beatmap().map_id(map_id).await? {
+                Some(map) => map,
+                None => bail!("The API returned not beatmap for map id {}", map_id),
+            }
         };
         score_maps.push((score, map));
     }

@@ -1,6 +1,6 @@
 use crate::pp::roppai::OppaiErr;
 
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use std::{error::Error as StdError, fmt};
 
 #[derive(Debug)]

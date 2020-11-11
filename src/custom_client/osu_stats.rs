@@ -3,7 +3,7 @@ use super::deserialize::*;
 use crate::util::osu::ModSelection;
 
 use chrono::{DateTime, Utc};
-use rosu::models::{ApprovalStatus, GameMode, GameMods, Grade};
+use rosu::model::{ApprovalStatus, GameMode, GameMods, Grade};
 use serde::{de::Error, Deserialize, Deserializer};
 use std::{fmt, str::FromStr};
 

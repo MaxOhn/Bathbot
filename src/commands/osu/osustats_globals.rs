@@ -7,7 +7,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::models::GameMode;
+use rosu::model::GameMode;
 use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -25,7 +25,7 @@ async fn osustats_main(
     };
 
     // Retrieve user
-    let user = match ctx.osu_user(&params.username, mode).await {
+    let user = match ctx.osu().user(params.username.as_str()).mode(mode).await {
         Ok(Some(user)) => user,
         Ok(None) => {
             let content = format!("Could not find user `{}`", params.username);

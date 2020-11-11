@@ -7,7 +7,6 @@ use crate::{
     Args, BotResult, Context,
 };
 
-use rosu::backend::UserRequest;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -27,7 +26,7 @@ async fn link(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()>
     match args.next() {
         Some(arg) => {
             let name = match matcher::get_osu_user_id(arg) {
-                Some(id) => match UserRequest::with_user_id(id).queue_single(ctx.osu()).await {
+                Some(id) => match ctx.osu().user(id).await {
                     Ok(Some(user)) => user.username,
                     Ok(None) => {
                         let content = "No user found for the given url";

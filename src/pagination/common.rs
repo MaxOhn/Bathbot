@@ -3,7 +3,7 @@ use super::{Pages, Pagination};
 use crate::{embeds::CommonEmbed, BotResult};
 
 use async_trait::async_trait;
-use rosu::models::{Beatmap, Score, User};
+use rosu::model::{Beatmap, Score, User};
 use std::collections::HashMap;
 use twilight_model::channel::Message;
 

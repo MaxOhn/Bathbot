@@ -9,7 +9,7 @@ use crate::{
 use futures::future::{try_join_all, TryFutureExt};
 use itertools::Itertools;
 use rayon::prelude::*;
-use rosu::models::{GameMode, User};
+use rosu::model::{GameMode, User};
 use std::{
     collections::{HashMap, HashSet},
     fmt::Write,
@@ -59,7 +59,9 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 
     // Retrieve all users
     let user_futs = names.iter().enumerate().map(|(i, name)| {
-        ctx.osu_user(&name, GameMode::STD)
+        ctx.osu()
+            .user(name.as_str())
+            .mode(GameMode::STD)
             .map_ok(move |user| (i, user))
     });
     let users: HashMap<u32, User> = match try_join_all(user_futs).await {
