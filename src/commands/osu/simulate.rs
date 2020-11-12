@@ -119,15 +119,16 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     // Minimize embed after delay
     tokio::spawn(async move {
         time::delay_for(Duration::from_secs(45)).await;
-        if ctx.remove_msg(response.id) {
-            let embed = data.minimize().build().unwrap();
-            let _ = ctx
-                .http
-                .update_message(response.channel_id, response.id)
-                .embed(embed)
-                .unwrap()
-                .await;
+        if !ctx.remove_msg(response.id) {
+            return;
         }
+        let embed = data.minimize().build().unwrap();
+        let _ = ctx
+            .http
+            .update_message(response.channel_id, response.id)
+            .embed(embed)
+            .unwrap()
+            .await;
     });
     Ok(())
 }

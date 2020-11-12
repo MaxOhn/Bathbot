@@ -79,37 +79,33 @@ impl Pagination for RecentPagination {
     fn content(&self) -> Option<String> {
         Some(format!("Recent score #{}", self.pages.index + 1))
     }
-    async fn final_processing(mut self, ctx: &Context) -> BotResult<bool> {
+    async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
+        // Minimize embed
         let msg = self.msg();
-        if ctx.remove_msg(msg.id) {
-            // Minimize embed
-            let embed = self.embed_data.minimize().build()?;
-            let _ = ctx
-                .http
-                .update_message(msg.channel_id, msg.id)
-                .embed(embed)?
-                .await;
+        let embed = self.embed_data.minimize().build()?;
+        let _ = ctx
+            .http
+            .update_message(msg.channel_id, msg.id)
+            .embed(embed)?
+            .await;
 
-            // Put missing maps into DB
-            if self.maps.len() > self.maps_in_db.len() {
-                let map_ids = self.maps_in_db.clone();
-                let maps: Vec<_> = self
-                    .maps
-                    .into_iter()
-                    .filter(|(id, _)| !map_ids.contains(&id))
-                    .map(|(_, map)| map)
-                    .collect();
-                let psql = &ctx.clients.psql;
-                match psql.insert_beatmaps(&maps).await {
-                    Ok(n) if n < 2 => {}
-                    Ok(n) => info!("Added {} maps to DB", n),
-                    Err(why) => warn!("Error while adding maps to DB: {}", why),
-                }
+        // Put missing maps into DB
+        if self.maps.len() > self.maps_in_db.len() {
+            let map_ids = self.maps_in_db.clone();
+            let maps: Vec<_> = self
+                .maps
+                .into_iter()
+                .filter(|(id, _)| !map_ids.contains(&id))
+                .map(|(_, map)| map)
+                .collect();
+            let psql = &ctx.clients.psql;
+            match psql.insert_beatmaps(&maps).await {
+                Ok(n) if n < 2 => {}
+                Ok(n) => info!("Added {} maps to DB", n),
+                Err(why) => warn!("Error while adding maps to DB: {}", why),
             }
-            Ok(true)
-        } else {
-            Ok(false)
         }
+        Ok(())
     }
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let score = self.scores.get(self.pages.index).unwrap();

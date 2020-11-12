@@ -67,7 +67,7 @@ pub struct ContextData {
     pub discord_links: DashMap<u64, String>,
     pub bg_games: DashMap<ChannelId, GameWrapper>,
     pub osu_tracking: OsuTracking,
-    pub msgs_to_minimize: DashSet<MessageId>,
+    pub msgs_to_process: DashSet<MessageId>,
 }
 
 impl Context {

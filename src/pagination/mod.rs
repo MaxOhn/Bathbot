@@ -117,12 +117,13 @@ pub trait Pagination: Sync + Sized {
     }
     fn process_data(&mut self, _data: &Self::PageData) {}
     async fn change_mode(&mut self) {}
-    async fn final_processing(mut self, _ctx: &Context) -> BotResult<bool> {
-        Ok(true)
+    async fn final_processing(mut self, _ctx: &Context) -> BotResult<()> {
+        Ok(())
     }
 
     // Don't implement anything else
     async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> BotResult<()> {
+        ctx.store_msg(self.msg().id);
         let mut reaction_stream = {
             let msg = self.msg();
             for emoji in Self::reactions() {
@@ -141,22 +142,22 @@ pub trait Pagination: Sync + Sized {
                 Err(why) => warn!("Error while paginating: {}", why),
             }
         }
-        let (guild_id, channel_id, id) = {
-            let msg = self.msg();
-            (msg.guild_id, msg.channel_id, msg.id)
-        };
-        if self.final_processing(ctx).await? {
-            for emoji in Self::reactions() {
-                if guild_id.is_none() {
-                    ctx.http
-                        .delete_current_user_reaction(channel_id, id, emoji)
-                        .await?;
-                } else {
-                    ctx.http.delete_all_reaction(channel_id, id, emoji).await?;
-                }
+        let msg = self.msg();
+        if !ctx.remove_msg(msg.id) {
+            return Ok(());
+        }
+        for emoji in Self::reactions() {
+            if msg.guild_id.is_none() {
+                ctx.http
+                    .delete_current_user_reaction(msg.channel_id, msg.id, emoji)
+                    .await?;
+            } else {
+                ctx.http
+                    .delete_all_reaction(msg.channel_id, msg.id, emoji)
+                    .await?;
             }
         }
-        Ok(())
+        self.final_processing(ctx).await
     }
     async fn next_page(&mut self, reaction: Reaction, ctx: &Context) -> BotResult<PageChange> {
         let change = match self.process_reaction(&reaction.emoji).await {

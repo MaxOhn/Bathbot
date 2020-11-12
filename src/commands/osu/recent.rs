@@ -170,6 +170,7 @@ async fn recent_main(
         .content(format!("Try #{}", tries))?
         .embed(data.build().build()?)?
         .await?;
+    ctx.store_msg(response.id);
 
     // Process user and their top scores for tracking
     if let Some(ref scores) = best {
@@ -179,22 +180,28 @@ async fn recent_main(
     // Skip pagination if too few entries
     if scores.len() <= 1 {
         response.reaction_delete(&ctx, msg.author.id);
+        let msg_id = msg.id;
         tokio::spawn(async move {
             delay_for(Duration::from_secs(60)).await;
+            if !ctx.remove_msg(msg_id) {
+                return;
+            }
             let embed_result = ctx
                 .http
                 .update_message(response.channel_id, response.id)
                 .embed(data.minimize().build().unwrap());
             match embed_result {
                 Ok(m) => {
-                    let _ = m.await;
+                    if let Err(why) = m.await {
+                        warn!("Error minimizing recent msg: {}", why);
+                    }
                 }
+
                 Err(why) => warn!("Error while creating `recent` minimize embed: {}", why),
             }
         });
         return Ok(());
     }
-    ctx.store_msg(response.id);
 
     // Pagination
     let pagination = RecentPagination::new(

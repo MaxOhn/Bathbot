@@ -141,7 +141,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         discord_links,
         bg_games: DashMap::new(),
         osu_tracking,
-        msgs_to_minimize: DashSet::new(),
+        msgs_to_process: DashSet::new(),
     };
 
     // Shard-cluster config

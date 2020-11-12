@@ -1,7 +1,6 @@
 
 **[TODO]**
 - Update taiko pp / stars
-- Improve msg caching for paginated commands
 - Make use of api endpoint `https://osekai.net/medals/apiv2?medal=True+Torment`
 
 **[Sometime]**
@@ -12,6 +11,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Improve msg caching for paginated commands~~ (20.11.12)
 - ~~Fix `<bg lb` users~~ (20.11.07)
 - ~~If error code of tracking notif is 10003, remove channel~~ (20.11.06)
 - ~~Check on `<top Aphxemia -nm!`, should contain all scores~~ (20.11.06)

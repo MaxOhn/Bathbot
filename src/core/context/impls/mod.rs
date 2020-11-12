@@ -46,10 +46,10 @@ impl Context {
     }
 
     pub fn store_msg(&self, msg: MessageId) {
-        self.data.msgs_to_minimize.insert(msg);
+        self.data.msgs_to_process.insert(msg);
     }
 
     pub fn remove_msg(&self, msg: MessageId) -> bool {
-        self.data.msgs_to_minimize.remove(&msg).is_some()
+        self.data.msgs_to_process.remove(&msg).is_some()
     }
 }
