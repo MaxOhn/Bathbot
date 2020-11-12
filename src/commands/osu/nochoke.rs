@@ -133,23 +133,25 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         }
     };
 
+    // Calculate bonus pp
+    let actual_pp = scores_data
+        .iter()
+        .map(|(i, s, ..)| s.pp.unwrap_or(0.0) as f64 * 0.95_f64.powi(*i as i32 - 1))
+        .sum::<f64>();
+    let bonus_pp = user.pp_raw as f64 - actual_pp;
+
     // Sort by unchoked pp
     scores_data.sort_unstable_by(|(_, _, s1, _), (_, _, s2, _)| {
         s2.pp.partial_cmp(&s1.pp).unwrap_or(Ordering::Equal)
     });
 
     // Calculate total user pp without chokes
-    let mut factor: f64 = 1.0;
-    let mut actual_pp = 0.0;
-    let mut unchoked_pp = 0.0;
-    for (idx, actual, unchoked, _) in scores_data.iter() {
-        actual_pp += actual.pp.unwrap() as f64 * 0.95_f64.powi(*idx as i32 - 1);
-        unchoked_pp += factor * unchoked.pp.unwrap() as f64;
-        factor *= 0.95;
-    }
-    let bonus_pp = user.pp_raw as f64 - actual_pp;
-    unchoked_pp += bonus_pp;
-    unchoked_pp = (100.0 * unchoked_pp).round() / 100.0;
+    let mut unchoked_pp = scores_data
+        .iter()
+        .enumerate()
+        .map(|(i, (_, _, s, _))| s.pp.unwrap_or(0.0) as f64 * 0.95_f64.powi(i as i32))
+        .sum::<f64>();
+    unchoked_pp = (100.0 * (unchoked_pp + bonus_pp)).round() / 100.0;
 
     // Accumulate all necessary data
     let pages = numbers::div_euclid(5, scores_data.len());

@@ -229,7 +229,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         time::delay_for(Duration::from_secs(1)).await;
         cluster_ctx.backend.cluster.up().await;
         if resumed {
-            time::delay_for(Duration::from_secs(10)).await;
+            time::delay_for(Duration::from_secs(5)).await;
             let activity_result = cluster_ctx
                 .set_cluster_activity(Status::Online, ActivityType::Playing, String::from("osu!"))
                 .await;

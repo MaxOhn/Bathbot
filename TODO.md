@@ -2,7 +2,6 @@
 **[TODO]**
 - Update taiko pp / stars
 - Make use of api endpoint `https://osekai.net/medals/apiv2?medal=True+Torment`
-- Remove `factor` for bonus pp in `<nc`
 - Dont show hitresults in `<s` for mania + align hitresults field for other modes
 
 **[Sometime]**
@@ -13,6 +12,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Remove `factor` for bonus pp in `<nc`~~ (20.11.12)
 - ~~Improve msg caching for paginated commands~~ (20.11.12)
 - ~~Fix `<bg lb` users~~ (20.11.07)
 - ~~If error code of tracking notif is 10003, remove channel~~ (20.11.06)

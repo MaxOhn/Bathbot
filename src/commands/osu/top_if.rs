@@ -48,7 +48,7 @@ async fn topif_main(
     let actual_pp = scores
         .iter()
         .enumerate()
-        .map(|(i, Score { pp, .. })| pp.unwrap() as f64 * 0.95_f64.powi(i as i32 - 1))
+        .map(|(i, Score { pp, .. })| pp.unwrap() as f64 * 0.95_f64.powi(i as i32))
         .sum::<f64>();
     let bonus_pp = user.pp_raw as f64 - actual_pp;
 
