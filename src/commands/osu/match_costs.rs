@@ -25,7 +25,7 @@ use twilight_model::channel::Message;
     "Calculate a performance rating for each player \
      in the given multiplayer match. The optional second \
      argument is the amount of played warmups, defaults to 2.\n\
-     Here's the current [formula](https://i.imgur.com/7KFwcUS.png)"
+     Here's the current [formula](https://i.imgur.com/7KFwcUS.png)."
 )]
 #[usage("[match url / match id] [amount of warmups]")]
 #[example("58320988 1", "https://osu.ppy.sh/community/matches/58320988")]

@@ -14,24 +14,27 @@ use rosu::model::{Beatmap, GameMode, Score, User};
 use std::fmt::Write;
 use twilight_embed_builder::image_source::ImageSource;
 
-pub struct TopEmbed {
+pub struct TopIfEmbed {
+    title: String,
     description: String,
     author: Author,
     thumbnail: ImageSource,
     footer: Footer,
 }
 
-impl TopEmbed {
+impl TopIfEmbed {
     pub async fn new<'i, S>(
         ctx: &Context,
         user: &User,
         scores_data: S,
         mode: GameMode,
+        adjusted_pp: f32,
         pages: (usize, usize),
     ) -> Self
     where
         S: Iterator<Item = &'i (usize, Score, Beatmap)>,
     {
+        let pp_diff = (100.0 * (adjusted_pp - user.pp_raw)).round() / 100.0;
         let mut description = String::with_capacity(512);
         for (idx, score, map) in scores_data {
             let mut calculator = PPCalculator::new().score(score).map(map);
@@ -61,7 +64,12 @@ impl TopEmbed {
             );
         }
         description.pop();
+        let title = format!(
+            "Total pp: {} → **{}pp** ({:+})",
+            user.pp_raw, adjusted_pp, pp_diff
+        );
         Self {
+            title,
             description,
             author: osu::get_user_author(user),
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
@@ -70,9 +78,12 @@ impl TopEmbed {
     }
 }
 
-impl EmbedData for TopEmbed {
+impl EmbedData for TopIfEmbed {
     fn description(&self) -> Option<&str> {
         Some(&self.description)
+    }
+    fn title(&self) -> Option<&str> {
+        Some(&self.title)
     }
     fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)

@@ -13,6 +13,7 @@ mod profile;
 mod recent;
 mod scores;
 mod top;
+mod top_if;
 
 pub use bg_rankings::BGRankingPagination;
 pub use command_count::CommandCountPagination;
@@ -29,6 +30,7 @@ pub use profile::ProfilePagination;
 pub use recent::RecentPagination;
 pub use scores::ScoresPagination;
 pub use top::TopPagination;
+pub use top_if::TopIfPagination;
 
 use crate::{embeds::EmbedData, util::numbers, BotResult, Context, CONFIG};
 

@@ -21,6 +21,7 @@ mod recent;
 mod scores;
 mod simulate;
 mod top;
+mod top_if;
 mod whatif;
 
 pub use bws::BWSEmbed;
@@ -46,6 +47,7 @@ pub use recent::RecentEmbed;
 pub use scores::ScoresEmbed;
 pub use simulate::SimulateEmbed;
 pub use top::TopEmbed;
+pub use top_if::TopIfEmbed;
 pub use whatif::WhatIfEmbed;
 
 use crate::{

@@ -2,6 +2,8 @@
 **[TODO]**
 - Update taiko pp / stars
 - Make use of api endpoint `https://osekai.net/medals/apiv2?medal=True+Torment`
+- Remove `factor` for bonus pp in `<nc`
+- Dont show hitresults in `<s` for mania + align hitresults field for other modes
 
 **[Sometime]**
 - `<nochokesctb` (https://pakachan.github.io/osustuff/ppcalculator.html) (investigate)

@@ -56,6 +56,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &NOCHOKES_CMD,
                 &SOTARKS_CMD,
                 &MAPPER_CMD,
+                &TOPIF_CMD,
                 &PLAYERSNIPESTATS_CMD,
                 &COUNTRYSNIPESTATS_CMD,
                 &COUNTRYSNIPELIST_CMD,
@@ -100,6 +101,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &OSUSTATSCOUNTTAIKO_CMD,
                 &OSUSTATSLISTTAIKO_CMD,
                 &MAPPERTAIKO_CMD,
+                &TOPIFTAIKO_CMD,
             ],
         ),
         CommandGroup::new(
@@ -120,6 +122,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &OSUSTATSCOUNTCTB_CMD,
                 &OSUSTATSLISTCTB_CMD,
                 &MAPPERCTB_CMD,
+                &TOPIFCTB_CMD,
             ],
         ),
         CommandGroup::new(

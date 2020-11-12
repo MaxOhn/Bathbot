@@ -26,6 +26,7 @@ mod scores;
 mod simulate;
 mod simulate_recent;
 mod top;
+mod top_if;
 mod whatif;
 
 pub use avatar::*;
@@ -56,6 +57,7 @@ pub use scores::*;
 pub use simulate::*;
 pub use simulate_recent::*;
 pub use top::*;
+pub use top_if::*;
 pub use whatif::*;
 
 use crate::{
