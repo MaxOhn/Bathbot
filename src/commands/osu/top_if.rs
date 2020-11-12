@@ -12,6 +12,13 @@ use rosu::model::{GameMode, GameMods, Score};
 use std::{cmp::Ordering, collections::HashMap, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
 
+const NM: GameMods = GameMods::NoMod;
+const DT: GameMods = GameMods::DoubleTime;
+const NC: GameMods = GameMods::NightCore;
+const HT: GameMods = GameMods::HalfTime;
+const EZ: GameMods = GameMods::Easy;
+const HR: GameMods = GameMods::HardRock;
+
 async fn topif_main(
     mode: GameMode,
     ctx: Arc<Context>,
@@ -23,6 +30,21 @@ async fn topif_main(
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
+
+    if let Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) = args.mods {
+        let mut content = None;
+        let ezhr = EZ | HR;
+        if mods & ezhr == ezhr {
+            content = Some("Looks like an invalid mod combination, EZ and HR exclude each other.");
+        }
+        let dtht = DT | HT;
+        if mods & dtht == dtht {
+            content = Some("Looks like an invalid mod combination, DT and HT exclude each other");
+        }
+        if let Some(content) = content {
+            return msg.error(&ctx, content).await;
+        }
+    }
 
     // Retrieve the user and their top scores
     let user_fut = ctx.osu().user(name.as_str()).mode(mode);
@@ -118,13 +140,30 @@ async fn topif_main(
                 score.enabled_mods = mods;
                 changed
             }
-            Some(ModSelection::Exclude(mods)) if mods != GameMods::NoMod => {
+            Some(ModSelection::Exclude(mods)) if mods != NM => {
                 let changed = score.enabled_mods.intersects(mods);
                 score.enabled_mods.remove(mods);
                 changed
             }
-            Some(ModSelection::Include(mods)) if mods != GameMods::NoMod => {
-                let changed = !score.enabled_mods.contains(mods);
+            Some(ModSelection::Include(mods)) if mods != NM => {
+                let mut changed = false;
+                if mods.contains(DT) && score.enabled_mods.contains(HT) {
+                    score.enabled_mods.remove(HT);
+                    changed = true;
+                }
+                if mods.contains(HT) && score.enabled_mods.contains(DT) {
+                    score.enabled_mods.remove(NC);
+                    changed = true;
+                }
+                if mods.contains(HR) && score.enabled_mods.contains(EZ) {
+                    score.enabled_mods.remove(EZ);
+                    changed = true;
+                }
+                if mods.contains(EZ) && score.enabled_mods.contains(HR) {
+                    score.enabled_mods.remove(HR);
+                    changed = true;
+                }
+                changed |= !score.enabled_mods.contains(mods);
                 score.enabled_mods.insert(mods);
                 changed
             }
@@ -136,7 +175,9 @@ async fn topif_main(
             if let Err(why) = calculator.calculate(Calculations::all(), Some(&ctx)).await {
                 warn!("Error while calculating pp for topif {}: {}", mode, why);
             }
-            score.pp = calculator.pp();
+            score.pp = calculator
+                .pp()
+                .map(|val| if val.is_infinite() { 0.0 } else { val });
             score.recalculate_grade(mode, None);
             if score.enabled_mods.changes_stars(mode) {
                 if let Some(stars) = calculator.stars() {
@@ -167,7 +208,7 @@ async fn topif_main(
             mode = mode_str(mode),
             mods = mods
         ),
-        Some(ModSelection::Exclude(mods)) if mods != GameMods::NoMod => {
+        Some(ModSelection::Exclude(mods)) if mods != NM => {
             let mods: Vec<_> = mods.iter().collect();
             let len = mods.len();
             let mut mod_iter = mods.into_iter();
@@ -193,7 +234,7 @@ async fn topif_main(
                 mods = mod_str
             )
         }
-        Some(ModSelection::Include(mods)) if mods != GameMods::NoMod => format!(
+        Some(ModSelection::Include(mods)) if mods != NM => format!(
             "`{name}`{plural} {mode}top100 with `{mods}` inserted everywhere:",
             name = user.username,
             plural = plural(user.username.as_str()),

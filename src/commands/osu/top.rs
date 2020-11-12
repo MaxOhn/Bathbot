@@ -159,7 +159,7 @@ async fn top_main(
                 None
             }
         }
-        TopType::Recent => Some(format!("Most recent scores in `{}`'s top 100:", name)),
+        TopType::Recent => Some(format!("Most recent scores in `{}`'s top100:", name)),
     };
     let pages = numbers::div_euclid(5, scores_data.len());
     let data = TopEmbed::new(&ctx, &user, scores_data.iter().take(5), mode, (1, pages)).await;
