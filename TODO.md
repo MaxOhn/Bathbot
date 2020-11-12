@@ -2,7 +2,6 @@
 **[TODO]**
 - Update taiko pp / stars
 - Make use of api endpoint `https://osekai.net/medals/apiv2?medal=True+Torment`
-- Dont show hitresults in `<s` for mania + align hitresults field for other modes
 
 **[Sometime]**
 - `<nochokesctb` (https://pakachan.github.io/osustuff/ppcalculator.html) (investigate)
@@ -12,6 +11,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Dont show hitresults in `<s` for mania + align hitresults field for other modes~~ (20.11.12)
 - ~~Remove `factor` for bonus pp in `<nc`~~ (20.11.12)
 - ~~Improve msg caching for paginated commands~~ (20.11.12)
 - ~~Fix `<bg lb` users~~ (20.11.07)

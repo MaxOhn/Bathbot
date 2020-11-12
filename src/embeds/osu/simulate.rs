@@ -23,13 +23,14 @@ pub struct SimulateEmbed {
     thumbnail: ImageSource,
     image: ImageSource,
 
+    mode: GameMode,
     stars: f32,
     grade_completion_mods: String,
     acc: f32,
     prev_pp: Option<f32>,
     pp: String,
     prev_combo: Option<u32>,
-    score: Option<u64>,
+    score: u64,
     combo: String,
     prev_hits: Option<String>,
     hits: String,
@@ -102,11 +103,6 @@ impl SimulateEmbed {
         };
         let footer = Footer::new(format!("{:?} map by {}", map.approval_status, map.creator))
             .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
-        let score = if map.mode == GameMode::MNA {
-            Some(unchoked_score.score as u64)
-        } else {
-            None
-        };
         Ok(Self {
             title,
             url: format!("{}b/{}", OSU_BASE, map.beatmap_id),
@@ -120,7 +116,8 @@ impl SimulateEmbed {
             .unwrap(),
             grade_completion_mods,
             stars,
-            score,
+            score: unchoked_score.score as u64,
+            mode: map.mode,
             acc,
             pp,
             combo,
@@ -163,40 +160,49 @@ impl EmbedData for SimulateEmbed {
         } else {
             self.pp.to_owned()
         };
-        if let Some(score) = self.score {
+        if self.mode == GameMode::MNA {
             fields.push(("PP".to_owned(), pp, true));
-            fields.push(("Score".to_owned(), with_comma_u64(score), true));
+            fields.push(("Score".to_owned(), with_comma_u64(self.score), true));
         } else {
-            fields.push(("PP".to_owned(), pp, false));
+            fields.push(("PP".to_owned(), pp, true));
+            let hits = if let Some(ref prev_hits) = self.prev_hits {
+                format!("{} → {}", prev_hits, &self.hits)
+            } else {
+                self.hits.to_owned()
+            };
+            fields.push(("Hits".to_owned(), hits, true));
         }
-        let hits = if let Some(ref prev_hits) = self.prev_hits {
-            format!("{} → {}", prev_hits, &self.hits)
-        } else {
-            self.hits.to_owned()
-        };
-        fields.push(("Hits".to_owned(), hits, false));
         fields.push(("Map Info".to_owned(), self.map_info.clone(), false));
         Some(fields)
     }
     fn minimize(&self) -> EmbedBuilder {
         let mut value = if let Some(prev_pp) = self.prev_pp {
-            format!("{} → {} {}", prev_pp, self.pp, self.hits)
+            format!("{} → {}", prev_pp, self.pp)
         } else {
-            format!("{} {}", self.pp, self.hits)
+            format!("{}", self.pp)
         };
+        if self.mode != GameMode::MNA {
+            let _ = write!(value, " {}", self.hits);
+        }
         if let Some(misses) = self.removed_misses {
             if misses > 0 {
                 let _ = write!(value, " (+{}miss)", misses);
             }
         }
-        let combo = if let Some(prev_combo) = self.prev_combo {
-            format!("{} → {}", prev_combo, self.combo)
+        let combo = if self.mode == GameMode::MNA {
+            String::new()
+        } else if let Some(prev_combo) = self.prev_combo {
+            format!(" [ {} → {} ]", prev_combo, self.combo)
         } else {
-            self.combo.clone()
+            format!(" [ {} ]", self.combo.clone())
         };
-        let score = self.score.map(with_comma_u64).unwrap_or_default();
+        let score = if self.mode == GameMode::MNA {
+            with_comma_u64(self.score) + " "
+        } else {
+            String::new()
+        };
         let name = format!(
-            "{grade} {score}({acc}%) [ {combo} ]",
+            "{grade} {score}({acc}%){combo}",
             grade = self.grade_completion_mods,
             score = score,
             acc = self.acc,

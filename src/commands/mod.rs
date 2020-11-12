@@ -79,6 +79,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &OSUSTATSGLOBALSMANIA_CMD,
                 &OSUSTATSCOUNTMANIA_CMD,
                 &OSUSTATSLISTMANIA_CMD,
+                &SIMULATERECENTMANIA_CMD,
                 &RATIOS_CMD,
                 &MAPPERMANIA_CMD,
             ],
