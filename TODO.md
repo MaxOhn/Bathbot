@@ -8,6 +8,7 @@
 - Check out how/if multi sharding works
 
 **[Sometime]**
+- Improve mania and ctb pp and star calculation
 - `<nochokesctb` (https://pakachan.github.io/osustuff/ppcalculator.html) (investigate)
 - `<nochokestaiko` (slider maps have no max combo)
 - Add `Icon from syedhassan - pngtree.com` to README

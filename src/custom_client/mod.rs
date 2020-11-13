@@ -91,7 +91,7 @@ impl CustomClient {
         let bytes = response.bytes().await?;
         let player: SnipePlayer = serde_json::from_slice(&bytes).map_err(|e| {
             let content = String::from_utf8_lossy(&bytes).into_owned();
-            CustomClientError::snipe_player(e, content)
+            CustomClientError::SnipePlayer(e, content)
         })?;
         Ok(player)
     }
@@ -103,7 +103,7 @@ impl CustomClient {
         let country_players: Vec<SnipeCountryPlayer> =
             serde_json::from_slice(&bytes).map_err(|e| {
                 let content = String::from_utf8_lossy(&bytes).into_owned();
-                CustomClientError::snipe_country(e, content)
+                CustomClientError::SnipeCountry(e, content)
             })?;
         Ok(country_players)
     }
@@ -146,11 +146,11 @@ impl CustomClient {
         let (gain, loss) = tokio::try_join!(gain, loss)?;
         let gain: SnipeTopDifference = serde_json::from_slice(&gain).map_err(|e| {
             let content = String::from_utf8_lossy(&gain).into_owned();
-            CustomClientError::snipe_difference(e, content)
+            CustomClientError::SnipeDifference(e, content)
         })?;
         let loss: SnipeTopDifference = serde_json::from_slice(&loss).map_err(|e| {
             let content = String::from_utf8_lossy(&loss).into_owned();
-            CustomClientError::snipe_difference(e, content)
+            CustomClientError::SnipeDifference(e, content)
         })?;
         Ok((gain, loss))
     }
@@ -175,7 +175,7 @@ impl CustomClient {
         let bytes = response.bytes().await?;
         let snipes: Vec<SnipeRecent> = serde_json::from_slice(&bytes).map_err(|e| {
             let content = String::from_utf8_lossy(&bytes).into_owned();
-            CustomClientError::snipe_recent(e, content)
+            CustomClientError::SnipeRecent(e, content)
         })?;
         Ok(snipes)
     }
@@ -192,7 +192,7 @@ impl CustomClient {
         let bytes = response.bytes().await?;
         let scores: Vec<SnipeScore> = serde_json::from_slice(&bytes).map_err(|e| {
             let content = String::from_utf8_lossy(&bytes).into_owned();
-            CustomClientError::snipe_score(e, content)
+            CustomClientError::SnipeScore(e, content)
         })?;
         Ok(scores)
     }
@@ -220,7 +220,7 @@ impl CustomClient {
         let bytes = response.bytes().await?;
         let players: Vec<OsuStatsPlayer> = serde_json::from_slice(&bytes).map_err(|e| {
             let content = String::from_utf8_lossy(&bytes).into_owned();
-            CustomClientError::globals_list(e, content)
+            CustomClientError::GlobalsList(e, content)
         })?;
         Ok(players)
     }
@@ -300,7 +300,7 @@ impl CustomClient {
         let bytes = response.bytes().await?;
         let maps: Vec<MostPlayedMap> = serde_json::from_slice(&bytes).map_err(|e| {
             let content = String::from_utf8_lossy(&bytes).into_owned();
-            CustomClientError::most_played(e, content)
+            CustomClientError::MostPlayed(e, content)
         })?;
         Ok(maps)
     }
@@ -382,7 +382,7 @@ impl CustomClient {
         let bytes = response.bytes().await?;
         let scores: ScraperScores = serde_json::from_slice(&bytes).map_err(|e| {
             let content = String::from_utf8_lossy(&bytes).into_owned();
-            CustomClientError::leaderboard(e, content)
+            CustomClientError::Leaderboard(e, content)
         })?;
         Ok(scores.get())
     }
