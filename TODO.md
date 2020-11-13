@@ -3,9 +3,9 @@
 - Update taiko pp / stars
 - `<playermedalstats` similar to `o>user` & `https://osekai.net/profiles/history`
 - `<playermedals` showing a list of a user's medals
-- `<medals` showing a list of all medals
-- `<medal` showing info about a specific medal (`https://osekai.net/medals/apiv2/get_medal?medal=True+Torment`)
+- `<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)
 - Check out how/if multi sharding works
+- Investigate deadlock, `<bg stop`-`<bg bigger`?
 
 **[Sometime]**
 - Improve mania and ctb pp and star calculation
@@ -16,6 +16,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~`<medal` showing info about a specific medal~~ (20.11.13)
 - ~~Dont show hitresults in `<s` for mania + align hitresults field for other modes~~ (20.11.12)
 - ~~Remove `factor` for bonus pp in `<nc`~~ (20.11.12)
 - ~~Improve msg caching for paginated commands~~ (20.11.12)

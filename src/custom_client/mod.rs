@@ -1,11 +1,13 @@
 mod deserialize;
 mod most_played;
+mod osekai;
 mod osu_profile;
 mod osu_stats;
 mod score;
 mod snipe;
 
 pub use most_played::MostPlayedMap;
+pub use osekai::*;
 pub use osu_profile::*;
 pub use osu_stats::*;
 use score::ScraperScores;
@@ -13,9 +15,8 @@ pub use score::{ScraperBeatmap, ScraperScore};
 pub use snipe::*;
 
 use crate::{
-    bail,
     util::{
-        constants::{AVATAR_URL, HUISMETBENEN, OSU_BASE},
+        constants::{AVATAR_URL, HUISMETBENEN, OSEKAI_MEDAL_API, OSU_BASE},
         error::CustomClientError,
         osu::ModSelection,
     },
@@ -39,6 +40,8 @@ use tokio::time::{timeout, Duration};
 
 static APP_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
+type ClientResult<T> = Result<T, CustomClientError>;
+
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
 #[allow(clippy::enum_variant_names)]
 enum Site {
@@ -47,6 +50,7 @@ enum Site {
     OsuHiddenApi,
     OsuAvatar,
     OsuSnipe,
+    Osekai,
 }
 
 pub struct CustomClient {
@@ -77,7 +81,7 @@ impl CustomClient {
         self.ratelimiter.until_key_ready(&site).await
     }
 
-    async fn make_request(&self, url: impl AsRef<str>, site: Site) -> BotResult<Response> {
+    async fn make_request(&self, url: impl AsRef<str>, site: Site) -> ClientResult<Response> {
         let url = url.as_ref();
         debug!("Requesting url {}", url);
         self.ratelimit(site).await;
@@ -85,30 +89,56 @@ impl CustomClient {
         Ok(response.error_for_status()?)
     }
 
-    pub async fn get_snipe_player(&self, country: &str, user_id: u32) -> BotResult<SnipePlayer> {
+    pub async fn get_osekai_medal(&self, medal_name: &str) -> ClientResult<Option<OsekaiMedal>> {
+        let medal = medal_name.cow_replace(' ', "+");
+        let url = format!("{}get_medal?medal={}", OSEKAI_MEDAL_API, medal);
+        let response = self.make_request(url, Site::Osekai).await?;
+        let bytes = response.bytes().await?;
+        let medal: Option<OsekaiMedal> = match serde_json::from_slice(&bytes) {
+            Ok(medal) => Some(medal),
+            Err(source) => match serde_json::from_slice::<Value>(&bytes)
+                .map(|mut v| v.get_mut("error").map(Value::take))
+            {
+                Ok(Some(Value::String(msg))) if msg == "Medal could not be found" => None,
+                _ => {
+                    return Err(CustomClientError::Parsing {
+                        body: String::from_utf8_lossy(&bytes).into_owned(),
+                        source,
+                        request: "osekai medal",
+                    })
+                }
+            },
+        };
+        Ok(medal)
+    }
+
+    pub async fn get_snipe_player(&self, country: &str, user_id: u32) -> ClientResult<SnipePlayer> {
         let url = format!("{}player/{}/{}?type=id", HUISMETBENEN, country, user_id);
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
-        let player: SnipePlayer = serde_json::from_slice(&bytes).map_err(|e| {
-            let content = String::from_utf8_lossy(&bytes).into_owned();
-            CustomClientError::SnipePlayer(e, content)
-        })?;
+        let player: SnipePlayer =
+            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&bytes).into_owned(),
+                source,
+                request: "snipe player",
+            })?;
         Ok(player)
     }
 
-    pub async fn get_snipe_country(&self, country: &str) -> BotResult<Vec<SnipeCountryPlayer>> {
+    pub async fn get_snipe_country(&self, country: &str) -> ClientResult<Vec<SnipeCountryPlayer>> {
         let url = format!("{}rankings/{}/pp/weighted", HUISMETBENEN, country);
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
         let country_players: Vec<SnipeCountryPlayer> =
-            serde_json::from_slice(&bytes).map_err(|e| {
-                let content = String::from_utf8_lossy(&bytes).into_owned();
-                CustomClientError::SnipeCountry(e, content)
+            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&bytes).into_owned(),
+                source,
+                request: "snipe country",
             })?;
         Ok(country_players)
     }
 
-    pub async fn get_country_unplayed_amount(&self, country: &str) -> BotResult<u32> {
+    pub async fn get_country_unplayed_amount(&self, country: &str) -> ClientResult<u32> {
         let url = format!(
             "{}beatmaps/unplayed/{}",
             HUISMETBENEN,
@@ -116,14 +146,19 @@ impl CustomClient {
         );
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
-        let amount = serde_json::from_slice(&bytes)?;
+        let amount =
+            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&bytes).into_owned(),
+                source,
+                request: "country unplayed amount",
+            })?;
         Ok(amount)
     }
 
     pub async fn get_country_biggest_difference(
         &self,
         country: &str,
-    ) -> BotResult<(SnipeTopDifference, SnipeTopDifference)> {
+    ) -> ClientResult<(SnipeTopDifference, SnipeTopDifference)> {
         let country = country.cow_to_lowercase();
         let url_gain = format!("{}rankings/{}/topgain", HUISMETBENEN, country);
         let url_loss = format!("{}rankings/{}/toploss", HUISMETBENEN, country);
@@ -144,14 +179,18 @@ impl CustomClient {
                 }
             });
         let (gain, loss) = tokio::try_join!(gain, loss)?;
-        let gain: SnipeTopDifference = serde_json::from_slice(&gain).map_err(|e| {
-            let content = String::from_utf8_lossy(&gain).into_owned();
-            CustomClientError::SnipeDifference(e, content)
-        })?;
-        let loss: SnipeTopDifference = serde_json::from_slice(&loss).map_err(|e| {
-            let content = String::from_utf8_lossy(&loss).into_owned();
-            CustomClientError::SnipeDifference(e, content)
-        })?;
+        let gain: SnipeTopDifference =
+            serde_json::from_slice(&gain).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&gain).into_owned(),
+                source,
+                request: "snipe difference",
+            })?;
+        let loss: SnipeTopDifference =
+            serde_json::from_slice(&loss).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&loss).into_owned(),
+                source,
+                request: "snipe difference",
+            })?;
         Ok((gain, loss))
     }
 
@@ -161,7 +200,7 @@ impl CustomClient {
         sniper: bool,
         from: DateTime<Utc>,
         until: DateTime<Utc>,
-    ) -> BotResult<Vec<SnipeRecent>> {
+    ) -> ClientResult<Vec<SnipeRecent>> {
         let date_format = "%FT%TZ";
         let url = format!(
             "{}snipes/{}/{}?since={}&until={}",
@@ -173,15 +212,17 @@ impl CustomClient {
         );
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
-        let snipes: Vec<SnipeRecent> = serde_json::from_slice(&bytes).map_err(|e| {
-            let content = String::from_utf8_lossy(&bytes).into_owned();
-            CustomClientError::SnipeRecent(e, content)
-        })?;
+        let snipes: Vec<SnipeRecent> =
+            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&bytes).into_owned(),
+                source,
+                request: "snipe recent",
+            })?;
         Ok(snipes)
     }
 
     /// BAD! DO NOT USE YET!
-    pub async fn _get_national_firsts(&self, user: &User) -> BotResult<Vec<SnipeScore>> {
+    pub async fn _get_national_firsts(&self, user: &User) -> ClientResult<Vec<SnipeScore>> {
         let url = format!(
             "{}player/{}/{}/all",
             HUISMETBENEN,
@@ -190,17 +231,19 @@ impl CustomClient {
         );
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
-        let scores: Vec<SnipeScore> = serde_json::from_slice(&bytes).map_err(|e| {
-            let content = String::from_utf8_lossy(&bytes).into_owned();
-            CustomClientError::SnipeScore(e, content)
-        })?;
+        let scores: Vec<SnipeScore> =
+            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&bytes).into_owned(),
+                source,
+                request: "snipe score",
+            })?;
         Ok(scores)
     }
 
     pub async fn get_country_globals(
         &self,
         params: &OsuStatsListParams,
-    ) -> BotResult<Vec<OsuStatsPlayer>> {
+    ) -> ClientResult<Vec<OsuStatsPlayer>> {
         let mut form = Form::new()
             .text("rankMin", params.rank_min.to_string())
             .text("rankMax", params.rank_max.to_string())
@@ -215,13 +258,15 @@ impl CustomClient {
         self.ratelimit(Site::OsuStats).await;
         let response = match timeout(Duration::from_secs(4), request.send()).await {
             Ok(result) => result?,
-            Err(_) => bail!("Timed out while waiting for get_country_globals"),
+            Err(_) => return Err(CustomClientError::OsuStatsTimeout),
         };
         let bytes = response.bytes().await?;
-        let players: Vec<OsuStatsPlayer> = serde_json::from_slice(&bytes).map_err(|e| {
-            let content = String::from_utf8_lossy(&bytes).into_owned();
-            CustomClientError::GlobalsList(e, content)
-        })?;
+        let players: Vec<OsuStatsPlayer> =
+            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&bytes).into_owned(),
+                source,
+                request: "globals list",
+            })?;
         Ok(players)
     }
 
@@ -229,7 +274,7 @@ impl CustomClient {
     pub async fn get_global_scores(
         &self,
         params: &OsuStatsParams,
-    ) -> BotResult<(Vec<OsuStatsScore>, usize)> {
+    ) -> ClientResult<(Vec<OsuStatsScore>, usize)> {
         let mut form = Form::new()
             .text("accMin", params.acc_min.to_string())
             .text("accMax", params.acc_max.to_string())
@@ -255,28 +300,31 @@ impl CustomClient {
         self.ratelimit(Site::OsuStats).await;
         let response = match timeout(Duration::from_secs(4), request.send()).await {
             Ok(result) => result?,
-            Err(_) => bail!("Timed out while waiting for get_global_scores"),
+            Err(_) => return Err(CustomClientError::OsuStatsTimeout),
         };
         let bytes = response.bytes().await?;
-        let result: Value = serde_json::from_slice(&bytes)?;
+        let result: Value =
+            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&bytes).into_owned(),
+                source,
+                request: "osu stats global",
+            })?;
         let (scores, amount) = if let Value::Array(mut array) = result {
             let mut values = array.drain(..2);
-            let scores = match serde_json::from_value(values.next().unwrap()) {
-                Ok(scores) => scores,
-                Err(why) => {
-                    let content = String::from_utf8_lossy(&bytes);
-                    warn!("JSON (scores): {}", content);
-                    return Err(why.into());
+            let scores = serde_json::from_value(values.next().unwrap()).map_err(|source| {
+                CustomClientError::Parsing {
+                    body: String::from_utf8_lossy(&bytes).into_owned(),
+                    source,
+                    request: "osu stats global scores",
                 }
-            };
-            let amount = match serde_json::from_value(values.next().unwrap()) {
-                Ok(amount) => amount,
-                Err(why) => {
-                    let content = String::from_utf8_lossy(&bytes);
-                    warn!("JSON (amount): {}", content);
-                    return Err(why.into());
+            })?;
+            let amount = serde_json::from_value(values.next().unwrap()).map_err(|source| {
+                CustomClientError::Parsing {
+                    body: String::from_utf8_lossy(&bytes).into_owned(),
+                    source,
+                    request: "osu stats global amount",
                 }
-            };
+            })?;
             (scores, amount)
         } else {
             (Vec::new(), 0)
@@ -289,7 +337,7 @@ impl CustomClient {
         &self,
         user_id: u32,
         amount: u32,
-    ) -> BotResult<Vec<MostPlayedMap>> {
+    ) -> ClientResult<Vec<MostPlayedMap>> {
         let url = format!(
             "{base}users/{id}/beatmapsets/most_played?limit={limit}",
             base = OSU_BASE,
@@ -298,10 +346,12 @@ impl CustomClient {
         );
         let response = self.make_request(url, Site::OsuWebsite).await?;
         let bytes = response.bytes().await?;
-        let maps: Vec<MostPlayedMap> = serde_json::from_slice(&bytes).map_err(|e| {
-            let content = String::from_utf8_lossy(&bytes).into_owned();
-            CustomClientError::MostPlayed(e, content)
-        })?;
+        let maps: Vec<MostPlayedMap> =
+            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&bytes).into_owned(),
+                source,
+                request: "most played",
+            })?;
         Ok(maps)
     }
 
@@ -315,7 +365,7 @@ impl CustomClient {
         national: bool,
         mods: Option<GameMods>,
         mode: GameMode,
-    ) -> BotResult<Vec<ScraperScore>> {
+    ) -> ClientResult<Vec<ScraperScore>> {
         let mut scores = self._get_leaderboard(map_id, national, mods).await?;
         let non_mirror = mods
             .map(|mods| !mods.contains(GameMods::Mirror))
@@ -364,7 +414,7 @@ impl CustomClient {
         map_id: u32,
         national: bool,
         mods: Option<GameMods>,
-    ) -> BotResult<Vec<ScraperScore>> {
+    ) -> ClientResult<Vec<ScraperScore>> {
         let mut url = format!("{base}beatmaps/{id}/scores?", base = OSU_BASE, id = map_id);
         if national {
             url.push_str("type=country");
@@ -380,14 +430,16 @@ impl CustomClient {
         }
         let response = self.make_request(url, Site::OsuHiddenApi).await?;
         let bytes = response.bytes().await?;
-        let scores: ScraperScores = serde_json::from_slice(&bytes).map_err(|e| {
-            let content = String::from_utf8_lossy(&bytes).into_owned();
-            CustomClientError::Leaderboard(e, content)
-        })?;
+        let scores: ScraperScores =
+            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&bytes).into_owned(),
+                source,
+                request: "leaderboard",
+            })?;
         Ok(scores.get())
     }
 
-    pub async fn get_avatar(&self, user_id: u32) -> BotResult<Vec<u8>> {
+    pub async fn get_avatar(&self, user_id: u32) -> ClientResult<Vec<u8>> {
         let url = format!("{}{}", AVATAR_URL, user_id);
         let response = self.make_request(url, Site::OsuAvatar).await?;
         Ok(response.bytes().await?.to_vec())
@@ -398,7 +450,7 @@ impl CustomClient {
         user_id: u32,
         mode: GameMode,
         with_all_achievements: bool,
-    ) -> BotResult<(OsuProfile, OsuAchievements)> {
+    ) -> ClientResult<(OsuProfile, OsuAchievements)> {
         let url = format!(
             "{base}users/{user_id}/{mode}",
             base = OSU_BASE,
@@ -416,14 +468,25 @@ impl CustomClient {
             Some(element) => element.first_child().unwrap().value().as_text().unwrap(),
             None => return Err(CustomClientError::MissingElement("#json-user").into()),
         };
-        let user: OsuProfile = serde_json::from_str(json.trim())?;
+        let user: OsuProfile =
+            serde_json::from_str(json.trim()).map_err(|source| CustomClientError::Parsing {
+                body: json.to_string(),
+                source,
+                request: "osu profile",
+            })?;
         let achievements = if with_all_achievements {
             let achievement_element = Selector::parse("#json-achievements").unwrap();
             let json = match html.select(&achievement_element).next() {
                 Some(element) => element.first_child().unwrap().value().as_text().unwrap(),
                 None => return Err(CustomClientError::MissingElement("#json-achievements").into()),
             };
-            serde_json::from_str::<Vec<OsuAchievement>>(json.trim())?.into()
+            serde_json::from_str::<Vec<OsuAchievement>>(json.trim())
+                .map_err(|source| CustomClientError::Parsing {
+                    body: json.to_string(),
+                    source,
+                    request: "osu achievements",
+                })?
+                .into()
         } else {
             OsuAchievements::default()
         };
@@ -435,7 +498,7 @@ impl CustomClient {
         rank: usize,
         mode: GameMode,
         country_acronym: Option<&str>,
-    ) -> BotResult<u32> {
+    ) -> ClientResult<u32> {
         if rank < 1 || 10_000 < rank {
             return Err(CustomClientError::RankIndex(rank).into());
         }

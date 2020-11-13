@@ -57,7 +57,7 @@ async fn bws(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         Ok((profile, _)) => profile,
         Err(why) => {
             let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
-            return Err(why);
+            return Err(why.into());
         }
     };
     let badges = profile.badges.len();

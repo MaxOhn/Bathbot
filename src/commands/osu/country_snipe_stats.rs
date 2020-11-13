@@ -84,12 +84,12 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
             (Err(why), ..) | (_, Err(why), _) => {
                 let content = "Some issue with the huismetbenen api, blame bade";
                 let _ = msg.error(&ctx, content).await;
-                return Err(why);
+                return Err(why.into());
             }
             (.., Err(why)) if country != "global" => {
                 let content = "Some issue with the huismetbenen api, blame bade";
                 let _ = msg.error(&ctx, content).await;
-                return Err(why);
+                return Err(why.into());
             }
             (Ok(players), Ok(unplayed), differences) => (players, unplayed, differences.ok()),
         }

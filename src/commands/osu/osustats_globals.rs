@@ -49,7 +49,7 @@ async fn osustats_main(
         Err(why) => {
             let content = "Some issue with the osustats website, blame bade";
             let _ = msg.error(&ctx, content).await;
-            return Err(why);
+            return Err(why.into());
         }
     };
 

@@ -104,7 +104,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
             .collect(),
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-            return Err(why);
+            return Err(why.into());
         }
     };
 

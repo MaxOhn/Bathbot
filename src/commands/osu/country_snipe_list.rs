@@ -111,7 +111,7 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
         Err(why) => {
             let content = "Some issue with the huismetbenen api, blame bade";
             let _ = msg.error(&ctx, content).await;
-            return Err(why);
+            return Err(why.into());
         }
     };
 

@@ -93,7 +93,7 @@ async fn leaderboard_main(
         Ok(scores) => scores,
         Err(why) => {
             let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
-            return Err(why);
+            return Err(why.into());
         }
     };
     let amount = scores.len();

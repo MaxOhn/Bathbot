@@ -18,6 +18,9 @@ pub const TWITCH_BASE: &str = "https://www.twitch.tv/";
 pub const TWITCH_STREAM_ENDPOINT: &str = "https://api.twitch.tv/helix/streams";
 pub const TWITCH_USERS_ENDPOINT: &str = "https://api.twitch.tv/helix/users";
 
+// osekai
+pub const OSEKAI_MEDAL_API: &str = "https://osekai.net/medals/apiv2/";
+
 // discord
 pub const DISCORD_CDN: &str = "https://cdn.discordapp.com/";
 

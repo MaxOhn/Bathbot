@@ -1,4 +1,6 @@
-use super::deserialize::*;
+use super::deserialize::{
+    adjust_mods, num_to_mode, str_to_datetime, str_to_f32, str_to_maybe_datetime, str_to_maybe_f32,
+};
 
 use crate::util::osu::ModSelection;
 
@@ -45,7 +47,7 @@ pub struct OsuStatsScore {
     #[serde(rename = "userId")]
     pub user_id: u32,
     pub position: u32,
-    #[serde(rename = "rank", deserialize_with = "str_to_grade")]
+    #[serde(rename = "rank")]
     pub grade: Grade,
     pub score: u32,
     #[serde(rename = "maxCombo")]
@@ -63,7 +65,7 @@ pub struct OsuStatsScore {
     pub count_miss: u32,
     #[serde(rename = "enabledMods", deserialize_with = "adjust_mods")]
     pub enabled_mods: GameMods,
-    #[serde(rename = "playDate", deserialize_with = "str_to_date")]
+    #[serde(rename = "playDate", deserialize_with = "str_to_datetime")]
     pub date: DateTime<Utc>,
     #[serde(rename = "ppValue")]
     pub pp: Option<f32>,
@@ -77,11 +79,11 @@ pub struct OsuStatsMap {
     pub beatmap_id: u32,
     #[serde(rename = "beatmapSetId")]
     pub beatmapset_id: u32,
-    #[serde(rename = "approved", deserialize_with = "str_to_approved")]
+    #[serde(rename = "approved")]
     pub approval_status: ApprovalStatus,
-    #[serde(rename = "lastUpdated", deserialize_with = "str_to_date")]
+    #[serde(rename = "lastUpdated", deserialize_with = "str_to_datetime")]
     pub last_updated: DateTime<Utc>,
-    #[serde(rename = "approvedDate", deserialize_with = "str_to_maybe_date")]
+    #[serde(rename = "approvedDate", deserialize_with = "str_to_maybe_datetime")]
     pub approved_date: Option<DateTime<Utc>>,
     #[serde(rename = "hitLength")]
     pub seconds_drain: u32,

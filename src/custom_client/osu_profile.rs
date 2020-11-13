@@ -1,4 +1,6 @@
-use super::deserialize::{adjust_mode, expect_negative_u32};
+use super::deserialize::{
+    expect_negative_u32, str_to_datetime, str_to_maybe_datetime, str_to_maybe_mode,
+};
 
 use chrono::{Date, DateTime, NaiveDate, Utc};
 use rosu::model::GameMode;
@@ -25,7 +27,7 @@ pub struct OsuProfile {
     pub interests: Option<String>,
     pub location: Option<String>,
     pub occupation: Option<String>,
-    #[serde(rename = "playmode", deserialize_with = "adjust_mode")]
+    #[serde(rename = "playmode")]
     pub mode: GameMode,
     pub playstyle: Option<Vec<OsuProfilePlaystyle>>,
     pub post_count: u32,
@@ -95,7 +97,7 @@ pub struct OsuAchievement {
     pub icon_url: String,
     #[serde(deserialize_with = "trim_instructions")]
     pub instructions: Option<String>,
-    #[serde(deserialize_with = "adjust_mode_maybe")]
+    #[serde(deserialize_with = "str_to_maybe_mode")]
     pub mode: Option<GameMode>,
     pub ordering: u32,
 }
@@ -196,21 +198,6 @@ pub struct OsuProfileAchievement {
     pub achievement_id: u32,
 }
 
-pub fn adjust_mode_maybe<'de, D>(d: D) -> Result<Option<GameMode>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s: Option<&str> = Deserialize::deserialize(d)?;
-    let m = s.map(|s| match s {
-        "osu" => GameMode::STD,
-        "taiko" => GameMode::TKO,
-        "fruits" => GameMode::CTB,
-        "mania" => GameMode::MNA,
-        _ => panic!("Could not parse mode '{}'", s),
-    });
-    Ok(m)
-}
-
 /// Trimming <i> and </i>
 pub fn trim_instructions<'de, D>(d: D) -> Result<Option<String>, D::Error>
 where
@@ -223,26 +210,6 @@ where
         s.replace_range(offset..=3 + offset, "");
         s
     }))
-}
-
-pub fn str_to_maybe_datetime<'de, D>(d: D) -> Result<Option<DateTime<Utc>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s: Option<String> = Deserialize::deserialize(d)?;
-    s.map(|s| DateTime::parse_from_rfc3339(&s).map(|date| date.with_timezone(&Utc)))
-        .transpose()
-        .map_err(de::Error::custom)
-}
-
-pub fn str_to_datetime<'de, D>(d: D) -> Result<DateTime<Utc>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s: String = Deserialize::deserialize(d)?;
-    DateTime::parse_from_rfc3339(&s)
-        .map(|date| date.with_timezone(&Utc))
-        .map_err(de::Error::custom)
 }
 
 pub fn str_to_date<'de, D>(d: D) -> Result<Date<Utc>, D::Error>

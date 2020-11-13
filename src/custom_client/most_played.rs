@@ -1,5 +1,3 @@
-use super::deserialize::adjust_mode;
-
 use rosu::model::GameMode;
 use serde::{Deserialize, Deserializer};
 use std::hash::{Hash, Hasher};
@@ -41,7 +39,6 @@ impl<'de> Deserialize<'de> for MostPlayedMap {
 
         #[derive(Deserialize)]
         pub struct InnerMap {
-            #[serde(deserialize_with = "adjust_mode")]
             mode: GameMode,
             version: String,
             difficulty_rating: f32,

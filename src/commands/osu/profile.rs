@@ -133,7 +133,7 @@ pub async fn profile_embed(
                     .await?
                     .reaction_delete(ctx, owner);
             }
-            return Err(why);
+            return Err(why.into());
         }
     };
 

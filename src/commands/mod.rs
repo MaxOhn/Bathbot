@@ -33,6 +33,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &MOSTPLAYEDCOMMON_CMD,
                 &LEADERBOARD_CMD,
                 &GLOBALLEADERBOARD_CMD,
+                &MEDAL_CMD,
             ],
         ),
         CommandGroup::new(

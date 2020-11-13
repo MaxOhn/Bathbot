@@ -7,7 +7,7 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
-    BotResult, Context,
+    BotResult, Context, Error,
 };
 
 use futures::future::TryFutureExt;
@@ -93,18 +93,20 @@ async fn compare_main(
             .get_top_scores(ctx.osu())
             .limit(100)
             .mode(mode)
-            .map_err(|e| e.into()),
+            .map_err(Error::Osu),
         user2
             .get_top_scores(ctx.osu())
             .limit(100)
             .mode(mode)
-            .map_err(|e| e.into()),
+            .map_err(Error::Osu),
         ctx.clients
             .custom
-            .get_osu_profile(user1.user_id, mode, false),
+            .get_osu_profile(user1.user_id, mode, false)
+            .map_err(Error::CustomClient),
         ctx.clients
             .custom
             .get_osu_profile(user2.user_id, mode, false)
+            .map_err(Error::CustomClient)
     );
     let (scores1, scores2, profile1, profile2) = match fut {
         Ok((scores1, scores2, (profile1, _), (profile2, _))) => {

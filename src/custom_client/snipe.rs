@@ -1,3 +1,5 @@
+use super::deserialize::{expect_negative_u32, str_to_maybe_datetime};
+
 use chrono::{offset::TimeZone, Date, DateTime, Utc};
 use rosu::model::GameMods;
 use serde::{
@@ -73,10 +75,10 @@ pub struct SnipeTopDifference {
 
 #[derive(Debug, Deserialize)]
 pub struct SnipePlayerOldest {
-    #[serde(rename = "map_id", deserialize_with = "deserialize_signed")]
+    #[serde(rename = "map_id", deserialize_with = "expect_negative_u32")]
     pub beatmap_id: u32,
     pub map: String,
-    #[serde(deserialize_with = "deserialize_date")]
+    #[serde(deserialize_with = "str_to_maybe_datetime")]
     pub date: Option<DateTime<Utc>>,
 }
 
@@ -392,21 +394,6 @@ impl<'de> Deserialize<'de> for SnipeScore {
 
 pub fn deserialize_acc<'de, D: Deserializer<'de>>(d: D) -> Result<f32, D::Error> {
     Deserialize::deserialize(d).map(|n: f32| 100.0 * n)
-}
-
-pub fn deserialize_signed<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
-    let n: i64 = Deserialize::deserialize(d)?;
-    match n {
-        n if n >= 0 && n <= u32::MAX as i64 => Ok(n as u32),
-        _ => Ok(0),
-    }
-}
-
-pub fn deserialize_date<'de, D: Deserializer<'de>>(
-    d: D,
-) -> Result<Option<DateTime<Utc>>, D::Error> {
-    let date: &str = Deserialize::deserialize(d)?;
-    Ok(Utc.datetime_from_str(&date, "%F %T").ok())
 }
 
 fn deserialize_mod_count<'de, D>(d: D) -> Result<Option<Vec<(GameMods, u32)>>, D::Error>

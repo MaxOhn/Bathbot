@@ -54,7 +54,7 @@ async fn rank_main(
         Ok(id) => id,
         Err(why) => {
             let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
-            return Err(why);
+            return Err(why.into());
         }
     };
     let user = match user_result {
