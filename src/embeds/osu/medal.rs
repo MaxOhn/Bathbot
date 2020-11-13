@@ -35,6 +35,7 @@ impl MedalEmbed {
         fields.push(("Mods".to_owned(), mods, true));
         fields.push(("Group".to_owned(), medal.group, true));
         if let Some(diff) = medal.difficulty {
+            let diff_name = format!("Voted difficulty [ {} / 10 ]", diff.total);
             let diff_value = format!(
                 "`Dedication: {}` • `Tapping: {}` • `Reading: {}` • `Patterns: {}`",
                 round(diff.dedication),
@@ -42,7 +43,7 @@ impl MedalEmbed {
                 round(diff.reading),
                 round(diff.patterns),
             );
-            fields.push(("Voted difficulty out of 10".to_owned(), diff_value, false));
+            fields.push((diff_name, diff_value, false));
         }
 
         if !medal.beatmaps.is_empty() {

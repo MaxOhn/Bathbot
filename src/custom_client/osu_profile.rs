@@ -1,6 +1,4 @@
-use super::deserialize::{
-    expect_negative_u32, str_to_datetime, str_to_maybe_datetime, str_to_maybe_mode,
-};
+use super::deserialize::{expect_negative_u32, str_to_maybe_mode};
 
 use chrono::{Date, DateTime, NaiveDate, Utc};
 use rosu::model::GameMode;
@@ -243,4 +241,24 @@ pub fn rank_history_vec<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Vec<u3
         .map(|n| n as u32)
         .collect();
     Ok(Some(data))
+}
+
+pub fn str_to_maybe_datetime<'de, D>(d: D) -> Result<Option<DateTime<Utc>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: Option<String> = Deserialize::deserialize(d)?;
+    s.map(|s| DateTime::parse_from_rfc3339(&s).map(|date| date.with_timezone(&Utc)))
+        .transpose()
+        .map_err(de::Error::custom)
+}
+
+pub fn str_to_datetime<'de, D>(d: D) -> Result<DateTime<Utc>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: String = Deserialize::deserialize(d)?;
+    DateTime::parse_from_rfc3339(&s)
+        .map(|date| date.with_timezone(&Utc))
+        .map_err(de::Error::custom)
 }
