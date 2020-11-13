@@ -16,25 +16,19 @@ pub enum TwitchError {
 impl fmt::Display for TwitchError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::InvalidAuth(e) => write!(f, "invalid auth response: {}", e),
-            Self::InvalidHeader(e) => write!(f, "invalid client id: {}", e),
+            Self::InvalidAuth(_) => f.write_str("invalid auth response"),
+            Self::InvalidHeader(_) => f.write_str("invalid client id"),
             Self::NoUserResult(n) => write!(f, "no result for name `{}`", n),
-            Self::Reqwest(e) => write!(f, "reqwest error: {}", e),
-            Self::SerdeStreams(e, content) => write!(
-                f,
-                "could not deserialize response for streams: {}\n{}",
-                e, content
-            ),
-            Self::SerdeUser(e, content) => write!(
-                f,
-                "could not deserialize response for user: {}\n{}",
-                e, content
-            ),
-            Self::SerdeUsers(e, content) => write!(
-                f,
-                "could not deserialize response for users: {}\n{}",
-                e, content
-            ),
+            Self::Reqwest(_) => f.write_str("reqwest error"),
+            Self::SerdeStreams(_, content) => {
+                write!(f, "could not deserialize response for streams: {}", content)
+            }
+            Self::SerdeUser(_, content) => {
+                write!(f, "could not deserialize response for user: {}", content)
+            }
+            Self::SerdeUsers(_, content) => {
+                write!(f, "could not deserialize response for users: {}", content)
+            }
         }
     }
 }
@@ -51,4 +45,16 @@ impl From<ReqwestError> for TwitchError {
     }
 }
 
-impl StdError for TwitchError {}
+impl StdError for TwitchError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            Self::InvalidAuth(e) => Some(e),
+            Self::InvalidHeader(e) => Some(e),
+            Self::NoUserResult(_) => None,
+            Self::Reqwest(e) => Some(e),
+            Self::SerdeStreams(e, _) => Some(e),
+            Self::SerdeUser(e, _) => Some(e),
+            Self::SerdeUsers(e, _) => Some(e),
+        }
+    }
+}

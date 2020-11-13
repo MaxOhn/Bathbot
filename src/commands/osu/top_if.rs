@@ -18,6 +18,8 @@ const NC: GameMods = GameMods::NightCore;
 const HT: GameMods = GameMods::HalfTime;
 const EZ: GameMods = GameMods::Easy;
 const HR: GameMods = GameMods::HardRock;
+const PF: GameMods = GameMods::Perfect;
+const SD: GameMods = GameMods::SuddenDeath;
 
 async fn topif_main(
     mode: GameMode,
@@ -140,7 +142,13 @@ async fn topif_main(
                 score.enabled_mods = mods;
                 changed
             }
-            Some(ModSelection::Exclude(mods)) if mods != NM => {
+            Some(ModSelection::Exclude(mut mods)) if mods != NM => {
+                if mods.contains(DT) {
+                    mods |= NC;
+                }
+                if mods.contains(SD) {
+                    mods |= PF
+                }
                 let changed = score.enabled_mods.intersects(mods);
                 score.enabled_mods.remove(mods);
                 changed

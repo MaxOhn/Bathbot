@@ -21,11 +21,43 @@ enum RequestType {
     SnipeScore,
 }
 
+impl RequestType {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::GlobalsList => "globals list",
+            Self::Leaderboard => "leaderboard",
+            Self::MostPlayed => "most played",
+            Self::SnipeCountry => "snipe country",
+            Self::SnipeDifference => "snipe difference",
+            Self::SnipePlayer => "snipe player",
+            Self::SnipeRecent => "snipe recent",
+            Self::SnipeScore => "snipe score",
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct RequestError {
     request: RequestType,
     error: SerdeJsonError,
     content: String,
+}
+
+impl StdError for RequestError {
+    // fn source(&self) -> Option<&(dyn StdError + 'static)> {
+    //     Some(&self.error)
+    // }
+}
+
+impl fmt::Display for RequestError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "type: {} | content: {}",
+            self.request.as_str(),
+            self.content
+        )
+    }
 }
 
 impl CustomClientError {
@@ -91,30 +123,20 @@ impl fmt::Display for CustomClientError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::MissingElement(element) => write!(f, "missing html element `{}`", element),
-            Self::Request(RequestError {
-                request,
-                error,
-                content,
-            }) => write!(
-                f,
-                "could not deserialize response for {}: {}\n{}",
-                match request {
-                    RequestType::GlobalsList => "globals list",
-                    RequestType::Leaderboard => "leaderboard",
-                    RequestType::MostPlayed => "most played",
-                    RequestType::SnipeCountry => "snipe country",
-                    RequestType::SnipeDifference => "snipe difference",
-                    RequestType::SnipePlayer => "snipe player",
-                    RequestType::SnipeRecent => "snipe recent",
-                    RequestType::SnipeScore => "snipe score",
-                },
-                error,
-                content
-            ),
+            Self::Request(_) => f.write_str("could not deserialize response"),
             Self::RankIndex(n) => write!(f, "expected rank between 1 and 10_000, got {}", n),
             Self::RankNode(n) => write!(f, "error at unwrap {}, expected  child", n),
         }
     }
 }
 
-impl StdError for CustomClientError {}
+impl StdError for CustomClientError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            Self::MissingElement(_) => None,
+            Self::RankIndex(_) => None,
+            Self::RankNode(_) => None,
+            Self::Request(e) => Some(e),
+        }
+    }
+}

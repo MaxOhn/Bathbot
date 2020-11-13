@@ -162,7 +162,7 @@ pub async fn handle_event(
                         Ok(process_result) => {
                             info!("Command `{}` was not processed: {:?}", name, process_result)
                         }
-                        Err(why) => error!("Error while processing command `{}`: {}", name, why),
+                        Err(why) => return Err(Error::Command(Box::new(why))),
                     }
                 }
             }

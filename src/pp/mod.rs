@@ -349,17 +349,15 @@ async fn parse_calculation(mut cmd: Command, ctx: &Context) -> Result<f32, PPErr
     let output = {
         let _lock = ctx.pp_lock().lock().await;
         match calculation.await {
-            Ok(output) => output.map_err(|e| PPError::CommandLine(e.to_string()))?,
+            Ok(output) => output.map_err(PPError::IoError)?,
             Err(_) => return Err(PPError::Timeout),
         }
     };
     if output.status.success() {
-        let result =
-            String::from_utf8(output.stdout).map_err(|e| PPError::CommandLine(e.to_string()))?;
-        Ok(f32::from_str(&result.trim()).map_err(|e| PPError::CommandLine(e.to_string()))?)
+        let result = String::from_utf8_lossy(&output.stdout).into_owned();
+        f32::from_str(&result.trim()).map_err(|_| PPError::InvalidFloat(result))
     } else {
-        let err_msg =
-            String::from_utf8(output.stderr).map_err(|e| PPError::CommandLine(e.to_string()))?;
+        let err_msg = String::from_utf8_lossy(&output.stderr).into_owned();
         Err(PPError::CommandLine(err_msg))
     }
 }

@@ -51,6 +51,7 @@ pub enum Error {
     CacheDefrost(&'static str, Box<Error>),
     CreateMessage(CreateMessageError),
     ChronoParse(ChronoParseError),
+    Command(Box<Error>),
     Custom(String),
     CustomClient(CustomClientError),
     Database(DBError),
@@ -78,60 +79,80 @@ pub enum Error {
     UpdateMessage(UpdateMessageError),
 }
 
-impl StdError for Error {}
+impl StdError for Error {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            Self::BgGame(e) => Some(e),
+            Self::CacheDefrost(_, e) => Some(e),
+            Self::CreateMessage(e) => Some(e),
+            Self::ChronoParse(e) => Some(e),
+            Self::Command(e) => Some(e),
+            Self::Custom(_) => None,
+            Self::CustomClient(e) => Some(e),
+            Self::Database(e) => Some(e),
+            Self::Embed(e) => Some(e),
+            Self::EmbedColor(e) => Some(e),
+            Self::EmbedDescription(e) => Some(e),
+            Self::EmbedTitle(e) => Some(e),
+            Self::Fmt(e) => Some(e),
+            Self::Image(e) => Some(e),
+            Self::InvalidConfig(e) => Some(e),
+            Self::InvalidSession(_) => None,
+            Self::IO(e) => Some(e),
+            Self::MapDownload(e) => Some(e),
+            Self::NoConfig => None,
+            Self::NoLoggingSpec => None,
+            Self::Osu(e) => Some(e),
+            Self::Plotter(_) => None,
+            Self::PP(e) => Some(e),
+            Self::Redis(e) => Some(e),
+            Self::Reqwest(e) => Some(e),
+            Self::Serde(e) => Some(e),
+            Self::TwilightCluster(e) => Some(e),
+            Self::TwilightHttp(e) => Some(e),
+            Self::Twitch(e) => Some(e),
+            Self::UpdateMessage(e) => Some(e),
+        }
+    }
+}
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::BgGame(e) => write!(f, "background game error: {}", e),
-            Self::CacheDefrost(reason, e) => {
-                write!(f, "error defrosting cache ({}): {}", reason, e)
-            }
-            Self::CreateMessage(e) => {
-                f.write_str("error while creating message: ")?;
-                if let CreateMessageError::EmbedTooLarge { source, .. } = e {
-                    source.fmt(f)
-                } else {
-                    e.fmt(f)
-                }
-            }
-            Self::ChronoParse(e) => write!(f, "chrono parse error: {}", e),
+            Self::BgGame(_) => f.write_str("background game error"),
+            Self::CacheDefrost(reason, _) => write!(f, "error defrosting cache: {}", reason),
+            Self::CreateMessage(_) => f.write_str("error while creating message"),
+            Self::ChronoParse(_) => f.write_str("chrono parse error"),
+            Self::Command(_) => f.write_str("command error"),
             Self::Custom(e) => e.fmt(f),
-            Self::CustomClient(e) => write!(f, "custom client error: {}", e),
-            Self::Database(e) => write!(f, "database error occured: {}", e),
-            Self::Embed(e) => write!(f, "error while building embed: {}", e),
-            Self::EmbedColor(e) => write!(f, "embed color error: {}", e),
-            Self::EmbedDescription(e) => write!(f, "embed description error: {}", e),
-            Self::EmbedTitle(e) => write!(f, "embed title error: {}", e),
-            Self::Fmt(e) => write!(f, "fmt error: {}", e),
-            Self::Image(e) => write!(f, "image error: {}", e),
-            Self::InvalidConfig(e) => write!(f, "config file was not in correct format: {}", e),
+            Self::CustomClient(_) => f.write_str("custom client error"),
+            Self::Database(_) => f.write_str("database error"),
+            Self::Embed(_) => f.write_str("error while building embed"),
+            Self::EmbedColor(_) => f.write_str("embed color error"),
+            Self::EmbedDescription(_) => f.write_str("embed description error"),
+            Self::EmbedTitle(_) => f.write_str("embed title error"),
+            Self::Fmt(_) => f.write_str("fmt error"),
+            Self::Image(_) => f.write_str("image error"),
+            Self::InvalidConfig(_) => f.write_str("config file was not in correct format"),
             Self::InvalidSession(shard) => write!(
                 f,
                 "gateway invalidated session unrecoverably for shard {}",
                 shard
             ),
-            Self::IO(e) => write!(f, "io error: {}", e),
-            Self::MapDownload(e) => write!(f, "error while downloading new map: {}", e),
+            Self::IO(_) => f.write_str("io error"),
+            Self::MapDownload(_) => f.write_str("error while downloading new map"),
             Self::NoConfig => f.write_str("config file was not found"),
             Self::NoLoggingSpec => f.write_str("logging config was not found"),
-            Self::Osu(e) => write!(f, "osu error: {}", e),
+            Self::Osu(_) => f.write_str("osu error"),
             Self::Plotter(e) => write!(f, "plotter error: {}", e),
-            Self::PP(e) => write!(f, "error while using PPCalculator: {}", e),
-            Self::Redis(e) => write!(f, "error while communicating with redis cache: {}", e),
-            Self::Reqwest(e) => write!(f, "reqwest error: {}", e),
-            Self::Serde(e) => write!(f, "serde error: {}", e),
-            Self::TwilightHttp(e) => write!(f, "error while making discord request: {}", e),
-            Self::TwilightCluster(e) => write!(f, "error occurred on cluster request: {}", e),
-            Self::Twitch(e) => write!(f, "twitch error: {}", e),
-            Self::UpdateMessage(e) => {
-                f.write_str("error while updating message: ")?;
-                if let UpdateMessageError::EmbedTooLarge { source, .. } = e {
-                    source.fmt(f)
-                } else {
-                    e.fmt(f)
-                }
-            }
+            Self::PP(_) => f.write_str("error while using PPCalculator"),
+            Self::Redis(_) => f.write_str("error while communicating with redis cache"),
+            Self::Reqwest(_) => f.write_str("reqwest error"),
+            Self::Serde(_) => f.write_str("serde error"),
+            Self::TwilightHttp(_) => f.write_str("error while making discord request"),
+            Self::TwilightCluster(_) => f.write_str("error occurred on cluster request"),
+            Self::Twitch(_) => f.write_str("twitch error"),
+            Self::UpdateMessage(_) => f.write_str("error while updating message"),
         }
     }
 }

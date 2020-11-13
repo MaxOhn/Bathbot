@@ -250,6 +250,11 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         tokio::spawn(async move {
             if let Err(why) = handle_event(shard, event, c, cmds).await {
                 error!("Error while handling event: {}", why);
+                let mut err: &dyn std::error::Error = &why;
+                while let Some(source) = err.source() {
+                    error!("  - caused by: {}", source);
+                    err = source;
+                }
             }
         });
     }

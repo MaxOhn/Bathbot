@@ -1,7 +1,11 @@
 
 **[TODO]**
 - Update taiko pp / stars
-- Make use of api endpoint `https://osekai.net/medals/apiv2?medal=True+Torment`
+- `<playermedalstats` similar to `o>user` & `https://osekai.net/profiles/history`
+- `<playermedals` showing a list of a user's medals
+- `<medals` showing a list of all medals
+- `<medal` showing info about a specific medal (`https://osekai.net/medals/apiv2/get_medal?medal=True+Torment`)
+- Check out how/if multi sharding works
 
 **[Sometime]**
 - `<nochokesctb` (https://pakachan.github.io/osustuff/ppcalculator.html) (investigate)

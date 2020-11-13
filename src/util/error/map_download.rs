@@ -11,8 +11,8 @@ pub enum MapDownloadError {
 impl fmt::Display for MapDownloadError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::CreateFile(e) => write!(f, "could not create file: {}", e),
-            Self::Reqwest(e) => write!(f, "reqwest error: {}", e),
+            Self::CreateFile(_) => f.write_str("could not create file"),
+            Self::Reqwest(_) => f.write_str("reqwest error"),
         }
     }
 }
@@ -29,4 +29,11 @@ impl From<ReqwestError> for MapDownloadError {
     }
 }
 
-impl StdError for MapDownloadError {}
+impl StdError for MapDownloadError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            Self::CreateFile(e) => Some(e),
+            Self::Reqwest(e) => Some(e),
+        }
+    }
+}
