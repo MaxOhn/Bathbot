@@ -193,6 +193,7 @@ pub struct OsuProfileStatistics {
 pub struct OsuProfileMedal {
     #[serde(deserialize_with = "str_to_datetime")]
     pub achieved_at: DateTime<Utc>,
+    #[serde(rename = "achievement_id")]
     pub medal_id: u32,
 }
 

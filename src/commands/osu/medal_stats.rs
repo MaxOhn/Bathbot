@@ -21,6 +21,7 @@ use twilight_model::channel::Message;
 )]
 #[usage("[username]")]
 #[example("badewanne3", r#""im a fancy lad""#)]
+#[aliases("ms")]
 async fn medalstats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = NameArgs::new(&ctx, args);
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {

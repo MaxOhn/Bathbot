@@ -13,7 +13,6 @@ use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Play a game of minesweeper")]
-#[aliases("ms")]
 #[usage("[Easy/Medium/Hard/Extreme]")]
 async fn minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     let difficulty = match args.next().map(|arg| arg.cow_to_lowercase()).as_deref() {
