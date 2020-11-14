@@ -1,6 +1,6 @@
 use crate::{
     custom_client::{OsuMedals, OsuProfile},
-    embeds::{Author, EmbedData},
+    embeds::{Author, EmbedData, Footer},
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         numbers::round,
@@ -14,6 +14,7 @@ pub struct MedalStatsEmbed {
     thumbnail: ImageSource,
     author: Author,
     fields: Vec<(String, String, bool)>,
+    footer: Footer,
 }
 
 impl MedalStatsEmbed {
@@ -77,10 +78,12 @@ impl MedalStatsEmbed {
                 "{}/images/flags/{}.png",
                 OSU_BASE, profile.country_code
             ));
+        let footer = Footer::new("Check osekai.net for more info");
         Self {
             author,
             fields,
             thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, profile.user_id)).unwrap(),
+            footer,
         }
     }
 }
@@ -94,5 +97,8 @@ impl EmbedData for MedalStatsEmbed {
     }
     fn fields(&self) -> Option<Vec<(String, String, bool)>> {
         Some(self.fields.clone())
+    }
+    fn footer(&self) -> Option<&Footer> {
+        Some(&self.footer)
     }
 }
