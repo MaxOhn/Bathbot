@@ -1,7 +1,7 @@
 use crate::{
     commands::osu::MatchResult,
     embeds::EmbedData,
-    util::constants::{AVATAR_URL, OSU_BASE},
+    util::constants::{AVATAR_URL, DESCRIPTION_SIZE, OSU_BASE},
 };
 
 use rosu::model::Match;
@@ -20,7 +20,7 @@ impl MatchCostEmbed {
         osu_match: Match,
         description: Option<String>,
         match_result: Option<MatchResult>,
-    ) -> Self {
+    ) -> Result<Self, ()> {
         let mut thumbnail = None;
         let description = if let Some(description) = description {
             description
@@ -117,17 +117,20 @@ impl MatchCostEmbed {
                 }
                 None => unreachable!(),
             }
+            if description.len() >= DESCRIPTION_SIZE {
+                return Err(());
+            }
             description
         };
         let match_id = osu_match.match_id;
         let mut title = osu_match.name;
         title.retain(|c| c != '(' && c != ')');
-        Self {
+        Ok(Self {
             title,
             thumbnail,
             description,
             url: format!("{}community/matches/{}", OSU_BASE, match_id),
-        }
+        })
     }
 }
 

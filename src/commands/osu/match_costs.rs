@@ -31,6 +31,8 @@ use twilight_model::channel::Message;
 #[example("58320988 1", "https://osu.ppy.sh/community/matches/58320988")]
 #[aliases("mc", "matchcost")]
 async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    let content = "This command is temporarily disabled, sorry :(";
+    return msg.error(&ctx, content).await;
     let args = match MatchArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
@@ -100,7 +102,13 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     };
 
     // Accumulate all necessary data
-    let data = MatchCostEmbed::new(osu_match.clone(), description, match_result);
+    let data = match MatchCostEmbed::new(osu_match.clone(), description, match_result) {
+        Ok(data) => data,
+        Err(_) => {
+            let content = "Too many players, cannot display message :(";
+            return msg.error(&ctx, content).await;
+        }
+    };
 
     // Creating the embed
     let embed = data.build().build()?;
