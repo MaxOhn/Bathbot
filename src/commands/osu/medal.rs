@@ -1,8 +1,7 @@
 use crate::{
-    arguments::Args,
     embeds::{EmbedData, MedalEmbed},
     util::MessageExt,
-    BotResult, Context,
+    Args, BotResult, Context,
 };
 
 use std::sync::Arc;

@@ -55,41 +55,41 @@ pub struct OsuProfile {
     #[serde(deserialize_with = "rank_history_vec")]
     pub rank_history: Option<Vec<u32>>,
     #[serde(rename = "user_achievements")]
-    pub achievements: Vec<OsuProfileAchievement>,
+    pub medals: Vec<OsuProfileMedal>,
 }
 
 #[derive(Debug)]
-pub struct OsuAchievements(HashMap<u32, OsuAchievement>);
+pub struct OsuMedals(HashMap<u32, OsuMedal>);
 
-impl From<Vec<OsuAchievement>> for OsuAchievements {
-    fn from(achievements: Vec<OsuAchievement>) -> Self {
-        let achievements = achievements
+impl From<Vec<OsuMedal>> for OsuMedals {
+    fn from(medals: Vec<OsuMedal>) -> Self {
+        let medals = medals
             .into_iter()
-            .map(|achievement| (achievement.achievement_id, achievement))
+            .map(|medal| (medal.medal_id, medal))
             .collect();
-        Self(achievements)
+        Self(medals)
     }
 }
 
-impl Deref for OsuAchievements {
-    type Target = HashMap<u32, OsuAchievement>;
+impl Deref for OsuMedals {
+    type Target = HashMap<u32, OsuMedal>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl Default for OsuAchievements {
+impl Default for OsuMedals {
     fn default() -> Self {
         Self(HashMap::default())
     }
 }
 
 #[derive(Debug, Deserialize)]
-pub struct OsuAchievement {
+pub struct OsuMedal {
     pub name: String,
     #[serde(rename = "id")]
-    pub achievement_id: u32,
+    pub medal_id: u32,
     pub description: String,
     pub grouping: String,
     pub icon_url: String,
@@ -190,10 +190,10 @@ pub struct OsuProfileStatistics {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct OsuProfileAchievement {
+pub struct OsuProfileMedal {
     #[serde(deserialize_with = "str_to_datetime")]
     pub achieved_at: DateTime<Utc>,
-    pub achievement_id: u32,
+    pub medal_id: u32,
 }
 
 /// Trimming <i> and </i>

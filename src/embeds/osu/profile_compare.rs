@@ -272,10 +272,10 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Achievements",
-            profile1.achievements.len().to_string(),
-            profile2.achievements.len().to_string(),
-            profile1.achievements.len(),
-            profile2.achievements.len(),
+            profile1.medals.len().to_string(),
+            profile2.medals.len().to_string(),
+            profile1.medals.len(),
+            profile2.medals.len(),
             max_left,
             max_right,
         );

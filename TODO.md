@@ -6,12 +6,14 @@
 - `<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)
 - Check out how/if multi sharding works
 - Investigate deadlock, `<bg stop`-`<bg bigger`?
+- Check on `thread 'tokio-runtime-worker' panicked at 'error binding to 169.254.124.89:9094:`
+    `error creating server listener: Cannot assign requested address (os error 99)'"`
 
 **[Sometime]**
+- Add `Icon from syedhassan - pngtree.com` to README
 - Improve mania and ctb pp and star calculation
 - `<nochokesctb` (https://pakachan.github.io/osustuff/ppcalculator.html) (investigate)
 - `<nochokestaiko` (slider maps have no max combo)
-- Add `Icon from syedhassan - pngtree.com` to README
 - Write peppy a mail
 - Add proper readme and make project public
 

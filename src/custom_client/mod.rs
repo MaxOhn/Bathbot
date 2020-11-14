@@ -449,8 +449,8 @@ impl CustomClient {
         &self,
         user_id: u32,
         mode: GameMode,
-        with_all_achievements: bool,
-    ) -> ClientResult<(OsuProfile, OsuAchievements)> {
+        with_all_medals: bool,
+    ) -> ClientResult<(OsuProfile, OsuMedals)> {
         let url = format!(
             "{base}users/{user_id}/{mode}",
             base = OSU_BASE,
@@ -474,23 +474,23 @@ impl CustomClient {
                 source,
                 request: "osu profile",
             })?;
-        let achievements = if with_all_achievements {
-            let achievement_element = Selector::parse("#json-achievements").unwrap();
-            let json = match html.select(&achievement_element).next() {
+        let medals = if with_all_medals {
+            let medal_element = Selector::parse("#json-achievements").unwrap();
+            let json = match html.select(&medal_element).next() {
                 Some(element) => element.first_child().unwrap().value().as_text().unwrap(),
                 None => return Err(CustomClientError::MissingElement("#json-achievements").into()),
             };
-            serde_json::from_str::<Vec<OsuAchievement>>(json.trim())
+            serde_json::from_str::<Vec<OsuMedal>>(json.trim())
                 .map_err(|source| CustomClientError::Parsing {
                     body: json.to_string(),
                     source,
-                    request: "osu achievements",
+                    request: "osu medals",
                 })?
                 .into()
         } else {
-            OsuAchievements::default()
+            OsuMedals::default()
         };
-        Ok((user, achievements))
+        Ok((user, medals))
     }
 
     pub async fn get_userid_of_rank(
