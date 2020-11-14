@@ -14,11 +14,6 @@ use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Display medal stats for a user")]
-#[long_desc(
-    "TODO\n\
-    All data originates from [osekai](https://osekai.net/medals/), \
-    check it out for more info."
-)]
 #[usage("[username]")]
 #[example("badewanne3", r#""im a fancy lad""#)]
 #[aliases("ms")]

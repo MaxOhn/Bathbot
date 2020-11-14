@@ -64,6 +64,7 @@ impl MedalStatsEmbed {
                 (*b_owned as f32 / *b_total as f32)
                     .partial_cmp(&(*a_owned as f32 / *a_total as f32))
                     .unwrap_or(Equal)
+                    .then(b_total.cmp(&a_total))
             });
             // Add to fields
             for (group, (total, owned)) in group_counts {
