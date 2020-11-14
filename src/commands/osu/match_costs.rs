@@ -19,6 +19,8 @@ use std::{
 };
 use twilight_model::channel::Message;
 
+const TOO_MANY_PLAYER_TEXT: &str = "Too many players, cannot display message :(";
+
 #[command]
 #[short_desc("Display performance ratings for a multiplayer match")]
 #[long_desc(
@@ -31,8 +33,6 @@ use twilight_model::channel::Message;
 #[example("58320988 1", "https://osu.ppy.sh/community/matches/58320988")]
 #[aliases("mc", "matchcost")]
 async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    let content = "This command is temporarily disabled, sorry :(";
-    return msg.error(&ctx, content).await;
     let args = match MatchArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
@@ -64,10 +64,17 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         .iter()
         .map(|game| game.scores.iter())
         .flatten()
+        .filter(|s| s.score > 0)
         .map(|s| s.user_id)
         .unique()
         .map(|id| ctx.osu().user(id).mode(mode).map_ok(move |user| (id, user)))
         .collect_vec();
+
+    // Prematurely abort if its too many players to display in a message
+    if requests.len() > 50 {
+        return msg.error(&ctx, TOO_MANY_PLAYER_TEXT).await;
+    }
+
     let users: HashMap<_, _> = match try_join_all(requests).await {
         Ok(users) => users
             .into_iter()
@@ -105,8 +112,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     let data = match MatchCostEmbed::new(osu_match.clone(), description, match_result) {
         Ok(data) => data,
         Err(_) => {
-            let content = "Too many players, cannot display message :(";
-            return msg.error(&ctx, content).await;
+            return msg.error(&ctx, TOO_MANY_PLAYER_TEXT).await;
         }
     };
 
