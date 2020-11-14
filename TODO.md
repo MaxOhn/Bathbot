@@ -1,13 +1,13 @@
 
 **[TODO]**
 - Update taiko pp / stars
-- `<playermedalstats` similar to `o>user` & `https://osekai.net/profiles/history`
 - `<playermedals` showing a list of a user's medals
 - `<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)
 - Check out how/if multi sharding works
 - Investigate deadlock, `<bg stop`-`<bg bigger`?
 - Check on `thread 'tokio-runtime-worker' panicked at 'error binding to 169.254.124.89:9094:`
     `error creating server listener: Cannot assign requested address (os error 99)'"`
+- Write macro to unwrap all sources of errors
 
 **[Sometime]**
 - Add `Icon from syedhassan - pngtree.com` to README
@@ -18,6 +18,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~`<medalstats` similar to `o>user` & `https://osekai.net/profiles/history`~~ (20.11.14)
 - ~~`<medal` showing info about a specific medal~~ (20.11.13)
 - ~~Dont show hitresults in `<s` for mania + align hitresults field for other modes~~ (20.11.12)
 - ~~Remove `factor` for bonus pp in `<nc`~~ (20.11.12)

@@ -81,6 +81,11 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
         }
     };
 
+    if users.len() == 1 {
+        let content = "Give at least two different names";
+        return msg.error(&ctx, content).await;
+    }
+
     // Retrieve all most played maps and store their count for each user
     let map_futs = users.keys().map(|&id| {
         ctx.clients
