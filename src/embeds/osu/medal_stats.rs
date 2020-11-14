@@ -7,7 +7,7 @@ use crate::{
     },
 };
 
-use std::{cmp::Ordering::Equal, collections::HashMap};
+use std::collections::HashMap;
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct MedalStatsEmbed {
@@ -15,12 +15,14 @@ pub struct MedalStatsEmbed {
     author: Author,
     fields: Vec<(String, String, bool)>,
     footer: Footer,
+    image: Option<ImageSource>,
 }
 
 impl MedalStatsEmbed {
-    pub fn new(profile: OsuProfile, medals: OsuMedals) -> Self {
+    pub fn new(profile: OsuProfile, medals: OsuMedals, with_graph: bool) -> Self {
         let mut fields = Vec::with_capacity(5);
-        let mut owned = profile.medals;
+        // Be sure owned medals are sorted by date
+        let owned = profile.medals;
         fields.push((
             "Medals".to_owned(),
             format!("{} / {}", owned.len(), medals.len()),
@@ -28,7 +30,6 @@ impl MedalStatsEmbed {
         ));
         let completion = round(100.0 * owned.len() as f32 / medals.len() as f32);
         fields.push(("Completion".to_owned(), format!("{}%", completion), true));
-        owned.sort_by_key(|medal| medal.achieved_at);
         if let Some(medal) = owned.first() {
             let name = medals
                 .get(&medal.medal_id)
@@ -51,7 +52,7 @@ impl MedalStatsEmbed {
                 *total += 1;
             }
             // Count groups for owned medals
-            for medal in owned {
+            for medal in owned.iter() {
                 let entry = medals
                     .get(&medal.medal_id)
                     .and_then(|medal| counts.get_mut(medal.grouping.as_str()));
@@ -59,18 +60,14 @@ impl MedalStatsEmbed {
                     *owned += 1;
                 }
             }
-            let mut group_counts: Vec<_> = counts.drain().collect();
-            // Sort by % completed
-            group_counts.sort_unstable_by(|(_, (a_total, a_owned)), (_, (b_total, b_owned))| {
-                (*b_owned as f32 / *b_total as f32)
-                    .partial_cmp(&(*a_owned as f32 / *a_total as f32))
-                    .unwrap_or(Equal)
-                    .then(b_total.cmp(&a_total))
-            });
             // Add to fields
-            for (group, (total, owned)) in group_counts {
-                fields.push((group.to_owned(), format!("{} / {}", owned, total), true));
-            }
+            add_group_field("Skill", &counts, &mut fields);
+            add_group_field("Dedication", &counts, &mut fields);
+            add_group_field("Hush-Hush", &counts, &mut fields);
+            add_group_field("Beatmap Packs", &counts, &mut fields);
+            add_group_field("Seasonal Spotlights", &counts, &mut fields);
+            add_group_field("Beatmap Spotlights", &counts, &mut fields);
+            add_group_field("Mod Introduction", &counts, &mut fields);
         }
         let author = Author::new(profile.username)
             .url(format!("{}u/{}", OSU_BASE, profile.user_id))
@@ -79,11 +76,17 @@ impl MedalStatsEmbed {
                 OSU_BASE, profile.country_code
             ));
         let footer = Footer::new("Check osekai.net for more info");
+        let image = if with_graph {
+            Some(ImageSource::attachment("medal_graph.png").unwrap())
+        } else {
+            None
+        };
         Self {
+            image,
             author,
             fields,
-            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, profile.user_id)).unwrap(),
             footer,
+            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, profile.user_id)).unwrap(),
         }
     }
 }
@@ -100,5 +103,18 @@ impl EmbedData for MedalStatsEmbed {
     }
     fn footer(&self) -> Option<&Footer> {
         Some(&self.footer)
+    }
+    fn image(&self) -> Option<&ImageSource> {
+        self.image.as_ref()
+    }
+}
+
+fn add_group_field(
+    group: &str,
+    counts: &HashMap<&str, (usize, usize)>,
+    fields: &mut Vec<(String, String, bool)>,
+) {
+    if let Some((total, owned)) = counts.get(group) {
+        fields.push((group.to_owned(), format!("{} / {}", owned, total), true));
     }
 }

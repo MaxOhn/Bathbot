@@ -6,7 +6,7 @@ use twilight_model::channel::Message;
 #[command]
 #[only_guilds()]
 #[authority()]
-#[short_desc("Toggle availability of song commands")]
+#[short_desc("Toggle availability of song commands in a server")]
 #[long_desc(
     "Toggle whether song commands can be used in this server. \
     Defaults to `true`"

@@ -45,7 +45,7 @@ impl MostPlayedCommonEmbed {
             let (second_name, second_count) = top_users
                 .next()
                 .map(|(user_id, count)| (&users.get(&user_id).unwrap().username, count))
-                .unwrap();
+                .unwrap(); // TODO: Fix (2020-11-14 18:50:10 | <mpc kiyo-pon)
             let _ = write!(
                 description,
                 "- :first_place: `{}`: **{}** :second_place: `{}`: **{}**",

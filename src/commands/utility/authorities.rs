@@ -17,7 +17,7 @@ use twilight_model::{
 #[command]
 #[only_guilds()]
 #[authority()]
-#[short_desc("Adjust authority roles for a guild")]
+#[short_desc("Adjust authority roles for a server")]
 #[long_desc(
     "Decide which roles should be considered authority roles. \n\
     Authority roles enable the usage of certain commands like \
