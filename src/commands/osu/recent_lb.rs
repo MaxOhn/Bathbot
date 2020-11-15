@@ -3,6 +3,7 @@ use crate::{
     bail,
     embeds::{EmbedData, LeaderboardEmbed},
     pagination::{LeaderboardPagination, Pagination},
+    unwind_error,
     util::{
         constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
         osu::ModSelection,
@@ -137,7 +138,7 @@ async fn recent_lb_main(
     // Add map to database if its not in already
     if let Some(map) = map_copy {
         if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-            warn!("Could not add map to DB: {}", why);
+            unwind_error!(warn, why, "Could not add map to DB: {}");
         }
     }
 
@@ -159,7 +160,7 @@ async fn recent_lb_main(
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            warn!("Pagination error (recentleaderboard): {}", why)
+            unwind_error!(warn, why, "Pagination error (recentleaderboard): {}")
         }
     });
     Ok(())

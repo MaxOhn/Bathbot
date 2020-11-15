@@ -1,5 +1,5 @@
 use crate::{
-    bail,
+    bail, unwind_error,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
@@ -121,7 +121,7 @@ async fn prepare_mapset(
         }
     }
     if let Err(why) = ctx.psql().add_tag_mapset(mapset_id, filetype, mode).await {
-        warn!("Error while adding mapset to tags table: {}", why);
+        unwind_error!(warn, why, "Error while adding mapset to tags table: {}");
         return Err("There is already an entry with this mapset id");
     }
     Ok(())

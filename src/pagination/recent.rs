@@ -2,7 +2,7 @@ use super::{Pages, Pagination};
 
 use crate::{
     embeds::{EmbedData, RecentEmbed},
-    BotResult, Context,
+    unwind_error, BotResult, Context,
 };
 
 use async_trait::async_trait;
@@ -102,7 +102,7 @@ impl Pagination for RecentPagination {
             match psql.insert_beatmaps(&maps).await {
                 Ok(n) if n < 2 => {}
                 Ok(n) => info!("Added {} maps to DB", n),
-                Err(why) => warn!("Error while adding maps to DB: {}", why),
+                Err(why) => unwind_error!(warn, why, "Error while adding maps to DB: {}"),
             }
         }
         Ok(())
@@ -142,9 +142,10 @@ impl Pagination for RecentPagination {
                 .mode(map.mode);
             match user_fut.await {
                 Ok(scores) => self.best = Some(scores),
-                Err(why) => warn!(
-                    "Error while getting user top scores for recent pagination: {}",
-                    why
+                Err(why) => unwind_error!(
+                    warn,
+                    why,
+                    "Error while getting user top scores for recent pagination: {}"
                 ),
             }
         }

@@ -1,6 +1,7 @@
 use crate::{
     embeds::{osu, Author, EmbedData, Footer},
     pp::{Calculations, PPCalculator},
+    unwind_error,
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         ScoreExt,
@@ -35,7 +36,7 @@ impl NoChokeEmbed {
             let calculations = Calculations::MAX_PP | Calculations::STARS;
             let mut calculator = PPCalculator::new().score(original).map(map);
             if let Err(why) = calculator.calculate(calculations, None).await {
-                warn!("Error while calculating pp for nochokes: {}", why);
+                unwind_error!(warn, why, "Error while calculating pp for nochokes: {}");
             }
             let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));
             let _ = writeln!(

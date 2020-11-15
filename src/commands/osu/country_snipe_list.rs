@@ -2,6 +2,7 @@ use crate::{
     arguments::Args,
     embeds::{CountrySnipeListEmbed, EmbedData},
     pagination::{CountrySnipeListPagination, Pagination},
+    unwind_error,
     util::{constants::OSU_API_ISSUE, numbers, MessageExt, SNIPE_COUNTRIES},
     BotResult, Context,
 };
@@ -166,7 +167,7 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            warn!("Pagination error (countrysnipelist): {}", why)
+            unwind_error!(warn, why, "Pagination error (countrysnipelist): {}")
         }
     });
     Ok(())

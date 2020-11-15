@@ -2,6 +2,7 @@ use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, MostPlayedEmbed},
     pagination::{MostPlayedPagination, Pagination},
+    unwind_error,
     util::{
         constants::{OSU_API_ISSUE, OSU_WEB_ISSUE},
         numbers, MessageExt,
@@ -68,7 +69,7 @@ async fn mostplayed(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            warn!("Pagination error (mostplayed): {}", why)
+            unwind_error!(warn, why, "Pagination error (mostplayed): {}")
         }
     });
     Ok(())

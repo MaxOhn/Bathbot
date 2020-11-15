@@ -2,6 +2,7 @@ use crate::{
     embeds::{Author, EmbedData, Footer},
     pp::roppai::{Oppai, OppaiErr},
     pp::{Calculations, PPCalculator},
+    unwind_error,
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::sec_to_minsec,
@@ -121,7 +122,7 @@ impl MapEmbed {
                         (Some(pp_values), oppai.get_stars())
                     }
                     Err(why) => {
-                        warn!("Error while using oppai: {}", why);
+                        unwind_error!(warn, why, "Error while using oppai: {}");
                         (None, 0.0)
                     }
                 }
@@ -130,7 +131,7 @@ impl MapEmbed {
                 let calculations = Calculations::MAX_PP | Calculations::STARS;
                 let mut calculator = PPCalculator::new().map(map);
                 if let Err(why) = calculator.calculate(calculations, Some(ctx)).await {
-                    warn!("Error while calculating pp for <map: {}", why);
+                    unwind_error!(warn, why, "Error while calculating pp for <map: {}");
                 }
                 if let Some(pp) = calculator.max_pp() {
                     let _ = write!(info_value, "Max PP: `{:.2}` ", pp);

@@ -2,6 +2,7 @@ use crate::{
     arguments::Args,
     custom_client::SnipeCountryPlayer,
     embeds::{CountrySnipeStatsEmbed, EmbedData},
+    unwind_error,
     util::{constants::OSU_API_ISSUE, MessageExt, SNIPE_COUNTRIES},
     BotResult, Context,
 };
@@ -97,7 +98,7 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
     let graph = match graphs(&players) {
         Ok(graph_option) => Some(graph_option),
         Err(why) => {
-            warn!("Error while creating snipe country graph: {}", why);
+            unwind_error!(warn, why, "Error while creating snipe country graph: {}");
             None
         }
     };

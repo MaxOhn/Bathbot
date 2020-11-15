@@ -2,6 +2,7 @@ use crate::{
     arguments::{Args, MultNameArgs},
     embeds::{EmbedData, MostPlayedCommonEmbed},
     pagination::{MostPlayedCommonPagination, Pagination},
+    unwind_error,
     util::{constants::OSU_API_ISSUE, get_combined_thumbnail, MessageExt},
     BotResult, Context,
 };
@@ -179,7 +180,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     let thumbnail = match thumbnail_result {
         Ok(thumbnail) => Some(thumbnail),
         Err(why) => {
-            warn!("Error while combining avatars: {}", why);
+            unwind_error!(warn, why, "Error while combining avatars: {}");
             None
         }
     };
@@ -204,7 +205,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            warn!("Pagination error (mostcommonplayed): {}", why)
+            unwind_error!(warn, why, "Pagination error (mostcommonplayed): {}")
         }
     });
     Ok(())

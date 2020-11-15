@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     embeds::{EmbedData, TwitchNotifEmbed},
-    Context,
+    unwind_error, Context,
 };
 
 use rayon::prelude::*;
@@ -34,7 +34,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
         let mut streams = match ctx.clients.twitch.get_streams(&user_ids).await {
             Ok(streams) => streams,
             Err(why) => {
-                warn!("Error while retrieving streams: {}", why);
+                unwind_error!(warn, why, "Error while retrieving streams: {}");
                 continue;
             }
         };
@@ -55,7 +55,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
         let users: HashMap<_, _> = match ctx.clients.twitch.get_users(&ids).await {
             Ok(users) => users.into_iter().map(|u| (u.user_id, u)).collect(),
             Err(why) => {
-                warn!("Error while retrieving twitch users: {}", why);
+                unwind_error!(warn, why, "Error while retrieving twitch users: {}");
                 continue;
             }
         };
@@ -98,9 +98,10 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                                     if let Err(why) =
                                         ctx.psql().remove_channel_tracks(channel.0).await
                                     {
-                                        warn!(
+                                        unwind_error!(
+                                            warn, why,
                                                 "Could not remove stream tracks from unknown channel {}: {}",
-                                                channel, why
+                                                channel
                                             );
                                     } else {
                                         debug!(
@@ -115,13 +116,15 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                                 ),
                             }
                         } else if let Err(why) = result {
-                            warn!(
+                            unwind_error!(
+                                warn,
+                                why,
                                 "Error while sending twitch notif (channel {}): {}",
-                                channel, why
+                                channel
                             );
                         }
                     }
-                    Err(why) => warn!("Invalid embed for twitch notif: {}", why),
+                    Err(why) => unwind_error!(warn, why, "Invalid embed for twitch notif: {}"),
                 }
             }
         }

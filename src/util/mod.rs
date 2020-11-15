@@ -1,15 +1,13 @@
 pub mod constants;
 mod country;
 pub mod datetime;
+pub mod error;
 pub mod exts;
 pub mod matcher;
 pub mod matrix;
 pub mod numbers;
 pub mod osu;
 mod safe_content;
-
-#[macro_use]
-pub mod error;
 
 use constants::DISCORD_CDN;
 pub use country::{Country, SNIPE_COUNTRIES};
@@ -24,6 +22,20 @@ use image::{
     imageops::FilterType, DynamicImage, GenericImage, GenericImageView, ImageOutputFormat::Png,
 };
 use twilight_model::id::UserId;
+
+#[macro_export]
+macro_rules! unwind_error {
+    ($log:ident, $err:ident, $($arg:tt)+) => {
+        {
+            $log!($($arg)+, $err);
+            let mut err: &dyn std::error::Error = &$err;
+            while let Some(source) = err.source() {
+                $log!("  - caused by: {}", source);
+                err = source;
+            }
+        }
+    };
+}
 
 pub fn discord_avatar(user_id: UserId, hash: &str) -> String {
     format!("{}avatars/{}/{}.webp?size=1024", DISCORD_CDN, user_id, hash)

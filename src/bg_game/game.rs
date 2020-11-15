@@ -1,6 +1,7 @@
 use super::{util, GameResult, Hints, ImageReveal};
 use crate::{
     database::MapsetTagWrapper,
+    unwind_error,
     util::{constants::OSU_BASE, error::BgGameError},
     BotResult, Context, CONFIG,
 };
@@ -31,12 +32,14 @@ impl Game {
             match Game::_new(ctx, mapsets, previous_ids).await {
                 Ok(game) => match game.reveal.sub_image() {
                     Ok(img) => return (game, img),
-                    Err(why) => warn!(
+                    Err(why) => unwind_error!(
+                        warn,
+                        why,
                         "Could not create initial bg image for id {}: {}",
-                        game.mapset_id, why
+                        game.mapset_id
                     ),
                 },
-                Err(why) => warn!("Error creating bg game: {}", why),
+                Err(why) => unwind_error!(warn, why, "Error creating bg game: {}"),
             }
         }
     }
@@ -97,9 +100,11 @@ impl Game {
                     .await?;
             }
             Err(why) => {
-                warn!(
+                unwind_error!(
+                    warn,
+                    why,
                     "Could not get full reveal of mapset id {}: {}",
-                    self.mapset_id, why
+                    self.mapset_id
                 );
                 ctx.http.create_message(channel).content(content)?.await?;
             }
@@ -179,7 +184,7 @@ pub async fn game_loop(
                 );
                 // Send message
                 if let Err(why) = game.resolve(ctx, channel, content).await {
-                    warn!("Error while sending msg for winner: {}", why);
+                    unwind_error!(warn, why, "Error while sending msg for winner: {}");
                 }
                 return LoopResult::Winner(msg.author.id.0);
             }
@@ -201,7 +206,7 @@ pub async fn game_loop(
                 // Send message
                 let msg_fut = ctx.http.create_message(channel).content(content).unwrap();
                 if let Err(why) = msg_fut.await {
-                    warn!("Error while sending msg for correct artist: {}", why);
+                    unwind_error!(warn, why, "Error while sending msg for correct artist: {}");
                 }
             }
             ContentResult::None => {}

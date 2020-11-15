@@ -2,6 +2,7 @@ use crate::{
     custom_client::ScraperScore,
     embeds::{Author, EmbedData, Footer},
     pp::{Calculations, PPCalculator},
+    unwind_error,
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
@@ -139,7 +140,7 @@ async fn get_pp(
             (pp, max_pp)
         }
         Err(why) => {
-            warn!("Error while calculating pp, defaulting to 0: {}", why);
+            unwind_error!(warn, why, "Error while calculating pp, defaulting to 0: {}");
             (0.0, 0.0)
         }
     };

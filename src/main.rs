@@ -234,7 +234,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
                 .set_cluster_activity(Status::Online, ActivityType::Playing, String::from("osu!"))
                 .await;
             if let Err(why) = activity_result {
-                warn!("Error while setting activity: {}", why);
+                unwind_error!(warn, why, "Error while setting activity: {}");
             }
         }
     });
@@ -249,12 +249,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         let cmds = Arc::clone(&cmd_groups);
         tokio::spawn(async move {
             if let Err(why) = handle_event(shard, event, c, cmds).await {
-                error!("Error while handling event: {}", why);
-                let mut err: &dyn std::error::Error = &why;
-                while let Some(source) = err.source() {
-                    error!("  - caused by: {}", source);
-                    err = source;
-                }
+                unwind_error!(error, why, "Error while handling event: {}");
             }
         });
     }

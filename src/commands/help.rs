@@ -1,5 +1,6 @@
 use crate::{
     core::{Command, CommandGroup, CommandGroups},
+    unwind_error,
     util::{
         constants::{
             BATHBOT_WORKSHOP, DARK_GREEN, DESCRIPTION_SIZE, EMBED_SIZE, FIELD_VALUE_SIZE,
@@ -121,7 +122,7 @@ pub async fn help(
             );
             eb = if size + size_addition > EMBED_SIZE {
                 if let Err(why) = send_help_chunk(ctx, channel.id, owner, eb.build()?).await {
-                    warn!("Error while sending help chunk: {}", why);
+                    unwind_error!(warn, why, "Error while sending help chunk: {}");
                     let content = "Could not DM you, have you disabled it?";
                     return msg.error(ctx, content).await;
                 }
@@ -147,7 +148,7 @@ pub async fn help(
     let embed = eb.build()?;
     if !embed.fields.is_empty() {
         if let Err(why) = send_help_chunk(ctx, channel.id, owner, embed).await {
-            warn!("Error while sending help chunk: {}", why);
+            unwind_error!(warn, why, "Error while sending help chunk: {}");
             let content = "Could not DM you, have you disabled it?";
             return msg.error(ctx, content).await;
         }

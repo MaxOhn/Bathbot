@@ -3,6 +3,7 @@ use crate::{
     bail,
     embeds::{EmbedData, ScoresEmbed},
     pagination::{Pagination, ScoresPagination},
+    unwind_error,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         osu::{cached_message_extract, map_id_from_history, MapIdType},
@@ -118,7 +119,7 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
     // Add map to database if its not in already
     if let Err(why) = ctx.clients.psql.insert_beatmap(&map).await {
-        warn!("Error while adding new map to DB: {}", why);
+        unwind_error!(warn, why, "Error while adding new map to DB: {}");
     }
 
     // Skip pagination if too few entries
@@ -132,7 +133,7 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            warn!("Pagination error (scores): {}", why)
+            unwind_error!(warn, why, "Pagination error (scores): {}")
         }
     });
     Ok(())

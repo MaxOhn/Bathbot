@@ -4,6 +4,7 @@ use crate::{
     embeds::{EmbedData, RecentEmbed},
     pagination::{Pagination, RecentPagination},
     tracking::process_tracking,
+    unwind_error,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
@@ -73,7 +74,7 @@ async fn recent_main(
         match map_result {
             Ok(maps) => maps,
             Err(why) => {
-                warn!("Error while retrieving maps from DB: {}", why);
+                unwind_error!(warn, why, "Error while retrieving maps from DB: {}");
                 HashMap::default()
             }
         }
@@ -126,13 +127,13 @@ async fn recent_main(
         Some(Ok(scores)) => {
             global.insert(first_id, scores);
         }
-        Some(Err(why)) => warn!("Error while getting global scores: {}", why),
+        Some(Err(why)) => unwind_error!(warn, why, "Error while getting global scores: {}"),
     }
     let best = match best_result {
         None => None,
         Some(Ok(scores)) => Some(scores),
         Some(Err(why)) => {
-            warn!("Error while getting top scores: {}", why);
+            unwind_error!(warn, why, "Error while getting top scores: {}");
             None
         }
     };
@@ -193,11 +194,15 @@ async fn recent_main(
             match embed_result {
                 Ok(m) => {
                     if let Err(why) = m.await {
-                        warn!("Error minimizing recent msg: {}", why);
+                        unwind_error!(warn, why, "Error minimizing recent msg: {}");
                     }
                 }
 
-                Err(why) => warn!("Error while creating `recent` minimize embed: {}", why),
+                Err(why) => unwind_error!(
+                    warn,
+                    why,
+                    "Error while creating `recent` minimize embed: {}"
+                ),
             }
         });
         return Ok(());
@@ -218,7 +223,7 @@ async fn recent_main(
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            warn!("Pagination error (recent): {}", why)
+            unwind_error!(warn, why, "Pagination error (recent): {}")
         }
     });
     Ok(())

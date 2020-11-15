@@ -3,6 +3,7 @@ use crate::{
     arguments::{Args, MultNameArgs},
     embeds::{EmbedData, ProfileCompareEmbed},
     tracking::process_tracking,
+    unwind_error,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
@@ -138,7 +139,7 @@ async fn compare_main(
     let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
         Ok(maps) => maps,
         Err(why) => {
-            warn!("Error while getting maps from DB: {}", why);
+            unwind_error!(warn, why, "Error while getting maps from DB: {}");
             HashMap::default()
         }
     };
@@ -197,7 +198,7 @@ async fn compare_main(
     let thumbnail = match get_combined_thumbnail(&ctx, user1.user_id, user2.user_id).await {
         Ok(thumbnail) => Some(thumbnail),
         Err(why) => {
-            warn!("Error while combining avatars: {}", why);
+            unwind_error!(warn, why, "Error while combining avatars: {}");
             None
         }
     };

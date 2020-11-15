@@ -1,3 +1,5 @@
+use crate::unwind_error;
+
 use chrono::{DateTime, Utc};
 use rosu::model::{ApprovalStatus, Beatmap};
 use sqlx::{postgres::PgRow, FromRow, Row};
@@ -82,7 +84,7 @@ impl<'c> FromRow<'c, PgRow> for BeatmapWrapper {
         map.approval_status = match status.try_into() {
             Ok(status) => status,
             Err(why) => {
-                warn!("{}", why);
+                unwind_error!(warn, why, "{}");
                 ApprovalStatus::WIP
             }
         };

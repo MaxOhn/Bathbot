@@ -3,6 +3,7 @@ use crate::{
     embeds::{EmbedData, TopEmbed},
     pagination::{Pagination, TopPagination},
     tracking::process_tracking,
+    unwind_error,
     util::{constants::OSU_API_ISSUE, matcher, numbers, MessageExt},
     BotResult, Context,
 };
@@ -92,7 +93,7 @@ async fn mapper_main(
     let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
         Ok(maps) => maps,
         Err(why) => {
-            warn!("Error while getting maps from DB: {}", why);
+            unwind_error!(warn, why, "Error while getting maps from DB: {}");
             HashMap::default()
         }
     };
@@ -205,7 +206,7 @@ async fn mapper_main(
         match ctx.psql().insert_beatmaps(&missing_maps).await {
             Ok(n) if n < 2 => {}
             Ok(n) => info!("Added {} maps to DB", n),
-            Err(why) => warn!("Error while adding maps to DB: {}", why),
+            Err(why) => unwind_error!(warn, why, "Error while adding maps to DB: {}"),
         }
     }
 
@@ -220,7 +221,7 @@ async fn mapper_main(
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            warn!("Pagination error (mapper): {}", why)
+            unwind_error!(warn, why, "Pagination error (mapper): {}")
         }
     });
     Ok(())

@@ -6,6 +6,7 @@ use crate::{
     embeds::{EmbedData, ProfileEmbed},
     pagination::{Pagination, ProfilePagination},
     tracking::process_tracking,
+    unwind_error, 
     util::{
         constants::{OSU_API_ISSUE, OSU_WEB_ISSUE},
         MessageExt,
@@ -50,7 +51,7 @@ async fn profile_main(
     let graph = match graphs(&mut profile).await {
         Ok(graph_option) => graph_option,
         Err(why) => {
-            warn!("Error while creating profile graph: {}", why);
+            unwind_error!(warn, why, "Error while creating profile graph: {}");
             None
         }
     };
@@ -70,7 +71,7 @@ async fn profile_main(
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            warn!("Pagination error (profile): {}", why)
+            unwind_error!(warn, why, "Pagination error (profile): {}")
         }
     });
     Ok(())
@@ -142,7 +143,7 @@ pub async fn profile_embed(
     let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
         Ok(maps) => maps,
         Err(why) => {
-            warn!("Error while getting maps from DB: {}", why);
+            unwind_error!(warn, why, "Error while getting maps from DB: {}");
             HashMap::default()
         }
     };
@@ -192,7 +193,7 @@ pub async fn profile_embed(
         match ctx.psql().insert_beatmaps(&maps).await {
             Ok(n) if n < 2 => {}
             Ok(n) => info!("Added {} maps to DB", n),
-            Err(why) => warn!("Error while adding maps to DB: {}", why),
+            Err(why) => unwind_error!(warn, why, "Error while adding maps to DB: {}"),
         }
     };
 
@@ -387,7 +388,7 @@ impl ProfileResult {
 const W: u32 = 1350;
 const H: u32 = 350;
 
-async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error>> {
+async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
     if profile.monthly_playcounts.len() < 2 {
         return Ok(None);
     }

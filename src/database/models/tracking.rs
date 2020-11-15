@@ -1,3 +1,5 @@
+use crate::unwind_error;
+
 use chrono::{DateTime, Utc};
 use rosu::model::GameMode;
 use serde_json::Value;
@@ -60,9 +62,12 @@ where
                 .map(|(id, limit)| (ChannelId(u64::from_str(&id).unwrap()), limit))
                 .collect(),
             Err(why) => {
-                warn!(
+                unwind_error!(
+                    warn,
+                    why,
                     "Could not deserialize tracking channels value for ({},{}): {}",
-                    user_id, mode, why
+                    user_id,
+                    mode
                 );
                 HashMap::new()
             }

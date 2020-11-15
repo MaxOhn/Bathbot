@@ -4,6 +4,7 @@ use crate::{
     embeds::{EmbedData, MapEmbed},
     pagination::{MapPagination, Pagination},
     pp::roppai::Oppai,
+    unwind_error,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         osu::{cached_message_extract, map_id_from_history, prepare_beatmap_file, MapIdType},
@@ -145,16 +146,16 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
                 (Ok(oppai_values), Ok(img)) => match graph(oppai_values, img) {
                     Ok(graph) => Some(graph),
                     Err(why) => {
-                        warn!("Error creating graph: {}", why);
+                        unwind_error!(warn, why, "Error creating graph: {}");
                         None
                     }
                 },
                 (Err(why), _) => {
-                    warn!("Error while creating oppai_values: {}", why);
+                    unwind_error!(warn, why, "Error while creating oppai_values: {}");
                     None
                 }
                 (_, Err(why)) => {
-                    warn!("Error retrieving graph background: {}", why);
+                    unwind_error!(warn, why, "Error retrieving graph background: {}");
                     None
                 }
             }
@@ -191,7 +192,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     match ctx.clients.psql.insert_beatmaps(&maps).await {
         Ok(n) if n < 2 => {}
         Ok(n) => info!("Added {} maps to DB", n),
-        Err(why) => warn!("Error while adding maps to DB: {}", why),
+        Err(why) => unwind_error!(warn, why, "Error while adding maps to DB: {}"),
     }
 
     // Skip pagination if too few entries
@@ -212,7 +213,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            warn!("Pagination error (map): {}", why)
+            unwind_error!(warn, why, "Pagination error (map): {}")
         }
     });
     Ok(())

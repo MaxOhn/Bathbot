@@ -2,6 +2,7 @@ use crate::{
     custom_client::SnipePlayer,
     embeds::{osu, Author, EmbedData, Footer},
     pp::{Calculations, PPCalculator},
+    unwind_error,
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
@@ -67,7 +68,7 @@ impl PlayerSnipeStatsEmbed {
                     calculator.stars().unwrap(),
                 ),
                 Err(why) => {
-                    warn!("Error while calculating pp: {}", why);
+                    unwind_error!(warn, why, "Error while calculating pp: {}");
                     (None, None, map.stars)
                 }
             };

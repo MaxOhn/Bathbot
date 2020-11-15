@@ -1,6 +1,7 @@
 use crate::{
     embeds::{osu, Author, EmbedData, Footer},
     pp::{Calculations, PPCalculator},
+    unwind_error,
     util::{
         constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
@@ -94,7 +95,7 @@ impl RecentEmbed {
                 unchoke_score(&mut unchoked, &map);
                 let mut calculator = PPCalculator::new().score(&unchoked).map(map);
                 if let Err(why) = calculator.calculate(Calculations::PP, None).await {
-                    warn!("Error while calculating pp of <recent score: {}", why);
+                    unwind_error!(warn, why, "Error while calculating pp of <recent score: {}");
                     None
                 } else {
                     let hits = unchoked.hits_string(map.mode);
@@ -112,7 +113,7 @@ impl RecentEmbed {
             async_if_fc
         );
         if let Err(why) = calc_result {
-            warn!("Error while calculating <recent pp: {}", why);
+            unwind_error!(warn, why, "Error while calculating <recent pp: {}");
         }
         let max_pp = calculator.max_pp();
         let if_fc = if_fc.map(|(pp, x, y)| (osu::get_pp(pp, max_pp), x, y));

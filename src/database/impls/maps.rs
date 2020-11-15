@@ -1,6 +1,6 @@
 use crate::{
     database::{util::CustomSQL, BeatmapWrapper, DBMapSet},
-    BotResult, Database,
+    unwind_error, BotResult, Database,
 };
 
 use rosu::model::{
@@ -59,7 +59,7 @@ FROM
                     Some((map.beatmap_id, map))
                 }
                 Err(why) => {
-                    warn!("Error while getting maps from DB: {}", why);
+                    unwind_error!(warn, why, "Error while getting maps from DB: {}");
                     None
                 }
             })

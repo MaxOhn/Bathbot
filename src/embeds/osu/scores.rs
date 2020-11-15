@@ -1,6 +1,7 @@
 use crate::{
     embeds::{osu, Author, EmbedData, Footer},
     pp::{Calculations, PPCalculator},
+    unwind_error,
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
@@ -41,7 +42,7 @@ impl ScoresEmbed {
             let calculations = Calculations::all();
             let mut calculator = PPCalculator::new().score(score).map(map);
             if let Err(why) = calculator.calculate(calculations, Some(ctx)).await {
-                warn!("Error while calculating pp for scores: {}", why);
+                unwind_error!(warn, why, "Error while calculating pp for scores: {}");
             }
             let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));
             let pp = osu::get_pp(calculator.pp(), calculator.max_pp());

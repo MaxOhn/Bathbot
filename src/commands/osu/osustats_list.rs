@@ -3,6 +3,7 @@ use crate::{
     custom_client::{OsuStatsListParams, OsuStatsPlayer},
     embeds::{EmbedData, OsuStatsListEmbed},
     pagination::{OsuStatsListPagination, Pagination},
+    unwind_error,
     util::{numbers, MessageExt},
     BotResult, Context,
 };
@@ -81,7 +82,7 @@ async fn osustats_main(
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            warn!("Pagination error (osustatslist): {}", why)
+            unwind_error!(warn, why, "Pagination error (osustatslist): {}")
         }
     });
     Ok(())

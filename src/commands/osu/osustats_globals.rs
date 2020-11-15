@@ -3,6 +3,7 @@ use crate::{
     custom_client::OsuStatsScore,
     embeds::{EmbedData, OsuStatsGlobalsEmbed},
     pagination::{OsuStatsGlobalsPagination, Pagination},
+    unwind_error,
     util::{constants::OSU_API_ISSUE, numbers, osu::ModSelection, MessageExt},
     BotResult, Context,
 };
@@ -100,7 +101,7 @@ async fn osustats_main(
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            warn!("Pagination error (osustatsglobals): {}", why)
+            unwind_error!(warn, why, "Pagination error (osustatsglobals): {}")
         }
     });
     Ok(())

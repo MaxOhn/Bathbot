@@ -1,6 +1,7 @@
 use super::GameResult;
 use crate::{
     database::MapsetTagWrapper,
+    unwind_error,
     util::{error::BgGameError, levenshtein_distance},
     Context,
 };
@@ -35,7 +36,7 @@ pub async fn get_title_artist(ctx: &Context, mapset_id: u32) -> GameResult<(Stri
             match ctx.osu().beatmap().mapset_id(mapset_id).await {
                 Ok(Some(map)) => {
                     if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-                        warn!("Error while inserting bg game map into DB: {}", why);
+                        unwind_error!(warn, why, "Error while inserting bg game map into DB: {}");
                     }
                     (map.title.to_lowercase(), map.artist)
                 }

@@ -3,6 +3,7 @@ use crate::{
     custom_client::{OsuMedal, OsuMedalGroup},
     embeds::{EmbedData, MedalsMissingEmbed},
     pagination::{MedalsMissingPagination, Pagination},
+    unwind_error,
     util::{
         constants::{OSU_API_ISSUE, OSU_WEB_ISSUE},
         numbers, MessageExt,
@@ -99,7 +100,7 @@ async fn medalsmissing(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            warn!("Pagination error (medals missing): {}", why)
+            unwind_error!(warn, why, "Pagination error (medals missing): {}")
         }
     });
     Ok(())

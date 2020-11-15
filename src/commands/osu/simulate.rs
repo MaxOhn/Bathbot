@@ -2,6 +2,7 @@ use crate::{
     arguments::{Args, SimulateMapArgs},
     bail,
     embeds::{EmbedData, SimulateEmbed},
+    unwind_error,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         osu::{cached_message_extract, map_id_from_history, MapIdType},
@@ -112,7 +113,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
 
     // Add map to database if its not in already
     if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-        warn!("Could not add map to DB: {}", why);
+        unwind_error!(warn, why, "Could not add map to DB: {}");
     }
     response.reaction_delete(&ctx, msg.author.id);
 

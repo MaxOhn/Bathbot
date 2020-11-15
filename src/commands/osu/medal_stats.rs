@@ -2,6 +2,7 @@ use crate::{
     arguments::{Args, NameArgs},
     custom_client::OsuProfileMedal,
     embeds::{EmbedData, MedalStatsEmbed},
+    unwind_error,
     util::{
         constants::{OSU_API_ISSUE, OSU_WEB_ISSUE},
         MessageExt,
@@ -53,7 +54,7 @@ async fn medalstats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     let graph = match graph(&profile.medals) {
         Ok(bytes_option) => bytes_option,
         Err(why) => {
-            warn!("Error while calculating medal graph: {}", why);
+            unwind_error!(warn, why, "Error while calculating medal graph: {}");
             None
         }
     };

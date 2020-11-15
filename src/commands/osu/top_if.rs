@@ -4,6 +4,7 @@ use crate::{
     pagination::{Pagination, TopIfPagination},
     pp::{Calculations, PPCalculator},
     tracking::process_tracking,
+    unwind_error,
     util::{constants::OSU_API_ISSUE, numbers, osu::ModSelection, MessageExt},
     Args, BotResult, Context,
 };
@@ -81,7 +82,7 @@ async fn topif_main(
     let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
         Ok(maps) => maps,
         Err(why) => {
-            warn!("Error while getting maps from DB: {}", why);
+            unwind_error!(warn, why, "Error while getting maps from DB: {}");
             HashMap::default()
         }
     };
@@ -181,7 +182,12 @@ async fn topif_main(
             score.pp = None;
             let mut calculator = PPCalculator::new().score(&*score).map(&*map);
             if let Err(why) = calculator.calculate(Calculations::all(), Some(&ctx)).await {
-                warn!("Error while calculating pp for topif {}: {}", mode, why);
+                unwind_error!(
+                    warn,
+                    why,
+                    "Error while calculating pp for topif {}: {}",
+                    mode
+                );
             }
             score.pp = calculator
                 .pp()
@@ -281,7 +287,7 @@ async fn topif_main(
         match ctx.psql().insert_beatmaps(&missing_maps).await {
             Ok(n) if n < 2 => {}
             Ok(n) => info!("Added {} maps to DB", n),
-            Err(why) => warn!("Error while adding maps to DB: {}", why),
+            Err(why) => unwind_error!(warn, why, "Error while adding maps to DB: {}"),
         }
     }
 
@@ -303,7 +309,7 @@ async fn topif_main(
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            warn!("Pagination error (top): {}", why)
+            unwind_error!(warn, why, "Pagination error (top): {}")
         }
     });
     Ok(())

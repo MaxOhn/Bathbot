@@ -1,6 +1,7 @@
 use crate::{
     arguments::{Args, SimulateNameArgs},
     embeds::{EmbedData, SimulateEmbed},
+    unwind_error,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
@@ -92,7 +93,7 @@ async fn simulate_recent_main(
 
     // Add map to database if its not in already
     if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-        warn!("Could not add map to DB: {}", why);
+        unwind_error!(warn, why, "Could not add map to DB: {}");
     }
 
     response.reaction_delete(&ctx, msg.author.id);

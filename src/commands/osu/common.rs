@@ -3,6 +3,7 @@ use crate::{
     embeds::{CommonEmbed, EmbedData},
     pagination::{CommonPagination, Pagination},
     tracking::process_tracking,
+    unwind_error,
     util::{constants::OSU_API_ISSUE, get_combined_thumbnail, MessageExt},
     BotResult, Context,
 };
@@ -158,7 +159,7 @@ async fn common_main(
         match ctx.psql().get_beatmaps(&map_id_vec).await {
             Ok(maps) => maps,
             Err(why) => {
-                warn!("Error while getting maps from DB: {}", why);
+                unwind_error!(warn, why, "Error while getting maps from DB: {}");
                 HashMap::default()
             }
         }
@@ -238,7 +239,7 @@ async fn common_main(
     let thumbnail = match thumbnail_result {
         Ok(thumbnail) => Some(thumbnail),
         Err(why) => {
-            warn!("Error while combining avatars: {}", why);
+            unwind_error!(warn, why, "Error while combining avatars: {}");
             None
         }
     };
@@ -257,7 +258,7 @@ async fn common_main(
         match ctx.psql().insert_beatmaps(&maps).await {
             Ok(n) if n < 2 => {}
             Ok(n) => info!("Added {} maps to DB", n),
-            Err(why) => warn!("Error while adding maps to DB: {}", why),
+            Err(why) => unwind_error!(warn, why, "Error while adding maps to DB: {}"),
         }
     }
 
@@ -272,7 +273,7 @@ async fn common_main(
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            warn!("Pagination error (common): {}", why)
+            unwind_error!(warn, why, "Pagination error (common): {}")
         }
     });
     Ok(())

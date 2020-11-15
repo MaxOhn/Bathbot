@@ -1,4 +1,7 @@
-use crate::core::{Context, ShardState};
+use crate::{
+    core::{Context, ShardState},
+    unwind_error,
+};
 
 use chrono::{DateTime, Utc};
 use log::info;
@@ -184,7 +187,7 @@ impl BotStats {
         let c = cmd.as_ref();
         match self.command_counts.get_metric_with_label_values(&[c]) {
             Ok(counter) => counter.inc(),
-            Err(why) => warn!("Error while incrementing `{}`'s counter: {}", c, why),
+            Err(why) => unwind_error!(warn, why, "Error while incrementing `{}`'s counter: {}", c),
         }
     }
 }

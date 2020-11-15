@@ -34,7 +34,7 @@ pub use scores::ScoresPagination;
 pub use top::TopPagination;
 pub use top_if::TopIfPagination;
 
-use crate::{embeds::EmbedData, util::numbers, BotResult, Context, CONFIG};
+use crate::{embeds::EmbedData, unwind_error, util::numbers, BotResult, Context, CONFIG};
 
 use async_trait::async_trait;
 use std::time::Duration;
@@ -143,7 +143,7 @@ pub trait Pagination: Sync + Sized {
             match self.next_page(reaction.0, ctx).await {
                 Ok(PageChange::Delete) => return Ok(()),
                 Ok(_) => {}
-                Err(why) => warn!("Error while paginating: {}", why),
+                Err(why) => unwind_error!(warn, why, "Error while paginating: {}"),
             }
         }
         let msg = self.msg();

@@ -1,6 +1,7 @@
 use super::{game_loop, Game, GameResult, LoopResult};
 use crate::{
     database::MapsetTagWrapper,
+    unwind_error,
     util::{constants::OSU_BASE, error::BgGameError},
     Context,
 };
@@ -86,7 +87,7 @@ impl GameWrapper {
                     .attachment("bg_img.png", img)
                     .await;
                 if let Err(why) = msg_result {
-                    warn!("Error while sending initial bg game msg: {}", why);
+                    unwind_error!(warn, why, "Error while sending initial bg game msg: {}");
                 }
 
                 let result = tokio::select! {
@@ -110,7 +111,11 @@ impl GameWrapper {
                                 OSU_BASE, game.mapset_id
                             );
                             if let Err(why) = game.resolve(&ctx, channel, content).await {
-                                warn!("Error while showing resolve for bg game restart: {}", why);
+                                unwind_error!(
+                                    warn,
+                                    why,
+                                    "Error while showing resolve for bg game restart: {}"
+                                );
                             }
                         } else {
                             debug!("Trying to restart on None");
@@ -127,7 +132,11 @@ impl GameWrapper {
                                 OSU_BASE, game.mapset_id
                             );
                             if let Err(why) = game.resolve(&ctx, channel, content).await {
-                                warn!("Error while showing resolve for bg game stop: {}", why);
+                                unwind_error!(
+                                    warn,
+                                    why,
+                                    "Error while showing resolve for bg game stop: {}"
+                                );
                             }
                         } else {
                             debug!("Trying to stop on None");

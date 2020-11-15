@@ -2,6 +2,7 @@ use crate::{
     bail,
     embeds::{BGRankingEmbed, EmbedData},
     pagination::{BGRankingPagination, Pagination},
+    unwind_error,
     util::{constants::GENERAL_ISSUE, numbers, MessageExt},
     Args, BotResult, Context,
 };
@@ -65,7 +66,7 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            warn!("Pagination error (bgranking): {}", why)
+            unwind_error!(warn, why, "Pagination error (bgranking): {}")
         }
     });
     Ok(())

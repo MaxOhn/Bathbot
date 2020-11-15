@@ -1,4 +1,4 @@
-use crate::{util::constants::RED, BotResult, Context};
+use crate::{unwind_error, util::constants::RED, BotResult, Context};
 
 use async_trait::async_trait;
 use std::fmt::Display;
@@ -104,7 +104,7 @@ impl MessageExt for Message {
             .await;
             if let Ok(Ok(_)) = reaction_result {
                 if let Err(why) = http.delete_message(channel_id, msg_id).await {
-                    warn!("Error while reaction-deleting msg: {}", why);
+                    unwind_error!(warn, why, "Error while reaction-deleting msg: {}");
                 }
             }
         });

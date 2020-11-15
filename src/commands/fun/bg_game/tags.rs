@@ -3,6 +3,7 @@ use crate::{
     bail,
     bg_game::MapsetTags,
     database::MapsetTagWrapper,
+    unwind_error,
     util::{
         constants::{GENERAL_ISSUE, OSU_BASE},
         MessageExt,
@@ -372,7 +373,7 @@ async fn get_random_image(mut mapsets: Vec<MapsetTagWrapper>, mode: GameMode) ->
         match fs::read(&path).await {
             Ok(bytes) => return (mapset.mapset_id, bytes),
             Err(why) => {
-                warn!("Error while reading file {}: {}", path.display(), why);
+                unwind_error!(warn, why, "Error while reading file {}: {}", path.display());
                 path.pop();
             }
         }

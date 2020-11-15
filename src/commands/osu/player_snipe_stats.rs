@@ -1,6 +1,7 @@
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
+    unwind_error,
     util::{constants::OSU_API_ISSUE, MessageExt, SNIPE_COUNTRIES},
     BotResult, Context,
 };
@@ -56,7 +57,7 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     let player = match req.await {
         Ok(counts) => counts,
         Err(why) => {
-            warn!("Error for command `playersnipestats`: {}", why);
+            unwind_error!(warn, why, "Error for command `playersnipestats`: {}");
             let content = format!("`{}` has never had any national #1s", name);
             return msg.respond(&ctx, content).await;
         }
@@ -64,7 +65,7 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     let graph = match graphs(&player.count_first_history, &player.count_sr_spread) {
         Ok(graph_option) => graph_option,
         Err(why) => {
-            warn!("Error while creating snipe player graph: {}", why);
+            unwind_error!(warn, why, "Error while creating snipe player graph: {}");
             None
         }
     };
@@ -111,7 +112,7 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
                 None
             }
             Err(why) => {
-                warn!("Error while retrieving oldest data: {}", why);
+                unwind_error!(warn, why, "Error while retrieving oldest data: {}");
                 None
             }
         }
