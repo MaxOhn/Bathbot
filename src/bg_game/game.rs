@@ -9,8 +9,12 @@ use crate::{
 use cow_utils::CowUtils;
 use image::GenericImageView;
 use rosu::model::GameMode;
-use std::collections::VecDeque;
-use tokio::{fs, stream::StreamExt, sync::RwLock};
+use std::{collections::VecDeque, sync::Arc};
+use tokio::{
+    fs,
+    stream::StreamExt,
+    sync::{Mutex, RwLock},
+};
 use twilight_model::id::ChannelId;
 use twilight_standby::WaitForMessageStream;
 
@@ -18,8 +22,8 @@ pub struct Game {
     pub title: String,
     pub artist: String,
     pub mapset_id: u32,
-    hints: Hints,
-    reveal: ImageReveal,
+    hints: Arc<RwLock<Hints>>,
+    reveal: Arc<Mutex<ImageReveal>>,
 }
 
 impl Game {
@@ -30,15 +34,21 @@ impl Game {
     ) -> (Self, Vec<u8>) {
         loop {
             match Game::_new(ctx, mapsets, previous_ids).await {
-                Ok(game) => match game.reveal.sub_image() {
-                    Ok(img) => return (game, img),
-                    Err(why) => unwind_error!(
-                        warn,
-                        why,
-                        "Could not create initial bg image for id {}: {}",
-                        game.mapset_id
-                    ),
-                },
+                Ok(game) => {
+                    let sub_image_result = {
+                        let reveal = game.reveal.lock().await;
+                        reveal.sub_image()
+                    };
+                    match sub_image_result {
+                        Ok(img) => return (game, img),
+                        Err(why) => unwind_error!(
+                            warn,
+                            why,
+                            "Could not create initial bg image for id {}: {}",
+                            game.mapset_id
+                        ),
+                    }
+                }
                 Err(why) => unwind_error!(warn, why, "Error creating bg game: {}"),
             }
         }
@@ -68,21 +78,23 @@ impl Game {
             img = img.thumbnail(800, 600);
         }
         Ok(Self {
-            hints: Hints::new(&title, mapset.tags),
+            hints: Arc::new(RwLock::new(Hints::new(&title, mapset.tags))),
             title,
             artist,
             mapset_id: mapset.mapset_id,
-            reveal: ImageReveal::new(img),
+            reveal: Arc::new(Mutex::new(ImageReveal::new(img))),
         })
     }
 
-    pub fn sub_image(&mut self) -> GameResult<Vec<u8>> {
-        self.reveal.increase_radius();
-        self.reveal.sub_image()
+    pub async fn sub_image(&self) -> GameResult<Vec<u8>> {
+        let mut reveal = self.reveal.lock().await;
+        reveal.increase_radius();
+        reveal.sub_image()
     }
 
-    pub fn hint(&mut self) -> String {
-        self.hints.get(&self.title, &self.artist)
+    pub async fn hint(&self) -> String {
+        let mut hints = self.hints.write().await;
+        hints.get(&self.title, &self.artist)
     }
 
     pub async fn resolve(
@@ -91,7 +103,11 @@ impl Game {
         channel: ChannelId,
         content: String,
     ) -> BotResult<()> {
-        match self.reveal.full() {
+        let reveal_result = {
+            let reveal = self.reveal.lock().await;
+            reveal.full()
+        };
+        match reveal_result {
             Ok(bytes) => {
                 ctx.http
                     .create_message(channel)
@@ -112,7 +128,7 @@ impl Game {
         Ok(())
     }
 
-    fn check_msg_content(&self, content: &str) -> ContentResult {
+    async fn check_msg_content(&self, content: &str) -> ContentResult {
         // Guessed the title exactly?
         if content == self.title {
             return ContentResult::Title(true);
@@ -136,7 +152,7 @@ impl Game {
         if similarity > 0.5 {
             return ContentResult::Title(false);
         }
-        if !self.hints.artist_guessed {
+        if !self.hints.read().await.artist_guessed {
             // Guessed the artist exactly?
             if content == self.artist {
                 return ContentResult::Artist(true);
@@ -164,12 +180,13 @@ pub async fn game_loop(
 ) -> LoopResult {
     // Collect and evaluate messages
     while let Some(msg) = msg_stream.next().await {
-        let mut game = game_lock.write().await;
+        let game = game_lock.read().await;
         if game.is_none() {
             return LoopResult::Stop;
         }
-        let mut game = game.as_mut().unwrap();
-        match game.check_msg_content(msg.content.cow_to_lowercase().as_ref()) {
+        let game = game.as_ref().unwrap();
+        let content = msg.content.cow_to_lowercase();
+        match game.check_msg_content(content.as_ref()).await {
             // Title correct?
             ContentResult::Title(exact) => {
                 let content = format!(
@@ -190,7 +207,10 @@ pub async fn game_loop(
             }
             // Artist correct?
             ContentResult::Artist(exact) => {
-                game.hints.artist_guessed = true;
+                {
+                    let mut hints = game.hints.write().await;
+                    hints.artist_guessed = true;
+                }
                 let content = if exact {
                     format!(
                         "That's the correct artist `{}`, can you get the title too?",

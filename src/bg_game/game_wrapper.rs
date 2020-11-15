@@ -50,18 +50,19 @@ impl GameWrapper {
     }
 
     pub async fn sub_image(&mut self) -> GameResult<Option<Vec<u8>>> {
-        timeout(TIMEOUT, self.game.write())
-            .await?
-            .as_mut()
-            .map_or_else(|| Ok(None), |game| Some(game.sub_image()).transpose())
+        let game_option = timeout(TIMEOUT, self.game.read()).await?;
+        match game_option.as_ref() {
+            Some(game) => Some(game.sub_image().await).transpose(),
+            None => Ok(None),
+        }
     }
 
     pub async fn hint(&self) -> GameResult<Option<String>> {
-        let hint = timeout(TIMEOUT, self.game.write())
-            .await?
-            .as_mut()
-            .map(|game| game.hint());
-        Ok(hint)
+        let game_option = timeout(TIMEOUT, self.game.read()).await?;
+        match game_option.as_ref() {
+            Some(game) => Ok(Some(game.hint().await)),
+            None => Ok(None),
+        }
     }
 
     pub fn start(&mut self, ctx: Arc<Context>, channel: ChannelId, mapsets: Vec<MapsetTagWrapper>) {
