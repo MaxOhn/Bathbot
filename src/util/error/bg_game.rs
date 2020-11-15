@@ -13,8 +13,10 @@ pub enum BgGameError {
     NoMapResult(u32),
     NotStarted,
     Osu(OsuError),
-    Restart,
-    Stop,
+    RestartTimeout,
+    RestartToken,
+    StopTimeout,
+    StopToken,
     Timeout,
 }
 
@@ -28,8 +30,10 @@ impl fmt::Display for BgGameError {
             Self::NoMapResult(id) => write!(f, "api returned no map for mapset id {}", id),
             Self::NotStarted => f.write_str("the game in this channel has not started"),
             Self::Osu(_) => f.write_str("osu error"),
-            Self::Restart => f.write_str("could not send restart token"),
-            Self::Stop => f.write_str("could not send stop token"),
+            Self::RestartTimeout => f.write_str("timed out while trying to restart game"),
+            Self::RestartToken => f.write_str("could not send restart token"),
+            Self::StopTimeout => f.write_str("timed out while trying to stop game"),
+            Self::StopToken => f.write_str("could not send stop token"),
             Self::Timeout => f.write_str("timed out while waiting for write access"),
         }
     }
@@ -63,8 +67,10 @@ impl StdError for BgGameError {
             Self::NoMapResult(_) => None,
             Self::NotStarted => None,
             Self::Osu(e) => Some(e),
-            Self::Restart => None,
-            Self::Stop => None,
+            Self::RestartTimeout => None,
+            Self::RestartToken => None,
+            Self::StopTimeout => None,
+            Self::StopToken => None,
             Self::Timeout => None,
         }
     }

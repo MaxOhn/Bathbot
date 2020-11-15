@@ -38,15 +38,15 @@ impl Context {
     }
 
     pub async fn restart_game(&self, channel: ChannelId) -> BotResult<bool> {
-        match self.data.bg_games.get_mut(&channel) {
-            Some(mut game) => Ok(game.restart().await.map(|_| true)?),
+        match self.data.bg_games.get(&channel) {
+            Some(game) => Ok(game.restart().await.map(|_| true)?),
             None => Ok(false),
         }
     }
 
     pub async fn stop_game(&self, channel: ChannelId) -> BotResult<bool> {
         if self.data.bg_games.contains_key(&channel) {
-            if let Some(mut game) = self.data.bg_games.get_mut(&channel) {
+            if let Some(game) = self.data.bg_games.get(&channel) {
                 game.stop().await?;
             }
             Ok(true)
@@ -60,7 +60,7 @@ impl Context {
     }
 
     pub async fn game_hint(&self, channel: ChannelId) -> Result<String, BgGameError> {
-        match self.data.bg_games.get_mut(&channel) {
+        match self.data.bg_games.get(&channel) {
             Some(game) => match game.hint().await? {
                 Some(hint) => Ok(hint),
                 None => Err(BgGameError::NotStarted),
@@ -70,8 +70,8 @@ impl Context {
     }
 
     pub async fn game_bigger(&self, channel: ChannelId) -> Result<Vec<u8>, BgGameError> {
-        match self.data.bg_games.get_mut(&channel) {
-            Some(mut game) => match game.sub_image().await? {
+        match self.data.bg_games.get(&channel) {
+            Some(game) => match game.sub_image().await? {
                 Some(img) => Ok(img),
                 None => Err(BgGameError::NotStarted),
             },

@@ -10,11 +10,7 @@ use cow_utils::CowUtils;
 use image::GenericImageView;
 use rosu::model::GameMode;
 use std::{collections::VecDeque, sync::Arc};
-use tokio::{
-    fs,
-    stream::StreamExt,
-    sync::{Mutex, RwLock},
-};
+use tokio::{fs, stream::StreamExt, sync::RwLock};
 use twilight_model::id::ChannelId;
 use twilight_standby::WaitForMessageStream;
 
@@ -23,7 +19,7 @@ pub struct Game {
     pub artist: String,
     pub mapset_id: u32,
     hints: Arc<RwLock<Hints>>,
-    reveal: Arc<Mutex<ImageReveal>>,
+    reveal: Arc<RwLock<ImageReveal>>,
 }
 
 impl Game {
@@ -36,7 +32,7 @@ impl Game {
             match Game::_new(ctx, mapsets, previous_ids).await {
                 Ok(game) => {
                     let sub_image_result = {
-                        let reveal = game.reveal.lock().await;
+                        let reveal = game.reveal.read().await;
                         reveal.sub_image()
                     };
                     match sub_image_result {
@@ -82,12 +78,12 @@ impl Game {
             title,
             artist,
             mapset_id: mapset.mapset_id,
-            reveal: Arc::new(Mutex::new(ImageReveal::new(img))),
+            reveal: Arc::new(RwLock::new(ImageReveal::new(img))),
         })
     }
 
     pub async fn sub_image(&self) -> GameResult<Vec<u8>> {
-        let mut reveal = self.reveal.lock().await;
+        let mut reveal = self.reveal.write().await;
         reveal.increase_radius();
         reveal.sub_image()
     }
@@ -104,7 +100,7 @@ impl Game {
         content: String,
     ) -> BotResult<()> {
         let reveal_result = {
-            let reveal = self.reveal.lock().await;
+            let reveal = self.reveal.read().await;
             reveal.full()
         };
         match reveal_result {

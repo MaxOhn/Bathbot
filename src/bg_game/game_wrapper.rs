@@ -10,7 +10,7 @@ use std::{collections::VecDeque, sync::Arc};
 use tokio::{
     sync::{
         mpsc::{self, Receiver, Sender},
-        RwLock,
+        Mutex, RwLock,
     },
     time::{delay_for, timeout, Duration},
 };
@@ -21,8 +21,8 @@ const GAME_LEN: Duration = Duration::from_secs(180);
 
 pub struct GameWrapper {
     pub game: Arc<RwLock<Option<Game>>>,
-    tx: Sender<LoopResult>,
-    rx: Option<Receiver<LoopResult>>,
+    tx: Arc<Mutex<Sender<LoopResult>>>,
+    rx: Option<Arc<Mutex<Receiver<LoopResult>>>>,
 }
 
 impl GameWrapper {
@@ -30,26 +30,26 @@ impl GameWrapper {
         let (tx, rx) = mpsc::channel(5);
         Self {
             game: Arc::new(RwLock::new(None)),
-            tx,
-            rx: Some(rx),
+            tx: Arc::new(Mutex::new(tx)),
+            rx: Some(Arc::new(Mutex::new(rx))),
         }
     }
 
-    pub async fn stop(&mut self) -> GameResult<()> {
-        self.tx
-            .send(LoopResult::Stop)
+    pub async fn stop(&self) -> GameResult<()> {
+        let mut tx = self.tx.lock().await;
+        tx.send(LoopResult::Stop)
             .await
-            .map_err(|_| BgGameError::Stop)
+            .map_err(|_| BgGameError::StopToken)
     }
 
-    pub async fn restart(&mut self) -> GameResult<()> {
-        self.tx
-            .send(LoopResult::Restart)
+    pub async fn restart(&self) -> GameResult<()> {
+        let mut tx = self.tx.lock().await;
+        tx.send(LoopResult::Restart)
             .await
-            .map_err(|_| BgGameError::Restart)
+            .map_err(|_| BgGameError::RestartToken)
     }
 
-    pub async fn sub_image(&mut self) -> GameResult<Option<Vec<u8>>> {
+    pub async fn sub_image(&self) -> GameResult<Option<Vec<u8>>> {
         let game_option = timeout(TIMEOUT, self.game.read()).await?;
         match game_option.as_ref() {
             Some(game) => Some(game.sub_image().await).transpose(),
@@ -70,7 +70,7 @@ impl GameWrapper {
             .standby
             .wait_for_message_stream(channel, |event: &MessageCreate| !event.author.bot);
         let game_lock = Arc::clone(&self.game);
-        let mut rx = self.rx.take().unwrap();
+        let rx = self.rx.take().unwrap();
         let mut previous_ids = VecDeque::with_capacity(50);
         tokio::spawn(async move {
             loop {
@@ -91,9 +91,14 @@ impl GameWrapper {
                     unwind_error!(warn, why, "Error while sending initial bg game msg: {}");
                 }
 
+                let rx_fut = async {
+                    let mut rx = rx.lock().await;
+                    rx.recv().await
+                };
+
                 let result = tokio::select! {
                     // Listen for stop or restart invokes
-                    option = rx.recv() => option.unwrap_or(LoopResult::Stop),
+                    option = rx_fut => option.unwrap_or(LoopResult::Stop),
                     // Let the game run
                     result = game_loop(&mut msg_stream, &ctx, &game_lock, channel) => result,
                     // Timeout after 3 minutes
