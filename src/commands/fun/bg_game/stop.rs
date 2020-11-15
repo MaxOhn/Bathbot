@@ -1,4 +1,4 @@
-use crate::{bail, util::MessageExt, Args, BotResult, Context};
+use crate::{util::MessageExt, Args, BotResult, Context};
 
 use std::sync::Arc;
 use twilight_model::channel::Message;
@@ -19,7 +19,7 @@ pub async fn stop(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
         }
         Err(why) => {
             let _ = msg.error(&ctx, "Error while stopping game \\:(").await;
-            bail!("error while stopping game: {}", why)
+            Err(why)
         }
     }
 }

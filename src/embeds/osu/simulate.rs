@@ -179,7 +179,7 @@ impl EmbedData for SimulateEmbed {
         let mut value = if let Some(prev_pp) = self.prev_pp {
             format!("{} → {}", prev_pp, self.pp)
         } else {
-            format!("{}", self.pp)
+            self.pp.to_string()
         };
         if self.mode != GameMode::MNA {
             let _ = write!(value, " {}", self.hits);

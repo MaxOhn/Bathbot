@@ -50,7 +50,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             Ok(msgs) => msgs,
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-                bail!("error while retrieving messages: {}", why);
+                return Err(why.into());
             }
         };
         match map_id_from_history(msgs) {
@@ -175,7 +175,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("error while creating embed: {}", why);
+            return Err(why);
         }
     };
 
@@ -223,9 +223,7 @@ async fn oppai_values(map_id: u32, mods: GameMods) -> BotResult<(Vec<u32>, Vec<f
     // Prepare oppai
     let map_path = prepare_beatmap_file(map_id).await?;
     let mut oppai = Oppai::new();
-    if let Err(why) = oppai.set_mods(mods.bits()).calculate(&map_path) {
-        bail!("error while using oppai: {}", why);
-    }
+    oppai.set_mods(mods.bits()).calculate(&map_path)?;
     const MAX_COUNT: usize = 1000;
     let object_count = oppai.get_object_count();
     let mods = oppai.get_mods();

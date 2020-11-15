@@ -1,6 +1,5 @@
 use crate::{
     arguments::{Args, NameArgs},
-    bail,
     embeds::{EmbedData, RecentEmbed},
     pagination::{Pagination, RecentPagination},
     tracking::process_tracking,
@@ -160,7 +159,7 @@ async fn recent_main(
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("error while creating embed: {}", why);
+            return Err(why);
         }
     };
 

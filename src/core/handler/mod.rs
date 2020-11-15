@@ -5,7 +5,6 @@ use checks::{check_authority, check_ratelimit};
 use parse::{find_prefix, parse_invoke, Invoke};
 
 use crate::{
-    bail,
     commands::help::{failed_help, help, help_command},
     core::{buckets::BucketName, Command, CommandGroups, Context},
     util::{constants::OWNER_USER_ID, MessageExt},
@@ -249,14 +248,14 @@ async fn process_command(
 
     // Ratelimited?
     if let Some(bucket) = cmd.bucket {
-        if let Some(cooldown) = check_ratelimit(&ctx, msg, bucket).await {
+        if let Some((cooldown, bucket)) = check_ratelimit(&ctx, msg, bucket).await {
             debug!(
                 "Ratelimiting user {} on command `{}` for {} seconds",
                 msg.author.id, cmd.names[0], cooldown,
             );
             let content = format!("Command on cooldown, try again in {} seconds", cooldown);
             msg.error(&ctx, content).await?;
-            return Ok(ProcessResult::Ratelimited(bucket.into()));
+            return Ok(ProcessResult::Ratelimited(bucket));
         }
     }
 
@@ -275,7 +274,7 @@ async fn process_command(
             Err(why) => {
                 let content = "Error while checking authority status";
                 let _ = msg.error(&ctx, content).await;
-                bail!("error while checking authorty status: {}", why);
+                return Err(Error::Authority(Box::new(why)));
             }
         }
     }

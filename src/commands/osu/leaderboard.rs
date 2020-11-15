@@ -1,6 +1,5 @@
 use crate::{
     arguments::{Args, MapModArgs},
-    bail,
     embeds::{EmbedData, LeaderboardEmbed},
     pagination::{LeaderboardPagination, Pagination},
     unwind_error,
@@ -42,7 +41,7 @@ async fn leaderboard_main(
             Ok(msgs) => msgs,
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-                bail!("error while retrieving messages: {}", why);
+                return Err(why.into());
             }
         };
         match map_id_from_history(msgs) {
@@ -120,7 +119,7 @@ async fn leaderboard_main(
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("error while  creating embed: {}", why);
+            return Err(why);
         }
     };
 

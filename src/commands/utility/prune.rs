@@ -1,5 +1,4 @@
 use crate::{
-    bail,
     util::{constants::GENERAL_ISSUE, MessageExt},
     Args, BotResult, Context,
 };
@@ -46,7 +45,7 @@ async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
             .collect::<Vec<_>>(),
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("error while retrieving messages: {}", why);
+            return Err(why.into());
         }
     };
     if messages.len() < 2 {
@@ -57,7 +56,7 @@ async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
     }
     if let Err(why) = ctx.http.delete_messages(msg.channel_id, messages).await {
         let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-        bail!("error while deleting messages: {}", why);
+        return Err(why.into());
     }
     let response = ctx
         .http

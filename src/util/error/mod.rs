@@ -10,6 +10,8 @@ pub use map_download::MapDownloadError;
 pub use pp::PPError;
 pub use twitch::TwitchError;
 
+use crate::pp::roppai::OppaiErr;
+
 use chrono::format::ParseError as ChronoParseError;
 use darkredis::Error as RedisError;
 use image::ImageError;
@@ -47,6 +49,7 @@ macro_rules! format_err {
 
 #[derive(Debug)]
 pub enum Error {
+    Authority(Box<Error>),
     BgGame(BgGameError),
     CacheDefrost(&'static str, Box<Error>),
     CreateMessage(CreateMessageError),
@@ -82,6 +85,7 @@ pub enum Error {
 impl StdError for Error {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
+            Self::Authority(e) => Some(e),
             Self::BgGame(e) => Some(e),
             Self::CacheDefrost(_, e) => Some(e),
             Self::CreateMessage(e) => Some(e),
@@ -119,6 +123,7 @@ impl StdError for Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Self::Authority(_) => f.write_str("error while checking authorty status"),
             Self::BgGame(_) => f.write_str("background game error"),
             Self::CacheDefrost(reason, _) => write!(f, "error defrosting cache: {}", reason),
             Self::CreateMessage(_) => f.write_str("error while creating message"),
@@ -232,6 +237,12 @@ impl From<MapDownloadError> for Error {
 impl From<IOError> for Error {
     fn from(e: IOError) -> Self {
         Error::IO(e)
+    }
+}
+
+impl From<OppaiErr> for Error {
+    fn from(e: OppaiErr) -> Self {
+        Self::PP(PPError::Oppai(e))
     }
 }
 

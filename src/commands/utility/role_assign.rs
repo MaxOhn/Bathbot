@@ -1,6 +1,5 @@
 use crate::{
     arguments::{Args, RoleAssignArgs},
-    bail,
     embeds::{EmbedData, RoleAssignEmbed},
     util::{constants::GENERAL_ISSUE, MessageExt},
     BotResult, Context,
@@ -56,7 +55,7 @@ async fn roleassign(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         Ok(_) => debug!("Inserted into role_assign table"),
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("error while getting role_assigns: {}", why);
+            return Err(why);
         }
     }
     ctx.add_role_assign(channel, msg_id, role);

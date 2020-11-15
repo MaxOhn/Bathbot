@@ -99,7 +99,7 @@ async fn topif_main(
             .await
             .ok()
     } else if (mode == GameMode::CTB || mode == GameMode::MNA) && args.mods.is_some() {
-        let content = format!("Recalculating top scores, might take a little...");
+        let content = "Recalculating top scores, might take a little...";
         ctx.http
             .create_message(msg.channel_id)
             .content(content)?

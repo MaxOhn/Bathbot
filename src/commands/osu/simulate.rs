@@ -1,6 +1,5 @@
 use crate::{
     arguments::{Args, SimulateMapArgs},
-    bail,
     embeds::{EmbedData, SimulateEmbed},
     unwind_error,
     util::{
@@ -50,7 +49,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
             Ok(msgs) => msgs,
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-                bail!("error while retrieving messages: {}", why);
+                return Err(why.into());
             }
         };
         match map_id_from_history(msgs) {
@@ -97,7 +96,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("error while creating embed: {}", why);
+            return Err(why);
         }
     };
 

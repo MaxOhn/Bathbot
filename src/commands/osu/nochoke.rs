@@ -1,6 +1,5 @@
 use crate::{
     arguments::NameIntArgs,
-    bail,
     embeds::{EmbedData, NoChokeEmbed},
     pagination::{NoChokePagination, Pagination},
     pp::{Calculations, PPCalculator},
@@ -130,7 +129,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         Ok(scores_data) => scores_data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("error while unchoking scores: {}", why);
+            return Err(why);
         }
     };
 

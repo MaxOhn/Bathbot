@@ -27,7 +27,7 @@ pub async fn start(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResul
         Ok(false) => {}
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("error while restarting game: {}", why);
+            return Err(why);
         }
     }
     let mode = match args.next() {
@@ -38,7 +38,7 @@ pub async fn start(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResul
         Ok(mapsets) => mapsets,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("error while getting mapsets: {}", why);
+            return Err(why);
         }
     };
     if !(mapsets.is_empty() || ctx.has_running_game(msg.channel_id)) {
@@ -168,7 +168,7 @@ async fn get_mapsets(
         Ok(mapsets) => mapsets,
         Err(why) => {
             let _ = msg.error(ctx, GENERAL_ISSUE).await;
-            bail!("error while getting specific tags: {}", why);
+            return Err(why);
         }
     };
     let data = BGTagsEmbed::new(included, excluded, mapsets.len());

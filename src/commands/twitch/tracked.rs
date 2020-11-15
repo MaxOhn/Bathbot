@@ -1,5 +1,4 @@
 use crate::{
-    bail,
     util::{constants::GENERAL_ISSUE, MessageExt},
     Args, BotResult, Context,
 };
@@ -17,7 +16,7 @@ async fn trackedstreams(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<
         Ok(users) => users.into_iter().map(|user| user.display_name).collect(),
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("error while getting twitch users: {}", why);
+            return Err(why.into());
         }
     };
     twitch_users.sort_unstable();

@@ -1,6 +1,5 @@
 use crate::{
     arguments::{Args, NameArgs},
-    bail,
     embeds::{EmbedData, RatioEmbed},
     tracking::process_tracking,
     util::{
@@ -58,8 +57,8 @@ async fn ratios(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let data = match RatioEmbed::new(&ctx, user, scores).await {
         Ok(data) => data,
         Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await?;
-            bail!("error while creating embed: {}", why);
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            return Err(why);
         }
     };
 

@@ -1,5 +1,5 @@
 use crate::{
-    bail, unwind_error,
+    unwind_error,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
@@ -74,19 +74,19 @@ async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
                 Ok(file) => file,
                 Err(why) => {
                     let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-                    bail!("error while creating file: {}", why);
+                    return Err(why.into());
                 }
             };
             // Store in file
             if let Err(why) = file.write_all(&content).await {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-                bail!("error while writing to file: {}", why);
+                return Err(why.into());
             }
             path
         }
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("error while downloading image: {}", why);
+            return Err(why);
         }
     };
     // Check if valid mapset id

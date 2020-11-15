@@ -1,5 +1,4 @@
 use crate::{
-    bail,
     embeds::{BGRankingEmbed, EmbedData},
     pagination::{BGRankingPagination, Pagination},
     unwind_error,
@@ -17,8 +16,8 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()
     let mut scores = match ctx.psql().all_bggame_scores().await {
         Ok(scores) => scores,
         Err(why) => {
-            msg.error(&ctx, GENERAL_ISSUE).await?;
-            bail!("error while getting all bggame scores: {}", why);
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            return Err(why);
         }
     };
     scores.sort_unstable_by(|(_, a), (_, b)| b.cmp(&a));

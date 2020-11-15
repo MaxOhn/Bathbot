@@ -1,6 +1,5 @@
 use crate::{
     arguments::{Args, NameMapArgs},
-    bail,
     embeds::{EmbedData, ScoresEmbed},
     pagination::{Pagination, ScoresPagination},
     unwind_error,
@@ -49,7 +48,7 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             Ok(msgs) => msgs,
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-                bail!("error while retrieving messages: {}", why);
+                return Err(why.into());
             }
         };
         match map_id_from_history(msgs) {

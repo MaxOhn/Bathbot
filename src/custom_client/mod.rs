@@ -466,7 +466,7 @@ impl CustomClient {
         let user_element = Selector::parse("#json-user").unwrap();
         let json = match html.select(&user_element).next() {
             Some(element) => element.first_child().unwrap().value().as_text().unwrap(),
-            None => return Err(CustomClientError::MissingElement("#json-user").into()),
+            None => return Err(CustomClientError::MissingElement("#json-user")),
         };
         let user: OsuProfile =
             serde_json::from_str(json.trim()).map_err(|source| CustomClientError::Parsing {
@@ -478,7 +478,7 @@ impl CustomClient {
             let medal_element = Selector::parse("#json-achievements").unwrap();
             let json = match html.select(&medal_element).next() {
                 Some(element) => element.first_child().unwrap().value().as_text().unwrap(),
-                None => return Err(CustomClientError::MissingElement("#json-achievements").into()),
+                None => return Err(CustomClientError::MissingElement("#json-achievements")),
             };
             serde_json::from_str::<Vec<OsuMedal>>(json.trim())
                 .map_err(|source| CustomClientError::Parsing {
@@ -500,7 +500,7 @@ impl CustomClient {
         country_acronym: Option<&str>,
     ) -> ClientResult<u32> {
         if rank < 1 || 10_000 < rank {
-            return Err(CustomClientError::RankIndex(rank).into());
+            return Err(CustomClientError::RankIndex(rank));
         }
         let mut url = format!(
             "{base}rankings/{mode}/performance?",
@@ -553,10 +553,10 @@ impl CustomClient {
                 if let Some(id) = e.attr("data-user-id") {
                     Ok(id.parse::<u32>().unwrap())
                 } else {
-                    Err(CustomClientError::MissingElement("attribute data-user-id").into())
+                    Err(CustomClientError::MissingElement("attribute data-user-id"))
                 }
             }
-            _ => Err(CustomClientError::MissingElement("attribute data-user-id").into()),
+            _ => Err(CustomClientError::MissingElement("attribute data-user-id")),
         }
     }
 }

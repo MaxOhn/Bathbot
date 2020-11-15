@@ -1,5 +1,4 @@
 use crate::{
-    bail,
     util::{constants::GENERAL_ISSUE, error::BgGameError, MessageExt},
     Args, BotResult, Context,
 };
@@ -28,7 +27,7 @@ pub async fn hint(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
         }
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("error while getting hint: {}", why);
+            Err(why.into())
         }
     }
 }

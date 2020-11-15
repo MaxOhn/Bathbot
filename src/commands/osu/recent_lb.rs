@@ -1,6 +1,5 @@
 use crate::{
     arguments::{Args, NameModArgs},
-    bail,
     embeds::{EmbedData, LeaderboardEmbed},
     pagination::{LeaderboardPagination, Pagination},
     unwind_error,
@@ -118,7 +117,7 @@ async fn recent_lb_main(
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            bail!("error while creating embed: {}", why);
+            return Err(why);
         }
     };
 

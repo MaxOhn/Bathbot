@@ -78,19 +78,19 @@ pub async fn check_ratelimit(
     ctx: &Context,
     msg: &Message,
     bucket: impl Into<BucketName>,
-) -> Option<i64> {
-    let rate_limit = {
+) -> Option<(i64, BucketName)> {
+    let (rate_limit, bucket) = {
         let bucket = bucket.into();
         let guard = ctx.buckets.get(&bucket).unwrap();
         let mutex = guard.value();
         let mut bucket_elem = mutex.lock().await;
         match bucket {
-            BucketName::Snipe => bucket_elem.take(0), // same bucket for everyone
-            _ => bucket_elem.take(msg.author.id.0),
+            BucketName::Snipe => (bucket_elem.take(0), bucket), // same bucket for everyone
+            _ => (bucket_elem.take(msg.author.id.0), bucket),
         }
     };
     if rate_limit > 0 {
-        return Some(rate_limit);
+        return Some((rate_limit, bucket));
     }
     None
 }
