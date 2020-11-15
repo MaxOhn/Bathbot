@@ -7,7 +7,6 @@
 - Investigate deadlock, `<bg stop`-`<bg bigger`?
 - Check on `thread 'tokio-runtime-worker' panicked at 'error binding to 169.254.124.89:9094:`
     `error creating server listener: Cannot assign requested address (os error 99)'"`
-- `lb` -> `blb` | `glb` -> `lb`
 
 **[Sometime]**
 - Add `Icon from syedhassan - pngtree.com` to README
@@ -18,6 +17,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~`lb` -> `blb` | `glb` -> `lb`~~ (20.11.15)
 - ~~Write macro to unwrap all sources of errors~~ (20.11.15)
 - ~~`<medalstats` similar to `o>user` & `https://osekai.net/profiles/history`~~ (20.11.14)
 - ~~`<medal` showing info about a specific medal~~ (20.11.13)

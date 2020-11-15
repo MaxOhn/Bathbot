@@ -166,21 +166,6 @@ async fn leaderboard_main(
 }
 
 #[command]
-#[short_desc("Display the belgian leaderboard of a map")]
-#[long_desc(
-    "Display the belgian leaderboard of a given map.\n\
-     If no map is given, I will choose the last map \
-     I can find in my embeds of this channel.\n\
-     Mods can be specified."
-)]
-#[usage("[map url / map id] [mods]")]
-#[example("2240404", "https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
-#[aliases("lb")]
-pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    leaderboard_main(true, ctx, msg, args).await
-}
-
-#[command]
 #[short_desc("Display the global leaderboard of a map")]
 #[long_desc(
     "Display the global leaderboard of a given map.\n\
@@ -190,7 +175,22 @@ pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 )]
 #[usage("[map url / map id] [mods]")]
 #[example("2240404", "https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
-#[aliases("glb")]
-pub async fn globalleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+#[aliases("lb", "glb", "globalleaderboard")]
+pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     leaderboard_main(false, ctx, msg, args).await
+}
+
+#[command]
+#[short_desc("Display the belgian leaderboard of a map")]
+#[long_desc(
+    "Display the belgian leaderboard of a given map.\n\
+     If no map is given, I will choose the last map \
+     I can find in my embeds of this channel.\n\
+     Mods can be specified."
+)]
+#[usage("[map url / map id] [mods]")]
+#[example("2240404", "https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
+#[aliases("blb")]
+pub async fn belgianleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    leaderboard_main(true, ctx, msg, args).await
 }

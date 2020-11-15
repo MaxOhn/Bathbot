@@ -173,8 +173,12 @@ async fn recent_lb_main(
 )]
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
-#[aliases("rlb")]
-pub async fn recentleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+#[aliases("rblb")]
+pub async fn recentbelgianleaderboard(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+) -> BotResult<()> {
     recent_lb_main(GameMode::STD, true, ctx, msg, args).await
 }
 
@@ -186,8 +190,12 @@ pub async fn recentleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> 
 )]
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
-#[aliases("rmlb")]
-pub async fn recentmanialeaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+#[aliases("rmblb")]
+pub async fn recentmaniabelgianleaderboard(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+) -> BotResult<()> {
     recent_lb_main(GameMode::MNA, true, ctx, msg, args).await
 }
 
@@ -199,8 +207,12 @@ pub async fn recentmanialeaderboard(ctx: Arc<Context>, msg: &Message, args: Args
 )]
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
-#[aliases("rtlb")]
-pub async fn recenttaikoleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+#[aliases("rtblb")]
+pub async fn recenttaikobelgianleaderboard(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+) -> BotResult<()> {
     recent_lb_main(GameMode::TKO, true, ctx, msg, args).await
 }
 
@@ -212,8 +224,12 @@ pub async fn recenttaikoleaderboard(ctx: Arc<Context>, msg: &Message, args: Args
 )]
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
-#[aliases("rclb")]
-pub async fn recentctbleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+#[aliases("rcblb")]
+pub async fn recentctbbelgianleaderboard(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+) -> BotResult<()> {
     recent_lb_main(GameMode::CTB, true, ctx, msg, args).await
 }
 
@@ -225,12 +241,8 @@ pub async fn recentctbleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) 
 )]
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
-#[aliases("rglb")]
-pub async fn recentgloballeaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-) -> BotResult<()> {
+#[aliases("rlb", "rglb", "recentgloballeaderboard")]
+pub async fn recentleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     recent_lb_main(GameMode::STD, false, ctx, msg, args).await
 }
 
@@ -242,12 +254,8 @@ pub async fn recentgloballeaderboard(
 )]
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
-#[aliases("rmglb")]
-pub async fn recentmaniagloballeaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-) -> BotResult<()> {
+#[aliases("rmlb", "rmglb", "recentmaniagloballeaderboard")]
+pub async fn recentmanialeaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     recent_lb_main(GameMode::MNA, false, ctx, msg, args).await
 }
 
@@ -259,12 +267,8 @@ pub async fn recentmaniagloballeaderboard(
 )]
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
-#[aliases("rtglb")]
-pub async fn recenttaikogloballeaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-) -> BotResult<()> {
+#[aliases("rtlb", "rtglb", "recenttaikogloballeaderboard")]
+pub async fn recenttaikoleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     recent_lb_main(GameMode::TKO, false, ctx, msg, args).await
 }
 
@@ -276,11 +280,7 @@ pub async fn recenttaikogloballeaderboard(
 )]
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
-#[aliases("rcglb")]
-pub async fn recentctbgloballeaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-) -> BotResult<()> {
+#[aliases("rclb", "rcglb", "recentctbgloballeaderboard")]
+pub async fn recentctbleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     recent_lb_main(GameMode::CTB, false, ctx, msg, args).await
 }
