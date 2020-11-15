@@ -35,6 +35,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &GLOBALLEADERBOARD_CMD,
                 &MEDAL_CMD,
                 &MEDALSTATS_CMD,
+                &MEDALSMISSING_CMD,
             ],
         ),
         CommandGroup::new(

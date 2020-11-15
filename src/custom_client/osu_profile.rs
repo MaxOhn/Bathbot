@@ -4,7 +4,7 @@ use chrono::{Date, DateTime, NaiveDate, Utc};
 use rosu::model::GameMode;
 use serde::{de, Deserialize, Deserializer};
 use serde_json::Value;
-use std::{collections::HashMap, fmt, ops::Deref};
+use std::{cmp::Ordering, collections::HashMap, fmt, ops::Deref};
 
 #[derive(Debug, Deserialize)]
 pub struct OsuProfile {
@@ -71,6 +71,15 @@ impl From<Vec<OsuMedal>> for OsuMedals {
     }
 }
 
+impl IntoIterator for OsuMedals {
+    type Item = (u32, OsuMedal);
+    type IntoIter = std::collections::hash_map::IntoIter<u32, OsuMedal>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 impl Deref for OsuMedals {
     type Target = HashMap<u32, OsuMedal>;
 
@@ -91,13 +100,61 @@ pub struct OsuMedal {
     #[serde(rename = "id")]
     pub medal_id: u32,
     pub description: String,
-    pub grouping: String,
+    pub grouping: OsuMedalGroup,
     pub icon_url: String,
     #[serde(deserialize_with = "trim_instructions")]
     pub instructions: Option<String>,
     #[serde(deserialize_with = "str_to_maybe_mode")]
     pub mode: Option<GameMode>,
     pub ordering: u32,
+}
+
+#[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq)]
+pub enum OsuMedalGroup {
+    Skill = 0,
+    Dedication = 1,
+    #[serde(rename = "Hush-Hush")]
+    HushHush = 2,
+    #[serde(rename = "Beatmap Packs")]
+    BeatmapPacks = 3,
+    #[serde(rename = "Seasonal Spotlights")]
+    SeasonalSpotlights = 4,
+    #[serde(rename = "Beatmap Spotlights")]
+    BeatmapSpotlights = 5,
+    #[serde(rename = "Mod Introduction")]
+    ModIntroduction = 6,
+}
+
+impl OsuMedalGroup {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Skill => "Skill",
+            Self::Dedication => "Dedication",
+            Self::HushHush => "Hush-Hush",
+            Self::BeatmapPacks => "Beatmap Packs",
+            Self::SeasonalSpotlights => "Seasonal Spotlights",
+            Self::BeatmapSpotlights => "Beatmap Spotlights",
+            Self::ModIntroduction => "Mod Introduction",
+        }
+    }
+}
+
+impl fmt::Display for OsuMedalGroup {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl PartialOrd for OsuMedalGroup {
+    fn partial_cmp(&self, other: &OsuMedalGroup) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for OsuMedalGroup {
+    fn cmp(&self, other: &OsuMedalGroup) -> Ordering {
+        (*self as u8).cmp(&(*other as u8))
+    }
 }
 
 #[derive(Copy, Clone, Debug, Deserialize)]
