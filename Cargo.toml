@@ -92,10 +92,11 @@ version = "1.0"
 features = ["derive", "rc"]
 
 [dependencies.sqlx]
+# version = "0.4"
 git = "https://github.com/launchbadge/sqlx/"
 branch = "master"
 default-features = false
-features = ["postgres", "runtime-tokio", "chrono", "macros", "json"]
+features = ["postgres", "runtime-tokio-native-tls", "chrono", "macros", "json"]
 
 [dependencies.tokio]
 version = "0.2"

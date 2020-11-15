@@ -98,7 +98,7 @@ fn graph(medals: &[OsuProfileMedal]) -> Result<Option<Vec<u8>>, Error> {
         let last = medals.last().unwrap().achieved_at;
 
         let mut chart = ChartBuilder::on(&root)
-            .margin_right(15)
+            .margin_right(17)
             .caption("Medal history", ("sans-serif", 30))
             .x_label_area_size(30)
             .y_label_area_size(45)
