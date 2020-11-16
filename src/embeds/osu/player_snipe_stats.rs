@@ -65,7 +65,7 @@ impl PlayerSnipeStatsEmbed {
                 Ok(_) => (
                     calculator.pp(),
                     calculator.max_pp(),
-                    calculator.stars().unwrap(),
+                    calculator.stars().unwrap_or(0.0),
                 ),
                 Err(why) => {
                     unwind_error!(warn, why, "Error while calculating pp: {}");
@@ -95,18 +95,19 @@ impl PlayerSnipeStatsEmbed {
             let mut value = String::with_capacity(count_mods.len() * 7);
             count_mods.sort_unstable_by(|(_, c1), (_, c2)| c2.cmp(c1));
             let mut iter = count_mods.into_iter();
-            let (first_mods, first_amount) = iter.next().unwrap();
-            let _ = write!(value, "`{}: {}`", first_mods, first_amount);
-            let mut idx = 0;
-            for (mods, amount) in iter {
-                match idx {
-                    2 => {
-                        idx = 0;
-                        let _ = write!(value, " >\n`{}: {}`", mods, amount);
-                    }
-                    _ => {
-                        idx += 1;
-                        let _ = write!(value, " > `{}: {}`", mods, amount);
+            if let Some((first_mods, first_amount)) = iter.next() {
+                let _ = write!(value, "`{}: {}`", first_mods, first_amount);
+                let mut idx = 0;
+                for (mods, amount) in iter {
+                    match idx {
+                        2 => {
+                            idx = 0;
+                            let _ = write!(value, " >\n`{}: {}`", mods, amount);
+                        }
+                        _ => {
+                            idx += 1;
+                            let _ = write!(value, " > `{}: {}`", mods, amount);
+                        }
                     }
                 }
             }

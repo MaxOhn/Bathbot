@@ -10,7 +10,7 @@ use crate::{
 use image::{png::PngEncoder, ColorType};
 use plotters::prelude::*;
 use rosu::model::GameMode;
-use std::sync::Arc;
+use std::{cmp::Ordering::Equal, sync::Arc};
 use twilight_model::channel::Message;
 
 #[command]
@@ -128,7 +128,7 @@ fn graphs(players: &[SnipeCountryPlayer]) -> BotResult<Vec<u8>> {
         .iter()
         .map(|player| (&player.username, player.pp))
         .collect();
-    pp.sort_unstable_by(|(_, pp1), (_, pp2)| pp2.partial_cmp(pp1).unwrap());
+    pp.sort_unstable_by(|(_, pp1), (_, pp2)| pp2.partial_cmp(pp1).unwrap_or(Equal));
     pp.truncate(11);
     let mut count: Vec<_> = players
         .iter()

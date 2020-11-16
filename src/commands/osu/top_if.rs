@@ -114,8 +114,8 @@ async fn topif_main(
     let mut missing_maps = Vec::new();
     for (i, score) in scores.into_iter().enumerate() {
         let map_id = score.beatmap_id.unwrap();
-        let map = if maps.contains_key(&map_id) {
-            maps.remove(&map_id).unwrap()
+        let map = if let Some(map) = maps.remove(&map_id) {
+            map
         } else {
             match ctx.osu().beatmap().map_id(map_id).await {
                 Ok(Some(map)) => {

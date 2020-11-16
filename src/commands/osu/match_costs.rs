@@ -217,7 +217,13 @@ fn process_match(
     let mut highest_cost = 0.0;
     let mut mvp_id = 0;
     for (user, point_costs) in point_costs {
-        let name = users.remove(&user).unwrap();
+        let name = match users.remove(&user) {
+            Some(name) => name,
+            None => {
+                warn!("No user `{}` in matchcost users", user);
+                continue;
+            }
+        };
         let sum: f32 = point_costs.iter().sum();
         let costs_len = point_costs.len() as f32;
         let mut match_cost = sum / costs_len;

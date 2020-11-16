@@ -31,13 +31,12 @@ async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
         }
         Err(_) => 2,
     };
-    let mut messages = match ctx
+    let msgs_fut = ctx
         .http
         .channel_messages(msg.channel_id)
         .limit(amount)
-        .unwrap()
-        .await
-    {
+        .unwrap();
+    let mut messages = match msgs_fut.await {
         Ok(msgs) => msgs
             .into_iter()
             .take(amount as usize)

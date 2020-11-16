@@ -6,13 +6,12 @@ use async_trait::async_trait;
 use rosu::model::GameMode;
 use std::{collections::HashMap, sync::Arc};
 use twilight_http::request::channel::reaction::RequestReactionType;
-use twilight_model::{channel::Message, id::ChannelId};
+use twilight_model::channel::Message;
 
 pub struct ProfilePagination {
     msg: Message,
     pages: Pages,
     embeds: HashMap<usize, ProfileEmbed>,
-    channel: ChannelId,
     name: String,
     ctx: Arc<Context>,
 }
@@ -21,7 +20,6 @@ impl ProfilePagination {
     pub fn new(
         ctx: Arc<Context>,
         msg: Message,
-        channel: ChannelId,
         mode: GameMode,
         name: String,
         embed: ProfileEmbed,
@@ -34,7 +32,6 @@ impl ProfilePagination {
             msg,
             pages,
             embeds,
-            channel,
             name,
             ctx,
         }
@@ -62,9 +59,8 @@ impl Pagination for ProfilePagination {
     async fn change_mode(&mut self) {
         let mode = GameMode::from(self.pages.index as u8);
         if !self.embeds.contains_key(&self.pages.index) {
-            if let Ok(Some((data, _))) =
-                profile_embed(&self.ctx, &self.name, mode, None, self.channel).await
-            {
+            let profile_fut = profile_embed(&self.ctx, &self.name, mode, self.msg());
+            if let Ok(Some((data, _))) = profile_fut.await {
                 self.embeds.insert(self.pages.index, data);
             }
         }

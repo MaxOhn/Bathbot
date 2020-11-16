@@ -115,9 +115,12 @@ async fn common_main(
         .flatten()
         .collect();
     map_ids.retain(|&id| {
-        all_scores
-            .iter()
-            .all(|(_, scores)| scores.iter().any(|s| s.beatmap_id.unwrap() == id))
+        all_scores.iter().all(|(_, scores)| {
+            scores
+                .iter()
+                .filter_map(|s| s.beatmap_id)
+                .any(|map_id| map_id == id)
+        })
     });
     all_scores
         .par_iter_mut()
@@ -147,7 +150,10 @@ async fn common_main(
     let mut pp_avg: Vec<(u32, f32)> = all_scores
         .par_iter()
         .map(|(&map_id, scores)| {
-            let sum = scores.iter().fold(0.0, |sum, next| sum + next.pp.unwrap());
+            let sum = scores
+                .iter()
+                .filter_map(|s| s.pp)
+                .fold(0.0, |sum, next| sum + next);
             (map_id, sum / scores.len() as f32)
         })
         .collect();
@@ -175,7 +181,7 @@ async fn common_main(
             .into_iter()
             .map(|id| ctx.osu().beatmap().map_id(id).map_ok(move |map| (id, map)));
         match try_join_all(map_futs).await {
-            Ok(maps_result) => match maps_result.par_iter().find_any(|(_, map)| map.is_none()) {
+            Ok(maps_result) => match maps_result.iter().find(|(_, map)| map.is_none()) {
                 Some((id, _)) => {
                     let content = format!("API returned no result for map id {}", id);
                     return msg.error(&ctx, content).await;
@@ -183,10 +189,10 @@ async fn common_main(
                 None => {
                     let maps = maps_result
                         .into_iter()
-                        .map(|(id, map)| {
-                            let map = map.unwrap();
+                        .filter_map(|(id, map)| {
+                            let map = map?;
                             maps.insert(id, map.clone());
-                            map
+                            Some(map)
                         })
                         .collect();
                     Some(maps)
@@ -204,16 +210,18 @@ async fn common_main(
     let mut content = String::with_capacity(len);
     let len = names.len();
     let mut iter = names.into_iter();
-    let last = iter.next_back();
-    let _ = write!(content, "`{}`", iter.next().unwrap());
-    for name in iter {
-        let _ = write!(content, ", `{}`", name);
-    }
-    if let Some(name) = last {
-        if len > 2 {
-            content.push(',');
+    if let Some(first) = iter.next() {
+        let last = iter.next_back();
+        let _ = write!(content, "`{}`", first);
+        for name in iter {
+            let _ = write!(content, ", `{}`", name);
         }
-        let _ = write!(content, " and `{}`", name);
+        if let Some(name) = last {
+            if len > 2 {
+                content.push(',');
+            }
+            let _ = write!(content, " and `{}`", name);
+        }
     }
     if amount_common == 0 {
         content.push_str(" have no common scores");

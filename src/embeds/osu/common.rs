@@ -19,7 +19,13 @@ impl CommonEmbed {
     ) -> Self {
         let mut description = String::with_capacity(512);
         for (i, (map_id, _)) in id_pps.iter().enumerate() {
-            let map = maps.get(map_id).unwrap();
+            let map = match maps.get(map_id) {
+                Some(map) => map,
+                None => {
+                    warn!("Missing map {} for common embed", map_id);
+                    continue;
+                }
+            };
             let _ = writeln!(
                 description,
                 "**{idx}.** [{title} [{version}]]({base}b/{id})",
@@ -38,9 +44,9 @@ impl CommonEmbed {
                 description,
                 "- :first_place: `{}`: {:.2}pp :second_place: `{}`: {:.2}pp",
                 first_user.username,
-                first_score.pp.unwrap(),
+                first_score.pp.unwrap_or(0.0),
                 second_user.username,
-                second_score.pp.unwrap()
+                second_score.pp.unwrap_or(0.0)
             );
             if users.len() > 2 {
                 let third_score = scores.get(2).unwrap();
@@ -49,7 +55,7 @@ impl CommonEmbed {
                     description,
                     " :third_place: `{}`: {:.2}pp",
                     third_user.username,
-                    third_score.pp.unwrap()
+                    third_score.pp.unwrap_or(0.0)
                 );
             }
             description.push('\n');

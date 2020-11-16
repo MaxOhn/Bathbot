@@ -100,15 +100,15 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
 }
 
 fn role_string(ctx: &Context, roles: &[u64], guild_id: GuildId, content: &mut String) {
-    if roles.is_empty() {
-        content.push_str("None");
-    } else {
+    let mut iter = roles.iter();
+    if let Some(first) = iter.next() {
         content.reserve(roles.len() * 20);
-        let mut iter = roles.iter();
-        let _ = write!(content, "`<@&{}>`", iter.next().unwrap());
+        let _ = write!(content, "`<@&{}>`", first);
         for role in iter {
             let _ = write!(content, ", `<@&{}>`", role);
         }
         content_safe(&ctx, content, Some(guild_id));
+    } else {
+        content.push_str("None");
     }
 }

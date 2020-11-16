@@ -54,7 +54,7 @@ impl SimulateEmbed {
         let (prev_pp, prev_combo, prev_hits, misses) = if let Some(ref s) = score {
             let mut calculator = PPCalculator::new().score(s).map(map);
             calculator.calculate(Calculations::PP, Some(ctx)).await?;
-            let prev_pp = Some(round(calculator.pp().unwrap()));
+            let prev_pp = Some(round(calculator.pp().unwrap_or(0.0)));
             let prev_combo = if map.mode == GameMode::STD {
                 Some(s.max_combo)
             } else {
@@ -76,7 +76,7 @@ impl SimulateEmbed {
         let mut calculator = PPCalculator::new().score(&unchoked_score).map(map);
         calculator.calculate(calculations, Some(ctx)).await?;
         let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
-        let stars = round(calculator.stars().unwrap());
+        let stars = round(calculator.stars().unwrap_or(0.0));
         let hits = unchoked_score.hits_string(map.mode);
         let (combo, acc) = match map.mode {
             GameMode::STD => (

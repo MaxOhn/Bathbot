@@ -12,7 +12,10 @@ pub use tracking::*;
 pub use twitch::*;
 pub use utility::*;
 
-use crate::util::{constants::DARK_GREEN, datetime};
+use crate::{
+    unwind_error,
+    util::{constants::DARK_GREEN, datetime},
+};
 
 use chrono::{DateTime, Utc};
 use twilight_embed_builder::{
@@ -76,26 +79,32 @@ pub trait EmbedData: Send + Sync + Sized {
             eb = eb.image(image.to_owned());
         }
         if let Some(footer) = self.footer() {
-            let mut fb = EmbedFooterBuilder::new(&footer.text).unwrap();
-            if let Some(ref icon_url) = footer.icon_url {
-                fb = fb.icon_url(icon_url.to_owned());
+            match EmbedFooterBuilder::new(&footer.text) {
+                Ok(mut fb) => {
+                    if let Some(ref icon_url) = footer.icon_url {
+                        fb = fb.icon_url(icon_url.to_owned());
+                    }
+                    eb = eb.footer(fb);
+                }
+                Err(why) => unwind_error!(warn, why, "Invalid footer text `{}`: {}", footer.text),
             }
-            eb = eb.footer(fb);
         }
         if let Some(author) = self.author() {
-            let mut ab = EmbedAuthorBuilder::new().name(&author.name).unwrap();
-            if let Some(ref icon_url) = author.icon_url {
-                ab = ab.icon_url(icon_url.to_owned());
+            match EmbedAuthorBuilder::new().name(&author.name) {
+                Ok(mut ab) => {
+                    if let Some(ref icon_url) = author.icon_url {
+                        ab = ab.icon_url(icon_url.to_owned());
+                    }
+                    if let Some(ref url) = author.url {
+                        ab = ab.url(url);
+                    }
+                    eb = eb.author(ab);
+                }
+                Err(why) => unwind_error!(warn, why, "Invalid author name `{}`: {}", author.name),
             }
-            if let Some(ref url) = author.url {
-                ab = ab.url(url);
-            }
-            eb = eb.author(ab);
         }
-        if let Some(description) = self.description() {
-            if !description.is_empty() {
-                eb = eb.description(description).unwrap();
-            }
+        if let Some(description) = self.description().filter(|d| !d.is_empty()) {
+            eb = eb.description(description).unwrap();
         }
         if let Some(fields) = self.fields() {
             for (name, value, inline) in fields {

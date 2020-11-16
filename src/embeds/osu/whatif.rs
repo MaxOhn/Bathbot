@@ -23,10 +23,7 @@ impl WhatIfEmbed {
             name = user.username,
             pp_given = round(pp)
         );
-        let pp_values: Vec<f32> = scores
-            .iter()
-            .map(|score| *score.pp.as_ref().unwrap())
-            .collect();
+        let pp_values: Vec<f32> = scores.iter().filter_map(|score| score.pp).collect();
         let description = if scores.is_empty() {
             format!(
                 "A {pp}pp play would be {name}'s #1 best play.\n\

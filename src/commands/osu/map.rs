@@ -121,15 +121,16 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             return Err(why.into());
         }
     };
-    if maps.is_empty() {
-        return msg.error(&ctx, "API returned no map for this id").await;
-    }
-    let first_map_id = map_id.unwrap_or_else(|| maps.first().unwrap().beatmap_id);
+    let map_idx = if let Some(first_map) = maps.first() {
+        let first_map_id = map_id.unwrap_or(first_map.beatmap_id);
+        maps.iter()
+            .position(|map| map.beatmap_id == first_map_id)
+            .unwrap_or(0)
+    } else {
+        let content = "API returned no map for this id";
+        return msg.error(&ctx, content).await;
+    };
 
-    let map_idx = maps
-        .iter()
-        .position(|map| map.beatmap_id == first_map_id)
-        .unwrap();
     let map = &maps[map_idx];
     // Try creating the strain graph for the map (only STD & TKO)
     let graph = match map.mode {

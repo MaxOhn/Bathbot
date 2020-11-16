@@ -56,9 +56,11 @@ pub fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>
             );
             content.reserve_exact(role_len + (roles.len() - 1) * 2);
             let mut roles = roles.into_iter();
-            content.push_str(&roles.next().unwrap());
-            for role in roles {
-                let _ = write!(content, ", {}", role);
+            if let Some(first) = roles.next() {
+                content.push_str(&first);
+                for role in roles {
+                    let _ = write!(content, ", {}", role);
+                }
             }
             let prefix = ctx.config_first_prefix(Some(guild_id));
             let _ = write!(

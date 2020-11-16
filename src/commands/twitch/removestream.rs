@@ -15,11 +15,13 @@ use twilight_model::channel::Message;
 #[example("loltyler1")]
 async fn removestream(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     // Parse the stream name
-    if args.is_empty() {
-        let content = "The first argument must be the name of the stream";
-        return msg.error(&ctx, content).await;
-    }
-    let name = args.next().unwrap().cow_to_lowercase();
+    let name = match args.next() {
+        Some(name) => name.cow_to_lowercase(),
+        None => {
+            let content = "The first argument must be the name of the stream";
+            return msg.error(&ctx, content).await;
+        }
+    };
     let twitch = &ctx.clients.twitch;
     let twitch_id = match twitch.get_user(&name).await {
         Ok(user) => user.user_id,

@@ -70,7 +70,13 @@ impl GameWrapper {
             .standby
             .wait_for_message_stream(channel, |event: &MessageCreate| !event.author.bot);
         let game_lock = Arc::clone(&self.game);
-        let rx = self.rx.take().unwrap();
+        let rx = match self.rx.take() {
+            Some(rx) => rx,
+            None => {
+                warn!("No rx left for bg game");
+                return;
+            }
+        };
         let mut previous_ids = VecDeque::with_capacity(50);
         tokio::spawn(async move {
             loop {
@@ -110,8 +116,7 @@ impl GameWrapper {
                     LoopResult::Restart => {
                         // Send message
                         let game_option = game_lock.read().await;
-                        if game_option.is_some() {
-                            let game = game_option.as_ref().unwrap();
+                        if let Some(game) = game_option.as_ref() {
                             let content = format!(
                                 "Full background: {}beatmapsets/{}",
                                 OSU_BASE, game.mapset_id
@@ -130,8 +135,7 @@ impl GameWrapper {
                     LoopResult::Stop => {
                         // Send message
                         let game_option = game_lock.read().await;
-                        if game_option.is_some() {
-                            let game = game_option.as_ref().unwrap();
+                        if let Some(game) = game_option.as_ref() {
                             let content = format!(
                                 "Full background: {}beatmapsets/{}\n\
                                 End of game, see you next time o/",

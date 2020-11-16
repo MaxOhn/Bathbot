@@ -30,18 +30,12 @@ async fn compare_main(
     args: Args<'_>,
 ) -> BotResult<()> {
     // Parse arguments
-    let mut args = MultNameArgs::new(&ctx, args, 2);
-    let names = match args.names.len() {
-        0 => {
-            let content = "You need to specify at least one osu username. \
-                If you're not linked, you must specify two names.";
-            return msg.error(&ctx, content).await;
-        }
-        1 => match ctx.get_link(msg.author.id.0) {
-            Some(name) => {
-                args.names.push(name);
-                args.names
-            }
+    let args = MultNameArgs::new(&ctx, args, 2);
+    let mut names = args.names.into_iter();
+    let (name1, name2) = match (names.next(), names.next()) {
+        (Some(name1), Some(name2)) => (name1, name2),
+        (Some(name1), None) => match ctx.get_link(msg.author.id.0) {
+            Some(name2) => (name1, name2),
             None => {
                 let prefix = ctx.config_first_prefix(msg.guild_id);
                 let content = format!(
@@ -52,13 +46,12 @@ async fn compare_main(
                 return msg.error(&ctx, content).await;
             }
         },
-        2 => args.names,
-        _ => unreachable!(),
+        (None, _) => {
+            let content = "You need to specify at least one osu username. \
+                If you're not linked, you must specify two names.";
+            return msg.error(&ctx, content).await;
+        }
     };
-
-    let mut names = names.into_iter();
-    let name1 = names.next().unwrap();
-    let name2 = names.next().unwrap();
     if name1 == name2 {
         let content = "Give two different names";
         return msg.error(&ctx, content).await;

@@ -6,7 +6,7 @@ use crate::{
     embeds::{EmbedData, ProfileEmbed},
     pagination::{Pagination, ProfilePagination},
     tracking::process_tracking,
-    unwind_error, 
+    unwind_error,
     util::{
         constants::{OSU_API_ISSUE, OSU_WEB_ISSUE},
         MessageExt,
@@ -25,10 +25,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
 };
-use twilight_model::{
-    channel::Message,
-    id::{ChannelId, UserId},
-};
+use twilight_model::channel::Message;
 
 async fn profile_main(
     mode: GameMode,
@@ -41,11 +38,10 @@ async fn profile_main(
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
-    let (data, mut profile) =
-        match profile_embed(&ctx, &name, mode, Some(msg.author.id), msg.channel_id).await? {
-            Some(data) => data,
-            None => return Ok(()),
-        };
+    let (data, mut profile) = match profile_embed(&ctx, &name, mode, &msg).await? {
+        Some(data) => data,
+        None => return Ok(()),
+    };
 
     // Draw the graph
     let graph = match graphs(&mut profile).await {
@@ -66,8 +62,7 @@ async fn profile_main(
     };
 
     // Pagination
-    let pagination =
-        ProfilePagination::new(Arc::clone(&ctx), response, msg.channel_id, mode, name, data);
+    let pagination = ProfilePagination::new(Arc::clone(&ctx), response, mode, name, data);
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -77,12 +72,13 @@ async fn profile_main(
     Ok(())
 }
 
+// Known issue: `msg` won't be correct when pagination is the caller,
+// so the author won't be able to reaction-delete error messages.
 pub async fn profile_embed(
     ctx: &Context,
     name: &str,
     mode: GameMode,
-    owner: Option<UserId>,
-    channel: ChannelId,
+    msg: &Message,
 ) -> BotResult<Option<(ProfileEmbed, OsuProfile)>> {
     // Retrieve the user and their top scores
     let user_fut = ctx.osu().user(name).mode(mode).map_err(Error::Osu);
@@ -90,24 +86,12 @@ pub async fn profile_embed(
     let (user, scores) = match tokio::try_join!(user_fut, scores_fut.map_err(Error::Osu)) {
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
-            if let Some(owner) = owner {
-                let content = format!("User `{}` was not found", name);
-                ctx.http
-                    .create_message(channel)
-                    .content(content)?
-                    .await?
-                    .reaction_delete(ctx, owner);
-            }
+            let content = format!("User `{}` was not found", name);
+            msg.error(&ctx, content).await?;
             return Ok(None);
         }
         Err(why) => {
-            if let Some(owner) = owner {
-                ctx.http
-                    .create_message(channel)
-                    .content(OSU_API_ISSUE)?
-                    .await?
-                    .reaction_delete(ctx, owner);
-            }
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why);
         }
     };
@@ -127,13 +111,7 @@ pub async fn profile_embed(
     let profile = match profile_result {
         Ok((profile, _)) => profile,
         Err(why) => {
-            if let Some(owner) = owner {
-                ctx.http
-                    .create_message(channel)
-                    .content(OSU_WEB_ISSUE)?
-                    .await?
-                    .reaction_delete(ctx, owner);
-            }
+            let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
             return Err(why.into());
         }
     };
@@ -158,7 +136,7 @@ pub async fn profile_embed(
             scores.len() - maps.len()
         );
         ctx.http
-            .create_message(channel)
+            .create_message(msg.channel_id)
             .content(content)?
             .await
             .ok()

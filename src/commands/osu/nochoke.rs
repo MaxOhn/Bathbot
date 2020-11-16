@@ -90,8 +90,8 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     let mut missing_maps = Vec::new();
     for (i, score) in scores.into_iter().enumerate() {
         let map_id = score.beatmap_id.unwrap();
-        let map = if maps.contains_key(&map_id) {
-            maps.remove(&map_id).unwrap()
+        let map = if let Some(map) = maps.remove(&map_id) {
+            map
         } else {
             let map = match ctx.osu().beatmap().map_id(map_id).await {
                 Ok(Some(map)) => map,
@@ -113,8 +113,8 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     // Unchoke scores
     let unchoke_fut = scores_data.into_iter().map(|(i, score, map)| async move {
         let mut unchoked = score.clone();
-        if score.max_combo != map.max_combo.unwrap()
-            && (miss_limit.is_none() || score.count_miss <= miss_limit.unwrap())
+        if score.max_combo != map.max_combo.unwrap_or(0)
+            && miss_limit.map_or(true, |l| score.count_miss <= l)
         {
             osu::unchoke_score(&mut unchoked, &map);
             let mut calculator = PPCalculator::new().score(&unchoked).map(&map);

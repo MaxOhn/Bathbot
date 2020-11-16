@@ -21,11 +21,15 @@ use twilight_model::channel::{Attachment, Message};
 #[aliases("bgadd")]
 #[owner()]
 async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
-    // Check if msg has attachement
-    if msg.attachments.is_empty() {
-        let content = "You must attach an image to the command that has the mapset id as name";
-        return msg.error(&ctx, content).await;
-    }
+    // Check if msg has an attachement
+    let attachment = match msg.attachments.first() {
+        Some(attachment) => attachment.to_owned(),
+        None => {
+            let content = "You must attach an image to the command that has the mapset id as name";
+            return msg.error(&ctx, content).await;
+        }
+    };
+
     // Parse arguments as mode
     let mode = match args.next() {
         Some(arg) => match arg.cow_to_lowercase().as_ref() {
@@ -39,7 +43,7 @@ async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
         },
         None => GameMode::STD,
     };
-    let attachment = msg.attachments.first().unwrap().clone();
+
     // Check if attachement as proper name
     let mut filename_split = attachment.filename.split('.');
     let mapset_id = match filename_split.next().map(u32::from_str) {

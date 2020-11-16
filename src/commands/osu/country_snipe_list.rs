@@ -1,5 +1,6 @@
 use crate::{
     arguments::Args,
+    custom_client::SnipeCountryPlayer as SCP,
     embeds::{CountrySnipeListEmbed, EmbedData},
     pagination::{CountrySnipeListPagination, Pagination},
     unwind_error,
@@ -8,7 +9,7 @@ use crate::{
 };
 
 use rosu::model::GameMode;
-use std::sync::Arc;
+use std::{cmp::Ordering::Equal, sync::Arc};
 use twilight_model::channel::Message;
 
 #[command]
@@ -117,18 +118,15 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
     };
 
     // Sort players
-    match ordering {
-        SnipeOrder::Count => players.sort_unstable_by(|p1, p2| p2.count_first.cmp(&p1.count_first)),
-        SnipeOrder::PP => {
-            players.sort_unstable_by(|p1, p2| p2.avg_pp.partial_cmp(&p1.avg_pp).unwrap())
-        }
+    let sorter = match ordering {
+        SnipeOrder::Count => |p1: &SCP, p2: &SCP| p2.count_first.cmp(&p1.count_first),
+        SnipeOrder::PP => |p1: &SCP, p2: &SCP| p2.avg_pp.partial_cmp(&p1.avg_pp).unwrap_or(Equal),
         SnipeOrder::Stars => {
-            players.sort_unstable_by(|p1, p2| p2.avg_sr.partial_cmp(&p1.avg_sr).unwrap())
+            |p1: &SCP, p2: &SCP| p2.avg_sr.partial_cmp(&p1.avg_sr).unwrap_or(Equal)
         }
-        SnipeOrder::WeightedPP => {
-            players.sort_unstable_by(|p1, p2| p2.pp.partial_cmp(&p1.pp).unwrap())
-        }
+        SnipeOrder::WeightedPP => |p1: &SCP, p2: &SCP| p2.pp.partial_cmp(&p1.pp).unwrap_or(Equal),
     };
+    players.sort_unstable_by(sorter);
 
     // Try to find author in list
     let author_idx = osu_user.and_then(|user| {

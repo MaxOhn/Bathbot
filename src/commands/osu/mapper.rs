@@ -16,14 +16,23 @@ async fn mapper_main(
     mode: GameMode,
     ctx: Arc<Context>,
     msg: &Message,
-    mut mapper: Option<String>,
+    mapper: Option<String>,
     args: Args<'_>,
 ) -> BotResult<()> {
     // Parse arguments
     let mut args = args.map(|arg| try_link_name(&ctx, Some(arg)).unwrap());
     let first;
     let user;
-    if mapper.is_none() {
+    let mapper = if let Some(mapper) = mapper {
+        match args.next() {
+            Some(arg) => user = arg.to_lowercase(),
+            None => match ctx.get_link(msg.author.id.0) {
+                Some(name) => user = name,
+                None => return super::require_link(&ctx, msg).await,
+            },
+        }
+        mapper
+    } else {
         match args.next() {
             Some(arg) => first = arg,
             None => {
@@ -35,12 +44,12 @@ async fn mapper_main(
         match args.next() {
             Some(arg) => {
                 user = first;
-                mapper = Some(arg.to_lowercase());
+                arg.to_lowercase()
             }
             None => match ctx.get_link(msg.author.id.0) {
                 Some(name) => {
-                    mapper = Some(first.to_lowercase());
                     user = name;
+                    first.to_lowercase()
                 }
                 None => {
                     let prefix = ctx.config_first_prefix(msg.guild_id);
@@ -53,16 +62,7 @@ async fn mapper_main(
                 }
             },
         }
-    } else {
-        match args.next() {
-            Some(arg) => user = arg.to_lowercase(),
-            None => match ctx.get_link(msg.author.id.0) {
-                Some(name) => user = name,
-                None => return super::require_link(&ctx, msg).await,
-            },
-        }
-    }
-    let mapper = mapper.unwrap();
+    };
 
     // Retrieve the user and their top scores
     let user_fut = ctx.osu().user(user.as_str()).mode(mode);
@@ -117,8 +117,8 @@ async fn mapper_main(
     let mut missing_maps = Vec::new();
     for (i, score) in scores.into_iter().enumerate() {
         let map_id = score.beatmap_id.unwrap();
-        let map = if maps.contains_key(&map_id) {
-            maps.remove(&map_id).unwrap()
+        let map = if let Some(map) = maps.remove(&map_id) {
+            map
         } else {
             match ctx.osu().beatmap().map_id(map_id).await {
                 Ok(Some(map)) => {

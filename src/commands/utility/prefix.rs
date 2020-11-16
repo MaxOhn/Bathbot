@@ -24,23 +24,23 @@ use twilight_model::channel::Message;
 #[aliases("prefixes")]
 async fn prefix(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     let guild_id = msg.guild_id.unwrap();
-    if args.is_empty() {
-        let prefixes = ctx.config_prefixes(guild_id);
-        let mut content = String::new();
-        current_prefixes(&mut content, &prefixes);
-        msg.respond(&ctx, content).await?;
-        return Ok(());
-    }
-    let action = match args.single::<String>().unwrap().as_str() {
-        "add" | "a" => Action::Add,
-        "remove" | "r" => Action::Remove,
-        other => {
+    let action = match args.next() {
+        Some("add") | Some("a") => Action::Add,
+        Some("remove") | Some("r") => Action::Remove,
+        Some(other) => {
             let content = format!(
                 "If any arguments are provided, the first one \
                 must be either `add` or `remove`, not `{}`",
                 other
             );
             return msg.error(&ctx, content).await;
+        }
+        None => {
+            let prefixes = ctx.config_prefixes(guild_id);
+            let mut content = String::new();
+            current_prefixes(&mut content, &prefixes);
+            msg.respond(&ctx, content).await?;
+            return Ok(());
         }
     };
     if args.is_empty() {
@@ -94,8 +94,10 @@ fn current_prefixes(content: &mut String, prefixes: &[String]) {
     let len = prefixes.iter().map(|p| p.len() + 4).sum();
     content.reserve_exact(len);
     let mut prefixes = prefixes.iter();
-    let _ = write!(content, "`{}`", prefixes.next().unwrap());
-    for prefix in prefixes {
-        let _ = write!(content, ", `{}`", prefix);
+    if let Some(first) = prefixes.next() {
+        let _ = write!(content, "`{}`", first);
+        for prefix in prefixes {
+            let _ = write!(content, ", `{}`", prefix);
+        }
     }
 }

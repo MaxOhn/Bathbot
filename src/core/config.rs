@@ -63,7 +63,7 @@ impl BotConfig {
         [std, tko, ctb, mna]
     }
     fn single_mode(&self, mode: GameMode) -> (u64, &str) {
-        let mut split = self.modes.get(&mode).unwrap().split(':');
+        let mut split = self.modes[&mode].split(':');
         let name = split.nth(1).unwrap();
         let id = split.next().unwrap();
         let id = u64::from_str(&id[0..id.len() - 1]).unwrap();
