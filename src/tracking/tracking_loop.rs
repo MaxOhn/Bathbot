@@ -1,6 +1,6 @@
 use crate::{
     embeds::{EmbedData, TrackNotificationEmbed},
-    Context,
+    unwind_error, Context,
 };
 
 use futures::future::{join_all, FutureExt};
@@ -42,9 +42,12 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
                     }
                 }
                 Err(why) => {
-                    warn!(
+                    unwind_error!(
+                        warn,
+                        why,
                         "API issue while retrieving user ({},{}) for tracking: {}",
-                        user_id, mode, why
+                        user_id,
+                        mode
                     );
                     ctx.tracking().reset(user_id, mode).await;
                 }
@@ -112,7 +115,12 @@ pub async fn process_tracking(
                         continue;
                     }
                     Err(why) => {
-                        warn!("Error while retrieving tracking map id {}: {}", map_id, why);
+                        unwind_error!(
+                            warn,
+                            why,
+                            "Error while retrieving tracking map id {}: {}",
+                            map_id
+                        );
                         continue;
                     }
                 },
@@ -133,7 +141,12 @@ pub async fn process_tracking(
                     continue;
                 }
                 Err(why) => {
-                    warn!("Error while retrieving tracking user {}: {}", user_id, why);
+                    unwind_error!(
+                        warn,
+                        why,
+                        "Error while retrieving tracking user {}: {}",
+                        user_id
+                    );
                     continue;
                 }
             },
@@ -143,7 +156,11 @@ pub async fn process_tracking(
         let embed = match data.build().build() {
             Ok(embed) => embed,
             Err(why) => {
-                warn!("Error while creating tracking notification embed: {}", why);
+                unwind_error!(
+                    warn,
+                    why,
+                    "Error while creating tracking notification embed: {}"
+                );
                 continue;
             }
         };
@@ -167,9 +184,11 @@ pub async fn process_tracking(
                                 .remove_channel(channel, None, ctx.psql())
                                 .await;
                             if let Err(why) = result {
-                                warn!(
+                                unwind_error!(
+                                    warn,
+                                    why,
                                     "Could not remove osu tracks from unknown channel {}: {}",
-                                    channel, why
+                                    channel
                                 );
                             } else {
                                 debug!("Removed osu tracking of unknown channel {}", channel);
@@ -181,13 +200,17 @@ pub async fn process_tracking(
                             )
                         }
                     } else if let Err(why) = result {
-                        warn!(
+                        unwind_error!(
+                            warn,
+                            why,
                             "Error while sending osu notif (channel {}): {}",
-                            channel, why
+                            channel
                         );
                     }
                 }
-                Err(why) => warn!("Invalid embed for osu!tracking notification: {}", why),
+                Err(why) => {
+                    unwind_error!(warn, why, "Invalid embed for osu!tracking notification: {}")
+                }
             }
         }
     }
@@ -203,9 +226,12 @@ pub async fn process_tracking(
             .tracking()
             .update_last_date(user_id, mode, new_date, ctx.psql());
         if let Err(why) = update_fut.await {
-            warn!(
+            unwind_error!(
+                warn,
+                why,
                 "Error while updating tracking date for user ({},{}): {}",
-                user_id, mode, why
+                user_id,
+                mode
             );
         }
     }

@@ -17,6 +17,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Guild counter decrement missing somewhere in cache~~ (20.11.18)
 - ~~`lb` -> `blb` | `glb` -> `lb`~~ (20.11.15)
 - ~~Write macro to unwrap all sources of errors~~ (20.11.15)
 - ~~`<medalstats` similar to `o>user` & `https://osekai.net/profiles/history`~~ (20.11.14)
