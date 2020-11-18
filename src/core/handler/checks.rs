@@ -88,6 +88,13 @@ pub async fn check_ratelimit(
         let mut bucket_elem = mutex.lock().await;
         match bucket {
             BucketName::Snipe => (bucket_elem.take(0), bucket), // same bucket for everyone
+            BucketName::Songs => (
+                bucket_elem.take(
+                    msg.guild_id
+                        .map_or_else(|| msg.author.id.0, |guild_id| guild_id.0), // same bucket for guilds
+                ),
+                bucket,
+            ),
             _ => (bucket_elem.take(msg.author.id.0), bucket),
         }
     };

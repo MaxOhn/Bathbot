@@ -28,7 +28,7 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
     let (custom_prefix, first_prefix) = if let Some(guild_id) = guild_id {
         let mut prefixes = ctx.config_prefixes(guild_id);
         if prefixes == ["<"] {
-            (None, prefixes.remove(0))
+            (None, prefixes.swap_remove(0))
         } else {
             let mut prefix_iter = prefixes.iter();
             let mut prefixes_str = String::with_capacity(9);
@@ -36,7 +36,7 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
             for prefix in prefix_iter {
                 let _ = write!(prefixes_str, ", `{}`", prefix);
             }
-            (Some(prefixes_str), prefixes.remove(0))
+            (Some(prefixes_str), prefixes.swap_remove(0))
         }
     } else {
         (None, "<".to_string())

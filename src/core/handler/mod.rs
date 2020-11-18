@@ -253,8 +253,10 @@ async fn process_command(
                 "Ratelimiting user {} on command `{}` for {} seconds",
                 msg.author.id, cmd.names[0], cooldown,
             );
-            let content = format!("Command on cooldown, try again in {} seconds", cooldown);
-            msg.error(&ctx, content).await?;
+            if !matches!(bucket, BucketName::BgHint) {
+                let content = format!("Command on cooldown, try again in {} seconds", cooldown);
+                msg.error(&ctx, content).await?;
+            }
             return Ok(ProcessResult::Ratelimited(bucket));
         }
     }

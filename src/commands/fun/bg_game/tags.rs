@@ -366,7 +366,7 @@ async fn get_random_image(mut mapsets: Vec<MapsetTagWrapper>, mode: GameMode) ->
             let mut rng = rand::thread_rng();
             rng.next_u32() as usize % mapsets.len()
         };
-        let mapset = mapsets.remove(random_idx);
+        let mapset = mapsets.swap_remove(random_idx);
         let filename = format!("{}.{}", mapset.mapset_id, mapset.filetype);
         path.push(filename);
         match fs::read(&path).await {

@@ -18,7 +18,7 @@ impl Context {
             .entry(twitch_id)
             .and_modify(|channels| {
                 if let Some(idx) = channels.iter().position(|&id| id == channel_id) {
-                    channels.remove(idx);
+                    channels.swap_remove(idx);
                 };
             });
     }
