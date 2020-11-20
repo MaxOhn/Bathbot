@@ -61,13 +61,19 @@ impl MedalStatsEmbed {
                 }
             }
             // Add to fields
-            add_group_field("Skill", &counts, &mut fields);
-            add_group_field("Dedication", &counts, &mut fields);
-            add_group_field("Hush-Hush", &counts, &mut fields);
-            add_group_field("Beatmap Packs", &counts, &mut fields);
-            add_group_field("Seasonal Spotlights", &counts, &mut fields);
-            add_group_field("Beatmap Spotlights", &counts, &mut fields);
-            add_group_field("Mod Introduction", &counts, &mut fields);
+            let mut add_group_field = |group: &str| {
+                if let Some((total, owned)) = counts.get(group) {
+                    fields.push((group.to_owned(), format!("{} / {}", owned, total), true));
+                }
+            };
+            add_group_field("Skill");
+            add_group_field("Dedication");
+            add_group_field("Hush-Hush");
+            add_group_field("Beatmap Packs");
+            add_group_field("Beatmap Challenge Packs");
+            add_group_field("Seasonal Spotlights");
+            add_group_field("Beatmap Spotlights");
+            add_group_field("Mod Introduction");
         }
         let author = Author::new(profile.username)
             .url(format!("{}u/{}", OSU_BASE, profile.user_id))
@@ -106,15 +112,5 @@ impl EmbedData for MedalStatsEmbed {
     }
     fn image(&self) -> Option<&ImageSource> {
         self.image.as_ref()
-    }
-}
-
-fn add_group_field(
-    group: &str,
-    counts: &HashMap<&str, (usize, usize)>,
-    fields: &mut Vec<(String, String, bool)>,
-) {
-    if let Some((total, owned)) = counts.get(group) {
-        fields.push((group.to_owned(), format!("{} / {}", owned, total), true));
     }
 }

@@ -110,6 +110,7 @@ pub struct OsuMedal {
 }
 
 #[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq)]
+#[repr(u8)]
 pub enum OsuMedalGroup {
     Skill = 0,
     Dedication = 1,
@@ -117,12 +118,14 @@ pub enum OsuMedalGroup {
     HushHush = 2,
     #[serde(rename = "Beatmap Packs")]
     BeatmapPacks = 3,
+    #[serde(rename = "Beatmap Challenge Packs")]
+    BeatmapChallengePacks = 4,
     #[serde(rename = "Seasonal Spotlights")]
-    SeasonalSpotlights = 4,
+    SeasonalSpotlights = 5,
     #[serde(rename = "Beatmap Spotlights")]
-    BeatmapSpotlights = 5,
+    BeatmapSpotlights = 6,
     #[serde(rename = "Mod Introduction")]
-    ModIntroduction = 6,
+    ModIntroduction = 7,
 }
 
 impl OsuMedalGroup {
@@ -135,6 +138,7 @@ impl OsuMedalGroup {
             Self::SeasonalSpotlights => "Seasonal Spotlights",
             Self::BeatmapSpotlights => "Beatmap Spotlights",
             Self::ModIntroduction => "Mod Introduction",
+            Self::BeatmapChallengePacks => "Beatmap Challenge Packs",
         }
     }
 }

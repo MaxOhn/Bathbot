@@ -15,11 +15,12 @@ use rosu::model::GameMode;
 use std::{cmp::Ordering, collections::HashSet, sync::Arc};
 use twilight_model::channel::Message;
 
-const GROUPS: [OsuMedalGroup; 7] = [
+const GROUPS: [OsuMedalGroup; 8] = [
     OsuMedalGroup::Skill,
     OsuMedalGroup::Dedication,
     OsuMedalGroup::HushHush,
     OsuMedalGroup::BeatmapPacks,
+    OsuMedalGroup::BeatmapChallengePacks,
     OsuMedalGroup::SeasonalSpotlights,
     OsuMedalGroup::BeatmapSpotlights,
     OsuMedalGroup::ModIntroduction,
