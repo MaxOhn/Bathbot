@@ -1,6 +1,6 @@
 mod impls;
 
-use super::{BotStats, ShardState};
+use super::BotStats;
 
 use crate::{
     bg_game::GameWrapper,
@@ -51,7 +51,6 @@ pub struct Clients {
 
 pub struct BackendData {
     pub cluster: Cluster,
-    pub shard_states: DashMap<u64, ShardState>,
     pub total_shards: u64,
     pub shards_per_cluster: u64,
 }
@@ -79,10 +78,6 @@ impl Context {
         backend: BackendData,
         data: ContextData,
     ) -> Self {
-        stats
-            .shard_counts
-            .pending
-            .set(backend.shards_per_cluster as i64);
         Context {
             cache,
             stats,

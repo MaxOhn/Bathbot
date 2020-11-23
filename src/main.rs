@@ -181,15 +181,8 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         .await
         .map_err(|why| format_err!("Could not start cluster: {}", why))?;
 
-    // Shard states
-    let shard_states = DashMap::with_capacity(shards_per_cluster as usize);
-    for i in 0..shards_per_cluster {
-        shard_states.insert(i, core::ShardState::PendingCreation);
-    }
-
     let backend = crate::core::BackendData {
         cluster,
-        shard_states,
         total_shards,
         shards_per_cluster,
     };

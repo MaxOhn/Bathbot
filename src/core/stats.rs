@@ -1,7 +1,4 @@
-use crate::{
-    core::{Context, ShardState},
-    unwind_error,
-};
+use crate::{core::Context, unwind_error};
 
 use chrono::{DateTime, Utc};
 use log::info;
@@ -52,24 +49,12 @@ pub struct GuildCounters {
     pub unavailable: IntGauge,
 }
 
-pub struct ShardStats {
-    pub pending: IntGauge,
-    pub connecting: IntGauge,
-    pub identifying: IntGauge,
-    pub connected: IntGauge,
-    pub ready: IntGauge,
-    pub resuming: IntGauge,
-    pub reconnecting: IntGauge,
-    pub disconnected: IntGauge,
-}
-
 pub struct BotStats {
     pub registry: Registry,
     pub start_time: DateTime<Utc>,
     pub event_counts: EventStats,
     pub message_counts: MessageCounters,
     pub user_counts: UserCounters,
-    pub shard_counts: ShardStats,
     pub channel_count: IntGauge,
     pub guild_counts: GuildCounters,
     pub command_counts: IntCounterVec,
@@ -83,7 +68,6 @@ impl BotStats {
         let event_counter = IntCounterVec::new(Opts::new("gateway_events", "Events received from the gateway"), &["events"]).unwrap();
         let message_counter =IntCounterVec::new(Opts::new("messages", "Recieved messages"), &["sender_type"]).unwrap();
         let user_counter =IntGaugeVec::new(Opts::new("user_counts", "User counts"), &["type"]).unwrap();
-        let shard_counter = IntGaugeVec::new(Opts::new("shard_counts", "State counts for our shards"),&["state"],).unwrap();
         let channel_count = IntGauge::with_opts(Opts::new("channels", "Channel count")).unwrap();
         let guild_counter =IntGaugeVec::new(Opts::new("guild_counts", "State of the guilds"), &["state"]).unwrap();
         let command_counts =IntCounterVec::new(Opts::new("commands", "Executed commands"), &["name"]).unwrap();
@@ -94,7 +78,6 @@ impl BotStats {
         registry.register(Box::new(event_counter.clone())).unwrap();
         registry.register(Box::new(message_counter.clone())).unwrap();
         registry.register(Box::new(user_counter.clone())).unwrap();
-        registry.register(Box::new(shard_counter.clone())).unwrap();
         registry.register(Box::new(channel_count.clone())).unwrap();
         registry.register(Box::new(guild_counter.clone())).unwrap();
         registry.register(Box::new(command_counts.clone())).unwrap();
@@ -138,16 +121,6 @@ impl BotStats {
                 unavailable: guild_counter.get_metric_with_label_values(&["Unavailable"]).unwrap(),
             },
             channel_count,
-            shard_counts: ShardStats {
-                pending: shard_counter.get_metric_with_label_values(&["Pending"]).unwrap(),
-                connecting: shard_counter.get_metric_with_label_values(&["Connecting"]).unwrap(),
-                identifying: shard_counter.get_metric_with_label_values(&["Identifying"]).unwrap(),
-                connected: shard_counter.get_metric_with_label_values(&["Connected"]).unwrap(),
-                ready: shard_counter.get_metric_with_label_values(&["Ready"]).unwrap(),
-                resuming: shard_counter.get_metric_with_label_values(&["Resuming"]).unwrap(),
-                reconnecting: shard_counter.get_metric_with_label_values(&["Reconnecting"]).unwrap(),
-                disconnected: shard_counter.get_metric_with_label_values(&["Disconnected"]).unwrap(),
-            },
             command_counts,
             osu_metrics,
             cache_metrics
@@ -292,12 +265,9 @@ impl Context {
             }
             Event::UserUpdate(_) => self.stats.event_counts.user_update.inc(),
 
-            Event::ShardConnecting(_) => self.shard_state_change(shard_id, ShardState::Connecting),
-            Event::ShardIdentifying(_) => {
-                self.shard_state_change(shard_id, ShardState::Identifying)
-            }
-
-            Event::ShardConnected(_) => self.shard_state_change(shard_id, ShardState::Connected),
+            Event::ShardConnecting(_) => info!("Shard {} is now Connecting", shard_id),
+            Event::ShardIdentifying(_) => info!("Shard {} is now Identifying", shard_id),
+            Event::ShardConnected(_) => info!("Shard {} is now Connected", shard_id),
             Event::Ready(_) => {
                 self.stats
                     .guild_counts
@@ -315,39 +285,13 @@ impl Context {
                     .user_counts
                     .unique
                     .set(self.stats.cache_metrics.users.load(Relaxed) as i64);
-                self.shard_state_change(shard_id, ShardState::Ready)
+                info!("Shard {} is now Ready", shard_id)
             }
-            Event::Resumed => self.shard_state_change(shard_id, ShardState::Ready),
-            Event::ShardResuming(_) => self.shard_state_change(shard_id, ShardState::Resuming),
-            Event::ShardReconnecting(_) => {
-                self.shard_state_change(shard_id, ShardState::Reconnecting)
-            }
-            Event::ShardDisconnected(_) => {
-                self.shard_state_change(shard_id, ShardState::Disconnected)
-            }
+            Event::Resumed => info!("Shard {} is now Resumed", shard_id),
+            Event::ShardResuming(_) => info!("Shard {} is now Resuming", shard_id),
+            Event::ShardReconnecting(_) => info!("Shard {} is now Reconnecting", shard_id),
+            Event::ShardDisconnected(_) => info!("Shard {} is now Disconnected", shard_id),
             _ => {}
-        }
-    }
-
-    pub fn shard_state_change(&self, shard: u64, new_state: ShardState) {
-        if let Some(guard) = self.backend.shard_states.get(&shard) {
-            self.get_state_metric(guard.value()).dec();
-        }
-        info!("Shard {} is now {:?}", shard, new_state);
-        self.get_state_metric(&new_state).inc();
-        self.backend.shard_states.insert(shard, new_state);
-    }
-
-    fn get_state_metric(&self, state: &ShardState) -> &IntGauge {
-        match state {
-            ShardState::PendingCreation => &self.stats.shard_counts.pending,
-            ShardState::Connecting => &self.stats.shard_counts.connecting,
-            ShardState::Identifying => &self.stats.shard_counts.identifying,
-            ShardState::Connected => &self.stats.shard_counts.connected,
-            ShardState::Ready => &self.stats.shard_counts.ready,
-            ShardState::Resuming => &self.stats.shard_counts.resuming,
-            ShardState::Reconnecting => &self.stats.shard_counts.reconnecting,
-            ShardState::Disconnected => &self.stats.shard_counts.disconnected,
         }
     }
 }
