@@ -36,7 +36,7 @@ use hyper::{
 use prometheus::{Encoder, TextEncoder};
 use rosu::{Osu, OsuCached};
 use std::{convert::Infallible, process, str::FromStr, sync::Arc, time::Duration};
-use tokio::{runtime::Runtime, stream::StreamExt, sync::Mutex, time};
+use tokio::{runtime::Runtime, signal, stream::StreamExt, sync::Mutex, time};
 use twilight_gateway::{cluster::ShardScheme, Cluster};
 use twilight_http::{
     request::channel::message::allowed_mentions::AllowedMentionsBuilder, Client as HttpClient,
@@ -163,8 +163,10 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     let (cache, resume_map) = Cache::new(&clients.redis, total_shards, shards_per_cluster).await;
     let resumed = if let Some(map) = resume_map {
         cb = cb.resume_sessions(map);
+        info!("Cold resume successfull");
         true
     } else {
+        info!("Boot without cold resume");
         false
     };
 
@@ -192,20 +194,22 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
 
     // Setup graceful shutdown
     let shutdown_ctx = Arc::clone(&ctx);
-    ctrlc::set_handler(move || {
-        let _ = Runtime::new().unwrap().block_on(async {
-            shutdown_ctx.initiate_cold_resume().await;
-            if let Err(why) = shutdown_ctx.store_configs().await {
-                error!("Error while storing configs: {}", why);
-            }
-            if let Err(why) = shutdown_ctx.store_values().await {
-                error!("Error while storing values: {}", why);
-            }
-        });
+    tokio::spawn(async move {
+        if let Err(err) = signal::ctrl_c().await {
+            unwind_error!(error, err, "Error while waiting for ctrlc: {}");
+            return;
+        }
+        info!("Received Ctrl+C");
+        shutdown_ctx.initiate_cold_resume().await;
+        if let Err(why) = shutdown_ctx.store_configs().await {
+            error!("Error while storing configs: {}", why);
+        }
+        if let Err(why) = shutdown_ctx.store_values().await {
+            error!("Error while storing values: {}", why);
+        }
         info!("Shutting down");
         process::exit(0);
-    })
-    .map_err(|why| format_err!("failed to register shutdown handler: {}", why))?;
+    });
 
     // Spawn twitch worker
     let twitch_ctx = Arc::clone(&ctx);
