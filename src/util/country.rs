@@ -58,6 +58,7 @@ lazy_static::lazy_static! {
         country!(c, "Spain", ES, spain);
         country!(c, "Sweden", SE);
         country!(c, "Thailand", TH);
+        country!(c, "Taiwan", TW);
         country!(c, "United Kingdom", GB, uk);
         country!(c, "United States", US, usa);
         c
