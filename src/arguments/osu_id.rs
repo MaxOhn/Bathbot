@@ -63,19 +63,23 @@ pub struct NameMapArgs {
 }
 
 impl NameMapArgs {
-    pub fn new(ctx: &Context, args: Args) -> Self {
-        let mut args = args.take_all();
-        let (name, map_id) = args.next_back().map_or_else(
-            || (None, None),
-            |arg| {
-                matcher::get_osu_map_id(arg)
-                    .or_else(|| matcher::get_osu_mapset_id(arg))
-                    .map_or_else(
-                        || (try_link_name(ctx, Some(arg)), None),
-                        |id| (try_link_name(ctx, args.next()), Some(id)),
-                    )
-            },
-        );
+    pub fn new(ctx: &Context, mut args: Args) -> Self {
+        let mut name = None;
+        let mut map_id = None;
+        while let Some(arg) = args.next() {
+            if map_id.is_none() {
+                if let Some(id) =
+                    matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg))
+                {
+                    map_id = Some(id);
+                    continue;
+                }
+            }
+            name = name.or_else(|| try_link_name(ctx, Some(arg)));
+            if map_id.is_some() && name.is_some() {
+                break;
+            }
+        }
         Self { name, map_id }
     }
 }
