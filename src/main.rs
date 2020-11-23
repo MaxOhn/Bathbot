@@ -52,8 +52,6 @@ fn main() -> BotResult<()> {
     let mut runtime = Runtime::new().expect("Could not start runtime");
     if let Err(why) = runtime.block_on(async move { async_main().await }) {
         unwind_error!(error, why, "Critical error in main: {}");
-    } else {
-        runtime.shutdown_timeout(Duration::from_secs(90));
     }
     Ok(())
 }
@@ -254,7 +252,11 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
             }
         });
     }
-    ctx.backend.cluster.down();
+
+    info!("Exited event loop");
+
+    // Give the ctrlc handler time to finish
+    time::delay_for(time::Duration::from_secs(90)).await;
     Ok(())
 }
 
