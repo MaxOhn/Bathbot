@@ -80,7 +80,7 @@ pub fn buckets() -> Buckets {
     insert_bucket(&buckets, BucketName::BgStart, 2, 20, 3);
     insert_bucket(&buckets, BucketName::BgBigger, 1, 8, 2);
     insert_bucket(&buckets, BucketName::BgHint, 0, 10, 4);
-    insert_bucket(&buckets, BucketName::Snipe, 0, 600, 5);
+    insert_bucket(&buckets, BucketName::Snipe, 0, 600, 10);
     buckets
 }
 
