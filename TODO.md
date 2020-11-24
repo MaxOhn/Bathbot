@@ -8,6 +8,8 @@
 - Check on `thread 'tokio-runtime-worker' panicked at 'error binding to 169.254.124.89:9094:`
     `error creating server listener: Cannot assign requested address (os error 99)'"`
 - Rewrite `<mc` calculation
+- Note in `<mc` footer about comparing values
+- Experiment with different team/opponent scaling for `<mc`
 
 **[Sometime]**
 - Add `Icon from syedhassan - pngtree.com` to README

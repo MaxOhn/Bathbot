@@ -34,7 +34,7 @@ impl OsuStatsGlobalsEmbed {
     ) -> Self {
         if scores.is_empty() {
             return Self {
-                author: osu::get_user_author(&user),
+                author: osu::get_user_author(user),
                 thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
                 footer: Footer::new("Page 1/1 ~ Total scores: 0"),
                 description: String::from("No scores with these parameters were found"),
@@ -45,7 +45,7 @@ impl OsuStatsGlobalsEmbed {
         let mut description = String::with_capacity(1024);
         for (_, score) in entries {
             let grade = grade_emote(score.grade);
-            let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
+            let calculations = Calculations::all();
             let mut calculator = PPCalculator::new().score(score).map(&score.map);
             if let Err(why) = calculator.calculate(calculations, Some(ctx)).await {
                 unwind_error!(warn, why, "Error while calculating pp for osg: {}");

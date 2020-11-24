@@ -4,7 +4,10 @@ use crate::{
     embeds::{CountrySnipeListEmbed, EmbedData},
     pagination::{CountrySnipeListPagination, Pagination},
     unwind_error,
-    util::{constants::OSU_API_ISSUE, numbers, MessageExt, SNIPE_COUNTRIES},
+    util::{
+        constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+        numbers, MessageExt, SNIPE_COUNTRIES,
+    },
     BotResult, Context,
 };
 
@@ -111,8 +114,7 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
     let mut players = match ctx.clients.custom.get_snipe_country(&country).await {
         Ok(players) => players,
         Err(why) => {
-            let content = "Some issue with the huismetbenen api, blame bade";
-            let _ = msg.error(&ctx, content).await;
+            let _ = msg.error(&ctx, HUISMETBENEN_ISSUE).await;
             return Err(why.into());
         }
     };

@@ -48,12 +48,11 @@ use twilight_model::gateway::{
 
 pub type BotResult<T> = std::result::Result<T, Error>;
 
-fn main() -> BotResult<()> {
+fn main() {
     let mut runtime = Runtime::new().expect("Could not start runtime");
     if let Err(why) = runtime.block_on(async move { async_main().await }) {
         unwind_error!(error, why, "Critical error in main: {}");
     }
-    Ok(())
 }
 
 async fn async_main() -> BotResult<()> {
@@ -144,8 +143,9 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     };
 
     // Shard-cluster config
-    let (shards_per_cluster, total_shards, sharding_scheme) = shard_schema_values()
-        .map_or((1, 1, ShardScheme::Auto), |(to, total)| {
+    let (shards_per_cluster, total_shards, sharding_scheme) =
+        shard_schema_values().map_or((1, 1, ShardScheme::Auto), |(to, total)| {
+            info!("Setup: {} shards per cluster | {} total shards", to, total);
             (to, total, ShardScheme::Range { from: 0, to, total })
         });
     let intents = Intents::GUILDS
@@ -264,6 +264,7 @@ fn shard_schema_values() -> Option<(u64, u64)> {
             Arg::with_name("total shards")
                 .short("s")
                 .long("shards")
+                .value_name("NUM")
                 .takes_value(true)
                 .help("How many shards in total"),
         )
@@ -271,28 +272,30 @@ fn shard_schema_values() -> Option<(u64, u64)> {
             Arg::with_name("shards per cluster")
                 .short("c")
                 .long("per_cluster")
+                .value_name("NUM")
                 .takes_value(true)
                 .help("How many shards per cluster"),
         )
         .get_matches();
     // Either of them given?
-    args.value_of("shards_per_cluster")
-        .or_else(|| args.value_of("total_shards"))?;
+    args.value_of("shards per cluster")
+        .or_else(|| args.value_of("total shards"))?;
     // If so, parse
     let shards_per_cluster = args
-        .value_of("shards_per_cluster")
+        .value_of("shards per cluster")
         .map(u64::from_str)
         .transpose()
         .ok()
         .flatten()
-        .unwrap_or(1);
+        .unwrap_or(1)
+        .saturating_sub(1); // (starts from 0)
     let total_shards = args
-        .value_of("total_shards")
+        .value_of("total shards")
         .map(u64::from_str)
         .transpose()
         .ok()
         .flatten()
-        .unwrap_or(1);
+        .unwrap_or(shards_per_cluster + 1);
     Some((shards_per_cluster, total_shards))
 }
 
