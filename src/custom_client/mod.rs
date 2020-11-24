@@ -221,14 +221,26 @@ impl CustomClient {
         Ok(snipes)
     }
 
-    /// BAD! DO NOT USE YET!
-    pub async fn _get_national_firsts(&self, user: &User) -> ClientResult<Vec<SnipeScore>> {
-        let url = format!(
-            "{}player/{}/{}/all",
-            HUISMETBENEN,
-            user.country.to_lowercase(),
-            user.user_id
+    pub async fn get_national_firsts(
+        &self,
+        params: &SnipeScoreParams,
+    ) -> ClientResult<Vec<SnipeScore>> {
+        let mut url = format!(
+            "{base}player/{country}/{user}/topranks?page={page}&mode={mode}&sort={sort}&order={order}",
+            base = HUISMETBENEN,
+            country = params.country,
+            user = params.user_id,
+            page = params.page,
+            mode = get_mode_str(params.mode),
+            sort = params.order,
+            order = if params.descending { "desc" } else { "asc" },
         );
+        if let Some(mods) = params.mods {
+            if let ModSelection::Include(mods) | ModSelection::Exact(mods) = mods {
+                let _ = write!(url, "&mods={}", mods);
+            }
+        }
+
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
         let scores: Vec<SnipeScore> =
@@ -238,6 +250,34 @@ impl CustomClient {
                 request: "snipe score",
             })?;
         Ok(scores)
+    }
+
+    pub async fn get_national_firsts_count(
+        &self,
+        params: &SnipeScoreParams,
+    ) -> ClientResult<usize> {
+        let mut url = format!(
+            "{base}player/{country}/{user}/topranks/count?mode={mode}",
+            base = HUISMETBENEN,
+            country = params.country,
+            user = params.user_id,
+            mode = get_mode_str(params.mode),
+        );
+        if let Some(mods) = params.mods {
+            if let ModSelection::Include(mods) | ModSelection::Exact(mods) = mods {
+                let _ = write!(url, "&mods={}", mods);
+            }
+        }
+
+        let response = self.make_request(url, Site::OsuSnipe).await?;
+        let bytes = response.bytes().await?;
+        let count: usize =
+            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&bytes).into_owned(),
+                source,
+                request: "snipe score count",
+            })?;
+        Ok(count)
     }
 
     pub async fn get_country_globals(

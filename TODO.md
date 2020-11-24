@@ -8,7 +8,7 @@
 - Check on `thread 'tokio-runtime-worker' panicked at 'error binding to 169.254.124.89:9094:`
     `error creating server listener: Cannot assign requested address (os error 99)'"`
 - Rewrite `<mc` calculation
-- cause merge conflict :^)
+- Experiment with different team/opponent scaling for `<mc`
 
 **[Sometime]**
 - Add `Icon from syedhassan - pngtree.com` to README
@@ -19,6 +19,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Note in `<mc` footer about comparing values~~ (20.11.24)
 - ~~Guild counter decrement missing somewhere in cache~~ (20.11.18)
 - ~~`lb` -> `blb` | `glb` -> `lb`~~ (20.11.15)
 - ~~Write macro to unwrap all sources of errors~~ (20.11.15)

@@ -1,9 +1,10 @@
 use super::deserialize::{expect_negative_u32, str_to_maybe_datetime};
+use crate::util::osu::ModSelection;
 
 use chrono::{offset::TimeZone, Date, DateTime, Utc};
-use rosu::model::GameMods;
+use rosu::model::{GameMode, GameMods};
 use serde::{
-    de::{Deserializer, Error, MapAccess, Visitor},
+    de::{Deserializer, Error, IgnoredAny, MapAccess, Visitor},
     Deserialize,
 };
 use std::{
@@ -11,6 +12,77 @@ use std::{
     fmt,
     str::FromStr,
 };
+
+#[derive(Copy, Clone, Debug)]
+pub enum SnipeScoreOrder {
+    Accuracy = 0,
+    Length = 1,
+    MapApprovalDate = 2,
+    Misses = 3,
+    Pp = 4,
+    ScoreDate = 5,
+    Stars = 6,
+}
+
+impl fmt::Display for SnipeScoreOrder {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let name = match self {
+            Self::Accuracy => "accuracy",
+            Self::Length => "length",
+            Self::MapApprovalDate => "date_ranked",
+            Self::Misses => "count_miss",
+            Self::Pp => "pp",
+            Self::ScoreDate => "date_set",
+            Self::Stars => "sr",
+        };
+        f.write_str(name)
+    }
+}
+
+#[derive(Debug)]
+pub struct SnipeScoreParams {
+    pub user_id: u32,
+    pub country: String,
+    pub page: u8,
+    pub mode: GameMode,
+    pub order: SnipeScoreOrder,
+    pub mods: Option<ModSelection>,
+    pub descending: bool,
+}
+
+impl SnipeScoreParams {
+    pub fn new(user_id: u32, country_code: impl Into<String>) -> Self {
+        Self {
+            user_id,
+            country: country_code.into(),
+            page: 0,
+            mode: GameMode::STD,
+            order: SnipeScoreOrder::Pp,
+            mods: None,
+            descending: true,
+        }
+    }
+    #[allow(dead_code)]
+    pub fn mode(mut self, mode: GameMode) -> Self {
+        self.mode = mode;
+        self
+    }
+    pub fn order(mut self, order: SnipeScoreOrder) -> Self {
+        self.order = order;
+        self
+    }
+    pub fn descending(mut self, descending: bool) -> Self {
+        self.descending = descending;
+        self
+    }
+    pub fn mods(mut self, selection: Option<ModSelection>) -> Self {
+        self.mods = selection;
+        self
+    }
+    pub fn page(&mut self, page: u8) {
+        self.page = page;
+    }
+}
 
 #[derive(Debug, Deserialize)]
 pub struct SnipePlayer {
@@ -80,33 +152,6 @@ pub struct SnipePlayerOldest {
     pub map: String,
     #[serde(deserialize_with = "str_to_maybe_datetime")]
     pub date: Option<DateTime<Utc>>,
-}
-
-#[derive(Debug)]
-pub struct SnipeScore {
-    pub beatmap_id: u32,
-    pub artist: String,
-    pub title: String,
-    pub version: String,
-    pub user_id: u32,
-    pub username: String,
-    pub score: u32,
-    pub pp: Option<f32>,
-    pub mods: GameMods,
-    pub tie: bool,
-    pub accuracy: f32,
-    pub count_100: u32,
-    pub count_50: u32,
-    pub count_miss: u32,
-    pub date: DateTime<Utc>,
-    pub stars: f32,
-    pub max_combo: u32,
-    pub bpm: f32,
-    pub diff_ar: f32,
-    pub diff_cs: f32,
-    pub diff_hp: f32,
-    pub diff_od: f32,
-    pub seconds_total: u32,
 }
 
 #[derive(Debug)]
@@ -238,14 +283,43 @@ impl<'de> Deserialize<'de> for SnipeRecent {
     }
 }
 
+#[derive(Debug)]
+pub struct SnipeScore {
+    pub accuracy: f32,
+    // pub artist: String,
+    pub beatmap_id: u32,
+    pub beatmapset_id: u32,
+    // pub bpm: f32,
+    pub count_100: u32,
+    pub count_50: u32,
+    pub count_miss: u32,
+    // pub diff_ar: f32,
+    // pub diff_cs: f32,
+    // pub diff_hp: f32,
+    // pub diff_od: f32,
+    // pub map_approved_date: DateTime<Utc>,
+    // pub map_max_combo: u32,
+    pub mods: GameMods,
+    pub pp: Option<f32>,
+    pub score: u32,
+    pub score_date: DateTime<Utc>,
+    // pub seconds_total: u32,
+    pub stars: f32,
+    // pub tie: bool,
+    // pub title: String,
+    pub user_id: u32,
+    // pub username: String,
+    // pub version: String,
+}
+
 #[derive(Deserialize)]
 struct InnerScore {
     player_id: u32,
-    player: String,
+    // player: String,
     score: u32,
     pp: Option<f32>,
     mods: String,
-    tie: bool,
+    // tie: bool,
     accuracy: f32,
     count_100: u32,
     count_50: u32,
@@ -274,90 +348,104 @@ impl<'de> Deserialize<'de> for SnipeScore {
             {
                 let mut inner_score: Option<InnerScore> = None;
                 let mut map_id = None;
-                let mut artist = None;
-                let mut title = None;
-                let mut diff_name = None;
-                let mut max_combo = None;
-                let mut bpm = None;
-                let mut ar = None;
-                let mut cs = None;
-                let mut hp = None;
-                let mut od = None;
-                let mut length = None;
+                let mut mapset_id = None;
+                // let mut artist = None;
+                // let mut title = None;
+                // let mut diff_name = None;
+                // let mut max_combo = None;
+                // let mut bpm = None;
+                // let mut ar = None;
+                // let mut cs = None;
+                // let mut hp = None;
+                // let mut od = None;
+                // let mut date_ranked = None;
+                // let mut length = None;
                 while let Some(key) = map.next_key()? {
                     match key {
                         "map_id" => map_id = Some(map.next_value()?),
-                        "artist" => artist = Some(map.next_value()?),
-                        "title" => title = Some(map.next_value()?),
-                        "diff_name" => diff_name = Some(map.next_value()?),
-                        "max_combo" => max_combo = Some(map.next_value()?),
-                        "bpm" => bpm = Some(map.next_value()?),
-                        "ar" => ar = Some(map.next_value()?),
-                        "cs" => cs = Some(map.next_value()?),
-                        "hp" => hp = Some(map.next_value()?),
-                        "od" => od = Some(map.next_value()?),
-                        "length" => length = Some(map.next_value()?),
-                        other if other.starts_with("top_") => inner_score = Some(map.next_value()?),
-                        "new_star_ratings" => {
-                            let _: HashMap<String, f32> = map.next_value()?;
+                        "set_id" => mapset_id = Some(map.next_value()?),
+                        // "artist" => artist = Some(map.next_value()?),
+                        // "date_ranked" => {
+                        //     let date: &str = map.next_value()?;
+                        //     let date = Utc.datetime_from_str(date, "%F %T").unwrap_or_else(|why| {
+                        //         warn!("Couldn't parse date `{}`: {}", date, why);
+                        //         Utc::now()
+                        //     });
+                        //     date_ranked = Some(date);
+                        // }
+                        // "title" => title = Some(map.next_value()?),
+                        // "diff_name" => diff_name = Some(map.next_value()?),
+                        // "max_combo" => max_combo = Some(map.next_value()?),
+                        // "bpm" => bpm = Some(map.next_value()?),
+                        // "ar" => ar = Some(map.next_value()?),
+                        // "cs" => cs = Some(map.next_value()?),
+                        // "hp" => hp = Some(map.next_value()?),
+                        // "od" => od = Some(map.next_value()?),
+                        // "length" => length = Some(map.next_value()?),
+                        other if inner_score.is_none() && other.starts_with("top_") => {
+                            inner_score = Some(map.next_value()?)
                         }
-                        "_id" => {
-                            let _: String = map.next_value()?;
+                        _ => {
+                            let _ = map.next_value::<IgnoredAny>();
                         }
-                        _ => info!("Found unexpected key `{}`", key),
                     }
                 }
                 let inner_score = inner_score.ok_or_else(|| Error::missing_field("inner_score"))?;
                 let map_id = map_id.ok_or_else(|| Error::missing_field("map_id"))?;
-                let artist = artist.ok_or_else(|| Error::missing_field("artist"))?;
-                let title = title.ok_or_else(|| Error::missing_field("title"))?;
-                let diff_name = diff_name.ok_or_else(|| Error::missing_field("diff_name"))?;
-                let max_combo = max_combo.ok_or_else(|| Error::missing_field("max_combo"))?;
-                let bpm = bpm.ok_or_else(|| Error::missing_field("bpm"))?;
-                let ar = ar.ok_or_else(|| Error::missing_field("ar"))?;
-                let cs = cs.ok_or_else(|| Error::missing_field("cs"))?;
-                let hp = hp.ok_or_else(|| Error::missing_field("hp"))?;
-                let od = od.ok_or_else(|| Error::missing_field("od"))?;
-                let length = length.ok_or_else(|| Error::missing_field("length"))?;
+                let mapset_id = mapset_id.ok_or_else(|| Error::missing_field("mapset_id"))?;
+                // let artist = artist.ok_or_else(|| Error::missing_field("artist"))?;
+                // let title = title.ok_or_else(|| Error::missing_field("title"))?;
+                // let diff_name = diff_name.ok_or_else(|| Error::missing_field("diff_name"))?;
+                // let max_combo = max_combo.ok_or_else(|| Error::missing_field("max_combo"))?;
+                // let bpm = bpm.ok_or_else(|| Error::missing_field("bpm"))?;
+                // let ar = ar.ok_or_else(|| Error::missing_field("ar"))?;
+                // let cs = cs.ok_or_else(|| Error::missing_field("cs"))?;
+                // let hp = hp.ok_or_else(|| Error::missing_field("hp"))?;
+                // let od = od.ok_or_else(|| Error::missing_field("od"))?;
+                // let length = length.ok_or_else(|| Error::missing_field("length"))?;
+                // let map_approved_date =
+                //     date_ranked.ok_or_else(|| Error::missing_field("date_ranked"))?;
 
                 let mods = match inner_score.mods.as_str() {
                     "nomod" => GameMods::NoMod,
                     other => GameMods::from_str(other).unwrap_or_else(|_| {
-                        debug!("Couldn't deserialize `{}` into GameMods", other);
+                        warn!("Couldn't deserialize `{}` into GameMods", other);
                         GameMods::NoMod
                     }),
                 };
                 let date = Utc
                     .datetime_from_str(&inner_score.date_set, "%F %T")
                     .unwrap_or_else(|why| {
-                        debug!("Couldn't parse date `{}`: {}", inner_score.date_set, why);
+                        warn!("Couldn't parse date `{}`: {}", inner_score.date_set, why);
                         Utc::now()
                     });
 
                 let score = SnipeScore {
-                    beatmap_id: map_id,
-                    artist,
-                    title,
-                    version: diff_name,
-                    user_id: inner_score.player_id,
-                    username: inner_score.player,
-                    score: inner_score.score,
-                    pp: inner_score.pp,
-                    mods,
-                    tie: inner_score.tie,
                     accuracy: inner_score.accuracy * 100.0,
+                    // artist,
+                    beatmap_id: map_id,
+                    beatmapset_id: mapset_id,
+                    // bpm,
                     count_100: inner_score.count_100,
                     count_50: inner_score.count_50,
                     count_miss: inner_score.count_miss,
-                    date,
+                    // diff_ar: ar,
+                    // diff_cs: cs,
+                    // diff_hp: hp,
+                    // diff_od: od,
+                    mods,
+                    // map_approved_date,
+                    // map_max_combo: max_combo,
+                    pp: inner_score.pp,
+                    score: inner_score.score,
+                    score_date: date,
                     stars: inner_score.sr,
-                    max_combo,
-                    bpm,
-                    diff_ar: ar,
-                    diff_cs: cs,
-                    diff_hp: hp,
-                    diff_od: od,
-                    seconds_total: length,
+                    // seconds_total: length,
+                    // tie: inner_score.tie,
+                    // title,
+                    user_id: inner_score.player_id,
+                    // username: inner_score.player,
+                    // version: diff_name,
                 };
                 Ok(score)
             }
@@ -365,28 +453,29 @@ impl<'de> Deserialize<'de> for SnipeScore {
 
         const FIELDS: &[&str] = &[
             "beatmap_id",
-            "artist",
-            "title",
-            "version",
+            "beatmapset_id",
+            // "artist",
+            // "title",
+            // "version",
             "user_id",
-            "username",
+            // "username",
             "score",
             "pp",
             "mods",
-            "tie",
+            // "tie",
             "accuracy",
             "count_100",
             "count_50",
             "count_miss",
-            "date",
+            "score_date",
             "stars",
-            "max_combo",
-            "bpm",
-            "diff_ar",
-            "diff_cs",
-            "diff_hp",
-            "diff_od",
-            "seconds_total",
+            // "max_combo",
+            // "bpm",
+            // "diff_ar",
+            // "diff_cs",
+            // "diff_hp",
+            // "diff_od",
+            // "seconds_total",
         ];
         deserializer.deserialize_struct("SnipeScore", FIELDS, SnipeScoreVisitor)
     }

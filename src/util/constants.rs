@@ -31,6 +31,7 @@ pub const OWNER_USER_ID: u64 = 219905108316520448;
 pub const GENERAL_ISSUE: &str = "Something went wrong, blame bade";
 pub const OSU_API_ISSUE: &str = "Some issue with the osu api, blame bade";
 pub const OSU_WEB_ISSUE: &str = "Some issue with the osu website, DDoS protection?";
+pub const HUISMETBENEN_ISSUE: &str = "Some issue with the huismetbenen api, blame bade";
 
 // Misc
 pub const SYMBOLS: [&str; 6] = ["♔", "♕", "♖", "♗", "♘", "♙"];

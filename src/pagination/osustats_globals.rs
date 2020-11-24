@@ -64,9 +64,11 @@ impl Pagination for OsuStatsGlobalsPagination {
         25
     }
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        let entries = self.scores.range(self.pages.index..self.pages.index + 5);
+        let entries = self
+            .scores
+            .range(self.pages.index..self.pages.index + self.pages.per_page);
         let count = entries.count();
-        if count < 5 && self.total - self.pages.index > count {
+        if count < self.pages.per_page && self.total - self.pages.index > count {
             let osustats_page = (self.pages.index / 24) + 1;
             self.params.page(osustats_page);
             let (scores, _) = self

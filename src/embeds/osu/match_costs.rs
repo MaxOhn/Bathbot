@@ -126,7 +126,7 @@ impl MatchCostEmbed {
         let match_id = osu_match.match_id;
         let mut title = osu_match.name;
         title.retain(|c| c != '(' && c != ')');
-        let footer = Footer::new("Note: Comparing with values from other bots makes no sense");
+        let footer = Footer::new("Note: Formula is subject to change; values are volatile");
         Ok(Self {
             title,
             footer,
