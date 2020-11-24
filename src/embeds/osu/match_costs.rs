@@ -1,6 +1,6 @@
 use crate::{
     commands::osu::MatchResult,
-    embeds::EmbedData,
+    embeds::{EmbedData, Footer},
     util::constants::{AVATAR_URL, DESCRIPTION_SIZE, OSU_BASE},
 };
 
@@ -13,6 +13,7 @@ pub struct MatchCostEmbed {
     thumbnail: Option<ImageSource>,
     title: String,
     url: String,
+    footer: Footer,
 }
 
 impl MatchCostEmbed {
@@ -125,8 +126,10 @@ impl MatchCostEmbed {
         let match_id = osu_match.match_id;
         let mut title = osu_match.name;
         title.retain(|c| c != '(' && c != ')');
+        let footer = Footer::new("Note: Comparing with values from other bots makes no sense");
         Ok(Self {
             title,
+            footer,
             thumbnail,
             description,
             url: format!("{}community/matches/{}", OSU_BASE, match_id),
@@ -146,5 +149,8 @@ impl EmbedData for MatchCostEmbed {
     }
     fn url(&self) -> Option<&str> {
         Some(&self.url)
+    }
+    fn footer(&self) -> Option<&Footer> {
+        Some(&self.footer)
     }
 }
