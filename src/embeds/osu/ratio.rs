@@ -97,12 +97,11 @@ impl RatioEmbed {
                             "{}{:>2}%: {:>+7} | {:>+6.3} | {:>+7.3}%",
                             if *acc < 100 { ">" } else { "" },
                             acc,
-                            *all_scores.get(i).unwrap_or_else(|| &0)
-                                - *ratios.scores.get(i).unwrap_or_else(|| &0),
-                            *all_ratios.get(i).unwrap_or_else(|| &0.0)
-                                - *ratios.ratios.get(i).unwrap_or_else(|| &0.0),
-                            *all_misses.get(i).unwrap_or_else(|| &0.0)
-                                - *ratios.misses.get(i).unwrap_or_else(|| &0.0),
+                            *all_scores.get(i).unwrap_or(&0) - *ratios.scores.get(i).unwrap_or(&0),
+                            *all_ratios.get(i).unwrap_or(&0.0)
+                                - *ratios.ratios.get(i).unwrap_or(&0.0),
+                            *all_misses.get(i).unwrap_or(&0.0)
+                                - *ratios.misses.get(i).unwrap_or(&0.0),
                         );
                     }
                 }

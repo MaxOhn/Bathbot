@@ -109,7 +109,7 @@ pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
             let total_objects = map.count_objects();
             let combo = args
                 .combo
-                .or_else(|| map.max_combo)
+                .or(map.max_combo)
                 .unwrap_or_else(|| panic!("Combo of args / beatmap not found"));
             if n50 > 0 || n100 > 0 {
                 score.count300 = total_objects - n100.max(0) - n50.max(0) - miss;

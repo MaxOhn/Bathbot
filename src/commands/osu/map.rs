@@ -99,19 +99,13 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
                 maps.sort_unstable_by(|m1, m2| {
                     m1.diff_cs
                         .partial_cmp(&m2.diff_cs)
-                        .unwrap_or_else(|| std::cmp::Ordering::Equal)
-                        .then(
-                            m1.stars
-                                .partial_cmp(&m2.stars)
-                                .unwrap_or_else(|| std::cmp::Ordering::Equal),
-                        )
+                        .unwrap_or(Ordering::Equal)
+                        .then(m1.stars.partial_cmp(&m2.stars).unwrap_or(Ordering::Equal))
                 })
             // For other mods just sort by star rating
             } else {
                 maps.sort_unstable_by(|m1, m2| {
-                    m1.stars
-                        .partial_cmp(&m2.stars)
-                        .unwrap_or_else(|| std::cmp::Ordering::Equal)
+                    m1.stars.partial_cmp(&m2.stars).unwrap_or(Ordering::Equal)
                 })
             }
             maps
@@ -274,7 +268,7 @@ fn graph(oppai_values: (Vec<u32>, Vec<f32>), background: DynamicImage) -> BotRes
 
         // Take as line color whatever is represented least in the background
         let (r, g, b) = background
-            .to_rgba()
+            .to_rgba8()
             .pixels()
             .par_bridge()
             .map(|pixel| (pixel[0] as u64, pixel[1] as u64, pixel[2] as u64))

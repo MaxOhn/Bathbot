@@ -63,10 +63,10 @@ pub struct NameMapArgs {
 }
 
 impl NameMapArgs {
-    pub fn new(ctx: &Context, mut args: Args) -> Self {
+    pub fn new(ctx: &Context, args: Args) -> Self {
         let mut name = None;
         let mut map_id = None;
-        while let Some(arg) = args.next() {
+        for arg in args {
             if map_id.is_none() {
                 if let Some(id) =
                     matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg))

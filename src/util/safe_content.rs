@@ -93,7 +93,7 @@ fn clean_users(ctx: &Context, s: &mut String, guild: Option<GuildId>) {
                     if let Some(member) = ctx.cache.member(guild_id, UserId(id)) {
                         format!(
                             "@{}#{:04}",
-                            member.nick.as_deref().unwrap_or_else(|| &member.user.name),
+                            member.nick.as_deref().unwrap_or(&member.user.name),
                             member.user.discriminator
                         )
                     } else {

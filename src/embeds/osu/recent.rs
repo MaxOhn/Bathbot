@@ -85,10 +85,7 @@ impl RecentEmbed {
             (description, title, grade_completion_mods)
         };
         let async_if_fc = async {
-            let got_s = match score.grade {
-                Grade::S | Grade::SH | Grade::X | Grade::XH => true,
-                _ => false,
-            };
+            let got_s = matches!(score.grade, Grade::S | Grade::SH | Grade::X | Grade::XH);
             if map.mode == GameMode::STD && (!got_s || score.max_combo < map.max_combo.unwrap() - 5)
             {
                 let mut unchoked = score.clone();

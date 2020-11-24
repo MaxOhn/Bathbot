@@ -9,6 +9,7 @@
     `error creating server listener: Cannot assign requested address (os error 99)'"`
 - Rewrite `<mc` calculation
 - Experiment with different team/opponent scaling for `<mc`
+- Import `sqlx` from crates.io
 
 **[Sometime]**
 - Add `Icon from syedhassan - pngtree.com` to README

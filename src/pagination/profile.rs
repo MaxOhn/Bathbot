@@ -58,6 +58,7 @@ impl Pagination for ProfilePagination {
     }
     async fn change_mode(&mut self) {
         let mode = GameMode::from(self.pages.index as u8);
+        #[allow(clippy::clippy::map_entry)]
         if !self.embeds.contains_key(&self.pages.index) {
             let profile_fut = profile_embed(&self.ctx, &self.name, mode, self.msg());
             if let Ok(Some((data, _))) = profile_fut.await {

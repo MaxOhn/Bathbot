@@ -112,7 +112,7 @@ impl OsuStatsArgs {
         if let Some(name) = args.pop() {
             username = matcher::get_mention_user(&name)
                 .and_then(|id| ctx.get_link(id))
-                .or_else(|| Some(name));
+                .or(Some(name));
         }
         if username.is_none() {
             return Err("Either specify an osu name or link your discord \

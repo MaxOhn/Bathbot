@@ -565,12 +565,12 @@ impl CustomClient {
         let ranking_page_table = html
             .select(&ranking_page_table)
             .next()
-            .ok_or_else(|| CustomClientError::MissingElement(".ranking-page-table"))?;
+            .ok_or(CustomClientError::MissingElement(".ranking-page-table"))?;
         let tbody = Selector::parse("tbody").unwrap();
         let tbody = ranking_page_table
             .select(&tbody)
             .next()
-            .ok_or_else(|| CustomClientError::MissingElement("tbody"))?;
+            .ok_or(CustomClientError::MissingElement("tbody"))?;
         let child = tbody
             .children()
             .enumerate()
@@ -581,13 +581,13 @@ impl CustomClient {
         let node = child
             .children()
             .nth(3)
-            .ok_or_else(|| CustomClientError::RankNode(1))?
+            .ok_or(CustomClientError::RankNode(1))?
             .children()
             .nth(1)
-            .ok_or_else(|| CustomClientError::RankNode(2))?
+            .ok_or(CustomClientError::RankNode(2))?
             .children()
             .nth(3)
-            .ok_or_else(|| CustomClientError::RankNode(3))?;
+            .ok_or(CustomClientError::RankNode(3))?;
         match node.value() {
             Node::Element(e) => {
                 if let Some(id) = e.attr("data-user-id") {

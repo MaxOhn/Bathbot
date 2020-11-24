@@ -126,7 +126,7 @@ impl SimulateNameArgs {
         let name = args.pop().and_then(|arg| {
             matcher::get_mention_user(&arg)
                 .and_then(|id| ctx.get_link(id))
-                .or_else(|| Some(arg))
+                .or(Some(arg))
         });
         Ok(Self {
             name,
