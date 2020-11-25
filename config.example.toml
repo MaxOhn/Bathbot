@@ -12,8 +12,11 @@ twitch_client_id = ""
 twitch_token = ""
 
 [database]
-postgres = "postgres://user:password@localhost/db_name"
-redis = "localhost:port"
+host="localhost"
+db_user="user"
+db_pw="password"
+db_name="db_name"
+redis_port=1234
 
 # adjust if necessary
 [grades]

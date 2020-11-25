@@ -36,7 +36,13 @@ use hyper::{
 use prometheus::{Encoder, TextEncoder};
 use rosu::{Osu, OsuCached};
 use std::{convert::Infallible, process, str::FromStr, sync::Arc, time::Duration};
-use tokio::{runtime::Runtime, signal, stream::StreamExt, sync::Mutex, time};
+use tokio::{
+    runtime::Runtime,
+    signal,
+    stream::StreamExt,
+    sync::{oneshot, Mutex},
+    time,
+};
 use twilight_gateway::{cluster::ShardScheme, Cluster};
 use twilight_http::{
     request::channel::message::allowed_mentions::AllowedMentionsBuilder, Client as HttpClient,
@@ -85,9 +91,10 @@ async fn async_main() -> BotResult<()> {
     );
 
     // Connect to psql database and redis cache
-    let psql = Database::new(&CONFIG.get().unwrap().database.postgres).await?;
-    let redis =
-        ConnectionPool::create(CONFIG.get().unwrap().database.redis.clone(), None, 5).await?;
+    let host = &CONFIG.get().unwrap().database.host;
+    let psql = Database::new(host).await?;
+    let redis_url = format!("{}:{}", host, CONFIG.get().unwrap().database.redis_port);
+    let redis = ConnectionPool::create(redis_url, None, 5).await?;
 
     // Connect to osu! API
     let osu_token = &CONFIG.get().unwrap().tokens.osu;
@@ -174,8 +181,9 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     let stats = Arc::new(BotStats::new(clients.osu.metrics(), cache_metrics.metrics));
 
     // Provide stats to locale address
+    let (tx, rx) = oneshot::channel();
     let metrics_stats = Arc::clone(&stats);
-    tokio::spawn(_run_metrics_server(metrics_stats));
+    tokio::spawn(_run_metrics_server(metrics_stats, rx));
 
     // Build cluster
     let cluster = cb
@@ -200,6 +208,9 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
             return;
         }
         info!("Received Ctrl+C");
+        if let Err(_) = tx.send(()) {
+            error!("Failed to send shutdown message to metric loop");
+        }
         shutdown_ctx.initiate_cold_resume().await;
         if let Err(why) = shutdown_ctx.store_configs().await {
             error!("Error while storing configs: {}", why);
@@ -299,7 +310,7 @@ fn shard_schema_values() -> Option<(u64, u64)> {
     Some((shards_per_cluster, total_shards))
 }
 
-async fn _run_metrics_server(stats: Arc<BotStats>) {
+async fn _run_metrics_server(stats: Arc<BotStats>, shutdown_rx: oneshot::Receiver<()>) {
     let metric_service = make_service_fn(move |_| {
         let stats = Arc::clone(&stats);
         async move {
@@ -315,8 +326,12 @@ async fn _run_metrics_server(stats: Arc<BotStats>) {
     let ip = CONFIG.get().unwrap().metric_server_ip;
     let port = CONFIG.get().unwrap().metric_server_port;
     let addr = std::net::SocketAddr::from((ip, port));
-    let server = hyper::Server::bind(&addr).serve(metric_service);
-    debug!("Running metrics server...");
+    let server = hyper::Server::bind(&addr)
+        .serve(metric_service)
+        .with_graceful_shutdown(async {
+            let _ = shutdown_rx.await;
+        });
+    info!("Running metrics server...");
     if let Err(why) = server.await {
         error!("Metrics server failed: {}", why);
     }

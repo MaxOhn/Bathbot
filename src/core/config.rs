@@ -30,8 +30,11 @@ pub struct Tokens {
 
 #[derive(Deserialize, Debug)]
 pub struct Database {
-    pub postgres: String,
-    pub redis: String,
+    pub host: String,
+    pub db_user: String,
+    pub db_pw: String,
+    pub db_name: String,
+    pub redis_port: u16,
 }
 
 impl BotConfig {
