@@ -28,7 +28,7 @@ macro_rules! unwind_error {
     ($log:ident, $err:ident, $($arg:tt)+) => {
         {
             $log!($($arg)+, $err);
-            let mut err: &dyn std::error::Error = &$err;
+            let mut err: &dyn ::std::error::Error = &$err;
             while let Some(source) = err.source() {
                 $log!("  - caused by: {}", source);
                 err = source;

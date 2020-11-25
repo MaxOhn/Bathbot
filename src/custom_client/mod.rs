@@ -38,7 +38,7 @@ use serde_json::Value;
 use std::{collections::HashSet, convert::TryFrom, fmt::Write, hash::Hash, num::NonZeroU32};
 use tokio::time::{timeout, Duration};
 
-static APP_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
+static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 type ClientResult<T> = Result<T, CustomClientError>;
 
@@ -65,7 +65,7 @@ impl CustomClient {
         let cookie_header = HeaderName::try_from("Cookie").unwrap();
         let cookie_value = HeaderValue::from_str(&format!("osu_session={}", osu_session)).unwrap();
         headers.insert(cookie_header, cookie_value);
-        builder = builder.user_agent(APP_USER_AGENT).default_headers(headers);
+        builder = builder.user_agent(USER_AGENT).default_headers(headers);
         info!("Log into osu! account...");
         let client = builder.build()?;
 

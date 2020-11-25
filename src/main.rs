@@ -163,7 +163,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     let (cache, resume_map) = Cache::new(&clients.redis, total_shards, shards_per_cluster).await;
     let resumed = if let Some(map) = resume_map {
         cb = cb.resume_sessions(map);
-        info!("Cold resume successfull");
+        info!("Cold resume successful");
         true
     } else {
         info!("Boot without cold resume");
