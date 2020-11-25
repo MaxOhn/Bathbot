@@ -58,15 +58,14 @@ async fn playersnipelist(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
             return Err(why.into());
         }
     };
-    let country = match SNIPE_COUNTRIES.get(&user.country) {
-        Some(country) => country.snipe.to_owned(),
-        None => {
-            let content = format!(
-                "`{}`'s country {} is not supported :(",
-                user.username, user.country
-            );
-            return msg.error(&ctx, content).await;
-        }
+    let country = if SNIPE_COUNTRIES.contains_key(user.country.as_str()) {
+        user.country.to_owned()
+    } else {
+        let content = format!(
+            "`{}`'s country {} is not supported :(",
+            user.username, user.country
+        );
+        return msg.error(&ctx, content).await;
     };
     let params = SnipeScoreParams::new(user.user_id, country)
         .order(args.order)

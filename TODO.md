@@ -9,6 +9,7 @@
     `error creating server listener: Cannot assign requested address (os error 99)'"`
 - Rewrite `<mc` calculation
 - Experiment with different team/opponent scaling for `<mc`
+- Add commands for most sniped user / user who sniped some1 the most
 
 **[Sometime]**
 - Add `Icon from syedhassan - pngtree.com` to README

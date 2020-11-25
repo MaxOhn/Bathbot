@@ -113,7 +113,12 @@ impl CustomClient {
     }
 
     pub async fn get_snipe_player(&self, country: &str, user_id: u32) -> ClientResult<SnipePlayer> {
-        let url = format!("{}player/{}/{}?type=id", HUISMETBENEN, country, user_id);
+        let url = format!(
+            "{}player/{}/{}?type=id",
+            HUISMETBENEN,
+            country.to_lowercase(),
+            user_id
+        );
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
         let player: SnipePlayer =
@@ -126,7 +131,11 @@ impl CustomClient {
     }
 
     pub async fn get_snipe_country(&self, country: &str) -> ClientResult<Vec<SnipeCountryPlayer>> {
-        let url = format!("{}rankings/{}/pp/weighted", HUISMETBENEN, country);
+        let url = format!(
+            "{}rankings/{}/pp/weighted",
+            HUISMETBENEN,
+            country.to_lowercase()
+        );
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
         let country_players: Vec<SnipeCountryPlayer> =
@@ -142,7 +151,7 @@ impl CustomClient {
         let url = format!(
             "{}beatmaps/unplayed/{}",
             HUISMETBENEN,
-            country.cow_to_lowercase()
+            country.to_lowercase()
         );
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
@@ -159,7 +168,7 @@ impl CustomClient {
         &self,
         country: &str,
     ) -> ClientResult<(SnipeTopDifference, SnipeTopDifference)> {
-        let country = country.cow_to_lowercase();
+        let country = country.to_lowercase();
         let url_gain = format!("{}rankings/{}/topgain", HUISMETBENEN, country);
         let url_loss = format!("{}rankings/{}/toploss", HUISMETBENEN, country);
         let gain = self

@@ -35,13 +35,12 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
                     let content = "The argument must be a country acronym of length two, e.g. `fr`";
                     return msg.error(&ctx, content).await;
                 }
-                match SNIPE_COUNTRIES.get(&arg.to_uppercase()) {
-                    Some(country) => country.snipe.clone(),
-                    None => {
-                        let content = "That country acronym is not supported :(";
-                        return msg.error(&ctx, content).await;
-                    }
+                let arg = arg.to_uppercase();
+                if !SNIPE_COUNTRIES.contains_key(arg.as_str()) {
+                    let content = "That country acronym is not supported :(";
+                    return msg.error(&ctx, content).await;
                 }
+                arg
             }
         },
         None => match ctx.get_link(msg.author.id.0) {
@@ -57,15 +56,14 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
                         return Err(why.into());
                     }
                 };
-                match SNIPE_COUNTRIES.get(&user.country) {
-                    Some(country) => country.snipe.to_owned(),
-                    None => {
-                        let content = format!(
-                            "`{}`'s country {} is not supported :(",
-                            user.username, user.country
-                        );
-                        return msg.error(&ctx, content).await;
-                    }
+                if SNIPE_COUNTRIES.contains_key(user.country.as_str()) {
+                    user.country.to_owned()
+                } else {
+                    let content = format!(
+                        "`{}`'s country {} is not supported :(",
+                        user.username, user.country
+                    );
+                    return msg.error(&ctx, content).await;
                 }
             }
             None => {
@@ -102,10 +100,7 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
             None
         }
     };
-    let country = SNIPE_COUNTRIES
-        .iter()
-        .find(|(_, c)| c.snipe == country)
-        .map(|(_, country)| country);
+    let country = SNIPE_COUNTRIES.get(country.as_str());
     let data = CountrySnipeStatsEmbed::new(country, differences, unplayed as u64);
 
     // Sending the embed
