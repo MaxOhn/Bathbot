@@ -20,6 +20,7 @@ lazy_static::lazy_static! {
         add("Chile", "CL");
         add("China", "CN");
         add("Colombia", "CO");
+        add("Czech Republic", "CZ");
         add("Denmark", "DK");
         add("Finland", "FI");
         add("France", "FR");
