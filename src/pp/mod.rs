@@ -167,20 +167,29 @@ fn calculate_oppai(
 
     let mut oppai = Oppai::new();
     oppai.set_mods(score.mods().bits());
-    if calcs.contains(Calculations::MAX_PP) {
+    let calculated = if calcs.contains(Calculations::MAX_PP) {
         oppai.calculate(map_path.as_str())?;
         max_pp = Some(oppai.get_pp());
+        true
+    } else {
+        false
+    };
+
+    // Needs to be done before PP in case of fail i.e. partial pass
+    if calcs.contains(Calculations::STARS) {
+        if !calculated {
+            oppai.calculate(map_path.as_str())?;
+        }
+        stars = Some(oppai.get_stars());
     }
+
     if calcs.contains(Calculations::PP) {
         oppai.set_miss_count(score.count_miss());
         oppai.set_hits(score.count_100(), score.count_50());
         oppai.set_combo(score.max_combo());
         oppai.set_end_index(score.hits(map.mode()));
-        oppai.calculate(map_path.as_str())?.get_pp();
+        oppai.calculate(map_path.as_str())?;
         pp = Some(oppai.get_pp());
-    }
-    if calcs.contains(Calculations::STARS) {
-        stars = Some(oppai.get_stars());
     }
 
     Ok((pp, max_pp, stars))
