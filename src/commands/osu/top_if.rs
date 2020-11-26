@@ -180,21 +180,22 @@ async fn topif_main(
         };
         if changed {
             score.pp = None;
-            let mut calculator = PPCalculator::new().score(&*score).map(&*map);
-            if let Err(why) = calculator.calculate(Calculations::all(), Some(&ctx)).await {
-                unwind_error!(
-                    warn,
-                    why,
-                    "Error while calculating pp for topif {}: {}",
-                    mode
-                );
-            }
-            score.pp = calculator
-                .pp()
-                .map(|val| if val.is_infinite() { 0.0 } else { val });
+            let (pp, stars) = {
+                let mut calculator = PPCalculator::new().score(&*score).map(&*map);
+                if let Err(why) = calculator.calculate(Calculations::all(), Some(&ctx)).await {
+                    unwind_error!(
+                        warn,
+                        why,
+                        "Error while calculating pp for topif {}: {}",
+                        mode
+                    );
+                }
+                (calculator.pp(), calculator.stars())
+            };
+            score.pp = pp.map(|val| if val.is_infinite() { 0.0 } else { val });
             score.recalculate_grade(mode, None);
             if score.enabled_mods.changes_stars(mode) {
-                if let Some(stars) = calculator.stars() {
+                if let Some(stars) = stars {
                     map.stars = stars;
                 }
             }

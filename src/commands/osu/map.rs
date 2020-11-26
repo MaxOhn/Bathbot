@@ -218,7 +218,7 @@ async fn oppai_values(map_id: u32, mods: GameMods) -> BotResult<(Vec<u32>, Vec<f
     // Prepare oppai
     let map_path = prepare_beatmap_file(map_id).await?;
     let mut oppai = Oppai::new();
-    oppai.set_mods(mods.bits()).calculate(&map_path)?;
+    oppai.set_mods(mods.bits()).calculate(map_path.as_str())?;
     const MAX_COUNT: usize = 1000;
     let object_count = oppai.get_object_count();
     let mods = oppai.get_mods();

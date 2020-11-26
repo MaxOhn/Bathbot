@@ -6,7 +6,7 @@ use crate::{
 use rosu::model::{GameMode, GameMods, Grade, Score};
 use std::fmt::Write;
 
-pub trait ScoreExt: Sized {
+pub trait ScoreExt: Send + Sync {
     // Required to implement
     fn count_miss(&self) -> u32;
     fn count_50(&self) -> u32;

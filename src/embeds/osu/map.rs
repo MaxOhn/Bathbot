@@ -78,7 +78,7 @@ impl MapEmbed {
                     .iter()
                     .copied()
                     .map(|acc| {
-                        oppai.set_accuracy(acc).calculate(&map_path)?;
+                        oppai.set_accuracy(acc).calculate(map_path.as_str())?;
                         Ok(oppai.get_pp())
                     })
                     .collect::<Result<Vec<_>, OppaiErr>>();

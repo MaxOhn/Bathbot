@@ -97,12 +97,9 @@ impl Oppai {
     /// otherwise it returns an Err
     ///
     /// oppai-ng: if map is "-" the map is read from standard input
-    pub fn calculate(&mut self, map_path: &str) -> Result<&mut Self, OppaiErr> {
+    pub fn calculate(&mut self, map_path: impl Into<Vec<u8>>) -> Result<&mut Self, OppaiErr> {
         let file_content = CString::new(map_path).map_err(|why| {
-            OppaiErr::Format(format!(
-                "Could not translate {} to CString: {}",
-                map_path, why
-            ))
+            OppaiErr::Format(format!("Could not translate map_path to CString: {}", why))
         })?;
         match unsafe { ezpp(self.ezpp, file_content.as_ptr() as *mut _) } {
             code if code < 0 => {

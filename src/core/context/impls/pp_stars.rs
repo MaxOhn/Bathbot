@@ -4,6 +4,8 @@ use rosu::model::GameMode;
 use tokio::sync::Mutex;
 
 impl Context {
+    /// TODO: Remove
+    #[allow(dead_code)]
     pub fn pp(&self, mode: GameMode) -> &Values {
         match mode {
             GameMode::MNA => &self.data.stored_values.mania_pp,

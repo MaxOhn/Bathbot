@@ -2,12 +2,15 @@ use crate::custom_client::OsuStatsMap;
 
 use rosu::model::{ApprovalStatus, Beatmap, GameMode};
 
-pub trait BeatmapExt {
+pub trait BeatmapExt: Send + Sync {
     fn max_combo(&self) -> Option<u32>;
     fn map_id(&self) -> u32;
     fn mode(&self) -> GameMode;
     fn stars(&self) -> Option<f32>;
     fn approval_status(&self) -> ApprovalStatus;
+    fn n_objects(&self) -> Option<u32>;
+    fn od(&self) -> f32;
+    fn ar(&self) -> f32;
 }
 
 impl BeatmapExt for &Beatmap {
@@ -26,6 +29,15 @@ impl BeatmapExt for &Beatmap {
     fn approval_status(&self) -> ApprovalStatus {
         self.approval_status
     }
+    fn n_objects(&self) -> Option<u32> {
+        Some(self.count_objects())
+    }
+    fn od(&self) -> f32 {
+        self.diff_od
+    }
+    fn ar(&self) -> f32 {
+        self.diff_ar
+    }
 }
 
 impl BeatmapExt for &OsuStatsMap {
@@ -43,5 +55,14 @@ impl BeatmapExt for &OsuStatsMap {
     }
     fn approval_status(&self) -> ApprovalStatus {
         self.approval_status
+    }
+    fn n_objects(&self) -> Option<u32> {
+        None
+    }
+    fn od(&self) -> f32 {
+        self.diff_od
+    }
+    fn ar(&self) -> f32 {
+        self.diff_ar
     }
 }

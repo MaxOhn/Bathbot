@@ -13,13 +13,14 @@
 
 **[Sometime]**
 - Add `Icon from syedhassan - pngtree.com` to README
-- Improve mania and ctb pp and star calculation
+- Improve mania and ctb star calculation
 - `<nochokesctb` (https://pakachan.github.io/osustuff/ppcalculator.html) (investigate)
 - `<nochokestaiko` (slider maps have no max combo)
 - Write peppy a mail
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Improve mania and ctb pp calculation~~ (20.11.26)
 - ~~Import `sqlx` from crates.io~~ (20.11.25)
 - ~~Note in `<mc` footer about comparing values~~ (20.11.24)
 - ~~Guild counter decrement missing somewhere in cache~~ (20.11.18)

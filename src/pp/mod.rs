@@ -9,7 +9,7 @@ use crate::{
 
 use bitflags::bitflags;
 use rosu::model::{
-    ApprovalStatus::{self, Approved, Loved, Ranked},
+    ApprovalStatus::{Approved, Loved, Ranked},
     GameMode, GameMods,
 };
 use std::{collections::HashMap, str::FromStr};
@@ -23,83 +23,69 @@ bitflags! {
     }
 }
 
-#[derive(Default)]
-pub struct PPCalculator {
-    count_300: Option<u32>,
-    count_100: Option<u32>,
-    count_50: Option<u32>,
-    count_miss: Option<u32>,
-    max_combo_score: Option<u32>,
-    mods: Option<GameMods>,
-    score: Option<u32>,
+type TripleOption = (Option<f32>, Option<f32>, Option<f32>);
 
-    map_id: Option<u32>,
-    mode: Option<GameMode>,
-    max_combo_map: Option<u32>,
-    default_stars: Option<f32>,
-    approval_status: Option<ApprovalStatus>,
+pub struct PPCalculator<'s, 'm> {
+    score: Option<Box<dyn ScoreExt + 's>>,
+    map: Option<Box<dyn BeatmapExt + 'm>>,
 
     pp: Option<f32>,
     max_pp: Option<f32>,
     stars: Option<f32>,
 }
 
-impl PPCalculator {
+impl<'s, 'm> PPCalculator<'s, 'm> {
     pub fn new() -> Self {
-        Self::default()
-    }
-    pub fn score(mut self, score: impl ScoreExt) -> Self {
-        self.count_300 = Some(score.count_300());
-        self.count_100 = Some(score.count_100());
-        self.count_50 = Some(score.count_50());
-        self.count_miss = Some(score.count_miss());
-        self.max_combo_score = Some(score.max_combo());
-        self.mods = Some(score.mods());
-        self.score = Some(score.score());
-        self.pp = score.pp();
-        self
-    }
-    pub fn map(mut self, map: impl BeatmapExt) -> Self {
-        self.map_id = Some(map.map_id());
-        self.max_combo_map = map.max_combo();
-        self.mode = Some(map.mode());
-        self.default_stars = map.stars();
-        self.approval_status = Some(map.approval_status());
-        self
-    }
-    fn total_hits_oppai(&self) -> Option<u32> {
-        let mut amount = self.count_300? + self.count_100? + self.count_miss?;
-        if self.mode? == GameMode::STD {
-            amount += self.count_50?;
+        Self {
+            score: None,
+            map: None,
+            pp: None,
+            max_pp: None,
+            stars: None,
         }
-        Some(amount)
     }
-    pub async fn calculate(
-        &mut self,
-        calculations: Calculations,
-        ctx: Option<&Context>,
-    ) -> BotResult<()> {
-        let map_path = match self.map_id {
-            Some(map_id) => prepare_beatmap_file(map_id).await?,
+    pub fn score(mut self, score: impl ScoreExt + 's) -> Self {
+        self.score.replace(Box::new(score));
+        self
+    }
+    pub fn map(mut self, map: impl BeatmapExt + 'm) -> Self {
+        self.map.replace(Box::new(map));
+        self
+    }
+    pub async fn calculate(&mut self, calcs: Calculations, ctx: Option<&Context>) -> BotResult<()> {
+        assert_ne!(calcs.bits, 0);
+        let map = match self.map.as_deref() {
+            Some(map) => map,
             None => return Err(PPError::NoMapId.into()),
         };
-        let (pp, max_pp, stars) = tokio::join!(
-            calculate_pp(&self, calculations, &map_path, ctx),
-            calculate_max_pp(&self, calculations, &map_path, ctx),
-            calculate_stars(&self, calculations, &map_path, ctx)
-        );
-        if let Ok(Some(pp)) = pp {
-            self.pp = Some(pp);
+        let score = self.score.as_deref().ok_or(PPError::NoScore)?;
+        let map_path = prepare_beatmap_file(map.map_id()).await?;
+        let (pp, max_pp, stars) = match map.mode() {
+            GameMode::STD | GameMode::TKO => calculate_oppai(calcs, score, map, map_path)?,
+            mode => {
+                let ctx = ctx.ok_or(PPError::NoContext(mode))?;
+                let stars = self
+                    .calculate_osu_tools_stars(ctx, map_path, mode)
+                    .await
+                    .map_err(Box::new)
+                    .map_err(PPError::Stars)?
+                    .unwrap_or_default();
+                if mode == GameMode::MNA {
+                    calculate_mania(calcs, stars, score, map)
+                } else {
+                    calculate_ctb(calcs, stars, score, map)
+                }
+            }
+        };
+        if let Some(pp) = pp {
+            self.pp.replace(pp);
         }
-        if let Ok(Some(max_pp)) = max_pp {
-            self.max_pp = Some(max_pp);
+        if let Some(pp) = max_pp {
+            self.max_pp.replace(pp);
         }
-        if let Ok(Some(stars)) = stars {
-            self.stars = Some(stars);
+        if let Some(stars) = stars {
+            self.stars.replace(stars);
         }
-        pp.map_err(|e| PPError::PP(Box::new(e)))?;
-        max_pp.map_err(|e| PPError::MaxPP(Box::new(e)))?;
-        stars.map_err(|e| PPError::Stars(Box::new(e)))?;
         Ok(())
     }
 
@@ -112,237 +98,354 @@ impl PPCalculator {
     pub fn stars(&self) -> Option<f32> {
         self.stars
     }
+
+    async fn calculate_osu_tools_stars(
+        &self,
+        ctx: &Context,
+        map_path: String,
+        mode: GameMode,
+    ) -> Result<Option<f32>, PPError> {
+        // Note: If self.map was None, preparing the map_path would have panicked already
+        let map = self.map.as_ref().unwrap();
+        let mods = self.score.as_ref().map(|score| score.mods());
+
+        // If mods dont change stars, return default stars
+        if let Some(mods) = mods {
+            if !mods.changes_stars(mode) && map.stars().is_some() {
+                return Ok(map.stars());
+            }
+        }
+
+        // Is value already stored?
+        let star_option = ctx.stars(mode).get(&map.map_id()).and_then(|mod_map| {
+            mod_map
+                .get(&mods.unwrap_or_default())
+                .map(|(stars, _)| *stars)
+        });
+        if let Some(stars) = star_option {
+            return Ok(Some(stars));
+        }
+        let mut cmd = Command::new("dotnet");
+        cmd.kill_on_drop(true)
+            .arg(CONFIG.get().unwrap().perf_calc_path.as_os_str())
+            .arg("difficulty")
+            .arg(map_path);
+        if let Some(mods) = mods {
+            if !mods.is_empty() {
+                for m in mods.iter().filter(|&m| m != GameMods::ScoreV2) {
+                    cmd.arg("-m").arg(m.to_string());
+                }
+            }
+        }
+        let stars = parse_calculation(cmd, ctx).await?;
+        // Store value
+        if let Ranked | Loved | Approved = map.approval_status() {
+            ctx.stars(mode)
+                .entry(map.map_id())
+                .and_modify(|value_map| {
+                    value_map.insert(mods.unwrap_or_default(), (stars, true));
+                })
+                .or_insert_with(|| {
+                    let mut value_map = HashMap::new();
+                    value_map.insert(mods.unwrap_or_default(), (stars, true));
+                    value_map
+                });
+        }
+        Ok(Some(stars))
+    }
 }
 
-async fn calculate_pp(
-    data: &PPCalculator,
-    calculations: Calculations,
-    map_path: &str,
-    ctx: Option<&Context>,
-) -> Result<Option<f32>, PPError> {
-    // Do we want to calculate pp?
-    if !calculations.contains(Calculations::PP) {
-        return Ok(None);
+fn calculate_oppai(
+    calcs: Calculations,
+    score: &dyn ScoreExt,
+    map: &dyn BeatmapExt,
+    map_path: String,
+) -> BotResult<TripleOption> {
+    let mut pp = None;
+    let mut max_pp = None;
+    let mut stars = None;
+
+    let mut oppai = Oppai::new();
+    oppai.set_mods(score.mods().bits());
+    if calcs.contains(Calculations::MAX_PP) {
+        oppai.calculate(map_path.as_str())?;
+        max_pp = Some(oppai.get_pp());
     }
-    // Is pp value already present?
-    if data.pp.is_some() {
-        return Ok(data.pp);
+    if calcs.contains(Calculations::PP) {
+        oppai.set_miss_count(score.count_miss());
+        oppai.set_hits(score.count_100(), score.count_50());
+        oppai.set_combo(score.max_combo());
+        oppai.set_end_index(score.hits(map.mode()));
+        oppai.calculate(map_path.as_str())?.get_pp();
+        pp = Some(oppai.get_pp());
     }
-    let mode = data.mode.unwrap();
-    // Distinguish between mods
-    let pp = match mode {
-        // Oppai for STD and TKO
-        GameMode::STD | GameMode::TKO => {
-            let mut oppai = Oppai::new();
-            if let Some(mods) = data.mods {
-                oppai.set_mods(mods.bits());
-            }
-            if let Some(count_miss) = data.count_miss {
-                oppai.set_miss_count(count_miss);
-            }
-            if let Some(count_100) = data.count_100 {
-                if let Some(count_50) = data.count_50 {
-                    oppai.set_hits(count_100, count_50);
-                }
-            }
-            if let Some(max_combo) = data.max_combo_score {
-                oppai.set_combo(max_combo);
-            }
-            if let Some(total_hits) = data.total_hits_oppai() {
-                oppai.set_end_index(total_hits);
-            }
-            oppai.calculate(map_path)?.get_pp()
-        }
-        // osu-tools for MNA and CTB
-        GameMode::MNA | GameMode::CTB => {
-            let ctx = ctx.ok_or(PPError::NoContext(mode))?;
-            let mut cmd = Command::new("dotnet");
-            cmd.kill_on_drop(true)
-                .arg(CONFIG.get().unwrap().perf_calc_path.as_os_str())
-                .arg("simulate");
-            match mode {
-                GameMode::MNA => cmd.arg("mania"),
-                GameMode::CTB => cmd.arg("catch"),
-                _ => unreachable!(),
-            };
-            cmd.arg(map_path);
-            if let Some(mods) = data.mods {
-                if !mods.is_empty() {
-                    for m in mods.iter().filter(|&m| m != GameMods::ScoreV2) {
-                        cmd.arg("-m").arg(m.to_string());
-                    }
-                }
-            }
-            if mode == GameMode::MNA {
-                if let Some(score) = data.score {
-                    cmd.arg("-s").arg(score.to_string());
-                }
-            } else if mode == GameMode::CTB {
-                if let Some(combo) = data.max_combo_score {
-                    cmd.arg("-c").arg(combo.to_string());
-                }
-                if let Some(misses) = data.count_miss {
-                    cmd.arg("-X").arg(misses.to_string());
-                }
-                if let Some(count_100) = data.count_100 {
-                    cmd.arg("-D").arg(count_100.to_string());
-                }
-                if let Some(count_50) = data.count_50 {
-                    cmd.arg("-T").arg(count_50.to_string());
-                }
-            }
-            parse_calculation(cmd, ctx).await?
-        }
+    if calcs.contains(Calculations::STARS) {
+        stars = Some(oppai.get_stars());
+    }
+
+    Ok((pp, max_pp, stars))
+}
+
+fn calculate_mania(
+    calcs: Calculations,
+    stars: f32,
+    score: &dyn ScoreExt,
+    map: &dyn BeatmapExt,
+) -> TripleOption {
+    let mods = score.mods();
+    let ez = mods.contains(GameMods::Easy);
+    let nf = mods.contains(GameMods::NoFail);
+    let ht = mods.contains(GameMods::HalfTime);
+
+    let nerf_od = if ez { 0.5 } else { 1.0 };
+    let nerf_pp = nerf_od * if nf { 0.9 } else { 1.0 };
+    let nerf_score = 0.5_f32.powi(ez as i32 + nf as i32 + ht as i32);
+
+    let n_objects = map.n_objects().unwrap_or_else(|| score.hits(GameMode::MNA));
+    let score = score.score() as f32 / nerf_score;
+    let od = map.od() / nerf_od;
+
+    let mut pp = None;
+    let mut max_pp = None;
+
+    if calcs.contains(Calculations::PP) {
+        pp = Some(mania_pp(score, n_objects, stars, od, nerf_od, nerf_pp));
+    }
+    if calcs.contains(Calculations::MAX_PP) {
+        max_pp = Some(mania_pp(
+            1_000_000.0,
+            n_objects,
+            stars,
+            od,
+            nerf_od,
+            nerf_pp,
+        ));
+    }
+
+    (pp, max_pp, Some(stars))
+}
+
+// Formula from http://maniapp.uy.to/ (2020.11.26)
+fn mania_pp(score: f32, n_objects: u32, stars: f32, od: f32, nerf_od: f32, nerf_pp: f32) -> f32 {
+    let strain_multiplier = if score < 500_000.0 {
+        return 0.0;
+    } else if score < 600_000.0 {
+        (score - 500_000.0) / 100_000.0 * 0.3
+    } else if score < 700_000.0 {
+        (score - 600_000.0) / 100_000.0 * 0.25 + 0.3
+    } else if score < 800_000.0 {
+        (score - 700_000.0) / 100_000.0 * 0.2 + 0.55
+    } else if score < 900_000.0 {
+        (score - 800_000.0) / 100_000.0 * 0.15 + 0.75
+    } else {
+        (score - 900_000.0) / 100_000.0 * 0.1 + 0.9
     };
-    Ok(Some(pp))
+
+    let strain_base = (5.0 * (stars * 5.0).max(1.0) - 4.0).powf(2.2) / 135.0
+        * (1.0 + (n_objects as f32 / 15_000.0).min(0.1));
+
+    let acc_value = if score >= 960_000.0 {
+        od * nerf_od * 0.02 * strain_base * ((score - 960_000.0) / 40_000.0).powf(1.1)
+    } else {
+        0.0
+    };
+
+    0.73 * (acc_value.powf(1.1) + (strain_base * strain_multiplier).powf(1.1)).powf(1.0 / 1.1)
+        * 1.1
+        * nerf_pp
 }
 
-async fn calculate_max_pp(
-    data: &PPCalculator,
-    calculations: Calculations,
-    map_path: &str,
-    ctx: Option<&Context>,
-) -> Result<Option<f32>, PPError> {
-    // Do we want to calculate max pp?
-    if !calculations.contains(Calculations::MAX_PP) {
-        return Ok(None);
+fn calculate_ctb(
+    calcs: Calculations,
+    stars: f32,
+    score: &dyn ScoreExt,
+    map: &dyn BeatmapExt,
+) -> TripleOption {
+    let acc = score.acc(GameMode::CTB);
+    let combo = score.max_combo();
+    let max_combo = map.max_combo().unwrap_or(combo);
+    let misses = score.count_miss();
+    let ar = map.ar();
+    let mods = score.mods();
+
+    let mut pp = None;
+    let mut max_pp = None;
+
+    if calcs.contains(Calculations::PP) {
+        pp = Some(ctb_pp(stars, acc, combo, max_combo, misses, ar, mods));
     }
-    let map_id = data.map_id.unwrap();
-    let mode = data.mode.unwrap();
-    // Distinguish between mods
-    match mode {
-        // Oppai for STD and TKO
-        GameMode::STD | GameMode::TKO => {
-            let mut oppai = Oppai::new();
-            if let Some(mods) = data.mods {
-                oppai.set_mods(mods.bits());
-            }
-            Ok(Some(oppai.calculate(map_path)?.get_pp()))
-        }
-        // osu-tools for MNA and CTB
-        GameMode::MNA | GameMode::CTB => {
-            let ctx = ctx.ok_or(PPError::NoContext(mode))?;
-            // Is value already stored?
-            let mods = data.mods.unwrap_or_default();
-            let stored = ctx.pp(mode);
-            if let Some(max_pp) = stored
-                .get(&map_id)
-                .and_then(|mod_map| mod_map.get(&mods).map(|(max_pp, _)| *max_pp))
-            {
-                return Ok(Some(max_pp));
-            }
-            // If not, calculate
-            let mut cmd = Command::new("dotnet");
-            cmd.kill_on_drop(true)
-                .arg(CONFIG.get().unwrap().perf_calc_path.as_os_str())
-                .arg("simulate");
-            match mode {
-                GameMode::MNA => cmd.arg("mania"),
-                GameMode::CTB => cmd.arg("catch"),
-                _ => unreachable!(),
-            };
-            cmd.arg(map_path);
-            if let Some(mods) = data.mods {
-                if !mods.is_empty() {
-                    for m in mods.iter().filter(|&m| m != GameMods::ScoreV2) {
-                        cmd.arg("-m").arg(m.to_string());
-                    }
-                }
-            }
-            if mode == GameMode::MNA {
-                if let Some(mods) = data.mods {
-                    cmd.arg("-s")
-                        .arg(((1_000_000.0 * mods.score_multiplier(mode)) as u32).to_string());
-                }
-            }
-            let max_pp = parse_calculation(cmd, ctx).await?;
-            // Store value
-            if let Ranked | Loved | Approved = data.approval_status.unwrap() {
-                let mods = data.mods.unwrap_or_default();
-                ctx.pp(mode)
-                    .entry(map_id)
-                    .and_modify(|value_map| {
-                        value_map.insert(mods, (max_pp, true));
-                    })
-                    .or_insert_with(|| {
-                        let mut value_map = HashMap::new();
-                        value_map.insert(mods, (max_pp, true));
-                        value_map
-                    });
-            }
-            Ok(Some(max_pp))
-        }
+    if calcs.contains(Calculations::MAX_PP) {
+        max_pp = Some(ctb_pp(stars, acc, max_combo, max_combo, 0, ar, mods));
     }
+
+    (pp, max_pp, Some(stars))
 }
 
-async fn calculate_stars(
-    data: &PPCalculator,
-    calculations: Calculations,
-    map_path: &str,
-    ctx: Option<&Context>,
-) -> Result<Option<f32>, PPError> {
-    if !calculations.contains(Calculations::STARS) {
-        return Ok(None);
+// Formula from https://pakachan.github.io/osustuff/ppcalculator.html (2020.11.26)
+fn ctb_pp(
+    stars: f32,
+    acc: f32,
+    combo: u32,
+    max_combo: u32,
+    misses: u32,
+    ar: f32,
+    mods: GameMods,
+) -> f32 {
+    let mut pp = (5.0 * stars / 0.0049 - 4.0).powi(2) / 100_000.0;
+
+    // Length bonus
+    let mut length_bonus = 0.95 + 0.3 * (max_combo as f32 / 2500.0).min(1.0);
+    if max_combo > 2500 {
+        length_bonus += (max_combo as f32 / 2500.0).log10() * 0.475;
     }
-    if let Some(mode) = data.mode {
-        if let Some(mods) = data.mods {
-            if !mods.changes_stars(mode) && data.default_stars.is_some() {
-                return Ok(data.default_stars);
-            }
+    pp *= length_bonus;
+
+    // Miss penalty
+    pp *= 0.97_f32.powi(misses as i32);
+
+    // No FC penalty
+    pp *= (combo as f32 / max_combo as f32).powf(0.8);
+
+    // AR bonus
+    let mut ar_bonus = 1.0;
+    if ar > 9.0 {
+        ar_bonus += 0.1 * (ar - 9.0);
+        if ar > 10.0 {
+            ar_bonus += 0.1 * (ar - 10.0);
         }
+    } else if ar < 8.0 {
+        ar_bonus += 0.025 * (8.0 - ar);
     }
-    let mode = data.mode.unwrap();
-    let map_id = data.map_id.unwrap();
-    match mode {
-        GameMode::STD | GameMode::TKO => {
-            let mut oppai = Oppai::new();
-            if let Some(mods) = data.mods {
-                oppai.set_mods(mods.bits());
-            }
-            Ok(Some(oppai.calculate(map_path)?.get_stars()))
-        }
-        GameMode::MNA | GameMode::CTB => {
-            let ctx = ctx.ok_or(PPError::NoContext(mode))?;
-            // Is value already stored?
-            let mods = data.mods.unwrap_or_default();
-            let stored = ctx.stars(mode);
-            if let Some(stars) = stored
-                .get(&map_id)
-                .and_then(|mod_map| mod_map.get(&mods).map(|(stars, _)| *stars))
-            {
-                return Ok(Some(stars));
-            }
-            let mut cmd = Command::new("dotnet");
-            cmd.kill_on_drop(true)
-                .arg(CONFIG.get().unwrap().perf_calc_path.as_os_str())
-                .arg("difficulty")
-                .arg(map_path);
-            if let Some(mods) = data.mods {
-                if !mods.is_empty() {
-                    for m in mods.iter().filter(|&m| m != GameMods::ScoreV2) {
-                        cmd.arg("-m").arg(m.to_string());
-                    }
-                }
-            }
-            let stars = parse_calculation(cmd, ctx).await?;
-            // Store value
-            if let Ranked | Loved | Approved = data.approval_status.unwrap() {
-                let mods = data.mods.unwrap_or_default();
-                ctx.stars(mode)
-                    .entry(map_id)
-                    .and_modify(|value_map| {
-                        value_map.insert(mods, (stars, true));
-                    })
-                    .or_insert_with(|| {
-                        let mut value_map = HashMap::new();
-                        value_map.insert(mods, (stars, true));
-                        value_map
-                    });
-            }
-            Ok(Some(stars))
-        }
+    pp *= ar_bonus;
+
+    // Acc penalty
+    pp *= (acc / 100.0).powf(5.5);
+
+    // Hidden bonus
+    if mods.contains(GameMods::Hidden) {
+        let hidden_bonus = if ar > 10.0 {
+            1.01 + 0.04 * (11.0 - ar.min(11.0))
+        } else {
+            1.05 + 0.075 * (10.0 - ar)
+        };
+        pp *= hidden_bonus;
     }
+
+    // Flashlight bonus
+    if mods.contains(GameMods::Flashlight) {
+        pp *= 1.35 * length_bonus;
+    }
+
+    pp
 }
+
+// async fn calculate_pp(
+//     data: &PPCalculator,
+//     calculations: Calculations,
+//     map_path: &str,
+//     ctx: Option<&Context>,
+// ) -> Result<Option<f32>, PPError> {
+//     // Do we want to calculate pp?
+//     if !calculations.contains(Calculations::PP) {
+//         return Ok(None);
+//     }
+//     // Is pp value already present?
+//     if data.pp.is_some() {
+//         return Ok(data.pp);
+//     }
+//     let mode = data.mode.unwrap();
+//     // Distinguish between mods
+//     let pp = match mode {
+//         // Oppai for STD and TKO
+//         GameMode::STD | GameMode::TKO => {
+//             let mut oppai = Oppai::new();
+//             if let Some(mods) = data.mods {
+//                 oppai.set_mods(mods.bits());
+//             }
+//             if let Some(count_miss) = data.count_miss {
+//                 oppai.set_miss_count(count_miss);
+//             }
+//             if let Some(count_100) = data.count_100 {
+//                 if let Some(count_50) = data.count_50 {
+//                     oppai.set_hits(count_100, count_50);
+//                 }
+//             }
+//             if let Some(max_combo) = data.max_combo_score {
+//                 oppai.set_combo(max_combo);
+//             }
+//             if let Some(total_hits) = data.total_hits_oppai() {
+//                 oppai.set_end_index(total_hits);
+//             }
+//             oppai.calculate(map_path)?.get_pp()
+//         }
+//         // osu-tools for MNA and CTB
+//         GameMode::MNA | GameMode::CTB => {
+//              // UNNECESSARY
+//         }
+//     };
+//     Ok(Some(pp))
+// }
+
+// async fn calculate_max_pp(
+//     data: &PPCalculator,
+//     calculations: Calculations,
+//     map_path: &str,
+//     ctx: Option<&Context>,
+// ) -> Result<Option<f32>, PPError> {
+//     // Do we want to calculate max pp?
+//     if !calculations.contains(Calculations::MAX_PP) {
+//         return Ok(None);
+//     }
+//     let map_id = data.map_id.unwrap();
+//     let mode = data.mode.unwrap();
+//     // Distinguish between mods
+//     match mode {
+//         // Oppai for STD and TKO
+//         GameMode::STD | GameMode::TKO => {
+//             let mut oppai = Oppai::new();
+//             if let Some(mods) = data.mods {
+//                 oppai.set_mods(mods.bits());
+//             }
+//             Ok(Some(oppai.calculate(map_path)?.get_pp()))
+//         }
+//         // osu-tools for MNA and CTB
+//         GameMode::MNA | GameMode::CTB => {
+//              // UNNECESSARY
+//         }
+//     }
+// }
+
+// async fn calculate_stars(
+//     data: &PPCalculator,
+//     calculations: Calculations,
+//     map_path: &str,
+//     ctx: Option<&Context>,
+// ) -> Result<Option<f32>, PPError> {
+//     if !calculations.contains(Calculations::STARS) {
+//         return Ok(None);
+//     }
+//     if let Some(mode) = data.mode {
+//         if let Some(mods) = data.mods {
+//             if !mods.changes_stars(mode) && data.default_stars.is_some() {
+//                 return Ok(data.default_stars);
+//             }
+//         }
+//     }
+//     let mode = data.mode.unwrap();
+//     let map_id = data.map_id.unwrap();
+//     match mode {
+//         GameMode::STD | GameMode::TKO => {
+//             let mut oppai = Oppai::new();
+//             if let Some(mods) = data.mods {
+//                 oppai.set_mods(mods.bits());
+//             }
+//             Ok(Some(oppai.calculate(map_path)?.get_stars()))
+//         }
+//         GameMode::MNA | GameMode::CTB => {
+//             // DONE
+//         }
+//     }
+// }
 
 async fn parse_calculation(mut cmd: Command, ctx: &Context) -> Result<f32, PPError> {
     let calculation = time::timeout(time::Duration::from_secs(10), cmd.output());
