@@ -12,6 +12,7 @@
 - Add commands for most sniped user / user who sniped some1 the most
 - Rewrite `<top` arguments to take ranges just like `<osg`
 - Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id
+- Add command `<roll [upper limit]`
 
 **[Sometime]**
 - Add `Icon from syedhassan - pngtree.com` to README

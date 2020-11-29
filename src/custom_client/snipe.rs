@@ -1,10 +1,10 @@
 use super::deserialize::{expect_negative_u32, str_to_maybe_datetime};
 use crate::util::osu::ModSelection;
 
-use chrono::{offset::TimeZone, Date, DateTime, Utc};
+use chrono::{offset::TimeZone, Date, DateTime, NaiveDate, Utc};
 use rosu::model::{GameMode, GameMods};
 use serde::{
-    de::{Deserializer, Error, IgnoredAny, MapAccess, Visitor},
+    de::{Deserializer, Error, IgnoredAny, MapAccess, Unexpected, Visitor},
     Deserialize,
 };
 use std::{
@@ -156,8 +156,8 @@ pub struct SnipePlayerOldest {
 
 #[derive(Debug)]
 pub struct SnipeRecent {
-    pub sniped: String,
-    pub sniped_id: u32,
+    pub sniped: Option<String>,
+    pub sniped_id: Option<u32>,
     pub sniper: String,
     pub sniper_id: u32,
     pub mods: GameMods,
@@ -165,7 +165,7 @@ pub struct SnipeRecent {
     pub map: String,
     pub date: DateTime<Utc>,
     pub accuracy: f32,
-    pub stars: f32,
+    pub stars: Option<f32>,
 }
 
 impl<'de> Deserialize<'de> for SnipeRecent {
@@ -195,35 +195,22 @@ impl<'de> Deserialize<'de> for SnipeRecent {
                 let mut beatmap = None;
                 let mut date: Option<String> = None;
                 let mut accuracy = None;
-                let mut sr_map: Option<HashMap<GameMods, f32>> = None;
+                let mut sr_map: Option<HashMap<GameMods, Option<f32>>> = None;
                 while let Some(key) = map.next_key()? {
                     match key {
-                        "_id" | "country" => {
-                            let _: String = map.next_value()?;
-                        }
-                        "__v" => {
-                            let _: f32 = map.next_value()?;
-                        }
                         "date" => date = Some(map.next_value()?),
                         "map_id" => beatmap_id = Some(map.next_value()?),
                         "sniped" => sniped = Some(map.next_value()?),
                         "sniped_id" => sniped_id = Some(map.next_value()?),
                         "sniper" => sniper = Some(map.next_value()?),
                         "sniper_id" => sniper_id = Some(map.next_value()?),
-                        "mods" => {
-                            let mods_str: String = map.next_value()?;
-                            mods = match mods_str.as_str() {
-                                "nomod" => Some(GameMods::NoMod),
-                                other => Some(GameMods::from_str(other).unwrap_or_else(|_| {
-                                    debug!("Couldn't deserialize `{}` into GameMods", other);
-                                    GameMods::NoMod
-                                })),
-                            };
-                        }
+                        "mods" => mods = Some(map.next_value()?),
                         "accuracy" => accuracy = Some(map.next_value()?),
                         "map" => beatmap = Some(map.next_value()?),
                         "sr" => sr_map = Some(map.next_value()?),
-                        _ => info!("Found unexpected key `{}`", key),
+                        _ => {
+                            let _ = map.next_value::<IgnoredAny>();
+                        }
                     }
                 }
                 let mods = mods.ok_or_else(|| Error::missing_field("mods"))?;
@@ -231,7 +218,7 @@ impl<'de> Deserialize<'de> for SnipeRecent {
                 let (_, stars) =
                     stars
                         .into_iter()
-                        .fold((0, 0.0), |(max_len, mod_sr), (curr_mods, sr)| {
+                        .fold((0, None), |(max_len, mod_sr), (curr_mods, sr)| {
                             let len = (mods & curr_mods).len();
                             if max_len < len {
                                 (len, sr)
@@ -245,9 +232,9 @@ impl<'de> Deserialize<'de> for SnipeRecent {
                 let sniper_id = sniper_id.ok_or_else(|| Error::missing_field("sniper_id"))?;
                 let beatmap_id = beatmap_id.ok_or_else(|| Error::missing_field("beatmap_id"))?;
                 let date = date.ok_or_else(|| Error::missing_field("date"))?;
-                let date = Utc.datetime_from_str(&date, "%F %T").unwrap_or_else(|why| {
-                    panic!("Could not parse date `{}`: {}", date, why);
-                });
+                let date = Utc.datetime_from_str(&date, "%F %T").map_err(|_| {
+                    Error::invalid_value(Unexpected::Str(&date), &"a date of the form `%F %T`")
+                })?;
                 let accuracy = accuracy.ok_or_else(|| Error::missing_field("accuracy"))?;
                 let beatmap = beatmap.ok_or_else(|| Error::missing_field("map"))?;
 
@@ -506,15 +493,8 @@ impl<'de> Visitor<'de> for SnipePlayerModVisitor {
         V: MapAccess<'de>,
     {
         let mut mod_count = Vec::new();
-        while let Some(key) = map.next_key()? {
-            let mods = match key {
-                "nomod" => GameMods::NoMod,
-                _ => GameMods::from_str(key).unwrap_or_else(|_| {
-                    debug!("Couldn't deserialize `{}` into GameMods", key);
-                    GameMods::NoMod
-                }),
-            };
-            mod_count.push((mods, map.next_value()?));
+        while let Some((mods, num)) = map.next_entry()? {
+            mod_count.push((mods, num));
         }
         Ok(mod_count)
     }
@@ -542,10 +522,10 @@ impl<'de> Visitor<'de> for SnipePlayerHistoryVisitor {
     {
         let mut history = BTreeMap::new();
         while let Some(key) = map.next_key()? {
-            let date = match chrono::NaiveDate::parse_from_str(key, "%F") {
-                Ok(datetime) => Date::from_utc(datetime, Utc),
-                Err(_) => return Err(Error::custom("could not parse date for history")),
-            };
+            let naive_date = NaiveDate::parse_from_str(key, "%F").map_err(|_| {
+                Error::invalid_value(Unexpected::Str(key), &"a date of  the form `%F`")
+            })?;
+            let date = Date::from_utc(naive_date, Utc);
             history.insert(date, map.next_value()?);
         }
         Ok(history)

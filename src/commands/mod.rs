@@ -60,6 +60,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &SOTARKS_CMD,
                 &MAPPER_CMD,
                 &TOPIF_CMD,
+                &SNIPED_CMD,
                 &PLAYERSNIPESTATS_CMD,
                 &PLAYERSNIPELIST_CMD,
                 &COUNTRYSNIPESTATS_CMD,

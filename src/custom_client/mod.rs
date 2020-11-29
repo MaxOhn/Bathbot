@@ -203,7 +203,7 @@ impl CustomClient {
         Ok((gain, loss))
     }
 
-    pub async fn _get_national_snipes(
+    pub async fn get_national_snipes(
         &self,
         user: &User,
         sniper: bool,
@@ -216,8 +216,8 @@ impl CustomClient {
             HUISMETBENEN,
             user.user_id,
             if sniper { "new" } else { "old" },
-            from.format(date_format).to_string(),
-            until.format(date_format).to_string()
+            from.format(date_format),
+            until.format(date_format)
         );
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
