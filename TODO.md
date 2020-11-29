@@ -10,6 +10,8 @@
 - Rewrite `<mc` calculation
 - Experiment with different team/opponent scaling for `<mc`
 - Add commands for most sniped user / user who sniped some1 the most
+- Rewrite `<top` arguments to take ranges just like `<osg`
+- Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id
 
 **[Sometime]**
 - Add `Icon from syedhassan - pngtree.com` to README

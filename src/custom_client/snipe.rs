@@ -54,7 +54,7 @@ impl SnipeScoreParams {
     pub fn new(user_id: u32, country_code: impl Into<String>) -> Self {
         Self {
             user_id,
-            country: country_code.into(),
+            country: country_code.into().to_lowercase(),
             page: 0,
             mode: GameMode::STD,
             order: SnipeScoreOrder::Pp,

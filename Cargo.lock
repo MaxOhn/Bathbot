@@ -2454,7 +2454,8 @@ dependencies = [
 [[package]]
 name = "rosu"
 version = "0.4.0"
-source = "git+https://github.com/MaxOhn/rosu?branch=api-rewrite#cbf0f2562d2a9dbbd51a888ce9ae8443f55641cc"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c97b0feb86c16520c088f77dc916e9c6787724c36de919c7d37f54b96a0f3ee8"
 dependencies = [
  "bitflags",
  "bytes 0.5.6",

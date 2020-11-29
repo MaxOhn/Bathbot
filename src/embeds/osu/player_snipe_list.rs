@@ -48,7 +48,7 @@ impl PlayerSnipeListEmbed {
                 .get(&score.beatmap_id)
                 .expect("missing beatmap for psl embed");
             let calculations = Calculations::MAX_PP;
-            let mut calculator = PPCalculator::new().map(map);
+            let mut calculator = PPCalculator::new().map(map).mods(score.mods);
             if let Err(why) = calculator.calculate(calculations, None).await {
                 unwind_error!(warn, why, "Error while calculating pp for psl: {}");
             }

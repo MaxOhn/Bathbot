@@ -29,6 +29,8 @@ pub struct PPCalculator<'s, 'm> {
     score: Option<Box<dyn ScoreExt + 's>>,
     map: Option<Box<dyn BeatmapExt + 'm>>,
 
+    mods: Option<GameMods>,
+
     pp: Option<f32>,
     max_pp: Option<f32>,
     stars: Option<f32>,
@@ -39,10 +41,15 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
         Self {
             score: None,
             map: None,
+            mods: None,
             pp: None,
             max_pp: None,
             stars: None,
         }
+    }
+    pub fn mods(mut self, mods: GameMods) -> Self {
+        self.mods.replace(mods);
+        self
     }
     pub fn score(mut self, score: impl ScoreExt + 's) -> Self {
         self.score.replace(Box::new(score));
@@ -58,10 +65,12 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
             Some(map) => map,
             None => return Err(PPError::NoMapId.into()),
         };
-        let score = self.score.as_deref().ok_or(PPError::NoScore)?;
+        let score = self.score.as_deref();
         let map_path = prepare_beatmap_file(map.map_id()).await?;
         let (pp, max_pp, stars) = match map.mode() {
-            GameMode::STD | GameMode::TKO => calculate_oppai(calcs, score, map, map_path)?,
+            GameMode::STD | GameMode::TKO => {
+                calculate_oppai(calcs, self.mods, score, map, map_path)?
+            }
             mode => {
                 let ctx = ctx.ok_or(PPError::NoContext(mode))?;
                 let stars = self
@@ -71,9 +80,9 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
                     .map_err(PPError::Stars)?
                     .unwrap_or_default();
                 if mode == GameMode::MNA {
-                    calculate_mania(calcs, stars, score, map)
+                    calculate_mania(calcs, stars, self.mods, score, map)
                 } else {
-                    calculate_ctb(calcs, stars, score, map)
+                    calculate_ctb(calcs, stars, self.mods, score, map)
                 }
             }
         };
@@ -157,7 +166,8 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
 
 fn calculate_oppai(
     calcs: Calculations,
-    score: &dyn ScoreExt,
+    mods: Option<GameMods>,
+    score: Option<&dyn ScoreExt>,
     map: &dyn BeatmapExt,
     map_path: String,
 ) -> BotResult<TripleOption> {
@@ -166,7 +176,13 @@ fn calculate_oppai(
     let mut stars = None;
 
     let mut oppai = Oppai::new();
-    oppai.set_mods(score.mods().bits());
+
+    if let Some(mods) = mods {
+        oppai.set_mods(mods.bits());
+    } else if let Some(score) = score {
+        oppai.set_mods(score.mods().bits());
+    }
+
     let calculated = if calcs.contains(Calculations::MAX_PP) {
         oppai.calculate(map_path.as_str())?;
         max_pp = Some(oppai.get_pp());
@@ -184,10 +200,27 @@ fn calculate_oppai(
     }
 
     if calcs.contains(Calculations::PP) {
-        oppai.set_miss_count(score.count_miss());
-        oppai.set_hits(score.count_100(), score.count_50());
-        oppai.set_combo(score.max_combo());
-        oppai.set_end_index(score.hits(map.mode()));
+        let (misses, n100, n50, combo, hits) = match score {
+            Some(score) => (
+                score.count_miss(),
+                score.count_100(),
+                score.count_50(),
+                score.max_combo(),
+                score.hits(map.mode()),
+            ),
+            None => (
+                0,
+                0,
+                0,
+                map.max_combo().unwrap_or(0),
+                map.n_objects().unwrap_or(0),
+            ),
+        };
+
+        oppai.set_miss_count(misses);
+        oppai.set_hits(n100, n50);
+        oppai.set_combo(combo);
+        oppai.set_end_index(hits);
         oppai.calculate(map_path.as_str())?;
         pp = Some(oppai.get_pp());
     }
@@ -198,10 +231,19 @@ fn calculate_oppai(
 fn calculate_mania(
     calcs: Calculations,
     stars: f32,
-    score: &dyn ScoreExt,
+    _mods: Option<GameMods>,
+    score: Option<&dyn ScoreExt>,
     map: &dyn BeatmapExt,
 ) -> TripleOption {
-    let mods = score.mods();
+    let (mut mods, score_points) = match score {
+        Some(score) => (score.mods(), score.score()),
+        None => (GameMods::NoMod, 1_000_000),
+    };
+
+    if let Some(m) = _mods {
+        mods = m;
+    }
+
     let ez = mods.contains(GameMods::Easy);
     let nf = mods.contains(GameMods::NoFail);
     let ht = mods.contains(GameMods::HalfTime);
@@ -210,15 +252,24 @@ fn calculate_mania(
     let nerf_pp = nerf_od * if nf { 0.9 } else { 1.0 };
     let nerf_score = 0.5_f32.powi(ez as i32 + nf as i32 + ht as i32);
 
-    let n_objects = map.n_objects().unwrap_or_else(|| score.hits(GameMode::MNA));
-    let score = score.score() as f32 / nerf_score;
+    let n_objects = map
+        .n_objects()
+        .or_else(|| score.map(|score| score.hits(GameMode::MNA)))
+        .unwrap_or(0);
     let od = map.od() / nerf_od;
 
     let mut pp = None;
     let mut max_pp = None;
 
     if calcs.contains(Calculations::PP) {
-        pp = Some(mania_pp(score, n_objects, stars, od, nerf_od, nerf_pp));
+        pp = Some(mania_pp(
+            score_points as f32 / nerf_score,
+            n_objects,
+            stars,
+            od,
+            nerf_od,
+            nerf_pp,
+        ));
     }
     if calcs.contains(Calculations::MAX_PP) {
         max_pp = Some(mania_pp(
@@ -267,15 +318,26 @@ fn mania_pp(score: f32, n_objects: u32, stars: f32, od: f32, nerf_od: f32, nerf_
 fn calculate_ctb(
     calcs: Calculations,
     stars: f32,
-    score: &dyn ScoreExt,
+    _mods: Option<GameMods>,
+    score: Option<&dyn ScoreExt>,
     map: &dyn BeatmapExt,
 ) -> TripleOption {
-    let acc = score.acc(GameMode::CTB);
-    let combo = score.max_combo();
-    let max_combo = map.max_combo().unwrap_or(combo);
-    let misses = score.count_miss();
+    let max_combo = map.max_combo().unwrap_or(0);
     let ar = map.ar();
-    let mods = score.mods();
+
+    let (acc, combo, misses, mut mods) = match score {
+        Some(score) => (
+            score.acc(GameMode::CTB),
+            score.max_combo(),
+            score.count_miss(),
+            score.mods(),
+        ),
+        None => (100.0, max_combo, 0, GameMods::NoMod),
+    };
+
+    if let Some(m) = _mods {
+        mods = m;
+    }
 
     let mut pp = None;
     let mut max_pp = None;

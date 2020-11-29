@@ -10,7 +10,10 @@ use crate::{
 
 use chrono::Utc;
 use rosu::model::{GameMode, User};
-use std::{cmp::Reverse, fmt::Write};
+use std::{
+    cmp::Reverse,
+    fmt::{Display, Write},
+};
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct ProfileCompareEmbed {
@@ -252,8 +255,8 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Join date",
-            user1.join_date.format("%F").to_string(),
-            user2.join_date.format("%F").to_string(),
+            user1.join_date.format("%F"),
+            user2.join_date.format("%F"),
             Reverse(user1.join_date),
             Reverse(user2.join_date),
             max_left,
@@ -271,9 +274,9 @@ impl ProfileCompareEmbed {
         );
         write_line(
             &mut d,
-            "Achievements",
-            profile1.medals.len().to_string(),
-            profile2.medals.len().to_string(),
+            "Medals",
+            profile1.medals.len(),
+            profile2.medals.len(),
             profile1.medals.len(),
             profile2.medals.len(),
             max_left,
@@ -282,8 +285,8 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Badges",
-            profile1.badges.len().to_string(),
-            profile2.badges.len().to_string(),
+            profile1.badges.len(),
+            profile2.badges.len(),
             profile1.badges.len(),
             profile2.badges.len(),
             max_left,
@@ -327,11 +330,11 @@ impl EmbedData for ProfileCompareEmbed {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn write_line<T: PartialOrd>(
+fn write_line<T: PartialOrd, V: Display>(
     content: &mut String,
     title: &str,
-    left: String,
-    right: String,
+    left: V,
+    right: V,
     cmp_left: T,
     cmp_right: T,
     max_left: usize,

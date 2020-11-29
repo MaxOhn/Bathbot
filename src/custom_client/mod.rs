@@ -38,7 +38,7 @@ use serde_json::Value;
 use std::{collections::HashSet, convert::TryFrom, fmt::Write, hash::Hash, num::NonZeroU32};
 use tokio::time::{timeout, Duration};
 
-static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
+static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), ", ", env!("CARGO_PKG_VERSION"));
 
 type ClientResult<T> = Result<T, CustomClientError>;
 
