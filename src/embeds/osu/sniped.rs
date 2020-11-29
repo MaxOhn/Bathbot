@@ -21,7 +21,7 @@ impl SnipedEmbed {
     pub fn new(user: User, sniper: Vec<SnipeRecent>, snipee: Vec<SnipeRecent>) -> Self {
         let thumbnail = ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap();
         let author = osu::get_user_author(&user);
-        let title = "National nipe scores of the last 8 weeks";
+        let title = "National snipe scores of the last 8 weeks";
 
         if sniper.is_empty() && snipee.is_empty() {
             let description = format!(
