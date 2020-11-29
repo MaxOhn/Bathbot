@@ -141,6 +141,7 @@ fn graphs(
 
 type ContextType<'a> = Cartesian2d<SegmentedCoord<RangedSlice<'a, Date<Utc>>>, RangedCoordusize>;
 type DrawingError<DB> = Result<(), DrawingAreaErrorKind<<DB as DrawingBackend>::ErrorType>>;
+type PrepareResult<'a> = (Vec<Date<Utc>>, Vec<(&'a str, Vec<usize>)>);
 
 fn draw_sniper<DB: DrawingBackend>(
     root: &DrawingArea<DB, Shift>,
@@ -261,7 +262,7 @@ fn draw_legend<'a, DB: DrawingBackend + 'a>(
     Ok(())
 }
 
-fn prepare_snipee(scores: &[SnipeRecent]) -> (Vec<Date<Utc>>, Vec<(&str, Vec<usize>)>) {
+fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult {
     let total = scores.iter().fold(HashMap::new(), |mut map, score| {
         *map.entry(score.sniper.as_str()).or_insert(0) += 1;
         map
@@ -291,7 +292,7 @@ fn prepare_snipee(scores: &[SnipeRecent]) -> (Vec<Date<Utc>>, Vec<(&str, Vec<usi
     finish_preparing(names, categorized)
 }
 
-fn prepare_sniper(scores: &[SnipeRecent]) -> (Vec<Date<Utc>>, Vec<(&str, Vec<usize>)>) {
+fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult {
     let total = scores.iter().filter(|score| score.sniped.is_some()).fold(
         HashMap::new(),
         |mut map, score| {
@@ -328,7 +329,7 @@ fn prepare_sniper(scores: &[SnipeRecent]) -> (Vec<Date<Utc>>, Vec<(&str, Vec<usi
 fn finish_preparing<'a>(
     names: HashSet<&'a str>,
     categorized: Vec<(&'a str, DateTime<Utc>)>,
-) -> (Vec<Date<Utc>>, Vec<(&'a str, Vec<usize>)>) {
+) -> PrepareResult<'a> {
     let (dates, counts): (Vec<_>, Vec<_>) = categorized
         .into_iter()
         .group_by(|(_, date)| *date)

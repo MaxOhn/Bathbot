@@ -208,7 +208,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
             return;
         }
         info!("Received Ctrl+C");
-        if let Err(_) = tx.send(()) {
+        if tx.send(()).is_err() {
             error!("Failed to send shutdown message to metric loop");
         }
         shutdown_ctx.initiate_cold_resume().await;
