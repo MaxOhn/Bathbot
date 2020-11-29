@@ -30,8 +30,7 @@ use std::{
 use twilight_model::channel::Message;
 
 #[command]
-#[short_desc("TODO")]
-#[long_desc("TODO")]
+#[short_desc("Sniped users of the last 8 weeks")]
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("snipes")]

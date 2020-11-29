@@ -160,6 +160,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
             "utility",
             vec![
                 &PING_CMD,
+                &ROLL_CMD,
                 &ABOUT_CMD,
                 &COMMANDS_CMD,
                 &INVITE_CMD,

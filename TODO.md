@@ -9,10 +9,8 @@
     `error creating server listener: Cannot assign requested address (os error 99)'"`
 - Rewrite `<mc` calculation
 - Experiment with different team/opponent scaling for `<mc`
-- Add commands for most sniped user / user who sniped some1 the most
 - Rewrite `<top` arguments to take ranges just like `<osg`
 - Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id
-- Add command `<roll [upper limit]`
 
 **[Sometime]**
 - Add `Icon from syedhassan - pngtree.com` to README
@@ -23,6 +21,8 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Add command `<roll [upper limit]`~~ (20.11.29)
+- ~~Add commands for most sniped user / user who sniped some1 the most~~ (20.11.29)
 - ~~Improve mania and ctb pp calculation~~ (20.11.26)
 - ~~Import `sqlx` from crates.io~~ (20.11.25)
 - ~~Note in `<mc` footer about comparing values~~ (20.11.24)
