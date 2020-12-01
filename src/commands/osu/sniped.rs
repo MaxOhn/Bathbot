@@ -31,6 +31,11 @@ use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Sniped users of the last 8 weeks")]
+#[long_desc(
+    "Sniped users of the last 8 weeks.\n\
+    All data originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
+    website [huismetbenen](https://snipe.huismetbenen.nl/)."
+)]
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("snipes")]
@@ -180,7 +185,7 @@ fn draw_sniper<DB: DrawingBackend>(
                     .style(color.filled()),
             )?
             .label(name)
-            .legend(move |(x, y)| Circle::new((x, y), 2, color.filled()));
+            .legend(move |(x, y)| Circle::new((x, y), 3, color.filled()));
     }
 
     draw_legend(&mut chart)?;
@@ -225,7 +230,7 @@ fn draw_snipee<DB: DrawingBackend>(
                     .style(color.filled()),
             )?
             .label(name)
-            .legend(move |(x, y)| Circle::new((x, y), 2, color.filled()));
+            .legend(move |(x, y)| Circle::new((x, y), 3, color.filled()));
     }
 
     draw_legend(&mut chart)?;

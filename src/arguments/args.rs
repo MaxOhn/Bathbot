@@ -76,6 +76,9 @@ impl<'m> Args<'m> {
             let is_quote = stream.current().map_or(false, |b| b == b'"');
             stream.next();
             let end = stream.offset();
+            if start == end - 2 {
+                return self.lex();
+            }
             stream.take_while_char(|c| c.is_whitespace());
             let limits = if is_quote {
                 (start + 1, end - 1)
