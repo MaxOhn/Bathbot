@@ -1,6 +1,6 @@
 use chrono::Utc;
 use dashmap::DashMap;
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, hash::Hash, str::FromStr};
 use tokio::sync::Mutex;
 
 pub type Buckets = DashMap<BucketName, Mutex<Bucket>>;
@@ -23,6 +23,13 @@ pub struct Bucket {
 }
 
 impl Bucket {
+    fn new(ratelimit: Ratelimit) -> Self {
+        Self {
+            ratelimit,
+            users: HashMap::new(),
+        }
+    }
+
     pub fn take(&mut self, user_id: u64) -> i64 {
         let time = Utc::now().timestamp();
         let user = self
@@ -51,7 +58,7 @@ impl Bucket {
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash)]
 pub enum BucketName {
-    // All,
+    All,
     Songs,
     BgStart,
     BgBigger,
@@ -59,40 +66,41 @@ pub enum BucketName {
     Snipe,
 }
 
-impl From<&str> for BucketName {
-    fn from(s: &str) -> Self {
-        match s {
-            // "all" => BucketName::All,
+impl FromStr for BucketName {
+    type Err = &'static str;
+
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
+        let bucket = match name {
+            "all" => BucketName::All,
             "songs" => BucketName::Songs,
             "bg_start" => BucketName::BgStart,
             "bg_bigger" => BucketName::BgBigger,
             "bg_hint" => BucketName::BgHint,
             "snipe" => BucketName::Snipe,
-            _ => panic!("No bucket called `{}`", s),
-        }
+            _ => return Err("Unknown bucket name"),
+        };
+
+        Ok(bucket)
     }
 }
 
 pub fn buckets() -> Buckets {
     let buckets = DashMap::new();
-    // insert_bucket(&buckets, BucketName::All, 0, 60, 30);
-    insert_bucket(&buckets, BucketName::Songs, 20, 0, 1);
-    insert_bucket(&buckets, BucketName::BgStart, 2, 20, 3);
-    insert_bucket(&buckets, BucketName::BgBigger, 1, 8, 2);
-    insert_bucket(&buckets, BucketName::BgHint, 0, 10, 4);
-    insert_bucket(&buckets, BucketName::Snipe, 0, 600, 10);
-    buckets
-}
 
-fn insert_bucket(buckets: &Buckets, name: BucketName, delay: i64, time_span: i64, limit: i32) {
-    buckets.insert(
-        name,
-        Mutex::new(Bucket {
-            ratelimit: Ratelimit {
-                delay,
-                limit: Some((time_span, limit)),
-            },
-            users: HashMap::new(),
-        }),
-    );
+    let insert_bucket = |name, delay, time_span, limit| {
+        let ratelimit = Ratelimit {
+            delay,
+            limit: Some((time_span, limit)),
+        };
+        buckets.insert(name, Mutex::new(Bucket::new(ratelimit)));
+    };
+
+    insert_bucket(BucketName::All, 0, 9, 4);
+    insert_bucket(BucketName::Songs, 20, 0, 1);
+    insert_bucket(BucketName::BgStart, 2, 20, 3);
+    insert_bucket(BucketName::BgBigger, 1, 8, 2);
+    insert_bucket(BucketName::BgHint, 0, 10, 4);
+    insert_bucket(BucketName::Snipe, 0, 600, 10);
+
+    buckets
 }

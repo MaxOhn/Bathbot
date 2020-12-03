@@ -247,6 +247,19 @@ async fn process_command(
     };
 
     // Ratelimited?
+    {
+        let guard = ctx.buckets.get(&BucketName::All).unwrap();
+        let mutex = guard.value();
+        let mut bucket = mutex.lock().await;
+        let ratelimit = bucket.take(msg.author.id.0);
+        if ratelimit > 0 {
+            debug!(
+                "Ratelimiting user {} for {} seconds",
+                msg.author.id, ratelimit,
+            );
+            return Ok(ProcessResult::Ratelimited(BucketName::All));
+        }
+    }
     if let Some(bucket) = cmd.bucket {
         if let Some((cooldown, bucket)) = check_ratelimit(&ctx, msg, bucket).await {
             debug!(

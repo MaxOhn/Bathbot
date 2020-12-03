@@ -1,20 +1,21 @@
 
 **[TODO]**
 - Update taiko pp / stars
-- `<playermedals` showing a list of a user's medals
-- `<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)
-- Check out how/if multi sharding works
 - Investigate deadlock, `<bg stop`-`<bg bigger`?
-- Check on `thread 'tokio-runtime-worker' panicked at 'error binding to 169.254.124.89:9094:`
-    `error creating server listener: Cannot assign requested address (os error 99)'"`
 - Rewrite `<mc` calculation
 - Experiment with different team/opponent scaling for `<mc`
 - Rewrite `<top` arguments to take ranges just like `<osg`
+- Rewrite `<bws` arguments to take a range for ranks
 - Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id
+- `<rank` commands but for total/ranked score
+- ~~`<playermedals` showing a list of a user's medals~~
+- ~~`<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)~~
 
 **[Sometime]**
 - Add `Icon from syedhassan - pngtree.com` to README
 - Improve mania and ctb star calculation
+- Check on `thread 'tokio-runtime-worker' panicked at 'error binding to 169.254.124.89:9094:`
+    `error creating server listener: Cannot assign requested address (os error 99)'"`
 - `<nochokesctb` (https://pakachan.github.io/osustuff/ppcalculator.html) (investigate)
 - `<nochokestaiko` (slider maps have no max combo)
 - Write peppy a mail

@@ -79,10 +79,10 @@ pub fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>
 pub async fn check_ratelimit(
     ctx: &Context,
     msg: &Message,
-    bucket: impl Into<BucketName>,
+    bucket: impl AsRef<str>,
 ) -> Option<(i64, BucketName)> {
-    let (rate_limit, bucket) = {
-        let bucket = bucket.into();
+    let (ratelimit, bucket) = {
+        let bucket: BucketName = bucket.as_ref().parse().unwrap();
         let guard = ctx.buckets.get(&bucket).unwrap();
         let mutex = guard.value();
         let mut bucket_elem = mutex.lock().await;
@@ -98,8 +98,8 @@ pub async fn check_ratelimit(
             _ => (bucket_elem.take(msg.author.id.0), bucket),
         }
     };
-    if rate_limit > 0 {
-        return Some((rate_limit, bucket));
+    if ratelimit > 0 {
+        return Some((ratelimit, bucket));
     }
     None
 }
