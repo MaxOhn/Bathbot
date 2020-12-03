@@ -206,13 +206,12 @@ fn graphs(
             .y_label_area_size(40)
             .margin_right(15)
             .caption("Star rating spread", ("sans-serif", 30))
-            .build_cartesian_2d(first..last + 1, 0..max)?;
+            .build_cartesian_2d((first..last).into_segmented(), 0..max)?;
 
         // Mesh and labels
         chart
             .configure_mesh()
             .disable_x_mesh()
-            .x_label_offset(30)
             .x_labels(15)
             .draw()?;
 
