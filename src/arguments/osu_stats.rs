@@ -1,4 +1,4 @@
-use super::Args;
+use super::{parse_dotted, Args};
 use crate::{
     custom_client::{OsuStatsListParams, OsuStatsOrder, OsuStatsParams},
     util::matcher,
@@ -6,7 +6,6 @@ use crate::{
 };
 
 use rosu::model::GameMode;
-use std::str::FromStr;
 
 pub struct OsuStatsListArgs {
     pub params: OsuStatsListParams,
@@ -69,7 +68,7 @@ impl OsuStatsArgs {
                 rank_max = Some(max);
             } else {
                 return Err("After the rank keyword you must specify either \
-                            an integer for max rank or two decimal numbers of the \
+                            an integer for max rank or two integer numbers of the \
                             form `a..b` for min and max rank");
             }
         }
@@ -139,14 +138,5 @@ impl OsuStatsArgs {
             params = params.mods(selection);
         }
         Ok(Self { params })
-    }
-}
-
-fn parse_dotted<T: FromStr>(arg: impl AsRef<str>) -> Option<(Option<T>, T)> {
-    let mut split = arg.as_ref().split("..");
-    let val = T::from_str(split.next()?).ok()?;
-    match split.next() {
-        Some(another) => Some((Some(val), T::from_str(another).ok()?)),
-        None => Some((None, val)),
     }
 }

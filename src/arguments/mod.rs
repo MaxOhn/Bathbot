@@ -26,6 +26,15 @@ use crate::{
 use rosu::model::Grade;
 use std::str::FromStr;
 
+fn parse_dotted<T: FromStr>(arg: impl AsRef<str>) -> Option<(Option<T>, T)> {
+    let mut split = arg.as_ref().split("..");
+    let val = T::from_str(split.next()?).ok()?;
+    match split.next() {
+        Some(another) => Some((Some(val), T::from_str(another).ok()?)),
+        None => Some((None, val)),
+    }
+}
+
 fn mods(args: &mut Vec<String>) -> Option<ModSelection> {
     for (i, arg) in args.iter().enumerate() {
         let mods = matcher::get_mods(arg);

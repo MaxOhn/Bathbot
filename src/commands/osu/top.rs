@@ -146,8 +146,8 @@ async fn top_main(
     let content = match top_type {
         TopType::Top => {
             let cond = args.mods.is_some()
-                || args.acc.is_some()
-                || args.combo.is_some()
+                || args.acc_min.is_some()
+                || args.combo_min.is_some()
                 || args.grade.is_some();
             if cond {
                 let content = format!(
@@ -207,12 +207,20 @@ async fn top_main(
 #[short_desc("Display a user's top plays")]
 #[long_desc(
     "Display a user's top plays.\n\
-     Mods can be specified, aswell as minimal acc \
-     with `-a`, combo with `-c`, and a grade with `-grade`.\n\
+     Mods can be specified.\n\
+     A combo and accuracy range can be specified with `-c` and `-a`. \
+     After this keyword, you must specify either a number for min combo/acc, \
+     or two numbers of the form `x..y` for min and max combo/acc.\n\
+     The grade can be specified with `-grade`, followed by `SS`, `S`, `A`, `B`, `C`, or `D`.\n\
      Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."
 )]
-#[usage("[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [mods] [--a/--c]")]
-#[example("badewanne3 -a 97.34 -grade A +hdhr --c", "vaxei -c 1234 -dt! --a")]
+#[usage(
+    "[username] [-a number[..number]] [-c number[..number]] [-grade SS/S/A/B/C/D] [mods] [--a/--c]"
+)]
+#[example(
+    "badewanne3 -a 97.34..99.5 -grade A +hdhr --c",
+    "vaxei -c 1234 -dt! --a"
+)]
 #[aliases("topscores", "osutop")]
 pub async fn top(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_main(GameMode::STD, TopType::Top, ctx, msg, args).await
@@ -222,12 +230,20 @@ pub async fn top(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
 #[short_desc("Display a user's top mania plays")]
 #[long_desc(
     "Display a user's top mania plays.\n\
-     Mods can be specified, aswell as minimal acc \
-     with `-a`, combo with `-c`, and a grade with `-grade`.\n\
+     Mods can be specified.\n\
+     A combo and accuracy range can be specified with `-c` and `-a`. \
+     After this keyword, you must specify either a number for min combo/acc, \
+     or two numbers of the form `x..y` for min and max combo/acc.\n\
+     The grade can be specified with `-grade`, followed by `SS`, `S`, `A`, `B`, `C`, or `D`.\n\
      Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."
 )]
-#[usage("[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [mods] [--a/--c]")]
-#[example("badewanne3 -a 97.34 -grade A +hdhr --c", "vaxei -c 1234 -dt! --a")]
+#[usage(
+    "[username] [-a number[..number]] [-c number[..number]] [-grade SS/S/A/B/C/D] [mods] [--a/--c]"
+)]
+#[example(
+    "badewanne3 -a 97.34..99.5 -grade A +hdhr --c",
+    "vaxei -c 1234 -dt! --a"
+)]
 #[aliases("topm")]
 pub async fn topmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_main(GameMode::MNA, TopType::Top, ctx, msg, args).await
@@ -237,12 +253,20 @@ pub async fn topmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult
 #[short_desc("Display a user's top taiko plays")]
 #[long_desc(
     "Display a user's top taiko plays.\n\
-     Mods can be specified, aswell as minimal acc \
-     with `-a`, combo with `-c`, and a grade with `-grade`.\n\
+     Mods can be specified.\n\
+     A combo and accuracy range can be specified with `-c` and `-a`. \
+     After this keyword, you must specify either a number for min combo/acc, \
+     or two numbers of the form `x..y` for min and max combo/acc.\n\
+     The grade can be specified with `-grade`, followed by `SS`, `S`, `A`, `B`, `C`, or `D`.\n\
      Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."
 )]
-#[usage("[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [mods] [--a/--c]")]
-#[example("badewanne3 -a 97.34 -grade A +hdhr --c", "vaxei -c 1234 -dt! --a")]
+#[usage(
+    "[username] [-a number[..number]] [-c number[..number]] [-grade SS/S/A/B/C/D] [mods] [--a/--c]"
+)]
+#[example(
+    "badewanne3 -a 97.34..99.5 -grade A +hdhr --c",
+    "vaxei -c 1234 -dt! --a"
+)]
 #[aliases("topt")]
 pub async fn toptaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_main(GameMode::TKO, TopType::Top, ctx, msg, args).await
@@ -252,12 +276,20 @@ pub async fn toptaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult
 #[short_desc("Display a user's top ctb plays")]
 #[long_desc(
     "Display a user's top ctb plays.\n\
-     Mods can be specified, aswell as minimal acc \
-     with `-a`, combo with `-c`, and a grade with `-grade`.\n\
+     Mods can be specified.\n\
+     A combo and accuracy range can be specified with `-c` and `-a`. \
+     After this keyword, you must specify either a number for min combo/acc, \
+     or two numbers of the form `x..y` for min and max combo/acc.\n\
+     The grade can be specified with `-grade`, followed by `SS`, `S`, `A`, `B`, `C`, or `D`.\n\
      Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."
 )]
-#[usage("[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [mods] [--a/--c]")]
-#[example("badewanne3 -a 97.34 -grade A +hdhr --c", "vaxei -c 1234 -dt! --a")]
+#[usage(
+    "[username] [-a number[..number]] [-c number[..number]] [-grade SS/S/A/B/C/D] [mods] [--a/--c]"
+)]
+#[example(
+    "badewanne3 -a 97.34..99.5 -grade A +hdhr --c",
+    "vaxei -c 1234 -dt! --a"
+)]
 #[aliases("topc")]
 pub async fn topctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_main(GameMode::CTB, TopType::Top, ctx, msg, args).await
@@ -267,10 +299,13 @@ pub async fn topctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 #[short_desc("Sort a user's top plays by date")]
 #[long_desc(
     "Display a user's most recent top plays.\n\
-     Mods can be specified, aswell as minimal acc \
-     with `-a`, combo with `-c`, and a grade with `-grade`."
+    Mods can be specified.\n\
+    A combo and accuracy range can be specified with `-c` and `-a`. \
+    After this keyword, you must specify either a number for min combo/acc, \
+    or two numbers of the form `x..y` for min and max combo/acc.\n\
+    The grade can be specified with `-grade`, followed by `SS`, `S`, `A`, `B`, `C`, or `D`."
 )]
-#[usage("[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [mods]")]
+#[usage("[username] [-a number[..number]] [-c number[..number]] [-grade SS/S/A/B/C/D] [mods]")]
 #[example("badewanne3 -a 97.34 -grade A +hdhr", "vaxei -c 1234 -dt!")]
 #[aliases("rb")]
 pub async fn recentbest(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
@@ -281,10 +316,13 @@ pub async fn recentbest(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
 #[short_desc("Sort a user's top mania plays by date")]
 #[long_desc(
     "Display a user's most recent top mania plays.\n\
-     Mods can be specified, aswell as minimal acc \
-     with `-a`, combo with `-c`, and a grade with `-grade`."
+    Mods can be specified.\n\
+    A combo and accuracy range can be specified with `-c` and `-a`. \
+    After this keyword, you must specify either a number for min combo/acc, \
+    or two numbers of the form `x..y` for min and max combo/acc.\n\
+    The grade can be specified with `-grade`, followed by `SS`, `S`, `A`, `B`, `C`, or `D`."
 )]
-#[usage("[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [mods]")]
+#[usage("[username] [-a number[..number]] [-c number[..number]] [-grade SS/S/A/B/C/D] [mods]")]
 #[example("badewanne3 -a 97.34 -grade A +hdhr", "vaxei -c 1234 -dt!")]
 #[aliases("rbm")]
 pub async fn recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
@@ -295,10 +333,13 @@ pub async fn recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
 #[short_desc("Sort a user's top taiko plays by date")]
 #[long_desc(
     "Display a user's most recent top taiko plays.\n\
-     Mods can be specified, aswell as minimal acc \
-     with `-a`, combo with `-c`, and a grade with `-grade`."
+    Mods can be specified.\n\
+    A combo and accuracy range can be specified with `-c` and `-a`. \
+    After this keyword, you must specify either a number for min combo/acc, \
+    or two numbers of the form `x..y` for min and max combo/acc.\n\
+    The grade can be specified with `-grade`, followed by `SS`, `S`, `A`, `B`, `C`, or `D`."
 )]
-#[usage("[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [mods]")]
+#[usage("[username] [-a number[..number]] [-c number[..number]] [-grade SS/S/A/B/C/D] [mods]")]
 #[example("badewanne3 -a 97.34 -grade A +hdhr", "vaxei -c 1234 -dt!")]
 #[aliases("rbt")]
 pub async fn recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
@@ -309,10 +350,13 @@ pub async fn recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
 #[short_desc("Sort a user's top ctb plays by date")]
 #[long_desc(
     "Display a user's most recent top ctb plays.\n\
-     Mods can be specified, aswell as minimal acc \
-     with `-a`, combo with `-c`, and a grade with `-grade`."
+    Mods can be specified.\n\
+    A combo and accuracy range can be specified with `-c` and `-a`. \
+    After this keyword, you must specify either a number for min combo/acc, \
+    or two numbers of the form `x..y` for min and max combo/acc.\n\
+    The grade can be specified with `-grade`, followed by `SS`, `S`, `A`, `B`, `C`, or `D`."
 )]
-#[usage("[username] [-a number] [-c number] [-grade SS/S/A/B/C/D] [mods]")]
+#[usage("[username] [-a number[..number]] [-c number[..number]] [-grade SS/S/A/B/C/D] [mods]")]
 #[example("badewanne3 -a 97.34 -grade A +hdhr", "vaxei -c 1234 -dt!")]
 #[aliases("rbc")]
 pub async fn recentbestctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
@@ -338,8 +382,6 @@ fn filter_scores(
     args: &TopArgs,
 ) -> Vec<(usize, Score)> {
     let selection = args.mods;
-    let combo = args.combo.unwrap_or(0);
-    let acc = args.acc.unwrap_or(0.0);
     let grade = args.grade;
     let mut scores_indices: Vec<(usize, Score)> = scores
         .into_iter()
@@ -350,6 +392,7 @@ fn filter_scores(
                     return false;
                 }
             }
+
             let mod_bool = match selection {
                 None => true,
                 Some(ModSelection::Exact(mods)) => {
@@ -379,12 +422,21 @@ fn filter_scores(
             if !mod_bool {
                 return false;
             }
-            let acc_bool = if acc > 0.0 {
-                s.accuracy(mode) >= acc
-            } else {
-                true
+
+            let acc = s.accuracy(mode);
+            let acc_bool = match (args.acc_min, args.acc_max) {
+                (Some(a), _) if a > acc => false,
+                (_, Some(a)) if a < acc => false,
+                _ => true,
             };
-            acc_bool && s.max_combo >= combo
+
+            let combo_bool = match (args.combo_min, args.combo_max) {
+                (Some(c), _) if c > s.max_combo => false,
+                (_, Some(c)) if c < s.max_combo => false,
+                _ => true,
+            };
+
+            acc_bool && combo_bool
         })
         .collect();
     match args.sort_by {

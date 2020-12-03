@@ -4,7 +4,6 @@
 - Investigate deadlock, `<bg stop`-`<bg bigger`?
 - Rewrite `<mc` calculation
 - Experiment with different team/opponent scaling for `<mc`
-- Rewrite `<top` arguments to take ranges just like `<osg`
 - Rewrite `<bws` arguments to take a range for ranks
 - Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id
 - `<rank` commands but for total/ranked score
@@ -22,6 +21,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Rewrite `<top` arguments to take ranges just like `<osg`~~ (20.12.03)
 - ~~Add command `<roll [upper limit]`~~ (20.11.29)
 - ~~Add commands for most sniped user / user who sniped some1 the most~~ (20.11.29)
 - ~~Improve mania and ctb pp calculation~~ (20.11.26)

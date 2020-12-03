@@ -1,4 +1,4 @@
-use super::Args;
+use super::{parse_dotted, Args};
 use crate::{
     commands::osu::TopSortBy,
     util::{matcher, osu::ModSelection},
@@ -10,8 +10,10 @@ use rosu::model::Grade;
 pub struct TopArgs {
     pub name: Option<String>,
     pub mods: Option<ModSelection>,
-    pub acc: Option<f32>,
-    pub combo: Option<u32>,
+    pub acc_min: Option<f32>,
+    pub acc_max: Option<f32>,
+    pub combo_min: Option<u32>,
+    pub combo_max: Option<u32>,
     pub grade: Option<Grade>,
     pub sort_by: TopSortBy,
     pub has_dash_r: bool,
@@ -20,9 +22,45 @@ pub struct TopArgs {
 
 impl TopArgs {
     pub fn new(ctx: &Context, args: Args) -> Result<Self, &'static str> {
-        let mut args = args.take(8).map(|arg| arg.to_owned()).collect();
-        let acc = super::acc(&mut args)?;
-        let combo = super::combo(&mut args)?;
+        let mut args: Vec<_> = args.take(8).map(str::to_owned).collect();
+
+        let mut acc_min = None;
+        let mut acc_max = None;
+        if let Some(idx) = args.iter().position(|arg| arg == "-a") {
+            args.remove(idx);
+            if let Some((min, minmax)) = args.get(idx).and_then(parse_dotted) {
+                args.remove(idx);
+                if let Some(min) = min {
+                    acc_min.replace(min);
+                    acc_max.replace(minmax);
+                } else {
+                    acc_min.replace(minmax);
+                }
+            } else {
+                return Err("After the acc keyword you must specify either \
+                    a decimal number for min acc or two decimal numbers \
+                    of the form `a..b` for min and max acc");
+            }
+        }
+
+        let mut combo_min = None;
+        let mut combo_max = None;
+        if let Some(idx) = args.iter().position(|arg| arg == "-c") {
+            args.remove(idx);
+            if let Some((min, minmax)) = args.get(idx).and_then(parse_dotted) {
+                args.remove(idx);
+                if let Some(min) = min {
+                    combo_min.replace(min);
+                    combo_max.replace(minmax);
+                } else {
+                    combo_min.replace(minmax);
+                }
+            } else {
+                return Err("After the combo keyword you must specify either \
+                            an integer for min combo or two integer numbers of the \
+                            form `a..b` for min and max combo");
+            }
+        }
         let grade = super::grade(&mut args)?;
         let mods = super::mods(&mut args);
         let sort_by = if super::keywords(&mut args, &["--a", "--acc"]) {
@@ -42,8 +80,10 @@ impl TopArgs {
         Ok(Self {
             name,
             mods,
-            acc,
-            combo,
+            acc_min,
+            acc_max,
+            combo_min,
+            combo_max,
             grade,
             sort_by,
             has_dash_r,
