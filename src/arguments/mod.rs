@@ -1,4 +1,5 @@
 mod args;
+mod bws;
 mod discord;
 mod name;
 mod osu_id;
@@ -9,6 +10,7 @@ mod simulate;
 mod top;
 
 pub use args::Args;
+pub use bws::*;
 pub use discord::*;
 pub use name::*;
 pub use osu_id::*;

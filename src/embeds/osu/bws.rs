@@ -16,18 +16,15 @@ pub struct BWSEmbed {
 }
 
 impl BWSEmbed {
-    pub fn new(user: User, badges: usize, rank: Option<u32>) -> Self {
+    pub fn new(user: User, badges: usize, rank: Option<(u32, u32)>) -> Self {
         let description = match rank {
-            Some(rank) => {
-                let (min, max) = match user.pp_rank > rank {
-                    true => (rank, user.pp_rank),
-                    false => (user.pp_rank, rank),
-                };
+            Some((min, max)) => {
                 let rank_len = max.to_string().len().max(6) + 1;
                 let dist = (max - min) as usize;
                 let step = 3;
                 let bwss: BTreeMap<_, _> = (min..max)
                     .step_by((dist / step).max(1))
+                    .take(step)
                     .chain(iter::once(max))
                     .unique()
                     .map(|rank| {

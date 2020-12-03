@@ -4,9 +4,8 @@
 - Investigate deadlock, `<bg stop`-`<bg bigger`?
 - Rewrite `<mc` calculation
 - Experiment with different team/opponent scaling for `<mc`
-- Rewrite `<bws` arguments to take a range for ranks
-- Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id
 - `<rank` commands but for total/ranked score
+- ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~
 - ~~`<playermedals` showing a list of a user's medals~~
 - ~~`<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)~~
 
@@ -21,6 +20,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Rewrite `<bws` arguments to take a range for ranks~~ (20.12.03)
 - ~~Rewrite `<top` arguments to take ranges just like `<osg`~~ (20.12.03)
 - ~~Add command `<roll [upper limit]`~~ (20.11.29)
 - ~~Add commands for most sniped user / user who sniped some1 the most~~ (20.11.29)
