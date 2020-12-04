@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, error::Error, fmt, iter, str::FromStr};
+use std::{collections::VecDeque, error::Error, fmt, iter};
 use uwl::Stream;
 
 pub struct Args<'m> {
@@ -58,13 +58,6 @@ impl<'m> Args<'m> {
             msg: self.msg,
             limits,
         }
-    }
-
-    #[inline]
-    pub fn single<T: FromStr>(&mut self) -> Result<T, ArgError<T::Err>> {
-        let (start, end) = self.lex().ok_or(ArgError::Eos)?;
-        let arg = &self.msg[start..end];
-        T::from_str(arg).map_err(ArgError::Parse)
     }
 
     fn lex(&mut self) -> Option<(usize, usize)> {

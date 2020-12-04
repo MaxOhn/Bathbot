@@ -1,5 +1,6 @@
 use crate::{
     arguments::{Args, RankArgs},
+    custom_client::RankLeaderboard,
     embeds::{EmbedData, RankEmbed},
     tracking::process_tracking,
     util::{
@@ -28,7 +29,6 @@ async fn rank_main(
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
-    let country = args.country;
     let rank = args.rank;
     if rank == 0 {
         let content = "Rank number must be between 1 and 10,000";
@@ -39,10 +39,10 @@ async fn rank_main(
     }
 
     // Retrieve the user and the id of the rank-holding user
-    let rank_holder_id_fut = ctx
-        .clients
-        .custom
-        .get_userid_of_rank(rank, mode, country.as_deref());
+    let country = RankLeaderboard::Pp {
+        country: args.country.as_deref(),
+    };
+    let rank_holder_id_fut = ctx.clients.custom.get_userid_of_rank(rank, mode, country);
     let (rank_holder_id_result, user_result) = tokio::join!(
         rank_holder_id_fut,
         ctx.osu()
@@ -103,7 +103,7 @@ async fn rank_main(
     }
 
     // Accumulate all necessary data
-    let data = RankEmbed::new(user, scores, rank, country, rank_holder);
+    let data = RankEmbed::new(user, scores, rank, args.country, rank_holder);
 
     // Creating the embed
     let embed = data.build().build()?;
@@ -130,6 +130,7 @@ pub async fn rank(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     "How many pp is a player missing to reach the given rank?\n\
     The number for the rank must be between 1 and 10,000."
 )]
+#[usage("[username] [[country]number]")]
 #[example("badewanne3 be50", "badewanne3 123")]
 #[aliases("rankm", "reachmania", "reachm")]
 pub async fn rankmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
@@ -142,6 +143,7 @@ pub async fn rankmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
     "How many pp is a player missing to reach the given rank?\n\
     The number for the rank must be between 1 and 10,000."
 )]
+#[usage("[username] [[country]number]")]
 #[example("badewanne3 be50", "badewanne3 123")]
 #[aliases("rankt", "reachtaiko", "reacht")]
 pub async fn ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
@@ -154,6 +156,7 @@ pub async fn ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
     "How many pp is a player missing to reach the given rank?\n\
     The number for the rank must be between 1 and 10,000."
 )]
+#[usage("[username] [[country]number]")]
 #[example("badewanne3 be50", "badewanne3 123")]
 #[aliases("rankc", "reachctb", "reachc")]
 pub async fn rankctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {

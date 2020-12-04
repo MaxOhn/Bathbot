@@ -240,7 +240,7 @@ impl CustomClient {
             country = params.country,
             user = params.user_id,
             page = params.page,
-            mode = get_mode_str(params.mode),
+            mode = params.mode,
             sort = params.order,
             order = if params.descending { "desc" } else { "asc" },
         );
@@ -270,7 +270,7 @@ impl CustomClient {
             base = HUISMETBENEN,
             country = params.country,
             user = params.user_id,
-            mode = get_mode_str(params.mode),
+            mode = params.mode,
         );
         if let Some(mods) = params.mods {
             if let ModSelection::Include(mods) | ModSelection::Exact(mods) = mods {
@@ -504,7 +504,7 @@ impl CustomClient {
             "{base}users/{user_id}/{mode}",
             base = OSU_BASE,
             user_id = user_id,
-            mode = get_mode_str(mode)
+            mode = mode
         );
         let body = self
             .make_request(url, Site::OsuWebsite)
@@ -542,22 +542,24 @@ impl CustomClient {
         Ok((user, medals))
     }
 
-    pub async fn get_userid_of_rank(
+    pub async fn get_userid_of_rank<'s>(
         &self,
         rank: usize,
         mode: GameMode,
-        country_acronym: Option<&str>,
+        ranking: RankLeaderboard<'s>,
     ) -> ClientResult<u32> {
         if rank < 1 || 10_000 < rank {
             return Err(CustomClientError::RankIndex(rank));
         }
-        let mut url = format!(
-            "{base}rankings/{mode}/performance?",
-            base = OSU_BASE,
-            mode = get_mode_str(mode),
-        );
-        if let Some(country) = country_acronym {
-            let _ = write!(url, "country={}&", country);
+        let mut url = format!("{base}rankings/{mode}/", base = OSU_BASE, mode = mode);
+        match ranking {
+            RankLeaderboard::Score => url += "score?",
+            RankLeaderboard::Pp { country } => {
+                url += "performance?";
+                if let Some(country) = country {
+                    let _ = write!(url, "country={}&", country);
+                }
+            }
         }
         let mut page_idx = rank / 50;
         if rank % 50 != 0 {
@@ -610,11 +612,7 @@ impl CustomClient {
     }
 }
 
-fn get_mode_str(mode: GameMode) -> &'static str {
-    match mode {
-        GameMode::STD => "osu",
-        GameMode::MNA => "mania",
-        GameMode::TKO => "taiko",
-        GameMode::CTB => "fruits",
-    }
+pub enum RankLeaderboard<'s> {
+    Score,
+    Pp { country: Option<&'s str> },
 }

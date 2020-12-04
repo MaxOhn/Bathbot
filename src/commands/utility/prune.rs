@@ -3,7 +3,7 @@ use crate::{
     Args, BotResult, Context,
 };
 
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 use tokio::time::{self, Duration};
 use twilight_model::channel::Message;
 
@@ -20,8 +20,8 @@ use twilight_model::channel::Message;
 #[example("3")]
 #[aliases("purge")]
 async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
-    let amount = match args.single::<u64>() {
-        Ok(amount) => {
+    let amount = match args.next().map(u64::from_str) {
+        Some(Ok(amount)) => {
             if amount < 1 || amount > 99 {
                 let content = "First argument must be an integer between 1 and 99";
                 return msg.error(&ctx, content).await;
@@ -29,7 +29,7 @@ async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
                 amount + 1
             }
         }
-        Err(_) => 2,
+        None | Some(Err(_)) => 2,
     };
     let msgs_fut = ctx
         .http
