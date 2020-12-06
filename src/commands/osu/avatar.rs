@@ -15,9 +15,10 @@ use twilight_model::channel::Message;
 #[usage("[username]")]
 #[example("Badewanne3")]
 async fn avatar(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    let name = match NameArgs::new(&ctx, args).name {
+    let args = NameArgs::new(&ctx, args);
+    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
-        None => return msg.error(&ctx, "You must specify a username").await,
+        None => return super::require_link(&ctx, msg).await,
     };
     let user = match ctx.osu().user(name.as_str()).mode(GameMode::STD).await {
         Ok(user) => match user {

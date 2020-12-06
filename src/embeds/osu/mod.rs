@@ -1,3 +1,4 @@
+mod avatar;
 mod bws;
 mod common;
 mod country_snipe_list;
@@ -30,6 +31,7 @@ mod top;
 mod top_if;
 mod whatif;
 
+pub use avatar::AvatarEmbed;
 pub use bws::BWSEmbed;
 pub use common::CommonEmbed;
 pub use country_snipe_list::CountrySnipeListEmbed;
