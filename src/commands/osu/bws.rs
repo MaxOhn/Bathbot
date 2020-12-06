@@ -9,7 +9,7 @@ use crate::{
 };
 
 use rosu::model::GameMode;
-use std::sync::Arc;
+use std::{cmp::Ordering, sync::Arc};
 use twilight_model::channel::Message;
 
 #[command]
@@ -43,15 +43,11 @@ async fn bws(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         }
     };
     let rank_range = match args.rank_range {
-        Some(RankRange::Single(rank)) => {
-            if rank < user.pp_rank {
-                Some((rank, user.pp_rank))
-            } else if rank > user.pp_rank {
-                Some((user.pp_rank, rank))
-            } else {
-                None
-            }
-        }
+        Some(RankRange::Single(rank)) => match rank.cmp(&user.pp_rank) {
+            Ordering::Less => Some((rank, user.pp_rank)),
+            Ordering::Greater => Some((user.pp_rank, rank)),
+            Ordering::Equal => None,
+        },
         Some(RankRange::Range(min, max)) => Some((min, max)),
         None => None,
     };

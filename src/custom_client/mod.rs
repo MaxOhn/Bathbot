@@ -550,11 +550,11 @@ impl CustomClient {
         Ok((user, medals))
     }
 
-    pub async fn get_userid_of_rank<'s>(
+    pub async fn get_userid_of_rank(
         &self,
         rank: usize,
         mode: GameMode,
-        ranking: RankLeaderboard<'s>,
+        ranking: RankLeaderboard<'_>,
     ) -> ClientResult<u32> {
         if rank < 1 || 10_000 < rank {
             return Err(CustomClientError::RankIndex(rank));

@@ -104,7 +104,7 @@ pub async fn profile_embed(
     let globals_count = match globals_result {
         Ok(globals_count) => globals_count,
         Err(why) => {
-            error!("Error while requesting globals count: {}", why);
+            unwind_error!(error, why, "Error while requesting globals count: {}");
             BTreeMap::new()
         }
     };
