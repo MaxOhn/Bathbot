@@ -23,38 +23,45 @@ async fn top_main(
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
-    if top_type == TopType::Top && (args.has_dash_r || args.has_dash_p) {
-        let mode_long = match mode {
-            GameMode::STD => "",
-            GameMode::MNA => "mania",
-            GameMode::TKO => "taiko",
-            GameMode::CTB => "ctb",
-        };
+    if top_type == TopType::Top && args.has_dash_r {
+        let mode_long = mode_long(mode);
         let prefix = ctx.config_first_prefix(msg.guild_id);
-        if args.has_dash_r {
-            let mode_short = match mode {
-                GameMode::STD => "",
-                GameMode::MNA => "m",
-                GameMode::TKO => "t",
-                GameMode::CTB => "c",
-            };
-            let content = format!(
-                "`{prefix}top{mode_long} -r`? I think you meant `{prefix}recentbest{mode_long}` \
-                or `{prefix}rb{mode_short}` for short ;)",
-                mode_long = mode_long,
-                mode_short = mode_short,
-                prefix = prefix
-            );
-            return msg.error(&ctx, content).await;
-        } else if args.has_dash_p {
-            let content = format!(
-                "`{prefix}top{} -p`? Try using the arrow reactions instead ;)",
-                mode = mode_long,
-                prefix = prefix
-            );
-            return msg.error(&ctx, content).await;
-        }
+
+        let mode_short = match mode {
+            GameMode::STD => "",
+            GameMode::MNA => "m",
+            GameMode::TKO => "t",
+            GameMode::CTB => "c",
+        };
+
+        let content = format!(
+            "`{prefix}top{mode_long} -r`? I think you meant `{prefix}recentbest{mode_long}` \
+            or `{prefix}rb{mode_short}` for short ;)",
+            mode_long = mode_long,
+            mode_short = mode_short,
+            prefix = prefix
+        );
+
+        return msg.error(&ctx, content).await;
+    } else if args.has_dash_p {
+        let cmd = match top_type {
+            TopType::Top => "top",
+            TopType::Recent => "rb",
+        };
+
+        let mode_long = mode_long(mode);
+        let prefix = ctx.config_first_prefix(msg.guild_id);
+
+        let content = format!(
+            "`{prefix}{cmd}{} -p`? Try using the arrow reactions instead ;)",
+            mode = mode_long,
+            cmd = cmd,
+            prefix = prefix
+        );
+
+        return msg.error(&ctx, content).await;
     }
+
     let name = match args.name.take().or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
@@ -64,6 +71,7 @@ async fn top_main(
     let user_fut = ctx.osu().user(name.as_str()).mode(mode);
     let scores_fut = ctx.osu().top_scores(name.as_str()).mode(mode).limit(100);
     let join_result = tokio::try_join!(user_fut, scores_fut);
+
     let (user, scores) = match join_result {
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
@@ -89,6 +97,7 @@ async fn top_main(
         .iter()
         .filter_map(|(_, s)| s.beatmap_id)
         .collect();
+
     let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
         Ok(maps) => maps,
         Err(why) => {
@@ -102,6 +111,7 @@ async fn top_main(
         maps.len(),
         scores_indices.len()
     );
+
     let retrieving_msg = if scores_indices.len() - maps.len() > 10 {
         let content = format!(
             "Retrieving {} maps from the api...",
@@ -119,6 +129,7 @@ async fn top_main(
     // Retrieving all missing beatmaps
     let mut scores_data = Vec::with_capacity(scores_indices.len());
     let mut missing_maps = Vec::new();
+
     for (i, score) in scores_indices.into_iter() {
         let map_id = score.beatmap_id.unwrap();
         let map = if let Some(map) = maps.remove(&map_id) {
@@ -162,6 +173,7 @@ async fn top_main(
         }
         TopType::Recent => Some(format!("Most recent scores in `{}`'s top100:", name)),
     };
+
     let pages = numbers::div_euclid(5, scores_data.len());
     let data = TopEmbed::new(&ctx, &user, scores_data.iter().take(5), mode, (1, pages)).await;
 
@@ -172,6 +184,7 @@ async fn top_main(
     // Creating the embed
     let embed = data.build().build()?;
     let create_msg = ctx.http.create_message(msg.channel_id).embed(embed)?;
+
     let response = match content {
         Some(content) => create_msg.content(content)?.await?,
         None => create_msg.await?,
@@ -195,11 +208,13 @@ async fn top_main(
     // Pagination
     let pagination = TopPagination::new(Arc::clone(&ctx), response, user, scores_data, mode);
     let owner = msg.author.id;
+
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
             unwind_error!(warn, why, "Pagination error (top): {}")
         }
     });
+
     Ok(())
 }
 
@@ -383,6 +398,7 @@ fn filter_scores(
 ) -> Vec<(usize, Score)> {
     let selection = args.mods;
     let grade = args.grade;
+
     let mut scores_indices: Vec<(usize, Score)> = scores
         .into_iter()
         .enumerate()
@@ -445,6 +461,7 @@ fn filter_scores(
                 .iter()
                 .map(|(i, s)| (*i, s.accuracy(mode)))
                 .collect();
+
             scores_indices.sort_unstable_by(|(a, _), (b, _)| {
                 acc_cache
                     .get(&b)
@@ -457,9 +474,21 @@ fn filter_scores(
         }
         TopSortBy::None => {}
     }
+
     if top_type == TopType::Recent {
         scores_indices.sort_unstable_by(|(_, a), (_, b)| b.date.cmp(&a.date));
     }
+
     scores_indices.iter_mut().for_each(|(i, _)| *i += 1);
+
     scores_indices
+}
+
+fn mode_long(mode: GameMode) -> &'static str {
+    match mode {
+        GameMode::STD => "",
+        GameMode::MNA => "mania",
+        GameMode::TKO => "taiko",
+        GameMode::CTB => "ctb",
+    }
 }
