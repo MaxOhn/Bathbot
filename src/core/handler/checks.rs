@@ -54,7 +54,7 @@ pub fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>
                 "You need either admin permissions or \
                 any of these roles to use this command:\n",
             );
-            content.reserve_exact(role_len + (roles.len() - 1) * 2);
+            content.reserve_exact(role_len + roles.len().saturating_sub(1) * 2);
             let mut roles = roles.into_iter();
             if let Some(first) = roles.next() {
                 content.push_str(&first);

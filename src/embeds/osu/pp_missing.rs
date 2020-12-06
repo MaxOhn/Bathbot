@@ -55,7 +55,7 @@ impl PPMissingEmbed {
 
         let footer = if let Some(rank) = rank {
             Some(Footer::new(format!(
-                "{pp}pp are currently required for rank #{rank}",
+                "The current rank for {pp}pp is #{rank}",
                 pp = with_comma(pp),
                 rank = with_comma_u64(rank as u64),
             )))
