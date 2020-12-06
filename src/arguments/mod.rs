@@ -14,7 +14,7 @@ use crate::{
 
 use itertools::Itertools;
 use rosu::model::{GameMode, Grade};
-use std::str::FromStr;
+use std::{cmp::Ordering, str::FromStr};
 use twilight_model::id::{ChannelId, MessageId, RoleId};
 
 pub struct OsuStatsListArgs {
@@ -726,15 +726,6 @@ impl RankArgs {
     }
 }
 
-fn parse_dotted<T: FromStr>(arg: impl AsRef<str>) -> Option<(Option<T>, T)> {
-    let mut split = arg.as_ref().split("..");
-    let val = T::from_str(split.next()?).ok()?;
-    match split.next() {
-        Some(another) => Some((Some(val), T::from_str(another).ok()?)),
-        None => Some((None, val)),
-    }
-}
-
 pub fn try_link_name(ctx: &Context, msg: Option<&str>) -> Option<String> {
     msg.and_then(|arg| {
         matcher::get_mention_user(arg)
@@ -893,3 +884,45 @@ fn keywords(args: &mut Vec<String>, keys: &[&str]) -> bool {
     }
     false
 }
+
+fn parse_dotted<T: DottedValue>(arg: impl AsRef<str>) -> Option<(Option<T>, T)> {
+    let mut split = arg.as_ref().split("..");
+    let val = T::from_str(split.next()?).ok()?;
+
+    match split.next() {
+        Some(another) => {
+            let other = T::from_str(another).ok()?;
+
+            Some((Some(val.min(other)), val.max(other)))
+        }
+        None => Some((None, val)),
+    }
+}
+
+trait DottedValue: PartialOrd + FromStr + Copy {
+    fn min(self, other: Self) -> Self;
+    fn max(self, other: Self) -> Self;
+}
+
+macro_rules! impl_dotted_value {
+    ($type:ty) => {
+        impl DottedValue for $type {
+            fn min(self, other: Self) -> Self {
+                match self.partial_cmp(&other).unwrap_or(Ordering::Equal) {
+                    Ordering::Less | Ordering::Equal => self,
+                    Ordering::Greater => other,
+                }
+            }
+            fn max(self, other: Self) -> Self {
+                match self.partial_cmp(&other).unwrap_or(Ordering::Equal) {
+                    Ordering::Less | Ordering::Equal => other,
+                    Ordering::Greater => self,
+                }
+            }
+        }
+    };
+}
+
+impl_dotted_value!(u32);
+impl_dotted_value!(f32);
+impl_dotted_value!(usize);

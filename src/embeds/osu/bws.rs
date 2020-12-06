@@ -59,7 +59,7 @@ impl BWSEmbed {
                 );
                 let _ = writeln!(
                     content,
-                    "-{:->rank_len$}-|-{:-^len1$}-|-{:-^len2$}-|-{:-^len3$}-",
+                    "-{:->rank_len$}-+-{:-^len1$}-+-{:-^len2$}-+-{:-^len3$}-",
                     "-",
                     "-",
                     "-",
