@@ -1,7 +1,9 @@
 use crate::{
     arguments::{Args, NameFloatArgs},
+    custom_client::RankParam,
     embeds::{EmbedData, WhatIfEmbed},
     tracking::process_tracking,
+    unwind_error,
     util::{constants::OSU_API_ISSUE, MessageExt},
     BotResult, Context,
 };
@@ -53,11 +55,84 @@ async fn whatif_main(
     let mut maps = HashMap::new();
     process_tracking(&ctx, mode, &scores, Some(&user), &mut maps).await;
 
-    // Accumulate all necessary data
-    let data = WhatIfEmbed::new(user, scores, mode, pp);
+    let data = if scores.is_empty() {
+        let rank_result = ctx
+            .clients
+            .custom
+            .get_rank_data(mode, RankParam::Pp(pp))
+            .await;
+
+        let rank = match rank_result {
+            Ok(n) => Some(n as u32),
+            Err(why) => {
+                unwind_error!(warn, why, "Error while getting rank pp: {}");
+                None
+            }
+        };
+
+        WhatIfData::NoScores { rank }
+    } else if pp < scores.last().unwrap().pp.unwrap_or(0.0) {
+        WhatIfData::NonTop100
+    } else {
+        let pp_values: Vec<f32> = scores.iter().filter_map(|score| score.pp).collect();
+
+        let mut actual: f32 = 0.0;
+        let mut factor: f32 = 1.0;
+
+        for score in pp_values.iter() {
+            actual += score * factor;
+            factor *= 0.95;
+        }
+
+        let bonus_pp = user.pp_raw - actual;
+        let mut potential = 0.0;
+        let mut used = false;
+        let mut new_pos = scores.len();
+        let mut factor = 1.0;
+
+        for (i, &pp_value) in pp_values.iter().enumerate().take(pp_values.len() - 1) {
+            if !used && pp_value < pp {
+                used = true;
+                potential += pp * factor;
+                factor *= 0.95;
+                new_pos = i + 1;
+            }
+            potential += pp_value * factor;
+            factor *= 0.95;
+        }
+
+        if !used {
+            potential += pp * factor;
+        };
+
+        let new_pp = potential;
+        let max_pp = pp_values.get(0).copied().unwrap_or(0.0);
+
+        let rank_result = ctx
+            .clients
+            .custom
+            .get_rank_data(mode, RankParam::Pp(new_pp + bonus_pp))
+            .await;
+
+        let rank = match rank_result {
+            Ok(n) => Some(n as u32),
+            Err(why) => {
+                unwind_error!(warn, why, "Error while getting rank pp: {}");
+                None
+            }
+        };
+
+        WhatIfData::Top100 {
+            bonus_pp,
+            new_pp,
+            new_pos,
+            max_pp,
+            rank,
+        }
+    };
 
     // Sending the embed
-    let embed = data.build().build()?;
+    let embed = WhatIfEmbed::new(user, pp, data).build().build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
     Ok(())
 }
@@ -112,4 +187,18 @@ pub async fn whatiftaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 #[aliases("wic")]
 pub async fn whatifctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     whatif_main(GameMode::CTB, ctx, msg, args).await
+}
+
+pub enum WhatIfData {
+    NonTop100,
+    NoScores {
+        rank: Option<u32>,
+    },
+    Top100 {
+        bonus_pp: f32,
+        new_pp: f32,
+        new_pos: usize,
+        max_pp: f32,
+        rank: Option<u32>,
+    },
 }
