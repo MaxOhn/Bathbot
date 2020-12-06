@@ -1,7 +1,9 @@
 use crate::{
     arguments::{Args, NameFloatArgs},
+    custom_client::RankParam,
     embeds::{EmbedData, PPMissingEmbed},
     tracking::process_tracking,
+    unwind_error,
     util::{constants::OSU_API_ISSUE, MessageExt},
     BotResult, Context,
 };
@@ -36,10 +38,13 @@ async fn pp_main(
     // Retrieve the user and their top scores
     let user_fut = ctx.osu().user(name.as_str()).mode(mode);
     let scores_fut = ctx.osu().top_scores(name.as_str()).mode(mode).limit(100);
-    let join_result = tokio::try_join!(user_fut, scores_fut);
-    let (user, scores) = match join_result {
-        Ok((Some(user), scores)) => (user, scores),
-        Ok((None, _)) => {
+    let rank_fut = ctx.clients.custom.get_rank_data(mode, RankParam::Pp(pp));
+
+    let (user_result, scores_result, rank_result) = tokio::join!(user_fut, scores_fut, rank_fut);
+
+    let user = match user_result {
+        Ok(Some(user)) => user,
+        Ok(None) => {
             let content = format!("User `{}` was not found", name);
             return msg.error(&ctx, content).await;
         }
@@ -49,12 +54,28 @@ async fn pp_main(
         }
     };
 
+    let scores = match scores_result {
+        Ok(scores) => scores,
+        Err(why) => {
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            return Err(why.into());
+        }
+    };
+
+    let rank = match rank_result {
+        Ok(rank) => Some(rank as usize),
+        Err(why) => {
+            unwind_error!(warn, why, "Error while getting rank pp: {}");
+            None
+        }
+    };
+
     // Process user and their top scores for tracking
     let mut maps = HashMap::new();
     process_tracking(&ctx, mode, &scores, Some(&user), &mut maps).await;
 
     // Accumulate all necessary data
-    let data = PPMissingEmbed::new(user, scores, pp);
+    let data = PPMissingEmbed::new(user, scores, pp, rank);
 
     // Creating the embed
     let embed = data.build().build()?;

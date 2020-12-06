@@ -1,6 +1,10 @@
 use crate::{
-    embeds::{osu, Author, EmbedData},
-    util::{constants::AVATAR_URL, numbers::with_comma, osu::pp_missing},
+    embeds::{osu, Author, EmbedData, Footer},
+    util::{
+        constants::AVATAR_URL,
+        numbers::{with_comma, with_comma_u64},
+        osu::pp_missing,
+    },
 };
 
 use rosu::model::{Score, User};
@@ -11,15 +15,17 @@ pub struct PPMissingEmbed {
     title: String,
     thumbnail: ImageSource,
     author: Author,
+    footer: Option<Footer>,
 }
 
 impl PPMissingEmbed {
-    pub fn new(user: User, scores: Vec<Score>, pp: f32) -> Self {
+    pub fn new(user: User, scores: Vec<Score>, pp: f32, rank: Option<usize>) -> Self {
         let title = format!(
             "What score is {name} missing to reach {pp_given}pp?",
             name = user.username,
-            pp_given = with_comma(pp)
+            pp_given = with_comma(pp),
         );
+
         let description = if scores.is_empty() {
             format!(
                 "To reach {pp}pp with one additional score, {user} needs to perform \
@@ -36,6 +42,7 @@ impl PPMissingEmbed {
             )
         } else {
             let (required, idx) = pp_missing(user.pp_raw, pp, &scores);
+
             format!(
                 "To reach {pp}pp with one additional score, {user} needs to perform \
                  a **{required}pp** score which would be the top #{idx}",
@@ -45,8 +52,20 @@ impl PPMissingEmbed {
                 idx = idx
             )
         };
+
+        let footer = if let Some(rank) = rank {
+            Some(Footer::new(format!(
+                "{pp}pp are currently required for rank #{rank}",
+                pp = with_comma(pp),
+                rank = with_comma_u64(rank as u64),
+            )))
+        } else {
+            None
+        };
+
         Self {
             title,
+            footer,
             description,
             author: osu::get_user_author(&user),
             thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
@@ -66,5 +85,8 @@ impl EmbedData for PPMissingEmbed {
     }
     fn title(&self) -> Option<&str> {
         Some(&self.title)
+    }
+    fn footer(&self) -> Option<&Footer> {
+        self.footer.as_ref()
     }
 }
