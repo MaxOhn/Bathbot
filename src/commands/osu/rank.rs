@@ -1,17 +1,17 @@
 use crate::{
     arguments::{Args, RankArgs},
-    custom_client::RankLeaderboard,
+    custom_client::{RankLeaderboard, RankParam},
     embeds::{EmbedData, RankEmbed},
     tracking::process_tracking,
     util::{
-        constants::{OSU_API_ISSUE, OSU_WEB_ISSUE},
+        constants::{OSU_API_ISSUE, OSU_DAILY_ISSUE, OSU_WEB_ISSUE},
         MessageExt,
     },
     BotResult, Context,
 };
 
 use futures::future::TryFutureExt;
-use rosu::model::GameMode;
+use rosu::model::{GameMode, User};
 use std::{collections::HashMap, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -29,63 +29,108 @@ async fn rank_main(
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
-    let rank = args.rank;
-    if rank == 0 {
+
+    if args.rank == 0 {
         let content = "Rank number must be between 1 and 10,000";
         return msg.error(&ctx, content).await;
-    } else if rank > 10_000 {
-        let content = "Unfortunately I can only provide data for ranks up to 10,000 :(";
+    } else if args.rank > 10_000 && args.country.is_some() {
+        let content = "Unfortunately I can only provide data for country ranks up to 10,000 :(";
         return msg.error(&ctx, content).await;
     }
 
-    // Retrieve the user and the id of the rank-holding user
-    let country = RankLeaderboard::Pp {
-        country: args.country.as_deref(),
-    };
-    let rank_holder_id_fut = ctx.clients.custom.get_userid_of_rank(rank, mode, country);
-    let (rank_holder_id_result, user_result) = tokio::join!(
-        rank_holder_id_fut,
-        ctx.osu()
+    let data = if args.rank <= 10_000 {
+        // Retrieve the user and the id of the rank-holding user
+        let ranking = RankLeaderboard::Pp {
+            country: args.country.as_deref(),
+        };
+        let rank_holder_id_fut = ctx
+            .clients
+            .custom
+            .get_userid_of_rank(args.rank, mode, ranking);
+        let user_fut = ctx
+            .osu()
             .user(name.as_str())
             .mode(mode)
-            .map_err(|e| e.into())
-    );
-    let rank_holder_id = match rank_holder_id_result {
-        Ok(id) => id,
-        Err(why) => {
-            let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
-            return Err(why.into());
-        }
-    };
-    let user = match user_result {
-        Ok(Some(user)) => user,
-        Ok(None) => {
-            let content = format!("User `{}` was not found", name);
-            return msg.error(&ctx, content).await;
-        }
-        Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-            return Err(why);
-        }
-    };
+            .map_err(|e| e.into());
+        let (rank_holder_id_result, user_result) = tokio::join!(rank_holder_id_fut, user_fut,);
+        let rank_holder_id = match rank_holder_id_result {
+            Ok(id) => id,
+            Err(why) => {
+                let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
+                return Err(why.into());
+            }
+        };
+        let user = match user_result {
+            Ok(Some(user)) => user,
+            Ok(None) => {
+                let content = format!("User `{}` was not found", name);
+                return msg.error(&ctx, content).await;
+            }
+            Err(why) => {
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+                return Err(why);
+            }
+        };
 
-    // Retrieve rank-holding user
-    let rank_holder = match ctx.osu().user(rank_holder_id).mode(mode).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
-            let content = format!("User id `{}` was not found", rank_holder_id);
-            return msg.error(&ctx, content).await;
+        // Retrieve rank-holding user
+        let rank_holder = match ctx.osu().user(rank_holder_id).mode(mode).await {
+            Ok(Some(user)) => user,
+            Ok(None) => {
+                let content = format!("User id `{}` was not found", rank_holder_id);
+                return msg.error(&ctx, content).await;
+            }
+            Err(why) => {
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+                return Err(why.into());
+            }
+        };
+
+        RankData::Sub10k {
+            user,
+            rank: args.rank,
+            country: args.country,
+            rank_holder,
         }
-        Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-            return Err(why.into());
+    } else {
+        let pp_fut = ctx
+            .clients
+            .custom
+            .get_rank_data(mode, RankParam::Rank(args.rank));
+        let user_fut = ctx
+            .osu()
+            .user(name.as_str())
+            .mode(mode)
+            .map_err(|e| e.into());
+        let (pp_result, user_result) = tokio::join!(pp_fut, user_fut,);
+        let required_pp = match pp_result {
+            Ok(pp) => pp,
+            Err(why) => {
+                let _ = msg.error(&ctx, OSU_DAILY_ISSUE).await;
+                return Err(why.into());
+            }
+        };
+        let user = match user_result {
+            Ok(Some(user)) => user,
+            Ok(None) => {
+                let content = format!("User `{}` was not found", name);
+                return msg.error(&ctx, content).await;
+            }
+            Err(why) => {
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+                return Err(why);
+            }
+        };
+
+        RankData::Over10k {
+            user,
+            rank: args.rank,
+            required_pp,
         }
     };
 
     // Retrieve the user's top scores if required
-    let scores = if user.pp_raw > rank_holder.pp_raw {
-        None
-    } else {
+    let scores = if data.with_scores() {
+        let user = data.user();
         match user.get_top_scores(ctx.osu()).limit(100).mode(mode).await {
             Ok(scores) if scores.is_empty() => None,
             Ok(scores) => Some(scores),
@@ -94,19 +139,18 @@ async fn rank_main(
                 return Err(why.into());
             }
         }
+    } else {
+        None
     };
 
-    if let Some(ref scores) = scores {
+    if let Some(scores) = scores.as_deref() {
         // Process user and their top scores for tracking
         let mut maps = HashMap::new();
-        process_tracking(&ctx, mode, scores, Some(&user), &mut maps).await;
+        process_tracking(&ctx, mode, scores, Some(data.user()), &mut maps).await;
     }
 
-    // Accumulate all necessary data
-    let data = RankEmbed::new(user, scores, rank, args.country, rank_holder);
-
     // Creating the embed
-    let embed = data.build().build()?;
+    let embed = RankEmbed::new(data, scores).build().build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
     Ok(())
 }
@@ -115,7 +159,7 @@ async fn rank_main(
 #[short_desc("How many pp is a player missing to reach the given rank?")]
 #[long_desc(
     "How many pp is a player missing to reach the given rank?\n\
-    The number for the rank must be between 1 and 10,000."
+    For ranks over 10,000 the data is provided by [osudaily](https://osudaily.net/)."
 )]
 #[usage("[username] [[country]number]")]
 #[example("badewanne3 be50", "badewanne3 123")]
@@ -128,7 +172,7 @@ pub async fn rank(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
 #[short_desc("How many pp is a player missing to reach the given rank?")]
 #[long_desc(
     "How many pp is a player missing to reach the given rank?\n\
-    The number for the rank must be between 1 and 10,000."
+    For ranks over 10,000 the data is provided by [osudaily](https://osudaily.net/)."
 )]
 #[usage("[username] [[country]number]")]
 #[example("badewanne3 be50", "badewanne3 123")]
@@ -141,7 +185,7 @@ pub async fn rankmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
 #[short_desc("How many pp is a player missing to reach the given rank?")]
 #[long_desc(
     "How many pp is a player missing to reach the given rank?\n\
-    The number for the rank must be between 1 and 10,000."
+    For ranks over 10,000 the data is provided by [osudaily](https://osudaily.net/)."
 )]
 #[usage("[username] [[country]number]")]
 #[example("badewanne3 be50", "badewanne3 123")]
@@ -154,11 +198,45 @@ pub async fn ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
 #[short_desc("How many pp is a player missing to reach the given rank?")]
 #[long_desc(
     "How many pp is a player missing to reach the given rank?\n\
-    The number for the rank must be between 1 and 10,000."
+    For ranks over 10,000 the data is provided by [osudaily](https://osudaily.net/)."
 )]
 #[usage("[username] [[country]number]")]
 #[example("badewanne3 be50", "badewanne3 123")]
 #[aliases("rankc", "reachctb", "reachc")]
 pub async fn rankctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     rank_main(GameMode::CTB, ctx, msg, args).await
+}
+
+pub enum RankData {
+    Sub10k {
+        user: User,
+        rank: usize,
+        country: Option<String>,
+        rank_holder: User,
+    },
+    Over10k {
+        user: User,
+        rank: usize,
+        required_pp: f32,
+    },
+}
+
+impl RankData {
+    fn with_scores(&self) -> bool {
+        match self {
+            Self::Sub10k {
+                user, rank_holder, ..
+            } => user.pp_raw < rank_holder.pp_raw,
+            Self::Over10k {
+                user, required_pp, ..
+            } => user.pp_raw < *required_pp,
+        }
+    }
+
+    pub fn user(&self) -> &User {
+        match self {
+            Self::Sub10k { user, .. } => user,
+            Self::Over10k { user, .. } => user,
+        }
+    }
 }

@@ -12,28 +12,25 @@ pub const OSU_BASE: &str = "https://osu.ppy.sh/";
 pub const MAP_THUMB_URL: &str = "https://b.ppy.sh/thumb/";
 pub const AVATAR_URL: &str = "https://a.ppy.sh/";
 pub const HUISMETBENEN: &str = "https://api.huismetbenen.nl/";
+pub const OSEKAI_MEDAL_API: &str = "https://osekai.net/medals/apiv2/";
 
 // twitch
 pub const TWITCH_BASE: &str = "https://www.twitch.tv/";
 pub const TWITCH_STREAM_ENDPOINT: &str = "https://api.twitch.tv/helix/streams";
 pub const TWITCH_USERS_ENDPOINT: &str = "https://api.twitch.tv/helix/users";
 
-// osekai
-pub const OSEKAI_MEDAL_API: &str = "https://osekai.net/medals/apiv2/";
-
 // discord
 pub const DISCORD_CDN: &str = "https://cdn.discordapp.com/";
-
-// Discord ids
-pub const OWNER_USER_ID: u64 = 219905108316520448;
 
 // Error messages
 pub const GENERAL_ISSUE: &str = "Something went wrong, blame bade";
 pub const OSU_API_ISSUE: &str = "Some issue with the osu api, blame bade";
 pub const OSU_WEB_ISSUE: &str = "Some issue with the osu website, DDoS protection?";
 pub const HUISMETBENEN_ISSUE: &str = "Some issue with the huismetbenen api, blame bade";
+pub const OSU_DAILY_ISSUE: &str = "Some issue with the osudaily api, blame bade";
 
 // Misc
+pub const OWNER_USER_ID: u64 = 219905108316520448;
 pub const SYMBOLS: [&str; 6] = ["♔", "♕", "♖", "♗", "♘", "♙"];
 pub const DATE_FORMAT: &str = "%F %T";
 pub const INVITE_LINK: &str = "https://discordapp.com/api/oauth2/authorize?scope=bot&\

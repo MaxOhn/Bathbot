@@ -18,6 +18,7 @@ use crate::{
     util::{
         constants::{AVATAR_URL, HUISMETBENEN, OSEKAI_MEDAL_API, OSU_BASE},
         error::CustomClientError,
+        numbers::round,
         osu::ModSelection,
     },
     BotResult,
@@ -51,6 +52,7 @@ enum Site {
     OsuAvatar,
     OsuSnipe,
     Osekai,
+    OsuDaily,
 }
 
 pub struct CustomClient {
@@ -550,6 +552,24 @@ impl CustomClient {
         Ok((user, medals))
     }
 
+    pub async fn get_rank_data(&self, mode: GameMode, param: RankParam) -> ClientResult<f32> {
+        let mut url = format!("https://osudaily.net/data/getPPRank.php?m={}&", mode as u8);
+        let _ = match param {
+            RankParam::Rank(rank) => write!(url, "t=rank&v={}", rank),
+            RankParam::Pp(pp) => write!(url, "t=pp&v={}", round(pp)),
+        };
+
+        let response = self.make_request(url, Site::OsuDaily).await?;
+        let bytes = response.bytes().await?;
+        let result: f32 =
+            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&bytes).into_owned(),
+                source,
+                request: "rank data",
+            })?;
+        Ok(result)
+    }
+
     pub async fn get_userid_of_rank(
         &self,
         rank: usize,
@@ -623,4 +643,9 @@ impl CustomClient {
 pub enum RankLeaderboard<'s> {
     Score,
     Pp { country: Option<&'s str> },
+}
+
+pub enum RankParam {
+    Rank(usize),
+    Pp(f32),
 }
