@@ -9,7 +9,6 @@ impl Database {
             "INSERT INTO stream_tracks VALUES ({},{}) ON CONFLICT DO NOTHING",
             channel, user
         );
-
         let done = sqlx::query(&query).execute(&self.pool).await?;
 
         Ok(done.rows_affected() > 0)
@@ -44,7 +43,6 @@ impl Database {
             "DELETE FROM stream_tracks WHERE channel_id={} AND user_id={}",
             channel, user
         );
-
         let done = sqlx::query(&query).execute(&self.pool).await?;
 
         Ok(done.rows_affected() > 0)

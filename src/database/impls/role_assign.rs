@@ -27,7 +27,6 @@ impl Database {
             message,
             role = role
         );
-
         sqlx::query(&query).execute(&self.pool).await?;
 
         Ok(())

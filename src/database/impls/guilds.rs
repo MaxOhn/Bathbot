@@ -16,6 +16,7 @@ impl Database {
                 (GuildId(id as u64), config)
             })
             .collect();
+
         Ok(guilds)
     }
 
@@ -35,7 +36,9 @@ impl Database {
                 .and(result);
             counter += 1;
         }
+
         result?;
+
         Ok(counter)
     }
 }

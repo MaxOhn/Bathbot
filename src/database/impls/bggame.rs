@@ -15,7 +15,6 @@ impl Database {
             "INSERT INTO bggame_stats VALUES ({},1) ON CONFLICT (discord_id) DO UPDATE SET score=bggame_stats.score+1",
             user_id
         );
-
         sqlx::query(&query).execute(&self.pool).await?;
 
         Ok(())

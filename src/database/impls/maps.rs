@@ -1,5 +1,5 @@
 use crate::{
-    database::{util::CustomSQL, BeatmapWrapper, DBMapSet},
+    database::{BeatmapWrapper, DBMapSet},
     unwind_error, BotResult, Database,
 };
 
@@ -13,7 +13,7 @@ use tokio::stream::StreamExt;
 
 impl Database {
     pub async fn get_beatmap(&self, map_id: u32) -> BotResult<Beatmap> {
-        let query = "SELECT * FROM (SELECT * FROM maps WHERE beatmap_id=?) as m JOIN mapsets USING(beatmapset_id)";
+        let query = "SELECT * FROM (SELECT * FROM maps WHERE beatmap_id=$1) as m JOIN mapsets USING(beatmapset_id)";
 
         let map: BeatmapWrapper = sqlx::query_as(query)
             .bind(map_id)
@@ -37,14 +37,10 @@ impl Database {
             return Ok(HashMap::new());
         }
 
-        let subquery = String::from("SELECT * FROM maps WHERE beatmap_id IN").in_clause(map_ids);
+        let query = "SELECT * FROM (SELECT * FROM maps WHERE beatmap_id=ANY($1)) AS m JOIN mapsets USING(beatmapset_id)";
 
-        let query = format!(
-            "SELECT * FROM ({}) as m JOIN mapsets as ms ON m.beatmapset_id=ms.beatmapset_id",
-            subquery
-        );
-
-        let beatmaps = sqlx::query_as::<_, BeatmapWrapper>(&query)
+        let beatmaps = sqlx::query_as::<_, BeatmapWrapper>(query)
+            .bind(map_ids)
             .fetch(&self.pool)
             .filter_map(|result| match result {
                 Ok(map_wrapper) => {
@@ -68,6 +64,7 @@ impl Database {
         let mut txn = self.pool.begin().await?;
         let result = _insert_map(&mut *txn, map).await?;
         txn.commit().await?;
+
         Ok(result)
     }
 
@@ -75,14 +72,18 @@ impl Database {
         if maps.is_empty() {
             return Ok(0);
         }
+
         let mut success = 0;
         let mut txn = self.pool.begin().await?;
+
         for map in maps.iter() {
             if _insert_map(&mut *txn, map).await? {
                 success += 1
             }
         }
+
         txn.commit().await?;
+
         Ok(success)
     }
 }
@@ -93,6 +94,7 @@ async fn _insert_map(conn: &mut PgConnection, map: &Beatmap) -> BotResult<bool> 
             // Crucial to do mapsets first for foreign key constrain
             _insert_beatmapset(conn, map).await?;
             _insert_beatmap(conn, map).await?;
+
             Ok(true)
         }
         _ => Ok(false),
