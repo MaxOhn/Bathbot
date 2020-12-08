@@ -4,6 +4,7 @@
 - Investigate deadlock, `<bg stop`-`<bg bigger`?
 - Rewrite `<mc` calculation
 - Experiment with different team/opponent scaling for `<mc`
+- Only retrieve the first map from DB for `<r`
 - ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~
 - ~~`<playermedals` showing a list of a user's medals~~
 - ~~`<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)~~

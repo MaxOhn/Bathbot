@@ -13,6 +13,7 @@ pub const MAP_THUMB_URL: &str = "https://b.ppy.sh/thumb/";
 pub const AVATAR_URL: &str = "https://a.ppy.sh/";
 pub const HUISMETBENEN: &str = "https://api.huismetbenen.nl/";
 pub const OSEKAI_MEDAL_API: &str = "https://osekai.net/medals/apiv2/";
+pub const OSU_DAILY_API: &str = "https://osudaily.net/api/";
 
 // twitch
 pub const TWITCH_BASE: &str = "https://www.twitch.tv/";

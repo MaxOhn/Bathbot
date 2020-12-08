@@ -63,7 +63,7 @@ async fn whatif_main(
             .await;
 
         let rank = match rank_result {
-            Ok(n) => Some(n as u32),
+            Ok(rank_pp) => Some(rank_pp.rank),
             Err(why) => {
                 unwind_error!(warn, why, "Error while getting rank pp: {}");
                 None
@@ -115,7 +115,7 @@ async fn whatif_main(
             .await;
 
         let rank = match rank_result {
-            Ok(n) => Some(n as u32),
+            Ok(rank_pp) => Some(rank_pp.rank),
             Err(why) => {
                 unwind_error!(warn, why, "Error while getting rank pp: {}");
                 None

@@ -63,7 +63,7 @@ async fn pp_main(
     };
 
     let rank = match rank_result {
-        Ok(rank) => Some(rank as usize),
+        Ok(rank_pp) => Some(rank_pp.rank as usize),
         Err(why) => {
             unwind_error!(warn, why, "Error while getting rank pp: {}");
             None

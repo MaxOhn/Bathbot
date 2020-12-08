@@ -112,7 +112,7 @@ async fn rank_main(
         let (pp_result, user_result) = tokio::join!(pp_fut, user_fut,);
 
         let required_pp = match pp_result {
-            Ok(pp) => pp,
+            Ok(rank_pp) => rank_pp.pp,
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_DAILY_ISSUE).await;
                 return Err(why.into());

@@ -1,6 +1,7 @@
 mod deserialize;
 mod most_played;
 mod osekai;
+mod osu_daily;
 mod osu_profile;
 mod osu_stats;
 mod score;
@@ -8,6 +9,7 @@ mod snipe;
 
 pub use most_played::MostPlayedMap;
 pub use osekai::*;
+pub use osu_daily::*;
 pub use osu_profile::*;
 pub use osu_stats::*;
 use score::ScraperScores;
@@ -16,12 +18,12 @@ pub use snipe::*;
 
 use crate::{
     util::{
-        constants::{AVATAR_URL, HUISMETBENEN, OSEKAI_MEDAL_API, OSU_BASE},
+        constants::{AVATAR_URL, HUISMETBENEN, OSEKAI_MEDAL_API, OSU_BASE, OSU_DAILY_API},
         error::CustomClientError,
         numbers::round,
         osu::ModSelection,
     },
-    BotResult,
+    BotResult, CONFIG,
 };
 
 use chrono::{DateTime, Utc};
@@ -559,8 +561,9 @@ impl CustomClient {
         Ok((user, medals))
     }
 
-    pub async fn get_rank_data(&self, mode: GameMode, param: RankParam) -> ClientResult<f32> {
-        let mut url = format!("https://osudaily.net/data/getPPRank.php?m={}&", mode as u8);
+    pub async fn get_rank_data(&self, mode: GameMode, param: RankParam) -> ClientResult<RankPP> {
+        let key = &CONFIG.get().unwrap().tokens.osu_daily;
+        let mut url = format!("{}pp?k={}&mode={}&", OSU_DAILY_API, key, mode as u8);
         let _ = match param {
             RankParam::Rank(rank) => write!(url, "t=rank&v={}", rank),
             RankParam::Pp(pp) => write!(url, "t=pp&v={}", round(pp)),
@@ -568,13 +571,13 @@ impl CustomClient {
 
         let response = self.make_request(url, Site::OsuDaily).await?;
         let bytes = response.bytes().await?;
-        let result: f32 =
+        let rank_pp =
             serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
                 body: String::from_utf8_lossy(&bytes).into_owned(),
                 source,
                 request: "rank data",
             })?;
-        Ok(result)
+        Ok(rank_pp)
     }
 
     pub async fn get_userid_of_rank(
