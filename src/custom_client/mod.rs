@@ -36,7 +36,14 @@ use reqwest::{
 use rosu::model::{GameMode, GameMods, User};
 use scraper::{Html, Node, Selector};
 use serde_json::Value;
-use std::{collections::HashSet, convert::TryFrom, fmt::Write, hash::Hash, num::NonZeroU32};
+use std::{
+    collections::HashSet,
+    convert::TryFrom,
+    fmt::{self, Write},
+    hash::Hash,
+    num::NonZeroU32,
+    str::FromStr,
+};
 use tokio::time::{timeout, Duration};
 
 static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), ", ", env!("CARGO_PKG_VERSION"));
@@ -573,43 +580,62 @@ impl CustomClient {
     pub async fn get_userid_of_rank(
         &self,
         rank: usize,
-        mode: GameMode,
         ranking: RankLeaderboard<'_>,
     ) -> ClientResult<u32> {
         if rank < 1 || 10_000 < rank {
             return Err(CustomClientError::RankIndex(rank));
         }
-        let mut url = format!("{base}rankings/{mode}/", base = OSU_BASE, mode = mode);
-        match ranking {
-            RankLeaderboard::Score => url += "score?",
-            RankLeaderboard::Pp { country } => {
+
+        let mut url = format!(
+            "{base}rankings/{mode}/",
+            base = OSU_BASE,
+            mode = ranking.variant
+        );
+
+        match ranking.leaderboard {
+            LeaderboardType::Score => url += "score?",
+            LeaderboardType::Pp { country } => {
                 url += "performance?";
+
                 if let Some(country) = country {
                     let _ = write!(url, "country={}&", country);
                 }
             }
         }
+
+        if let GameModeVariant::Mania(Some(variant)) = ranking.variant {
+            let _ = write!(url, "variant={}&", variant);
+        }
+
         let mut page_idx = rank / 50;
+
         if rank % 50 != 0 {
             page_idx += 1;
         }
+
         let _ = write!(url, "page={}", page_idx);
+
         let body = self
             .make_request(url, Site::OsuWebsite)
             .await?
             .text()
             .await?;
+
         let html = Html::parse_document(&body);
         let ranking_page_table = Selector::parse(".ranking-page-table").unwrap();
+
         let ranking_page_table = html
             .select(&ranking_page_table)
             .next()
             .ok_or(CustomClientError::MissingElement(".ranking-page-table"))?;
+
         let tbody = Selector::parse("tbody").unwrap();
+
         let tbody = ranking_page_table
             .select(&tbody)
             .next()
             .ok_or(CustomClientError::MissingElement("tbody"))?;
+
         let child = tbody
             .children()
             .enumerate()
@@ -617,6 +643,7 @@ impl CustomClient {
             .map(|(_, child)| child)
             .nth(if rank % 50 == 0 { 49 } else { (rank % 50) - 1 })
             .unwrap();
+
         let node = child
             .children()
             .nth(3)
@@ -627,6 +654,7 @@ impl CustomClient {
             .children()
             .nth(3)
             .ok_or(CustomClientError::RankNode(3))?;
+
         match node.value() {
             Node::Element(e) => {
                 if let Some(id) = e.attr("data-user-id") {
@@ -640,7 +668,107 @@ impl CustomClient {
     }
 }
 
-pub enum RankLeaderboard<'s> {
+pub struct RankLeaderboard<'s> {
+    variant: GameModeVariant,
+    leaderboard: LeaderboardType<'s>,
+}
+
+impl<'s> RankLeaderboard<'s> {
+    pub fn score(mode: GameMode) -> Self {
+        Self {
+            variant: mode.into(),
+            leaderboard: LeaderboardType::Score,
+        }
+    }
+
+    pub fn pp(mode: GameMode, country: Option<&'s str>) -> Self {
+        Self {
+            variant: mode.into(),
+            leaderboard: LeaderboardType::Pp { country },
+        }
+    }
+
+    pub fn variant_4k(mut self) -> Self {
+        if let GameModeVariant::Mania(variant) = &mut self.variant {
+            variant.replace(ManiaVariant::K4);
+        }
+
+        self
+    }
+
+    pub fn variant_7k(mut self) -> Self {
+        if let GameModeVariant::Mania(variant) = &mut self.variant {
+            variant.replace(ManiaVariant::K7);
+        }
+
+        self
+    }
+}
+
+enum GameModeVariant {
+    Osu,
+    Taiko,
+    Fruits,
+    Mania(Option<ManiaVariant>),
+}
+
+impl From<GameMode> for GameModeVariant {
+    fn from(mode: GameMode) -> Self {
+        match mode {
+            GameMode::STD => GameModeVariant::Osu,
+            GameMode::TKO => GameModeVariant::Taiko,
+            GameMode::CTB => GameModeVariant::Fruits,
+            GameMode::MNA => GameModeVariant::Mania(None),
+        }
+    }
+}
+
+impl fmt::Display for GameModeVariant {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mode = match self {
+            Self::Osu => "osu",
+            Self::Taiko => "taiko",
+            Self::Fruits => "fruits",
+            Self::Mania(_) => "mania",
+        };
+
+        f.write_str(mode)
+    }
+}
+
+pub enum ManiaVariant {
+    K4,
+    K7,
+}
+
+impl FromStr for ManiaVariant {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if !s.starts_with('+') {
+            return Err(());
+        }
+
+        match s[1..].cow_to_lowercase().as_ref() {
+            "4k" | "k4" => Ok(Self::K4),
+            "7k" | "k7" => Ok(Self::K7),
+            _ => Err(()),
+        }
+    }
+}
+
+impl fmt::Display for ManiaVariant {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let variant = match self {
+            Self::K4 => "4k",
+            Self::K7 => "7k",
+        };
+
+        f.write_str(variant)
+    }
+}
+
+enum LeaderboardType<'s> {
     Score,
     Pp { country: Option<&'s str> },
 }

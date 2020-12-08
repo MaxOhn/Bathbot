@@ -42,11 +42,10 @@ async fn rank_score_main(
     }
 
     let user_id_fut = match ranking {
-        Ranking::Ranked => {
-            ctx.clients
-                .custom
-                .get_userid_of_rank(rank, mode, RankLeaderboard::Score)
-        }
+        Ranking::Ranked => ctx
+            .clients
+            .custom
+            .get_userid_of_rank(rank, RankLeaderboard::score(mode)),
     };
 
     // Retrieve the user and the id of the rank-holding user

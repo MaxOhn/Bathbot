@@ -1,6 +1,6 @@
 use crate::{
     arguments::{Args, RankArgs},
-    custom_client::{RankLeaderboard, RankParam},
+    custom_client::{ManiaVariant, RankLeaderboard, RankParam},
     embeds::{EmbedData, RankEmbed},
     tracking::process_tracking,
     util::{
@@ -25,6 +25,7 @@ async fn rank_main(
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
+
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
@@ -40,19 +41,23 @@ async fn rank_main(
 
     let data = if args.rank <= 10_000 {
         // Retrieve the user and the id of the rank-holding user
-        let ranking = RankLeaderboard::Pp {
-            country: args.country.as_deref(),
-        };
-        let rank_holder_id_fut = ctx
-            .clients
-            .custom
-            .get_userid_of_rank(args.rank, mode, ranking);
+        let mut ranking = RankLeaderboard::pp(mode, args.country.as_deref());
+        match (mode, args.variant) {
+            (GameMode::MNA, Some(ManiaVariant::K4)) => ranking = ranking.variant_4k(),
+            (GameMode::MNA, Some(ManiaVariant::K7)) => ranking = ranking.variant_7k(),
+            _ => {}
+        }
+
+        let rank_holder_id_fut = ctx.clients.custom.get_userid_of_rank(args.rank, ranking);
+
         let user_fut = ctx
             .osu()
             .user(name.as_str())
             .mode(mode)
             .map_err(|e| e.into());
+
         let (rank_holder_id_result, user_result) = tokio::join!(rank_holder_id_fut, user_fut,);
+
         let rank_holder_id = match rank_holder_id_result {
             Ok(id) => id,
             Err(why) => {
@@ -60,6 +65,7 @@ async fn rank_main(
                 return Err(why.into());
             }
         };
+
         let user = match user_result {
             Ok(Some(user)) => user,
             Ok(None) => {
@@ -96,12 +102,15 @@ async fn rank_main(
             .clients
             .custom
             .get_rank_data(mode, RankParam::Rank(args.rank));
+
         let user_fut = ctx
             .osu()
             .user(name.as_str())
             .mode(mode)
             .map_err(|e| e.into());
+
         let (pp_result, user_result) = tokio::join!(pp_fut, user_fut,);
+
         let required_pp = match pp_result {
             Ok(pp) => pp,
             Err(why) => {
@@ -109,6 +118,7 @@ async fn rank_main(
                 return Err(why.into());
             }
         };
+
         let user = match user_result {
             Ok(Some(user)) => user,
             Ok(None) => {
@@ -172,9 +182,10 @@ pub async fn rank(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
 #[short_desc("How many pp is a player missing to reach the given rank?")]
 #[long_desc(
     "How many pp is a player missing to reach the given rank?\n\
+    For ranks up to 10,000 you can also specify `+4k` or `+7k` for those specific leaderboard.\n\
     For ranks over 10,000 the data is provided by [osudaily](https://osudaily.net/)."
 )]
-#[usage("[username] [[country]number]")]
+#[usage("[username] [+4k/+7k] [[country]number]")]
 #[example("badewanne3 be50", "badewanne3 123")]
 #[aliases("rankm", "reachmania", "reachm")]
 pub async fn rankmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {

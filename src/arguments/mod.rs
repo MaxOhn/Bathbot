@@ -4,7 +4,9 @@ pub use args::Args;
 
 use crate::{
     commands::osu::TopSortBy,
-    custom_client::{OsuStatsListParams, OsuStatsOrder, OsuStatsParams, SnipeScoreOrder},
+    custom_client::{
+        ManiaVariant, OsuStatsListParams, OsuStatsOrder, OsuStatsParams, SnipeScoreOrder,
+    },
     util::{
         matcher,
         osu::{MapIdType, ModSelection},
@@ -683,26 +685,32 @@ pub struct RankArgs {
     pub name: Option<String>,
     pub country: Option<String>,
     pub rank: usize,
+    pub variant: Option<ManiaVariant>,
 }
 
 impl RankArgs {
     pub fn new(ctx: &Context, args: Args) -> Result<Self, &'static str> {
-        let mut args = args.take_all();
+        let mut args = args.take_n(3);
+
         let (country, rank) = if let Some(arg) = args.next_back() {
-            if let Ok(num) = usize::from_str(arg) {
+            if arg.starts_with('+') {
+                return Err("Could not parse rank. Be sure to specify it as *last* argument.");
+            } else if let Ok(num) = arg.parse() {
                 (None, num)
             } else if arg.len() < 3 {
-                return Err("Could not parse rank. Provide it either as positive \
-                    number or as country acronym followed by a positive \
-                    number e.g. `be10`.");
+                return Err(
+                    "Could not parse rank. Provide it either as positive number \
+                    or as country acronym followed by a positive number e.g. `be10`.",
+                );
             } else {
                 let (country, num) = arg.split_at(2);
-                match (usize::from_str(num), country.chars().all(|c| c.is_ascii_alphabetic())) {
+                match (num.parse(), country.chars().all(|c| c.is_ascii_alphabetic())) {
                     (Ok(num), true) => (Some(country.to_uppercase()), num),
                     (Err(_), _) => {
-                        return Err("Could not parse rank. Provide it either as positive \
-                                    number or as country acronym followed by a positive \
-                                    number e.g. `be10`.")
+                        return Err(
+                            "Could not parse rank. Provide it either as positive number \
+                            or as country acronym followed by a positive number e.g. `be10`."
+                        )
                     }
                     (_, false) => {
                         return Err(
@@ -717,11 +725,35 @@ impl RankArgs {
                  as country acronym followed by a positive number e.g. `be10`.",
             );
         };
-        let name = try_link_name(ctx, args.next());
+
+        let (name, variant) = match (args.next(), args.next()) {
+            (None, None) => (None, None),
+            (Some(arg), None) => {
+                match arg.parse() {
+                    Ok(variant) => (None, Some(variant)),
+                    Err(_) => (try_link_name(ctx, Some(arg)), None)
+                }
+            },
+            (Some(arg1), Some(arg2)) => {
+                if let Ok(variant) = arg2.parse() {
+                    (try_link_name(ctx, Some(arg1)), Some(variant))
+                } else if let Ok(variant) = arg1.parse() {
+                    (try_link_name(ctx, Some(arg2)), Some(variant))
+                } else {
+                    return Err(
+                        "If three arguments are provided, I expect one of them to be the \
+                        mania variant `+4k` or `+7k` but I could not find any of them.",
+                    );
+                }
+            }
+            (None, Some(_)) => unreachable!(),
+        };
+
         Ok(Self {
             name,
             country,
             rank,
+            variant,
         })
     }
 }
