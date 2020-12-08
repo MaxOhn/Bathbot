@@ -16,25 +16,20 @@ impl Database {
                 )
             })
             .collect();
+
         Ok(assigns)
     }
 
     pub async fn add_role_assign(&self, channel: u64, message: u64, role: u64) -> BotResult<()> {
         let query = format!(
-            "
-INSERT INTO
-    role_assign
-VALUES
-    ({},{},{role})
-ON CONFLICT (channel, message, role) DO
-    UPDATE
-        SET role={role}
-",
+            "INSERT INTO role_assign VALUES ({},{},{role}) ON CONFLICT (channel, message, role) DO UPDATE SET role={role}",
             channel,
             message,
             role = role
         );
+
         sqlx::query(&query).execute(&self.pool).await?;
+
         Ok(())
     }
 }

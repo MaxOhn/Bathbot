@@ -1,14 +1,14 @@
 use crate::{bail, bg_game::MapsetTags, BotResult};
 
-use std::fmt::Write;
+use std::fmt::{Display, Write};
 
-pub trait CustomSQL: Sized + std::fmt::Write {
+pub trait CustomSQL: Sized + Write {
     fn pop(&mut self) -> Option<char>;
 
     fn in_clause<I, T>(self, values: I) -> Self
     where
         I: IntoIterator<Item = T>,
-        T: std::fmt::Display;
+        T: Display;
 
     /// Adds a delim b delim c delim... without whitespaces to self
     fn set_tags(self, delim: &str, tags: MapsetTags, value: bool) -> BotResult<Self>;
@@ -23,7 +23,7 @@ impl CustomSQL for String {
     fn in_clause<I, T>(mut self, values: I) -> Self
     where
         I: IntoIterator<Item = T>,
-        T: std::fmt::Display,
+        T: Display,
     {
         let iter = values.into_iter();
         match iter.size_hint() {

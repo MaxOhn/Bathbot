@@ -13,24 +13,13 @@ use tokio::stream::StreamExt;
 
 impl Database {
     pub async fn get_beatmap(&self, map_id: u32) -> BotResult<Beatmap> {
-        let query = "
-SELECT
-    *
-FROM
-    (
-        SELECT
-            *
-        FROM
-            maps
-        WHERE
-            beatmap_id = ?
-    ) as m
-    JOIN mapsets as ms ON m.beatmapset_id = ms.beatmapset_id
-    ";
+        let query = "SELECT * FROM (SELECT * FROM maps WHERE beatmap_id=?) as m JOIN mapsets USING(beatmapset_id)";
+
         let map: BeatmapWrapper = sqlx::query_as(query)
             .bind(map_id)
             .fetch_one(&self.pool)
             .await?;
+
         Ok(map.into())
     }
 
@@ -39,6 +28,7 @@ FROM
             .bind(mapset_id)
             .fetch_one(&self.pool)
             .await?;
+
         Ok(mapset)
     }
 
@@ -46,11 +36,14 @@ FROM
         if map_ids.is_empty() {
             return Ok(HashMap::new());
         }
+
         let subquery = String::from("SELECT * FROM maps WHERE beatmap_id IN").in_clause(map_ids);
+
         let query = format!(
             "SELECT * FROM ({}) as m JOIN mapsets as ms ON m.beatmapset_id=ms.beatmapset_id",
             subquery
         );
+
         let beatmaps = sqlx::query_as::<_, BeatmapWrapper>(&query)
             .fetch(&self.pool)
             .filter_map(|result| match result {
@@ -67,6 +60,7 @@ FROM
             .await
             .into_iter()
             .collect();
+
         Ok(beatmaps)
     }
 
@@ -107,16 +101,10 @@ async fn _insert_map(conn: &mut PgConnection, map: &Beatmap) -> BotResult<bool> 
 
 async fn _insert_beatmapset(conn: &mut PgConnection, map: &Beatmap) -> BotResult<()> {
     let mapset_query = format!(
-        "
-INSERT INTO
-    mapsets
-VALUES
-    ({},$1,$2,{},$3,$4,$5,$6,$7)
-ON CONFLICT (beatmapset_id) DO
-    NOTHING
-",
+        "INSERT INTO mapsets VALUES ({},$1,$2,{},$3,$4,$5,$6,$7) ON CONFLICT (beatmapset_id) DO NOTHING",
         map.beatmapset_id, map.creator_id,
     );
+
     sqlx::query(&mapset_query)
         .bind(&map.artist)
         .bind(&map.title)
@@ -127,18 +115,13 @@ ON CONFLICT (beatmapset_id) DO
         .bind(map.approved_date)
         .execute(conn)
         .await?;
+
     Ok(())
 }
 
 async fn _insert_beatmap(conn: &mut PgConnection, map: &Beatmap) -> BotResult<()> {
-    let map_query = "
-    INSERT INTO
-        maps
-    VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-    ON CONFLICT (beatmap_id) DO
-        NOTHING
-    ";
+    let map_query = "INSERT INTO maps VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT (beatmap_id) DO NOTHING";
+
     sqlx::query(map_query)
         .bind(map.beatmap_id)
         .bind(map.beatmapset_id)
@@ -158,5 +141,6 @@ async fn _insert_beatmap(conn: &mut PgConnection, map: &Beatmap) -> BotResult<()
         .bind(map.max_combo)
         .execute(conn)
         .await?;
+
     Ok(())
 }

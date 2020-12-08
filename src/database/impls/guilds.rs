@@ -25,14 +25,7 @@ impl Database {
         let mut result = Ok(());
         for guard in configs.iter() {
             let query = format!(
-                "
-INSERT INTO
-    guilds
-VALUES
-    ({},$1)
-ON CONFLICT (guild_id) DO
-    UPDATE
-        SET config=$1",
+                "INSERT INTO guilds VALUES ({},$1) ON CONFLICT (guild_id) DO UPDATE SET config=$1",
                 guard.key()
             );
             result = sqlx::query(&query)

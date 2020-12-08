@@ -6,16 +6,12 @@ use sqlx::{Done, Row};
 impl Database {
     pub async fn add_stream_track(&self, channel: u64, user: u64) -> BotResult<bool> {
         let query = format!(
-            "
-INSERT INTO
-    stream_tracks 
-VALUES
-    ({},{})
-ON CONFLICT DO
-    NOTHING",
+            "INSERT INTO stream_tracks VALUES ({},{}) ON CONFLICT DO NOTHING",
             channel, user
         );
+
         let done = sqlx::query(&query).execute(&self.pool).await?;
+
         Ok(done.rows_affected() > 0)
     }
 
@@ -32,33 +28,25 @@ ON CONFLICT DO
                     all
                 },
             );
+
         Ok(tracks)
     }
 
     pub async fn remove_channel_tracks(&self, channel: u64) -> BotResult<()> {
-        let query = format!(
-            "
-DELETE FROM
-    stream_tracks
-WHERE
-    channel_id={}",
-            channel
-        );
+        let query = format!("DELETE FROM stream_tracks WHERE channel_id={}", channel);
         sqlx::query(&query).execute(&self.pool).await?;
+
         Ok(())
     }
 
     pub async fn remove_stream_track(&self, channel: u64, user: u64) -> BotResult<bool> {
         let query = format!(
-            "
-DELETE FROM
-    stream_tracks
-WHERE
-    channel_id={}
-    AND user_id={}",
+            "DELETE FROM stream_tracks WHERE channel_id={} AND user_id={}",
             channel, user
         );
+
         let done = sqlx::query(&query).execute(&self.pool).await?;
+
         Ok(done.rows_affected() > 0)
     }
 }

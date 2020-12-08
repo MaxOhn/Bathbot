@@ -15,6 +15,7 @@ impl Database {
             .into_iter()
             .map(|user: TrackingUser| ((user.user_id, user.mode), user))
             .collect();
+
         Ok(tracks)
     }
 
@@ -25,13 +26,9 @@ impl Database {
         last_top_score: DateTime<Utc>,
         channels: &HashMap<ChannelId, usize>,
     ) -> BotResult<()> {
-        let query = "
-UPDATE
-    osu_tracking
-SET
-    last_top_score=$3, channels=$4
-WHERE
-    user_id=$1 AND mode=$2";
+        let query =
+            "UPDATE osu_tracking SET last_top_score=$3, channels=$4 WHERE user_id=$1 AND mode=$2";
+
         sqlx::query(query)
             .bind(user_id)
             .bind(mode as i8)
@@ -39,16 +36,19 @@ WHERE
             .bind(Json(channels))
             .execute(&self.pool)
             .await?;
+
         Ok(())
     }
 
     pub async fn remove_osu_tracking(&self, user_id: u32, mode: GameMode) -> BotResult<()> {
         let query = "DELETE FROM osu_tracking WHERE user_id=$1 AND mode=$2";
+
         sqlx::query(query)
             .bind(user_id)
             .bind(mode as i8)
             .execute(&self.pool)
             .await?;
+
         Ok(())
     }
 
@@ -60,18 +60,10 @@ WHERE
         channel: ChannelId,
         limit: usize,
     ) -> BotResult<()> {
-        let query = "
-INSERT INTO
-    osu_tracking
-VALUES
-    ($1,$2,$3,$4)
-ON CONFLICT
-    (user_id, mode)
-DO UPDATE SET
-    last_top_score=$3
-RETURNING channels";
+        let query = "INSERT INTO osu_tracking VALUES ($1,$2,$3,$4) ON CONFLICT (user_id, mode) DO UPDATE SET last_top_score=$3 RETURNING channels";
         let mut set = HashMap::with_capacity(1);
         set.insert(channel, limit);
+
         let mut channels: Json<HashMap<ChannelId, usize>> = sqlx::query(query)
             .bind(user_id)
             .bind(mode as i8)
@@ -80,6 +72,7 @@ RETURNING channels";
             .fetch_one(&self.pool)
             .await?
             .get(0);
+
         if channels.insert(channel, limit).is_none() {
             let query = "UPDATE osu_tracking SET channels=$3 WHERE user_id=$1 AND mode=$2";
             sqlx::query(query)
@@ -89,6 +82,7 @@ RETURNING channels";
                 .execute(&self.pool)
                 .await?;
         }
+
         Ok(())
     }
 }
