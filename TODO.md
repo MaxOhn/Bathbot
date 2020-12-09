@@ -1,16 +1,16 @@
 
 **[TODO]**
 - Update taiko pp / stars
-- Investigate deadlock, `<bg stop`-`<bg bigger`?
 - Rewrite `<mc` calculation
-- Experiment with different team/opponent scaling for `<mc`
-- Only retrieve the first map from DB for `<r`
+- ~~Investigate deadlock, `<bg stop`-`<bg bigger`?~~
+- ~~Only retrieve the first map from DB for `<r`~~
 - ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~
 - ~~`<playermedals` showing a list of a user's medals~~
 - ~~`<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)~~
 
 **[Sometime]**
 - Add `Icon from syedhassan - pngtree.com` to README
+- Experiment with different team/opponent scaling for `<mc`
 - Improve mania and ctb star calculation
 - Check on `thread 'tokio-runtime-worker' panicked at 'error binding to 169.254.124.89:9094:`
     `error creating server listener: Cannot assign requested address (os error 99)'"`

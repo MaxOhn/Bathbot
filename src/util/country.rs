@@ -43,8 +43,10 @@ lazy_static::lazy_static! {
         add("Sweden", "SE");
         add("Thailand", "TH");
         add("Taiwan", "TW");
+        add("Ukraine", "UA");
         add("United Kingdom", "GB");
         add("United States", "US");
+        add("Uruguay", "UY");
         c
     };
 }
