@@ -13,33 +13,47 @@ use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Play a game of minesweeper")]
-#[usage("[Easy/Medium/Hard/Extreme]")]
+#[long_desc(
+    "Play a game of minesweeper.\n\
+    The available arguments are:\n \
+    - `easy`: 6x6 grid\n \
+    - `medium`: 8x8 grid\n \
+    - `hard`: 10x10 grid\n \
+    - `expert`: 13x13 grid"
+)]
+#[usage("[easy / medium / hard / expert]")]
 async fn minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     let difficulty = match args.next().map(|arg| arg.cow_to_lowercase()).as_deref() {
         None | Some("easy") => Difficulty::Easy,
         Some("medium") => Difficulty::Medium,
         Some("hard") => Difficulty::Hard,
-        Some("extreme") | Some("expert") => Difficulty::Extreme,
+        Some("extreme") | Some("expert") => Difficulty::Expert,
         _ => {
-            let content = "The argument must be either `Easy`, `Medium`, `Hard`, or `Extreme`";
+            let content = "The argument must be either `easy`, `medium`, `hard`, or `expert`";
             return msg.error(&ctx, content).await;
         }
     };
+
     let game = difficulty.create();
     let (w, h) = game.dim();
     let mut field = String::with_capacity(w * h * 9);
+
     for x in 0..w {
         for y in 0..h {
             let _ = write!(field, "||:{}:||", game.field[(x, y)]);
         }
         field.push('\n');
     }
+
     field.pop();
+
     let content = format!(
         "Here's a {}x{} game with {} mines:\n{}",
         w, h, game.mines, field
     );
+
     msg.respond(&ctx, content).await?;
+
     Ok(())
 }
 
@@ -47,7 +61,7 @@ enum Difficulty {
     Easy,
     Medium,
     Hard,
-    Extreme,
+    Expert,
 }
 
 impl Difficulty {
@@ -56,7 +70,7 @@ impl Difficulty {
             Difficulty::Easy => Minesweeper::new(6, 6, 6),
             Difficulty::Medium => Minesweeper::new(8, 8, 12),
             Difficulty::Hard => Minesweeper::new(10, 10, 20),
-            Difficulty::Extreme => Minesweeper::new(13, 13, 40),
+            Difficulty::Expert => Minesweeper::new(13, 13, 40),
         }
     }
 }
@@ -72,6 +86,7 @@ impl Minesweeper {
         let mut rng = rand::thread_rng();
         let size = width * height;
         let mut new_mines = mines;
+
         // Place mines
         while new_mines > 0 {
             let r = rng.next_u32() as usize % size;
@@ -82,6 +97,7 @@ impl Minesweeper {
                 new_mines -= 1;
             }
         }
+
         // Place numbers
         for x in 0..width {
             for y in 0..height {
@@ -91,6 +107,7 @@ impl Minesweeper {
                 }
             }
         }
+
         Self { field, mines }
     }
 

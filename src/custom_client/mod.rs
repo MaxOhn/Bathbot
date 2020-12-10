@@ -33,7 +33,7 @@ use governor::{clock::DefaultClock, state::keyed::DashMapStateStore, Quota, Rate
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
     multipart::Form,
-    Client, Response,
+    Client, Response, StatusCode,
 };
 use rosu::model::{GameMode, GameMods, User};
 use scraper::{Html, Node, Selector};
@@ -46,7 +46,7 @@ use std::{
     num::NonZeroU32,
     str::FromStr,
 };
-use tokio::time::{timeout, Duration};
+use tokio::time::{delay_for, timeout, Duration};
 
 static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), ", ", env!("CARGO_PKG_VERSION"));
 
@@ -563,13 +563,25 @@ impl CustomClient {
 
     pub async fn get_rank_data(&self, mode: GameMode, param: RankParam) -> ClientResult<RankPP> {
         let key = &CONFIG.get().unwrap().tokens.osu_daily;
-        let mut url = format!("{}pp?k={}&mode={}&", OSU_DAILY_API, key, mode as u8);
+        let mut url = format!("{}pp?k={}&m={}&", OSU_DAILY_API, key, mode as u8);
         let _ = match param {
             RankParam::Rank(rank) => write!(url, "t=rank&v={}", rank),
             RankParam::Pp(pp) => write!(url, "t=pp&v={}", round(pp)),
         };
 
-        let response = self.make_request(url, Site::OsuDaily).await?;
+        const SECOND: Duration = Duration::from_secs(1);
+
+        let response = loop {
+            let response = self.make_request(&url, Site::OsuDaily).await?;
+
+            if response.status() != StatusCode::TOO_MANY_REQUESTS {
+                break response;
+            }
+
+            debug!("Ratelimited by osudaily, wait a second");
+            delay_for(SECOND).await;
+        };
+
         let bytes = response.bytes().await?;
         let rank_pp =
             serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
@@ -577,6 +589,7 @@ impl CustomClient {
                 source,
                 request: "rank data",
             })?;
+
         Ok(rank_pp)
     }
 
