@@ -201,17 +201,15 @@ pub trait Pagination: Sync + Sized {
                     return PageChange::None;
                 }
             }
-            MainReactions::Modes => {
-                if let ReactionType::Custom {
+            MainReactions::Modes => match reaction {
+                ReactionType::Custom {
                     name: Some(name), ..
-                } = reaction
-                {
-                    self.process_modes(name.as_str())
-                } else {
-                    return PageChange::None;
-                }
-            }
+                } => self.process_modes(name.as_str()),
+                ReactionType::Unicode { name } if name == "❌" => return PageChange::Delete,
+                _ => return PageChange::None,
+            },
         };
+
         match change_result {
             Ok(Some(index)) => {
                 *self.index_mut() = index;
@@ -241,9 +239,9 @@ pub trait Pagination: Sync + Sized {
                 3 => None,
                 _ => Some(3),
             },
-            "❌" => return Err(PageChange::Delete),
             _ => None,
         };
+
         Ok(next_index)
     }
 

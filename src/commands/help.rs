@@ -27,31 +27,36 @@ use twilight_model::{
 fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
     let (custom_prefix, first_prefix) = if let Some(guild_id) = guild_id {
         let mut prefixes = ctx.config_prefixes(guild_id);
+
         if prefixes == ["<"] {
             (None, prefixes.swap_remove(0))
         } else {
             let mut prefix_iter = prefixes.iter();
             let mut prefixes_str = String::with_capacity(9);
             let _ = write!(prefixes_str, "`{}`", prefix_iter.next().unwrap());
+
             for prefix in prefix_iter {
                 let _ = write!(prefixes_str, ", `{}`", prefix);
             }
+
             (Some(prefixes_str), prefixes.swap_remove(0))
         }
     } else {
         (None, "<".to_string())
     };
+
     let prefix_desc = custom_prefix.map_or_else(
         || String::from("Prefix: `<` (none required in DMs)"),
         |p| format!("Server prefix: {}\nDM prefix: `<` or none at all", p),
     );
+
     format!("{}\n__**General**__\n\
         - Most commands have (shorter) aliases, e.g. `{prefix}glb` instead of `{prefix}globalleaderboard`. \
         To check those out or get more info about a command in general, \
         just pass the command as argument e.g. __**`{prefix}help globalleaderboard`**__.\n\
         - If you want to specify an argument, e.g. a username, that contains \
         spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
-        - If you used `{prefix}link osuname`, you can ommit the osu username for any command that needs one.\n\
+        - If you used `{prefix}link osuname`, you can omit the osu username for any command that needs one.\n\
         - If you react with :x: within one minute to my response, I will delete it.\n\
         - With reactions like :fast_forward: or :track_previous: you can scroll through pages \
         e.g. check an earlier play than the most recent one
