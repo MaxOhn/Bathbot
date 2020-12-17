@@ -10,7 +10,6 @@ use crate::{
     },
 };
 
-use chrono::Utc;
 use rosu::model::{GameMode, Grade, User};
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
@@ -53,8 +52,6 @@ impl ProfileEmbed {
             (user.count_ssh + user.count_ss + user.count_sh + user.count_s + user.count_a) as i32,
         );
         let bonus_pp = (100.0 * 416.6667 * (1.0 - bonus_pow)).round() / 100.0;
-        let days = (Utc::now() - user.join_date).num_days() as f32;
-        let pp_per_month = 30.67 * user.pp_raw / days;
         let mut fields = vec![
             (
                 "Ranked score".to_owned(),
@@ -78,8 +75,8 @@ impl ProfileEmbed {
             ),
             ("Level".to_owned(), format!("{:.2}", user.level), true),
             (
-                "PP / month".to_owned(),
-                format!("{:.2}pp", pp_per_month),
+                "Medals".to_owned(),
+                format!("{}", profile.medals.len()),
                 true,
             ),
             (
