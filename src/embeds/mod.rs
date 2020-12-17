@@ -80,7 +80,7 @@ pub trait EmbedData: Send + Sync + Sized {
     }
 
     // Implement this if minimization required
-    fn minimize(&self) -> EmbedBuilder {
+    fn minimize(self) -> EmbedBuilder {
         EmbedBuilder::new()
     }
 

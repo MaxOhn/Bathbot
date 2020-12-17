@@ -205,28 +205,34 @@ impl EmbedData for RecentEmbed {
         fields.push(("Map Info".to_owned(), self.map_info.clone(), false));
         Some(fields)
     }
-    fn minimize(&self) -> EmbedBuilder {
+
+    fn minimize(self) -> EmbedBuilder {
         let mut eb = EmbedBuilder::new();
+
         let name = format!(
             "{}\t{}\t({}%)\t{}",
             self.grade_completion_mods, self.score, self.acc, self.ago
         );
+
         let value = format!("{} [ {} ] {}", self.pp, self.combo, self.hits);
         let title = format!("{} [{}★]", self.title, self.stars);
-        if self.description.is_some() {
-            eb = eb.description(self.description.as_ref().unwrap()).unwrap();
+
+        if let Some(description) = self.description {
+            eb = eb.description(description).unwrap();
         }
+
         let ab = EmbedAuthorBuilder::new()
-            .name(&self.author.name)
+            .name(self.author.name)
             .unwrap()
-            .url(self.author.url.as_ref().unwrap())
-            .icon_url(self.author.icon_url.clone().unwrap());
+            .url(self.author.url.unwrap())
+            .icon_url(self.author.icon_url.unwrap());
+
         eb.color(DARK_GREEN)
             .unwrap()
-            .thumbnail(self.thumbnail.clone())
+            .thumbnail(self.thumbnail)
             .title(title)
             .unwrap()
-            .url(&self.url)
+            .url(self.url)
             .field(EmbedField {
                 name,
                 value,

@@ -26,7 +26,7 @@ pub struct RecentPagination {
     best: Option<Vec<Score>>,
     global: HashMap<u32, Vec<Score>>,
     maps_in_db: HashSet<u32>,
-    embed_data: RecentEmbed,
+    embed_data: Option<RecentEmbed>,
     ctx: Arc<Context>,
 }
 
@@ -52,7 +52,7 @@ impl RecentPagination {
             best,
             global,
             maps_in_db,
-            embed_data,
+            embed_data: Some(embed_data),
             ctx,
         }
     }
@@ -74,15 +74,15 @@ impl Pagination for RecentPagination {
         Self::arrow_reactions_full()
     }
     fn process_data(&mut self, data: &Self::PageData) {
-        self.embed_data = data.clone();
+        self.embed_data.replace(data.clone());
     }
     fn content(&self) -> Option<String> {
         Some(format!("Recent score #{}", self.pages.index + 1))
     }
     async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
         // Minimize embed
+        let embed = self.embed_data.take().unwrap().minimize().build()?;
         let msg = self.msg();
-        let embed = self.embed_data.minimize().build()?;
         let _ = ctx
             .http
             .update_message(msg.channel_id, msg.id)

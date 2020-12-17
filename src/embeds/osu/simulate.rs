@@ -150,16 +150,19 @@ impl EmbedData for SimulateEmbed {
         } else {
             self.combo.to_owned()
         };
+
         let mut fields = vec![
             ("Grade".to_owned(), self.grade_completion_mods.clone(), true),
             ("Acc".to_owned(), format!("{}%", self.acc), true),
             ("Combo".to_owned(), combo, true),
         ];
+
         let pp = if let Some(prev_pp) = self.prev_pp {
             format!("{} → {}", prev_pp, self.pp)
         } else {
             self.pp.to_owned()
         };
+
         if self.mode == GameMode::MNA {
             fields.push(("PP".to_owned(), pp, true));
             fields.push(("Score".to_owned(), with_comma_u64(self.score), true));
@@ -172,35 +175,41 @@ impl EmbedData for SimulateEmbed {
             };
             fields.push(("Hits".to_owned(), hits, true));
         }
+
         fields.push(("Map Info".to_owned(), self.map_info.clone(), false));
+
         Some(fields)
     }
-    fn minimize(&self) -> EmbedBuilder {
+
+    fn minimize(self) -> EmbedBuilder {
         let mut value = if let Some(prev_pp) = self.prev_pp {
             format!("{} → {}", prev_pp, self.pp)
         } else {
             self.pp.to_string()
         };
+
         if self.mode != GameMode::MNA {
             let _ = write!(value, " {}", self.hits);
         }
-        if let Some(misses) = self.removed_misses {
-            if misses > 0 {
-                let _ = write!(value, " (+{}miss)", misses);
-            }
+
+        if let Some(misses) = self.removed_misses.filter(|misses| *misses > 0) {
+            let _ = write!(value, " (+{}miss)", misses);
         }
+
         let combo = if self.mode == GameMode::MNA {
             String::new()
         } else if let Some(prev_combo) = self.prev_combo {
             format!(" [ {} → {} ]", prev_combo, self.combo)
         } else {
-            format!(" [ {} ]", self.combo.clone())
+            format!(" [ {} ]", self.combo)
         };
+
         let score = if self.mode == GameMode::MNA {
             with_comma_u64(self.score) + " "
         } else {
             String::new()
         };
+
         let name = format!(
             "{grade} {score}({acc}%){combo}",
             grade = self.grade_completion_mods,
@@ -208,6 +217,7 @@ impl EmbedData for SimulateEmbed {
             acc = self.acc,
             combo = combo
         );
+
         EmbedBuilder::new()
             .color(DARK_GREEN)
             .unwrap()
@@ -216,8 +226,8 @@ impl EmbedData for SimulateEmbed {
                 value,
                 inline: false,
             })
-            .thumbnail(self.thumbnail.clone())
-            .url(&self.url)
+            .thumbnail(self.thumbnail)
+            .url(self.url)
             .title(format!("{} [{}★]", self.title, self.stars))
             .unwrap()
     }
