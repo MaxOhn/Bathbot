@@ -104,7 +104,7 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
     let data = CountrySnipeStatsEmbed::new(country, differences, unplayed as u64);
 
     // Sending the embed
-    let embed = data.build().build()?;
+    let embed = data.build_owned().build()?;
     let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
     if let Some(graph) = graph {
         m.attachment("stats_graph.png", graph).await?

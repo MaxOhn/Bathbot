@@ -59,7 +59,7 @@ async fn medalstats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         }
     };
     let embed = MedalStatsEmbed::new(profile, medals, graph.is_some())
-        .build()
+        .build_owned()
         .build()?;
 
     // Send the embed

@@ -7,9 +7,9 @@ use rosu::model::User;
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct AvatarEmbed {
-    author: Author,
-    url: String,
-    image: ImageSource,
+    author: Option<Author>,
+    url: Option<String>,
+    image: Option<ImageSource>,
 }
 
 impl AvatarEmbed {
@@ -18,21 +18,21 @@ impl AvatarEmbed {
             .url(format!("{}u/{}", OSU_BASE, user.user_id))
             .icon_url(format!("{}/images/flags/{}.png", OSU_BASE, &user.country));
         Self {
-            author,
-            url: format!("{}u/{}", OSU_BASE, user.user_id),
-            image: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
+            author: Some(author),
+            url: Some(format!("{}u/{}", OSU_BASE, user.user_id)),
+            image: Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap()),
         }
     }
 }
 
 impl EmbedData for AvatarEmbed {
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
+    fn author_owned(&mut self) -> Option<Author> {
+        self.author.take()
     }
-    fn url(&self) -> Option<&str> {
-        Some(&self.url)
+    fn url_owned(&mut self) -> Option<String> {
+        self.url.take()
     }
-    fn image(&self) -> Option<&ImageSource> {
-        Some(&self.image)
+    fn image_owned(&mut self) -> Option<ImageSource> {
+        self.image.take()
     }
 }

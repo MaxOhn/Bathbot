@@ -63,7 +63,9 @@ async fn bws(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         }
     };
     let badges = profile.badges.len();
-    let embed = BWSEmbed::new(user, badges, rank_range).build().build()?;
+    let embed = BWSEmbed::new(user, badges, rank_range)
+        .build_owned()
+        .build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
     Ok(())
 }

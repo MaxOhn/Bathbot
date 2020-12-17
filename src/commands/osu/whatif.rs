@@ -132,7 +132,7 @@ async fn whatif_main(
     };
 
     // Sending the embed
-    let embed = WhatIfEmbed::new(user, pp, data).build().build()?;
+    let embed = WhatIfEmbed::new(user, pp, data).build_owned().build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
     Ok(())
 }

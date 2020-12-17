@@ -33,7 +33,7 @@ async fn avatar(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             return Err(why.into());
         }
     };
-    let embed = AvatarEmbed::new(user).build().build()?;
+    let embed = AvatarEmbed::new(user).build_owned().build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
     Ok(())
 }

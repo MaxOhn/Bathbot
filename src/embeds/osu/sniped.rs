@@ -10,9 +10,9 @@ use twilight_embed_builder::image_source::ImageSource;
 
 pub struct SnipedEmbed {
     description: Option<String>,
-    thumbnail: ImageSource,
+    thumbnail: Option<ImageSource>,
     title: &'static str,
-    author: Author,
+    author: Option<Author>,
     image: Option<ImageSource>,
     fields: Option<Vec<(String, String, bool)>>,
 }
@@ -30,8 +30,8 @@ impl SnipedEmbed {
             );
             return Self {
                 description: Some(description),
-                thumbnail,
-                author,
+                thumbnail: Some(thumbnail),
+                author: Some(author),
                 title,
                 image: None,
                 fields: None,
@@ -82,8 +82,8 @@ impl SnipedEmbed {
 
         Self {
             title,
-            author,
-            thumbnail,
+            author: Some(author),
+            thumbnail: Some(thumbnail),
             description: None,
             fields: Some(fields),
             image: Some(ImageSource::attachment("sniped_graph.png").unwrap()),
@@ -92,22 +92,22 @@ impl SnipedEmbed {
 }
 
 impl EmbedData for SnipedEmbed {
-    fn title(&self) -> Option<&str> {
-        Some(self.title)
+    fn title_owned(&mut self) -> Option<String> {
+        Some(self.title.to_owned())
     }
-    fn description(&self) -> Option<&str> {
-        self.description.as_deref()
+    fn description_owned(&mut self) -> Option<String> {
+        self.description.take()
     }
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
+    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
+        self.thumbnail.take()
     }
-    fn image(&self) -> Option<&ImageSource> {
-        self.image.as_ref()
+    fn image_owned(&mut self) -> Option<ImageSource> {
+        self.image.take()
     }
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
+    fn author_owned(&mut self) -> Option<Author> {
+        self.author.take()
     }
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
-        self.fields.clone()
+    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+        self.fields
     }
 }

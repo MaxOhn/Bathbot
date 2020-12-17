@@ -4,7 +4,7 @@ use rosu::model::GameMode;
 use std::fmt::Write;
 
 pub struct TrackEmbed {
-    title: String,
+    title: Option<String>,
     fields: Vec<(String, String, bool)>,
 }
 
@@ -45,15 +45,18 @@ impl TrackEmbed {
                 false,
             ));
         }
-        Self { title, fields }
+        Self {
+            title: Some(title),
+            fields,
+        }
     }
 }
 
 impl EmbedData for TrackEmbed {
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
+    fn title_owned(&mut self) -> Option<String> {
+        self.title.take()
     }
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
-        Some(self.fields.clone())
+    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+        Some(self.fields)
     }
 }

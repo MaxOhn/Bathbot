@@ -95,7 +95,7 @@ async fn sniped(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let data = SnipedEmbed::new(user, sniper, snipee);
 
     // Sending the embed
-    let embed = data.build().build()?;
+    let embed = data.build_owned().build()?;
     let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
     let response = if let Some(graph) = graph {
         m.attachment("sniped_graph.png", graph).await?

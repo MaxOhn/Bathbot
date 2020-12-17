@@ -8,8 +8,8 @@ use std::{fmt::Write, sync::atomic::Ordering::Relaxed};
 use twilight_cache_inmemory::CacheStats;
 
 pub struct CacheEmbed {
-    description: String,
-    footer: Footer,
+    description: Option<String>,
+    footer: Option<Footer>,
     timestamp: DateTime<Utc>,
     fields: Vec<(String, String, bool)>,
 }
@@ -101,8 +101,8 @@ impl CacheEmbed {
         fields.push(("Most mutual guilds".to_owned(), user_value, false));
 
         Self {
-            description,
-            footer: Footer::new("Boot time"),
+            description: Some(description),
+            footer: Some(Footer::new("Boot time")),
             timestamp: start_time,
             fields,
         }
@@ -110,16 +110,16 @@ impl CacheEmbed {
 }
 
 impl EmbedData for CacheEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
+    fn description_owned(&mut self) -> Option<String> {
+        self.description.take()
     }
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
+    fn footer_owned(&mut self) -> Option<Footer> {
+        self.footer.take()
     }
     fn timestamp(&self) -> Option<&DateTime<Utc>> {
         Some(&self.timestamp)
     }
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
-        Some(self.fields.clone())
+    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+        Some(self.fields)
     }
 }

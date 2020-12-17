@@ -8,8 +8,8 @@ use twilight_embed_builder::image_source::ImageSource;
 
 pub struct CountrySnipeStatsEmbed {
     thumbnail: Option<ImageSource>,
-    title: String,
-    image: ImageSource,
+    title: Option<String>,
+    image: Option<ImageSource>,
     fields: Vec<(String, String, bool)>,
 }
 
@@ -60,24 +60,24 @@ impl CountrySnipeStatsEmbed {
         };
         Self {
             fields,
-            title,
+            title: Some(title),
             thumbnail,
-            image: ImageSource::attachment("stats_graph.png").unwrap(),
+            image: Some(ImageSource::attachment("stats_graph.png").unwrap()),
         }
     }
 }
 
 impl EmbedData for CountrySnipeStatsEmbed {
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
+    fn title_owned(&mut self) -> Option<String> {
+        self.title.take()
     }
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        self.thumbnail.as_ref()
+    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
+        self.thumbnail.take()
     }
-    fn image(&self) -> Option<&ImageSource> {
-        Some(&self.image)
+    fn image_owned(&mut self) -> Option<ImageSource> {
+        self.image.take()
     }
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
-        Some(self.fields.clone())
+    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+        Some(self.fields)
     }
 }

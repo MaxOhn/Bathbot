@@ -2,6 +2,8 @@
 **[TODO]**
 - Update taiko pp / stars
 - Rewrite `<mc` calculation
+- Minimized form for `<osu` & co
+- Check on `set_cluster_activity` / `shards_per_cluster` / `shard_id`
 - ~~Investigate deadlock, `<bg stop`-`<bg bigger`?~~
 - ~~Only retrieve the first map from DB for `<r`~~
 - ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~

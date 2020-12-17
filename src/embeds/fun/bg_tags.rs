@@ -39,13 +39,13 @@ impl BGTagsEmbed {
 }
 
 impl EmbedData for BGTagsEmbed {
-    fn title(&self) -> Option<&str> {
-        Some(self.title)
+    fn title_owned(&mut self) -> Option<String> {
+        Some(self.title.to_owned())
     }
-    fn description(&self) -> Option<&str> {
-        self.description
+    fn description_owned(&mut self) -> Option<String> {
+        self.description.take().map(str::to_owned)
     }
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
-        Some(self.fields.clone())
+    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+        Some(self.fields)
     }
 }

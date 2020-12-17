@@ -17,8 +17,8 @@ use std::{
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct ProfileCompareEmbed {
-    description: String,
-    image: ImageSource,
+    description: Option<String>,
+    image: Option<ImageSource>,
 }
 
 impl ProfileCompareEmbed {
@@ -314,18 +314,18 @@ impl ProfileCompareEmbed {
         );
         d.push_str("```");
         Self {
-            description: d,
-            image: ImageSource::attachment("avatar_fuse.png").unwrap(),
+            description: Some(d),
+            image: Some(ImageSource::attachment("avatar_fuse.png").unwrap()),
         }
     }
 }
 
 impl EmbedData for ProfileCompareEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
+    fn description_owned(&mut self) -> Option<String> {
+        self.description.take()
     }
-    fn image(&self) -> Option<&ImageSource> {
-        Some(&self.image)
+    fn image_owned(&mut self) -> Option<ImageSource> {
+        self.image.take()
     }
 }
 

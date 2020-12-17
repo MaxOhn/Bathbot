@@ -11,10 +11,10 @@ use std::collections::HashMap;
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct MedalStatsEmbed {
-    thumbnail: ImageSource,
-    author: Author,
+    thumbnail: Option<ImageSource>,
+    author: Option<Author>,
     fields: Vec<(String, String, bool)>,
-    footer: Footer,
+    footer: Option<Footer>,
     image: Option<ImageSource>,
 }
 
@@ -89,28 +89,30 @@ impl MedalStatsEmbed {
         };
         Self {
             image,
-            author,
+            author: Some(author),
             fields,
-            footer,
-            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, profile.user_id)).unwrap(),
+            footer: Some(footer),
+            thumbnail: Some(
+                ImageSource::url(format!("{}{}", AVATAR_URL, profile.user_id)).unwrap(),
+            ),
         }
     }
 }
 
 impl EmbedData for MedalStatsEmbed {
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
+    fn author_owned(&mut self) -> Option<Author> {
+        self.author.take()
     }
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
+    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
+        self.thumbnail.take()
     }
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
-        Some(self.fields.clone())
+    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+        Some(self.fields)
     }
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
+    fn footer_owned(&mut self) -> Option<Footer> {
+        self.footer.take()
     }
-    fn image(&self) -> Option<&ImageSource> {
-        self.image.as_ref()
+    fn image_owned(&mut self) -> Option<ImageSource> {
+        self.image.take()
     }
 }

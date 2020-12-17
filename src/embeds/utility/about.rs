@@ -16,10 +16,10 @@ use twilight_embed_builder::image_source::ImageSource;
 use twilight_model::id::UserId;
 
 pub struct AboutEmbed {
-    title: String,
-    thumbnail: ImageSource,
+    title: Option<String>,
+    thumbnail: Option<ImageSource>,
     timestamp: DateTime<Utc>,
-    footer: Footer,
+    footer: Option<Footer>,
     fields: Vec<(String, String, bool)>,
 }
 
@@ -106,27 +106,27 @@ impl AboutEmbed {
             ),
         ];
         Ok(Self {
-            footer,
+            footer: Some(footer),
             fields,
-            thumbnail,
+            thumbnail: Some(thumbnail),
             timestamp: boot_time,
-            title: format!("About {}", name),
+            title: Some(format!("About {}", name)),
         })
     }
 }
 
 impl EmbedData for AboutEmbed {
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
+    fn title_owned(&mut self) -> Option<String> {
+        self.title.take()
     }
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
+    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
+        self.thumbnail.take()
     }
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
+    fn footer_owned(&mut self) -> Option<Footer> {
+        self.footer.take()
     }
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
-        Some(self.fields.clone())
+    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+        Some(self.fields)
     }
     fn timestamp(&self) -> Option<&DateTime<Utc>> {
         Some(&self.timestamp)

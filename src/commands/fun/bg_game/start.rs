@@ -58,7 +58,7 @@ async fn get_mapsets(
     }
     // Send initial message
     let data = BGStartEmbed::new(msg.author.id);
-    let embed = data.build().build()?;
+    let embed = data.build_owned().build()?;
     let response = ctx
         .http
         .create_message(msg.channel_id)
@@ -172,7 +172,7 @@ async fn get_mapsets(
         }
     };
     let data = BGTagsEmbed::new(included, excluded, mapsets.len());
-    let embed = data.build().build()?;
+    let embed = data.build_owned().build()?;
     ctx.http
         .create_message(msg.channel_id)
         .embed(embed)?

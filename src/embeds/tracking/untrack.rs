@@ -33,10 +33,10 @@ impl UntrackEmbed {
 }
 
 impl EmbedData for UntrackEmbed {
-    fn title(&self) -> Option<&str> {
-        Some(self.title)
+    fn title_owned(&mut self) -> Option<String> {
+        Some(self.title.to_owned())
     }
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
-        Some(self.fields.clone())
+    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+        Some(self.fields)
     }
 }

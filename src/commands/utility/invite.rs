@@ -11,7 +11,7 @@ use twilight_model::channel::Message;
 #[short_desc("Invite me to your server")]
 #[aliases("inv")]
 async fn invite(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
-    let embed = InviteEmbed::new().build().build()?;
+    let embed = InviteEmbed::new().build_owned().build()?;
     msg.build_response(&ctx, |m| m.content(BATHBOT_WORKSHOP)?.embed(embed))
         .await?;
     Ok(())

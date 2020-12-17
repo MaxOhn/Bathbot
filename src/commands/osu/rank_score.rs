@@ -92,7 +92,7 @@ async fn rank_score_main(
     let data = RankRankedScoreEmbed::new(user, rank, rank_holder);
 
     // Creating the embed
-    let embed = data.build().build()?;
+    let embed = data.build_owned().build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
     Ok(())
 }

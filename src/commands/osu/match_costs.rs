@@ -119,7 +119,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     };
 
     // Creating the embed
-    let embed = data.build().build()?;
+    let embed = data.build_owned().build()?;
     msg.build_response(&ctx, |mut m| {
         if warmups > 0 {
             let mut content = String::from("Ignoring the first ");

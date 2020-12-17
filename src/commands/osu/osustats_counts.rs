@@ -40,7 +40,7 @@ async fn osustats_main(
         }
     };
     let data = OsuStatsCountsEmbed::new(user, mode, counts);
-    let embed = data.build().build()?;
+    let embed = data.build_owned().build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
     Ok(())
 }

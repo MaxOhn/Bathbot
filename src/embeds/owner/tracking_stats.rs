@@ -6,9 +6,9 @@ use crate::{
 use chrono::{DateTime, Utc};
 
 pub struct TrackingStatsEmbed {
-    title: String,
+    title: Option<String>,
     fields: Vec<(String, String, bool)>,
-    footer: Footer,
+    footer: Option<Footer>,
     timestamp: DateTime<Utc>,
 }
 
@@ -55,9 +55,12 @@ impl TrackingStatsEmbed {
         ];
         Self {
             fields,
-            footer: Footer::new("Last pop"),
+            footer: Some(Footer::new("Last pop")),
             timestamp: stats.last_pop,
-            title: format!("Tracked users: {} | queue: {}", stats.users, stats.queue),
+            title: Some(format!(
+                "Tracked users: {} | queue: {}",
+                stats.users, stats.queue
+            )),
         }
     }
 }
@@ -66,13 +69,13 @@ impl EmbedData for TrackingStatsEmbed {
     fn fields(&self) -> Option<Vec<(String, String, bool)>> {
         Some(self.fields.clone())
     }
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
+    fn footer_owned(&mut self) -> Option<Footer> {
+        self.footer.take()
     }
     fn timestamp(&self) -> Option<&DateTime<Utc>> {
         Some(&self.timestamp)
     }
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
+    fn title_owned(&mut self) -> Option<String> {
+        self.title.take()
     }
 }

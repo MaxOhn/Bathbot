@@ -6,7 +6,7 @@ use crate::{
 pub struct InviteEmbed {
     title: &'static str,
     description: &'static str,
-    footer: Footer,
+    footer: Option<Footer>,
 }
 
 impl InviteEmbed {
@@ -17,19 +17,19 @@ impl InviteEmbed {
         Self {
             title,
             description,
-            footer,
+            footer: Some(footer),
         }
     }
 }
 
 impl EmbedData for InviteEmbed {
-    fn title(&self) -> Option<&str> {
-        Some(self.title)
+    fn title_owned(&mut self) -> Option<String> {
+        Some(self.title.to_owned())
     }
-    fn description(&self) -> Option<&str> {
-        Some(self.description)
+    fn description_owned(&mut self) -> Option<String> {
+        Some(self.description.to_owned())
     }
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
+    fn footer_owned(&mut self) -> Option<Footer> {
+        self.footer.take()
     }
 }

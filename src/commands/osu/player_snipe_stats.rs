@@ -120,7 +120,7 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     let data = PlayerSnipeStatsEmbed::new(user, player, first_score).await;
 
     // Sending the embed
-    let embed = data.build().build()?;
+    let embed = data.build_owned().build()?;
     let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
     let response = if let Some(graph) = graph {
         m.attachment("stats_graph.png", graph).await?

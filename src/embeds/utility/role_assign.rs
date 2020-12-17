@@ -6,7 +6,7 @@ use twilight_model::{
 };
 
 pub struct RoleAssignEmbed {
-    description: String,
+    description: Option<String>,
 }
 
 impl RoleAssignEmbed {
@@ -26,12 +26,14 @@ impl RoleAssignEmbed {
             channel_mention = msg.channel_id,
             role_mention = role,
         );
-        Self { description }
+        Self {
+            description: Some(description),
+        }
     }
 }
 
 impl EmbedData for RoleAssignEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
+    fn description_owned(&mut self) -> Option<String> {
+        self.description.take()
     }
 }

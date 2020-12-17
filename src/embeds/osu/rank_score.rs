@@ -7,10 +7,10 @@ use rosu::model::User;
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct RankRankedScoreEmbed {
-    description: String,
-    title: String,
-    thumbnail: ImageSource,
-    author: Author,
+    description: Option<String>,
+    title: Option<String>,
+    thumbnail: Option<ImageSource>,
+    author: Option<Author>,
 }
 
 impl RankRankedScoreEmbed {
@@ -42,25 +42,25 @@ impl RankRankedScoreEmbed {
             )
         };
         Self {
-            title,
-            description,
-            author: osu::get_user_author(&user),
-            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
+            title: Some(title),
+            description: Some(description),
+            author: Some(osu::get_user_author(&user)),
+            thumbnail: Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap()),
         }
     }
 }
 
 impl EmbedData for RankRankedScoreEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
+    fn description_owned(&mut self) -> Option<String> {
+        self.description.take()
     }
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
+    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
+        self.thumbnail.take()
     }
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
+    fn author_owned(&mut self) -> Option<Author> {
+        self.author.take()
     }
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
+    fn title_owned(&mut self) -> Option<String> {
+        self.title.take()
     }
 }

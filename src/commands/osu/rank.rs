@@ -160,7 +160,7 @@ async fn rank_main(
     }
 
     // Creating the embed
-    let embed = RankEmbed::new(data, scores).build().build()?;
+    let embed = RankEmbed::new(data, scores).build_owned().build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
     Ok(())
 }

@@ -17,12 +17,12 @@ use std::fmt::Write;
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct PlayerSnipeStatsEmbed {
-    description: String,
-    thumbnail: ImageSource,
+    description: Option<String>,
+    thumbnail: Option<ImageSource>,
     title: &'static str,
-    author: Author,
-    footer: Footer,
-    image: ImageSource,
+    author: Option<Author>,
+    footer: Option<Footer>,
+    image: Option<ImageSource>,
     fields: Option<Vec<(String, String, bool)>>,
 }
 
@@ -114,38 +114,39 @@ impl PlayerSnipeStatsEmbed {
             fields.push((String::from("Most used mods:"), value, false));
             (description, Some(fields))
         };
+
         Self {
             fields,
-            description,
-            footer: Footer::new(footer_text),
-            author: osu::get_user_author(&user),
+            description: Some(description),
+            footer: Some(Footer::new(footer_text)),
+            author: Some(osu::get_user_author(&user)),
             title: "National #1 statistics",
-            image: ImageSource::attachment("stats_graph.png").unwrap(),
-            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
+            image: Some(ImageSource::attachment("stats_graph.png").unwrap()),
+            thumbnail: Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap()),
         }
     }
 }
 
 impl EmbedData for PlayerSnipeStatsEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
+    fn description_owned(&mut self) -> Option<String> {
+        self.description.take()
     }
-    fn title(&self) -> Option<&str> {
-        Some(self.title)
+    fn title_owned(&mut self) -> Option<String> {
+        Some(self.title.to_owned())
     }
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
+    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
+        self.thumbnail.take()
     }
-    fn image(&self) -> Option<&ImageSource> {
-        Some(&self.image)
+    fn image_owned(&mut self) -> Option<ImageSource> {
+        self.image.take()
     }
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
+    fn author_owned(&mut self) -> Option<Author> {
+        self.author.take()
     }
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
+    fn footer_owned(&mut self) -> Option<Footer> {
+        self.footer.take()
     }
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
-        self.fields.clone()
+    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+        self.fields
     }
 }

@@ -78,7 +78,7 @@ async fn pp_main(
     let data = PPMissingEmbed::new(user, scores, pp, rank);
 
     // Creating the embed
-    let embed = data.build().build()?;
+    let embed = data.build_owned().build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
     Ok(())
 }

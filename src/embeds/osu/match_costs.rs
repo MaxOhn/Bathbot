@@ -9,11 +9,11 @@ use std::fmt::Write;
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct MatchCostEmbed {
-    description: String,
+    description: Option<String>,
     thumbnail: Option<ImageSource>,
-    title: String,
-    url: String,
-    footer: Footer,
+    title: Option<String>,
+    url: Option<String>,
+    footer: Option<Footer>,
 }
 
 impl MatchCostEmbed {
@@ -128,29 +128,29 @@ impl MatchCostEmbed {
         title.retain(|c| c != '(' && c != ')');
         let footer = Footer::new("Note: Formula is subject to change; values are volatile");
         Ok(Self {
-            title,
-            footer,
+            title: Some(title),
+            footer: Some(footer),
             thumbnail,
-            description,
-            url: format!("{}community/matches/{}", OSU_BASE, match_id),
+            description: Some(description),
+            url: Some(format!("{}community/matches/{}", OSU_BASE, match_id)),
         })
     }
 }
 
 impl EmbedData for MatchCostEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
+    fn description_owned(&mut self) -> Option<String> {
+        self.description.take()
     }
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        self.thumbnail.as_ref()
+    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
+        self.thumbnail.take()
     }
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
+    fn title_owned(&mut self) -> Option<String> {
+        self.title.take()
     }
-    fn url(&self) -> Option<&str> {
-        Some(&self.url)
+    fn url_owned(&mut self) -> Option<String> {
+        self.url.take()
     }
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
+    fn footer_owned(&mut self) -> Option<Footer> {
+        self.footer.take()
     }
 }

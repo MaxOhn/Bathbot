@@ -9,41 +9,50 @@ use std::{collections::BTreeMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct RatioEmbed {
-    description: String,
-    thumbnail: ImageSource,
-    author: Author,
+    description: Option<String>,
+    thumbnail: Option<ImageSource>,
+    author: Option<Author>,
 }
 
 impl RatioEmbed {
     pub async fn new(ctx: &Context, user: User, scores: Vec<Score>) -> BotResult<Self> {
         let mut accs = vec![0, 90, 95, 97, 99];
         let mut categories: BTreeMap<u8, RatioCategory> = BTreeMap::new();
+
         for &acc in accs.iter() {
             categories.insert(acc, RatioCategory::default());
         }
+
         categories.insert(100, RatioCategory::default());
+
         for score in scores {
             let acc = score.accuracy(GameMode::MNA);
+
             for &curr in accs.iter() {
                 if acc > curr as f32 {
                     categories.get_mut(&curr).unwrap().add_score(&score);
                 }
             }
+
             if score.grade.eq_letter(Grade::X) {
                 categories.get_mut(&100).unwrap().add_score(&score);
             }
         }
+
         let thumbnail = ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap();
         let mut description = String::with_capacity(256);
+
         let _ = writeln!(
             description,
             "```\n \
         Acc: #Scores |  Ratio | % misses\n\
         --------------+--------+---------"
         );
+
         let mut all_scores = Vec::with_capacity(6);
         let mut all_ratios = Vec::with_capacity(6);
         let mut all_misses = Vec::with_capacity(6);
+
         for (acc, c) in categories.into_iter() {
             if c.scores > 0 {
                 let scores = c.scores;
@@ -63,10 +72,12 @@ impl RatioEmbed {
                 all_misses.push(misses);
             }
         }
+
         let previous_ratios = ctx
             .psql()
             .update_ratios(&user.username, &all_scores, &all_ratios, &all_misses)
             .await?;
+
         if let Some(ratios) = previous_ratios {
             if ratios.scores != all_scores
                 || ratios.ratios != all_ratios
@@ -91,6 +102,7 @@ impl RatioEmbed {
                         (Some(_), None) => true,
                         (None, None) => false,
                     };
+
                     if any_changes {
                         let _ = writeln!(
                             description,
@@ -107,26 +119,29 @@ impl RatioEmbed {
                 }
             }
         }
+
         description.push_str("```");
+
         Ok(Self {
-            description,
-            thumbnail,
-            author: osu::get_user_author(&user),
+            description: Some(description),
+            thumbnail: Some(thumbnail),
+            author: Some(osu::get_user_author(&user)),
         })
     }
 }
 
 impl EmbedData for RatioEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
+    fn description_owned(&mut self) -> Option<String> {
+        self.description.take()
     }
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
+    fn author_owned(&mut self) -> Option<Author> {
+        self.author.take()
     }
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
+    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
+        self.thumbnail.take()
     }
 }
+
 #[derive(Default)]
 struct RatioCategory {
     pub scores: u8,

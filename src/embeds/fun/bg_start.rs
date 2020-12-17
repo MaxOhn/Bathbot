@@ -3,7 +3,7 @@ use crate::embeds::EmbedData;
 use twilight_model::id::UserId;
 
 pub struct BGStartEmbed {
-    description: String,
+    description: Option<String>,
 }
 
 impl BGStartEmbed {
@@ -18,12 +18,14 @@ impl BGStartEmbed {
             ```",
             author
         );
-        Self { description }
+        Self {
+            description: Some(description),
+        }
     }
 }
 
 impl EmbedData for BGStartEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
+    fn description_owned(&mut self) -> Option<String> {
+        self.description.take()
     }
 }

@@ -208,7 +208,7 @@ async fn compare_main(
     );
 
     // Creating the embed
-    let embed = data.build().build()?;
+    let embed = data.build_owned().build()?;
     msg.build_response(&ctx, |m| match thumbnail {
         Some(bytes) => m.attachment("avatar_fuse.png", bytes).embed(embed),
         None => m.embed(embed),
