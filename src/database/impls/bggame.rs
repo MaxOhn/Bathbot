@@ -10,12 +10,12 @@ use std::{collections::HashSet, fmt::Write};
 use twilight_model::id::UserId;
 
 impl Database {
-    pub async fn increment_bggame_score(&self, user_id: u64) -> BotResult<()> {
+    pub async fn increment_bggame_score(&self, user_id: u64, amount: i32) -> BotResult<()> {
         let query = format!(
-            "INSERT INTO bggame_stats VALUES ({},1) ON CONFLICT (discord_id) DO UPDATE SET score=bggame_stats.score+1",
+            "INSERT INTO bggame_stats VALUES ({},$1) ON CONFLICT (discord_id) DO UPDATE SET score=bggame_stats.score+$1",
             user_id
         );
-        sqlx::query(&query).execute(&self.pool).await?;
+        sqlx::query(&query).bind(amount).execute(&self.pool).await?;
 
         Ok(())
     }

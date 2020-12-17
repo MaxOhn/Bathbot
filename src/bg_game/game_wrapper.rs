@@ -6,6 +6,7 @@ use crate::{
     Context,
 };
 
+use std::collections::HashMap;
 use std::{collections::VecDeque, sync::Arc};
 use tokio::{
     sync::{
@@ -78,6 +79,7 @@ impl GameWrapper {
             }
         };
         let mut previous_ids = VecDeque::with_capacity(50);
+        let mut scores = HashMap::new();
         tokio::spawn(async move {
             loop {
                 // Initialize game
@@ -151,15 +153,23 @@ impl GameWrapper {
                         } else {
                             debug!("Trying to stop on None");
                         }
+                        // Store score for winners
+                        for (user, score) in scores {
+                            if let Err(why) = ctx.psql().increment_bggame_score(user, score).await {
+                                unwind_error!(
+                                    error,
+                                    why,
+                                    "Error while incrementing bggame score: {}"
+                                );
+                            }
+                        }
                         // Then quit
                         debug!("Game finished in channel {}", channel);
                         break;
                     }
                     LoopResult::Winner(user_id) => {
                         if mapsets.len() >= 20 {
-                            if let Err(why) = ctx.psql().increment_bggame_score(user_id).await {
-                                error!("Error while incrementing bggame score: {}", why);
-                            }
+                            *scores.entry(user_id).or_insert(0) += 1;
                         }
                     }
                 }
