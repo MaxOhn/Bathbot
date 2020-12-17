@@ -10,6 +10,7 @@ lazy_static::lazy_static! {
     pub static ref SNIPE_COUNTRIES: HashMap<&'static str, Country> = {
         let mut c = std::collections::HashMap::with_capacity(25);
         let mut add = |name, acronym| c.insert(acronym, Country { name, acronym });
+        add("Argentina", "AR");
         add("Australia", "AU");
         add("Austria", "AT");
         add("Belarus", "BY");
@@ -27,6 +28,7 @@ lazy_static::lazy_static! {
         add("Germany", "DE");
         add("Greece", "GR");
         add("Hong Kong", "HK");
+        add("Iraq", "IQ");
         add("Ireland", "IE");
         add("Israel", "IL");
         add("Japan", "JP");
@@ -41,8 +43,8 @@ lazy_static::lazy_static! {
         add("South Korea", "KR");
         add("Spain", "ES");
         add("Sweden", "SE");
-        add("Thailand", "TH");
         add("Taiwan", "TW");
+        add("Thailand", "TH");
         add("Ukraine", "UA");
         add("United Kingdom", "GB");
         add("United States", "US");
