@@ -1,78 +1,153 @@
-use super::{MainReactions, Pages, Pagination};
+use super::PageChange;
 
-use crate::{commands::osu::profile_embed, embeds::ProfileEmbed, BotResult, Context, Error};
+use crate::{
+    embeds::{EmbedData, ProfileEmbed},
+    unwind_error, BotResult, Context, CONFIG,
+};
 
-use async_trait::async_trait;
-use rosu::model::GameMode;
-use std::{collections::HashMap, sync::Arc};
+use std::time::Duration;
+use tokio::stream::StreamExt;
 use twilight_http::request::channel::reaction::RequestReactionType;
-use twilight_model::channel::Message;
+use twilight_model::{
+    channel::{Message, Reaction, ReactionType},
+    gateway::payload::ReactionAdd,
+    id::{EmojiId, UserId},
+};
 
 pub struct ProfilePagination {
     msg: Message,
-    pages: Pages,
-    embeds: HashMap<usize, ProfileEmbed>,
-    name: String,
-    ctx: Arc<Context>,
+    embed: ProfileEmbed,
+    minimized: bool,
 }
 
 impl ProfilePagination {
-    pub fn new(
-        ctx: Arc<Context>,
-        msg: Message,
-        mode: GameMode,
-        name: String,
-        embed: ProfileEmbed,
-    ) -> Self {
-        let mut embeds = HashMap::with_capacity(1);
-        embeds.insert(mode as usize, embed);
-        let mut pages = Pages::new(1, 4);
-        pages.index = mode as usize;
+    pub fn new(msg: Message, embed: ProfileEmbed) -> Self {
         Self {
             msg,
-            pages,
-            embeds,
-            name,
-            ctx,
+            embed,
+            minimized: true,
         }
     }
-}
 
-#[async_trait]
-impl Pagination for ProfilePagination {
-    type PageData = ProfileEmbed;
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
     fn reactions() -> Vec<RequestReactionType> {
-        Self::mode_reactions()
+        let config = CONFIG.get().unwrap();
+
+        let (min_id, min_name) = config.minimize();
+        let (id, name) = (EmojiId(min_id), Some(min_name.to_owned()));
+        let minimize = RequestReactionType::Custom { id, name };
+
+        let (exp_id, exp_name) = config.expand();
+        let (id, name) = (EmojiId(exp_id), Some(exp_name.to_owned()));
+        let expand = RequestReactionType::Custom { id, name };
+
+        vec![expand, minimize]
     }
-    fn main_reactions(&self) -> MainReactions {
-        MainReactions::Modes
-    }
-    async fn change_mode(&mut self) {
-        let mode = GameMode::from(self.pages.index as u8);
-        #[allow(clippy::clippy::map_entry)]
-        if !self.embeds.contains_key(&self.pages.index) {
-            let profile_fut = profile_embed(&self.ctx, &self.name, mode, self.msg());
-            if let Ok(Some((data, _))) = profile_fut.await {
-                self.embeds.insert(self.pages.index, data);
+
+    pub async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> BotResult<()> {
+        ctx.store_msg(self.msg.id);
+
+        let mut reaction_stream = {
+            for emoji in Self::reactions() {
+                ctx.http
+                    .create_reaction(self.msg.channel_id, self.msg.id, emoji)
+                    .await?;
+            }
+            ctx.standby
+                .wait_for_reaction_stream(self.msg.id, move |r: &ReactionAdd| r.0.user_id == owner)
+                .timeout(Duration::from_secs(duration))
+        };
+
+        while let Some(Ok(reaction)) = reaction_stream.next().await {
+            match self.next_page(reaction.0, ctx).await {
+                Ok(PageChange::Delete) => return Ok(()),
+                Ok(_) => {}
+                Err(why) => unwind_error!(warn, why, "Error while paginating profile: {}"),
             }
         }
-    }
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        match self.embeds.get(&self.pages.index) {
-            Some(embed) => Ok(embed.to_owned()),
-            None => {
-                let content = format!("gamemode {} was unavailable", self.pages.index);
-                Err(Error::Custom(content))
+
+        if !ctx.remove_msg(self.msg.id) {
+            return Ok(());
+        }
+
+        for emoji in Self::reactions() {
+            if self.msg.guild_id.is_none() {
+                ctx.http
+                    .delete_current_user_reaction(self.msg.channel_id, self.msg.id, emoji)
+                    .await?;
+            } else {
+                ctx.http
+                    .delete_all_reaction(self.msg.channel_id, self.msg.id, emoji)
+                    .await?;
             }
+        }
+
+        if !self.minimized {
+            let eb = self.embed.minimize();
+
+            ctx.http
+                .update_message(self.msg.channel_id, self.msg.id)
+                .embed(eb.build()?)?
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn next_page(&mut self, reaction: Reaction, ctx: &Context) -> BotResult<PageChange> {
+        let change = match self.process_reaction(&reaction.emoji).await {
+            PageChange::None => PageChange::None,
+            PageChange::Change => {
+                let eb = if self.minimized {
+                    self.embed.minimize_borrowed()
+                } else {
+                    self.embed.build()
+                };
+
+                ctx.http
+                    .update_message(self.msg.channel_id, self.msg.id)
+                    .embed(eb.build()?)?
+                    .await?;
+
+                PageChange::Change
+            }
+            PageChange::Delete => {
+                ctx.http
+                    .delete_message(self.msg.channel_id, self.msg.id)
+                    .await?;
+
+                PageChange::Delete
+            }
+        };
+
+        Ok(change)
+    }
+
+    async fn process_reaction(&mut self, reaction: &ReactionType) -> PageChange {
+        let change_result = match reaction {
+            ReactionType::Custom {
+                name: Some(name), ..
+            } => match name.as_str() {
+                "expand" => match self.minimized {
+                    true => Some(false),
+                    false => None,
+                },
+                "minimize" => match self.minimized {
+                    true => None,
+                    false => Some(true),
+                },
+                _ => return PageChange::None,
+            },
+            ReactionType::Unicode { name } if name == "❌" => return PageChange::Delete,
+            _ => return PageChange::None,
+        };
+
+        match change_result {
+            Some(min) => {
+                self.minimized = min;
+
+                PageChange::Change
+            }
+            None => PageChange::None,
         }
     }
 }

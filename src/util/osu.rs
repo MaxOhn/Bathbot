@@ -29,7 +29,7 @@ pub fn grade_emote(grade: Grade) -> String {
 }
 
 pub fn mode_emote(mode: GameMode) -> String {
-    CONFIG.get().unwrap().mode(mode).to_owned()
+    CONFIG.get().unwrap().modes[&mode].to_owned()
 }
 
 pub fn grade_completion_mods(score: &impl ScoreExt, map: &Beatmap) -> String {

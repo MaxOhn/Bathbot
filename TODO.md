@@ -2,8 +2,9 @@
 **[TODO]**
 - Update taiko pp / stars
 - Rewrite `<mc` calculation
-- Minimized form for `<osu` & co
 - Check on `set_cluster_activity` / `shards_per_cluster` / `shard_id`
+- Custom pagination for `<r`
+- Green arrow reactions
 - ~~Investigate deadlock, `<bg stop`-`<bg bigger`?~~
 - ~~Only retrieve the first map from DB for `<r`~~
 - ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~
@@ -11,7 +12,7 @@
 - ~~`<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)~~
 
 **[Sometime]**
-- Add `Icon from syedhassan - pngtree.com` to README
+- Add `Icon from syedhassan - pngtree.com` & `Reactions made by Smashicons - flaticon.com` to README
 - Experiment with different team/opponent scaling for `<mc`
 - Improve mania and ctb star calculation
 - Check on `thread 'tokio-runtime-worker' panicked at 'error binding to 169.254.124.89:9094:`
@@ -22,6 +23,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Minimized form for `<osu` & co~~ (20.12.18)
 - ~~`<rank` commands but for total/ranked score~~ (20.12.04)
 - ~~Rewrite `<bws` arguments to take a range for ranks~~ (20.12.03)
 - ~~Rewrite `<top` arguments to take ranges just like `<osg`~~ (20.12.03)

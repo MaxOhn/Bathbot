@@ -3,8 +3,8 @@ use crate::{
     arguments::{Args, NameArgs},
     bail,
     custom_client::{DateCount, OsuProfile},
-    embeds::{EmbedData, ProfileEmbed},
-    pagination::{Pagination, ProfilePagination},
+    embeds::ProfileEmbed,
+    pagination::ProfilePagination,
     tracking::process_tracking,
     unwind_error,
     util::{
@@ -34,10 +34,12 @@ async fn profile_main(
     args: Args<'_>,
 ) -> BotResult<()> {
     let args = NameArgs::new(&ctx, args);
+
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
+
     let (data, mut profile) = match profile_embed(&ctx, &name, mode, &msg).await? {
         Some(data) => data,
         None => return Ok(()),
@@ -53,8 +55,9 @@ async fn profile_main(
     };
 
     // Send the embed
-    let embed = data.build().build()?;
+    let embed = data.minimize_borrowed().build()?;
     let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
+
     let response = if let Some(graph) = graph {
         m.attachment("profile_graph.png", graph).await?
     } else {
@@ -62,13 +65,15 @@ async fn profile_main(
     };
 
     // Pagination
-    let pagination = ProfilePagination::new(Arc::clone(&ctx), response, mode, name, data);
+    let pagination = ProfilePagination::new(response, data);
     let owner = msg.author.id;
+
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
             unwind_error!(warn, why, "Pagination error (profile): {}")
         }
     });
+
     Ok(())
 }
 

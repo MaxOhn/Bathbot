@@ -122,7 +122,7 @@ pub trait Pagination: Sync + Sized {
         MainReactions::Arrows
     }
     fn process_data(&mut self, _data: &Self::PageData) {}
-    async fn change_mode(&mut self) {}
+    // async fn change_mode(&mut self) {}
     async fn final_processing(mut self, _ctx: &Context) -> BotResult<()> {
         Ok(())
     }
@@ -201,48 +201,24 @@ pub trait Pagination: Sync + Sized {
                     return PageChange::None;
                 }
             }
-            MainReactions::Modes => match reaction {
-                ReactionType::Custom {
-                    name: Some(name), ..
-                } => self.process_modes(name.as_str()),
-                ReactionType::Unicode { name } if name == "❌" => return PageChange::Delete,
-                _ => return PageChange::None,
-            },
+            // MainReactions::Modes => match reaction {
+            //     ReactionType::Custom {
+            //         name: Some(name), ..
+            //     } => self.process_modes(name.as_str()),
+            //     ReactionType::Unicode { name } if name == "❌" => return PageChange::Delete,
+            //     _ => return PageChange::None,
+            // },
         };
 
         match change_result {
             Ok(Some(index)) => {
                 *self.index_mut() = index;
-                self.change_mode().await;
+                // self.change_mode().await;
                 PageChange::Change
             }
             Ok(None) => PageChange::None,
             Err(page_change) => page_change,
         }
-    }
-
-    fn process_modes(&self, reaction: &str) -> Result<Option<usize>, PageChange> {
-        let next_index = match reaction {
-            "osu_std" => match self.index() {
-                0 => None,
-                _ => Some(0),
-            },
-            "osu_taiko" => match self.index() {
-                1 => None,
-                _ => Some(1),
-            },
-            "osu_ctb" => match self.index() {
-                2 => None,
-                _ => Some(2),
-            },
-            "osu_mania" => match self.index() {
-                3 => None,
-                _ => Some(3),
-            },
-            _ => None,
-        };
-
-        Ok(next_index)
     }
 
     fn process_arrows(&self, reaction: &str) -> Result<Option<usize>, PageChange> {
@@ -302,6 +278,29 @@ pub trait Pagination: Sync + Sized {
             "❌" => return Err(PageChange::Delete),
             _ => None,
         };
+        Ok(next_index)
+    }
+    fn process_modes(&self, reaction: &str) -> Result<Option<usize>, PageChange> {
+        let next_index = match reaction {
+            "osu_std" => match self.index() {
+                0 => None,
+                _ => Some(0),
+            },
+            "osu_taiko" => match self.index() {
+                1 => None,
+                _ => Some(1),
+            },
+            "osu_ctb" => match self.index() {
+                2 => None,
+                _ => Some(2),
+            },
+            "osu_mania" => match self.index() {
+                3 => None,
+                _ => Some(3),
+            },
+            _ => None,
+        };
+
         Ok(next_index)
     }
     fn mode_reactions() -> Vec<RequestReactionType> {
@@ -365,5 +364,5 @@ impl Pages {
 
 pub enum MainReactions {
     Arrows,
-    Modes,
+    // Modes,
 }
