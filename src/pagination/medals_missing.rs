@@ -35,19 +35,28 @@ impl MedalsMissingPagination {
 #[async_trait]
 impl Pagination for MedalsMissingPagination {
     type PageData = MedalsMissingEmbed;
+
     fn msg(&self) -> &Message {
         &self.msg
     }
+
     fn pages(&self) -> Pages {
         self.pages
     }
+
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
+
+    fn single_step(&self) -> usize {
+        self.pages.per_page
+    }
+
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let page = self.page();
         let idx = (page - 1) * 15;
         let limit = self.medals.len().min(idx + self.pages.per_page);
+
         Ok(MedalsMissingEmbed::new(
             &self.profile,
             &self.medals[idx..limit],

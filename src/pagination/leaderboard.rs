@@ -41,21 +41,30 @@ impl LeaderboardPagination {
 #[async_trait]
 impl Pagination for LeaderboardPagination {
     type PageData = LeaderboardEmbed;
+
     fn msg(&self) -> &Message {
         &self.msg
     }
+
     fn pages(&self) -> Pages {
         self.pages
     }
+
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
+
+    fn single_step(&self) -> usize {
+        self.pages.per_page
+    }
+
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let scores = self
             .scores
             .iter()
             .skip(self.pages.index)
             .take(self.pages.per_page);
+
         LeaderboardEmbed::new(
             &self.ctx,
             self.author_name.as_deref(),

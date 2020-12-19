@@ -28,6 +28,7 @@ impl OsuStatsListPagination {
         amount: usize,
     ) -> Self {
         let first_place_id = players[&1].first().unwrap().user_id;
+
         Self {
             pages: Pages::new(15, amount),
             msg,
@@ -42,38 +43,50 @@ impl OsuStatsListPagination {
 #[async_trait]
 impl Pagination for OsuStatsListPagination {
     type PageData = OsuStatsListEmbed;
+
     fn msg(&self) -> &Message {
         &self.msg
     }
+
     fn pages(&self) -> Pages {
         self.pages
     }
+
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
+
     fn reactions() -> Vec<RequestReactionType> {
         Self::arrow_reactions_full()
     }
+
     fn single_step(&self) -> usize {
         15
     }
+
     fn multi_step(&self) -> usize {
         45
     }
+
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let page = self.page();
+
         #[allow(clippy::map_entry)]
         if !self.players.contains_key(&page) {
             self.params.page = page;
+
             let players = self
                 .ctx
                 .clients
                 .custom
                 .get_country_globals(&self.params)
                 .await?;
+
             self.players.insert(page, players);
         }
+
         let players = self.players.get(&page).unwrap();
+
         Ok(OsuStatsListEmbed::new(
             players,
             &self.params.country,

@@ -11,7 +11,7 @@ use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{
     channel::{Message, Reaction, ReactionType},
     gateway::payload::ReactionAdd,
-    id::{EmojiId, UserId},
+    id::UserId,
 };
 
 pub struct ProfilePagination {
@@ -32,15 +32,7 @@ impl ProfilePagination {
     fn reactions() -> Vec<RequestReactionType> {
         let config = CONFIG.get().unwrap();
 
-        let (min_id, min_name) = config.minimize();
-        let (id, name) = (EmojiId(min_id), Some(min_name.to_owned()));
-        let minimize = RequestReactionType::Custom { id, name };
-
-        let (exp_id, exp_name) = config.expand();
-        let (id, name) = (EmojiId(exp_id), Some(exp_name.to_owned()));
-        let expand = RequestReactionType::Custom { id, name };
-
-        vec![expand, minimize]
+        vec![config.minimize(), config.expand()]
     }
 
     pub async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> BotResult<()> {

@@ -61,24 +61,31 @@ impl RecentPagination {
 #[async_trait]
 impl Pagination for RecentPagination {
     type PageData = RecentEmbed;
+
     fn msg(&self) -> &Message {
         &self.msg
     }
+
     fn pages(&self) -> Pages {
         self.pages
     }
+
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
+
     fn reactions() -> Vec<RequestReactionType> {
         Self::arrow_reactions_full()
     }
+
     fn process_data(&mut self, data: &Self::PageData) {
         self.embed_data.replace(data.clone());
     }
+
     fn content(&self) -> Option<String> {
         Some(format!("Recent score #{}", self.pages.index + 1))
     }
+
     async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
         // Minimize embed
         let embed = self.embed_data.take().unwrap().minimize().build()?;
@@ -92,23 +99,28 @@ impl Pagination for RecentPagination {
         // Put missing maps into DB
         if self.maps.len() > self.maps_in_db.len() {
             let map_ids = self.maps_in_db.clone();
+
             let maps: Vec<_> = self
                 .maps
                 .into_iter()
                 .filter(|(id, _)| !map_ids.contains(&id))
                 .map(|(_, map)| map)
                 .collect();
+
             match ctx.psql().insert_beatmaps(&maps).await {
                 Ok(n) if n < 2 => {}
                 Ok(n) => info!("Added {} maps to DB", n),
                 Err(why) => unwind_error!(warn, why, "Error while adding maps to DB: {}"),
             }
         }
+
         Ok(())
     }
+
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let score = self.scores.get(self.pages.index).unwrap();
         let map_id = score.beatmap_id.unwrap();
+
         // Make sure map is ready
         #[allow(clippy::clippy::map_entry)]
         if !self.maps.contains_key(&map_id) {
@@ -119,26 +131,33 @@ impl Pagination for RecentPagination {
                 .map_id(score.beatmap_id.unwrap())
                 .await?
                 .unwrap();
+
             self.maps.insert(map_id, map);
         }
+
         let map = self.maps.get(&map_id).unwrap();
+
         // Make sure map leaderboard is ready
         let valid_global = matches!(map.approval_status, Ranked | Loved | Qualified | Approved);
+
         #[allow(clippy::clippy::map_entry)]
         if valid_global && !self.global.contains_key(&map.beatmap_id) {
             let global_lb = map.get_global_leaderboard(self.ctx.osu()).limit(50).await?;
             self.global.insert(map.beatmap_id, global_lb);
         };
+
         let global_lb = self
             .global
             .get(&map.beatmap_id)
             .map(|global| global.as_slice());
+
         if self.best.is_none() && map.approval_status == Ranked {
             let user_fut = self
                 .user
                 .get_top_scores(self.ctx.osu())
                 .limit(100)
                 .mode(map.mode);
+
             match user_fut.await {
                 Ok(scores) => self.best = Some(scores),
                 Err(why) => unwind_error!(
@@ -148,6 +167,7 @@ impl Pagination for RecentPagination {
                 ),
             }
         }
+
         // Create embed data
         RecentEmbed::new(
             &self.ctx,

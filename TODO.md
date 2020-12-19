@@ -3,8 +3,7 @@
 - Update taiko pp / stars
 - Rewrite `<mc` calculation
 - Check on `set_cluster_activity` / `shards_per_cluster` / `shard_id`
-- Custom pagination for `<r`
-- Green arrow reactions
+- ~~Custom pagination for `<r`~~
 - ~~Investigate deadlock, `<bg stop`-`<bg bigger`?~~
 - ~~Only retrieve the first map from DB for `<r`~~
 - ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~
@@ -23,6 +22,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Green arrow reactions~~ (20.12.19)
 - ~~Minimized form for `<osu` & co~~ (20.12.18)
 - ~~`<rank` commands but for total/ranked score~~ (20.12.04)
 - ~~Rewrite `<bws` arguments to take a range for ranks~~ (20.12.03)

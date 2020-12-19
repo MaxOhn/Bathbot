@@ -45,44 +45,57 @@ impl OsuStatsGlobalsPagination {
 #[async_trait]
 impl Pagination for OsuStatsGlobalsPagination {
     type PageData = OsuStatsGlobalsEmbed;
+
     fn msg(&self) -> &Message {
         &self.msg
     }
+
     fn pages(&self) -> Pages {
         self.pages
     }
+
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
+
     fn reactions() -> Vec<RequestReactionType> {
         Self::arrow_reactions_full()
     }
+
     fn single_step(&self) -> usize {
         5
     }
+
     fn multi_step(&self) -> usize {
         25
     }
+
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let entries = self
             .scores
             .range(self.pages.index..self.pages.index + self.pages.per_page);
+
         let count = entries.count();
+
         if count < self.pages.per_page && self.total - self.pages.index > count {
             let osustats_page = (self.pages.index / 24) + 1;
             self.params.page(osustats_page);
+
             let (scores, _) = self
                 .ctx
                 .clients
                 .custom
                 .get_global_scores(&self.params)
                 .await?;
+
             let iter = scores
                 .into_iter()
                 .enumerate()
                 .map(|(i, s)| ((osustats_page - 1) * 24 + i, s));
+
             self.scores.extend(iter);
         }
+
         Ok(OsuStatsGlobalsEmbed::new(
             &self.ctx,
             &self.user,

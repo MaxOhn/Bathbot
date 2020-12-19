@@ -41,15 +41,23 @@ impl TopIfPagination {
 #[async_trait]
 impl Pagination for TopIfPagination {
     type PageData = TopIfEmbed;
+
     fn msg(&self) -> &Message {
         &self.msg
     }
+
     fn pages(&self) -> Pages {
         self.pages
     }
+
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
+
+    fn single_step(&self) -> usize {
+        self.pages.per_page
+    }
+
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         Ok(TopIfEmbed::new(
             &self.ctx,

@@ -53,29 +53,38 @@ impl PlayerSnipeListPagination {
 #[async_trait]
 impl Pagination for PlayerSnipeListPagination {
     type PageData = PlayerSnipeListEmbed;
+
     fn msg(&self) -> &Message {
         &self.msg
     }
+
     fn pages(&self) -> Pages {
         self.pages
     }
+
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
+
     fn reactions() -> Vec<RequestReactionType> {
         Self::arrow_reactions_full()
     }
+
     fn single_step(&self) -> usize {
         5
     }
+
     fn multi_step(&self) -> usize {
         25
     }
+
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let entries = self
             .scores
             .range(self.pages.index..self.pages.index + self.pages.per_page);
+
         let count = entries.count();
+
         if count < self.pages.per_page && self.total - self.pages.index > count {
             let huismetbenen_page = self.pages.index / 50;
             self.params.page(huismetbenen_page as u8);
@@ -93,6 +102,7 @@ impl Pagination for PlayerSnipeListPagination {
                 .into_iter()
                 .enumerate()
                 .map(|(i, s)| (huismetbenen_page * 50 + i, s));
+
             self.scores.extend(iter);
         }
 
@@ -125,6 +135,7 @@ impl Pagination for PlayerSnipeListPagination {
                     }
                 }
             }
+
             self.maps.extend(maps);
         }
 
@@ -135,16 +146,18 @@ impl Pagination for PlayerSnipeListPagination {
             self.total,
             (self.page(), self.pages.total_pages),
         );
-        // .finish or something to store maps
+
         Ok(embed_fut.await)
     }
     async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
         // Put maps into DB
         let maps: Vec<_> = self.maps.into_iter().map(|(_, map)| map).collect();
+
         match ctx.psql().insert_beatmaps(&maps).await {
             Ok(n) => debug!("Added up to {} maps to DB", n),
             Err(why) => unwind_error!(warn, why, "Error while adding maps to DB: {}"),
         }
+
         Ok(())
     }
 }

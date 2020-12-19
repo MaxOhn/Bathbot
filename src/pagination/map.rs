@@ -42,21 +42,27 @@ impl MapPagination {
 #[async_trait]
 impl Pagination for MapPagination {
     type PageData = MapEmbed;
+
     fn msg(&self) -> &Message {
         &self.msg
     }
+
     fn pages(&self) -> Pages {
         self.pages
     }
+
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
     }
+
     fn multi_step(&self) -> usize {
         3
     }
+
     fn reactions() -> Vec<RequestReactionType> {
         Self::arrow_reactions_full()
     }
+
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         MapEmbed::new(
             &self.ctx,

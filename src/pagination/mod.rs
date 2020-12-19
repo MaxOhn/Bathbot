@@ -55,7 +55,9 @@ pub trait Pagination: Sync + Sized {
 
     // Make these point to the corresponding struct fields
     fn msg(&self) -> &Message;
+
     fn pages(&self) -> Pages;
+
     fn pages_mut(&mut self) -> &mut Pages;
 
     // Implement this
@@ -65,64 +67,55 @@ pub trait Pagination: Sync + Sized {
     fn reactions() -> Vec<RequestReactionType> {
         Self::arrow_reactions()
     }
+
     fn arrow_reactions() -> Vec<RequestReactionType> {
+        let config = CONFIG.get().unwrap();
+
         vec![
-            RequestReactionType::Unicode {
-                name: "⏮️".to_owned(),
-            },
-            RequestReactionType::Unicode {
-                name: "⏪".to_owned(),
-            },
-            RequestReactionType::Unicode {
-                name: "⏩".to_owned(),
-            },
-            RequestReactionType::Unicode {
-                name: "⏭️".to_owned(),
-            },
+            config.jump_start(),
+            config.single_step_back(),
+            config.single_step(),
+            config.jump_end(),
         ]
     }
+
     fn arrow_reactions_full() -> Vec<RequestReactionType> {
+        let config = CONFIG.get().unwrap();
+
         vec![
-            RequestReactionType::Unicode {
-                name: "⏮️".to_owned(),
-            },
-            RequestReactionType::Unicode {
-                name: "⏪".to_owned(),
-            },
-            RequestReactionType::Unicode {
-                name: "◀️".to_owned(),
-            },
-            RequestReactionType::Unicode {
-                name: "▶️".to_owned(),
-            },
-            RequestReactionType::Unicode {
-                name: "⏩".to_owned(),
-            },
-            RequestReactionType::Unicode {
-                name: "⏭️".to_owned(),
-            },
+            config.jump_start(),
+            config.multi_step_back(),
+            config.single_step_back(),
+            config.single_step(),
+            config.multi_step(),
+            config.jump_end(),
         ]
     }
+
     fn single_step(&self) -> usize {
         1
     }
+
     fn multi_step(&self) -> usize {
         self.pages().per_page
     }
+
     fn jump_index(&self) -> Option<usize> {
         None
     }
+
     fn thumbnail(&self) -> Option<ImageSource> {
         None
     }
+
     fn content(&self) -> Option<String> {
         None
     }
-    fn main_reactions(&self) -> MainReactions {
-        MainReactions::Arrows
-    }
+
     fn process_data(&mut self, _data: &Self::PageData) {}
+
     // async fn change_mode(&mut self) {}
+
     async fn final_processing(mut self, _ctx: &Context) -> BotResult<()> {
         Ok(())
     }
@@ -189,120 +182,99 @@ pub trait Pagination: Sync + Sized {
                 PageChange::Delete
             }
         };
+
         Ok(change)
     }
 
     async fn process_reaction(&mut self, reaction: &ReactionType) -> PageChange {
-        let change_result = match self.main_reactions() {
-            MainReactions::Arrows => {
-                if let ReactionType::Unicode { name } = reaction {
-                    self.process_arrows(name.as_str())
-                } else {
-                    return PageChange::None;
+        let change_result = match reaction {
+            ReactionType::Custom {
+                name: Some(name), ..
+            } => match name.as_str() {
+                // Move to start
+                "jump_start" => match self.index() {
+                    0 => None,
+                    _ => Some(0),
+                },
+                // Move one page left
+                "multi_step_back" => match self.index() {
+                    0 => None,
+                    idx => Some(idx.saturating_sub(self.multi_step())),
+                },
+                // Move one index left
+                "single_step_back" => match self.index() {
+                    0 => None,
+                    idx => Some(idx.saturating_sub(self.single_step())),
+                },
+                // Move to specific position
+                "my_position" => {
+                    if let Some(index) = self.jump_index() {
+                        let i = numbers::last_multiple(self.per_page(), index + 1);
+                        if i != self.index() {
+                            Some(i)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
                 }
-            }
-            // MainReactions::Modes => match reaction {
-            //     ReactionType::Custom {
-            //         name: Some(name), ..
-            //     } => self.process_modes(name.as_str()),
-            //     ReactionType::Unicode { name } if name == "❌" => return PageChange::Delete,
-            //     _ => return PageChange::None,
-            // },
+                // Move one index right
+                "single_step" => {
+                    if self.index() == self.last_index() {
+                        None
+                    } else {
+                        Some(self.last_index().min(self.index() + self.single_step()))
+                    }
+                }
+                // Move one page right
+                "multi_step" => {
+                    if self.index() == self.last_index() {
+                        None
+                    } else {
+                        Some(self.last_index().min(self.index() + self.multi_step()))
+                    }
+                }
+                // Move to end
+                "jump_end" => {
+                    if self.index() == self.last_index() {
+                        None
+                    } else {
+                        Some(self.last_index())
+                    }
+                }
+                "osu_std" => match self.index() {
+                    0 => None,
+                    _ => Some(0),
+                },
+                "osu_taiko" => match self.index() {
+                    1 => None,
+                    _ => Some(1),
+                },
+                "osu_ctb" => match self.index() {
+                    2 => None,
+                    _ => Some(2),
+                },
+                "osu_mania" => match self.index() {
+                    3 => None,
+                    _ => Some(3),
+                },
+                _ => None,
+            },
+            ReactionType::Unicode { name } if name == "❌" => return PageChange::Delete,
+            _ => None,
         };
 
         match change_result {
-            Ok(Some(index)) => {
+            Some(index) => {
                 *self.index_mut() = index;
                 // self.change_mode().await;
                 PageChange::Change
             }
-            Ok(None) => PageChange::None,
-            Err(page_change) => page_change,
+            None => PageChange::None,
         }
     }
 
-    fn process_arrows(&self, reaction: &str) -> Result<Option<usize>, PageChange> {
-        let next_index = match reaction {
-            // Move to start
-            "⏮️" => match self.index() {
-                0 => None,
-                _ => Some(0),
-            },
-            // Move one page left
-            "⏪" => match self.index() {
-                0 => None,
-                idx => Some(idx.saturating_sub(self.multi_step())),
-            },
-            // Move one index left
-            "◀️" => match self.index() {
-                0 => None,
-                idx => Some(idx.saturating_sub(self.single_step())),
-            },
-            // Move to specific position
-            "*️⃣" => {
-                if let Some(index) = self.jump_index() {
-                    let i = numbers::last_multiple(self.per_page(), index + 1);
-                    if i != self.index() {
-                        Some(i)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            }
-            // Move one index right
-            "▶️" => {
-                if self.index() == self.last_index() {
-                    None
-                } else {
-                    Some(self.last_index().min(self.index() + self.single_step()))
-                }
-            }
-            // Move one page right
-            "⏩" => {
-                if self.index() == self.last_index() {
-                    None
-                } else {
-                    Some(self.last_index().min(self.index() + self.multi_step()))
-                }
-            }
-            // Move to end
-            "⏭️" => {
-                if self.index() == self.last_index() {
-                    None
-                } else {
-                    Some(self.last_index())
-                }
-            }
-            "❌" => return Err(PageChange::Delete),
-            _ => None,
-        };
-        Ok(next_index)
-    }
-    fn process_modes(&self, reaction: &str) -> Result<Option<usize>, PageChange> {
-        let next_index = match reaction {
-            "osu_std" => match self.index() {
-                0 => None,
-                _ => Some(0),
-            },
-            "osu_taiko" => match self.index() {
-                1 => None,
-                _ => Some(1),
-            },
-            "osu_ctb" => match self.index() {
-                2 => None,
-                _ => Some(2),
-            },
-            "osu_mania" => match self.index() {
-                3 => None,
-                _ => Some(3),
-            },
-            _ => None,
-        };
-
-        Ok(next_index)
-    }
     fn mode_reactions() -> Vec<RequestReactionType> {
         CONFIG
             .get()
@@ -317,18 +289,23 @@ pub trait Pagination: Sync + Sized {
     fn index(&self) -> usize {
         self.pages().index
     }
+
     fn last_index(&self) -> usize {
         self.pages().last_index
     }
+
     fn per_page(&self) -> usize {
         self.pages().per_page
     }
+
     fn total_pages(&self) -> usize {
         self.pages().total_pages
     }
+
     fn index_mut(&mut self) -> &mut usize {
         &mut self.pages_mut().index
     }
+
     fn page(&self) -> usize {
         self.index() / self.per_page() + 1
     }
@@ -360,9 +337,4 @@ impl Pages {
             last_index: numbers::last_multiple(per_page, amount),
         }
     }
-}
-
-pub enum MainReactions {
-    Arrows,
-    // Modes,
 }

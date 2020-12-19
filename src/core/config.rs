@@ -8,6 +8,8 @@ use serde::{
 };
 use std::{collections::HashMap, path::PathBuf, str::FromStr};
 use tokio::fs;
+use twilight_http::request::channel::reaction::RequestReactionType;
+use twilight_model::id::EmojiId;
 
 #[derive(Deserialize, Debug)]
 pub struct BotConfig {
@@ -47,6 +49,14 @@ pub struct Database {
 pub enum OtherEnum {
     Minimize,
     Expand,
+
+    JumpStart,
+    MultiStepBack,
+    SingleStepBack,
+    MyPosition,
+    SingleStep,
+    MultiStep,
+    JumpEnd,
 }
 
 impl BotConfig {
@@ -88,18 +98,121 @@ impl BotConfig {
         [std, tko, ctb, mna]
     }
 
-    pub fn minimize(&self) -> (u64, &str) {
-        self.other
+    pub fn minimize(&self) -> RequestReactionType {
+        let (id, name) = self
+            .other
             .get(&OtherEnum::Minimize)
             .unwrap_or_else(|| panic!("No minimize emote in config"))
-            .split_emote()
+            .split_emote();
+
+        RequestReactionType::Custom {
+            id: EmojiId(id),
+            name: Some(name.to_owned()),
+        }
     }
 
-    pub fn expand(&self) -> (u64, &str) {
-        self.other
+    pub fn expand(&self) -> RequestReactionType {
+        let (id, name) = self
+            .other
             .get(&OtherEnum::Expand)
             .unwrap_or_else(|| panic!("No expand emote in config"))
-            .split_emote()
+            .split_emote();
+
+        RequestReactionType::Custom {
+            id: EmojiId(id),
+            name: Some(name.to_owned()),
+        }
+    }
+
+    pub fn jump_start(&self) -> RequestReactionType {
+        let (id, name) = self
+            .other
+            .get(&OtherEnum::JumpStart)
+            .unwrap_or_else(|| panic!("No jump_start emote in config"))
+            .split_emote();
+
+        RequestReactionType::Custom {
+            id: EmojiId(id),
+            name: Some(name.to_owned()),
+        }
+    }
+
+    pub fn multi_step_back(&self) -> RequestReactionType {
+        let (id, name) = self
+            .other
+            .get(&OtherEnum::MultiStepBack)
+            .unwrap_or_else(|| panic!("No multi_step_back emote in config"))
+            .split_emote();
+
+        RequestReactionType::Custom {
+            id: EmojiId(id),
+            name: Some(name.to_owned()),
+        }
+    }
+
+    pub fn single_step_back(&self) -> RequestReactionType {
+        let (id, name) = self
+            .other
+            .get(&OtherEnum::SingleStepBack)
+            .unwrap_or_else(|| panic!("No single_step_back emote in config"))
+            .split_emote();
+
+        RequestReactionType::Custom {
+            id: EmojiId(id),
+            name: Some(name.to_owned()),
+        }
+    }
+
+    pub fn my_position(&self) -> RequestReactionType {
+        let (id, name) = self
+            .other
+            .get(&OtherEnum::MyPosition)
+            .unwrap_or_else(|| panic!("No my_position emote in config"))
+            .split_emote();
+
+        RequestReactionType::Custom {
+            id: EmojiId(id),
+            name: Some(name.to_owned()),
+        }
+    }
+
+    pub fn single_step(&self) -> RequestReactionType {
+        let (id, name) = self
+            .other
+            .get(&OtherEnum::SingleStep)
+            .unwrap_or_else(|| panic!("No single_step emote in config"))
+            .split_emote();
+
+        RequestReactionType::Custom {
+            id: EmojiId(id),
+            name: Some(name.to_owned()),
+        }
+    }
+
+    pub fn multi_step(&self) -> RequestReactionType {
+        let (id, name) = self
+            .other
+            .get(&OtherEnum::MultiStep)
+            .unwrap_or_else(|| panic!("No multi_step emote in config"))
+            .split_emote();
+
+        RequestReactionType::Custom {
+            id: EmojiId(id),
+            name: Some(name.to_owned()),
+        }
+    }
+
+    pub fn jump_end(&self) -> RequestReactionType {
+        let (id, name) = self
+            .other
+            .get(&OtherEnum::JumpEnd)
+            .unwrap_or_else(|| panic!("No jump_end emote in config"))
+            .split_emote();
+
+        RequestReactionType::Custom {
+            id: EmojiId(id),
+            name: Some(name.to_owned()),
+        }
     }
 }
 
@@ -124,13 +237,26 @@ impl<'de> Deserialize<'de> for OtherEnum {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let s: &str = Deserialize::deserialize(d)?;
 
-        match s {
-            "minimize" => Ok(Self::Minimize),
-            "expand" => Ok(Self::Expand),
-            other => Err(SerdeError::invalid_value(
-                Unexpected::Str(other),
-                &r#""minimize" or "expand""#,
-            )),
-        }
+        let other = match s {
+            "minimize" => Self::Minimize,
+            "expand" => Self::Expand,
+            "jump_start" => Self::JumpStart,
+            "multi_step_back" => Self::MultiStepBack,
+            "single_step_back" => Self::SingleStepBack,
+            "my_position" => Self::MyPosition,
+            "single_step" => Self::SingleStep,
+            "multi_step" => Self::MultiStep,
+            "jump_end" => Self::JumpEnd,
+            other => {
+                return Err(SerdeError::invalid_value(
+                    Unexpected::Str(other),
+                    &r#""minimize", "expand", "jump_start", "multi_step_back", 
+                    "single_step_back", "my_position", "single_step", 
+                    "multi_step", or "jump_end""#,
+                ))
+            }
+        };
+
+        Ok(other)
     }
 }
