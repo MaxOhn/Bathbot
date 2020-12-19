@@ -20,6 +20,11 @@ Moreover, the majority of commands is accessible for **all** gamemodes.
 ### To invite the bot to your server, use [this link](https://discordapp.com/api/oauth2/authorize?client_id=297073686916366336&permissions=268823616&scope=bot)
 ~~A spreadsheet with all current commands can be found [here](http://bit.ly/badecoms) although I can't guarantee the sheet will stay up-to-date~~
 
+## Credits
+- [5joshi](https://osu.ppy.sh/users/4279650) for these CRAZY GOOD reaction emotes :)
+- Main icon from [syedhassan](https://pngtree.com/syedhassan_564486)
+- Remaining reaction emotes from [Smashicons](https://www.flaticon.com/authors/smashicons)
+
 ## Setup
 In case you want to get the bot running yourself to either modify a custom instance for you, or just to contribute to the project, here's what you need to do:
 - Clone this repo via `git clone --recurse-submodules https://github.com/MaxOhn/Bathbot.git`
