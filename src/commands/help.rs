@@ -58,8 +58,8 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
         - If you used `{prefix}link osuname`, you can omit the osu username for any command that needs one.\n\
         - If you react with :x: within one minute to my response, I will delete it.\n\
-        - With reactions like :fast_forward: or :track_previous: you can scroll through pages \
-        e.g. check an earlier play than the most recent one
+        - With the arrow reactions you can scroll through pages e.g. check an earlier play than the most recent one. \
+        Note that generally only reactions of the response invoker (\"owner\") will be processed.\n\
         - ~~`Strikethrough`~~ commands indicate that either you can't use them in DMs or \
         you lack authority status in the server.\n\
         - If you have questions, complains, or suggestions for the bot, feel free to join its \

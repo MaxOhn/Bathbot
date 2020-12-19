@@ -32,7 +32,7 @@ impl ProfilePagination {
     fn reactions() -> Vec<RequestReactionType> {
         let config = CONFIG.get().unwrap();
 
-        vec![config.minimize(), config.expand()]
+        vec![config.expand(), config.minimize()]
     }
 
     pub async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> BotResult<()> {

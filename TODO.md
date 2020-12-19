@@ -11,7 +11,6 @@
 - ~~`<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)~~
 
 **[Sometime]**
-- Add `Icon from syedhassan - pngtree.com` & `Reactions made by Smashicons - flaticon.com` to README
 - Experiment with different team/opponent scaling for `<mc`
 - Improve mania and ctb star calculation
 - Check on `thread 'tokio-runtime-worker' panicked at 'error binding to 169.254.124.89:9094:`
@@ -22,6 +21,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Add `Icon from syedhassan - pngtree.com` & `Reactions made by Smashicons - flaticon.com` to README~~ (20.12.19)
 - ~~Green arrow reactions~~ (20.12.19)
 - ~~Minimized form for `<osu` & co~~ (20.12.18)
 - ~~`<rank` commands but for total/ranked score~~ (20.12.04)

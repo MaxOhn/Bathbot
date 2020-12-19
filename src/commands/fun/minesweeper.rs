@@ -18,8 +18,7 @@ use twilight_model::channel::Message;
     The available arguments are:\n \
     - `easy`: 6x6 grid\n \
     - `medium`: 8x8 grid\n \
-    - `hard`: 10x10 grid\n \
-    - `expert`: 13x13 grid"
+    - `hard`: 11x9 grid"
 )]
 #[usage("[easy / medium / hard / expert]")]
 async fn minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
@@ -27,7 +26,7 @@ async fn minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRes
         None | Some("easy") => Difficulty::Easy,
         Some("medium") => Difficulty::Medium,
         Some("hard") => Difficulty::Hard,
-        Some("extreme") | Some("expert") => Difficulty::Expert,
+        // Some("extreme") | Some("expert") => Difficulty::Expert,
         _ => {
             let content = "The argument must be either `easy`, `medium`, `hard`, or `expert`";
             return msg.error(&ctx, content).await;
@@ -61,7 +60,7 @@ enum Difficulty {
     Easy,
     Medium,
     Hard,
-    Expert,
+    // Expert,
 }
 
 impl Difficulty {
@@ -69,8 +68,8 @@ impl Difficulty {
         match self {
             Difficulty::Easy => Minesweeper::new(6, 6, 6),
             Difficulty::Medium => Minesweeper::new(8, 8, 12),
-            Difficulty::Hard => Minesweeper::new(10, 10, 20),
-            Difficulty::Expert => Minesweeper::new(13, 13, 40),
+            Difficulty::Hard => Minesweeper::new(11, 9, 20),
+            // Difficulty::Expert => Minesweeper::new(13, 13, 40),
         }
     }
 }
@@ -91,7 +90,7 @@ impl Minesweeper {
         while new_mines > 0 {
             let r = rng.next_u32() as usize % size;
             let x = r % width;
-            let y = r / height;
+            let y = r / width;
             if field[(x, y)] == Cell::None {
                 field[(x, y)] = Cell::Mine;
                 new_mines -= 1;
