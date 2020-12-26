@@ -66,8 +66,8 @@ impl TrackingStatsEmbed {
 }
 
 impl EmbedData for TrackingStatsEmbed {
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
-        Some(self.fields.clone())
+    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+        Some(self.fields)
     }
     fn footer_owned(&mut self) -> Option<Footer> {
         self.footer.take()

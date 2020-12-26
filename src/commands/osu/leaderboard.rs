@@ -170,7 +170,7 @@ async fn leaderboard_main(
 #[long_desc(
     "Display the global leaderboard of a given map.\n\
      If no map is given, I will choose the last map \
-     I can find in my embeds of this channel.\n\
+     I can find in the embeds of this channel.\n\
      Mods can be specified."
 )]
 #[usage("[map url / map id] [mods]")]
@@ -185,7 +185,7 @@ pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 #[long_desc(
     "Display the belgian leaderboard of a given map.\n\
      If no map is given, I will choose the last map \
-     I can find in my embeds of this channel.\n\
+     I can find in the embeds of this channel.\n\
      Mods can be specified."
 )]
 #[usage("[map url / map id] [mods]")]

@@ -19,7 +19,7 @@ use twilight_model::channel::Message;
 #[long_desc(
     "Display a user's top score for each mod on a given map. \n\
      If no map is given, I will choose the last map \
-     I can find in my embeds of this channel"
+     I can find in the embeds of this channel"
 )]
 #[usage("[username] [map url / map id]")]
 #[example(

@@ -21,6 +21,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Add `<m` alias for `<map`~~ (20.12.22)
 - ~~Add `Icon from syedhassan - pngtree.com` & `Reactions made by Smashicons - flaticon.com` to README~~ (20.12.19)
 - ~~Green arrow reactions~~ (20.12.19)
 - ~~Minimized form for `<osu` & co~~ (20.12.18)

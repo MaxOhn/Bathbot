@@ -21,7 +21,7 @@ use twilight_model::channel::Message;
     "Simulate a (perfect) score on the given map. \
      Mods can be specified.\n\
      If no map is given, I will choose the last map \
-     I can find in my embeds of this channel.\n\
+     I can find in the embeds of this channel.\n\
      The `-s` argument is only relevant for mania."
 )]
 #[usage(

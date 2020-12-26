@@ -29,13 +29,13 @@ const H: u32 = 150;
 #[long_desc(
     "Display stats about a beatmap. Mods can be specified.\n\
     If no map(set) is specified by either url or id, I will choose the last map \
-    I can find in my embeds of this channel.\n\
+    I can find in the embeds of this channel.\n\
     If the mapset is specified by id but there is some map with the same id, \
     I will choose the latter."
 )]
 #[usage("[map(set) url / map(set) id] [+mods]")]
 #[example("2240404 +hddt", "https://osu.ppy.sh/beatmapsets/902425 +hr")]
-#[aliases("beatmap", "maps", "beatmaps", "mapinfo")]
+#[aliases("m", "beatmap", "maps", "beatmaps", "mapinfo")]
 async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = MapModArgs::new(args);
     let map_id = if let Some(id) = args.map_id {
