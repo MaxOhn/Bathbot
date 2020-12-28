@@ -32,7 +32,7 @@ impl ProfilePagination {
     fn reactions() -> Vec<RequestReactionType> {
         let config = CONFIG.get().unwrap();
 
-        vec![config.expand(), config.minimize()]
+        vec![config.minimize(), config.expand()]
     }
 
     pub async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> BotResult<()> {
@@ -61,17 +61,9 @@ impl ProfilePagination {
             return Ok(());
         }
 
-        for emoji in Self::reactions() {
-            if self.msg.guild_id.is_none() {
-                ctx.http
-                    .delete_current_user_reaction(self.msg.channel_id, self.msg.id, emoji)
-                    .await?;
-            } else {
-                ctx.http
-                    .delete_all_reaction(self.msg.channel_id, self.msg.id, emoji)
-                    .await?;
-            }
-        }
+        ctx.http
+            .delete_all_reactions(self.msg.channel_id, self.msg.id)
+            .await?;
 
         if !self.minimized {
             let eb = self.embed.minimize();

@@ -145,17 +145,11 @@ pub trait Pagination: Sync + Sized {
         if !ctx.remove_msg(msg.id) {
             return Ok(());
         }
-        for emoji in Self::reactions() {
-            if msg.guild_id.is_none() {
-                ctx.http
-                    .delete_current_user_reaction(msg.channel_id, msg.id, emoji)
-                    .await?;
-            } else {
-                ctx.http
-                    .delete_all_reaction(msg.channel_id, msg.id, emoji)
-                    .await?;
-            }
-        }
+
+        ctx.http
+            .delete_all_reactions(msg.channel_id, msg.id)
+            .await?;
+
         self.final_processing(ctx).await
     }
     async fn next_page(&mut self, reaction: Reaction, ctx: &Context) -> BotResult<PageChange> {
