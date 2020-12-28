@@ -6,8 +6,8 @@ use crate::{
 };
 
 use std::time::Duration;
-use tokio::stream::StreamExt;
-use twilight_http::request::channel::reaction::RequestReactionType;
+use tokio::{stream::StreamExt, time};
+use twilight_http::{request::channel::reaction::RequestReactionType, Error};
 use twilight_model::{
     channel::{Message, Reaction, ReactionType},
     gateway::payload::ReactionAdd,
@@ -32,7 +32,7 @@ impl ProfilePagination {
     fn reactions() -> Vec<RequestReactionType> {
         let config = CONFIG.get().unwrap();
 
-        vec![config.minimize(), config.expand()]
+        vec![config.expand(), config.minimize()]
     }
 
     pub async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> BotResult<()> {
@@ -57,19 +57,29 @@ impl ProfilePagination {
             }
         }
 
-        if !ctx.remove_msg(self.msg.id) {
+        let msg = self.msg;
+
+        if !ctx.remove_msg(msg.id) {
             return Ok(());
         }
 
-        ctx.http
-            .delete_all_reactions(self.msg.channel_id, self.msg.id)
-            .await?;
-
+        match ctx.http.delete_all_reactions(msg.channel_id, msg.id).await {
+            Ok(_) => {}
+            Err(Error::Response { status, .. }) if status.as_u16() == 403 => {
+                time::delay_for(time::Duration::from_millis(100)).await;
+                for emoji in Self::reactions() {
+                    ctx.http
+                        .delete_current_user_reaction(msg.channel_id, msg.id, emoji)
+                        .await?;
+                }
+            }
+            Err(why) => return Err(why.into()),
+        }
         if !self.minimized {
             let eb = self.embed.minimize();
 
             ctx.http
-                .update_message(self.msg.channel_id, self.msg.id)
+                .update_message(msg.channel_id, msg.id)
                 .embed(eb.build()?)?
                 .await?;
         }

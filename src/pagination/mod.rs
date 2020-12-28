@@ -40,9 +40,9 @@ use crate::{embeds::EmbedData, unwind_error, util::numbers, BotResult, Context, 
 
 use async_trait::async_trait;
 use std::time::Duration;
-use tokio::stream::StreamExt;
+use tokio::{stream::StreamExt, time};
 use twilight_embed_builder::image_source::ImageSource;
-use twilight_http::request::channel::reaction::RequestReactionType;
+use twilight_http::{request::channel::reaction::RequestReactionType, Error};
 use twilight_model::{
     channel::{Message, Reaction, ReactionType},
     gateway::payload::ReactionAdd,
@@ -141,14 +141,25 @@ pub trait Pagination: Sync + Sized {
                 Err(why) => unwind_error!(warn, why, "Error while paginating: {}"),
             }
         }
+
         let msg = self.msg();
+
         if !ctx.remove_msg(msg.id) {
             return Ok(());
         }
 
-        ctx.http
-            .delete_all_reactions(msg.channel_id, msg.id)
-            .await?;
+        match ctx.http.delete_all_reactions(msg.channel_id, msg.id).await {
+            Ok(_) => {}
+            Err(Error::Response { status, .. }) if status.as_u16() == 403 => {
+                time::delay_for(time::Duration::from_millis(100)).await;
+                for emoji in Self::reactions() {
+                    ctx.http
+                        .delete_current_user_reaction(msg.channel_id, msg.id, emoji)
+                        .await?;
+                }
+            }
+            Err(why) => return Err(why.into()),
+        }
 
         self.final_processing(ctx).await
     }

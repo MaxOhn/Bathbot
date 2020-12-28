@@ -20,7 +20,7 @@ use twilight_model::channel::Message;
     - `medium`: 8x8 grid\n \
     - `hard`: 11x9 grid"
 )]
-#[usage("[easy / medium / hard / expert]")]
+#[usage("[easy / medium / hard]")]
 async fn minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     let difficulty = match args.next().map(|arg| arg.cow_to_lowercase()).as_deref() {
         None | Some("easy") => Difficulty::Easy,
