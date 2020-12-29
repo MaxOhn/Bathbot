@@ -1,7 +1,6 @@
 
 **[TODO]**
 - Update taiko pp / stars
-- Rewrite `<mc` calculation
 - Check on `set_cluster_activity` / `shards_per_cluster` / `shard_id`
 - ~~Custom pagination for `<r`~~
 - ~~Investigate deadlock, `<bg stop`-`<bg bigger`?~~
@@ -21,6 +20,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Rewrite `<mc` calculation~~ (20.12.29)
 - ~~Add `<m` alias for `<map`~~ (20.12.22)
 - ~~Add `Icon from syedhassan - pngtree.com` & `Reactions made by Smashicons - flaticon.com` to README~~ (20.12.19)
 - ~~Green arrow reactions~~ (20.12.19)

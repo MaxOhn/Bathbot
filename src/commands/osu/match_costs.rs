@@ -19,7 +19,7 @@ use std::{
 };
 use twilight_model::channel::Message;
 
-const TOO_MANY_PLAYER_TEXT: &str = "Too many players, cannot display message :(";
+const TOO_MANY_PLAYERS_TEXT: &str = "Too many players, cannot display message :(";
 
 #[command]
 #[short_desc("Display performance ratings for a multiplayer match")]
@@ -74,7 +74,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 
     // Prematurely abort if its too many players to display in a message
     if requests.len() > 50 {
-        return msg.error(&ctx, TOO_MANY_PLAYER_TEXT).await;
+        return msg.error(&ctx, TOO_MANY_PLAYERS_TEXT).await;
     }
 
     let users: HashMap<_, _> = match try_join_all(requests).await {
@@ -113,9 +113,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     // Accumulate all necessary data
     let data = match MatchCostEmbed::new(osu_match.clone(), description, match_result) {
         Ok(data) => data,
-        Err(_) => {
-            return msg.error(&ctx, TOO_MANY_PLAYER_TEXT).await;
-        }
+        Err(_) => return msg.error(&ctx, TOO_MANY_PLAYERS_TEXT).await,
     };
 
     // Creating the embed
@@ -139,13 +137,17 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 
 // flat additive bonus for each participated game
 const FLAT_PARTICIPATION_BONUS: f32 = 0.5;
+
 // exponent base, the higher - the higher is the difference
 // between players who played a lot and players who played fewer
 const BASE_PARTICIPATION_BONUS: f32 = 1.4;
+
 // exponent, low: logithmically ~ high: linear
 const EXP_PARTICIPATION_BONUS: f32 = 0.6;
+
 // instead of considering tb score once, consider it this many times
 const TIEBREAKER_BONUS: f32 = 2.0;
+
 // global multiplier per combination (if at least 3)
 const MOD_BONUS: f32 = 0.02;
 
@@ -157,94 +159,110 @@ fn process_match(
     let games: Vec<_> = osu_match.games.iter().skip(warmups).collect();
     let mut teams = HashMap::new();
     let mut point_costs = HashMap::new();
-    let mut mods: HashMap<_, HashSet<_>> = HashMap::new();
-    let team_vs = games.first().unwrap().team_type == TeamType::TeamVS;
+    let mut mods = HashMap::new();
+    let team_vs = games[0].team_type == TeamType::TeamVS;
     let mut match_scores = MatchScores(0, 0);
+
     // Calculate point scores for each score in each game
     for game in games.iter() {
         let score_sum: u32 = game.scores.iter().map(|s| s.score).sum();
         let avg = score_sum as f32 / game.scores.iter().filter(|s| s.score > 0).count() as f32;
-        let mut team_scores = HashMap::new();
+        let mut team_scores = HashMap::with_capacity(team_vs as usize + 1);
+
         for score in game.scores.iter().filter(|s| s.score > 0) {
             mods.entry(score.user_id)
-                .or_default()
+                .or_insert_with(HashSet::new)
                 .insert(score.enabled_mods.map(|mods| mods - GameMods::NoFail));
+
             let point_cost = score.score as f32 / avg + FLAT_PARTICIPATION_BONUS;
+
             point_costs
                 .entry(score.user_id)
                 .or_insert_with(Vec::new)
                 .push(point_cost);
+
             teams.entry(score.user_id).or_insert(score.team);
+
             team_scores
                 .entry(score.team)
                 .and_modify(|e| *e += score.score)
                 .or_insert(score.score);
         }
+
         let (winner_team, _) = team_scores
             .into_iter()
-            .fold((Team::None, 0), |winner, next| {
-                if next.1 > winner.1 {
-                    next
-                } else {
-                    winner
-                }
-            });
+            .max_by_key(|(_, score)| *score)
+            .unwrap();
+
         match_scores.incr(winner_team);
     }
+
     // Tiebreaker bonus
-    if osu_match.end_time.is_some() && osu_match.games.len() > 2 && match_scores.difference() == 1 {
+    if osu_match.end_time.is_some() && games.len() > 2 && match_scores.difference() == 1 {
         let game = games.last().unwrap();
+
         point_costs
             .iter_mut()
             .filter(|(&user_id, _)| game.scores.iter().any(|score| score.user_id == user_id))
             .map(|(_, costs)| costs.last_mut().unwrap())
             .for_each(|value| *value = (*value * TIEBREAKER_BONUS) - FLAT_PARTICIPATION_BONUS);
     }
+
     // Mod combinations bonus
-    let mods: Vec<_> = mods
+    let mods_count = mods
         .into_iter()
         .filter(|(_, mods)| mods.len() > 2)
-        .map(|(id, mods)| (id, mods.len() - 2))
-        .collect();
-    mods.into_iter().for_each(|(user_id, mods)| {
-        let multiplier = 1.0 + mods as f32 * MOD_BONUS;
+        .map(|(id, mods)| (id, mods.len() - 2));
+
+    for (user_id, count) in mods_count {
+        let multiplier = 1.0 + count as f32 * MOD_BONUS;
+
         point_costs.entry(user_id).and_modify(|point_scores| {
             point_scores
                 .iter_mut()
                 .for_each(|point_score| *point_score *= multiplier);
         });
-    });
+    }
+
     // Calculate match costs by combining point costs
-    let mut data = HashMap::new();
+    let mut data = HashMap::with_capacity(team_vs as usize + 1);
     let mut highest_cost = 0.0;
     let mut mvp_id = 0;
-    for (user, point_costs) in point_costs {
-        let name = match users.remove(&user) {
+
+    for (user_id, point_costs) in point_costs {
+        let name = match users.remove(&user_id) {
             Some(name) => name,
             None => {
-                warn!("No user `{}` in matchcost users", user);
+                warn!("No user `{}` in matchcost users", user_id);
                 continue;
             }
         };
+
         let sum: f32 = point_costs.iter().sum();
         let costs_len = point_costs.len() as f32;
         let mut match_cost = sum / costs_len;
+
         let exp = match games.len() {
             1 => 0.0,
             len => (costs_len - 1.0) / (len as f32 - 1.0),
         };
+
         match_cost *= BASE_PARTICIPATION_BONUS.powf(exp.powf(EXP_PARTICIPATION_BONUS));
-        data.entry(*teams.get(&user).unwrap())
+
+        data.entry(*teams.get(&user_id).unwrap())
             .or_insert_with(Vec::new)
-            .push((name, match_cost));
+            .push((user_id, name, match_cost));
+
         if match_cost > highest_cost {
             highest_cost = match_cost;
-            mvp_id = user;
+            mvp_id = user_id;
         }
     }
-    let player_comparer = |(_, a): &(String, f32), (_, b): &(String, f32)| {
-        b.partial_cmp(&a).unwrap_or(Ordering::Equal)
+
+    let player_comparer = |(.., a): &PlayerResult, (.., b): &PlayerResult| {
+        b.partial_cmp(a).unwrap_or(Ordering::Equal)
     };
+
     if team_vs {
         let blue = match data.remove(&Team::Blue) {
             Some(mut team) => {
@@ -253,6 +271,7 @@ fn process_match(
             }
             None => Vec::new(),
         };
+
         let red = match data.remove(&Team::Red) {
             Some(mut team) => {
                 team.sort_unstable_by(player_comparer);
@@ -260,15 +279,18 @@ fn process_match(
             }
             None => Vec::new(),
         };
+
         MatchResult::team(mvp_id, match_scores, blue, red)
     } else {
         let mut players = data.remove(&Team::None).unwrap_or_default();
         players.sort_unstable_by(player_comparer);
+
         MatchResult::solo(mvp_id, players)
     }
 }
 
-type TeamResult = Vec<(String, f32)>;
+type PlayerResult = (u32, String, f32);
+type TeamResult = Vec<PlayerResult>;
 
 pub enum MatchResult {
     TeamVS {
@@ -292,9 +314,11 @@ impl MatchResult {
             red,
         }
     }
+
     fn solo(mvp: u32, players: TeamResult) -> Self {
         Self::HeadToHead { mvp, players }
     }
+
     pub fn mvp_id(&self) -> u32 {
         match self {
             MatchResult::TeamVS { mvp, .. } => *mvp,
@@ -314,15 +338,19 @@ impl MatchScores {
             Team::None => {}
         }
     }
+
     pub fn blue(self) -> u8 {
         self.0
     }
+
     pub fn red(self) -> u8 {
         self.1
     }
+
     fn difference(&self) -> u8 {
         let min = self.0.min(self.1);
         let max = self.0.max(self.1);
+
         max - min
     }
 }
