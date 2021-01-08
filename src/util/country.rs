@@ -8,7 +8,7 @@ pub struct Country {
 
 lazy_static::lazy_static! {
     pub static ref SNIPE_COUNTRIES: HashMap<&'static str, Country> = {
-        let mut countries = HashMap::with_capacity(25);
+        let mut countries = HashMap::with_capacity(64);
         let mut add = |name, acronym| countries.insert(acronym, Country { name, acronym });
 
         add("Argentina", "AR");
@@ -23,6 +23,7 @@ lazy_static::lazy_static! {
         add("China", "CN");
         add("Colombia", "CO");
         add("Czech Republic", "CZ");
+        add("Ecuador", "EC");
         add("Denmark", "DK");
         add("Finland", "FI");
         add("France", "FR");
@@ -51,6 +52,7 @@ lazy_static::lazy_static! {
         add("United Kingdom", "GB");
         add("United States", "US");
         add("Uruguay", "UY");
+        add("Venezuela", "VE");
 
         countries
     };
