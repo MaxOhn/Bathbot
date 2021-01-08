@@ -300,19 +300,19 @@ pub struct SnipeScore {
 }
 
 #[derive(Deserialize)]
-struct InnerScore {
+struct InnerScore<'s> {
     player_id: u32,
     // player: String,
     score: u32,
     pp: Option<f32>,
-    mods: String,
+    mods: GameMods,
     // tie: bool,
     accuracy: f32,
     count_100: u32,
     count_50: u32,
     count_miss: u32,
-    date_set: String,
-    sr: f32,
+    date_set: &'s str,
+    sr: Option<f32>,
 }
 
 impl<'de> Deserialize<'de> for SnipeScore {
@@ -336,6 +336,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
                 let mut inner_score: Option<InnerScore> = None;
                 let mut map_id = None;
                 let mut mapset_id = None;
+                let mut star_ratings: Option<HashMap<&str, f32>> = None;
                 // let mut artist = None;
                 // let mut title = None;
                 // let mut diff_name = None;
@@ -351,6 +352,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
                     match key {
                         "map_id" => map_id = Some(map.next_value()?),
                         "set_id" => mapset_id = Some(map.next_value()?),
+                        "new_star_ratings" => star_ratings = Some(map.next_value()?),
                         // "artist" => artist = Some(map.next_value()?),
                         // "date_ranked" => {
                         //     let date: &str = map.next_value()?;
@@ -393,19 +395,23 @@ impl<'de> Deserialize<'de> for SnipeScore {
                 // let map_approved_date =
                 //     date_ranked.ok_or_else(|| Error::missing_field("date_ranked"))?;
 
-                let mods = match inner_score.mods.as_str() {
-                    "nomod" => GameMods::NoMod,
-                    other => GameMods::from_str(other).unwrap_or_else(|_| {
-                        warn!("Couldn't deserialize `{}` into GameMods", other);
-                        GameMods::NoMod
-                    }),
-                };
+                let mods = inner_score.mods;
+
                 let date = Utc
-                    .datetime_from_str(&inner_score.date_set, "%F %T")
+                    .datetime_from_str(inner_score.date_set, "%F %T")
                     .unwrap_or_else(|why| {
                         warn!("Couldn't parse date `{}`: {}", inner_score.date_set, why);
                         Utc::now()
                     });
+
+                let stars = inner_score.sr.unwrap_or_else(|| {
+                    star_ratings
+                        .and_then(|srs| {
+                            srs.into_iter()
+                                .find(|(m, _)| GameMods::from_str(m).map_or(false, |m| m == mods))
+                        })
+                        .map_or(0.0, |(_, sr)| sr)
+                });
 
                 let score = SnipeScore {
                     accuracy: inner_score.accuracy * 100.0,
@@ -426,7 +432,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
                     pp: inner_score.pp,
                     score: inner_score.score,
                     score_date: date,
-                    stars: inner_score.sr,
+                    stars,
                     // seconds_total: length,
                     // tie: inner_score.tie,
                     // title,
