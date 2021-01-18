@@ -21,6 +21,12 @@ impl fmt::Display for PPError {
     }
 }
 
+impl From<IoError> for PPError {
+    fn from(e: IoError) -> Self {
+        Self::IoError(e)
+    }
+}
+
 impl From<ParseError> for PPError {
     fn from(e: ParseError) -> Self {
         Self::Parse(e)

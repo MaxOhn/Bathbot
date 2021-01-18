@@ -10,8 +10,6 @@ pub use map_download::MapDownloadError;
 pub use pp::PPError;
 pub use twitch::TwitchError;
 
-use crate::pp::roppai::OppaiErr;
-
 use chrono::format::ParseError as ChronoParseError;
 use darkredis::Error as RedisError;
 use image::ImageError;
@@ -237,13 +235,6 @@ impl From<MapDownloadError> for Error {
 impl From<IOError> for Error {
     fn from(e: IOError) -> Self {
         Error::IO(e)
-    }
-}
-
-// TODO: Remove
-impl From<OppaiErr> for Error {
-    fn from(_: OppaiErr) -> Self {
-        Self::NoConfig
     }
 }
 

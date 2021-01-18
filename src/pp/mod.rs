@@ -1,5 +1,3 @@
-pub mod roppai; // TODO: Remove
-
 use crate::{
     util::{error::PPError, osu::prepare_beatmap_file, BeatmapExt, ScoreExt},
     BotResult,
@@ -74,14 +72,7 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
 
         // Max PP
         let max_pp_result = if calcs.contains(Calculations::MAX_PP) {
-            let result = match map.mode {
-                Mode::STD => OsuPP::new(&map).mods(mods).calculate(no_leniency::stars),
-                Mode::MNA => ManiaPP::new(&map).mods(mods).calculate(),
-                Mode::CTB => FruitsPP::new(&map).mods(mods).calculate(),
-                Mode::TKO => TaikoPP::new(&map).mods(mods).calculate(),
-            };
-
-            Some(result)
+            Some(map.max_pp(mods))
         } else {
             None
         };
@@ -216,7 +207,7 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
 
         // Stars
         if stars.is_none() && calcs.contains(Calculations::STARS) {
-            stars = Some(map.stars(mods, None));
+            stars = Some(map.stars(mods, None).stars());
         }
 
         if let Some(pp) = pp {

@@ -1,11 +1,9 @@
 use crate::{
     embeds::{Author, EmbedData, Footer},
-    pp::roppai::{Oppai, OppaiErr},
-    pp::{Calculations, PPCalculator},
-    unwind_error,
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::sec_to_minsec,
+        error::PPError,
         numbers::{round, with_comma_u64},
         osu::{mode_emote, prepare_beatmap_file},
     },
@@ -14,7 +12,11 @@ use crate::{
 
 use chrono::{DateTime, Utc};
 use rosu::model::{Beatmap, GameMode, GameMods};
-use std::fmt::Write;
+use rosu_pp::{
+    osu::no_leniency, Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP,
+    TaikoPP,
+};
+use std::{fmt::Write, fs::File};
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct MapEmbed {
@@ -41,10 +43,6 @@ impl MapEmbed {
             let _ = write!(title, "[{}K] ", map.diff_cs as u32);
         }
         let _ = write!(title, "{} - {}", map.artist, map.title);
-        let mut ar = map.diff_ar;
-        let mut od = map.diff_od;
-        let mut hp = map.diff_hp;
-        let mut cs = map.diff_cs;
         let download_value = format!(
             "[Mapset]({base}d/{mapset_id})\n\
             [No Video]({base}d/{mapset_id}n)\n\
@@ -67,81 +65,117 @@ impl MapEmbed {
         }
         let mut info_value = String::with_capacity(128);
         let mut fields = Vec::with_capacity(3);
-        let (pp_values, stars) = match map.mode {
-            GameMode::STD | GameMode::TKO => {
-                // Prepare oppai
-                let map_path = prepare_beatmap_file(map.beatmap_id).await?;
-                let mut oppai = Oppai::new();
-                oppai.set_mods(mods.bits());
-                let pp_result = [95.0, 97.0, 99.0, 100.0]
-                    .iter()
-                    .copied()
-                    .map(|acc| {
-                        oppai.set_accuracy(acc).calculate(map_path.as_str())?;
-                        Ok(oppai.get_pp())
-                    })
-                    .collect::<Result<Vec<_>, OppaiErr>>();
-                match pp_result {
-                    Ok(pps) => {
-                        ar = oppai.get_ar();
-                        od = oppai.get_od();
-                        hp = oppai.get_hp();
-                        cs = oppai.get_cs();
-                        let mut pp_values = String::with_capacity(128);
-                        let len = 6.max(2 + format!("{:.2}", pps[3]).len());
-                        pp_values.push_str("```\n");
-                        let _ = writeln!(
-                            pp_values,
-                            "Acc |{:^len$}|{:^len$}|{:^len$}|{:^len$}",
-                            "95%",
-                            "97%",
-                            "99%",
-                            "100%",
-                            len = len,
-                        );
-                        let _ = writeln!(
-                            pp_values,
-                            "----+{:->len$}+{:->len$}+{:->len$}+{:->len$}",
-                            "-",
-                            "-",
-                            "-",
-                            "-",
-                            len = len,
-                        );
-                        let _ = writeln!(
-                            pp_values,
-                            " PP |{:^len$}|{:^len$}|{:^len$}|{:^len$}",
-                            round(pps[0]),
-                            round(pps[1]),
-                            round(pps[2]),
-                            round(pps[3]),
-                            len = len
-                        );
-                        pp_values.push_str("```");
-                        (Some(pp_values), oppai.get_stars())
-                    }
-                    Err(why) => {
-                        unwind_error!(warn, why, "Error while using oppai: {}");
-                        (None, 0.0)
-                    }
-                }
-            }
-            GameMode::MNA | GameMode::CTB => {
-                let calculations = Calculations::MAX_PP | Calculations::STARS;
-                let mut calculator = PPCalculator::new().map(map);
-                if let Err(why) = calculator.calculate(calculations).await {
-                    unwind_error!(warn, why, "Error while calculating pp for <map: {}");
-                }
-                if let Some(pp) = calculator.max_pp() {
-                    let _ = write!(info_value, "Max PP: `{:.2}` ", pp);
-                }
-                (None, calculator.stars().unwrap_or_default())
-            }
+
+        let map_path = prepare_beatmap_file(map.beatmap_id).await?;
+        let file = File::open(map_path).map_err(PPError::from)?;
+        let rosu_map = Map::parse(file).map_err(PPError::from)?;
+        let mod_bits = mods.bits();
+
+        let mod_mult = 0.5_f32.powi(
+            mods.contains(GameMods::Easy) as i32
+                + mods.contains(GameMods::NoFail) as i32
+                + mods.contains(GameMods::HalfTime) as i32,
+        );
+
+        let attributes = rosu_map.attributes().mods(mod_bits);
+        let ar = attributes.ar; // TODO: Check on AR
+        let od = attributes.od; // TODO: Check on OD
+        let hp = attributes.hp;
+        let cs = attributes.cs;
+
+        let mut star_result = rosu_map.stars(mod_bits, None);
+        let stars = star_result.stars();
+        let mut pps = Vec::with_capacity(4);
+
+        for acc in [95.0, 97.0, 99.0, 100.0].iter().copied() {
+            let pp_result = match rosu_map.mode {
+                Mode::STD => OsuPP::new(&rosu_map)
+                    .mods(mod_bits)
+                    .attributes(star_result)
+                    .accuracy(acc)
+                    .calculate(no_leniency::stars),
+                Mode::MNA => ManiaPP::new(&rosu_map)
+                    .mods(mod_bits)
+                    .stars(star_result)
+                    .score(acc_to_score(mod_mult, acc) as u32)
+                    .calculate(),
+                Mode::CTB => FruitsPP::new(&rosu_map)
+                    .mods(mod_bits)
+                    .attributes(star_result)
+                    .accuracy(acc)
+                    .calculate(),
+                Mode::TKO => TaikoPP::new(&rosu_map)
+                    .mods(mod_bits)
+                    .stars(star_result)
+                    .accuracy(acc)
+                    .calculate(),
+            };
+
+            pps.push(pp_result.pp());
+            star_result = pp_result.attributes;
+        }
+
+        let mut pp_values = String::with_capacity(128);
+
+        let len = if rosu_map.mode == Mode::MNA {
+            let len = 9.max(2 + format!("{:.2}", pps[3]).len());
+            pp_values.push_str("```\n");
+
+            let _ = writeln!(
+                pp_values,
+                "    |{:^len$}|{:^len$}|{:^len$}|{:^len$}",
+                with_comma_u64(acc_to_score(mod_mult, 95.0)),
+                with_comma_u64(acc_to_score(mod_mult, 97.0)),
+                with_comma_u64(acc_to_score(mod_mult, 99.0)),
+                with_comma_u64(acc_to_score(mod_mult, 100.0)),
+                len = len,
+            );
+
+            len
+        } else {
+            let len = 6.max(2 + format!("{:.2}", pps[3]).len());
+            pp_values.push_str("```\n");
+
+            let _ = writeln!(
+                pp_values,
+                "Acc |{:^len$}|{:^len$}|{:^len$}|{:^len$}",
+                "95%",
+                "97%",
+                "99%",
+                "100%",
+                len = len,
+            );
+
+            len
         };
+
+        let _ = writeln!(
+            pp_values,
+            "----+{:->len$}+{:->len$}+{:->len$}+{:->len$}",
+            "-",
+            "-",
+            "-",
+            "-",
+            len = len,
+        );
+
+        let _ = writeln!(
+            pp_values,
+            " PP |{:^len$}|{:^len$}|{:^len$}|{:^len$}",
+            round(pps[0]),
+            round(pps[1]),
+            round(pps[2]),
+            round(pps[3]),
+            len = len
+        );
+
+        pp_values.push_str("```");
+
         if let Some(combo) = map.max_combo {
             let _ = write!(info_value, "Combo: `{}x`", combo);
         }
         let _ = writeln!(info_value, " Stars: `{:.2}★`", stars);
+
         let _ = write!(
             info_value,
             "Length: `{}` (`{}`) BPM: `{}` Objects: `{}`\n\
@@ -156,59 +190,60 @@ impl MapEmbed {
             round(hp),
             map.count_spinner,
         );
+
         let mut info_name = format!("{} __[{}]__", mode_emote(map.mode), map.version);
+
         if !mods.is_empty() {
             let _ = write!(info_name, " +{}", mods);
         }
+
         fields.push((info_name, info_value, true));
         fields.push(("Download".to_owned(), download_value, true));
-        if let Some(pp_values) = pp_values {
-            let field_name = format!(
-                ":heart: {}  :play_pause: {}  | {:?}, {:?}",
-                with_comma_u64(map.favourite_count as u64),
-                with_comma_u64(map.playcount as u64),
-                map.language,
-                map.genre,
-            );
-            fields.push((field_name, pp_values, false));
-        } else {
-            fields.push((
-                format!(
-                    ":heart: {}  :play_pause: {}",
-                    with_comma_u64(map.favourite_count as u64),
-                    with_comma_u64(map.playcount as u64)
-                ),
-                format!("{:?}, {:?}", map.language, map.genre),
-                false,
-            ));
-        }
+
+        let field_name = format!(
+            ":heart: {}  :play_pause: {}  | {:?}, {:?}",
+            with_comma_u64(map.favourite_count as u64),
+            with_comma_u64(map.playcount as u64),
+            map.language,
+            map.genre,
+        );
+
+        fields.push((field_name, pp_values, false));
+
         let (date_text, timestamp) = if let Some(approved_date) = map.approved_date {
             (format!("{:?}", map.approval_status), approved_date)
         } else {
             ("Last updated".to_owned(), map.last_update)
         };
+
         let author = Author::new(format!("Created by {}", map.creator))
             .url(format!("{}u/{}", OSU_BASE, map.creator_id))
             .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
+
         let footer_text = format!(
             "Map {} out of {} in the mapset, {}",
             pages.0, pages.1, date_text
         );
+
         let footer = Footer::new(footer_text);
+
         let thumbnail = if with_thumbnail {
             Some(ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id)).unwrap())
         } else {
             None
         };
+
         let image = if with_thumbnail {
             None
         } else {
             Some(ImageSource::attachment("map_graph.png").unwrap())
         };
+
         let description = format!(
             ":musical_note: [Song preview](https://b.ppy.sh/preview/{}.mp3)",
             map.beatmapset_id
         );
+
         Ok(Self {
             title,
             image,
@@ -221,6 +256,11 @@ impl MapEmbed {
             url: format!("{}b/{}", OSU_BASE, map.beatmap_id),
         })
     }
+}
+
+#[inline]
+fn acc_to_score(mod_mult: f32, acc: f32) -> u64 {
+    (mod_mult * (acc * 10_000.0 - (100.0 - acc) * 50_000.0)).round() as u64
 }
 
 impl EmbedData for MapEmbed {

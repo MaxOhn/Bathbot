@@ -3,10 +3,10 @@ use crate::{
     bail,
     embeds::{EmbedData, MapEmbed},
     pagination::{MapPagination, Pagination},
-    pp::roppai::Oppai,
     unwind_error,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        error::PPError,
         osu::{cached_message_extract, map_id_from_history, prepare_beatmap_file, MapIdType},
         MessageExt,
     },
@@ -18,7 +18,8 @@ use image::{png::PngEncoder, ColorType, DynamicImage};
 use plotters::prelude::*;
 use rayon::prelude::*;
 use rosu::model::{GameMode, GameMods};
-use std::{cmp::Ordering, sync::Arc};
+use rosu_pp::{Beatmap, BeatmapExt};
+use std::{cmp::Ordering, fs::File, sync::Arc};
 use twilight_model::channel::Message;
 
 const W: u32 = 590;
@@ -126,36 +127,32 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
 
     let map = &maps[map_idx];
-    // Try creating the strain graph for the map (only STD & TKO)
-    let graph = match map.mode {
-        GameMode::STD | GameMode::TKO => {
-            let bg_fut = async {
-                let url = format!(
-                    "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
-                    map.beatmapset_id
-                );
-                let res = reqwest::get(&url).await?.bytes().await?;
-                Ok::<_, Error>(image::load_from_memory(res.as_ref())?.thumbnail_exact(W, H))
-            };
-            match tokio::join!(oppai_values(map.beatmap_id, mods), bg_fut) {
-                (Ok(oppai_values), Ok(img)) => match graph(oppai_values, img) {
-                    Ok(graph) => Some(graph),
-                    Err(why) => {
-                        unwind_error!(warn, why, "Error creating graph: {}");
-                        None
-                    }
-                },
-                (Err(why), _) => {
-                    unwind_error!(warn, why, "Error while creating oppai_values: {}");
-                    None
-                }
-                (_, Err(why)) => {
-                    unwind_error!(warn, why, "Error retrieving graph background: {}");
-                    None
-                }
+
+    // Try creating the strain graph for the map
+    let bg_fut = async {
+        let url = format!(
+            "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
+            map.beatmapset_id
+        );
+        let res = reqwest::get(&url).await?.bytes().await?;
+        Ok::<_, Error>(image::load_from_memory(res.as_ref())?.thumbnail_exact(W, H))
+    };
+    let graph = match tokio::join!(strain_values(map.beatmap_id, mods), bg_fut) {
+        (Ok(strain_values), Ok(img)) => match graph(strain_values, img) {
+            Ok(graph) => Some(graph),
+            Err(why) => {
+                unwind_error!(warn, why, "Error creating graph: {}");
+                None
             }
+        },
+        (Err(why), _) => {
+            unwind_error!(warn, why, "Error while creating oppai_values: {}");
+            None
         }
-        GameMode::MNA | GameMode::CTB => None,
+        (_, Err(why)) => {
+            unwind_error!(warn, why, "Error retrieving graph background: {}");
+            None
+        }
     };
 
     // Accumulate all necessary data
@@ -206,49 +203,39 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     Ok(())
 }
 
-async fn oppai_values(map_id: u32, mods: GameMods) -> BotResult<(Vec<u32>, Vec<f32>)> {
-    // Prepare oppai
+async fn strain_values(map_id: u32, mods: GameMods) -> BotResult<Vec<(f32, f32)>> {
     let map_path = prepare_beatmap_file(map_id).await?;
-    let mut oppai = Oppai::new();
-    oppai.set_mods(mods.bits()).calculate(map_path.as_str())?;
-    const MAX_COUNT: usize = 1000;
-    let object_count = oppai.get_object_count();
-    let mods = oppai.get_mods();
-    let time_coeff = if mods.contains(GameMods::DoubleTime) {
-        2.0 / 3.0
-    } else if mods.contains(GameMods::HalfTime) {
-        4.0 / 3.0
-    } else {
-        1.0
-    };
-    let mut time = Vec::with_capacity(object_count.min(MAX_COUNT + 1));
-    let mut strain = Vec::with_capacity(object_count.min(MAX_COUNT + 1));
-    let no_skip = object_count <= MAX_COUNT;
-    let ratio = object_count as f32 / MAX_COUNT as f32;
-    let mut counter = 0.0;
-    let mut next_idx = 0;
-    for i in 0..object_count {
-        if no_skip || i == next_idx {
-            time.push((oppai.get_time_at(i) as f32 * time_coeff) as u32);
-            strain.push(oppai.get_strain_at(i, 0) + oppai.get_strain_at(i, 1));
-            counter += ratio;
-            next_idx = counter as usize;
-        }
-    }
-    Ok((time, strain))
+    let file = File::open(map_path)?;
+    let map = Beatmap::parse(file).map_err(PPError::from)?;
+    let strains = map.strains(mods.bits());
+    let section_len = strains.section_length;
+
+    let strains = strains
+        .strains
+        .into_iter()
+        .scan(0.0, |time, strain| {
+            *time += section_len;
+
+            Some((*time, strain))
+        })
+        .collect();
+
+    Ok(strains)
 }
 
-fn graph(oppai_values: (Vec<u32>, Vec<f32>), background: DynamicImage) -> BotResult<Vec<u8>> {
+fn graph(strains: Vec<(f32, f32)>, background: DynamicImage) -> BotResult<Vec<u8>> {
     static LEN: usize = W as usize * H as usize;
-    let (time, strain) = oppai_values;
-    let max_strain = strain
+
+    let max_strain = strains
         .par_iter()
         .copied()
-        .max_by(|a, b| a.partial_cmp(&b).unwrap_or(Ordering::Equal))
-        .unwrap_or(0.0);
+        .max_by(|(_, a), (_, b)| a.partial_cmp(&b).unwrap_or(Ordering::Equal))
+        .map_or(0.0, |(_, s)| s);
+
     if max_strain <= std::f32::EPSILON {
         bail!("no non-zero strain point");
     }
+
     let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
 
     {
@@ -256,7 +243,7 @@ fn graph(oppai_values: (Vec<u32>, Vec<f32>), background: DynamicImage) -> BotRes
         root.fill(&WHITE)?;
         let mut chart = ChartBuilder::on(&root)
             .x_label_area_size(17)
-            .build_cartesian_2d(0..*time.last().unwrap(), 0.0..max_strain)?;
+            .build_cartesian_2d(0.0..strains.last().unwrap().0, 0.0..max_strain)?;
 
         // Take as line color whatever is represented least in the background
         let (r, g, b) = background
@@ -274,7 +261,7 @@ fn graph(oppai_values: (Vec<u32>, Vec<f32>), background: DynamicImage) -> BotRes
         };
 
         // Add background
-        let elem: BitMapElement<_> = ((0, max_strain), background).into();
+        let elem: BitMapElement<_> = ((0.0, max_strain), background).into();
         chart.draw_series(std::iter::once(elem))?;
 
         // Mesh and labels
@@ -288,19 +275,21 @@ fn graph(oppai_values: (Vec<u32>, Vec<f32>), background: DynamicImage) -> BotRes
             .x_labels(10)
             .x_label_style(text_style)
             .x_label_formatter(&|timestamp| {
-                if *timestamp == 0 {
+                if timestamp.abs() < f32::EPSILON {
                     return String::new();
                 }
+
                 let d = Duration::milliseconds(*timestamp as i64);
                 let minutes = d.num_seconds() / 60;
                 let seconds = d.num_seconds() % 60;
+
                 format!("{}:{:0>2}", minutes, seconds)
             })
             .draw()?;
 
         // Draw line
         chart.draw_series(LineSeries::new(
-            strain.into_iter().enumerate().map(|(i, x)| (time[i], x)),
+            strains.into_iter().map(|(time, strain)| (time, strain)),
             line_color,
         ))?;
     }
@@ -309,6 +298,7 @@ fn graph(oppai_values: (Vec<u32>, Vec<f32>), background: DynamicImage) -> BotRes
     let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
     let png_encoder = PngEncoder::new(&mut png_bytes);
     png_encoder.encode(&buf, W, H, ColorType::Rgb8)?;
+
     Ok(png_bytes)
 }
 
