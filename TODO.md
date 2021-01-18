@@ -2,6 +2,10 @@
 **[TODO]**
 - Update taiko pp / stars
 - Check on `set_cluster_activity` / `shards_per_cluster` / `shard_id`
+- Allow `<top` grade argument to be a range
+- Fix `<mc` sometimes missing some users
+- Split database tables based on popular queries
+- Update twilight
 - ~~Custom pagination for `<r`~~
 - ~~Investigate deadlock, `<bg stop`-`<bg bigger`?~~
 - ~~Only retrieve the first map from DB for `<r`~~
