@@ -1,6 +1,5 @@
 
 **[TODO]**
-- Update taiko pp / stars
 - Check on `set_cluster_activity` / `shards_per_cluster` / `shard_id`
 - Allow `<top` grade argument to be a range
 - Fix `<mc` sometimes missing some users
@@ -9,8 +8,6 @@
 - Find a better way than reaction for things like `<r`
 - Replace bloodcat links
 - ~~Custom pagination for `<r`~~
-- ~~Investigate deadlock, `<bg stop`-`<bg bigger`?~~
-- ~~Only retrieve the first map from DB for `<r`~~
 - ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~
 - ~~`<playermedals` showing a list of a user's medals~~
 - ~~`<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)~~
@@ -26,6 +23,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Update taiko pp / stars~~ (21.01.18)
 - ~~Rewrite `<mc` calculation~~ (20.12.29)
 - ~~Add `<m` alias for `<map`~~ (20.12.22)
 - ~~Add `Icon from syedhassan - pngtree.com` & `Reactions made by Smashicons - flaticon.com` to README~~ (20.12.19)

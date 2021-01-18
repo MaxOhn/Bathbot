@@ -1,12 +1,12 @@
 use crate::{
     custom_client::ScraperScore,
     embeds::{Author, EmbedData, Footer},
-    pp::{Calculations, PPCalculator},
-    unwind_error,
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
+        error::PPError,
         numbers::with_comma_u64,
+        osu::prepare_beatmap_file,
         ScoreExt,
     },
     BotResult,
@@ -14,7 +14,11 @@ use crate::{
 
 use cow_utils::CowUtils;
 use rosu::model::{Beatmap, GameMode};
-use std::{borrow::Cow, collections::HashMap, fmt::Write};
+use rosu_pp::{
+    osu::no_leniency, Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP,
+    StarResult, TaikoPP,
+};
+use std::{borrow::Cow, collections::HashMap, fmt::Write, fs::File};
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct LeaderboardEmbed {
@@ -41,9 +45,14 @@ impl LeaderboardEmbed {
         }
         let _ = write!(author_text, "{} [{:.2}★]", map, map.stars);
         let description = if let Some(scores) = scores {
+            let map_path = prepare_beatmap_file(map.beatmap_id).await?;
+            let file = File::open(map_path).map_err(PPError::from)?;
+            let rosu_map = Map::parse(file).map_err(PPError::from)?;
+
             let mut mod_map = HashMap::new();
             let mut description = String::with_capacity(256);
             let author_name = init_name.map_or_else(|| Cow::Borrowed(""), |n| n.cow_to_lowercase());
+
             for (i, score) in scores.enumerate() {
                 let found_author = author_name == score.username.cow_to_lowercase();
                 let mut username = String::with_capacity(32);
@@ -74,7 +83,7 @@ impl LeaderboardEmbed {
                     } else {
                         format!(" **+{}**", score.enabled_mods)
                     },
-                    pp = get_pp(&mut mod_map, &score, &map).await,
+                    pp = get_pp(&mut mod_map, &score, &rosu_map).await,
                     acc = score.accuracy,
                     ago = how_long_ago(&score.date),
                 );
@@ -116,31 +125,77 @@ impl EmbedData for LeaderboardEmbed {
     }
 }
 
-// TODO: Optimize through rosu-pp
-async fn get_pp(mod_map: &mut HashMap<u32, f32>, score: &ScraperScore, map: &Beatmap) -> String {
-    let mut calculator = PPCalculator::new().score(score).map(map);
-    let mut calculations = Calculations::PP;
+async fn get_pp(
+    mod_map: &mut HashMap<u32, (StarResult, f32)>,
+    score: &ScraperScore,
+    map: &Map,
+) -> String {
     let bits = score.enabled_mods.bits();
-    if !mod_map.contains_key(&bits) {
-        calculations |= Calculations::MAX_PP;
+
+    let (mut attributes, mut max_pp) = mod_map.remove(&bits).map_or_else(
+        || {
+            let attributes = map.stars(bits, None);
+
+            (attributes, None)
+        },
+        |(attributes, max_pp)| (attributes, Some(max_pp)),
+    );
+
+    if max_pp.is_none() {
+        let result = match map.mode {
+            Mode::STD => OsuPP::new(map)
+                .mods(bits)
+                .attributes(attributes)
+                .calculate(no_leniency::stars),
+            Mode::MNA => ManiaPP::new(map).mods(bits).stars(attributes).calculate(),
+            Mode::CTB => FruitsPP::new(map)
+                .mods(bits)
+                .attributes(attributes)
+                .calculate(),
+            Mode::TKO => TaikoPP::new(map).mods(bits).stars(attributes).calculate(),
+        };
+
+        max_pp.replace(result.pp());
+        attributes = result.attributes;
     }
-    let (pp, max_pp) = match calculator.calculate(calculations).await {
-        Ok(_) => {
-            let pp = calculator.pp().unwrap();
-            let max_pp = match calculator.max_pp() {
-                Some(pp) => {
-                    mod_map.insert(bits, pp);
-                    pp
-                }
-                None => *mod_map.get(&bits).unwrap(),
-            };
-            (pp, max_pp)
-        }
-        Err(why) => {
-            unwind_error!(warn, why, "Error while calculating pp, defaulting to 0: {}");
-            (0.0, 0.0)
-        }
+
+    let result = match map.mode {
+        Mode::STD => OsuPP::new(map)
+            .mods(bits)
+            .attributes(attributes)
+            .misses(score.count_miss as usize)
+            .n300(score.count300 as usize)
+            .n100(score.count100 as usize)
+            .n50(score.count50 as usize)
+            .combo(score.max_combo as usize)
+            .calculate(no_leniency::stars),
+        Mode::MNA => ManiaPP::new(map)
+            .mods(bits)
+            .stars(attributes)
+            .score(score.score)
+            .calculate(),
+        Mode::CTB => FruitsPP::new(map)
+            .mods(bits)
+            .attributes(attributes)
+            .misses(score.count_miss as usize)
+            .combo(score.max_combo as usize)
+            .accuracy(score.accuracy)
+            .calculate(),
+        Mode::TKO => TaikoPP::new(map)
+            .mods(bits)
+            .stars(attributes)
+            .misses(score.count_miss as usize)
+            .combo(score.max_combo as usize)
+            .accuracy(score.accuracy)
+            .calculate(),
     };
+
+    let max_pp = max_pp.unwrap();
+    let pp = result.pp();
+    let attributes = result.attributes;
+
+    mod_map.insert(bits, (attributes, max_pp));
+
     format!("**{:.2}**/{:.2}PP", pp, max_pp)
 }
 
