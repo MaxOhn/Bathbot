@@ -32,11 +32,13 @@ lazy_static::lazy_static! {
         add("Hong Kong", "HK");
         add("Iraq", "IQ");
         add("Ireland", "IE");
+        add("Italy", "IT");
         add("Israel", "IL");
         add("Japan", "JP");
         add("Malaysia", "MY");
         add("Netherlands", "NL");
         add("Norway", "NO");
+        add("Peru", "PE");
         add("Philippines", "PH");
         add("Poland", "PL");
         add("Portugal", "PT");
