@@ -6,7 +6,6 @@ use crate::{
     bg_game::GameWrapper,
     core::{
         buckets::{buckets, Buckets},
-        stored_values::StoredValues,
         Cache,
     },
     database::{Database, GuildConfig},
@@ -56,7 +55,6 @@ pub struct BackendData {
 
 pub struct ContextData {
     pub guilds: DashMap<GuildId, GuildConfig>,
-    pub stored_values: StoredValues,
     // Mapping twitch user ids to vec of discord channel ids
     pub tracked_streams: DashMap<u64, Vec<u64>>,
     // Mapping (channel id, message id) to role id

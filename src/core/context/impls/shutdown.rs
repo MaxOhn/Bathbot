@@ -42,26 +42,4 @@ impl Context {
         );
         Ok(())
     }
-
-    pub async fn store_values(&self) -> BotResult<()> {
-        let start = Instant::now();
-        let mania_stars = &self.data.stored_values.mania_stars;
-        let ctb_stars = &self.data.stored_values.ctb_stars;
-        let psql = &self.clients.psql;
-
-        let (mania_stars, ctb_stars) = tokio::try_join!(
-            psql.insert_mania_stars(mania_stars),
-            psql.insert_ctb_stars(ctb_stars),
-        )?;
-
-        let end = Instant::now();
-
-        info!(
-            "Stored {} star values in {}ms",
-            mania_stars + ctb_stars,
-            (end - start).as_millis()
-        );
-
-        Ok(())
-    }
 }

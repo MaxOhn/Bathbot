@@ -2473,6 +2473,7 @@ dependencies = [
 [[package]]
 name = "rosu-pp"
 version = "0.1.0"
+source = "git+https://github.com/MaxOhn/rosu-pp?branch=main#f585b38efc742f8d3d737a789908e8f1d8ad2c67"
 
 [[package]]
 name = "rust-argon2"

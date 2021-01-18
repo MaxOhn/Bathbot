@@ -125,9 +125,6 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     // Discord-osu! links
     let discord_links = clients.psql.get_discord_links().await?;
 
-    // Stored pp and star values for mania and ctb
-    let stored_values = core::StoredValues::new(&clients.psql).await?;
-
     // osu! top score tracking
     let osu_tracking = OsuTracking::new(&clients.psql).await?;
 
@@ -135,7 +132,6 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         guilds,
         tracked_streams,
         role_assigns,
-        stored_values,
         discord_links,
         bg_games: DashMap::new(),
         osu_tracking,
@@ -207,9 +203,6 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         shutdown_ctx.initiate_cold_resume().await;
         if let Err(why) = shutdown_ctx.store_configs().await {
             error!("Error while storing configs: {}", why);
-        }
-        if let Err(why) = shutdown_ctx.store_values().await {
-            error!("Error while storing values: {}", why);
         }
         info!("Shutting down");
         process::exit(0);
