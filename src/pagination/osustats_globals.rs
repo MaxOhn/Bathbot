@@ -97,7 +97,6 @@ impl Pagination for OsuStatsGlobalsPagination {
         }
 
         Ok(OsuStatsGlobalsEmbed::new(
-            &self.ctx,
             &self.user,
             &self.scores,
             self.total,

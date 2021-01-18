@@ -106,7 +106,7 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let init_scores = scores.iter().take(10);
 
     // Accumulate all necessary data
-    let data = ScoresEmbed::new(&ctx, &user, &map, init_scores, 0).await;
+    let data = ScoresEmbed::new(&user, &map, init_scores, 0).await;
 
     // Sending the embed
     let embed = data.build().build()?;
@@ -128,7 +128,7 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     }
 
     // Pagination
-    let pagination = ScoresPagination::new(Arc::clone(&ctx), response, user, map, scores);
+    let pagination = ScoresPagination::new(response, user, map, scores);
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {

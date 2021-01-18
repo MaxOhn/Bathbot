@@ -1,10 +1,9 @@
 use super::{Pages, Pagination};
 
-use crate::{embeds::TopEmbed, BotResult, Context};
+use crate::{embeds::TopEmbed, BotResult};
 
 use async_trait::async_trait;
 use rosu::model::{Beatmap, GameMode, Score, User};
-use std::sync::Arc;
 use twilight_model::channel::Message;
 
 pub struct TopPagination {
@@ -13,12 +12,10 @@ pub struct TopPagination {
     user: User,
     scores: Vec<(usize, Score, Beatmap)>,
     mode: GameMode,
-    ctx: Arc<Context>,
 }
 
 impl TopPagination {
     pub fn new(
-        ctx: Arc<Context>,
         msg: Message,
         user: User,
         scores: Vec<(usize, Score, Beatmap)>,
@@ -30,7 +27,6 @@ impl TopPagination {
             user,
             scores,
             mode,
-            ctx,
         }
     }
 }
@@ -57,7 +53,6 @@ impl Pagination for TopPagination {
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         Ok(TopEmbed::new(
-            &self.ctx,
             &self.user,
             self.scores
                 .iter()

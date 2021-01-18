@@ -79,6 +79,11 @@ git = "https://github.com/MaxOhn/rosu"
 branch = "master"
 features = ["cache", "metrics"]
 
+[dependencies.rosu-pp]
+path = "../rosu-pp"
+# git = "https://github.com/MaxOhn/rosu-pp"
+# branch = "main"
+
 [dependencies.scraper]
 version = "0.12"
 default-features = false
@@ -89,8 +94,6 @@ features = ["derive", "rc"]
 
 [dependencies.sqlx]
 version = "0.4"
-# git = "https://github.com/launchbadge/sqlx/"
-# branch = "master"
 default-features = false
 features = ["postgres", "runtime-tokio-rustls", "chrono", "macros", "json"]
 
@@ -111,7 +114,7 @@ git = "https://github.com/MaxOhn/twilight"
 default_features = false
 
 [dependencies.twilight-gateway]
-# path = "../twilight/gateway"
+# path = "../twilight/gateway
 branch = "custom-cache"
 git = "https://github.com/MaxOhn/twilight"
 

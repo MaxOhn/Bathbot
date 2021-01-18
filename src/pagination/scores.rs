@@ -1,10 +1,9 @@
 use super::{Pages, Pagination};
 
-use crate::{embeds::ScoresEmbed, BotResult, Context};
+use crate::{embeds::ScoresEmbed, BotResult};
 
 use async_trait::async_trait;
 use rosu::model::{Beatmap, Score, User};
-use std::sync::Arc;
 use twilight_model::channel::Message;
 
 pub struct ScoresPagination {
@@ -13,24 +12,16 @@ pub struct ScoresPagination {
     user: User,
     map: Beatmap,
     scores: Vec<Score>,
-    ctx: Arc<Context>,
 }
 
 impl ScoresPagination {
-    pub fn new(
-        ctx: Arc<Context>,
-        msg: Message,
-        user: User,
-        map: Beatmap,
-        scores: Vec<Score>,
-    ) -> Self {
+    pub fn new(msg: Message, user: User, map: Beatmap, scores: Vec<Score>) -> Self {
         Self {
             msg,
             pages: Pages::new(10, scores.len()),
             user,
             map,
             scores,
-            ctx,
         }
     }
 }
@@ -62,6 +53,6 @@ impl Pagination for ScoresPagination {
             .skip(self.pages.index)
             .take(self.pages.per_page);
 
-        Ok(ScoresEmbed::new(&self.ctx, &self.user, &self.map, scores, self.pages.index).await)
+        Ok(ScoresEmbed::new(&self.user, &self.map, scores, self.pages.index).await)
     }
 }

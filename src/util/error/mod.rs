@@ -240,9 +240,10 @@ impl From<IOError> for Error {
     }
 }
 
+// TODO: Remove
 impl From<OppaiErr> for Error {
-    fn from(e: OppaiErr) -> Self {
-        Self::PP(PPError::Oppai(e))
+    fn from(_: OppaiErr) -> Self {
+        Self::NoConfig
     }
 }
 

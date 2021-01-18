@@ -35,7 +35,7 @@ impl NoChokeEmbed {
         for (idx, original, unchoked, map) in scores_data {
             let calculations = Calculations::MAX_PP | Calculations::STARS;
             let mut calculator = PPCalculator::new().score(original).map(map);
-            if let Err(why) = calculator.calculate(calculations, None).await {
+            if let Err(why) = calculator.calculate(calculations).await {
                 unwind_error!(warn, why, "Error while calculating pp for nochokes: {}");
             }
             let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));

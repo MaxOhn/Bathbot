@@ -48,7 +48,7 @@ pub fn grade_completion_mods(score: &impl ScoreExt, map: &Beatmap) -> String {
 }
 
 fn completion(score: &impl ScoreExt, map: &Beatmap) -> u32 {
-    let passed = score.hits(map.mode());
+    let passed = score.hits(map.mode() as u8);
     let total = map.count_objects();
     100 * passed / total
 }

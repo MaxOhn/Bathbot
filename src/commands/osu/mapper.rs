@@ -186,7 +186,7 @@ async fn mapper_main(
         ),
     };
     let pages = numbers::div_euclid(5, scores_data.len());
-    let data = TopEmbed::new(&ctx, &user, scores_data.iter().take(5), mode, (1, pages)).await;
+    let data = TopEmbed::new(&user, scores_data.iter().take(5), mode, (1, pages)).await;
 
     if let Some(msg) = retrieving_msg {
         let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;
@@ -217,7 +217,7 @@ async fn mapper_main(
     }
 
     // Pagination
-    let pagination = TopPagination::new(Arc::clone(&ctx), response, user, scores_data, mode);
+    let pagination = TopPagination::new(response, user, scores_data, mode);
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {

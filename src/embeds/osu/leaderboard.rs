@@ -9,7 +9,7 @@ use crate::{
         numbers::with_comma_u64,
         ScoreExt,
     },
-    BotResult, Context,
+    BotResult,
 };
 
 use cow_utils::CowUtils;
@@ -26,7 +26,6 @@ pub struct LeaderboardEmbed {
 
 impl LeaderboardEmbed {
     pub async fn new<'i, S>(
-        ctx: &Context,
         init_name: Option<&str>,
         map: &Beatmap,
         scores: Option<S>,
@@ -75,11 +74,12 @@ impl LeaderboardEmbed {
                     } else {
                         format!(" **+{}**", score.enabled_mods)
                     },
-                    pp = get_pp(ctx, &mut mod_map, &score, &map).await,
+                    pp = get_pp(&mut mod_map, &score, &map).await,
                     acc = score.accuracy,
                     ago = how_long_ago(&score.date),
                 );
             }
+
             description
         } else {
             "No scores found".to_string()
@@ -90,6 +90,7 @@ impl LeaderboardEmbed {
         }
         let footer = Footer::new(format!("{:?} map by {}", map.approval_status, map.creator))
             .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
+
         Ok(Self {
             author,
             description,
@@ -115,19 +116,15 @@ impl EmbedData for LeaderboardEmbed {
     }
 }
 
-async fn get_pp(
-    ctx: &Context,
-    mod_map: &mut HashMap<u32, f32>,
-    score: &ScraperScore,
-    map: &Beatmap,
-) -> String {
+// TODO: Optimize through rosu-pp
+async fn get_pp(mod_map: &mut HashMap<u32, f32>, score: &ScraperScore, map: &Beatmap) -> String {
     let mut calculator = PPCalculator::new().score(score).map(map);
     let mut calculations = Calculations::PP;
     let bits = score.enabled_mods.bits();
     if !mod_map.contains_key(&bits) {
         calculations |= Calculations::MAX_PP;
     }
-    let (pp, max_pp) = match calculator.calculate(calculations, Some(ctx)).await {
+    let (pp, max_pp) = match calculator.calculate(calculations).await {
         Ok(_) => {
             let pp = calculator.pp().unwrap();
             let max_pp = match calculator.max_pp() {

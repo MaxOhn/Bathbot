@@ -10,7 +10,6 @@ use crate::{
         osu::grade_emote,
         ScoreExt,
     },
-    Context,
 };
 
 use rosu::model::User;
@@ -26,7 +25,6 @@ pub struct OsuStatsGlobalsEmbed {
 
 impl OsuStatsGlobalsEmbed {
     pub async fn new(
-        ctx: &Context,
         user: &User,
         scores: &BTreeMap<usize, OsuStatsScore>,
         total: usize,
@@ -47,7 +45,7 @@ impl OsuStatsGlobalsEmbed {
             let grade = grade_emote(score.grade);
             let calculations = Calculations::all();
             let mut calculator = PPCalculator::new().score(score).map(&score.map);
-            if let Err(why) = calculator.calculate(calculations, Some(ctx)).await {
+            if let Err(why) = calculator.calculate(calculations).await {
                 unwind_error!(warn, why, "Error while calculating pp for osg: {}");
             }
             let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));

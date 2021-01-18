@@ -8,7 +8,6 @@ use crate::{
         osu::{grade_completion_mods, mode_emote},
         ScoreExt,
     },
-    Context,
 };
 
 use chrono::{DateTime, Utc};
@@ -27,11 +26,11 @@ pub struct TrackNotificationEmbed {
 }
 
 impl TrackNotificationEmbed {
-    pub async fn new(ctx: &Context, user: &User, score: &Score, map: &Beatmap, idx: usize) -> Self {
+    pub async fn new(user: &User, score: &Score, map: &Beatmap, idx: usize) -> Self {
         let description = format!("{} __**Personal Best #{}**__", mode_emote(map.mode), idx);
         let calculations = Calculations::MAX_PP | Calculations::STARS;
         let mut calculator = PPCalculator::new().score(score).map(map);
-        if let Err(why) = calculator.calculate(calculations, Some(ctx)).await {
+        if let Err(why) = calculator.calculate(calculations).await {
             warn!("Error while calculating pp for tracking: {}", why);
         }
         let stars = round(calculator.stars().unwrap_or(0.0));

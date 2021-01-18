@@ -8,7 +8,6 @@ use crate::{
         numbers::with_comma_u64,
         ScoreExt,
     },
-    Context,
 };
 
 use rosu::model::{Beatmap, GameMode, Score, User};
@@ -24,7 +23,6 @@ pub struct TopEmbed {
 
 impl TopEmbed {
     pub async fn new<'i, S>(
-        ctx: &Context,
         user: &User,
         scores_data: S,
         mode: GameMode,
@@ -36,7 +34,7 @@ impl TopEmbed {
         let mut description = String::with_capacity(512);
         for (idx, score, map) in scores_data {
             let mut calculator = PPCalculator::new().score(score).map(map);
-            if let Err(why) = calculator.calculate(Calculations::all(), Some(ctx)).await {
+            if let Err(why) = calculator.calculate(Calculations::all()).await {
                 unwind_error!(warn, why, "Error while calculating pp for top: {}");
             }
             let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));

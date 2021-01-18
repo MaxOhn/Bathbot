@@ -8,7 +8,7 @@ use crate::{
         osu::{grade_completion_mods, simulate_score, unchoke_score},
         ScoreExt,
     },
-    BotResult, Context,
+    BotResult,
 };
 
 use rosu::model::{Beatmap, GameMode, GameMods, Score};
@@ -39,12 +39,7 @@ pub struct SimulateEmbed {
 }
 
 impl SimulateEmbed {
-    pub async fn new(
-        ctx: &Context,
-        score: Option<Score>,
-        map: &Beatmap,
-        args: SimulateArgs,
-    ) -> BotResult<Self> {
+    pub async fn new(score: Option<Score>, map: &Beatmap, args: SimulateArgs) -> BotResult<Self> {
         let is_some = args.is_some();
         let title = if map.mode == GameMode::MNA {
             format!("{} {}", osu::get_keys(GameMods::default(), map), map)
@@ -53,7 +48,7 @@ impl SimulateEmbed {
         };
         let (prev_pp, prev_combo, prev_hits, misses) = if let Some(ref s) = score {
             let mut calculator = PPCalculator::new().score(s).map(map);
-            calculator.calculate(Calculations::PP, Some(ctx)).await?;
+            calculator.calculate(Calculations::PP).await?;
             let prev_pp = Some(round(calculator.pp().unwrap_or(0.0)));
             let prev_combo = if map.mode == GameMode::STD {
                 Some(s.max_combo)
@@ -74,7 +69,7 @@ impl SimulateEmbed {
         let grade_completion_mods = grade_completion_mods(&unchoked_score, map);
         let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
         let mut calculator = PPCalculator::new().score(&unchoked_score).map(map);
-        calculator.calculate(calculations, Some(ctx)).await?;
+        calculator.calculate(calculations).await?;
         let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
         let stars = round(calculator.stars().unwrap_or(0.0));
         let hits = unchoked_score.hits_string(map.mode);

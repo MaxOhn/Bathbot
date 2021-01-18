@@ -9,7 +9,7 @@ use crate::{
         osu::{grade_completion_mods, prepare_beatmap_file, unchoke_score},
         ScoreExt,
     },
-    BotResult, Context,
+    BotResult,
 };
 
 use chrono::{DateTime, Utc};
@@ -45,7 +45,6 @@ pub struct RecentEmbed {
 
 impl RecentEmbed {
     pub async fn new(
-        ctx: &Context,
         user: &User,
         score: &Score,
         map: &Beatmap,
@@ -91,7 +90,7 @@ impl RecentEmbed {
                 let mut unchoked = score.clone();
                 unchoke_score(&mut unchoked, &map);
                 let mut calculator = PPCalculator::new().score(&unchoked).map(map);
-                if let Err(why) = calculator.calculate(Calculations::PP, None).await {
+                if let Err(why) = calculator.calculate(Calculations::PP).await {
                     unwind_error!(warn, why, "Error while calculating pp of <recent score: {}");
                     None
                 } else {
@@ -104,11 +103,8 @@ impl RecentEmbed {
         };
         // Prepare map file here so that it's not requested potentially two times
         prepare_beatmap_file(map.beatmap_id).await?;
-        let (calc_result, (description, title, grade_completion_mods), if_fc) = tokio::join!(
-            calculator.calculate(calculations, Some(ctx)),
-            async_work,
-            async_if_fc
-        );
+        let (calc_result, (description, title, grade_completion_mods), if_fc) =
+            tokio::join!(calculator.calculate(calculations), async_work, async_if_fc);
         if let Err(why) = calc_result {
             unwind_error!(warn, why, "Error while calculating <recent pp: {}");
         }

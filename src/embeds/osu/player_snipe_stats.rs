@@ -61,7 +61,7 @@ impl PlayerSnipeStatsEmbed {
             let (score, map) = first_score.unwrap();
             let calculations = Calculations::all();
             let mut calculator = PPCalculator::new().score(&score).map(&map);
-            let (pp, max_pp, stars) = match calculator.calculate(calculations, None).await {
+            let (pp, max_pp, stars) = match calculator.calculate(calculations).await {
                 Ok(_) => (
                     calculator.pp(),
                     calculator.max_pp(),

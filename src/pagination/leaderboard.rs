@@ -1,10 +1,9 @@
 use super::{Pages, Pagination};
 
-use crate::{custom_client::ScraperScore, embeds::LeaderboardEmbed, BotResult, Context};
+use crate::{custom_client::ScraperScore, embeds::LeaderboardEmbed, BotResult};
 
 use async_trait::async_trait;
 use rosu::model::Beatmap;
-use std::sync::Arc;
 use twilight_model::channel::Message;
 
 pub struct LeaderboardPagination {
@@ -14,12 +13,10 @@ pub struct LeaderboardPagination {
     scores: Vec<ScraperScore>,
     author_name: Option<String>,
     first_place_icon: Option<String>,
-    ctx: Arc<Context>,
 }
 
 impl LeaderboardPagination {
     pub fn new(
-        ctx: Arc<Context>,
         msg: Message,
         map: Beatmap,
         scores: Vec<ScraperScore>,
@@ -33,7 +30,6 @@ impl LeaderboardPagination {
             scores,
             author_name,
             first_place_icon,
-            ctx,
         }
     }
 }
@@ -66,7 +62,6 @@ impl Pagination for LeaderboardPagination {
             .take(self.pages.per_page);
 
         LeaderboardEmbed::new(
-            &self.ctx,
             self.author_name.as_deref(),
             &self.map,
             Some(scores),

@@ -160,7 +160,6 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
     // Accumulate all necessary data
     let data_fut = MapEmbed::new(
-        &ctx,
         &maps[map_idx],
         mods,
         graph.is_none(),
@@ -197,14 +196,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     }
 
     // Pagination
-    let pagination = MapPagination::new(
-        Arc::clone(&ctx),
-        response,
-        maps,
-        mods,
-        map_idx,
-        graph.is_none(),
-    );
+    let pagination = MapPagination::new(response, maps, mods, map_idx, graph.is_none());
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {

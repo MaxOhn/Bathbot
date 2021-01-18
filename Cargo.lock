@@ -175,6 +175,7 @@ dependencies = [
  "regex",
  "reqwest",
  "rosu",
+ "rosu-pp",
  "scraper",
  "serde",
  "serde_json",
@@ -2468,6 +2469,10 @@ dependencies = [
  "serde_repr",
  "tokio",
 ]
+
+[[package]]
+name = "rosu-pp"
+version = "0.1.0"
 
 [[package]]
 name = "rust-argon2"

@@ -169,14 +169,6 @@ impl Pagination for RecentPagination {
         }
 
         // Create embed data
-        RecentEmbed::new(
-            &self.ctx,
-            &self.user,
-            score,
-            map,
-            self.best.as_deref(),
-            global_lb,
-        )
-        .await
+        RecentEmbed::new(&self.user, score, map, self.best.as_deref(), global_lb).await
     }
 }

@@ -6,6 +6,7 @@
 - Fix `<mc` sometimes missing some users
 - Split database tables based on popular queries
 - Update twilight
+- Find a better way than reaction for things like `<r`
 - ~~Custom pagination for `<r`~~
 - ~~Investigate deadlock, `<bg stop`-`<bg bigger`?~~
 - ~~Only retrieve the first map from DB for `<r`~~

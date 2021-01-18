@@ -2,7 +2,6 @@ mod bg_game;
 mod clients;
 mod guilds;
 mod links;
-mod pp_stars;
 mod shutdown;
 mod twitch;
 

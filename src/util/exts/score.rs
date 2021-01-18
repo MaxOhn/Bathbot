@@ -29,13 +29,16 @@ pub trait ScoreExt: Send + Sync {
             GameMode::TKO => self.taiko_grade(None),
         }
     }
-    fn hits(&self, mode: GameMode) -> u32 {
+    fn hits(&self, mode: u8) -> u32 {
         let mut amount = self.count_300() + self.count_100() + self.count_miss();
-        if mode != GameMode::TKO {
+        if mode != 1 {
+            // TKO
             amount += self.count_50();
-            if mode != GameMode::STD {
+            if mode != 0 {
+                // STD
                 amount += self.count_katu();
-                if mode != GameMode::CTB {
+                if mode != 2 {
+                    // CTB
                     amount += self.count_geki();
                 }
             }
@@ -71,7 +74,7 @@ pub trait ScoreExt: Send + Sync {
     // ## Auxiliary functions ##
     // #########################
     fn osu_grade(&self) -> Grade {
-        let passed_objects = self.hits(GameMode::STD);
+        let passed_objects = self.hits(GameMode::STD as u8);
         let mods = self.mods();
         if self.count_300() == passed_objects {
             return if mods.contains(GameMods::Hidden) || mods.contains(GameMods::Flashlight) {
@@ -100,7 +103,7 @@ pub trait ScoreExt: Send + Sync {
     }
 
     fn mania_grade(&self, acc: Option<f32>) -> Grade {
-        let passed_objects = self.hits(GameMode::MNA);
+        let passed_objects = self.hits(GameMode::MNA as u8);
         let mods = self.mods();
         if self.count_geki() == passed_objects {
             return if mods.contains(GameMods::Hidden) || mods.contains(GameMods::Flashlight) {
@@ -128,7 +131,7 @@ pub trait ScoreExt: Send + Sync {
     }
 
     fn taiko_grade(&self, acc: Option<f32>) -> Grade {
-        let passed_objects = self.hits(GameMode::TKO);
+        let passed_objects = self.hits(GameMode::TKO as u8);
         let mods = self.mods();
         if self.count_300() == passed_objects {
             return if mods.contains(GameMods::Hidden) || mods.contains(GameMods::Flashlight) {
@@ -287,7 +290,7 @@ impl ScoreExt for &OsuStatsScore {
     fn mods(&self) -> GameMods {
         self.enabled_mods
     }
-    fn hits(&self, _mode: GameMode) -> u32 {
+    fn hits(&self, _mode: u8) -> u32 {
         let mut amount = self.count300 + self.count100 + self.count_miss;
         let mode = self.map.mode;
         if mode != GameMode::TKO {
@@ -340,7 +343,7 @@ impl ScoreExt for &ScraperScore {
     fn mods(&self) -> GameMods {
         self.enabled_mods
     }
-    fn hits(&self, _: GameMode) -> u32 {
+    fn hits(&self, _: u8) -> u32 {
         let mut amount = self.count300 + self.count100 + self.count_miss;
         if self.mode != GameMode::TKO {
             amount += self.count50;

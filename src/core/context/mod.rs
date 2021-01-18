@@ -17,7 +17,6 @@ use darkredis::ConnectionPool;
 use dashmap::{DashMap, DashSet};
 use rosu::Osu;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use twilight_gateway::Cluster;
 use twilight_http::Client as HttpClient;
 use twilight_model::{
@@ -58,7 +57,6 @@ pub struct BackendData {
 pub struct ContextData {
     pub guilds: DashMap<GuildId, GuildConfig>,
     pub stored_values: StoredValues,
-    pub perf_calc_mutex: Mutex<()>,
     // Mapping twitch user ids to vec of discord channel ids
     pub tracked_streams: DashMap<u64, Vec<u64>>,
     // Mapping (channel id, message id) to role id

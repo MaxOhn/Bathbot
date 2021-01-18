@@ -119,7 +119,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
             osu::unchoke_score(&mut unchoked, &map);
             let pp = {
                 let mut calculator = PPCalculator::new().score(&unchoked).map(&map);
-                calculator.calculate(Calculations::PP, None).await?;
+                calculator.calculate(Calculations::PP).await?;
                 calculator.pp()
             };
             unchoked.pp =

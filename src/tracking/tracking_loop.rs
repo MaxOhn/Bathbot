@@ -152,7 +152,7 @@ pub async fn process_tracking(
             },
         };
         // Build embed
-        let data = TrackNotificationEmbed::new(ctx, user, score, map, idx + 1).await;
+        let data = TrackNotificationEmbed::new(user, score, map, idx + 1).await;
         let embed = match data.build().build() {
             Ok(embed) => embed,
             Err(why) => {

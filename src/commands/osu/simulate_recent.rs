@@ -73,7 +73,7 @@ async fn simulate_recent_main(
     };
 
     // Accumulate all necessary data
-    let data = match SimulateEmbed::new(&ctx, Some(score), &map, args.into()).await {
+    let data = match SimulateEmbed::new(Some(score), &map, args.into()).await {
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;

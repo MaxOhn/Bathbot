@@ -1,10 +1,9 @@
 use super::{Pages, Pagination};
 
-use crate::{embeds::MapEmbed, BotResult, Context};
+use crate::{embeds::MapEmbed, BotResult};
 
 use async_trait::async_trait;
 use rosu::model::{Beatmap, GameMods};
-use std::sync::Arc;
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::channel::Message;
 
@@ -14,12 +13,10 @@ pub struct MapPagination {
     maps: Vec<Beatmap>,
     mods: GameMods,
     with_thumbnail: bool,
-    ctx: Arc<Context>,
 }
 
 impl MapPagination {
     pub fn new(
-        ctx: Arc<Context>,
         msg: Message,
         maps: Vec<Beatmap>,
         mods: GameMods,
@@ -34,7 +31,6 @@ impl MapPagination {
             maps,
             mods,
             with_thumbnail,
-            ctx,
         }
     }
 }
@@ -65,7 +61,6 @@ impl Pagination for MapPagination {
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         MapEmbed::new(
-            &self.ctx,
             &self.maps[self.pages.index],
             self.mods,
             self.with_thumbnail,

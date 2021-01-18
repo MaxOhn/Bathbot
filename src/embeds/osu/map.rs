@@ -9,7 +9,7 @@ use crate::{
         numbers::{round, with_comma_u64},
         osu::{mode_emote, prepare_beatmap_file},
     },
-    BotResult, Context,
+    BotResult,
 };
 
 use chrono::{DateTime, Utc};
@@ -31,7 +31,6 @@ pub struct MapEmbed {
 
 impl MapEmbed {
     pub async fn new(
-        ctx: &Context,
         map: &Beatmap,
         mods: GameMods,
         with_thumbnail: bool,
@@ -130,7 +129,7 @@ impl MapEmbed {
             GameMode::MNA | GameMode::CTB => {
                 let calculations = Calculations::MAX_PP | Calculations::STARS;
                 let mut calculator = PPCalculator::new().map(map);
-                if let Err(why) = calculator.calculate(calculations, Some(ctx)).await {
+                if let Err(why) = calculator.calculate(calculations).await {
                     unwind_error!(warn, why, "Error while calculating pp for <map: {}");
                 }
                 if let Some(pp) = calculator.max_pp() {

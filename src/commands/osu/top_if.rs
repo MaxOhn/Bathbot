@@ -182,7 +182,7 @@ async fn topif_main(
             score.pp = None;
             let (pp, stars) = {
                 let mut calculator = PPCalculator::new().score(&*score).map(&*map);
-                if let Err(why) = calculator.calculate(Calculations::all(), Some(&ctx)).await {
+                if let Err(why) = calculator.calculate(Calculations::all()).await {
                     unwind_error!(
                         warn,
                         why,
@@ -265,7 +265,6 @@ async fn topif_main(
     };
     let pages = numbers::div_euclid(5, scores_data.len());
     let data = TopIfEmbed::new(
-        &ctx,
         &user,
         scores_data.iter().take(5),
         mode,
@@ -299,14 +298,7 @@ async fn topif_main(
     }
 
     // Pagination
-    let pagination = TopIfPagination::new(
-        Arc::clone(&ctx),
-        response,
-        user,
-        scores_data,
-        mode,
-        adjusted_pp,
-    );
+    let pagination = TopIfPagination::new(response, user, scores_data, mode, adjusted_pp);
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {

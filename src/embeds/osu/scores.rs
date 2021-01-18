@@ -9,7 +9,6 @@ use crate::{
         osu::grade_completion_mods,
         ScoreExt,
     },
-    Context,
 };
 
 use rosu::model::{Beatmap, GameMode, Score, User};
@@ -27,13 +26,7 @@ pub struct ScoresEmbed {
 }
 
 impl ScoresEmbed {
-    pub async fn new<'i, S>(
-        ctx: &Context,
-        user: &User,
-        map: &Beatmap,
-        scores: S,
-        idx: usize,
-    ) -> Self
+    pub async fn new<'i, S>(user: &User, map: &Beatmap, scores: S, idx: usize) -> Self
     where
         S: Iterator<Item = &'i Score>,
     {
@@ -41,7 +34,7 @@ impl ScoresEmbed {
         for (i, score) in scores.enumerate() {
             let calculations = Calculations::all();
             let mut calculator = PPCalculator::new().score(score).map(map);
-            if let Err(why) = calculator.calculate(calculations, Some(ctx)).await {
+            if let Err(why) = calculator.calculate(calculations).await {
                 unwind_error!(warn, why, "Error while calculating pp for scores: {}");
             }
             let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));

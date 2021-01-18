@@ -147,7 +147,6 @@ async fn recent_main(
     let global_scores = global.get(&first_id).map(|global| global.as_slice());
     let first_map = maps.get(&first_id).unwrap();
     let data = match RecentEmbed::new(
-        &ctx,
         &user,
         first_score,
         first_map,

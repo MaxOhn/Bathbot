@@ -56,7 +56,7 @@ async fn osustats_main(
 
     // Accumulate all necessary data
     let pages = numbers::div_euclid(5, amount);
-    let data = OsuStatsGlobalsEmbed::new(&ctx, &user, &scores, amount, (1, pages)).await;
+    let data = OsuStatsGlobalsEmbed::new(&user, &scores, amount, (1, pages)).await;
     let mut content = format!(
         "`Rank: {rank_min} - {rank_max}` ~ \
         `Acc: {acc_min}% - {acc_max}%` ~ \
