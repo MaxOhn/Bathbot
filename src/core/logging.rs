@@ -1,12 +1,10 @@
 use crate::Error;
 
-use flexi_logger::{
-    Age, Cleanup, Criterion, DeferredNow, Duplicate, Logger, Naming, ReconfigurationHandle,
-};
+use flexi_logger::{Age, Cleanup, Criterion, DeferredNow, Duplicate, Logger, LoggerHandle, Naming};
 use log::Record;
 use once_cell::sync::OnceCell;
 
-static LOGGER: OnceCell<ReconfigurationHandle> = OnceCell::new();
+static LOGGER: OnceCell<LoggerHandle> = OnceCell::new();
 
 pub fn initialize() -> Result<(), Error> {
     let log_init_status = LOGGER.set(

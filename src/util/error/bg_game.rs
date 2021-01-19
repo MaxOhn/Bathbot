@@ -2,7 +2,7 @@ use image::ImageError;
 use rosu::{model::GameMode, OsuError};
 use std::{error::Error as StdError, fmt};
 use tokio::io::Error as TokioIOError;
-use tokio::time::Elapsed;
+use tokio::time::error::Elapsed;
 
 #[derive(Debug)]
 pub enum BgGameError {

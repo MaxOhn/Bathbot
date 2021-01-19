@@ -165,7 +165,7 @@ impl OsuTracking {
             "[Popping] All: {} ~ Last date: {:?} ~ Amount: {} ~ Delay: {}ms",
             len, last_date, amount, delay
         );
-        time::delay_for(time::Duration::from_millis(delay)).await;
+        time::sleep(time::Duration::from_millis(delay)).await;
         // Pop users and return them
         let elems = {
             let mut queue = self.queue.write().await;

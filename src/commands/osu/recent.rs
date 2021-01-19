@@ -19,7 +19,7 @@ use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
-use tokio::time::{delay_for, Duration};
+use tokio::time::{sleep, Duration};
 use twilight_model::channel::Message;
 
 #[allow(clippy::cognitive_complexity)]
@@ -181,7 +181,7 @@ async fn recent_main(
         response.reaction_delete(&ctx, msg.author.id);
         let msg_id = msg.id;
         tokio::spawn(async move {
-            delay_for(Duration::from_secs(60)).await;
+            sleep(Duration::from_secs(60)).await;
             if !ctx.remove_msg(msg_id) {
                 return;
             }

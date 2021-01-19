@@ -40,7 +40,8 @@ use crate::{embeds::EmbedData, unwind_error, util::numbers, BotResult, Context, 
 
 use async_trait::async_trait;
 use std::time::Duration;
-use tokio::{stream::StreamExt, time};
+use tokio::time;
+use tokio_stream::StreamExt;
 use twilight_embed_builder::image_source::ImageSource;
 use twilight_http::{request::channel::reaction::RequestReactionType, Error};
 use twilight_model::{
@@ -123,7 +124,7 @@ pub trait Pagination: Sync + Sized {
     // Don't implement anything else
     async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> BotResult<()> {
         ctx.store_msg(self.msg().id);
-        let mut reaction_stream = {
+        let reaction_stream = {
             let msg = self.msg();
             for emoji in Self::reactions() {
                 ctx.http
@@ -131,9 +132,12 @@ pub trait Pagination: Sync + Sized {
                     .await?;
             }
             ctx.standby
-                .wait_for_reaction_stream(msg.id, move |r: &ReactionAdd| r.0.user_id == owner)
+                .wait_for_reaction_stream(msg.id, move |r: &ReactionAdd| r.user_id == owner)
                 .timeout(Duration::from_secs(duration))
         };
+
+        tokio::pin!(reaction_stream);
+
         while let Some(Ok(reaction)) = reaction_stream.next().await {
             match self.next_page(reaction.0, ctx).await {
                 Ok(PageChange::Delete) => return Ok(()),
@@ -151,7 +155,7 @@ pub trait Pagination: Sync + Sized {
         match ctx.http.delete_all_reactions(msg.channel_id, msg.id).await {
             Ok(_) => {}
             Err(Error::Response { status, .. }) if status.as_u16() == 403 => {
-                time::delay_for(time::Duration::from_millis(100)).await;
+                time::sleep(time::Duration::from_millis(100)).await;
                 for emoji in Self::reactions() {
                     ctx.http
                         .delete_current_user_reaction(msg.channel_id, msg.id, emoji)

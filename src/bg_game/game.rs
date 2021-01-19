@@ -10,7 +10,8 @@ use cow_utils::CowUtils;
 use image::GenericImageView;
 use rosu::model::GameMode;
 use std::{collections::VecDeque, sync::Arc};
-use tokio::{fs, stream::StreamExt, sync::RwLock};
+use tokio::{fs, sync::RwLock};
+use tokio_stream::StreamExt;
 use twilight_model::id::ChannelId;
 use twilight_standby::WaitForMessageStream;
 

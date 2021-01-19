@@ -10,11 +10,12 @@ use crate::{
 
 use rosu::model::GameMode;
 use std::sync::Arc;
-use tokio::{stream::StreamExt, time::Duration};
+use tokio::time::Duration;
+use tokio_stream::StreamExt;
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{
     channel::{Message, ReactionType},
-    gateway::{event::Event, payload::ReactionAdd},
+    gateway::event::Event,
 };
 
 #[command]
@@ -70,25 +71,25 @@ async fn get_mapsets(
         Some(user) => user.id,
         None => bail!("No CurrentUser in cache"),
     };
-    let reaction_add_stream = ctx
+
+    let response_id = response.id;
+
+    let reaction_stream = ctx
         .standby
-        .wait_for_reaction_stream(response.id, move |event: &ReactionAdd| {
-            event.user_id != self_id
-        })
-        .filter_map(|reaction: ReactionAdd| Some(ReactionWrapper::Add(reaction.0)));
-    let reaction_remove_stream = ctx
-        .standby
-        .wait_for_event_stream(|_: &Event| true)
-        .filter_map(|event: Event| {
-            if let Event::ReactionRemove(reaction) = event {
-                if reaction.0.message_id == response.id && reaction.0.user_id != self_id {
-                    return Some(ReactionWrapper::Remove(reaction.0));
-                }
+        .wait_for_event_stream(move |event: &Event| match event {
+            Event::ReactionAdd(event) => {
+                event.message_id == response_id && event.user_id != self_id
             }
-            None
-        });
-    let mut reaction_stream = reaction_add_stream
-        .merge(reaction_remove_stream)
+            Event::ReactionRemove(event) => {
+                event.message_id == response_id && event.user_id != self_id
+            }
+            _ => false,
+        })
+        .map(|event| match event {
+            Event::ReactionAdd(add) => ReactionWrapper::Add(add.0),
+            Event::ReactionRemove(remove) => ReactionWrapper::Remove(remove.0),
+            _ => unreachable!(),
+        })
         .timeout(Duration::from_secs(60));
 
     // Send initial reactions
@@ -119,6 +120,8 @@ async fn get_mapsets(
     }
     let mut included = MapsetTags::empty();
     let mut excluded = MapsetTags::empty();
+
+    tokio::pin!(reaction_stream);
 
     // Start collecting
     while let Some(Ok(reaction)) = reaction_stream.next().await {
