@@ -9,6 +9,7 @@ use crate::{
 use rand::RngCore;
 use std::collections::VecDeque;
 
+#[allow(clippy::clippy::needless_lifetimes)]
 pub async fn get_random_mapset<'m>(
     mapsets: &'m [MapsetTagWrapper],
     previous_ids: &mut VecDeque<u32>,

@@ -46,7 +46,7 @@ impl MapEmbed {
         let download_value = format!(
             "[Mapset]({base}d/{mapset_id})\n\
             [No Video]({base}d/{mapset_id}n)\n\
-            [Bloodcat](https://bloodcat.com/osu/s/{mapset_id})\n\
+            [Beatconnect](https://beatconnect.io/b/{mapset_id})\n\
             <osu://dl/{mapset_id}>",
             base = OSU_BASE,
             mapset_id = map.beatmapset_id
