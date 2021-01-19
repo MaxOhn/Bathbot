@@ -58,37 +58,41 @@ impl<'c> FromRow<'c, PgRow> for BeatmapWrapper {
         let genre: i8 = row.get("genre");
         let language: i8 = row.get("language");
         let status: i8 = row.get("approval_status");
-        let mut map = Beatmap::default();
-        map.beatmap_id = row.get("beatmap_id");
-        map.beatmapset_id = row.get("beatmapset_id");
-        map.version = row.get("version");
-        map.seconds_drain = row.get("seconds_drain");
-        map.seconds_total = row.get("seconds_total");
-        map.bpm = row.get("bpm");
-        map.stars = row.get("stars");
-        map.diff_cs = row.get("diff_cs");
-        map.diff_ar = row.get("diff_ar");
-        map.diff_od = row.get("diff_od");
-        map.diff_hp = row.get("diff_hp");
-        map.count_circle = row.get("count_circle");
-        map.count_slider = row.get("count_slider");
-        map.count_spinner = row.get("count_spinner");
-        map.artist = row.get("artist");
-        map.title = row.get("title");
-        map.creator_id = row.get("creator_id");
-        map.creator = row.get("creator");
-        map.mode = (mode as u8).into();
-        map.max_combo = row.get("max_combo");
-        map.genre = (genre as u8).into();
-        map.language = (language as u8).into();
-        map.approval_status = match status.try_into() {
-            Ok(status) => status,
-            Err(why) => {
-                unwind_error!(warn, why, "{}");
-                ApprovalStatus::WIP
-            }
+
+        let map = Beatmap {
+            beatmap_id: row.get("beatmap_id"),
+            beatmapset_id: row.get("beatmapset_id"),
+            version: row.get("version"),
+            seconds_drain: row.get("seconds_drain"),
+            seconds_total: row.get("seconds_total"),
+            bpm: row.get("bpm"),
+            stars: row.get("stars"),
+            diff_cs: row.get("diff_cs"),
+            diff_ar: row.get("diff_ar"),
+            diff_od: row.get("diff_od"),
+            diff_hp: row.get("diff_hp"),
+            count_circle: row.get("count_circle"),
+            count_slider: row.get("count_slider"),
+            count_spinner: row.get("count_spinner"),
+            artist: row.get("artist"),
+            title: row.get("title"),
+            creator_id: row.get("creator_id"),
+            creator: row.get("creator"),
+            mode: (mode as u8).into(),
+            max_combo: row.get("max_combo"),
+            genre: (genre as u8).into(),
+            language: (language as u8).into(),
+            approval_status: match status.try_into() {
+                Ok(status) => status,
+                Err(why) => {
+                    unwind_error!(warn, why, "{}");
+                    ApprovalStatus::WIP
+                }
+            },
+            approved_date: row.get("approved_date"),
+            ..Default::default()
         };
-        map.approved_date = row.get("approved_date");
+
         Ok(Self(map))
     }
 }

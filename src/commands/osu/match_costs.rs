@@ -61,7 +61,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         .unwrap_or_default();
 
     // Retrieve all users of the match
-    let requests = osu_match
+    let requests: Vec<_> = osu_match
         .games
         .iter()
         .map(|game| game.scores.iter())
@@ -70,7 +70,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         .map(|s| s.user_id)
         .unique()
         .map(|id| ctx.osu().user(id).mode(mode).map_ok(move |user| (id, user)))
-        .collect_vec();
+        .collect();
 
     // Prematurely abort if its too many players to display in a message
     if requests.len() > 50 {
@@ -132,7 +132,14 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         m.embed(embed)
     })
     .await?;
+
     Ok(())
+}
+
+macro_rules! sort {
+    ($slice:expr) => {
+        $slice.sort_unstable_by(|(.., a), (.., b)| b.partial_cmp(a).unwrap_or(Ordering::Equal));
+    };
 }
 
 // flat additive bonus for each participated game
@@ -192,7 +199,7 @@ fn process_match(
         let (winner_team, _) = team_scores
             .into_iter()
             .max_by_key(|(_, score)| *score)
-            .unwrap();
+            .unwrap_or((Team::None, 0));
 
         match_scores.incr(winner_team);
     }
@@ -259,14 +266,11 @@ fn process_match(
         }
     }
 
-    let player_comparer = |(.., a): &PlayerResult, (.., b): &PlayerResult| {
-        b.partial_cmp(a).unwrap_or(Ordering::Equal)
-    };
-
     if team_vs {
         let blue = match data.remove(&Team::Blue) {
             Some(mut team) => {
-                team.sort_unstable_by(player_comparer);
+                sort!(team);
+
                 team
             }
             None => Vec::new(),
@@ -274,7 +278,8 @@ fn process_match(
 
         let red = match data.remove(&Team::Red) {
             Some(mut team) => {
-                team.sort_unstable_by(player_comparer);
+                sort!(team);
+
                 team
             }
             None => Vec::new(),
@@ -283,7 +288,7 @@ fn process_match(
         MatchResult::team(mvp_id, match_scores, blue, red)
     } else {
         let mut players = data.remove(&Team::None).unwrap_or_default();
-        players.sort_unstable_by(player_comparer);
+        sort!(players);
 
         MatchResult::solo(mvp_id, players)
     }

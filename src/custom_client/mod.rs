@@ -598,7 +598,7 @@ impl CustomClient {
         rank: usize,
         ranking: RankLeaderboard<'_>,
     ) -> ClientResult<u32> {
-        if rank < 1 || 10_000 < rank {
+        if !(1..=10_000).contains(&rank) {
             return Err(CustomClientError::RankIndex(rank));
         }
 

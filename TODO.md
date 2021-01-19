@@ -14,7 +14,6 @@
 
 **[Sometime]**
 - Experiment with different team/opponent scaling for `<mc`
-- Improve mania and ctb star calculation
 - Check on `thread 'tokio-runtime-worker' panicked at 'error binding to 169.254.124.89:9094:`
     `error creating server listener: Cannot assign requested address (os error 99)'"`
 - `<nochokesctb` (https://pakachan.github.io/osustuff/ppcalculator.html) (investigate)
@@ -23,6 +22,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Improve mania and ctb star calculation~~ (21.01.19)
 - ~~Update taiko pp / stars~~ (21.01.18)
 - ~~Rewrite `<mc` calculation~~ (20.12.29)
 - ~~Add `<m` alias for `<map`~~ (20.12.22)

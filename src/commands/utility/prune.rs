@@ -22,7 +22,7 @@ use twilight_model::channel::Message;
 async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     let amount = match args.next().map(u64::from_str) {
         Some(Ok(amount)) => {
-            if amount < 1 || amount > 99 {
+            if !(1..100).contains(&amount) {
                 let content = "First argument must be an integer between 1 and 99";
                 return msg.error(&ctx, content).await;
             } else {
