@@ -41,38 +41,48 @@ pub struct SimulateEmbed {
 impl SimulateEmbed {
     pub async fn new(score: Option<Score>, map: &Beatmap, args: SimulateArgs) -> BotResult<Self> {
         let is_some = args.is_some();
+
         let title = if map.mode == GameMode::MNA {
             format!("{} {}", osu::get_keys(GameMods::default(), map), map)
         } else {
             map.to_string()
         };
+
         let (prev_pp, prev_combo, prev_hits, misses) = if let Some(ref s) = score {
             let mut calculator = PPCalculator::new().score(s).map(map);
             calculator.calculate(Calculations::PP).await?;
             let prev_pp = Some(round(calculator.pp().unwrap_or(0.0)));
+
             let prev_combo = if map.mode == GameMode::STD {
                 Some(s.max_combo)
             } else {
                 None
             };
+
             let prev_hits = Some(s.hits_string(map.mode));
+
             (prev_pp, prev_combo, prev_hits, Some(s.count_miss))
         } else {
             (None, None, None, None)
         };
+
         let mut unchoked_score = score.unwrap_or_default();
+
         if is_some {
             simulate_score(&mut unchoked_score, map, args);
         } else {
             unchoke_score(&mut unchoked_score, map);
         }
-        let grade_completion_mods = grade_completion_mods(&unchoked_score, map);
+
         let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
         let mut calculator = PPCalculator::new().score(&unchoked_score).map(map);
         calculator.calculate(calculations).await?;
+
+        let grade_completion_mods = grade_completion_mods(&unchoked_score, map);
         let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
         let stars = round(calculator.stars().unwrap_or(0.0));
         let hits = unchoked_score.hits_string(map.mode);
+
         let (combo, acc) = match map.mode {
             GameMode::STD => (
                 osu::get_combo(&unchoked_score, map),
@@ -96,8 +106,10 @@ impl SimulateEmbed {
             }
             _ => panic!("Cannot prepare simulate data of {:?} score", map.mode),
         };
+
         let footer = Footer::new(format!("{:?} map by {}", map.approval_status, map.creator))
             .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
+
         Ok(Self {
             title,
             url: format!("{}b/{}", OSU_BASE, map.beatmap_id),

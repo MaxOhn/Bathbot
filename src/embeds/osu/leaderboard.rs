@@ -147,12 +147,18 @@ async fn get_pp(
                 .mods(bits)
                 .attributes(attributes)
                 .calculate(no_leniency::stars),
-            Mode::MNA => ManiaPP::new(map).mods(bits).stars(attributes).calculate(),
+            Mode::MNA => ManiaPP::new(map)
+                .mods(bits)
+                .attributes(attributes)
+                .calculate(),
             Mode::CTB => FruitsPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
                 .calculate(),
-            Mode::TKO => TaikoPP::new(map).mods(bits).stars(attributes).calculate(),
+            Mode::TKO => TaikoPP::new(map)
+                .mods(bits)
+                .attributes(attributes)
+                .calculate(),
         };
 
         max_pp.replace(result.pp());
@@ -171,7 +177,7 @@ async fn get_pp(
             .calculate(no_leniency::stars),
         Mode::MNA => ManiaPP::new(map)
             .mods(bits)
-            .stars(attributes)
+            .attributes(attributes)
             .score(score.score)
             .calculate(),
         Mode::CTB => FruitsPP::new(map)
@@ -183,7 +189,7 @@ async fn get_pp(
             .calculate(),
         Mode::TKO => TaikoPP::new(map)
             .mods(bits)
-            .stars(attributes)
+            .attributes(attributes)
             .misses(score.count_miss as usize)
             .combo(score.max_combo as usize)
             .accuracy(score.accuracy)

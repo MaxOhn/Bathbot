@@ -1,12 +1,11 @@
 use crate::{
     embeds::{osu, Author, EmbedData, Footer},
-    pp::{Calculations, PPCalculator},
-    unwind_error,
     util::{
         constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
+        error::PPError,
         numbers::{round, with_comma_u64},
-        osu::{grade_completion_mods, prepare_beatmap_file, unchoke_score},
+        osu::{grade_completion_mods, prepare_beatmap_file},
         ScoreExt,
     },
     BotResult,
@@ -14,7 +13,10 @@ use crate::{
 
 use chrono::{DateTime, Utc};
 use rosu::model::{Beatmap, GameMode, Grade, Score, User};
-use std::fmt::Write;
+use rosu_pp::{
+    osu::no_leniency, Beatmap as Map, BeatmapExt, FruitsPP, ManiaPP, OsuPP, StarResult, TaikoPP,
+};
+use std::{fmt::Write, fs::File};
 use twilight_embed_builder::{
     author::EmbedAuthorBuilder, builder::EmbedBuilder, image_source::ImageSource,
 };
@@ -51,84 +53,261 @@ impl RecentEmbed {
         personal: Option<&[Score]>,
         global: Option<&[Score]>,
     ) -> BotResult<Self> {
-        let calculations = Calculations::all();
-        let mut calculator = PPCalculator::new().score(score).map(map);
-        let async_work = async {
-            let personal_idx =
-                personal.and_then(|personal| personal.iter().position(|s| s == score));
-            let global_idx = global.and_then(|global| global.iter().position(|s| s == score));
-            let description = if personal_idx.is_some() || global_idx.is_some() {
-                let mut description = String::with_capacity(25);
-                description.push_str("__**");
-                if let Some(idx) = personal_idx {
-                    let _ = write!(description, "Personal Best #{}", idx + 1);
-                    if global_idx.is_some() {
-                        description.reserve(19);
-                        description.push_str(" and ");
-                    }
-                }
-                if let Some(idx) = global_idx {
-                    let _ = write!(description, "Global Top #{}", idx + 1);
-                }
-                description.push_str("**__");
-                Some(description)
-            } else {
-                None
+        let map_path = prepare_beatmap_file(map.beatmap_id).await?;
+        let file = File::open(map_path).map_err(PPError::from)?;
+        let rosu_map = Map::parse(file).map_err(PPError::from)?;
+        let mods = score.enabled_mods.bits();
+        let max_result = rosu_map.max_pp(mods);
+        let mut attributes = max_result.attributes;
+
+        let max_pp = max_result.pp;
+        let stars = attributes.stars();
+
+        let pp = if score.grade == Grade::F {
+            let hits = score.total_hits(map.mode) as usize;
+
+            let pp_result = match map.mode {
+                GameMode::STD => OsuPP::new(&rosu_map)
+                    .mods(mods)
+                    .combo(score.max_combo as usize)
+                    .n300(score.count300 as usize)
+                    .n100(score.count100 as usize)
+                    .n50(score.count50 as usize)
+                    .misses(score.count_miss as usize)
+                    .passed_objects(hits)
+                    .calculate(no_leniency::stars),
+                GameMode::MNA => ManiaPP::new(&rosu_map)
+                    .mods(mods)
+                    .score(score.score)
+                    .passed_objects(hits)
+                    .calculate(),
+                GameMode::CTB => FruitsPP::new(&rosu_map)
+                    .mods(mods)
+                    .combo(score.max_combo as usize)
+                    .fruits(score.count300 as usize)
+                    .droplets(score.count100 as usize)
+                    .misses(score.count_miss as usize)
+                    .passed_objects(hits)
+                    .accuracy(score.accuracy(GameMode::CTB))
+                    .calculate(),
+                GameMode::TKO => TaikoPP::new(&rosu_map)
+                    .combo(score.max_combo as usize)
+                    .mods(mods)
+                    .passed_objects(hits)
+                    .accuracy(score.accuracy(GameMode::TKO))
+                    .calculate(),
             };
-            let title = if map.mode == GameMode::MNA {
-                format!("{} {}", osu::get_keys(score.enabled_mods, &map), map)
-            } else {
-                map.to_string()
+
+            pp_result.pp
+        } else {
+            let pp_result = match map.mode {
+                GameMode::STD => OsuPP::new(&rosu_map)
+                    .attributes(attributes)
+                    .mods(mods)
+                    .combo(score.max_combo as usize)
+                    .n300(score.count300 as usize)
+                    .n100(score.count100 as usize)
+                    .n50(score.count50 as usize)
+                    .misses(score.count_miss as usize)
+                    .calculate(no_leniency::stars),
+                GameMode::MNA => ManiaPP::new(&rosu_map)
+                    .attributes(attributes)
+                    .mods(mods)
+                    .score(score.score)
+                    .calculate(),
+                GameMode::CTB => FruitsPP::new(&rosu_map)
+                    .attributes(attributes)
+                    .mods(mods)
+                    .combo(score.max_combo as usize)
+                    .fruits(score.count300 as usize)
+                    .droplets(score.count100 as usize)
+                    .misses(score.count_miss as usize)
+                    .accuracy(score.accuracy(GameMode::CTB))
+                    .calculate(),
+                GameMode::TKO => TaikoPP::new(&rosu_map)
+                    .attributes(attributes)
+                    .combo(score.max_combo as usize)
+                    .mods(mods)
+                    .accuracy(score.accuracy(GameMode::TKO))
+                    .calculate(),
             };
-            let grade_completion_mods = grade_completion_mods(score, map);
-            (description, title, grade_completion_mods)
+
+            attributes = pp_result.attributes;
+
+            pp_result.pp
         };
-        let async_if_fc = async {
-            let got_s = matches!(score.grade, Grade::S | Grade::SH | Grade::X | Grade::XH);
-            if map.mode == GameMode::STD && (!got_s || score.max_combo < map.max_combo.unwrap() - 5)
+
+        let got_s = matches!(score.grade, Grade::S | Grade::SH | Grade::X | Grade::XH);
+
+        let if_fc = match attributes {
+            StarResult::Osu(attributes)
+                if !got_s || score.max_combo < attributes.max_combo as u32 - 5 =>
             {
-                let mut unchoked = score.clone();
-                unchoke_score(&mut unchoked, &map);
-                let mut calculator = PPCalculator::new().score(&unchoked).map(map);
-                if let Err(why) = calculator.calculate(Calculations::PP).await {
-                    unwind_error!(warn, why, "Error while calculating pp of <recent score: {}");
-                    None
-                } else {
-                    let hits = unchoked.hits_string(map.mode);
-                    Some((calculator.pp(), unchoked.accuracy(map.mode), hits))
-                }
-            } else {
-                None
+                let total_objects = map.count_objects() as usize;
+                let passed_objects = score.total_hits(GameMode::STD) as usize;
+
+                let mut count300 =
+                    score.count300 as usize + total_objects.saturating_sub(passed_objects);
+
+                let count_hits = total_objects - score.count_miss as usize;
+                let ratio = 1.0 - (count300 as f32 / count_hits as f32);
+                let new100s = (ratio * score.count_miss as f32).ceil() as u32;
+
+                count300 += score.count_miss.saturating_sub(new100s) as usize;
+                let count100 = (score.count100 + new100s) as usize;
+                let count50 = score.count50 as usize;
+
+                let pp_result = OsuPP::new(&rosu_map)
+                    .attributes(attributes)
+                    .mods(mods)
+                    .n300(count300)
+                    .n100(count100)
+                    .n50(count50)
+                    .calculate(no_leniency::stars);
+
+                let acc = 100.0 * (6 * count300 + 2 * count100 + count50) as f32
+                    / (6 * total_objects) as f32;
+
+                Some((count300, count100, Some(count50), pp_result.pp, acc))
             }
+            StarResult::Fruits(attributes) if score.grade == Grade::F || score.count_miss > 0 => {
+                let total_objects = attributes.max_combo;
+                let passed_objects = score.total_hits(GameMode::CTB) as usize;
+
+                let missing = total_objects - passed_objects;
+                let missing_fruits = missing.saturating_sub(
+                    attributes
+                        .n_droplets
+                        .saturating_sub(score.count100 as usize),
+                );
+                let missing_droplets = missing - missing_fruits;
+
+                let n_fruits = score.count300 as usize + missing_fruits;
+                let n_droplets = score.count100 as usize + missing_droplets;
+                let n_tiny_droplet_misses = score.count50 as usize;
+                let n_tiny_droplets = attributes
+                    .n_tiny_droplets
+                    .saturating_sub(n_tiny_droplet_misses);
+
+                let pp_result = FruitsPP::new(&rosu_map)
+                    .attributes(attributes)
+                    .mods(mods)
+                    .fruits(n_fruits)
+                    .droplets(n_droplets)
+                    .tiny_droplets(n_tiny_droplets)
+                    .tiny_droplet_misses(n_tiny_droplet_misses)
+                    .calculate();
+
+                let hits = n_fruits + n_droplets + n_tiny_droplets;
+                let total = hits + n_tiny_droplet_misses;
+
+                let acc = if total == 0 {
+                    0.0
+                } else {
+                    100.0 * hits as f32 / total as f32
+                };
+
+                Some((
+                    n_fruits,
+                    n_droplets,
+                    Some(n_tiny_droplet_misses),
+                    pp_result.pp,
+                    acc,
+                ))
+            }
+            StarResult::Taiko(attributes) if score.grade == Grade::F || score.count_miss > 0 => {
+                let total_objects = rosu_map.n_circles as usize;
+                let passed_objects = score.total_hits(GameMode::TKO) as usize;
+
+                let mut count300 =
+                    score.count300 as usize + total_objects.saturating_sub(passed_objects);
+
+                let count_hits = total_objects - score.count_miss as usize;
+                let ratio = 1.0 - (count300 as f32 / count_hits as f32);
+                let new100s = (ratio * score.count_miss as f32).ceil() as u32;
+
+                count300 += score.count_miss.saturating_sub(new100s) as usize;
+                let count100 = (score.count100 + new100s) as usize;
+
+                let acc = 100.0 * (2 * count300 + count100) as f32 / (2 * total_objects) as f32;
+
+                let pp_result = TaikoPP::new(&rosu_map)
+                    .attributes(attributes)
+                    .mods(mods)
+                    .accuracy(acc)
+                    .calculate();
+
+                Some((count300, count100, None, pp_result.pp, acc))
+            }
+            _ => None,
         };
-        // Prepare map file here so that it's not requested potentially two times
-        prepare_beatmap_file(map.beatmap_id).await?;
-        let (calc_result, (description, title, grade_completion_mods), if_fc) =
-            tokio::join!(calculator.calculate(calculations), async_work, async_if_fc);
-        if let Err(why) = calc_result {
-            unwind_error!(warn, why, "Error while calculating <recent pp: {}");
-        }
-        let max_pp = calculator.max_pp();
-        let if_fc = if_fc.map(|(pp, x, y)| (osu::get_pp(pp, max_pp), x, y));
-        let stars = round(calculator.stars().unwrap_or(0.0));
-        let (pp, combo, hits) = (
-            osu::get_pp(calculator.pp(), max_pp),
-            if map.mode == GameMode::MNA {
-                let mut ratio = score.count_geki as f32;
-                if score.count300 > 0 {
-                    ratio /= score.count300 as f32
-                }
-                format!("**{}x** / {:.2}", &score.max_combo, ratio)
-            } else {
-                osu::get_combo(score, map)
-            },
-            score.hits_string(map.mode),
-        );
+
+        let pp = osu::get_pp(Some(pp), Some(max_pp));
+        let hits = score.hits_string(map.mode);
+        let grade_completion_mods = grade_completion_mods(score, map);
+
+        let (combo, title) = if map.mode == GameMode::MNA {
+            let mut ratio = score.count_geki as f32;
+
+            if score.count300 > 0 {
+                ratio /= score.count300 as f32
+            }
+
+            let combo = format!("**{}x** / {:.2}", &score.max_combo, ratio);
+            let title = format!("{} {}", osu::get_keys(score.enabled_mods, &map), map);
+
+            (combo, title)
+        } else {
+            (osu::get_combo(score, map), map.to_string())
+        };
+
+        let if_fc = if_fc.map(|(n300, n100, n50, pp, acc)| {
+            let mut hits = String::from("{");
+            let _ = write!(hits, "{}/", n300);
+            let _ = write!(hits, "{}/", n100);
+
+            if let Some(n50) = n50 {
+                let _ = write!(hits, "{}/", n50);
+            }
+
+            let _ = write!(hits, "0}}");
+
+            (osu::get_pp(Some(pp), Some(max_pp)), round(acc), hits)
+        });
+
         let footer = Footer::new(format!(
             "{:?} map by {} | played",
             map.approval_status, map.creator
         ))
         .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
+
+        let personal_idx = personal.and_then(|personal| personal.iter().position(|s| s == score));
+        let global_idx = global.and_then(|global| global.iter().position(|s| s == score));
+
+        let description = if personal_idx.is_some() || global_idx.is_some() {
+            let mut description = String::with_capacity(25);
+            description.push_str("__**");
+
+            if let Some(idx) = personal_idx {
+                let _ = write!(description, "Personal Best #{}", idx + 1);
+
+                if global_idx.is_some() {
+                    description.reserve(19);
+                    description.push_str(" and ");
+                }
+            }
+
+            if let Some(idx) = global_idx {
+                let _ = write!(description, "Global Top #{}", idx + 1);
+            }
+
+            description.push_str("**__");
+
+            Some(description)
+        } else {
+            None
+        };
+
         Ok(Self {
             description,
             title,

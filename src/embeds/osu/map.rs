@@ -78,8 +78,8 @@ impl MapEmbed {
         );
 
         let attributes = rosu_map.attributes().mods(mod_bits);
-        let ar = attributes.ar; // TODO: Check on AR
-        let od = attributes.od; // TODO: Check on OD
+        let ar = attributes.ar;
+        let od = attributes.od;
         let hp = attributes.hp;
         let cs = attributes.cs;
 
@@ -96,7 +96,7 @@ impl MapEmbed {
                     .calculate(no_leniency::stars),
                 Mode::MNA => ManiaPP::new(&rosu_map)
                     .mods(mod_bits)
-                    .stars(star_result)
+                    .attributes(star_result)
                     .score(acc_to_score(mod_mult, acc) as u32)
                     .calculate(),
                 Mode::CTB => FruitsPP::new(&rosu_map)
@@ -106,7 +106,7 @@ impl MapEmbed {
                     .calculate(),
                 Mode::TKO => TaikoPP::new(&rosu_map)
                     .mods(mod_bits)
-                    .stars(star_result)
+                    .attributes(star_result)
                     .accuracy(acc)
                     .calculate(),
             };

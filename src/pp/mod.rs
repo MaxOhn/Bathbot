@@ -126,7 +126,7 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
                     let calculator = ManiaPP::new(&map).mods(mods).score(score);
 
                     if let Some(result) = max_pp_result {
-                        calculator.stars(result).calculate()
+                        calculator.attributes(result).calculate()
                     } else {
                         calculator.calculate()
                     }
@@ -186,7 +186,7 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
                     if let Some(result) = max_pp_result
                         .filter(|_| score.map_or(true, |s| s.grade(GameMode::TKO) != Grade::F))
                     {
-                        calculator.stars(result).calculate()
+                        calculator.attributes(result).calculate()
                     } else {
                         calculator.calculate()
                     }

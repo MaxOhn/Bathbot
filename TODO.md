@@ -7,6 +7,8 @@
 - Update twilight
 - Find a better way than reaction for things like `<r`
 - Replace bloodcat links
+- Background image of `<map` graph should be darker
+- Put non-global leaderboard back in for `<bg lb`
 - ~~Custom pagination for `<r`~~
 - ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~
 - ~~`<playermedals` showing a list of a user's medals~~
