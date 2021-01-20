@@ -378,7 +378,7 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
 
             let n_fruits = score.count300 as usize + missing_fruits;
             let n_droplets = score.count100 as usize + missing_droplets;
-            let n_tiny_droplet_misses = score.count50 as usize;
+            let n_tiny_droplet_misses = score.count_katu as usize;
             let n_tiny_droplets = attributes
                 .n_tiny_droplets
                 .saturating_sub(n_tiny_droplet_misses);
@@ -404,7 +404,7 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
             Some(IfFC {
                 n300: n_fruits,
                 n100: n_droplets,
-                n50: Some(n_tiny_droplet_misses),
+                n50: Some(n_tiny_droplets),
                 pp: pp_result.pp,
                 acc,
             })

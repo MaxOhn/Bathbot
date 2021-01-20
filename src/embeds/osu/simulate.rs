@@ -310,11 +310,15 @@ async fn unchoke_score(score: &mut Score, map: &Beatmap) -> BotResult<()> {
 
             let n_fruits = score.count300 as usize + missing_fruits;
             let n_droplets = score.count100 as usize + missing_droplets;
-            let n_tiny_droplet_misses = score.count50 as usize;
+            let n_tiny_droplet_misses = score.count_katu as usize;
+            let n_tiny_droplets = attributes
+                .n_tiny_droplets
+                .saturating_sub(n_tiny_droplet_misses);
 
             score.count300 = n_fruits as u32;
             score.count100 = n_droplets as u32;
-            score.count50 = n_tiny_droplet_misses as u32;
+            score.count_katu = n_tiny_droplet_misses as u32;
+            score.count50 = n_tiny_droplets as u32;
             score.max_combo = attributes.max_combo as u32;
         }
         GameMode::TKO if score.grade == Grade::F || score.count_miss > 0 => {
