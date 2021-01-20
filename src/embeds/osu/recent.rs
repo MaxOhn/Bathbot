@@ -137,110 +137,7 @@ impl RecentEmbed {
             pp_result.pp
         };
 
-        let got_s = matches!(score.grade, Grade::S | Grade::SH | Grade::X | Grade::XH);
-
-        let if_fc = match attributes {
-            StarResult::Osu(attributes)
-                if !got_s || score.max_combo < attributes.max_combo as u32 - 5 =>
-            {
-                let total_objects = map.count_objects() as usize;
-                let passed_objects = score.total_hits(GameMode::STD) as usize;
-
-                let mut count300 =
-                    score.count300 as usize + total_objects.saturating_sub(passed_objects);
-
-                let count_hits = total_objects - score.count_miss as usize;
-                let ratio = 1.0 - (count300 as f32 / count_hits as f32);
-                let new100s = (ratio * score.count_miss as f32).ceil() as u32;
-
-                count300 += score.count_miss.saturating_sub(new100s) as usize;
-                let count100 = (score.count100 + new100s) as usize;
-                let count50 = score.count50 as usize;
-
-                let pp_result = OsuPP::new(&rosu_map)
-                    .attributes(attributes)
-                    .mods(mods)
-                    .n300(count300)
-                    .n100(count100)
-                    .n50(count50)
-                    .calculate(no_leniency::stars);
-
-                let acc = 100.0 * (6 * count300 + 2 * count100 + count50) as f32
-                    / (6 * total_objects) as f32;
-
-                Some((count300, count100, Some(count50), pp_result.pp, acc))
-            }
-            StarResult::Fruits(attributes) if score.grade == Grade::F || score.count_miss > 0 => {
-                let total_objects = attributes.max_combo;
-                let passed_objects = score.total_hits(GameMode::CTB) as usize;
-
-                let missing = total_objects - passed_objects;
-                let missing_fruits = missing.saturating_sub(
-                    attributes
-                        .n_droplets
-                        .saturating_sub(score.count100 as usize),
-                );
-                let missing_droplets = missing - missing_fruits;
-
-                let n_fruits = score.count300 as usize + missing_fruits;
-                let n_droplets = score.count100 as usize + missing_droplets;
-                let n_tiny_droplet_misses = score.count50 as usize;
-                let n_tiny_droplets = attributes
-                    .n_tiny_droplets
-                    .saturating_sub(n_tiny_droplet_misses);
-
-                let pp_result = FruitsPP::new(&rosu_map)
-                    .attributes(attributes)
-                    .mods(mods)
-                    .fruits(n_fruits)
-                    .droplets(n_droplets)
-                    .tiny_droplets(n_tiny_droplets)
-                    .tiny_droplet_misses(n_tiny_droplet_misses)
-                    .calculate();
-
-                let hits = n_fruits + n_droplets + n_tiny_droplets;
-                let total = hits + n_tiny_droplet_misses;
-
-                let acc = if total == 0 {
-                    0.0
-                } else {
-                    100.0 * hits as f32 / total as f32
-                };
-
-                Some((
-                    n_fruits,
-                    n_droplets,
-                    Some(n_tiny_droplet_misses),
-                    pp_result.pp,
-                    acc,
-                ))
-            }
-            StarResult::Taiko(attributes) if score.grade == Grade::F || score.count_miss > 0 => {
-                let total_objects = rosu_map.n_circles as usize;
-                let passed_objects = score.total_hits(GameMode::TKO) as usize;
-
-                let mut count300 =
-                    score.count300 as usize + total_objects.saturating_sub(passed_objects);
-
-                let count_hits = total_objects - score.count_miss as usize;
-                let ratio = 1.0 - (count300 as f32 / count_hits as f32);
-                let new100s = (ratio * score.count_miss as f32).ceil() as u32;
-
-                count300 += score.count_miss.saturating_sub(new100s) as usize;
-                let count100 = (score.count100 + new100s) as usize;
-
-                let acc = 100.0 * (2 * count300 + count100) as f32 / (2 * total_objects) as f32;
-
-                let pp_result = TaikoPP::new(&rosu_map)
-                    .attributes(attributes)
-                    .mods(mods)
-                    .accuracy(acc)
-                    .calculate();
-
-                Some((count300, count100, None, pp_result.pp, acc))
-            }
-            _ => None,
-        };
+        let if_fc = if_fc_struct(score, &rosu_map, attributes, mods);
 
         let pp = osu::get_pp(Some(pp), Some(max_pp));
         let hits = score.hits_string(map.mode);
@@ -261,18 +158,22 @@ impl RecentEmbed {
             (osu::get_combo(score, map), map.to_string())
         };
 
-        let if_fc = if_fc.map(|(n300, n100, n50, pp, acc)| {
+        let if_fc = if_fc.map(|if_fc| {
             let mut hits = String::from("{");
-            let _ = write!(hits, "{}/", n300);
-            let _ = write!(hits, "{}/", n100);
+            let _ = write!(hits, "{}/", if_fc.n300);
+            let _ = write!(hits, "{}/", if_fc.n100);
 
-            if let Some(n50) = n50 {
+            if let Some(n50) = if_fc.n50 {
                 let _ = write!(hits, "{}/", n50);
             }
 
             let _ = write!(hits, "0}}");
 
-            (osu::get_pp(Some(pp), Some(max_pp)), round(acc), hits)
+            (
+                osu::get_pp(Some(if_fc.pp), Some(max_pp)),
+                round(if_fc.acc),
+                hits,
+            )
         });
 
         let footer = Footer::new(format!(
@@ -414,5 +315,130 @@ impl EmbedData for RecentEmbed {
                 inline: false,
             })
             .author(ab)
+    }
+}
+
+struct IfFC {
+    n300: usize,
+    n100: usize,
+    n50: Option<usize>,
+    pp: f32,
+    acc: f32,
+}
+
+fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> Option<IfFC> {
+    match attributes {
+        StarResult::Osu(attributes)
+            if score.count_miss > 0 || score.max_combo < attributes.max_combo as u32 - 5 =>
+        {
+            let total_objects = (map.n_circles + map.n_sliders + map.n_spinners) as usize;
+            let passed_objects = score.total_hits(GameMode::STD) as usize;
+
+            let mut count300 =
+                score.count300 as usize + total_objects.saturating_sub(passed_objects);
+
+            let count_hits = total_objects - score.count_miss as usize;
+            let ratio = 1.0 - (count300 as f32 / count_hits as f32);
+            let new100s = (ratio * score.count_miss as f32).ceil() as u32;
+
+            count300 += score.count_miss.saturating_sub(new100s) as usize;
+            let count100 = (score.count100 + new100s) as usize;
+            let count50 = score.count50 as usize;
+
+            let pp_result = OsuPP::new(&map)
+                .attributes(attributes)
+                .mods(mods)
+                .n300(count300)
+                .n100(count100)
+                .n50(count50)
+                .calculate(no_leniency::stars);
+
+            let acc =
+                100.0 * (6 * count300 + 2 * count100 + count50) as f32 / (6 * total_objects) as f32;
+
+            Some(IfFC {
+                n300: count300,
+                n100: count100,
+                n50: Some(count50),
+                pp: pp_result.pp,
+                acc,
+            })
+        }
+        StarResult::Fruits(attributes) if score.max_combo != attributes.max_combo as u32 => {
+            let total_objects = attributes.max_combo;
+            let passed_objects = score.total_hits(GameMode::CTB) as usize;
+
+            let missing = total_objects - passed_objects;
+            let missing_fruits = missing.saturating_sub(
+                attributes
+                    .n_droplets
+                    .saturating_sub(score.count100 as usize),
+            );
+            let missing_droplets = missing - missing_fruits;
+
+            let n_fruits = score.count300 as usize + missing_fruits;
+            let n_droplets = score.count100 as usize + missing_droplets;
+            let n_tiny_droplet_misses = score.count50 as usize;
+            let n_tiny_droplets = attributes
+                .n_tiny_droplets
+                .saturating_sub(n_tiny_droplet_misses);
+
+            let pp_result = FruitsPP::new(&map)
+                .attributes(attributes)
+                .mods(mods)
+                .fruits(n_fruits)
+                .droplets(n_droplets)
+                .tiny_droplets(n_tiny_droplets)
+                .tiny_droplet_misses(n_tiny_droplet_misses)
+                .calculate();
+
+            let hits = n_fruits + n_droplets + n_tiny_droplets;
+            let total = hits + n_tiny_droplet_misses;
+
+            let acc = if total == 0 {
+                0.0
+            } else {
+                100.0 * hits as f32 / total as f32
+            };
+
+            Some(IfFC {
+                n300: n_fruits,
+                n100: n_droplets,
+                n50: Some(n_tiny_droplet_misses),
+                pp: pp_result.pp,
+                acc,
+            })
+        }
+        StarResult::Taiko(attributes) if score.grade == Grade::F || score.count_miss > 0 => {
+            let total_objects = map.n_circles as usize;
+            let passed_objects = score.total_hits(GameMode::TKO) as usize;
+
+            let mut count300 =
+                score.count300 as usize + total_objects.saturating_sub(passed_objects);
+
+            let count_hits = total_objects - score.count_miss as usize;
+            let ratio = 1.0 - (count300 as f32 / count_hits as f32);
+            let new100s = (ratio * score.count_miss as f32).ceil() as u32;
+
+            count300 += score.count_miss.saturating_sub(new100s) as usize;
+            let count100 = (score.count100 + new100s) as usize;
+
+            let acc = 100.0 * (2 * count300 + count100) as f32 / (2 * total_objects) as f32;
+
+            let pp_result = TaikoPP::new(&map)
+                .attributes(attributes)
+                .mods(mods)
+                .accuracy(acc)
+                .calculate();
+
+            Some(IfFC {
+                n300: count300,
+                n100: count100,
+                n50: None,
+                pp: pp_result.pp,
+                acc,
+            })
+        }
+        _ => None,
     }
 }

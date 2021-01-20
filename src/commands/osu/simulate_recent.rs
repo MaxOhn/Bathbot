@@ -127,10 +127,30 @@ pub async fn simulaterecent(ctx: Arc<Context>, msg: &Message, args: Args) -> Bot
 }
 
 #[command]
-#[short_desc("Display a perfect play on a user's most recently played map")]
+#[short_desc("Display a perfect play on a user's most recently played mania map")]
 #[usage("[username] [+mods] [-s score]")]
 #[example("badewanne3 +dt -s 895000")]
 #[aliases("srm")]
 pub async fn simulaterecentmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     simulate_recent_main(GameMode::MNA, ctx, msg, args).await
+}
+
+#[command]
+#[short_desc("Unchoke a user's most recent taiko play")]
+#[usage("[username] [+mods] [-a acc%] [-c combo] [-m #misses]")]
+#[example("badewanne3 +hr -a 99.3 -m 1")]
+#[aliases("srt")]
+pub async fn simulaterecenttaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    simulate_recent_main(GameMode::TKO, ctx, msg, args).await
+}
+
+#[command]
+#[short_desc("Unchoke a user's most recent ctb play")]
+#[usage(
+    "[username] [+mods] [-a acc%] [-c combo] [-300 #fruits] [-100 #droplets] [-50 #tiny droplet misses] [-m #misses]"
+)]
+#[example("badewanne3 +hr -a 99.3 -300 1422 -m 1")]
+#[aliases("src")]
+pub async fn simulaterecentctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+    simulate_recent_main(GameMode::CTB, ctx, msg, args).await
 }

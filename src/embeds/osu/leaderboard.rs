@@ -40,10 +40,13 @@ impl LeaderboardEmbed {
         S: Iterator<Item = &'i ScraperScore>,
     {
         let mut author_text = String::with_capacity(32);
+
         if map.mode == GameMode::MNA {
             let _ = write!(author_text, "[{}K] ", map.diff_cs as u32);
         }
+
         let _ = write!(author_text, "{} [{:.2}★]", map, map.stars);
+
         let description = if let Some(scores) = scores {
             let map_path = prepare_beatmap_file(map.beatmap_id).await?;
             let file = File::open(map_path).map_err(PPError::from)?;
@@ -56,9 +59,11 @@ impl LeaderboardEmbed {
             for (i, score) in scores.enumerate() {
                 let found_author = author_name == score.username.cow_to_lowercase();
                 let mut username = String::with_capacity(32);
+
                 if found_author {
                     username.push_str("__");
                 }
+
                 let _ = write!(
                     username,
                     "[{name}]({base}users/{id})",
@@ -66,9 +71,11 @@ impl LeaderboardEmbed {
                     base = OSU_BASE,
                     id = score.user_id
                 );
+
                 if found_author {
                     username.push_str("__");
                 }
+
                 let _ = writeln!(
                     description,
                     "**{idx}.** {grade} **{name}**: {score} [ {combo} ]{mods}\n\
@@ -93,10 +100,13 @@ impl LeaderboardEmbed {
         } else {
             "No scores found".to_string()
         };
+
         let mut author = Author::new(author_text).url(format!("{}b/{}", OSU_BASE, map.beatmap_id));
+
         if let Some(ref author_icon) = author_icon {
             author = author.icon_url(author_icon.to_owned());
         }
+
         let footer = Footer::new(format!("{:?} map by {}", map.approval_status, map.creator))
             .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
 
