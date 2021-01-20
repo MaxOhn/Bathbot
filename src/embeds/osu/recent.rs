@@ -61,7 +61,7 @@ impl RecentEmbed {
         let mut attributes = max_result.attributes;
 
         let max_pp = max_result.pp;
-        let stars = attributes.stars();
+        let stars = round(attributes.stars());
 
         let pp = if score.grade == Grade::F {
             let hits = score.total_hits(map.mode) as usize;

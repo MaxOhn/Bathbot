@@ -342,7 +342,7 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
 #[long_desc(
     "Display a user's top plays if no score in their top100 would be a choke.\n\
     If a number is specified, I will only unchoke scores with at most that many misses.\n\
-    Note: As for all commands, numbers for scores on converted maps are wack and\
+    Note: As for all commands, numbers for scores on converted maps are wack and \
     are ignored when unchoking."
 )]
 #[usage("[username] [number for miss limit]")]
@@ -357,7 +357,7 @@ async fn nochokestaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
 #[long_desc(
     "Display a user's top plays if no score in their top100 would be a choke.\n\
     If a number is specified, I will only unchoke scores with at most that many misses.\n\
-    Note: As for all commands, numbers for scores on converted maps are wack and\
+    Note: As for all commands, numbers for scores on converted maps are wack and \
     are ignored when unchoking."
 )]
 #[usage("[username] [number for miss limit]")]
