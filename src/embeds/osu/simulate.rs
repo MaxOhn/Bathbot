@@ -104,12 +104,10 @@ impl SimulateEmbed {
                             unchoked_score.max_combo.to_string()
                         }
                     )
+                } else if let Some(combo) = map.max_combo {
+                    format!("**{combo}**/{combo}", combo = combo)
                 } else {
-                    if let Some(combo) = map.max_combo {
-                        format!("**{combo}**/{combo}", combo = combo)
-                    } else {
-                        "**-**/-".to_string()
-                    }
+                    "**-**/-".to_string()
                 };
 
                 (combo, acc)

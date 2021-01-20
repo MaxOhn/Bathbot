@@ -6,7 +6,6 @@
 - Split database tables based on popular queries
 - Update twilight
 - Find a better way than reaction for things like `<r`
-- Replace bloodcat links
 - Background image of `<map` graph should be darker
 - Put non-global leaderboard back in for `<bg lb`
 - ~~Custom pagination for `<r`~~
@@ -18,12 +17,12 @@
 - Experiment with different team/opponent scaling for `<mc`
 - Check on `thread 'tokio-runtime-worker' panicked at 'error binding to 169.254.124.89:9094:`
     `error creating server listener: Cannot assign requested address (os error 99)'"`
-- `<nochokesctb` (https://pakachan.github.io/osustuff/ppcalculator.html) (investigate)
-- `<nochokestaiko` (slider maps have no max combo)
 - Write peppy a mail
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Add `<nochokesctb` and `<nochokestaiko`~~ (21.01.20)
+- ~~Replace bloodcat links~~ (21.01.20)
 - ~~Improve mania and ctb star calculation~~ (21.01.19)
 - ~~Update taiko pp / stars~~ (21.01.18)
 - ~~Rewrite `<mc` calculation~~ (20.12.29)
