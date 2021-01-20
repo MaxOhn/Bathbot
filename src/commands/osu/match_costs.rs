@@ -163,7 +163,19 @@ fn process_match(
     osu_match: &Match,
     warmups: usize,
 ) -> MatchResult {
-    let games: Vec<_> = osu_match.games.iter().skip(warmups).collect();
+    let mut to_skip = warmups;
+    let games: Vec<_> = osu_match
+        .games
+        .iter()
+        .skip_while(|game| {
+            if !game.scores.is_empty() {
+                to_skip = to_skip.saturating_sub(1);
+            }
+
+            to_skip > 0
+        })
+        .collect();
+
     let mut teams = HashMap::new();
     let mut point_costs = HashMap::new();
     let mut mods = HashMap::new();
