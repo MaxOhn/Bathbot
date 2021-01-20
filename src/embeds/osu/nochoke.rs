@@ -8,8 +8,8 @@ use crate::{
     },
 };
 
-use rosu::model::{Beatmap, GameMode, Score, User};
-use std::fmt::Write;
+use rosu::model::{Beatmap, Score, User};
+use std::{borrow::Cow, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct NoChokeEmbed {
@@ -43,7 +43,7 @@ impl NoChokeEmbed {
                 description,
                 "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
                 {grade} {old_pp:.2} → **{new_pp:.2}pp**/{max_pp:.2}PP ~ ({old_acc:.2} → **{new_acc:.2}%**)\n\
-                [ {old_combo} → **{new_combo}x**/{max_combo}x ] ~ *Removed {misses} miss{plural}*",
+                [ {old_combo} → **{new_combo}x**/{max_combo} ] ~ *Removed {misses} miss{plural}*",
                 idx = idx,
                 title = map.title,
                 version = map.version,
@@ -55,11 +55,11 @@ impl NoChokeEmbed {
                 old_pp = original.pp.unwrap_or(0.0),
                 new_pp = unchoked.pp.unwrap_or(0.0),
                 max_pp = calculator.max_pp().unwrap_or(0.0),
-                old_acc = original.accuracy(GameMode::STD),
-                new_acc = unchoked.accuracy(GameMode::STD),
+                old_acc = original.accuracy(map.mode),
+                new_acc = unchoked.accuracy(map.mode),
                 old_combo = original.max_combo,
                 new_combo = unchoked.max_combo,
-                max_combo = map.max_combo.unwrap_or(0),
+                max_combo = map.max_combo.map_or_else(|| Cow::Borrowed("-"), |combo| format!("{}x", combo).into()),
                 misses = original.count_miss - unchoked.count_miss,
                 plural = if original.count_miss - unchoked.count_miss != 1 {
                     "es"

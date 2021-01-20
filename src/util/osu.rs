@@ -144,52 +144,7 @@ pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
                 Grade::X
             };
         }
-        _ => panic!("Can only simulate STD and MNA scores, not {:?}", map.mode,),
-    }
-}
-
-pub fn unchoke_score(score: &mut Score, map: &Beatmap) {
-    score.pp = None;
-    match map.mode {
-        GameMode::STD => {
-            let max_combo = match map.max_combo {
-                Some(combo) => combo,
-                None => {
-                    warn!("No max combo on beatmap {} to unchoke", map.beatmap_id);
-                    return;
-                }
-            };
-            if score.max_combo == max_combo {
-                return;
-            }
-            let total_objects = map.count_objects();
-            let passed_objects = score.total_hits(GameMode::STD);
-            score.count300 += total_objects.saturating_sub(passed_objects);
-            let count_hits = total_objects - score.count_miss;
-            let ratio = 1.0 - (score.count300 as f32 / count_hits as f32);
-            let new100s = (ratio * score.count_miss as f32).ceil() as u32;
-            score.count100 += new100s;
-            score.count300 += score.count_miss.saturating_sub(new100s);
-            score.max_combo = max_combo;
-            score.count_miss = 0;
-            score.recalculate_grade(GameMode::STD, None);
-        }
-        GameMode::MNA => {
-            score.max_combo = 0;
-            score.score = 1_000_000;
-            score.count_geki = map.count_objects();
-            score.count300 = 0;
-            score.count_katu = 0;
-            score.count100 = 0;
-            score.count50 = 0;
-            score.count_miss = 0;
-            score.grade = if score.enabled_mods.contains(GameMods::Hidden) {
-                Grade::XH
-            } else {
-                Grade::X
-            };
-        }
-        _ => warn!("Can only unchoke STD and MNA scores, not {}", map.mode),
+        _ => panic!("Can only simulate STD and MNA scores, not {:?}", map.mode),
     }
 }
 

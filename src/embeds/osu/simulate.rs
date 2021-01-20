@@ -276,7 +276,10 @@ async fn unchoke_score(score: &mut Score, map: &Beatmap) -> BotResult<()> {
         GameMode::MNA if score.grade == Grade::F => {
             score.score = 1_000_000;
 
-            score.grade = if score.enabled_mods.contains(GameMods::Hidden) {
+            score.grade = if score
+                .enabled_mods
+                .intersects(GameMods::Flashlight | GameMods::Hidden)
+            {
                 Grade::XH
             } else {
                 Grade::X

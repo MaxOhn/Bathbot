@@ -73,9 +73,9 @@ branch = "master"
 features = ["cache", "metrics"]
 
 [dependencies.rosu-pp]
-# path = "../rosu-pp"
-git = "https://github.com/MaxOhn/rosu-pp"
-branch = "main"
+path = "../rosu-pp"
+# git = "https://github.com/MaxOhn/rosu-pp"
+# branch = "main"
 
 [dependencies.scraper]
 version = "0.12"
