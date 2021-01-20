@@ -14,7 +14,7 @@ use crate::{
 };
 
 use chrono::Duration;
-use image::{png::PngEncoder, ColorType, DynamicImage};
+use image::{png::PngEncoder, ColorType, DynamicImage, GenericImage, GenericImageView, Pixel};
 use plotters::prelude::*;
 use rayon::prelude::*;
 use rosu::model::{GameMode, GameMods};
@@ -223,7 +223,7 @@ async fn strain_values(map_id: u32, mods: GameMods) -> BotResult<Vec<(f32, f32)>
     Ok(strains)
 }
 
-fn graph(strains: Vec<(f32, f32)>, background: DynamicImage) -> BotResult<Vec<u8>> {
+fn graph(strains: Vec<(f32, f32)>, mut background: DynamicImage) -> BotResult<Vec<u8>> {
     static LEN: usize = W as usize * H as usize;
 
     let max_strain = strains
@@ -245,14 +245,28 @@ fn graph(strains: Vec<(f32, f32)>, background: DynamicImage) -> BotResult<Vec<u8
             .x_label_area_size(17)
             .build_cartesian_2d(0.0..strains.last().unwrap().0, 0.0..max_strain)?;
 
+        // Make background darker and sum up rgb values to find minimum
+        let (w, h) = background.dimensions();
+        let mut r = 0;
+        let mut g = 0;
+        let mut b = 0;
+
+        for y in 0..h {
+            for x in 0..w {
+                let pixel = background
+                    .get_pixel(x, y)
+                    .map_with_alpha(|c| c.saturating_sub(75), |a| a.saturating_sub(25));
+
+                r += pixel[0] as u64;
+                g += pixel[1] as u64;
+                b += pixel[2] as u64;
+
+                background.put_pixel(x, y, pixel);
+            }
+        }
+
         // Take as line color whatever is represented least in the background
-        let (r, g, b) = background
-            .to_rgba8()
-            .pixels()
-            .par_bridge()
-            .map(|pixel| (pixel[0] as u64, pixel[1] as u64, pixel[2] as u64))
-            .reduce(|| (0, 0, 0), |sums, curr| sums.add(curr));
-        let b = (b as f32 * 1.1) as u64;
+        let b = (b as f32 * 1.3) as u64;
         let line_color = match r.min(g).min(b) {
             min if min == r => &RED,
             min if min == g => &GREEN,
@@ -265,7 +279,7 @@ fn graph(strains: Vec<(f32, f32)>, background: DynamicImage) -> BotResult<Vec<u8
         chart.draw_series(std::iter::once(elem))?;
 
         // Mesh and labels
-        let text_style = FontDesc::new(FontFamily::Serif, 11.0, FontStyle::Bold).color(line_color);
+        let text_style = FontDesc::new(FontFamily::Serif, 12.0, FontStyle::Bold).color(line_color);
         chart
             .configure_mesh()
             .disable_y_mesh()

@@ -6,7 +6,6 @@
 - Split database tables based on popular queries
 - Update twilight
 - Find a better way than reaction for things like `<r`
-- Background image of `<map` graph should be darker
 - Put non-global leaderboard back in for `<bg lb`
 - ~~Custom pagination for `<r`~~
 - ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~
@@ -21,6 +20,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Background image of `<map` graph should be darker~~ (21.01.20)
 - ~~Add `<nochokesctb` and `<nochokestaiko`~~ (21.01.20)
 - ~~Replace bloodcat links~~ (21.01.20)
 - ~~Improve mania and ctb star calculation~~ (21.01.19)
