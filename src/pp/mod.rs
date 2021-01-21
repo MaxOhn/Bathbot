@@ -31,6 +31,7 @@ pub struct PPCalculator<'s, 'm> {
 }
 
 impl<'s, 'm> PPCalculator<'s, 'm> {
+    #[inline]
     pub fn new() -> Self {
         Self {
             score: None,
@@ -41,18 +42,28 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
             stars: None,
         }
     }
+
+    #[inline]
     pub fn mods(mut self, mods: GameMods) -> Self {
         self.mods.replace(mods);
+
         self
     }
+
+    #[inline]
     pub fn score(mut self, score: impl ScoreExt + 's) -> Self {
         self.score.replace(Box::new(score));
+
         self
     }
+
+    #[inline]
     pub fn map(mut self, map: impl BeatmapExt + 'm) -> Self {
         self.map.replace(Box::new(map));
+
         self
     }
+
     pub async fn calculate(&mut self, calcs: Calculations) -> BotResult<()> {
         assert_ne!(calcs.bits, 0);
 
@@ -223,12 +234,17 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
         Ok(())
     }
 
+    #[inline]
     pub fn pp(&self) -> Option<f32> {
         self.pp
     }
+
+    #[inline]
     pub fn max_pp(&self) -> Option<f32> {
         self.max_pp
     }
+
+    #[inline]
     pub fn stars(&self) -> Option<f32> {
         self.stars
     }

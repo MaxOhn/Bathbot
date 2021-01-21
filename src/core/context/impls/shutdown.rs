@@ -6,6 +6,7 @@ use twilight_model::gateway::presence::{ActivityType, Status};
 impl Context {
     pub async fn initiate_cold_resume(&self) {
         info!("Preparing for cold resume");
+
         let activity_result = self
             .set_cluster_activity(
                 Status::Idle,
@@ -13,6 +14,7 @@ impl Context {
                 String::from("an update being deployed, replies might be delayed"),
             )
             .await;
+
         if let Err(why) = activity_result {
             debug!("Error while updating activity for cold resume: {}", why);
         }
@@ -35,11 +37,13 @@ impl Context {
         let guilds = &self.data.guilds;
         let count = self.clients.psql.insert_guilds(guilds).await?;
         let end = Instant::now();
+
         info!(
             "Stored {} guild configs in {}ms",
             count,
             (end - start).as_millis()
         );
+
         Ok(())
     }
 }

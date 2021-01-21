@@ -82,14 +82,18 @@ impl Game {
         })
     }
 
+    #[inline]
     pub async fn sub_image(&self) -> GameResult<Vec<u8>> {
         let mut reveal = self.reveal.write().await;
         reveal.increase_radius();
+
         reveal.sub_image()
     }
 
+    #[inline]
     pub async fn hint(&self) -> String {
         let mut hints = self.hints.write().await;
+
         hints.get(&self.title, &self.artist)
     }
 
@@ -103,6 +107,7 @@ impl Game {
             let reveal = self.reveal.read().await;
             reveal.full()
         };
+
         match reveal_result {
             Ok(bytes) => {
                 ctx.http
@@ -121,6 +126,7 @@ impl Game {
                 ctx.http.create_message(channel).content(content)?.await?;
             }
         }
+
         Ok(())
     }
 

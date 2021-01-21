@@ -16,14 +16,18 @@ pub async fn get_random_mapset<'m>(
 ) -> &'m MapsetTagWrapper {
     let mut rng = rand::thread_rng();
     let buffer_size = mapsets.len() / 2;
+
     loop {
         let random_index = rng.next_u32() as usize % mapsets.len();
         let mapset = &mapsets[random_index];
+
         if !previous_ids.contains(&mapset.mapset_id) {
             previous_ids.push_front(mapset.mapset_id);
+
             if previous_ids.len() > buffer_size {
                 previous_ids.pop_back();
             }
+
             return mapset;
         }
     }
@@ -46,19 +50,23 @@ pub async fn get_title_artist(ctx: &Context, mapset_id: u32) -> GameResult<(Stri
             }
         }
     };
+
     if let Some(idx_open) = title.find('(') {
         if let Some(idx_close) = title.rfind(')') {
             title.replace_range(idx_open..=idx_close, "");
         }
     }
+
     if let Some(idx) = title.find("feat.").or_else(|| title.find("ft.")) {
         title.truncate(idx);
     }
+
     Ok((title.trim().to_owned(), artist.to_lowercase()))
 }
 
 pub fn similarity(word_a: &str, word_b: &str) -> f32 {
     let len = word_a.chars().count().max(word_b.chars().count());
     let dist = levenshtein_distance(word_a, word_b);
+
     (len - dist) as f32 / len as f32
 }

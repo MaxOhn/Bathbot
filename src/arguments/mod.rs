@@ -29,6 +29,7 @@ impl OsuStatsListArgs {
         let mut rank_min = None;
         let mut rank_max = None;
         let mut args = args.take(3);
+
         while let Some(arg) = args.next() {
             if arg == "-r" || arg == "-rank" {
                 if let Some((min, max)) = args.next().and_then(parse_dotted) {
@@ -45,14 +46,18 @@ impl OsuStatsListArgs {
                 break;
             }
         }
+
         // Put values into parameter variable
         let mut params = OsuStatsListParams::new(country).mode(mode);
+
         if let Some(rank_min) = rank_min {
             params = params.rank_min(rank_min);
         }
+
         if let Some(rank_max) = rank_max {
             params = params.rank_max(rank_max);
         }
+
         Ok(Self { params })
     }
 }
@@ -69,9 +74,11 @@ impl OsuStatsArgs {
         mode: GameMode,
     ) -> Result<Self, &'static str> {
         let mut args: Vec<_> = args.take(8).map(|arg| arg.to_owned()).collect();
+
         // Parse min and max rank
         let mut rank_min = None;
         let mut rank_max = None;
+
         if let Some(idx) = args.iter().position(|arg| arg == "-r" || arg == "-rank") {
             args.remove(idx);
             if let Some((min, max)) = args.get(idx).and_then(parse_dotted) {
@@ -84,9 +91,11 @@ impl OsuStatsArgs {
                             form `a..b` for min and max rank");
             }
         }
+
         // Parse min and max acc
         let mut acc_min = None;
         let mut acc_max = None;
+
         if let Some(idx) = args.iter().position(|arg| arg == "-a" || arg == "-acc") {
             args.remove(idx);
             if let Some((min, max)) = args.get(idx).and_then(parse_dotted) {
@@ -99,10 +108,12 @@ impl OsuStatsArgs {
                     of the form `a..b` for min and max acc");
             }
         }
+
         // Parse mods
         let mods = mods(&mut args);
         // Parse descending/ascending
         let descending = !keywords(&mut args, &["--asc", "--ascending"]);
+
         // Parse order
         let sort_by = if keywords(&mut args, &["--a", "--acc"]) {
             OsuStatsOrder::Accuracy
@@ -119,36 +130,45 @@ impl OsuStatsArgs {
         } else {
             OsuStatsOrder::PlayDate
         };
+
         // Parse username
         if let Some(name) = args.pop() {
             username = matcher::get_mention_user(&name)
                 .and_then(|id| ctx.get_link(id))
                 .or(Some(name));
         }
+
         if username.is_none() {
             return Err("Either specify an osu name or link your discord \
                         to an osu profile via `link osuname`");
         }
+
         // Put values into parameter variable
         let mut params = OsuStatsParams::new(username.unwrap())
             .mode(mode)
             .order(sort_by)
             .descending(descending);
+
         if let Some(acc_min) = acc_min {
             params = params.acc_min(acc_min);
         }
+
         if let Some(acc_max) = acc_max {
             params = params.acc_max(acc_max);
         }
+
         if let Some(rank_min) = rank_min {
             params = params.rank_min(rank_min);
         }
+
         if let Some(rank_max) = rank_max {
             params = params.rank_max(rank_max);
         }
+
         if let Some(selection) = mods {
             params = params.mods(selection);
         }
+
         Ok(Self { params })
     }
 }
@@ -165,6 +185,7 @@ pub struct SimulateArgs {
 }
 
 impl SimulateArgs {
+    #[inline]
     pub fn is_some(&self) -> bool {
         self.acc.is_some()
             || self.mods.is_some()
@@ -230,11 +251,13 @@ impl SimulateMapArgs {
         let n100 = n100(&mut args)?;
         let n50 = n50(&mut args)?;
         let score = score(&mut args)?;
+
         let map_id = args
             .pop()
             .as_deref()
             .and_then(matcher::get_osu_map_id)
             .map(|id| id.id());
+
         Ok(Self {
             map_id,
             mods,
@@ -272,11 +295,13 @@ impl SimulateNameArgs {
         let n100 = n100(&mut args)?;
         let n50 = n50(&mut args)?;
         let score = score(&mut args)?;
+
         let name = args.pop().and_then(|arg| {
             matcher::get_mention_user(&arg)
                 .and_then(|id| ctx.get_link(id))
                 .or(Some(arg))
         });
+
         Ok(Self {
             name,
             mods,
@@ -321,6 +346,7 @@ impl SnipeScoreArgs {
         } else {
             SnipeScoreOrder::Pp
         };
+
         Self {
             name: args.pop(),
             order,
@@ -344,10 +370,12 @@ impl MatchArgs {
                         id or the multiplayer link to a match")
             }
         };
+
         let warmups = args
             .next()
             .and_then(|num| usize::from_str(&num).ok())
             .unwrap_or(2);
+
         Ok(Self { match_id, warmups })
     }
 }
@@ -361,19 +389,23 @@ impl MapModArgs {
     pub fn new(args: Args) -> Self {
         let mut map_id = None;
         let mut mods = None;
+
         for arg in args {
             let maybe_map_id =
                 matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg));
+
             let maybe_mods = match maybe_map_id {
                 Some(_) => None,
                 None => matcher::get_mods(arg),
             };
+
             if map_id.is_none() && maybe_map_id.is_some() {
                 map_id = maybe_map_id;
             } else if mods.is_none() && maybe_mods.is_some() {
                 mods = maybe_mods;
             }
         }
+
         Self { map_id, mods }
     }
 }
@@ -387,6 +419,7 @@ impl NameMapArgs {
     pub fn new(ctx: &Context, args: Args) -> Self {
         let mut name = None;
         let mut map_id = None;
+
         for arg in args {
             if map_id.is_none() {
                 if let Some(id) =
@@ -397,10 +430,12 @@ impl NameMapArgs {
                 }
             }
             name = name.or_else(|| try_link_name(ctx, Some(arg)));
+
             if map_id.is_some() && name.is_some() {
                 break;
             }
         }
+
         Self { name, map_id }
     }
 }
@@ -417,28 +452,34 @@ impl RoleAssignArgs {
             .next()
             .and_then(|arg| matcher::get_mention_channel(arg))
             .map(ChannelId);
+
         if channel_id.is_none() {
             return Err("Could not parse channel. Make sure your \
                         first argument is either a channel mention \
                         or a channel id.");
         }
+
         let message_id = args
             .next()
             .and_then(|arg| u64::from_str(arg).ok())
             .map(MessageId);
+
         if message_id.is_none() {
             return Err("Could not parse message. Make sure your \
                         second argument is a message id.");
         }
+
         let role_id = args
             .next()
             .and_then(|arg| matcher::get_mention_role(arg))
             .map(RoleId);
+
         if role_id.is_none() {
             return Err("Could not parse role. Make sure your \
                         third argument is either a role mention \
                         or a role id.");
         }
+
         Ok(Self {
             channel_id: channel_id.unwrap(),
             message_id: message_id.unwrap(),
@@ -452,8 +493,10 @@ pub struct NameArgs {
 }
 
 impl NameArgs {
+    #[inline]
     pub fn new(ctx: &Context, mut args: Args) -> Self {
         let name = try_link_name(ctx, args.next());
+
         Self { name }
     }
 }
@@ -469,6 +512,7 @@ impl MultNameArgs {
             .unique()
             .map(|arg| try_link_name(ctx, Some(arg)).unwrap())
             .collect();
+
         Self { names }
     }
 }
@@ -481,12 +525,14 @@ pub struct MultNameLimitArgs {
 impl MultNameLimitArgs {
     pub fn new(ctx: &Context, args: Args, n: usize) -> Result<Self, &'static str> {
         let mut args: Vec<_> = args.take_all().unique().take(n + 2).collect();
+
         let limit = match args
             .iter()
             .position(|&arg| arg == "-limit" || arg == "-l" || arg == "-top" || arg == "-t")
         {
             Some(idx) => {
                 args.remove(idx);
+
                 match args.get(idx).map(|&arg| usize::from_str(arg)) {
                     Some(Ok(limit)) => {
                         args.remove(idx);
@@ -500,10 +546,12 @@ impl MultNameLimitArgs {
             }
             None => None,
         };
+
         let names = args
             .into_iter()
             .map(|arg| try_link_name(ctx, Some(arg)).unwrap())
             .collect();
+
         Ok(Self { names, limit })
     }
 }
@@ -516,11 +564,14 @@ pub struct NameFloatArgs {
 impl NameFloatArgs {
     pub fn new(ctx: &Context, args: Args) -> Result<Self, &'static str> {
         let mut args = args.take_all();
+
         let float = match args.next_back().and_then(|arg| f32::from_str(&arg).ok()) {
             Some(float) => float,
             None => return Err("You need to provide a decimal number as last argument"),
         };
+
         let name = try_link_name(ctx, args.next());
+
         Ok(Self { name, float })
     }
 }
@@ -534,6 +585,7 @@ impl NameIntArgs {
     pub fn new(ctx: &Context, args: Args) -> Self {
         let mut name = None;
         let mut number = None;
+
         for arg in args {
             let res = u32::from_str(arg).ok();
             if res.is_some() {
@@ -542,6 +594,7 @@ impl NameIntArgs {
                 name = try_link_name(ctx, Some(arg));
             }
         }
+
         Self { name, number }
     }
 }
@@ -555,6 +608,7 @@ impl NameModArgs {
     pub fn new(ctx: &Context, args: Args) -> Self {
         let mut name = None;
         let mut mods = None;
+
         for arg in args {
             let res = matcher::get_mods(arg);
             if res.is_some() {
@@ -563,6 +617,7 @@ impl NameModArgs {
                 name = try_link_name(ctx, Some(arg));
             }
         }
+
         Self { name, mods }
     }
 }
@@ -586,6 +641,7 @@ impl TopArgs {
 
         let mut acc_min = None;
         let mut acc_max = None;
+
         if let Some(idx) = args.iter().position(|arg| arg == "-a") {
             args.remove(idx);
             if let Some((min, minmax)) = args.get(idx).and_then(parse_dotted) {
@@ -605,6 +661,7 @@ impl TopArgs {
 
         let mut combo_min = None;
         let mut combo_max = None;
+
         if let Some(idx) = args.iter().position(|arg| arg == "-c") {
             args.remove(idx);
             if let Some((min, minmax)) = args.get(idx).and_then(parse_dotted) {
@@ -621,8 +678,10 @@ impl TopArgs {
                             form `a..b` for min and max combo");
             }
         }
+
         let grade = grade(&mut args)?;
         let mods = mods(&mut args);
+
         let sort_by = if keywords(&mut args, &["--a", "--acc"]) {
             TopSortBy::Acc
         } else if keywords(&mut args, &["--c", "--combo"]) {
@@ -630,13 +689,16 @@ impl TopArgs {
         } else {
             TopSortBy::None
         };
+
         let has_dash_r = keywords(&mut args, &["-r"]);
         let has_dash_p = keywords(&mut args, &["-p"]);
+
         let name = args.pop().and_then(|arg| {
             matcher::get_mention_user(&arg)
                 .and_then(|id| ctx.get_link(id))
                 .or(Some(arg))
         });
+
         Ok(Self {
             name,
             mods,
@@ -661,6 +723,7 @@ impl BwsArgs {
     pub fn new(ctx: &Context, args: Args) -> Self {
         let mut name = None;
         let mut rank_range = None;
+
         for arg in args {
             match parse_dotted(arg) {
                 Some((Some(min), max)) => rank_range = Some(RankRange::Range(min, max)),
@@ -672,6 +735,7 @@ impl BwsArgs {
                 }
             }
         }
+
         Self { name, rank_range }
     }
 }
@@ -704,6 +768,7 @@ impl RankArgs {
                 );
             } else {
                 let (country, num) = arg.split_at(2);
+
                 match (num.parse(), country.chars().all(|c| c.is_ascii_alphabetic())) {
                     (Ok(num), true) => (Some(country.to_uppercase()), num),
                     (Err(_), _) => {
@@ -728,11 +793,9 @@ impl RankArgs {
 
         let (name, variant) = match (args.next(), args.next()) {
             (None, None) => (None, None),
-            (Some(arg), None) => {
-                match arg.parse() {
-                    Ok(variant) => (None, Some(variant)),
-                    Err(_) => (try_link_name(ctx, Some(arg)), None)
-                }
+            (Some(arg), None) => match arg.parse() {
+                Ok(variant) => (None, Some(variant)),
+                Err(_) => (try_link_name(ctx, Some(arg)), None),
             },
             (Some(arg1), Some(arg2)) => {
                 if let Ok(variant) = arg2.parse() {
@@ -769,17 +832,20 @@ pub fn try_link_name(ctx: &Context, msg: Option<&str>) -> Option<String> {
 fn mods(args: &mut Vec<String>) -> Option<ModSelection> {
     for (i, arg) in args.iter().enumerate() {
         let mods = matcher::get_mods(arg);
+
         if mods.is_some() {
             args.remove(i);
             return mods;
         }
     }
+
     None
 }
 
 fn acc(args: &mut Vec<String>) -> Result<Option<f32>, &'static str> {
     if let Some(idx) = args.iter().position(|arg| arg == "-a" || arg == "-acc") {
         args.remove(idx);
+
         match args.get(idx).map(|arg| f32::from_str(arg.as_str())) {
             Some(Ok(acc)) => {
                 args.remove(idx);
@@ -797,6 +863,7 @@ fn acc(args: &mut Vec<String>) -> Result<Option<f32>, &'static str> {
 fn combo(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     if let Some(idx) = args.iter().position(|arg| arg == "-c" || arg == "-combo") {
         args.remove(idx);
+
         match args.get(idx).map(|arg| u32::from_str(arg.as_str())) {
             Some(Ok(combo)) => {
                 args.remove(idx);
@@ -814,6 +881,7 @@ fn combo(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
 fn grade(args: &mut Vec<String>) -> Result<Option<Grade>, &'static str> {
     if let Some(idx) = args.iter().position(|arg| arg == "-g" || arg == "-grade") {
         args.remove(idx);
+
         match args.get(idx).map(|arg| Grade::from_str(arg)) {
             Some(Ok(grade)) => {
                 args.remove(idx);
@@ -830,6 +898,7 @@ fn grade(args: &mut Vec<String>) -> Result<Option<Grade>, &'static str> {
 fn n300(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     if let Some(idx) = args.iter().position(|arg| arg == "-300" || arg == "-n300") {
         args.remove(idx);
+
         match args.get(idx).map(|arg| u32::from_str(arg.as_str())) {
             Some(Ok(n300)) => {
                 args.remove(idx);
@@ -846,6 +915,7 @@ fn n300(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
 fn n100(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     if let Some(idx) = args.iter().position(|arg| arg == "-100" || arg == "-n100") {
         args.remove(idx);
+
         match args.get(idx).map(|arg| u32::from_str(arg.as_str())) {
             Some(Ok(n100)) => {
                 args.remove(idx);
@@ -862,6 +932,7 @@ fn n100(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
 fn n50(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     if let Some(idx) = args.iter().position(|arg| arg == "-50" || arg == "-n50") {
         args.remove(idx);
+
         match args.get(idx).map(|arg| u32::from_str(arg.as_str())) {
             Some(Ok(n50)) => {
                 args.remove(idx);
@@ -878,6 +949,7 @@ fn n50(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
 fn score(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     if let Some(idx) = args.iter().position(|arg| arg == "-s" || arg == "-score") {
         args.remove(idx);
+
         match args.get(idx).map(|arg| u32::from_str(arg.as_str())) {
             Some(Ok(score)) => {
                 args.remove(idx);
@@ -895,6 +967,7 @@ fn score(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
 fn miss(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     if let Some(idx) = args.iter().position(|arg| arg == "-x" || arg == "-m") {
         args.remove(idx);
+
         match args.get(idx).map(|arg| u32::from_str(arg.as_str())) {
             Some(Ok(misses)) => {
                 args.remove(idx);
@@ -914,6 +987,7 @@ fn keywords(args: &mut Vec<String>, keys: &[&str]) -> bool {
         args.remove(idx);
         return true;
     }
+
     false
 }
 
@@ -939,12 +1013,15 @@ trait DottedValue: PartialOrd + FromStr + Copy {
 macro_rules! impl_dotted_value {
     ($type:ty) => {
         impl DottedValue for $type {
+            #[inline]
             fn min(self, other: Self) -> Self {
                 match self.partial_cmp(&other).unwrap_or(Ordering::Equal) {
                     Ordering::Less | Ordering::Equal => self,
                     Ordering::Greater => other,
                 }
             }
+
+            #[inline]
             fn max(self, other: Self) -> Self {
                 match self.partial_cmp(&other).unwrap_or(Ordering::Equal) {
                     Ordering::Less | Ordering::Equal => other,

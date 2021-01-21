@@ -63,26 +63,33 @@ impl<'m> Args<'m> {
     fn lex(&mut self) -> Option<(usize, usize)> {
         let stream = &mut self.stream;
         let start = stream.offset();
+
         if stream.current()? == b'"' {
             stream.next();
             stream.take_until(|b| b == b'"');
             let is_quote = stream.current().map_or(false, |b| b == b'"');
             stream.next();
             let end = stream.offset();
+
             if start == end - 2 {
                 return self.lex();
             }
+
             stream.take_while_char(|c| c.is_whitespace());
+
             let limits = if is_quote {
                 (start + 1, end - 1)
             } else {
                 (start, stream.len())
             };
+
             return Some(limits);
         }
+
         stream.take_while_char(|c| !c.is_whitespace());
         let end = stream.offset();
         stream.take_while_char(|c| c.is_whitespace());
+
         Some((start, end))
     }
 }

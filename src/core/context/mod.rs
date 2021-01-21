@@ -93,9 +93,12 @@ impl Context {
         message: String,
     ) -> BotResult<()> {
         for shard_id in 0..self.backend.shards_per_cluster {
+            debug!("Setting activity for shard {}", shard_id);
+
             self.set_shard_activity(shard_id, status, activity_type, message.clone())
                 .await?;
         }
+
         Ok(())
     }
 
@@ -118,6 +121,7 @@ impl Context {
                 ),
             )
             .await?;
+
         Ok(())
     }
 }

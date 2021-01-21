@@ -22,6 +22,7 @@ bitflags! {
 }
 
 impl Default for MapsetTags {
+    #[inline]
     fn default() -> Self {
         Self::all()
     }
@@ -29,6 +30,7 @@ impl Default for MapsetTags {
 
 impl FromStr for MapsetTags {
     type Err = String;
+
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let result = match value.cow_to_lowercase().as_ref() {
             "farm" => Self::Farm,
@@ -46,6 +48,7 @@ impl FromStr for MapsetTags {
             "kpop" => Self::Kpop,
             other => return Err(other.to_owned()),
         };
+
         Ok(result)
     }
 }
@@ -58,15 +61,19 @@ impl MapsetTags {
 
     pub fn join(self, separator: impl std::fmt::Display) -> String {
         let mut iter = self.into_iter();
+
         let first_tag = match iter.next() {
             Some(first_tag) => first_tag,
             None => return "None".to_owned(),
         };
+
         let mut result = String::with_capacity(self.size() * 6);
         let _ = write!(result, "{:?}", first_tag);
+
         for element in iter {
             let _ = write!(result, "{}{:?}", separator, element);
         }
+
         result
     }
 }
@@ -78,6 +85,7 @@ pub struct IntoIter {
 
 impl Iterator for IntoIter {
     type Item = MapsetTags;
+
     fn next(&mut self) -> Option<Self::Item> {
         if self.tags.is_empty() {
             None
@@ -99,6 +107,7 @@ impl Iterator for IntoIter {
 impl IntoIterator for MapsetTags {
     type Item = MapsetTags;
     type IntoIter = IntoIter;
+
     fn into_iter(self) -> IntoIter {
         IntoIter {
             tags: self,

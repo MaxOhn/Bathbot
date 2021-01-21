@@ -24,10 +24,12 @@ impl ModSelection {
     }
 }
 
+#[inline]
 pub fn grade_emote(grade: Grade) -> String {
     CONFIG.get().unwrap().grade(grade).to_owned()
 }
 
+#[inline]
 pub fn mode_emote(mode: GameMode) -> String {
     CONFIG.get().unwrap().modes[&mode].to_owned()
 }
@@ -36,6 +38,7 @@ pub fn grade_completion_mods(score: &impl ScoreExt, map: &Beatmap) -> String {
     let mode = map.mode();
     let grade = CONFIG.get().unwrap().grade(score.grade(mode));
     let mods = score.mods();
+
     match (
         mods.is_empty(),
         score.grade(mode) == Grade::F && mode != GameMode::CTB,
@@ -47,6 +50,7 @@ pub fn grade_completion_mods(score: &impl ScoreExt, map: &Beatmap) -> String {
     }
 }
 
+#[inline]
 fn completion(score: &impl ScoreExt, map: &Beatmap) -> u32 {
     let passed = score.hits(map.mode() as u8);
     let total = map.count_objects();
@@ -56,10 +60,12 @@ fn completion(score: &impl ScoreExt, map: &Beatmap) -> u32 {
 pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadError> {
     let mut map_path = CONFIG.get().unwrap().map_path.clone();
     map_path.push(format!("{}.osu", map_id));
+
     if !map_path.exists() {
         let download_url = format!("{}web/maps/{}", OSU_BASE, map_id);
         let mut content;
         let mut delay = 450;
+
         while {
             content = reqwest::get(&download_url).await?.bytes().await?;
             content.len() < 6 || &content.slice(0..6)[..] == b"<html>"
@@ -71,6 +77,7 @@ pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadErro
             }
             delay *= 2;
         }
+
         match content.len() < 6 || &content.slice(0..6)[..] == b"<html>" {
             true => info!(
                 "Failed to download {}.osu after up to {}ms delay",
@@ -83,6 +90,7 @@ pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadErro
             }
         }
     }
+
     Ok(map_path.to_str().unwrap().to_owned())
 }
 
@@ -93,6 +101,7 @@ pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
         }
         _ => {}
     }
+
     match map.mode {
         GameMode::STD => {
             let acc = args.acc.unwrap_or_else(|| {
@@ -189,6 +198,7 @@ pub fn map_id_from_history(msgs: Vec<Message>) -> Option<MapIdType> {
             return option;
         }
     }
+
     None
 }
 
@@ -202,11 +212,13 @@ fn check_embeds_for_map_id(embeds: &[Embed]) -> Option<MapIdType> {
             .author
             .as_ref()
             .and_then(|author| author.url.as_deref());
+
         let option = url
             .and_then(matcher::get_osu_map_id)
             .or_else(|| url.and_then(matcher::get_osu_mapset_id))
             .or_else(|| embed.url.as_deref().and_then(matcher::get_osu_map_id))
             .or_else(|| embed.url.as_deref().and_then(matcher::get_osu_mapset_id));
+
         if option.is_some() {
             return option;
         }
@@ -221,6 +233,7 @@ pub enum MapIdType {
 }
 
 impl MapIdType {
+    #[inline]
     pub fn id(&self) -> u32 {
         match self {
             Self::Map(id) | Self::Set(id) => *id,

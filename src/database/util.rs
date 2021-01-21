@@ -11,15 +11,19 @@ impl CustomSQL for String {
     fn set_tags(mut self, delim: &str, tags: MapsetTags, value: bool) -> BotResult<Self> {
         let size = tags.size();
         let mut tags = tags.into_iter();
+
         let first_tag = match tags.next() {
             Some(first_tag) => first_tag,
             None => bail!("cannot build update query without tags"),
         };
+
         self.reserve(size * (delim.len() + 10));
         write!(self, " {}={}", tag_column(first_tag), value)?;
+
         for tag in tags {
             write!(self, "{}{}={}", delim, tag_column(tag), value)?;
         }
+
         Ok(self)
     }
 }

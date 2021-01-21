@@ -3,15 +3,18 @@ use crate::BotResult;
 
 use chrono::{offset::TimeZone, DateTime, Datelike, Utc};
 
+#[inline]
 pub fn date_to_string(date: &DateTime<Utc>) -> String {
     date.format(DATE_FORMAT).to_string()
 }
 
 #[allow(dead_code)]
+#[inline]
 pub fn string_to_date(date: String) -> BotResult<DateTime<Utc>> {
     Ok(Utc.datetime_from_str(&date, DATE_FORMAT)?)
 }
 
+#[inline]
 pub fn sec_to_minsec(secs: u32) -> String {
     format!("{}:{:02}", secs / 60, secs % 60)
 }
@@ -23,6 +26,7 @@ pub fn how_long_ago(date: &DateTime<Utc>) -> String {
     assert!(diff_sec >= 0);
     let one_day = 24 * 3600;
     let one_week = 7 * one_day;
+
     let (amount, unit) = {
         if diff_sec < 60 {
             (diff_sec, "second")
@@ -50,6 +54,7 @@ pub fn how_long_ago(date: &DateTime<Utc>) -> String {
             }
         }
     };
+
     format!(
         "{amount} {unit}{plural} ago",
         amount = amount,

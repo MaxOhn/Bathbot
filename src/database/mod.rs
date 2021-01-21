@@ -18,13 +18,16 @@ impl Database {
         let user = &config.database.db_user;
         let pw = &config.database.db_pw;
         let name = &config.database.db_name;
+
         let options = sqlx::postgres::PgConnectOptions::new()
             .ssl_mode(sqlx::postgres::PgSslMode::Disable)
             .username(user)
             .password(pw)
             .host(host)
             .database(name);
+
         let pool = PgPool::connect_lazy_with(options);
+
         Ok(Self { pool })
     }
 }

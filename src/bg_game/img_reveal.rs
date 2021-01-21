@@ -18,6 +18,7 @@ impl ImageReveal {
         let mut rng = rand::thread_rng();
         let x = radius + rng.next_u32() % (w - 2 * radius);
         let y = radius + rng.next_u32() % (h - 2 * radius);
+
         Self {
             dim: (w, h),
             original,
@@ -27,6 +28,7 @@ impl ImageReveal {
         }
     }
 
+    #[inline]
     pub fn increase_radius(&mut self) {
         self.radius += 75;
     }
@@ -40,6 +42,7 @@ impl ImageReveal {
         let sub_image = self.original.crop_imm(cx, cy, w, h);
         let mut png_bytes: Vec<u8> = Vec::with_capacity((w * h) as usize);
         sub_image.write_to(&mut png_bytes, Png)?;
+
         Ok(png_bytes)
     }
 
@@ -47,6 +50,7 @@ impl ImageReveal {
         let (w, h) = self.dim;
         let mut png_bytes: Vec<u8> = Vec::with_capacity((w * h) as usize);
         self.original.write_to(&mut png_bytes, Png)?;
+
         Ok(png_bytes)
     }
 }

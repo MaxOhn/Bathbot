@@ -27,8 +27,10 @@ pub struct GameWrapper {
 }
 
 impl GameWrapper {
+    #[inline]
     pub fn new() -> Self {
         let (tx, rx) = mpsc::channel(5);
+
         Self {
             game: Arc::new(RwLock::new(None)),
             tx: Arc::new(Mutex::new(tx)),
@@ -36,30 +38,38 @@ impl GameWrapper {
         }
     }
 
+    #[inline]
     pub async fn stop(&self) -> GameResult<()> {
         let mut tx = self.tx.lock().await;
+
         tx.send(LoopResult::Stop)
             .await
             .map_err(|_| BgGameError::StopToken)
     }
 
+    #[inline]
     pub async fn restart(&self) -> GameResult<()> {
         let mut tx = self.tx.lock().await;
+
         tx.send(LoopResult::Restart)
             .await
             .map_err(|_| BgGameError::RestartToken)
     }
 
+    #[inline]
     pub async fn sub_image(&self) -> GameResult<Option<Vec<u8>>> {
         let game_option = timeout(TIMEOUT, self.game.read()).await?;
+
         match game_option.as_ref() {
             Some(game) => Some(game.sub_image().await).transpose(),
             None => Ok(None),
         }
     }
 
+    #[inline]
     pub async fn hint(&self) -> GameResult<Option<String>> {
         let game_option = timeout(TIMEOUT, self.game.read()).await?;
+
         match game_option.as_ref() {
             Some(game) => Ok(Some(game.hint().await)),
             None => Ok(None),

@@ -263,7 +263,7 @@ fn shard_schema_values() -> Option<(u64, u64)> {
                 .long("shards")
                 .value_name("NUM")
                 .takes_value(true)
-                .help("How many shards in total"),
+                .help("How many shards in total (don't use)"),
         )
         .arg(
             Arg::with_name("shards per cluster")

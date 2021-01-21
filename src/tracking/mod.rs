@@ -50,6 +50,7 @@ pub struct OsuTracking {
 impl OsuTracking {
     pub async fn new(psql: &Database) -> BotResult<Self> {
         let users = psql.get_osu_trackings().await?;
+
         let queue = users
             .iter()
             .map(|guard| {
@@ -57,6 +58,7 @@ impl OsuTracking {
                 ((value.user_id, value.mode), Reverse(Utc::now()))
             })
             .collect();
+
         Ok(Self {
             queue: RwLock::new(queue),
             users,
@@ -80,6 +82,7 @@ impl OsuTracking {
         let ms_per_track = wait_interval as f32 / queue as f32;
         let amount = (cooldown / ms_per_track).max(1.0);
         let delay = (ms_per_track * amount) as u64;
+
         TrackingStats {
             next_pop,
             users,
@@ -96,6 +99,7 @@ impl OsuTracking {
     }
 
     // ms
+    #[inline]
     pub async fn set_cooldown(&self, new_cooldown: f32) -> f32 {
         let mut cooldown = self.cooldown.write().await;
         let result = *cooldown;
@@ -103,6 +107,7 @@ impl OsuTracking {
         result
     }
 
+    #[inline]
     pub async fn reset(&self, user: u32, mode: GameMode) {
         let now = Utc::now();
         *self.last_date.write().await = now;
@@ -139,6 +144,7 @@ impl OsuTracking {
         Ok(())
     }
 
+    #[inline]
     pub fn get_tracked(
         &self,
         user_id: u32,
@@ -151,9 +157,11 @@ impl OsuTracking {
 
     pub async fn pop(&self) -> Option<HashMap<(u32, GameMode), DateTime<Utc>>> {
         let len = self.queue.read().await.len();
+
         if len == 0 || self.stop_tracking.load(Ordering::Relaxed) {
             return None;
         }
+
         let last_date = *self.last_date.read().await;
         // Calculate how many users need to be popped for this iteration
         // so that _all_ users will be popped within the next INTERVAL
@@ -161,11 +169,14 @@ impl OsuTracking {
         let ms_per_track = interval.num_milliseconds() as f32 / len as f32;
         let amount = (*self.cooldown.read().await / ms_per_track).max(1.0);
         let delay = (ms_per_track * amount) as u64;
+
         debug!(
             "[Popping] All: {} ~ Last date: {:?} ~ Amount: {} ~ Delay: {}ms",
             len, last_date, amount, delay
         );
+
         time::delay_for(time::Duration::from_millis(delay)).await;
+
         // Pop users and return them
         let elems = {
             let mut queue = self.queue.write().await;
@@ -179,6 +190,7 @@ impl OsuTracking {
                 })
                 .collect()
         };
+
         Some(elems)
     }
 
@@ -199,8 +211,10 @@ impl OsuTracking {
                 },
             )
             .collect();
+
         for mode in removed {
             let key = (user_id, mode);
+
             match self
                 .users
                 .get(&key)
@@ -222,6 +236,7 @@ impl OsuTracking {
                 None => warn!("Should not be reachable"),
             }
         }
+
         Ok(())
     }
 
@@ -232,6 +247,7 @@ impl OsuTracking {
         psql: &Database,
     ) -> BotResult<usize> {
         let mut count = 0;
+
         let to_remove: Vec<_> = self
             .users
             .iter_mut()
@@ -247,11 +263,13 @@ impl OsuTracking {
                 }
             })
             .collect();
+
         for key in to_remove {
             let is_empty = match self.users.get(&key) {
                 Some(guard) => guard.value().channels.is_empty(),
                 None => continue,
             };
+
             if is_empty {
                 debug!("Removing {:?} from tracking (all)", key);
                 psql.remove_osu_tracking(key.0, key.1).await?;
@@ -267,8 +285,10 @@ impl OsuTracking {
                 psql.update_osu_tracking(user_id, mode, user.last_top_score, &user.channels)
                     .await?
             }
+
             count += 1;
         }
+
         Ok(count)
     }
 
@@ -282,6 +302,7 @@ impl OsuTracking {
         psql: &Database,
     ) -> BotResult<bool> {
         let key = (user_id, mode);
+
         match self.users.get_mut(&key) {
             Some(mut guard) => match guard.value().channels.get(&channel) {
                 Some(old_limit) => match *old_limit == limit {
@@ -317,6 +338,7 @@ impl OsuTracking {
                 self.queue.write().await.push((user_id, mode), Reverse(now));
             }
         }
+
         Ok(true)
     }
 
@@ -326,6 +348,7 @@ impl OsuTracking {
             .filter_map(|guard| {
                 let limit = *guard.value().channels.get(&channel)?;
                 let (user_id, mode) = guard.key();
+
                 Some((*user_id, *mode, limit))
             })
             .collect()

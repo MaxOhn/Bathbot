@@ -13,20 +13,26 @@ pub struct MapsetTagWrapper {
 
 impl Deref for MapsetTagWrapper {
     type Target = MapsetTags;
+
     fn deref(&self) -> &Self::Target {
         &self.tags
     }
 }
 
 impl MapsetTagWrapper {
+    #[inline]
     pub fn untagged(&self) -> bool {
         self.tags.is_empty()
     }
+
     #[allow(dead_code)]
+    #[inline]
     pub fn any(&self) -> bool {
         !self.tags.is_empty()
     }
+
     #[allow(dead_code)]
+    #[inline]
     pub fn has_tags(&self, tags: MapsetTags) -> bool {
         self.contains(tags)
     }

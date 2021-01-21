@@ -20,13 +20,16 @@ impl Hints {
             .filter(|(_, c)| *c != ' ') // spaces revealed immediatly
             .map(|(i, _)| i)
             .collect();
+
         let mut rng = rand::thread_rng();
         indices.shuffle(&mut rng);
         let mut title_mask = Vec::with_capacity(title.len());
         title_mask.push(true);
+
         for c in title.chars().skip(1) {
             title_mask.push(c == ' ');
         }
+
         Self {
             artist_guessed: false,
             hint_level: 0,
@@ -38,6 +41,7 @@ impl Hints {
 
     pub fn get(&mut self, title: &str, artist: &str) -> String {
         self.hint_level = self.hint_level.saturating_add(1);
+
         if self.hint_level == 1 {
             let word_count = title.split(' ').count();
             format!(
