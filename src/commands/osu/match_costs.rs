@@ -44,7 +44,11 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 
     // Retrieve the match
     let osu_match = match ctx.osu().osu_match(match_id).await {
-        Ok(osu_match) => osu_match,
+        Ok(mut osu_match) => {
+            osu_match.games.retain(|game| !game.scores.is_empty());
+
+            osu_match
+        }
         Err(OsuError::InvalidMultiplayerMatch) => {
             let content = "Either the mp id was invalid or the match was private";
             return msg.error(&ctx, content).await;
@@ -96,6 +100,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     // Process match
     let (description, match_result) = if osu_match.games.len() <= warmups {
         let mut description = String::from("No games played yet");
+
         if !osu_match.games.is_empty() && warmups > 0 {
             let _ = write!(
                 description,
@@ -104,9 +109,11 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
                 if warmups > 1 { "s" } else { "" }
             );
         }
+
         (Some(description), None)
     } else {
         let result = process_match(users.clone(), &osu_match, warmups);
+
         (None, Some(result))
     };
 
@@ -163,19 +170,7 @@ fn process_match(
     osu_match: &Match,
     warmups: usize,
 ) -> MatchResult {
-    let mut to_skip = warmups;
-    let games: Vec<_> = osu_match
-        .games
-        .iter()
-        .skip_while(|game| {
-            if !game.scores.is_empty() {
-                to_skip = to_skip.saturating_sub(1);
-            }
-
-            to_skip > 0
-        })
-        .collect();
-
+    let games = &osu_match.games[warmups..];
     let mut teams = HashMap::new();
     let mut point_costs = HashMap::new();
     let mut mods = HashMap::new();
@@ -323,6 +318,7 @@ pub enum MatchResult {
 }
 
 impl MatchResult {
+    #[inline]
     fn team(mvp: u32, match_scores: MatchScores, blue: TeamResult, red: TeamResult) -> Self {
         Self::TeamVS {
             mvp,
@@ -332,10 +328,12 @@ impl MatchResult {
         }
     }
 
+    #[inline]
     fn solo(mvp: u32, players: TeamResult) -> Self {
         Self::HeadToHead { mvp, players }
     }
 
+    #[inline]
     pub fn mvp_id(&self) -> u32 {
         match self {
             MatchResult::TeamVS { mvp, .. } => *mvp,
@@ -348,6 +346,7 @@ impl MatchResult {
 pub struct MatchScores(u8, u8);
 
 impl MatchScores {
+    #[inline]
     fn incr(&mut self, team: Team) {
         match team {
             Team::Blue => self.0 = self.0.saturating_add(1),
@@ -356,14 +355,17 @@ impl MatchScores {
         }
     }
 
+    #[inline]
     pub fn blue(self) -> u8 {
         self.0
     }
 
+    #[inline]
     pub fn red(self) -> u8 {
         self.1
     }
 
+    #[inline]
     fn difference(&self) -> u8 {
         let min = self.0.min(self.1);
         let max = self.0.max(self.1);
