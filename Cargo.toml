@@ -10,7 +10,6 @@ bitflags     = "1.2"
 bytes        = "1.0"
 chrono       = "0.4"
 cow-utils    = "0.1"
-darkredis    = "0.7"
 futures      = "0.3"
 governor     = "0.3"
 itertools    = "0.10"
@@ -33,6 +32,11 @@ uwl          = "0.6"
 [dependencies.clap]
 version = "2.33"
 default_features = false
+
+[dependencies.darkredis]
+# version = "0.7"
+git = "https://github.com/BlackHoleFox/darkredis.git"
+branch = "tokio-and-dependency-updates"
 
 [dependencies.dashmap]
 version = "4.0"
@@ -70,7 +74,9 @@ features = ["cookies", "multipart"]
 [dependencies.rosu]
 # version = "0.4"
 git = "https://github.com/MaxOhn/rosu"
-branch = "master"
+# branch = "master"
+branch = "darkredis-patch"
+# path = "../rosu"
 features = ["cache", "metrics"]
 
 [dependencies.rosu-pp]
@@ -87,7 +93,9 @@ version = "1.0"
 features = ["derive", "rc"]
 
 [dependencies.sqlx]
-version = "0.4"
+# version = "0.4"
+git = "https://github.com/launchbadge/sqlx"
+branch = "master"
 default-features = false
 features = ["postgres", "runtime-tokio-rustls", "chrono", "macros", "json"]
 
@@ -102,36 +110,42 @@ default_features = false
 
 [dependencies.twilight-cache-inmemory]
 # path = "../twilight/cache/in-memory"
-branch = "custom-cache"
+# branch = "custom-cache"
+branch = "darkredis-patch"
 git = "https://github.com/MaxOhn/twilight"
 
 [dependencies.twilight-embed-builder]
 # path = "../twilight/embed-builder"
-branch = "custom-cache"
+# branch = "custom-cache"
+branch = "darkredis-patch"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false
 
 [dependencies.twilight-gateway]
-# path = "../twilight/gateway
-branch = "custom-cache"
+# path = "../twilight/gateway"
+# branch = "custom-cache"
+branch = "darkredis-patch"
 git = "https://github.com/MaxOhn/twilight"
 
 [dependencies.twilight-http]
 # path = "../twilight/http"
-branch = "custom-cache"
+# branch = "custom-cache"
+branch = "darkredis-patch"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false
 features = ["rustls"]
 
 [dependencies.twilight-model]
 # path = "../twilight/model"
-branch = "custom-cache"
+# branch = "custom-cache"
+branch = "darkredis-patch"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false
 
 [dependencies.twilight-standby]
 # path = "../twilight/standby"
-branch = "custom-cache"
+# branch = "custom-cache"
+branch = "darkredis-patch"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false
 

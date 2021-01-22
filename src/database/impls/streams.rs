@@ -1,7 +1,7 @@
 use crate::{BotResult, Database};
 
 use dashmap::DashMap;
-use sqlx::{Done, Row};
+use sqlx::Row;
 
 impl Database {
     pub async fn add_stream_track(&self, channel: u64, user: u64) -> BotResult<bool> {

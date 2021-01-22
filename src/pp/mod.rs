@@ -6,8 +6,7 @@ use crate::{
 use bitflags::bitflags;
 use rosu::model::{GameMode, GameMods, Grade};
 use rosu_pp::{
-    osu::no_leniency, Beatmap, BeatmapExt as RosuBeatmapExt, FruitsPP, GameMode as Mode, ManiaPP,
-    OsuPP, TaikoPP,
+    Beatmap, BeatmapExt as RosuBeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, TaikoPP,
 };
 use std::fs::File;
 
@@ -115,9 +114,9 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
                     if let Some(result) = max_pp_result
                         .filter(|_| score.map_or(true, |s| s.grade(GameMode::STD) != Grade::F))
                     {
-                        calculator.attributes(result).calculate(no_leniency::stars)
+                        calculator.attributes(result).calculate()
                     } else {
-                        calculator.calculate(no_leniency::stars)
+                        calculator.calculate()
                     }
                 }
                 Mode::MNA => {
@@ -126,7 +125,7 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
                     let calculator = ManiaPP::new(&map).mods(mods).score(score);
 
                     if let Some(result) = max_pp_result {
-                        calculator.stars(result).calculate()
+                        calculator.attributes(result).calculate()
                     } else {
                         calculator.calculate()
                     }
@@ -186,7 +185,7 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
                     if let Some(result) = max_pp_result
                         .filter(|_| score.map_or(true, |s| s.grade(GameMode::TKO) != Grade::F))
                     {
-                        calculator.stars(result).calculate()
+                        calculator.attributes(result).calculate()
                     } else {
                         calculator.calculate()
                     }
