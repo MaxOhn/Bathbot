@@ -12,10 +12,7 @@ use crate::{
 
 use chrono::{DateTime, Utc};
 use rosu::model::{Beatmap, GameMode, GameMods};
-use rosu_pp::{
-    osu::no_leniency, Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP,
-    TaikoPP,
-};
+use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, TaikoPP};
 use std::{fmt::Write, fs::File};
 use twilight_embed_builder::image_source::ImageSource;
 
@@ -83,36 +80,36 @@ impl MapEmbed {
         let hp = attributes.hp;
         let cs = attributes.cs;
 
-        let mut star_result = rosu_map.stars(mod_bits, None);
-        let stars = star_result.stars();
+        let mut attributes = rosu_map.stars(mod_bits, None);
+        let stars = attributes.stars();
         let mut pps = Vec::with_capacity(4);
 
         for acc in [95.0, 97.0, 99.0, 100.0].iter().copied() {
             let pp_result = match rosu_map.mode {
                 Mode::STD => OsuPP::new(&rosu_map)
                     .mods(mod_bits)
-                    .attributes(star_result)
+                    .attributes(attributes)
                     .accuracy(acc)
-                    .calculate(no_leniency::stars),
+                    .calculate(),
                 Mode::MNA => ManiaPP::new(&rosu_map)
                     .mods(mod_bits)
-                    .attributes(star_result)
+                    .attributes(attributes)
                     .score(acc_to_score(mod_mult, acc) as u32)
                     .calculate(),
                 Mode::CTB => FruitsPP::new(&rosu_map)
                     .mods(mod_bits)
-                    .attributes(star_result)
+                    .attributes(attributes)
                     .accuracy(acc)
                     .calculate(),
                 Mode::TKO => TaikoPP::new(&rosu_map)
                     .mods(mod_bits)
-                    .attributes(star_result)
+                    .attributes(attributes)
                     .accuracy(acc)
                     .calculate(),
             };
 
             pps.push(pp_result.pp());
-            star_result = pp_result.attributes;
+            attributes = pp_result.attributes;
         }
 
         let mut pp_values = String::with_capacity(128);

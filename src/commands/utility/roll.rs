@@ -22,10 +22,15 @@ async fn roll(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()>
             .map(|arg| arg.parse().ok())
             .flatten()
             .unwrap_or(100);
-        rand::thread_rng().gen_range(1, (upper_limit + 1).max(2))
+        rand::thread_rng().gen_range(1..(upper_limit + 1).max(2)) // TODO: Test
     };
 
-    let content = format!("<@{}> rolls {} point(s)", msg.author.id, num);
+    let content = format!(
+        "<@{}> rolls {} point{}",
+        msg.author.id,
+        num,
+        if num == 1 { "" } else { "s" }
+    );
 
     let embed = EmbedBuilder::new()
         .color(DARK_GREEN)?

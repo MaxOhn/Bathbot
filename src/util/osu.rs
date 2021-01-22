@@ -71,7 +71,7 @@ pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadErro
             content.len() < 6 || &content.slice(0..6)[..] == b"<html>"
         } {
             info!("Received invalid {}.osu, {}ms backoff", map_id, delay);
-            time::delay_for(time::Duration::from_millis(delay)).await;
+            time::sleep(time::Duration::from_millis(delay)).await;
             if delay >= 7200 {
                 break;
             }

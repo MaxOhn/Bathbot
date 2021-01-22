@@ -15,8 +15,7 @@ use crate::{
 use cow_utils::CowUtils;
 use rosu::model::{Beatmap, GameMode};
 use rosu_pp::{
-    osu::no_leniency, Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP,
-    StarResult, TaikoPP,
+    Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, StarResult, TaikoPP,
 };
 use std::{borrow::Cow, collections::HashMap, fmt::Write, fs::File};
 use twilight_embed_builder::image_source::ImageSource;
@@ -156,7 +155,7 @@ async fn get_pp(
             Mode::STD => OsuPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
-                .calculate(no_leniency::stars),
+                .calculate(),
             Mode::MNA => ManiaPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
@@ -184,7 +183,7 @@ async fn get_pp(
             .n100(score.count100 as usize)
             .n50(score.count50 as usize)
             .combo(score.max_combo as usize)
-            .calculate(no_leniency::stars),
+            .calculate(),
         Mode::MNA => ManiaPP::new(map)
             .mods(bits)
             .attributes(attributes)

@@ -13,9 +13,7 @@ use crate::{
 
 use chrono::{DateTime, Utc};
 use rosu::model::{Beatmap, GameMode, Grade, Score, User};
-use rosu_pp::{
-    osu::no_leniency, Beatmap as Map, BeatmapExt, FruitsPP, ManiaPP, OsuPP, StarResult, TaikoPP,
-};
+use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, ManiaPP, OsuPP, StarResult, TaikoPP};
 use std::{fmt::Write, fs::File};
 use twilight_embed_builder::{
     author::EmbedAuthorBuilder, builder::EmbedBuilder, image_source::ImageSource,
@@ -75,7 +73,7 @@ impl RecentEmbed {
                     .n50(score.count50 as usize)
                     .misses(score.count_miss as usize)
                     .passed_objects(hits)
-                    .calculate(no_leniency::stars),
+                    .calculate(),
                 GameMode::MNA => ManiaPP::new(&rosu_map)
                     .mods(mods)
                     .score(score.score)
@@ -109,7 +107,7 @@ impl RecentEmbed {
                     .n100(score.count100 as usize)
                     .n50(score.count50 as usize)
                     .misses(score.count_miss as usize)
-                    .calculate(no_leniency::stars),
+                    .calculate(),
                 GameMode::MNA => ManiaPP::new(&rosu_map)
                     .attributes(attributes)
                     .mods(mods)
@@ -351,7 +349,7 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
                 .n300(count300)
                 .n100(count100)
                 .n50(count50)
-                .calculate(no_leniency::stars);
+                .calculate();
 
             let acc =
                 100.0 * (6 * count300 + 2 * count100 + count50) as f32 / (6 * total_objects) as f32;

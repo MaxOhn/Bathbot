@@ -46,7 +46,7 @@ use std::{
     num::NonZeroU32,
     str::FromStr,
 };
-use tokio::time::{delay_for, timeout, Duration};
+use tokio::time::{sleep, timeout, Duration};
 
 static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), ", ", env!("CARGO_PKG_VERSION"));
 
@@ -579,7 +579,7 @@ impl CustomClient {
             }
 
             debug!("Ratelimited by osudaily, wait a second");
-            delay_for(SECOND).await;
+            sleep(SECOND).await;
         };
 
         let bytes = response.bytes().await?;

@@ -9,7 +9,7 @@ use rosu::model::{
 };
 use sqlx::PgConnection;
 use std::collections::HashMap;
-use tokio::stream::StreamExt;
+use tokio_stream::StreamExt;
 
 impl Database {
     pub async fn get_beatmap(&self, map_id: u32) -> BotResult<Beatmap> {

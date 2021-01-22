@@ -17,7 +17,7 @@ use crate::{
 
 use futures::future::try_join_all;
 use rosu::model::GameMode;
-use rosu_pp::{osu::no_leniency, Beatmap as Map, FruitsPP, OsuPP, StarResult, TaikoPP};
+use rosu_pp::{Beatmap as Map, FruitsPP, OsuPP, StarResult, TaikoPP};
 use std::{cmp::Ordering, collections::HashMap, fs::File, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -153,7 +153,7 @@ async fn nochokes_main(
                     .n300(count300)
                     .n100(count100)
                     .n50(count50)
-                    .calculate(no_leniency::stars);
+                    .calculate();
 
                 unchoked.count300 = count300 as u32;
                 unchoked.count100 = count100 as u32;

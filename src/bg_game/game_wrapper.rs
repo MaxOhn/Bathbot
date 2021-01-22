@@ -13,7 +13,7 @@ use tokio::{
         mpsc::{self, Receiver, Sender},
         Mutex, RwLock,
     },
-    time::{delay_for, timeout, Duration},
+    time::{sleep, timeout, Duration},
 };
 use twilight_model::{gateway::payload::MessageCreate, id::ChannelId};
 
@@ -40,7 +40,7 @@ impl GameWrapper {
 
     #[inline]
     pub async fn stop(&self) -> GameResult<()> {
-        let mut tx = self.tx.lock().await;
+        let tx = self.tx.lock().await;
 
         tx.send(LoopResult::Stop)
             .await
@@ -49,7 +49,7 @@ impl GameWrapper {
 
     #[inline]
     pub async fn restart(&self) -> GameResult<()> {
-        let mut tx = self.tx.lock().await;
+        let tx = self.tx.lock().await;
 
         tx.send(LoopResult::Restart)
             .await
@@ -120,7 +120,7 @@ impl GameWrapper {
                     // Let the game run
                     result = game_loop(&mut msg_stream, &ctx, &game_lock, channel) => result,
                     // Timeout after 3 minutes
-                    _ = delay_for(GAME_LEN) => LoopResult::Stop,
+                    _ = sleep(GAME_LEN) => LoopResult::Stop,
                 };
 
                 // Process the result

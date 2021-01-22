@@ -7,21 +7,20 @@ edition = "2018"
 [dependencies]
 async-trait  = "0.1"
 bitflags     = "1.2"
-bytes        = "0.6"
+bytes        = "1.0"
 chrono       = "0.4"
 cow-utils    = "0.1"
-darkredis    = "0.7"
 futures      = "0.3"
 governor     = "0.3"
-itertools    = "0.9"
+itertools    = "0.10"
 lazy_static  = "1.4"
 log          = "0.4"
 once_cell    = "1.4"
 priority-queue = "1.0"
 proc_macros  = { path = "./proc_macros" }
-prometheus   = "0.10"
+prometheus   = "0.11"
 radix_trie   = "0.2"
-rand         = "0.7"
+rand         = "0.8"
 rayon        = "1.3"
 regex        = "1.3"
 serde_json   = "1.0"
@@ -34,18 +33,24 @@ uwl          = "0.6"
 version = "2.33"
 default_features = false
 
+[dependencies.darkredis]
+# version = "0.7"
+git = "https://github.com/BlackHoleFox/darkredis.git"
+branch = "tokio-and-dependency-updates"
+
 [dependencies.dashmap]
-version = "3.11"
+version = "4.0"
 features = ["serde"]
 
 [dependencies.flexi_logger]
-version = "0.16"
+version = "0.17"
 default_features = false
 features = ["colors", "specfile", "compress"]
 
 [dependencies.hyper]
-version = "0.13"
+version = "0.14"
 default_features = false
+features = ["server"]
 
 [dependencies.image]
 version = "0.23"
@@ -62,14 +67,16 @@ default-features = false
 features = ["bitmap_backend", "image", "line_series", "datetime", "area_series", "histogram"]
 
 [dependencies.reqwest]
-version = "0.10"
+version = "0.11"
 default_features = false
-features = ["cookies"]
+features = ["cookies", "multipart"]
 
 [dependencies.rosu]
 # version = "0.4"
 git = "https://github.com/MaxOhn/rosu"
-branch = "master"
+# branch = "master"
+branch = "darkredis-patch"
+# path = "../rosu"
 features = ["cache", "metrics"]
 
 [dependencies.rosu-pp]
@@ -86,47 +93,59 @@ version = "1.0"
 features = ["derive", "rc"]
 
 [dependencies.sqlx]
-version = "0.4"
+# version = "0.4"
+git = "https://github.com/launchbadge/sqlx"
+branch = "master"
 default-features = false
 features = ["postgres", "runtime-tokio-rustls", "chrono", "macros", "json"]
 
 [dependencies.tokio]
-version = "0.2"
+version = "1.0"
 default_features = false
-features = ["fs", "io-util", "macros", "process", "signal", "stream", "sync", "time"]
+features = ["fs", "io-util", "macros", "process", "signal", "sync", "time"]
+
+[dependencies.tokio-stream]
+version = "0.1.2"
+default_features = false
 
 [dependencies.twilight-cache-inmemory]
 # path = "../twilight/cache/in-memory"
-branch = "custom-cache"
+# branch = "custom-cache"
+branch = "darkredis-patch"
 git = "https://github.com/MaxOhn/twilight"
 
 [dependencies.twilight-embed-builder]
 # path = "../twilight/embed-builder"
-branch = "custom-cache"
+# branch = "custom-cache"
+branch = "darkredis-patch"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false
 
 [dependencies.twilight-gateway]
-# path = "../twilight/gateway
-branch = "custom-cache"
+# path = "../twilight/gateway"
+# branch = "custom-cache"
+branch = "darkredis-patch"
 git = "https://github.com/MaxOhn/twilight"
 
 [dependencies.twilight-http]
 # path = "../twilight/http"
-branch = "custom-cache"
+# branch = "custom-cache"
+branch = "darkredis-patch"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false
 features = ["rustls"]
 
 [dependencies.twilight-model]
 # path = "../twilight/model"
-branch = "custom-cache"
+# branch = "custom-cache"
+branch = "darkredis-patch"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false
 
 [dependencies.twilight-standby]
 # path = "../twilight/standby"
-branch = "custom-cache"
+# branch = "custom-cache"
+branch = "darkredis-patch"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false
 

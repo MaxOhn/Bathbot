@@ -19,7 +19,7 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
         let tracked = match ctx.tracking().pop().await {
             Some(tracked) => tracked,
             None => {
-                time::delay_for(delay).await;
+                time::sleep(delay).await;
                 continue;
             }
         };

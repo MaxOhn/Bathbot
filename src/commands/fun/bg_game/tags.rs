@@ -15,11 +15,12 @@ use rand::RngCore;
 use rayon::prelude::*;
 use rosu::model::GameMode;
 use std::{str::FromStr, sync::Arc, time::Duration};
-use tokio::{fs, stream::StreamExt};
+use tokio::fs;
+use tokio_stream::StreamExt;
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{
     channel::{Message, ReactionType},
-    gateway::{event::Event, payload::ReactionAdd},
+    gateway::event::Event,
 };
 
 #[command]
@@ -45,12 +46,14 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
             return Err(why);
         }
     };
+
     if !verified_users_init.contains(&msg.author.id) {
         let content = "This command is only for verified people.\n\
             If you're interested in helping out tagging backgrounds, \
             feel free to let Badewanne3 know :)";
         return msg.error(&ctx, content).await;
     }
+
     // Parse mapset id
     let mapset_id = match args.next().map(u32::from_str) {
         Some(Ok(num)) => num,
@@ -66,11 +69,13 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
             return msg.respond(&ctx, content).await;
         }
     };
+
     // Check if there is background for the given mapset id
     if ctx.psql().get_tags_mapset(mapset_id).await.is_err() {
         let content = "No background entry found with this id";
         return msg.error(&ctx, content).await;
     }
+
     // Parse action
     let action = match args.next().map(Action::from_str) {
         Some(Ok(action)) => action,
@@ -80,6 +85,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
             return msg.error(&ctx, content).await;
         }
     };
+
     // Parse tags
     let mut tags = MapsetTags::empty();
     while !args.is_empty() {
@@ -98,6 +104,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
             None => unreachable!(),
         }
     }
+
     let result = if tags.is_empty() {
         ctx.psql().get_tags_mapset(mapset_id).await
     } else {
@@ -107,6 +114,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
             Err(why) => Err(why),
         }
     };
+
     // Then show the final tags
     match result {
         Ok(tags) => {
@@ -121,6 +129,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
             return Err(why);
         }
     }
+
     Ok(())
 }
 
@@ -144,12 +153,14 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
             return Err(why);
         }
     };
+
     if !verified_users_init.contains(&msg.author.id) {
         let content = "This command is only for verified people.\n\
             If you're interested in helping out tagging backgrounds, \
             feel free to let Badewanne3 know :)";
         return msg.error(&ctx, content).await;
     }
+
     // Parse arguments as mode
     let mode = match args.next() {
         Some(arg) => match arg.cow_to_lowercase().as_ref() {
@@ -163,6 +174,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         },
         None => GameMode::STD,
     };
+
     let mut untagged = match ctx.psql().get_all_tags_mapset(mode).await {
         Ok(tags) => tags.par_iter().any(|tag| tag.untagged()),
         Err(why) => {
@@ -170,12 +182,15 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
             return Err(why);
         }
     };
+
     if !untagged {
         let content = "All backgrounds have been tagged, \
             here are some random ones you can review again though";
         let _ = msg.respond(&ctx, content).await;
     }
+
     let mut owner = msg.author.id;
+
     loop {
         // Get all mapsets for which tags are missing
         let tags_result = if untagged {
@@ -186,6 +201,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                 .await
                 .map(|tags| vec![tags])
         };
+
         let mapsets = match tags_result {
             Ok(mut tags) => {
                 if untagged {
@@ -208,7 +224,9 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                 return Err(why);
             }
         };
+
         let (mapset_id, img) = get_random_image(mapsets, mode).await;
+
         let content = format!(
             "<@{}> Which tags should this mapsets get: {}beatmapsets/{}\n\
             ```\n\
@@ -230,29 +248,26 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
 
         // Setup collector
         let verified_users = verified_users_init.clone();
-        let reaction_remove_stream = ctx
+
+        let reaction_stream = ctx
             .standby
-            .wait_for_event_stream(|_: &Event| true)
-            .filter_map(move |event: Event| {
-                if let Event::ReactionRemove(reaction) = event {
-                    if reaction.0.message_id == msg_id
-                        && verified_users.contains(&reaction.0.user_id)
-                    {
-                        return Some(ReactionWrapper::Remove(reaction.0));
-                    }
+            .wait_for_event_stream(move |event: &Event| match event {
+                Event::ReactionAdd(event) => {
+                    event.message_id == msg_id && verified_users.contains(&event.user_id)
                 }
-                None
-            });
-        let verified_users = verified_users_init.clone();
-        let reaction_add_stream = ctx
-            .standby
-            .wait_for_reaction_stream(msg_id, move |event: &ReactionAdd| {
-                verified_users.contains(&event.0.user_id)
+                Event::ReactionRemove(event) => {
+                    event.message_id == msg_id && verified_users.contains(&event.user_id)
+                }
+                _ => false,
             })
-            .filter_map(|reaction: ReactionAdd| Some(ReactionWrapper::Add(reaction.0)));
-        let mut reaction_stream = reaction_add_stream
-            .merge(reaction_remove_stream)
+            .map(|event| match event {
+                Event::ReactionAdd(add) => ReactionWrapper::Add(add.0),
+                Event::ReactionRemove(remove) => ReactionWrapper::Remove(remove.0),
+                _ => unreachable!(),
+            })
             .timeout(Duration::from_secs(600));
+
+        tokio::pin!(reaction_stream);
 
         // Add reactions
         let reactions = [
@@ -280,10 +295,12 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                 .create_reaction(response.channel_id, response.id, emote)
                 .await?;
         }
+
         let mut break_loop = true;
 
         // Run collector
         let mut tags = MapsetTags::empty();
+
         while let Some(Ok(reaction)) = reaction_stream.next().await {
             let tag = if let ReactionType::Unicode { ref name } = reaction.as_deref().emoji {
                 match name.as_str() {
@@ -311,6 +328,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
             } else {
                 continue;
             };
+
             match reaction {
                 ReactionWrapper::Add(_) => {
                     tags.insert(tag);
@@ -320,6 +338,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                 }
             }
         }
+
         let result = if tags.is_empty() {
             ctx.psql().get_tags_mapset(mapset_id).await
         } else {
@@ -345,12 +364,14 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                 return Err(why);
             }
         };
+
         if break_loop {
             let content = "Exiting loop, thanks for helping out :)";
             msg.respond(&ctx, content).await?;
             break;
         }
     }
+
     Ok(())
 }
 

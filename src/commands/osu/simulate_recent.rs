@@ -100,7 +100,7 @@ async fn simulate_recent_main(
 
     // Minimize embed after delay
     tokio::spawn(async move {
-        time::delay_for(Duration::from_secs(45)).await;
+        time::sleep(Duration::from_secs(45)).await;
         if !ctx.remove_msg(response.id) {
             return;
         }

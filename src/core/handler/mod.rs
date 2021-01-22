@@ -68,7 +68,11 @@ pub async fn handle_event(
             let reaction = &reaction_add.0;
             if let Some(guild_id) = reaction.guild_id {
                 if let Some(role_id) = ctx.get_role_assign(reaction) {
-                    match ctx.http.add_role(guild_id, reaction.user_id, role_id).await {
+                    match ctx
+                        .http
+                        .add_guild_member_role(guild_id, reaction.user_id, role_id)
+                        .await
+                    {
                         Ok(_) => debug!("Assigned react-role to user"),
                         Err(why) => error!("Error while assigning react-role to user: {}", why),
                     }

@@ -36,10 +36,11 @@ use hyper::{
 use prometheus::{Encoder, TextEncoder};
 use rosu::{Osu, OsuCached};
 use std::{convert::Infallible, process, str::FromStr, sync::Arc, time::Duration};
-use tokio::{runtime::Runtime, signal, stream::StreamExt, sync::oneshot, time};
+use tokio::{runtime::Runtime, signal, sync::oneshot, time};
+use tokio_stream::StreamExt;
 use twilight_gateway::{cluster::ShardScheme, Cluster};
 use twilight_http::{
-    request::channel::message::allowed_mentions::AllowedMentionsBuilder, Client as HttpClient,
+    request::channel::allowed_mentions::AllowedMentionsBuilder, Client as HttpClient,
 };
 use twilight_model::gateway::{
     presence::{ActivityType, Status},
@@ -49,7 +50,7 @@ use twilight_model::gateway::{
 pub type BotResult<T> = std::result::Result<T, Error>;
 
 fn main() {
-    let mut runtime = Runtime::new().expect("Could not start runtime");
+    let runtime = Runtime::new().expect("Could not start runtime");
     if let Err(why) = runtime.block_on(async move { async_main().await }) {
         unwind_error!(error, why, "Critical error in main: {}");
     }
@@ -77,7 +78,7 @@ async fn async_main() -> BotResult<()> {
                 .parse_roles()
                 .build_solo(),
         )
-        .build()?;
+        .build();
     let bot_user = http.current_user().await?;
     info!(
         "Connecting to Discord as {}#{}...",
@@ -219,10 +220,10 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     // Activate cluster
     let cluster_ctx = Arc::clone(&ctx);
     tokio::spawn(async move {
-        time::delay_for(Duration::from_secs(1)).await;
+        time::sleep(Duration::from_secs(1)).await;
         cluster_ctx.backend.cluster.up().await;
         if resumed {
-            time::delay_for(Duration::from_secs(5)).await;
+            time::sleep(Duration::from_secs(5)).await;
             let activity_result = cluster_ctx
                 .set_cluster_activity(Status::Online, ActivityType::Playing, String::from("osu!"))
                 .await;
@@ -250,7 +251,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     info!("Exited event loop");
 
     // Give the ctrlc handler time to finish
-    time::delay_for(time::Duration::from_secs(90)).await;
+    time::sleep(time::Duration::from_secs(90)).await;
     Ok(())
 }
 

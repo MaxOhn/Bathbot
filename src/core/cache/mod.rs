@@ -2,7 +2,7 @@ mod get_impls;
 
 use darkredis::ConnectionPool;
 use std::{collections::HashMap, ops::Deref};
-use twilight_cache_inmemory::{EventType, InMemoryCache};
+use twilight_cache_inmemory::{InMemoryCache, ResourceType};
 use twilight_gateway::shard::ResumeSession;
 
 pub struct Cache(InMemoryCache);
@@ -13,32 +13,17 @@ impl Cache {
         total_shards: u64,
         shards_per_cluster: u64,
     ) -> (Self, Option<HashMap<u64, ResumeSession>>) {
-        let events = EventType::CHANNEL_CREATE
-            | EventType::CHANNEL_DELETE
-            | EventType::CHANNEL_UPDATE
-            | EventType::GUILD_CREATE
-            | EventType::GUILD_DELETE
-            | EventType::GUILD_UPDATE
-            | EventType::MEMBER_ADD
-            | EventType::MEMBER_REMOVE
-            | EventType::MEMBER_UPDATE
-            | EventType::MEMBER_CHUNK
-            | EventType::MESSAGE_CREATE
-            | EventType::MESSAGE_DELETE
-            | EventType::MESSAGE_DELETE_BULK
-            | EventType::MESSAGE_UPDATE
-            | EventType::REACTION_ADD
-            | EventType::REACTION_REMOVE
-            | EventType::REACTION_REMOVE_ALL
-            | EventType::READY
-            | EventType::ROLE_CREATE
-            | EventType::ROLE_DELETE
-            | EventType::ROLE_UPDATE
-            | EventType::UNAVAILABLE_GUILD
-            | EventType::USER_UPDATE;
+        let resource_types = ResourceType::CHANNEL
+            | ResourceType::GUILD
+            | ResourceType::MESSAGE
+            | ResourceType::MEMBER
+            | ResourceType::REACTION
+            | ResourceType::ROLE
+            | ResourceType::USER_CURRENT
+            | ResourceType::USER;
         let config = InMemoryCache::builder()
             .message_cache_size(5)
-            .event_types(events)
+            .resource_types(resource_types)
             .build()
             .config();
         let (cache, resume_map) =
