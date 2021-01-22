@@ -1,6 +1,5 @@
 
 **[TODO]**
-- Check on `set_cluster_activity` / `shards_per_cluster` / `shard_id`
 - Allow `<top` grade argument to be a range
 - Fix `<mc` sometimes missing some users
 - Split database tables based on popular queries
@@ -21,6 +20,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Check on `set_cluster_activity` / `shards_per_cluster` / `shard_id`~~ (21.01.22)
 - ~~Background image of `<map` graph should be darker~~ (21.01.20)
 - ~~Add `<nochokesctb` and `<nochokestaiko`~~ (21.01.20)
 - ~~Replace bloodcat links~~ (21.01.20)

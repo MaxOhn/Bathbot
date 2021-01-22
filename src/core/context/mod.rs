@@ -92,7 +92,7 @@ impl Context {
         activity_type: ActivityType,
         message: String,
     ) -> BotResult<()> {
-        for shard_id in 0..self.backend.shards_per_cluster {
+        for shard_id in 0..self.backend.total_shards {
             debug!("Setting activity for shard {}", shard_id);
 
             self.set_shard_activity(shard_id, status, activity_type, message.clone())

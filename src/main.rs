@@ -145,6 +145,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
             info!("Setup: {} shards per cluster | {} total shards", to, total);
             (to, total, ShardScheme::Range { from: 0, to, total })
         });
+
     let intents = Intents::GUILDS
         | Intents::GUILD_MEMBERS
         | Intents::GUILD_MESSAGES
