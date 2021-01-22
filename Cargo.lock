@@ -2405,7 +2405,7 @@ dependencies = [
 [[package]]
 name = "rosu-pp"
 version = "0.1.0"
-source = "git+https://github.com/MaxOhn/rosu-pp?branch=main#11baf58e593a7c11627c6b14068cc6600708c73f"
+source = "git+https://github.com/MaxOhn/rosu-pp?branch=main#91819063c6abda9edcaaa45e18e187d955c6699b"
 
 [[package]]
 name = "rust-argon2"
@@ -2776,7 +2776,7 @@ dependencies = [
 [[package]]
 name = "sqlx"
 version = "0.4.2"
-source = "git+https://github.com/launchbadge/sqlx#df393128f8b07e3b858e65446b2a508a73bf5135"
+source = "git+https://github.com/launchbadge/sqlx?branch=master#df393128f8b07e3b858e65446b2a508a73bf5135"
 dependencies = [
  "sqlx-core",
  "sqlx-macros",
@@ -2785,7 +2785,7 @@ dependencies = [
 [[package]]
 name = "sqlx-core"
 version = "0.4.2"
-source = "git+https://github.com/launchbadge/sqlx#df393128f8b07e3b858e65446b2a508a73bf5135"
+source = "git+https://github.com/launchbadge/sqlx?branch=master#df393128f8b07e3b858e65446b2a508a73bf5135"
 dependencies = [
  "ahash 0.6.3",
  "atoi",
@@ -2833,7 +2833,7 @@ dependencies = [
 [[package]]
 name = "sqlx-macros"
 version = "0.4.2"
-source = "git+https://github.com/launchbadge/sqlx#df393128f8b07e3b858e65446b2a508a73bf5135"
+source = "git+https://github.com/launchbadge/sqlx?branch=master#df393128f8b07e3b858e65446b2a508a73bf5135"
 dependencies = [
  "dotenv",
  "either",
@@ -2853,7 +2853,7 @@ dependencies = [
 [[package]]
 name = "sqlx-rt"
 version = "0.2.0"
-source = "git+https://github.com/launchbadge/sqlx#df393128f8b07e3b858e65446b2a508a73bf5135"
+source = "git+https://github.com/launchbadge/sqlx?branch=master#df393128f8b07e3b858e65446b2a508a73bf5135"
 dependencies = [
  "once_cell",
  "tokio",
