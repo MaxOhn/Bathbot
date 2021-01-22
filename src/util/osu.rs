@@ -104,32 +104,67 @@ pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
 
     match map.mode {
         GameMode::STD => {
-            let acc = args.acc.unwrap_or_else(|| {
+            let mut acc = args.acc.unwrap_or_else(|| {
                 let acc = score.accuracy(map.mode);
+
                 if acc.is_nan() {
                     100.0
                 } else {
                     acc
                 }
-            }) / 100.0;
-            let n50 = args.n50.unwrap_or(0);
-            let n100 = args.n100.unwrap_or(0);
+            });
+
+            acc /= 100.0;
+
+            let mut n50 = args.n50.unwrap_or(0);
+            let mut n100 = args.n100.unwrap_or(0);
             let miss = args.miss.unwrap_or(0);
-            let total_objects = map.count_objects();
+            let n_objects = map.count_objects();
+
             let combo = args
                 .combo
                 .or(map.max_combo)
                 .unwrap_or_else(|| panic!("Neither args nor beatmap contained combo"));
+
             if n50 > 0 || n100 > 0 {
-                score.count300 = total_objects - n100.max(0) - n50.max(0) - miss;
+                let placed_points = 2 * n100 + n50 + miss;
+                let missing_objects = n_objects - n100 - n50 - miss;
+                let missing_points =
+                    ((6.0 * acc * n_objects as f32).round() as u32).saturating_sub(placed_points);
+
+                let mut n300 = missing_objects.min(missing_points / 6);
+                n50 += missing_objects - n300;
+
+                if let Some(orig_n50) = args.n50.filter(|_| args.n100.is_none()) {
+                    // Only n50s were changed, try to load some off again onto n100s
+                    let difference = n50 - orig_n50;
+                    let n = n300.min(difference / 4);
+
+                    n300 -= n;
+                    n100 += 5 * n;
+                    n50 -= 4 * n;
+                }
+
+                score.count300 = n300;
                 score.count100 = n100;
                 score.count50 = n50;
             } else {
-                let target_total = (acc * 6.0 * total_objects as f32) as u32;
-                let delta = target_total + miss - total_objects;
-                score.count300 = (delta as f32 / 5.0) as u32;
-                score.count100 = delta % 5;
-                score.count50 = total_objects - score.count300 - score.count100 - miss;
+                let target_total = (acc * n_objects as f32 * 6.0).round() as u32;
+                let delta = target_total - (n_objects - miss);
+
+                let mut n300 = delta / 5;
+                let mut n100 = delta % 5;
+                let mut n50 = n_objects - n300 - n100 - miss;
+
+                // Sacrifice n300s to transform n50s into n100s
+                let n = n300.min(n50 / 4);
+                n300 -= n;
+                n100 += 5 * n;
+                n50 -= 4 * n;
+
+                score.count300 = n300;
+                score.count100 = n100;
+                score.count50 = n50;
             }
             score.count_miss = miss;
             score.max_combo = combo;
