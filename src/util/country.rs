@@ -30,6 +30,7 @@ lazy_static::lazy_static! {
         add("Germany", "DE");
         add("Greece", "GR");
         add("Hong Kong", "HK");
+        add("Indonesia", "ID");
         add("Iraq", "IQ");
         add("Ireland", "IE");
         add("Italy", "IT");
@@ -42,6 +43,7 @@ lazy_static::lazy_static! {
         add("Philippines", "PH");
         add("Poland", "PL");
         add("Portugal", "PT");
+        add("Reunion", "RE");
         add("Saudi Arabia", "SA");
         add("Singarpore", "SG");
         add("Slovakia", "SK");
