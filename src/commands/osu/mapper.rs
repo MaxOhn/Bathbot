@@ -150,27 +150,32 @@ async fn mapper_main(
     let content = match mapper.as_str() {
         "sotarks" => {
             let amount = scores_data.len();
+
             let mut content = format!(
                 "I found {amount} Sotarks map{plural} in `{name}`'s top100, ",
                 amount = amount,
                 plural = if amount != 1 { "s" } else { "" },
                 name = user.username
             );
+
             let to_push = match amount {
                 0 => "proud of you \\:)",
-                n if n <= 5 => "that's already too many...",
-                n if n <= 10 => "kinda sad \\:/",
-                n if n <= 15 => "pretty sad \\:(",
-                n if n <= 25 => "this is so sad \\:((",
-                n if n <= 30 => "you need to stop this",
-                n if n <= 35 => "you have a serious problem...",
-                n if n >= 80 => "so close to ultimate disaster...",
-                n if n >= 90 => "i'm not even mad, that's just impressive",
+                1..=5 => "that's already too many...",
+                6..=10 => "kinda sad \\:/",
+                11..=15 => "pretty sad \\:(",
+                16..=25 => "this is so sad \\:((",
+                26..=35 => "you need to stop this",
+                36..=49 => "you have a serious problem...",
                 50 => "that's half. HALF.",
+                51..=79 => "how do you sleep at night...",
+                80..=89 => "so close to ultimate disaster...",
+                90..=99 => "i'm not even mad, that's just impressive",
                 100 => "you did it. \"Congrats\".",
-                _ => "how do you sleep at night...",
+                _ => "wait how did you do that",
             };
+
             content.push_str(to_push);
+
             content
         }
         _ => format!(
@@ -185,6 +190,7 @@ async fn mapper_main(
             mapper
         ),
     };
+
     let pages = numbers::div_euclid(5, scores_data.len());
     let data = TopEmbed::new(&user, scores_data.iter().take(5), mode, (1, pages)).await;
 
@@ -224,6 +230,7 @@ async fn mapper_main(
             unwind_error!(warn, why, "Pagination error (mapper): {}")
         }
     });
+
     Ok(())
 }
 
