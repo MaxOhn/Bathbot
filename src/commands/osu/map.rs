@@ -246,13 +246,13 @@ fn graph(strains: Vec<(f32, f32)>, mut background: DynamicImage) -> BotResult<Ve
             .build_cartesian_2d(0.0..strains.last().unwrap().0, 0.0..max_strain)?;
 
         // Make background darker and sum up rgb values to find minimum
-        let (w, h) = background.dimensions();
+        let (width, height) = background.dimensions();
         let mut r = 0;
         let mut g = 0;
         let mut b = 0;
 
-        for y in 0..h {
-            for x in 0..w {
+        for y in 0..height {
+            for x in 0..width {
                 let pixel = background
                     .get_pixel(x, y)
                     .map_with_alpha(|c| c.saturating_sub(75), |a| a.saturating_sub(25));

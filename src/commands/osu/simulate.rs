@@ -10,7 +10,6 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::model::GameMode;
 use std::sync::Arc;
 use tokio::time::{self, Duration};
 use twilight_model::channel::Message;

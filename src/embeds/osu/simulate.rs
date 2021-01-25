@@ -1,6 +1,5 @@
 use crate::{
     arguments::SimulateArgs,
-    commands::fun::start,
     embeds::{osu, EmbedData, Footer},
     pp::{Calculations, PPCalculator},
     util::{
@@ -364,12 +363,10 @@ fn simulate_score(
                 } else {
                     Grade::SH
                 }
+            } else if score.score == max_score {
+                Grade::X
             } else {
-                if score.score == max_score {
-                    Grade::X
-                } else {
-                    Grade::S
-                }
+                Grade::S
             };
 
             attributes = StarResult::Mania(diff_attributes);
