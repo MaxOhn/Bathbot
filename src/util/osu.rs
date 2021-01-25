@@ -94,7 +94,7 @@ pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadErro
     Ok(map_path.to_str().unwrap().to_owned())
 }
 
-pub fn simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
+pub fn _simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
     match args.mods {
         Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) => {
             score.enabled_mods = mods
@@ -203,26 +203,34 @@ pub fn pp_missing(start: f32, goal: f32, scores: &[Score]) -> (f32, usize) {
     let mut top: f32 = start;
     let mut bot: f32 = 0.0;
     let mut current: f32 = pp_values[idx];
+
     while top + bot < goal {
         top -= current * factor;
+
         if idx == 0 {
             break;
         }
+
         current = pp_values[idx - 1];
         bot += current * factor;
         factor /= 0.95;
         idx -= 1;
     }
+
     let mut required: f32 = goal - top - bot;
+
     if top + bot >= goal {
         factor *= 0.95;
         required = (required + factor * pp_values[idx]) / factor;
         idx += 1;
     }
+
     idx += 1;
+
     if size < 100 {
         required -= pp_values[size - 1] * 0.95_f32.powi(size as i32 - 1);
     }
+
     (required, idx)
 }
 
@@ -237,6 +245,7 @@ pub fn map_id_from_history(msgs: Vec<Message>) -> Option<MapIdType> {
     None
 }
 
+#[inline]
 pub fn cached_message_extract(msg: &CachedMessage) -> Option<MapIdType> {
     check_embeds_for_map_id(&msg.embeds)
 }

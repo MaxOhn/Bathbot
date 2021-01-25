@@ -28,7 +28,7 @@ async fn minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRes
         Some("hard") => Difficulty::Hard,
         // Some("extreme") | Some("expert") => Difficulty::Expert,
         _ => {
-            let content = "The argument must be either `easy`, `medium`, `hard`, or `expert`";
+            let content = "The argument must be either `easy`, `medium`, `hard`";
             return msg.error(&ctx, content).await;
         }
     };

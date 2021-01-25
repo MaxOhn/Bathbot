@@ -102,7 +102,7 @@ features = ["postgres", "runtime-tokio-rustls", "chrono", "macros", "json"]
 [dependencies.tokio]
 version = "1.0"
 default_features = false
-features = ["fs", "io-util", "macros", "process", "signal", "sync", "time"]
+features = ["fs", "io-util", "macros", "signal", "sync", "time"]
 
 [dependencies.tokio-stream]
 version = "0.1.2"

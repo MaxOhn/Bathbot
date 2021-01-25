@@ -1,20 +1,23 @@
 use crate::{
     arguments::SimulateArgs,
-    bail,
+    commands::fun::start,
     embeds::{osu, EmbedData, Footer},
     pp::{Calculations, PPCalculator},
     util::{
         constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
         error::PPError,
         numbers::{round, with_comma_u64},
-        osu::{grade_completion_mods, prepare_beatmap_file, simulate_score},
+        osu::{grade_completion_mods, prepare_beatmap_file, ModSelection},
         ScoreExt,
     },
     BotResult,
 };
 
 use rosu::model::{Beatmap, GameMode, GameMods, Grade, Score};
-use rosu_pp::{Beatmap as Map, StarResult};
+use rosu_pp::{
+    Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, PpResult, StarResult,
+    TaikoPP,
+};
 use std::{fmt::Write, fs::File};
 use twilight_embed_builder::{builder::EmbedBuilder, image_source::ImageSource};
 use twilight_model::channel::embed::EmbedField;
@@ -70,20 +73,31 @@ impl SimulateEmbed {
         };
 
         let mut unchoked_score = score.unwrap_or_default();
+        let map_path = prepare_beatmap_file(map.beatmap_id).await?;
+        let file = File::open(map_path).map_err(PPError::from)?;
+        let rosu_map = Map::parse(file).map_err(PPError::from)?;
 
-        if is_some {
-            simulate_score(&mut unchoked_score, map, args);
-        } else {
-            unchoke_score(&mut unchoked_score, &map).await?;
+        if let Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) = args.mods {
+            unchoked_score.enabled_mods = mods;
         }
 
-        let calculations = Calculations::PP | Calculations::MAX_PP | Calculations::STARS;
-        let mut calculator = PPCalculator::new().score(&unchoked_score).map(map);
-        calculator.calculate(calculations).await?;
+        let PpResult {
+            pp: max_pp,
+            attributes,
+        } = rosu_map.max_pp(unchoked_score.enabled_mods.bits());
+
+        let stars = round(attributes.stars());
+
+        let attributes = if is_some {
+            simulate_score(&mut unchoked_score, map, args, attributes)
+        } else {
+            unchoke_score(&mut unchoked_score, &map, attributes)
+        };
+
+        let PpResult { pp, .. } = pp(&unchoked_score, &rosu_map, attributes);
 
         let grade_completion_mods = grade_completion_mods(&unchoked_score, map);
-        let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
-        let stars = round(calculator.stars().unwrap_or(0.0));
+        let pp = osu::get_pp(Some(pp), Some(max_pp));
         let hits = unchoked_score.hits_string(map.mode);
 
         let (combo, acc) = match map.mode {
@@ -97,7 +111,7 @@ impl SimulateEmbed {
 
                 let combo = if is_some {
                     format!(
-                        "**{}**/-",
+                        "**{}x**/-",
                         if unchoked_score.max_combo == 0 {
                             "-".to_string()
                         } else {
@@ -105,7 +119,7 @@ impl SimulateEmbed {
                         }
                     )
                 } else if let Some(combo) = map.max_combo {
-                    format!("**{combo}**/{combo}", combo = combo)
+                    format!("**{combo}x**/{combo}", combo = combo)
                 } else {
                     "**-**/-".to_string()
                 };
@@ -247,9 +261,231 @@ impl EmbedData for SimulateEmbed {
     }
 }
 
-async fn unchoke_score(score: &mut Score, map: &Beatmap) -> BotResult<()> {
-    let mods = score.enabled_mods.bits();
+fn simulate_score(
+    score: &mut Score,
+    map: &Beatmap,
+    args: SimulateArgs,
+    mut attributes: StarResult,
+) -> StarResult {
+    match attributes {
+        StarResult::Osu(diff_attributes) => {
+            let mut acc = args.acc.unwrap_or_else(|| {
+                let acc = score.accuracy(map.mode);
 
+                if acc.is_nan() {
+                    100.0
+                } else {
+                    acc
+                }
+            });
+
+            acc /= 100.0;
+
+            let mut n50 = args.n50.unwrap_or(0);
+            let mut n100 = args.n100.unwrap_or(0);
+            let miss = args.miss.unwrap_or(0);
+            let n_objects = map.count_objects();
+            let combo = args.combo.unwrap_or(diff_attributes.max_combo as u32);
+
+            if n50 > 0 || n100 > 0 {
+                let placed_points = 2 * n100 + n50 + miss;
+                let missing_objects = n_objects - n100 - n50 - miss;
+                let missing_points =
+                    ((6.0 * acc * n_objects as f32).round() as u32).saturating_sub(placed_points);
+
+                let mut n300 = missing_objects.min(missing_points / 6);
+                n50 += missing_objects - n300;
+
+                if let Some(orig_n50) = args.n50.filter(|_| args.n100.is_none()) {
+                    // Only n50s were changed, try to load some off again onto n100s
+                    let difference = n50 - orig_n50;
+                    let n = n300.min(difference / 4);
+
+                    n300 -= n;
+                    n100 += 5 * n;
+                    n50 -= 4 * n;
+                }
+
+                score.count300 = n300;
+                score.count100 = n100;
+                score.count50 = n50;
+            } else {
+                let target_total = (acc * n_objects as f32 * 6.0).round() as u32;
+                let delta = target_total - (n_objects - miss);
+
+                let mut n300 = delta / 5;
+                let mut n100 = delta % 5;
+                let mut n50 = n_objects - n300 - n100 - miss;
+
+                // Sacrifice n300s to transform n50s into n100s
+                let n = n300.min(n50 / 4);
+                n300 -= n;
+                n100 += 5 * n;
+                n50 -= 4 * n;
+
+                score.count300 = n300;
+                score.count100 = n100;
+                score.count50 = n50;
+            }
+            score.count_miss = miss;
+            score.max_combo = combo;
+            score.recalculate_grade(GameMode::STD, None);
+
+            attributes = StarResult::Osu(diff_attributes);
+        }
+        StarResult::Mania(diff_attributes) => {
+            let mut max_score = 1_000_000;
+
+            let mods = score.enabled_mods;
+
+            if mods.contains(GameMods::Easy) {
+                max_score /= 2;
+            }
+
+            if mods.contains(GameMods::NoFail) {
+                max_score /= 2;
+            }
+
+            if mods.contains(GameMods::HalfTime) {
+                max_score /= 2;
+            }
+
+            score.max_combo = 0;
+            score.score = args.score.map_or(max_score, |s| s.min(max_score));
+            score.count_geki = map.count_objects();
+            score.count300 = 0;
+            score.count_katu = 0;
+            score.count100 = 0;
+            score.count50 = 0;
+            score.count_miss = 0;
+            score.grade = if mods.intersects(GameMods::Flashlight | GameMods::Hidden) {
+                if score.score == max_score {
+                    Grade::XH
+                } else {
+                    Grade::SH
+                }
+            } else {
+                if score.score == max_score {
+                    Grade::X
+                } else {
+                    Grade::S
+                }
+            };
+
+            attributes = StarResult::Mania(diff_attributes);
+        }
+        StarResult::Taiko(diff_attributes) => {
+            let n100 = args.n100.unwrap_or(0);
+            let n300 = args.n300.unwrap_or(0);
+            let miss = args.miss.unwrap_or(0);
+            let n_objects = map.count_circle;
+            let missing = n_objects - (n300 + n100 + miss);
+
+            match args.acc {
+                Some(acc) => {
+                    let target_total = (acc * n_objects as f32 * 2.0 / 100.0).round() as u32;
+
+                    let new300 = target_total
+                        .saturating_sub(2 * n300)
+                        .saturating_sub(n100)
+                        .saturating_sub(missing);
+
+                    let new100 = missing - new300;
+
+                    score.count300 = n300 + new300;
+                    score.count100 = n100 + new100;
+                    score.count_miss = miss;
+                }
+                None => {
+                    score.count300 = n300 + missing;
+                    score.count100 = n100;
+                    score.count_miss = miss;
+                }
+            }
+
+            let acc = (2 * score.count300 + score.count100) as f32
+                / (2 * (score.count300 + score.count100 + score.count_miss)) as f32;
+
+            score.max_combo = args.combo.or(map.max_combo).unwrap_or(0);
+            score.recalculate_grade(GameMode::TKO, Some(acc * 100.0));
+
+            attributes = StarResult::Taiko(diff_attributes);
+        }
+        StarResult::Fruits(diff_attributes) => {
+            let n_tiny_droplets;
+            let n_tiny_droplet_misses;
+            let mut n_droplets;
+            let mut n_fruits;
+
+            let miss = diff_attributes
+                .max_combo
+                .min(args.miss.unwrap_or(0) as usize);
+
+            match args.acc {
+                Some(acc) => {
+                    n_droplets = match args.n100 {
+                        Some(n100) => diff_attributes.n_droplets.min(n100 as usize),
+                        None => diff_attributes.n_droplets.saturating_sub(miss),
+                    };
+
+                    n_fruits = diff_attributes.n_fruits.saturating_sub(
+                        miss.saturating_sub(diff_attributes.n_droplets.saturating_sub(n_droplets)),
+                    );
+
+                    n_tiny_droplets = match args.n50 {
+                        Some(n50) => diff_attributes.n_tiny_droplets.min(n50 as usize),
+                        None => ((acc / 100.0
+                            * (diff_attributes.max_combo + diff_attributes.n_tiny_droplets) as f32)
+                            .round() as usize)
+                            .saturating_sub(n_fruits)
+                            .saturating_sub(n_droplets),
+                    };
+
+                    n_tiny_droplet_misses = diff_attributes
+                        .n_tiny_droplets
+                        .saturating_sub(n_tiny_droplets);
+                }
+                None => {
+                    n_droplets = diff_attributes
+                        .n_droplets
+                        .min(args.n100.unwrap_or(0) as usize);
+
+                    n_fruits = diff_attributes
+                        .n_fruits
+                        .min(args.n300.unwrap_or(0) as usize);
+
+                    let missing_fruits = diff_attributes.n_fruits.saturating_sub(n_fruits);
+                    let missing_droplets = diff_attributes.n_droplets.saturating_sub(n_droplets);
+
+                    n_droplets += missing_droplets.saturating_sub(miss);
+                    n_fruits +=
+                        missing_fruits.saturating_sub(miss.saturating_sub(missing_droplets));
+
+                    n_tiny_droplets = match args.n50 {
+                        Some(n50) => diff_attributes.n_tiny_droplets.min(n50 as usize),
+                        None => diff_attributes.n_tiny_droplets,
+                    };
+
+                    n_tiny_droplet_misses = diff_attributes.n_tiny_droplets - n_tiny_droplets;
+                }
+            }
+
+            score.count300 = n_fruits as u32;
+            score.count100 = n_droplets as u32;
+            score.count50 = n_tiny_droplets as u32;
+            score.count_katu = n_tiny_droplet_misses as u32;
+            score.count_miss = miss as u32;
+            score.max_combo = args.combo.unwrap_or(diff_attributes.max_combo as u32);
+            score.recalculate_grade(GameMode::CTB, None);
+
+            attributes = StarResult::Fruits(diff_attributes);
+        }
+    }
+
+    attributes
+}
+
+fn unchoke_score(score: &mut Score, map: &Beatmap, mut attributes: StarResult) -> StarResult {
     match map.mode {
         GameMode::STD
             if score.count_miss > 0 || score.max_combo < map.max_combo.unwrap_or(5) - 5 =>
@@ -283,24 +519,20 @@ async fn unchoke_score(score: &mut Score, map: &Beatmap) -> BotResult<()> {
                 Grade::X
             };
 
-            return Ok(());
+            return attributes;
         }
         GameMode::CTB if score.max_combo != map.max_combo.unwrap_or(0) => {
-            let map_path = prepare_beatmap_file(map.beatmap_id).await?;
-            let file = File::open(map_path).map_err(PPError::from)?;
-            let rosu_map = Map::parse(file).map_err(PPError::from)?;
-
-            let attributes = match rosu_pp::fruits::stars(&rosu_map, mods, None) {
+            let diff_attributes = match attributes {
                 StarResult::Fruits(attributes) => attributes,
-                _ => bail!("no ctb attributes after calculating stars for ctb map"),
+                _ => panic!("no ctb attributes after calculating stars for ctb map"),
             };
 
-            let total_objects = attributes.max_combo;
+            let total_objects = diff_attributes.max_combo;
             let passed_objects = score.total_hits(GameMode::CTB) as usize;
 
             let missing = total_objects - passed_objects;
             let missing_fruits = missing.saturating_sub(
-                attributes
+                diff_attributes
                     .n_droplets
                     .saturating_sub(score.count100 as usize),
             );
@@ -309,7 +541,7 @@ async fn unchoke_score(score: &mut Score, map: &Beatmap) -> BotResult<()> {
             let n_fruits = score.count300 as usize + missing_fruits;
             let n_droplets = score.count100 as usize + missing_droplets;
             let n_tiny_droplet_misses = score.count_katu as usize;
-            let n_tiny_droplets = attributes
+            let n_tiny_droplets = diff_attributes
                 .n_tiny_droplets
                 .saturating_sub(n_tiny_droplet_misses);
 
@@ -317,7 +549,9 @@ async fn unchoke_score(score: &mut Score, map: &Beatmap) -> BotResult<()> {
             score.count100 = n_droplets as u32;
             score.count_katu = n_tiny_droplet_misses as u32;
             score.count50 = n_tiny_droplets as u32;
-            score.max_combo = attributes.max_combo as u32;
+            score.max_combo = diff_attributes.max_combo as u32;
+
+            attributes = StarResult::Fruits(diff_attributes);
         }
         GameMode::TKO if score.grade == Grade::F || score.count_miss > 0 => {
             let total_objects = map.count_circle as usize;
@@ -336,11 +570,47 @@ async fn unchoke_score(score: &mut Score, map: &Beatmap) -> BotResult<()> {
             score.count300 = count300 as u32;
             score.count100 = count100 as u32;
         }
-        _ => return Ok(()),
+        _ => return attributes,
     }
 
     score.count_miss = 0;
     score.recalculate_grade(map.mode, None);
 
-    Ok(())
+    attributes
+}
+
+fn pp(score: &Score, map: &Map, attributes: StarResult) -> PpResult {
+    let mods = score.enabled_mods.bits();
+
+    match map.mode {
+        Mode::STD => OsuPP::new(&map)
+            .attributes(attributes)
+            .mods(mods)
+            .combo(score.max_combo as usize)
+            .n300(score.count300 as usize)
+            .n100(score.count100 as usize)
+            .n50(score.count50 as usize)
+            .misses(score.count_miss as usize)
+            .calculate(),
+        Mode::MNA => ManiaPP::new(&map)
+            .attributes(attributes)
+            .mods(mods)
+            .score(score.score)
+            .calculate(),
+        Mode::CTB => FruitsPP::new(&map)
+            .attributes(attributes)
+            .mods(mods)
+            .combo(score.max_combo as usize)
+            .fruits(score.count300 as usize)
+            .droplets(score.count100 as usize)
+            .misses(score.count_miss as usize)
+            .accuracy(score.accuracy(GameMode::CTB))
+            .calculate(),
+        Mode::TKO => TaikoPP::new(&map)
+            .attributes(attributes)
+            .combo(score.max_combo as usize)
+            .mods(mods)
+            .accuracy(score.accuracy(GameMode::TKO))
+            .calculate(),
+    }
 }

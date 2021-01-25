@@ -86,11 +86,6 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         },
     };
 
-    if let GameMode::TKO | GameMode::CTB = map.mode {
-        let content = format!("I can only simulate STD and MNA maps, not {}", map.mode);
-        return msg.error(&ctx, content).await;
-    }
-
     // Accumulate all necessary data
     let data = match SimulateEmbed::new(None, &map, args.into()).await {
         Ok(data) => data,

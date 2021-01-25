@@ -330,7 +330,8 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
             if score.count_miss > 0 || score.max_combo < attributes.max_combo as u32 - 5 =>
         {
             let total_objects = (map.n_circles + map.n_sliders + map.n_spinners) as usize;
-            let passed_objects = score.total_hits(GameMode::STD) as usize;
+            let passed_objects =
+                (score.count300 + score.count100 + score.count50 + score.count_miss) as usize;
 
             let mut count300 =
                 score.count300 as usize + total_objects.saturating_sub(passed_objects);
