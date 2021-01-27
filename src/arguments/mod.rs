@@ -622,6 +622,12 @@ impl NameModArgs {
     }
 }
 
+#[derive(Copy, Clone)]
+pub enum GradeArg {
+    Single(Grade),
+    Range { top: Grade, bot: Grade },
+}
+
 pub struct TopArgs {
     pub name: Option<String>,
     pub mods: Option<ModSelection>,
@@ -629,7 +635,7 @@ pub struct TopArgs {
     pub acc_max: Option<f32>,
     pub combo_min: Option<u32>,
     pub combo_max: Option<u32>,
-    pub grade: Option<Grade>,
+    pub grade: Option<GradeArg>,
     pub sort_by: TopSortBy,
     pub has_dash_r: bool,
     pub has_dash_p: bool,
@@ -679,7 +685,36 @@ impl TopArgs {
             }
         }
 
-        let grade = grade(&mut args)?;
+        let mut grade = None;
+
+        if let Some(idx) = args.iter().position(|arg| arg == "-g" || arg == "-grade") {
+            args.remove(idx);
+            if let Some((min, mut max)) = args.get(idx).and_then(parse_dotted) {
+                args.remove(idx);
+
+                match min {
+                    Some(mut min) => {
+                        if min == Grade::SH {
+                            min = Grade::S;
+                        } else if min == Grade::XH {
+                            min = Grade::X;
+                        }
+
+                        if max == Grade::S {
+                            max = Grade::SH;
+                        } else if max == Grade::X {
+                            max = Grade::XH;
+                        }
+
+                        grade.replace(GradeArg::Range { bot: min, top: max })
+                    }
+                    None => grade.replace(GradeArg::Single(max)),
+                };
+            } else {
+                return Err("Could not parse given grade, try SS, S, A, B, C, or D");
+            }
+        }
+
         let mods = mods(&mut args);
 
         let sort_by = if keywords(&mut args, &["--a", "--acc"]) {
@@ -878,23 +913,6 @@ fn combo(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     }
 }
 
-fn grade(args: &mut Vec<String>) -> Result<Option<Grade>, &'static str> {
-    if let Some(idx) = args.iter().position(|arg| arg == "-g" || arg == "-grade") {
-        args.remove(idx);
-
-        match args.get(idx).map(|arg| Grade::from_str(arg)) {
-            Some(Ok(grade)) => {
-                args.remove(idx);
-                Ok(Some(grade))
-            }
-            Some(Err(_)) => Err("Could not parse given grade, try SS, S, A, B, C, or D"),
-            None => Ok(None),
-        }
-    } else {
-        Ok(None)
-    }
-}
-
 fn n300(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     if let Some(idx) = args.iter().position(|arg| arg == "-300" || arg == "-n300") {
         args.remove(idx);
@@ -1032,6 +1050,7 @@ macro_rules! impl_dotted_value {
     };
 }
 
+impl_dotted_value!(Grade);
 impl_dotted_value!(u32);
 impl_dotted_value!(f32);
 impl_dotted_value!(usize);

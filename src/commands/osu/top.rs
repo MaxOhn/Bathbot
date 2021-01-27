@@ -1,5 +1,5 @@
 use crate::{
-    arguments::{Args, TopArgs},
+    arguments::{Args, GradeArg, TopArgs},
     embeds::{EmbedData, TopEmbed},
     pagination::{Pagination, TopPagination},
     tracking::process_tracking,
@@ -226,15 +226,18 @@ async fn top_main(
      A combo and accuracy range can be specified with `-c` and `-a`. \
      After this keyword, you must specify either a number for min combo/acc, \
      or two numbers of the form `x..y` for min and max combo/acc.\n\
-     The grade can be specified with `-grade`, followed by `SS`, `S`, `A`, `B`, `C`, or `D`.\n\
+     The grade can be specified with `-grade`, either followed by grading \
+     letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a range of the \
+     form `x..y` with `x` and `y` being a grading letter.\n\
      Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."
 )]
 #[usage(
-    "[username] [-a number[..number]] [-c number[..number]] [-grade SS/S/A/B/C/D] [mods] [--a/--c]"
+    "[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods] [--a/--c]"
 )]
 #[example(
     "badewanne3 -a 97.34..99.5 -grade A +hdhr --c",
-    "vaxei -c 1234 -dt! --a"
+    "vaxei -c 1234 -dt! --a",
+    "peppy -c 200..500 -grade B..S"
 )]
 #[aliases("topscores", "osutop")]
 pub async fn top(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
@@ -249,15 +252,18 @@ pub async fn top(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
      A combo and accuracy range can be specified with `-c` and `-a`. \
      After this keyword, you must specify either a number for min combo/acc, \
      or two numbers of the form `x..y` for min and max combo/acc.\n\
-     The grade can be specified with `-grade`, followed by `SS`, `S`, `A`, `B`, `C`, or `D`.\n\
+     The grade can be specified with `-grade`, either followed by grading \
+     letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a range of the \
+     form `x..y` with `x` and `y` being a grading letter.\n\
      Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."
 )]
 #[usage(
-    "[username] [-a number[..number]] [-c number[..number]] [-grade SS/S/A/B/C/D] [mods] [--a/--c]"
+    "[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods] [--a/--c]"
 )]
 #[example(
     "badewanne3 -a 97.34..99.5 -grade A +hdhr --c",
-    "vaxei -c 1234 -dt! --a"
+    "vaxei -c 1234 -dt! --a",
+    "peppy -c 200..500 -grade B..S"
 )]
 #[aliases("topm")]
 pub async fn topmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
@@ -272,15 +278,18 @@ pub async fn topmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult
      A combo and accuracy range can be specified with `-c` and `-a`. \
      After this keyword, you must specify either a number for min combo/acc, \
      or two numbers of the form `x..y` for min and max combo/acc.\n\
-     The grade can be specified with `-grade`, followed by `SS`, `S`, `A`, `B`, `C`, or `D`.\n\
+     The grade can be specified with `-grade`, either followed by grading \
+     letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a range of the \
+     form `x..y` with `x` and `y` being a grading letter.\n\
      Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."
 )]
 #[usage(
-    "[username] [-a number[..number]] [-c number[..number]] [-grade SS/S/A/B/C/D] [mods] [--a/--c]"
+    "[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods] [--a/--c]"
 )]
 #[example(
     "badewanne3 -a 97.34..99.5 -grade A +hdhr --c",
-    "vaxei -c 1234 -dt! --a"
+    "vaxei -c 1234 -dt! --a",
+    "peppy -c 200..500 -grade B..S"
 )]
 #[aliases("topt")]
 pub async fn toptaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
@@ -295,15 +304,18 @@ pub async fn toptaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult
      A combo and accuracy range can be specified with `-c` and `-a`. \
      After this keyword, you must specify either a number for min combo/acc, \
      or two numbers of the form `x..y` for min and max combo/acc.\n\
-     The grade can be specified with `-grade`, followed by `SS`, `S`, `A`, `B`, `C`, or `D`.\n\
+     The grade can be specified with `-grade`, either followed by grading \
+     letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a range of the \
+     form `x..y` with `x` and `y` being a grading letter.\n\
      Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."
 )]
 #[usage(
-    "[username] [-a number[..number]] [-c number[..number]] [-grade SS/S/A/B/C/D] [mods] [--a/--c]"
+    "[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods] [--a/--c]"
 )]
 #[example(
     "badewanne3 -a 97.34..99.5 -grade A +hdhr --c",
-    "vaxei -c 1234 -dt! --a"
+    "vaxei -c 1234 -dt! --a",
+    "peppy -c 200..500 -grade B..S"
 )]
 #[aliases("topc")]
 pub async fn topctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
@@ -318,10 +330,16 @@ pub async fn topctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     A combo and accuracy range can be specified with `-c` and `-a`. \
     After this keyword, you must specify either a number for min combo/acc, \
     or two numbers of the form `x..y` for min and max combo/acc.\n\
-    The grade can be specified with `-grade`, followed by `SS`, `S`, `A`, `B`, `C`, or `D`."
+    The grade can be specified with `-grade`, either followed by \
+    grading letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a \
+    range of the form `x..y` with `x` and `y` being a grading letter."
 )]
-#[usage("[username] [-a number[..number]] [-c number[..number]] [-grade SS/S/A/B/C/D] [mods]")]
-#[example("badewanne3 -a 97.34 -grade A +hdhr", "vaxei -c 1234 -dt!")]
+#[usage("[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods]")]
+#[example(
+    "badewanne3 -a 97.34 -grade A +hdhr",
+    "vaxei -c 1234 -dt!",
+    "peppy -c 200..500 -grade B..S"
+)]
 #[aliases("rb")]
 pub async fn recentbest(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_main(GameMode::STD, TopType::Recent, ctx, msg, args).await
@@ -335,10 +353,16 @@ pub async fn recentbest(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
     A combo and accuracy range can be specified with `-c` and `-a`. \
     After this keyword, you must specify either a number for min combo/acc, \
     or two numbers of the form `x..y` for min and max combo/acc.\n\
-    The grade can be specified with `-grade`, followed by `SS`, `S`, `A`, `B`, `C`, or `D`."
+    The grade can be specified with `-grade`, either followed by \
+    grading letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a \
+    range of the form `x..y` with `x` and `y` being a grading letter."
 )]
-#[usage("[username] [-a number[..number]] [-c number[..number]] [-grade SS/S/A/B/C/D] [mods]")]
-#[example("badewanne3 -a 97.34 -grade A +hdhr", "vaxei -c 1234 -dt!")]
+#[usage("[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods]")]
+#[example(
+    "badewanne3 -a 97.34 -grade A +hdhr",
+    "vaxei -c 1234 -dt!",
+    "peppy -c 200..500 -grade B..S"
+)]
 #[aliases("rbm")]
 pub async fn recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_main(GameMode::MNA, TopType::Recent, ctx, msg, args).await
@@ -352,10 +376,16 @@ pub async fn recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
     A combo and accuracy range can be specified with `-c` and `-a`. \
     After this keyword, you must specify either a number for min combo/acc, \
     or two numbers of the form `x..y` for min and max combo/acc.\n\
-    The grade can be specified with `-grade`, followed by `SS`, `S`, `A`, `B`, `C`, or `D`."
+    The grade can be specified with `-grade`, either followed by \
+    grading letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a \
+    range of the form `x..y` with `x` and `y` being a grading letter."
 )]
-#[usage("[username] [-a number[..number]] [-c number[..number]] [-grade SS/S/A/B/C/D] [mods]")]
-#[example("badewanne3 -a 97.34 -grade A +hdhr", "vaxei -c 1234 -dt!")]
+#[usage("[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods]")]
+#[example(
+    "badewanne3 -a 97.34 -grade A +hdhr",
+    "vaxei -c 1234 -dt!",
+    "peppy -c 200..500 -grade B..S"
+)]
 #[aliases("rbt")]
 pub async fn recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_main(GameMode::TKO, TopType::Recent, ctx, msg, args).await
@@ -369,10 +399,16 @@ pub async fn recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
     A combo and accuracy range can be specified with `-c` and `-a`. \
     After this keyword, you must specify either a number for min combo/acc, \
     or two numbers of the form `x..y` for min and max combo/acc.\n\
-    The grade can be specified with `-grade`, followed by `SS`, `S`, `A`, `B`, `C`, or `D`."
+    The grade can be specified with `-grade`, either followed by \
+    grading letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a \
+    range of the form `x..y` with `x` and `y` being a grading letter."
 )]
-#[usage("[username] [-a number[..number]] [-c number[..number]] [-grade SS/S/A/B/C/D] [mods]")]
-#[example("badewanne3 -a 97.34 -grade A +hdhr", "vaxei -c 1234 -dt!")]
+#[usage("[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods]")]
+#[example(
+    "badewanne3 -a 97.34 -grade A +hdhr",
+    "vaxei -c 1234 -dt!",
+    "peppy -c 200..500 -grade B..S"
+)]
 #[aliases("rbc")]
 pub async fn recentbestctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     top_main(GameMode::CTB, TopType::Recent, ctx, msg, args).await
@@ -403,10 +439,18 @@ fn filter_scores(
         .into_iter()
         .enumerate()
         .filter(|(_, s)| {
-            if let Some(grade) = grade {
-                if !s.grade.eq_letter(grade) {
-                    return false;
+            match grade {
+                Some(GradeArg::Single(grade)) => {
+                    if !s.grade.eq_letter(grade) {
+                        return false;
+                    }
                 }
+                Some(GradeArg::Range { bot, top }) => {
+                    if s.grade < bot || s.grade > top {
+                        return false;
+                    }
+                }
+                None => {}
             }
 
             let mod_bool = match selection {

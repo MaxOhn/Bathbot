@@ -92,32 +92,41 @@ pub async fn help(
                 return msg.error(&ctx, content).await;
             }
         };
+
         ctx.cache.cache_private_channel(channel)
     };
+
     let owner = msg.author.id;
+
     if msg.guild_id.is_some() {
         let content = "Don't mind me sliding into your DMs :eyes:";
         let _ = msg.reply(ctx, content).await;
     }
+
     let desc = description(ctx, msg.guild_id);
     let mut size = desc.len();
+
     debug_assert!(
         size < DESCRIPTION_SIZE,
         "description size {} > {}",
         size,
         DESCRIPTION_SIZE,
     );
+
     let mut eb = EmbedBuilder::new()
         .color(DARK_GREEN)
         .unwrap()
         .description(desc)?;
+
     let groups = cmds
         .groups
         .iter()
         .filter(|g| owner.0 == OWNER_USER_ID || g.name != "owner");
+
     for group in groups {
         for (name, value) in create_group_fields(group, is_authority) {
             let size_addition = name.chars().count() + value.chars().count();
+
             debug_assert!(
                 size_addition < EMBED_SIZE,
                 "embed size {} > {} [{}]",
@@ -125,13 +134,16 @@ pub async fn help(
                 EMBED_SIZE,
                 group.name
             );
+
             eb = if size + size_addition > EMBED_SIZE {
                 if let Err(why) = send_help_chunk(ctx, channel.id, owner, eb.build()?).await {
                     unwind_error!(warn, why, "Error while sending help chunk: {}");
                     let content = "Could not DM you, have you disabled it?";
                     return msg.error(ctx, content).await;
                 }
+
                 size = size_addition;
+
                 EmbedBuilder::new()
                     .color(DARK_GREEN)
                     .unwrap()
@@ -142,6 +154,7 @@ pub async fn help(
                     })
             } else {
                 size += size_addition;
+
                 eb.field(EmbedField {
                     name,
                     value,
@@ -150,7 +163,9 @@ pub async fn help(
             };
         }
     }
+
     let embed = eb.build()?;
+
     if !embed.fields.is_empty() {
         if let Err(why) = send_help_chunk(ctx, channel.id, owner, embed).await {
             unwind_error!(warn, why, "Error while sending help chunk: {}");
@@ -158,18 +173,22 @@ pub async fn help(
             return msg.error(ctx, content).await;
         }
     }
+
     Ok(())
 }
 
 fn create_group_fields(group: &CommandGroup, is_authority: bool) -> Vec<(String, String)> {
     let mut fields = Vec::with_capacity(1);
+
     let len = group
         .commands
         .iter()
         .map(|&c| c.names[0].len() + 5 + c.short_desc.len())
         .sum::<usize>()
         .min(FIELD_VALUE_SIZE);
+
     let mut value = String::with_capacity(len);
+
     // No owner check so be sure owner commands are in the owner group
     for &cmd in &group.commands {
         let next_line = format!(
@@ -182,6 +201,7 @@ fn create_group_fields(group: &CommandGroup, is_authority: bool) -> Vec<(String,
                 ""
             }
         );
+
         if value.chars().count() + next_line.chars().count() >= FIELD_VALUE_SIZE {
             if fields.is_empty() {
                 fields.push((group.name.to_owned(), value));
@@ -189,16 +209,20 @@ fn create_group_fields(group: &CommandGroup, is_authority: bool) -> Vec<(String,
                 let name = format!("More {}", group.name);
                 fields.push((name, value));
             }
+
             value = String::with_capacity(128);
         }
+
         let _ = writeln!(value, "{}", next_line);
     }
+
     if fields.is_empty() {
         fields.push((group.name.to_owned(), value));
     } else {
         let name = format!("More {}", group.name);
         fields.push((name, value));
     }
+
     fields
 }
 
@@ -219,92 +243,117 @@ async fn send_help_chunk(
 pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotResult<()> {
     let name = cmd.names[0];
     let prefix = ctx.config_first_prefix(msg.guild_id);
+
     let mut eb = EmbedBuilder::new()
         .color(DARK_GREEN)?
         .title(name)?
         .description(cmd.long_desc.unwrap_or(cmd.short_desc))?;
+
     let mut usage_len = 0;
+
     if let Some(usage) = cmd.usage {
         let value = format!("`{}{} {}`", prefix, name, usage);
         usage_len = value.chars().count();
+
         let field = EmbedField {
             name: String::from("How to use"),
             value,
             inline: usage_len <= 29,
         };
+
         eb = eb.field(field);
     }
+
     let mut examples = cmd.examples.iter();
+
     if let Some(first) = examples.next() {
         let len: usize = cmd.examples.iter().map(|&e| name.len() + e.len() + 4).sum();
         let mut value = String::with_capacity(len);
         let mut example_len = 0;
         let cmd_len = prefix.chars().count() + name.chars().count();
         writeln!(value, "`{}{} {}`", prefix, name, first)?;
+
         for example in examples {
             writeln!(value, "`{}{} {}`", prefix, name, example)?;
             example_len = example_len.max(cmd_len + example.chars().count());
         }
+
         let not_inline = (usage_len <= 29 && cmd.names.len() > 1 && example_len > 27)
             || ((usage_len > 29 || cmd.names.len() > 1) && example_len > 36);
+
         let field = EmbedField {
             name: String::from("Examples"),
             value,
             inline: !not_inline,
         };
+
         eb = eb.field(field);
     }
+
     let mut aliases = cmd.names.iter().skip(1);
+
     if let Some(first) = aliases.next() {
         let len: usize = cmd.names.iter().skip(1).map(|n| 4 + n.len()).sum();
         let mut value = String::with_capacity(len);
         write!(value, "`{}`", first)?;
+
         for &alias in aliases {
             write!(value, ", `{}`", alias)?;
         }
+
         eb = eb.field(EmbedField {
             name: String::from("Aliases"),
             value,
             inline: true,
         });
     }
+
     if cmd.authority {
         let value = if let Some(guild_id) = msg.guild_id {
             let authorities = ctx.config_authorities(guild_id);
             let mut value = "You need admin permission".to_owned();
             let mut iter = authorities.iter();
+
             if let Some(first) = iter.next() {
                 let _ = write!(value, " or any of these roles: <@&{}>", first);
+
                 for role in iter {
                     let _ = write!(value, ", <@&{}>", role);
                 }
             }
+
             value
         } else {
             "Admin permission or any role that \
             was setup as authority in a guild"
                 .to_owned()
         };
+
         eb = eb.field(EmbedField {
             name: String::from("Requires authority status"),
             value,
             inline: false,
         });
     }
+
     if cmd.owner {
         let ab = EmbedAuthorBuilder::new()
             .name("Can only be used by the bot owner")
             .unwrap();
+
         eb = eb.author(ab);
     }
+
     let footer_text = if cmd.only_guilds || cmd.authority {
-        "Only available in guilds"
+        "Only available in servers"
     } else {
-        "Available in guilds and DMs"
+        "Available in servers and DMs"
     };
+
     let fb = EmbedFooterBuilder::new(footer_text).unwrap();
     let embed = eb.footer(fb).build()?;
     msg.build_response(ctx, |m| m.embed(embed)).await?;
+
     Ok(())
 }
 
@@ -321,6 +370,7 @@ pub async fn failed_help(
         .map(|name| (levenshtein_distance(arg, name), name))
         .filter(|(dist, _)| *dist < 3)
         .collect();
+
     let (content, color) = if dists.is_empty() {
         (String::from("There is no such command"), RED)
     } else {
@@ -329,16 +379,22 @@ pub async fn failed_help(
         let mut content = String::with_capacity(14 + count * (4 + 2) + (count - 1) * 2);
         content.push_str("Did you mean ");
         write!(content, "`{}`", names.next().unwrap())?;
+
         for name in names {
             write!(content, ", `{}`", name)?;
         }
+
         content.push('?');
+
         (content, DARK_GREEN)
     };
+
     let embed = EmbedBuilder::new()
         .description(content)?
         .color(color)?
         .build()?;
+
     msg.build_response(ctx, |m| m.embed(embed)).await?;
+
     Ok(())
 }
