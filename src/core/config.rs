@@ -17,7 +17,6 @@ pub struct BotConfig {
     pub database: Database,
     pub bg_path: PathBuf,
     pub map_path: PathBuf,
-    pub perf_calc_path: PathBuf,
     pub metric_server_ip: [u8; 4],
     pub metric_server_port: u16,
     grades: HashMap<Grade, String>,

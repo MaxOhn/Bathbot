@@ -10,7 +10,7 @@ pub struct TopIfPagination {
     msg: Message,
     pages: Pages,
     user: User,
-    scores: Vec<(usize, Score, Beatmap)>,
+    scores: Vec<(usize, Score, Beatmap, Option<f32>)>,
     mode: GameMode,
     adjusted_pp: f32,
 }
@@ -19,7 +19,7 @@ impl TopIfPagination {
     pub fn new(
         msg: Message,
         user: User,
-        scores: Vec<(usize, Score, Beatmap)>,
+        scores: Vec<(usize, Score, Beatmap, Option<f32>)>,
         mode: GameMode,
         adjusted_pp: f32,
     ) -> Self {

@@ -18,6 +18,7 @@ bitflags! {
     }
 }
 
+#[derive(Default)]
 pub struct PPCalculator<'s, 'm> {
     score: Option<Box<dyn ScoreExt + 's>>,
     map: Option<Box<dyn BeatmapExt + 'm>>,
@@ -32,14 +33,7 @@ pub struct PPCalculator<'s, 'm> {
 impl<'s, 'm> PPCalculator<'s, 'm> {
     #[inline]
     pub fn new() -> Self {
-        Self {
-            score: None,
-            map: None,
-            mods: None,
-            pp: None,
-            max_pp: None,
-            stars: None,
-        }
+        Self::default()
     }
 
     #[inline]
@@ -208,12 +202,15 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
             None
         };
 
-        let pp = pp_result.as_ref().map(|result| result.pp());
-        stars = stars.or_else(|| {
-            pp_result
-                .filter(|_| score.map_or(true, |s| s.grade(GameMode::TKO) != Grade::F))
-                .map(|result| result.stars())
-        });
+        let mut pp = None;
+
+        if let Some(result) = pp_result {
+            pp.replace(result.pp());
+
+            if stars.is_none() && score.map_or(true, |s| s.grade(GameMode::TKO) != Grade::F) {
+                stars.replace(result.stars());
+            }
+        }
 
         // Stars
         if stars.is_none() && calcs.contains(Calculations::STARS) {

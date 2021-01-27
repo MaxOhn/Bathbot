@@ -3,7 +3,6 @@
 - Allow `<top` grade argument to be a range
 - Fix `<mc` sometimes missing some users
 - Split database tables based on popular queries
-- Update twilight
 - Find a better way than reaction for things like `<r`
 - Put non-global leaderboard back in for `<bg lb`
 - Don't update DB guild config on shutdown but immediatly instead
@@ -20,6 +19,8 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Fix `<topif idke +ezfl`~~ (21.01.27)
+- ~~Update twilight~~ (21.01.22)
 - ~~Check on `set_cluster_activity` / `shards_per_cluster` / `shard_id`~~ (21.01.22)
 - ~~Background image of `<map` graph should be darker~~ (21.01.20)
 - ~~Add `<nochokesctb` and `<nochokestaiko`~~ (21.01.20)

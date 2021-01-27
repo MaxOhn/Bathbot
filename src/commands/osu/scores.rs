@@ -64,6 +64,7 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             }
         }
     };
+
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
@@ -92,6 +93,7 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     // Retrieve user and their scores on the map
     let user_fut = ctx.osu().user(name.as_str()).mode(map.mode);
     let scores_fut = ctx.osu().scores(map_id).user(name.as_str()).mode(map.mode);
+
     let (user, scores) = match tokio::try_join!(user_fut, scores_fut) {
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
@@ -103,6 +105,7 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             return Err(why.into());
         }
     };
+
     let init_scores = scores.iter().take(10);
 
     // Accumulate all necessary data
@@ -135,5 +138,6 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             unwind_error!(warn, why, "Pagination error (scores): {}")
         }
     });
+
     Ok(())
 }

@@ -1,7 +1,5 @@
 use crate::{
     embeds::{osu, Author, EmbedData, Footer},
-    pp::{Calculations, PPCalculator},
-    unwind_error,
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
@@ -31,17 +29,15 @@ impl TopIfEmbed {
         pages: (usize, usize),
     ) -> Self
     where
-        S: Iterator<Item = &'i (usize, Score, Beatmap)>,
+        S: Iterator<Item = &'i (usize, Score, Beatmap, Option<f32>)>,
     {
         let pp_diff = (100.0 * (adjusted_pp - user.pp_raw)).round() / 100.0;
         let mut description = String::with_capacity(512);
-        for (idx, score, map) in scores_data {
-            let mut calculator = PPCalculator::new().score(score).map(map);
-            if let Err(why) = calculator.calculate(Calculations::all()).await {
-                unwind_error!(warn, why, "Error while calculating pp for top: {}");
-            }
-            let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));
-            let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
+
+        for (idx, score, map, max_pp) in scores_data {
+            let stars = osu::get_stars(map.stars);
+            let pp = osu::get_pp(score.pp, *max_pp);
+
             let _ = writeln!(
                 description,
                 "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
@@ -62,11 +58,14 @@ impl TopIfEmbed {
                 ago = how_long_ago(&score.date)
             );
         }
+
         description.pop();
+
         let title = format!(
             "Total pp: {} → **{}pp** ({:+})",
             user.pp_raw, adjusted_pp, pp_diff
         );
+
         Self {
             title,
             description,

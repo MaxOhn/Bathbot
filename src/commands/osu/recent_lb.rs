@@ -18,7 +18,6 @@ use rosu::model::{
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
-#[allow(clippy::cognitive_complexity)]
 async fn recent_lb_main(
     mode: GameMode,
     national: bool,
@@ -29,6 +28,7 @@ async fn recent_lb_main(
     let author_name = ctx.get_link(msg.author.id.0);
     let args = NameModArgs::new(&ctx, args);
     let selection = args.mods;
+
     let name = match args.name.or_else(|| author_name.clone()) {
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
@@ -67,6 +67,7 @@ async fn recent_lb_main(
                         return Err(why.into());
                     }
                 };
+
                 (
                     map.approval_status == Ranked
                         || map.approval_status == Loved
@@ -126,6 +127,7 @@ async fn recent_lb_main(
         "I found {} scores with the specified mods on the map's leaderboard",
         amount
     );
+
     let response = ctx
         .http
         .create_message(msg.channel_id)
@@ -155,6 +157,7 @@ async fn recent_lb_main(
             unwind_error!(warn, why, "Pagination error (recentleaderboard): {}")
         }
     });
+
     Ok(())
 }
 

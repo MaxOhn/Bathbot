@@ -109,14 +109,11 @@ impl SimulateEmbed {
                 let acc = round(unchoked_score.accuracy(GameMode::TKO));
 
                 let combo = if is_some {
-                    format!(
-                        "**{}x**/-",
-                        if unchoked_score.max_combo == 0 {
-                            "-".to_string()
-                        } else {
-                            unchoked_score.max_combo.to_string()
-                        }
-                    )
+                    if unchoked_score.max_combo == 0 {
+                        "**-**/-".to_owned()
+                    } else {
+                        format!("**{}x**/-", unchoked_score.max_combo)
+                    }
                 } else if let Some(combo) = map.max_combo {
                     format!("**{combo}x**/{combo}", combo = combo)
                 } else {

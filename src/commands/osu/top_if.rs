@@ -37,13 +37,16 @@ async fn topif_main(
     if let Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) = args.mods {
         let mut content = None;
         let ezhr = EZ | HR;
+        let dtht = DT | HT;
+
         if mods & ezhr == ezhr {
             content = Some("Looks like an invalid mod combination, EZ and HR exclude each other.");
         }
-        let dtht = DT | HT;
+
         if mods & dtht == dtht {
             content = Some("Looks like an invalid mod combination, DT and HT exclude each other");
         }
+
         if let Some(content) = content {
             return msg.error(&ctx, content).await;
         }
@@ -53,6 +56,7 @@ async fn topif_main(
     let user_fut = ctx.osu().user(name.as_str()).mode(mode);
     let scores_fut = ctx.osu().top_scores(name.as_str()).mode(mode).limit(100);
     let join_result = tokio::try_join!(user_fut, scores_fut);
+
     let (user, scores) = match join_result {
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
@@ -93,6 +97,7 @@ async fn topif_main(
             "Retrieving {} maps from the api...",
             scores.len() - maps.len()
         );
+
         ctx.http
             .create_message(msg.channel_id)
             .content(content)?
@@ -100,6 +105,7 @@ async fn topif_main(
             .ok()
     } else if (mode == GameMode::CTB || mode == GameMode::MNA) && args.mods.is_some() {
         let content = "Recalculating top scores, might take a little...";
+
         ctx.http
             .create_message(msg.channel_id)
             .content(content)?
@@ -112,14 +118,17 @@ async fn topif_main(
     // Retrieving all missing beatmaps
     let mut scores_data = Vec::with_capacity(scores.len());
     let mut missing_maps = Vec::new();
+
     for (i, score) in scores.into_iter().enumerate() {
         let map_id = score.beatmap_id.unwrap();
+
         let map = if let Some(map) = maps.remove(&map_id) {
             map
         } else {
             match ctx.osu().beatmap().map_id(map_id).await {
                 Ok(Some(map)) => {
                     missing_maps.push(map.clone());
+
                     map
                 }
                 Ok(None) => {
@@ -132,15 +141,17 @@ async fn topif_main(
                 }
             }
         };
-        scores_data.push((i + 1, score, map));
+
+        scores_data.push((i + 1, score, map, None));
     }
 
     // Modify scores
-    for (_, score, map) in scores_data.iter_mut() {
+    for (_, score, map, max_pp) in scores_data.iter_mut() {
         let changed = match args.mods {
             Some(ModSelection::Exact(mods)) => {
                 let changed = score.enabled_mods != mods;
                 score.enabled_mods = mods;
+
                 changed
             }
             Some(ModSelection::Exclude(mut mods)) if mods != NM => {
@@ -150,67 +161,88 @@ async fn topif_main(
                 if mods.contains(SD) {
                     mods |= PF
                 }
+
                 let changed = score.enabled_mods.intersects(mods);
                 score.enabled_mods.remove(mods);
+
                 changed
             }
             Some(ModSelection::Include(mods)) if mods != NM => {
                 let mut changed = false;
+
                 if mods.contains(DT) && score.enabled_mods.contains(HT) {
                     score.enabled_mods.remove(HT);
                     changed = true;
                 }
+
                 if mods.contains(HT) && score.enabled_mods.contains(DT) {
                     score.enabled_mods.remove(NC);
                     changed = true;
                 }
+
                 if mods.contains(HR) && score.enabled_mods.contains(EZ) {
                     score.enabled_mods.remove(EZ);
                     changed = true;
                 }
+
                 if mods.contains(EZ) && score.enabled_mods.contains(HR) {
                     score.enabled_mods.remove(HR);
                     changed = true;
                 }
+
                 changed |= !score.enabled_mods.contains(mods);
                 score.enabled_mods.insert(mods);
+
                 changed
             }
             _ => false,
         };
+
+        let mut calculations = Calculations::STARS | Calculations::MAX_PP;
+
         if changed {
-            score.pp = None;
-            let (pp, stars) = {
-                let mut calculator = PPCalculator::new().score(&*score).map(&*map);
-                if let Err(why) = calculator.calculate(Calculations::all()).await {
-                    unwind_error!(
-                        warn,
-                        why,
-                        "Error while calculating pp for topif {}: {}",
-                        mode
-                    );
-                }
-                (calculator.pp(), calculator.stars())
-            };
-            score.pp = pp.map(|val| if val.is_infinite() { 0.0 } else { val });
             score.recalculate_grade(mode, None);
-            if score.enabled_mods.changes_stars(mode) {
+            calculations |= Calculations::PP;
+        }
+
+        let mut calculator = PPCalculator::new().score(&*score).map(&*map);
+
+        match calculator.calculate(calculations).await {
+            Ok(_) => {
+                if let Some(pp) = calculator.max_pp() {
+                    max_pp.replace(pp);
+                }
+
+                let (stars, pp) = (calculator.stars(), calculator.pp());
+
+                drop(calculator);
+
                 if let Some(stars) = stars {
                     map.stars = stars;
                 }
+
+                if let Some(pp) = pp {
+                    score.pp.replace(pp);
+                }
             }
+            Err(why) => unwind_error!(
+                warn,
+                why,
+                "Error while calculating pp for topif {}: {}",
+                mode
+            ),
         }
     }
 
     // Sort by adjusted pp
-    scores_data.sort_unstable_by(|(_, s1, _), (_, s2, _)| {
+    scores_data.sort_unstable_by(|(_, s1, ..), (_, s2, ..)| {
         s2.pp.partial_cmp(&s1.pp).unwrap_or(Ordering::Equal)
     });
 
     // Calculate adjusted pp
     let adjusted_pp = scores_data
         .iter()
-        .map(|(i, Score { pp, .. }, _)| pp.unwrap_or(0.0) as f64 * 0.95_f64.powi(*i as i32 - 1))
+        .map(|(i, Score { pp, .. }, ..)| pp.unwrap_or(0.0) as f64 * 0.95_f64.powi(*i as i32 - 1))
         .sum::<f64>();
     let adjusted_pp = numbers::round((bonus_pp + adjusted_pp).max(0.0) as f32);
 
@@ -228,12 +260,15 @@ async fn topif_main(
             let len = mods.len();
             let mut mod_iter = mods.into_iter();
             let mut mod_str = String::with_capacity(len * 6 - 2);
+
             if let Some(first) = mod_iter.next() {
                 let last = mod_iter.next_back();
                 let _ = write!(mod_str, "`{}`", first);
+
                 for elem in mod_iter {
                     let _ = write!(mod_str, ", `{}`", elem);
                 }
+
                 if let Some(last) = last {
                     let _ = match len {
                         2 => write!(mod_str, " and `{}`", last),
@@ -263,7 +298,9 @@ async fn topif_main(
             mode = mode_str(mode),
         ),
     };
+
     let pages = numbers::div_euclid(5, scores_data.len());
+
     let data = TopIfEmbed::new(
         &user,
         scores_data.iter().take(5),
@@ -305,6 +342,7 @@ async fn topif_main(
             unwind_error!(warn, why, "Pagination error (top): {}")
         }
     });
+
     Ok(())
 }
 
