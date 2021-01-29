@@ -17,12 +17,9 @@ use twilight_model::channel::Message;
 #[usage("[upper limit]")]
 async fn roll(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     let num = {
-        let upper_limit: u64 = args
-            .next()
-            .map(|arg| arg.parse().ok())
-            .flatten()
-            .unwrap_or(100);
-        rand::thread_rng().gen_range(1..(upper_limit + 1).max(2)) // TODO: Test
+        let upper_limit: u64 = args.next().and_then(|arg| arg.parse().ok()).unwrap_or(100);
+
+        rand::thread_rng().gen_range(1..(upper_limit + 1).max(2))
     };
 
     let content = format!(
@@ -36,10 +33,12 @@ async fn roll(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()>
         .color(DARK_GREEN)?
         .description(content)?
         .build()?;
+
     ctx.http
         .create_message(msg.channel_id)
         .embed(embed)?
         .await?
         .reaction_delete(&ctx, msg.author.id);
+
     Ok(())
 }

@@ -1,4 +1,4 @@
-use rosu_pp::parse::ParseError;
+use rosu_pp::ParseError;
 use std::{error::Error as StdError, fmt};
 use tokio::io::Error as IoError;
 
