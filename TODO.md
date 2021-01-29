@@ -1,6 +1,5 @@
 
 **[TODO]**
-- Allow `<top` grade argument to be a range
 - Fix `<mc` sometimes missing some users
 - Split database tables based on popular queries
 - Find a better way than reaction for things like `<r`
@@ -19,6 +18,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Allow `<top` grade argument to be a range~~ (21.01.27)
 - ~~Fix `<topif idke +ezfl`~~ (21.01.27)
 - ~~Update twilight~~ (21.01.22)
 - ~~Check on `set_cluster_activity` / `shards_per_cluster` / `shard_id`~~ (21.01.22)
