@@ -92,19 +92,12 @@ async fn topif_main(
     };
 
     debug!("Found {}/{} beatmaps in DB", maps.len(), scores.len());
+
     let retrieving_msg = if scores.len() - maps.len() > 10 {
         let content = format!(
             "Retrieving {} maps from the api...",
             scores.len() - maps.len()
         );
-
-        ctx.http
-            .create_message(msg.channel_id)
-            .content(content)?
-            .await
-            .ok()
-    } else if (mode == GameMode::CTB || mode == GameMode::MNA) && args.mods.is_some() {
-        let content = "Recalculating top scores, might take a little...";
 
         ctx.http
             .create_message(msg.channel_id)
@@ -305,6 +298,7 @@ async fn topif_main(
         &user,
         scores_data.iter().take(5),
         mode,
+        user.pp_raw,
         adjusted_pp,
         (1, pages),
     )
@@ -339,7 +333,7 @@ async fn topif_main(
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (top): {}")
+            unwind_error!(warn, why, "Pagination error (topif): {}")
         }
     });
 

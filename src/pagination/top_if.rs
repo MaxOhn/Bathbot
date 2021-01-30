@@ -62,6 +62,7 @@ impl Pagination for TopIfPagination {
                 .skip(self.pages.index)
                 .take(self.pages.per_page),
             self.mode,
+            self.user.pp_raw,
             self.adjusted_pp,
             (self.page(), self.pages.total_pages),
         )
