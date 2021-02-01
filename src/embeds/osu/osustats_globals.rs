@@ -38,25 +38,32 @@ impl OsuStatsGlobalsEmbed {
                 description: String::from("No scores with these parameters were found"),
             };
         }
+
         let index = (pages.0 - 1) * 5;
         let entries = scores.range(index..index + 5);
         let mut description = String::with_capacity(1024);
+
         for (_, score) in entries {
             let grade = grade_emote(score.grade);
             let calculations = Calculations::all();
             let mut calculator = PPCalculator::new().score(score).map(&score.map);
+
             if let Err(why) = calculator.calculate(calculations).await {
                 unwind_error!(warn, why, "Error while calculating pp for osg: {}");
             }
+
             let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));
             let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
             let mut combo = format!("**{}x**/", score.max_combo);
+
             match score.map.max_combo {
                 Some(amount) => {
                     let _ = write!(combo, "{}x", amount);
                 }
+
                 None => combo.push('-'),
             }
+
             let _ = writeln!(
                 description,
                 "**[#{rank}] [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
@@ -77,14 +84,17 @@ impl OsuStatsGlobalsEmbed {
                 ago = how_long_ago(&score.date)
             );
         }
+
+        let footer = Footer::new(format!(
+            "Page {}/{} ~ Total scores: {}",
+            pages.0, pages.1, total
+        ));
+
         Self {
+            footer,
             description,
             author: osu::get_user_author(&user),
             thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
-            footer: Footer::new(format!(
-                "Page {}/{} ~ Total scores: {}",
-                pages.0, pages.1, total
-            )),
         }
     }
 }
@@ -93,12 +103,15 @@ impl EmbedData for OsuStatsGlobalsEmbed {
     fn description(&self) -> Option<&str> {
         Some(&self.description)
     }
+
     fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }
+
     fn author(&self) -> Option<&Author> {
         Some(&self.author)
     }
+
     fn footer(&self) -> Option<&Footer> {
         Some(&self.footer)
     }
