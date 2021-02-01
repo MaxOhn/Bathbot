@@ -89,6 +89,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &SIMULATERECENTMANIA_CMD,
                 &RATIOS_CMD,
                 &MAPPERMANIA_CMD,
+                &TOPOLDMANIA_CMD,
                 &RANKRANKEDSCOREMANIA_CMD,
             ],
         ),

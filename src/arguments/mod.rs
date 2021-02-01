@@ -1,6 +1,7 @@
 mod args;
 
 pub use args::Args;
+use chrono::Datelike;
 
 use crate::{
     commands::osu::TopSortBy,
@@ -14,6 +15,7 @@ use crate::{
     Context,
 };
 
+use chrono::Utc;
 use itertools::Itertools;
 use rosu::model::{GameMode, Grade};
 use std::{cmp::Ordering, str::FromStr};
@@ -628,62 +630,29 @@ pub enum GradeArg {
     Range { top: Grade, bot: Grade },
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub enum PPVersion {
-    January2021,
-    February2019,
-}
-
-impl FromStr for PPVersion {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "2021" => Ok(Self::January2021),
-            "2019" => Ok(Self::February2019),
-            _ => Err(()),
-        }
-    }
-}
-
 pub struct TopOldArgs {
     pub name: Option<String>,
-    pub pp_version: PPVersion,
+    pub year: u16,
 }
 
 impl TopOldArgs {
     pub fn new(ctx: &Context, args: Args) -> Result<Self, &'static str> {
-        let mut args: Vec<_> = args.take(3).collect();
-
-        let pp_version = if let Some(idx) = args
-            .iter()
-            .position(|&arg| arg == "-v" || arg == "-version")
-        {
-            args.remove(idx);
-
-            match args.get(idx).map(|arg| arg.parse()) {
-                Some(Ok(version)) => {
-                    args.remove(idx);
-
-                    version
-                }
-                Some(Err(_)) => {
-                    return Err("Could not parse given pp version, \
-                            try either `2021` or `2019`.")
-                }
-                None => PPVersion::January2021,
-            }
-        } else {
-            PPVersion::January2021
-        };
-
-        let name = args.pop().and_then(|arg| {
+        let name = args.next().and_then(|arg| {
             matcher::get_mention_user(&arg)
                 .and_then(|id| ctx.get_link(id))
                 .or(Some(arg.to_owned()))
         });
 
-        Ok(Self { name, pp_version })
+        let year = match args.next().map(str::parse) {
+            Some(Err(_)) => {
+                return Err("Could not parse given pp version.\n\
+                Be sure your last argument is a year.")
+            }
+            Some(Ok(year)) => year,
+            None => Utc::now().year() as u16,
+        };
+
+        Ok(Self { name, year })
     }
 }
 

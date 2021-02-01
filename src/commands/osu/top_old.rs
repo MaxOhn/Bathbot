@@ -1,8 +1,7 @@
 use crate::{
-    arguments::{PPVersion, TopOldArgs},
+    arguments::TopOldArgs,
     embeds::{EmbedData, TopIfEmbed},
     pagination::{Pagination, TopIfPagination},
-    pp::MyOsuPP,
     tracking::process_tracking,
     unwind_error,
     util::{
@@ -13,8 +12,48 @@ use crate::{
 
 use rosu::model::{GameMode, Score};
 use rosu_pp::{Beatmap, BeatmapExt};
+use rosu_pp_older::*;
 use std::{cmp::Ordering, collections::HashMap, fs::File, sync::Arc};
 use twilight_model::channel::Message;
+
+macro_rules! pp_std {
+    ($version:ident, $map:ident, $rosu_map:ident, $score:ident, $mods:ident, $max_pp:ident) => {{
+        let max_pp_result = $version::OsuPP::new(&$rosu_map).mods($mods).calculate();
+
+        $max_pp.replace(max_pp_result.pp());
+        $map.stars = max_pp_result.stars();
+
+        let pp_result = $version::OsuPP::new(&$rosu_map)
+            .mods($mods)
+            .attributes(max_pp_result)
+            .n300($score.count300 as usize)
+            .n100($score.count100 as usize)
+            .n50($score.count50 as usize)
+            .misses($score.count_miss as usize)
+            .combo($score.max_combo as usize)
+            .calculate();
+
+        $score.pp.replace(pp_result.pp());
+    }};
+}
+
+macro_rules! pp_mna {
+    ($version:ident, $map:ident, $rosu_map:ident, $score:ident, $mods:ident, $max_pp:ident) => {{
+        let max_pp_result = $version::ManiaPP::new(&$rosu_map).mods($mods).calculate();
+
+        $max_pp.replace(max_pp_result.pp());
+        $map.stars = max_pp_result.stars();
+
+        let pp_result = $version::ManiaPP::new(&$rosu_map)
+            .mods($mods)
+            .attributes(max_pp_result)
+            .score($score.score)
+            .accuracy($score.accuracy(GameMode::MNA))
+            .calculate();
+
+        $score.pp.replace(pp_result.pp());
+    }};
+}
 
 async fn topold_main(
     mode: GameMode,
@@ -26,6 +65,8 @@ async fn topold_main(
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
+
+    // TODO: Check if valid year
 
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
@@ -125,32 +166,26 @@ async fn topold_main(
         let rosu_map = Beatmap::parse(file).map_err(PPError::from)?;
         let mods = score.enabled_mods.bits();
 
-        if mode != GameMode::STD || args.pp_version == PPVersion::January2021 {
+        if (mode == GameMode::STD && args.year >= 2021)
+            || (mode == GameMode::MNA && args.year >= 2018)
+        {
             max_pp.replace(rosu_map.max_pp(mods).pp());
             continue;
         }
 
-        // TODO: Assert valid version-mod combination
-        match args.pp_version {
-            PPVersion::January2021 => unreachable!(),
-            PPVersion::February2019 => {
-                let max_pp_result = MyOsuPP::new(&rosu_map).mods(mods).calculate_v2019();
+        match (mode, args.year) {
+            (GameMode::STD, 2007..=2011) => unreachable!(),
+            (GameMode::STD, 2012..=2013) => unreachable!(),
+            (GameMode::STD, 2014) => unreachable!(),
+            (GameMode::STD, 2015..=2017) => pp_std!(osu_2015, map, rosu_map, score, mods, max_pp),
+            (GameMode::STD, 2018) => pp_std!(osu_2018, map, rosu_map, score, mods, max_pp),
+            (GameMode::STD, 2019..=2020) => pp_std!(osu_2019, map, rosu_map, score, mods, max_pp),
+            (GameMode::STD, 2021) => unreachable!(),
 
-                max_pp.replace(max_pp_result.pp());
-                map.stars = max_pp_result.stars();
+            (GameMode::MNA, 2007..=2017) => pp_mna!(mania_ppv1, map, rosu_map, score, mods, max_pp),
+            (GameMode::MNA, 2018..=2021) => unreachable!(),
 
-                let pp_result = MyOsuPP::new(&rosu_map)
-                    .mods(mods)
-                    .attributes(max_pp_result)
-                    .n300(score.count300 as usize)
-                    .n100(score.count100 as usize)
-                    .n50(score.count50 as usize)
-                    .misses(score.count_miss as usize)
-                    .combo(score.max_combo as usize)
-                    .calculate_v2019();
-
-                score.pp.replace(pp_result.pp());
-            }
+            _ => todo!(),
         }
     }
 
@@ -172,10 +207,7 @@ async fn topold_main(
         name = user.username,
         plural = plural(user.username.as_str()),
         mode = mode_str(mode),
-        version = match args.pp_version {
-            PPVersion::January2021 => "since january 2021",
-            PPVersion::February2019 => "between february 2019 and january 2021",
-        }
+        version = content(mode, args.year),
     );
 
     let pages = numbers::div_euclid(5, scores_data.len());
@@ -227,64 +259,73 @@ async fn topold_main(
 }
 
 #[command]
-#[short_desc("Display a user's top plays with(out) the given mods")]
-// #[long_desc(
-//     "Display how a user's top plays would look like with the given mods.\n\
-//     As for all other commands with mods input, you can specify them as follows:\n  \
-//     - `+mods` to include the mod(s) into all scores\n  \
-//     - `+mods!` to make all scores have exactly those mods\n  \
-//     - `-mods!` to remove all these mods from all scores"
-// )]
-// #[usage("[username] [mods]")]
-// #[example("badewanne3 -hd!", "+hdhr!", "whitecat +hddt")]
+#[short_desc("Display a user's top plays on different pp versions")]
+#[long_desc(
+    "Display how the user's **current** top100 would have looked like \
+    in a previous year.\n\
+    The osu!standard pp history looks roughly like this:\n  \
+    - 2012: ppv1\n  \
+    - 2014: ppv2\n  \
+    - 2015: High CS nerf(?)\n  \
+    - 2018: HD adjustment\n    \
+    => https://osu.ppy.sh/home/news/2018-05-16-performance-updates\n  \
+    - 2019: Angles, speed, spaced streams\n    \
+    => https://osu.ppy.sh/home/news/2019-02-05-new-changes-to-star-rating-performance-points\n  \
+    - 2021: Accuracy nerf\n    \
+    => https://osu.ppy.sh/home/news/2021-01-14-performance-points-updates"
+)]
+#[usage("[username] [year]")]
+#[example("badewanne3 2018", "\"freddie benson\" 2015")]
 #[aliases("to")]
 pub async fn topold(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     topold_main(GameMode::STD, ctx, msg, args).await
 }
 
 #[command]
-#[short_desc("Display a user's top taiko plays with(out) the given mods")]
-// #[long_desc(
-//     "Display how a user's top taiko plays would look like with the given mods.\n\
-//     As for all other commands with mods input, you can specify them as follows:\n  \
-//     - `+mods` to include the mod(s) into all scores\n  \
-//     - `+mods!` to make all scores have exactly those mods\n  \
-//     - `-mods!` to remove all these mods from all scores"
-// )]
-// #[usage("[username] [mods]")]
-// #[example("badewanne3 -hd!", "+hdhr!", "whitecat +hddt")]
+#[short_desc("Display a user's top mania plays on different pp versions")]
+#[long_desc(
+    "Display how the user's **current** top100 would have looked like \
+    in a previous year.\n\
+    The osu!mania pp history looks roughly like this:\n  \
+    - 2014: ppv1\n  \
+    - 2018: ppv2\n    \
+    => https://osu.ppy.sh/home/news/2018-05-16-performance-updates"
+)]
+#[usage("[username] [year]")]
+#[example("\"freddie benson\" 2015")]
 #[aliases("tom")]
 pub async fn topoldmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     topold_main(GameMode::TKO, ctx, msg, args).await
 }
 
 #[command]
-#[short_desc("Display a user's top taiko plays with(out) the given mods")]
-// #[long_desc(
-//     "Display how a user's top taiko plays would look like with the given mods.\n\
-//     As for all other commands with mods input, you can specify them as follows:\n  \
-//     - `+mods` to include the mod(s) into all scores\n  \
-//     - `+mods!` to make all scores have exactly those mods\n  \
-//     - `-mods!` to remove all these mods from all scores"
-// )]
-// #[usage("[username] [mods]")]
-// #[example("badewanne3 -hd!", "+hdhr!", "whitecat +hddt")]
+#[short_desc("Display a user's top taiko plays on different pp versions")]
+#[long_desc(
+    "Display how the user's **current** top100 would have looked like \
+    in a previous year.\n\
+    The osu!taiko pp history looks roughly like this:\n  \
+    - 2014: ppv1\n  \
+    - TODO"
+)]
+#[usage("[username] [year]")]
+#[example("\"freddie benson\" 2015")]
 #[aliases("tot")]
 pub async fn topoldtaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     topold_main(GameMode::TKO, ctx, msg, args).await
 }
 
 #[command]
-#[short_desc("Display a user's top ctb plays with(out) the given mods")]
-// #[long_desc(
-//     "Display how a user's top ctb plays would look like with the given mods.\n\
-//     As for all other commands with mods input, you can specify them as follows:\n  \
-//     - `+mods` to include the mod(s) into all scores\n  \
-//     - `+mods!` to make all scores have exactly those mods\n  \
-//     - `-mods!` to remove all these mods from all scores"
-// )]
-// #[usage("[username] [mods]")]
-// #[example("badewanne3 -hd!", "+hdhr!", "whitecat +hddt")]
+#[short_desc("Display a user's top ctb plays on different pp versions")]
+#[long_desc(
+    "Display how the user's **current** top100 would have looked like \
+    in a previous year.\n\
+    The osu!ctb pp history looks roughly like this:\n  \
+    - 2014: ppv1\n  \
+    - 2020: Revamp\n    \
+    => https://osu.ppy.sh/home/news/2020-05-14-osucatch-scoring-updates"
+)]
+#[usage("[username] [year]")]
+#[example("\"freddie benson\" 2019")]
 #[aliases("toc")]
 pub async fn topoldctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     topold_main(GameMode::CTB, ctx, msg, args).await
@@ -303,5 +344,27 @@ fn mode_str(mode: GameMode) -> &'static str {
         GameMode::TKO => "taiko ",
         GameMode::CTB => "ctb ",
         GameMode::MNA => "mania ",
+    }
+}
+
+fn content(mode: GameMode, year: u16) -> &'static str {
+    match (mode, year) {
+        (GameMode::STD, 2007..=2011) => "between 2007 and april 2012",
+        (GameMode::STD, 2012..=2013) => "between april 2012 and january 2014",
+        (GameMode::STD, 2014) => "between january 2014 and april 2015",
+        (GameMode::STD, 2015..=2017) => "between april 2015 and may 2018",
+        (GameMode::STD, 2018) => "between may 2018 and february 2019",
+        (GameMode::STD, 2019..=2020) => "between february 2019 and january 2021",
+        (GameMode::STD, 2021) => "since january 2021",
+
+        (GameMode::MNA, 2014..=2017) => "between march 2014 and may 2018",
+        (GameMode::MNA, 2018..=2021) => "since may 2018",
+
+        (GameMode::TKO, _) => todo!(),
+
+        (GameMode::CTB, 2014..=2020) => "between march 2014 and may 2020",
+        (GameMode::CTB, 2018..=2021) => "since may 2020",
+
+        _ => unreachable!(),
     }
 }
