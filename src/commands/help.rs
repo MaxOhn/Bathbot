@@ -51,9 +51,8 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
     );
 
     format!("{}\n__**General**__\n\
-        - Most commands have (shorter) aliases, e.g. `{prefix}glb` instead of `{prefix}globalleaderboard`. \
-        To check those out or get more info about a command in general, \
-        just pass the command as argument e.g. __**`{prefix}help globalleaderboard`**__.\n\
+        - To find out more about a command like what arguments you can give or which shorter aliases it has, \
+        use __**`{prefix}help [command]`**__, e.g. `{prefix}help simulate`.
         - If you want to specify an argument, e.g. a username, that contains \
         spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
         - If you used `{prefix}link osuname`, you can omit the osu username for any command that needs one.\n\
