@@ -5,7 +5,11 @@ use crate::{
     tracking::process_tracking,
     unwind_error,
     util::{
-        constants::OSU_API_ISSUE, error::PPError, numbers, osu::prepare_beatmap_file, MessageExt,
+        constants::{DARK_GREEN, OSU_API_ISSUE},
+        error::PPError,
+        numbers,
+        osu::prepare_beatmap_file,
+        MessageExt,
     },
     Args, BotResult, Context,
 };
@@ -14,6 +18,7 @@ use rosu::model::{GameMode, Score};
 use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_pp_older::*;
 use std::{cmp::Ordering, collections::HashMap, fs::File, sync::Arc};
+use twilight_embed_builder::builder::EmbedBuilder;
 use twilight_model::channel::Message;
 
 macro_rules! pp_std {
@@ -55,6 +60,48 @@ macro_rules! pp_mna {
     }};
 }
 
+macro_rules! pp_ctb {
+    ($version:ident, $map:ident, $rosu_map:ident, $score:ident, $mods:ident, $max_pp:ident) => {{
+        let max_pp_result = $version::FruitsPP::new(&$rosu_map).mods($mods).calculate();
+
+        $max_pp.replace(max_pp_result.pp());
+        $map.stars = max_pp_result.stars();
+
+        let pp_result = $version::FruitsPP::new(&$rosu_map)
+            .mods($mods)
+            .attributes(max_pp_result)
+            .fruits($score.count300 as usize)
+            .droplets($score.count100 as usize)
+            .tiny_droplets($score.count50 as usize)
+            .tiny_droplet_misses($score.count_katu as usize)
+            .misses($score.count_miss as usize)
+            .combo($score.max_combo as usize)
+            .calculate();
+
+        $score.pp.replace(pp_result.pp());
+    }};
+}
+
+macro_rules! pp_tko {
+    ($version:ident, $map:ident, $rosu_map:ident, $score:ident, $mods:ident, $max_pp:ident) => {{
+        let max_pp_result = $version::TaikoPP::new(&$rosu_map).mods($mods).calculate();
+
+        $max_pp.replace(max_pp_result.pp());
+        $map.stars = max_pp_result.stars();
+
+        let pp_result = $version::TaikoPP::new(&$rosu_map)
+            .mods($mods)
+            .attributes(max_pp_result)
+            .n300($score.count300 as usize)
+            .n100($score.count100 as usize)
+            .misses($score.count_miss as usize)
+            .combo($score.max_combo as usize)
+            .calculate();
+
+        $score.pp.replace(pp_result.pp());
+    }};
+}
+
 async fn topold_main(
     mode: GameMode,
     ctx: Arc<Context>,
@@ -66,7 +113,51 @@ async fn topold_main(
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
 
-    // TODO: Check if valid year
+    let content = match (mode, args.year) {
+        (GameMode::STD, year) if year < 2007 => Some("osu! was not a thing until september 2007."),
+        (GameMode::STD, 2007..=2011) => {
+            Some("Up until april 2012, ranked score was the skill metric.")
+        }
+        (GameMode::STD, 2012..=2013) => Some(
+            "April 2012 till january 2014 was the reign of ppv1.\n\
+            The source code is not available though \\:(",
+        ),
+        (GameMode::STD, 2014) => Some(
+            "ppv2 replaced ppv1 in january 2014 and lasted until april 2015.\n\
+            The source code is not available though \\:(",
+        ),
+        (GameMode::STD, _) => None,
+
+        (GameMode::MNA, year) if year < 2014 => {
+            Some("mania pp were not a thing until march 2014. I think? Don't quote me on that :^)")
+        }
+        (GameMode::MNA, _) => None,
+
+        (GameMode::TKO, year) if year < 2014 => {
+            Some("taiko pp were not a thing until march 2014. I think? Don't quote me on that :^)")
+        }
+        (GameMode::TKO, _) => None,
+
+        (GameMode::CTB, year) if year < 2014 => {
+            Some("ctb pp were not a thing until march 2014. I think? Don't quote me on that :^)")
+        }
+        (GameMode::CTB, _) => None,
+    };
+
+    if let Some(content) = content {
+        let embed = EmbedBuilder::new()
+            .color(DARK_GREEN)?
+            .description(content)?
+            .build()?;
+
+        ctx.http
+            .create_message(msg.channel_id)
+            .embed(embed)?
+            .await?
+            .reaction_delete(&ctx, msg.author.id);
+
+        return Ok(());
+    }
 
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
@@ -168,24 +259,27 @@ async fn topold_main(
 
         if (mode == GameMode::STD && args.year >= 2021)
             || (mode == GameMode::MNA && args.year >= 2018)
+            || (mode == GameMode::TKO && args.year >= 2020)
+            || (mode == GameMode::CTB && args.year >= 2020)
         {
             max_pp.replace(rosu_map.max_pp(mods).pp());
             continue;
         }
 
         match (mode, args.year) {
-            (GameMode::STD, 2007..=2011) => unreachable!(),
-            (GameMode::STD, 2012..=2013) => unreachable!(),
-            (GameMode::STD, 2014) => unreachable!(),
             (GameMode::STD, 2015..=2017) => pp_std!(osu_2015, map, rosu_map, score, mods, max_pp),
             (GameMode::STD, 2018) => pp_std!(osu_2018, map, rosu_map, score, mods, max_pp),
             (GameMode::STD, 2019..=2020) => pp_std!(osu_2019, map, rosu_map, score, mods, max_pp),
-            (GameMode::STD, 2021) => unreachable!(),
 
-            (GameMode::MNA, 2007..=2017) => pp_mna!(mania_ppv1, map, rosu_map, score, mods, max_pp),
-            (GameMode::MNA, 2018..=2021) => unreachable!(),
+            (GameMode::MNA, 2014..=2017) => pp_mna!(mania_ppv1, map, rosu_map, score, mods, max_pp),
 
-            _ => todo!(),
+            (GameMode::TKO, 2014..=2019) => pp_tko!(taiko_ppv1, map, rosu_map, score, mods, max_pp),
+
+            (GameMode::CTB, 2014..=2019) => {
+                pp_ctb!(fruits_ppv1, map, rosu_map, score, mods, max_pp)
+            }
+
+            _ => unreachable!(),
         }
     }
 
@@ -207,7 +301,7 @@ async fn topold_main(
         name = user.username,
         plural = plural(user.username.as_str()),
         mode = mode_str(mode),
-        version = content(mode, args.year),
+        version = content_date_range(mode, args.year),
     );
 
     let pages = numbers::div_euclid(5, scores_data.len());
@@ -247,7 +341,8 @@ async fn topold_main(
     }
 
     // Pagination
-    let pagination = TopIfPagination::new(response, user, scores_data, mode, adjusted_pp);
+    let post_pp = user.pp_raw;
+    let pagination = TopIfPagination::new(response, user, scores_data, mode, adjusted_pp, post_pp);
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -295,7 +390,7 @@ pub async fn topold(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 #[example("\"freddie benson\" 2015")]
 #[aliases("tom")]
 pub async fn topoldmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    topold_main(GameMode::TKO, ctx, msg, args).await
+    topold_main(GameMode::MNA, ctx, msg, args).await
 }
 
 #[command]
@@ -305,7 +400,8 @@ pub async fn topoldmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
     in a previous year.\n\
     The osu!taiko pp history looks roughly like this:\n  \
     - 2014: ppv1\n  \
-    - TODO"
+    - 2020: Revamp\n    \
+    => https://osu.ppy.sh/home/news/2020-09-15-changes-to-osutaiko-star-rating"
 )]
 #[usage("[username] [year]")]
 #[example("\"freddie benson\" 2015")]
@@ -347,7 +443,7 @@ fn mode_str(mode: GameMode) -> &'static str {
     }
 }
 
-fn content(mode: GameMode, year: u16) -> &'static str {
+fn content_date_range(mode: GameMode, year: u16) -> &'static str {
     match (mode, year) {
         (GameMode::STD, 2007..=2011) => "between 2007 and april 2012",
         (GameMode::STD, 2012..=2013) => "between april 2012 and january 2014",
@@ -355,16 +451,15 @@ fn content(mode: GameMode, year: u16) -> &'static str {
         (GameMode::STD, 2015..=2017) => "between april 2015 and may 2018",
         (GameMode::STD, 2018) => "between may 2018 and february 2019",
         (GameMode::STD, 2019..=2020) => "between february 2019 and january 2021",
-        (GameMode::STD, 2021) => "since january 2021",
+        (GameMode::STD, _) => "since january 2021",
 
         (GameMode::MNA, 2014..=2017) => "between march 2014 and may 2018",
-        (GameMode::MNA, 2018..=2021) => "since may 2018",
+        (GameMode::MNA, _) => "since may 2018",
 
-        (GameMode::TKO, _) => todo!(),
+        (GameMode::TKO, 2014..=2019) => "between march 2014 and september 2020",
+        (GameMode::TKO, _) => "since september 2020",
 
         (GameMode::CTB, 2014..=2020) => "between march 2014 and may 2020",
-        (GameMode::CTB, 2018..=2021) => "since may 2020",
-
-        _ => unreachable!(),
+        (GameMode::CTB, _) => "since may 2020",
     }
 }

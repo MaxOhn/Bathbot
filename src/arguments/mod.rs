@@ -636,7 +636,7 @@ pub struct TopOldArgs {
 }
 
 impl TopOldArgs {
-    pub fn new(ctx: &Context, args: Args) -> Result<Self, &'static str> {
+    pub fn new(ctx: &Context, mut args: Args) -> Result<Self, &'static str> {
         let name = args.next().and_then(|arg| {
             matcher::get_mention_user(&arg)
                 .and_then(|id| ctx.get_link(id))

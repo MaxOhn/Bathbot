@@ -329,7 +329,8 @@ async fn topif_main(
     }
 
     // Pagination
-    let pagination = TopIfPagination::new(response, user, scores_data, mode, adjusted_pp);
+    let pre_pp = user.pp_raw;
+    let pagination = TopIfPagination::new(response, user, scores_data, mode, pre_pp, adjusted_pp);
     let owner = msg.author.id;
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {

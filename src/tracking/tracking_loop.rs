@@ -14,6 +14,7 @@ use twilight_http::{
 
 pub async fn tracking_loop(ctx: Arc<Context>) {
     let delay = time::Duration::from_secs(60);
+
     loop {
         // Get all users that should be tracked in this iteration
         let tracked = match ctx.tracking().pop().await {
@@ -23,6 +24,7 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
                 continue;
             }
         };
+
         // Build top score requests for each
         let score_futs = tracked.keys().map(|(user_id, mode)| {
             ctx.osu()
@@ -31,6 +33,7 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
                 .limit(100)
                 .map(move |result| (*user_id, *mode, result))
         });
+
         // Iterate over the request responses
         let mut maps: HashMap<u32, Beatmap> = HashMap::new();
         for (user_id, mode, result) in join_all(score_futs).await {
@@ -49,6 +52,7 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
                         user_id,
                         mode
                     );
+
                     ctx.tracking().reset(user_id, mode).await;
                 }
             }
@@ -67,36 +71,45 @@ pub async fn process_tracking(
         .first()
         .map(|s| s.user_id)
         .or_else(|| user.map(|u| u.user_id));
+
     let user_id = match id_option {
         Some(id) => id,
         None => return,
     };
+
     let (last, channels) = match ctx.tracking().get_tracked(user_id, mode) {
         Some(tuple) => tuple,
         None => return,
     };
+
     let max = match channels.values().max() {
         Some(max) => *max,
         None => return,
     };
-    let new_last = scores.iter().map(|s| s.date).max();
+
+    let new_last = match scores.iter().map(|s| s.date).max() {
+        Some(new_last) => new_last,
+        None => return,
+    };
+
     debug!(
         "[Tracking] ({},{}): last {} | curr {}",
-        user_id,
-        mode,
-        last,
-        new_last.unwrap()
+        user_id, mode, last, new_last
     );
+
     let mut user_value = None; // will be set if user is None but there is new top score
+
     for (idx, score) in scores.iter().enumerate().take(max) {
         // Skip if its an older score
         if score.date <= last {
             continue;
         }
+
         debug!(
             "[New top score] ({},{}): new {} | old {}",
             user_id, mode, score.date, last
         );
+
         // Prepare beatmap
         let map_id = match score.beatmap_id {
             Some(id) => id,
@@ -105,6 +118,7 @@ pub async fn process_tracking(
                 continue;
             }
         };
+
         if !maps.contains_key(&map_id) {
             match ctx.psql().get_beatmap(map_id).await {
                 Ok(map) => maps.insert(map_id, map),
@@ -126,7 +140,9 @@ pub async fn process_tracking(
                 },
             };
         }
+
         let map = maps.get(&map_id).unwrap();
+
         // Prepare user
         let user = match (user, user_value.as_ref()) {
             (Some(user), _) => user,
@@ -151,8 +167,10 @@ pub async fn process_tracking(
                 }
             },
         };
+
         // Build embed
         let data = TrackNotificationEmbed::new(user, score, map, idx + 1).await;
+
         let embed = match data.build().build() {
             Ok(embed) => embed,
             Err(why) => {
@@ -164,11 +182,13 @@ pub async fn process_tracking(
                 continue;
             }
         };
+
         // Send the embed to each tracking channel
         for (&channel, &limit) in channels.iter() {
             if idx + 1 > limit {
                 continue;
             }
+
             // Try to build and send the message
             match ctx.http.create_message(channel).embed(embed.clone()) {
                 Ok(msg_fut) => {
@@ -183,6 +203,7 @@ pub async fn process_tracking(
                                 .tracking()
                                 .remove_channel(channel, None, ctx.psql())
                                 .await;
+
                             if let Err(why) = result {
                                 unwind_error!(
                                     warn,
@@ -214,17 +235,17 @@ pub async fn process_tracking(
             }
         }
     }
-    if let Some(new_date) = new_last.filter(|&d| d > last) {
+
+    if new_last > last {
         debug!(
             "[Tracking] Updating for ({},{}): {} -> {}",
-            user_id,
-            mode,
-            last,
-            new_last.unwrap()
+            user_id, mode, last, new_last
         );
+
         let update_fut = ctx
             .tracking()
-            .update_last_date(user_id, mode, new_date, ctx.psql());
+            .update_last_date(user_id, mode, new_last, ctx.psql());
+
         if let Err(why) = update_fut.await {
             unwind_error!(
                 warn,
@@ -235,6 +256,7 @@ pub async fn process_tracking(
             );
         }
     }
+
     ctx.tracking().reset(user_id, mode).await;
     debug!("[Tracking] Reset ({},{})", user_id, mode);
 }
