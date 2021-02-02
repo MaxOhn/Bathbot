@@ -5,7 +5,7 @@
 - Find a better way than reaction for things like `<r`
 - Put non-global leaderboard back in for `<bg lb`
 - Don't update DB guild config on shutdown but immediatly instead
-- Add commands `<snipedgain` and `<snipedloss`
+- Update ranked .osu files somehow / delete unranked .osu files
 - ~~Custom pagination for `<r`~~
 - ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~
 - ~~`<playermedals` showing a list of a user's medals~~
@@ -19,6 +19,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Add commands `<snipedgain` and `<snipedloss`~~ (21.02.02)
 - ~~Filter `<bws`-irrelevant badges through regex~~ (21.02.02)
 - ~~Allow `<top` grade argument to be a range~~ (21.01.27)
 - ~~Fix `<topif idke +ezfl`~~ (21.01.27)

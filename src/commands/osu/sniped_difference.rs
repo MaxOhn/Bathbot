@@ -12,8 +12,7 @@ use crate::{
 
 use chrono::{Duration, Utc};
 use rosu::model::GameMode;
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 use twilight_model::channel::Message;
 
 async fn sniped_diff_main(
@@ -44,7 +43,7 @@ async fn sniped_diff_main(
         }
     };
 
-    if SNIPE_COUNTRIES.contains_key(user.country.as_str()) {
+    if !SNIPE_COUNTRIES.contains_key(user.country.as_str()) {
         let content = format!(
             "`{}`'s country {} is not supported :(",
             user.username, user.country
@@ -63,7 +62,7 @@ async fn sniped_diff_main(
         Difference::Loss => client.get_national_snipes(&user, false, week_ago, now),
     };
 
-    let scores = match scores_fut.await {
+    let mut scores = match scores_fut.await {
         Ok(scores) => scores,
         Err(why) => {
             let _ = msg.error(&ctx, HUISMETBENEN_ISSUE).await;
@@ -85,44 +84,10 @@ async fn sniped_diff_main(
         return msg.respond(&ctx, content).await;
     }
 
-    // Get the first five maps from the database
-    let map_ids: Vec<_> = scores
-        .iter()
-        .take(5)
-        .map(|score| score.beatmap_id)
-        .collect();
+    scores.sort_unstable_by_key(|s| Reverse(s.date));
 
-    let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
-        Ok(maps) => maps,
-        Err(why) => {
-            unwind_error!(warn, why, "Error while getting maps from DB: {}");
-            HashMap::default()
-        }
-    };
-
-    // Retrieving all missing beatmaps
-    for map_id in map_ids {
-        if !maps.contains_key(&map_id) {
-            match ctx.osu().beatmap().map_id(map_id).await {
-                Ok(Some(map)) => {
-                    maps.insert(map_id, map);
-                }
-                Ok(None) => {
-                    let content = format!("The API returned no beatmap for map id {}", map_id);
-
-                    return msg.error(&ctx, content).await;
-                }
-                Err(why) => {
-                    let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-                    return Err(why.into());
-                }
-            }
-        }
-    }
-
-    let total = scores.len();
-    let pages = numbers::div_euclid(5, total);
+    let pages = numbers::div_euclid(5, scores.len());
+    let mut maps = HashMap::new();
 
     let content = format!(
         "{name}{plural} national #1 {diff} from last week",
@@ -138,7 +103,7 @@ async fn sniped_diff_main(
         }
     );
 
-    let data_fut = SnipedDiffEmbed::new(&user, diff, scores.iter().take(5), total, (1, pages));
+    let data_fut = SnipedDiffEmbed::new(&user, diff, &scores, 0, (1, pages), &mut maps);
 
     let data = match data_fut.await {
         Ok(data) => data,
@@ -166,8 +131,7 @@ async fn sniped_diff_main(
     }
 
     // Pagination
-    let pagination =
-        SnipedDiffPagination::new(Arc::clone(&ctx), response, user, diff, scores, maps);
+    let pagination = SnipedDiffPagination::new(response, user, diff, scores, maps);
 
     let owner = msg.author.id;
 

@@ -14,7 +14,7 @@ use crate::{
 
 use rosu::model::User;
 use rosu_pp::{Beatmap, BeatmapExt};
-use std::{fmt::Write, fs::File};
+use std::{collections::HashMap, fmt::Write, fs::File};
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct SnipedDiffEmbed {
@@ -26,26 +26,31 @@ pub struct SnipedDiffEmbed {
 }
 
 impl SnipedDiffEmbed {
-    pub async fn new<'i, S>(
+    pub async fn new(
         user: &User,
         diff: Difference,
-        scores: S,
-        total: usize,
+        scores: &[SnipeRecent],
+        start: usize,
         pages: (usize, usize),
-    ) -> BotResult<Self>
-    where
-        S: Iterator<Item = &'i SnipeRecent>,
-    {
-        let idx = (pages.0 - 1) * 5 + 1;
+        maps: &mut HashMap<u32, Beatmap>,
+    ) -> BotResult<Self> {
         let mut description = String::with_capacity(512);
 
-        for (i, score) in scores.enumerate() {
+        for idx in start..scores.len().min(start + 5) {
+            let score = &scores[idx];
+
             let stars = match score.stars {
                 Some(stars) => stars,
                 None => {
-                    let map_path = prepare_beatmap_file(score.beatmap_id).await?;
-                    let file = File::open(map_path).map_err(PPError::from)?;
-                    let map = Beatmap::parse(file).map_err(PPError::from)?;
+                    if !maps.contains_key(&score.beatmap_id) {
+                        let map_path = prepare_beatmap_file(score.beatmap_id).await?;
+                        let file = File::open(map_path).map_err(PPError::from)?;
+                        let map = Beatmap::parse(file).map_err(PPError::from)?;
+
+                        maps.insert(score.beatmap_id, map);
+                    }
+
+                    let map = maps.get(&score.beatmap_id).unwrap();
 
                     map.stars(score.mods.bits(), None).stars()
                 }
@@ -53,14 +58,14 @@ impl SnipedDiffEmbed {
 
             let _ = write!(
                 description,
-                "**{idx}. [{map}]({base}b/{id}) {mods}** [{stars}]\n{acc} ~ ",
-                idx = idx + i,
+                "**{idx}. [{map}]({base}b/{id}) {mods}**\n[{stars}] ~ ({acc}%) ~ ",
+                idx = idx + 1,
                 map = score.map,
                 base = OSU_BASE,
                 id = score.beatmap_id,
                 mods = osu::get_mods(score.mods),
                 stars = osu::get_stars(stars),
-                acc = score.accuracy,
+                acc = round(100.0 * score.accuracy),
             );
 
             let _ = match diff {
@@ -94,12 +99,19 @@ impl SnipedDiffEmbed {
             Difference::Loss => "Lost national #1s since last week",
         };
 
+        let footer = Footer::new(format!(
+            "Page {}/{} ~ Total: {}",
+            pages.0,
+            pages.1,
+            scores.len()
+        ));
+
         Ok(Self {
             title,
             description,
             author: osu::get_user_author(user),
             thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
-            footer: Footer::new(format!("Page {}/{} ~ Total: {}", pages.0, pages.1, total)),
+            footer,
         })
     }
 }
