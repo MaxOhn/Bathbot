@@ -1,7 +1,6 @@
 mod args;
 
 pub use args::Args;
-use chrono::Datelike;
 
 use crate::{
     commands::osu::TopSortBy,
@@ -15,7 +14,6 @@ use crate::{
     Context,
 };
 
-use chrono::Utc;
 use itertools::Itertools;
 use rosu::model::{GameMode, Grade};
 use std::{cmp::Ordering, str::FromStr};
@@ -628,32 +626,6 @@ impl NameModArgs {
 pub enum GradeArg {
     Single(Grade),
     Range { top: Grade, bot: Grade },
-}
-
-pub struct TopOldArgs {
-    pub name: Option<String>,
-    pub year: u16,
-}
-
-impl TopOldArgs {
-    pub fn new(ctx: &Context, mut args: Args) -> Result<Self, &'static str> {
-        let name = args.next().and_then(|arg| {
-            matcher::get_mention_user(&arg)
-                .and_then(|id| ctx.get_link(id))
-                .or(Some(arg.to_owned()))
-        });
-
-        let year = match args.next().map(str::parse) {
-            Some(Err(_)) => {
-                return Err("Could not parse given pp version.\n\
-                Be sure your last argument is a year.")
-            }
-            Some(Ok(year)) => year,
-            None => Utc::now().year() as u16,
-        };
-
-        Ok(Self { name, year })
-    }
 }
 
 pub struct TopArgs {

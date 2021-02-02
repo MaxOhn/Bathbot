@@ -1,5 +1,5 @@
 use crate::{
-    arguments::TopOldArgs,
+    arguments::NameIntArgs,
     embeds::{EmbedData, TopIfEmbed},
     pagination::{Pagination, TopIfPagination},
     tracking::process_tracking,
@@ -14,6 +14,7 @@ use crate::{
     Args, BotResult, Context,
 };
 
+use chrono::{Datelike, Utc};
 use rosu::model::{GameMode, Score};
 use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_pp_older::*;
@@ -108,12 +109,11 @@ async fn topold_main(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let args = match TopOldArgs::new(&ctx, args) {
-        Ok(args) => args,
-        Err(err_msg) => return msg.error(&ctx, err_msg).await,
-    };
+    let args = NameIntArgs::new(&ctx, args);
 
-    let content = match (mode, args.year) {
+    let year = args.number.unwrap_or_else(|| Utc::now().year() as u32);
+
+    let content = match (mode, year) {
         (GameMode::STD, year) if year < 2007 => Some("osu! was not a thing until september 2007."),
         (GameMode::STD, 2007..=2011) => {
             Some("Up until april 2012, ranked score was the skill metric.")
@@ -257,16 +257,16 @@ async fn topold_main(
         let rosu_map = Beatmap::parse(file).map_err(PPError::from)?;
         let mods = score.enabled_mods.bits();
 
-        if (mode == GameMode::STD && args.year >= 2021)
-            || (mode == GameMode::MNA && args.year >= 2018)
-            || (mode == GameMode::TKO && args.year >= 2020)
-            || (mode == GameMode::CTB && args.year >= 2020)
+        if (mode == GameMode::STD && year >= 2021)
+            || (mode == GameMode::MNA && year >= 2018)
+            || (mode == GameMode::TKO && year >= 2020)
+            || (mode == GameMode::CTB && year >= 2020)
         {
             max_pp.replace(rosu_map.max_pp(mods).pp());
             continue;
         }
 
-        match (mode, args.year) {
+        match (mode, year) {
             (GameMode::STD, 2015..=2017) => pp_std!(osu_2015, map, rosu_map, score, mods, max_pp),
             (GameMode::STD, 2018) => pp_std!(osu_2018, map, rosu_map, score, mods, max_pp),
             (GameMode::STD, 2019..=2020) => pp_std!(osu_2019, map, rosu_map, score, mods, max_pp),
@@ -301,7 +301,7 @@ async fn topold_main(
         name = user.username,
         plural = plural(user.username.as_str()),
         mode = mode_str(mode),
-        version = content_date_range(mode, args.year),
+        version = content_date_range(mode, year),
     );
 
     let pages = numbers::div_euclid(5, scores_data.len());
@@ -443,7 +443,7 @@ fn mode_str(mode: GameMode) -> &'static str {
     }
 }
 
-fn content_date_range(mode: GameMode, year: u16) -> &'static str {
+fn content_date_range(mode: GameMode, year: u32) -> &'static str {
     match (mode, year) {
         (GameMode::STD, 2007..=2011) => "between 2007 and april 2012",
         (GameMode::STD, 2012..=2013) => "between april 2012 and january 2014",
