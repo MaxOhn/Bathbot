@@ -33,6 +33,7 @@ mod simulate_recent;
 mod sniped;
 mod top;
 mod top_if;
+mod top_old;
 mod whatif;
 
 pub use avatar::*;
@@ -70,6 +71,7 @@ pub use simulate_recent::*;
 pub use sniped::*;
 pub use top::*;
 pub use top_if::*;
+pub use top_old::*;
 pub use whatif::*;
 
 use crate::{

@@ -12,7 +12,8 @@ pub struct TopIfPagination {
     user: User,
     scores: Vec<(usize, Score, Beatmap, Option<f32>)>,
     mode: GameMode,
-    adjusted_pp: f32,
+    pre_pp: f32,
+    post_pp: f32,
 }
 
 impl TopIfPagination {
@@ -21,7 +22,8 @@ impl TopIfPagination {
         user: User,
         scores: Vec<(usize, Score, Beatmap, Option<f32>)>,
         mode: GameMode,
-        adjusted_pp: f32,
+        pre_pp: f32,
+        post_pp: f32,
     ) -> Self {
         Self {
             pages: Pages::new(5, scores.len()),
@@ -29,7 +31,8 @@ impl TopIfPagination {
             user,
             scores,
             mode,
-            adjusted_pp,
+            pre_pp,
+            post_pp,
         }
     }
 }
@@ -62,7 +65,8 @@ impl Pagination for TopIfPagination {
                 .skip(self.pages.index)
                 .take(self.pages.per_page),
             self.mode,
-            self.adjusted_pp,
+            self.pre_pp,
+            self.post_pp,
             (self.page(), self.pages.total_pages),
         )
         .await)

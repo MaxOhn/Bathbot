@@ -1,6 +1,7 @@
 mod args;
 
 pub use args::Args;
+use chrono::Datelike;
 
 use crate::{
     commands::osu::TopSortBy,
@@ -14,6 +15,7 @@ use crate::{
     Context,
 };
 
+use chrono::Utc;
 use itertools::Itertools;
 use rosu::model::{GameMode, Grade};
 use std::{cmp::Ordering, str::FromStr};
@@ -73,13 +75,13 @@ impl OsuStatsArgs {
         mut username: Option<String>,
         mode: GameMode,
     ) -> Result<Self, &'static str> {
-        let mut args: Vec<_> = args.take(8).map(|arg| arg.to_owned()).collect();
+        let mut args: Vec<_> = args.take(8).collect();
 
         // Parse min and max rank
         let mut rank_min = None;
         let mut rank_max = None;
 
-        if let Some(idx) = args.iter().position(|arg| arg == "-r" || arg == "-rank") {
+        if let Some(idx) = args.iter().position(|&arg| arg == "-r" || arg == "-rank") {
             args.remove(idx);
             if let Some((min, max)) = args.get(idx).and_then(parse_dotted) {
                 args.remove(idx);
@@ -96,7 +98,7 @@ impl OsuStatsArgs {
         let mut acc_min = None;
         let mut acc_max = None;
 
-        if let Some(idx) = args.iter().position(|arg| arg == "-a" || arg == "-acc") {
+        if let Some(idx) = args.iter().position(|&arg| arg == "-a" || arg == "-acc") {
             args.remove(idx);
             if let Some((min, max)) = args.get(idx).and_then(parse_dotted) {
                 args.remove(idx);
@@ -135,7 +137,7 @@ impl OsuStatsArgs {
         if let Some(name) = args.pop() {
             username = matcher::get_mention_user(&name)
                 .and_then(|id| ctx.get_link(id))
-                .or(Some(name));
+                .or(Some(name.to_owned()));
         }
 
         if username.is_none() {
@@ -242,7 +244,7 @@ pub struct SimulateMapArgs {
 
 impl SimulateMapArgs {
     pub fn new(args: Args) -> Result<Self, &'static str> {
-        let mut args = args.take(16).map(|arg| arg.to_owned()).collect();
+        let mut args = args.take(16).collect();
         let mods = mods(&mut args);
         let acc = acc(&mut args)?;
         let combo = combo(&mut args)?;
@@ -286,7 +288,7 @@ pub struct SimulateNameArgs {
 
 impl SimulateNameArgs {
     pub fn new(ctx: &Context, args: Args) -> Result<Self, &'static str> {
-        let mut args = args.take(16).map(|arg| arg.to_owned()).collect();
+        let mut args = args.take(16).collect();
         let mods = mods(&mut args);
         let acc = acc(&mut args)?;
         let combo = combo(&mut args)?;
@@ -299,7 +301,7 @@ impl SimulateNameArgs {
         let name = args.pop().and_then(|arg| {
             matcher::get_mention_user(&arg)
                 .and_then(|id| ctx.get_link(id))
-                .or(Some(arg))
+                .or(Some(arg.to_owned()))
         });
 
         Ok(Self {
@@ -325,7 +327,7 @@ pub struct SnipeScoreArgs {
 
 impl SnipeScoreArgs {
     pub fn new(args: Args) -> Self {
-        let mut args: Vec<_> = args.take(4).map(str::to_owned).collect();
+        let mut args: Vec<_> = args.take(4).collect();
         // Parse mods
         let mods = mods(&mut args);
         // Parse descending/ascending
@@ -348,7 +350,7 @@ impl SnipeScoreArgs {
         };
 
         Self {
-            name: args.pop(),
+            name: args.pop().map(str::to_owned),
             order,
             mods,
             descending,
@@ -628,6 +630,32 @@ pub enum GradeArg {
     Range { top: Grade, bot: Grade },
 }
 
+pub struct TopOldArgs {
+    pub name: Option<String>,
+    pub year: u16,
+}
+
+impl TopOldArgs {
+    pub fn new(ctx: &Context, mut args: Args) -> Result<Self, &'static str> {
+        let name = args.next().and_then(|arg| {
+            matcher::get_mention_user(&arg)
+                .and_then(|id| ctx.get_link(id))
+                .or(Some(arg.to_owned()))
+        });
+
+        let year = match args.next().map(str::parse) {
+            Some(Err(_)) => {
+                return Err("Could not parse given pp version.\n\
+                Be sure your last argument is a year.")
+            }
+            Some(Ok(year)) => year,
+            None => Utc::now().year() as u16,
+        };
+
+        Ok(Self { name, year })
+    }
+}
+
 pub struct TopArgs {
     pub name: Option<String>,
     pub mods: Option<ModSelection>,
@@ -643,12 +671,12 @@ pub struct TopArgs {
 
 impl TopArgs {
     pub fn new(ctx: &Context, args: Args) -> Result<Self, &'static str> {
-        let mut args: Vec<_> = args.take(8).map(str::to_owned).collect();
+        let mut args: Vec<_> = args.take(10).collect();
 
         let mut acc_min = None;
         let mut acc_max = None;
 
-        if let Some(idx) = args.iter().position(|arg| arg == "-a") {
+        if let Some(idx) = args.iter().position(|&arg| arg == "-a") {
             args.remove(idx);
             if let Some((min, minmax)) = args.get(idx).and_then(parse_dotted) {
                 args.remove(idx);
@@ -668,7 +696,7 @@ impl TopArgs {
         let mut combo_min = None;
         let mut combo_max = None;
 
-        if let Some(idx) = args.iter().position(|arg| arg == "-c") {
+        if let Some(idx) = args.iter().position(|&arg| arg == "-c") {
             args.remove(idx);
             if let Some((min, minmax)) = args.get(idx).and_then(parse_dotted) {
                 args.remove(idx);
@@ -687,7 +715,7 @@ impl TopArgs {
 
         let mut grade = None;
 
-        if let Some(idx) = args.iter().position(|arg| arg == "-g" || arg == "-grade") {
+        if let Some(idx) = args.iter().position(|&arg| arg == "-g" || arg == "-grade") {
             args.remove(idx);
             if let Some((min, mut max)) = args.get(idx).and_then(parse_dotted) {
                 args.remove(idx);
@@ -731,7 +759,7 @@ impl TopArgs {
         let name = args.pop().and_then(|arg| {
             matcher::get_mention_user(&arg)
                 .and_then(|id| ctx.get_link(id))
-                .or(Some(arg))
+                .or(Some(arg.to_owned()))
         });
 
         Ok(Self {
@@ -864,9 +892,9 @@ pub fn try_link_name(ctx: &Context, msg: Option<&str>) -> Option<String> {
     })
 }
 
-fn mods(args: &mut Vec<String>) -> Option<ModSelection> {
+fn mods(args: &mut Vec<impl AsRef<str>>) -> Option<ModSelection> {
     for (i, arg) in args.iter().enumerate() {
-        let mods = matcher::get_mods(arg);
+        let mods = matcher::get_mods(arg.as_ref());
 
         if mods.is_some() {
             args.remove(i);
@@ -877,11 +905,15 @@ fn mods(args: &mut Vec<String>) -> Option<ModSelection> {
     None
 }
 
-fn acc(args: &mut Vec<String>) -> Result<Option<f32>, &'static str> {
-    if let Some(idx) = args.iter().position(|arg| arg == "-a" || arg == "-acc") {
+fn acc(args: &mut Vec<impl AsRef<str>>) -> Result<Option<f32>, &'static str> {
+    if let Some(idx) = args.iter().position(|arg| {
+        let arg = arg.as_ref();
+
+        arg == "-a" || arg == "-acc"
+    }) {
         args.remove(idx);
 
-        match args.get(idx).map(|arg| f32::from_str(arg.as_str())) {
+        match args.get(idx).map(|arg| f32::from_str(arg.as_ref())) {
             Some(Ok(acc)) => {
                 args.remove(idx);
                 Ok(Some(acc))
@@ -895,11 +927,15 @@ fn acc(args: &mut Vec<String>) -> Result<Option<f32>, &'static str> {
     }
 }
 
-fn combo(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
-    if let Some(idx) = args.iter().position(|arg| arg == "-c" || arg == "-combo") {
+fn combo(args: &mut Vec<impl AsRef<str>>) -> Result<Option<u32>, &'static str> {
+    if let Some(idx) = args.iter().position(|arg| {
+        let arg = arg.as_ref();
+
+        arg == "-c" || arg == "-combo"
+    }) {
         args.remove(idx);
 
-        match args.get(idx).map(|arg| u32::from_str(arg.as_str())) {
+        match args.get(idx).map(|arg| u32::from_str(arg.as_ref())) {
             Some(Ok(combo)) => {
                 args.remove(idx);
                 Ok(Some(combo))
@@ -913,11 +949,15 @@ fn combo(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     }
 }
 
-fn n300(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
-    if let Some(idx) = args.iter().position(|arg| arg == "-300" || arg == "-n300") {
+fn n300(args: &mut Vec<impl AsRef<str>>) -> Result<Option<u32>, &'static str> {
+    if let Some(idx) = args.iter().position(|arg| {
+        let arg = arg.as_ref();
+
+        arg == "-300" || arg == "-n300"
+    }) {
         args.remove(idx);
 
-        match args.get(idx).map(|arg| u32::from_str(arg.as_str())) {
+        match args.get(idx).map(|arg| u32::from_str(arg.as_ref())) {
             Some(Ok(n300)) => {
                 args.remove(idx);
                 Ok(Some(n300))
@@ -930,11 +970,15 @@ fn n300(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     }
 }
 
-fn n100(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
-    if let Some(idx) = args.iter().position(|arg| arg == "-100" || arg == "-n100") {
+fn n100(args: &mut Vec<impl AsRef<str>>) -> Result<Option<u32>, &'static str> {
+    if let Some(idx) = args.iter().position(|arg| {
+        let arg = arg.as_ref();
+
+        arg == "-100" || arg == "-n100"
+    }) {
         args.remove(idx);
 
-        match args.get(idx).map(|arg| u32::from_str(arg.as_str())) {
+        match args.get(idx).map(|arg| u32::from_str(arg.as_ref())) {
             Some(Ok(n100)) => {
                 args.remove(idx);
                 Ok(Some(n100))
@@ -947,11 +991,15 @@ fn n100(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     }
 }
 
-fn n50(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
-    if let Some(idx) = args.iter().position(|arg| arg == "-50" || arg == "-n50") {
+fn n50(args: &mut Vec<impl AsRef<str>>) -> Result<Option<u32>, &'static str> {
+    if let Some(idx) = args.iter().position(|arg| {
+        let arg = arg.as_ref();
+
+        arg == "-50" || arg == "-n50"
+    }) {
         args.remove(idx);
 
-        match args.get(idx).map(|arg| u32::from_str(arg.as_str())) {
+        match args.get(idx).map(|arg| u32::from_str(arg.as_ref())) {
             Some(Ok(n50)) => {
                 args.remove(idx);
                 Ok(Some(n50))
@@ -964,11 +1012,15 @@ fn n50(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     }
 }
 
-fn score(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
-    if let Some(idx) = args.iter().position(|arg| arg == "-s" || arg == "-score") {
+fn score(args: &mut Vec<impl AsRef<str>>) -> Result<Option<u32>, &'static str> {
+    if let Some(idx) = args.iter().position(|arg| {
+        let arg = arg.as_ref();
+
+        arg == "-s" || arg == "-score"
+    }) {
         args.remove(idx);
 
-        match args.get(idx).map(|arg| u32::from_str(arg.as_str())) {
+        match args.get(idx).map(|arg| u32::from_str(arg.as_ref())) {
             Some(Ok(score)) => {
                 args.remove(idx);
                 Ok(Some(score))
@@ -982,11 +1034,15 @@ fn score(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     }
 }
 
-fn miss(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
-    if let Some(idx) = args.iter().position(|arg| arg == "-x" || arg == "-m") {
+fn miss(args: &mut Vec<impl AsRef<str>>) -> Result<Option<u32>, &'static str> {
+    if let Some(idx) = args.iter().position(|arg| {
+        let arg = arg.as_ref();
+
+        arg == "-x" || arg == "-m"
+    }) {
         args.remove(idx);
 
-        match args.get(idx).map(|arg| u32::from_str(arg.as_str())) {
+        match args.get(idx).map(|arg| u32::from_str(arg.as_ref())) {
             Some(Ok(misses)) => {
                 args.remove(idx);
                 Ok(Some(misses))
@@ -1000,8 +1056,8 @@ fn miss(args: &mut Vec<String>) -> Result<Option<u32>, &'static str> {
     }
 }
 
-fn keywords(args: &mut Vec<String>, keys: &[&str]) -> bool {
-    if let Some(idx) = args.iter().position(|arg| keys.contains(&arg.as_str())) {
+fn keywords(args: &mut Vec<impl AsRef<str>>, keys: &[&str]) -> bool {
+    if let Some(idx) = args.iter().position(|arg| keys.contains(&arg.as_ref())) {
         args.remove(idx);
         return true;
     }

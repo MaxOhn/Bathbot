@@ -25,13 +25,14 @@ impl TopIfEmbed {
         user: &User,
         scores_data: S,
         mode: GameMode,
-        adjusted_pp: f32,
+        pre_pp: f32,
+        post_pp: f32,
         pages: (usize, usize),
     ) -> Self
     where
         S: Iterator<Item = &'i (usize, Score, Beatmap, Option<f32>)>,
     {
-        let pp_diff = (100.0 * (adjusted_pp - user.pp_raw)).round() / 100.0;
+        let pp_diff = (100.0 * (post_pp - pre_pp)).round() / 100.0;
         let mut description = String::with_capacity(512);
 
         for (idx, score, map, max_pp) in scores_data {
@@ -61,16 +62,11 @@ impl TopIfEmbed {
 
         description.pop();
 
-        let title = format!(
-            "Total pp: {} → **{}pp** ({:+})",
-            user.pp_raw, adjusted_pp, pp_diff
-        );
-
         Self {
-            title,
             description,
             author: osu::get_user_author(user),
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
+            title: format!("Total pp: {} → **{}pp** ({:+})", pre_pp, post_pp, pp_diff),
             thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
         }
     }
