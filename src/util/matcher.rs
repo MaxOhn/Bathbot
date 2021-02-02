@@ -135,6 +135,11 @@ pub fn is_guest_diff(msg: &str) -> bool {
     OSU_DIFF_MATCHER.is_match(msg)
 }
 
+#[inline]
+pub fn tourney_badge(description: &str) -> bool {
+    !IGNORE_BADGE_MATCHER.is_match_at(description, 0)
+}
+
 lazy_static! {
     static ref ROLE_ID_MATCHER: Regex = Regex::new(r"<@&(\d+)>").unwrap();
 }
@@ -186,4 +191,8 @@ lazy_static! {
 
 lazy_static! {
     static ref EMOJI_MATCHER: Regex = Regex::new(r"<(a?):([^:\n]+):(\d+)>").unwrap();
+}
+
+lazy_static! {
+    static ref IGNORE_BADGE_MATCHER: Regex = Regex::new(r"contrib|nomination|assessment|global|moderation|beatmap|spotlight|map|mapp|aspire|elite|mapper|monthly|exemplary|outstanding|longstanding|idol").unwrap();
 }
