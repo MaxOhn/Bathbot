@@ -14,6 +14,7 @@ mod player_snipe_list;
 mod profile;
 mod recent;
 mod scores;
+mod sniped_difference;
 mod top;
 mod top_if;
 
@@ -33,6 +34,7 @@ pub use player_snipe_list::PlayerSnipeListPagination;
 pub use profile::ProfilePagination;
 pub use recent::RecentPagination;
 pub use scores::ScoresPagination;
+pub use sniped_difference::SnipedDiffPagination;
 pub use top::TopPagination;
 pub use top_if::TopIfPagination;
 

@@ -40,21 +40,27 @@ impl PlayerSnipeListEmbed {
                 description: String::from("No scores were found"),
             };
         }
+
         let index = (pages.0 - 1) * 5;
         let entries = scores.range(index..index + 5);
         let mut description = String::with_capacity(1024);
+
         for (idx, score) in entries {
             let map = maps
                 .get(&score.beatmap_id)
                 .expect("missing beatmap for psl embed");
+
             let calculations = Calculations::MAX_PP;
             let mut calculator = PPCalculator::new().map(map).mods(score.mods);
+
             if let Err(why) = calculator.calculate(calculations).await {
                 unwind_error!(warn, why, "Error while calculating pp for psl: {}");
             }
+
             let pp = osu::get_pp(score.pp, calculator.max_pp());
             let count_300 =
                 map.count_objects() - score.count_100 - score.count_50 - score.count_miss;
+
             let _ = writeln!(
                 description,
                 "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
@@ -76,6 +82,7 @@ impl PlayerSnipeListEmbed {
                 ago = how_long_ago(&score.score_date)
             );
         }
+
         Self {
             description,
             author: osu::get_user_author(&user),

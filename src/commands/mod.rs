@@ -62,6 +62,8 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &TOPIF_CMD,
                 &TOPOLD_CMD,
                 &SNIPED_CMD,
+                &SNIPEDGAIN_CMD,
+                &SNIPEDLOSS_CMD,
                 &PLAYERSNIPESTATS_CMD,
                 &PLAYERSNIPELIST_CMD,
                 &COUNTRYSNIPESTATS_CMD,

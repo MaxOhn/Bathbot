@@ -92,6 +92,7 @@ async fn playersnipelist(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
         .take(5)
         .map(|score| score.beatmap_id)
         .collect();
+
     let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
         Ok(maps) => maps,
         Err(why) => {

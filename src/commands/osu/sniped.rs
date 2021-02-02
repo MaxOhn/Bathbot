@@ -42,23 +42,29 @@ use twilight_model::channel::Message;
 #[bucket("snipe")]
 async fn sniped(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = NameArgs::new(&ctx, args);
+
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
+
     let user = match ctx.osu().user(name.as_str()).mode(GameMode::STD).await {
         Ok(Some(user)) => user,
         Ok(None) => {
             let content = format!("Could not find user `{}`", name);
+
             return msg.error(&ctx, content).await;
         }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
+
     let client = &ctx.clients.custom;
     let now = Utc::now();
+
     let (sniper_fut, snipee_fut) = if SNIPE_COUNTRIES.contains_key(user.country.as_str()) {
         (
             client.get_national_snipes(&user, true, now - Duration::weeks(8), now),
@@ -69,25 +75,31 @@ async fn sniped(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             "`{}`'s country {} is not supported :(",
             user.username, user.country
         );
+
         return msg.error(&ctx, content).await;
     };
+
     let (sniper, snipee) = match tokio::try_join!(sniper_fut, snipee_fut) {
         Ok((sniper, snipee)) => {
             let sniper: Vec<_> = sniper
                 .into_iter()
                 .filter(|score| score.sniped.is_some())
                 .collect();
+
             (sniper, snipee)
         }
         Err(why) => {
             let _ = msg.error(&ctx, HUISMETBENEN_ISSUE).await;
+
             return Err(why.into());
         }
     };
+
     let graph = match graphs(user.username.as_str(), &sniper, &snipee) {
         Ok(graph_option) => graph_option,
         Err(why) => {
             unwind_error!(warn, why, "Error while creating sniped graph: {}");
+
             None
         }
     };
@@ -97,12 +109,15 @@ async fn sniped(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     // Sending the embed
     let embed = data.build_owned().build()?;
     let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
+
     let response = if let Some(graph) = graph {
         m.attachment("sniped_graph.png", graph).await?
     } else {
         m.await?
     };
+
     response.reaction_delete(&ctx, msg.author.id);
+
     Ok(())
 }
 
@@ -141,6 +156,7 @@ fn graphs(
     let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
     let png_encoder = PngEncoder::new(&mut png_bytes);
     png_encoder.encode(&buf, W, H, ColorType::Rgb8)?;
+
     Ok(Some(png_bytes))
 }
 
@@ -154,6 +170,7 @@ fn draw_sniper<DB: DrawingBackend>(
     sniper: &[SnipeRecent],
 ) -> DrawingError<DB> {
     let (dates, sniper) = prepare_sniper(sniper);
+
     let max = sniper
         .iter()
         .map(|(_, v)| v.last().copied())
@@ -199,6 +216,7 @@ fn draw_snipee<DB: DrawingBackend>(
     snipee: &[SnipeRecent],
 ) -> DrawingError<DB> {
     let (dates, snipee) = prepare_snipee(snipee);
+
     let max = snipee
         .iter()
         .map(|(_, v)| v.last().copied())
@@ -272,6 +290,7 @@ fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult {
         *map.entry(score.sniper.as_str()).or_insert(0) += 1;
         map
     });
+
     let mut final_order: Vec<_> = total.into_iter().collect();
     final_order.sort_unstable_by_key(|(_, c)| Reverse(*c));
     final_order.truncate(10);
@@ -305,6 +324,7 @@ fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult {
             map
         },
     );
+
     let mut final_order: Vec<_> = total.into_iter().collect();
     final_order.sort_unstable_by_key(|(_, c)| Reverse(*c));
     final_order.truncate(10);
