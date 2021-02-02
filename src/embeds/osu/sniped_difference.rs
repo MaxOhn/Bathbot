@@ -36,12 +36,14 @@ impl SnipedDiffEmbed {
     ) -> BotResult<Self> {
         let mut description = String::with_capacity(512);
 
+        #[allow(clippy::needless_range_loop)]
         for idx in start..scores.len().min(start + 5) {
             let score = &scores[idx];
 
             let stars = match score.stars {
                 Some(stars) => stars,
                 None => {
+                    #[allow(clippy::map_entry)]
                     if !maps.contains_key(&score.beatmap_id) {
                         let map_path = prepare_beatmap_file(score.beatmap_id).await?;
                         let file = File::open(map_path).map_err(PPError::from)?;

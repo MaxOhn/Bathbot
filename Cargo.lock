@@ -2367,6 +2367,7 @@ source = "git+https://github.com/MaxOhn/rosu-pp?branch=next#de59a221ca66e80d9ce2
 [[package]]
 name = "rosu-pp-older"
 version = "0.1.0"
+source = "git+https://github.com/MaxOhn/rosu-pp-older.git?branch=main#51b88eed889eed2c7cb495afb693267af1d2a9a8"
 dependencies = [
  "rosu-pp",
 ]

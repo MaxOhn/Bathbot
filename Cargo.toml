@@ -86,7 +86,9 @@ branch = "next"
 # version = "0.1"
 
 [dependencies.rosu-pp-older]
-path = "../rosu-pp-older"
+# path = "../rosu-pp-older"
+git = "https://github.com/MaxOhn/rosu-pp-older.git"
+branch = "main"
 
 [dependencies.scraper]
 version = "0.12"

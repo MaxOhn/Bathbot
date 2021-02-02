@@ -135,7 +135,7 @@ impl OsuStatsArgs {
         if let Some(name) = args.pop() {
             username = matcher::get_mention_user(&name)
                 .and_then(|id| ctx.get_link(id))
-                .or(Some(name.to_owned()));
+                .or_else(|| Some(name.to_owned()));
         }
 
         if username.is_none() {
@@ -299,7 +299,7 @@ impl SimulateNameArgs {
         let name = args.pop().and_then(|arg| {
             matcher::get_mention_user(&arg)
                 .and_then(|id| ctx.get_link(id))
-                .or(Some(arg.to_owned()))
+                .or_else(|| Some(arg.to_owned()))
         });
 
         Ok(Self {
@@ -731,7 +731,7 @@ impl TopArgs {
         let name = args.pop().and_then(|arg| {
             matcher::get_mention_user(&arg)
                 .and_then(|id| ctx.get_link(id))
-                .or(Some(arg.to_owned()))
+                .or_else(|| Some(arg.to_owned()))
         });
 
         Ok(Self {
