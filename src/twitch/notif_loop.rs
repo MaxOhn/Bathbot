@@ -10,7 +10,7 @@ use std::{
     sync::Arc,
 };
 use strfmt::strfmt;
-use tokio::time;
+use tokio::time::{interval, Duration};
 use twilight_http::{
     api_error::{ApiError, ErrorCode, GeneralApiError},
     Error as TwilightError,
@@ -23,10 +23,12 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
     fmt_data.insert(String::from("height"), String::from("180"));
 
     let mut online_streams = HashSet::new();
-    let mut interval = time::interval(time::Duration::from_secs(10 * 60));
+    let mut interval = interval(Duration::from_secs(10 * 60));
     interval.tick().await;
+
     loop {
         interval.tick().await;
+
         // Get data about what needs to be tracked for which channel
         let user_ids = ctx.tracked_users();
 
@@ -77,7 +79,9 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                 Some(channels) => channels,
                 None => continue,
             };
+
             let data = TwitchNotifEmbed::new(&stream, users.get(&stream.user_id).unwrap());
+
             let embed = match data.build().build() {
                 Ok(embed) => embed,
                 Err(why) => {
@@ -85,6 +89,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                     continue;
                 }
             };
+
             for channel in channels {
                 match ctx.http.create_message(channel).embed(embed.clone()) {
                     Ok(msg_fut) => {

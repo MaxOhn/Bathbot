@@ -28,7 +28,6 @@ use crate::{
 
 use chrono::{DateTime, Utc};
 use cow_utils::CowUtils;
-use futures::future::FutureExt;
 use governor::{clock::DefaultClock, state::keyed::DashMapStateStore, Quota, RateLimiter};
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
@@ -158,60 +157,24 @@ impl CustomClient {
         Ok(country_players)
     }
 
-    pub async fn get_country_unplayed_amount(&self, country: &str) -> ClientResult<u32> {
-        let url = format!(
-            "{}beatmaps/unplayed/{}",
-            HUISMETBENEN,
-            country.to_lowercase()
-        );
+    pub async fn get_country_statistics(
+        &self,
+        country: &str,
+    ) -> ClientResult<SnipeCountryStatistics> {
+        let country = country.to_lowercase();
+        let url = format!("{}rankings/{}/statistics", HUISMETBENEN, country);
+
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
-        let amount =
+
+        let statistics =
             serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
                 body: String::from_utf8_lossy(&bytes).into_owned(),
                 source,
-                request: "country unplayed amount",
+                request: "snipe difference",
             })?;
-        Ok(amount)
-    }
 
-    pub async fn get_country_biggest_difference(
-        &self,
-        country: &str,
-    ) -> ClientResult<(SnipeTopDifference, SnipeTopDifference)> {
-        let country = country.to_lowercase();
-        let url_gain = format!("{}rankings/{}/topgain", HUISMETBENEN, country);
-        let url_loss = format!("{}rankings/{}/toploss", HUISMETBENEN, country);
-        let gain = self
-            .make_request(url_gain, Site::OsuSnipe)
-            .then(|res| async {
-                match res {
-                    Ok(response) => response.bytes().await.map_err(|e| e.into()),
-                    Err(why) => Err(why),
-                }
-            });
-        let loss = self
-            .make_request(url_loss, Site::OsuSnipe)
-            .then(|res| async {
-                match res {
-                    Ok(response) => response.bytes().await.map_err(|e| e.into()),
-                    Err(why) => Err(why),
-                }
-            });
-        let (gain, loss) = tokio::try_join!(gain, loss)?;
-        let gain: SnipeTopDifference =
-            serde_json::from_slice(&gain).map_err(|source| CustomClientError::Parsing {
-                body: String::from_utf8_lossy(&gain).into_owned(),
-                source,
-                request: "snipe difference",
-            })?;
-        let loss: SnipeTopDifference =
-            serde_json::from_slice(&loss).map_err(|source| CustomClientError::Parsing {
-                body: String::from_utf8_lossy(&loss).into_owned(),
-                source,
-                request: "snipe difference",
-            })?;
-        Ok((gain, loss))
+        Ok(statistics)
     }
 
     pub async fn get_national_snipes(

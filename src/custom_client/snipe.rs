@@ -85,6 +85,28 @@ impl SnipeScoreParams {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct SnipeCountryStatistics {
+    #[serde(rename = "totalBeatmaps")]
+    pub total_maps: usize,
+    #[serde(rename = "unplayedBeatmaps")]
+    pub unplayed_maps: usize,
+    #[serde(rename = "topGain")]
+    pub top_gain: Option<SnipeTopNationalDifference>,
+    #[serde(rename = "topLoss")]
+    pub top_loss: Option<SnipeTopNationalDifference>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SnipeTopNationalDifference {
+    #[serde(rename = "most_recent_top_national")]
+    pub top_national: Option<usize>,
+    #[serde(rename = "name")]
+    pub username: String,
+    #[serde(rename = "total_top_national_difference")]
+    pub difference: i32,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct SnipePlayer {
     #[serde(rename = "name")]
     pub username: String,
@@ -134,15 +156,6 @@ pub struct SnipeCountryPlayer {
     pub pp: f32,
     #[serde(rename = "count")]
     pub count_first: u32,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct SnipeTopDifference {
-    pub name: String,
-    #[serde(rename = "most_recent_top_national")]
-    pub most_recent_firsts: Option<u32>,
-    #[serde(rename = "total_top_national_difference")]
-    pub difference: i32,
 }
 
 #[derive(Debug, Deserialize)]

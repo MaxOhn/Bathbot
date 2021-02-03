@@ -3,7 +3,10 @@ use crate::{
     custom_client::SnipeCountryPlayer,
     embeds::{CountrySnipeStatsEmbed, EmbedData},
     unwind_error,
-    util::{constants::OSU_API_ISSUE, MessageExt, SNIPE_COUNTRIES},
+    util::{
+        constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+        MessageExt, SNIPE_COUNTRIES,
+    },
     BotResult, Context,
 };
 
@@ -35,11 +38,14 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
                     let content = "The argument must be a country acronym of length two, e.g. `fr`";
                     return msg.error(&ctx, content).await;
                 }
+
                 let arg = arg.to_uppercase();
+
                 if !SNIPE_COUNTRIES.contains_key(arg.as_str()) {
                     let content = "That country acronym is not supported :(";
                     return msg.error(&ctx, content).await;
                 }
+
                 arg
             }
         },
@@ -49,10 +55,12 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
                     Ok(Some(user)) => user,
                     Ok(None) => {
                         let content = format!("Could not find user `{}`", name);
+
                         return msg.error(&ctx, content).await;
                     }
                     Err(why) => {
                         let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
                         return Err(why.into());
                     }
                 };
@@ -63,54 +71,57 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
                         "`{}`'s country {} is not supported :(",
                         user.username, user.country
                     );
+
                     return msg.error(&ctx, content).await;
                 }
             }
             None => {
                 let content =
                     "Since you're not linked, you must specify a country acronym, e.g. `fr`";
+
                 return msg.error(&ctx, content).await;
             }
         },
     };
+
     let client = &ctx.clients.custom;
-    let (players, unplayed, differences) = {
-        match tokio::join!(
+
+    let (players, statistics) = {
+        match tokio::try_join!(
             client.get_snipe_country(&country),
-            client.get_country_unplayed_amount(&country),
-            client.get_country_biggest_difference(&country),
+            client.get_country_statistics(&country),
         ) {
-            (Err(why), ..) | (_, Err(why), _) => {
-                let content = "Some issue with the huismetbenen api, blame bade";
-                let _ = msg.error(&ctx, content).await;
+            Ok((players, statistics)) => (players, statistics),
+            Err(why) => {
+                let _ = msg.error(&ctx, HUISMETBENEN_ISSUE).await;
+
                 return Err(why.into());
             }
-            (.., Err(why)) if country != "global" => {
-                let content = "Some issue with the huismetbenen api, blame bade";
-                let _ = msg.error(&ctx, content).await;
-                return Err(why.into());
-            }
-            (Ok(players), Ok(unplayed), differences) => (players, unplayed, differences.ok()),
         }
     };
+
     let graph = match graphs(&players) {
         Ok(graph_option) => Some(graph_option),
         Err(why) => {
             unwind_error!(warn, why, "Error while creating snipe country graph: {}");
+
             None
         }
     };
+
     let country = SNIPE_COUNTRIES.get(country.as_str());
-    let data = CountrySnipeStatsEmbed::new(country, differences, unplayed as u64);
+    let data = CountrySnipeStatsEmbed::new(country, statistics);
 
     // Sending the embed
     let embed = data.build_owned().build()?;
     let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
+
     if let Some(graph) = graph {
         m.attachment("stats_graph.png", graph).await?
     } else {
         m.await?
     };
+
     Ok(())
 }
 
