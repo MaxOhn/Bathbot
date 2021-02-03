@@ -159,11 +159,6 @@ async fn nochokes_main(
                         .n50(count50)
                         .calculate();
 
-                    println!(
-                        "[{}] n300={} | n100={} | n50={}",
-                        map.beatmap_id, count300, count100, count50
-                    );
-
                     unchoked.count300 = count300 as u32;
                     unchoked.count100 = count100 as u32;
                     unchoked.max_combo = map.max_combo.unwrap_or(0);

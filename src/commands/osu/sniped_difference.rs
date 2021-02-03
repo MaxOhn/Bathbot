@@ -89,20 +89,6 @@ async fn sniped_diff_main(
     let pages = numbers::div_euclid(5, scores.len());
     let mut maps = HashMap::new();
 
-    let content = format!(
-        "{name}{plural} national #1 {diff} from last week",
-        name = user.username,
-        plural = if user.username.ends_with('s') {
-            ""
-        } else {
-            "s"
-        },
-        diff = match diff {
-            Difference::Gain => "gains",
-            Difference::Loss => "losses",
-        }
-    );
-
     let data_fut = SnipedDiffEmbed::new(&user, diff, &scores, 0, (1, pages), &mut maps);
 
     let data = match data_fut.await {
@@ -119,7 +105,6 @@ async fn sniped_diff_main(
     let response = ctx
         .http
         .create_message(msg.channel_id)
-        .content(content)?
         .embed(embed)?
         .await?;
 

@@ -359,8 +359,8 @@ async fn topold_main(
     "Display how the user's **current** top100 would have looked like \
     in a previous year.\n\
     The osu!standard pp history looks roughly like this:\n  \
-    - 2012: ppv1\n  \
-    - 2014: ppv2\n  \
+    - 2012: ppv1 (unavailable)\n  \
+    - 2014: ppv2 (unavailable)\n  \
     - 2015: High CS nerf(?)\n  \
     - 2018: HD adjustment\n    \
     => https://osu.ppy.sh/home/news/2018-05-16-performance-updates\n  \
