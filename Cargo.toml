@@ -99,7 +99,7 @@ version = "1.0"
 features = ["derive", "rc"]
 
 [dependencies.sqlx]
-# version = "0.4"
+# version = "0.5"
 git = "https://github.com/launchbadge/sqlx"
 branch = "master"
 default-features = false

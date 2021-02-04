@@ -135,7 +135,7 @@ async fn nochokes_main(
 
             match map.mode {
                 GameMode::STD
-                    if score.count_miss > 0 || score.max_combo < map.max_combo.unwrap_or(5) - 5 =>
+                    if score.count_miss > 0 || score.max_combo < map.max_combo.unwrap_or(5).saturating_sub(5) =>
                 {
                     let total_objects =
                         (map.count_circle + map.count_slider + map.count_spinner) as usize;
