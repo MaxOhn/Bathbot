@@ -32,13 +32,17 @@ impl NoChokeEmbed {
     {
         let pp_diff = (100.0 * (unchoked_pp - user.pp_raw as f64)).round() / 100.0;
         let mut description = String::with_capacity(512);
+
         for (idx, original, unchoked, map) in scores_data {
             let calculations = Calculations::MAX_PP | Calculations::STARS;
             let mut calculator = PPCalculator::new().score(original).map(map);
+
             if let Err(why) = calculator.calculate(calculations).await {
                 unwind_error!(warn, why, "Error while calculating pp for nochokes: {}");
             }
+
             let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));
+
             let _ = writeln!(
                 description,
                 "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
@@ -68,10 +72,12 @@ impl NoChokeEmbed {
                 }
             );
         }
+
         let title = format!(
             "Total pp: {} → **{}pp** (+{})",
             user.pp_raw, unchoked_pp, pp_diff
         );
+
         Self {
             title,
             author: osu::get_user_author(user),
@@ -86,15 +92,19 @@ impl EmbedData for NoChokeEmbed {
     fn description(&self) -> Option<&str> {
         Some(&self.description)
     }
+
     fn title(&self) -> Option<&str> {
         Some(&self.title)
     }
+
     fn author(&self) -> Option<&Author> {
         Some(&self.author)
     }
+
     fn footer(&self) -> Option<&Footer> {
         Some(&self.footer)
     }
+
     fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }

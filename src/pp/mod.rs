@@ -141,7 +141,10 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
                             score.acc(GameMode::CTB),
                             Some(score.max_combo()),
                             score.count_miss() as usize,
-                            Some(score.hits(GameMode::CTB as u8)),
+                            Some(
+                                (score.count_300() + score.count_100() + score.count_miss())
+                                    as usize,
+                            ),
                         ),
                         None => (100.0, None, 0, None),
                     };

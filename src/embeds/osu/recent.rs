@@ -239,24 +239,31 @@ impl EmbedData for RecentEmbed {
     fn description(&self) -> Option<&str> {
         self.description.as_deref()
     }
+
     fn title(&self) -> Option<&str> {
         Some(&self.title)
     }
+
     fn url(&self) -> Option<&str> {
         Some(&self.url)
     }
+
     fn author(&self) -> Option<&Author> {
         Some(&self.author)
     }
+
     fn footer(&self) -> Option<&Footer> {
         Some(&self.footer)
     }
+
     fn image(&self) -> Option<&ImageSource> {
         Some(&self.image)
     }
+
     fn timestamp(&self) -> Option<&DateTime<Utc>> {
         Some(&self.timestamp)
     }
+
     fn fields(&self) -> Option<Vec<(String, String, bool)>> {
         let mut fields = vec![
             ("Grade".to_owned(), self.grade_completion_mods.clone(), true),
@@ -264,19 +271,25 @@ impl EmbedData for RecentEmbed {
             ("Acc".to_owned(), format!("{}%", self.acc), true),
             ("PP".to_owned(), self.pp.clone(), true),
         ];
+
         let mania = self.hits.chars().filter(|&c| c == '/').count() == 5;
+
         fields.push((
             if mania { "Combo / Ratio" } else { "Combo" }.to_owned(),
             self.combo.clone(),
             true,
         ));
+
         fields.push(("Hits".to_owned(), self.hits.clone(), true));
+
         if let Some((pp, acc, hits)) = &self.if_fc {
             fields.push(("**If FC**: PP".to_owned(), pp.clone(), true));
             fields.push(("Acc".to_owned(), format!("{}%", acc), true));
             fields.push(("Hits".to_owned(), hits.clone(), true));
         }
+
         fields.push(("Map Info".to_owned(), self.map_info.clone(), false));
+
         Some(fields)
     }
 
@@ -365,7 +378,7 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
         }
         StarResult::Fruits(attributes) if score.max_combo != attributes.max_combo as u32 => {
             let total_objects = attributes.max_combo;
-            let passed_objects = score.total_hits(GameMode::CTB) as usize;
+            let passed_objects = (score.count300 + score.count100 + score.count_miss) as usize;
 
             let missing = total_objects - passed_objects;
             let missing_fruits = missing.saturating_sub(
@@ -373,6 +386,7 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
                     .n_droplets
                     .saturating_sub(score.count100 as usize),
             );
+
             let missing_droplets = missing - missing_fruits;
 
             let n_fruits = score.count300 as usize + missing_fruits;
