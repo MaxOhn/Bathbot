@@ -116,8 +116,6 @@ async fn nochokes_main(
     // Unchoke scores
     let unchoke_fut = scores_data
         .into_iter()
-        .skip(49)
-        .take(1)
         .map(|(i, score, map)| async move {
             let mut unchoked = score.clone();
 

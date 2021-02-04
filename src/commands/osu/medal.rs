@@ -11,7 +11,8 @@ use twilight_model::channel::Message;
 #[short_desc("Display info about an osu! medal")]
 #[long_desc(
     "Display info about an osu! medal.\n\
-    The given name must be exact (but case-insensitive).\n\
+    The given name must be exact (but case-insensitive) and \
+    don't forget the quotation marks if the name contains whitespace.\n\
     All data originates from [osekai](https://osekai.net/medals/), \
     check it out for more info."
 )]
