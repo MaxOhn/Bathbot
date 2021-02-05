@@ -52,7 +52,16 @@ async fn recent_lb_main(
 
     let score = match scores_fut.await {
         Ok(scores) if scores.is_empty() => {
-            let content = format!("No recent plays found for user `{}`", name);
+            let content = format!(
+                "No recent {}plays found for user `{}`",
+                match mode {
+                    GameMode::STD => "",
+                    GameMode::TKO => "taiko ",
+                    GameMode::CTB => "ctb ",
+                    GameMode::MNA => "mania ",
+                },
+                name
+            );
 
             return msg.error(&ctx, content).await;
         }

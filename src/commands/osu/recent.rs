@@ -86,30 +86,23 @@ async fn recent_main(
 
     let map = match ctx.psql().get_beatmap(map_id).await {
         Ok(map) => map,
-        Err(why) => {
-            unwind_error!(
-                debug,
-                why,
-                "Error while retrieving map {} from DB: {}",
-                map_id
-            );
+        Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
+            Ok(Some(map)) => {
+                store_in_db = true;
 
-            store_in_db = true;
-
-            match ctx.osu().beatmap().map_id(map_id).await {
-                Ok(Some(map)) => map,
-                Ok(None) => {
-                    let content = format!("The API returned no beatmap for map id {}", map_id);
-
-                    return msg.error(&ctx, content).await;
-                }
-                Err(why) => {
-                    let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-                    return Err(why.into());
-                }
+                map
             }
-        }
+            Ok(None) => {
+                let content = format!("The API returned no beatmap for map id {}", map_id);
+
+                return msg.error(&ctx, content).await;
+            }
+            Err(why) => {
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
+                return Err(why.into());
+            }
+        },
     };
 
     // Prepare retrieval of the map's global top 50 and the user's top 100
@@ -184,7 +177,7 @@ async fn recent_main(
     if store_in_db {
         match ctx.psql().insert_beatmap(&map).await {
             Ok(true) => info!("Added map {} to DB", map.beatmap_id),
-            Ok(false) => println!("map already in DB"),
+            Ok(false) => {}
             Err(why) => unwind_error!(
                 warn,
                 why,
@@ -203,34 +196,23 @@ async fn recent_main(
     }
 
     // Wait for minimizing
-    let msg_id = response.id;
-
     tokio::spawn(async move {
         sleep(Duration::from_secs(15)).await;
 
-        if !ctx.remove_msg(msg_id) {
+        if !ctx.remove_msg(response.id) {
             return;
         }
 
         let embed = data.minimize().build().unwrap();
 
-        let embed_result = ctx
+        let embed_update = ctx
             .http
             .update_message(response.channel_id, response.id)
-            .embed(embed);
+            .embed(embed)
+            .unwrap();
 
-        match embed_result {
-            Ok(m) => {
-                if let Err(why) = m.await {
-                    unwind_error!(warn, why, "Error minimizing recent msg: {}");
-                }
-            }
-
-            Err(why) => unwind_error!(
-                warn,
-                why,
-                "Error while creating `recent` minimize embed: {}"
-            ),
+        if let Err(why) = embed_update.await {
+            unwind_error!(warn, why, "Error minimizing recent msg: {}");
         }
     });
 
