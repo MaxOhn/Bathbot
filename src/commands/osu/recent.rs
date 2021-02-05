@@ -1,5 +1,5 @@
 use crate::{
-    arguments::{Args, NameArgs},
+    arguments::{Args, NameDashPArgs},
     embeds::{EmbedData, RecentEmbed},
     tracking::process_tracking,
     unwind_error,
@@ -25,7 +25,25 @@ async fn recent_main(
     args: Args<'_>,
     num: Option<usize>,
 ) -> BotResult<()> {
-    let args = NameArgs::new(&ctx, args);
+    let args = NameDashPArgs::new(&ctx, args);
+
+    if args.has_dash_p {
+        let prefix = ctx.config_first_prefix(msg.guild_id);
+
+        let content = format!(
+            "`{prefix}recent{mode} -p`? \
+            Try putting the number right after the command, e.g. `{prefix}recent{mode}42`.",
+            mode = match mode {
+                GameMode::STD => "",
+                GameMode::MNA => "mania",
+                GameMode::TKO => "taiko",
+                GameMode::CTB => "ctb",
+            },
+            prefix = prefix
+        );
+
+        return msg.error(&ctx, content).await;
+    }
 
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,

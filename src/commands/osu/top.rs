@@ -65,7 +65,8 @@ async fn top_main(
         let prefix = ctx.config_first_prefix(msg.guild_id);
 
         let content = format!(
-            "`{prefix}{cmd}{} -p`? Try using the arrow reactions instead ;)",
+            "`{prefix}{cmd}{mode} -p`? \
+            Try putting the number right after the command, e.g. `{prefix}{cmd}{mode}42`.",
             mode = mode_long,
             cmd = cmd,
             prefix = prefix
