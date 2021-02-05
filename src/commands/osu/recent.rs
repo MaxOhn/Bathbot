@@ -197,7 +197,7 @@ async fn recent_main(
 
     // Wait for minimizing
     tokio::spawn(async move {
-        sleep(Duration::from_secs(15)).await;
+        sleep(Duration::from_secs(45)).await;
 
         if !ctx.remove_msg(response.id) {
             return;

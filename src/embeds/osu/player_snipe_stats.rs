@@ -58,7 +58,7 @@ impl PlayerSnipeStatsEmbed {
                 format!("{:.2}★", player.avg_stars),
                 true,
             ));
-            let (score, map) = first_score.unwrap();
+            let (score, map) = first_score.unwrap(); // TODO: Fix this
             let calculations = Calculations::all();
             let mut calculator = PPCalculator::new().score(&score).map(&map);
             let (pp, max_pp, stars) = match calculator.calculate(calculations).await {

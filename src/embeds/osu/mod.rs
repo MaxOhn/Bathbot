@@ -30,6 +30,7 @@ mod sniped;
 mod sniped_difference;
 mod top;
 mod top_if;
+mod top_single;
 mod whatif;
 
 pub use avatar::AvatarEmbed;
@@ -64,6 +65,7 @@ pub use sniped::SnipedEmbed;
 pub use sniped_difference::SnipedDiffEmbed;
 pub use top::TopEmbed;
 pub use top_if::TopIfEmbed;
+pub use top_single::TopSingleEmbed;
 pub use whatif::WhatIfEmbed;
 
 use crate::{

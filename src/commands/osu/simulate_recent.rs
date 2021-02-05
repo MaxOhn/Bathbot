@@ -11,7 +11,7 @@ use crate::{
 
 use rosu::model::GameMode;
 use std::sync::Arc;
-use tokio::time::{self, Duration};
+use tokio::time::{sleep, Duration};
 use twilight_model::channel::Message;
 
 async fn simulate_recent_main(
@@ -145,7 +145,7 @@ async fn simulate_recent_main(
 
     // Minimize embed after delay
     tokio::spawn(async move {
-        time::sleep(Duration::from_secs(45)).await;
+        sleep(Duration::from_secs(45)).await;
 
         if !ctx.remove_msg(response.id) {
             return;

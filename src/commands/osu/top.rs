@@ -1,6 +1,6 @@
 use crate::{
     arguments::{Args, GradeArg, TopArgs},
-    embeds::{EmbedData, TopEmbed},
+    embeds::{EmbedData, TopEmbed, TopSingleEmbed},
     pagination::{Pagination, TopPagination},
     tracking::process_tracking,
     unwind_error,
@@ -8,8 +8,12 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::model::{GameMode, Score};
+use rosu::model::{
+    ApprovalStatus::{Approved, Loved, Qualified, Ranked},
+    Beatmap, GameMode, Score, User,
+};
 use std::{cmp::Ordering, collections::HashMap, sync::Arc};
+use tokio::time::{sleep, Duration};
 use twilight_model::channel::Message;
 
 async fn top_main(
@@ -18,11 +22,19 @@ async fn top_main(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
+    num: Option<usize>,
 ) -> BotResult<()> {
     let mut args = match TopArgs::new(&ctx, args) {
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
+
+    if num.filter(|n| *n > 100).is_some() {
+        let content = "Can't have more than 100 top scores.";
+
+        return msg.error(&ctx, content).await;
+    }
+
     if top_type == TopType::Top && args.has_dash_r {
         let mode_long = mode_long(mode);
         let prefix = ctx.config_first_prefix(msg.guild_id);
@@ -76,10 +88,12 @@ async fn top_main(
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
             let content = format!("User `{}` was not found", name);
+
             return msg.error(&ctx, content).await;
         }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
@@ -90,7 +104,16 @@ async fn top_main(
 
     // Filter scores according to mods, combo, acc, and grade
     let scores_indices = filter_scores(top_type, scores, mode, &args);
-    let amount = scores_indices.len();
+
+    if num.filter(|n| *n > scores_indices.len()).is_some() {
+        let content = format!(
+            "`{}` only has {} top scores with the specified properties",
+            user.username,
+            scores_indices.len()
+        );
+
+        return msg.error(&ctx, content).await;
+    }
 
     // Get all relevant maps from the database
     let map_ids: Vec<u32> = scores_indices
@@ -102,6 +125,7 @@ async fn top_main(
         Ok(maps) => maps,
         Err(why) => {
             unwind_error!(warn, why, "Error while getting maps from DB: {}");
+
             HashMap::default()
         }
     };
@@ -117,6 +141,7 @@ async fn top_main(
             "Retrieving {} maps from the api...",
             scores_indices.len() - maps.len()
         );
+
         ctx.http
             .create_message(msg.channel_id)
             .content(content)?
@@ -132,63 +157,81 @@ async fn top_main(
 
     for (i, score) in scores_indices.into_iter() {
         let map_id = score.beatmap_id.unwrap();
+
         let map = if let Some(map) = maps.remove(&map_id) {
             map
         } else {
             match ctx.osu().beatmap().map_id(map_id).await {
                 Ok(Some(map)) => {
                     missing_maps.push(map.clone());
+
                     map
                 }
                 Ok(None) => {
                     let content = format!("The API returned no beatmap for map id {}", map_id);
+
                     return msg.error(&ctx, content).await;
                 }
                 Err(why) => {
                     let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
                     return Err(why.into());
                 }
             }
         };
+
         scores_data.push((i, score, map));
     }
 
-    // Accumulate all necessary data
-    let content = match top_type {
-        TopType::Top => {
-            let cond = args.mods.is_some()
-                || args.acc_min.is_some()
-                || args.combo_min.is_some()
-                || args.grade.is_some();
-            if cond {
-                let content = format!(
-                    "Found {num} top score{plural} with the specified properties:",
-                    num = amount,
-                    plural = if amount != 1 { "s" } else { "" }
-                );
-                Some(content)
-            } else {
-                None
+    if let Some(num) = num {
+        single_embed(
+            Arc::clone(&ctx),
+            msg,
+            user,
+            scores_data,
+            num.saturating_sub(1),
+            retrieving_msg,
+        )
+        .await?;
+    } else {
+        let content = match top_type {
+            TopType::Top => {
+                let cond = args.mods.is_some()
+                    || args.acc_min.is_some()
+                    || args.combo_min.is_some()
+                    || args.grade.is_some();
+
+                if cond {
+                    let amount = scores_data.len();
+
+                    let content = format!(
+                        "Found {num} top score{plural} with the specified properties:",
+                        num = amount,
+                        plural = if amount != 1 { "s" } else { "" }
+                    );
+
+                    Some(content)
+                } else {
+                    None
+                }
             }
-        }
-        TopType::Recent => Some(format!("Most recent scores in `{}`'s top100:", name)),
-    };
+            TopType::Recent => Some(format!(
+                "Most recent scores in `{}`'s top100:",
+                user.username
+            )),
+        };
 
-    let pages = numbers::div_euclid(5, scores_data.len());
-    let data = TopEmbed::new(&user, scores_data.iter().take(5), mode, (1, pages)).await;
-
-    if let Some(msg) = retrieving_msg {
-        let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;
+        paginated_embed(
+            Arc::clone(&ctx),
+            msg,
+            user,
+            mode,
+            scores_data,
+            content,
+            retrieving_msg,
+        )
+        .await?;
     }
-
-    // Creating the embed
-    let embed = data.build().build()?;
-    let create_msg = ctx.http.create_message(msg.channel_id).embed(embed)?;
-
-    let response = match content {
-        Some(content) => create_msg.content(content)?.await?,
-        None => create_msg.await?,
-    };
 
     // Add missing maps to database
     if !missing_maps.is_empty() {
@@ -198,22 +241,6 @@ async fn top_main(
             Err(why) => unwind_error!(warn, why, "Error while adding maps to DB: {}"),
         }
     }
-
-    // Skip pagination if too few entries
-    if scores_data.len() <= 5 {
-        response.reaction_delete(&ctx, msg.author.id);
-        return Ok(());
-    }
-
-    // Pagination
-    let pagination = TopPagination::new(response, user, scores_data, mode);
-    let owner = msg.author.id;
-
-    tokio::spawn(async move {
-        if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (top): {}")
-        }
-    });
 
     Ok(())
 }
@@ -229,7 +256,10 @@ async fn top_main(
      The grade can be specified with `-grade`, either followed by grading \
      letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a range of the \
      form `x..y` with `x` and `y` being a grading letter.\n\
-     Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."
+     Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo.\n\
+     \n\
+     Instead of showing the scores in a list, you can also __show a single score__ by \
+     specifying a number right after the command, e.g. `<top2 badewanne3`."
 )]
 #[usage(
     "[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods] [--a/--c]"
@@ -240,8 +270,13 @@ async fn top_main(
     "peppy -c 200..500 -grade B..S"
 )]
 #[aliases("topscores", "osutop")]
-pub async fn top(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    top_main(GameMode::STD, TopType::Top, ctx, msg, args).await
+pub async fn top(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+    num: Option<usize>,
+) -> BotResult<()> {
+    top_main(GameMode::STD, TopType::Top, ctx, msg, args, num).await
 }
 
 #[command]
@@ -255,7 +290,10 @@ pub async fn top(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
      The grade can be specified with `-grade`, either followed by grading \
      letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a range of the \
      form `x..y` with `x` and `y` being a grading letter.\n\
-     Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."
+     Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo.\n\
+     \n\
+     Instead of showing the scores in a list, you can also __show a single score__ by \
+     specifying a number right after the command, e.g. `<topm2 badewanne3`."
 )]
 #[usage(
     "[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods] [--a/--c]"
@@ -266,8 +304,13 @@ pub async fn top(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
     "peppy -c 200..500 -grade B..S"
 )]
 #[aliases("topm")]
-pub async fn topmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    top_main(GameMode::MNA, TopType::Top, ctx, msg, args).await
+pub async fn topmania(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+    num: Option<usize>,
+) -> BotResult<()> {
+    top_main(GameMode::MNA, TopType::Top, ctx, msg, args, num).await
 }
 
 #[command]
@@ -281,7 +324,10 @@ pub async fn topmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult
      The grade can be specified with `-grade`, either followed by grading \
      letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a range of the \
      form `x..y` with `x` and `y` being a grading letter.\n\
-     Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."
+     Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo.\n\
+     \n\
+     Instead of showing the scores in a list, you can also __show a single score__ by \
+     specifying a number right after the command, e.g. `<topt2 badewanne3`."
 )]
 #[usage(
     "[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods] [--a/--c]"
@@ -292,8 +338,13 @@ pub async fn topmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult
     "peppy -c 200..500 -grade B..S"
 )]
 #[aliases("topt")]
-pub async fn toptaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    top_main(GameMode::TKO, TopType::Top, ctx, msg, args).await
+pub async fn toptaiko(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+    num: Option<usize>,
+) -> BotResult<()> {
+    top_main(GameMode::TKO, TopType::Top, ctx, msg, args, num).await
 }
 
 #[command]
@@ -307,7 +358,10 @@ pub async fn toptaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult
      The grade can be specified with `-grade`, either followed by grading \
      letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a range of the \
      form `x..y` with `x` and `y` being a grading letter.\n\
-     Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo."
+     Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo.\n\
+     \n\
+     Instead of showing the scores in a list, you can also __show a single score__ by \
+     specifying a number right after the command, e.g. `<topc2 badewanne3`."
 )]
 #[usage(
     "[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods] [--a/--c]"
@@ -318,8 +372,13 @@ pub async fn toptaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult
     "peppy -c 200..500 -grade B..S"
 )]
 #[aliases("topc")]
-pub async fn topctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    top_main(GameMode::CTB, TopType::Top, ctx, msg, args).await
+pub async fn topctb(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+    num: Option<usize>,
+) -> BotResult<()> {
+    top_main(GameMode::CTB, TopType::Top, ctx, msg, args, num).await
 }
 
 #[command]
@@ -332,7 +391,10 @@ pub async fn topctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     or two numbers of the form `x..y` for min and max combo/acc.\n\
     The grade can be specified with `-grade`, either followed by \
     grading letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a \
-    range of the form `x..y` with `x` and `y` being a grading letter."
+    range of the form `x..y` with `x` and `y` being a grading letter.\n\
+    \n\
+    Instead of showing the scores in a list, you can also __show a single score__ by \
+    specifying a number right after the command, e.g. `<rb1 badewanne3`."
 )]
 #[usage("[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods]")]
 #[example(
@@ -341,8 +403,13 @@ pub async fn topctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     "peppy -c 200..500 -grade B..S"
 )]
 #[aliases("rb")]
-pub async fn recentbest(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    top_main(GameMode::STD, TopType::Recent, ctx, msg, args).await
+pub async fn recentbest(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+    num: Option<usize>,
+) -> BotResult<()> {
+    top_main(GameMode::STD, TopType::Recent, ctx, msg, args, num).await
 }
 
 #[command]
@@ -355,7 +422,10 @@ pub async fn recentbest(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
     or two numbers of the form `x..y` for min and max combo/acc.\n\
     The grade can be specified with `-grade`, either followed by \
     grading letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a \
-    range of the form `x..y` with `x` and `y` being a grading letter."
+    range of the form `x..y` with `x` and `y` being a grading letter.\n\
+    \n\
+    Instead of showing the scores in a list, you can also __show a single score__ by \
+    specifying a number right after the command, e.g. `<rbm1 badewanne3`."
 )]
 #[usage("[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods]")]
 #[example(
@@ -364,8 +434,13 @@ pub async fn recentbest(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
     "peppy -c 200..500 -grade B..S"
 )]
 #[aliases("rbm")]
-pub async fn recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    top_main(GameMode::MNA, TopType::Recent, ctx, msg, args).await
+pub async fn recentbestmania(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+    num: Option<usize>,
+) -> BotResult<()> {
+    top_main(GameMode::MNA, TopType::Recent, ctx, msg, args, num).await
 }
 
 #[command]
@@ -378,7 +453,10 @@ pub async fn recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
     or two numbers of the form `x..y` for min and max combo/acc.\n\
     The grade can be specified with `-grade`, either followed by \
     grading letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a \
-    range of the form `x..y` with `x` and `y` being a grading letter."
+    range of the form `x..y` with `x` and `y` being a grading letter.\n\
+    \n\
+    Instead of showing the scores in a list, you can also __show a single score__ by \
+    specifying a number right after the command, e.g. `<rbt1 badewanne3`."
 )]
 #[usage("[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods]")]
 #[example(
@@ -387,8 +465,13 @@ pub async fn recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
     "peppy -c 200..500 -grade B..S"
 )]
 #[aliases("rbt")]
-pub async fn recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    top_main(GameMode::TKO, TopType::Recent, ctx, msg, args).await
+pub async fn recentbesttaiko(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+    num: Option<usize>,
+) -> BotResult<()> {
+    top_main(GameMode::TKO, TopType::Recent, ctx, msg, args, num).await
 }
 
 #[command]
@@ -401,7 +484,10 @@ pub async fn recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
     or two numbers of the form `x..y` for min and max combo/acc.\n\
     The grade can be specified with `-grade`, either followed by \
     grading letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a \
-    range of the form `x..y` with `x` and `y` being a grading letter."
+    range of the form `x..y` with `x` and `y` being a grading letter.\n\
+    \n\
+    Instead of showing the scores in a list, you can also __show a single score__ by \
+    specifying a number right after the command, e.g. `<rbc1 badewanne3`."
 )]
 #[usage("[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods]")]
 #[example(
@@ -410,8 +496,13 @@ pub async fn recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
     "peppy -c 200..500 -grade B..S"
 )]
 #[aliases("rbc")]
-pub async fn recentbestctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    top_main(GameMode::CTB, TopType::Recent, ctx, msg, args).await
+pub async fn recentbestctb(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+    num: Option<usize>,
+) -> BotResult<()> {
+    top_main(GameMode::CTB, TopType::Recent, ctx, msg, args, num).await
 }
 
 #[derive(Eq, PartialEq, Copy, Clone)]
@@ -535,4 +626,116 @@ fn mode_long(mode: GameMode) -> &'static str {
         GameMode::TKO => "taiko",
         GameMode::CTB => "ctb",
     }
+}
+
+async fn single_embed(
+    ctx: Arc<Context>,
+    msg: &Message,
+    user: User,
+    scores_data: Vec<(usize, Score, Beatmap)>,
+    idx: usize,
+    retrieving_msg: Option<Message>,
+) -> BotResult<()> {
+    let (idx, score, map) = scores_data.get(idx).unwrap();
+
+    // Prepare retrieval of the map's global top 50 and the user's top 100
+    let globals = match map.approval_status {
+        Ranked | Loved | Qualified | Approved => {
+            match map.get_global_leaderboard(ctx.osu()).limit(50).await {
+                Ok(scores) => Some(scores),
+                Err(why) => {
+                    unwind_error!(warn, why, "Error while getting global scores: {}");
+
+                    None
+                }
+            }
+        }
+        _ => None,
+    };
+
+    let data = TopSingleEmbed::new(&user, score, *idx, map, globals.as_deref()).await?;
+
+    if let Some(msg) = retrieving_msg {
+        let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;
+    }
+
+    // Creating the embed
+    let embed = data.build().build()?;
+
+    let response = ctx
+        .http
+        .create_message(msg.channel_id)
+        .embed(embed)?
+        .await?;
+
+    ctx.store_msg(response.id);
+    response.reaction_delete(&ctx, msg.author.id);
+
+    // Minimize embed after delay
+    tokio::spawn(async move {
+        sleep(Duration::from_secs(45)).await;
+
+        if !ctx.remove_msg(response.id) {
+            return;
+        }
+
+        let embed = data.minimize().build().unwrap();
+
+        let embed_update = ctx
+            .http
+            .update_message(response.channel_id, response.id)
+            .embed(embed)
+            .unwrap();
+
+        if let Err(why) = embed_update.await {
+            unwind_error!(warn, why, "Error minimizing top msg: {}");
+        }
+    });
+
+    Ok(())
+}
+
+async fn paginated_embed(
+    ctx: Arc<Context>,
+    msg: &Message,
+    user: User,
+    mode: GameMode,
+    scores_data: Vec<(usize, Score, Beatmap)>,
+    content: Option<String>,
+    retrieving_msg: Option<Message>,
+) -> BotResult<()> {
+    let pages = numbers::div_euclid(5, scores_data.len());
+    let data = TopEmbed::new(&user, scores_data.iter().take(5), mode, (1, pages)).await;
+
+    if let Some(msg) = retrieving_msg {
+        let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;
+    }
+
+    // Creating the embed
+    let embed = data.build().build()?;
+    let create_msg = ctx.http.create_message(msg.channel_id).embed(embed)?;
+
+    let response = match content {
+        Some(content) => create_msg.content(content)?.await?,
+        None => create_msg.await?,
+    };
+
+    // Skip pagination if too few entries
+    if scores_data.len() <= 5 {
+        response.reaction_delete(&ctx, msg.author.id);
+
+        return Ok(());
+    }
+
+    // Pagination
+    let pagination = TopPagination::new(response, user, scores_data, mode);
+    let owner = msg.author.id;
+
+    tokio::spawn(async move {
+        if let Err(why) = pagination.start(&ctx, owner, 60).await {
+            unwind_error!(warn, why, "Pagination error (top): {}")
+        }
+    });
+
+    Ok(())
 }
