@@ -127,6 +127,7 @@ pub async fn handle_event(
 
             // Parse msg content for commands
             let invoke = parse_invoke(&mut stream, &cmds);
+
             if let Invoke::None = invoke {
                 return Ok(());
             }
@@ -134,10 +135,13 @@ pub async fn handle_event(
             // Process invoke
             log_invoke(&ctx, &msg);
             let msg = msg.deref();
+
             let command_result = match &invoke {
-                Invoke::Command(cmd) => process_command(cmd, Arc::clone(&ctx), msg, stream).await,
+                Invoke::Command { cmd, num } => {
+                    process_command(cmd, Arc::clone(&ctx), msg, stream, *num).await
+                }
                 Invoke::SubCommand { sub, .. } => {
-                    process_command(sub, Arc::clone(&ctx), msg, stream).await
+                    process_command(sub, Arc::clone(&ctx), msg, stream, None).await
                 }
                 Invoke::Help(None) => {
                     let is_authority = check_authority(&ctx, msg).transpose().is_none();
@@ -153,6 +157,7 @@ pub async fn handle_event(
                     .map(ProcessResult::success),
                 Invoke::None => unreachable!(),
             };
+
             let name = invoke.name();
 
             // Handle processing result
@@ -221,6 +226,7 @@ async fn process_command(
     ctx: Arc<Context>,
     msg: &Message,
     stream: Stream<'_>,
+    num: Option<usize>,
 ) -> BotResult<ProcessResult> {
     // Only in guilds?
     if (cmd.authority || cmd.only_guilds) && msg.guild_id.is_none() {
@@ -305,5 +311,7 @@ async fn process_command(
     let _ = ctx.http.create_typing_trigger(msg.channel_id).await;
 
     // Call command function
-    (cmd.fun)(ctx, msg, args).await.map(ProcessResult::success)
+    (cmd.fun)(ctx, msg, args, num)
+        .await
+        .map(ProcessResult::success)
 }

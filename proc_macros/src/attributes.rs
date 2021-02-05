@@ -32,6 +32,7 @@ fn to_ident(p: &Path) -> Result<Ident> {
     } else {
         None
     };
+
     if let Some(err_msg) = err_msg {
         Err(Error::new(p.span(), err_msg))
     } else {
@@ -41,6 +42,7 @@ fn to_ident(p: &Path) -> Result<Ident> {
 
 pub fn parse_values(attr: &Attribute) -> Result<Values> {
     let meta = attr.parse_meta()?;
+
     match meta {
         Meta::Path(_) | Meta::NameValue(_) => Err(Error::new(
             attr.span(),
@@ -52,12 +54,14 @@ pub fn parse_values(attr: &Attribute) -> Result<Values> {
         Meta::List(meta) => {
             let name = to_ident(&meta.path)?;
             let mut lits = Vec::with_capacity(meta.nested.len());
+
             for meta in meta.nested {
                 match meta {
                     NestedMeta::Lit(l) => lits.push(l),
                     NestedMeta::Meta(m) => match m {
                         Meta::Path(path) => {
                             let i = to_ident(&path)?;
+
                             lits.push(Lit::Str(LitStr::new(&i.to_string(), i.span())))
                         }
                         Meta::List(_) | Meta::NameValue(_) => {
@@ -105,6 +109,7 @@ impl AttributeOption for Option<String> {
             }
         } else {
             let s = values.literals[0].to_str();
+
             match s.as_str() {
                 "true" => Some(String::new()),
                 "false" => None,

@@ -32,13 +32,16 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
     if !attr.is_empty() {
         panic!("expected `#[command]`, got #[command({})]", attr);
     }
+
     let mut fun = parse_macro_input!(input as CommandFun);
     let mut options = Options::default();
+
     for attribute in &fun.attributes {
         let values = propagate_err!(parse_values(attribute));
         let span = attribute.span();
         let name = values.name.to_string();
         let name = name.as_str();
+
         match name {
             "example" => options.examples = propagate_err!(attributes::parse(values)),
             "authority" => options.authority = true,
@@ -56,6 +59,7 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
             }
         }
     }
+
     let Options {
         aliases,
         short_desc,
@@ -68,20 +72,25 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
         bucket,
         sub_commands,
     } = options;
+
     let short_desc = if let Some(short_desc) = short_desc {
         short_desc
     } else {
         panic!("require `#[short_desc(\"...\")]`")
     };
+
     populate_fut_lifetimes_on_refs(&mut fun.args);
     let fun_name_str = fun.name.to_string();
     let fun_name = fun.name.clone();
+
     let sub_commands = sub_commands
         .into_iter()
         .map(|i| i.with_suffix("CMD"))
         .collect::<Vec<_>>();
+
     let cmd_name = fun.name.with_suffix("CMD");
     let command_path = quote!(crate::core::Command);
+
     let stream = quote! {
         pub static #cmd_name: #command_path = #command_path {
             names: &[#fun_name_str, #(#aliases),*],
@@ -99,5 +108,6 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
 
         #fun
     };
+
     stream.into()
 }

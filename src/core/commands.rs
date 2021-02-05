@@ -18,8 +18,12 @@ pub struct Command {
     pub only_guilds: bool,
     pub bucket: Option<&'static str>,
     pub sub_commands: &'static [&'static Command],
-    pub fun:
-        for<'fut> fn(Arc<Context>, &'fut Message, Args<'fut>) -> BoxFuture<'fut, BotResult<()>>,
+    pub fun: for<'fut> fn(
+        Arc<Context>,
+        &'fut Message,
+        Args<'fut>,
+        Option<usize>,
+    ) -> BoxFuture<'fut, BotResult<()>>,
 }
 
 impl fmt::Debug for Command {

@@ -1,6 +1,6 @@
 use crate::util::{Argument, AsOption, Parenthesised};
 
-use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
 use syn::{
     braced,
@@ -42,28 +42,51 @@ impl Parse for CommandFun {
 
         // (_: Arc<Context>, _: &Message)
         let Parenthesised(args) = input.parse::<Parenthesised<FnArg>>()?;
-        let args = args
+
+        let mut args = args
             .into_iter()
             .map(parse_argument)
             .collect::<Result<Vec<_>>>()?;
+
         let mut iter = args.iter();
+
         if iter
             .next()
             .map_or(true, |arg| arg.kind != parse_quote! { Arc<Context> })
         {
             return Err(input.error("expected first argument of type `Arc<Context>`"));
         }
+
         if iter
             .next()
             .map_or(true, |arg| arg.kind != parse_quote! { &Message })
         {
             return Err(input.error("expected second argument of type `&Message`"));
         }
+
         if iter
             .next()
             .map_or(true, |arg| arg.kind != parse_quote! { Args })
         {
             return Err(input.error("expected third argument of type `Args`"));
+        }
+
+        match iter.next() {
+            Some(arg) if arg.kind != parse_quote! { Option<usize> } => {
+                return Err(input.error("optional fourth argument must be of type `Option<usize>`"))
+            }
+            Some(_) => {}
+            None => {
+                let mutable = None;
+                let name = Ident::new("_num", Span::call_site());
+                let kind = Type::Verbatim(parse_quote!(Option<usize>));
+
+                args.push(Argument {
+                    mutable,
+                    name,
+                    kind,
+                });
+            }
         }
 
         // -> BotResult<()>
@@ -104,6 +127,7 @@ impl ToTokens for CommandFun {
             ret,
             body,
         } = self;
+
         stream.extend(quote! {
             #visibility fn #name<'fut> (#(#args),*) -> futures::future::BoxFuture<'fut, #ret> {
                 use futures::future::FutureExt;
@@ -121,6 +145,7 @@ fn parse_argument(arg: FnArg) -> Result<Argument> {
                 Pat::Ident(id) => {
                     let name = id.ident;
                     let mutable = id.mutability;
+
                     Ok(Argument {
                         mutable,
                         name,
@@ -130,6 +155,7 @@ fn parse_argument(arg: FnArg) -> Result<Argument> {
                 Pat::Wild(wild) => {
                     let token = wild.underscore_token;
                     let name = Ident::new("_", token.spans[0]);
+
                     Ok(Argument {
                         mutable: None,
                         name,
