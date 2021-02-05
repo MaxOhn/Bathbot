@@ -8,7 +8,7 @@ impl Database {
         ratios: &[f32],
         misses: &[f32],
     ) -> BotResult<Option<Ratios>> {
-        let get_query = "SELECT * FROM ratio_table WHERE name=$1";
+        let get_query = "SELECT * FROM ratio_table WHERE name=$1 LIMIT 1";
 
         let old_ratios: Option<Ratios> = sqlx::query_as(get_query)
             .bind(name)

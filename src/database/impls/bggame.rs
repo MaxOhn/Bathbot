@@ -74,7 +74,10 @@ impl Database {
     }
 
     pub async fn get_tags_mapset(&self, mapset_id: u32) -> BotResult<MapsetTagWrapper> {
-        let query = format!("SELECT * FROM map_tags WHERE beatmapset_id={}", mapset_id);
+        let query = format!(
+            "SELECT * FROM map_tags WHERE beatmapset_id={} LIMIT 1",
+            mapset_id
+        );
         let tags = sqlx::query_as(&query).fetch_one(&self.pool).await?;
 
         Ok(tags)

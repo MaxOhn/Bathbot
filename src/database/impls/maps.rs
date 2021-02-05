@@ -13,7 +13,7 @@ use tokio_stream::StreamExt;
 
 impl Database {
     pub async fn get_beatmap(&self, map_id: u32) -> BotResult<Beatmap> {
-        let query = "SELECT * FROM (SELECT * FROM maps WHERE beatmap_id=$1) as m JOIN mapsets USING(beatmapset_id)";
+        let query = "SELECT * FROM (SELECT * FROM maps WHERE beatmap_id=$1 LIMIT 1) m JOIN mapsets USING(beatmapset_id) LIMIT 1";
 
         let map: BeatmapWrapper = sqlx::query_as(query)
             .bind(map_id)
@@ -24,10 +24,11 @@ impl Database {
     }
 
     pub async fn get_beatmapset(&self, mapset_id: u32) -> BotResult<DBMapSet> {
-        let mapset: DBMapSet = sqlx::query_as("SELECT * FROM mapsets WHERE beatmapset_id=$1")
-            .bind(mapset_id)
-            .fetch_one(&self.pool)
-            .await?;
+        let mapset: DBMapSet =
+            sqlx::query_as("SELECT * FROM mapsets WHERE beatmapset_id=$1 LIMIT 1")
+                .bind(mapset_id)
+                .fetch_one(&self.pool)
+                .await?;
 
         Ok(mapset)
     }
