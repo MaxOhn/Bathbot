@@ -24,6 +24,7 @@ async fn recent_lb_main(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
+    num: Option<usize>,
 ) -> BotResult<()> {
     let author_name = ctx.get_link(msg.author.id.0);
     let args = NameModArgs::new(&ctx, args);
@@ -34,21 +35,52 @@ async fn recent_lb_main(
         None => return super::require_link(&ctx, msg).await,
     };
 
+    let limit = num.map_or(1, |n| n + (n == 0) as usize);
+
+    if limit > 50 {
+        let content = "Recent history goes only 50 scores back.";
+
+        return msg.error(&ctx, content).await;
+    }
+
     // Retrieve the recent scores
-    let scores_fut = ctx.osu().recent_scores(name.as_str()).mode(mode).limit(1);
+    let scores_fut = ctx
+        .osu()
+        .recent_scores(name.as_str())
+        .mode(mode)
+        .limit(limit as u32);
+
     let score = match scores_fut.await {
+        Ok(scores) if scores.is_empty() => {
+            let content = format!("No recent plays found for user `{}`", name);
+
+            return msg.error(&ctx, content).await;
+        }
+        Ok(scores) if scores.len() < limit => {
+            let content = format!(
+                "There are only {} many scores in `{}`'{} recent history.",
+                scores.len(),
+                name,
+                if name.ends_with('s') { "" } else { "s" }
+            );
+
+            return msg.error(&ctx, content).await;
+        }
         Ok(mut scores) => match scores.pop() {
             Some(score) => score,
             None => {
                 let content = format!("No recent plays found for user `{}`", name);
+
                 return msg.error(&ctx, content).await;
             }
         },
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
+
     let map_id = score.beatmap_id.unwrap();
 
     // Retrieving the score's beatmap
@@ -60,10 +92,12 @@ async fn recent_lb_main(
                     Ok(Some(m)) => m,
                     Ok(None) => {
                         let content = format!("The API returned no beatmap for map id {}", map_id);
+
                         return msg.error(&ctx, content).await;
                     }
                     Err(why) => {
                         let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
                         return Err(why.into());
                     }
                 };
@@ -88,20 +122,25 @@ async fn recent_lb_main(
         },
         mode,
     );
+
     let scores = match scores_fut.await {
         Ok(scores) => scores,
         Err(why) => {
             let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
+
             return Err(why.into());
         }
     };
+
     let amount = scores.len();
 
     // Accumulate all necessary data
     let map_copy = if map_to_db { Some(map.clone()) } else { None };
+
     let first_place_icon = scores
         .first()
         .map(|s| format!("{}{}", AVATAR_URL, s.user_id));
+
     let data_fut = LeaderboardEmbed::new(
         author_name.as_deref(),
         &map,
@@ -113,6 +152,7 @@ async fn recent_lb_main(
         &first_place_icon,
         0,
     );
+
     let data = match data_fut.await {
         Ok(data) => data,
         Err(why) => {
@@ -123,6 +163,7 @@ async fn recent_lb_main(
 
     // Sending the embed
     let embed = data.build().build()?;
+
     let content = format!(
         "I found {} scores with the specified mods on the map's leaderboard",
         amount
@@ -152,6 +193,7 @@ async fn recent_lb_main(
     let pagination =
         LeaderboardPagination::new(response, map, scores, author_name, first_place_icon);
     let owner = msg.author.id;
+
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
             unwind_error!(warn, why, "Pagination error (recentleaderboard): {}")
@@ -164,8 +206,10 @@ async fn recent_lb_main(
 #[command]
 #[short_desc("Belgian leaderboard of a map that a user recently played")]
 #[long_desc(
-    "Display the belgian leaderboard of a map \
-     that a user recently played. Mods can be specified"
+    "Display the belgian leaderboard of a map that a user recently played.\n\
+     Mods can be specified.\n\
+     To get a previous recent map, you can add a number right after the command,\n\
+     e.g. `rblb42 badewanne3` to get the 42nd most recent map."
 )]
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
@@ -174,15 +218,18 @@ pub async fn recentbelgianleaderboard(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args,
+    num: Option<usize>,
 ) -> BotResult<()> {
-    recent_lb_main(GameMode::STD, true, ctx, msg, args).await
+    recent_lb_main(GameMode::STD, true, ctx, msg, args, num).await
 }
 
 #[command]
 #[short_desc("Belgian leaderboard of a map that a user recently played")]
 #[long_desc(
-    "Display the belgian leaderboard of a map \
-     that a mania user recently played. Mods can be specified"
+    "Display the belgian leaderboard of a mania map that a user recently played.\n\
+     Mods can be specified.\n\
+     To get a previous recent map, you can add a number right after the command,\n\
+     e.g. `rmblb42 badewanne3` to get the 42nd most recent map."
 )]
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
@@ -191,15 +238,18 @@ pub async fn recentmaniabelgianleaderboard(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args,
+    num: Option<usize>,
 ) -> BotResult<()> {
-    recent_lb_main(GameMode::MNA, true, ctx, msg, args).await
+    recent_lb_main(GameMode::MNA, true, ctx, msg, args, num).await
 }
 
 #[command]
 #[short_desc("Belgian leaderboard of a map that a user recently played")]
 #[long_desc(
-    "Display the belgian leaderboard of a map \
-     that a taiko user recently played. Mods can be specified"
+    "Display the belgian leaderboard of a taiko map that a user recently played.\n\
+     Mods can be specified.\n\
+     To get a previous recent map, you can add a number right after the command,\n\
+     e.g. `rtblb42 badewanne3` to get the 42nd most recent map."
 )]
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
@@ -208,15 +258,18 @@ pub async fn recenttaikobelgianleaderboard(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args,
+    num: Option<usize>,
 ) -> BotResult<()> {
-    recent_lb_main(GameMode::TKO, true, ctx, msg, args).await
+    recent_lb_main(GameMode::TKO, true, ctx, msg, args, num).await
 }
 
 #[command]
 #[short_desc("Belgian leaderboard of a map that a user recently played")]
 #[long_desc(
-    "Display the belgian leaderboard of a map \
-     that a ctb user recently played. Mods can be specified"
+    "Display the belgian leaderboard of a ctb map that a user recently played.\n\
+     Mods can be specified.\n\
+     To get a previous recent map, you can add a number right after the command,\n\
+     e.g. `rcblb42 badewanne3` to get the 42nd most recent map."
 )]
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
@@ -225,58 +278,87 @@ pub async fn recentctbbelgianleaderboard(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args,
+    num: Option<usize>,
 ) -> BotResult<()> {
-    recent_lb_main(GameMode::CTB, true, ctx, msg, args).await
+    recent_lb_main(GameMode::CTB, true, ctx, msg, args, num).await
 }
 
 #[command]
 #[short_desc("Global leaderboard of a map that a user recently played")]
 #[long_desc(
-    "Display the global leaderboard of a map \
-     that a user recently played. Mods can be specified"
+    "Display the global leaderboard of a map that a user recently played.\n\
+    Mods can be specified.\n\
+    To get a previous recent map, you can add a number right after the command,\n\
+    e.g. `rlb42 badewanne3` to get the 42nd most recent map."
 )]
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rlb", "rglb", "recentgloballeaderboard")]
-pub async fn recentleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    recent_lb_main(GameMode::STD, false, ctx, msg, args).await
+pub async fn recentleaderboard(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+    num: Option<usize>,
+) -> BotResult<()> {
+    recent_lb_main(GameMode::STD, false, ctx, msg, args, num).await
 }
 
 #[command]
 #[short_desc("Global leaderboard of a map that a user recently played")]
 #[long_desc(
-    "Display the global leaderboard of a map \
-     that a mania user recently played. Mods can be specified"
+    "Display the global leaderboard of a mania map that a user recently played.\n\
+    Mods can be specified.\n\
+    To get a previous recent map, you can add a number right after the command,\n\
+    e.g. `rmlb42 badewanne3` to get the 42nd most recent map."
 )]
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rmlb", "rmglb", "recentmaniagloballeaderboard")]
-pub async fn recentmanialeaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    recent_lb_main(GameMode::MNA, false, ctx, msg, args).await
+pub async fn recentmanialeaderboard(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+    num: Option<usize>,
+) -> BotResult<()> {
+    recent_lb_main(GameMode::MNA, false, ctx, msg, args, num).await
 }
 
 #[command]
 #[short_desc("Global leaderboard of a map that a user recently played")]
 #[long_desc(
-    "Display the global leaderboard of a map \
-     that a taiko user recently played. Mods can be specified"
+    "Display the global leaderboard of a taiko map that a user recently played.\n\
+    Mods can be specified.\n\
+    To get a previous recent map, you can add a number right after the command,\n\
+    e.g. `rtlb42 badewanne3` to get the 42nd most recent map."
 )]
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rtlb", "rtglb", "recenttaikogloballeaderboard")]
-pub async fn recenttaikoleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    recent_lb_main(GameMode::TKO, false, ctx, msg, args).await
+pub async fn recenttaikoleaderboard(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+    num: Option<usize>,
+) -> BotResult<()> {
+    recent_lb_main(GameMode::TKO, false, ctx, msg, args, num).await
 }
 
 #[command]
 #[short_desc("Global leaderboard of a map that a user recently played")]
 #[long_desc(
-    "Display the global leaderboard of a map \
-     that a ctb user recently played. Mods can be specified"
+    "Display the global leaderboard of a ctb map that a user recently played.\n\
+    Mods can be specified.\n\
+    To get a previous recent map, you can add a number right after the command,\n\
+    e.g. `rclb42 badewanne3` to get the 42nd most recent map."
 )]
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rclb", "rcglb", "recentctbgloballeaderboard")]
-pub async fn recentctbleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    recent_lb_main(GameMode::CTB, false, ctx, msg, args).await
+pub async fn recentctbleaderboard(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+    num: Option<usize>,
+) -> BotResult<()> {
+    recent_lb_main(GameMode::CTB, false, ctx, msg, args, num).await
 }

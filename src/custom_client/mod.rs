@@ -52,7 +52,6 @@ static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), ", ", env!("CARGO_PKG_
 type ClientResult<T> = Result<T, CustomClientError>;
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
-#[allow(clippy::enum_variant_names)]
 enum Site {
     OsuWebsite,
     OsuStats,
@@ -388,7 +387,7 @@ impl CustomClient {
 
     // Retrieve the leaderboard of a map (national / global)
     // If mods contain DT / NC, it will do another request for the opposite
-    // If mods dont contains Mirror and its a mania map, it will perform the
+    // If mods dont contain Mirror and its a mania map, it will perform the
     // same requests again but with Mirror enabled
     pub async fn get_leaderboard(
         &self,
@@ -398,15 +397,18 @@ impl CustomClient {
         mode: GameMode,
     ) -> ClientResult<Vec<ScraperScore>> {
         let mut scores = self._get_leaderboard(map_id, national, mods).await?;
+
         let non_mirror = mods
             .map(|mods| !mods.contains(GameMods::Mirror))
             .unwrap_or(true);
+
         // Check another request for mania's MR is needed
         if mode == GameMode::MNA && non_mirror {
             let mods = match mods {
                 None => Some(GameMods::Mirror),
                 Some(mods) => Some(mods | GameMods::Mirror),
             };
+
             let mut new_scores = self._get_leaderboard(map_id, national, mods).await?;
             scores.append(&mut new_scores);
             scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
@@ -414,6 +416,7 @@ impl CustomClient {
             scores.retain(|s| uniques.insert(s.user_id));
             scores.truncate(50);
         }
+
         // Check if DT / NC is included
         let mods = match mods {
             Some(mods) if mods.contains(GameMods::DoubleTime) => Some(mods | GameMods::NightCore),
@@ -422,6 +425,7 @@ impl CustomClient {
             }
             Some(_) | None => None,
         };
+
         // If DT / NC included, make another request
         if mods.is_some() {
             if mode == GameMode::MNA && non_mirror {
@@ -429,6 +433,7 @@ impl CustomClient {
                 let mut new_scores = self._get_leaderboard(map_id, national, mods).await?;
                 scores.append(&mut new_scores);
             }
+
             let mut new_scores = self._get_leaderboard(map_id, national, mods).await?;
             scores.append(&mut new_scores);
             scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
@@ -436,6 +441,7 @@ impl CustomClient {
             scores.retain(|s| uniques.insert(s.user_id));
             scores.truncate(50);
         }
+
         Ok(scores)
     }
 
@@ -447,9 +453,11 @@ impl CustomClient {
         mods: Option<GameMods>,
     ) -> ClientResult<Vec<ScraperScore>> {
         let mut url = format!("{base}beatmaps/{id}/scores?", base = OSU_BASE, id = map_id);
+
         if national {
             url.push_str("type=country");
         }
+
         if let Some(mods) = mods {
             if mods.is_empty() {
                 url.push_str("&mods[]=NM");
@@ -459,14 +467,17 @@ impl CustomClient {
                 }
             }
         }
+
         let response = self.make_request(url, Site::OsuHiddenApi).await?;
         let bytes = response.bytes().await?;
+
         let scores: ScraperScores =
             serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
                 body: String::from_utf8_lossy(&bytes).into_owned(),
                 source,
                 request: "leaderboard",
             })?;
+
         Ok(scores.get())
     }
 
