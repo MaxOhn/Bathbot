@@ -6,6 +6,7 @@ use std::{fmt, sync::Arc};
 use twilight_model::channel::Message;
 
 type CommandTree = Trie<&'static str, &'static Command>;
+type BoxResult<'fut> = BoxFuture<'fut, BotResult<()>>;
 
 pub struct Command {
     pub names: &'static [&'static str],
@@ -18,12 +19,8 @@ pub struct Command {
     pub only_guilds: bool,
     pub bucket: Option<&'static str>,
     pub sub_commands: &'static [&'static Command],
-    pub fun: for<'fut> fn(
-        Arc<Context>,
-        &'fut Message,
-        Args<'fut>,
-        Option<usize>,
-    ) -> BoxFuture<'fut, BotResult<()>>,
+    pub fun:
+        for<'fut> fn(Arc<Context>, &'fut Message, Args<'fut>, Option<usize>) -> BoxResult<'fut>,
 }
 
 impl fmt::Debug for Command {

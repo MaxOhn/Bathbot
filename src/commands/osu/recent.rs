@@ -1,7 +1,6 @@
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, RecentEmbed},
-    pagination::{Pagination, RecentPagination},
     tracking::process_tracking,
     unwind_error,
     util::{
@@ -13,12 +12,9 @@ use crate::{
 
 use rosu::model::{
     ApprovalStatus::{Approved, Loved, Qualified, Ranked},
-    GameMode,
+    GameMode, Score,
 };
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 use tokio::time::{sleep, Duration};
 use twilight_model::channel::Message;
 
@@ -27,6 +23,7 @@ async fn recent_main(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
+    num: Option<usize>,
 ) -> BotResult<()> {
     let args = NameArgs::new(&ctx, args);
 
@@ -35,33 +32,34 @@ async fn recent_main(
         None => return super::require_link(&ctx, msg).await,
     };
 
+    let num = num.unwrap_or(1).saturating_sub(1);
+
     // Retrieve the user and their recent scores
     let user_fut = ctx.osu().user(name.as_str()).mode(mode);
+
     let scores_fut = ctx.osu().recent_scores(name.as_str()).mode(mode).limit(50);
 
     let (user, scores) = match tokio::try_join!(user_fut, scores_fut) {
-        Ok((user, scores)) => {
-            if scores.is_empty() {
-                let content = format!(
-                    "No recent {}plays found for user `{}`",
-                    match mode {
-                        GameMode::STD => "",
-                        GameMode::TKO => "taiko ",
-                        GameMode::CTB => "ctb ",
-                        GameMode::MNA => "mania ",
-                    },
-                    name
-                );
+        Ok((None, _)) => {
+            let content = format!("User `{}` was not found", name);
 
-                return msg.error(&ctx, content).await;
-            } else if let Some(user) = user {
-                (user, scores)
-            } else {
-                let content = format!("User `{}` was not found", name);
-
-                return msg.error(&ctx, content).await;
-            }
+            return msg.error(&ctx, content).await;
         }
+        Ok((_, scores)) if scores.is_empty() => {
+            let content = format!(
+                "No recent {}plays found for user `{}`",
+                match mode {
+                    GameMode::STD => "",
+                    GameMode::TKO => "taiko ",
+                    GameMode::CTB => "ctb ",
+                    GameMode::MNA => "mania ",
+                },
+                name
+            );
+
+            return msg.error(&ctx, content).await;
+        }
+        Ok((Some(user), scores)) => (user, scores),
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
@@ -69,62 +67,63 @@ async fn recent_main(
         }
     };
 
-    // Get all relevant maps from the database
-    let mut map_ids: HashSet<u32> = scores.iter().filter_map(|s| s.beatmap_id).collect();
+    let score = match scores.get(num) {
+        Some(score) => score,
+        None => {
+            let content = format!(
+                "There are only {} many scores in `{}`'{} recent history.",
+                scores.len(),
+                name,
+                if name.ends_with('s') { "" } else { "s" }
+            );
 
-    let mut maps = {
-        let dedubed_ids: Vec<u32> = map_ids.iter().copied().collect();
-        let map_result = ctx.psql().get_beatmaps(&dedubed_ids).await;
+            return msg.error(&ctx, content).await;
+        }
+    };
 
-        match map_result {
-            Ok(maps) => maps,
-            Err(why) => {
-                unwind_error!(warn, why, "Error while retrieving maps from DB: {}");
-                HashMap::default()
+    let map_id = score.beatmap_id.unwrap();
+    let mut store_in_db = false;
+
+    let map = match ctx.psql().get_beatmap(map_id).await {
+        Ok(map) => map,
+        Err(why) => {
+            unwind_error!(
+                debug,
+                why,
+                "Error while retrieving map {} from DB: {}",
+                map_id
+            );
+
+            store_in_db = true;
+
+            match ctx.osu().beatmap().map_id(map_id).await {
+                Ok(Some(map)) => map,
+                Ok(None) => {
+                    let content = format!("The API returned no beatmap for map id {}", map_id);
+
+                    return msg.error(&ctx, content).await;
+                }
+                Err(why) => {
+                    let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
+                    return Err(why.into());
+                }
             }
         }
     };
 
-    // Memoize which maps are already in the DB
-    map_ids.retain(|id| maps.contains_key(&id));
-
-    // Retrieve the first map
-    let first_score = scores.first().unwrap();
-    let first_id = first_score.beatmap_id.unwrap();
-
-    #[allow(clippy::map_entry)]
-    if !maps.contains_key(&first_id) {
-        let map = match ctx.osu().beatmap().map_id(first_id).await {
-            Ok(Some(map)) => map,
-            Ok(None) => {
-                let content = format!("The API returned no beatmap for map id {}", first_id);
-
-                return msg.error(&ctx, content).await;
-            }
-            Err(why) => {
-                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-                return Err(why.into());
-            }
-        };
-
-        maps.insert(first_id, map);
-    }
-
     // Prepare retrieval of the map's global top 50 and the user's top 100
-    let first_map = maps.get(&first_id).unwrap();
-
     let global_fut = async {
-        match first_map.approval_status {
+        match map.approval_status {
             Ranked | Loved | Qualified | Approved => {
-                Some(first_map.get_global_leaderboard(ctx.osu()).limit(50).await)
+                Some(map.get_global_leaderboard(ctx.osu()).limit(50).await)
             }
             _ => None,
         }
     };
 
     let best_fut = async {
-        match first_map.approval_status {
+        match map.approval_status {
             Ranked => Some(user.get_top_scores(ctx.osu()).limit(100).mode(mode).await),
             _ => None,
         }
@@ -132,21 +131,23 @@ async fn recent_main(
 
     // Retrieve and parse response
     let (globals_result, best_result) = tokio::join!(global_fut, best_fut);
-    let mut global = HashMap::with_capacity(scores.len());
 
-    match globals_result {
-        None => {}
-        Some(Ok(scores)) => {
-            global.insert(first_id, scores);
+    let globals: Option<Vec<Score>> = match globals_result {
+        None => None,
+        Some(Ok(scores)) => Some(scores),
+        Some(Err(why)) => {
+            unwind_error!(warn, why, "Error while getting global scores: {}");
+
+            None
         }
-        Some(Err(why)) => unwind_error!(warn, why, "Error while getting global scores: {}"),
-    }
+    };
 
-    let best = match best_result {
+    let best: Option<Vec<Score>> = match best_result {
         None => None,
         Some(Ok(scores)) => Some(scores),
         Some(Err(why)) => {
             unwind_error!(warn, why, "Error while getting top scores: {}");
+
             None
         }
     };
@@ -154,21 +155,11 @@ async fn recent_main(
     // Accumulate all necessary data
     let tries = scores
         .iter()
-        .take_while(|s| {
-            s.beatmap_id.unwrap() == first_id && s.enabled_mods == first_score.enabled_mods
-        })
+        .skip(num)
+        .take_while(|s| s.beatmap_id.unwrap() == map_id && s.enabled_mods == score.enabled_mods)
         .count();
 
-    let global_scores = global.get(&first_id).map(|global| global.as_slice());
-    let first_map = maps.get(&first_id).unwrap();
-
-    let data_fut = RecentEmbed::new(
-        &user,
-        first_score,
-        first_map,
-        best.as_deref(),
-        global_scores,
-    );
+    let data_fut = RecentEmbed::new(&user, score, &map, best.as_deref(), globals.as_deref());
 
     let data = match data_fut.await {
         Ok(data) => data,
@@ -186,66 +177,60 @@ async fn recent_main(
         .embed(data.build().build()?)?
         .await?;
 
+    response.reaction_delete(&ctx, msg.author.id);
     ctx.store_msg(response.id);
+
+    // Store map in DB
+    if store_in_db {
+        match ctx.psql().insert_beatmap(&map).await {
+            Ok(true) => info!("Added map {} to DB", map.beatmap_id),
+            Ok(false) => println!("map already in DB"),
+            Err(why) => unwind_error!(
+                warn,
+                why,
+                "Error while storing map {} in DB: {}",
+                map.beatmap_id
+            ),
+        }
+    }
 
     // Process user and their top scores for tracking
     if let Some(ref scores) = best {
+        let mut maps = HashMap::new();
+        maps.insert(map.beatmap_id, map);
+
         process_tracking(&ctx, mode, scores, Some(&user), &mut maps).await;
     }
 
-    // Skip pagination if too few entries
-    if scores.len() <= 1 {
-        response.reaction_delete(&ctx, msg.author.id);
-        let msg_id = msg.id;
-
-        tokio::spawn(async move {
-            sleep(Duration::from_secs(60)).await;
-
-            if !ctx.remove_msg(msg_id) {
-                return;
-            }
-
-            let embed_result = ctx
-                .http
-                .update_message(response.channel_id, response.id)
-                .embed(data.minimize().build().unwrap());
-
-            match embed_result {
-                Ok(m) => {
-                    if let Err(why) = m.await {
-                        unwind_error!(warn, why, "Error minimizing recent msg: {}");
-                    }
-                }
-
-                Err(why) => unwind_error!(
-                    warn,
-                    why,
-                    "Error while creating `recent` minimize embed: {}"
-                ),
-            }
-        });
-
-        return Ok(());
-    }
-
-    // Pagination
-    let pagination = RecentPagination::new(
-        Arc::clone(&ctx),
-        response,
-        user,
-        scores,
-        maps,
-        best,
-        global,
-        map_ids,
-        data,
-    );
-
-    let owner = msg.author.id;
+    // Wait for minimizing
+    let msg_id = response.id;
 
     tokio::spawn(async move {
-        if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (recent): {}")
+        sleep(Duration::from_secs(15)).await;
+
+        if !ctx.remove_msg(msg_id) {
+            return;
+        }
+
+        let embed = data.minimize().build().unwrap();
+
+        let embed_result = ctx
+            .http
+            .update_message(response.channel_id, response.id)
+            .embed(embed);
+
+        match embed_result {
+            Ok(m) => {
+                if let Err(why) = m.await {
+                    unwind_error!(warn, why, "Error minimizing recent msg: {}");
+                }
+            }
+
+            Err(why) => unwind_error!(
+                warn,
+                why,
+                "Error while creating `recent` minimize embed: {}"
+            ),
         }
     });
 
@@ -254,36 +239,81 @@ async fn recent_main(
 
 #[command]
 #[short_desc("Display a user's most recent play")]
+#[long_desc(
+    "Display a user's most recent play.\n\
+    To get a previous recent score, you can add a number right after the command,\n\
+    e.g. `r42 badewanne3` to get the 42nd most recent score."
+)]
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("r", "rs")]
-pub async fn recent(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    recent_main(GameMode::STD, ctx, msg, args).await
+pub async fn recent(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+    num: Option<usize>,
+) -> BotResult<()> {
+    recent_main(GameMode::STD, ctx, msg, args, num).await
 }
 
 #[command]
 #[short_desc("Display a user's most recent mania play")]
+#[long_desc(
+    "Display a user's most recent play.\n\
+    To get a previous recent score, you can add a number right after the command,\n\
+    e.g. `rm42 badewanne3` to get the 42nd most recent score."
+)]
 #[usage("[username]")]
+#[long_desc(
+    "Display a user's most recent play.\n\
+    To get a previous recent score, you can add a number \
+    right after the command, e.g. `rt42 badewanne3`"
+)]
 #[example("badewanne3")]
 #[aliases("rm")]
-pub async fn recentmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    recent_main(GameMode::MNA, ctx, msg, args).await
+pub async fn recentmania(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+    num: Option<usize>,
+) -> BotResult<()> {
+    recent_main(GameMode::MNA, ctx, msg, args, num).await
 }
 
 #[command]
 #[short_desc("Display a user's most recent taiko play")]
+#[long_desc(
+    "Display a user's most recent play.\n\
+    To get a previous recent score, you can add a number right after the command,\n\
+    e.g. `rt42 badewanne3` to get the 42nd most recent score."
+)]
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("rt")]
-pub async fn recenttaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    recent_main(GameMode::TKO, ctx, msg, args).await
+pub async fn recenttaiko(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+    num: Option<usize>,
+) -> BotResult<()> {
+    recent_main(GameMode::TKO, ctx, msg, args, num).await
 }
 
 #[command]
 #[short_desc("Display a user's most recent ctb play")]
+#[long_desc(
+    "Display a user's most recent play.\n\
+    To get a previous recent score, you can add a number right after the command,\n\
+    e.g. `rc42 badewanne3` to get the 42nd most recent score."
+)]
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("rc")]
-pub async fn recentctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    recent_main(GameMode::CTB, ctx, msg, args).await
+pub async fn recentctb(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args,
+    num: Option<usize>,
+) -> BotResult<()> {
+    recent_main(GameMode::CTB, ctx, msg, args, num).await
 }
