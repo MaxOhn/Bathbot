@@ -281,7 +281,11 @@ fn simulate_score(
             let mut n100 = args.n100.unwrap_or(0);
             let miss = args.miss.unwrap_or(0);
             let n_objects = map.count_objects();
-            let combo = args.combo.unwrap_or(diff_attributes.max_combo as u32);
+
+            let combo = args
+                .combo
+                .unwrap_or(diff_attributes.max_combo as u32)
+                .min((diff_attributes.max_combo as u32).saturating_sub(miss));
 
             if n50 > 0 || n100 > 0 {
                 let placed_points = 2 * n100 + n50 + miss;
@@ -354,6 +358,7 @@ fn simulate_score(
             score.count100 = 0;
             score.count50 = 0;
             score.count_miss = 0;
+
             score.grade = if mods.intersects(GameMods::Flashlight | GameMods::Hidden) {
                 if score.score == max_score {
                     Grade::XH
@@ -400,7 +405,12 @@ fn simulate_score(
             let acc = (2 * score.count300 + score.count100) as f32
                 / (2 * (score.count300 + score.count100 + score.count_miss)) as f32;
 
-            score.max_combo = args.combo.or(map.max_combo).unwrap_or(0);
+            score.max_combo = args
+                .combo
+                .or(map.max_combo)
+                .unwrap_or(0)
+                .min(n_objects.saturating_sub(miss));
+
             score.recalculate_grade(GameMode::TKO, Some(acc * 100.0));
 
             attributes = StarResult::Taiko(diff_attributes);
@@ -469,7 +479,12 @@ fn simulate_score(
             score.count50 = n_tiny_droplets as u32;
             score.count_katu = n_tiny_droplet_misses as u32;
             score.count_miss = miss as u32;
-            score.max_combo = args.combo.unwrap_or(diff_attributes.max_combo as u32);
+
+            score.max_combo = args
+                .combo
+                .unwrap_or(diff_attributes.max_combo as u32)
+                .min(diff_attributes.max_combo as u32 - miss as u32);
+
             score.recalculate_grade(GameMode::CTB, None);
 
             attributes = StarResult::Fruits(diff_attributes);

@@ -102,6 +102,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         .content("Simulated score:")?
         .embed(embed)?
         .await?;
+
     ctx.store_msg(response.id);
 
     // Add map to database if its not in already

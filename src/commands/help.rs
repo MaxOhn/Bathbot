@@ -138,6 +138,7 @@ pub async fn help(
                 if let Err(why) = send_help_chunk(ctx, channel.id, owner, eb.build()?).await {
                     unwind_error!(warn, why, "Error while sending help chunk: {}");
                     let content = "Could not DM you, have you disabled it?";
+
                     return msg.error(ctx, content).await;
                 }
 
@@ -169,6 +170,7 @@ pub async fn help(
         if let Err(why) = send_help_chunk(ctx, channel.id, owner, embed).await {
             unwind_error!(warn, why, "Error while sending help chunk: {}");
             let content = "Could not DM you, have you disabled it?";
+
             return msg.error(ctx, content).await;
         }
     }
@@ -236,6 +238,7 @@ async fn send_help_chunk(
         .embed(embed)?
         .await?
         .reaction_delete(ctx, owner);
+
     Ok(())
 }
 
@@ -324,7 +327,7 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
             value
         } else {
             "Admin permission or any role that \
-            was setup as authority in a guild"
+            was setup as authority in a server"
                 .to_owned()
         };
 
