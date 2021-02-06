@@ -85,7 +85,7 @@ impl RecentEmbed {
                     .fruits(score.count300 as usize)
                     .droplets(score.count100 as usize)
                     .misses(score.count_miss as usize)
-                    .passed_objects(hits)
+                    .passed_objects(hits - score.count_katu as usize)
                     .accuracy(score.accuracy(GameMode::CTB))
                     .calculate(),
                 GameMode::TKO => TaikoPP::new(&rosu_map)

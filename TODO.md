@@ -7,7 +7,6 @@
 - Update ranked .osu files somehow / delete unranked .osu files
 - Ask osustats people about convert exclusion and data provision similar to huismetbenen
 - Add convert exclusion argument for `mapper` and `topif` (maybe others?)
-- Add `recentlist` command
 - Check on TinyBot (https://top.gg/bot/470496878941962251)
 - ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~
 - ~~`<playermedals` showing a list of a user's medals~~
@@ -21,6 +20,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Add `recentlist` command~~ (21.02.06)
 - ~~Add `recentpages` command~~ (21.02.06)
 - ~~Find a better way than reaction for things like `<r`~~ (21.02.05)
 - ~~Add commands `<snipedgain` and `<snipedloss`~~ (21.02.02)
