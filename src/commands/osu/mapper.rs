@@ -43,13 +43,14 @@ async fn mapper_main(
 
                 return msg.error(&ctx, content).await;
             }
-        };
+        }
+
         match args.next() {
-            Some(arg) => {
+            Some(arg) if !matches!(arg.as_str(), "-c" | "-convert" | "-converts") => {
                 user = first;
                 arg.to_lowercase()
             }
-            None => match ctx.get_link(msg.author.id.0) {
+            _ => match ctx.get_link(msg.author.id.0) {
                 Some(name) => {
                     user = name;
                     first.to_lowercase()
@@ -68,6 +69,11 @@ async fn mapper_main(
             },
         }
     };
+
+    let filter_converts = matches!(
+        args.next().as_deref(),
+        Some("-c") | Some("-convert") | Some("-converts")
+    );
 
     // Retrieve the user and their top scores
     let user_fut = ctx.osu().user(user.as_str()).mode(mode);
@@ -157,6 +163,11 @@ async fn mapper_main(
     }
 
     scores_data.retain(|(_, _, map)| {
+        // Filter converts
+        if filter_converts && map.mode != mode {
+            return false;
+        }
+
         // Either the version contains the mapper name (guest diff'd by mapper)
         // or the map is created by mapper name and not guest diff'd by someone else
         let version = map.version.to_lowercase();
@@ -275,10 +286,13 @@ pub async fn mapper(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     "Display the top plays of a mania user which were mapped by the given mapper.\n\
     Specify the __user first__ and the __mapper second__.\n\
     Unlike the mapper count of the profile command, this command considers not only \
-    the map's creator, but also tries to check if the map is a guest difficulty."
+    the map's creator, but also tries to check if the map is a guest difficulty.\n\
+    If the `-convert` / `-c` argument is specified, I will __not__ count any maps \
+    that aren't native mania maps."
 )]
-#[usage("[username] [mapper]")]
+#[usage("[username] [mapper] [-convert]")]
 #[example("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
+#[aliases("mapperm")]
 pub async fn mappermania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     mapper_main(GameMode::MNA, ctx, msg, None, args).await
 }
@@ -289,10 +303,13 @@ pub async fn mappermania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
     "Display the top plays of a taiko user which were mapped by the given mapper.\n\
     Specify the __user first__ and the __mapper second__.\n\
     Unlike the mapper count of the profile command, this command considers not only \
-    the map's creator, but also tries to check if the map is a guest difficulty."
+    the map's creator, but also tries to check if the map is a guest difficulty.\n\
+    If the `-convert` / `-c` argument is specified, I will __not__ count any maps \
+    that aren't native taiko maps."
 )]
-#[usage("[username] [mapper]")]
+#[usage("[username] [mapper] [-convert]")]
 #[example("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
+#[aliases("mappert")]
 pub async fn mappertaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     mapper_main(GameMode::TKO, ctx, msg, None, args).await
 }
@@ -303,10 +320,13 @@ pub async fn mappertaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
     "Display the top plays of a ctb user which were mapped by the given mapper.\n\
     Specify the __user first__ and the __mapper second__.\n\
     Unlike the mapper count of the profile command, this command considers not only \
-    the map's creator, but also tries to check if the map is a guest difficulty."
+    the map's creator, but also tries to check if the map is a guest difficulty.\n\
+    If the `-convert` / `-c` argument is specified, I will __not__ count any maps \
+    that aren't native ctb maps."
 )]
-#[usage("[username] [mapper]")]
+#[usage("[username] [mapper] [-convert]")]
 #[example("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
+#[aliases("mapperc")]
 async fn mapperctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     mapper_main(GameMode::CTB, ctx, msg, None, args).await
 }
