@@ -5,6 +5,10 @@
 - Put non-global leaderboard back in for `<bg lb`
 - Don't update DB guild config on shutdown but immediatly instead
 - Update ranked .osu files somehow / delete unranked .osu files
+- Ask osustats people about convert exclusion and data provision similar to huismetbenen
+- Add convert exclusion argument for `mapper` and `topif` (maybe others?)
+- Add `recentlist` command
+- Check on TinyBot (https://top.gg/bot/470496878941962251)
 - ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~
 - ~~`<playermedals` showing a list of a user's medals~~
 - ~~`<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)~~
@@ -17,6 +21,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Add `recentpages` command~~ (21.02.06)
 - ~~Find a better way than reaction for things like `<r`~~ (21.02.05)
 - ~~Add commands `<snipedgain` and `<snipedloss`~~ (21.02.02)
 - ~~Filter `<bws`-irrelevant badges through regex~~ (21.02.02)

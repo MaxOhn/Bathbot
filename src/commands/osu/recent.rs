@@ -32,7 +32,8 @@ async fn recent_main(
 
         let content = format!(
             "`{prefix}recent{mode} -p`? \
-            Try putting the number right after the command, e.g. `{prefix}recent{mode}42`.",
+            Try putting the number right after the command, e.g. `{prefix}recent{mode}42`.\n\
+            Alternatively you can checkout the `recentpages{mode}` command.",
             mode = match mode {
                 GameMode::STD => "",
                 GameMode::MNA => "mania",
@@ -89,10 +90,12 @@ async fn recent_main(
         Some(score) => score,
         None => {
             let content = format!(
-                "There are only {} many scores in `{}`'{} recent history.",
-                scores.len(),
-                name,
-                if name.ends_with('s') { "" } else { "s" }
+                "There {verb} only {num} score{plural} in `{name}`'{genitive} recent history.",
+                verb = if scores.len() != 1 { "are" } else { "is" },
+                num = scores.len(),
+                plural = if scores.len() != 1 { "s" } else { "" },
+                name = name,
+                genitive = if name.ends_with('s') { "" } else { "s" }
             );
 
             return msg.error(&ctx, content).await;

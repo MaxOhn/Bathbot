@@ -66,7 +66,7 @@ async fn top_main(
 
         let content = format!(
             "`{prefix}{cmd}{mode} -p`? \
-            Try putting the number right after the command, e.g. `{prefix}{cmd}{mode}42`.",
+            Try putting the number right after the command, e.g. `{prefix}{cmd}{mode}42`, or use the arrow reactions.",
             mode = mode_long,
             cmd = cmd,
             prefix = prefix

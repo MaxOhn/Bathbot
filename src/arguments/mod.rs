@@ -209,6 +209,62 @@ impl NameFloatArgs {
     }
 }
 
+pub struct NameGradePassArgs {
+    pub name: Option<String>,
+    pub grade: Option<GradeArg>,
+}
+
+impl NameGradePassArgs {
+    pub fn new(ctx: &Context, args: Args) -> Result<Self, &'static str> {
+        let mut args: Vec<_> = args.take(3).collect();
+
+        let mut grade = None;
+
+        if keywords(&mut args, &["-pass", "-passes"]) {
+            grade = Some(GradeArg::Range {
+                bot: Grade::D,
+                top: Grade::XH,
+            });
+        } else {
+            if let Some(idx) = args.iter().position(|&arg| arg == "-g" || arg == "-grade") {
+                args.remove(idx);
+                if let Some((min, mut max)) = args.get(idx).and_then(parse_dotted) {
+                    args.remove(idx);
+
+                    match min {
+                        Some(mut min) => {
+                            if min == Grade::SH {
+                                min = Grade::S;
+                            } else if min == Grade::XH {
+                                min = Grade::X;
+                            }
+
+                            if max == Grade::S {
+                                max = Grade::SH;
+                            } else if max == Grade::X {
+                                max = Grade::XH;
+                            }
+
+                            grade.replace(GradeArg::Range { bot: min, top: max })
+                        }
+                        None => grade.replace(GradeArg::Single(max)),
+                    };
+                } else {
+                    return Err("Could not parse given grade, try SS, S, A, B, C, or D");
+                }
+            }
+        }
+
+        let name = args.into_iter().next().and_then(|arg| {
+            matcher::get_mention_user(&arg)
+                .and_then(|id| ctx.get_link(id))
+                .or_else(|| Some(arg.to_owned()))
+        });
+
+        Ok(Self { name, grade })
+    }
+}
+
 pub struct NameIntArgs {
     pub name: Option<String>,
     pub number: Option<u32>,
@@ -857,7 +913,7 @@ impl TopArgs {
         let has_dash_r = keywords(&mut args, &["-r"]);
         let has_dash_p = keywords(&mut args, &["-p"]);
 
-        let name = args.pop().and_then(|arg| {
+        let name = args.into_iter().next().and_then(|arg| {
             matcher::get_mention_user(&arg)
                 .and_then(|id| ctx.get_link(id))
                 .or_else(|| Some(arg.to_owned()))
@@ -1053,6 +1109,7 @@ fn miss(args: &mut Vec<impl AsRef<str>>) -> Result<Option<u32>, &'static str> {
 fn keywords(args: &mut Vec<impl AsRef<str>>, keys: &[&str]) -> bool {
     if let Some(idx) = args.iter().position(|arg| keys.contains(&arg.as_ref())) {
         args.remove(idx);
+
         return true;
     }
 
