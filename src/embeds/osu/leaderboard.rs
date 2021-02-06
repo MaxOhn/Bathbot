@@ -123,12 +123,15 @@ impl EmbedData for LeaderboardEmbed {
     fn description(&self) -> Option<&str> {
         Some(&self.description)
     }
+
     fn author(&self) -> Option<&Author> {
         Some(&self.author)
     }
+
     fn footer(&self) -> Option<&Footer> {
         Some(&self.footer)
     }
+
     fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }

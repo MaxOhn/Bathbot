@@ -106,7 +106,7 @@ impl Pagination for RecentPagination {
 
         // Put missing maps into DB
         if self.maps.len() > self.maps_in_db.len() {
-            let map_ids = self.maps_in_db.clone();
+            let map_ids = &self.maps_in_db;
 
             let maps: Vec<_> = self
                 .maps

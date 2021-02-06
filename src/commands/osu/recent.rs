@@ -55,7 +55,6 @@ async fn recent_main(
 
     // Retrieve the user and their recent scores
     let user_fut = ctx.osu().user(name.as_str()).mode(mode);
-
     let scores_fut = ctx.osu().recent_scores(name.as_str()).mode(mode).limit(50);
 
     let (user, scores) = match tokio::try_join!(user_fut, scores_fut) {
@@ -179,6 +178,7 @@ async fn recent_main(
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
             return Err(why);
         }
     };
@@ -267,11 +267,6 @@ pub async fn recent(
     e.g. `rm42 badewanne3` to get the 42nd most recent score."
 )]
 #[usage("[username]")]
-#[long_desc(
-    "Display a user's most recent play.\n\
-    To get a previous recent score, you can add a number \
-    right after the command, e.g. `rt42 badewanne3`"
-)]
 #[example("badewanne3")]
 #[aliases("rm")]
 pub async fn recentmania(

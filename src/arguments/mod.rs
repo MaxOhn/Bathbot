@@ -225,33 +225,32 @@ impl NameGradePassArgs {
                 bot: Grade::D,
                 top: Grade::XH,
             });
-        } else {
-            if let Some(idx) = args.iter().position(|&arg| arg == "-g" || arg == "-grade") {
+        } else if let Some(idx) = args.iter().position(|&arg| arg == "-g" || arg == "-grade") {
+            args.remove(idx);
+
+            if let Some((min, mut max)) = args.get(idx).and_then(parse_dotted) {
                 args.remove(idx);
-                if let Some((min, mut max)) = args.get(idx).and_then(parse_dotted) {
-                    args.remove(idx);
 
-                    match min {
-                        Some(mut min) => {
-                            if min == Grade::SH {
-                                min = Grade::S;
-                            } else if min == Grade::XH {
-                                min = Grade::X;
-                            }
-
-                            if max == Grade::S {
-                                max = Grade::SH;
-                            } else if max == Grade::X {
-                                max = Grade::XH;
-                            }
-
-                            grade.replace(GradeArg::Range { bot: min, top: max })
+                match min {
+                    Some(mut min) => {
+                        if min == Grade::SH {
+                            min = Grade::S;
+                        } else if min == Grade::XH {
+                            min = Grade::X;
                         }
-                        None => grade.replace(GradeArg::Single(max)),
-                    };
-                } else {
-                    return Err("Could not parse given grade, try SS, S, A, B, C, or D");
-                }
+
+                        if max == Grade::S {
+                            max = Grade::SH;
+                        } else if max == Grade::X {
+                            max = Grade::XH;
+                        }
+
+                        grade.replace(GradeArg::Range { bot: min, top: max })
+                    }
+                    None => grade.replace(GradeArg::Single(max)),
+                };
+            } else {
+                return Err("Could not parse given grade, try SS, S, A, B, C, or D");
             }
         }
 

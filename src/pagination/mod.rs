@@ -13,6 +13,7 @@ mod osustats_list;
 mod player_snipe_list;
 mod profile;
 mod recent;
+mod recent_list;
 mod scores;
 mod sniped_difference;
 mod top;
@@ -33,6 +34,7 @@ pub use osustats_list::OsuStatsListPagination;
 pub use player_snipe_list::PlayerSnipeListPagination;
 pub use profile::ProfilePagination;
 pub use recent::RecentPagination;
+pub use recent_list::RecentListPagination;
 pub use scores::ScoresPagination;
 pub use sniped_difference::SnipedDiffPagination;
 pub use top::TopPagination;
@@ -126,13 +128,16 @@ pub trait Pagination: Sync + Sized {
     // Don't implement anything else
     async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> BotResult<()> {
         ctx.store_msg(self.msg().id);
+
         let reaction_stream = {
             let msg = self.msg();
+
             for emoji in Self::reactions() {
                 ctx.http
                     .create_reaction(msg.channel_id, msg.id, emoji)
                     .await?;
             }
+
             ctx.standby
                 .wait_for_reaction_stream(msg.id, move |r: &ReactionAdd| r.user_id == owner)
                 .timeout(Duration::from_secs(duration))
@@ -158,6 +163,7 @@ pub trait Pagination: Sync + Sized {
             Ok(_) => {}
             Err(Error::Response { status, .. }) if status.as_u16() == 403 => {
                 time::sleep(time::Duration::from_millis(100)).await;
+
                 for emoji in Self::reactions() {
                     ctx.http
                         .delete_current_user_reaction(msg.channel_id, msg.id, emoji)
@@ -169,6 +175,7 @@ pub trait Pagination: Sync + Sized {
 
         self.final_processing(ctx).await
     }
+
     async fn next_page(&mut self, reaction: Reaction, ctx: &Context) -> BotResult<PageChange> {
         let change = match self.process_reaction(&reaction.emoji).await {
             PageChange::None => PageChange::None,
@@ -177,19 +184,25 @@ pub trait Pagination: Sync + Sized {
                 self.process_data(&data);
                 let msg = self.msg();
                 let mut update = ctx.http.update_message(msg.channel_id, msg.id);
+
                 if let Some(content) = self.content() {
                     update = update.content(content)?;
                 }
+
                 let mut eb = data.build();
+
                 if let Some(thumbnail) = self.thumbnail() {
                     eb = eb.thumbnail(thumbnail);
                 }
+
                 update.embed(eb.build()?)?.await?;
+
                 PageChange::Change
             }
             PageChange::Delete => {
                 let msg = self.msg();
                 ctx.http.delete_message(msg.channel_id, msg.id).await?;
+
                 PageChange::Delete
             }
         };
@@ -221,6 +234,7 @@ pub trait Pagination: Sync + Sized {
                 "my_position" => {
                     if let Some(index) = self.jump_index() {
                         let i = numbers::last_multiple(self.per_page(), index + 1);
+
                         if i != self.index() {
                             Some(i)
                         } else {
