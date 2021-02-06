@@ -29,6 +29,7 @@ async fn topif_main(
     args: Args<'_>,
 ) -> BotResult<()> {
     let args = NameModArgs::new(&ctx, args);
+
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
@@ -79,10 +80,12 @@ async fn topif_main(
         .enumerate()
         .map(|(i, Score { pp, .. })| pp.unwrap() as f64 * 0.95_f64.powi(i as i32))
         .sum::<f64>();
+
     let bonus_pp = user.pp_raw as f64 - actual_pp;
 
     // Get all relevant maps from the database
     let map_ids: Vec<u32> = scores.iter().filter_map(|s| s.beatmap_id).collect();
+
     let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
         Ok(maps) => maps,
         Err(why) => {
@@ -135,7 +138,10 @@ async fn topif_main(
             }
         };
 
-        scores_data.push((i + 1, score, map, None));
+        // Filter converts if specified
+        if !args.converts || map.mode == mode {
+            scores_data.push((i + 1, score, map, None));
+        }
     }
 
     // Modify scores
@@ -364,10 +370,11 @@ pub async fn topif(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()
     As for all other commands with mods input, you can specify them as follows:\n  \
     - `+mods` to include the mod(s) into all scores\n  \
     - `+mods!` to make all scores have exactly those mods\n  \
-    - `-mods!` to remove all these mods from all scores"
+    - `-mods!` to remove all these mods from all scores\n\
+    To exclude converts, specify `-convert` / `-c` as last argument."
 )]
-#[usage("[username] [mods]")]
-#[example("badewanne3 -hd!", "+hdhr!", "whitecat +hddt")]
+#[usage("[username] [mods] [-c]")]
+#[example("badewanne3 -hd!", "+hdhr! -c", "whitecat +hddt")]
 #[aliases("tit")]
 pub async fn topiftaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     topif_main(GameMode::TKO, ctx, msg, args).await
@@ -380,10 +387,11 @@ pub async fn topiftaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
     As for all other commands with mods input, you can specify them as follows:\n  \
     - `+mods` to include the mod(s) into all scores\n  \
     - `+mods!` to make all scores have exactly those mods\n  \
-    - `-mods!` to remove all these mods from all scores"
+    - `-mods!` to remove all these mods from all scores\n\
+    To exclude converts, specify `-convert` / `-c` as last argument."
 )]
-#[usage("[username] [mods]")]
-#[example("badewanne3 -hd!", "+hdhr!", "whitecat +hddt")]
+#[usage("[username] [mods] [-c]")]
+#[example("badewanne3 -hd!", "+hdhr! -c", "whitecat +hddt")]
 #[aliases("tic")]
 pub async fn topifctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     topif_main(GameMode::CTB, ctx, msg, args).await

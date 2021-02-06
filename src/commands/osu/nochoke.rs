@@ -327,9 +327,8 @@ async fn nochokes_main(
 #[command]
 #[short_desc("Unchoke a user's top100")]
 #[long_desc(
-    "Display a user's top plays if no score in their top100 \
-     would be a choke.\nIf a number is specified, \
-     I will only unchoke scores with at most that many misses"
+    "Display a user's top plays if no score in their top100 would be a choke.\n
+    If a number is specified, I will only unchoke scores with at most that many misses"
 )]
 #[usage("[username] [number for miss limit]")]
 #[example("badewanne3", "vaxei 5")]

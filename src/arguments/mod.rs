@@ -320,15 +320,23 @@ impl NameMapArgs {
 pub struct NameModArgs {
     pub name: Option<String>,
     pub mods: Option<ModSelection>,
+    pub converts: bool,
 }
 
 impl NameModArgs {
     pub fn new(ctx: &Context, args: Args) -> Self {
         let mut name = None;
         let mut mods = None;
+        let mut converts = false;
 
         for arg in args {
+            if matches!(arg, "-c" | "-convert" | "-converts") {
+                converts = true;
+                continue;
+            }
+
             let res = matcher::get_mods(arg);
+
             if res.is_some() {
                 mods = res;
             } else {
@@ -336,7 +344,11 @@ impl NameModArgs {
             }
         }
 
-        Self { name, mods }
+        Self {
+            name,
+            mods,
+            converts,
+        }
     }
 }
 

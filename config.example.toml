@@ -10,6 +10,7 @@ osu_session = ""
 twitch_client_id = ""
 twitch_token = ""
 osu_daily = ""
+beatconnect = ""
 
 [database]
 host="localhost"
@@ -35,3 +36,14 @@ XH = "<:XH:515354675059621888>"
 1 = "<:osu_taiko:755004408353521674>"
 2 = "<:osu_ctb:755004407799873607>"
 3 = "<:osu_mania:755004407799742588>"
+
+[other]
+minimize = "<:minimize:789599916821053471>"
+expand = "<:expand:789599916754206740>"
+jump_start = "<:jump_start:789892244000866314>"
+multi_step_back = "<:multi_step_back:789892244013580288>"
+single_step_back = "<:single_step_back:789892244013580328>"
+my_position = "<:my_position:789892244202192896>"
+single_step = "<:single_step:789892244160249856>"
+multi_step = "<:multi_step:789892243929432095>"
+jump_end = "<:jump_end:789892243883687960>"
