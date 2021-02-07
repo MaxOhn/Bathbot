@@ -31,6 +31,7 @@ pub struct Tokens {
     pub osu: String,
     pub osu_session: String,
     pub osu_daily: String,
+    pub beatconnect: String,
     pub twitch_client_id: String,
     pub twitch_token: String,
 }

@@ -99,7 +99,7 @@ async fn async_main() -> BotResult<()> {
         .build()?;
 
     // Log custom client into osu!
-    let custom = CustomClient::new(&CONFIG.get().unwrap().tokens.osu_session).await?;
+    let custom = CustomClient::new().await?;
 
     let clients = crate::core::Clients {
         psql,

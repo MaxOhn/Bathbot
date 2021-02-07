@@ -29,17 +29,13 @@ use crate::{
 use chrono::{DateTime, Utc};
 use cow_utils::CowUtils;
 use governor::{clock::DefaultClock, state::keyed::DashMapStateStore, Quota, RateLimiter};
-use reqwest::{
-    header::{HeaderMap, HeaderName, HeaderValue},
-    multipart::Form,
-    Client, Response, StatusCode,
-};
+use once_cell::sync::OnceCell;
+use reqwest::{multipart::Form, Client, Response, StatusCode};
 use rosu::model::{GameMode, GameMods, User};
 use scraper::{Html, Node, Selector};
 use serde_json::Value;
 use std::{
     collections::HashSet,
-    convert::TryFrom,
     fmt::{self, Write},
     hash::Hash,
     num::NonZeroU32,
@@ -47,9 +43,11 @@ use std::{
 };
 use tokio::time::{sleep, timeout, Duration};
 
-static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), ", ", env!("CARGO_PKG_VERSION"));
-
 type ClientResult<T> = Result<T, CustomClientError>;
+
+static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), ", ", env!("CARGO_PKG_VERSION"));
+static OSU_SESSION: OnceCell<&'static str> = OnceCell::new();
+static BEATCONNECT_API_KEY: OnceCell<&'static str> = OnceCell::new();
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
 enum Site {
@@ -60,6 +58,7 @@ enum Site {
     OsuSnipe,
     Osekai,
     OsuDaily,
+    Beatconnect,
 }
 
 pub struct CustomClient {
@@ -68,18 +67,16 @@ pub struct CustomClient {
 }
 
 impl CustomClient {
-    pub async fn new(osu_session: &str) -> BotResult<Self> {
-        let mut builder = Client::builder();
-        let mut headers = HeaderMap::new();
-        let cookie_header = HeaderName::try_from("Cookie").unwrap();
-        let cookie_value = HeaderValue::from_str(&format!("osu_session={}", osu_session)).unwrap();
-        headers.insert(cookie_header, cookie_value);
-        builder = builder.user_agent(USER_AGENT).default_headers(headers);
-        info!("Log into osu! account...");
-        let client = builder.build()?;
+    pub async fn new() -> BotResult<Self> {
+        let config = CONFIG.get().unwrap();
 
+        OSU_SESSION.set(&config.tokens.osu_session).unwrap();
+        BEATCONNECT_API_KEY.set(&config.tokens.beatconnect).unwrap();
+
+        let client = Client::builder().user_agent(USER_AGENT).build()?;
         let quota = Quota::per_second(NonZeroU32::new(2).unwrap());
         let ratelimiter = RateLimiter::dashmap_with_clock(quota, &DefaultClock::default());
+
         Ok(Self {
             client,
             ratelimiter,
@@ -92,10 +89,22 @@ impl CustomClient {
 
     async fn make_request(&self, url: impl AsRef<str>, site: Site) -> ClientResult<Response> {
         let url = url.as_ref();
+
         debug!("Requesting url {}", url);
+        let mut req = self.client.get(url);
+
+        req = match site {
+            Site::OsuHiddenApi => req.header(
+                "Cookie",
+                format!("osu_session={}", OSU_SESSION.get().unwrap()),
+            ),
+            Site::Beatconnect => req.header("token", *BEATCONNECT_API_KEY.get().unwrap()),
+            _ => req,
+        };
+
         self.ratelimit(site).await;
-        let response = self.client.get(url).send().await?;
-        Ok(response.error_for_status()?)
+
+        Ok(req.send().await?.error_for_status()?)
     }
 
     pub async fn get_osekai_medal(&self, medal_name: &str) -> ClientResult<Option<OsekaiMedal>> {
