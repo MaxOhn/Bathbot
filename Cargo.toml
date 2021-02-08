@@ -8,7 +8,6 @@ edition = "2018"
 async-trait  = "0.1"
 bitflags     = "1.2"
 bytes        = "1.0"
-chrono       = "0.4"
 cow-utils    = "0.1"
 futures      = "0.3"
 governor     = "0.3"
@@ -28,6 +27,10 @@ strfmt       = "0.1.6"
 sysinfo      = "0.11"
 toml         = "0.5"
 uwl          = "0.6"
+
+[dependencies.chrono]
+version = "0.4"
+features = ["serde"]
 
 [dependencies.clap]
 version = "2.33"

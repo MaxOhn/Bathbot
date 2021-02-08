@@ -1,3 +1,4 @@
+mod beatconnect;
 mod deserialize;
 mod most_played;
 mod osekai;
@@ -7,6 +8,7 @@ mod osu_stats;
 mod score;
 mod snipe;
 
+pub use beatconnect::*;
 pub use most_played::MostPlayedMap;
 pub use osekai::*;
 pub use osu_daily::*;
@@ -18,7 +20,9 @@ pub use snipe::*;
 
 use crate::{
     util::{
-        constants::{AVATAR_URL, HUISMETBENEN, OSEKAI_MEDAL_API, OSU_BASE, OSU_DAILY_API},
+        constants::{
+            AVATAR_URL, BEATCONNECT_API, HUISMETBENEN, OSEKAI_MEDAL_API, OSU_BASE, OSU_DAILY_API,
+        },
         error::CustomClientError,
         numbers::round,
         osu::ModSelection,
@@ -107,11 +111,31 @@ impl CustomClient {
         Ok(req.send().await?.error_for_status()?)
     }
 
+    pub async fn beatconnect_search(
+        &self,
+        params: &BeatconnectSearchParams,
+    ) -> ClientResult<BeatconnectSearchResponse> {
+        let url = format!("{}search?{}", BEATCONNECT_API, params);
+
+        let response = self.make_request(url, Site::Beatconnect).await?;
+        let bytes = response.bytes().await?;
+
+        let search: BeatconnectSearchResponse =
+            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&bytes).into_owned(),
+                source,
+                request: "beatconnect search",
+            })?;
+
+        Ok(search)
+    }
+
     pub async fn get_osekai_medal(&self, medal_name: &str) -> ClientResult<Option<OsekaiMedal>> {
         let medal = medal_name.cow_replace(' ', "+");
         let url = format!("{}get_medal?medal={}", OSEKAI_MEDAL_API, medal);
         let response = self.make_request(url, Site::Osekai).await?;
         let bytes = response.bytes().await?;
+
         let medal: Option<OsekaiMedal> = match serde_json::from_slice(&bytes) {
             Ok(medal) => Some(medal),
             Err(source) => match serde_json::from_slice::<Value>(&bytes)
@@ -127,6 +151,7 @@ impl CustomClient {
                 }
             },
         };
+
         Ok(medal)
     }
 

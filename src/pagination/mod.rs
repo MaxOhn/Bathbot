@@ -4,6 +4,7 @@ mod common;
 mod country_snipe_list;
 mod leaderboard;
 mod map;
+mod map_search;
 mod medals_missing;
 mod most_played;
 mod most_played_common;
@@ -25,6 +26,7 @@ pub use common::CommonPagination;
 pub use country_snipe_list::CountrySnipeListPagination;
 pub use leaderboard::LeaderboardPagination;
 pub use map::MapPagination;
+pub use map_search::MapSearchPagination;
 pub use medals_missing::MedalsMissingPagination;
 pub use most_played::MostPlayedPagination;
 pub use most_played_common::MostPlayedCommonPagination;
@@ -348,7 +350,7 @@ pub enum PageChange {
     Delete,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Pages {
     index: usize,
     last_index: usize,

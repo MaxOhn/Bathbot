@@ -9,6 +9,7 @@
 - Add convert exclusion argument for `mapper` and `topif` (maybe others?)
 - Add `mapsearch` command through beatconnect
 - Check on TinyBot (https://top.gg/bot/470496878941962251)
+- Check on `<nc jesus` "expected `osu file format v`"
 - ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~
 - ~~`<playermedals` showing a list of a user's medals~~
 - ~~`<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)~~
