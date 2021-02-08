@@ -1,15 +1,12 @@
 
 **[TODO]**
-- Fix `<mc` sometimes missing some users
 - Split database tables based on popular queries
 - Put non-global leaderboard back in for `<bg lb`
 - Don't update DB guild config on shutdown but immediatly instead
 - Update ranked .osu files somehow / delete unranked .osu files
-- Ask osustats people about convert exclusion and data provision similar to huismetbenen
-- Add convert exclusion argument for `mapper` and `topif` (maybe others?)
-- Add `mapsearch` command through beatconnect
 - Check on TinyBot (https://top.gg/bot/470496878941962251)
-- Check on `<nc jesus` "expected `osu file format v`"
+- Add convert exclusion argument for `mapper` and `topif` and the osustats commands
+- ~~Fix `<mc` sometimes missing some users~~
 - ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~
 - ~~`<playermedals` showing a list of a user's medals~~
 - ~~`<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)~~
@@ -22,6 +19,9 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Ask osustats people about convert exclusion and data provision similar to huismetbenen~~ (21.02.08)
+- ~~Add `mapsearch` command through beatconnect~~ (21.02.08)
+- ~~Check on `<nc jesus` "expected `osu file format v`" (special char in .osu parsing)~~ (21.02.08)
 - ~~Add `recentlist` command~~ (21.02.06)
 - ~~Add `recentpages` command~~ (21.02.06)
 - ~~Find a better way than reaction for things like `<r`~~ (21.02.05)
