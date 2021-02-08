@@ -50,7 +50,8 @@ async fn osustats_main(
 #[long_desc(
     "Display in how many top 1-50 map leaderboards the user has a score.\n\
     This command shows the same stats as the globals count section for the \
-    `osu` command."
+    `osu` command.\n\
+    Check https://osustats.ppy.sh/ for more info."
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
@@ -64,7 +65,8 @@ pub async fn osustatscount(ctx: Arc<Context>, msg: &Message, args: Args) -> BotR
 #[long_desc(
     "Display in how many top 1-50 map leaderboards the user has a score.\n\
     This command shows the same stats as the globals count section for the \
-    `mania` command."
+    `mania` command.\n\
+    Check https://osustats.ppy.sh/ for more info."
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
@@ -78,7 +80,8 @@ pub async fn osustatscountmania(ctx: Arc<Context>, msg: &Message, args: Args) ->
 #[long_desc(
     "Display in how many top 1-50 map leaderboards the user has a score.\n\
     This command shows the same stats as the globals count section for the \
-    `taiko` command."
+    `taiko` command.\n\
+    Check https://osustats.ppy.sh/ for more info."
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
@@ -92,7 +95,8 @@ pub async fn osustatscounttaiko(ctx: Arc<Context>, msg: &Message, args: Args) ->
 #[long_desc(
     "Display in how many top 1-50 map leaderboards the user has a score.\n\
     This command shows the same stats as the globals count section for the \
-    `ctb` command."
+    `ctb` command.\n\
+    Check https://osustats.ppy.sh/ for more info."
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
