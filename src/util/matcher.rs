@@ -6,7 +6,7 @@ use super::{
 use lazy_static::lazy_static;
 use regex::Regex;
 use rosu::model::GameMods;
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 
 #[inline]
 pub fn is_custom_emote(msg: &str) -> bool {
@@ -140,6 +140,11 @@ pub fn tourney_badge(description: &str) -> bool {
     !IGNORE_BADGE_MATCHER.is_match_at(description, 0)
 }
 
+#[inline]
+pub fn highlight_funny_numeral(content: &str) -> Cow<str> {
+    SEVEN_TWO_SEVEN.replace_all(content, "__${num}__")
+}
+
 lazy_static! {
     static ref ROLE_ID_MATCHER: Regex = Regex::new(r"<@&(\d+)>").unwrap();
 }
@@ -195,4 +200,8 @@ lazy_static! {
 
 lazy_static! {
     static ref IGNORE_BADGE_MATCHER: Regex = Regex::new(r"(?i)contrib|nomination|assessment|global|moderation|beatmap|spotlight|map|pending|aspire|elite|monthly|exemplary|outstanding|longstanding|idol").unwrap();
+}
+
+lazy_static! {
+    static ref SEVEN_TWO_SEVEN: Regex = Regex::new("(?P<num>7[.,]?2[.,]?7)").unwrap();
 }

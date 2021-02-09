@@ -94,6 +94,7 @@ pub fn get_user_author(user: &User) -> Author {
         country = user.country,
         national = user.pp_country_rank
     );
+
     Author::new(text)
         .url(format!("{}u/{}", OSU_BASE, user.user_id))
         .icon_url(format!("{}/images/flags/{}.png", OSU_BASE, user.country))
@@ -114,31 +115,36 @@ pub fn get_mods(mods: GameMods) -> String {
 pub fn get_combo(score: impl ScoreExt, map: impl BeatmapExt) -> String {
     let mut combo = String::from("**");
     let _ = write!(combo, "{}x**/", score.max_combo());
+
     match map.max_combo() {
-        Some(amount) => {
-            let _ = write!(combo, "{}x", amount);
-        }
+        Some(amount) => write!(combo, "{}x", amount).unwrap(),
         None => combo.push('-'),
     }
+
     combo
 }
 
 pub fn get_pp(actual: Option<f32>, max: Option<f32>) -> String {
     let mut result = String::with_capacity(17);
     result.push_str("**");
+
     if let Some(pp) = actual {
         let _ = write!(result, "{:.2}", pp);
     } else {
         result.push('-');
     }
+
     result.push_str("**/");
+
     if let Some(max) = max {
         let pp = actual.map(|pp| pp.max(max)).unwrap_or(max);
         let _ = write!(result, "{:.2}", pp);
     } else {
         result.push('-');
     }
+
     result.push_str("PP");
+
     result
 }
 

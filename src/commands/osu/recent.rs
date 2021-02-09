@@ -5,7 +5,7 @@ use crate::{
     unwind_error,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        MessageExt,
+        matcher, MessageExt,
     },
     BotResult, Context,
 };
@@ -184,11 +184,21 @@ async fn recent_main(
     };
 
     // Creating the embed
+    let mut embed = data.build().build()?;
+
+    // Funny numeral
+    if mode == GameMode::STD {
+        for idx in 1..=5 {
+            embed.fields[idx].value =
+                matcher::highlight_funny_numeral(&embed.fields[idx].value).into_owned();
+        }
+    }
+
     let response = ctx
         .http
         .create_message(msg.channel_id)
         .content(format!("Try #{}", tries))?
-        .embed(data.build().build()?)?
+        .embed(embed)?
         .await?;
 
     response.reaction_delete(&ctx, msg.author.id);
