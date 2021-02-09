@@ -34,8 +34,10 @@ impl Game {
                 Ok(game) => {
                     let sub_image_result = {
                         let reveal = game.reveal.read().await;
+
                         reveal.sub_image()
                     };
+
                     match sub_image_result {
                         Ok(img) => return (game, img),
                         Err(why) => unwind_error!(
@@ -57,11 +59,13 @@ impl Game {
         previous_ids: &mut VecDeque<u32>,
     ) -> GameResult<Self> {
         let mut path = CONFIG.get().unwrap().bg_path.clone();
+
         match mapsets[0].mode {
             GameMode::STD => path.push("osu"),
             GameMode::MNA => path.push("mania"),
             _ => return Err(BgGameError::Mode(mapsets[0].mode)),
         }
+
         let mapset = util::get_random_mapset(mapsets, previous_ids).await;
         debug!("Next BG mapset id: {}", mapset.mapset_id);
         let (title, artist) = util::get_title_artist(ctx, mapset.mapset_id).await?;
@@ -70,10 +74,12 @@ impl Game {
         let img_vec = fs::read(path).await?;
         let mut img = image::load_from_memory(&img_vec)?;
         let (w, h) = img.dimensions();
+
         // 800*600 (4:3)
         if w * h > 480_000 {
             img = img.thumbnail(800, 600);
         }
+
         Ok(Self {
             hints: Arc::new(RwLock::new(Hints::new(&title, mapset.tags))),
             title,
@@ -124,6 +130,7 @@ impl Game {
                     "Could not get full reveal of mapset id {}: {}",
                     self.mapset_id
                 );
+
                 ctx.http.create_message(channel).content(content)?.await?;
             }
         }
@@ -136,25 +143,31 @@ impl Game {
         if content == self.title {
             return ContentResult::Title(true);
         }
+
         // Guessed sufficiently many words of the title?
         if self.title.contains(' ') {
             let mut same_word_len = 0;
+
             for title_word in self.title.split(' ') {
                 for content_word in content.split(' ') {
                     if title_word == content_word {
                         same_word_len += title_word.len();
-                        if same_word_len > 8 {
+
+                        if same_word_len >= 9 {
                             return ContentResult::Title(false);
                         }
                     }
                 }
             }
         }
+
         // Similar enough to the title?
         let similarity = util::similarity(content, &self.title);
+
         if similarity > 0.5 {
             return ContentResult::Title(false);
         }
+
         if !self.hints.read().await.artist_guessed {
             // Guessed the artist exactly?
             if content == self.artist {
@@ -164,6 +177,7 @@ impl Game {
                 return ContentResult::Artist(false);
             }
         }
+
         ContentResult::None
     }
 }

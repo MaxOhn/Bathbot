@@ -121,6 +121,7 @@ pub async fn handle_event(
             // Parse msg content for prefixes
             let mut stream = Stream::new(&msg.content);
             stream.take_while_char(|c| c.is_whitespace());
+
             if !(find_prefix(&prefixes, &mut stream) || msg.guild_id.is_none()) {
                 return Ok(());
             }
@@ -165,6 +166,7 @@ pub async fn handle_event(
                 Invoke::None => {}
                 _ => {
                     ctx.stats.inc_command(name.as_ref());
+
                     match command_result {
                         Ok(ProcessResult::Success) => info!("Processed command `{}`", name),
                         Ok(process_result) => {
@@ -177,15 +179,18 @@ pub async fn handle_event(
         }
         _ => (),
     }
+
     Ok(())
 }
 
 fn log_invoke(ctx: &Context, msg: &Message) {
     let mut location = String::with_capacity(31);
+
     match msg.guild_id.and_then(|id| ctx.cache.guild(id)) {
         Some(guild) => {
             let _ = write!(location, "{}", guild.name);
             location.push(':');
+
             match ctx.cache.guild_channel(msg.channel_id) {
                 Some(channel) => location.push_str(channel.name()),
                 None => location.push_str("<uncached channel>"),
@@ -193,6 +198,7 @@ fn log_invoke(ctx: &Context, msg: &Message) {
         }
         None => location.push_str("Private"),
     }
+
     info!("[{}] {}: {}", location, msg.author.name, msg.content);
 }
 
@@ -232,6 +238,7 @@ async fn process_command(
     if (cmd.authority || cmd.only_guilds) && msg.guild_id.is_none() {
         let content = "That command is only available in guilds";
         msg.error(&ctx, content).await?;
+
         return Ok(ProcessResult::NoDM);
     }
 
@@ -239,6 +246,7 @@ async fn process_command(
     if cmd.owner && msg.author.id.0 != OWNER_USER_ID {
         let content = "That command can only be used by the bot owner";
         msg.error(&ctx, content).await?;
+
         return Ok(ProcessResult::NoOwner);
     }
 
@@ -248,8 +256,10 @@ async fn process_command(
             let permissions =
                 ctx.cache
                     .get_channel_permissions_for(bot_user.id, msg.channel_id, msg.guild_id);
+
             if !permissions.contains(Permissions::SEND_MESSAGES) {
                 debug!("No SEND_MESSAGE permission, can not respond");
+
                 return Ok(ProcessResult::NoSendPermission);
             }
         }
@@ -262,24 +272,29 @@ async fn process_command(
         let mutex = guard.value();
         let mut bucket = mutex.lock().await;
         let ratelimit = bucket.take(msg.author.id.0);
+
         if ratelimit > 0 {
             debug!(
                 "Ratelimiting user {} for {} seconds",
                 msg.author.id, ratelimit,
             );
+
             return Ok(ProcessResult::Ratelimited(BucketName::All));
         }
     }
+
     if let Some(bucket) = cmd.bucket {
         if let Some((cooldown, bucket)) = check_ratelimit(&ctx, msg, bucket).await {
             debug!(
                 "Ratelimiting user {} on command `{}` for {} seconds",
                 msg.author.id, cmd.names[0], cooldown,
             );
+
             if !matches!(bucket, BucketName::BgHint) {
                 let content = format!("Command on cooldown, try again in {} seconds", cooldown);
                 msg.error(&ctx, content).await?;
             }
+
             return Ok(ProcessResult::Ratelimited(bucket));
         }
     }
@@ -294,11 +309,13 @@ async fn process_command(
                     msg.author.id, cmd.names[0]
                 );
                 msg.error(&ctx, content).await?;
+
                 return Ok(ProcessResult::NoAuthority);
             }
             Err(why) => {
                 let content = "Error while checking authority status";
                 let _ = msg.error(&ctx, content).await;
+
                 return Err(Error::Authority(Box::new(why)));
             }
         }

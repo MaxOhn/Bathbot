@@ -23,6 +23,7 @@ pub struct Bucket {
 }
 
 impl Bucket {
+    #[inline]
     fn new(ratelimit: Ratelimit) -> Self {
         Self {
             ratelimit,
@@ -36,6 +37,7 @@ impl Bucket {
             .users
             .entry(user_id)
             .or_insert_with(MemberRatelimit::default);
+
         if let Some((timespan, limit)) = self.ratelimit.limit {
             if (user.tickets + 1) > limit {
                 if time < (user.set_time + timespan) {
@@ -46,6 +48,7 @@ impl Bucket {
                 }
             }
         }
+
         if time < user.last_time + self.ratelimit.delay {
             (user.last_time + self.ratelimit.delay) - time
         } else {

@@ -74,6 +74,7 @@ impl BotConfig {
         Ok(())
     }
 
+    #[inline]
     pub fn grade(&self, grade: Grade) -> &str {
         self.grades
             .get(&grade)
@@ -223,6 +224,7 @@ trait SplitEmote {
 }
 
 impl SplitEmote for String {
+    #[inline]
     fn split_emote(&self) -> (u64, &str) {
         let mut split = self.split(':');
         let name = split.nth(1).unwrap();

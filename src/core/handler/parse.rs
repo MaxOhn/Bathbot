@@ -20,6 +20,7 @@ pub enum Invoke {
 }
 
 impl Invoke {
+    #[inline]
     pub fn name(&self) -> Cow<str> {
         match self {
             Invoke::Command { cmd, .. } => Cow::Borrowed(cmd.names[0]),

@@ -74,6 +74,7 @@ impl CommandGroups {
         Self { groups, trie }
     }
 
+    #[inline]
     pub fn get(&self, command: &str) -> Option<&'static Command> {
         self.trie.get(command).copied()
     }

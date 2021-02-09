@@ -144,6 +144,7 @@ impl BotStats {
         stats
     }
 
+    #[inline]
     pub fn new_message(&self, ctx: &Context, msg: &Message) {
         if msg.author.bot {
             if ctx.is_own(msg) {
@@ -156,8 +157,10 @@ impl BotStats {
         }
     }
 
+    #[inline]
     pub fn inc_command(&self, cmd: impl AsRef<str>) {
         let c = cmd.as_ref();
+
         match self.command_counts.get_metric_with_label_values(&[c]) {
             Ok(counter) => counter.inc(),
             Err(why) => unwind_error!(warn, why, "Error while incrementing `{}`'s counter: {}", c),

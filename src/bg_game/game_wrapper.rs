@@ -80,7 +80,9 @@ impl GameWrapper {
         let mut msg_stream = ctx
             .standby
             .wait_for_message_stream(channel, |event: &MessageCreate| !event.author.bot);
+
         let game_lock = Arc::clone(&self.game);
+
         let rx = match self.rx.take() {
             Some(rx) => rx,
             None => {
@@ -88,8 +90,10 @@ impl GameWrapper {
                 return;
             }
         };
+
         let mut previous_ids = VecDeque::with_capacity(50);
         let mut scores = HashMap::new();
+
         tokio::spawn(async move {
             loop {
                 // Initialize game
@@ -98,6 +102,7 @@ impl GameWrapper {
                     let mut arced_game = game_lock.write().await;
                     *arced_game = Some(game);
                 }
+
                 let msg_result = ctx
                     .http
                     .create_message(channel)
@@ -105,6 +110,7 @@ impl GameWrapper {
                     .unwrap()
                     .attachment("bg_img.png", img)
                     .await;
+
                 if let Err(why) = msg_result {
                     unwind_error!(warn, why, "Error while sending initial bg game msg: {}");
                 }
@@ -128,11 +134,13 @@ impl GameWrapper {
                     LoopResult::Restart => {
                         // Send message
                         let game_option = game_lock.read().await;
+
                         if let Some(game) = game_option.as_ref() {
                             let content = format!(
                                 "Full background: {}beatmapsets/{}",
                                 OSU_BASE, game.mapset_id
                             );
+
                             if let Err(why) = game.resolve(&ctx, channel, content).await {
                                 unwind_error!(
                                     warn,
@@ -147,12 +155,14 @@ impl GameWrapper {
                     LoopResult::Stop => {
                         // Send message
                         let game_option = game_lock.read().await;
+
                         if let Some(game) = game_option.as_ref() {
                             let content = format!(
                                 "Full background: {}beatmapsets/{}\n\
                                 End of game, see you next time o/",
                                 OSU_BASE, game.mapset_id
                             );
+
                             if let Err(why) = game.resolve(&ctx, channel, content).await {
                                 unwind_error!(
                                     warn,
@@ -163,6 +173,7 @@ impl GameWrapper {
                         } else {
                             debug!("Trying to stop on None");
                         }
+
                         // Store score for winners
                         for (user, score) in scores {
                             if let Err(why) = ctx.psql().increment_bggame_score(user, score).await {
@@ -173,8 +184,10 @@ impl GameWrapper {
                                 );
                             }
                         }
+
                         // Then quit
                         debug!("Game finished in channel {}", channel);
+
                         break;
                     }
                     LoopResult::Winner(user_id) => {

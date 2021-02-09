@@ -23,9 +23,11 @@ pub fn initialize() -> Result<(), Error> {
             .start_with_specfile("logconfig.toml")
             .map_err(|_| Error::NoLoggingSpec)?,
     );
+
     if log_init_status.is_err() {
         error!("LOGGER was already set");
     }
+
     Ok(())
 }
 

@@ -44,6 +44,7 @@ impl Hints {
 
         if self.hint_level == 1 {
             let word_count = title.split(' ').count();
+
             format!(
                 "Let me give you a hint: The title has {amount} \
                 word{plural} and the starting letter is `{first}`",
@@ -54,9 +55,11 @@ impl Hints {
         } else if self.hint_level == 2 && !self.artist_guessed {
             let mut artist_hint = String::with_capacity(3 * artist.len() - 2);
             artist_hint.push(artist.chars().next().unwrap());
+
             for c in artist.chars().skip(1) {
                 artist_hint.push(if c == ' ' { c } else { '▢' });
             }
+
             format!(
                 "Here's my second hint: The artist looks like `{}`",
                 artist_hint
@@ -71,12 +74,14 @@ impl Hints {
         //     )
         } else if let Some(i) = self.indices.pop() {
             self.title_mask[i] = true;
+
             let title_hint: String = self
                 .title_mask
                 .iter()
                 .zip(title.chars())
                 .map(|(mask, c)| if *mask { c } else { '▢' })
                 .collect();
+
             format!("Slowly constructing the title: `{}`", title_hint)
         } else {
             format!("Bruh the title is literally `{}` xd", title)

@@ -87,6 +87,7 @@ impl CustomClient {
         })
     }
 
+    #[inline]
     async fn ratelimit(&self, site: Site) {
         self.ratelimiter.until_key_ready(&site).await
     }

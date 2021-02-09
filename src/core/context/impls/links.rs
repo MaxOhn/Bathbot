@@ -12,20 +12,25 @@ impl Context {
 
     pub async fn add_link(&self, discord_id: u64, osu_name: impl Into<String>) -> BotResult<()> {
         let name = osu_name.into();
+
         self.clients
             .psql
             .add_discord_link(discord_id, &name)
             .await?;
+
         self.data.discord_links.insert(discord_id, name);
+
         Ok(())
     }
 
     pub async fn remove_link(&self, discord_id: u64) -> BotResult<()> {
         self.clients.psql.remove_discord_link(discord_id).await?;
         self.data.discord_links.remove(&discord_id);
+
         Ok(())
     }
 
+    #[inline]
     pub fn add_role_assign(&self, channel_id: ChannelId, msg_id: MessageId, role_id: RoleId) {
         self.data
             .role_assigns

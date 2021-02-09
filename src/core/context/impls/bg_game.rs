@@ -15,6 +15,7 @@ impl Context {
         if self.data.bg_games.get(&channel).is_some() {
             self.data.bg_games.remove(&channel);
         }
+
         self.data
             .bg_games
             .entry(channel)
@@ -49,12 +50,14 @@ impl Context {
             if let Some(game) = self.data.bg_games.get(&channel) {
                 game.stop().await?;
             }
+
             Ok(true)
         } else {
             Ok(false)
         }
     }
 
+    #[inline]
     pub fn remove_game(&self, channel: ChannelId) {
         self.data.bg_games.remove(&channel);
     }
