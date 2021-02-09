@@ -1,11 +1,14 @@
 use crate::{
-    arguments::SimulateArgs,
     util::{constants::OSU_BASE, error::MapDownloadError, matcher, BeatmapExt, ScoreExt},
     CONFIG,
 };
 
 use rosu::model::{Beatmap, GameMode, GameMods, Grade, Score};
-use tokio::{fs::File, io::AsyncWriteExt, time};
+use tokio::{
+    fs::File,
+    io::AsyncWriteExt,
+    time::{sleep, Duration},
+};
 use twilight_cache_inmemory::model::CachedMessage;
 use twilight_model::channel::{embed::Embed, Message};
 
@@ -62,134 +65,32 @@ pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadErro
     map_path.push(format!("{}.osu", map_id));
 
     if !map_path.exists() {
-        let download_url = format!("{}web/maps/{}", OSU_BASE, map_id);
+        let download_url = format!("{}osu/{}", OSU_BASE, map_id);
         let mut content;
-        let mut delay = 450;
+        let mut delay = 500;
+        let mut attempts = 10;
 
         while {
             content = reqwest::get(&download_url).await?.bytes().await?;
-            content.len() < 6 || &content.slice(0..6)[..] == b"<html>"
+            (content.len() < 6 || &content.slice(0..6)[..] == b"<html>") && attempts > 0
         } {
             info!("Received invalid {}.osu, {}ms backoff", map_id, delay);
-            time::sleep(time::Duration::from_millis(delay)).await;
-            if delay >= 7200 {
-                break;
-            }
-            delay *= 2;
+            sleep(Duration::from_millis(delay)).await;
+
+            delay = (delay * 2).min(10_000);
+            attempts -= 1;
         }
 
-        match content.len() < 6 || &content.slice(0..6)[..] == b"<html>" {
-            true => info!(
-                "Failed to download {}.osu after up to {}ms delay",
-                map_id, delay
-            ),
-            false => {
-                let mut file = File::create(&map_path).await?;
-                file.write_all(&content).await?;
-                info!("Downloaded {}.osu successfully", map_id)
-            }
+        if content.len() < 6 || &content.slice(0..6)[..] == b"<html>" {
+            return Err(MapDownloadError::Content(map_id));
         }
+
+        let mut file = File::create(&map_path).await?;
+        file.write_all(&content).await?;
+        info!("Downloaded {}.osu successfully", map_id);
     }
 
     Ok(map_path.to_str().unwrap().to_owned())
-}
-
-pub fn _simulate_score(score: &mut Score, map: &Beatmap, args: SimulateArgs) {
-    match args.mods {
-        Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) => {
-            score.enabled_mods = mods
-        }
-        _ => {}
-    }
-
-    match map.mode {
-        GameMode::STD => {
-            let mut acc = args.acc.unwrap_or_else(|| {
-                let acc = score.accuracy(map.mode);
-
-                if acc.is_nan() {
-                    100.0
-                } else {
-                    acc
-                }
-            });
-
-            acc /= 100.0;
-
-            let mut n50 = args.n50.unwrap_or(0);
-            let mut n100 = args.n100.unwrap_or(0);
-            let miss = args.miss.unwrap_or(0);
-            let n_objects = map.count_objects();
-
-            let combo = args
-                .combo
-                .or(map.max_combo)
-                .unwrap_or_else(|| panic!("Neither args nor beatmap contained combo"));
-
-            if n50 > 0 || n100 > 0 {
-                let placed_points = 2 * n100 + n50 + miss;
-                let missing_objects = n_objects - n100 - n50 - miss;
-                let missing_points =
-                    ((6.0 * acc * n_objects as f32).round() as u32).saturating_sub(placed_points);
-
-                let mut n300 = missing_objects.min(missing_points / 6);
-                n50 += missing_objects - n300;
-
-                if let Some(orig_n50) = args.n50.filter(|_| args.n100.is_none()) {
-                    // Only n50s were changed, try to load some off again onto n100s
-                    let difference = n50 - orig_n50;
-                    let n = n300.min(difference / 4);
-
-                    n300 -= n;
-                    n100 += 5 * n;
-                    n50 -= 4 * n;
-                }
-
-                score.count300 = n300;
-                score.count100 = n100;
-                score.count50 = n50;
-            } else {
-                let target_total = (acc * n_objects as f32 * 6.0).round() as u32;
-                let delta = target_total - (n_objects - miss);
-
-                let mut n300 = delta / 5;
-                let mut n100 = delta % 5;
-                let mut n50 = n_objects - n300 - n100 - miss;
-
-                // Sacrifice n300s to transform n50s into n100s
-                let n = n300.min(n50 / 4);
-                n300 -= n;
-                n100 += 5 * n;
-                n50 -= 4 * n;
-
-                score.count300 = n300;
-                score.count100 = n100;
-                score.count50 = n50;
-            }
-            score.count_miss = miss;
-            score.max_combo = combo;
-            score.recalculate_grade(GameMode::STD, Some(acc * 100.0));
-        }
-        GameMode::MNA => {
-            score.max_combo = 0;
-            score.score = args.score.unwrap_or(1_000_000);
-            score.count_geki = map.count_objects();
-            score.count300 = 0;
-            score.count_katu = 0;
-            score.count100 = 0;
-            score.count50 = 0;
-            score.count_miss = 0;
-            score.grade = if score
-                .enabled_mods
-                .intersects(GameMods::Flashlight | GameMods::Hidden)
-            {
-                Grade::XH
-            } else {
-                Grade::X
-            };
-        }
-        _ => panic!("Can only simulate STD and MNA scores, not {:?}", map.mode),
-    }
 }
 
 /// First element: Weighted missing pp to reach goal from start

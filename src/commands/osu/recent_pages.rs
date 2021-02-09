@@ -80,6 +80,17 @@ async fn recent_pages_main(
         });
     }
 
+    if scores.is_empty() {
+        let content = format!(
+            "There are no scores with the specified grades in \
+            `{name}`'{genitive} recent history",
+            name = name,
+            genitive = if name.ends_with('s') { "" } else { "s" }
+        );
+
+        return msg.error(&ctx, content).await;
+    }
+
     let score = match scores.get(num) {
         Some(score) => score,
         None => {

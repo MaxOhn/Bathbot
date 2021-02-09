@@ -89,6 +89,7 @@ async fn leaderboard_main(
         },
         map.mode,
     );
+
     let scores = match scores_future.await {
         Ok(scores) => scores,
         Err(why) => {
@@ -96,13 +97,15 @@ async fn leaderboard_main(
             return Err(why.into());
         }
     };
+
     let amount = scores.len();
 
     // Accumulate all necessary data
     let first_place_icon = scores
         .first()
         .map(|s| format!("{}{}", AVATAR_URL, s.user_id));
-    let data = match LeaderboardEmbed::new(
+
+    let data_fut = LeaderboardEmbed::new(
         author_name.as_deref(),
         &map,
         if scores.is_empty() {
@@ -112,22 +115,25 @@ async fn leaderboard_main(
         },
         &first_place_icon,
         0,
-    )
-    .await
-    {
+    );
+
+    let data = match data_fut.await {
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
             return Err(why);
         }
     };
 
     // Sending the embed
     let embed = data.build().build()?;
+
     let content = format!(
         "I found {} scores with the specified mods on the map's leaderboard",
         amount
     );
+
     let response = ctx
         .http
         .create_message(msg.channel_id)
@@ -143,6 +149,7 @@ async fn leaderboard_main(
     // Skip pagination if too few entries
     if scores.len() <= 10 {
         response.reaction_delete(&ctx, msg.author.id);
+
         return Ok(());
     }
 
@@ -150,11 +157,13 @@ async fn leaderboard_main(
     let pagination =
         LeaderboardPagination::new(response, map, scores, author_name, first_place_icon);
     let owner = msg.author.id;
+
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
             unwind_error!(warn, why, "Pagination error (leaderboard): {}")
         }
     });
+
     Ok(())
 }
 
