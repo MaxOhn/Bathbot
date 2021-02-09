@@ -17,6 +17,12 @@ use twilight_http::{
 };
 
 pub async fn twitch_loop(ctx: Arc<Context>) {
+    if cfg!(debug_assertions) {
+        info!("Skip twitch tracking on debug");
+
+        return;
+    }
+
     // Formatting of the embed image
     let mut fmt_data = HashMap::new();
     fmt_data.insert(String::from("width"), String::from("360"));

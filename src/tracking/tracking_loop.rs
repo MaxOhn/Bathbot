@@ -16,6 +16,12 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
     let delay = time::Duration::from_secs(60);
 
     loop {
+        if cfg!(debug_assertions) {
+            info!("Skip osu! tracking on debug");
+
+            return;
+        }
+
         // Get all users that should be tracked in this iteration
         let tracked = match ctx.tracking().pop().await {
             Some(tracked) => tracked,

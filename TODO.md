@@ -6,7 +6,6 @@
 - Update ranked .osu files somehow / delete unranked .osu files
 - Check on TinyBot (https://top.gg/bot/470496878941962251)
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
-- Don't track while on debug
 - ~~Fix `<mc` sometimes missing some users~~
 - ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~
 - ~~`<playermedals` showing a list of a user's medals~~
@@ -20,6 +19,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Don't track while on debug~~ (21.02.09)
 - ~~Add funny numeral~~ (21.02.09)
 - ~~Ask osustats people about convert exclusion and data provision similar to huismetbenen~~ (21.02.08)
 - ~~Add `mapsearch` command through beatconnect~~ (21.02.08)
