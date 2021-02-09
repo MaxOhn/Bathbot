@@ -13,6 +13,7 @@ impl BGHelpEmbed {
             You don't need to guess content in parentheses `(...)` \
             or content after `ft.` or `feat.`.\n\
             Use these subcommands to initiate with the game:";
+
         let fields = vec![
             (
                 "start / s / skip / resolve / r".to_owned(),
@@ -54,10 +55,16 @@ impl BGHelpEmbed {
             ),
             (
                 "ranking / leaderboard / lb / stats".to_owned(),
-                "Check out the global leaderboard for amount of correct guesses".to_owned(),
+                format!(
+                    "Check out the global leaderboard for amount of correct guesses.\n\
+                    If you add `server` or `s` at the end, e.g. `{prefix}bg lb s`, \
+                    I will only consider members of the server.",
+                    prefix = prefix
+                ),
                 false,
             ),
         ];
+
         Self {
             fields,
             description,

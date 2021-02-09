@@ -1,7 +1,6 @@
 
 **[TODO]**
 - Split database tables based on popular queries
-- Put non-global leaderboard back in for `<bg lb`
 - Don't update DB guild config on shutdown but immediatly instead
 - Update ranked .osu files somehow / delete unranked .osu files
 - Check on TinyBot (https://top.gg/bot/470496878941962251)
@@ -19,6 +18,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Put non-global leaderboard back in for `<bg lb`~~ (21.02.09)
 - ~~Don't track while on debug~~ (21.02.09)
 - ~~Add funny numeral~~ (21.02.09)
 - ~~Ask osustats people about convert exclusion and data provision similar to huismetbenen~~ (21.02.08)
