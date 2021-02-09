@@ -15,7 +15,8 @@ use crate::{
 use darkredis::ConnectionPool;
 use dashmap::{DashMap, DashSet};
 use rosu::Osu;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
+use tokio::sync::Mutex;
 use twilight_gateway::Cluster;
 use twilight_http::Client as HttpClient;
 use twilight_model::{
@@ -63,6 +64,7 @@ pub struct ContextData {
     pub bg_games: DashMap<ChannelId, GameWrapper>,
     pub osu_tracking: OsuTracking,
     pub msgs_to_process: DashSet<MessageId>,
+    pub map_garbage_collection: Mutex<HashSet<u32>>,
 }
 
 impl Context {

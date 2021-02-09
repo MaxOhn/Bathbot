@@ -126,6 +126,7 @@ async fn simulate_recent_main(
         .await?;
 
     ctx.store_msg(response.id);
+    response.reaction_delete(&ctx, msg.author.id);
 
     // Store map in DB
     if store_in_db {
@@ -141,10 +142,12 @@ async fn simulate_recent_main(
         }
     }
 
-    response.reaction_delete(&ctx, msg.author.id);
+    // Set map on garbage collection list if unranked
+    let gb = ctx.map_garbage_collector(&map);
 
     // Minimize embed after delay
     tokio::spawn(async move {
+        gb.execute(&ctx).await;
         sleep(Duration::from_secs(45)).await;
 
         if !ctx.remove_msg(response.id) {

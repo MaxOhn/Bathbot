@@ -62,6 +62,11 @@ impl Pagination for RecentListPagination {
     }
 
     async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
+        // Set maps on garbage collection list if unranked
+        for map in self.maps.values() {
+            ctx.map_garbage_collector(map).execute(ctx).await;
+        }
+
         // Put missing maps into DB
         if self.maps.len() > self.maps_in_db.len() {
             let map_ids = &self.maps_in_db;

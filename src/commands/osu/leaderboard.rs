@@ -23,11 +23,13 @@ async fn leaderboard_main(
 ) -> BotResult<()> {
     let author_name = ctx.get_link(msg.author.id.0);
     let args = MapModArgs::new(args);
+
     let map_id = if let Some(id) = args.map_id {
         match id {
             MapIdType::Map(id) => id,
             MapIdType::Set(_) => {
                 let content = "Looks like you gave me a mapset id, I need a map id though";
+
                 return msg.error(&ctx, content).await;
             }
         }
@@ -41,18 +43,22 @@ async fn leaderboard_main(
             Ok(msgs) => msgs,
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
                 return Err(why.into());
             }
         };
+
         match map_id_from_history(msgs) {
             Some(MapIdType::Map(id)) => id,
             Some(MapIdType::Set(_)) => {
                 let content = "Looks like you gave me a mapset id, I need a map id though";
+
                 return msg.error(&ctx, content).await;
             }
             None => {
                 let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";
+
                 return msg.error(&ctx, content).await;
             }
         }
@@ -70,10 +76,12 @@ async fn leaderboard_main(
                         Did you give me a mapset id instead of a map id?",
                     map_id
                 );
+
                 return msg.error(&ctx, content).await;
             }
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
                 return Err(why.into());
             }
         },
@@ -94,6 +102,7 @@ async fn leaderboard_main(
         Ok(scores) => scores,
         Err(why) => {
             let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
+
             return Err(why.into());
         }
     };
@@ -146,6 +155,9 @@ async fn leaderboard_main(
         unwind_error!(warn, why, "Could not add map to DB: {}");
     }
 
+    // Set map on garbage collection list if unranked
+    let gb = ctx.map_garbage_collector(&map);
+
     // Skip pagination if too few entries
     if scores.len() <= 10 {
         response.reaction_delete(&ctx, msg.author.id);
@@ -157,6 +169,8 @@ async fn leaderboard_main(
     let pagination =
         LeaderboardPagination::new(response, map, scores, author_name, first_place_icon);
     let owner = msg.author.id;
+
+    gb.execute(&ctx).await;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {

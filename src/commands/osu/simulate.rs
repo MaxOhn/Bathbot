@@ -90,6 +90,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
             return Err(why);
         }
     };
@@ -104,20 +105,27 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         .await?;
 
     ctx.store_msg(response.id);
+    response.reaction_delete(&ctx, msg.author.id);
 
     // Add map to database if its not in already
     if let Err(why) = ctx.psql().insert_beatmap(&map).await {
         unwind_error!(warn, why, "Could not add map to DB: {}");
     }
-    response.reaction_delete(&ctx, msg.author.id);
+
+    // Set map on garbage collection list if unranked
+    let gb = ctx.map_garbage_collector(&map);
 
     // Minimize embed after delay
     tokio::spawn(async move {
+        gb.execute(&ctx).await;
         time::sleep(Duration::from_secs(45)).await;
+
         if !ctx.remove_msg(response.id) {
             return;
         }
+
         let embed = data.minimize().build().unwrap();
+
         let _ = ctx
             .http
             .update_message(response.channel_id, response.id)
@@ -125,5 +133,6 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
             .unwrap()
             .await;
     });
+
     Ok(())
 }

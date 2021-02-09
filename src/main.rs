@@ -35,8 +35,15 @@ use hyper::{
 };
 use prometheus::{Encoder, TextEncoder};
 use rosu::{Osu, OsuCached};
-use std::{convert::Infallible, process, str::FromStr, sync::Arc, time::Duration};
-use tokio::{runtime::Runtime, signal, sync::oneshot, time};
+use std::{
+    collections::HashSet, convert::Infallible, process, str::FromStr, sync::Arc, time::Duration,
+};
+use tokio::{
+    runtime::Runtime,
+    signal,
+    sync::{oneshot, Mutex},
+    time,
+};
 use tokio_stream::StreamExt;
 use twilight_gateway::{cluster::ShardScheme, Cluster};
 use twilight_http::{
@@ -137,6 +144,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         bg_games: DashMap::new(),
         osu_tracking,
         msgs_to_process: DashSet::new(),
+        map_garbage_collection: Mutex::new(HashSet::new()),
     };
 
     // Shard-cluster config
@@ -217,6 +225,10 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     // Spawn osu tracking worker
     let osu_tracking_ctx = Arc::clone(&ctx);
     tokio::spawn(tracking::tracking_loop(osu_tracking_ctx));
+
+    // Spawn map garbage collect worker
+    let garbage_collect_ctx = Arc::clone(&ctx);
+    tokio::spawn(Context::garbage_collect_loop(garbage_collect_ctx));
 
     // Activate cluster
     let cluster_ctx = Arc::clone(&ctx);

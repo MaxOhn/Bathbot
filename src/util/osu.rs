@@ -20,6 +20,7 @@ pub enum ModSelection {
 }
 
 impl ModSelection {
+    #[inline]
     pub fn mods(&self) -> GameMods {
         match self {
             Self::Include(m) | Self::Exclude(m) | Self::Exact(m) => *m,
@@ -138,6 +139,7 @@ pub fn pp_missing(start: f32, goal: f32, scores: &[Score]) -> (f32, usize) {
 pub fn map_id_from_history(msgs: Vec<Message>) -> Option<MapIdType> {
     for msg in msgs {
         let option = check_embeds_for_map_id(&msg.embeds);
+
         if option.is_some() {
             return option;
         }
@@ -168,6 +170,7 @@ fn check_embeds_for_map_id(embeds: &[Embed]) -> Option<MapIdType> {
             return option;
         }
     }
+
     None
 }
 

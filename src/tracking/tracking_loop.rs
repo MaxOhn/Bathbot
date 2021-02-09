@@ -27,6 +27,7 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
             Some(tracked) => tracked,
             None => {
                 time::sleep(delay).await;
+
                 continue;
             }
         };

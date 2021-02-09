@@ -1,4 +1,4 @@
-use super::{Pages, Pagination};
+use super::{Context, Pages, Pagination};
 
 use crate::{embeds::MapEmbed, BotResult};
 
@@ -48,6 +48,15 @@ impl Pagination for MapPagination {
 
     fn pages_mut(&mut self) -> &mut Pages {
         &mut self.pages
+    }
+
+    async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
+        // Set maps on garbage collection list if unranked
+        for map in self.maps.iter() {
+            ctx.map_garbage_collector(map).execute(ctx).await;
+        }
+
+        Ok(())
     }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {

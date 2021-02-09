@@ -39,6 +39,7 @@ const H: u32 = 150;
 #[aliases("m", "beatmap", "maps", "beatmaps", "mapinfo")]
 async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = MapModArgs::new(args);
+
     let map_id = if let Some(id) = args.map_id {
         id
     } else if let Some(id) = ctx
@@ -51,19 +52,23 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             Ok(msgs) => msgs,
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
                 return Err(why.into());
             }
         };
+
         match map_id_from_history(msgs) {
             Some(id) => id,
             None => {
                 let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map(set) either by url to the map, \
                     or just by map(set) id.";
+
                 return msg.error(&ctx, content).await;
             }
         }
     };
+
     let mods = match args.mods {
         Some(selection) => selection.mods(),
         None => GameMods::NoMod,
@@ -83,15 +88,18 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
                         Ok(None) => (id, None),
                         Err(why) => {
                             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
                             return Err(why.into());
                         }
                     }
                 }
             }
         }
+
         // If its already given as mapset id, do nothing
         MapIdType::Set(id) => (id, None),
     };
+
     // Request mapset through API
     let maps = match ctx.osu().beatmaps().mapset_id(mapset_id).await {
         Ok(mut maps) => {
@@ -109,20 +117,25 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
                     m1.stars.partial_cmp(&m2.stars).unwrap_or(Ordering::Equal)
                 })
             }
+
             maps
         }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
+
     let map_idx = if let Some(first_map) = maps.first() {
         let first_map_id = map_id.unwrap_or(first_map.beatmap_id);
+
         maps.iter()
             .position(|map| map.beatmap_id == first_map_id)
             .unwrap_or(0)
     } else {
         let content = "API returned no map for this id";
+
         return msg.error(&ctx, content).await;
     };
 
@@ -134,23 +147,29 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
             map.beatmapset_id
         );
+
         let res = reqwest::get(&url).await?.bytes().await?;
+
         Ok::<_, Error>(image::load_from_memory(res.as_ref())?.thumbnail_exact(W, H))
     };
+
     let graph = match tokio::join!(strain_values(map.beatmap_id, mods), bg_fut) {
         (Ok(strain_values), Ok(img)) => match graph(strain_values, img) {
             Ok(graph) => Some(graph),
             Err(why) => {
                 unwind_error!(warn, why, "Error creating graph: {}");
+
                 None
             }
         },
         (Err(why), _) => {
             unwind_error!(warn, why, "Error while creating oppai_values: {}");
+
             None
         }
         (_, Err(why)) => {
             unwind_error!(warn, why, "Error retrieving graph background: {}");
+
             None
         }
     };
@@ -162,10 +181,12 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         graph.is_none(),
         (map_idx + 1, maps.len()),
     );
+
     let data = match data_fut.await {
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
             return Err(why);
         }
     };
@@ -173,6 +194,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     // Sending the embed
     let embed = data.build().build()?;
     let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
+
     let response = if let Some(ref graph) = graph {
         m.attachment("map_graph.png", graph.clone()).await?
     } else {
@@ -189,17 +211,20 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     // Skip pagination if too few entries
     if maps.len() < 2 {
         response.reaction_delete(&ctx, msg.author.id);
+
         return Ok(());
     }
 
     // Pagination
     let pagination = MapPagination::new(response, maps, mods, map_idx, graph.is_none());
     let owner = msg.author.id;
+
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
             unwind_error!(warn, why, "Pagination error (map): {}")
         }
     });
+
     Ok(())
 }
 

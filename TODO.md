@@ -1,10 +1,9 @@
 
 **[TODO]**
-- Split database tables based on popular queries
 - Don't update DB guild config on shutdown but immediatly instead
-- Update ranked .osu files somehow / delete unranked .osu files
 - Check on TinyBot (https://top.gg/bot/470496878941962251)
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
+- ~~Split database tables based on popular queries~~
 - ~~Fix `<mc` sometimes missing some users~~
 - ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~
 - ~~`<playermedals` showing a list of a user's medals~~
@@ -18,6 +17,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Update ranked .osu files somehow / delete unranked .osu files~~ (21.02.09)
 - ~~Put non-global leaderboard back in for `<bg lb`~~ (21.02.09)
 - ~~Don't track while on debug~~ (21.02.09)
 - ~~Add funny numeral~~ (21.02.09)

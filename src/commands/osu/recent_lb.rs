@@ -166,6 +166,7 @@ async fn recent_lb_main(
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
             return Err(why);
         }
     };
@@ -192,9 +193,13 @@ async fn recent_lb_main(
         }
     }
 
+    // Set map on garbage collection list if unranked
+    let gb = ctx.map_garbage_collector(&map);
+
     // Skip pagination if too few entries
     if scores.len() <= 10 {
         response.reaction_delete(&ctx, msg.author.id);
+
         return Ok(());
     }
 
@@ -202,6 +207,8 @@ async fn recent_lb_main(
     let pagination =
         LeaderboardPagination::new(response, map, scores, author_name, first_place_icon);
     let owner = msg.author.id;
+
+    gb.execute(&ctx).await;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {

@@ -98,11 +98,17 @@ impl Pagination for RecentPagination {
         // Minimize embed
         let embed = self.embed_data.take().unwrap().minimize().build()?;
         let msg = self.msg();
+
         let _ = ctx
             .http
             .update_message(msg.channel_id, msg.id)
             .embed(embed)?
             .await;
+
+        // Set maps on garbage collection list if unranked
+        for map in self.maps.values() {
+            ctx.map_garbage_collector(map).execute(ctx).await;
+        }
 
         // Put missing maps into DB
         if self.maps.len() > self.maps_in_db.len() {
