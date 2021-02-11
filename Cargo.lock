@@ -2342,7 +2342,7 @@ dependencies = [
 [[package]]
 name = "rosu-pp"
 version = "0.1.0"
-source = "git+https://github.com/MaxOhn/rosu-pp?branch=next#802df83a57aef71609df02c63994e56446f90732"
+source = "git+https://github.com/MaxOhn/rosu-pp?branch=next#321ee8f34148c05fe544d1ef0ea26acab26d5d08"
 
 [[package]]
 name = "rosu-pp-older"
@@ -3357,9 +3357,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-normalization"
-version = "0.1.16"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a13e63ab62dbe32aeee58d1c5408d35c36c392bba5d9d3142287219721afe606"
+checksum = "07fbfce1c8a97d547e8b5334978438d9d6ec8c20e38f56d4a4374d181493eaef"
 dependencies = [
  "tinyvec",
 ]
