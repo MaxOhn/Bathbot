@@ -100,10 +100,12 @@ pub fn get_user_author(user: &User) -> Author {
         .icon_url(format!("{}/images/flags/{}.png", OSU_BASE, user.country))
 }
 
+#[inline]
 pub fn get_stars(stars: f32) -> String {
     format!("{:.2}★", stars)
 }
 
+#[inline]
 pub fn get_mods(mods: GameMods) -> String {
     if mods.is_empty() {
         String::new()
@@ -148,6 +150,7 @@ pub fn get_pp(actual: Option<f32>, max: Option<f32>) -> String {
     result
 }
 
+#[inline]
 pub fn get_keys(mods: GameMods, map: &Beatmap) -> String {
     if let Some(key_mod) = mods.has_key_mod() {
         format!("[{}]", key_mod)
@@ -156,6 +159,7 @@ pub fn get_keys(mods: GameMods, map: &Beatmap) -> String {
     }
 }
 
+#[inline]
 pub fn get_map_info(map: &Beatmap) -> String {
     format!(
         "Length: `{}` (`{}`) BPM: `{}` Objects: `{}`\n\

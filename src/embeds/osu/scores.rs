@@ -31,14 +31,18 @@ impl ScoresEmbed {
         S: Iterator<Item = &'i Score>,
     {
         let mut fields = Vec::with_capacity(4);
+
         for (i, score) in scores.enumerate() {
             let calculations = Calculations::all();
             let mut calculator = PPCalculator::new().score(score).map(map);
+
             if let Err(why) = calculator.calculate(calculations).await {
                 unwind_error!(warn, why, "Error while calculating pp for scores: {}");
             }
+
             let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));
             let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
+
             let mut name = format!(
                 "**{idx}.** {grade}\t[{stars}]\t{score}\t({acc})",
                 idx = idx + i + 1,
@@ -47,9 +51,11 @@ impl ScoresEmbed {
                 score = with_comma_u64(score.score as u64),
                 acc = score.acc_string(map.mode),
             );
+
             if map.mode == GameMode::MNA {
                 let _ = write!(name, "\t{}", osu::get_keys(score.enabled_mods, map));
             }
+
             let value = format!(
                 "{pp}\t[ {combo} ]\t {hits}\t{ago}",
                 pp = pp,
@@ -57,10 +63,13 @@ impl ScoresEmbed {
                 hits = score.hits_string(map.mode),
                 ago = how_long_ago(&score.date)
             );
+
             fields.push((name, value, false));
         }
+
         let footer = Footer::new(format!("{:?} map by {}", map.approval_status, map.creator))
             .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
+
         let author_text = format!(
             "{name}: {pp}pp (#{global} {country}{national})",
             name = user.username,
@@ -69,13 +78,13 @@ impl ScoresEmbed {
             country = user.country,
             national = user.pp_country_rank
         );
+
         let author = Author::new(author_text)
             .url(format!("{}u/{}", OSU_BASE, user.user_id))
             .icon_url(format!("{}{}", AVATAR_URL, user.user_id));
-        let description = match fields.is_empty() {
-            true => Some("No scores found"),
-            false => None,
-        };
+
+        let description = fields.is_empty().then(|| "No scores found");
+
         Self {
             description,
             footer,
@@ -93,21 +102,27 @@ impl EmbedData for ScoresEmbed {
     fn description(&self) -> Option<&str> {
         self.description
     }
+
     fn fields(&self) -> Option<Vec<(String, String, bool)>> {
         Some(self.fields.clone())
     }
+
     fn url(&self) -> Option<&str> {
         Some(&self.url)
     }
+
     fn title(&self) -> Option<&str> {
         Some(&self.title)
     }
+
     fn footer(&self) -> Option<&Footer> {
         Some(&self.footer)
     }
+
     fn author(&self) -> Option<&Author> {
         Some(&self.author)
     }
+
     fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }

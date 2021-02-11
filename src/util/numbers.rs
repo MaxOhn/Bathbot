@@ -40,6 +40,7 @@ pub fn with_comma(n: f32) -> String {
         if dec % 10 == 0 {
             dec /= 10;
         }
+
         let _ = write!(writer, ".{}", dec);
     }
 

@@ -41,15 +41,14 @@ pub fn how_long_ago(date: &DateTime<Utc>) -> String {
         } else {
             let diff_month =
                 (12 * (now.year() - date.year()) as u32 + now.month() - date.month()) as i64;
+
             if diff_month < 1 {
                 (diff_sec / one_week, "week")
             } else if diff_month < 12 {
                 (diff_month, "month")
             } else {
-                let mut years = diff_month / 12;
-                if diff_month % 12 > 9 {
-                    years += 1
-                }
+                let years = diff_month / 12 + (diff_month % 12 > 9) as i64;
+
                 (years, "year")
             }
         }

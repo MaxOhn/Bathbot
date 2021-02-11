@@ -48,6 +48,7 @@ impl MessageExt for Message {
         f(ctx.http.create_message(self.channel_id))?
             .await?
             .reaction_delete(ctx, self.author.id);
+
         Ok(())
     }
 
@@ -57,6 +58,7 @@ impl MessageExt for Message {
             .content(content)?
             .await?
             .reaction_delete(ctx, self.author.id);
+
         Ok(())
     }
 
@@ -65,21 +67,25 @@ impl MessageExt for Message {
             .color(RED)?
             .description(content)?
             .build()?;
+
         ctx.http
             .create_message(self.channel_id)
             .embed(embed)?
             .await?
             .reaction_delete(ctx, self.author.id);
+
         Ok(())
     }
 
     async fn reply<C: Display + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
         let content = format!("<@{}>: {}", self.author.id, content);
+
         ctx.http
             .create_message(self.channel_id)
             .content(content)?
             .await?
             .reaction_delete(ctx, self.author.id);
+
         Ok(())
     }
 
@@ -88,20 +94,22 @@ impl MessageExt for Message {
         let http = ctx.http.clone();
         let channel_id = self.channel_id;
         let msg_id = self.id;
+
+        let reaction_fut = standby.wait_for_reaction(msg_id, move |event: &ReactionAdd| {
+            if event.user_id != owner {
+                return false;
+            }
+
+            if let ReactionType::Unicode { ref name } = event.0.emoji {
+                return name == "❌";
+            }
+
+            false
+        });
+
         tokio::spawn(async move {
-            let reaction_result = timeout(
-                Duration::from_secs(60),
-                standby.wait_for_reaction(msg_id, move |event: &ReactionAdd| {
-                    if event.user_id != owner {
-                        return false;
-                    }
-                    if let ReactionType::Unicode { ref name } = event.0.emoji {
-                        return name == "❌";
-                    }
-                    false
-                }),
-            )
-            .await;
+            let reaction_result = timeout(Duration::from_secs(60), reaction_fut).await;
+
             if let Ok(Ok(_)) = reaction_result {
                 if let Err(why) = http.delete_message(channel_id, msg_id).await {
                     unwind_error!(warn, why, "Error while reaction-deleting msg: {}");

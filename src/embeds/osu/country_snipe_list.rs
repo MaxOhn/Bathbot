@@ -36,6 +36,7 @@ impl CountrySnipeListEmbed {
             SnipeOrder::Stars => "average stars of #1s",
             SnipeOrder::WeightedPP => "weighted pp from #1s",
         };
+
         let (title, thumbnail) = match country {
             Some(country) => {
                 let title = format!(
@@ -48,9 +49,11 @@ impl CountrySnipeListEmbed {
                     },
                     order_text
                 );
+
                 let thumbnail =
                     ImageSource::url(format!("{}/images/flags/{}.png", OSU_BASE, country.acronym))
                         .ok();
+
                 (title, thumbnail)
             }
             None => (
@@ -58,7 +61,9 @@ impl CountrySnipeListEmbed {
                 None,
             ),
         };
+
         let mut description = String::with_capacity(512);
+
         for (idx, player) in players {
             let _ = writeln!(
                 description,
@@ -82,11 +87,14 @@ impl CountrySnipeListEmbed {
                 weighted = with_comma(player.pp),
             );
         }
+
         description.pop();
         let mut footer_text = format!("Page {}/{}", pages.0, pages.1);
+
         if let Some(idx) = author_idx {
             let _ = write!(footer_text, " ~ Your position: {}", idx + 1);
         }
+
         Self {
             description,
             title,
@@ -100,12 +108,15 @@ impl EmbedData for CountrySnipeListEmbed {
     fn title(&self) -> Option<&str> {
         Some(&self.title)
     }
+
     fn description(&self) -> Option<&str> {
         Some(&self.description)
     }
+
     fn thumbnail(&self) -> Option<&ImageSource> {
         self.thumbnail.as_ref()
     }
+
     fn footer(&self) -> Option<&Footer> {
         Some(&self.footer)
     }

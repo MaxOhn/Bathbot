@@ -98,14 +98,16 @@ impl CustomClient {
         debug!("Requesting url {}", url);
         let mut req = self.client.get(url);
 
-        req = match site {
-            Site::OsuHiddenApi => req.header(
-                "Cookie",
-                format!("osu_session={}", OSU_SESSION.get().unwrap()),
-            ),
-            Site::Beatconnect => req.header("token", *BEATCONNECT_API_KEY.get().unwrap()),
-            _ => req,
-        };
+        match site {
+            Site::OsuHiddenApi => {
+                req = req.header(
+                    "Cookie",
+                    format!("osu_session={}", OSU_SESSION.get().unwrap()),
+                )
+            }
+            Site::Beatconnect => req = req.header("token", *BEATCONNECT_API_KEY.get().unwrap()),
+            _ => {}
+        }
 
         self.ratelimit(site).await;
 
@@ -163,14 +165,17 @@ impl CustomClient {
             country.to_lowercase(),
             user_id
         );
+
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
+
         let player: SnipePlayer =
             serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
                 body: String::from_utf8_lossy(&bytes).into_owned(),
                 source,
                 request: "snipe player",
             })?;
+
         Ok(player)
     }
 
@@ -180,14 +185,17 @@ impl CustomClient {
             HUISMETBENEN,
             country.to_lowercase()
         );
+
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
+
         let country_players: Vec<SnipeCountryPlayer> =
             serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
                 body: String::from_utf8_lossy(&bytes).into_owned(),
                 source,
                 request: "snipe country",
             })?;
+
         Ok(country_players)
     }
 
@@ -219,6 +227,7 @@ impl CustomClient {
         until: DateTime<Utc>,
     ) -> ClientResult<Vec<SnipeRecent>> {
         let date_format = "%FT%TZ";
+
         let url = format!(
             "{}snipes/{}/{}?since={}&until={}",
             HUISMETBENEN,
@@ -227,14 +236,17 @@ impl CustomClient {
             from.format(date_format),
             until.format(date_format)
         );
+
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
+
         let snipes: Vec<SnipeRecent> =
             serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
                 body: String::from_utf8_lossy(&bytes).into_owned(),
                 source,
                 request: "snipe recent",
             })?;
+
         Ok(snipes)
     }
 
@@ -252,6 +264,7 @@ impl CustomClient {
             sort = params.order,
             order = if params.descending { "desc" } else { "asc" },
         );
+
         if let Some(mods) = params.mods {
             if let ModSelection::Include(mods) | ModSelection::Exact(mods) = mods {
                 if mods == GameMods::NoMod {
@@ -264,12 +277,14 @@ impl CustomClient {
 
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
+
         let scores: Vec<SnipeScore> =
             serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
                 body: String::from_utf8_lossy(&bytes).into_owned(),
                 source,
                 request: "snipe score",
             })?;
+
         Ok(scores)
     }
 
@@ -284,6 +299,7 @@ impl CustomClient {
             user = params.user_id,
             mode = params.mode,
         );
+
         if let Some(mods) = params.mods {
             if let ModSelection::Include(mods) | ModSelection::Exact(mods) = mods {
                 if mods == GameMods::NoMod {
@@ -296,12 +312,14 @@ impl CustomClient {
 
         let response = self.make_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
+
         let count: usize =
             serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
                 body: String::from_utf8_lossy(&bytes).into_owned(),
                 source,
                 request: "snipe score count",
             })?;
+
         Ok(count)
     }
 
@@ -314,24 +332,30 @@ impl CustomClient {
             .text("rankMax", params.rank_max.to_string())
             .text("gamemode", (params.mode as u8).to_string())
             .text("page", params.page.to_string());
+
         if let Some(ref country) = params.country {
             form = form.text("country", country.to_owned());
         }
+
         let url = "https://osustats.ppy.sh/api/getScoreRanking";
         debug!("Requesting POST from url {} [page {}]", url, params.page);
         let request = self.client.post(url).multipart(form);
         self.ratelimit(Site::OsuStats).await;
+
         let response = match timeout(Duration::from_secs(4), request.send()).await {
             Ok(result) => result?,
             Err(_) => return Err(CustomClientError::OsuStatsTimeout),
         };
+
         let bytes = response.bytes().await?;
+
         let players: Vec<OsuStatsPlayer> =
             serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
                 body: String::from_utf8_lossy(&bytes).into_owned(),
                 source,
                 request: "globals list",
             })?;
+
         Ok(players)
     }
 

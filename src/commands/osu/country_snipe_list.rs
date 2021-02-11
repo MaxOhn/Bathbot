@@ -41,10 +41,12 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
             Ok(Some(user)) => Some(user),
             Ok(None) => {
                 let content = format!("Could not find user `{}`", name);
+
                 return msg.error(&ctx, content).await;
             }
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
                 return Err(why.into());
             }
         },
@@ -59,13 +61,18 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
                 if arg.len() != 2 || arg.chars().count() != 2 {
                     let content =
                         "The first argument must be a country acronym of length two, e.g. `fr`";
+
                     return msg.error(&ctx, content).await;
                 }
+
                 let arg = arg.to_uppercase();
+
                 if !SNIPE_COUNTRIES.contains_key(arg.as_str()) {
                     let content = format!("The country acronym `{}` is not supported :(", arg);
+
                     return msg.error(&ctx, content).await;
                 }
+
                 arg
             }
         },
@@ -78,12 +85,14 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
                         "`{}`'s country {} is not supported :(",
                         user.username, user.country
                     );
+
                     return msg.error(&ctx, content).await;
                 }
             }
             None => {
                 let content =
                     "Since you're not linked, you must specify a country acronym, e.g. `fr`";
+
                 return msg.error(&ctx, content).await;
             }
         },
@@ -106,6 +115,7 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
         _ => {
             let content = "Following the country acronym, the next argument \
             must be either `count`, `pp`, `stars`, or `weighted pp`";
+
             return msg.error(&ctx, content).await;
         }
     };
@@ -115,6 +125,7 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
         Ok(players) => players,
         Err(why) => {
             let _ = msg.error(&ctx, HUISMETBENEN_ISSUE).await;
+
             return Err(why.into());
         }
     };
@@ -128,6 +139,7 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
         }
         SnipeOrder::WeightedPP => |p1: &SCP, p2: &SCP| p2.pp.partial_cmp(&p1.pp).unwrap_or(Equal),
     };
+
     players.sort_unstable_by(sorter);
 
     // Try to find author in list
@@ -152,6 +164,7 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
 
     // Creating the embed
     let embed = data.build().build()?;
+
     let response = ctx
         .http
         .create_message(msg.channel_id)
@@ -161,12 +174,15 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
     // Pagination
     let pagination =
         CountrySnipeListPagination::new(response, players, country, ordering, author_idx);
+
     let owner = msg.author.id;
+
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
             unwind_error!(warn, why, "Pagination error (countrysnipelist): {}")
         }
     });
+
     Ok(())
 }
 

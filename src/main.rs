@@ -248,12 +248,14 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
 
     let mut bot_events = ctx.backend.cluster.events();
     let cmd_groups = Arc::new(CommandGroups::new());
+
     while let Some((shard, event)) = bot_events.next().await {
         ctx.update_stats(shard, &event);
         ctx.cache.update(&event);
         ctx.standby.process(&event);
         let c = Arc::clone(&ctx);
         let cmds = Arc::clone(&cmd_groups);
+
         tokio::spawn(async move {
             if let Err(why) = handle_event(shard, event, c, cmds).await {
                 unwind_error!(error, why, "Error while handling event: {}");
@@ -265,6 +267,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
 
     // Give the ctrlc handler time to finish
     time::sleep(time::Duration::from_secs(90)).await;
+    
     Ok(())
 }
 

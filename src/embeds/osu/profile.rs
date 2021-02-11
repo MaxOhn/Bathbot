@@ -48,15 +48,19 @@ impl ProfileEmbed {
                 GameMode::MNA => "Mania",
             }
         );
+
         let footer_text = format!(
             "Joined osu! {} ({})",
             date_to_string(&user.join_date),
             how_long_ago(&user.join_date),
         );
+
         let bonus_pow = 0.9994_f64.powi(
             (user.count_ssh + user.count_ss + user.count_sh + user.count_s + user.count_a) as i32,
         );
+
         let bonus_pp = (100.0 * 416.6667 * (1.0 - bonus_pow)).round() / 100.0;
+
         let main_fields = vec![
             (
                 "Ranked score".to_owned(),
@@ -127,11 +131,13 @@ impl ProfileEmbed {
                 true,
             ),
         ];
+
         let (description, extended_fields) = if let Some(values) = profile_result {
             let mut avg_string = String::with_capacity(256);
             avg_string.push_str("```\n");
             let _ = writeln!(avg_string, "   |   PP   |  Acc  | Combo | Map len");
             let _ = writeln!(avg_string, "---+--------+-------+-------+--------");
+
             let _ = writeln!(
                 avg_string,
                 "Min|{:^8.2}|{:^7}|{:^7}| {:^7}",
@@ -140,6 +146,7 @@ impl ProfileEmbed {
                 values.combo.min(),
                 sec_to_minsec(values.map_len.min())
             );
+
             let _ = writeln!(
                 avg_string,
                 "Avg|{:^8.2}|{:^7}|{:^7}| {:^7}",
@@ -148,6 +155,7 @@ impl ProfileEmbed {
                 values.combo.avg(),
                 sec_to_minsec(values.map_len.avg())
             );
+
             let _ = writeln!(
                 avg_string,
                 "Max|{:^8.2}|{:^7}|{:^7}| {:^7}",
@@ -156,88 +164,113 @@ impl ProfileEmbed {
                 values.combo.max(),
                 sec_to_minsec(values.map_len.max())
             );
+
             avg_string.push_str("```");
             let mut combo = String::from(&values.combo.avg().to_string());
+
             match values.mode {
                 GameMode::STD | GameMode::CTB => {
                     let _ = write!(combo, "/{}", values.map_combo);
                 }
                 _ => {}
             }
+
             let _ = write!(combo, " [{} - {}]", values.combo.min(), values.combo.max());
             let mut extended_fields =
                 vec![("Averages of top 100 scores".to_owned(), avg_string, false)];
+
             let mult_mods = values.mod_combs_count.is_some();
+
             if let Some(mod_combs_count) = values.mod_combs_count {
                 let len = mod_combs_count.len();
                 let mut value = String::with_capacity(len * 14);
                 let mut iter = mod_combs_count.iter();
                 let (mods, count) = iter.next().unwrap();
                 let _ = write!(value, "`{} {}%`", mods, count);
+
                 for (mods, count) in iter {
                     let _ = write!(value, " > `{} {}%`", mods, count);
                 }
+
                 extended_fields.push(("Favourite mod combinations".to_owned(), value, false));
             }
+
             extended_fields.reserve_exact(5);
             let len = values.mods_count.len();
             let mut value = String::with_capacity(len * 14);
             let mut iter = values.mods_count.iter();
             let (mods, count) = iter.next().unwrap();
             let _ = write!(value, "`{} {}%`", mods, count);
+
             for (mods, count) in iter {
                 let _ = write!(value, " > `{} {}%`", mods, count);
             }
+
             extended_fields.push(("Favourite mods".to_owned(), value, false));
             let len = values.mod_combs_pp.len();
             let mut value = String::with_capacity(len * 15);
             let mut iter = values.mod_combs_pp.iter();
             let (mods, pp) = iter.next().unwrap();
             let _ = write!(value, "`{} {:.2}pp`", mods, *pp);
+
             for (mods, pp) in iter {
                 let _ = write!(value, " > `{} {:.2}pp`", mods, *pp);
             }
+
             let name = if mult_mods {
                 "PP earned with mod combination"
             } else {
                 "PP earned with mod"
             };
+
             extended_fields.push((name.to_owned(), value, false));
+
             if profile.ranked_and_approved_beatmapset_count + profile.loved_beatmapset_count > 0 {
                 let mut mapper_stats = String::with_capacity(64);
+
                 let _ = writeln!(
                     mapper_stats,
                     "`Ranked {}` • `Unranked {}`",
                     profile.ranked_and_approved_beatmapset_count, profile.unranked_beatmapset_count,
                 );
+
                 let _ = writeln!(
                     mapper_stats,
                     "`Loved {}` • `Graveyard {}`",
                     profile.loved_beatmapset_count, profile.graveyard_beatmapset_count,
                 );
+
                 if own_top_scores > 0 {
                     let _ = writeln!(mapper_stats, "Own maps in top scores: {}", own_top_scores);
                 }
+
                 extended_fields.push(("Mapsets from player".to_owned(), mapper_stats, false));
             }
+
             let len = values
                 .mappers
                 .iter()
                 .map(|(name, _, _)| name.len() + 12)
                 .sum();
+
             let mut value = String::with_capacity(len);
             let mut iter = values.mappers.iter();
             let (name, count, pp) = iter.next().unwrap();
             let _ = writeln!(value, "{}: {:.2}pp ({})", name, *pp, count);
+
             for (name, count, pp) in iter {
                 let _ = writeln!(value, "{}: {:.2}pp ({})", name, *pp, count);
             }
+
             extended_fields.push(("Mappers in top 100".to_owned(), value, true));
+
             let count_len = globals_count
                 .iter()
                 .fold(0, |max, (_, count)| max.max(count.len()));
+
             let mut count_str = String::with_capacity(64);
             count_str.push_str("```\n");
+
             for (rank, count) in globals_count {
                 let _ = writeln!(
                     count_str,
@@ -247,8 +280,10 @@ impl ProfileEmbed {
                     count_len = count_len,
                 );
             }
+
             count_str.push_str("```");
             extended_fields.push(("Global leaderboards".to_owned(), count_str, true));
+
             (None, Some(extended_fields))
         } else {
             (Some("No Top scores".to_string()), None)

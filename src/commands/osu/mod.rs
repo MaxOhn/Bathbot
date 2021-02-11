@@ -99,11 +99,13 @@ use twilight_model::channel::Message;
 
 async fn require_link(ctx: &Context, msg: &Message) -> BotResult<()> {
     let prefix = ctx.config_first_prefix(msg.guild_id);
+
     let content = format!(
         "Either specify an osu name or link your discord \
         to an osu profile via `{}link osuname`",
         prefix
     );
+
     msg.error(ctx, content).await
 }
 
@@ -116,18 +118,23 @@ async fn get_globals_count(
     let mut counts = BTreeMap::new();
     let mut params = OsuStatsParams::new(name).mode(mode);
     let mut get_amount = true;
+
     for rank in [50, 25, 15, 8, 1].iter() {
         if !get_amount {
             counts.insert(*rank, Cow::Borrowed("0"));
+
             continue;
         }
+
         params = params.rank_max(*rank);
         let (_, count) = ctx.clients.custom.get_global_scores(&params).await?;
         counts.insert(*rank, Cow::Owned(numbers::with_comma_u64(count as u64)));
+
         if count == 0 {
             get_amount = false;
         }
     }
+
     Ok(counts)
 }
 
@@ -151,25 +158,34 @@ pub trait MinMaxAvgBasic {
     // Don't implement these
     fn add(&mut self, value: Self::Value) {
         let (min, max, sum, len) = self.get_mut();
+
         if *min > value {
             *min = value;
         }
+
         if *max < value {
             *max = value;
         }
+
         *sum += value;
         len.inc();
     }
+
     fn min(&self) -> Self::Value {
         let (min, _, _, _) = self.get();
+
         min
     }
+
     fn max(&self) -> Self::Value {
         let (_, max, _, _) = self.get();
+
         max
     }
+
     fn avg(&self) -> Self::Value {
         let (_, _, sum, len) = self.get();
+
         sum / len
     }
 }
@@ -183,6 +199,8 @@ pub struct MinMaxAvgU32 {
 
 impl MinMaxAvgBasic for MinMaxAvgU32 {
     type Value = u32;
+
+    #[inline]
     fn new() -> Self {
         Self {
             min: u32::MAX,
@@ -191,15 +209,20 @@ impl MinMaxAvgBasic for MinMaxAvgU32 {
             len: 0,
         }
     }
+
+    #[inline]
     fn get(&self) -> (u32, u32, u32, u32) {
         (self.min, self.max, self.sum, self.len)
     }
+
+    #[inline]
     fn get_mut(&mut self) -> (&mut u32, &mut u32, &mut u32, &mut u32) {
         (&mut self.min, &mut self.max, &mut self.sum, &mut self.len)
     }
 }
 
 impl From<MinMaxAvgF32> for MinMaxAvgU32 {
+    #[inline]
     fn from(val: MinMaxAvgF32) -> Self {
         Self {
             min: val.min as u32,
@@ -219,6 +242,8 @@ pub struct MinMaxAvgF32 {
 
 impl MinMaxAvgBasic for MinMaxAvgF32 {
     type Value = f32;
+
+    #[inline]
     fn new() -> Self {
         Self {
             min: f32::MAX,
@@ -227,9 +252,13 @@ impl MinMaxAvgBasic for MinMaxAvgF32 {
             len: 0.0,
         }
     }
+
+    #[inline]
     fn get(&self) -> (f32, f32, f32, f32) {
         (self.min, self.max, self.sum, self.len)
     }
+
+    #[inline]
     fn get_mut(&mut self) -> (&mut f32, &mut f32, &mut f32, &mut f32) {
         (&mut self.min, &mut self.max, &mut self.sum, &mut self.len)
     }
@@ -240,12 +269,14 @@ pub trait Inc {
 }
 
 impl Inc for f32 {
+    #[inline]
     fn inc(&mut self) {
         *self += 1.0;
     }
 }
 
 impl Inc for u32 {
+    #[inline]
     fn inc(&mut self) {
         *self += 1;
     }

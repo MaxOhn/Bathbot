@@ -53,15 +53,13 @@ impl PPMissingEmbed {
             )
         };
 
-        let footer = if let Some(rank) = rank {
-            Some(Footer::new(format!(
+        let footer = rank.map(|rank| {
+            Footer::new(format!(
                 "The current rank for {pp}pp is #{rank}",
                 pp = with_comma(pp),
                 rank = with_comma_u64(rank as u64),
-            )))
-        } else {
-            None
-        };
+            ))
+        });
 
         Self {
             title: Some(title),
@@ -77,15 +75,19 @@ impl EmbedData for PPMissingEmbed {
     fn description_owned(&mut self) -> Option<String> {
         self.description.take()
     }
+
     fn thumbnail_owned(&mut self) -> Option<ImageSource> {
         self.thumbnail.take()
     }
+
     fn author_owned(&mut self) -> Option<Author> {
         self.author.take()
     }
+
     fn title_owned(&mut self) -> Option<String> {
         self.title.take()
     }
+
     fn footer_owned(&mut self) -> Option<Footer> {
         self.footer.take()
     }

@@ -103,12 +103,15 @@ impl EmbedData for WhatIfEmbed {
     fn description_owned(&mut self) -> Option<String> {
         self.description.take()
     }
+
     fn thumbnail_owned(&mut self) -> Option<ImageSource> {
         self.thumbnail.take()
     }
+
     fn author_owned(&mut self) -> Option<Author> {
         self.author.take()
     }
+
     fn title_owned(&mut self) -> Option<String> {
         self.title.take()
     }

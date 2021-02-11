@@ -22,8 +22,10 @@ impl CommandCounterEmbed {
         let len = list
             .iter()
             .fold(0, |max, (name, _)| max.max(name.chars().count()));
+
         let mut description = String::with_capacity(256);
         description.push_str("```\n");
+
         for (mut i, (name, amount)) in list.into_iter().enumerate() {
             i += idx;
             let _ = writeln!(
@@ -40,13 +42,16 @@ impl CommandCounterEmbed {
                 len = len
             );
         }
+
         description.push_str("```");
+
         let footer_text = format!(
             "Page {}/{} ~ Started counting {}",
             pages.0,
             pages.1,
             how_long_ago(&booted_up)
         );
+
         Self {
             description,
             footer: Footer::new(footer_text),
@@ -59,9 +64,11 @@ impl EmbedData for CommandCounterEmbed {
     fn description(&self) -> Option<&str> {
         Some(&self.description)
     }
+
     fn footer(&self) -> Option<&Footer> {
         Some(&self.footer)
     }
+
     fn author(&self) -> Option<&Author> {
         Some(&self.author)
     }

@@ -32,18 +32,23 @@ impl EmbedData for TwitchNotifEmbed {
     fn description(&self) -> Option<&str> {
         Some(&self.description)
     }
+
     fn author(&self) -> Option<&Author> {
         Some(&self.author)
     }
+
     fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }
+
     fn image(&self) -> Option<&ImageSource> {
         Some(&self.image)
     }
+
     fn title(&self) -> Option<&str> {
         Some(&self.title)
     }
+
     fn url(&self) -> Option<&str> {
         Some(&self.url)
     }

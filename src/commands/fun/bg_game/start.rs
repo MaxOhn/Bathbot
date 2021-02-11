@@ -28,24 +28,30 @@ pub async fn start(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResul
         Ok(false) => {}
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
             return Err(why);
         }
     }
+
     let mode = match args.next() {
         Some("m") | Some("mania") => GameMode::MNA,
         _ => GameMode::STD,
     };
+
     let mapsets = match get_mapsets(&ctx, msg, mode).await {
         Ok(mapsets) => mapsets,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
             return Err(why);
         }
     };
+
     if !(mapsets.is_empty() || ctx.has_running_game(msg.channel_id)) {
         let _ = ctx.http.create_typing_trigger(msg.channel_id).await;
         ctx.add_game_and_start(Arc::clone(&ctx), msg.channel_id, mapsets);
     }
+
     Ok(())
 }
 
@@ -57,9 +63,11 @@ async fn get_mapsets(
     if mode == GameMode::MNA {
         return ctx.psql().get_all_tags_mapset(GameMode::MNA).await;
     }
+
     // Send initial message
     let data = BGStartEmbed::new(msg.author.id);
     let embed = data.build_owned().build()?;
+
     let response = ctx
         .http
         .create_message(msg.channel_id)
@@ -110,14 +118,17 @@ async fn get_mapsets(
         "✅",
         "❌",
     ];
+
     for &reaction in reactions.iter() {
         let emote = RequestReactionType::Unicode {
             name: reaction.to_string(),
         };
+
         ctx.http
             .create_reaction(response.channel_id, response.id, emote)
             .await?;
     }
+
     let mut included = MapsetTags::empty();
     let mut excluded = MapsetTags::empty();
 
@@ -143,6 +154,7 @@ async fn get_mapsets(
                 "✅" if reaction.as_deref().user_id == msg.author.id => break,
                 "❌" if reaction.as_deref().user_id == msg.author.id => {
                     msg.reply(ctx, "Game cancelled").await?;
+
                     return Ok(Vec::new());
                 }
                 _ => continue,
@@ -150,6 +162,7 @@ async fn get_mapsets(
         } else {
             continue;
         };
+
         match reaction {
             ReactionWrapper::Add(_) => {
                 included.insert(tag);
@@ -161,25 +174,31 @@ async fn get_mapsets(
             }
         }
     }
+
     // Get all mapsets matching the given tags
     debug_assert_eq!(mode, GameMode::STD);
-    let mapsets = match ctx
+
+    let mapset_fut = ctx
         .psql()
-        .get_specific_tags_mapset(mode, included, excluded)
-        .await
-    {
+        .get_specific_tags_mapset(mode, included, excluded);
+
+    let mapsets = match mapset_fut.await {
         Ok(mapsets) => mapsets,
         Err(why) => {
             let _ = msg.error(ctx, GENERAL_ISSUE).await;
+
             return Err(why);
         }
     };
+
     let data = BGTagsEmbed::new(included, excluded, mapsets.len());
     let embed = data.build_owned().build()?;
+
     ctx.http
         .create_message(msg.channel_id)
         .embed(embed)?
         .await?;
+
     if !mapsets.is_empty() {
         info!(
             "Starting bg game with included: {} - excluded: {}",
@@ -187,5 +206,6 @@ async fn get_mapsets(
             excluded.join(',')
         );
     }
+
     Ok(mapsets)
 }

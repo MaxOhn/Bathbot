@@ -18,14 +18,17 @@ impl CommonEmbed {
         index: usize,
     ) -> Self {
         let mut description = String::with_capacity(512);
+
         for (i, (map_id, _)) in id_pps.iter().enumerate() {
             let map = match maps.get(map_id) {
                 Some(map) => map,
                 None => {
                     warn!("Missing map {} for common embed", map_id);
+
                     continue;
                 }
             };
+
             let _ = writeln!(
                 description,
                 "**{idx}.** [{title} [{version}]]({base}b/{id})",
@@ -35,11 +38,13 @@ impl CommonEmbed {
                 base = OSU_BASE,
                 id = map.beatmap_id,
             );
+
             let scores = scores.get(map_id).unwrap();
             let first_score = scores.get(0).unwrap();
             let first_user = users.get(&first_score.user_id).unwrap();
             let second_score = scores.get(1).unwrap();
             let second_user = users.get(&second_score.user_id).unwrap();
+
             let _ = write!(
                 description,
                 "- :first_place: `{}`: {:.2}pp :second_place: `{}`: {:.2}pp",
@@ -48,9 +53,11 @@ impl CommonEmbed {
                 second_user.username,
                 second_score.pp.unwrap_or(0.0)
             );
+
             if users.len() > 2 {
                 let third_score = scores.get(2).unwrap();
                 let third_user = users.get(&third_score.user_id).unwrap();
+
                 let _ = write!(
                     description,
                     " :third_place: `{}`: {:.2}pp",
@@ -58,8 +65,10 @@ impl CommonEmbed {
                     third_score.pp.unwrap_or(0.0)
                 );
             }
+
             description.push('\n');
         }
+
         Self {
             description,
             thumbnail: ImageSource::attachment("avatar_fuse.png").unwrap(),
@@ -71,6 +80,7 @@ impl EmbedData for CommonEmbed {
     fn description(&self) -> Option<&str> {
         Some(&self.description)
     }
+
     fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }

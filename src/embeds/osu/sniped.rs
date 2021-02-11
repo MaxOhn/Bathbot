@@ -42,12 +42,14 @@ impl SnipedEmbed {
 
         if !sniper.is_empty() {
             let mut victims = HashMap::new();
+
             for score in sniper.iter() {
                 *victims.entry(score.sniped.as_deref().unwrap()).or_insert(0) += 1;
             }
-            let (most_name, most_count) = victims.iter().max_by_key(|(_, count)| *count).unwrap();
 
+            let (most_name, most_count) = victims.iter().max_by_key(|(_, count)| *count).unwrap();
             let name = format!("Sniped by {}:", user.username);
+
             let value = format!(
                 "Total count: {}\n\
                 Different victims: {}\n\
@@ -57,17 +59,20 @@ impl SnipedEmbed {
                 most_name,
                 most_count
             );
+
             fields.push((name, value, false));
         }
 
         if !snipee.is_empty() {
             let mut snipers = HashMap::new();
+
             for score in snipee.iter() {
                 *snipers.entry(score.sniper.as_str()).or_insert(0) += 1;
             }
-            let (most_name, most_count) = snipers.iter().max_by_key(|(_, count)| *count).unwrap();
 
+            let (most_name, most_count) = snipers.iter().max_by_key(|(_, count)| *count).unwrap();
             let name = format!("Sniped {}:", user.username);
+
             let value = format!(
                 "Total count: {}\n\
                 Different snipers: {}\n\
@@ -77,6 +82,7 @@ impl SnipedEmbed {
                 most_name,
                 most_count
             );
+
             fields.push((name, value, false));
         }
 
@@ -95,18 +101,23 @@ impl EmbedData for SnipedEmbed {
     fn title_owned(&mut self) -> Option<String> {
         Some(self.title.to_owned())
     }
+
     fn description_owned(&mut self) -> Option<String> {
         self.description.take()
     }
+
     fn thumbnail_owned(&mut self) -> Option<ImageSource> {
         self.thumbnail.take()
     }
+
     fn image_owned(&mut self) -> Option<ImageSource> {
         self.image.take()
     }
+
     fn author_owned(&mut self) -> Option<Author> {
         self.author.take()
     }
+
     fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
         self.fields
     }

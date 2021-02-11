@@ -20,6 +20,7 @@ impl RankRankedScoreEmbed {
             name = user.username,
             rank = rank
         );
+
         let description = if user.ranked_score > rank_holder.ranked_score {
             format!(
                 "Rank #{rank} is currently held by {holder_name} with **{holder_score} \
@@ -41,6 +42,7 @@ impl RankRankedScoreEmbed {
                 missing = with_comma_u64(rank_holder.ranked_score - user.ranked_score),
             )
         };
+
         Self {
             title: Some(title),
             description: Some(description),
@@ -54,12 +56,15 @@ impl EmbedData for RankRankedScoreEmbed {
     fn description_owned(&mut self) -> Option<String> {
         self.description.take()
     }
+
     fn thumbnail_owned(&mut self) -> Option<ImageSource> {
         self.thumbnail.take()
     }
+
     fn author_owned(&mut self) -> Option<Author> {
         self.author.take()
     }
+
     fn title_owned(&mut self) -> Option<String> {
         self.title.take()
     }

@@ -39,6 +39,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
+
     let match_id = args.match_id;
     let warmups = args.warmups;
 
@@ -51,13 +52,16 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         }
         Err(OsuError::InvalidMultiplayerMatch) => {
             let content = "Either the mp id was invalid or the match was private";
+
             return msg.error(&ctx, content).await;
         }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
+
     let mode = osu_match
         .games
         .first()
@@ -93,6 +97,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
             .collect(),
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
@@ -125,14 +130,17 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 
     // Creating the embed
     let embed = data.build_owned().build()?;
+
     msg.build_response(&ctx, |mut m| {
         if warmups > 0 {
             let mut content = String::from("Ignoring the first ");
+
             if warmups == 1 {
                 content.push_str("map");
             } else {
                 let _ = write!(content, "{} maps", warmups);
             }
+
             content.push_str(" as warmup:");
             m = m.content(content)?;
         }
@@ -248,6 +256,7 @@ fn process_match(
             Some(name) => name,
             None => {
                 warn!("No user `{}` in matchcost users", user_id);
+
                 continue;
             }
         };

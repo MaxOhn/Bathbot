@@ -219,6 +219,7 @@ async fn get_pp(
 
 fn get_combo(score: &ScraperScore, map: &Beatmap) -> String {
     let mut combo = format!("**{}x**/", score.max_combo);
+
     let _ = if let Some(amount) = map.max_combo {
         write!(combo, "{}x", amount)
     } else {
@@ -229,5 +230,6 @@ fn get_combo(score: &ScraperScore, map: &Beatmap) -> String {
             if score.count_miss != 1 { "es" } else { "" }
         )
     };
+
     combo
 }

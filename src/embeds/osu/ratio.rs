@@ -58,6 +58,7 @@ impl RatioEmbed {
                 let scores = c.scores;
                 let ratio = c.ratio();
                 let misses = c.miss_percent();
+
                 let _ = writeln!(
                     description,
                     "{}{:>2}%: {:>7} | {:>6.3} | {:>7.3}%",
@@ -67,6 +68,7 @@ impl RatioEmbed {
                     ratio,
                     misses,
                 );
+
                 all_scores.push(scores as i8);
                 all_ratios.push(ratio);
                 all_misses.push(misses);
@@ -85,6 +87,7 @@ impl RatioEmbed {
             {
                 let _ = writeln!(description, "--------------+--------+---------");
                 accs.push(100);
+
                 for (i, acc) in accs.iter().enumerate() {
                     let any_changes = match (ratios.scores.get(i), all_scores.get(i)) {
                         (Some(new), Some(old)) => new != old,
@@ -134,9 +137,11 @@ impl EmbedData for RatioEmbed {
     fn description_owned(&mut self) -> Option<String> {
         self.description.take()
     }
+
     fn author_owned(&mut self) -> Option<Author> {
         self.author.take()
     }
+
     fn thumbnail_owned(&mut self) -> Option<ImageSource> {
         self.thumbnail.take()
     }
@@ -161,6 +166,7 @@ impl RatioCategory {
             s.count_geki + s.count300 + s.count_katu + s.count100 + s.count50 + s.count_miss;
     }
 
+    #[inline]
     fn ratio(&self) -> f32 {
         if self.count_300 == 0 {
             self.count_geki as f32
@@ -169,11 +175,9 @@ impl RatioCategory {
         }
     }
 
+    #[inline]
     fn miss_percent(&self) -> f32 {
-        if self.count_objects > 0 {
-            100.0 * self.count_miss as f32 / self.count_objects as f32
-        } else {
-            0.0
-        }
+        (self.count_objects > 0) as u8 as f32 * 100.0 * self.count_miss as f32
+            / self.count_objects as f32
     }
 }

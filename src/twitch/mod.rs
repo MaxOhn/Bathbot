@@ -36,6 +36,7 @@ impl Twitch {
         let client_id_header = HeaderName::try_from("Client-ID").unwrap();
         headers.insert(client_id_header, HeaderValue::from_str(client_id)?);
         let client = Client::builder().default_headers(headers).build()?;
+
         let auth_response = client
             .post("https://id.twitch.tv/oauth2/token")
             .form(&[
@@ -45,10 +46,13 @@ impl Twitch {
             ])
             .send()
             .await?;
+
         let auth_token = serde_json::from_slice(&auth_response.bytes().await?)
             .map_err(TwitchError::InvalidAuth)?;
+
         let quota = Quota::per_second(NonZeroU32::new(5).unwrap());
         let ratelimiter = RateLimiter::direct(quota);
+
         Ok(Self {
             client,
             auth_token,
@@ -62,6 +66,7 @@ impl Twitch {
         data: &T,
     ) -> TwitchResult<Response> {
         self.ratelimiter.until_ready().await;
+
         self.client
             .get(endpoint)
             .bearer_auth(&self.auth_token)
@@ -75,10 +80,12 @@ impl Twitch {
         let data = vec![("login", name)];
         let response = self.send_request(TWITCH_USERS_ENDPOINT, &data).await?;
         let bytes = response.bytes().await?;
+
         let mut users: TwitchUsers = serde_json::from_slice(&bytes).map_err(|e| {
             let content = String::from_utf8_lossy(&bytes).into_owned();
             TwitchError::SerdeUser(e, content)
         })?;
+
         match users.data.pop() {
             Some(user) => Ok(user),
             None => Err(TwitchError::NoUserResult(name.to_string())),
@@ -89,17 +96,22 @@ impl Twitch {
         if user_ids.is_empty() {
             return Ok(Vec::new());
         }
+
         let mut users = Vec::with_capacity(user_ids.len());
+
         for chunk in user_ids.chunks(100) {
             let data: Vec<_> = chunk.iter().map(|&id| ("id", id)).collect();
             let response = self.send_request(TWITCH_USERS_ENDPOINT, &data).await?;
             let bytes = response.bytes().await?;
+
             let parsed_response: TwitchUsers = serde_json::from_slice(&bytes).map_err(|e| {
                 let content = String::from_utf8_lossy(&bytes).into_owned();
                 TwitchError::SerdeUsers(e, content)
             })?;
+
             users.extend(parsed_response.data);
         }
+
         Ok(users)
     }
 
@@ -107,20 +119,25 @@ impl Twitch {
         if user_ids.is_empty() {
             return Ok(Vec::new());
         }
+
         let mut streams = Vec::with_capacity(user_ids.len());
         let mut interval = time::interval(time::Duration::from_millis(1000));
+
         for chunk in user_ids.chunks(100) {
             interval.tick().await;
             let mut data: Vec<_> = chunk.iter().map(|&id| ("user_id", id)).collect();
             data.push(("first", chunk.len() as u64));
             let response = self.send_request(TWITCH_STREAM_ENDPOINT, &data).await?;
             let bytes = response.bytes().await?;
+
             let parsed_response: TwitchStreams = serde_json::from_slice(&bytes).map_err(|e| {
                 let content = String::from_utf8_lossy(&bytes).into_owned();
                 TwitchError::SerdeStreams(e, content)
             })?;
+
             streams.extend(parsed_response.data);
         }
+
         Ok(streams)
     }
 }

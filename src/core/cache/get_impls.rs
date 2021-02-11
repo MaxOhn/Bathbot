@@ -23,26 +23,33 @@ impl Cache {
         if user_id.0 == OWNER_USER_ID {
             return Permissions::all();
         }
+
         let guild = match guild_id.and_then(|id| self.guild(id)) {
             Some(guild) => guild,
             None => return Permissions::empty(),
         };
+
         if guild.owner_id == user_id {
             return Permissions::all();
         }
+
         let member = match self.member(guild.id, user_id) {
             Some(member) => member,
             None => return Permissions::empty(),
         };
+
         let mut permissions = Permissions::empty();
+
         for &role_id in &member.roles {
             if let Some(role) = self.role(role_id) {
                 if role.permissions.contains(Permissions::ADMINISTRATOR) {
                     return Permissions::all();
                 }
+
                 permissions |= role.permissions;
             }
         }
+
         permissions
     }
 
@@ -63,13 +70,17 @@ impl Cache {
                 | Permissions::ADD_REACTIONS
                 | Permissions::READ_MESSAGE_HISTORY;
         };
+
         let mut permissions = Permissions::empty();
+
         if let Some(channel) = self.guild_channel(channel_id) {
             if let GuildChannel::Text(channel) = channel.deref() {
                 permissions = self.get_guild_permissions_for(user_id, Some(guild_id));
+
                 if permissions.contains(Permissions::ADMINISTRATOR) {
                     return Permissions::all();
                 }
+
                 if let Some(member) = self.member(guild_id, user_id) {
                     let mut everyone_allowed = Permissions::empty();
                     let mut everyone_denied = Permissions::empty();
@@ -77,6 +88,7 @@ impl Cache {
                     let mut user_denied = Permissions::empty();
                     let mut role_allowed = Permissions::empty();
                     let mut role_denied = Permissions::empty();
+
                     for overwrite in &channel.permission_overwrites {
                         match overwrite.kind {
                             PermissionOverwriteType::Member(member_id) => {
@@ -108,6 +120,7 @@ impl Cache {
                 }
             }
         }
+
         permissions
     }
 }

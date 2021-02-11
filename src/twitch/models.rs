@@ -14,6 +14,7 @@ where
     D: Deserializer<'de>,
 {
     let s: &str = Deserialize::deserialize(d)?;
+
     if s.is_empty() {
         Ok(None)
     } else {
@@ -53,6 +54,7 @@ pub struct TwitchStream {
 }
 
 impl TwitchStream {
+    #[inline]
     pub fn is_live(&self) -> bool {
         self.live
     }
@@ -63,6 +65,7 @@ where
     D: Deserializer<'de>,
 {
     let s: &str = Deserialize::deserialize(d)?;
+
     Ok(s == "live")
 }
 

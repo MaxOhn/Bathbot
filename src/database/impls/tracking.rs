@@ -75,6 +75,7 @@ impl Database {
 
         if channels.insert(channel, limit).is_none() {
             let query = "UPDATE osu_tracking SET channels=$3 WHERE user_id=$1 AND mode=$2";
+
             sqlx::query(query)
                 .bind(user_id)
                 .bind(mode as i8)

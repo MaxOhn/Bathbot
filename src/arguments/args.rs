@@ -12,6 +12,7 @@ impl<'m> Iterator for Args<'m> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let (start, end) = self.lex()?;
+
         Some(&self.msg[start..end])
     }
 
@@ -21,7 +22,9 @@ impl<'m> Iterator for Args<'m> {
             Some(c) => !c.is_whitespace() as usize,
             None => 0,
         };
+
         let upper = self.stream.rest().split_whitespace().count();
+
         (lower, Some(upper))
     }
 }
@@ -45,6 +48,7 @@ impl<'m> Args<'m> {
     #[inline]
     pub fn take_n(mut self, n: usize) -> ArgsFull<'m> {
         let limits = iter::from_fn(|| self.lex()).take(n).collect();
+
         ArgsFull {
             msg: self.msg,
             limits,
@@ -54,6 +58,7 @@ impl<'m> Args<'m> {
     #[inline]
     pub fn take_all(mut self) -> ArgsFull<'m> {
         let limits = iter::from_fn(|| self.lex()).collect();
+
         ArgsFull {
             msg: self.msg,
             limits,
@@ -105,12 +110,14 @@ impl<'m> Iterator for ArgsFull<'m> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let (start, end) = self.limits.pop_front()?;
+
         Some(&self.msg[start..end])
     }
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         let exact = self.limits.len();
+
         (exact, Some(exact))
     }
 
@@ -122,6 +129,7 @@ impl<'m> Iterator for ArgsFull<'m> {
     #[inline]
     fn last(self) -> Option<Self::Item> {
         let (start, end) = self.limits.back()?;
+
         Some(&self.msg[*start..*end])
     }
 }
@@ -130,6 +138,7 @@ impl<'m> DoubleEndedIterator for ArgsFull<'m> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         let (start, end) = self.limits.pop_back()?;
+
         Some(&self.msg[start..end])
     }
 }
@@ -138,6 +147,7 @@ impl<'m> ArgsFull<'m> {
     #[inline]
     pub fn current(&self) -> Option<&'m str> {
         let (start, end) = self.limits.front()?;
+
         Some(&self.msg[*start..*end])
     }
 }

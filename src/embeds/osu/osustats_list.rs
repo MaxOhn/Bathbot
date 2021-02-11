@@ -25,10 +25,13 @@ impl OsuStatsListEmbed {
         pages: (usize, usize),
     ) -> Self {
         let mut author = Author::new("Most global leaderboard scores");
+
         if let Some(country) = country {
             author = author.icon_url(format!("{}/images/flags/{}.png", OSU_BASE, country))
         }
+
         let mut description = String::with_capacity(1024);
+
         for (i, player) in players.iter().enumerate() {
             let _ = writeln!(
                 description,
@@ -40,7 +43,9 @@ impl OsuStatsListEmbed {
                 with_comma_u64(player.count as u64)
             );
         }
+
         let thumbnail = ImageSource::url(format!("{}{}", AVATAR_URL, first_place_id)).unwrap();
+
         Self {
             author,
             thumbnail,
@@ -54,12 +59,15 @@ impl EmbedData for OsuStatsListEmbed {
     fn description(&self) -> Option<&str> {
         Some(&self.description)
     }
+
     fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
     }
+
     fn author(&self) -> Option<&Author> {
         Some(&self.author)
     }
+
     fn footer(&self) -> Option<&Footer> {
         Some(&self.footer)
     }

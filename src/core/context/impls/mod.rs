@@ -40,6 +40,7 @@ impl Context {
         channel_id: ChannelId,
     ) -> Result<Vec<Message>, HttpError> {
         let req = self.http.channel_messages(channel_id).limit(50).unwrap();
+
         if let Some(earliest_cached) = self.cache.first_message(channel_id) {
             req.before(earliest_cached).await
         } else {

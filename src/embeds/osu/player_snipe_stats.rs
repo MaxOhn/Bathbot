@@ -103,6 +103,7 @@ impl PlayerSnipeStatsEmbed {
 
                 fields.push((String::from("Oldest national #1:"), value, false));
             }
+
             let mut count_mods = player.count_mods.unwrap();
             let mut value = String::with_capacity(count_mods.len() * 7);
             count_mods.sort_unstable_by(|(_, c1), (_, c2)| c2.cmp(c1));

@@ -32,6 +32,7 @@ async fn common_main(
         0 => {
             let content = "You need to specify at least one osu username. \
                 If you're not linked, you must specify at least two names.";
+
             return msg.error(&ctx, content).await;
         }
         1 => match ctx.get_link(msg.author.id.0) {
@@ -41,11 +42,13 @@ async fn common_main(
             }
             None => {
                 let prefix = ctx.config_first_prefix(msg.guild_id);
+
                 let content = format!(
                     "Since you're not linked via `{}link`, \
                     you must specify at least two names.",
                     prefix
                 );
+
                 return msg.error(&ctx, content).await;
             }
         },
@@ -54,6 +57,7 @@ async fn common_main(
 
     if names.iter().unique().count() == 1 {
         let content = "Give at least two different names";
+
         return msg.error(&ctx, content).await;
     }
 
@@ -64,10 +68,12 @@ async fn common_main(
             .mode(mode)
             .map_ok(move |user| (i, user))
     });
+
     let users: HashMap<u32, User> = match try_join_all(user_futs).await {
         Ok(users) => match users.iter().find(|(_, user)| user.is_none()) {
             Some((idx, _)) => {
                 let content = format!("User `{}` was not found", names[*idx]);
+
                 return msg.error(&ctx, content).await;
             }
             None => users
@@ -77,12 +83,14 @@ async fn common_main(
         },
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
 
     if users.values().map(|u| u.user_id).unique().count() == 1 {
         let content = "Give at least two different users";
+
         return msg.error(&ctx, content).await;
     }
 
@@ -93,10 +101,12 @@ async fn common_main(
             .mode(mode)
             .map_ok(move |scores| (user.user_id, scores))
     });
+
     let mut all_scores: HashMap<u32, Vec<Score>> = match try_join_all(score_futs).await {
         Ok(all_scores) => all_scores.into_iter().collect(),
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
@@ -114,6 +124,7 @@ async fn common_main(
         .map(|(_, scores)| scores.par_iter().flat_map(|s| s.beatmap_id))
         .flatten()
         .collect();
+
     map_ids.retain(|&id| {
         all_scores.iter().all(|(_, scores)| {
             scores
@@ -122,6 +133,7 @@ async fn common_main(
                 .any(|map_id| map_id == id)
         })
     });
+
     all_scores
         .par_iter_mut()
         .for_each(|(_, scores)| scores.retain(|s| map_ids.contains(&s.beatmap_id.unwrap())));
@@ -132,7 +144,9 @@ async fn common_main(
         .map(|(_, scores)| scores)
         .flatten()
         .collect();
+
     all_scores.sort_unstable_by(|s1, s2| s1.beatmap_id.cmp(&s2.beatmap_id));
+
     let mut all_scores: HashMap<u32, Vec<Score>> = all_scores
         .into_iter()
         .group_by(|score| score.beatmap_id.unwrap())
@@ -157,19 +171,23 @@ async fn common_main(
             (map_id, sum / scores.len() as f32)
         })
         .collect();
+
     pp_avg.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
 
     // Try retrieving all maps of common scores from the database
     let mut maps = {
         let map_id_vec = map_ids.iter().copied().collect_vec();
+
         match ctx.psql().get_beatmaps(&map_id_vec).await {
             Ok(maps) => maps,
             Err(why) => {
                 unwind_error!(warn, why, "Error while getting maps from DB: {}");
+
                 HashMap::default()
             }
         }
     };
+
     let amount_common = map_ids.len();
     map_ids.retain(|id| !maps.contains_key(id));
 
@@ -180,10 +198,12 @@ async fn common_main(
         let map_futs = map_ids
             .into_iter()
             .map(|id| ctx.osu().beatmap().map_id(id).map_ok(move |map| (id, map)));
+
         match try_join_all(map_futs).await {
             Ok(maps_result) => match maps_result.iter().find(|(_, map)| map.is_none()) {
                 Some((id, _)) => {
                     let content = format!("API returned no result for map id {}", id);
+
                     return msg.error(&ctx, content).await;
                 }
                 None => {
@@ -195,11 +215,13 @@ async fn common_main(
                             Some(map)
                         })
                         .collect();
+
                     Some(maps)
                 }
             },
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
                 return Err(why.into());
             }
         }
@@ -210,19 +232,24 @@ async fn common_main(
     let mut content = String::with_capacity(len);
     let len = names.len();
     let mut iter = names.into_iter();
+
     if let Some(first) = iter.next() {
         let last = iter.next_back();
         let _ = write!(content, "`{}`", first);
+
         for name in iter {
             let _ = write!(content, ", `{}`", name);
         }
+
         if let Some(name) = last {
             if len > 2 {
                 content.push(',');
             }
+
             let _ = write!(content, " and `{}`", name);
         }
     }
+
     if amount_common == 0 {
         content.push_str(" have no common scores");
     } else {
@@ -239,15 +266,19 @@ async fn common_main(
         let user_ids: Vec<u32> = users.keys().copied().collect();
         get_combined_thumbnail(&ctx, &user_ids).await
     };
+
     let data_fut = async {
         let id_pps = &pp_avg[..10.min(pp_avg.len())];
         CommonEmbed::new(&users, &all_scores, &maps, id_pps, 0)
     };
+
     let (thumbnail_result, data) = tokio::join!(thumbnail_fut, data_fut);
+
     let thumbnail = match thumbnail_result {
         Ok(thumbnail) => Some(thumbnail),
         Err(why) => {
             unwind_error!(warn, why, "Error while combining avatars: {}");
+
             None
         }
     };
@@ -255,10 +286,12 @@ async fn common_main(
     // Creating the embed
     let embed = data.build().build()?;
     let mut m = ctx.http.create_message(msg.channel_id);
+
     m = match thumbnail {
         Some(bytes) => m.attachment("avatar_fuse.png", bytes),
         None => m,
     };
+
     let response = m.content(content)?.embed(embed)?.await?;
 
     // Add missing maps to database
@@ -273,17 +306,20 @@ async fn common_main(
     // Skip pagination if too few entries
     if pp_avg.len() <= 10 {
         response.reaction_delete(&ctx, msg.author.id);
+
         return Ok(());
     }
 
     // Pagination
     let pagination = CommonPagination::new(response, users, all_scores, maps, pp_avg);
     let owner = msg.author.id;
+
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
             unwind_error!(warn, why, "Pagination error (common): {}")
         }
     });
+
     Ok(())
 }
 

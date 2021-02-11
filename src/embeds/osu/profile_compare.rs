@@ -37,6 +37,7 @@ impl ProfileCompareEmbed {
         let max_right = right.max().max(user2.username.chars().count());
         let mut d = String::with_capacity(512);
         d.push_str("```\n");
+
         let _ = writeln!(
             d,
             "{:>max_left$}  | {:^12} |  {:<max_right$}",
@@ -51,6 +52,7 @@ impl ProfileCompareEmbed {
             max_left = max_left,
             max_right = max_right
         );
+
         let _ = writeln!(
             d,
             "{:->max_left$}--+-{:->12}-+--{:-<max_right$}",
@@ -60,6 +62,7 @@ impl ProfileCompareEmbed {
             max_left = max_left,
             max_right = max_right
         );
+
         write_line(
             &mut d,
             "Rank",
@@ -70,6 +73,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "PP",
@@ -80,6 +84,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "Accuracy",
@@ -90,6 +95,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "Level",
@@ -100,6 +106,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "Playtime",
@@ -110,6 +117,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "Playcount",
@@ -120,18 +128,21 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         let left_peak = profile1
             .monthly_playcounts
             .iter()
             .map(|date_count| date_count.count)
             .max()
             .unwrap_or(0);
+
         let right_peak = profile2
             .monthly_playcounts
             .iter()
             .map(|date_count| date_count.count)
             .max()
             .unwrap_or(0);
+
         write_line(
             &mut d,
             "PC peak",
@@ -142,6 +153,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "Ranked score",
@@ -152,6 +164,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "Total score",
@@ -162,6 +175,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "Total hits",
@@ -172,6 +186,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "SS count",
@@ -182,6 +197,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "S count",
@@ -192,6 +208,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "A count",
@@ -202,6 +219,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "Max Combo",
@@ -212,6 +230,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "Bonus PP",
@@ -222,6 +241,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "PP spread",
@@ -232,6 +252,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "Avg PP",
@@ -242,6 +263,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "PP per month",
@@ -252,6 +274,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "Join date",
@@ -262,6 +285,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "Avg map len",
@@ -272,6 +296,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "Medals",
@@ -282,6 +307,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "Badges",
@@ -292,6 +318,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "Followers",
@@ -302,6 +329,7 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         write_line(
             &mut d,
             "Replays seen",
@@ -312,7 +340,9 @@ impl ProfileCompareEmbed {
             max_left,
             max_right,
         );
+
         d.push_str("```");
+
         Self {
             description: Some(d),
             image: Some(ImageSource::attachment("avatar_fuse.png").unwrap()),
@@ -321,9 +351,12 @@ impl ProfileCompareEmbed {
 }
 
 impl EmbedData for ProfileCompareEmbed {
+    #[inline]
     fn description_owned(&mut self) -> Option<String> {
         self.description.take()
     }
+
+    #[inline]
     fn image_owned(&mut self) -> Option<ImageSource> {
         self.image.take()
     }
@@ -383,9 +416,11 @@ impl CompareStrings {
         let bonus_pow = 0.9994_f64.powi(
             (user.count_ssh + user.count_ss + user.count_sh + user.count_s + user.count_a) as i32,
         );
+
         let bonus_pp_num = (100.0 * 416.6667 * (1.0 - bonus_pow)).round() / 100.0;
         let days = (Utc::now() - user.join_date).num_days() as f32;
         let pp_per_month_num = 30.67 * user.pp_raw / days;
+
         Self {
             pp: with_comma(user.pp_raw) + "pp",
             rank: format!("#{}", with_comma_u64(user.pp_rank as u64)),
@@ -408,6 +443,7 @@ impl CompareStrings {
             pp_spread: format!("{:.2}pp", result.pp.max() - result.pp.min()),
         }
     }
+
     fn max(&self) -> usize {
         self.ranked_score
             .len()

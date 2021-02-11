@@ -35,6 +35,7 @@ impl fmt::Display for SnipeScoreOrder {
             Self::ScoreDate => "date_set",
             Self::Stars => "sr",
         };
+
         f.write_str(name)
     }
 }
@@ -51,6 +52,7 @@ pub struct SnipeScoreParams {
 }
 
 impl SnipeScoreParams {
+    #[inline]
     pub fn new(user_id: u32, country_code: impl Into<String>) -> Self {
         Self {
             user_id,
@@ -62,23 +64,37 @@ impl SnipeScoreParams {
             descending: true,
         }
     }
+
     #[allow(dead_code)]
+    #[inline]
     pub fn mode(mut self, mode: GameMode) -> Self {
         self.mode = mode;
+
         self
     }
+
+    #[inline]
     pub fn order(mut self, order: SnipeScoreOrder) -> Self {
         self.order = order;
+
         self
     }
+
+    #[inline]
     pub fn descending(mut self, descending: bool) -> Self {
         self.descending = descending;
+
         self
     }
+
+    #[inline]
     pub fn mods(mut self, selection: Option<ModSelection>) -> Self {
         self.mods = selection;
+
         self
     }
+
+    #[inline]
     pub fn page(&mut self, page: u8) {
         self.page = page;
     }
@@ -209,6 +225,7 @@ impl<'de> Deserialize<'de> for SnipeRecent {
                 let mut date: Option<String> = None;
                 let mut accuracy = None;
                 let mut sr_map: Option<HashMap<GameMods, Option<f32>>> = None;
+
                 while let Some(key) = map.next_key()? {
                     match key {
                         "date" => date = Some(map.next_value()?),
@@ -226,8 +243,10 @@ impl<'de> Deserialize<'de> for SnipeRecent {
                         }
                     }
                 }
+
                 let mods = mods.ok_or_else(|| Error::missing_field("mods"))?;
                 let stars = sr_map.ok_or_else(|| Error::missing_field("sr"))?;
+
                 let (_, stars) =
                     stars
                         .into_iter()
@@ -239,15 +258,18 @@ impl<'de> Deserialize<'de> for SnipeRecent {
                                 (max_len, mod_sr)
                             }
                         });
+
                 let sniped = sniped.ok_or_else(|| Error::missing_field("sniped"))?;
                 let sniped_id = sniped_id.ok_or_else(|| Error::missing_field("sniped_id"))?;
                 let sniper = sniper.ok_or_else(|| Error::missing_field("sniper"))?;
                 let sniper_id = sniper_id.ok_or_else(|| Error::missing_field("sniper_id"))?;
                 let beatmap_id = beatmap_id.ok_or_else(|| Error::missing_field("beatmap_id"))?;
                 let date = date.ok_or_else(|| Error::missing_field("date"))?;
+
                 let date = Utc.datetime_from_str(&date, "%F %T").map_err(|_| {
                     Error::invalid_value(Unexpected::Str(&date), &"a date of the form `%F %T`")
                 })?;
+
                 let accuracy = accuracy.ok_or_else(|| Error::missing_field("accuracy"))?;
                 let beatmap = beatmap.ok_or_else(|| Error::missing_field("map"))?;
 
@@ -263,6 +285,7 @@ impl<'de> Deserialize<'de> for SnipeRecent {
                     accuracy,
                     stars,
                 };
+
                 Ok(snipe)
             }
         }
@@ -279,6 +302,7 @@ impl<'de> Deserialize<'de> for SnipeRecent {
             "accuracy",
             "stars",
         ];
+
         d.deserialize_struct("SnipeRecent", FIELDS, SnipeRecentVisitor)
     }
 }
@@ -361,6 +385,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
                 // let mut od = None;
                 // let mut date_ranked = None;
                 // let mut length = None;
+
                 while let Some(key) = map.next_key()? {
                     match key {
                         "map_id" => map_id = Some(map.next_value()?),
@@ -392,6 +417,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
                         }
                     }
                 }
+
                 let inner_score = inner_score.ok_or_else(|| Error::missing_field("inner_score"))?;
                 let map_id = map_id.ok_or_else(|| Error::missing_field("map_id"))?;
                 let mapset_id = mapset_id.ok_or_else(|| Error::missing_field("mapset_id"))?;
@@ -453,6 +479,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
                     // username: inner_score.player,
                     // version: diff_name,
                 };
+
                 Ok(score)
             }
         }
@@ -491,6 +518,7 @@ pub fn deserialize_acc<'de, D: Deserializer<'de>>(d: D) -> Result<f32, D::Error>
     Deserialize::deserialize(d).map(|n: f32| 100.0 * n)
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn deserialize_mod_count<'de, D>(d: D) -> Result<Option<Vec<(GameMods, u32)>>, D::Error>
 where
     D: Deserializer<'de>,
@@ -512,9 +540,11 @@ impl<'de> Visitor<'de> for SnipePlayerModVisitor {
         V: MapAccess<'de>,
     {
         let mut mod_count = Vec::new();
+
         while let Some((mods, num)) = map.next_entry()? {
             mod_count.push((mods, num));
         }
+
         Ok(mod_count)
     }
 }
@@ -540,13 +570,16 @@ impl<'de> Visitor<'de> for SnipePlayerHistoryVisitor {
         V: MapAccess<'de>,
     {
         let mut history = BTreeMap::new();
+
         while let Some(key) = map.next_key()? {
             let naive_date = NaiveDate::parse_from_str(key, "%F").map_err(|_| {
                 Error::invalid_value(Unexpected::Str(key), &"a date of  the form `%F`")
             })?;
+
             let date = Date::from_utc(naive_date, Utc);
             history.insert(date, map.next_value()?);
         }
+
         Ok(history)
     }
 }

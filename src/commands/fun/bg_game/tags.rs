@@ -186,6 +186,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
     if !untagged {
         let content = "All backgrounds have been tagged, \
             here are some random ones you can review again though";
+
         let _ = msg.respond(&ctx, content).await;
     }
 
@@ -210,9 +211,11 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                     } else {
                         let content = "All backgrounds have been tagged, \
                             here are some random ones you can review again though";
+
                         let _ = msg.respond(&ctx, content).await;
                         untagged = false;
                         tags.truncate(1);
+
                         tags
                     }
                 } else {
@@ -221,6 +224,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
             }
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
                 return Err(why);
             }
         };
@@ -244,6 +248,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
             .content(content)?
             .attachment("bg_img.png", img)
             .await?;
+
         let msg_id = response.id;
 
         // Setup collector
@@ -287,10 +292,12 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
             "✅",
             "❌",
         ];
+
         for &reaction in reactions.iter() {
             let emote = RequestReactionType::Unicode {
                 name: reaction.to_string(),
             };
+
             ctx.http
                 .create_reaction(response.channel_id, response.id, emote)
                 .await?;
@@ -356,11 +363,13 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                         "{}beatmapsets/{} is now tagged as:\n{}",
                         OSU_BASE, mapset_id, tags,
                     );
+
                     msg.respond(&ctx, content).await?;
                 }
             }
             Err(why) => {
                 let _ = msg.respond(&ctx, GENERAL_ISSUE).await;
+
                 return Err(why);
             }
         };
@@ -368,6 +377,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         if break_loop {
             let content = "Exiting loop, thanks for helping out :)";
             msg.respond(&ctx, content).await?;
+
             break;
         }
     }
@@ -377,19 +387,23 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
 
 async fn get_random_image(mut mapsets: Vec<MapsetTagWrapper>, mode: GameMode) -> (u32, Vec<u8>) {
     let mut path = CONFIG.get().unwrap().bg_path.clone();
+
     match mode {
         GameMode::STD => path.push("osu"),
         GameMode::MNA => path.push("mania"),
         _ => unreachable!(),
     }
+
     loop {
         let random_idx = {
             let mut rng = rand::thread_rng();
             rng.next_u32() as usize % mapsets.len()
         };
+
         let mapset = mapsets.swap_remove(random_idx);
         let filename = format!("{}.{}", mapset.mapset_id, mapset.filetype);
         path.push(filename);
+
         match fs::read(&path).await {
             Ok(bytes) => return (mapset.mapset_id, bytes),
             Err(why) => {

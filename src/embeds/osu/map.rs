@@ -36,10 +36,13 @@ impl MapEmbed {
         pages: (usize, usize),
     ) -> BotResult<Self> {
         let mut title = String::with_capacity(32);
+
         if map.mode == GameMode::MNA {
             let _ = write!(title, "[{}K] ", map.diff_cs as u32);
         }
+
         let _ = write!(title, "{} - {}", map.artist, map.title);
+
         let download_value = format!(
             "[Mapset]({base}d/{mapset_id})\n\
             [No Video]({base}d/{mapset_id}n)\n\
@@ -48,9 +51,11 @@ impl MapEmbed {
             base = OSU_BASE,
             mapset_id = map.beatmapset_id
         );
+
         let mut seconds_total = map.seconds_total;
         let mut seconds_drain = map.seconds_drain;
         let mut bpm = map.bpm;
+
         if mods.contains(GameMods::DoubleTime) {
             seconds_total = (seconds_total as f32 * 2.0 / 3.0) as u32;
             seconds_drain = (seconds_drain as f32 * 2.0 / 3.0) as u32;
@@ -60,6 +65,7 @@ impl MapEmbed {
             seconds_drain = (seconds_drain as f32 * 4.0 / 3.0) as u32;
             bpm *= 0.75;
         }
+
         let mut info_value = String::with_capacity(128);
         let mut fields = Vec::with_capacity(3);
 
@@ -171,6 +177,7 @@ impl MapEmbed {
         if let Some(combo) = map.max_combo {
             let _ = write!(info_value, "Combo: `{}x`", combo);
         }
+
         let _ = writeln!(info_value, " Stars: `{:.2}★`", stars);
 
         let _ = write!(
@@ -264,27 +271,35 @@ impl EmbedData for MapEmbed {
     fn thumbnail(&self) -> Option<&ImageSource> {
         self.thumbnail.as_ref()
     }
+
     fn title(&self) -> Option<&str> {
         Some(&self.title)
     }
+
     fn url(&self) -> Option<&str> {
         Some(&self.url)
     }
+
     fn image(&self) -> Option<&ImageSource> {
         self.image.as_ref()
     }
+
     fn footer(&self) -> Option<&Footer> {
         Some(&self.footer)
     }
+
     fn description(&self) -> Option<&str> {
         Some(&self.description)
     }
+
     fn author(&self) -> Option<&Author> {
         Some(&self.author)
     }
+
     fn fields(&self) -> Option<Vec<(String, String, bool)>> {
         Some(self.fields.clone())
     }
+
     fn timestamp(&self) -> Option<&DateTime<Utc>> {
         Some(&self.timestamp)
     }

@@ -42,6 +42,7 @@ pub struct CommandGroup {
 }
 
 impl CommandGroup {
+    #[inline]
     pub fn new(name: &str, commands: Vec<&'static Command>) -> Self {
         Self {
             name: name.to_owned(),
@@ -59,6 +60,7 @@ impl CommandGroups {
     pub fn new() -> Self {
         let groups = command_groups();
         let mut trie = Trie::new();
+
         for group in groups.iter() {
             for &cmd in group.commands.iter() {
                 for &name in cmd.names {
@@ -71,6 +73,7 @@ impl CommandGroups {
                 }
             }
         }
+
         Self { groups, trie }
     }
 

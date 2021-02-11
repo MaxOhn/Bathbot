@@ -31,18 +31,20 @@ pub trait ScoreExt: Send + Sync {
     }
     fn hits(&self, mode: u8) -> u32 {
         let mut amount = self.count_300() + self.count_100() + self.count_miss();
+
         if mode != 1 {
             // TKO
             amount += self.count_50();
+
             if mode != 0 {
                 // STD
                 amount += self.count_katu();
-                if mode != 2 {
-                    // CTB
-                    amount += self.count_geki();
-                }
+
+                // CTB
+                amount += (mode != 2) as u32 * self.count_geki();
             }
         }
+
         amount
     }
 
@@ -76,6 +78,7 @@ pub trait ScoreExt: Send + Sync {
     fn osu_grade(&self) -> Grade {
         let passed_objects = self.hits(GameMode::STD as u8);
         let mods = self.mods();
+
         if self.count_300() == passed_objects {
             return if mods.contains(GameMods::Hidden) || mods.contains(GameMods::Flashlight) {
                 Grade::XH
@@ -83,8 +86,10 @@ pub trait ScoreExt: Send + Sync {
                 Grade::X
             };
         }
+
         let ratio300 = self.count_300() as f32 / passed_objects as f32;
         let ratio50 = self.count_50() as f32 / passed_objects as f32;
+
         if ratio300 > 0.9 && ratio50 < 0.01 && self.count_miss() == 0 {
             if mods.contains(GameMods::Hidden) || mods.contains(GameMods::Flashlight) {
                 Grade::SH
@@ -105,6 +110,7 @@ pub trait ScoreExt: Send + Sync {
     fn mania_grade(&self, acc: Option<f32>) -> Grade {
         let passed_objects = self.hits(GameMode::MNA as u8);
         let mods = self.mods();
+
         if self.count_geki() == passed_objects {
             return if mods.contains(GameMods::Hidden) || mods.contains(GameMods::Flashlight) {
                 Grade::XH
@@ -112,7 +118,9 @@ pub trait ScoreExt: Send + Sync {
                 Grade::X
             };
         }
+
         let acc = acc.unwrap_or_else(|| self.acc(GameMode::MNA));
+
         if acc > 95.0 {
             if mods.contains(GameMods::Hidden) || mods.contains(GameMods::Flashlight) {
                 Grade::SH
@@ -133,6 +141,7 @@ pub trait ScoreExt: Send + Sync {
     fn taiko_grade(&self, acc: Option<f32>) -> Grade {
         let passed_objects = self.hits(GameMode::TKO as u8);
         let mods = self.mods();
+
         if self.count_300() == passed_objects {
             return if mods.contains(GameMods::Hidden) || mods.contains(GameMods::Flashlight) {
                 Grade::XH
@@ -140,7 +149,9 @@ pub trait ScoreExt: Send + Sync {
                 Grade::X
             };
         }
+
         let acc = acc.unwrap_or_else(|| self.acc(GameMode::TKO));
+
         if acc > 95.0 {
             if mods.contains(GameMods::Hidden) || mods.contains(GameMods::Flashlight) {
                 Grade::SH
@@ -159,6 +170,7 @@ pub trait ScoreExt: Send + Sync {
     fn ctb_grade(&self, acc: Option<f32>) -> Grade {
         let mods = self.mods();
         let acc = acc.unwrap_or_else(|| self.acc(GameMode::CTB));
+
         if (100.0 - acc).abs() <= std::f32::EPSILON {
             if mods.contains(GameMods::Hidden) || mods.contains(GameMods::Flashlight) {
                 Grade::XH
@@ -293,15 +305,16 @@ impl ScoreExt for &OsuStatsScore {
     fn hits(&self, _mode: u8) -> u32 {
         let mut amount = self.count300 + self.count100 + self.count_miss;
         let mode = self.map.mode;
+
         if mode != GameMode::TKO {
             amount += self.count50;
+
             if mode != GameMode::STD {
                 amount += self.count_katu;
-                if mode != GameMode::CTB {
-                    amount += self.count_geki;
-                }
+                amount += (mode != GameMode::CTB) as u32 * self.count_geki;
             }
         }
+
         amount
     }
     fn grade(&self, _: GameMode) -> Grade {
@@ -345,15 +358,16 @@ impl ScoreExt for &ScraperScore {
     }
     fn hits(&self, _: u8) -> u32 {
         let mut amount = self.count300 + self.count100 + self.count_miss;
+
         if self.mode != GameMode::TKO {
             amount += self.count50;
+
             if self.mode != GameMode::STD {
                 amount += self.count_katu;
-                if self.mode != GameMode::CTB {
-                    amount += self.count_geki;
-                }
+                amount += (self.mode != GameMode::CTB) as u32 * self.count_geki;
             }
         }
+
         amount
     }
     fn grade(&self, _: GameMode) -> Grade {

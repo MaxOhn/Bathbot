@@ -34,21 +34,18 @@ impl Invoke {
 }
 
 pub fn find_prefix<'a>(prefixes: &[String], stream: &mut Stream<'a>) -> bool {
-    let prefix = prefixes.iter().find_map(|p| {
-        let peeked = stream.peek_for_char(p.chars().count());
+    prefixes
+        .iter()
+        .find_map(|p| {
+            let peeked = stream.peek_for_char(p.chars().count());
 
-        if p == peeked {
-            Some(peeked)
-        } else {
-            None
-        }
-    });
+            (p == peeked).then(|| {
+                stream.advance_char(peeked.chars().count());
 
-    if let Some(prefix) = &prefix {
-        stream.advance_char(prefix.chars().count());
-    }
-
-    prefix.is_some()
+                peeked
+            })
+        })
+        .is_some()
 }
 
 pub fn parse_invoke(stream: &mut Stream<'_>, groups: &CommandGroups) -> Invoke {

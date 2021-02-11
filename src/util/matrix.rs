@@ -33,9 +33,7 @@ impl<T: Default + Copy> Matrix<T> {
 
         for cx in x.saturating_sub(1)..self.width.min(x + 2) {
             for cy in y.saturating_sub(1)..h.min(y + 2) {
-                if (cx != x || cy != y) && self[(cx, cy)] == cell {
-                    neighbors += 1;
-                }
+                neighbors += ((cx != x || cy != y) && self[(cx, cy)] == cell) as u8;
             }
         }
 

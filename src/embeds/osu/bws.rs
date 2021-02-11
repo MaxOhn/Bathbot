@@ -22,6 +22,7 @@ impl BWSEmbed {
                 let rank_len = max.to_string().len().max(6) + 1;
                 let dist = (max - min) as usize;
                 let step = 3;
+
                 let bwss: BTreeMap<_, _> = (min..max)
                     .step_by((dist / step).max(1))
                     .take(step)
@@ -31,9 +32,11 @@ impl BWSEmbed {
                         let bwss = (badges..=badges + 2)
                             .map(move |badges| with_comma_u64(bws(rank, badges)))
                             .collect::<Vec<_>>();
+
                         (rank, bwss)
                     })
                     .collect();
+
                 // Calculate the widths for each column
                 let max: Vec<_> = (0..=2)
                     .map(|n| {
@@ -43,8 +46,10 @@ impl BWSEmbed {
                             .max(2)
                     })
                     .collect();
+
                 let mut content = String::with_capacity(256);
                 content.push_str("```\n");
+
                 let _ = writeln!(
                     content,
                     " {:>rank_len$} | {:^len1$} | {:^len2$} | {:^len3$}",
@@ -57,6 +62,7 @@ impl BWSEmbed {
                     len2 = max[1],
                     len3 = max[2],
                 );
+
                 let _ = writeln!(
                     content,
                     "-{:->rank_len$}-+-{:-^len1$}-+-{:-^len2$}-+-{:-^len3$}-",
@@ -69,6 +75,7 @@ impl BWSEmbed {
                     len2 = max[1],
                     len3 = max[2],
                 );
+
                 for (rank, bwss) in bwss {
                     let _ = writeln!(
                         content,
@@ -83,7 +90,9 @@ impl BWSEmbed {
                         len3 = max[2],
                     );
                 }
+
                 content.push_str("```");
+
                 content
             }
             None => {
@@ -95,6 +104,7 @@ impl BWSEmbed {
                 let len3 = bws3.len().max(2);
                 let mut content = String::with_capacity(128);
                 content.push_str("```\n");
+
                 let _ = writeln!(
                     content,
                     "Badges | {:^len1$} | {:^len2$} | {:^len3$}",
@@ -105,6 +115,7 @@ impl BWSEmbed {
                     len2 = len2,
                     len3 = len3,
                 );
+
                 let _ = writeln!(
                     content,
                     "-------+-{:-^len1$}-+-{:-^len2$}-+-{:-^len3$}-",
@@ -115,6 +126,7 @@ impl BWSEmbed {
                     len2 = len2,
                     len3 = len3,
                 );
+
                 let _ = writeln!(
                     content,
                     "   BWS | {:^len1$} | {:^len2$} | {:^len3$}",
@@ -125,16 +137,20 @@ impl BWSEmbed {
                     len2 = len2,
                     len3 = len3,
                 );
+
                 content.push_str("```");
+
                 content
             }
         };
+
         let title = format!(
             "Current BWS for {} badge{}: {}",
             badges,
             if badges == 1 { "" } else { "s" },
             with_comma_u64(bws(user.pp_rank, badges))
         );
+
         Self {
             title: Some(title),
             description: Some(description),
