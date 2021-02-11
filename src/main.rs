@@ -226,9 +226,9 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     let osu_tracking_ctx = Arc::clone(&ctx);
     tokio::spawn(tracking::tracking_loop(osu_tracking_ctx));
 
-    // Spawn map garbage collect worker
-    let garbage_collect_ctx = Arc::clone(&ctx);
-    tokio::spawn(Context::garbage_collect_loop(garbage_collect_ctx));
+    // Spawn background loop worker
+    let background_ctx = Arc::clone(&ctx);
+    tokio::spawn(Context::background_loop(background_ctx));
 
     // Activate cluster
     let cluster_ctx = Arc::clone(&ctx);

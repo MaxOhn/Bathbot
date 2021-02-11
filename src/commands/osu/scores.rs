@@ -30,6 +30,7 @@ use twilight_model::channel::Message;
 #[aliases("c", "compare")]
 async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = NameMapArgs::new(&ctx, args);
+
     let map_id = if let Some(id) = args.map_id {
         match id {
             MapIdType::Map(id) => id,
@@ -48,18 +49,22 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             Ok(msgs) => msgs,
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
                 return Err(why.into());
             }
         };
+
         match map_id_from_history(msgs) {
             Some(MapIdType::Map(id)) => id,
             Some(MapIdType::Set(_)) => {
                 let content = "Looks like you gave me a mapset id, I need a map id though";
+
                 return msg.error(&ctx, content).await;
             }
             None => {
                 let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";
+
                 return msg.error(&ctx, content).await;
             }
         }
@@ -81,10 +86,12 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
                         Did you give me a mapset id instead of a map id?",
                     map_id
                 );
+
                 return msg.error(&ctx, content).await;
             }
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
                 return Err(why.into());
             }
         },
@@ -98,10 +105,12 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
             let content = format!("Could not find user `{}`", name);
+
             return msg.error(&ctx, content).await;
         }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
@@ -113,6 +122,7 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
     // Sending the embed
     let embed = data.build().build()?;
+
     let response = ctx
         .http
         .create_message(msg.channel_id)
@@ -127,12 +137,14 @@ async fn scores(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     // Skip pagination if too few entries
     if scores.len() <= 10 {
         response.reaction_delete(&ctx, msg.author.id);
+
         return Ok(());
     }
 
     // Pagination
     let pagination = ScoresPagination::new(response, user, map, scores);
     let owner = msg.author.id;
+
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
             unwind_error!(warn, why, "Pagination error (scores): {}")

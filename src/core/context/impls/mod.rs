@@ -1,12 +1,12 @@
+mod background_loop;
 mod bg_game;
 mod clients;
 mod guilds;
 mod links;
-mod map_garbage_collect;
 mod shutdown;
 mod twitch;
 
-pub use map_garbage_collect::GarbageCollectMap;
+pub use background_loop::GarbageCollectMap;
 
 use crate::{Context, OsuTracking};
 
