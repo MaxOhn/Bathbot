@@ -252,7 +252,8 @@ impl<'de> Deserialize<'de> for SnipeRecent {
                         .into_iter()
                         .fold((0, None), |(max_len, mod_sr), (curr_mods, sr)| {
                             let len = (mods & curr_mods).len();
-                            if max_len < len {
+
+                            if max_len < len && curr_mods.len() == len {
                                 (len, sr)
                             } else {
                                 (max_len, mod_sr)

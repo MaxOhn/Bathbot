@@ -213,7 +213,7 @@ impl CustomClient {
             serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
                 body: String::from_utf8_lossy(&bytes).into_owned(),
                 source,
-                request: "snipe difference",
+                request: "country statistics",
             })?;
 
         Ok(statistics)

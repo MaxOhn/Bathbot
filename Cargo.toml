@@ -75,7 +75,7 @@ default_features = false
 features = ["cookies", "multipart"]
 
 [dependencies.rosu]
-# version = "0.4"
+# version = "0.5"
 git = "https://github.com/MaxOhn/rosu"
 # branch = "master"
 branch = "darkredis-patch"
