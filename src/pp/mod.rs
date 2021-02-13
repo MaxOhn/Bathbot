@@ -223,9 +223,11 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
         if let Some(pp) = pp {
             self.pp.replace(pp);
         }
+
         if let Some(pp) = max_pp {
             self.max_pp.replace(pp);
         }
+
         if let Some(stars) = stars {
             self.stars.replace(stars);
         }

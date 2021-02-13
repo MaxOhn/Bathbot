@@ -54,6 +54,7 @@ impl<'c> FromRow<'c, PgRow> for MapsetTagWrapper {
             + ((row.bluesky as u32) << 10)
             + ((row.english as u32) << 11)
             + ((row.kpop as u32) << 12);
+
         Ok(Self {
             mapset_id: row.beatmapset_id,
             mode: (row.mode as u8).into(),

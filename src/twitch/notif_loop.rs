@@ -16,6 +16,7 @@ use twilight_http::{
     Error as TwilightError,
 };
 
+#[cold]
 pub async fn twitch_loop(ctx: Arc<Context>) {
     if cfg!(debug_assertions) {
         info!("Skip twitch tracking on debug");

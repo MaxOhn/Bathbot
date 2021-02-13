@@ -222,6 +222,9 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         let count = shutdown_ctx.garbage_collect_all_maps().await;
         info!("Garbage collected {} maps", count);
 
+        let count = shutdown_ctx.stop_all_games().await;
+        info!("Stopped {} bg games", count);
+
         info!("Shutting down");
         process::exit(0);
     });

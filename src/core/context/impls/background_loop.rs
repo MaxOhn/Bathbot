@@ -51,6 +51,7 @@ impl Context {
     // Multiple tasks:
     //   - Deleting .osu files of unranked maps
     //   - Store modified guild configs in DB
+    #[cold]
     pub async fn background_loop(ctx: Arc<Context>) {
         if cfg!(debug_assertions) {
             info!("Skip background loop on debug");

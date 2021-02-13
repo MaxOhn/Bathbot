@@ -12,6 +12,7 @@ use twilight_http::{
     Error as TwilightError,
 };
 
+#[cold]
 pub async fn tracking_loop(ctx: Arc<Context>) {
     let delay = time::Duration::from_secs(60);
 

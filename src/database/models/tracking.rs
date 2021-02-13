@@ -16,6 +16,7 @@ pub struct TrackingUser {
 }
 
 impl TrackingUser {
+    #[inline]
     pub fn new(
         user_id: u32,
         mode: GameMode,
@@ -25,6 +26,7 @@ impl TrackingUser {
     ) -> Self {
         let mut channels = HashMap::with_capacity(1);
         channels.insert(channel, limit);
+
         Self {
             user_id,
             mode,
@@ -33,6 +35,7 @@ impl TrackingUser {
         }
     }
 
+    #[inline]
     pub fn remove_channel(&mut self, channel: ChannelId) -> bool {
         self.channels.remove(&channel).is_some()
     }
@@ -56,6 +59,7 @@ where
         let mode: i8 = row.try_get(1)?;
         let mode = GameMode::from(mode as u8);
         let last_top_score: DateTime<Utc> = row.try_get(2)?;
+
         let channels = match serde_json::from_value::<HashMap<String, usize>>(row.try_get(3)?) {
             Ok(channels) => channels
                 .into_iter()
@@ -69,9 +73,11 @@ where
                     user_id,
                     mode
                 );
+
                 HashMap::new()
             }
         };
+
         Ok(Self {
             user_id,
             mode,

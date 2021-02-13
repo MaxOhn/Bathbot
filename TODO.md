@@ -1,6 +1,5 @@
 
 **[TODO]**
-- Handle active bg games on shutdown
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
 - ~~Split database tables based on popular queries~~
 - ~~Fix `<mc` sometimes missing some users~~
@@ -16,6 +15,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Handle active bg games on shutdown~~ (21.02.13)
 - ~~Don't update DB guild config on shutdown but immediatly instead (store new ones daily)~~ (21.02.11)
 - ~~Update ranked .osu files somehow / delete unranked .osu files~~ (21.02.09)
 - ~~Put non-global leaderboard back in for `<bg lb`~~ (21.02.09)

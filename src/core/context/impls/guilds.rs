@@ -35,6 +35,7 @@ impl Context {
         }
     }
 
+    #[inline]
     pub fn config_lyrics(&self, guild_id: GuildId) -> bool {
         let config = self.data.guilds.entry(guild_id).or_default();
 

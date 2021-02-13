@@ -41,12 +41,14 @@ pub struct DBMapSet {
 pub struct BeatmapWrapper(Beatmap);
 
 impl From<Beatmap> for BeatmapWrapper {
+    #[inline]
     fn from(map: Beatmap) -> Self {
         Self(map)
     }
 }
 
 impl Into<Beatmap> for BeatmapWrapper {
+    #[inline]
     fn into(self) -> Beatmap {
         self.0
     }
