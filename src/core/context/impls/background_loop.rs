@@ -1,4 +1,4 @@
-use crate::{unwind_error, Context, CONFIG};
+use crate::{Context, CONFIG};
 
 use rosu::model::{
     ApprovalStatus::{Approved, Loved, Ranked},
@@ -16,34 +16,36 @@ impl Context {
         GarbageCollectMap::new(map)
     }
 
-    async fn garbage_collect_all_maps(&self) {
-        let mut lock = self.data.map_garbage_collection.lock().await;
+    pub async fn garbage_collect_all_maps(&self) -> usize {
+        let mut garbage_collection = self.data.map_garbage_collection.lock().await;
 
-        if lock.is_empty() {
-            debug!("[BG] Garbage collection list is empty");
-
-            return;
+        if garbage_collection.is_empty() {
+            return 0;
         }
 
         let config = CONFIG.get().unwrap();
         let mut count = 0;
+        let mut failed = Vec::new();
 
-        for map_id in lock.drain() {
+        for map_id in garbage_collection.drain() {
             let mut map_path = config.map_path.clone();
             map_path.push(format!("{}.osu", map_id));
 
             match remove_file(map_path).await {
                 Ok(_) => count += 1,
-                Err(why) => unwind_error!(
-                    warn,
-                    why,
-                    "[BG] Error while removing file of garbage collected map {}: {}",
-                    map_id
-                ),
+                Err(_) => failed.push(map_id),
             }
         }
 
-        debug!("[BG] Garbage collected {} maps", count);
+        if !failed.is_empty() {
+            warn!(
+                "Failed to garbage collect {} maps: {:?}",
+                failed.len(),
+                failed
+            );
+        }
+
+        count
     }
 
     // Multiple tasks:
@@ -65,7 +67,8 @@ impl Context {
 
             debug!("[BG] Background iteration...");
 
-            ctx.garbage_collect_all_maps().await;
+            let count = ctx.garbage_collect_all_maps().await;
+            debug!("[BG] Garbage collected {} maps", count);
 
             match ctx.psql().insert_guilds(&ctx.data.guilds).await {
                 Ok(n) if n > 0 => debug!("[BG] Stored {} guilds in DB", n),

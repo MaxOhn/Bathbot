@@ -27,15 +27,19 @@ async fn activebg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult
             let mut content = String::with_capacity(channels.len() * 20 + 20);
             content.push_str("Active games in:\n```\n");
             let mut iter = channels.into_iter();
+
             if let Some(first) = iter.next() {
                 let _ = write!(content, "{}", first);
+
                 for id in iter {
                     let _ = write!(content, ", {}", id);
                 }
             } else {
                 content.push_str("None active");
             }
+
             content.push_str("\n```");
+
             msg.respond(&ctx, content).await
         }
     }

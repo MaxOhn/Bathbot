@@ -22,6 +22,7 @@ impl Context {
         // Kill the shards and get their resume info
         // DANGER: WE WILL NOT BE GETTING EVENTS FROM THIS POINT ONWARDS, REBOOT REQUIRED
         let resume_data = self.backend.cluster.down_resumable();
+
         self.cache
             .prepare_cold_resume(
                 &self.clients.redis,

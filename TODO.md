@@ -1,5 +1,6 @@
 
 **[TODO]**
+- Handle active bg games on shutdown
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
 - ~~Split database tables based on popular queries~~
 - ~~Fix `<mc` sometimes missing some users~~
