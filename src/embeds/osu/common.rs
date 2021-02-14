@@ -1,6 +1,10 @@
-use crate::{embeds::EmbedData, util::constants::OSU_BASE};
+use crate::{
+    commands::osu::CommonUser,
+    embeds::{EmbedData, Footer},
+    util::constants::OSU_BASE,
+};
 
-use rosu::model::{Beatmap, User};
+use rosu::model::Beatmap;
 use std::{collections::HashMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 
@@ -9,11 +13,12 @@ pub type MapScores = HashMap<u32, (Beatmap, Vec<(usize, f32)>)>;
 pub struct CommonEmbed {
     description: String,
     thumbnail: ImageSource,
+    footer: Footer,
 }
 
 impl CommonEmbed {
     pub fn new(
-        users: &[User],
+        users: &[CommonUser],
         map_scores: &MapScores,
         id_pps: &[(u32, f32)],
         index: usize,
@@ -52,7 +57,7 @@ impl CommonEmbed {
                         2 => "third",
                         _ => unreachable!(),
                     },
-                    name = users[i].username,
+                    name = users[i].name(),
                     pp = pp,
                 );
             }
@@ -60,7 +65,16 @@ impl CommonEmbed {
             description.push('\n');
         }
 
+        let mut footer = String::with_capacity(64);
+
+        footer.push_str("🥇 count");
+
+        for user in users {
+            let _ = write!(footer, " | {}: {}", user.name(), user.first_count);
+        }
+
         Self {
+            footer: Footer::new(footer),
             description,
             thumbnail: ImageSource::attachment("avatar_fuse.png").unwrap(),
         }
@@ -74,5 +88,9 @@ impl EmbedData for CommonEmbed {
 
     fn thumbnail(&self) -> Option<&ImageSource> {
         Some(&self.thumbnail)
+    }
+
+    fn footer(&self) -> Option<&Footer> {
+        Some(&self.footer)
     }
 }

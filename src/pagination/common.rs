@@ -1,18 +1,18 @@
 use super::{Pages, Pagination};
 
 use crate::{
+    commands::osu::CommonUser,
     embeds::{CommonEmbed, MapScores},
     BotResult,
 };
 
 use async_trait::async_trait;
-use rosu::model::User;
 use twilight_model::channel::Message;
 
 pub struct CommonPagination {
     msg: Message,
     pages: Pages,
-    users: Vec<User>,
+    users: Vec<CommonUser>,
     map_scores: MapScores,
     id_pps: Vec<(u32, f32)>,
 }
@@ -20,7 +20,7 @@ pub struct CommonPagination {
 impl CommonPagination {
     pub fn new(
         msg: Message,
-        users: Vec<User>,
+        users: Vec<CommonUser>,
         map_scores: MapScores,
         id_pps: Vec<(u32, f32)>,
     ) -> Self {

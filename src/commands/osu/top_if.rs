@@ -62,10 +62,12 @@ async fn topif_main(
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
             let content = format!("User `{}` was not found", name);
+
             return msg.error(&ctx, content).await;
         }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
@@ -90,6 +92,7 @@ async fn topif_main(
         Ok(maps) => maps,
         Err(why) => {
             unwind_error!(warn, why, "Error while getting maps from DB: {}");
+
             HashMap::default()
         }
     };
@@ -129,10 +132,12 @@ async fn topif_main(
                 }
                 Ok(None) => {
                     let content = format!("The API returned no beatmap for map id {}", map_id);
+
                     return msg.error(&ctx, content).await;
                 }
                 Err(why) => {
                     let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
                     return Err(why.into());
                 }
             }
@@ -243,6 +248,7 @@ async fn topif_main(
         .iter()
         .map(|(i, Score { pp, .. }, ..)| pp.unwrap_or(0.0) as f64 * 0.95_f64.powi(*i as i32 - 1))
         .sum::<f64>();
+
     let adjusted_pp = numbers::round((bonus_pp + adjusted_pp).max(0.0) as f32);
 
     // Accumulate all necessary data
@@ -331,6 +337,7 @@ async fn topif_main(
     // Skip pagination if too few entries
     if scores_data.len() <= 5 {
         response.reaction_delete(&ctx, msg.author.id);
+
         return Ok(());
     }
 
@@ -338,6 +345,7 @@ async fn topif_main(
     let pre_pp = user.pp_raw;
     let pagination = TopIfPagination::new(response, user, scores_data, mode, pre_pp, adjusted_pp);
     let owner = msg.author.id;
+
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
             unwind_error!(warn, why, "Pagination error (topif): {}")

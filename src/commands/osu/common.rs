@@ -97,14 +97,15 @@ async fn common_main(
         return msg.error(&ctx, content).await;
     }
 
-    let users: Vec<_> = users.into_iter().map(|(_, user)| user).collect();
+    let mut users: Vec<CommonUser> = users.into_iter().map(|(_, user)| user.into()).collect();
 
     // Retrieve each user's top scores
-    let score_futs = users.iter().map(|user| {
-        user.get_top_scores(ctx.osu())
+    let score_futs = users.iter().map(|u| {
+        u.user
+            .get_top_scores(ctx.osu())
             .limit(100)
             .mode(mode)
-            .map_ok(move |scores| (user.user_id, scores))
+            .map_ok(move |scores| (u.user.user_id, scores))
     });
 
     let mut all_scores: Vec<(u32, Vec<Score>)> = match try_join_all(score_futs).await {
@@ -120,8 +121,8 @@ async fn common_main(
     {
         let mut maps = HashMap::new();
 
-        for (user, (_, scores)) in users.iter().zip(all_scores.iter()) {
-            process_tracking(&ctx, mode, scores, Some(user), &mut maps).await;
+        for (u, (_, scores)) in users.iter().zip(all_scores.iter()) {
+            process_tracking(&ctx, mode, scores, Some(&u.user), &mut maps).await;
         }
     }
 
@@ -162,12 +163,12 @@ async fn common_main(
             // Sort with respect to order of users
             let mut scores: Vec<(u32, Score)> = scores.collect();
 
-            if scores[0].0 != users[0].user_id {
-                let target = (scores[1].0 != users[0].user_id) as usize + 1;
+            if scores[0].0 != users[0].id() {
+                let target = (scores[1].0 != users[0].id()) as usize + 1;
                 scores.swap(0, target);
             }
 
-            if scores[1].0 != users[1].user_id {
+            if scores[1].0 != users[1].id() {
                 scores.swap(1, 2);
             }
 
@@ -196,6 +197,14 @@ async fn common_main(
                 } else {
                     scores[1].0 += 1;
                 }
+            }
+
+            if scores[0].0 == 0 {
+                users[0].first_count += 1;
+            } else if scores[1].0 == 0 {
+                users[1].first_count += 1;
+            } else {
+                users[2].first_count += 1;
             }
 
             (map_id, scores)
@@ -279,10 +288,9 @@ async fn common_main(
         .collect();
 
     // Accumulate all necessary data
-    let len = names.iter().map(|name| name.len() + 4).sum::<usize>() + 4;
-    let mut content = String::with_capacity(len);
+    let mut content = String::with_capacity(16);
     let len = names.len();
-    let mut iter = names.into_iter();
+    let mut iter = users.iter().map(CommonUser::name);
 
     if let Some(first) = iter.next() {
         let last = iter.next_back();
@@ -313,11 +321,8 @@ async fn common_main(
     }
 
     // Create the combined profile pictures
-    let thumbnail_fut = async {
-        let user_ids = users.iter().map(|user| user.user_id);
-
-        get_combined_thumbnail(&ctx, user_ids).await
-    };
+    let thumbnail_fut =
+        async { get_combined_thumbnail(&ctx, users.iter().map(CommonUser::id)).await };
 
     let data_fut = async {
         let id_pps = &pp_avg[..10.min(pp_avg.len())];
@@ -382,7 +387,7 @@ async fn common_main(
     "Compare the users' top 100 and check which \
      maps appear in each top list (up to 3 users)"
 )]
-#[usage("[name1] [name2] ...")]
+#[usage("[name1] [name2] [name3]")]
 #[example("badewanne3 \"nathan on osu\" idke")]
 pub async fn common(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     common_main(GameMode::STD, ctx, msg, args).await
@@ -394,7 +399,7 @@ pub async fn common(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     "Compare the mania users' top 100 and check which \
      maps appear in each top list (up to 3 users)"
 )]
-#[usage("[name1] [name2] ...")]
+#[usage("[name1] [name2] [name3]")]
 #[example("badewanne3 \"nathan on osu\" idke")]
 #[aliases("commonm")]
 pub async fn commonmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
@@ -407,7 +412,7 @@ pub async fn commonmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
     "Compare the taiko users' top 100 and check which \
      maps appear in each top list (up to 3 users)"
 )]
-#[usage("[name1] [name2] ...")]
+#[usage("[name1] [name2] [name3]")]
 #[example("badewanne3 \"nathan on osu\" idke")]
 #[aliases("commont")]
 pub async fn commontaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
@@ -420,9 +425,36 @@ pub async fn commontaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
     "Compare the ctb users' top 100 and check which \
      maps appear in each top list (up to 3 users)"
 )]
-#[usage("[name1] [name2] ...")]
+#[usage("[name1] [name2] [name3]")]
 #[example("badewanne3 \"nathan on osu\" idke")]
 #[aliases("commonc")]
 pub async fn commonctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     common_main(GameMode::CTB, ctx, msg, args).await
+}
+
+pub struct CommonUser {
+    user: User,
+    pub first_count: usize,
+}
+
+impl From<User> for CommonUser {
+    #[inline]
+    fn from(user: User) -> Self {
+        Self {
+            user,
+            first_count: 0,
+        }
+    }
+}
+
+impl CommonUser {
+    #[inline]
+    fn id(&self) -> u32 {
+        self.user.user_id
+    }
+
+    #[inline]
+    pub fn name(&self) -> &str {
+        self.user.username.as_str()
+    }
 }

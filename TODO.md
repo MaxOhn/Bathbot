@@ -15,6 +15,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Reformat `<common` embed~~ (21.02.14)
 - ~~Handle active bg games on shutdown~~ (21.02.13)
 - ~~Don't update DB guild config on shutdown but immediatly instead (store new ones daily)~~ (21.02.11)
 - ~~Update ranked .osu files somehow / delete unranked .osu files~~ (21.02.09)

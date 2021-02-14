@@ -28,10 +28,12 @@ async fn nochokes_main(
     args: Args<'_>,
 ) -> BotResult<()> {
     let args = NameIntArgs::new(&ctx, args);
+
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
+
     let miss_limit = args.number;
 
     // Retrieve the user and their top scores
@@ -43,10 +45,12 @@ async fn nochokes_main(
         Ok((Some(user), scores)) => (user, scores),
         Ok((None, _)) => {
             let content = format!("User `{}` was not found", name);
+
             return msg.error(&ctx, content).await;
         }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
@@ -57,13 +61,16 @@ async fn nochokes_main(
 
     // Get all relevant maps from the database
     let map_ids: Vec<u32> = scores.iter().filter_map(|s| s.beatmap_id).collect();
+
     let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
         Ok(maps) => maps,
         Err(why) => {
             unwind_error!(warn, why, "Error while getting maps from DB: {}");
+
             HashMap::default()
         }
     };
+
     debug!("Found {}/{} beatmaps in DB", maps.len(), scores.len());
 
     let retrieving_msg = if scores.len() - maps.len() > 10 {
@@ -97,10 +104,12 @@ async fn nochokes_main(
                 Ok(Some(map)) => map,
                 Ok(None) => {
                     let content = format!("The API returned no beatmap for map id {}", map_id);
+
                     return msg.error(&ctx, content).await;
                 }
                 Err(why) => {
                     let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
                     return Err(why.into());
                 }
             };
@@ -247,6 +256,7 @@ async fn nochokes_main(
         Ok(scores_data) => scores_data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
             return Err(why);
         }
     };
@@ -256,6 +266,7 @@ async fn nochokes_main(
         .iter()
         .map(|(i, s, ..)| s.pp.unwrap_or(0.0) as f64 * 0.95_f64.powi(*i as i32 - 1))
         .sum::<f64>();
+
     let bonus_pp = user.pp_raw as f64 - actual_pp;
 
     // Sort by unchoked pp
@@ -269,6 +280,7 @@ async fn nochokes_main(
         .enumerate()
         .map(|(i, (_, _, s, _))| s.pp.unwrap_or(0.0) as f64 * 0.95_f64.powi(i as i32))
         .sum::<f64>();
+
     unchoked_pp = (100.0 * (unchoked_pp + bonus_pp)).round() / 100.0;
 
     // Accumulate all necessary data
@@ -281,6 +293,7 @@ async fn nochokes_main(
 
     // Creating the embed
     let embed = data.build().build()?;
+
     let response = ctx
         .http
         .create_message(msg.channel_id)
@@ -309,12 +322,14 @@ async fn nochokes_main(
     // Skip pagination if too few entries
     if scores_data.len() <= 5 {
         response.reaction_delete(&ctx, msg.author.id);
+
         return Ok(());
     }
 
     // Pagination
     let pagination = NoChokePagination::new(response, user, scores_data, unchoked_pp);
     let owner = msg.author.id;
+
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 90).await {
             unwind_error!(warn, why, "Pagination error (nochokes): {}")
