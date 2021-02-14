@@ -171,18 +171,24 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 
     // Keys have no strict order, hence inconsistent result
     let thumbnail_fut = async {
-        let user_ids: Vec<u32> = users.keys().copied().collect();
-        get_combined_thumbnail(&ctx, &user_ids).await
+        let user_ids = users.keys().copied();
+
+        get_combined_thumbnail(&ctx, user_ids).await
     };
+
     let data_fut = async {
         let initial_maps = &maps[..10.min(maps.len())];
+
         MostPlayedCommonEmbed::new(&users, initial_maps, &users_count, 0)
     };
+
     let (thumbnail_result, data) = tokio::join!(thumbnail_fut, data_fut);
+
     let thumbnail = match thumbnail_result {
         Ok(thumbnail) => Some(thumbnail),
         Err(why) => {
             unwind_error!(warn, why, "Error while combining avatars: {}");
+
             None
         }
     };
@@ -190,25 +196,30 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     // Creating the embed
     let embed = data.build().build()?;
     let mut m = ctx.http.create_message(msg.channel_id);
+
     m = match thumbnail {
         Some(bytes) => m.attachment("avatar_fuse.png", bytes),
         None => m,
     };
+
     let response = m.content(content)?.embed(embed)?.await?;
 
     // Skip pagination if too few entries
     if maps.len() <= 10 {
         response.reaction_delete(&ctx, msg.author.id);
+
         return Ok(());
     }
 
     // Pagination
     let pagination = MostPlayedCommonPagination::new(response, users, users_count, maps);
     let owner = msg.author.id;
+
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
             unwind_error!(warn, why, "Pagination error (mostcommonplayed): {}")
         }
     });
+
     Ok(())
 }

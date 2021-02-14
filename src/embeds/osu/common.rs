@@ -1,8 +1,10 @@
 use crate::{embeds::EmbedData, util::constants::OSU_BASE};
 
-use rosu::model::{Beatmap, Score, User};
+use rosu::model::{Beatmap, User};
 use std::{collections::HashMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
+
+pub type MapScores = HashMap<u32, (Beatmap, Vec<(usize, f32)>)>;
 
 pub struct CommonEmbed {
     description: String,
@@ -11,17 +13,16 @@ pub struct CommonEmbed {
 
 impl CommonEmbed {
     pub fn new(
-        users: &HashMap<u32, User>,
-        scores: &HashMap<u32, Vec<Score>>,
-        maps: &HashMap<u32, Beatmap>,
+        users: &[User],
+        map_scores: &MapScores,
         id_pps: &[(u32, f32)],
         index: usize,
     ) -> Self {
         let mut description = String::with_capacity(512);
 
         for (i, (map_id, _)) in id_pps.iter().enumerate() {
-            let map = match maps.get(map_id) {
-                Some(map) => map,
+            let (map, scores) = match map_scores.get(map_id) {
+                Some(tuple) => tuple,
                 None => {
                     warn!("Missing map {} for common embed", map_id);
 
@@ -39,30 +40,20 @@ impl CommonEmbed {
                 id = map.beatmap_id,
             );
 
-            let scores = scores.get(map_id).unwrap();
-            let first_score = scores.get(0).unwrap();
-            let first_user = users.get(&first_score.user_id).unwrap();
-            let second_score = scores.get(1).unwrap();
-            let second_user = users.get(&second_score.user_id).unwrap();
+            description.push('-');
 
-            let _ = write!(
-                description,
-                "- :first_place: `{}`: {:.2}pp :second_place: `{}`: {:.2}pp",
-                first_user.username,
-                first_score.pp.unwrap_or(0.0),
-                second_user.username,
-                second_score.pp.unwrap_or(0.0)
-            );
-
-            if users.len() > 2 {
-                let third_score = scores.get(2).unwrap();
-                let third_user = users.get(&third_score.user_id).unwrap();
-
+            for (i, (pos, pp)) in scores.iter().enumerate() {
                 let _ = write!(
                     description,
-                    " :third_place: `{}`: {:.2}pp",
-                    third_user.username,
-                    third_score.pp.unwrap_or(0.0)
+                    " :{medal}_place: `{name}`: {pp:.2}pp",
+                    medal = match pos {
+                        0 => "first",
+                        1 => "second",
+                        2 => "third",
+                        _ => unreachable!(),
+                    },
+                    name = users[i].username,
+                    pp = pp,
                 );
             }
 

@@ -74,11 +74,21 @@ pub fn levenshtein_distance(word_a: &str, word_b: &str) -> usize {
     costs[word_b.len()]
 }
 
-pub async fn get_combined_thumbnail(ctx: &Context, user_ids: &[u32]) -> BotResult<Vec<u8>> {
+pub async fn get_combined_thumbnail(
+    ctx: &Context,
+    user_ids: impl Iterator<Item = u32>,
+) -> BotResult<Vec<u8>> {
     let mut combined = DynamicImage::new_rgba8(128, 128);
-    let amount = user_ids.len() as u32;
+
+    //  Careful here.
+    //  Be sure the type implements size_hint accurately
+    let amount = user_ids.size_hint().0 as u32;
     let w = 128 / amount;
-    let pfp_futs = user_ids.iter().map(|id| ctx.clients.custom.get_avatar(*id));
+
+    let pfp_futs = user_ids
+        .into_iter()
+        .map(|id| ctx.clients.custom.get_avatar(id));
+
     let pfps = try_join_all(pfp_futs).await?;
 
     for (i, pfp) in pfps.iter().enumerate() {

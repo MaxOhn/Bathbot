@@ -37,7 +37,7 @@ mod whatif;
 
 pub use avatar::AvatarEmbed;
 pub use bws::BWSEmbed;
-pub use common::CommonEmbed;
+pub use common::{CommonEmbed, MapScores};
 pub use country_snipe_list::CountrySnipeListEmbed;
 pub use country_snipe_stats::CountrySnipeStatsEmbed;
 pub use leaderboard::LeaderboardEmbed;
