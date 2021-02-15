@@ -21,13 +21,16 @@ impl Cache {
             | ResourceType::ROLE
             | ResourceType::USER_CURRENT
             | ResourceType::USER;
+
         let config = InMemoryCache::builder()
             .message_cache_size(5)
             .resource_types(resource_types)
             .build()
             .config();
+
         let (cache, resume_map) =
             InMemoryCache::from_redis(redis, total_shards, shards_per_cluster, config).await;
+
         (Self(cache), resume_map)
     }
 }

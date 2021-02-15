@@ -9,6 +9,7 @@ pub struct ScraperScores {
 }
 
 impl ScraperScores {
+    #[inline]
     pub fn get(self) -> Vec<ScraperScore> {
         self.scores
     }
@@ -156,6 +157,7 @@ where
     D: Deserializer<'de>,
 {
     let f: f32 = Deserialize::deserialize(d)?;
+
     Ok(f * 100.0)
 }
 
@@ -165,6 +167,7 @@ where
 {
     let mods: Vec<&str> = Deserialize::deserialize(d)?;
     let mods: Result<GameMods, _> = mods.into_iter().map(GameMods::from_str).collect();
+
     mods.map_err(de::Error::custom)
 }
 
@@ -173,6 +176,7 @@ where
     D: Deserializer<'de>,
 {
     let g: &str = Deserialize::deserialize(d)?;
+
     Grade::from_str(g).map_err(de::Error::custom)
 }
 
@@ -181,6 +185,7 @@ where
     D: Deserializer<'de>,
 {
     let m: u8 = Deserialize::deserialize(d)?;
+
     GameMode::try_from(m).map_err(de::Error::custom)
 }
 
@@ -189,6 +194,7 @@ where
     D: Deserializer<'de>,
 {
     let m: i8 = Deserialize::deserialize(d)?;
+
     ApprovalStatus::try_from(m).map_err(de::Error::custom)
 }
 
@@ -197,8 +203,10 @@ where
     D: Deserializer<'de>,
 {
     let d: &str = Deserialize::deserialize(d)?;
+
     let d = DateTime::parse_from_rfc3339(d)
         .map_err(de::Error::custom)?
         .with_timezone(&Utc);
+
     Ok(d)
 }

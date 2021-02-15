@@ -67,6 +67,7 @@ impl From<Vec<OsuMedal>> for OsuMedals {
             .into_iter()
             .map(|medal| (medal.medal_id, medal))
             .collect();
+
         Self(medals)
     }
 }
@@ -75,6 +76,7 @@ impl IntoIterator for OsuMedals {
     type Item = (u32, OsuMedal);
     type IntoIter = std::collections::hash_map::IntoIter<u32, OsuMedal>;
 
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }
@@ -89,6 +91,7 @@ impl Deref for OsuMedals {
 }
 
 impl Default for OsuMedals {
+    #[inline]
     fn default() -> Self {
         Self(HashMap::default())
     }
@@ -197,6 +200,7 @@ impl fmt::Display for OsuProfilePlaystyle {
 impl<'de> Deserialize<'de> for OsuProfilePlaystyle {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let s: &str = Deserialize::deserialize(d)?;
+
         let playstyle = match s {
             "mouse" => Self::Mouse,
             "keyboard" => Self::Keyboard,
@@ -204,6 +208,7 @@ impl<'de> Deserialize<'de> for OsuProfilePlaystyle {
             "touch" => Self::Touch,
             _ => return Err(de::Error::custom(&format!("Unknown playstyle `{}`", s))),
         };
+
         Ok(playstyle)
     }
 }
@@ -264,10 +269,12 @@ where
     D: Deserializer<'de>,
 {
     let s: Option<String> = Deserialize::deserialize(d)?;
+
     Ok(s.map(|mut s| {
         s.replace_range(0..=2, "");
         let offset = s.chars().count() - 4;
         s.replace_range(offset..=3 + offset, "");
+
         s
     }))
 }
@@ -278,20 +285,24 @@ where
 {
     let s: String = Deserialize::deserialize(d)?;
     let naive_date = NaiveDate::parse_from_str(&s, "%Y-%m-%d").map_err(de::Error::custom)?;
+
     Ok(Date::from_utc(naive_date, Utc))
 }
 
 pub fn defaulting_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
     let u: Option<u32> = Deserialize::deserialize(d)?;
+
     Ok(u.unwrap_or_default())
 }
 
 pub fn rank_history_vec<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Vec<u32>>, D::Error> {
     let value: Option<Value> = Deserialize::deserialize(d)?;
+
     let mut value = match value {
         Some(value) => value,
         None => return Ok(None),
     };
+
     let data: Vec<_> = value
         .get_mut("data")
         .unwrap()
@@ -302,6 +313,7 @@ pub fn rank_history_vec<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Vec<u3
         .flat_map(|n| n.as_u64())
         .map(|n| n as u32)
         .collect();
+
     Ok(Some(data))
 }
 
@@ -310,6 +322,7 @@ where
     D: Deserializer<'de>,
 {
     let s: Option<String> = Deserialize::deserialize(d)?;
+
     s.map(|s| DateTime::parse_from_rfc3339(&s).map(|date| date.with_timezone(&Utc)))
         .transpose()
         .map_err(de::Error::custom)
@@ -320,6 +333,7 @@ where
     D: Deserializer<'de>,
 {
     let s: String = Deserialize::deserialize(d)?;
+
     DateTime::parse_from_rfc3339(&s)
         .map(|date| date.with_timezone(&Utc))
         .map_err(de::Error::custom)

@@ -33,6 +33,7 @@ impl Bucket {
 
     pub fn take(&mut self, user_id: u64) -> i64 {
         let time = Utc::now().timestamp();
+
         let user = self
             .users
             .entry(user_id)
@@ -54,6 +55,7 @@ impl Bucket {
         } else {
             user.tickets += 1;
             user.last_time = time;
+
             0
         }
     }
@@ -95,6 +97,7 @@ pub fn buckets() -> Buckets {
             delay,
             limit: Some((time_span, limit)),
         };
+
         buckets.insert(name, Mutex::new(Bucket::new(ratelimit)));
     };
 

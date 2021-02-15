@@ -104,6 +104,7 @@ impl OsuTracking {
         let mut cooldown = self.cooldown.write().await;
         let result = *cooldown;
         *cooldown = new_cooldown;
+
         result
     }
 
@@ -141,6 +142,7 @@ impl OsuTracking {
                 user_id, mode
             );
         }
+
         Ok(())
     }
 
@@ -180,6 +182,7 @@ impl OsuTracking {
         // Pop users and return them
         let elems = {
             let mut queue = self.queue.write().await;
+
             iter::repeat_with(|| queue.pop().map(|(key, _)| key))
                 .take(amount as usize)
                 .flatten()
@@ -229,6 +232,7 @@ impl OsuTracking {
                 Some(false) => {
                     if let Some(guard) = self.users.get(&key) {
                         let user = guard.value();
+
                         psql.update_osu_tracking(user_id, mode, user.last_top_score, &user.channels)
                             .await?
                     }
@@ -256,11 +260,10 @@ impl OsuTracking {
                 None => true,
             })
             .filter_map(|mut guard| {
-                if guard.value_mut().remove_channel(channel) {
-                    Some(*guard.key())
-                } else {
-                    None
-                }
+                guard
+                    .value_mut()
+                    .remove_channel(channel)
+                    .then(|| *guard.key())
             })
             .collect();
 
@@ -280,8 +283,10 @@ impl OsuTracking {
                     Some(guard) => guard,
                     None => continue,
                 };
+
                 let user = guard.value();
                 let (user_id, mode) = key;
+
                 psql.update_osu_tracking(user_id, mode, user.last_top_score, &user.channels)
                     .await?
             }
@@ -310,6 +315,7 @@ impl OsuTracking {
                     false => {
                         let value = guard.value_mut();
                         value.channels.insert(channel, limit);
+
                         psql.update_osu_tracking(
                             user_id,
                             mode,
@@ -322,16 +328,20 @@ impl OsuTracking {
                 None => {
                     let value = guard.value_mut();
                     value.channels.insert(channel, limit);
+
                     psql.update_osu_tracking(user_id, mode, value.last_top_score, &value.channels)
                         .await?;
                 }
             },
             None => {
                 debug!("Inserting {:?} for tracking", key);
+
                 psql.insert_osu_tracking(user_id, mode, last_top_score, channel, limit)
                     .await?;
+
                 let tracking_user =
                     TrackingUser::new(user_id, mode, last_top_score, channel, limit);
+
                 self.users.insert(key, tracking_user);
                 let now = Utc::now();
                 *self.last_date.write().await = now;

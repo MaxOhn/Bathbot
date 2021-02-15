@@ -44,6 +44,7 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
 
         // Iterate over the request responses
         let mut maps: HashMap<u32, Beatmap> = HashMap::new();
+
         for (user_id, mode, result) in join_all(score_futs).await {
             match result {
                 Ok(scores) => {
@@ -134,6 +135,7 @@ pub async fn process_tracking(
                     Ok(Some(map)) => maps.insert(map_id, map),
                     Ok(None) => {
                         warn!("Beatmap id {} was not found for tracking", map_id);
+
                         continue;
                     }
                     Err(why) => {
@@ -143,6 +145,7 @@ pub async fn process_tracking(
                             "Error while retrieving tracking map id {}: {}",
                             map_id
                         );
+
                         continue;
                     }
                 },
@@ -162,6 +165,7 @@ pub async fn process_tracking(
                 }
                 Ok(None) => {
                     warn!("Empty result while retrieving tracking user {}", user_id);
+
                     continue;
                 }
                 Err(why) => {
@@ -171,6 +175,7 @@ pub async fn process_tracking(
                         "Error while retrieving tracking user {}: {}",
                         user_id
                     );
+
                     continue;
                 }
             },
@@ -187,6 +192,7 @@ pub async fn process_tracking(
                     why,
                     "Error while creating tracking notification embed: {}"
                 );
+
                 continue;
             }
         };

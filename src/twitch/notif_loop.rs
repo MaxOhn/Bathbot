@@ -65,6 +65,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
             Ok(users) => users.into_iter().map(|u| (u.user_id, u)).collect(),
             Err(why) => {
                 unwind_error!(warn, why, "Error while retrieving twitch users: {}");
+
                 continue;
             }
         };
@@ -76,6 +77,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                 if let Ok(thumbnail) = strfmt(&stream.thumbnail_url, &fmt_data) {
                     stream.thumbnail_url = thumbnail;
                 }
+
                 (stream.user_id, stream)
             })
             .collect();
@@ -93,6 +95,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                 Ok(embed) => embed,
                 Err(why) => {
                     error!("Error while creating twitch notif embed: {}", why);
+
                     continue;
                 }
             };
@@ -101,6 +104,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                 match ctx.http.create_message(channel).embed(embed.clone()) {
                     Ok(msg_fut) => {
                         let result = msg_fut.await;
+
                         if let Err(TwilightError::Response { error, .. }) = result {
                             match error {
                                 ApiError::General(GeneralApiError {
@@ -140,6 +144,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                 }
             }
         }
+
         online_streams = now_online;
     }
 }

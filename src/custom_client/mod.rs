@@ -374,32 +374,41 @@ impl CustomClient {
             .text("sortOrder", (!params.descending as u8).to_string())
             .text("page", params.page.to_string())
             .text("u1", params.username.clone());
+
         if let Some(selection) = params.mods {
             let mut mod_str = String::with_capacity(3);
+
             let _ = match selection {
                 ModSelection::Include(mods) => write!(mod_str, "+{}", mods),
                 ModSelection::Exclude(mods) => write!(mod_str, "-{}", mods),
                 ModSelection::Exact(mods) => write!(mod_str, "!{}", mods),
             };
+
             form = form.text("mods", mod_str);
         }
+
         let url = "https://osustats.ppy.sh/api/getScores";
         debug!("Requesting POST from url {}", url);
         let request = self.client.post(url).multipart(form);
         self.ratelimit(Site::OsuStats).await;
+
         let response = match timeout(Duration::from_secs(4), request.send()).await {
             Ok(result) => result?,
             Err(_) => return Err(CustomClientError::OsuStatsTimeout),
         };
+
         let bytes = response.bytes().await?;
+
         let result: Value =
             serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
                 body: String::from_utf8_lossy(&bytes).into_owned(),
                 source,
                 request: "osu stats global",
             })?;
+
         let (scores, amount) = if let Value::Array(mut array) = result {
             let mut values = array.drain(..2);
+
             let scores = serde_json::from_value(values.next().unwrap()).map_err(|source| {
                 CustomClientError::Parsing {
                     body: String::from_utf8_lossy(&bytes).into_owned(),
@@ -407,6 +416,7 @@ impl CustomClient {
                     request: "osu stats global scores",
                 }
             })?;
+
             let amount = serde_json::from_value(values.next().unwrap()).map_err(|source| {
                 CustomClientError::Parsing {
                     body: String::from_utf8_lossy(&bytes).into_owned(),
@@ -414,10 +424,12 @@ impl CustomClient {
                     request: "osu stats global amount",
                 }
             })?;
+
             (scores, amount)
         } else {
             (Vec::new(), 0)
         };
+
         Ok((scores, amount))
     }
 
@@ -433,14 +445,17 @@ impl CustomClient {
             id = user_id,
             limit = amount,
         );
+
         let response = self.make_request(url, Site::OsuWebsite).await?;
         let bytes = response.bytes().await?;
+
         let maps: Vec<MostPlayedMap> =
             serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
                 body: String::from_utf8_lossy(&bytes).into_owned(),
                 source,
                 request: "most played",
             })?;
+
         Ok(maps)
     }
 
@@ -543,6 +558,7 @@ impl CustomClient {
     pub async fn get_avatar(&self, user_id: u32) -> ClientResult<Vec<u8>> {
         let url = format!("{}{}", AVATAR_URL, user_id);
         let response = self.make_request(url, Site::OsuAvatar).await?;
+
         Ok(response.bytes().await?.to_vec())
     }
 
@@ -558,29 +574,36 @@ impl CustomClient {
             user_id = user_id,
             mode = mode
         );
+
         let body = self
             .make_request(url, Site::OsuWebsite)
             .await?
             .text()
             .await?;
+
         let html = Html::parse_document(&body);
         let user_element = Selector::parse("#json-user").unwrap();
+
         let json = match html.select(&user_element).next() {
             Some(element) => element.first_child().unwrap().value().as_text().unwrap(),
             None => return Err(CustomClientError::MissingElement("#json-user")),
         };
+
         let user: OsuProfile =
             serde_json::from_str(json.trim()).map_err(|source| CustomClientError::Parsing {
                 body: json.to_string(),
                 source,
                 request: "osu profile",
             })?;
+
         let medals = if with_all_medals {
             let medal_element = Selector::parse("#json-achievements").unwrap();
+
             let json = match html.select(&medal_element).next() {
                 Some(element) => element.first_child().unwrap().value().as_text().unwrap(),
                 None => return Err(CustomClientError::MissingElement("#json-achievements")),
             };
+
             serde_json::from_str::<Vec<OsuMedal>>(json.trim())
                 .map_err(|source| CustomClientError::Parsing {
                     body: json.to_string(),
@@ -591,12 +614,14 @@ impl CustomClient {
         } else {
             OsuMedals::default()
         };
+
         Ok((user, medals))
     }
 
     pub async fn get_rank_data(&self, mode: GameMode, param: RankParam) -> ClientResult<RankPP> {
         let key = &CONFIG.get().unwrap().tokens.osu_daily;
         let mut url = format!("{}pp?k={}&m={}&", OSU_DAILY_API, key, mode as u8);
+
         let _ = match param {
             RankParam::Rank(rank) => write!(url, "t=rank&v={}", rank),
             RankParam::Pp(pp) => write!(url, "t=pp&v={}", round(pp)),

@@ -68,6 +68,8 @@ pub struct ContextData {
 }
 
 impl Context {
+    #[cold]
+    #[inline]
     pub async fn new(
         cache: Cache,
         stats: Arc<BotStats>,
@@ -128,6 +130,7 @@ impl Context {
     }
 }
 
+#[inline]
 pub fn generate_activity(activity_type: ActivityType, message: String) -> Activity {
     Activity {
         assets: None,

@@ -10,6 +10,7 @@ pub struct BeatconnectSearchParams {
 }
 
 impl BeatconnectSearchParams {
+    #[inline]
     pub fn new(query: impl Into<String>) -> Self {
         Self {
             query: query.into(),
@@ -19,14 +20,17 @@ impl BeatconnectSearchParams {
         }
     }
 
+    #[inline]
     pub fn next_page(&mut self) {
         self.page += 1;
     }
 
+    #[inline]
     pub fn mode(&mut self, mode: GameMode) {
         self.mode.replace(mode);
     }
 
+    #[inline]
     pub fn status(&mut self, status: BeatconnectMapStatus) {
         self.status = status;
     }
@@ -88,6 +92,7 @@ pub struct BeatconnectSearchResponse {
 }
 
 impl BeatconnectSearchResponse {
+    #[inline]
     pub fn is_last_page(&self) -> bool {
         self.max_page == 0
     }

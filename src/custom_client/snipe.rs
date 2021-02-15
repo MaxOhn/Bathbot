@@ -511,6 +511,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
             // "diff_od",
             // "seconds_total",
         ];
+
         deserializer.deserialize_struct("SnipeScore", FIELDS, SnipeScoreVisitor)
     }
 }

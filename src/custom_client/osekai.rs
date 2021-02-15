@@ -86,6 +86,7 @@ where
     D: Deserializer<'de>,
 {
     let s: Option<String> = Deserialize::deserialize(d)?;
+
     let m = match s.as_deref() {
         Some("NULL") | None => return Ok(None),
         Some("osu") => GameMode::STD,
@@ -99,5 +100,6 @@ where
             ))
         }
     };
+
     Ok(Some(m))
 }

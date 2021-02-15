@@ -43,6 +43,7 @@ pub async fn get_title_artist(ctx: &Context, mapset_id: u32) -> GameResult<(Stri
                     if let Err(why) = ctx.psql().insert_beatmap(&map).await {
                         unwind_error!(warn, why, "Error while inserting bg game map into DB: {}");
                     }
+
                     (map.title.to_lowercase(), map.artist)
                 }
                 Ok(None) => return Err(BgGameError::NoMapResult(mapset_id)),

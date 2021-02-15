@@ -86,7 +86,9 @@ async fn async_main() -> BotResult<()> {
                 .build_solo(),
         )
         .build();
+
     let bot_user = http.current_user().await?;
+
     info!(
         "Connecting to Discord as {}#{}...",
         bot_user.name, bot_user.discriminator
@@ -100,6 +102,7 @@ async fn async_main() -> BotResult<()> {
 
     // Connect to osu! API
     let osu_token = &CONFIG.get().unwrap().tokens.osu;
+
     let osu = Osu::builder(osu_token, redis.clone())
         .cache_duration(300)
         .add_cached(OsuCached::User)
@@ -170,9 +173,11 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     let resumed = if let Some(map) = resume_map {
         cb = cb.resume_sessions(map);
         info!("Cold resume successful");
+
         true
     } else {
         info!("Boot without cold resume");
+
         false
     };
 
@@ -201,6 +206,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
 
     // Setup graceful shutdown
     let shutdown_ctx = Arc::clone(&ctx);
+
     tokio::spawn(async move {
         if let Err(err) = signal::ctrl_c().await {
             unwind_error!(error, err, "Error while waiting for ctrlc: {}");
@@ -243,14 +249,17 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
 
     // Activate cluster
     let cluster_ctx = Arc::clone(&ctx);
+
     tokio::spawn(async move {
         time::sleep(Duration::from_secs(1)).await;
         cluster_ctx.backend.cluster.up().await;
+
         if resumed {
             time::sleep(Duration::from_secs(5)).await;
             let activity_result = cluster_ctx
                 .set_cluster_activity(Status::Online, ActivityType::Playing, String::from("osu!"))
                 .await;
+
             if let Err(why) = activity_result {
                 unwind_error!(warn, why, "Error while setting activity: {}");
             }
@@ -302,9 +311,11 @@ fn shard_schema_values() -> Option<(u64, u64)> {
                 .help("How many shards per cluster"),
         )
         .get_matches();
+
     // Either of them given?
     args.value_of("shards per cluster")
         .or_else(|| args.value_of("total shards"))?;
+
     // If so, parse
     let shards_per_cluster = args
         .value_of("shards per cluster")
@@ -314,6 +325,7 @@ fn shard_schema_values() -> Option<(u64, u64)> {
         .flatten()
         .unwrap_or(1)
         .saturating_sub(1); // (starts from 0)
+
     let total_shards = args
         .value_of("total shards")
         .map(u64::from_str)
@@ -321,31 +333,38 @@ fn shard_schema_values() -> Option<(u64, u64)> {
         .ok()
         .flatten()
         .unwrap_or(shards_per_cluster + 1);
+
     Some((shards_per_cluster, total_shards))
 }
 
 async fn _run_metrics_server(stats: Arc<BotStats>, shutdown_rx: oneshot::Receiver<()>) {
     let metric_service = make_service_fn(move |_| {
         let stats = Arc::clone(&stats);
+
         async move {
             Ok::<_, Infallible>(service_fn(move |_req| {
                 let mut buffer = Vec::new();
                 let encoder = TextEncoder::new();
                 let metric_families = stats.registry.gather();
                 encoder.encode(&metric_families, &mut buffer).unwrap();
+
                 async move { Ok::<_, Infallible>(Response::new(Body::from(buffer))) }
             }))
         }
     });
+
     let ip = CONFIG.get().unwrap().metric_server_ip;
     let port = CONFIG.get().unwrap().metric_server_port;
     let addr = std::net::SocketAddr::from((ip, port));
+
     let server = hyper::Server::bind(&addr)
         .serve(metric_service)
         .with_graceful_shutdown(async {
             let _ = shutdown_rx.await;
         });
+
     info!("Running metrics server...");
+
     if let Err(why) = server.await {
         error!("Metrics server failed: {}", why);
     }

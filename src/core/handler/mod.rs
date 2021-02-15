@@ -146,6 +146,7 @@ pub async fn handle_event(
                 }
                 Invoke::Help(None) => {
                     let is_authority = check_authority(&ctx, msg).transpose().is_none();
+
                     help(&ctx, &cmds, msg, is_authority)
                         .await
                         .map(ProcessResult::success)
@@ -213,6 +214,7 @@ enum ProcessResult {
 }
 
 impl ProcessResult {
+    #[inline]
     fn success(_: ()) -> Self {
         Self::Success
     }
