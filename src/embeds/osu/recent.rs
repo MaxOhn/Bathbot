@@ -126,6 +126,7 @@ impl RecentEmbed {
                     .attributes(attributes)
                     .combo(score.max_combo as usize)
                     .mods(mods)
+                    .misses(score.count_miss as usize)
                     .accuracy(score.accuracy(GameMode::TKO))
                     .calculate(),
             };

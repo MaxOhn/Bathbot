@@ -9,6 +9,7 @@ async-trait  = "0.1"
 bitflags     = "1.2"
 bytes        = "1.0"
 cow-utils    = "0.1"
+funty        = "=1.1.0" # TODO: Remove
 futures      = "0.3"
 governor     = "0.3"
 itertools    = "0.10"
