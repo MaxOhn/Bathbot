@@ -38,9 +38,7 @@ version = "2.33"
 default_features = false
 
 [dependencies.darkredis]
-# version = "0.7"
-git = "https://github.com/BlackHoleFox/darkredis.git"
-branch = "tokio-and-dependency-updates"
+version = "0.8"
 
 [dependencies.dashmap]
 version = "4.0"
@@ -78,8 +76,7 @@ features = ["cookies", "multipart"]
 [dependencies.rosu]
 # version = "0.5"
 git = "https://github.com/MaxOhn/rosu"
-# branch = "master"
-branch = "darkredis-patch"
+branch = "master"
 # path = "../rosu"
 features = ["cache", "metrics"]
 
@@ -120,42 +117,36 @@ default_features = false
 
 [dependencies.twilight-cache-inmemory]
 # path = "../twilight/cache/in-memory"
-# branch = "custom-cache"
-branch = "darkredis-patch"
+branch = "custom-cache"
 git = "https://github.com/MaxOhn/twilight"
 
 [dependencies.twilight-embed-builder]
 # path = "../twilight/embed-builder"
-# branch = "custom-cache"
-branch = "darkredis-patch"
+branch = "custom-cache"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false
 
 [dependencies.twilight-gateway]
 # path = "../twilight/gateway"
-# branch = "custom-cache"
-branch = "darkredis-patch"
+branch = "custom-cache"
 git = "https://github.com/MaxOhn/twilight"
 
 [dependencies.twilight-http]
 # path = "../twilight/http"
-# branch = "custom-cache"
-branch = "darkredis-patch"
+branch = "custom-cache"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false
 features = ["rustls"]
 
 [dependencies.twilight-model]
 # path = "../twilight/model"
-# branch = "custom-cache"
-branch = "darkredis-patch"
+branch = "custom-cache"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false
 
 [dependencies.twilight-standby]
 # path = "../twilight/standby"
-# branch = "custom-cache"
-branch = "darkredis-patch"
+branch = "custom-cache"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false
 
