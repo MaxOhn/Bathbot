@@ -48,11 +48,13 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
 
     // Make sure arguments are roles of the guild
     let mut new_auths = Vec::with_capacity(10);
+
     for arg in args {
         let role_id = match matcher::get_mention_role(arg) {
             Some(id) => id,
             None => {
                 let content = format!("Expected role mention or role id, got `{}`", arg);
+
                 return msg.error(&ctx, content).await;
             }
         };
@@ -60,6 +62,7 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
             Some(role) => new_auths.push(role),
             None => {
                 let content = format!("No role with id {} found in this guild", role_id);
+
                 return msg.error(&ctx, content).await;
             }
         }
@@ -74,14 +77,17 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
                     .iter()
                     .filter_map(|&role_id| ctx.cache.role(role_id))
                     .any(|role| role.permissions.contains(Permissions::ADMINISTRATOR));
+
                 if !is_auth_with_roles {
                     let content = "You cannot set authority roles to something \
                         that would make you lose authority status.";
+
                     return msg.error(&ctx, content).await;
                 }
             }
             None => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
                 bail!("member {} not cached for guild {}", msg.author.id, guild_id);
             }
         }
@@ -96,17 +102,21 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
     let roles = ctx.config_authorities(guild_id);
     role_string(&ctx, &roles, guild_id, &mut content);
     msg.respond(&ctx, content).await?;
+
     Ok(())
 }
 
 fn role_string(ctx: &Context, roles: &[u64], guild_id: GuildId, content: &mut String) {
     let mut iter = roles.iter();
+
     if let Some(first) = iter.next() {
         content.reserve(roles.len() * 20);
         let _ = write!(content, "`<@&{}>`", first);
+
         for role in iter {
             let _ = write!(content, ", `<@&{}>`", role);
         }
+
         content_safe(&ctx, content, Some(guild_id));
     } else {
         content.push_str("None");

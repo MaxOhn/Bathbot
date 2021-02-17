@@ -10,9 +10,13 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::model::{
-    ApprovalStatus::{Approved, Loved, Qualified, Ranked},
-    GameMode, Score,
+use reqwest::StatusCode;
+use rosu::{
+    model::{
+        ApprovalStatus::{Approved, Loved, Qualified, Ranked},
+        GameMode, Score,
+    },
+    OsuError,
 };
 use std::{collections::HashMap, sync::Arc};
 use tokio::time::{sleep, Duration};
@@ -51,8 +55,6 @@ async fn recent_main(
         None => return super::require_link(&ctx, msg).await,
     };
 
-    let num = num.unwrap_or(1).saturating_sub(1);
-
     // Retrieve the user and their recent scores
     let user_fut = ctx.osu().user(name.as_str()).mode(mode);
     let scores_fut = ctx.osu().recent_scores(name.as_str()).mode(mode).limit(50);
@@ -72,18 +74,40 @@ async fn recent_main(
                     GameMode::CTB => "ctb ",
                     GameMode::MNA => "mania ",
                 },
-                name
+                name,
             );
 
             return msg.error(&ctx, content).await;
         }
         Ok((Some(user), scores)) => (user, scores),
+        Err(OsuError::Response {
+            status: StatusCode::UNAUTHORIZED,
+            ..
+        }) if name.contains('#') => {
+            let content = format!(
+                "You gave an invalid name, they can't contain the `#` symbol.\n\
+                If they are linked, you can also ping them as an argument, e.g.\n\
+                {prefix}recent{mode} <@{user_id}>",
+                prefix = ctx.config_first_prefix(msg.guild_id),
+                mode = match mode {
+                    GameMode::STD => "",
+                    GameMode::TKO => "taiko",
+                    GameMode::CTB => "ctb",
+                    GameMode::MNA => "mania",
+                },
+                user_id = msg.author.id,
+            );
+
+            return msg.error(&ctx, content).await;
+        }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
     };
+
+    let num = num.unwrap_or(1).saturating_sub(1);
 
     let score = match scores.get(num) {
         Some(score) => score,

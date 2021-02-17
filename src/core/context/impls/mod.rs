@@ -31,6 +31,7 @@ impl Context {
             .map(|guard| RoleId(*guard.value()))
     }
 
+    #[inline]
     pub fn tracking(&self) -> &OsuTracking {
         &self.data.osu_tracking
     }
@@ -48,10 +49,12 @@ impl Context {
         }
     }
 
+    #[inline]
     pub fn store_msg(&self, msg: MessageId) {
         self.data.msgs_to_process.insert(msg);
     }
 
+    #[inline]
     pub fn remove_msg(&self, msg: MessageId) -> bool {
         self.data.msgs_to_process.remove(&msg).is_some()
     }
