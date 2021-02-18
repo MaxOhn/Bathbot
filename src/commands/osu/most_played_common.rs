@@ -40,7 +40,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
         }
         1 => match ctx.get_link(msg.author.id.0) {
             Some(name) => {
-                args.names.push(name);
+                args.names.insert(0, name);
 
                 args.names
             }
@@ -73,17 +73,14 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
             .map_ok(move |user| (i, user))
     });
 
-    let users: HashMap<u32, User> = match try_join_all(user_futs).await {
+    let users: Vec<User> = match try_join_all(user_futs).await {
         Ok(users) => match users.iter().find(|(_, user)| user.is_none()) {
             Some((idx, _)) => {
                 let content = format!("User `{}` was not found", names[*idx]);
 
                 return msg.error(&ctx, content).await;
             }
-            None => users
-                .into_iter()
-                .filter_map(|(_, user)| user.map(|user| (user.user_id, user)))
-                .collect(),
+            None => users.into_iter().filter_map(|(_, user)| user).collect(),
         },
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
@@ -94,13 +91,11 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 
     // Check if different names were given
     // that both belong to the same user
-    if users.len() == 1 {
+    if users.iter().unique_by(|user| user.user_id).count() == 1 {
         let content = "Give at least two different names";
 
         return msg.error(&ctx, content).await;
     }
-
-    let users: Vec<_> = users.into_iter().map(|(_, user)| user).collect();
 
     // Retrieve all most played maps and store their count for each user
     let map_futs = users

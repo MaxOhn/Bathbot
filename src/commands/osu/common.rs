@@ -37,7 +37,7 @@ async fn common_main(
         }
         1 => match ctx.get_link(msg.author.id.0) {
             Some(name) => {
-                args.names.push(name);
+                args.names.insert(0, name);
 
                 args.names
             }
@@ -70,7 +70,7 @@ async fn common_main(
             .map_ok(move |user| (i, user))
     });
 
-    let users: HashMap<u32, User> = match try_join_all(user_futs).await {
+    let mut users: Vec<CommonUser> = match try_join_all(user_futs).await {
         Ok(users) => match users.iter().find(|(_, user)| user.is_none()) {
             Some((idx, _)) => {
                 let content = format!("User `{}` was not found", names[*idx]);
@@ -79,7 +79,7 @@ async fn common_main(
             }
             None => users
                 .into_iter()
-                .filter_map(|(_, user)| user.map(|user| (user.user_id, user)))
+                .filter_map(|(_, user)| user.map(CommonUser::from))
                 .collect(),
         },
         Err(why) => {
@@ -91,13 +91,11 @@ async fn common_main(
 
     // Check if different names were given
     // that both belong to the same user
-    if users.len() == 1 {
+    if users.iter().unique_by(|user| user.id()).count() == 1 {
         let content = "Give at least two different users";
 
         return msg.error(&ctx, content).await;
     }
-
-    let mut users: Vec<CommonUser> = users.into_iter().map(|(_, user)| user.into()).collect();
 
     // Retrieve each user's top scores
     let score_futs = users.iter().map(|u| {
