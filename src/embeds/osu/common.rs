@@ -65,8 +65,9 @@ impl CommonEmbed {
             description.push('\n');
         }
 
-        let mut footer = String::with_capacity(64);
+        description.pop();
 
+        let mut footer = String::with_capacity(64);
         footer.push_str("🥇 count");
 
         for user in users {

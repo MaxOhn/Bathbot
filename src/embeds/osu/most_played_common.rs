@@ -15,14 +15,18 @@ pub struct MostPlayedCommonEmbed {
 
 impl MostPlayedCommonEmbed {
     pub fn new(
-        users: &HashMap<u32, User>,
+        users: &[User],
         maps: &[MostPlayedMap],
-        users_count: &HashMap<u32, HashMap<u32, u32>>,
+        users_count: &[HashMap<u32, u32>],
         index: usize,
     ) -> Self {
         let mut description = String::with_capacity(512);
 
+        let mut positions = Vec::with_capacity(users.len());
+
         for (i, map) in maps.iter().enumerate() {
+            let map_id = &map.beatmap_id;
+
             let _ = writeln!(
                 description,
                 "**{idx}.** [{title} [{version}]]({base}b/{id}) [{stars}]",
@@ -30,45 +34,43 @@ impl MostPlayedCommonEmbed {
                 title = map.title,
                 version = map.version,
                 base = OSU_BASE,
-                id = map.beatmap_id,
+                id = map_id,
                 stars = osu::get_stars(map.stars),
             );
 
-            let mut top_users: Vec<(u32, u32)> = users_count
-                .iter()
-                .map(|(user_id, entry)| (*user_id, *entry.get(&map.beatmap_id).unwrap()))
-                .collect();
+            description.push('-');
 
-            top_users.sort_unstable_by(|a, b| b.1.cmp(&a.1));
-            let mut top_users = top_users.into_iter().take(3);
+            positions.extend(users.iter().map(|_| 0_u8));
 
-            let (first_name, first_count) = top_users
-                .next()
-                .map(|(user_id, count)| (&users.get(&user_id).unwrap().username, count))
-                .unwrap();
+            let count_0 = users_count[0][map_id];
+            let count_1 = users_count[1][map_id];
 
-            let (second_name, second_count) = top_users
-                .next()
-                .map(|(user_id, count)| (&users.get(&user_id).unwrap().username, count))
-                .unwrap();
+            positions[(count_0 > count_1) as usize] += 1;
 
-            let _ = write!(
-                description,
-                "- :first_place: `{}`: **{}** :second_place: `{}`: **{}**",
-                first_name, first_count, second_name, second_count
-            );
+            if let Some(&count_2) = users_count.get(2).and_then(|counts| counts.get(map_id)) {
+                positions[2 * (count_0 > count_2) as usize] += 1;
+                positions[1 + (count_1 > count_2) as usize] += 1;
+            }
 
-            if let Some((third_id, third_count)) = top_users.next() {
-                let third_name = &users.get(&third_id).unwrap().username;
+            for (i, (user, pos)) in users.iter().zip(positions.drain(..)).enumerate() {
                 let _ = write!(
                     description,
-                    " :third_place: `{}`: **{}**",
-                    third_name, third_count
+                    " :{medal}_place: `{name}`: **{count}**",
+                    medal = match pos {
+                        0 => "first",
+                        1 => "second",
+                        2 => "third",
+                        _ => unreachable!(),
+                    },
+                    name = user.username,
+                    count = users_count[i][map_id],
                 );
             }
 
             description.push('\n');
         }
+
+        description.pop();
 
         Self {
             description,

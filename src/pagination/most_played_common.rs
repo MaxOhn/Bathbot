@@ -10,16 +10,16 @@ use twilight_model::channel::Message;
 pub struct MostPlayedCommonPagination {
     msg: Message,
     pages: Pages,
-    users: HashMap<u32, User>,
-    users_count: HashMap<u32, HashMap<u32, u32>>,
+    users: Vec<User>,
+    users_count: Vec<HashMap<u32, u32>>,
     maps: Vec<MostPlayedMap>,
 }
 
 impl MostPlayedCommonPagination {
     pub fn new(
         msg: Message,
-        users: HashMap<u32, User>,
-        users_count: HashMap<u32, HashMap<u32, u32>>,
+        users: Vec<User>,
+        users_count: Vec<HashMap<u32, u32>>,
         maps: Vec<MostPlayedMap>,
     ) -> Self {
         Self {
