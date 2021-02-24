@@ -22,6 +22,7 @@ lazy_static::lazy_static! {
         add("Chile", "CL");
         add("China", "CN");
         add("Colombia", "CO");
+        add("Cyprus", "CY");
         add("Czech Republic", "CZ");
         add("Ecuador", "EC");
         add("Denmark", "DK");
@@ -36,6 +37,7 @@ lazy_static::lazy_static! {
         add("Italy", "IT");
         add("Israel", "IL");
         add("Japan", "JP");
+        add("Lithuania", "LT");
         add("Malaysia", "MY");
         add("Netherlands", "NL");
         add("Norway", "NO");
