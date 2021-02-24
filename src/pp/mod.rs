@@ -8,7 +8,7 @@ use rosu::model::{GameMode, GameMods, Grade};
 use rosu_pp::{
     Beatmap, BeatmapExt as RosuBeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, TaikoPP,
 };
-use std::fs::File;
+use tokio::fs::File;
 
 bitflags! {
     pub struct Calculations: u8 {
@@ -63,23 +63,23 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
         let map = match self.map.as_deref() {
             Some(map) => {
                 let map_path = prepare_beatmap_file(map.map_id()).await?;
-                let file = File::open(map_path).map_err(PPError::IoError)?;
-                Beatmap::parse(file).map_err(PPError::from)?
+                let file = File::open(map_path).await.map_err(PPError::from)?;
+
+                Beatmap::parse(file).await.map_err(PPError::from)?
             }
             None => return Err(PPError::NoMapId.into()),
         };
 
         let score = self.score.as_deref();
+
         let mods = score
             .map_or_else(|| self.mods.unwrap_or(GameMods::NoMod), |s| s.mods())
             .bits();
 
         // Max PP
-        let max_pp_result = if calcs.contains(Calculations::MAX_PP) {
-            Some(map.max_pp(mods))
-        } else {
-            None
-        };
+        let max_pp_result = calcs
+            .contains(Calculations::MAX_PP)
+            .then(|| map.max_pp(mods));
 
         let max_pp = max_pp_result.as_ref().map(|result| result.pp());
         let mut stars = max_pp_result.as_ref().map(|result| result.stars());

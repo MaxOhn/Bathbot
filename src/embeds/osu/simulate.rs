@@ -17,7 +17,8 @@ use rosu_pp::{
     Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, PpResult, StarResult,
     TaikoPP,
 };
-use std::{fmt::Write, fs::File};
+use std::fmt::Write;
+use tokio::fs::File;
 use twilight_embed_builder::{builder::EmbedBuilder, image_source::ImageSource};
 use twilight_model::channel::embed::EmbedField;
 
@@ -73,8 +74,8 @@ impl SimulateEmbed {
 
         let mut unchoked_score = score.unwrap_or_default();
         let map_path = prepare_beatmap_file(map.beatmap_id).await?;
-        let file = File::open(map_path).map_err(PPError::from)?;
-        let rosu_map = Map::parse(file).map_err(PPError::from)?;
+        let file = File::open(map_path).await.map_err(PPError::from)?;
+        let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
 
         if let Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) = args.mods {
             unchoked_score.enabled_mods = mods;

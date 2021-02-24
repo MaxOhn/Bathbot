@@ -14,7 +14,8 @@ use crate::{
 use chrono::{DateTime, Utc};
 use rosu::model::{Beatmap, GameMode, Score, User};
 use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, OsuPP, StarResult, TaikoPP};
-use std::{fmt::Write, fs::File};
+use std::fmt::Write;
+use tokio::fs::File;
 use twilight_embed_builder::{
     author::EmbedAuthorBuilder, builder::EmbedBuilder, image_source::ImageSource,
 };
@@ -52,8 +53,8 @@ impl TopSingleEmbed {
         global: Option<&[Score]>,
     ) -> BotResult<Self> {
         let map_path = prepare_beatmap_file(map.beatmap_id).await?;
-        let file = File::open(map_path).map_err(PPError::from)?;
-        let rosu_map = Map::parse(file).map_err(PPError::from)?;
+        let file = File::open(map_path).await.map_err(PPError::from)?;
+        let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
         let mods = score.enabled_mods.bits();
         let max_result = rosu_map.max_pp(mods);
         let attributes = max_result.attributes;

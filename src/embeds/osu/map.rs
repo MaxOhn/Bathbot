@@ -13,7 +13,8 @@ use crate::{
 use chrono::{DateTime, Utc};
 use rosu::model::{Beatmap, GameMode, GameMods};
 use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, TaikoPP};
-use std::{fmt::Write, fs::File};
+use std::fmt::Write;
+use tokio::fs::File;
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct MapEmbed {
@@ -70,8 +71,8 @@ impl MapEmbed {
         let mut fields = Vec::with_capacity(3);
 
         let map_path = prepare_beatmap_file(map.beatmap_id).await?;
-        let file = File::open(map_path).map_err(PPError::from)?;
-        let rosu_map = Map::parse(file).map_err(PPError::from)?;
+        let file = File::open(map_path).await.map_err(PPError::from)?;
+        let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
         let mod_bits = mods.bits();
 
         let mod_mult = 0.5_f32.powi(

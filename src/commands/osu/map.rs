@@ -19,7 +19,8 @@ use plotters::prelude::*;
 use rayon::prelude::*;
 use rosu::model::{GameMode, GameMods};
 use rosu_pp::{Beatmap, BeatmapExt};
-use std::{cmp::Ordering, fs::File, sync::Arc};
+use std::{cmp::Ordering, sync::Arc};
+use tokio::fs::File;
 use twilight_model::channel::Message;
 
 const W: u32 = 590;
@@ -230,8 +231,8 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
 async fn strain_values(map_id: u32, mods: GameMods) -> BotResult<Vec<(f32, f32)>> {
     let map_path = prepare_beatmap_file(map_id).await?;
-    let file = File::open(map_path)?;
-    let map = Beatmap::parse(file).map_err(PPError::from)?;
+    let file = File::open(map_path).await.map_err(PPError::from)?;
+    let map = Beatmap::parse(file).await.map_err(PPError::from)?;
     let strains = map.strains(mods.bits());
     let section_len = strains.section_length;
 

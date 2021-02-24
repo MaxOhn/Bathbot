@@ -8,6 +8,7 @@
 - ~~`<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)~~
 
 **[Sometime]**
+- Provide feature to disable certain commands in certain channels
 - Experiment with different team/opponent scaling for `<mc`
 - Check on `thread 'tokio-runtime-worker' panicked at 'error binding to 169.254.124.89:9094:`
     `error creating server listener: Cannot assign requested address (os error 99)'"`

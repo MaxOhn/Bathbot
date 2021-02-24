@@ -18,7 +18,8 @@ use chrono::{Datelike, Utc};
 use rosu::model::{GameMode, Score};
 use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_pp_older::*;
-use std::{cmp::Ordering, collections::HashMap, fs::File, sync::Arc};
+use std::{cmp::Ordering, collections::HashMap, sync::Arc};
+use tokio::fs::File;
 use twilight_embed_builder::builder::EmbedBuilder;
 use twilight_model::channel::Message;
 
@@ -253,8 +254,8 @@ async fn topold_main(
     // Calculate pp values
     for (_, score, map, max_pp) in scores_data.iter_mut() {
         let map_path = prepare_beatmap_file(map.beatmap_id).await?;
-        let file = File::open(map_path)?;
-        let rosu_map = Beatmap::parse(file).map_err(PPError::from)?;
+        let file = File::open(map_path).await.map_err(PPError::from)?;
+        let rosu_map = Beatmap::parse(file).await.map_err(PPError::from)?;
         let mods = score.enabled_mods.bits();
 
         if (mode == GameMode::STD && year >= 2021)
@@ -358,6 +359,7 @@ async fn topold_main(
 #[long_desc(
     "Display how the user's **current** top100 would have looked like \
     in a previous year.\n\
+    Note that the command will **not** change scores, just recalculate their pp.\n\
     The osu!standard pp history looks roughly like this:\n  \
     - 2012: ppv1 (unavailable)\n  \
     - 2014: ppv2 (unavailable)\n  \
@@ -381,6 +383,7 @@ pub async fn topold(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 #[long_desc(
     "Display how the user's **current** top100 would have looked like \
     in a previous year.\n\
+    Note that the command will **not** change scores, just recalculate their pp.\n\
     The osu!mania pp history looks roughly like this:\n  \
     - 2014: ppv1\n  \
     - 2018: ppv2\n    \
@@ -398,6 +401,7 @@ pub async fn topoldmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 #[long_desc(
     "Display how the user's **current** top100 would have looked like \
     in a previous year.\n\
+    Note that the command will **not** change scores, just recalculate their pp.\n\
     The osu!taiko pp history looks roughly like this:\n  \
     - 2014: ppv1\n  \
     - 2020: Revamp\n    \
@@ -415,6 +419,7 @@ pub async fn topoldtaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 #[long_desc(
     "Display how the user's **current** top100 would have looked like \
     in a previous year.\n\
+    Note that the command will **not** change scores, just recalculate their pp.\n\
     The osu!ctb pp history looks roughly like this:\n  \
     - 2014: ppv1\n  \
     - 2020: Revamp\n    \

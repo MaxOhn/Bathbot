@@ -17,7 +17,8 @@ use rosu::model::{Beatmap, GameMode};
 use rosu_pp::{
     Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, StarResult, TaikoPP,
 };
-use std::{borrow::Cow, collections::HashMap, fmt::Write, fs::File};
+use std::{borrow::Cow, collections::HashMap, fmt::Write};
+use tokio::fs::File;
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct LeaderboardEmbed {
@@ -48,8 +49,8 @@ impl LeaderboardEmbed {
 
         let description = if let Some(scores) = scores {
             let map_path = prepare_beatmap_file(map.beatmap_id).await?;
-            let file = File::open(map_path).map_err(PPError::from)?;
-            let rosu_map = Map::parse(file).map_err(PPError::from)?;
+            let file = File::open(map_path).await.map_err(PPError::from)?;
+            let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
 
             let mut mod_map = HashMap::new();
             let mut description = String::with_capacity(256);

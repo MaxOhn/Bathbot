@@ -14,7 +14,8 @@ use rosu::model::{Beatmap, GameMode, Grade, Score, User};
 use rosu_pp::{
     Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, StarResult, TaikoPP,
 };
-use std::{collections::HashMap, fmt::Write, fs::File};
+use std::{collections::HashMap, fmt::Write};
+use tokio::fs::File;
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct RecentListEmbed {
@@ -49,8 +50,8 @@ impl RecentListEmbed {
             #[allow(clippy::map_entry)]
             if !rosu_maps.contains_key(&map.beatmap_id) {
                 let map_path = prepare_beatmap_file(map.beatmap_id).await?;
-                let file = File::open(map_path).map_err(PPError::from)?;
-                let rosu_map = Map::parse(file).map_err(PPError::from)?;
+                let file = File::open(map_path).await.map_err(PPError::from)?;
+                let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
 
                 rosu_maps.insert(map.beatmap_id, rosu_map);
             };

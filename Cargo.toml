@@ -84,6 +84,7 @@ features = ["cache", "metrics"]
 # path = "../rosu-pp"
 git = "https://github.com/MaxOhn/rosu-pp"
 branch = "next"
+features = ["async_tokio"]
 # version = "0.1"
 
 [dependencies.rosu-pp-older]

@@ -18,7 +18,8 @@ use crate::{
 use futures::future::try_join_all;
 use rosu::model::GameMode;
 use rosu_pp::{Beatmap as Map, FruitsPP, OsuPP, StarResult, TaikoPP};
-use std::{cmp::Ordering, collections::HashMap, fs::File, sync::Arc};
+use std::{cmp::Ordering, collections::HashMap, sync::Arc};
+use tokio::fs::File;
 use twilight_model::channel::Message;
 
 async fn nochokes_main(
@@ -136,8 +137,8 @@ async fn nochokes_main(
         }
 
         let map_path = prepare_beatmap_file(map.beatmap_id).await?;
-        let file = File::open(map_path).map_err(PPError::from)?;
-        let rosu_map = Map::parse(file).map_err(PPError::from)?;
+        let file = File::open(map_path).await.map_err(PPError::from)?;
+        let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
         let mods = score.enabled_mods.bits();
 
         match map.mode {

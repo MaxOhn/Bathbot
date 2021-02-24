@@ -14,7 +14,8 @@ use crate::{
 
 use rosu::model::User;
 use rosu_pp::{Beatmap, BeatmapExt};
-use std::{collections::HashMap, fmt::Write, fs::File};
+use std::{collections::HashMap, fmt::Write};
+use tokio::fs::File;
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct SnipedDiffEmbed {
@@ -46,8 +47,8 @@ impl SnipedDiffEmbed {
                     #[allow(clippy::map_entry)]
                     if !maps.contains_key(&score.beatmap_id) {
                         let map_path = prepare_beatmap_file(score.beatmap_id).await?;
-                        let file = File::open(map_path).map_err(PPError::from)?;
-                        let map = Beatmap::parse(file).map_err(PPError::from)?;
+                        let file = File::open(map_path).await.map_err(PPError::from)?;
+                        let map = Beatmap::parse(file).await.map_err(PPError::from)?;
 
                         maps.insert(score.beatmap_id, map);
                     }
