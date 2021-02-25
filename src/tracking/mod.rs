@@ -157,7 +157,7 @@ impl OsuTracking {
             .map(|user| (user.last_top_score, user.channels.to_owned()))
     }
 
-    pub async fn pop(&self) -> Option<HashMap<(u32, GameMode), DateTime<Utc>>> {
+    pub async fn pop(&self) -> Option<Vec<(u32, GameMode)>> {
         let len = self.queue.read().await.len();
 
         if len == 0 || self.stop_tracking.load(Ordering::Relaxed) {
@@ -165,6 +165,7 @@ impl OsuTracking {
         }
 
         let last_date = *self.last_date.read().await;
+
         // Calculate how many users need to be popped for this iteration
         // so that _all_ users will be popped within the next INTERVAL
         let interval = last_date + *self.interval.read().await - Utc::now();
@@ -186,11 +187,6 @@ impl OsuTracking {
             iter::repeat_with(|| queue.pop().map(|(key, _)| key))
                 .take(amount as usize)
                 .flatten()
-                .filter_map(|key| {
-                    self.users
-                        .get(&key)
-                        .map(|user| ((key.0, key.1), user.last_top_score))
-                })
                 .collect()
         };
 

@@ -14,15 +14,15 @@ use twilight_http::{
 
 #[cold]
 pub async fn tracking_loop(ctx: Arc<Context>) {
+    if cfg!(debug_assertions) {
+        info!("Skip osu! tracking on debug");
+
+        return;
+    }
+
     let delay = time::Duration::from_secs(60);
 
     loop {
-        if cfg!(debug_assertions) {
-            info!("Skip osu! tracking on debug");
-
-            return;
-        }
-
         // Get all users that should be tracked in this iteration
         let tracked = match ctx.tracking().pop().await {
             Some(tracked) => tracked,
@@ -34,12 +34,12 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
         };
 
         // Build top score requests for each
-        let score_futs = tracked.keys().map(|(user_id, mode)| {
+        let score_futs = tracked.iter().map(|&(user_id, mode)| {
             ctx.osu()
-                .top_scores(*user_id)
-                .mode(*mode)
+                .top_scores(user_id)
+                .mode(mode)
                 .limit(100)
-                .map(move |result| (*user_id, *mode, result))
+                .map(move |result| (user_id, mode, result))
         });
 
         // Iterate over the request responses
