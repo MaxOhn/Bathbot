@@ -9,11 +9,13 @@ impl Database {
             "INSERT INTO stream_tracks VALUES ({},{}) ON CONFLICT DO NOTHING",
             channel, user
         );
+
         let done = sqlx::query(&query).execute(&self.pool).await?;
 
         Ok(done.rows_affected() > 0)
     }
 
+    #[cold]
     pub async fn get_stream_tracks(&self) -> BotResult<DashMap<u64, Vec<u64>>> {
         let tracks = sqlx::query("SELECT * FROM stream_tracks")
             .fetch_all(&self.pool)
@@ -43,6 +45,7 @@ impl Database {
             "DELETE FROM stream_tracks WHERE channel_id={} AND user_id={}",
             channel, user
         );
+
         let done = sqlx::query(&query).execute(&self.pool).await?;
 
         Ok(done.rows_affected() > 0)

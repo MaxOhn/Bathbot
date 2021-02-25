@@ -46,25 +46,31 @@ impl Database {
             .filter_map(|result| match result {
                 Ok(map_wrapper) => {
                     let map: Beatmap = map_wrapper.into();
+
                     Some((map.beatmap_id, map))
                 }
                 Err(why) => {
                     unwind_error!(warn, why, "Error while getting maps from DB: {}");
+
                     None
                 }
             })
-            .collect::<Vec<_>>()
-            .await
-            .into_iter()
-            .collect();
+            .fold(
+                HashMap::with_capacity(map_ids.len()),
+                |mut maps, (id, map)| {
+                    maps.insert(id, map);
+
+                    maps
+                },
+            )
+            .await;
 
         Ok(beatmaps)
     }
 
     pub async fn insert_beatmap(&self, map: &Beatmap) -> BotResult<bool> {
-        let mut txn = self.pool.begin().await?;
-        let result = _insert_map(&mut *txn, map).await?;
-        txn.commit().await?;
+        let mut conn = self.pool.acquire().await?;
+        let result = _insert_map(&mut conn, map).await?;
 
         Ok(result)
     }
@@ -75,15 +81,13 @@ impl Database {
         }
 
         let mut success = 0;
-        let mut txn = self.pool.begin().await?;
+        let mut conn = self.pool.acquire().await?;
 
         for map in maps.iter() {
-            if _insert_map(&mut *txn, map).await? {
+            if _insert_map(&mut conn, map).await? {
                 success += 1
             }
         }
-
-        txn.commit().await?;
 
         Ok(success)
     }

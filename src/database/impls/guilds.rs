@@ -5,6 +5,7 @@ use sqlx::{types::Json, FromRow, Row};
 use twilight_model::id::GuildId;
 
 impl Database {
+    #[cold]
     pub async fn get_guilds(&self) -> BotResult<DashMap<GuildId, GuildConfig>> {
         let guilds = sqlx::query("SELECT * FROM guilds")
             .fetch_all(&self.pool)
@@ -13,6 +14,7 @@ impl Database {
             .map(|row| {
                 let id: i64 = row.get(0);
                 let config = GuildConfig::from_row(&row).unwrap();
+
                 (GuildId(id as u64), config)
             })
             .collect();

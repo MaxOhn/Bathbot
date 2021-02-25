@@ -7,6 +7,7 @@ use crate::{
 use rosu::model::GameMode;
 use sqlx::Row;
 use std::{collections::HashSet, fmt::Write};
+use tokio_stream::StreamExt;
 use twilight_model::id::UserId;
 
 impl Database {
@@ -15,6 +16,7 @@ impl Database {
             "INSERT INTO bggame_stats VALUES ({},$1) ON CONFLICT (discord_id) DO UPDATE SET score=bggame_stats.score+$1",
             user_id
         );
+
         sqlx::query(&query).bind(amount).execute(&self.pool).await?;
 
         Ok(())
@@ -22,11 +24,10 @@ impl Database {
 
     pub async fn all_bggame_scores(&self) -> BotResult<Vec<(u64, u32)>> {
         let scores = sqlx::query("SELECT * FROM bggame_stats")
-            .fetch_all(&self.pool)
-            .await?
-            .into_iter()
-            .map(|row| (row.get::<i64, _>(0) as u64, row.get::<i32, _>(1) as u32))
-            .collect();
+            .fetch(&self.pool)
+            .map(|res| res.map(|row| (row.get::<i64, _>(0) as u64, row.get::<i32, _>(1) as u32)))
+            .collect::<Result<_, _>>()
+            .await?;
 
         Ok(scores)
     }
@@ -78,6 +79,7 @@ impl Database {
             "SELECT * FROM map_tags WHERE beatmapset_id={} LIMIT 1",
             mapset_id
         );
+
         let tags = sqlx::query_as(&query).fetch_one(&self.pool).await?;
 
         Ok(tags)

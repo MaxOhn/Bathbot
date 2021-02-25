@@ -23,6 +23,7 @@ impl Database {
         Ok(())
     }
 
+    #[cold]
     pub async fn get_discord_links(&self) -> BotResult<DashMap<u64, String>> {
         let links = sqlx::query("SELECT * FROM discord_users")
             .fetch_all(&self.pool)

@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use twilight_model::id::ChannelId;
 
 impl Database {
+    #[cold]
     pub async fn get_osu_trackings(&self) -> BotResult<DashMap<(u32, GameMode), TrackingUser>> {
         let tracks = sqlx::query_as("SELECT * FROM osu_tracking")
             .fetch_all(&self.pool)

@@ -4,6 +4,7 @@ use dashmap::DashMap;
 use sqlx::Row;
 
 impl Database {
+    #[cold]
     pub async fn get_role_assigns(&self) -> BotResult<DashMap<(u64, u64), u64>> {
         let assigns = sqlx::query("SELECT * FROM role_assign")
             .fetch_all(&self.pool)
@@ -27,6 +28,7 @@ impl Database {
             message,
             role = role
         );
+
         sqlx::query(&query).execute(&self.pool).await?;
 
         Ok(())

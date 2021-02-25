@@ -48,6 +48,7 @@ pub struct OsuTracking {
 }
 
 impl OsuTracking {
+    #[cold]
     pub async fn new(psql: &Database) -> BotResult<Self> {
         let users = psql.get_osu_trackings().await?;
 
