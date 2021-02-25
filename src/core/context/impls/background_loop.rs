@@ -1,5 +1,6 @@
 use crate::{Context, CONFIG};
 
+use futures::stream::{FuturesUnordered, StreamExt};
 use rosu::model::{
     ApprovalStatus::{Approved, Loved, Ranked},
     Beatmap,
@@ -24,24 +25,36 @@ impl Context {
         }
 
         let config = CONFIG.get().unwrap();
-        let mut count = 0;
-        let mut failed = Vec::new();
 
-        for map_id in garbage_collection.drain() {
+        let tasks = garbage_collection.drain().map(|map_id| async move {
             let mut map_path = config.map_path.clone();
             map_path.push(format!("{}.osu", map_id));
 
             match remove_file(map_path).await {
-                Ok(_) => count += 1,
-                Err(_) => failed.push(map_id),
+                Ok(_) => None,
+                Err(_) => Some(map_id),
             }
-        }
+        });
+
+        let (count, failed) = tasks
+            .collect::<FuturesUnordered<_>>()
+            .fold((0, Vec::new()), |(count, mut failed), res| async move {
+                match res {
+                    None => (count + 1, failed),
+                    Some(map_id) => {
+                        failed.push(map_id);
+
+                        (count, failed)
+                    }
+                }
+            })
+            .await;
 
         if !failed.is_empty() {
             warn!(
                 "Failed to garbage collect {} maps: {:?}",
                 failed.len(),
-                failed
+                failed,
             );
         }
 
@@ -68,12 +81,16 @@ impl Context {
 
             debug!("[BG] Background iteration...");
 
-            let count = ctx.garbage_collect_all_maps().await;
+            let (count, guild_res) = tokio::join!(
+                ctx.garbage_collect_all_maps(),
+                ctx.psql().insert_guilds(&ctx.data.guilds)
+            );
+
             debug!("[BG] Garbage collected {} maps", count);
 
-            match ctx.psql().insert_guilds(&ctx.data.guilds).await {
-                Ok(n) if n > 0 => debug!("[BG] Stored {} guilds in DB", n),
-                Ok(_) => debug!("[BG] No new or modified guilds to store in DB"),
+            match guild_res {
+                Ok(0) => debug!("[BG] No new or modified guilds to store in DB"),
+                Ok(n) => debug!("[BG] Stored {} guilds in DB", n),
                 Err(why) => warn!("[BG] Error while storing guilds in DB: {}", why),
             }
         }
@@ -91,6 +108,7 @@ impl GarbageCollectMap {
         }
     }
 
+    #[inline]
     pub async fn execute(self, ctx: &Context) {
         if let Some(map_id) = self.0 {
             let mut lock = ctx.data.map_garbage_collection.lock().await;
