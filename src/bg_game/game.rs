@@ -7,6 +7,7 @@ use crate::{
 };
 
 use cow_utils::CowUtils;
+use futures::future::TryFutureExt;
 use image::GenericImageView;
 use rosu::model::GameMode;
 use std::{collections::VecDeque, sync::Arc};
@@ -67,18 +68,30 @@ impl Game {
         }
 
         let mapset = util::get_random_mapset(mapsets, previous_ids).await;
-        debug!("Next BG mapset id: {}", mapset.mapset_id);
-        let (title, artist) = util::get_title_artist(ctx, mapset.mapset_id).await?;
-        let filename = format!("{}.{}", mapset.mapset_id, mapset.filetype);
+        let mapset_id = mapset.mapset_id;
+        debug!("Next BG mapset id: {}", mapset_id);
+        let filename = format!("{}.{}", mapset_id, mapset.filetype);
         path.push(filename);
-        let img_vec = fs::read(path).await?;
-        let mut img = image::load_from_memory(&img_vec)?;
-        let (w, h) = img.dimensions();
 
-        // 800*600 (4:3)
-        if w * h > 480_000 {
-            img = img.thumbnail(800, 600);
-        }
+        let img_fut = fs::read(path)
+            .map_err(|err| BgGameError::IO(err, mapset_id))
+            .and_then(|img_vec| {
+                async move { image::load_from_memory(&img_vec) }
+                    .map_ok(|img| {
+                        let (w, h) = img.dimensions();
+
+                        // 800*600 (4:3)
+                        if w * h > 480_000 {
+                            img.thumbnail(800, 600)
+                        } else {
+                            img
+                        }
+                    })
+                    .map_err(BgGameError::from)
+            });
+
+        let ((title, artist), img) =
+            tokio::try_join!(util::get_title_artist(ctx, mapset.mapset_id), img_fut)?;
 
         Ok(Self {
             hints: Arc::new(RwLock::new(Hints::new(&title, mapset.tags))),
@@ -198,8 +211,10 @@ pub async fn game_loop(
     // Collect and evaluate messages
     while let Some(msg) = msg_stream.next().await {
         let game = game_lock.read().await;
+
         if let Some(game) = game.as_ref() {
             let content = msg.content.cow_to_lowercase();
+
             match game.check_msg_content(content.as_ref()).await {
                 // Title correct?
                 ContentResult::Title(exact) => {
@@ -213,10 +228,12 @@ pub async fn game_loop(
                         OSU_BASE,
                         game.mapset_id
                     );
+
                     // Send message
                     if let Err(why) = game.resolve(ctx, channel, content).await {
                         unwind_error!(warn, why, "Error while sending msg for winner: {}");
                     }
+
                     return LoopResult::Winner(msg.author.id.0);
                 }
                 // Artist correct?
@@ -225,6 +242,7 @@ pub async fn game_loop(
                         let mut hints = game.hints.write().await;
                         hints.artist_guessed = true;
                     }
+
                     let content = if exact {
                         format!(
                             "That's the correct artist `{}`, can you get the title too?",
@@ -237,8 +255,10 @@ pub async fn game_loop(
                             msg.author.name, game.artist
                         )
                     };
+
                     // Send message
                     let msg_fut = ctx.http.create_message(channel).content(content).unwrap();
+
                     if let Err(why) = msg_fut.await {
                         unwind_error!(warn, why, "Error while sending msg for correct artist: {}");
                     }
@@ -249,6 +269,7 @@ pub async fn game_loop(
             return LoopResult::Stop;
         }
     }
+
     LoopResult::Stop
 }
 
