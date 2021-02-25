@@ -141,6 +141,7 @@ impl fmt::Display for Cell {
 }
 
 impl Default for Cell {
+    #[inline]
     fn default() -> Self {
         Self::None
     }

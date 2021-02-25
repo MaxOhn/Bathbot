@@ -47,8 +47,10 @@ lazy_static::lazy_static! {
         add("Portugal", "PT");
         add("Reunion", "RE");
         add("Saudi Arabia", "SA");
+        add("Serbia", "RS");
         add("Singarpore", "SG");
         add("Slovakia", "SK");
+        add("South Africa", "ZA");
         add("South Korea", "KR");
         add("Spain", "ES");
         add("Sweden", "SE");
