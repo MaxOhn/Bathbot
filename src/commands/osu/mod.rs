@@ -88,7 +88,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::model::GameMode;
+use rosu::{model::GameMode, OsuError};
 use std::{
     borrow::Cow,
     cmp::PartialOrd,
@@ -280,4 +280,9 @@ impl Inc for u32 {
     fn inc(&mut self) {
         *self += 1;
     }
+}
+
+enum ResultError<T> {
+    None(T),
+    Osu(OsuError),
 }

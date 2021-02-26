@@ -1,3 +1,4 @@
+use super::ResultError;
 use crate::{
     arguments::{Args, MultNameArgs},
     embeds::{CommonEmbed, EmbedData},
@@ -8,7 +9,10 @@ use crate::{
     BotResult, Context,
 };
 
-use futures::future::{try_join_all, TryFutureExt};
+use futures::{
+    future::{FutureExt, TryFutureExt},
+    stream::{FuturesOrdered, FuturesUnordered, TryStreamExt},
+};
 use itertools::Itertools;
 use rayon::prelude::*;
 use rosu::model::{GameMode, Score, User};
@@ -63,26 +67,31 @@ async fn common_main(
     }
 
     // Retrieve all users
-    let user_futs = names.iter().enumerate().map(|(i, name)| {
-        ctx.osu()
-            .user(name.as_str())
-            .mode(mode)
-            .map_ok(move |user| (i, user))
-    });
+    let user_futs = names
+        .iter()
+        .enumerate()
+        .map(|(i, name)| {
+            ctx.osu()
+                .user(name.as_str())
+                .mode(mode)
+                .map(move |result| match result {
+                    Ok(Some(user)) => Ok(user),
+                    Ok(None) => Err(ResultError::None(i)),
+                    Err(why) => Err(ResultError::Osu(why)),
+                })
+                .map_ok(CommonUser::from)
+        })
+        .collect::<FuturesOrdered<_>>()
+        .try_collect();
 
-    let mut users: Vec<CommonUser> = match try_join_all(user_futs).await {
-        Ok(users) => match users.iter().find(|(_, user)| user.is_none()) {
-            Some((idx, _)) => {
-                let content = format!("User `{}` was not found", names[*idx]);
+    let mut users: Vec<CommonUser> = match user_futs.await {
+        Ok(users) => users,
+        Err(ResultError::None(idx)) => {
+            let content = format!("User `{}` was not found", names[idx]);
 
-                return msg.error(&ctx, content).await;
-            }
-            None => users
-                .into_iter()
-                .filter_map(|(_, user)| user.map(CommonUser::from))
-                .collect(),
-        },
-        Err(why) => {
+            return msg.error(&ctx, content).await;
+        }
+        Err(ResultError::Osu(why)) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
@@ -98,15 +107,19 @@ async fn common_main(
     }
 
     // Retrieve each user's top scores
-    let score_futs = users.iter().map(|u| {
-        u.user
-            .get_top_scores(ctx.osu())
-            .limit(100)
-            .mode(mode)
-            .map_ok(move |scores| (u.user.user_id, scores))
-    });
+    let score_futs = users
+        .iter()
+        .map(|u| {
+            u.user
+                .get_top_scores(ctx.osu())
+                .limit(100)
+                .mode(mode)
+                .map_ok(move |scores| (u.user.user_id, scores))
+        })
+        .collect::<FuturesUnordered<_>>()
+        .try_collect();
 
-    let mut all_scores: Vec<(u32, Vec<Score>)> = match try_join_all(score_futs).await {
+    let mut all_scores: Vec<(u32, Vec<Score>)> = match score_futs.await {
         Ok(all_scores) => all_scores,
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
@@ -239,35 +252,38 @@ async fn common_main(
     map_ids.retain(|id| !maps.contains_key(id));
 
     // Retrieve all missing maps from the API
-    let missing_maps: Option<Vec<_>> = if map_ids.is_empty() {
+    let missing_maps = if map_ids.is_empty() {
         None
     } else {
         let map_futs = map_ids
             .into_iter()
-            .map(|id| ctx.osu().beatmap().map_id(id).map_ok(move |map| (id, map)));
+            .map(|id| {
+                ctx.osu()
+                    .beatmap()
+                    .map_id(id)
+                    .map(move |result| match result {
+                        Ok(Some(map)) => Ok(map),
+                        Ok(None) => Err(ResultError::None(id)),
+                        Err(why) => Err(ResultError::Osu(why)),
+                    })
+            })
+            .collect::<FuturesUnordered<_>>()
+            .try_collect::<Vec<_>>();
 
-        match try_join_all(map_futs).await {
-            Ok(maps_result) => match maps_result.iter().find(|(_, map)| map.is_none()) {
-                Some((id, _)) => {
-                    let content = format!("API returned no result for map id {}", id);
-
-                    return msg.error(&ctx, content).await;
+        match map_futs.await {
+            Ok(missing_maps) => {
+                for map in missing_maps.iter() {
+                    maps.insert(map.beatmap_id, map.clone());
                 }
-                None => {
-                    let maps = maps_result
-                        .into_iter()
-                        .filter_map(|(id, map)| {
-                            let map = map?;
-                            maps.insert(id, map.clone());
 
-                            Some(map)
-                        })
-                        .collect();
+                Some(missing_maps)
+            }
+            Err(ResultError::None(id)) => {
+                let content = format!("API returned no result for map id {}", id);
 
-                    Some(maps)
-                }
-            },
-            Err(why) => {
+                return msg.error(&ctx, content).await;
+            }
+            Err(ResultError::Osu(why)) => {
                 let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
                 return Err(why.into());

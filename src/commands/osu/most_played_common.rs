@@ -1,3 +1,4 @@
+use super::ResultError;
 use crate::{
     arguments::{Args, MultNameArgs},
     embeds::{EmbedData, MostPlayedCommonEmbed},
@@ -7,7 +8,7 @@ use crate::{
     BotResult, Context,
 };
 
-use futures::future::{try_join_all, TryFutureExt};
+use futures::stream::{FuturesOrdered, StreamExt, TryStreamExt};
 use itertools::Itertools;
 use rayon::prelude::*;
 use rosu::model::{GameMode, User};
@@ -66,23 +67,30 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     }
 
     // Retrieve all users
-    let user_futs = names.iter().enumerate().map(|(i, name)| {
-        ctx.osu()
-            .user(name.as_str())
-            .mode(GameMode::STD)
-            .map_ok(move |user| (i, user))
-    });
+    let user_futs = names
+        .iter()
+        .enumerate()
+        .map(|(i, name)| {
+            ctx.osu()
+                .user(name.as_str())
+                .mode(GameMode::STD)
+                .map(move |result| match result {
+                    Ok(Some(user)) => Ok(user),
+                    Ok(None) => Err(ResultError::None(i)),
+                    Err(why) => Err(ResultError::Osu(why)),
+                })
+        })
+        .collect::<FuturesOrdered<_>>()
+        .try_collect();
 
-    let users: Vec<User> = match try_join_all(user_futs).await {
-        Ok(users) => match users.iter().find(|(_, user)| user.is_none()) {
-            Some((idx, _)) => {
-                let content = format!("User `{}` was not found", names[*idx]);
+    let users: Vec<User> = match user_futs.await {
+        Ok(users) => users,
+        Err(ResultError::None(idx)) => {
+            let content = format!("User `{}` was not found", names[idx]);
 
-                return msg.error(&ctx, content).await;
-            }
-            None => users.into_iter().filter_map(|(_, user)| user).collect(),
-        },
-        Err(why) => {
+            return msg.error(&ctx, content).await;
+        }
+        Err(ResultError::Osu(why)) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
@@ -98,31 +106,32 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     }
 
     // Retrieve all most played maps and store their count for each user
-    let map_futs = users
+    let mut map_futs = users
         .iter()
-        .map(|user| ctx.clients.custom.get_most_played(user.user_id, 100));
+        .map(|user| ctx.clients.custom.get_most_played(user.user_id, 100))
+        .collect::<FuturesOrdered<_>>();
 
     let mut users_count: Vec<HashMap<u32, u32>> = Vec::with_capacity(users.len());
+    let mut all_maps = HashSet::with_capacity(users.len() * 100);
 
-    let all_maps: HashSet<_> = match try_join_all(map_futs).await {
-        Ok(all_maps) => all_maps
-            .into_iter()
-            .map(|maps| {
+    while let Some(map_result) = map_futs.next().await {
+        match map_result {
+            Ok(maps) => {
                 let map_counts: HashMap<u32, u32> =
                     maps.iter().map(|map| (map.beatmap_id, map.count)).collect();
 
                 users_count.push(map_counts);
+                all_maps.extend(maps);
+            }
+            Err(why) => {
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
-                maps.into_iter()
-            })
-            .flatten()
-            .collect(),
-        Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-            return Err(why.into());
+                return Err(why.into());
+            }
         }
-    };
+    }
+
+    drop(map_futs);
 
     // Consider only maps that appear in each users map list
     let mut maps: Vec<_> = all_maps

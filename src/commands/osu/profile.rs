@@ -15,7 +15,10 @@ use crate::{
 };
 
 use chrono::Datelike;
-use futures::future::{try_join_all, TryFutureExt};
+use futures::{
+    future::TryFutureExt,
+    stream::{FuturesUnordered, TryStreamExt},
+};
 use image::{imageops::FilterType::Lanczos3, load_from_memory, png::PngEncoder, ColorType};
 use plotters::prelude::*;
 use rayon::prelude::*;
@@ -46,7 +49,7 @@ async fn profile_main(
     };
 
     // Draw the graph
-    let graph = match graphs(&mut profile).await {
+    let graph = match graphs(&ctx, &mut profile).await {
         Ok(graph_option) => graph_option,
         Err(why) => {
             unwind_error!(warn, why, "Error while creating profile graph: {}");
@@ -371,7 +374,7 @@ impl ProfileResult {
 const W: u32 = 1350;
 const H: u32 = 350;
 
-async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
+async fn graphs(ctx: &Context, profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
     if profile.monthly_playcounts.len() < 2 {
         return Ok(None);
     }
@@ -382,10 +385,13 @@ async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
         let badges = match profile.badges.is_empty() {
             true => Vec::new(),
             false => {
-                let badge_futs = profile.badges.iter().map(|badge| {
-                    reqwest::get(&badge.image_url).and_then(|response| response.bytes())
-                });
-                try_join_all(badge_futs).await?
+                profile
+                    .badges
+                    .iter()
+                    .map(|badge| ctx.clients.custom.get_badge(&badge.image_url))
+                    .collect::<FuturesUnordered<_>>()
+                    .try_collect()
+                    .await?
             }
         };
 
@@ -407,19 +413,24 @@ async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
             let (top, bottom) = root.split_vertically(badge_total_height);
             let mut rows = Vec::with_capacity(badge_rows as usize);
             let mut last = top;
+
             for _ in 0..badge_rows {
                 let (curr, remain) = last.split_vertically(badge_height);
                 rows.push(curr);
                 last = remain;
             }
+
             let badge_width =
                 (W - 2 * margin - (max_badges_per_row - 1) * inner_margin) / max_badges_per_row;
+
             // Draw each row of badges
             for (row, chunk) in badges.chunks(max_badges_per_row as usize).enumerate() {
                 let x_offset = (max_badges_per_row - chunk.len() as u32) * badge_width / 2;
+
                 let mut chart_row = ChartBuilder::on(&rows[row])
                     .margin(margin)
                     .build_cartesian_2d(0..W, 0..badge_height)?;
+
                 chart_row
                     .configure_mesh()
                     .disable_x_axis()
@@ -427,15 +438,18 @@ async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
                     .disable_x_mesh()
                     .disable_y_mesh()
                     .draw()?;
+
                 for (idx, badge) in chunk.iter().enumerate() {
                     let badge_img =
                         load_from_memory(badge)?.resize_exact(badge_width, badge_height, Lanczos3);
+
                     let x = x_offset + idx as u32 * badge_width + idx as u32 * inner_margin;
                     let y = badge_height;
                     let elem: BitMapElement<_> = ((x, y), badge_img).into();
                     chart_row.draw_series(std::iter::once(elem))?;
                 }
             }
+
             bottom
         };
 
@@ -447,13 +461,16 @@ async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
         let first_date = monthly_playcount.first().unwrap().start_date;
         let mut curr_month = first_date.month();
         let mut curr_year = first_date.year();
+
         let dates = monthly_playcount
             .iter()
             .map(|date_count| date_count.start_date)
             .enumerate()
             .collect::<Vec<_>>()
             .into_iter();
+
         let mut inserted = 0;
+
         for (i, date) in dates {
             while date.month() != curr_month || date.year() != curr_year {
                 let spoofed_date = date
@@ -461,15 +478,19 @@ async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
                     .unwrap()
                     .with_year(curr_year)
                     .unwrap();
+
                 monthly_playcount.insert(inserted + i, (spoofed_date, 0).into());
                 inserted += 1;
                 curr_month += 1;
+
                 if curr_month == 13 {
                     curr_month = 1;
                     curr_year += 1;
                 }
             }
+
             curr_month += 1;
+
             if curr_month == 13 {
                 curr_month = 1;
                 curr_year += 1;
@@ -481,10 +502,12 @@ async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
             .iter()
             .map(|date_count| date_count.start_date)
             .enumerate();
+
         for (i, date) in dates {
             let cond = replays
                 .get(i)
                 .map(|date_count| date_count.start_date == date);
+
             if let None | Some(false) = cond {
                 replays.insert(i, (date, 0).into());
             }
@@ -492,6 +515,7 @@ async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
 
         let left_first = monthly_playcount.first().unwrap().start_date;
         let left_last = monthly_playcount.last().unwrap().start_date;
+
         let left_max = monthly_playcount
             .iter()
             .map(|date_count| date_count.count)
@@ -500,6 +524,7 @@ async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
 
         let right_first = replays.first().unwrap().start_date;
         let right_last = replays.last().unwrap().start_date;
+
         let right_max = replays
             .iter()
             .map(|date_count| date_count.count)
@@ -528,13 +553,13 @@ async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
         chart
             .configure_mesh()
             .light_line_style(&BLACK.mix(0.0))
-            // .disable_y_mesh()
             .disable_x_mesh()
             .x_labels(10)
             .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month()))
             .y_desc("Monthly playcount")
             .label_style(("sans-serif", 20))
             .draw()?;
+
         chart
             .configure_secondary_axes()
             .y_desc("Replays watched")
@@ -598,5 +623,6 @@ async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
     let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
     let png_encoder = PngEncoder::new(&mut png_bytes);
     png_encoder.encode(&buf, W, H, ColorType::Rgb8)?;
+
     Ok(Some(png_bytes))
 }

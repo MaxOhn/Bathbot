@@ -17,7 +17,7 @@ pub use safe_content::content_safe;
 
 use crate::{BotResult, Context};
 
-use futures::future::try_join_all;
+use futures::stream::{FuturesOrdered, StreamExt};
 use image::{
     imageops::FilterType, DynamicImage, GenericImage, GenericImageView, ImageOutputFormat::Png,
 };
@@ -80,19 +80,22 @@ pub async fn get_combined_thumbnail(
 ) -> BotResult<Vec<u8>> {
     let mut combined = DynamicImage::new_rgba8(128, 128);
 
-    //  Careful here.
-    //  Be sure the type implements size_hint accurately
+    //  Careful here! Be sure the type implements size_hint accurately
     let amount = user_ids.size_hint().0 as u32;
     let w = 128 / amount;
 
-    let pfp_futs = user_ids
+    // Future stream
+    let mut pfp_futs = user_ids
         .into_iter()
-        .map(|id| ctx.clients.custom.get_avatar(id));
+        .map(|id| ctx.clients.custom.get_avatar(id))
+        .collect::<FuturesOrdered<_>>();
 
-    let pfps = try_join_all(pfp_futs).await?;
+    let mut next = pfp_futs.next().await;
+    let mut i = 0;
 
-    for (i, pfp) in pfps.iter().enumerate() {
-        let img = image::load_from_memory(pfp)?.resize_exact(128, 128, FilterType::Lanczos3);
+    // Closure that stitches the stripe onto the combined image
+    let mut img_combining = |img: DynamicImage, i: u32| {
+        let img = img.resize_exact(128, 128, FilterType::Lanczos3);
         let x = i as u32 * 128 / amount;
 
         for i in 0..w {
@@ -101,6 +104,15 @@ pub async fn get_combined_thumbnail(
                 combined.put_pixel(x + i, j, pixel);
             }
         }
+    };
+
+    // Process the stream elements
+    while let Some(pfp_result) = next {
+        let pfp = pfp_result?;
+        let img = image::load_from_memory(&pfp)?;
+        let (res, _) = tokio::join!(pfp_futs.next(), async { img_combining(img, i) });
+        next = res;
+        i += 1;
     }
 
     let mut png_bytes: Vec<u8> = Vec::with_capacity(16_384); // 2^14 = 128x128

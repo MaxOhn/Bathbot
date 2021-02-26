@@ -5,8 +5,10 @@ use crate::{
     BotResult, Context,
 };
 
-use futures::future::{try_join_all, TryFutureExt};
-use itertools::Itertools;
+use futures::{
+    future::TryFutureExt,
+    stream::{FuturesUnordered, TryStreamExt},
+};
 use rosu::{
     model::{GameMods, Match, Team, TeamType},
     OsuError,
@@ -69,32 +71,36 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         .unwrap_or_default();
 
     // Retrieve all users of the match
-    let requests: Vec<_> = osu_match
+    let users: HashSet<_> = osu_match
         .games
         .iter()
         .map(|game| game.scores.iter())
         .flatten()
         .filter(|s| s.score > 0)
         .map(|s| s.user_id)
-        .unique()
-        .map(|id| ctx.osu().user(id).mode(mode).map_ok(move |user| (id, user)))
         .collect();
 
     // Prematurely abort if its too many players to display in a message
-    if requests.len() > 50 {
+    if users.len() > 50 {
         return msg.error(&ctx, TOO_MANY_PLAYERS_TEXT).await;
     }
 
-    let users: HashMap<_, _> = match try_join_all(requests).await {
-        Ok(users) => users
-            .into_iter()
-            .map(|(id, user)| {
-                user.map_or_else(
-                    || (id, id.to_string()),
-                    |user| (user.user_id, user.username),
-                )
-            })
-            .collect(),
+    let requests = users
+        .into_iter()
+        .map(|id| {
+            ctx.osu()
+                .user(id)
+                .mode(mode)
+                .map_ok(move |user| match user {
+                    Some(user) => (id, user.username),
+                    None => (id, id.to_string()),
+                })
+        })
+        .collect::<FuturesUnordered<_>>()
+        .try_collect();
+
+    let users: HashMap<_, _> = match requests.await {
+        Ok(users) => users,
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
