@@ -59,7 +59,6 @@ enum Site {
     OsuStats,
     OsuHiddenApi,
     OsuAvatar,
-    OsuBadge,
     OsuSnipe,
     Osekai,
     OsuDaily,
@@ -559,12 +558,6 @@ impl CustomClient {
     pub async fn get_avatar(&self, user_id: u32) -> ClientResult<Vec<u8>> {
         let url = format!("{}{}", AVATAR_URL, user_id);
         let response = self.make_request(url, Site::OsuAvatar).await?;
-
-        Ok(response.bytes().await?.to_vec())
-    }
-
-    pub async fn get_badge(&self, url: &str) -> ClientResult<Vec<u8>> {
-        let response = self.make_request(url, Site::OsuBadge).await?;
 
         Ok(response.bytes().await?.to_vec())
     }

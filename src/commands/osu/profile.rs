@@ -22,6 +22,7 @@ use futures::{
 use image::{imageops::FilterType::Lanczos3, load_from_memory, png::PngEncoder, ColorType};
 use plotters::prelude::*;
 use rayon::prelude::*;
+use reqwest::Response;
 use rosu::model::{Beatmap, GameMode, GameMods, Score};
 use std::{
     cmp::{Ordering::Equal, PartialOrd},
@@ -49,7 +50,7 @@ async fn profile_main(
     };
 
     // Draw the graph
-    let graph = match graphs(&ctx, &mut profile).await {
+    let graph = match graphs(&mut profile).await {
         Ok(graph_option) => graph_option,
         Err(why) => {
             unwind_error!(warn, why, "Error while creating profile graph: {}");
@@ -374,7 +375,7 @@ impl ProfileResult {
 const W: u32 = 1350;
 const H: u32 = 350;
 
-async fn graphs(ctx: &Context, profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
+async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
     if profile.monthly_playcounts.len() < 2 {
         return Ok(None);
     }
@@ -388,7 +389,11 @@ async fn graphs(ctx: &Context, profile: &mut OsuProfile) -> Result<Option<Vec<u8
                 profile
                     .badges
                     .iter()
-                    .map(|badge| ctx.clients.custom.get_badge(&badge.image_url))
+                    .map(|badge| {
+                        reqwest::get(&badge.image_url)
+                            .and_then(Response::bytes)
+                            .map_ok(|bytes| bytes.to_vec())
+                    })
                     .collect::<FuturesUnordered<_>>()
                     .try_collect()
                     .await?

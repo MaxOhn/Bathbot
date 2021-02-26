@@ -238,7 +238,8 @@ pub struct OsuProfileGrades {
 #[derive(Debug, Deserialize)]
 pub struct OsuProfileStatistics {
     pub pp: f32,
-    pub pp_rank: u32,
+    pub global_rank: u32,
+    pub country_rank: u32,
     pub ranked_score: u64,
     pub total_score: u64,
     #[serde(rename = "hit_accuracy")]
