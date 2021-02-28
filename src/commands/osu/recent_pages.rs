@@ -173,6 +173,23 @@ async fn recent_pages_main(
         }
     };
 
+    let mut map_scores = HashMap::new();
+
+    if let Ranked | Qualified | Approved | Loved = first_map.approval_status {
+        let scores_fut = ctx
+            .osu()
+            .scores(first_map.beatmap_id)
+            .user(user.user_id)
+            .mode(mode);
+
+        match scores_fut.await {
+            Ok(scores) => {
+                map_scores.insert(first_map.beatmap_id, scores);
+            }
+            Err(why) => unwind_error!(warn, why, "Error while requesting map scores: {}"),
+        }
+    }
+
     // Retrieve and parse response
     let (globals_result, best_result) = tokio::join!(global_fut, best_fut);
     let mut global = HashMap::with_capacity(scores.len());
@@ -204,7 +221,14 @@ async fn recent_pages_main(
     let global_scores = global.get(&map_id).map(|global| global.as_slice());
     let first_map = maps.get(&map_id).unwrap();
 
-    let data_fut = RecentEmbed::new(&user, score, first_map, best.as_deref(), global_scores);
+    let data_fut = RecentEmbed::new(
+        &user,
+        score,
+        first_map,
+        best.as_deref(),
+        global_scores,
+        Some(&map_scores),
+    );
 
     let data = match data_fut.await {
         Ok(data) => data,
@@ -267,6 +291,7 @@ async fn recent_pages_main(
         global,
         map_ids,
         data,
+        map_scores,
     );
 
     let owner = msg.author.id;

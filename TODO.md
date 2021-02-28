@@ -16,6 +16,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~How far off personal bests on `<rp`~~ (21.02.28)
 - ~~Reformat `<common` embed~~ (21.02.14)
 - ~~Handle active bg games on shutdown~~ (21.02.13)
 - ~~Don't update DB guild config on shutdown but immediatly instead (store new ones daily)~~ (21.02.11)

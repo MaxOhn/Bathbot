@@ -12,9 +12,9 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use rosu::model::{Beatmap, GameMode, Grade, Score, User};
+use rosu::model::{Beatmap, GameMode, GameMods, Grade, Score, User};
 use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, ManiaPP, OsuPP, StarResult, TaikoPP};
-use std::fmt::Write;
+use std::{collections::HashMap, fmt::Write};
 use tokio::fs::File;
 use twilight_embed_builder::{
     author::EmbedAuthorBuilder, builder::EmbedBuilder, image_source::ImageSource,
@@ -51,6 +51,7 @@ impl RecentEmbed {
         map: &Beatmap,
         personal: Option<&[Score]>,
         global: Option<&[Score]>,
+        map_scores: Option<&HashMap<u32, Vec<Score>>>,
     ) -> BotResult<Self> {
         let map_path = prepare_beatmap_file(map.beatmap_id).await?;
         let file = File::open(map_path).await.map_err(PPError::from)?;
@@ -206,8 +207,111 @@ impl RecentEmbed {
 
             Some(description)
         } else {
-            None
+            let map_personal_best = map_scores
+                .and_then(|scores| scores.get(&map.beatmap_id))
+                .and_then(|scores| {
+                    if score.grade == Grade::F && scores.is_empty() {
+                        return Some(MapPersonalBest::WouldHaveFirstPass);
+                    }
+
+                    let first = scores.first()?;
+                    let mods = score.enabled_mods;
+
+                    if score.grade == Grade::F {
+                        if first.enabled_mods == mods {
+                            if score.score > first.score {
+                                return Some(MapPersonalBest::WouldHave);
+                            }
+                        } else if scores
+                            .iter()
+                            .find(|score| score.enabled_mods == mods)
+                            .map(|s| s.score)
+                            .filter(|&s| s <= score.score)
+                            .is_some()
+                        {
+                            return Some(MapPersonalBest::WouldHaveMods { mods });
+                        };
+
+                        return None;
+                    }
+
+                    let res = if first.enabled_mods == mods {
+                        if first == score || score.score > first.score {
+                            MapPersonalBest::PersonalBest
+                        } else {
+                            MapPersonalBest::SameMods {
+                                difference: first.score - score.score + 1,
+                            }
+                        }
+                    } else if let Some(mod_score) =
+                        scores.iter().find(|score| score.enabled_mods == mods)
+                    {
+                        if mod_score == score || score.score > mod_score.score {
+                            MapPersonalBest::PersonalBestMods {
+                                best_mods: first.enabled_mods,
+                                mods,
+                                difference: first.score - score.score + 1,
+                            }
+                        } else {
+                            MapPersonalBest::DifferentMods {
+                                mods,
+                                difference: mod_score.score - score.score + 1,
+                            }
+                        }
+                    } else {
+                        MapPersonalBest::FirstPassMods { mods }
+                    };
+
+                    Some(res)
+                });
+
+            if let Some(map_personal_best) = map_personal_best {
+                let description =
+                    match map_personal_best {
+                        MapPersonalBest::PersonalBest => "Personal Best on the map!".to_owned(),
+                        MapPersonalBest::SameMods { difference } => {
+                            format!(
+                                "Missing {} score for a personal best on the map",
+                                with_comma_u64(difference as u64)
+                            )
+                        }
+                        MapPersonalBest::PersonalBestMods {
+                            best_mods,
+                            mods,
+                            difference,
+                        } => format!(
+                        "Personal best with {} on the map, missing {} score to beat their best {} score",
+                        mods, with_comma_u64(difference as u64), best_mods,
+                    ),
+                        MapPersonalBest::FirstPassMods { mods } => {
+                            format!("First pass with {} on the map", mods)
+                        }
+                        MapPersonalBest::DifferentMods { mods, difference } => format!(
+                            "Missing {} score for a personal best with {} on the map",
+                            with_comma_u64(difference as u64),
+                            mods
+                        ),
+                        MapPersonalBest::WouldHaveFirstPass => {
+                            "Would have been the first pass".to_owned()
+                        }
+                        MapPersonalBest::WouldHave => {
+                            "Would have been a personal best on the map".to_owned()
+                        }
+                        MapPersonalBest::WouldHaveMods { mods } => {
+                            format!("Would have been a personal best with {} on the map", mods)
+                        }
+                    };
+
+                Some(description)
+            } else {
+                None
+            }
         };
+
+        let image = ImageSource::url(format!(
+            "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
+            map.beatmapset_id
+        ));
 
         Ok(Self {
             description,
@@ -218,11 +322,7 @@ impl RecentEmbed {
             timestamp: score.date,
             thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id))
                 .unwrap(),
-            image: ImageSource::url(format!(
-                "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
-                map.beatmapset_id
-            ))
-            .unwrap(),
+            image: image.unwrap(),
             grade_completion_mods,
             stars,
             score: with_comma_u64(score.score as u64),
@@ -329,6 +429,38 @@ impl EmbedData for RecentEmbed {
             })
             .author(ab)
     }
+}
+
+enum MapPersonalBest {
+    // Same mods, best score
+    PersonalBest,
+    // Same mods, worse score
+    SameMods {
+        difference: u32,
+    },
+    // Different mods, best score
+    PersonalBestMods {
+        best_mods: GameMods,
+        mods: GameMods,
+        difference: u32,
+    },
+    // Different mods, first score
+    FirstPassMods {
+        mods: GameMods,
+    },
+    // Different mods, worse score
+    DifferentMods {
+        mods: GameMods,
+        difference: u32,
+    },
+    // Would have been first pass
+    WouldHaveFirstPass,
+    // Fail, would be best score
+    WouldHave,
+    // Fail, would be best score, different mods
+    WouldHaveMods {
+        mods: GameMods,
+    },
 }
 
 struct IfFC {

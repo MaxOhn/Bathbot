@@ -196,7 +196,14 @@ async fn recent_main(
         .take_while(|s| s.beatmap_id.unwrap() == map_id && s.enabled_mods == score.enabled_mods)
         .count();
 
-    let data_fut = RecentEmbed::new(&user, score, &map, best.as_deref(), globals.as_deref());
+    let data_fut = RecentEmbed::new(
+        &user,
+        score,
+        &map,
+        best.as_deref(),
+        globals.as_deref(),
+        None,
+    );
 
     let data = match data_fut.await {
         Ok(data) => data,

@@ -27,6 +27,7 @@ pub struct RecentPagination {
     global: HashMap<u32, Vec<Score>>,
     maps_in_db: HashSet<u32>,
     embed_data: Option<RecentEmbed>,
+    map_scores: HashMap<u32, Vec<Score>>,
     ctx: Arc<Context>,
 }
 
@@ -43,6 +44,7 @@ impl RecentPagination {
         global: HashMap<u32, Vec<Score>>,
         maps_in_db: HashSet<u32>,
         embed_data: RecentEmbed,
+        map_scores: HashMap<u32, Vec<Score>>,
     ) -> Self {
         let mut pages = Pages::new(1, scores.len());
         pages.index = idx;
@@ -57,6 +59,7 @@ impl RecentPagination {
             global,
             maps_in_db,
             embed_data: Some(embed_data),
+            map_scores,
             ctx,
         }
     }
@@ -138,24 +141,17 @@ impl Pagination for RecentPagination {
         // Make sure map is ready
         #[allow(clippy::clippy::map_entry)]
         if !self.maps.contains_key(&map_id) {
-            let map = self
-                .ctx
-                .osu()
-                .beatmap()
-                .map_id(score.beatmap_id.unwrap())
-                .await?
-                .unwrap();
-
+            let map = self.ctx.osu().beatmap().map_id(map_id).await?.unwrap();
             self.maps.insert(map_id, map);
         }
 
         let map = self.maps.get(&map_id).unwrap();
 
         // Make sure map leaderboard is ready
-        let valid_global = matches!(map.approval_status, Ranked | Loved | Qualified | Approved);
+        let has_leaderboard = matches!(map.approval_status, Ranked | Loved | Qualified | Approved);
 
         #[allow(clippy::clippy::map_entry)]
-        if valid_global && !self.global.contains_key(&map.beatmap_id) {
+        if has_leaderboard && !self.global.contains_key(&map.beatmap_id) {
             let global_lb = map.get_global_leaderboard(self.ctx.osu()).limit(50).await?;
             self.global.insert(map.beatmap_id, global_lb);
         };
@@ -182,7 +178,33 @@ impl Pagination for RecentPagination {
             }
         }
 
+        #[allow(clippy::clippy::map_entry)]
+        if !self.map_scores.contains_key(&map_id) && has_leaderboard {
+            let scores_fut = self
+                .ctx
+                .osu()
+                .scores(map_id)
+                .user(self.user.user_id)
+                .mode(map.mode);
+
+            match scores_fut.await {
+                Ok(scores) => {
+                    self.map_scores.insert(map_id, scores);
+                }
+                Err(why) => unwind_error!(warn, why, "Error while requesting map scores: {}"),
+            }
+        }
+
         // Create embed data
-        RecentEmbed::new(&self.user, score, map, self.best.as_deref(), global_lb).await
+        let data_fut = RecentEmbed::new(
+            &self.user,
+            score,
+            map,
+            self.best.as_deref(),
+            global_lb,
+            Some(&self.map_scores),
+        );
+
+        data_fut.await
     }
 }
