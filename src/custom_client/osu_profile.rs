@@ -11,36 +11,36 @@ pub struct OsuProfile {
     pub country_code: String,
     #[serde(rename = "id")]
     pub user_id: u32,
-    pub is_active: bool,
-    pub is_online: bool,
-    pub is_supporter: bool,
+    // pub is_active: bool,
+    // pub is_online: bool,
+    // pub is_supporter: bool,
     #[serde(deserialize_with = "str_to_maybe_datetime")]
     pub last_visit: Option<DateTime<Utc>>,
     pub username: String,
-    pub cover_url: String,
-    pub has_supported: bool,
+    // pub cover_url: String,
+    // pub has_supported: bool,
     #[serde(deserialize_with = "str_to_datetime")]
     pub join_date: DateTime<Utc>,
-    pub kudosu: OsuProfileKudosu,
-    pub interests: Option<String>,
-    pub location: Option<String>,
-    pub occupation: Option<String>,
+    // pub kudosu: OsuProfileKudosu,
+    // pub interests: Option<String>,
+    // pub location: Option<String>,
+    // pub occupation: Option<String>,
     #[serde(rename = "playmode")]
     pub mode: GameMode,
-    pub playstyle: Option<Vec<OsuProfilePlaystyle>>,
-    pub post_count: u32,
-    pub discord: Option<String>,
-    pub twitter: Option<String>,
-    pub website: Option<String>,
-    pub is_admin: bool,
-    pub is_bng: bool,
-    pub is_full_bn: bool,
-    pub is_gmt: bool,
-    pub is_limited_bn: bool,
-    pub is_moderator: bool,
-    pub is_nat: bool,
-    pub is_restricted: bool,
-    pub is_silenced: bool,
+    // pub playstyle: Option<Vec<OsuProfilePlaystyle>>,
+    // pub post_count: u32,
+    // pub discord: Option<String>,
+    // pub twitter: Option<String>,
+    // pub website: Option<String>,
+    // pub is_admin: bool,
+    // pub is_bng: bool,
+    // pub is_full_bn: bool,
+    // pub is_gmt: bool,
+    // pub is_limited_bn: bool,
+    // pub is_moderator: bool,
+    // pub is_nat: bool,
+    // pub is_restricted: bool,
+    // pub is_silenced: bool,
     pub badges: Vec<OsuProfileBadge>,
     pub follower_count: u32,
     pub graveyard_beatmapset_count: u32,
@@ -49,9 +49,9 @@ pub struct OsuProfile {
     pub ranked_and_approved_beatmapset_count: u32,
     pub monthly_playcounts: Vec<DateCount>,
     pub replays_watched_counts: Vec<DateCount>,
-    pub scores_first_count: u32,
+    // pub scores_first_count: u32,
     pub statistics: OsuProfileStatistics,
-    pub support_level: u32,
+    // pub support_level: u32,
     #[serde(deserialize_with = "rank_history_vec")]
     pub rank_history: Option<Vec<u32>>,
     #[serde(rename = "user_achievements")]
@@ -109,7 +109,7 @@ pub struct OsuMedal {
     pub instructions: Option<String>,
     #[serde(deserialize_with = "str_to_maybe_mode")]
     pub mode: Option<GameMode>,
-    pub ordering: u32,
+    // pub ordering: u32,
 }
 
 #[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -237,18 +237,18 @@ pub struct OsuProfileGrades {
 
 #[derive(Debug, Deserialize)]
 pub struct OsuProfileStatistics {
-    pub pp: f32,
-    pub global_rank: u32,
-    pub country_rank: u32,
+    // pub pp: f32,
+    // pub global_rank: Option<u32>,
+    // pub country_rank: Option<u32>,
     pub ranked_score: u64,
     pub total_score: u64,
-    #[serde(rename = "hit_accuracy")]
-    pub accuracy: f32,
-    #[serde(rename = "play_count")]
-    pub playcount: u32,
+    // #[serde(rename = "hit_accuracy")]
+    // pub accuracy: f32,
+    // #[serde(rename = "play_count")]
+    // pub playcount: u32,
     #[serde(rename = "play_time", deserialize_with = "defaulting_u32")]
     pub playtime: u32,
-    pub total_hits: u32,
+    // pub total_hits: u32,
     #[serde(rename = "maximum_combo")]
     pub max_combo: u32,
     #[serde(rename = "replays_watched_by_others")]
