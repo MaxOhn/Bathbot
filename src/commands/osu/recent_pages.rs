@@ -240,11 +240,13 @@ async fn recent_pages_main(
     };
 
     // Creating the embed
+    let embed = data.build().build()?;
+
     let response = ctx
         .http
         .create_message(msg.channel_id)
         .content(format!("Try #{}", tries))?
-        .embed(data.build().build()?)?
+        .embed(embed)?
         .await?;
 
     ctx.store_msg(response.id);

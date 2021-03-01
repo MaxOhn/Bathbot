@@ -5,7 +5,7 @@ use crate::{
     unwind_error,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        matcher, MessageExt,
+        MessageExt,
     },
     BotResult, Context,
 };
@@ -215,15 +215,7 @@ async fn recent_main(
     };
 
     // Creating the embed
-    let mut embed = data.build().build()?;
-
-    // Funny numeral
-    if mode == GameMode::STD {
-        for idx in 1..=5 {
-            embed.fields[idx].value =
-                matcher::highlight_funny_numeral(&embed.fields[idx].value).into_owned();
-        }
-    }
+    let embed = data.build().build()?;
 
     let response = ctx
         .http

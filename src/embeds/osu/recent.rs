@@ -4,6 +4,7 @@ use crate::{
         constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
         error::PPError,
+        matcher::highlight_funny_numeral,
         numbers::{round, with_comma_u64},
         osu::{grade_completion_mods, prepare_beatmap_file},
         ScoreExt,
@@ -367,22 +368,31 @@ impl EmbedData for RecentEmbed {
     }
 
     fn fields(&self) -> Option<Vec<(String, String, bool)>> {
+        let score = highlight_funny_numeral(&self.score).into_owned();
+        let acc = highlight_funny_numeral(&format!("{}%", self.acc)).into_owned();
+        let pp = highlight_funny_numeral(&self.pp).into_owned();
+
         let mut fields = vec![
             ("Grade".to_owned(), self.grade_completion_mods.clone(), true),
-            ("Score".to_owned(), self.score.clone(), true),
-            ("Acc".to_owned(), format!("{}%", self.acc), true),
-            ("PP".to_owned(), self.pp.clone(), true),
+            ("Score".to_owned(), score, true),
+            ("Acc".to_owned(), acc, true),
+            ("PP".to_owned(), pp, true),
         ];
+
+        fields.reserve(3 + (self.if_fc.is_some() as usize) * 3);
 
         let mania = self.hits.chars().filter(|&c| c == '/').count() == 5;
 
+        let combo = highlight_funny_numeral(&self.combo).into_owned();
+        let hits = highlight_funny_numeral(&self.hits).into_owned();
+
         fields.push((
             if mania { "Combo / Ratio" } else { "Combo" }.to_owned(),
-            self.combo.clone(),
+            combo,
             true,
         ));
 
-        fields.push(("Hits".to_owned(), self.hits.clone(), true));
+        fields.push(("Hits".to_owned(), hits, true));
 
         if let Some((pp, acc, hits)) = &self.if_fc {
             fields.push(("**If FC**: PP".to_owned(), pp.clone(), true));
@@ -453,7 +463,7 @@ enum MapPersonalBest {
         mods: GameMods,
         difference: u32,
     },
-    // Would have been first pass
+    // Fail, would have been first pass
     WouldHaveFirstPass,
     // Fail, would be best score
     WouldHave,
