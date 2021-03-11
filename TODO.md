@@ -1,6 +1,9 @@
 
 **[TODO]**
+- mp track command
+- Support mod inclusion / exclusion / exact for lb commands
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
+- ~~Check on IRC for tracking~~
 - ~~Split database tables based on popular queries~~
 - ~~Fix `<mc` sometimes missing some users~~
 - ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~
