@@ -1,18 +1,29 @@
+use super::{prepare_scores, ErrorType};
 use crate::{
     arguments::{Args, GradeArg, TopArgs},
     embeds::{EmbedData, TopEmbed, TopSingleEmbed},
     pagination::{Pagination, TopPagination},
     tracking::process_tracking,
-    unwind_error,
-    util::{constants::OSU_API_ISSUE, numbers, osu::ModSelection, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        numbers,
+        osu::ModSelection,
+        MessageExt,
+    },
     BotResult, Context,
 };
 
-use rosu::model::{
-    ApprovalStatus::{Approved, Loved, Qualified, Ranked},
-    Beatmap, GameMode, Score, User,
+use futures::future::TryFutureExt;
+use rosu_v2::prelude::{
+    GameMode, OsuError,
+    RankStatus::{Approved, Loved, Qualified, Ranked},
+    Score, User,
 };
-use std::{cmp::Ordering, collections::HashMap, sync::Arc};
+use std::{
+    cmp::{Ordering, Reverse},
+    collections::HashMap,
+    sync::Arc,
+};
 use tokio::time::{sleep, Duration};
 use twilight_model::channel::Message;
 
@@ -81,119 +92,79 @@ async fn top_main(
     };
 
     // Retrieve the user and their top scores
-    let user_fut = ctx.osu().user(name.as_str()).mode(mode);
-    let scores_fut = ctx.osu().top_scores(name.as_str()).mode(mode).limit(100);
-    let join_result = tokio::try_join!(user_fut, scores_fut);
+    let user_fut = ctx.osu().user(&name).mode(mode).map_err(From::from);
+    let scores_fut_1 = ctx.osu().user_scores(&name).best().mode(mode).limit(50);
 
-    let (user, scores) = match join_result {
-        Ok((Some(user), scores)) => (user, scores),
-        Ok((None, _)) => {
+    let scores_fut_2 = async {
+        let n = num.map_or(50, |n| n.saturating_sub(50));
+
+        if n > 0 {
+            let fut = ctx
+                .osu()
+                .user_scores(&name)
+                .best()
+                .mode(mode)
+                .offset(50)
+                .limit(n);
+
+            Ok(Some(prepare_scores(&ctx, fut).await?))
+        } else {
+            Ok(None)
+        }
+    };
+
+    let scores_fut_1 = prepare_scores(&ctx, scores_fut_1);
+
+    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut_1, scores_fut_2) {
+        Ok((user, mut scores, scores_2_opt)) => {
+            if let Some(mut scores_2) = scores_2_opt {
+                scores.append(&mut scores_2);
+            }
+
+            (user, scores)
+        }
+        Err(ErrorType::Osu(OsuError::NotFound)) => {
             let content = format!("User `{}` was not found", name);
 
             return msg.error(&ctx, content).await;
         }
-        Err(why) => {
+        Err(ErrorType::Osu(why)) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
+        Err(ErrorType::Bot(why)) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
     };
 
     // Process user and their top scores for tracking
-    let mut maps = HashMap::new();
-    process_tracking(&ctx, mode, &scores, Some(&user), &mut maps).await;
+    process_tracking(&ctx, mode, &mut scores).await;
 
     // Filter scores according to mods, combo, acc, and grade
-    let scores_indices = filter_scores(top_type, scores, mode, &args);
+    let scores = filter_scores(top_type, scores, &args);
 
-    if num.filter(|n| *n > scores_indices.len()).is_some() {
+    if num.filter(|n| *n > scores.len()).is_some() {
         let content = format!(
             "`{}` only has {} top scores with the specified properties",
-            user.username,
-            scores_indices.len()
+            name,
+            scores.len()
         );
 
         return msg.error(&ctx, content).await;
     }
 
-    // Get all relevant maps from the database
-    let map_ids: Vec<u32> = scores_indices
-        .iter()
-        .filter_map(|(_, s)| s.beatmap_id)
-        .collect();
+    // Add maps of scores to DB
+    let scores_iter = scores.iter().map(|(_, score)| score);
 
-    let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
-        Ok(maps) => maps,
-        Err(why) => {
-            unwind_error!(warn, why, "Error while getting maps from DB: {}");
-
-            HashMap::default()
-        }
-    };
-
-    debug!(
-        "Found {}/{} beatmaps in DB",
-        maps.len(),
-        scores_indices.len()
-    );
-
-    let retrieving_msg = if scores_indices.len() - maps.len() > 10 {
-        let content = format!(
-            "Retrieving {} maps from the api...",
-            scores_indices.len() - maps.len()
-        );
-
-        ctx.http
-            .create_message(msg.channel_id)
-            .content(content)?
-            .await
-            .ok()
-    } else {
-        None
-    };
-
-    // Retrieving all missing beatmaps
-    let mut scores_data = Vec::with_capacity(scores_indices.len());
-    let mut missing_maps = Vec::new();
-
-    for (i, score) in scores_indices.into_iter() {
-        let map_id = score.beatmap_id.unwrap();
-
-        let map = if let Some(map) = maps.remove(&map_id) {
-            map
-        } else {
-            match ctx.osu().beatmap().map_id(map_id).await {
-                Ok(Some(map)) => {
-                    missing_maps.push(map.clone());
-
-                    map
-                }
-                Ok(None) => {
-                    let content = format!("The API returned no beatmap for map id {}", map_id);
-
-                    return msg.error(&ctx, content).await;
-                }
-                Err(why) => {
-                    let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-                    return Err(why.into());
-                }
-            }
-        };
-
-        scores_data.push((i, score, map));
+    if let Err(why) = ctx.psql().store_scores_maps(scores_iter).await {
+        unwind_error!(warn, why, "Error while adding score maps to DB: {}")
     }
 
     if let Some(num) = num {
-        single_embed(
-            Arc::clone(&ctx),
-            msg,
-            user,
-            scores_data,
-            num.saturating_sub(1),
-            retrieving_msg,
-        )
-        .await?;
+        single_embed(Arc::clone(&ctx), msg, user, scores, num.saturating_sub(1)).await?;
     } else {
         let content = match top_type {
             TopType::Top => {
@@ -203,7 +174,7 @@ async fn top_main(
                     || args.grade.is_some();
 
                 if cond {
-                    let amount = scores_data.len();
+                    let amount = scores.len();
 
                     let content = format!(
                         "Found {num} top score{plural} with the specified properties:",
@@ -216,31 +187,10 @@ async fn top_main(
                     None
                 }
             }
-            TopType::Recent => Some(format!(
-                "Most recent scores in `{}`'s top100:",
-                user.username
-            )),
+            TopType::Recent => Some(format!("Most recent scores in `{}`'s top100:", name)),
         };
 
-        paginated_embed(
-            Arc::clone(&ctx),
-            msg,
-            user,
-            mode,
-            scores_data,
-            content,
-            retrieving_msg,
-        )
-        .await?;
-    }
-
-    // Add missing maps to database
-    if !missing_maps.is_empty() {
-        match ctx.psql().insert_beatmaps(&missing_maps).await {
-            Ok(n) if n < 2 => {}
-            Ok(n) => info!("Added {} maps to DB", n),
-            Err(why) => unwind_error!(warn, why, "Error while adding maps to DB: {}"),
-        }
+        paginated_embed(Arc::clone(&ctx), msg, user, scores, content).await?;
     }
 
     Ok(())
@@ -518,12 +468,7 @@ pub enum TopSortBy {
     Combo,
 }
 
-fn filter_scores(
-    top_type: TopType,
-    scores: Vec<Score>,
-    mode: GameMode,
-    args: &TopArgs,
-) -> Vec<(usize, Score)> {
+fn filter_scores(top_type: TopType, scores: Vec<Score>, args: &TopArgs) -> Vec<(usize, Score)> {
     let selection = args.mods;
     let grade = args.grade;
 
@@ -549,25 +494,25 @@ fn filter_scores(
                 None => true,
                 Some(ModSelection::Exact(mods)) => {
                     if mods.is_empty() {
-                        s.enabled_mods.is_empty()
+                        s.mods.is_empty()
                     } else {
-                        mods == s.enabled_mods
+                        mods == s.mods
                     }
                 }
                 Some(ModSelection::Include(mods)) => {
                     if mods.is_empty() {
-                        s.enabled_mods.is_empty()
+                        s.mods.is_empty()
                     } else {
-                        s.enabled_mods.contains(mods)
+                        s.mods.contains(mods)
                     }
                 }
                 Some(ModSelection::Exclude(mods)) => {
-                    if mods.is_empty() && s.enabled_mods.is_empty() {
+                    if mods.is_empty() && s.mods.is_empty() {
                         false
                     } else if mods.is_empty() {
                         true
                     } else {
-                        !s.enabled_mods.contains(mods)
+                        !s.mods.contains(mods)
                     }
                 }
             };
@@ -575,7 +520,7 @@ fn filter_scores(
                 return false;
             }
 
-            let acc = s.accuracy(mode);
+            let acc = s.accuracy;
             let acc_bool = match (args.acc_min, args.acc_max) {
                 (Some(a), _) if a > acc => false,
                 (_, Some(a)) if a < acc => false,
@@ -591,11 +536,12 @@ fn filter_scores(
             acc_bool && combo_bool
         })
         .collect();
+
     match args.sort_by {
         TopSortBy::Acc => {
             let acc_cache: HashMap<_, _> = scores_indices
                 .iter()
-                .map(|(i, s)| (*i, s.accuracy(mode)))
+                .map(|(i, s)| (*i, s.accuracy))
                 .collect();
 
             scores_indices.sort_unstable_by(|(a, _), (b, _)| {
@@ -605,14 +551,12 @@ fn filter_scores(
                     .unwrap_or(Ordering::Equal)
             });
         }
-        TopSortBy::Combo => {
-            scores_indices.sort_unstable_by(|(_, a), (_, b)| b.max_combo.cmp(&a.max_combo))
-        }
+        TopSortBy::Combo => scores_indices.sort_unstable_by_key(|(_, s)| Reverse(s.max_combo)),
         TopSortBy::None => {}
     }
 
     if top_type == TopType::Recent {
-        scores_indices.sort_unstable_by(|(_, a), (_, b)| b.date.cmp(&a.date));
+        scores_indices.sort_unstable_by_key(|(_, s)| Reverse(s.created_at));
     }
 
     scores_indices.iter_mut().for_each(|(i, _)| *i += 1);
@@ -633,16 +577,18 @@ async fn single_embed(
     ctx: Arc<Context>,
     msg: &Message,
     user: User,
-    scores_data: Vec<(usize, Score, Beatmap)>,
+    scores: Vec<(usize, Score)>,
     idx: usize,
-    retrieving_msg: Option<Message>,
 ) -> BotResult<()> {
-    let (idx, score, map) = scores_data.get(idx).unwrap();
+    let (idx, score) = scores.get(idx).unwrap();
+
+    let map = score.map.as_ref().unwrap();
 
     // Prepare retrieval of the map's global top 50 and the user's top 100
-    let globals = match map.approval_status {
+    let globals = match map.status {
         Ranked | Loved | Qualified | Approved => {
-            match map.get_global_leaderboard(ctx.osu()).limit(50).await {
+            // TODO: Add .limit(50)
+            match ctx.osu().beatmap_scores(map.map_id).await {
                 Ok(scores) => Some(scores),
                 Err(why) => {
                     unwind_error!(warn, why, "Error while getting global scores: {}");
@@ -654,20 +600,11 @@ async fn single_embed(
         _ => None,
     };
 
-    let data = TopSingleEmbed::new(&user, score, *idx, map, globals.as_deref()).await?;
-
-    if let Some(msg) = retrieving_msg {
-        let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;
-    }
+    let data = TopSingleEmbed::new(&user, score, *idx, globals.as_deref()).await?;
 
     // Creating the embed
     let embed = data.build().build()?;
-
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .embed(embed)?
-        .await?;
+    let response = msg.respond_embed(&ctx, embed).await?;
 
     ctx.store_msg(response.id);
     response.reaction_delete(&ctx, msg.author.id);
@@ -700,17 +637,11 @@ async fn paginated_embed(
     ctx: Arc<Context>,
     msg: &Message,
     user: User,
-    mode: GameMode,
-    scores_data: Vec<(usize, Score, Beatmap)>,
+    scores: Vec<(usize, Score)>,
     content: Option<String>,
-    retrieving_msg: Option<Message>,
 ) -> BotResult<()> {
-    let pages = numbers::div_euclid(5, scores_data.len());
-    let data = TopEmbed::new(&user, scores_data.iter().take(5), mode, (1, pages)).await;
-
-    if let Some(msg) = retrieving_msg {
-        let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;
-    }
+    let pages = numbers::div_euclid(5, scores.len());
+    let data = TopEmbed::new(&user, scores.iter().take(5), (1, pages)).await;
 
     // Creating the embed
     let embed = data.build().build()?;
@@ -722,14 +653,14 @@ async fn paginated_embed(
     };
 
     // Skip pagination if too few entries
-    if scores_data.len() <= 5 {
+    if scores.len() <= 5 {
         response.reaction_delete(&ctx, msg.author.id);
 
         return Ok(());
     }
 
     // Pagination
-    let pagination = TopPagination::new(response, user, scores_data, mode);
+    let pagination = TopPagination::new(response, user, scores);
     let owner = msg.author.id;
 
     tokio::spawn(async move {

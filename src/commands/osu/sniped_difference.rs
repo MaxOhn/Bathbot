@@ -2,7 +2,6 @@ use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, SnipedDiffEmbed},
     pagination::{Pagination, SnipedDiffPagination},
-    unwind_error,
     util::{
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         numbers, MessageExt, SNIPE_COUNTRIES,
@@ -11,7 +10,7 @@ use crate::{
 };
 
 use chrono::{Duration, Utc};
-use rosu::model::GameMode;
+use rosu_v2::prelude::{GameMode, OsuError};
 use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -30,8 +29,8 @@ async fn sniped_diff_main(
 
     // Request the user
     let user = match ctx.osu().user(name.as_str()).mode(GameMode::STD).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
+        Ok(user) => user,
+        Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{}`", name);
 
             return msg.error(&ctx, content).await;
@@ -43,10 +42,10 @@ async fn sniped_diff_main(
         }
     };
 
-    if !SNIPE_COUNTRIES.contains_key(user.country.as_str()) {
+    if !SNIPE_COUNTRIES.contains_key(user.country_code.as_str()) {
         let content = format!(
             "`{}`'s country {} is not supported :(",
-            user.username, user.country
+            user.username, user.country_code
         );
 
         return msg.error(&ctx, content).await;
@@ -81,7 +80,7 @@ async fn sniped_diff_main(
             }
         );
 
-        return msg.respond(&ctx, content).await;
+        return msg.send_response(&ctx, content).await;
     }
 
     scores.sort_unstable_by_key(|s| Reverse(s.date));
@@ -102,11 +101,7 @@ async fn sniped_diff_main(
 
     // Creating the embed
     let embed = data.build().build()?;
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .embed(embed)?
-        .await?;
+    let response = msg.respond_embed(&ctx, embed).await?;
 
     // Skip pagination if too few entries
     if scores.len() <= 5 {

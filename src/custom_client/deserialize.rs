@@ -1,17 +1,10 @@
 use chrono::{offset::TimeZone, DateTime, Utc};
-use rosu::model::{GameMode, GameMods};
+use rosu_v2::model::GameMods;
 use serde::{
     de::{Error, Unexpected},
     Deserialize, Deserializer,
 };
 use std::str::FromStr;
-
-pub fn str_to_maybe_mode<'de, D>(d: D) -> Result<Option<GameMode>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    Deserialize::deserialize(d)
-}
 
 pub fn str_to_maybe_datetime<'de, D>(d: D) -> Result<Option<DateTime<Utc>>, D::Error>
 where
@@ -51,12 +44,6 @@ pub fn str_to_maybe_u32<'de, D: Deserializer<'de>>(d: D) -> Result<Option<u32>, 
 
 pub fn str_to_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
     Ok(str_to_maybe_u32(d)?.unwrap_or(0))
-}
-
-pub fn num_to_mode<'de, D: Deserializer<'de>>(d: D) -> Result<GameMode, D::Error> {
-    let num: u8 = Deserialize::deserialize(d)?;
-
-    Ok(GameMode::from(num))
 }
 
 pub fn adjust_mods_maybe<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMods>, D::Error> {

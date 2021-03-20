@@ -1,10 +1,9 @@
 use crate::{
-    custom_client::MostPlayedMap,
     embeds::{osu, Author, EmbedData, Footer},
     util::constants::{AVATAR_URL, OSU_BASE},
 };
 
-use rosu::model::User;
+use rosu_v2::prelude::{MostPlayedMap, User};
 use std::fmt::Write;
 use twilight_embed_builder::image_source::ImageSource;
 
@@ -23,24 +22,29 @@ impl MostPlayedEmbed {
     {
         let thumbnail = ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap();
         let mut description = String::with_capacity(10 * 70);
-        for map in maps {
+
+        for most_played in maps {
+            let map = &most_played.map;
+            let mapset = &most_played.mapset;
+
             let _ = writeln!(
                 description,
                 "**[{count}]** [{artist} - {title} [{version}]]({base}b/{map_id}) [{stars}]",
-                count = map.count,
-                title = map.title,
-                artist = map.artist,
+                count = most_played.count,
+                title = mapset.title,
+                artist = mapset.artist,
                 version = map.version,
                 base = OSU_BASE,
-                map_id = map.beatmap_id,
+                map_id = map.map_id,
                 stars = osu::get_stars(map.stars),
             );
         }
+
         Self {
             thumbnail,
             description,
             title: "Most played maps:",
-            author: osu::get_user_author(user),
+            author: author!(user),
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
         }
     }

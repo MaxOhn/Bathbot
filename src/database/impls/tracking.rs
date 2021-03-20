@@ -2,20 +2,33 @@ use crate::{database::TrackingUser, BotResult, Database};
 
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
-use rosu::model::GameMode;
-use sqlx::{types::Json, Row};
+use futures::stream::StreamExt;
+use rosu_v2::model::GameMode;
+use serde_json::Value;
 use std::collections::HashMap;
 use twilight_model::id::ChannelId;
 
 impl Database {
     #[cold]
     pub async fn get_osu_trackings(&self) -> BotResult<DashMap<(u32, GameMode), TrackingUser>> {
-        let tracks = sqlx::query_as("SELECT * FROM osu_tracking")
-            .fetch_all(&self.pool)
-            .await?
-            .into_iter()
-            .map(|user: TrackingUser| ((user.user_id, user.mode), user))
-            .collect();
+        let mut stream = sqlx::query!("SELECT * FROM osu_trackings").fetch(&self.pool);
+        let tracks = DashMap::with_capacity(5000);
+
+        while let Some(entry) = stream.next().await.transpose()? {
+            let user_id = entry.user_id as u32;
+            let mode = GameMode::from(entry.mode as u8);
+            let last_top_score = entry.last_top_score;
+            let channels: Value = entry.channels;
+
+            let user = TrackingUser {
+                user_id,
+                mode,
+                last_top_score,
+                channels: serde_json::from_value(channels)?,
+            };
+
+            tracks.insert((user_id as u32, mode), user);
+        }
 
         Ok(tracks)
     }
@@ -27,28 +40,27 @@ impl Database {
         last_top_score: DateTime<Utc>,
         channels: &HashMap<ChannelId, usize>,
     ) -> BotResult<()> {
-        let query =
-            "UPDATE osu_tracking SET last_top_score=$3, channels=$4 WHERE user_id=$1 AND mode=$2";
-
-        sqlx::query(query)
-            .bind(user_id)
-            .bind(mode as i8)
-            .bind(last_top_score)
-            .bind(Json(channels))
-            .execute(&self.pool)
-            .await?;
+        sqlx::query!(
+            "UPDATE osu_trackings SET last_top_score=$3, channels=$4 WHERE user_id=$1 AND mode=$2",
+            user_id as i32,
+            mode as i16,
+            last_top_score,
+            serde_json::to_value(&channels)?
+        )
+        .execute(&self.pool)
+        .await?;
 
         Ok(())
     }
 
     pub async fn remove_osu_tracking(&self, user_id: u32, mode: GameMode) -> BotResult<()> {
-        let query = "DELETE FROM osu_tracking WHERE user_id=$1 AND mode=$2";
-
-        sqlx::query(query)
-            .bind(user_id)
-            .bind(mode as i8)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query!(
+            "DELETE FROM osu_trackings WHERE user_id=$1 AND mode=$2",
+            user_id as i32,
+            mode as i16
+        )
+        .execute(&self.pool)
+        .await?;
 
         Ok(())
     }
@@ -61,28 +73,31 @@ impl Database {
         channel: ChannelId,
         limit: usize,
     ) -> BotResult<()> {
-        let query = "INSERT INTO osu_tracking VALUES ($1,$2,$3,$4) ON CONFLICT (user_id, mode) DO UPDATE SET last_top_score=$3 RETURNING channels";
         let mut set = HashMap::with_capacity(1);
         set.insert(channel, limit);
 
-        let mut channels: Json<HashMap<ChannelId, usize>> = sqlx::query(query)
-            .bind(user_id)
-            .bind(mode as i8)
-            .bind(last_top_score)
-            .bind(Json(set))
-            .fetch_one(&self.pool)
-            .await?
-            .get(0);
+        let row = sqlx::query!(
+            "INSERT INTO osu_trackings VALUES ($1,$2,$3,$4) ON CONFLICT
+            (user_id,mode) DO UPDATE SET last_top_score=$3 RETURNING channels",
+            user_id as i32,
+            mode as i16,
+            last_top_score,
+            serde_json::to_value(&set)?,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        let mut channels: HashMap<ChannelId, usize> = serde_json::from_value(row.channels)?;
 
         if channels.insert(channel, limit).is_none() {
-            let query = "UPDATE osu_tracking SET channels=$3 WHERE user_id=$1 AND mode=$2";
-
-            sqlx::query(query)
-                .bind(user_id)
-                .bind(mode as i8)
-                .bind(Json(channels))
-                .execute(&self.pool)
-                .await?;
+            sqlx::query!(
+                "UPDATE osu_trackings SET channels=$3 WHERE user_id=$1 AND mode=$2",
+                user_id as i32,
+                mode as i16,
+                serde_json::to_value(&channels)?
+            )
+            .execute(&self.pool)
+            .await?;
         }
 
         Ok(())

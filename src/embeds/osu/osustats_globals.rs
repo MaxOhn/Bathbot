@@ -2,7 +2,6 @@ use crate::{
     custom_client::OsuStatsScore,
     embeds::{osu, Author, EmbedData, Footer},
     pp::{Calculations, PPCalculator},
-    unwind_error,
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
@@ -12,7 +11,7 @@ use crate::{
     },
 };
 
-use rosu::model::User;
+use rosu_v2::model::user::User;
 use std::{collections::BTreeMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 
@@ -32,7 +31,7 @@ impl OsuStatsGlobalsEmbed {
     ) -> Self {
         if scores.is_empty() {
             return Self {
-                author: osu::get_user_author(user),
+                author: author!(user),
                 thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
                 footer: Footer::new("Page 1/1 ~ Total scores: 0"),
                 description: String::from("No scores with these parameters were found"),
@@ -93,7 +92,7 @@ impl OsuStatsGlobalsEmbed {
         Self {
             footer,
             description,
-            author: osu::get_user_author(&user),
+            author: author!(user),
             thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
         }
     }

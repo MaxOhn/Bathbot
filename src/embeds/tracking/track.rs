@@ -1,6 +1,6 @@
 use crate::embeds::EmbedData;
 
-use rosu::model::GameMode;
+use rosu_v2::model::GameMode;
 use std::fmt::Write;
 
 pub struct TrackEmbed {
@@ -19,25 +19,33 @@ impl TrackEmbed {
         let title = format!("Top score tracking | mode={} | limit={}", mode, limit);
         let mut fields = Vec::new();
         let mut iter = success.iter();
+
         if let Some(first) = iter.next() {
             let names_len: usize = success.iter().map(|name| name.len() + 4).sum();
             let mut value = String::with_capacity(names_len);
             let _ = write!(value, "`{}`", first);
+
             for name in iter {
                 let _ = write!(value, ", `{}`", name);
             }
+
             fields.push(("Now tracking:".to_owned(), value, false));
         }
+
         let mut iter = failure.iter();
+
         if let Some(first) = iter.next() {
             let names_len: usize = success.iter().map(|name| name.len() + 4).sum();
             let mut value = String::with_capacity(names_len);
             let _ = write!(value, "`{}`", first);
+
             for name in iter {
                 let _ = write!(value, ", `{}`", name);
             }
+
             fields.push(("Already tracked:".to_owned(), value, false));
         }
+
         if let Some(failed) = failed {
             fields.push((
                 "Failed to track:".to_owned(),
@@ -45,6 +53,7 @@ impl TrackEmbed {
                 false,
             ));
         }
+
         Self {
             title: Some(title),
             fields,

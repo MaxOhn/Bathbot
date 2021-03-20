@@ -2,9 +2,8 @@ use super::ReactionWrapper;
 use crate::{
     bg_game::MapsetTags,
     database::MapsetTagWrapper,
-    unwind_error,
     util::{
-        constants::{GENERAL_ISSUE, OSU_BASE},
+        constants::{GENERAL_ISSUE, OSU_BASE, OWNER_USER_ID},
         MessageExt,
     },
     Args, BotResult, Context, CONFIG,
@@ -12,8 +11,7 @@ use crate::{
 
 use cow_utils::CowUtils;
 use rand::RngCore;
-use rayon::prelude::*;
-use rosu::model::GameMode;
+use rosu_v2::model::GameMode;
 use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::fs;
 use tokio_stream::StreamExt;
@@ -38,22 +36,8 @@ use twilight_model::{
 #[usage("[mapset id] [add/a/remove/r] [list of tags]")]
 #[example("21662 r hard farm streams alternate hardname tech weeb bluesky")]
 #[aliases("bgtm", "bgtagmanual")]
+#[owner()]
 async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
-    let verified_users_init = match ctx.psql().get_bg_verified().await {
-        Ok(users) => users,
-        Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            return Err(why);
-        }
-    };
-
-    if !verified_users_init.contains(&msg.author.id) {
-        let content = "This command is only for verified people.\n\
-            If you're interested in helping out tagging backgrounds, \
-            feel free to let Badewanne3 know :)";
-        return msg.error(&ctx, content).await;
-    }
-
     // Parse mapset id
     let mapset_id = match args.next().map(u32::from_str) {
         Some(Ok(num)) => num,
@@ -66,7 +50,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
             Example: `21662 r hard farm streams alternate hardname tech weeb bluesky`\n\
             Tags: `farm, streams, alternate, old, meme, hardname, easy, hard, tech, \
             weeb, bluesky, english`";
-            return msg.respond(&ctx, content).await;
+            return msg.send_response(&ctx, content).await;
         }
     };
 
@@ -108,8 +92,12 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     let result = if tags.is_empty() {
         ctx.psql().get_tags_mapset(mapset_id).await
     } else {
-        let add = action == Action::Add;
-        match ctx.psql().set_tags_mapset(mapset_id, tags, add).await {
+        let db_result = match action {
+            Action::Add => ctx.psql().add_tags_mapset(mapset_id, tags).await,
+            Action::Remove => ctx.psql().remove_tags_mapset(mapset_id, tags).await,
+        };
+
+        match db_result {
             Ok(_) => ctx.psql().get_tags_mapset(mapset_id).await,
             Err(why) => Err(why),
         }
@@ -122,7 +110,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
                 "{}beatmapsets/{} is now tagged as:\n{}",
                 OSU_BASE, mapset_id, tags,
             );
-            msg.respond(&ctx, content).await?;
+            msg.send_response(&ctx, content).await?;
         }
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
@@ -145,22 +133,8 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
 )]
 #[usage("[std / mna]")]
 #[aliases("bgt", "bgtag")]
+#[owner()]
 async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
-    let verified_users_init = match ctx.psql().get_bg_verified().await {
-        Ok(users) => users,
-        Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            return Err(why);
-        }
-    };
-
-    if !verified_users_init.contains(&msg.author.id) {
-        let content = "This command is only for verified people.\n\
-            If you're interested in helping out tagging backgrounds, \
-            feel free to let Badewanne3 know :)";
-        return msg.error(&ctx, content).await;
-    }
-
     // Parse arguments as mode
     let mode = match args.next() {
         Some(arg) => match arg.cow_to_lowercase().as_ref() {
@@ -176,7 +150,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
     };
 
     let mut untagged = match ctx.psql().get_all_tags_mapset(mode).await {
-        Ok(tags) => tags.par_iter().any(|tag| tag.untagged()),
+        Ok(tags) => tags.iter().any(|tag| tag.untagged()),
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
             return Err(why);
@@ -187,7 +161,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         let content = "All backgrounds have been tagged, \
             here are some random ones you can review again though";
 
-        let _ = msg.respond(&ctx, content).await;
+        let _ = msg.send_response(&ctx, content).await;
     }
 
     let mut owner = msg.author.id;
@@ -207,12 +181,12 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
             Ok(mut tags) => {
                 if untagged {
                     if tags.iter().any(|tag| tag.untagged()) {
-                        tags.into_par_iter().filter(|tag| tag.untagged()).collect()
+                        tags.into_iter().filter(|tag| tag.untagged()).collect()
                     } else {
                         let content = "All backgrounds have been tagged, \
                             here are some random ones you can review again though";
 
-                        let _ = msg.respond(&ctx, content).await;
+                        let _ = msg.send_response(&ctx, content).await;
                         untagged = false;
                         tags.truncate(1);
 
@@ -252,16 +226,14 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         let msg_id = response.id;
 
         // Setup collector
-        let verified_users = verified_users_init.clone();
-
         let reaction_stream = ctx
             .standby
             .wait_for_event_stream(move |event: &Event| match event {
                 Event::ReactionAdd(event) => {
-                    event.message_id == msg_id && verified_users.contains(&event.user_id)
+                    event.message_id == msg_id && event.user_id.0 == OWNER_USER_ID
                 }
                 Event::ReactionRemove(event) => {
-                    event.message_id == msg_id && verified_users.contains(&event.user_id)
+                    event.message_id == msg_id && event.user_id.0 == OWNER_USER_ID
                 }
                 _ => false,
             })
@@ -349,7 +321,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         let result = if tags.is_empty() {
             ctx.psql().get_tags_mapset(mapset_id).await
         } else {
-            match ctx.psql().set_tags_mapset(mapset_id, tags, true).await {
+            match ctx.psql().add_tags_mapset(mapset_id, tags).await {
                 Ok(_) => ctx.psql().get_tags_mapset(mapset_id).await,
                 Err(why) => Err(why),
             }
@@ -364,11 +336,11 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                         OSU_BASE, mapset_id, tags,
                     );
 
-                    msg.respond(&ctx, content).await?;
+                    msg.send_response(&ctx, content).await?;
                 }
             }
             Err(why) => {
-                let _ = msg.respond(&ctx, GENERAL_ISSUE).await;
+                let _ = msg.send_response(&ctx, GENERAL_ISSUE).await;
 
                 return Err(why);
             }
@@ -376,7 +348,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
 
         if break_loop {
             let content = "Exiting loop, thanks for helping out :)";
-            msg.respond(&ctx, content).await?;
+            msg.send_response(&ctx, content).await?;
 
             break;
         }
@@ -401,8 +373,7 @@ async fn get_random_image(mut mapsets: Vec<MapsetTagWrapper>, mode: GameMode) ->
         };
 
         let mapset = mapsets.swap_remove(random_idx);
-        let filename = format!("{}.{}", mapset.mapset_id, mapset.filetype);
-        path.push(filename);
+        path.push(&mapset.filename);
 
         match fs::read(&path).await {
             Ok(bytes) => return (mapset.mapset_id, bytes),

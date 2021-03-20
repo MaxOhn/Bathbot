@@ -1,10 +1,9 @@
 use crate::{
-    embeds::{osu, Author, EmbedData},
+    embeds::{Author, EmbedData},
     util::constants::AVATAR_URL,
-    BotResult, Context,
 };
 
-use rosu::model::{GameMode, Grade, Score, User};
+use rosu_v2::prelude::{Grade, Score, User};
 use std::{collections::BTreeMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 
@@ -15,8 +14,8 @@ pub struct RatioEmbed {
 }
 
 impl RatioEmbed {
-    pub async fn new(ctx: &Context, user: User, scores: Vec<Score>) -> BotResult<Self> {
-        let mut accs = vec![0, 90, 95, 97, 99];
+    pub fn new(user: User, scores: Vec<Score>) -> Self {
+        let accs = [0, 90, 95, 97, 99];
         let mut categories: BTreeMap<u8, RatioCategory> = BTreeMap::new();
 
         for &acc in accs.iter() {
@@ -26,7 +25,7 @@ impl RatioEmbed {
         categories.insert(100, RatioCategory::default());
 
         for score in scores {
-            let acc = score.accuracy(GameMode::MNA);
+            let acc = score.accuracy;
 
             for &curr in accs.iter() {
                 if acc > curr as f32 {
@@ -75,61 +74,13 @@ impl RatioEmbed {
             }
         }
 
-        let previous_ratios = ctx
-            .psql()
-            .update_ratios(&user.username, &all_scores, &all_ratios, &all_misses)
-            .await?;
-
-        if let Some(ratios) = previous_ratios {
-            if ratios.scores != all_scores
-                || ratios.ratios != all_ratios
-                || ratios.misses != all_misses
-            {
-                let _ = writeln!(description, "--------------+--------+---------");
-                accs.push(100);
-
-                for (i, acc) in accs.iter().enumerate() {
-                    let any_changes = match (ratios.scores.get(i), all_scores.get(i)) {
-                        (Some(new), Some(old)) => new != old,
-                        (None, Some(_)) => true,
-                        (Some(_), None) => true,
-                        (None, None) => false,
-                    } || match (ratios.ratios.get(i), all_ratios.get(i)) {
-                        (Some(new), Some(old)) => (new - old).abs() >= 0.0005,
-                        (None, Some(_)) => true,
-                        (Some(_), None) => true,
-                        (None, None) => false,
-                    } || match (ratios.misses.get(i), all_misses.get(i)) {
-                        (Some(new), Some(old)) => (new - old).abs() >= 0.0005,
-                        (None, Some(_)) => true,
-                        (Some(_), None) => true,
-                        (None, None) => false,
-                    };
-
-                    if any_changes {
-                        let _ = writeln!(
-                            description,
-                            "{}{:>2}%: {:>+7} | {:>+6.3} | {:>+7.3}%",
-                            if *acc < 100 { ">" } else { "" },
-                            acc,
-                            *all_scores.get(i).unwrap_or(&0) - *ratios.scores.get(i).unwrap_or(&0),
-                            *all_ratios.get(i).unwrap_or(&0.0)
-                                - *ratios.ratios.get(i).unwrap_or(&0.0),
-                            *all_misses.get(i).unwrap_or(&0.0)
-                                - *ratios.misses.get(i).unwrap_or(&0.0),
-                        );
-                    }
-                }
-            }
-        }
-
         description.push_str("```");
 
-        Ok(Self {
+        Self {
             description: Some(description),
             thumbnail: Some(thumbnail),
-            author: Some(osu::get_user_author(&user)),
-        })
+            author: Some(author!(user)),
+        }
     }
 }
 
@@ -159,11 +110,15 @@ struct RatioCategory {
 impl RatioCategory {
     fn add_score(&mut self, s: &Score) {
         self.scores += 1;
-        self.count_geki += s.count_geki;
-        self.count_300 += s.count300;
-        self.count_miss += s.count_miss;
-        self.count_objects +=
-            s.count_geki + s.count300 + s.count_katu + s.count100 + s.count50 + s.count_miss;
+        self.count_geki += s.statistics.count_geki;
+        self.count_300 += s.statistics.count_300;
+        self.count_miss += s.statistics.count_miss;
+        self.count_objects += s.statistics.count_geki
+            + s.statistics.count_300
+            + s.statistics.count_katu
+            + s.statistics.count_100
+            + s.statistics.count_50
+            + s.statistics.count_miss;
     }
 
     #[inline]

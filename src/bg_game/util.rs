@@ -1,12 +1,12 @@
 use super::GameResult;
 use crate::{
     database::MapsetTagWrapper,
-    unwind_error,
     util::{error::BgGameError, levenshtein_distance},
     Context,
 };
 
 use rand::RngCore;
+use rosu_v2::model::beatmap::BeatmapsetCompact;
 use std::collections::VecDeque;
 
 #[allow(clippy::clippy::needless_lifetimes)]
@@ -35,18 +35,25 @@ pub async fn get_random_mapset<'m>(
 
 pub async fn get_title_artist(ctx: &Context, mapset_id: u32) -> GameResult<(String, String)> {
     let (mut title, artist) = {
-        if let Ok(mapset) = ctx.psql().get_beatmapset(mapset_id).await {
+        if let Ok(mapset) = ctx
+            .psql()
+            .get_beatmapset::<BeatmapsetCompact>(mapset_id)
+            .await
+        {
             (mapset.title.to_lowercase(), mapset.artist)
         } else {
-            match ctx.osu().beatmap().mapset_id(mapset_id).await {
-                Ok(Some(map)) => {
-                    if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-                        unwind_error!(warn, why, "Error while inserting bg game map into DB: {}");
+            match ctx.osu().beatmapset(mapset_id).await {
+                Ok(mapset) => {
+                    if let Err(why) = ctx.psql().insert_beatmapset(&mapset).await {
+                        unwind_error!(
+                            warn,
+                            why,
+                            "Error while inserting bg game mapset into DB: {}"
+                        );
                     }
 
-                    (map.title.to_lowercase(), map.artist)
+                    (mapset.title.to_lowercase(), mapset.artist)
                 }
-                Ok(None) => return Err(BgGameError::NoMapResult(mapset_id)),
                 Err(why) => return Err(BgGameError::Osu(why)),
             }
         }

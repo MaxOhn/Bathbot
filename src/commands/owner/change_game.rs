@@ -20,7 +20,7 @@ async fn changegame(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     match activity_fut.await {
         Ok(_) => {
             let content = "Successfully changed game";
-            msg.respond(&ctx, content).await
+            msg.send_response(&ctx, content).await
         }
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;

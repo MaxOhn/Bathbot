@@ -42,7 +42,7 @@ async fn removestream(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
                 "I'm no longer tracking `{}`'s twitch stream in this channel",
                 name
             );
-            msg.respond(&ctx, content).await
+            msg.send_response(&ctx, content).await
         }
         Ok(false) => {
             let content = format!("Twitch user `{}` was not tracked in this channel", name);

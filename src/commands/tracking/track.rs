@@ -6,8 +6,11 @@ use crate::{
 };
 
 use chrono::Utc;
-use futures::future::{try_join_all, TryFutureExt};
-use rosu::model::GameMode;
+use futures::{
+    future::FutureExt,
+    stream::{FuturesUnordered, StreamExt},
+};
+use rosu_v2::prelude::{GameMode, OsuError};
 use std::{collections::HashSet, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -44,37 +47,46 @@ async fn track_main(
             return msg.error(&ctx, content).await;
         }
         Some(limit) => limit,
-        None => 100,
+        None => 50,
     };
 
-    // Retrieve all users
-    let user_futs = names.into_iter().map(|name| {
-        ctx.osu()
-            .user(name.as_str())
-            .mode(mode)
-            .map_ok(move |user| (name, user))
-    });
+    let count = names.len();
 
-    let users: Vec<(u32, String)> = match try_join_all(user_futs).await {
-        Ok(users) => match users.iter().find(|(_, user)| user.is_none()) {
-            Some((name, _)) => {
+    // Retrieve all users
+    let mut user_futs = names
+        .into_iter()
+        .map(|name| {
+            ctx.osu()
+                .user(name.as_str())
+                .mode(mode)
+                .map(move |result| (name, result))
+        })
+        .collect::<FuturesUnordered<_>>();
+
+    let mut users = Vec::with_capacity(count);
+
+    while let Some((name, result)) = user_futs.next().await {
+        match result {
+            Ok(user) => users.push((user.user_id, user.username)),
+            Err(OsuError::NotFound) => {
                 let content = format!("User `{}` was not found", name);
 
                 return msg.error(&ctx, content).await;
             }
-            None => users
-                .into_iter()
-                .filter_map(|(name, user)| user.map(|user| (user.user_id, name)))
-                .collect(),
-        },
-        Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            Err(why) => {
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+                return Err(why.into());
+            }
         }
-    };
+    }
+
+    // Free &ctx again
+    drop(user_futs);
+
     if users.is_empty() {
         let content = "None of the given users were found by the API";
+
         return msg.error(&ctx, content).await;
     }
 
@@ -91,7 +103,7 @@ async fn track_main(
             Ok(true) => success.push(username),
             Ok(false) => failure.push(username),
             Err(why) => {
-                warn!("Error while adding tracked entry: {}", why);
+                unwind_error!(warn, why, "Error while adding tracked entry: {}");
 
                 let embed = TrackEmbed::new(mode, success, failure, Some(username), limit)
                     .build_owned()
@@ -122,7 +134,7 @@ async fn track_main(
     a new score in his top 42.\n\
     Alternatively, you can provide a limit by specifying `-limit` \
     followed by a number, e.g. `track -limit 42 badewanne3`.\n\
-    The limit must be between 1 and 100, defaults to 100 if none is given."
+    The limit must be between 1 and 100, **defaults to 50** if none is given."
 )]
 #[usage("[-limit number] [username1] [username2] ...")]
 #[example(
@@ -151,7 +163,7 @@ pub async fn track(
     a new score in his top 42.\n\
     Alternatively, you can provide a limit by specifying `-limit` \
     followed by a number, e.g. `trackmania -limit 42 badewanne3`.\n\
-    The limit must be between 1 and 100, defaults to 100 if none is given."
+    The limit must be between 1 and 100, **defaults to 50** if none is given."
 )]
 #[usage("[-limit number] [username1] [username2] ...")]
 #[example(
@@ -180,7 +192,7 @@ pub async fn trackmania(
     a new score in his top 42.\n\
     Alternatively, you can provide a limit by specifying `-limit` \
     followed by a number, e.g. `tracktaiko -limit 42 badewanne3`.\n\
-    The limit must be between 1 and 100, defaults to 100 if none is given."
+    The limit must be between 1 and 100, **defaults to 50** if none is given."
 )]
 #[usage("[-limit number] [username1] [username2] ...")]
 #[example(
@@ -209,7 +221,7 @@ pub async fn tracktaiko(
     a new score in his top 42.\n\
     Alternatively, you can provide a limit by specifying `-limit` \
     followed by a number, e.g. `trackctb -limit 42 badewanne3`.\n\
-    The limit must be between 1 and 100, defaults to 100 if none is given."
+    The limit must be between 1 and 100, **defaults to 50** if none is given."
 )]
 #[usage("[-limit number] [username1] [username2] ...")]
 #[example(

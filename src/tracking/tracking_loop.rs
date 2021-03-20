@@ -1,16 +1,22 @@
 use crate::{
+    commands::osu::prepare_score,
     embeds::{EmbedData, TrackNotificationEmbed},
-    unwind_error, Context,
+    Context,
 };
 
-use futures::future::{join_all, FutureExt};
-use rosu::model::{Beatmap, GameMode, Score, User};
+use chrono::{DateTime, Utc};
+use futures::{
+    future::FutureExt,
+    stream::{FuturesUnordered, StreamExt},
+};
+use rosu_v2::prelude::{GameMode, Score};
 use std::{collections::HashMap, sync::Arc};
 use tokio::time;
 use twilight_http::{
     api_error::{ApiError, ErrorCode, GeneralApiError},
     Error as TwilightError,
 };
+use twilight_model::id::ChannelId;
 
 #[cold]
 pub async fn tracking_loop(ctx: Arc<Context>) {
@@ -34,23 +40,25 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
         };
 
         // Build top score requests for each
-        let score_futs = tracked.iter().map(|&(user_id, mode)| {
-            ctx.osu()
-                .top_scores(user_id)
-                .mode(mode)
-                .limit(100)
-                .map(move |result| (user_id, mode, result))
-        });
+        let mut scores_futs = tracked
+            .iter()
+            .map(|&(user_id, mode)| {
+                ctx.osu()
+                    .user_scores(user_id)
+                    .best()
+                    .mode(mode)
+                    .limit(50)
+                    .map(move |result| (user_id, mode, result))
+            })
+            .collect::<FuturesUnordered<_>>();
 
         // Iterate over the request responses
-        let mut maps: HashMap<u32, Beatmap> = HashMap::new();
-
-        for (user_id, mode, result) in join_all(score_futs).await {
+        while let Some((user_id, mode, result)) = scores_futs.next().await {
             match result {
-                Ok(scores) => {
+                Ok(mut scores) => {
                     // Note: If scores are empty, (user_id, mode) will not be reset into the tracking queue
                     if !scores.is_empty() {
-                        process_tracking(&ctx, mode, &scores, None, &mut maps).await
+                        process_tracking(&ctx, mode, &mut scores).await
                     }
                 }
                 Err(why) => {
@@ -69,20 +77,9 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
     }
 }
 
-pub async fn process_tracking(
-    ctx: &Context,
-    mode: GameMode,
-    scores: &[Score],
-    user: Option<&User>,
-    maps: &mut HashMap<u32, Beatmap>,
-) {
-    let id_option = scores
-        .first()
-        .map(|s| s.user_id)
-        .or_else(|| user.map(|u| u.user_id));
-
-    let user_id = match id_option {
-        Some(id) => id,
+pub async fn process_tracking(ctx: &Context, mode: GameMode, scores: &mut [Score]) {
+    let user_id = match scores.first().map(|s| s.user_id) {
+        Some(user_id) => user_id,
         None => return,
     };
 
@@ -96,7 +93,7 @@ pub async fn process_tracking(
         None => return,
     };
 
-    let new_last = match scores.iter().map(|s| s.date).max() {
+    let mut new_last = match scores.iter().map(|s| s.created_at).max() {
         Some(new_last) => new_last,
         None => return,
     };
@@ -106,83 +103,110 @@ pub async fn process_tracking(
         user_id, mode, last, new_last
     );
 
-    let mut user_value = None; // will be set if user is None but there is new top score
+    // Process scores
+    score_loop(ctx, user_id, mode, 0, max, last, scores, &channels).await;
 
-    for (idx, score) in scores.iter().enumerate().take(max) {
+    let count = scores.len();
+
+    // If another load of scores is requires, request and process them
+    if count < max {
+        let scores_fut = ctx
+            .osu()
+            .user_scores(user_id)
+            .offset(count)
+            .limit(max - count)
+            .mode(mode);
+
+        match scores_fut.await {
+            Ok(mut scores) => {
+                if let Some(max) = scores.iter().map(|s| s.created_at).max() {
+                    new_last = new_last.max(max);
+                }
+
+                score_loop(
+                    ctx,
+                    user_id,
+                    mode,
+                    count,
+                    max - count,
+                    last,
+                    &mut scores,
+                    &channels,
+                )
+                .await;
+            }
+            Err(why) => unwind_error!(
+                warn,
+                why,
+                "Failed to request second load of scores for tracking: {}"
+            ),
+        }
+    }
+
+    // If new top score, update the date
+    if new_last > last {
+        debug!(
+            "[Tracking] Updating for ({},{}): {} -> {}",
+            user_id, mode, last, new_last
+        );
+
+        let update_fut = ctx
+            .tracking()
+            .update_last_date(user_id, mode, new_last, ctx.psql());
+
+        if let Err(why) = update_fut.await {
+            unwind_error!(
+                warn,
+                why,
+                "Error while updating tracking date for user ({},{}): {}",
+                user_id,
+                mode
+            );
+        }
+    }
+
+    ctx.tracking().reset(user_id, mode).await;
+    debug!("[Tracking] Reset ({},{})", user_id, mode);
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn score_loop(
+    ctx: &Context,
+    user_id: u32,
+    mode: GameMode,
+    start: usize,
+    max: usize,
+    last: DateTime<Utc>,
+    scores: &mut [Score],
+    channels: &HashMap<ChannelId, usize>,
+) {
+    for (mut idx, score) in scores.iter_mut().enumerate().take(max) {
+        idx += start;
+
         // Skip if its an older score
-        if score.date <= last {
+        if score.created_at <= last {
             continue;
+        }
+
+        let requires_combo = score.map.as_ref().map_or(false, |m| {
+            matches!(m.mode, GameMode::STD | GameMode::CTB) && m.max_combo.is_none()
+        });
+
+        if requires_combo {
+            if let Err(why) = prepare_score(&ctx, score).await {
+                unwind_error!(warn, why, "Failed to fill in max combo for tracking: {}");
+
+                continue;
+            }
         }
 
         debug!(
             "[New top score] ({},{}): new {} | old {}",
-            user_id, mode, score.date, last
+            user_id, mode, score.created_at, last
         );
 
-        // Prepare beatmap
-        let map_id = match score.beatmap_id {
-            Some(id) => id,
-            None => {
-                warn!("No beatmap_id for ({},{})'s score", user_id, mode);
-                continue;
-            }
-        };
-
-        if !maps.contains_key(&map_id) {
-            match ctx.psql().get_beatmap(map_id).await {
-                Ok(map) => maps.insert(map_id, map),
-                Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
-                    Ok(Some(map)) => maps.insert(map_id, map),
-                    Ok(None) => {
-                        warn!("Beatmap id {} was not found for tracking", map_id);
-
-                        continue;
-                    }
-                    Err(why) => {
-                        unwind_error!(
-                            warn,
-                            why,
-                            "Error while retrieving tracking map id {}: {}",
-                            map_id
-                        );
-
-                        continue;
-                    }
-                },
-            };
-        }
-
-        let map = maps.get(&map_id).unwrap();
-
-        // Prepare user
-        let user = match (user, user_value.as_ref()) {
-            (Some(user), _) => user,
-            (None, Some(user)) => user,
-            (None, None) => match ctx.osu().user(user_id).mode(mode).await {
-                Ok(Some(user)) => {
-                    user_value = Some(user);
-                    user_value.as_ref().unwrap()
-                }
-                Ok(None) => {
-                    warn!("Empty result while retrieving tracking user {}", user_id);
-
-                    continue;
-                }
-                Err(why) => {
-                    unwind_error!(
-                        warn,
-                        why,
-                        "Error while retrieving tracking user {}: {}",
-                        user_id
-                    );
-
-                    continue;
-                }
-            },
-        };
-
         // Build embed
-        let data = TrackNotificationEmbed::new(user, score, map, idx + 1).await;
+        let data = TrackNotificationEmbed::new(score, idx + 1).await;
 
         let embed = match data.build().build() {
             Ok(embed) => embed,
@@ -207,18 +231,17 @@ pub async fn process_tracking(
             match ctx.http.create_message(channel).embed(embed.clone()) {
                 Ok(msg_fut) => {
                     let result = msg_fut.await;
+
                     if let Err(TwilightError::Response { error, .. }) = result {
                         if let ApiError::General(GeneralApiError {
                             code: ErrorCode::UnknownChannel,
                             ..
                         }) = error
                         {
-                            let result = ctx
-                                .tracking()
-                                .remove_channel(channel, None, ctx.psql())
-                                .await;
+                            let remove_fut =
+                                ctx.tracking().remove_channel(channel, None, ctx.psql());
 
-                            if let Err(why) = result {
+                            if let Err(why) = remove_fut.await {
                                 unwind_error!(
                                     warn,
                                     why,
@@ -249,28 +272,4 @@ pub async fn process_tracking(
             }
         }
     }
-
-    if new_last > last {
-        debug!(
-            "[Tracking] Updating for ({},{}): {} -> {}",
-            user_id, mode, last, new_last
-        );
-
-        let update_fut = ctx
-            .tracking()
-            .update_last_date(user_id, mode, new_last, ctx.psql());
-
-        if let Err(why) = update_fut.await {
-            unwind_error!(
-                warn,
-                why,
-                "Error while updating tracking date for user ({},{}): {}",
-                user_id,
-                mode
-            );
-        }
-    }
-
-    ctx.tracking().reset(user_id, mode).await;
-    debug!("[Tracking] Reset ({},{})", user_id, mode);
 }

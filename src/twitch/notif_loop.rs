@@ -1,10 +1,9 @@
 use super::*;
 use crate::{
     embeds::{EmbedData, TwitchNotifEmbed},
-    unwind_error, Context,
+    Context,
 };
 
-use rayon::prelude::*;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -44,6 +43,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
             Ok(streams) => streams,
             Err(why) => {
                 unwind_error!(warn, why, "Error while retrieving streams: {}");
+
                 continue;
             }
         };
@@ -72,7 +72,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
 
         // Put streams into a more suitable data type and process the thumbnail url
         let streams: Vec<(u64, TwitchStream)> = streams
-            .into_par_iter()
+            .into_iter()
             .map(|mut stream| {
                 if let Ok(thumbnail) = strfmt(&stream.thumbnail_url, &fmt_data) {
                     stream.thumbnail_url = thumbnail;

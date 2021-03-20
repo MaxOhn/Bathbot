@@ -1,4 +1,4 @@
-use rosu::model::GameMode;
+use rosu_v2::model::GameMode;
 use serde::Deserialize;
 use std::fmt;
 

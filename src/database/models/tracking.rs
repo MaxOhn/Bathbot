@@ -1,7 +1,5 @@
-use crate::unwind_error;
-
 use chrono::{DateTime, Utc};
-use rosu::model::GameMode;
+use rosu_v2::model::GameMode;
 use serde_json::Value;
 use sqlx::{types::Json, ColumnIndex, Decode, Error, FromRow, Row, Type};
 use std::{collections::HashMap, str::FromStr};

@@ -11,8 +11,8 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use rosu::model::{Beatmap, GameMode, GameMods};
 use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, TaikoPP};
+use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
 use std::fmt::Write;
 use tokio::fs::File;
 use twilight_embed_builder::image_source::ImageSource;
@@ -32,6 +32,7 @@ pub struct MapEmbed {
 impl MapEmbed {
     pub async fn new(
         map: &Beatmap,
+        mapset: &Beatmapset,
         mods: GameMods,
         with_thumbnail: bool,
         pages: (usize, usize),
@@ -39,10 +40,10 @@ impl MapEmbed {
         let mut title = String::with_capacity(32);
 
         if map.mode == GameMode::MNA {
-            let _ = write!(title, "[{}K] ", map.diff_cs as u32);
+            let _ = write!(title, "[{}K] ", map.cs as u32);
         }
 
-        let _ = write!(title, "{} - {}", map.artist, map.title);
+        let _ = write!(title, "{} - {}", mapset.artist, mapset.title);
 
         let download_value = format!(
             "[Mapset]({base}d/{mapset_id})\n\
@@ -50,7 +51,7 @@ impl MapEmbed {
             [Beatconnect](https://beatconnect.io/b/{mapset_id})\n\
             <osu://dl/{mapset_id}>",
             base = OSU_BASE,
-            mapset_id = map.beatmapset_id
+            mapset_id = map.mapset_id
         );
 
         let mut seconds_total = map.seconds_total;
@@ -70,7 +71,7 @@ impl MapEmbed {
         let mut info_value = String::with_capacity(128);
         let mut fields = Vec::with_capacity(3);
 
-        let map_path = prepare_beatmap_file(map.beatmap_id).await?;
+        let map_path = prepare_beatmap_file(map.map_id).await?;
         let file = File::open(map_path).await.map_err(PPError::from)?;
         let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
         let mod_bits = mods.bits();
@@ -193,7 +194,7 @@ impl MapEmbed {
             round(ar),
             round(od),
             round(hp),
-            map.count_spinner,
+            map.count_spinners,
         );
 
         let mut info_name = format!("{} __[{}]__", mode_emote(map.mode), map.version);
@@ -205,25 +206,29 @@ impl MapEmbed {
         fields.push((info_name, info_value, true));
         fields.push(("Download".to_owned(), download_value, true));
 
-        let field_name = format!(
+        let mut field_name = format!(
             ":heart: {}  :play_pause: {}  | {:?}, {:?}",
-            with_comma_u64(map.favourite_count as u64),
-            with_comma_u64(map.playcount as u64),
-            map.language,
-            map.genre,
+            with_comma_u64(mapset.favourite_count as u64),
+            with_comma_u64(mapset.playcount as u64),
+            mapset.language.expect("no language in mapset"),
+            mapset.genre.expect("no genre in mapset"),
         );
+
+        if mapset.nsfw {
+            field_name.push_str(" :underage: NSFW");
+        }
 
         fields.push((field_name, pp_values, false));
 
-        let (date_text, timestamp) = if let Some(approved_date) = map.approved_date {
-            (format!("{:?}", map.approval_status), approved_date)
+        let (date_text, timestamp) = if let Some(ranked_date) = mapset.ranked_date {
+            (format!("{:?}", map.status), ranked_date)
         } else {
-            ("Last updated".to_owned(), map.last_update)
+            ("Last updated".to_owned(), map.last_updated)
         };
 
-        let author = Author::new(format!("Created by {}", map.creator))
-            .url(format!("{}u/{}", OSU_BASE, map.creator_id))
-            .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
+        let author = Author::new(format!("Created by {}", mapset.creator_name))
+            .url(format!("{}u/{}", OSU_BASE, mapset.creator_id))
+            .icon_url(format!("{}{}", AVATAR_URL, mapset.creator_id));
 
         let footer_text = format!(
             "Map {} out of {} in the mapset, {}",
@@ -233,7 +238,7 @@ impl MapEmbed {
         let footer = Footer::new(footer_text);
 
         let thumbnail = if with_thumbnail {
-            Some(ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id)).unwrap())
+            Some(ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id)).unwrap())
         } else {
             None
         };
@@ -246,7 +251,7 @@ impl MapEmbed {
 
         let description = format!(
             ":musical_note: [Song preview](https://b.ppy.sh/preview/{}.mp3)",
-            map.beatmapset_id
+            mapset.mapset_id
         );
 
         Ok(Self {
@@ -258,7 +263,7 @@ impl MapEmbed {
             thumbnail,
             timestamp,
             description,
-            url: format!("{}b/{}", OSU_BASE, map.beatmap_id),
+            url: format!("{}b/{}", OSU_BASE, map.map_id),
         })
     }
 }

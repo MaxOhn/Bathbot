@@ -39,7 +39,7 @@ async fn prefix(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
             let prefixes = ctx.config_prefixes(guild_id);
             let mut content = String::new();
             current_prefixes(&mut content, &prefixes);
-            msg.respond(&ctx, content).await?;
+            msg.send_response(&ctx, content).await?;
             return Ok(());
         }
     };
@@ -80,7 +80,7 @@ async fn prefix(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
     let mut content = String::from("Prefixes updated!\n");
     let prefixes = ctx.config_prefixes(guild_id);
     current_prefixes(&mut content, &prefixes);
-    msg.respond(&ctx, content).await?;
+    msg.send_response(&ctx, content).await?;
     Ok(())
 }
 

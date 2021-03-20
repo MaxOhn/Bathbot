@@ -1,4 +1,4 @@
-use crate::{core::Context, unwind_error};
+use crate::core::Context;
 
 use chrono::{DateTime, Utc};
 use log::info;

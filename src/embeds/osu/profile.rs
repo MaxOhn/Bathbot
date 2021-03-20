@@ -1,7 +1,6 @@
 use crate::{
     commands::osu::{MinMaxAvgBasic, ProfileResult},
-    custom_client::OsuProfile,
-    embeds::{osu, Author, EmbedData, Footer},
+    embeds::{Author, EmbedData, Footer},
     util::{
         constants::{AVATAR_URL, DARK_GREEN},
         datetime::{date_to_string, how_long_ago, sec_to_minsec},
@@ -10,7 +9,7 @@ use crate::{
     },
 };
 
-use rosu::model::{GameMode, Grade, User};
+use rosu_v2::prelude::{GameMode, Grade, User};
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
 use twilight_embed_builder::{
     author::EmbedAuthorBuilder, builder::EmbedBuilder, footer::EmbedFooterBuilder,
@@ -32,10 +31,9 @@ pub struct ProfileEmbed {
 
 impl ProfileEmbed {
     pub fn new(
-        user: User,
+        user: &User,
         profile_result: Option<ProfileResult>,
         globals_count: BTreeMap<usize, Cow<'static, str>>,
-        profile: &OsuProfile,
         own_top_scores: usize,
         mode: GameMode,
     ) -> Self {
@@ -55,8 +53,14 @@ impl ProfileEmbed {
             how_long_ago(&user.join_date),
         );
 
+        let stats = user.statistics.as_ref().unwrap();
+
         let bonus_pow = 0.9994_f64.powi(
-            (user.count_ssh + user.count_ss + user.count_sh + user.count_s + user.count_a) as i32,
+            (stats.grade_counts.ssh
+                + stats.grade_counts.ss
+                + stats.grade_counts.sh
+                + stats.grade_counts.s
+                + stats.grade_counts.a) as i32,
         );
 
         let bonus_pp = (100.0 * 416.6667 * (1.0 - bonus_pow)).round() / 100.0;
@@ -64,39 +68,43 @@ impl ProfileEmbed {
         let main_fields = vec![
             (
                 "Ranked score".to_owned(),
-                with_comma_u64(user.ranked_score),
+                with_comma_u64(stats.ranked_score),
                 true,
             ),
             (
                 "Accuracy".to_owned(),
-                format!("{:.2}%", user.accuracy),
+                format!("{:.2}%", stats.accuracy),
                 true,
             ),
             (
                 "Max combo".to_owned(),
-                with_comma_u64(profile.statistics.max_combo as u64),
+                with_comma_u64(stats.max_combo as u64),
                 true,
             ),
             (
                 "Total score".to_owned(),
-                with_comma_u64(user.total_score),
+                with_comma_u64(stats.total_score),
                 true,
             ),
-            ("Level".to_owned(), format!("{:.2}", user.level), true),
+            (
+                "Level".to_owned(),
+                format!("{:.2}", stats.level.current),
+                true,
+            ),
             (
                 "Medals".to_owned(),
-                format!("{}", profile.medals.len()),
+                format!("{}", user.medals.as_ref().unwrap().len()),
                 true,
             ),
             (
                 "Total hits".to_owned(),
-                with_comma_u64(user.total_hits() as u64),
+                with_comma_u64(stats.total_hits as u64),
                 true,
             ),
             ("Bonus PP".to_owned(), format!("{}pp", bonus_pp), true),
             (
                 "Followers".to_owned(),
-                with_comma_u64(profile.follower_count as u64),
+                with_comma_u64(user.follower_count.unwrap() as u64),
                 true,
             ),
             (
@@ -104,15 +112,15 @@ impl ProfileEmbed {
                 format!(
                     "{}{} {}{} {}{} {}{} {}{}",
                     grade_emote(Grade::XH),
-                    user.count_ssh,
+                    stats.grade_counts.ssh,
                     grade_emote(Grade::X),
-                    user.count_ss,
+                    stats.grade_counts.ss,
                     grade_emote(Grade::SH),
-                    user.count_sh,
+                    stats.grade_counts.sh,
                     grade_emote(Grade::S),
-                    user.count_s,
+                    stats.grade_counts.s,
                     grade_emote(Grade::A),
-                    user.count_a,
+                    stats.grade_counts.a,
                 ),
                 false,
             ),
@@ -120,14 +128,14 @@ impl ProfileEmbed {
                 "Play count / time".to_owned(),
                 format!(
                     "{} / {} hrs",
-                    with_comma_u64(user.playcount as u64),
-                    user.total_seconds_played / 3600
+                    with_comma_u64(stats.playcount as u64),
+                    stats.playtime / 3600
                 ),
                 true,
             ),
             (
                 "Replays watched".to_owned(),
-                with_comma_u64(profile.statistics.replays_watched as u64),
+                with_comma_u64(stats.replays_watched as u64),
                 true,
             ),
         ];
@@ -225,19 +233,24 @@ impl ProfileEmbed {
 
             extended_fields.push((name.to_owned(), value, false));
 
-            if profile.ranked_and_approved_beatmapset_count + profile.loved_beatmapset_count > 0 {
+            let ranked_count = user.ranked_and_approved_beatmapset_count.unwrap()
+                + user.loved_beatmapset_count.unwrap();
+
+            if ranked_count > 0 {
                 let mut mapper_stats = String::with_capacity(64);
 
                 let _ = writeln!(
                     mapper_stats,
                     "`Ranked {}` • `Unranked {}`",
-                    profile.ranked_and_approved_beatmapset_count, profile.unranked_beatmapset_count,
+                    user.ranked_and_approved_beatmapset_count.unwrap(),
+                    user.unranked_beatmapset_count.unwrap(),
                 );
 
                 let _ = writeln!(
                     mapper_stats,
                     "`Loved {}` • `Graveyard {}`",
-                    profile.loved_beatmapset_count, profile.graveyard_beatmapset_count,
+                    user.loved_beatmapset_count.unwrap(),
+                    user.graveyard_beatmapset_count.unwrap(),
                 );
 
                 if own_top_scores > 0 {
@@ -295,7 +308,7 @@ impl ProfileEmbed {
             extended_fields,
             description,
             footer: Footer::new(footer_text),
-            author: osu::get_user_author(&user),
+            author: author!(user),
             image: ImageSource::attachment("profile_graph.png").unwrap(),
             thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
         }

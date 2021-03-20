@@ -30,10 +30,12 @@ async fn song_send(lyrics: &[&str], delay: u64, ctx: Arc<Context>, msg: &Message
     let allow = msg
         .guild_id
         .map_or(true, |guild_id| ctx.config_lyrics(guild_id));
+
     if allow {
         let mut interval = time::interval(time::Duration::from_millis(delay));
         for line in lyrics {
             interval.tick().await;
+
             ctx.http
                 .create_message(msg.channel_id)
                 .content(format!("♫ {} ♫", line))?
@@ -42,7 +44,9 @@ async fn song_send(lyrics: &[&str], delay: u64, ctx: Arc<Context>, msg: &Message
     } else {
         let content = "The server's big boys disabled song commands. \
             Server authorities can re-enable them with the `lyrics` command";
+
         msg.error(&ctx, content).await?;
     }
+
     Ok(())
 }

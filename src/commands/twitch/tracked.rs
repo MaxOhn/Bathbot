@@ -32,6 +32,6 @@ async fn trackedstreams(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<
             let _ = write!(content, ", `{}`", user);
         }
     }
-    msg.respond(&ctx, content).await?;
+    msg.send_response(&ctx, content).await?;
     Ok(())
 }

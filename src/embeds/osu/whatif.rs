@@ -1,13 +1,13 @@
 use crate::{
     commands::osu::WhatIfData,
-    embeds::{osu, Author, EmbedData},
+    embeds::{Author, EmbedData},
     util::{
         constants::AVATAR_URL,
         numbers::{round, with_comma, with_comma_u64},
     },
 };
 
-use rosu::model::User;
+use rosu_v2::model::user::User;
 use std::fmt::Write;
 use twilight_embed_builder::image_source::ImageSource;
 
@@ -20,6 +20,8 @@ pub struct WhatIfEmbed {
 
 impl WhatIfEmbed {
     pub fn new(user: User, pp: f32, data: WhatIfData) -> Self {
+        let stats = user.statistics.as_ref().unwrap();
+
         let title = format!(
             "What if {name} got a new {pp_given}pp score?",
             name = user.username,
@@ -47,7 +49,7 @@ impl WhatIfEmbed {
                     let _ = write!(
                         d,
                         "\nand they would reach rank #{}.",
-                        with_comma_u64(rank.min(user.pp_rank) as u64)
+                        with_comma_u64(rank.min(stats.global_rank.unwrap()) as u64)
                     );
                 } else {
                     d.push('.');
@@ -68,7 +70,7 @@ impl WhatIfEmbed {
                     pp = round(pp),
                     name = user.username,
                     num = new_pos,
-                    pp_change = new_pp + bonus_pp - user.pp_raw,
+                    pp_change = new_pp + bonus_pp - stats.pp,
                     new_pp = with_comma(new_pp + bonus_pp)
                 );
 
@@ -76,7 +78,7 @@ impl WhatIfEmbed {
                     let _ = write!(
                         d,
                         "\nand they would reach rank #{}.",
-                        with_comma_u64(rank.min(user.pp_rank) as u64)
+                        with_comma_u64(rank.min(stats.global_rank.unwrap()) as u64)
                     );
                 } else {
                     d.push('.');
@@ -93,7 +95,7 @@ impl WhatIfEmbed {
         Self {
             title: Some(title),
             description: Some(description),
-            author: Some(osu::get_user_author(&user)),
+            author: Some(author!(user)),
             thumbnail: Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap()),
         }
     }

@@ -1,11 +1,11 @@
 use super::deserialize::{
-    adjust_mods, num_to_mode, str_to_datetime, str_to_f32, str_to_maybe_datetime, str_to_maybe_f32,
+    adjust_mods, str_to_datetime, str_to_f32, str_to_maybe_datetime, str_to_maybe_f32,
 };
 
 use crate::util::osu::ModSelection;
 
 use chrono::{DateTime, Utc};
-use rosu::model::{ApprovalStatus, GameMode, GameMods, Grade};
+use rosu_v2::prelude::{GameMode, GameMods, Grade, RankStatus};
 use serde::{de::Error, Deserialize, Deserializer};
 use std::{fmt, str::FromStr};
 
@@ -81,7 +81,7 @@ pub struct OsuStatsMap {
     #[serde(rename = "beatmapSetId")]
     pub beatmapset_id: u32,
     #[serde(rename = "approved")]
-    pub approval_status: ApprovalStatus,
+    pub approval_status: RankStatus,
     #[serde(rename = "lastUpdated", deserialize_with = "str_to_datetime")]
     pub last_updated: DateTime<Utc>,
     #[serde(rename = "approvedDate", deserialize_with = "str_to_maybe_datetime")]
@@ -90,7 +90,6 @@ pub struct OsuStatsMap {
     pub seconds_drain: u32,
     #[serde(rename = "totalLength")]
     pub seconds_total: u32,
-    #[serde(deserialize_with = "num_to_mode")]
     pub mode: GameMode,
     pub version: String,
     pub artist: String,

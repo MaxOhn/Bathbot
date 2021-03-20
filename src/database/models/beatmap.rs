@@ -1,100 +1,187 @@
-use crate::unwind_error;
-
 use chrono::{DateTime, Utc};
-use rosu::model::{ApprovalStatus, Beatmap};
-use sqlx::{postgres::PgRow, FromRow, Row};
+use rosu_v2::model::beatmap::*;
+use sqlx::FromRow;
 use std::convert::TryInto;
 
 #[derive(Debug, FromRow)]
-pub struct DBMap {
-    pub beatmap_id: u32,
-    pub beatmapset_id: u32,
-    mode: i8,
-    version: String,
-    seconds_drain: u32,
-    seconds_total: u32,
-    bpm: f32,
-    stars: f32,
-    diff_cs: f32,
-    diff_od: f32,
-    diff_ar: f32,
-    diff_hp: f32,
-    count_circle: u32,
-    count_slider: u32,
-    count_spinner: u32,
-    max_combo: Option<u32>,
+#[sqlx(type_name = "maps")]
+pub struct DBBeatmap {
+    pub map_id: i32,
+    pub mapset_id: i32,
+    pub user_id: i32,
+    pub checksum: Option<String>,
+    pub version: String,
+    pub seconds_total: i32,
+    pub seconds_drain: i32,
+    pub count_circles: i32,
+    pub count_sliders: i32,
+    pub count_spinners: i32,
+    pub hp: f32,
+    pub cs: f32,
+    pub od: f32,
+    pub ar: f32,
+    pub mode: i16,
+    pub status: i16,
+    pub last_update: DateTime<Utc>,
+    pub stars: f32,
+    pub bpm: f32,
+    pub max_combo: Option<i32>,
 }
 
-#[derive(FromRow, Debug)]
-pub struct DBMapSet {
-    pub beatmapset_id: u32,
+impl From<DBBeatmap> for BeatmapCompact {
+    fn from(map: DBBeatmap) -> Self {
+        BeatmapCompact {
+            checksum: map.checksum,
+            fail_times: None,
+            map_id: map.map_id as u32,
+            mapset: None,
+            max_combo: map.max_combo.map(|n| n as u32),
+            mode: (map.mode as u8).into(),
+            seconds_total: map.seconds_total as u32,
+            stars: map.stars,
+            status: (map.status as i8).try_into().unwrap(),
+            version: map.version,
+        }
+    }
+}
+
+impl From<DBBeatmap> for Beatmap {
+    fn from(map: DBBeatmap) -> Self {
+        Beatmap {
+            ar: map.ar,
+            bpm: map.bpm,
+            checksum: map.checksum,
+            convert: false,
+            count_circles: map.count_circles as u32,
+            count_sliders: map.count_sliders as u32,
+            count_spinners: map.count_spinners as u32,
+            cs: map.cs,
+            deleted_at: None,
+            fail_times: None,
+            hp: map.hp,
+            is_scoreable: true,
+            last_updated: map.last_update,
+            map_id: map.map_id as u32,
+            mapset: None,
+            mapset_id: map.mapset_id as u32,
+            max_combo: map.max_combo.map(|n| n as u32),
+            mode: (map.mode as u8).into(),
+            od: map.od,
+            passcount: 0,
+            playcount: 0,
+            seconds_drain: map.seconds_drain as u32,
+            seconds_total: map.seconds_total as u32,
+            stars: map.stars,
+            status: (map.status as i8).try_into().unwrap(),
+            url: format!("https://osu.ppy.sh/beatmaps/{}", map.map_id),
+            version: map.version,
+        }
+    }
+}
+
+#[derive(Debug, FromRow)]
+#[sqlx(type_name = "mapsets")]
+pub struct DBBeatmapset {
+    pub mapset_id: i32,
+    pub user_id: i32,
     pub artist: String,
     pub title: String,
-    creator_id: u32,
-    creator: String,
-    genre: i8,
-    language: i8,
-    approval_status: i8,
-    approved_date: Option<DateTime<Utc>>,
+    pub creator: String,
+    pub status: i16,
+    pub ranked_date: DateTime<Utc>,
+    pub genre: i16,
+    pub language: i16,
 }
 
-pub struct BeatmapWrapper(Beatmap);
-
-impl From<Beatmap> for BeatmapWrapper {
-    #[inline]
-    fn from(map: Beatmap) -> Self {
-        Self(map)
-    }
-}
-
-impl Into<Beatmap> for BeatmapWrapper {
-    #[inline]
-    fn into(self) -> Beatmap {
-        self.0
-    }
-}
-
-impl<'c> FromRow<'c, PgRow> for BeatmapWrapper {
-    fn from_row(row: &PgRow) -> Result<BeatmapWrapper, sqlx::Error> {
-        let mode: i8 = row.get("mode");
-        let genre: i8 = row.get("genre");
-        let language: i8 = row.get("language");
-        let status: i8 = row.get("approval_status");
-
-        let map = Beatmap {
-            beatmap_id: row.get("beatmap_id"),
-            beatmapset_id: row.get("beatmapset_id"),
-            version: row.get("version"),
-            seconds_drain: row.get("seconds_drain"),
-            seconds_total: row.get("seconds_total"),
-            bpm: row.get("bpm"),
-            stars: row.get("stars"),
-            diff_cs: row.get("diff_cs"),
-            diff_ar: row.get("diff_ar"),
-            diff_od: row.get("diff_od"),
-            diff_hp: row.get("diff_hp"),
-            count_circle: row.get("count_circle"),
-            count_slider: row.get("count_slider"),
-            count_spinner: row.get("count_spinner"),
-            artist: row.get("artist"),
-            title: row.get("title"),
-            creator_id: row.get("creator_id"),
-            creator: row.get("creator"),
-            mode: (mode as u8).into(),
-            max_combo: row.get("max_combo"),
-            genre: (genre as u8).into(),
-            language: (language as u8).into(),
-            approval_status: match status.try_into() {
-                Ok(status) => status,
-                Err(why) => {
-                    unwind_error!(warn, why, "{}");
-                    ApprovalStatus::WIP
-                }
+impl From<DBBeatmapset> for BeatmapsetCompact {
+    fn from(mapset: DBBeatmapset) -> Self {
+        BeatmapsetCompact {
+            artist: mapset.artist,
+            artist_unicode: None,
+            covers: BeatmapsetCovers {
+                cover: String::new(),
+                cover_2x: String::new(),
+                card: String::new(),
+                card_2x: String::new(),
+                list: String::new(),
+                list_2x: String::new(),
+                slim_cover: String::new(),
+                slim_cover_2x: String::new(),
             },
-            approved_date: row.get("approved_date"),
-            ..Default::default()
-        };
+            creator_name: mapset.creator,
+            creator_id: mapset.user_id as u32,
+            favourite_count: 0,
+            genre: Some((mapset.genre as u8).try_into().unwrap()),
+            hype: None,
+            language: Some((mapset.language as u8).try_into().unwrap()),
+            mapset_id: mapset.mapset_id as u32,
+            nsfw: false,
+            playcount: 0,
+            preview_url: format!("b.ppy.sh/preview/{}.mp3", mapset.mapset_id),
+            source: String::new(),
+            status: (mapset.status as i8).try_into().unwrap(),
+            title: mapset.title,
+            title_unicode: None,
+            video: false,
+        }
+    }
+}
 
-        Ok(Self(map))
+impl From<DBBeatmapset> for Beatmapset {
+    fn from(mapset: DBBeatmapset) -> Self {
+        Beatmapset {
+            artist: mapset.artist,
+            artist_unicode: None,
+            availability: BeatmapsetAvailability {
+                download_disabled: false,
+                more_information: None,
+            },
+            bpm: -1.0,
+            can_be_hyped: false,
+            converts: None,
+            covers: BeatmapsetCovers {
+                cover: String::new(),
+                cover_2x: String::new(),
+                card: String::new(),
+                card_2x: String::new(),
+                list: String::new(),
+                list_2x: String::new(),
+                slim_cover: String::new(),
+                slim_cover_2x: String::new(),
+            },
+            creator: None,
+            creator_name: mapset.creator,
+            creator_id: mapset.user_id as u32,
+            description: None,
+            discussion_enabled: false,
+            discussion_locked: true,
+            favourite_count: 0,
+            genre: Some((mapset.genre as u8).try_into().unwrap()),
+            hype: None,
+            is_scoreable: true,
+            language: Some((mapset.language as u8).try_into().unwrap()),
+            last_updated: mapset.ranked_date,
+            legacy_thread_url: None,
+            maps: None,
+            mapset_id: mapset.mapset_id as u32,
+            nominations_summary: BeatmapsetNominations {
+                current: 0,
+                required: 0,
+            },
+            nsfw: false,
+            playcount: 0,
+            preview_url: format!("b.ppy.sh/preview/{}.mp3", mapset.mapset_id),
+            ratings: None,
+            ranked_date: Some(mapset.ranked_date),
+            recent_favourites: None,
+            source: String::new(),
+            status: (mapset.status as i8).try_into().unwrap(),
+            storyboard: false,
+            submitted_date: None,
+            tags: String::new(),
+            title: mapset.title,
+            title_unicode: None,
+            video: false,
+        }
     }
 }

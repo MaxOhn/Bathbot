@@ -8,7 +8,7 @@ use crate::{
     },
 };
 
-use rosu::model::{Beatmap, GameMode, Score, User};
+use rosu_v2::prelude::{GameMode, Score, User};
 use std::fmt::Write;
 use twilight_embed_builder::image_source::ImageSource;
 
@@ -30,25 +30,32 @@ impl TopIfEmbed {
         pages: (usize, usize),
     ) -> Self
     where
-        S: Iterator<Item = &'i (usize, Score, Beatmap, Option<f32>)>,
+        S: Iterator<Item = &'i (usize, Score, Option<f32>)>,
     {
         let pp_diff = (100.0 * (post_pp - pre_pp)).round() / 100.0;
         let mut description = String::with_capacity(512);
 
-        for (idx, score, map, max_pp) in scores_data {
+        for (idx, score, max_pp) in scores_data {
+            let map = score.map.as_ref().unwrap();
+            let mapset = score.mapset.as_ref().unwrap();
+
             let stars = osu::get_stars(map.stars);
-            let pp = osu::get_pp(score.pp, *max_pp);
+
+            let pp = match max_pp {
+                Some(max_pp) => osu::get_pp(score.pp, Some(*max_pp)),
+                None => osu::get_pp(None, None),
+            };
 
             let _ = writeln!(
                 description,
                 "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
                 {grade} {pp} ~ ({acc}) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
                 idx = idx,
-                title = map.title,
+                title = mapset.title,
                 version = map.version,
                 base = OSU_BASE,
-                id = map.beatmap_id,
-                mods = osu::get_mods(score.enabled_mods),
+                id = map.map_id,
+                mods = osu::get_mods(score.mods),
                 stars = stars,
                 grade = score.grade_emote(mode),
                 pp = pp,
@@ -56,7 +63,7 @@ impl TopIfEmbed {
                 score = with_comma_u64(score.score as u64),
                 combo = osu::get_combo(score, map),
                 hits = score.hits_string(mode),
-                ago = how_long_ago(&score.date)
+                ago = how_long_ago(&score.created_at)
             );
         }
 
@@ -64,7 +71,7 @@ impl TopIfEmbed {
 
         Self {
             description,
-            author: osu::get_user_author(user),
+            author: author!(user),
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
             title: format!("Total pp: {} → **{}pp** ({:+})", pre_pp, post_pp, pp_diff),
             thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),

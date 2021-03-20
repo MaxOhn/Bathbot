@@ -42,7 +42,7 @@ async fn addstream(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResul
                 "Now tracking twitch stream {} for channel {}",
                 name, msg.channel_id
             );
-            msg.respond(&ctx, content).await
+            msg.send_response(&ctx, content).await
         }
         Ok(false) => {
             let content = format!(

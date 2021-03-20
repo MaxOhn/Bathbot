@@ -2,7 +2,7 @@ use super::PageChange;
 
 use crate::{
     embeds::{EmbedData, ProfileEmbed},
-    unwind_error, BotResult, Context, CONFIG,
+    BotResult, Context, CONFIG,
 };
 
 use std::time::Duration;

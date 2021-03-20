@@ -1,3 +1,17 @@
+macro_rules! unwind_error {
+    ($log:ident, $err:ident, $($arg:tt)+) => {
+        {
+            $log!($($arg)+, $err);
+            let mut err: &dyn ::std::error::Error = &$err;
+
+            while let Some(source) = err.source() {
+                $log!("  - caused by: {}", source);
+                err = source;
+            }
+        }
+    };
+}
+
 mod arguments;
 mod bg_game;
 mod commands;
@@ -34,7 +48,8 @@ use hyper::{
     Body, Response,
 };
 use prometheus::{Encoder, TextEncoder};
-use rosu::{Osu, OsuCached};
+use rosu_v2::Osu;
+use std::env;
 use std::{
     collections::HashSet, convert::Infallible, process, str::FromStr, sync::Arc, time::Duration,
 };
@@ -65,20 +80,19 @@ fn main() {
 
 async fn async_main() -> BotResult<()> {
     logging::initialize()?;
+    dotenv::dotenv().expect("failed to load .env");
 
     // Load config file
     core::BotConfig::init("config.toml").await?;
 
+    let config = CONFIG.get().unwrap();
+
     // Prepare twitch client
-    let twitch = Twitch::new(
-        &CONFIG.get().unwrap().tokens.twitch_client_id,
-        &CONFIG.get().unwrap().tokens.twitch_token,
-    )
-    .await?;
+    let twitch = Twitch::new(&config.tokens.twitch_client_id, &config.tokens.twitch_token).await?;
 
     // Connect to the discord http client
     let http = HttpClient::builder()
-        .token(&CONFIG.get().unwrap().tokens.discord)
+        .token(&config.tokens.discord)
         .default_allowed_mentions(
             AllowedMentionsBuilder::new()
                 .parse_users()
@@ -95,18 +109,16 @@ async fn async_main() -> BotResult<()> {
     );
 
     // Connect to psql database and redis cache
-    let host = &CONFIG.get().unwrap().database.host;
-    let psql = Database::new(host).await?;
-    let redis_url = format!("{}:{}", host, CONFIG.get().unwrap().database.redis_port);
-    let redis = ConnectionPool::create(redis_url, None, 5).await?;
+    let db_uri = env::var("DATABASE_URL").expect("missing DATABASE_URL in .env");
+    let psql = Database::new(&db_uri)?;
+    let redis_uri = env::var("REDIS_URL").expect("missing REDIS_URL in .env");
+    let redis = ConnectionPool::create(redis_uri, None, 5).await?;
 
     // Connect to osu! API
-    let osu_token = &CONFIG.get().unwrap().tokens.osu;
+    let osu_client_id = config.tokens.osu_client_id;
+    let osu_client_secret = &config.tokens.osu_client_secret;
 
-    let osu = Osu::builder(osu_token, redis.clone())
-        .cache_duration(300)
-        .add_cached(OsuCached::User)
-        .build()?;
+    let osu = Osu::new(osu_client_id, osu_client_secret).await?;
 
     // Log custom client into osu!
     let custom = CustomClient::new().await?;
@@ -210,6 +222,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     tokio::spawn(async move {
         if let Err(err) = signal::ctrl_c().await {
             unwind_error!(error, err, "Error while waiting for ctrlc: {}");
+
             return;
         }
 

@@ -1,6 +1,13 @@
+macro_rules! map_id {
+    ($score:ident) => {
+        $score.map.as_ref().map(|map| map.map_id)
+    };
+}
+
 mod avatar;
 mod bws;
 mod common;
+mod compare;
 mod country_snipe_list;
 mod country_snipe_stats;
 mod leaderboard;
@@ -30,7 +37,6 @@ mod recent;
 mod recent_lb;
 mod recent_list;
 mod recent_pages;
-mod scores;
 mod simulate;
 mod simulate_recent;
 mod sniped;
@@ -43,6 +49,7 @@ mod whatif;
 pub use avatar::*;
 pub use bws::*;
 pub use common::*;
+pub use compare::*;
 pub use country_snipe_list::*;
 pub use country_snipe_stats::*;
 pub use leaderboard::*;
@@ -72,7 +79,6 @@ pub use recent::*;
 pub use recent_lb::*;
 pub use recent_list::*;
 pub use recent_pages::*;
-pub use scores::*;
 pub use simulate::*;
 pub use simulate_recent::*;
 pub use sniped::*;
@@ -85,17 +91,127 @@ pub use whatif::*;
 use crate::{
     custom_client::OsuStatsParams,
     util::{numbers, MessageExt},
-    BotResult, Context,
+    BotResult, Context, Error,
 };
 
-use rosu::{model::GameMode, OsuError};
+use futures::{
+    future::FutureExt,
+    stream::{FuturesUnordered, StreamExt},
+};
+use rosu_v2::prelude::{GameMode, OsuError, OsuResult, Score};
 use std::{
     borrow::Cow,
     cmp::PartialOrd,
     collections::BTreeMap,
+    future::Future,
     ops::{AddAssign, Div},
 };
 use twilight_model::channel::Message;
+
+enum ErrorType {
+    Bot(Error),
+    Osu(OsuError),
+}
+
+impl From<Error> for ErrorType {
+    fn from(e: Error) -> Self {
+        Self::Bot(e)
+    }
+}
+
+impl From<OsuError> for ErrorType {
+    fn from(e: OsuError) -> Self {
+        Self::Osu(e)
+    }
+}
+
+pub async fn prepare_score(ctx: &Context, score: &mut Score) -> OsuResult<()> {
+    let mode = score.mode;
+
+    let valid_score = score
+        .map
+        .as_mut()
+        .filter(|_| matches!(mode, GameMode::STD | GameMode::CTB))
+        .filter(|map| map.max_combo.is_none());
+
+    if let Some(map) = valid_score {
+        if let Ok(Some(combo)) = ctx.psql().get_beatmap_combo(map.map_id).await {
+            map.max_combo.replace(combo);
+        } else {
+            let beatmap = ctx.osu().beatmap().map_id(map.map_id).await?;
+
+            if let Err(why) = ctx.psql().insert_beatmap(&beatmap).await {
+                unwind_error!(warn, why, "Failed to insert beatmap: {}");
+            }
+
+            map.max_combo = beatmap.max_combo;
+        }
+    }
+
+    Ok(())
+}
+
+fn prepare_scores<'c, F>(
+    ctx: &'c Context,
+    fut: F,
+) -> impl 'c + Future<Output = Result<Vec<Score>, ErrorType>>
+where
+    F: 'c + Future<Output = OsuResult<Vec<Score>>>,
+{
+    fut.then(move |result| async move {
+        let mut scores = result?;
+
+        // If there's no score or its mania scores, return early
+        let invalid_scores = scores
+            .first()
+            .filter(|s| s.map.is_some() && matches!(s.mode, GameMode::STD | GameMode::CTB))
+            .is_none();
+
+        if invalid_scores {
+            return Ok(scores);
+        }
+
+        let map_ids: Vec<_> = scores
+            .iter()
+            .filter_map(|s| s.map.as_ref())
+            .filter(|map| map.max_combo.is_none())
+            .map(|map| map.map_id as i32)
+            .collect();
+
+        let combos = ctx.psql().get_beatmaps_combo(&map_ids).await?;
+
+        let mut iter = scores
+            .iter_mut()
+            .map(|score| (combos.get(&score.map.as_ref().unwrap().map_id), score))
+            .map(|(entry, score)| async move {
+                let score_map = score.map.as_mut().unwrap();
+
+                match entry {
+                    Some(Some(combo)) => {
+                        score_map.max_combo.replace(*combo);
+                    }
+                    None | Some(None) => {
+                        let map = ctx.osu().beatmap().map_id(score_map.map_id).await?;
+
+                        if let Err(why) = ctx.psql().insert_beatmap(&map).await {
+                            unwind_error!(warn, why, "Failed to insert beatmap: {}");
+                        }
+
+                        score_map.max_combo = map.max_combo;
+                    }
+                }
+
+                Ok::<_, Error>(())
+            })
+            .collect::<FuturesUnordered<_>>();
+
+        while iter.next().await.transpose()?.is_some() {}
+
+        drop(iter);
+
+        Ok(scores)
+    })
+}
 
 async fn require_link(ctx: &Context, msg: &Message) -> BotResult<()> {
     let prefix = ctx.config_first_prefix(msg.guild_id);
@@ -119,16 +235,16 @@ async fn get_globals_count(
     let mut params = OsuStatsParams::new(name).mode(mode);
     let mut get_amount = true;
 
-    for rank in [50, 25, 15, 8, 1].iter() {
+    for &rank in [50, 25, 15, 8, 1].iter() {
         if !get_amount {
-            counts.insert(*rank, Cow::Borrowed("0"));
+            counts.insert(rank, Cow::Borrowed("0"));
 
             continue;
         }
 
-        params = params.rank_max(*rank);
+        params = params.rank_max(rank);
         let (_, count) = ctx.clients.custom.get_global_scores(&params).await?;
-        counts.insert(*rank, Cow::Owned(numbers::with_comma_u64(count as u64)));
+        counts.insert(rank, Cow::Owned(numbers::with_comma_u64(count as u64)));
 
         if count == 0 {
             get_amount = false;
@@ -171,18 +287,21 @@ pub trait MinMaxAvgBasic {
         len.inc();
     }
 
+    #[inline]
     fn min(&self) -> Self::Value {
         let (min, _, _, _) = self.get();
 
         min
     }
 
+    #[inline]
     fn max(&self) -> Self::Value {
         let (_, max, _, _) = self.get();
 
         max
     }
 
+    #[inline]
     fn avg(&self) -> Self::Value {
         let (_, _, sum, len) = self.get();
 
@@ -280,9 +399,4 @@ impl Inc for u32 {
     fn inc(&mut self) {
         *self += 1;
     }
-}
-
-enum ResultError<T> {
-    None(T),
-    Osu(OsuError),
 }

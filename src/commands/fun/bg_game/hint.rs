@@ -12,7 +12,7 @@ use twilight_model::channel::Message;
 #[bucket("bg_hint")]
 pub async fn hint(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     match ctx.game_hint(msg.channel_id).await {
-        Ok(hint) => msg.respond(&ctx, hint).await,
+        Ok(hint) => msg.send_response(&ctx, hint).await,
         Err(BgGameError::NotStarted) => {
             debug!("Could not get hint because game didn't start yet");
             Ok(())

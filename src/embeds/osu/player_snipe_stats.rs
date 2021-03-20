@@ -2,7 +2,6 @@ use crate::{
     custom_client::SnipePlayer,
     embeds::{osu, Author, EmbedData, Footer},
     pp::{Calculations, PPCalculator},
-    unwind_error,
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
@@ -12,7 +11,7 @@ use crate::{
     },
 };
 
-use rosu::model::{Beatmap, GameMode, Score, User};
+use rosu_v2::prelude::{GameMode, Score, User};
 use std::fmt::Write;
 use twilight_embed_builder::image_source::ImageSource;
 
@@ -27,11 +26,7 @@ pub struct PlayerSnipeStatsEmbed {
 }
 
 impl PlayerSnipeStatsEmbed {
-    pub async fn new(
-        user: User,
-        player: SnipePlayer,
-        first_score: Option<(Score, Beatmap)>,
-    ) -> Self {
+    pub async fn new(user: User, player: SnipePlayer, first_score: Option<Score>) -> Self {
         let footer_text = format!(
             "{:+} #1{} since last update",
             player.difference,
@@ -64,9 +59,11 @@ impl PlayerSnipeStatsEmbed {
                 true,
             ));
 
-            if let Some((score, map)) = first_score {
+            if let Some(score) = first_score {
+                let map = score.map.as_ref().unwrap();
+
                 let calculations = Calculations::all();
-                let mut calculator = PPCalculator::new().score(&score).map(&map);
+                let mut calculator = PPCalculator::new().score(&score).map(map);
 
                 let (pp, max_pp, stars) = match calculator.calculate(calculations).await {
                     Ok(_) => (
@@ -88,17 +85,17 @@ impl PlayerSnipeStatsEmbed {
                     "**[{map}]({base}b/{id})**\t\
                     {grade}\t[{stars}]\t{score}\t({acc})\t[{combo}]\t\
                     [{pp}]\t {hits}\t{ago}",
-                    map = map,
+                    map = player.oldest_first.unwrap().map,
                     base = OSU_BASE,
-                    id = map.beatmap_id,
+                    id = map.map_id,
                     grade = grade_completion_mods(&score, &map),
                     stars = stars,
                     score = with_comma_u64(score.score as u64),
                     acc = score.acc_string(GameMode::STD),
                     pp = pp,
-                    combo = osu::get_combo(&score, &map),
+                    combo = osu::get_combo(&score, map),
                     hits = score.hits_string(GameMode::STD),
-                    ago = how_long_ago(&score.date)
+                    ago = how_long_ago(&score.created_at)
                 );
 
                 fields.push((String::from("Oldest national #1:"), value, false));
@@ -136,7 +133,7 @@ impl PlayerSnipeStatsEmbed {
             fields,
             description: Some(description),
             footer: Some(Footer::new(footer_text)),
-            author: Some(osu::get_user_author(&user)),
+            author: Some(author!(user)),
             title: "National #1 statistics",
             image: Some(ImageSource::attachment("stats_graph.png").unwrap()),
             thumbnail: Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap()),

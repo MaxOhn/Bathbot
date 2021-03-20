@@ -15,7 +15,7 @@ use darkredis::Error as RedisError;
 use image::ImageError;
 use plotters::drawing::DrawingAreaErrorKind as DrawingError;
 use reqwest::Error as ReqwestError;
-use rosu::OsuError;
+use rosu_v2::error::OsuError;
 use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
 use std::{error::Error as StdError, fmt, io::Error as IOError};

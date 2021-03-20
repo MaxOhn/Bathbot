@@ -2,7 +2,6 @@ use crate::{
     arguments::{Args, MapModArgs},
     embeds::{EmbedData, LeaderboardEmbed},
     pagination::{LeaderboardPagination, Pagination},
-    unwind_error,
     util::{
         constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
         osu::{cached_message_extract, map_id_from_history, MapIdType, ModSelection},
@@ -11,6 +10,7 @@ use crate::{
     BotResult, Context,
 };
 
+use rosu_v2::error::OsuError;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -63,14 +63,15 @@ async fn leaderboard_main(
             }
         }
     };
+
     let selection = args.mods;
 
     // Retrieving the beatmap
-    let map = match ctx.psql().get_beatmap(map_id).await {
+    let map = match ctx.psql().get_beatmap(map_id, true).await {
         Ok(map) => map,
         Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
-            Ok(Some(map)) => map,
-            Ok(None) => {
+            Ok(map) => map,
+            Err(OsuError::NotFound) => {
                 let content = format!(
                     "Could not find beatmap with id `{}`. \
                         Did you give me a mapset id instead of a map id?",
@@ -117,6 +118,7 @@ async fn leaderboard_main(
     let data_fut = LeaderboardEmbed::new(
         author_name.as_deref(),
         &map,
+        None,
         if scores.is_empty() {
             None
         } else {
@@ -167,7 +169,7 @@ async fn leaderboard_main(
 
     // Pagination
     let pagination =
-        LeaderboardPagination::new(response, map, scores, author_name, first_place_icon);
+        LeaderboardPagination::new(response, map, None, scores, author_name, first_place_icon);
     let owner = msg.author.id;
 
     gb.execute(&ctx).await;

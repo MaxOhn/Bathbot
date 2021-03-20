@@ -1,5 +1,5 @@
 use crate::{
-    custom_client::{OsuMedals, OsuProfile},
+    database::{MedalGroup, OsuMedal},
     embeds::{Author, EmbedData, Footer},
     util::{
         constants::{AVATAR_URL, OSU_BASE},
@@ -7,6 +7,7 @@ use crate::{
     },
 };
 
+use rosu_v2::model::user::User;
 use std::collections::HashMap;
 use twilight_embed_builder::image_source::ImageSource;
 
@@ -19,11 +20,12 @@ pub struct MedalStatsEmbed {
 }
 
 impl MedalStatsEmbed {
-    pub fn new(profile: OsuProfile, medals: OsuMedals, with_graph: bool) -> Self {
+    pub fn new(mut user: User, medals: HashMap<u32, OsuMedal>, with_graph: bool) -> Self {
         let mut fields = Vec::with_capacity(5);
 
         // Be sure owned medals are sorted by date
-        let owned = profile.medals;
+        let owned = user.medals.as_mut().unwrap();
+        owned.sort_unstable_by_key(|m| m.achieved_at);
 
         fields.push((
             "Medals".to_owned(),
@@ -57,7 +59,7 @@ impl MedalStatsEmbed {
 
             // Count groups for all medals
             for medal in medals.values() {
-                let (total, _) = counts.entry(medal.grouping.as_str()).or_insert((0, 0));
+                let (total, _) = counts.entry(medal.grouping).or_insert((0, 0));
                 *total += 1;
             }
 
@@ -65,7 +67,7 @@ impl MedalStatsEmbed {
             for medal in owned.iter() {
                 let entry = medals
                     .get(&medal.medal_id)
-                    .and_then(|medal| counts.get_mut(medal.grouping.as_str()));
+                    .and_then(|medal| counts.get_mut(&medal.grouping));
 
                 if let Some((_, owned)) = entry {
                     *owned += 1;
@@ -73,27 +75,27 @@ impl MedalStatsEmbed {
             }
 
             // Add to fields
-            let mut add_group_field = |group: &str| {
-                if let Some((total, owned)) = counts.get(group) {
-                    fields.push((group.to_owned(), format!("{} / {}", owned, total), true));
+            let mut add_group_field = |group: MedalGroup| {
+                if let Some((total, owned)) = counts.get(&group) {
+                    fields.push((group.to_string(), format!("{} / {}", owned, total), true));
                 }
             };
 
-            add_group_field("Skill");
-            add_group_field("Dedication");
-            add_group_field("Hush-Hush");
-            add_group_field("Beatmap Packs");
-            add_group_field("Beatmap Challenge Packs");
-            add_group_field("Seasonal Spotlights");
-            add_group_field("Beatmap Spotlights");
-            add_group_field("Mod Introduction");
+            add_group_field(MedalGroup::Skill);
+            add_group_field(MedalGroup::Dedication);
+            add_group_field(MedalGroup::HushHush);
+            add_group_field(MedalGroup::BeatmapPacks);
+            add_group_field(MedalGroup::BeatmapChallengePacks);
+            add_group_field(MedalGroup::SeasonalSpotlights);
+            add_group_field(MedalGroup::BeatmapSpotlights);
+            add_group_field(MedalGroup::ModIntroduction);
         }
 
-        let author = Author::new(profile.username)
-            .url(format!("{}u/{}", OSU_BASE, profile.user_id))
+        let author = Author::new(user.username)
+            .url(format!("{}u/{}", OSU_BASE, user.user_id))
             .icon_url(format!(
                 "{}/images/flags/{}.png",
-                OSU_BASE, profile.country_code
+                OSU_BASE, user.country_code
             ));
 
         let footer = Footer::new("Check osekai.net for more info");
@@ -104,9 +106,7 @@ impl MedalStatsEmbed {
             author: Some(author),
             fields,
             footer: Some(footer),
-            thumbnail: Some(
-                ImageSource::url(format!("{}{}", AVATAR_URL, profile.user_id)).unwrap(),
-            ),
+            thumbnail: Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap()),
         }
     }
 }

@@ -3,12 +3,13 @@ use super::{Context, Pages, Pagination};
 use crate::{embeds::MapEmbed, BotResult};
 
 use async_trait::async_trait;
-use rosu::model::{Beatmap, GameMods};
+use rosu_v2::prelude::{Beatmap, Beatmapset, GameMods};
 use twilight_model::channel::Message;
 
 pub struct MapPagination {
     msg: Message,
     pages: Pages,
+    mapset: Beatmapset,
     maps: Vec<Beatmap>,
     mods: GameMods,
     with_thumbnail: bool,
@@ -17,6 +18,7 @@ pub struct MapPagination {
 impl MapPagination {
     pub fn new(
         msg: Message,
+        mapset: Beatmapset,
         maps: Vec<Beatmap>,
         mods: GameMods,
         start_idx: usize,
@@ -24,9 +26,11 @@ impl MapPagination {
     ) -> Self {
         let mut pages = Pages::new(1, maps.len());
         pages.index = start_idx;
+
         Self {
             msg,
             pages,
+            mapset,
             maps,
             mods,
             with_thumbnail,
@@ -62,6 +66,7 @@ impl Pagination for MapPagination {
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         MapEmbed::new(
             &self.maps[self.pages.index],
+            &self.mapset,
             self.mods,
             self.with_thumbnail,
             (self.pages.index + 1, self.maps.len()),

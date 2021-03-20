@@ -1,15 +1,19 @@
+use super::{prepare_scores, ErrorType};
 use crate::{
     arguments::{try_link_name, Args},
     embeds::{EmbedData, TopEmbed},
     pagination::{Pagination, TopPagination},
     tracking::process_tracking,
-    unwind_error,
-    util::{constants::OSU_API_ISSUE, matcher, numbers, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        matcher, numbers, MessageExt,
+    },
     BotResult, Context,
 };
 
-use rosu::model::GameMode;
-use std::{collections::HashMap, sync::Arc};
+use futures::future::TryFutureExt;
+use rosu_v2::prelude::{GameMode, OsuError};
+use std::sync::Arc;
 use twilight_model::channel::Message;
 
 async fn mapper_main(
@@ -76,93 +80,56 @@ async fn mapper_main(
     );
 
     // Retrieve the user and their top scores
-    let user_fut = ctx.osu().user(user.as_str()).mode(mode);
-    let scores_fut = ctx.osu().top_scores(user.as_str()).mode(mode).limit(100);
-    let join_result = tokio::try_join!(user_fut, scores_fut);
+    let user_fut = ctx.osu().user(&user).mode(mode).map_err(From::from);
+    let scores_fut_1 = ctx.osu().user_scores(&user).best().mode(mode).limit(50);
 
-    let (user, scores) = match join_result {
-        Ok((Some(user), scores)) => (user, scores),
-        Ok((None, _)) => {
+    let scores_fut_2 = ctx
+        .osu()
+        .user_scores(&user)
+        .best()
+        .mode(mode)
+        .offset(50)
+        .limit(50);
+
+    let scores_fut_1 = prepare_scores(&ctx, scores_fut_1);
+    let scores_fut_2 = prepare_scores(&ctx, scores_fut_2);
+
+    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut_1, scores_fut_2) {
+        Ok((user, mut scores, mut scores_2)) => {
+            scores.append(&mut scores_2);
+
+            (user, scores)
+        }
+        Err(ErrorType::Osu(OsuError::NotFound)) => {
             let content = format!("User `{}` was not found", user);
 
             return msg.error(&ctx, content).await;
         }
-        Err(why) => {
+        Err(ErrorType::Osu(why)) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
+        Err(ErrorType::Bot(why)) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
     };
 
     // Process user and their top scores for tracking
-    let mut maps = HashMap::new();
-    process_tracking(&ctx, mode, &scores, Some(&user), &mut maps).await;
+    process_tracking(&ctx, mode, &mut scores).await;
 
-    // Get all relevant maps from the database
-    let map_ids: Vec<u32> = scores
-        .iter()
+    let mut scores: Vec<_> = scores
+        .into_iter()
         .enumerate()
-        .filter_map(|(_, s)| s.beatmap_id)
+        .map(|(i, s)| (i + 1, s))
         .collect();
 
-    let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
-        Ok(maps) => maps,
-        Err(why) => {
-            unwind_error!(warn, why, "Error while getting maps from DB: {}");
+    scores.retain(|(_, score)| {
+        let map = &score.map.as_ref().unwrap();
+        let mapset = &score.mapset.as_ref().unwrap();
 
-            HashMap::default()
-        }
-    };
-    debug!("Found {}/{} beatmaps in DB", maps.len(), scores.len());
-
-    let retrieving_msg = if scores.len() - maps.len() > 10 {
-        let content = format!(
-            "Retrieving {} maps from the api...",
-            scores.len() - maps.len()
-        );
-
-        ctx.http
-            .create_message(msg.channel_id)
-            .content(content)?
-            .await
-            .ok()
-    } else {
-        None
-    };
-
-    // Retrieving all missing beatmaps
-    let mut scores_data = Vec::with_capacity(scores.len());
-    let mut missing_maps = Vec::new();
-
-    for (i, score) in scores.into_iter().enumerate() {
-        let map_id = score.beatmap_id.unwrap();
-
-        let map = if let Some(map) = maps.remove(&map_id) {
-            map
-        } else {
-            match ctx.osu().beatmap().map_id(map_id).await {
-                Ok(Some(map)) => {
-                    missing_maps.push(map.clone());
-
-                    map
-                }
-                Ok(None) => {
-                    let content = format!("The API returned no beatmap for map id {}", map_id);
-
-                    return msg.error(&ctx, content).await;
-                }
-                Err(why) => {
-                    let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-                    return Err(why.into());
-                }
-            }
-        };
-
-        scores_data.push((i + 1, score, map));
-    }
-
-    scores_data.retain(|(_, _, map)| {
         // Filter converts
         if filter_converts && map.mode != mode {
             return false;
@@ -173,26 +140,26 @@ async fn mapper_main(
         let version = map.version.to_lowercase();
 
         version.contains(&mapper)
-            || (map.creator.to_lowercase() == mapper && !matcher::is_guest_diff(&version))
+            || (mapset.creator_name.to_lowercase() == mapper && !matcher::is_guest_diff(&version))
     });
 
     // Accumulate all necessary data
     let content = match mapper.as_str() {
         "sotarks" => {
-            let amount = scores_data.len();
+            let amount = scores.len();
 
             let mut content = format!(
                 "I found {amount} Sotarks map{plural} in `{name}`'s top100, ",
                 amount = amount,
                 plural = if amount != 1 { "s" } else { "" },
-                name = user.username
+                name = user.username,
             );
 
             let to_push = match amount {
                 0 => "proud of you \\:)",
-                1..=5 => "that's already too many...",
-                6..=10 => "kinda sad \\:/",
-                11..=15 => "pretty sad \\:(",
+                1..=4 => "that's already too many...",
+                5..=8 => "kinda sad \\:/",
+                9..=15 => "pretty sad \\:(",
                 16..=25 => "this is so sad \\:((",
                 26..=35 => "you need to stop this",
                 36..=49 => "you have a serious problem...",
@@ -210,7 +177,7 @@ async fn mapper_main(
         }
         _ => format!(
             "{} of `{}`'{} top score maps were mapped by `{}`",
-            scores_data.len(),
+            scores.len(),
             user.username,
             if user.username.ends_with('s') {
                 ""
@@ -221,40 +188,34 @@ async fn mapper_main(
         ),
     };
 
-    let pages = numbers::div_euclid(5, scores_data.len());
-    let data = TopEmbed::new(&user, scores_data.iter().take(5), mode, (1, pages)).await;
+    let response = if scores.is_empty() {
+        msg.respond(&ctx, content).await?
+    } else {
+        let pages = numbers::div_euclid(5, scores.len());
+        let data = TopEmbed::new(&user, scores.iter().take(5), (1, pages)).await;
 
-    if let Some(msg) = retrieving_msg {
-        let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;
-    }
+        // Creating the embed
+        let embed = data.build().build()?;
 
-    // Creating the embed
-    let embed = data.build().build()?;
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .content(content)?
-        .embed(embed)?
-        .await?;
+        msg.respond_embed(&ctx, embed).await?
+    };
 
-    // Add missing maps to database
-    if !missing_maps.is_empty() {
-        match ctx.psql().insert_beatmaps(&missing_maps).await {
-            Ok(n) if n < 2 => {}
-            Ok(n) => info!("Added {} maps to DB", n),
-            Err(why) => unwind_error!(warn, why, "Error while adding maps to DB: {}"),
-        }
+    // Add maps of scores to DB
+    let scores_iter = scores.iter().map(|(_, score)| score);
+
+    if let Err(why) = ctx.psql().store_scores_maps(scores_iter).await {
+        unwind_error!(warn, why, "Error while adding score maps to DB: {}")
     }
 
     // Skip pagination if too few entries
-    if scores_data.len() <= 5 {
+    if scores.len() <= 5 {
         response.reaction_delete(&ctx, msg.author.id);
 
         return Ok(());
     }
 
     // Pagination
-    let pagination = TopPagination::new(response, user, scores_data, mode);
+    let pagination = TopPagination::new(response, user, scores);
     let owner = msg.author.id;
 
     tokio::spawn(async move {

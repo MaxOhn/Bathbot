@@ -23,6 +23,6 @@ async fn lyrics(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     } else {
         "Song commands can no longer be used in this server"
     };
-    msg.respond(&ctx, content).await?;
+    msg.send_response(&ctx, content).await?;
     Ok(())
 }

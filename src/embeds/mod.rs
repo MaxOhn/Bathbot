@@ -1,3 +1,30 @@
+macro_rules! author {
+    ($user:ident) => {{
+        let stats = $user.statistics.as_ref().expect("no statistics on user");
+
+        let text = format!(
+            "{name}: {pp}pp (#{global} {country}{national})",
+            name = $user.username,
+            pp = crate::util::numbers::with_comma(stats.pp),
+            global = crate::util::numbers::with_comma_u64(stats.global_rank.unwrap() as u64),
+            country = $user.country_code,
+            national = stats.country_rank.unwrap_or(0)
+        );
+
+        Author::new(text)
+            .url(format!(
+                "{}u/{}",
+                crate::util::constants::OSU_BASE,
+                $user.user_id
+            ))
+            .icon_url(format!(
+                "{}/images/flags/{}.png",
+                crate::util::constants::OSU_BASE,
+                $user.country_code
+            ))
+    }};
+}
+
 mod fun;
 mod osu;
 mod owner;
@@ -12,10 +39,7 @@ pub use tracking::*;
 pub use twitch::*;
 pub use utility::*;
 
-use crate::{
-    unwind_error,
-    util::{constants::DARK_GREEN, datetime},
-};
+use crate::util::{constants::DARK_GREEN, datetime};
 
 use chrono::{DateTime, Utc};
 use twilight_embed_builder::{

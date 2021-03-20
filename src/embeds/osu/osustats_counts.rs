@@ -1,9 +1,9 @@
 use crate::{
-    embeds::{osu, Author, EmbedData},
+    embeds::{Author, EmbedData},
     util::constants::AVATAR_URL,
 };
 
-use rosu::model::{GameMode, User};
+use rosu_v2::prelude::{GameMode, User};
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 
@@ -19,8 +19,10 @@ impl OsuStatsCountsEmbed {
         let count_len = counts
             .iter()
             .fold(0, |max, (_, count)| max.max(count.len()));
+
         let mut description = String::with_capacity(64);
         description.push_str("```\n");
+
         for (rank, count) in counts {
             let _ = writeln!(
                 description,
@@ -30,16 +32,19 @@ impl OsuStatsCountsEmbed {
                 count_len = count_len,
             );
         }
+
         let mode = match mode {
             GameMode::STD => "",
             GameMode::MNA => "mania ",
             GameMode::TKO => "taiko ",
             GameMode::CTB => "ctb ",
         };
+
         description.push_str("```");
+
         Self {
             description: Some(description),
-            author: Some(osu::get_user_author(&user)),
+            author: Some(author!(user)),
             thumbnail: Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap()),
             title: Some(format!(
                 "In how many top X {}map leaderboards is {}?",

@@ -1,10 +1,9 @@
 use crate::{
-    custom_client::MostPlayedMap,
     embeds::{osu, EmbedData},
     util::constants::OSU_BASE,
 };
 
-use rosu::model::User;
+use rosu_v2::prelude::MostPlayedMap;
 use std::{collections::HashMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 
@@ -15,32 +14,31 @@ pub struct MostPlayedCommonEmbed {
 
 impl MostPlayedCommonEmbed {
     pub fn new(
-        users: &[User],
+        names: &[String],
         maps: &[MostPlayedMap],
-        users_count: &[HashMap<u32, u32>],
+        users_count: &[HashMap<u32, usize>],
         index: usize,
     ) -> Self {
         let mut description = String::with_capacity(512);
-
-        let mut positions = Vec::with_capacity(users.len());
+        let mut positions = Vec::with_capacity(names.len());
 
         for (i, map) in maps.iter().enumerate() {
-            let map_id = &map.beatmap_id;
+            let map_id = &map.map.map_id;
 
             let _ = writeln!(
                 description,
                 "**{idx}.** [{title} [{version}]]({base}b/{id}) [{stars}]",
                 idx = index + i + 1,
-                title = map.title,
-                version = map.version,
+                title = map.mapset.title,
+                version = map.map.version,
                 base = OSU_BASE,
                 id = map_id,
-                stars = osu::get_stars(map.stars),
+                stars = osu::get_stars(map.map.stars),
             );
 
             description.push('-');
 
-            positions.extend(users.iter().map(|_| 0_u8));
+            positions.extend(names.iter().map(|_| 0_u8));
 
             let count_0 = users_count[0][map_id];
             let count_1 = users_count[1][map_id];
@@ -52,7 +50,7 @@ impl MostPlayedCommonEmbed {
                 positions[1 + (count_1 > count_2) as usize] += 1;
             }
 
-            for (i, (user, pos)) in users.iter().zip(positions.drain(..)).enumerate() {
+            for (i, (name, pos)) in names.iter().zip(positions.drain(..)).enumerate() {
                 let _ = write!(
                     description,
                     " :{medal}_place: `{name}`: **{count}**",
@@ -62,7 +60,7 @@ impl MostPlayedCommonEmbed {
                         2 => "third",
                         _ => unreachable!(),
                     },
-                    name = user.username,
+                    name = name,
                     count = users_count[i][map_id],
                 );
             }

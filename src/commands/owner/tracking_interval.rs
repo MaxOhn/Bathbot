@@ -20,6 +20,6 @@ async fn trackinginterval(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
         previous,
         interval.num_seconds()
     );
-    msg.respond(&ctx, content).await?;
+    msg.send_response(&ctx, content).await?;
     Ok(())
 }

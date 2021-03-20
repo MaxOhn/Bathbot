@@ -1,23 +1,15 @@
-use super::ResultError;
 use crate::{
     arguments::{Args, MultNameArgs},
     embeds::{EmbedData, MostPlayedCommonEmbed},
     pagination::{MostPlayedCommonPagination, Pagination},
-    unwind_error,
-    util::{constants::OSU_API_ISSUE, get_combined_thumbnail, MessageExt},
+    util::{constants::OSU_API_ISSUE, MessageExt},
     BotResult, Context,
 };
 
-use futures::stream::{FuturesOrdered, StreamExt, TryStreamExt};
+use futures::stream::{FuturesOrdered, StreamExt};
 use itertools::Itertools;
-use rayon::prelude::*;
-use rosu::model::{GameMode, User};
-use std::{
-    cmp::Reverse,
-    collections::{HashMap, HashSet},
-    fmt::Write,
-    sync::Arc,
-};
+use rosu_v2::prelude::OsuError;
+use std::{cmp::Reverse, collections::HashMap, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
 
 #[command]
@@ -66,62 +58,34 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
         return msg.error(&ctx, content).await;
     }
 
-    // Retrieve all users
-    let user_futs = names
-        .iter()
-        .enumerate()
-        .map(|(i, name)| {
-            ctx.osu()
-                .user(name.as_str())
-                .mode(GameMode::STD)
-                .map(move |result| match result {
-                    Ok(Some(user)) => Ok(user),
-                    Ok(None) => Err(ResultError::None(i)),
-                    Err(why) => Err(ResultError::Osu(why)),
-                })
-        })
-        .collect::<FuturesOrdered<_>>()
-        .try_collect();
-
-    let users: Vec<User> = match user_futs.await {
-        Ok(users) => users,
-        Err(ResultError::None(idx)) => {
-            let content = format!("User `{}` was not found", names[idx]);
-
-            return msg.error(&ctx, content).await;
-        }
-        Err(ResultError::Osu(why)) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-            return Err(why.into());
-        }
-    };
-
-    // Check if different names were given
-    // that both belong to the same user
-    if users.iter().unique_by(|user| user.user_id).count() == 1 {
-        let content = "Give at least two different names";
-
-        return msg.error(&ctx, content).await;
-    }
-
     // Retrieve all most played maps and store their count for each user
-    let mut map_futs = users
+    let mut map_futs = names
         .iter()
-        .map(|user| ctx.clients.custom.get_most_played(user.user_id, 100))
+        .cloned()
+        .map(|name| async {
+            let fut_1 = ctx.osu().user_most_played(&name).limit(50);
+            let fut_2 = ctx.osu().user_most_played(&name).limit(50).offset(50);
+
+            (name, tokio::try_join!(fut_1, fut_2))
+        })
         .collect::<FuturesOrdered<_>>();
 
-    let mut users_count: Vec<HashMap<u32, u32>> = Vec::with_capacity(users.len());
-    let mut all_maps = HashSet::with_capacity(users.len() * 100);
+    let mut users_count: Vec<HashMap<u32, usize>> = Vec::with_capacity(names.len());
+    let mut all_maps = HashMap::with_capacity(names.len() * 80);
 
-    while let Some(map_result) = map_futs.next().await {
+    while let Some((name, map_result)) = map_futs.next().await {
         match map_result {
-            Ok(maps) => {
-                let map_counts: HashMap<u32, u32> =
-                    maps.iter().map(|map| (map.beatmap_id, map.count)).collect();
+            Ok((mut maps, mut maps_2)) => {
+                maps.append(&mut maps_2);
 
+                let map_counts = maps.iter().map(|map| (map.map.map_id, map.count)).collect();
                 users_count.push(map_counts);
-                all_maps.extend(maps);
+                all_maps.extend(maps.into_iter().map(|map| (map.map.map_id, map)));
+            }
+            Err(OsuError::NotFound) => {
+                let content = format!("User `{}` was not found", name);
+
+                return msg.error(&ctx, content).await;
             }
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_API_ISSUE).await;
@@ -135,18 +99,19 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 
     // Consider only maps that appear in each users map list
     let mut maps: Vec<_> = all_maps
-        .into_par_iter()
+        .into_iter()
+        .map(|(_, map)| map)
         .filter(|map| {
             users_count
                 .iter()
-                .all(|count_map| count_map.contains_key(&map.beatmap_id))
+                .all(|count_map| count_map.contains_key(&map.map.map_id))
         })
         .collect();
 
     let amount_common = maps.len();
 
     // Sort maps by sum of counts
-    let total_counts: HashMap<u32, u32> = users_count.iter().fold(
+    let total_counts: HashMap<u32, usize> = users_count.iter().fold(
         HashMap::with_capacity(maps.len()),
         |mut counts, user_entry| {
             for (&map_id, count) in user_entry {
@@ -157,12 +122,12 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
         },
     );
 
-    maps.sort_unstable_by_key(|m| Reverse(total_counts.get(&m.beatmap_id)));
+    maps.sort_unstable_by_key(|m| Reverse(total_counts.get(&m.map.map_id)));
 
     // Accumulate all necessary data
     let len = names.iter().map(|name| name.len() + 4).sum();
     let mut content = String::with_capacity(len);
-    let mut iter = names.into_iter();
+    let mut iter = names.iter();
 
     if let Some(first) = iter.next() {
         let last = iter.next_back();
@@ -192,40 +157,21 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
         );
     }
 
-    // Create the combined profile pictures
-    let thumbnail_fut = async {
-        let user_ids = users.iter().map(|user| user.user_id);
-
-        get_combined_thumbnail(&ctx, user_ids).await
-    };
-
     let data_fut = async {
         let initial_maps = &maps[..10.min(maps.len())];
 
-        MostPlayedCommonEmbed::new(&users, initial_maps, &users_count, 0)
-    };
-
-    let (thumbnail_result, data) = tokio::join!(thumbnail_fut, data_fut);
-
-    let thumbnail = match thumbnail_result {
-        Ok(thumbnail) => Some(thumbnail),
-        Err(why) => {
-            unwind_error!(warn, why, "Error while combining avatars: {}");
-
-            None
-        }
+        MostPlayedCommonEmbed::new(&names, initial_maps, &users_count, 0)
     };
 
     // Creating the embed
-    let embed = data.build().build()?;
-    let mut m = ctx.http.create_message(msg.channel_id);
+    let embed = data_fut.await.build().build()?;
 
-    m = match thumbnail {
-        Some(bytes) => m.attachment("avatar_fuse.png", bytes),
-        None => m,
-    };
-
-    let response = m.content(content)?.embed(embed)?.await?;
+    let response = ctx
+        .http
+        .create_message(msg.channel_id)
+        .content(content)?
+        .embed(embed)?
+        .await?;
 
     // Skip pagination if too few entries
     if maps.len() <= 10 {
@@ -235,7 +181,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     }
 
     // Pagination
-    let pagination = MostPlayedCommonPagination::new(response, users, users_count, maps);
+    let pagination = MostPlayedCommonPagination::new(response, names, users_count, maps);
     let owner = msg.author.id;
 
     tokio::spawn(async move {

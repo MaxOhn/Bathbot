@@ -2,18 +2,16 @@ use super::{Pages, Pagination};
 
 use crate::{
     embeds::{EmbedData, RecentEmbed},
-    unwind_error, BotResult, Context,
+    BotResult, Context,
 };
 
 use async_trait::async_trait;
-use rosu::model::{
-    ApprovalStatus::{Approved, Loved, Qualified, Ranked},
-    Beatmap, Score, User,
+use rosu_v2::prelude::{
+    BeatmapUserScore,
+    RankStatus::{Approved, Loved, Qualified, Ranked},
+    Score, User,
 };
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::channel::Message;
 
@@ -22,12 +20,9 @@ pub struct RecentPagination {
     pages: Pages,
     user: User,
     scores: Vec<Score>,
-    maps: HashMap<u32, Beatmap>,
     best: Option<Vec<Score>>,
-    global: HashMap<u32, Vec<Score>>,
-    maps_in_db: HashSet<u32>,
     embed_data: Option<RecentEmbed>,
-    map_scores: HashMap<u32, Vec<Score>>,
+    map_scores: HashMap<u32, BeatmapUserScore>,
     ctx: Arc<Context>,
 }
 
@@ -39,12 +34,9 @@ impl RecentPagination {
         user: User,
         scores: Vec<Score>,
         idx: usize,
-        maps: HashMap<u32, Beatmap>,
         best: Option<Vec<Score>>,
-        global: HashMap<u32, Vec<Score>>,
-        maps_in_db: HashSet<u32>,
+        map_scores: HashMap<u32, BeatmapUserScore>,
         embed_data: RecentEmbed,
-        map_scores: HashMap<u32, Vec<Score>>,
     ) -> Self {
         let mut pages = Pages::new(1, scores.len());
         pages.index = idx;
@@ -54,12 +46,9 @@ impl RecentPagination {
             pages,
             user,
             scores,
-            maps,
             best,
-            global,
-            maps_in_db,
-            embed_data: Some(embed_data),
             map_scores,
+            embed_data: Some(embed_data),
             ctx,
         }
     }
@@ -109,26 +98,13 @@ impl Pagination for RecentPagination {
             .await;
 
         // Set maps on garbage collection list if unranked
-        for map in self.maps.values() {
+        for map in self.scores.iter().filter_map(|s| s.map.as_ref()) {
             ctx.map_garbage_collector(map).execute(ctx).await;
         }
 
-        // Put missing maps into DB
-        if self.maps.len() > self.maps_in_db.len() {
-            let map_ids = &self.maps_in_db;
-
-            let maps: Vec<_> = self
-                .maps
-                .into_iter()
-                .filter(|(id, _)| !map_ids.contains(&id))
-                .map(|(_, map)| map)
-                .collect();
-
-            match ctx.psql().insert_beatmaps(&maps).await {
-                Ok(n) if n < 2 => {}
-                Ok(n) => info!("Added {} maps to DB", n),
-                Err(why) => unwind_error!(warn, why, "Error while adding maps to DB: {}"),
-            }
+        // Store maps in DB
+        if let Err(why) = ctx.psql().store_scores_maps(self.scores.iter()).await {
+            unwind_error!(warn, why, "Error while storing recent maps in DB: {}");
         }
 
         Ok(())
@@ -136,37 +112,17 @@ impl Pagination for RecentPagination {
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let score = self.scores.get(self.pages.index).unwrap();
-        let map_id = score.beatmap_id.unwrap();
+        let map = score.map.as_ref().unwrap();
+        let map_id = map.map_id;
 
-        // Make sure map is ready
-        #[allow(clippy::clippy::map_entry)]
-        if !self.maps.contains_key(&map_id) {
-            let map = self.ctx.osu().beatmap().map_id(map_id).await?.unwrap();
-            self.maps.insert(map_id, map);
-        }
-
-        let map = self.maps.get(&map_id).unwrap();
-
-        // Make sure map leaderboard is ready
-        let has_leaderboard = matches!(map.approval_status, Ranked | Loved | Qualified | Approved);
-
-        #[allow(clippy::clippy::map_entry)]
-        if has_leaderboard && !self.global.contains_key(&map.beatmap_id) {
-            let global_lb = map.get_global_leaderboard(self.ctx.osu()).limit(50).await?;
-            self.global.insert(map.beatmap_id, global_lb);
-        };
-
-        let global_lb = self
-            .global
-            .get(&map.beatmap_id)
-            .map(|global| global.as_slice());
-
-        if self.best.is_none() && map.approval_status == Ranked {
+        if self.best.is_none() && map.status == Ranked {
             let user_fut = self
-                .user
-                .get_top_scores(self.ctx.osu())
-                .limit(100)
-                .mode(map.mode);
+                .ctx
+                .osu()
+                .user_scores(self.user.user_id)
+                .best()
+                .limit(50)
+                .mode(score.mode);
 
             match user_fut.await {
                 Ok(scores) => self.best = Some(scores),
@@ -178,33 +134,27 @@ impl Pagination for RecentPagination {
             }
         }
 
+        // Make sure map leaderboard is ready
+        let has_leaderboard = matches!(map.status, Ranked | Loved | Qualified | Approved);
+
         #[allow(clippy::clippy::map_entry)]
         if !self.map_scores.contains_key(&map_id) && has_leaderboard {
-            let scores_fut = self
+            let score_fut = self
                 .ctx
                 .osu()
-                .scores(map_id)
-                .user(self.user.user_id)
+                .beatmap_user_score(map_id, self.user.user_id)
                 .mode(map.mode);
 
-            match scores_fut.await {
-                Ok(scores) => {
-                    self.map_scores.insert(map_id, scores);
+            match score_fut.await {
+                Ok(score) => {
+                    self.map_scores.insert(map_id, score);
                 }
-                Err(why) => unwind_error!(warn, why, "Error while requesting map scores: {}"),
+                Err(why) => unwind_error!(warn, why, "Error while requesting map score: {}"),
             }
         }
 
-        // Create embed data
-        let data_fut = RecentEmbed::new(
-            &self.user,
-            score,
-            map,
-            self.best.as_deref(),
-            global_lb,
-            Some(&self.map_scores),
-        );
+        let map_score = self.map_scores.get(&map_id);
 
-        data_fut.await
+        RecentEmbed::new(&self.user, score, self.best.as_deref(), map_score, true).await
     }
 }

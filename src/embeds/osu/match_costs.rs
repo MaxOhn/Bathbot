@@ -4,8 +4,8 @@ use crate::{
     util::constants::{AVATAR_URL, DESCRIPTION_SIZE, OSU_BASE},
 };
 
-use rosu::model::Match;
-use std::fmt::Write;
+use rosu_v2::model::matches::OsuMatch;
+use std::{borrow::Cow, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct MatchCostEmbed {
@@ -18,10 +18,10 @@ pub struct MatchCostEmbed {
 
 impl MatchCostEmbed {
     pub fn new(
-        osu_match: Match,
+        mut osu_match: OsuMatch,
         description: Option<String>,
         match_result: Option<MatchResult>,
-    ) -> Result<Self, ()> {
+    ) -> Option<Self> {
         let mut thumbnail = None;
 
         let description = if let Some(description) = description {
@@ -57,7 +57,14 @@ impl MatchCostEmbed {
                     // Blue team
                     let _ = writeln!(description, ":blue_circle: **Blue Team** :blue_circle:");
 
-                    for (i, (id, name, cost)) in blue.into_iter().enumerate() {
+                    for (i, (id, cost)) in blue.into_iter().enumerate() {
+                        let user_pos = osu_match.users.iter().position(|user| user.user_id == id);
+
+                        let name = match user_pos {
+                            Some(pos) => osu_match.users.swap_remove(pos).username.into(),
+                            None => Cow::Borrowed("Unknown user"),
+                        };
+
                         let medal = {
                             let mut idx = 0;
 
@@ -93,7 +100,14 @@ impl MatchCostEmbed {
                     // Red team
                     let _ = writeln!(description, "\n:red_circle: **Red Team** :red_circle:");
 
-                    for (i, (id, name, cost)) in red.into_iter().enumerate() {
+                    for (i, (id, cost)) in red.into_iter().enumerate() {
+                        let user_pos = osu_match.users.iter().position(|user| user.user_id == id);
+
+                        let name = match user_pos {
+                            Some(pos) => osu_match.users.swap_remove(pos).username.into(),
+                            None => Cow::Borrowed("Unknown user"),
+                        };
+
                         let medal = if !medals.is_empty() {
                             medals.remove(0)
                         } else {
@@ -113,7 +127,14 @@ impl MatchCostEmbed {
                     }
                 }
                 Some(MatchResult::HeadToHead { players, .. }) => {
-                    for (i, (id, name, cost)) in players.into_iter().enumerate() {
+                    for (i, (id, cost)) in players.into_iter().enumerate() {
+                        let user_pos = osu_match.users.iter().position(|user| user.user_id == id);
+
+                        let name = match user_pos {
+                            Some(pos) => osu_match.users.swap_remove(pos).username.into(),
+                            None => Cow::Borrowed("Unknown user"),
+                        };
+
                         let _ = writeln!(
                             description,
                             "**{idx}**: [{name}]({base}users/{user_id}) - **{cost:.2}** {medal}",
@@ -130,7 +151,7 @@ impl MatchCostEmbed {
             }
 
             if description.len() >= DESCRIPTION_SIZE {
-                return Err(());
+                return None;
             }
 
             description
@@ -141,7 +162,7 @@ impl MatchCostEmbed {
         title.retain(|c| c != '(' && c != ')');
         let footer = Footer::new("Note: Formula is subject to change; values are volatile");
 
-        Ok(Self {
+        Some(Self {
             title: Some(title),
             footer: Some(footer),
             thumbnail,

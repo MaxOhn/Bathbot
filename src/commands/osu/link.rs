@@ -22,42 +22,46 @@ use twilight_model::channel::Message;
 #[example("badewanne3", "\"nathan on osu\"", "https://osu.ppy.sh/users/2211396")]
 async fn link(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     let discord_id = msg.author.id.0;
+
     match args.next() {
         Some(arg) => {
             let name = match matcher::get_osu_user_id(arg) {
                 Some(id) => match ctx.osu().user(id).await {
-                    Ok(Some(user)) => user.username,
-                    Ok(None) => {
-                        let content = "No user found for the given url";
-                        return msg.error(&ctx, content).await;
-                    }
+                    Ok(user) => user.username,
                     Err(why) => {
                         let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
                         return Err(why.into());
                     }
                 },
                 None => arg.to_owned(),
             };
+
             if name.chars().count() > 32 {
                 let content = "That name is too long, must be at most 32 characters";
                 return msg.error(&ctx, content).await;
             }
+
             if let Err(why) = ctx.add_link(discord_id, &name).await {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
                 return Err(why);
             }
+
             let content = format!(
                 "I linked discord's `{}` with osu's `{}`",
                 msg.author.name, name
             );
-            msg.respond(&ctx, content).await
+
+            msg.send_response(&ctx, content).await
         }
         None => {
             if let Err(why) = ctx.remove_link(discord_id).await {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
                 return Err(why);
             }
-            msg.respond(&ctx, "You are no longer linked").await
+
+            msg.send_response(&ctx, "You are no longer linked").await
         }
     }
 }

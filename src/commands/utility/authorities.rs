@@ -2,17 +2,13 @@ use crate::{
     bail,
     util::{
         constants::{GENERAL_ISSUE, OWNER_USER_ID},
-        content_safe, matcher, MessageExt,
+        matcher, MessageExt,
     },
     Args, BotResult, Context,
 };
 
 use std::{fmt::Write, sync::Arc};
-use twilight_model::{
-    channel::Message,
-    guild::Permissions,
-    id::{GuildId, RoleId},
-};
+use twilight_model::{channel::Message, guild::Permissions, id::RoleId};
 
 #[command]
 #[only_guilds()]
@@ -38,10 +34,10 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
         "-show" | "show" => {
             let roles = ctx.config_authorities(guild_id);
             let mut content = "Current authority roles for this server: ".to_owned();
-            role_string(&ctx, &roles, guild_id, &mut content);
+            role_string(&roles, &mut content);
 
             // Send the message
-            return msg.respond(&ctx, content).await;
+            return msg.send_response(&ctx, content).await;
         }
         _ => {}
     }
@@ -100,24 +96,22 @@ async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
     // Send the message
     let mut content = "Successfully changed the authority roles to: ".to_owned();
     let roles = ctx.config_authorities(guild_id);
-    role_string(&ctx, &roles, guild_id, &mut content);
-    msg.respond(&ctx, content).await?;
+    role_string(&roles, &mut content);
+    msg.send_response(&ctx, content).await?;
 
     Ok(())
 }
 
-fn role_string(ctx: &Context, roles: &[u64], guild_id: GuildId, content: &mut String) {
+fn role_string(roles: &[u64], content: &mut String) {
     let mut iter = roles.iter();
 
     if let Some(first) = iter.next() {
         content.reserve(roles.len() * 20);
-        let _ = write!(content, "`<@&{}>`", first);
+        let _ = write!(content, "<@&{}>", first);
 
         for role in iter {
-            let _ = write!(content, ", `<@&{}>`", role);
+            let _ = write!(content, ", <@&{}>", role);
         }
-
-        content_safe(&ctx, content, Some(guild_id));
     } else {
         content.push_str("None");
     }

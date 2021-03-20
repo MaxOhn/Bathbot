@@ -18,7 +18,7 @@ use twilight_model::channel::Message;
     The available arguments are:\n \
     - `easy`: 6x6 grid\n \
     - `medium`: 8x8 grid\n \
-    - `hard`: 11x9 grid"
+    - `hard`: 9x11 grid"
 )]
 #[usage("[easy / medium / hard]")]
 async fn minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
@@ -51,7 +51,7 @@ async fn minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRes
         w, h, game.mines, field
     );
 
-    msg.respond(&ctx, content).await?;
+    msg.send_response(&ctx, content).await?;
 
     Ok(())
 }
@@ -80,7 +80,7 @@ struct Minesweeper {
 }
 
 impl Minesweeper {
-    fn new(width: usize, height: usize, mines: u8) -> Self {
+    fn new(height: usize, width: usize, mines: u8) -> Self {
         let mut field = Matrix::new(width, height);
         let mut rng = rand::thread_rng();
         let size = width * height;
@@ -110,6 +110,7 @@ impl Minesweeper {
         Self { field, mines }
     }
 
+    #[inline]
     fn dim(&self) -> (usize, usize) {
         (self.field.width(), self.field.height())
     }

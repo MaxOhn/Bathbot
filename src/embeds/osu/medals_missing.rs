@@ -1,11 +1,11 @@
 use crate::{
     commands::osu::MedalType,
-    custom_client::OsuProfile,
     embeds::{Author, EmbedData, Footer},
     util::constants::{AVATAR_URL, OSU_BASE},
 };
 
 use cow_utils::CowUtils;
+use rosu_v2::model::user::User;
 use std::fmt::Write;
 use twilight_embed_builder::image_source::ImageSource;
 
@@ -18,7 +18,7 @@ pub struct MedalsMissingEmbed {
 
 impl MedalsMissingEmbed {
     pub fn new(
-        profile: &OsuProfile,
+        user: &User,
         medals: &[MedalType],
         medal_count: (usize, usize),
         includes_last: bool,
@@ -52,18 +52,18 @@ impl MedalsMissingEmbed {
             pages.0, pages.1, medal_count.0, medal_count.1
         ));
 
-        let author = Author::new(&profile.username)
-            .url(format!("{}u/{}", OSU_BASE, profile.user_id))
+        let author = Author::new(&user.username)
+            .url(format!("{}u/{}", OSU_BASE, user.user_id))
             .icon_url(format!(
                 "{}/images/flags/{}.png",
-                OSU_BASE, &profile.country_code
+                OSU_BASE, &user.country_code
             ));
 
         Self {
             footer,
             author,
             description,
-            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, profile.user_id)).unwrap(),
+            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
         }
     }
 }

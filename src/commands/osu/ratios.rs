@@ -2,15 +2,12 @@ use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, RatioEmbed},
     tracking::process_tracking,
-    util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        MessageExt,
-    },
+    util::{constants::OSU_API_ISSUE, MessageExt},
     BotResult, Context,
 };
 
-use rosu::model::GameMode;
-use std::{collections::HashMap, sync::Arc};
+use rosu_v2::prelude::{GameMode, OsuError};
+use std::sync::Arc;
 use twilight_model::channel::Message;
 
 #[command]
@@ -26,48 +23,62 @@ use twilight_model::channel::Message;
 #[aliases("ratio")]
 async fn ratios(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = NameArgs::new(&ctx, args);
+
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
 
     // Retrieve the user and their top scores
-    let scores_fut = ctx.osu().top_scores(name.as_str());
-    let join_result = tokio::try_join!(
-        ctx.osu().user(name.as_str()).mode(GameMode::MNA),
-        scores_fut.mode(GameMode::MNA).limit(100)
-    );
-    let (user, scores) = match join_result {
-        Ok((Some(user), scores)) => (user, scores),
-        Ok((None, _)) => {
+    let user_fut = ctx.osu().user(&name).mode(GameMode::MNA);
+
+    let scores_fut_1 = ctx
+        .osu()
+        .user_scores(&name)
+        .best()
+        .mode(GameMode::MNA)
+        .limit(50);
+
+    let scores_fut_2 = ctx
+        .osu()
+        .user_scores(&name)
+        .best()
+        .mode(GameMode::MNA)
+        .offset(50)
+        .limit(50);
+
+    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut_1, scores_fut_2) {
+        Ok((user, mut scores, mut scores_2)) => {
+            scores.append(&mut scores_2);
+
+            (user, scores)
+        }
+        Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
+
             return msg.error(&ctx, content).await;
         }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
 
     // Process user and their top scores for tracking
-    let mut maps = HashMap::new();
-    process_tracking(&ctx, GameMode::MNA, &scores, Some(&user), &mut maps).await;
+    process_tracking(&ctx, GameMode::MNA, &mut scores).await;
 
     // Accumulate all necessary data
-    let data = match RatioEmbed::new(&ctx, user, scores).await {
-        Ok(data) => data,
-        Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-            return Err(why);
-        }
-    };
+    let data = RatioEmbed::new(user, scores);
 
     // Creating the embed
     let embed = data.build_owned().build()?;
+
     msg.build_response(&ctx, |m| {
         let content = format!("Average ratios of `{}`'s top 100 in mania:", name);
         m.content(content)?.embed(embed)
     })
     .await?;
+
     Ok(())
 }

@@ -13,9 +13,9 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use rosu::model::{Beatmap, GameMode, GameMods, Grade, Score, User};
 use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, ManiaPP, OsuPP, StarResult, TaikoPP};
-use std::{collections::HashMap, fmt::Write};
+use rosu_v2::prelude::{BeatmapUserScore, GameMode, Grade, Score, User};
+use std::{borrow::Cow, fmt::Write};
 use tokio::fs::File;
 use twilight_embed_builder::{
     author::EmbedAuthorBuilder, builder::EmbedBuilder, image_source::ImageSource,
@@ -24,7 +24,7 @@ use twilight_model::channel::embed::EmbedField;
 
 #[derive(Clone)]
 pub struct RecentEmbed {
-    description: Option<String>,
+    description: Option<Cow<'static, str>>,
     title: String,
     url: String,
     author: Author,
@@ -49,32 +49,36 @@ impl RecentEmbed {
     pub async fn new(
         user: &User,
         score: &Score,
-        map: &Beatmap,
         personal: Option<&[Score]>,
-        global: Option<&[Score]>,
-        map_scores: Option<&HashMap<u32, Vec<Score>>>,
+        map_score: Option<&BeatmapUserScore>,
+        extend_desc: bool,
     ) -> BotResult<Self> {
-        let map_path = prepare_beatmap_file(map.beatmap_id).await?;
+        let map = score.map.as_ref().unwrap();
+        let mapset = score.mapset.as_ref().unwrap();
+
+        let map_path = prepare_beatmap_file(map.map_id).await?;
         let file = File::open(map_path).await.map_err(PPError::from)?;
         let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
-        let mods = score.enabled_mods.bits();
+        let mods = score.mods.bits();
         let max_result = rosu_map.max_pp(mods);
         let mut attributes = max_result.attributes;
 
         let max_pp = max_result.pp;
         let stars = round(attributes.stars());
 
-        let pp = if score.grade == Grade::F {
-            let hits = score.total_hits(map.mode) as usize;
+        let pp = if let Some(pp) = score.pp {
+            pp
+        } else if score.grade == Grade::F {
+            let hits = score.total_hits() as usize;
 
             let pp_result = match map.mode {
                 GameMode::STD => OsuPP::new(&rosu_map)
                     .mods(mods)
                     .combo(score.max_combo as usize)
-                    .n300(score.count300 as usize)
-                    .n100(score.count100 as usize)
-                    .n50(score.count50 as usize)
-                    .misses(score.count_miss as usize)
+                    .n300(score.statistics.count_300 as usize)
+                    .n100(score.statistics.count_100 as usize)
+                    .n50(score.statistics.count_50 as usize)
+                    .misses(score.statistics.count_miss as usize)
                     .passed_objects(hits)
                     .calculate(),
                 GameMode::MNA => ManiaPP::new(&rosu_map)
@@ -85,17 +89,17 @@ impl RecentEmbed {
                 GameMode::CTB => FruitsPP::new(&rosu_map)
                     .mods(mods)
                     .combo(score.max_combo as usize)
-                    .fruits(score.count300 as usize)
-                    .droplets(score.count100 as usize)
-                    .misses(score.count_miss as usize)
-                    .passed_objects(hits - score.count_katu as usize)
-                    .accuracy(score.accuracy(GameMode::CTB))
+                    .fruits(score.statistics.count_300 as usize)
+                    .droplets(score.statistics.count_100 as usize)
+                    .misses(score.statistics.count_miss as usize)
+                    .passed_objects(hits - score.statistics.count_katu as usize)
+                    .accuracy(score.accuracy)
                     .calculate(),
                 GameMode::TKO => TaikoPP::new(&rosu_map)
                     .combo(score.max_combo as usize)
                     .mods(mods)
                     .passed_objects(hits)
-                    .accuracy(score.accuracy(GameMode::TKO))
+                    .accuracy(score.accuracy)
                     .calculate(),
             };
 
@@ -106,10 +110,10 @@ impl RecentEmbed {
                     .attributes(attributes)
                     .mods(mods)
                     .combo(score.max_combo as usize)
-                    .n300(score.count300 as usize)
-                    .n100(score.count100 as usize)
-                    .n50(score.count50 as usize)
-                    .misses(score.count_miss as usize)
+                    .n300(score.statistics.count_300 as usize)
+                    .n100(score.statistics.count_100 as usize)
+                    .n50(score.statistics.count_50 as usize)
+                    .misses(score.statistics.count_miss as usize)
                     .calculate(),
                 GameMode::MNA => ManiaPP::new(&rosu_map)
                     .attributes(attributes)
@@ -120,17 +124,17 @@ impl RecentEmbed {
                     .attributes(attributes)
                     .mods(mods)
                     .combo(score.max_combo as usize)
-                    .fruits(score.count300 as usize)
-                    .droplets(score.count100 as usize)
-                    .misses(score.count_miss as usize)
-                    .accuracy(score.accuracy(GameMode::CTB))
+                    .fruits(score.statistics.count_300 as usize)
+                    .droplets(score.statistics.count_100 as usize)
+                    .misses(score.statistics.count_miss as usize)
+                    .accuracy(score.accuracy)
                     .calculate(),
                 GameMode::TKO => TaikoPP::new(&rosu_map)
                     .attributes(attributes)
                     .combo(score.max_combo as usize)
                     .mods(mods)
-                    .misses(score.count_miss as usize)
-                    .accuracy(score.accuracy(GameMode::TKO))
+                    .misses(score.statistics.count_miss as usize)
+                    .accuracy(score.accuracy)
                     .calculate(),
             };
 
@@ -146,18 +150,28 @@ impl RecentEmbed {
         let grade_completion_mods = grade_completion_mods(score, map);
 
         let (combo, title) = if map.mode == GameMode::MNA {
-            let mut ratio = score.count_geki as f32;
+            let mut ratio = score.statistics.count_geki as f32;
 
-            if score.count300 > 0 {
-                ratio /= score.count300 as f32
+            if score.statistics.count_300 > 0 {
+                ratio /= score.statistics.count_300 as f32
             }
 
             let combo = format!("**{}x** / {:.2}", &score.max_combo, ratio);
-            let title = format!("{} {}", osu::get_keys(score.enabled_mods, &map), map);
+
+            let title = format!(
+                "{} {} - {} [{}]",
+                osu::get_keys(score.mods, &map),
+                mapset.artist,
+                mapset.title,
+                map.version
+            );
 
             (combo, title)
         } else {
-            (osu::get_combo(score, map), map.to_string())
+            (
+                osu::get_combo(score, map),
+                format!("{} - {} [{}]", mapset.artist, mapset.title, map.version),
+            )
         };
 
         let if_fc = if_fc.map(|if_fc| {
@@ -180,12 +194,15 @@ impl RecentEmbed {
 
         let footer = Footer::new(format!(
             "{:?} map by {} | played",
-            map.approval_status, map.creator
+            map.status, mapset.creator_name
         ))
-        .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
+        .icon_url(format!("{}{}", AVATAR_URL, mapset.creator_id));
 
         let personal_idx = personal.and_then(|personal| personal.iter().position(|s| s == score));
-        let global_idx = global.and_then(|global| global.iter().position(|s| s == score));
+
+        let global_idx = map_score
+            .and_then(|s| (&s.score == score).then(|| s.pos))
+            .filter(|&p| p <= 50);
 
         let description = if personal_idx.is_some() || global_idx.is_some() {
             let mut description = String::with_capacity(25);
@@ -206,129 +223,33 @@ impl RecentEmbed {
 
             description.push_str("**__");
 
-            Some(description)
+            Some(description.into())
         } else {
-            let map_personal_best = map_scores
-                .and_then(|scores| scores.get(&map.beatmap_id))
-                .and_then(|scores| {
-                    if score.grade == Grade::F && scores.is_empty() {
-                        return Some(MapPersonalBest::WouldHaveFirstPass);
-                    }
-
-                    let first = scores.first()?;
-                    let mods = score.enabled_mods;
-
-                    if score.grade == Grade::F {
-                        if first.enabled_mods == mods {
-                            if score.score > first.score {
-                                return Some(MapPersonalBest::WouldHave);
-                            }
-                        } else if scores
-                            .iter()
-                            .find(|score| score.enabled_mods == mods)
-                            .map(|s| s.score)
-                            .filter(|&s| s <= score.score)
-                            .is_some()
-                        {
-                            return Some(MapPersonalBest::WouldHaveMods { mods });
-                        };
-
-                        return None;
-                    }
-
-                    let res = if first.enabled_mods == mods {
-                        if first == score || score.score > first.score {
-                            MapPersonalBest::PersonalBest
-                        } else {
-                            MapPersonalBest::SameMods {
-                                difference: first.score - score.score + 1,
-                            }
-                        }
-                    } else if let Some(mod_score) =
-                        scores.iter().find(|score| score.enabled_mods == mods)
-                    {
-                        if mod_score == score || score.score > mod_score.score {
-                            MapPersonalBest::PersonalBestMods {
-                                best_mods: first.enabled_mods,
-                                mods,
-                                difference: first.score - score.score + 1,
-                            }
-                        } else {
-                            MapPersonalBest::DifferentMods {
-                                mods,
-                                difference: mod_score.score - score.score + 1,
-                            }
-                        }
-                    } else {
-                        MapPersonalBest::FirstPassMods { mods }
-                    };
-
-                    Some(res)
-                });
-
-            if let Some(map_personal_best) = map_personal_best {
-                let description =
-                    match map_personal_best {
-                        MapPersonalBest::PersonalBest => "Personal Best on the map!".to_owned(),
-                        MapPersonalBest::SameMods { difference } => {
-                            format!(
-                                "Missing {} score for a personal best on the map",
-                                with_comma_u64(difference as u64)
-                            )
-                        }
-                        MapPersonalBest::PersonalBestMods {
-                            best_mods,
-                            mods,
-                            difference,
-                        } => format!(
-                        "Personal best with {} on the map, missing {} score to beat their best {} score",
-                        mods, with_comma_u64(difference as u64), best_mods,
-                    ),
-                        MapPersonalBest::FirstPassMods { mods } => {
-                            format!("First pass with {} on the map", mods)
-                        }
-                        MapPersonalBest::DifferentMods { mods, difference } => format!(
-                            "Missing {} score for a personal best with {} on the map",
-                            with_comma_u64(difference as u64),
-                            mods
-                        ),
-                        MapPersonalBest::WouldHaveFirstPass => {
-                            "Would have been the first pass".to_owned()
-                        }
-                        MapPersonalBest::WouldHave => {
-                            "Would have been a personal best on the map".to_owned()
-                        }
-                        MapPersonalBest::WouldHaveMods { mods } => {
-                            format!("Would have been a personal best with {} on the map", mods)
-                        }
-                    };
-
-                Some(description)
-            } else {
-                None
-            }
+            extend_desc
+                .then(|| score_cmp_description(score, map_score))
+                .flatten()
         };
 
         let image = ImageSource::url(format!(
             "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
-            map.beatmapset_id
+            map.mapset_id
         ));
 
         Ok(Self {
             description,
             title,
-            url: format!("{}b/{}", OSU_BASE, map.beatmap_id),
-            author: osu::get_user_author(&user),
+            url: format!("{}b/{}", OSU_BASE, map.map_id),
+            author: author!(user),
             footer,
-            timestamp: score.date,
-            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id))
+            timestamp: score.created_at,
+            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id))
                 .unwrap(),
             image: image.unwrap(),
             grade_completion_mods,
             stars,
             score: with_comma_u64(score.score as u64),
-            acc: round(score.accuracy(map.mode)),
-            ago: how_long_ago(&score.date),
+            acc: round(score.accuracy),
+            ago: how_long_ago(&score.created_at),
             pp,
             combo,
             hits,
@@ -441,38 +362,6 @@ impl EmbedData for RecentEmbed {
     }
 }
 
-enum MapPersonalBest {
-    // Same mods, best score
-    PersonalBest,
-    // Same mods, worse score
-    SameMods {
-        difference: u32,
-    },
-    // Different mods, best score
-    PersonalBestMods {
-        best_mods: GameMods,
-        mods: GameMods,
-        difference: u32,
-    },
-    // Different mods, first score
-    FirstPassMods {
-        mods: GameMods,
-    },
-    // Different mods, worse score
-    DifferentMods {
-        mods: GameMods,
-        difference: u32,
-    },
-    // Fail, would have been first pass
-    WouldHaveFirstPass,
-    // Fail, would be best score
-    WouldHave,
-    // Fail, would be best score, different mods
-    WouldHaveMods {
-        mods: GameMods,
-    },
-}
-
 struct IfFC {
     n300: usize,
     n100: usize,
@@ -484,22 +373,25 @@ struct IfFC {
 fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> Option<IfFC> {
     match attributes {
         StarResult::Osu(attributes)
-            if score.count_miss > 0 || score.max_combo < attributes.max_combo as u32 - 5 =>
+            if score.statistics.count_miss > 0
+                || score.max_combo < attributes.max_combo as u32 - 5 =>
         {
             let total_objects = (map.n_circles + map.n_sliders + map.n_spinners) as usize;
-            let passed_objects =
-                (score.count300 + score.count100 + score.count50 + score.count_miss) as usize;
+            let passed_objects = (score.statistics.count_300
+                + score.statistics.count_100
+                + score.statistics.count_50
+                + score.statistics.count_miss) as usize;
 
             let mut count300 =
-                score.count300 as usize + total_objects.saturating_sub(passed_objects);
+                score.statistics.count_300 as usize + total_objects.saturating_sub(passed_objects);
 
-            let count_hits = total_objects - score.count_miss as usize;
+            let count_hits = total_objects - score.statistics.count_miss as usize;
             let ratio = 1.0 - (count300 as f32 / count_hits as f32);
-            let new100s = (ratio * score.count_miss as f32).ceil() as u32;
+            let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
 
-            count300 += score.count_miss.saturating_sub(new100s) as usize;
-            let count100 = (score.count100 + new100s) as usize;
-            let count50 = score.count50 as usize;
+            count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
+            let count100 = (score.statistics.count_100 + new100s) as usize;
+            let count50 = score.statistics.count_50 as usize;
 
             let pp_result = OsuPP::new(&map)
                 .attributes(attributes)
@@ -522,20 +414,22 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
         }
         StarResult::Fruits(attributes) if score.max_combo != attributes.max_combo as u32 => {
             let total_objects = attributes.max_combo;
-            let passed_objects = (score.count300 + score.count100 + score.count_miss) as usize;
+            let passed_objects = (score.statistics.count_300
+                + score.statistics.count_100
+                + score.statistics.count_miss) as usize;
 
             let missing = total_objects - passed_objects;
             let missing_fruits = missing.saturating_sub(
                 attributes
                     .n_droplets
-                    .saturating_sub(score.count100 as usize),
+                    .saturating_sub(score.statistics.count_100 as usize),
             );
 
             let missing_droplets = missing - missing_fruits;
 
-            let n_fruits = score.count300 as usize + missing_fruits;
-            let n_droplets = score.count100 as usize + missing_droplets;
-            let n_tiny_droplet_misses = score.count_katu as usize;
+            let n_fruits = score.statistics.count_300 as usize + missing_fruits;
+            let n_droplets = score.statistics.count_100 as usize + missing_droplets;
+            let n_tiny_droplet_misses = score.statistics.count_katu as usize;
             let n_tiny_droplets = attributes
                 .n_tiny_droplets
                 .saturating_sub(n_tiny_droplet_misses);
@@ -566,19 +460,21 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
                 acc,
             })
         }
-        StarResult::Taiko(attributes) if score.grade == Grade::F || score.count_miss > 0 => {
+        StarResult::Taiko(attributes)
+            if score.grade == Grade::F || score.statistics.count_miss > 0 =>
+        {
             let total_objects = map.n_circles as usize;
-            let passed_objects = score.total_hits(GameMode::TKO) as usize;
+            let passed_objects = score.total_hits() as usize;
 
             let mut count300 =
-                score.count300 as usize + total_objects.saturating_sub(passed_objects);
+                score.statistics.count_300 as usize + total_objects.saturating_sub(passed_objects);
 
-            let count_hits = total_objects - score.count_miss as usize;
+            let count_hits = total_objects - score.statistics.count_miss as usize;
             let ratio = 1.0 - (count300 as f32 / count_hits as f32);
-            let new100s = (ratio * score.count_miss as f32).ceil() as u32;
+            let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
 
-            count300 += score.count_miss.saturating_sub(new100s) as usize;
-            let count100 = (score.count100 + new100s) as usize;
+            count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
+            let count100 = (score.statistics.count_100 + new100s) as usize;
 
             let acc = 100.0 * (2 * count300 + count100) as f32 / (2 * total_objects) as f32;
 
@@ -598,4 +494,32 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
         }
         _ => None,
     }
+}
+
+fn score_cmp_description(
+    score: &Score,
+    map_score: Option<&BeatmapUserScore>,
+) -> Option<Cow<'static, str>> {
+    if let Some(s) = map_score.map(|s| &s.score) {
+        if s == score {
+            return Some(Cow::Borrowed("Personal best on the map"));
+        } else if score.score > s.score {
+            let msg = if s.grade == Grade::F {
+                "Would have been a personal best on the map"
+            } else {
+                "Personal best on the map"
+            };
+
+            return Some(Cow::Borrowed(msg));
+        } else if s.grade != Grade::F {
+            let msg = format!(
+                "Missing {} score for a personal best on the map",
+                with_comma_u64((s.score - score.score + 1) as u64)
+            );
+
+            return Some(Cow::Owned(msg));
+        }
+    }
+
+    None
 }

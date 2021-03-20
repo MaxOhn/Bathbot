@@ -4,7 +4,6 @@ use crate::{
     BotResult,
 };
 
-use rayon::prelude::*;
 use std::fmt::Write;
 use twilight_model::{channel::Message, guild::Permissions, id::RoleId};
 
@@ -38,13 +37,9 @@ pub fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>
 
         return Ok(Some(content));
     } else if let Some(member) = ctx.cache.member(guild_id, msg.author.id) {
-        if !member
-            .roles
-            .par_iter()
-            .any(|role| auth_roles.contains(role))
-        {
+        if !member.roles.iter().any(|role| auth_roles.contains(role)) {
             let roles: Vec<_> = auth_roles
-                .par_iter()
+                .iter()
                 .filter_map(|&role| {
                     ctx.cache.role(role).map_or_else(
                         || {

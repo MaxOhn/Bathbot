@@ -1,52 +1,58 @@
 use crate::{BotResult, Database};
 
 use dashmap::DashMap;
-use sqlx::Row;
+use futures::stream::StreamExt;
 
 impl Database {
     pub async fn add_stream_track(&self, channel: u64, user: u64) -> BotResult<bool> {
-        let query = format!(
-            "INSERT INTO stream_tracks VALUES ({},{}) ON CONFLICT DO NOTHING",
-            channel, user
-        );
-
-        let done = sqlx::query(&query).execute(&self.pool).await?;
+        let done = sqlx::query!(
+            "INSERT INTO stream_tracks VALUES ($1,$2) ON CONFLICT DO NOTHING",
+            channel as i64,
+            user as i64
+        )
+        .execute(&self.pool)
+        .await?;
 
         Ok(done.rows_affected() > 0)
     }
 
     #[cold]
     pub async fn get_stream_tracks(&self) -> BotResult<DashMap<u64, Vec<u64>>> {
-        let tracks = sqlx::query("SELECT * FROM stream_tracks")
-            .fetch_all(&self.pool)
-            .await?
-            .into_iter()
-            .map(|row| (row.get::<i64, _>(1) as u64, row.get::<i64, _>(0) as u64))
-            .fold(
-                DashMap::with_capacity(100),
-                |all: DashMap<u64, Vec<u64>>, (user, channel)| {
-                    all.entry(user).or_default().push(channel);
-                    all
-                },
-            );
+        let mut stream = sqlx::query!("SELECT * FROM stream_tracks").fetch(&self.pool);
+        let tracks: DashMap<_, Vec<_>> = DashMap::with_capacity(1000);
+
+        while let Some(entry) = stream.next().await.transpose()? {
+            let channel_id: i64 = entry.channel_id;
+            let user_id: i64 = entry.user_id;
+
+            tracks
+                .entry(user_id as u64)
+                .or_default()
+                .push(channel_id as u64);
+        }
 
         Ok(tracks)
     }
 
     pub async fn remove_channel_tracks(&self, channel: u64) -> BotResult<()> {
-        let query = format!("DELETE FROM stream_tracks WHERE channel_id={}", channel);
-        sqlx::query(&query).execute(&self.pool).await?;
+        sqlx::query!(
+            "DELETE FROM stream_tracks WHERE channel_id=$1",
+            channel as i64,
+        )
+        .execute(&self.pool)
+        .await?;
 
         Ok(())
     }
 
     pub async fn remove_stream_track(&self, channel: u64, user: u64) -> BotResult<bool> {
-        let query = format!(
-            "DELETE FROM stream_tracks WHERE channel_id={} AND user_id={}",
-            channel, user
-        );
-
-        let done = sqlx::query(&query).execute(&self.pool).await?;
+        let done = sqlx::query!(
+            "DELETE FROM stream_tracks WHERE channel_id=$1 AND user_id=$2",
+            channel as i64,
+            user as i64,
+        )
+        .execute(&self.pool)
+        .await?;
 
         Ok(done.rows_affected() > 0)
     }

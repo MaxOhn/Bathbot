@@ -1,8 +1,7 @@
 use crate::{
     embeds::{CommandCounterEmbed, EmbedData},
     pagination::{CommandCountPagination, Pagination},
-    unwind_error,
-    util::numbers,
+    util::{numbers, MessageExt},
     Args, BotResult, Context,
 };
 
@@ -37,12 +36,12 @@ async fn commands(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
 
     // Creating the embed
     let embed = data.build().build()?;
-    let channel = msg.channel_id;
-    let response = ctx.http.create_message(channel).embed(embed)?.await?;
+    let response = msg.respond_embed(&ctx, embed).await?;
 
     // Pagination
     let pagination = CommandCountPagination::new(&ctx, response, cmds);
     let owner = msg.author.id;
+
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 90).await {
             unwind_error!(warn, why, "Pagination error: {}")

@@ -1,10 +1,8 @@
 use crate::{
     arguments::{Args, NameArgs},
-    custom_client::OsuProfileMedal,
     embeds::{EmbedData, MedalStatsEmbed},
-    unwind_error,
     util::{
-        constants::{OSU_API_ISSUE, OSU_WEB_ISSUE},
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
     BotResult, Context, Error,
@@ -13,7 +11,7 @@ use crate::{
 use chrono::Datelike;
 use image::{png::PngEncoder, ColorType};
 use plotters::prelude::*;
-use rosu::model::GameMode;
+use rosu_v2::prelude::{MedalCompact, OsuError};
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -24,59 +22,70 @@ use twilight_model::channel::Message;
 #[aliases("ms")]
 async fn medalstats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = NameArgs::new(&ctx, args);
+
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
-    let user = match ctx.osu().user(name.as_str()).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
+
+    let user_fut = ctx.osu().user(&name);
+    let medals_fut = ctx.psql().get_medals();
+
+    let (mut user, all_medals) = match tokio::join!(user_fut, medals_fut) {
+        (Ok(user), Ok(medals)) => (user, medals),
+        (Err(OsuError::NotFound), _) => {
             let content = format!("User `{}` was not found", name);
+
             return msg.error(&ctx, content).await;
         }
-        Err(why) => {
+        (_, Err(why)) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+        (Err(why), _) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
-    let profile_fut = ctx
-        .clients
-        .custom
-        .get_osu_profile(user.user_id, GameMode::STD, true);
-    let (mut profile, medals) = match profile_fut.await {
-        Ok(tuple) => tuple,
-        Err(why) => {
-            let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
-            return Err(why.into());
-        }
-    };
-    profile.medals.sort_by_key(|medal| medal.achieved_at);
-    let graph = match graph(&profile.medals) {
+
+    user.medals
+        .as_mut()
+        .unwrap()
+        .sort_unstable_by_key(|medal| medal.achieved_at);
+
+    let graph = match graph(user.medals.as_ref().unwrap()) {
         Ok(bytes_option) => bytes_option,
         Err(why) => {
             unwind_error!(warn, why, "Error while calculating medal graph: {}");
+
             None
         }
     };
-    let embed = MedalStatsEmbed::new(profile, medals, graph.is_some())
+
+    let embed = MedalStatsEmbed::new(user, all_medals, graph.is_some())
         .build_owned()
         .build()?;
 
     // Send the embed
     let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
+
     let response = if let Some(graph) = graph {
         m.attachment("medal_graph.png", graph).await?
     } else {
         m.await?
     };
+
     response.reaction_delete(&ctx, msg.author.id);
+
     Ok(())
 }
 
 const W: u32 = 1350;
 const H: u32 = 350;
 
-fn graph(medals: &[OsuProfileMedal]) -> Result<Option<Vec<u8>>, Error> {
+fn graph(medals: &[MedalCompact]) -> Result<Option<Vec<u8>>, Error> {
     static LEN: usize = W as usize * H as usize;
     let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
     {
@@ -89,6 +98,7 @@ fn graph(medals: &[OsuProfileMedal]) -> Result<Option<Vec<u8>>, Error> {
 
         let mut medal_counter = Vec::with_capacity(medals.len());
         let mut counter = 0;
+
         for medal in medals {
             counter += 1;
             medal_counter.push((medal.achieved_at, counter));
@@ -128,5 +138,6 @@ fn graph(medals: &[OsuProfileMedal]) -> Result<Option<Vec<u8>>, Error> {
     let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
     let png_encoder = PngEncoder::new(&mut png_bytes);
     png_encoder.encode(&buf, W, H, ColorType::Rgb8)?;
+
     Ok(Some(png_bytes))
 }

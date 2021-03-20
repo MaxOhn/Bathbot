@@ -3,7 +3,6 @@ use crate::{
     bail,
     embeds::{EmbedData, MapEmbed},
     pagination::{MapPagination, Pagination},
-    unwind_error,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         error::PPError,
@@ -16,9 +15,8 @@ use crate::{
 use chrono::Duration;
 use image::{png::PngEncoder, ColorType, DynamicImage, GenericImage, GenericImageView, Pixel};
 use plotters::prelude::*;
-use rayon::prelude::*;
-use rosu::model::{GameMode, GameMods};
 use rosu_pp::{Beatmap, BeatmapExt};
+use rosu_v2::prelude::{GameMode, GameMods, OsuError};
 use std::{cmp::Ordering, sync::Arc};
 use tokio::fs::File;
 use twilight_model::channel::Message;
@@ -80,13 +78,13 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         // If its given as map id, try to convert into mapset id
         MapIdType::Map(id) => {
             // Check if map is in DB
-            match ctx.psql().get_beatmap(id).await {
-                Ok(map) => (map.beatmapset_id, Some(id)),
+            match ctx.psql().get_beatmap(id, true).await {
+                Ok(map) => (map.mapset_id, Some(id)),
                 Err(_) => {
                     // If not in DB, request through API
                     match ctx.osu().beatmap().map_id(id).await {
-                        Ok(Some(map)) => (map.beatmapset_id, Some(id)),
-                        Ok(None) => (id, None),
+                        Ok(map) => (map.mapset_id, Some(id)),
+                        Err(OsuError::NotFound) => (id, None),
                         Err(why) => {
                             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
@@ -102,24 +100,30 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
 
     // Request mapset through API
-    let maps = match ctx.osu().beatmaps().mapset_id(mapset_id).await {
-        Ok(mut maps) => {
-            // For mania sort first by mania key, then star rating
-            if maps.first().map(|map| map.mode).unwrap_or_default() == GameMode::MNA {
-                maps.sort_unstable_by(|m1, m2| {
-                    m1.diff_cs
-                        .partial_cmp(&m2.diff_cs)
-                        .unwrap_or(Ordering::Equal)
-                        .then(m1.stars.partial_cmp(&m2.stars).unwrap_or(Ordering::Equal))
-                })
-            // For other mods just sort by star rating
-            } else {
-                maps.sort_unstable_by(|m1, m2| {
-                    m1.stars.partial_cmp(&m2.stars).unwrap_or(Ordering::Equal)
-                })
+    let (mapset, maps) = match ctx.osu().beatmapset(mapset_id).await {
+        Ok(mut mapset) => {
+            if let Some(ref mut maps) = mapset.maps {
+                let mode = maps.first().map(|m| m.mode).unwrap_or_default();
+
+                // For mania sort first by mania key, then star rating
+                if mode == GameMode::MNA {
+                    maps.sort_unstable_by(|m1, m2| {
+                        m1.cs
+                            .partial_cmp(&m2.cs)
+                            .unwrap_or(Ordering::Equal)
+                            .then(m1.stars.partial_cmp(&m2.stars).unwrap_or(Ordering::Equal))
+                    });
+                // For other mods just sort by star rating
+                } else {
+                    maps.sort_unstable_by(|m1, m2| {
+                        m1.stars.partial_cmp(&m2.stars).unwrap_or(Ordering::Equal)
+                    });
+                }
             }
 
-            maps
+            let maps = mapset.maps.take().unwrap_or_default();
+
+            (mapset, maps)
         }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
@@ -128,33 +132,27 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         }
     };
 
-    let map_idx = if let Some(first_map) = maps.first() {
-        let first_map_id = map_id.unwrap_or(first_map.beatmap_id);
+    let map_count = maps.len();
 
-        maps.iter()
-            .position(|map| map.beatmap_id == first_map_id)
-            .unwrap_or(0)
+    let map_idx = if maps.is_empty() {
+        return msg.error(&ctx, "The mapset has no maps").await;
     } else {
-        let content = "API returned no map for this id";
-
-        return msg.error(&ctx, content).await;
+        map_id
+            .and_then(|map_id| maps.iter().position(|map| map.map_id == map_id))
+            .unwrap_or(0)
     };
 
     let map = &maps[map_idx];
 
     // Try creating the strain graph for the map
     let bg_fut = async {
-        let url = format!(
-            "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
-            map.beatmapset_id
-        );
-
-        let res = reqwest::get(&url).await?.bytes().await?;
+        let url = mapset.covers.cover.as_str();
+        let res = reqwest::get(url).await?.bytes().await?;
 
         Ok::<_, Error>(image::load_from_memory(res.as_ref())?.thumbnail_exact(W, H))
     };
 
-    let graph = match tokio::join!(strain_values(map.beatmap_id, mods), bg_fut) {
+    let graph = match tokio::join!(strain_values(map.map_id, mods), bg_fut) {
         (Ok(strain_values), Ok(img)) => match graph(strain_values, img) {
             Ok(graph) => Some(graph),
             Err(why) => {
@@ -177,10 +175,11 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
     // Accumulate all necessary data
     let data_fut = MapEmbed::new(
-        &maps[map_idx],
+        &map,
+        &mapset,
         mods,
         graph.is_none(),
-        (map_idx + 1, maps.len()),
+        (map_idx + 1, map_count),
     );
 
     let data = match data_fut.await {
@@ -202,22 +201,29 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         m.await?
     };
 
-    // Add missing maps to database
-    match ctx.clients.psql.insert_beatmaps(&maps).await {
-        Ok(n) if n < 2 => {}
-        Ok(n) => info!("Added {} maps to DB", n),
-        Err(why) => unwind_error!(warn, why, "Error while adding maps to DB: {}"),
+    // Add mapset and maps to database
+    let (mapset_result, maps_result) = tokio::join!(
+        ctx.clients.psql.insert_beatmapset(&mapset),
+        ctx.clients.psql.insert_beatmaps(&maps),
+    );
+
+    if let Err(why) = mapset_result {
+        unwind_error!(warn, why, "Error while adding mapset to DB: {}");
+    }
+
+    if let Err(why) = maps_result {
+        unwind_error!(warn, why, "Error while adding maps to DB: {}");
     }
 
     // Skip pagination if too few entries
-    if maps.len() < 2 {
+    if map_count == 1 {
         response.reaction_delete(&ctx, msg.author.id);
 
         return Ok(());
     }
 
     // Pagination
-    let pagination = MapPagination::new(response, maps, mods, map_idx, graph.is_none());
+    let pagination = MapPagination::new(response, mapset, maps, mods, map_idx, graph.is_none());
     let owner = msg.author.id;
 
     tokio::spawn(async move {
@@ -253,7 +259,7 @@ fn graph(strains: Vec<(f32, f32)>, mut background: DynamicImage) -> BotResult<Ve
     static LEN: usize = W as usize * H as usize;
 
     let max_strain = strains
-        .par_iter()
+        .iter()
         .copied()
         .max_by(|(_, a), (_, b)| a.partial_cmp(&b).unwrap_or(Ordering::Equal))
         .map_or(0.0, |(_, s)| s);

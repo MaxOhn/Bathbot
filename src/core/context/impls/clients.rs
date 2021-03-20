@@ -1,6 +1,6 @@
 use crate::{Context, Database};
 
-use rosu::Osu;
+use rosu_v2::Osu;
 
 impl Context {
     #[inline]

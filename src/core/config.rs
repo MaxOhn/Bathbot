@@ -1,7 +1,7 @@
 use crate::{BotResult, Error};
 
 use once_cell::sync::OnceCell;
-use rosu::model::{GameMode, Grade};
+use rosu_v2::model::{GameMode, Grade};
 use serde::{
     de::{Deserializer, Error as SerdeError, Unexpected},
     Deserialize,
@@ -14,21 +14,20 @@ use twilight_model::id::EmojiId;
 #[derive(Deserialize, Debug)]
 pub struct BotConfig {
     pub tokens: Tokens,
-    pub database: Database,
     pub bg_path: PathBuf,
     pub map_path: PathBuf,
     pub metric_server_ip: [u8; 4],
     pub metric_server_port: u16,
     grades: HashMap<Grade, String>,
     pub modes: HashMap<GameMode, String>,
-    #[serde(rename = "other")]
-    other: HashMap<OtherEnum, String>,
+    emotes: HashMap<Emotes, String>,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct Tokens {
     pub discord: String,
-    pub osu: String,
+    pub osu_client_id: u64,
+    pub osu_client_secret: String,
     pub osu_session: String,
     pub osu_daily: String,
     pub beatconnect: String,
@@ -36,17 +35,8 @@ pub struct Tokens {
     pub twitch_token: String,
 }
 
-#[derive(Deserialize, Debug)]
-pub struct Database {
-    pub host: String,
-    pub db_user: String,
-    pub db_pw: String,
-    pub db_name: String,
-    pub redis_port: u16,
-}
-
 #[derive(Eq, PartialEq, Debug, Hash)]
-pub enum OtherEnum {
+pub enum Emotes {
     Minimize,
     Expand,
 
@@ -101,8 +91,8 @@ impl BotConfig {
 
     pub fn minimize(&self) -> RequestReactionType {
         let (id, name) = self
-            .other
-            .get(&OtherEnum::Minimize)
+            .emotes
+            .get(&Emotes::Minimize)
             .unwrap_or_else(|| panic!("No minimize emote in config"))
             .split_emote();
 
@@ -114,8 +104,8 @@ impl BotConfig {
 
     pub fn expand(&self) -> RequestReactionType {
         let (id, name) = self
-            .other
-            .get(&OtherEnum::Expand)
+            .emotes
+            .get(&Emotes::Expand)
             .unwrap_or_else(|| panic!("No expand emote in config"))
             .split_emote();
 
@@ -127,8 +117,8 @@ impl BotConfig {
 
     pub fn jump_start(&self) -> RequestReactionType {
         let (id, name) = self
-            .other
-            .get(&OtherEnum::JumpStart)
+            .emotes
+            .get(&Emotes::JumpStart)
             .unwrap_or_else(|| panic!("No jump_start emote in config"))
             .split_emote();
 
@@ -140,8 +130,8 @@ impl BotConfig {
 
     pub fn multi_step_back(&self) -> RequestReactionType {
         let (id, name) = self
-            .other
-            .get(&OtherEnum::MultiStepBack)
+            .emotes
+            .get(&Emotes::MultiStepBack)
             .unwrap_or_else(|| panic!("No multi_step_back emote in config"))
             .split_emote();
 
@@ -153,8 +143,8 @@ impl BotConfig {
 
     pub fn single_step_back(&self) -> RequestReactionType {
         let (id, name) = self
-            .other
-            .get(&OtherEnum::SingleStepBack)
+            .emotes
+            .get(&Emotes::SingleStepBack)
             .unwrap_or_else(|| panic!("No single_step_back emote in config"))
             .split_emote();
 
@@ -166,8 +156,8 @@ impl BotConfig {
 
     pub fn my_position(&self) -> RequestReactionType {
         let (id, name) = self
-            .other
-            .get(&OtherEnum::MyPosition)
+            .emotes
+            .get(&Emotes::MyPosition)
             .unwrap_or_else(|| panic!("No my_position emote in config"))
             .split_emote();
 
@@ -179,8 +169,8 @@ impl BotConfig {
 
     pub fn single_step(&self) -> RequestReactionType {
         let (id, name) = self
-            .other
-            .get(&OtherEnum::SingleStep)
+            .emotes
+            .get(&Emotes::SingleStep)
             .unwrap_or_else(|| panic!("No single_step emote in config"))
             .split_emote();
 
@@ -192,8 +182,8 @@ impl BotConfig {
 
     pub fn multi_step(&self) -> RequestReactionType {
         let (id, name) = self
-            .other
-            .get(&OtherEnum::MultiStep)
+            .emotes
+            .get(&Emotes::MultiStep)
             .unwrap_or_else(|| panic!("No multi_step emote in config"))
             .split_emote();
 
@@ -205,8 +195,8 @@ impl BotConfig {
 
     pub fn jump_end(&self) -> RequestReactionType {
         let (id, name) = self
-            .other
-            .get(&OtherEnum::JumpEnd)
+            .emotes
+            .get(&Emotes::JumpEnd)
             .unwrap_or_else(|| panic!("No jump_end emote in config"))
             .split_emote();
 
@@ -235,7 +225,7 @@ impl SplitEmote for String {
     }
 }
 
-impl<'de> Deserialize<'de> for OtherEnum {
+impl<'de> Deserialize<'de> for Emotes {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let s: &str = Deserialize::deserialize(d)?;
 

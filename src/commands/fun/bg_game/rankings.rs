@@ -1,7 +1,6 @@
 use crate::{
     embeds::{BGRankingEmbed, EmbedData},
     pagination::{BGRankingPagination, Pagination},
-    unwind_error,
     util::{constants::GENERAL_ISSUE, get_member_ids, numbers, MessageExt},
     Args, BotResult, Context,
 };
@@ -39,9 +38,7 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
             .unwrap_or(0);
 
         let wait_msg = if member_count > 6000 {
-            ctx.http
-                .create_message(msg.channel_id)
-                .content("Lots of members, give me a moment...")?
+            msg.respond(&ctx, "Lots of members, give me a moment...")
                 .await
                 .ok()
         } else {
@@ -95,11 +92,7 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     // Creating the embed
     let embed = data.build().build()?;
 
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .embed(embed)?
-        .await?;
+    let response = msg.respond_embed(&ctx, embed).await?;
 
     // Skip pagination if too few entries
     if scores.len() <= 15 {

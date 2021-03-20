@@ -14,7 +14,7 @@ use crate::{
 
 use darkredis::ConnectionPool;
 use dashmap::{DashMap, DashSet};
-use rosu::Osu;
+use rosu_v2::Osu;
 use std::{collections::HashSet, sync::Arc};
 use tokio::sync::Mutex;
 use twilight_gateway::Cluster;

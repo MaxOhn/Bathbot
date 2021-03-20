@@ -62,9 +62,12 @@ async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
         .create_message(msg.channel_id)
         .content(format!("Deleted the last {} messages", amount - 1))?
         .await?;
+
     time::sleep(Duration::from_secs(6)).await;
+
     ctx.http
         .delete_message(response.channel_id, response.id)
         .await?;
+
     Ok(())
 }

@@ -2,7 +2,6 @@ use crate::{
     custom_client::SnipeScore,
     embeds::{osu, Author, EmbedData, Footer},
     pp::{Calculations, PPCalculator},
-    unwind_error,
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
@@ -10,7 +9,7 @@ use crate::{
     },
 };
 
-use rosu::model::{Beatmap, User};
+use rosu_v2::prelude::{Beatmap, User};
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::Write,
@@ -34,7 +33,7 @@ impl PlayerSnipeListEmbed {
     ) -> Self {
         if scores.is_empty() {
             return Self {
-                author: osu::get_user_author(user),
+                author: author!(user),
                 thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
                 footer: Footer::new("Page 1/1 ~ Total #1 scores: 0"),
                 description: String::from("No scores were found"),
@@ -66,7 +65,7 @@ impl PlayerSnipeListEmbed {
                 "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
                 {pp} ~ ({acc}%) ~ {score}\n{{{n300}/{n100}/{n50}/{nmiss}}} ~ {ago}",
                 idx = idx + 1,
-                title = map.title,
+                title = map.mapset.as_ref().unwrap().title,
                 version = map.version,
                 base = OSU_BASE,
                 id = score.beatmap_id,
@@ -85,7 +84,7 @@ impl PlayerSnipeListEmbed {
 
         Self {
             description,
-            author: osu::get_user_author(&user),
+            author: author!(user),
             thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
             footer: Footer::new(format!(
                 "Page {}/{} ~ Total scores: {}",

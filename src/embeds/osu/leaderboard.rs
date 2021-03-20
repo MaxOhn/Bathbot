@@ -13,10 +13,10 @@ use crate::{
 };
 
 use cow_utils::CowUtils;
-use rosu::model::{Beatmap, GameMode};
 use rosu_pp::{
     Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, StarResult, TaikoPP,
 };
+use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, GameMode};
 use std::{borrow::Cow, collections::HashMap, fmt::Write};
 use tokio::fs::File;
 use twilight_embed_builder::image_source::ImageSource;
@@ -32,6 +32,7 @@ impl LeaderboardEmbed {
     pub async fn new<'i, S>(
         init_name: Option<&str>,
         map: &Beatmap,
+        mapset: Option<&BeatmapsetCompact>,
         scores: Option<S>,
         author_icon: &Option<String>,
         idx: usize,
@@ -39,16 +40,29 @@ impl LeaderboardEmbed {
     where
         S: Iterator<Item = &'i ScraperScore>,
     {
+        let (artist, title, creator_name, creator_id) = match map.mapset {
+            Some(ref ms) => (&ms.artist, &ms.title, &ms.creator_name, ms.creator_id),
+            None => {
+                let ms = mapset.expect("mapset neither in map nor in option");
+
+                (&ms.artist, &ms.title, &ms.creator_name, ms.creator_id)
+            }
+        };
+
         let mut author_text = String::with_capacity(32);
 
         if map.mode == GameMode::MNA {
-            let _ = write!(author_text, "[{}K] ", map.diff_cs as u32);
+            let _ = write!(author_text, "[{}K] ", map.cs as u32);
         }
 
-        let _ = write!(author_text, "{} [{:.2}★]", map, map.stars);
+        let _ = write!(
+            author_text,
+            "{} - {} [{}] [{:.2}★]",
+            artist, title, map.version, map.stars
+        );
 
         let description = if let Some(scores) = scores {
-            let map_path = prepare_beatmap_file(map.beatmap_id).await?;
+            let map_path = prepare_beatmap_file(map.map_id).await?;
             let file = File::open(map_path).await.map_err(PPError::from)?;
             let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
 
@@ -101,20 +115,20 @@ impl LeaderboardEmbed {
             "No scores found".to_string()
         };
 
-        let mut author = Author::new(author_text).url(format!("{}b/{}", OSU_BASE, map.beatmap_id));
+        let mut author = Author::new(author_text).url(format!("{}b/{}", OSU_BASE, map.map_id));
 
         if let Some(ref author_icon) = author_icon {
             author = author.icon_url(author_icon.to_owned());
         }
 
-        let footer = Footer::new(format!("{:?} map by {}", map.approval_status, map.creator))
-            .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
+        let footer = Footer::new(format!("{:?} map by {}", map.status, creator_name))
+            .icon_url(format!("{}{}", AVATAR_URL, creator_id));
 
         Ok(Self {
             author,
             description,
             footer,
-            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id))
+            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id))
                 .unwrap(),
         })
     }

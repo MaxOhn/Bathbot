@@ -3,12 +3,11 @@ use crate::{
     custom_client::{OsuStatsListParams, OsuStatsPlayer},
     embeds::{EmbedData, OsuStatsListEmbed},
     pagination::{OsuStatsListPagination, Pagination},
-    unwind_error,
     util::{numbers, MessageExt},
     BotResult, Context,
 };
 
-use rosu::model::GameMode;
+use rosu_v2::model::GameMode;
 use std::{collections::HashMap, sync::Arc};
 use twilight_model::channel::Message;
 

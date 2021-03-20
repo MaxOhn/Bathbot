@@ -2,7 +2,6 @@ use crate::{
     arguments::{Args, NameArgs},
     custom_client::SnipeRecent,
     embeds::{EmbedData, SnipedEmbed},
-    unwind_error,
     util::{
         constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         MessageExt, SNIPE_COUNTRIES,
@@ -21,7 +20,7 @@ use plotters::{
     },
     prelude::*,
 };
-use rosu::model::GameMode;
+use rosu_v2::prelude::{GameMode, OsuError};
 use std::{
     cmp::Reverse,
     collections::{HashMap, HashSet},
@@ -49,8 +48,8 @@ async fn sniped(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
 
     let user = match ctx.osu().user(name.as_str()).mode(GameMode::STD).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
+        Ok(user) => user,
+        Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{}`", name);
 
             return msg.error(&ctx, content).await;
@@ -65,34 +64,32 @@ async fn sniped(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let client = &ctx.clients.custom;
     let now = Utc::now();
 
-    let (sniper_fut, snipee_fut) = if SNIPE_COUNTRIES.contains_key(user.country.as_str()) {
-        (
-            client.get_national_snipes(&user, true, now - Duration::weeks(8), now),
-            client.get_national_snipes(&user, false, now - Duration::weeks(8), now),
-        )
+    let (sniper, snipee) = if SNIPE_COUNTRIES.contains_key(user.country_code.as_str()) {
+        let sniper_fut = client.get_national_snipes(&user, true, now - Duration::weeks(8), now);
+        let snipee_fut = client.get_national_snipes(&user, false, now - Duration::weeks(8), now);
+
+        match tokio::try_join!(sniper_fut, snipee_fut) {
+            Ok((sniper, snipee)) => {
+                let sniper: Vec<_> = sniper
+                    .into_iter()
+                    .filter(|score| score.sniped.is_some())
+                    .collect();
+
+                (sniper, snipee)
+            }
+            Err(why) => {
+                let _ = msg.error(&ctx, HUISMETBENEN_ISSUE).await;
+
+                return Err(why.into());
+            }
+        }
     } else {
         let content = format!(
             "`{}`'s country {} is not supported :(",
-            user.username, user.country
+            user.username, user.country_code
         );
 
         return msg.error(&ctx, content).await;
-    };
-
-    let (sniper, snipee) = match tokio::try_join!(sniper_fut, snipee_fut) {
-        Ok((sniper, snipee)) => {
-            let sniper: Vec<_> = sniper
-                .into_iter()
-                .filter(|score| score.sniped.is_some())
-                .collect();
-
-            (sniper, snipee)
-        }
-        Err(why) => {
-            let _ = msg.error(&ctx, HUISMETBENEN_ISSUE).await;
-
-            return Err(why.into());
-        }
     };
 
     let graph = match graphs(user.username.as_str(), &sniper, &snipee) {

@@ -1,11 +1,7 @@
-use crate::{
-    util::{constants::DARK_GREEN, MessageExt},
-    Args, BotResult, Context,
-};
+use crate::{util::MessageExt, Args, BotResult, Context};
 
 use rand::Rng;
 use std::sync::Arc;
-use twilight_embed_builder::builder::EmbedBuilder;
 use twilight_model::channel::Message;
 
 #[command]
@@ -29,16 +25,7 @@ async fn roll(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()>
         if num == 1 { "" } else { "s" }
     );
 
-    let embed = EmbedBuilder::new()
-        .color(DARK_GREEN)?
-        .description(content)?
-        .build()?;
-
-    ctx.http
-        .create_message(msg.channel_id)
-        .embed(embed)?
-        .await?
-        .reaction_delete(&ctx, msg.author.id);
+    msg.send_response(&ctx, content).await?;
 
     Ok(())
 }

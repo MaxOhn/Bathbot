@@ -24,22 +24,6 @@ use image::{
 use std::{collections::HashSet, iter::Extend};
 use tokio::time::{sleep, Duration};
 use twilight_model::id::{GuildId, UserId};
-
-#[macro_export]
-macro_rules! unwind_error {
-    ($log:ident, $err:ident, $($arg:tt)+) => {
-        {
-            $log!($($arg)+, $err);
-            let mut err: &dyn ::std::error::Error = &$err;
-
-            while let Some(source) = err.source() {
-                $log!("  - caused by: {}", source);
-                err = source;
-            }
-        }
-    };
-}
-
 #[inline]
 pub fn discord_avatar(user_id: UserId, hash: &str) -> String {
     format!("{}avatars/{}/{}.webp?size=1024", DISCORD_CDN, user_id, hash)

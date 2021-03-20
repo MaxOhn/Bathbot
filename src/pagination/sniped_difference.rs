@@ -4,8 +4,8 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use rosu::model::User;
 use rosu_pp::Beatmap;
+use rosu_v2::model::user::User;
 use std::collections::HashMap;
 use twilight_model::channel::Message;
 

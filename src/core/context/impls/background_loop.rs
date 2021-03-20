@@ -1,9 +1,9 @@
 use crate::{Context, CONFIG};
 
 use futures::stream::{FuturesUnordered, StreamExt};
-use rosu::model::{
-    ApprovalStatus::{Approved, Loved, Ranked},
+use rosu_v2::prelude::{
     Beatmap,
+    RankStatus::{Approved, Loved, Ranked},
 };
 use std::sync::Arc;
 use tokio::{
@@ -102,9 +102,9 @@ pub struct GarbageCollectMap(Option<u32>);
 impl GarbageCollectMap {
     #[inline]
     pub fn new(map: &Beatmap) -> Self {
-        match map.approval_status {
+        match map.status {
             Ranked | Loved | Approved => Self(None),
-            _ => Self(Some(map.beatmap_id)),
+            _ => Self(Some(map.map_id)),
         }
     }
 

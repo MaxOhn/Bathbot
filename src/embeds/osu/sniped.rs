@@ -1,10 +1,10 @@
 use crate::{
     custom_client::SnipeRecent,
-    embeds::{osu, Author, EmbedData},
+    embeds::{Author, EmbedData},
     util::constants::AVATAR_URL,
 };
 
-use rosu::model::User;
+use rosu_v2::model::user::User;
 use std::collections::HashMap;
 use twilight_embed_builder::image_source::ImageSource;
 
@@ -20,7 +20,7 @@ pub struct SnipedEmbed {
 impl SnipedEmbed {
     pub fn new(user: User, sniper: Vec<SnipeRecent>, snipee: Vec<SnipeRecent>) -> Self {
         let thumbnail = ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap();
-        let author = osu::get_user_author(&user);
+        let author = author!(user);
         let title = "National snipe scores of the last 8 weeks";
 
         if sniper.is_empty() && snipee.is_empty() {

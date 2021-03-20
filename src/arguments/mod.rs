@@ -15,7 +15,7 @@ use crate::{
 };
 
 use itertools::Itertools;
-use rosu::model::{GameMode, Grade};
+use rosu_v2::model::{GameMode, Grade};
 use std::{cmp::Ordering, str::FromStr};
 use twilight_model::id::{ChannelId, MessageId, RoleId};
 

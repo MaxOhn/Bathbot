@@ -1,6 +1,5 @@
 use crate::{
     core::{Command, CommandGroup, CommandGroups},
-    unwind_error,
     util::{
         constants::{
             BATHBOT_WORKSHOP, DARK_GREEN, DESCRIPTION_SIZE, EMBED_SIZE, FIELD_VALUE_SIZE,
@@ -11,7 +10,6 @@ use crate::{
     BotResult, Context,
 };
 
-use rayon::prelude::*;
 use std::{collections::BTreeMap, fmt::Write};
 use twilight_embed_builder::{
     author::EmbedAuthorBuilder, builder::EmbedBuilder, footer::EmbedFooterBuilder,
@@ -367,8 +365,8 @@ pub async fn failed_help(
 ) -> BotResult<()> {
     let dists: BTreeMap<_, _> = cmds
         .groups
-        .par_iter()
-        .flat_map(|group| group.commands.par_iter().flat_map(|&cmd| cmd.names))
+        .iter()
+        .flat_map(|group| group.commands.iter().flat_map(|&cmd| cmd.names))
         .map(|name| (levenshtein_distance(arg, name), name))
         .filter(|(dist, _)| *dist < 3)
         .collect();

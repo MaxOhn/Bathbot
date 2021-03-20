@@ -5,7 +5,7 @@ use super::{
 
 use lazy_static::lazy_static;
 use regex::Regex;
-use rosu::model::GameMods;
+use rosu_v2::model::GameMods;
 use std::{borrow::Cow, str::FromStr};
 
 #[inline]

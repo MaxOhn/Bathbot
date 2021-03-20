@@ -1,14 +1,13 @@
 use crate::{
     embeds::{osu, Author, EmbedData, Footer},
     pp::{Calculations, PPCalculator},
-    unwind_error,
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         ScoreExt,
     },
 };
 
-use rosu::model::{Beatmap, Score, User};
+use rosu_v2::prelude::{Score, User};
 use std::{borrow::Cow, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 
@@ -28,12 +27,16 @@ impl NoChokeEmbed {
         pages: (usize, usize),
     ) -> Self
     where
-        S: Iterator<Item = &'i (usize, Score, Score, Beatmap)>,
+        S: Iterator<Item = &'i (usize, Score, Score)>,
     {
-        let pp_diff = (100.0 * (unchoked_pp - user.pp_raw as f64)).round() / 100.0;
+        let pp_raw = user.statistics.as_ref().unwrap().pp;
+        let pp_diff = (100.0 * (unchoked_pp - pp_raw as f64)).round() / 100.0;
         let mut description = String::with_capacity(512);
 
-        for (idx, original, unchoked, map) in scores_data {
+        for (idx, original, unchoked) in scores_data {
+            let map = original.map.as_ref().unwrap();
+            let mapset = original.mapset.as_ref().unwrap();
+
             let calculations = Calculations::MAX_PP | Calculations::STARS;
             let mut calculator = PPCalculator::new().score(original).map(map);
 
@@ -49,23 +52,23 @@ impl NoChokeEmbed {
                 {grade} {old_pp:.2} → **{new_pp:.2}pp**/{max_pp:.2}PP ~ ({old_acc:.2} → **{new_acc:.2}%**)\n\
                 [ {old_combo} → **{new_combo}x**/{max_combo} ] ~ *Removed {misses} miss{plural}*",
                 idx = idx,
-                title = map.title,
+                title = mapset.title,
                 version = map.version,
                 base = OSU_BASE,
-                id = map.beatmap_id,
-                mods = osu::get_mods(original.enabled_mods),
+                id = map.map_id,
+                mods = osu::get_mods(original.mods),
                 stars = stars,
-                grade = unchoked.grade_emote(map.mode),
+                grade = unchoked.grade_emote(original.mode),
                 old_pp = original.pp.unwrap_or(0.0),
                 new_pp = unchoked.pp.unwrap_or(0.0),
                 max_pp = calculator.max_pp().unwrap_or(0.0),
-                old_acc = original.accuracy(map.mode),
-                new_acc = unchoked.accuracy(map.mode),
+                old_acc = original.accuracy,
+                new_acc = unchoked.accuracy,
                 old_combo = original.max_combo,
                 new_combo = unchoked.max_combo,
                 max_combo = map.max_combo.map_or_else(|| Cow::Borrowed("-"), |combo| format!("{}x", combo).into()),
-                misses = original.count_miss - unchoked.count_miss,
-                plural = if original.count_miss - unchoked.count_miss != 1 {
+                misses = original.statistics.count_miss - unchoked.statistics.count_miss,
+                plural = if original.statistics.count_miss - unchoked.statistics.count_miss != 1 {
                     "es"
                 } else {
                     ""
@@ -75,12 +78,12 @@ impl NoChokeEmbed {
 
         let title = format!(
             "Total pp: {} → **{}pp** (+{})",
-            user.pp_raw, unchoked_pp, pp_diff
+            pp_raw, unchoked_pp, pp_diff
         );
 
         Self {
             title,
-            author: osu::get_user_author(user),
+            author: author!(user),
             description,
             thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),

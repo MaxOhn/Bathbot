@@ -1,11 +1,11 @@
+use super::{prepare_scores, ErrorType};
 use crate::{
     arguments::NameIntArgs,
     embeds::{EmbedData, TopIfEmbed},
     pagination::{Pagination, TopIfPagination},
     tracking::process_tracking,
-    unwind_error,
     util::{
-        constants::{DARK_GREEN, OSU_API_ISSUE},
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         error::PPError,
         numbers,
         osu::prepare_beatmap_file,
@@ -15,92 +15,103 @@ use crate::{
 };
 
 use chrono::{Datelike, Utc};
-use rosu::model::{GameMode, Score};
+use futures::{
+    future::TryFutureExt,
+    stream::{FuturesUnordered, TryStreamExt},
+};
 use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_pp_older::*;
-use std::{cmp::Ordering, collections::HashMap, sync::Arc};
+use rosu_v2::prelude::{GameMode, OsuError, Score};
+use std::{cmp::Ordering, sync::Arc};
 use tokio::fs::File;
-use twilight_embed_builder::builder::EmbedBuilder;
 use twilight_model::channel::Message;
 
 macro_rules! pp_std {
-    ($version:ident, $map:ident, $rosu_map:ident, $score:ident, $mods:ident, $max_pp:ident) => {{
+    ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
         let max_pp_result = $version::OsuPP::new(&$rosu_map).mods($mods).calculate();
 
-        $max_pp.replace(max_pp_result.pp());
-        $map.stars = max_pp_result.stars();
+        let max_pp = max_pp_result.pp();
+        $score.map.as_mut().unwrap().stars = max_pp_result.stars();
 
         let pp_result = $version::OsuPP::new(&$rosu_map)
             .mods($mods)
             .attributes(max_pp_result)
-            .n300($score.count300 as usize)
-            .n100($score.count100 as usize)
-            .n50($score.count50 as usize)
-            .misses($score.count_miss as usize)
+            .n300($score.statistics.count_300 as usize)
+            .n100($score.statistics.count_100 as usize)
+            .n50($score.statistics.count_50 as usize)
+            .misses($score.statistics.count_miss as usize)
             .combo($score.max_combo as usize)
             .calculate();
 
         $score.pp.replace(pp_result.pp());
+
+        max_pp
     }};
 }
 
 macro_rules! pp_mna {
-    ($version:ident, $map:ident, $rosu_map:ident, $score:ident, $mods:ident, $max_pp:ident) => {{
+    ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
         let max_pp_result = $version::ManiaPP::new(&$rosu_map).mods($mods).calculate();
 
-        $max_pp.replace(max_pp_result.pp());
-        $map.stars = max_pp_result.stars();
+        let max_pp = max_pp_result.pp();
+        $score.map.as_mut().unwrap().stars = max_pp_result.stars();
 
         let pp_result = $version::ManiaPP::new(&$rosu_map)
             .mods($mods)
             .attributes(max_pp_result)
             .score($score.score)
-            .accuracy($score.accuracy(GameMode::MNA))
+            .accuracy($score.accuracy)
             .calculate();
 
         $score.pp.replace(pp_result.pp());
+
+        max_pp
     }};
 }
 
 macro_rules! pp_ctb {
-    ($version:ident, $map:ident, $rosu_map:ident, $score:ident, $mods:ident, $max_pp:ident) => {{
+    ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
         let max_pp_result = $version::FruitsPP::new(&$rosu_map).mods($mods).calculate();
 
-        $max_pp.replace(max_pp_result.pp());
-        $map.stars = max_pp_result.stars();
+        let max_pp = max_pp_result.pp();
+        $score.map.as_mut().unwrap().stars = max_pp_result.stars();
 
         let pp_result = $version::FruitsPP::new(&$rosu_map)
             .mods($mods)
             .attributes(max_pp_result)
-            .fruits($score.count300 as usize)
-            .droplets($score.count100 as usize)
-            .tiny_droplets($score.count50 as usize)
-            .tiny_droplet_misses($score.count_katu as usize)
-            .misses($score.count_miss as usize)
+            .fruits($score.statistics.count_300 as usize)
+            .droplets($score.statistics.count_100 as usize)
+            .tiny_droplets($score.statistics.count_50 as usize)
+            .tiny_droplet_misses($score.statistics.count_katu as usize)
+            .misses($score.statistics.count_miss as usize)
             .combo($score.max_combo as usize)
             .calculate();
 
         $score.pp.replace(pp_result.pp());
+
+        max_pp
     }};
 }
 
 macro_rules! pp_tko {
-    ($version:ident, $map:ident, $rosu_map:ident, $score:ident, $mods:ident, $max_pp:ident) => {{
+    ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
         let max_pp_result = $version::TaikoPP::new(&$rosu_map).mods($mods).calculate();
 
-        $max_pp.replace(max_pp_result.pp());
-        $map.stars = max_pp_result.stars();
+        let max_pp = max_pp_result.pp();
+        $score.map.as_mut().unwrap().stars = max_pp_result.stars();
 
         let pp_result = $version::TaikoPP::new(&$rosu_map)
             .mods($mods)
             .attributes(max_pp_result)
-            .n300($score.count300 as usize)
-            .n100($score.count100 as usize)
-            .misses($score.count_miss as usize)
+            .n300($score.statistics.count_300 as usize)
+            .n100($score.statistics.count_100 as usize)
+            .misses($score.statistics.count_miss as usize)
             .combo($score.max_combo as usize)
             .calculate();
 
         $score.pp.replace(pp_result.pp());
+
+        max_pp
     }};
 }
 
@@ -146,16 +157,7 @@ async fn topold_main(
     };
 
     if let Some(content) = content {
-        let embed = EmbedBuilder::new()
-            .color(DARK_GREEN)?
-            .description(content)?
-            .build()?;
-
-        ctx.http
-            .create_message(msg.channel_id)
-            .embed(embed)?
-            .await?
-            .reaction_delete(&ctx, msg.author.id);
+        msg.send_response(&ctx, content).await?;
 
         return Ok(());
     }
@@ -166,52 +168,45 @@ async fn topold_main(
     };
 
     // Retrieve the user and their top scores
-    let user_fut = ctx.osu().user(name.as_str()).mode(mode);
-    let scores_fut = ctx.osu().top_scores(name.as_str()).mode(mode).limit(100);
-    let join_result = tokio::try_join!(user_fut, scores_fut);
+    let user_fut = ctx.osu().user(name.as_str()).mode(mode).map_err(From::from);
+    let scores_fut_1 = ctx.osu().user_scores(&name).best().mode(mode).limit(50);
 
-    let (user, scores) = match join_result {
-        Ok((Some(user), scores)) => (user, scores),
-        Ok((None, _)) => {
+    let scores_fut_2 = ctx
+        .osu()
+        .user_scores(&name)
+        .best()
+        .mode(mode)
+        .offset(50)
+        .limit(50);
+
+    let scores_fut_1 = prepare_scores(&ctx, scores_fut_1);
+    let scores_fut_2 = prepare_scores(&ctx, scores_fut_2);
+
+    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut_1, scores_fut_2) {
+        Ok((user, mut scores, mut scores_2)) => {
+            scores.append(&mut scores_2);
+
+            (user, scores)
+        }
+        Err(ErrorType::Osu(OsuError::NotFound)) => {
             let content = format!("User `{}` was not found", name);
+
             return msg.error(&ctx, content).await;
         }
-        Err(why) => {
+        Err(ErrorType::Osu(why)) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
+        }
+        Err(ErrorType::Bot(why)) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
         }
     };
 
     // Process user and their top scores for tracking
-    let mut maps = HashMap::new();
-    process_tracking(&ctx, mode, &scores, Some(&user), &mut maps).await;
-
-    // Get all relevant maps from the database
-    let map_ids: Vec<u32> = scores.iter().filter_map(|s| s.beatmap_id).collect();
-    let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
-        Ok(maps) => maps,
-        Err(why) => {
-            unwind_error!(warn, why, "Error while getting maps from DB: {}");
-            HashMap::default()
-        }
-    };
-
-    debug!("Found {}/{} beatmaps in DB", maps.len(), scores.len());
-
-    let retrieving_msg = if scores.len() - maps.len() > 10 {
-        let content = format!(
-            "Retrieving {} maps from the api...",
-            scores.len() - maps.len()
-        );
-
-        ctx.http
-            .create_message(msg.channel_id)
-            .content(content)?
-            .await
-            .ok()
-    } else {
-        None
-    };
+    process_tracking(&ctx, mode, &mut scores).await;
 
     // Calculate bonus pp
     let actual_pp = scores
@@ -219,73 +214,60 @@ async fn topold_main(
         .enumerate()
         .map(|(i, Score { pp, .. })| pp.unwrap() as f64 * 0.95_f64.powi(i as i32))
         .sum::<f64>();
-    let bonus_pp = user.pp_raw as f64 - actual_pp;
 
-    // Retrieving all missing beatmaps
-    let mut scores_data = Vec::with_capacity(scores.len());
-    let mut missing_maps = Vec::new();
+    let bonus_pp = user.statistics.as_ref().unwrap().pp as f64 - actual_pp;
 
-    for (i, score) in scores.into_iter().enumerate() {
-        let map_id = score.beatmap_id.unwrap();
+    let scores_fut = scores
+        .into_iter()
+        .enumerate()
+        .map(|(mut i, mut score)| async move {
+            i += 1;
+            let map = score.map.as_ref().unwrap();
 
-        let map = if let Some(map) = maps.remove(&map_id) {
-            map
-        } else {
-            match ctx.osu().beatmap().map_id(map_id).await {
-                Ok(Some(map)) => {
-                    missing_maps.push(map.clone());
-
-                    map
-                }
-                Ok(None) => {
-                    let content = format!("The API returned no beatmap for map id {}", map_id);
-                    return msg.error(&ctx, content).await;
-                }
-                Err(why) => {
-                    let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-                    return Err(why.into());
-                }
-            }
-        };
-
-        scores_data.push((i + 1, score, map, None));
-    }
-
-    // Calculate pp values
-    for (_, score, map, max_pp) in scores_data.iter_mut() {
-        let map_path = prepare_beatmap_file(map.beatmap_id).await?;
-        let file = File::open(map_path).await.map_err(PPError::from)?;
-        let rosu_map = Beatmap::parse(file).await.map_err(PPError::from)?;
-        let mods = score.enabled_mods.bits();
-
-        if (mode == GameMode::STD && year >= 2021)
-            || (mode == GameMode::MNA && year >= 2018)
-            || (mode == GameMode::TKO && year >= 2020)
-            || (mode == GameMode::CTB && year >= 2020)
-        {
-            max_pp.replace(rosu_map.max_pp(mods).pp());
-            continue;
-        }
-
-        match (mode, year) {
-            (GameMode::STD, 2015..=2017) => pp_std!(osu_2015, map, rosu_map, score, mods, max_pp),
-            (GameMode::STD, 2018) => pp_std!(osu_2018, map, rosu_map, score, mods, max_pp),
-            (GameMode::STD, 2019..=2020) => pp_std!(osu_2019, map, rosu_map, score, mods, max_pp),
-
-            (GameMode::MNA, 2014..=2017) => pp_mna!(mania_ppv1, map, rosu_map, score, mods, max_pp),
-
-            (GameMode::TKO, 2014..=2019) => pp_tko!(taiko_ppv1, map, rosu_map, score, mods, max_pp),
-
-            (GameMode::CTB, 2014..=2019) => {
-                pp_ctb!(fruits_ppv1, map, rosu_map, score, mods, max_pp)
+            if map.convert {
+                return Ok((i, score, None));
             }
 
-            _ => unreachable!(),
+            let map_path = prepare_beatmap_file(map.map_id).await?;
+            let file = File::open(map_path).await.map_err(PPError::from)?;
+            let rosu_map = Beatmap::parse(file).await.map_err(PPError::from)?;
+            let mods = score.mods.bits();
+
+            if (mode == GameMode::STD && year >= 2021)
+                || (mode == GameMode::MNA && year >= 2018)
+                || (mode == GameMode::TKO && year >= 2020)
+                || (mode == GameMode::CTB && year >= 2020)
+            {
+                return Ok((i, score, Some(rosu_map.max_pp(mods).pp())));
+            }
+
+            // Calculate pp values
+            let max_pp = match (mode, year) {
+                (GameMode::STD, 2015..=2017) => pp_std!(osu_2015, rosu_map, score, mods),
+                (GameMode::STD, 2018) => pp_std!(osu_2018, rosu_map, score, mods),
+                (GameMode::STD, 2019..=2020) => pp_std!(osu_2019, rosu_map, score, mods),
+                (GameMode::MNA, 2014..=2017) => pp_mna!(mania_ppv1, rosu_map, score, mods),
+                (GameMode::TKO, 2014..=2019) => pp_tko!(taiko_ppv1, rosu_map, score, mods),
+                (GameMode::CTB, 2014..=2019) => pp_ctb!(fruits_ppv1, rosu_map, score, mods),
+                _ => unreachable!(),
+            };
+
+            Ok((i, score, Some(max_pp)))
+        })
+        .collect::<FuturesUnordered<_>>()
+        .try_collect::<Vec<_>>();
+
+    let mut scores_data = match scores_fut.await {
+        Ok(scores) => scores,
+        Err(why) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
         }
-    }
+    };
 
     // Sort by adjusted pp
-    scores_data.sort_unstable_by(|(_, s1, ..), (_, s2, ..)| {
+    scores_data.sort_unstable_by(|(_, s1, _), (_, s2, _)| {
         s2.pp.partial_cmp(&s1.pp).unwrap_or(Ordering::Equal)
     });
 
@@ -306,45 +288,41 @@ async fn topold_main(
     );
 
     let pages = numbers::div_euclid(5, scores_data.len());
+    let post_pp = user.statistics.as_ref().unwrap().pp;
 
     let data = TopIfEmbed::new(
         &user,
         scores_data.iter().take(5),
         mode,
         adjusted_pp,
-        user.pp_raw,
+        post_pp,
         (1, pages),
     )
     .await;
 
-    if let Some(msg) = retrieving_msg {
-        let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;
-    }
-
     // Creating the embed
     let embed = data.build().build()?;
-    let create_msg = ctx.http.create_message(msg.channel_id).embed(embed)?;
-    let response = create_msg.content(content)?.await?;
 
-    // Add missing maps to database
-    if !missing_maps.is_empty() {
-        match ctx.psql().insert_beatmaps(&missing_maps).await {
-            Ok(n) if n < 2 => {}
-            Ok(n) => info!("Added {} maps to DB", n),
-            Err(why) => unwind_error!(warn, why, "Error while adding maps to DB: {}"),
-        }
-    }
+    let response = ctx
+        .http
+        .create_message(msg.channel_id)
+        .embed(embed)?
+        .content(content)?
+        .await?;
+
+    // Don't add maps of scores to DB since their stars were potentially changed
 
     // Skip pagination if too few entries
     if scores_data.len() <= 5 {
         response.reaction_delete(&ctx, msg.author.id);
+
         return Ok(());
     }
 
     // Pagination
-    let post_pp = user.pp_raw;
     let pagination = TopIfPagination::new(response, user, scores_data, mode, adjusted_pp, post_pp);
     let owner = msg.author.id;
+
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
             unwind_error!(warn, why, "Pagination error (topold): {}")
@@ -432,6 +410,7 @@ pub async fn topoldctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
     topold_main(GameMode::CTB, ctx, msg, args).await
 }
 
+#[inline]
 fn plural(name: &str) -> &'static str {
     match name.chars().last() {
         Some('s') => "'",
@@ -439,6 +418,7 @@ fn plural(name: &str) -> &'static str {
     }
 }
 
+#[inline]
 fn mode_str(mode: GameMode) -> &'static str {
     match mode {
         GameMode::STD => "",

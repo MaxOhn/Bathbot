@@ -1,7 +1,6 @@
 use super::{util, GameResult, Hints, ImageReveal};
 use crate::{
     database::MapsetTagWrapper,
-    unwind_error,
     util::{constants::OSU_BASE, error::BgGameError},
     BotResult, Context, CONFIG,
 };
@@ -9,7 +8,7 @@ use crate::{
 use cow_utils::CowUtils;
 use futures::future::TryFutureExt;
 use image::GenericImageView;
-use rosu::model::GameMode;
+use rosu_v2::model::GameMode;
 use std::{collections::VecDeque, sync::Arc};
 use tokio::{fs, sync::RwLock};
 use tokio_stream::StreamExt;
@@ -70,8 +69,7 @@ impl Game {
         let mapset = util::get_random_mapset(mapsets, previous_ids).await;
         let mapset_id = mapset.mapset_id;
         debug!("Next BG mapset id: {}", mapset_id);
-        let filename = format!("{}.{}", mapset_id, mapset.filetype);
-        path.push(filename);
+        path.push(&mapset.filename);
 
         let img_fut = fs::read(path)
             .map_err(|err| BgGameError::IO(err, mapset_id))

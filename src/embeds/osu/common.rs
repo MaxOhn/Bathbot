@@ -4,11 +4,9 @@ use crate::{
     util::constants::OSU_BASE,
 };
 
-use rosu::model::Beatmap;
-use std::{collections::HashMap, fmt::Write};
+use rosu_v2::model::score::Score;
+use std::fmt::Write;
 use twilight_embed_builder::image_source::ImageSource;
-
-pub type MapScores = HashMap<u32, (Beatmap, Vec<(usize, f32)>)>;
 
 pub struct CommonEmbed {
     description: String,
@@ -17,37 +15,34 @@ pub struct CommonEmbed {
 }
 
 impl CommonEmbed {
-    pub fn new(
-        users: &[CommonUser],
-        map_scores: &MapScores,
-        id_pps: &[(u32, f32)],
-        index: usize,
-    ) -> Self {
+    pub fn new(users: &[CommonUser], scores: &[Vec<(usize, f32, Score)>], index: usize) -> Self {
         let mut description = String::with_capacity(512);
 
-        for (i, (map_id, _)) in id_pps.iter().enumerate() {
-            let (map, scores) = match map_scores.get(map_id) {
-                Some(tuple) => tuple,
-                None => {
-                    warn!("Missing map {} for common embed", map_id);
+        for (i, scores) in scores.iter().enumerate() {
+            let (title, version, map_id) = {
+                let (_, _, first) = scores.first().unwrap();
+                let map = first.map.as_ref().unwrap();
 
-                    continue;
-                }
+                (
+                    &first.mapset.as_ref().unwrap().title,
+                    &map.version,
+                    map.map_id,
+                )
             };
 
             let _ = writeln!(
                 description,
                 "**{idx}.** [{title} [{version}]]({base}b/{id})",
                 idx = index + i + 1,
-                title = map.title,
-                version = map.version,
+                title = title,
+                version = version,
                 base = OSU_BASE,
-                id = map.beatmap_id,
+                id = map_id,
             );
 
             description.push('-');
 
-            for (i, (pos, pp)) in scores.iter().enumerate() {
+            for (pos, pp, score) in scores.iter() {
                 let _ = write!(
                     description,
                     " :{medal}_place: `{name}`: {pp:.2}pp",
@@ -57,7 +52,7 @@ impl CommonEmbed {
                         2 => "third",
                         _ => unreachable!(),
                     },
-                    name = users[i].name(),
+                    name = score.user.as_ref().unwrap().username,
                     pp = pp,
                 );
             }

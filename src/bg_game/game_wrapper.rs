@@ -1,7 +1,6 @@
 use super::{game_loop, Game, GameResult, LoopResult};
 use crate::{
     database::MapsetTagWrapper,
-    unwind_error,
     util::{constants::OSU_BASE, error::BgGameError},
     Context,
 };

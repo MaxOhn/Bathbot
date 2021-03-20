@@ -2,7 +2,7 @@ use super::deserialize::{expect_negative_u32, str_to_maybe_datetime};
 use crate::util::osu::ModSelection;
 
 use chrono::{offset::TimeZone, Date, DateTime, NaiveDate, Utc};
-use rosu::model::{GameMode, GameMods};
+use rosu_v2::model::{GameMode, GameMods};
 use serde::{
     de::{Deserializer, Error, IgnoredAny, MapAccess, Unexpected, Visitor},
     Deserialize,

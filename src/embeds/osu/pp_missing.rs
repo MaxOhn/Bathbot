@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{osu, Author, EmbedData, Footer},
+    embeds::{Author, EmbedData, Footer},
     util::{
         constants::AVATAR_URL,
         numbers::{with_comma, with_comma_u64},
@@ -7,7 +7,7 @@ use crate::{
     },
 };
 
-use rosu::model::{Score, User};
+use rosu_v2::prelude::{Score, User};
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct PPMissingEmbed {
@@ -20,6 +20,8 @@ pub struct PPMissingEmbed {
 
 impl PPMissingEmbed {
     pub fn new(user: User, scores: Vec<Score>, pp: f32, rank: Option<usize>) -> Self {
+        let stats = user.statistics.as_ref().unwrap();
+
         let title = format!(
             "What score is {name} missing to reach {pp_given}pp?",
             name = user.username,
@@ -33,15 +35,15 @@ impl PPMissingEmbed {
                 pp = with_comma(pp),
                 user = user.username,
             )
-        } else if user.pp_raw > pp {
+        } else if stats.pp > pp {
             format!(
                 "{name} has {pp_raw}pp which is already more than {pp_given}pp.",
                 name = user.username,
-                pp_raw = with_comma(user.pp_raw),
+                pp_raw = with_comma(stats.pp),
                 pp_given = with_comma(pp)
             )
         } else {
-            let (required, idx) = pp_missing(user.pp_raw, pp, &scores);
+            let (required, idx) = pp_missing(stats.pp, pp, &scores);
 
             format!(
                 "To reach {pp}pp with one additional score, {user} needs to perform \
@@ -65,7 +67,7 @@ impl PPMissingEmbed {
             title: Some(title),
             footer,
             description: Some(description),
-            author: Some(osu::get_user_author(&user)),
+            author: Some(author!(user)),
             thumbnail: Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap()),
         }
     }

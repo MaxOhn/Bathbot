@@ -17,6 +17,6 @@ async fn trackingcooldown(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
         "Tracking cooldown: {}ms -> {}ms",
         previous as u32, cooldown as u32
     );
-    msg.respond(&ctx, content).await?;
+    msg.send_response(&ctx, content).await?;
     Ok(())
 }

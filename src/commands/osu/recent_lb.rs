@@ -2,7 +2,6 @@ use crate::{
     arguments::{Args, NameModArgs},
     embeds::{EmbedData, LeaderboardEmbed},
     pagination::{LeaderboardPagination, Pagination},
-    unwind_error,
     util::{
         constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
         osu::ModSelection,
@@ -11,10 +10,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::model::{
-    ApprovalStatus::{Approved, Loved, Ranked},
-    GameMode,
-};
+use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -46,25 +42,13 @@ async fn recent_lb_main(
     // Retrieve the recent scores
     let scores_fut = ctx
         .osu()
-        .recent_scores(name.as_str())
+        .user_scores(&name)
+        .recent()
+        .include_fails(true)
         .mode(mode)
-        .limit(limit as u32);
+        .limit(limit);
 
-    let score = match scores_fut.await {
-        Ok(scores) if scores.is_empty() => {
-            let content = format!(
-                "No recent {}plays found for user `{}`",
-                match mode {
-                    GameMode::STD => "",
-                    GameMode::TKO => "taiko ",
-                    GameMode::CTB => "ctb ",
-                    GameMode::MNA => "mania ",
-                },
-                name
-            );
-
-            return msg.error(&ctx, content).await;
-        }
+    let (map, mapset, user) = match scores_fut.await {
         Ok(scores) if scores.len() < limit => {
             let content = format!(
                 "There are only {} many scores in `{}`'{} recent history.",
@@ -76,13 +60,33 @@ async fn recent_lb_main(
             return msg.error(&ctx, content).await;
         }
         Ok(mut scores) => match scores.pop() {
-            Some(score) => score,
+            Some(mut score) => {
+                let map = score.map.take().unwrap();
+                let mapset = score.mapset.take().unwrap();
+                let user = score.user.take().unwrap();
+
+                (map, mapset, user)
+            }
             None => {
-                let content = format!("No recent plays found for user `{}`", name);
+                let content = format!(
+                    "No recent {}plays found for user `{}`",
+                    match mode {
+                        GameMode::STD => "",
+                        GameMode::TKO => "taiko ",
+                        GameMode::CTB => "ctb ",
+                        GameMode::MNA => "mania ",
+                    },
+                    name
+                );
 
                 return msg.error(&ctx, content).await;
             }
         },
+        Err(OsuError::NotFound) => {
+            let content = format!("User `{}` was not found", name);
+
+            return msg.error(&ctx, content).await;
+        }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
@@ -90,40 +94,9 @@ async fn recent_lb_main(
         }
     };
 
-    let map_id = score.beatmap_id.unwrap();
-
-    // Retrieving the score's beatmap
-    let (map_to_db, map) = {
-        match ctx.psql().get_beatmap(map_id).await {
-            Ok(map) => (false, map),
-            Err(_) => {
-                let map = match ctx.osu().beatmap().map_id(map_id).await {
-                    Ok(Some(m)) => m,
-                    Ok(None) => {
-                        let content = format!("The API returned no beatmap for map id {}", map_id);
-
-                        return msg.error(&ctx, content).await;
-                    }
-                    Err(why) => {
-                        let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-                        return Err(why.into());
-                    }
-                };
-
-                (
-                    map.approval_status == Ranked
-                        || map.approval_status == Loved
-                        || map.approval_status == Approved,
-                    map,
-                )
-            }
-        }
-    };
-
     // Retrieve the map's leaderboard
     let scores_fut = ctx.clients.custom.get_leaderboard(
-        map_id,
+        map.map_id,
         national,
         match selection {
             Some(ModSelection::Exclude(_)) | None => None,
@@ -144,20 +117,15 @@ async fn recent_lb_main(
     let amount = scores.len();
 
     // Accumulate all necessary data
-    let map_copy = if map_to_db { Some(map.clone()) } else { None };
-
     let first_place_icon = scores
         .first()
-        .map(|s| format!("{}{}", AVATAR_URL, s.user_id));
+        .map(|_| format!("{}{}", AVATAR_URL, user.user_id));
 
     let data_fut = LeaderboardEmbed::new(
         author_name.as_deref(),
         &map,
-        if scores.is_empty() {
-            None
-        } else {
-            Some(scores.iter().take(10))
-        },
+        Some(&mapset),
+        (!scores.is_empty()).then(|| scores.iter().take(10)),
         &first_place_icon,
         0,
     );
@@ -186,11 +154,9 @@ async fn recent_lb_main(
         .embed(embed)?
         .await?;
 
-    // Add map to database if its not in already
-    if let Some(map) = map_copy {
-        if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-            unwind_error!(warn, why, "Could not add map to DB: {}");
-        }
+    // Store map in DB
+    if let Err(why) = ctx.psql().insert_beatmap(&map).await {
+        unwind_error!(warn, why, "Error while storing recent lb map in DB: {}");
     }
 
     // Set map on garbage collection list if unranked
@@ -204,8 +170,15 @@ async fn recent_lb_main(
     }
 
     // Pagination
-    let pagination =
-        LeaderboardPagination::new(response, map, scores, author_name, first_place_icon);
+    let pagination = LeaderboardPagination::new(
+        response,
+        map,
+        Some(mapset),
+        scores,
+        author_name,
+        first_place_icon,
+    );
+
     let owner = msg.author.id;
 
     gb.execute(&ctx).await;

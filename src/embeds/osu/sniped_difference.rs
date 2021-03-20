@@ -12,8 +12,8 @@ use crate::{
     BotResult,
 };
 
-use rosu::model::User;
 use rosu_pp::{Beatmap, BeatmapExt};
+use rosu_v2::model::user::User;
 use std::{collections::HashMap, fmt::Write};
 use tokio::fs::File;
 use twilight_embed_builder::image_source::ImageSource;
@@ -112,7 +112,7 @@ impl SnipedDiffEmbed {
         Ok(Self {
             title,
             description,
-            author: osu::get_user_author(user),
+            author: author!(user),
             thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
             footer,
         })

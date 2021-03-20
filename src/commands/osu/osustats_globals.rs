@@ -3,12 +3,11 @@ use crate::{
     custom_client::OsuStatsScore,
     embeds::{EmbedData, OsuStatsGlobalsEmbed},
     pagination::{OsuStatsGlobalsPagination, Pagination},
-    unwind_error,
     util::{constants::OSU_API_ISSUE, numbers, osu::ModSelection, MessageExt},
     BotResult, Context,
 };
 
-use rosu::model::GameMode;
+use rosu_v2::model::GameMode;
 use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -27,11 +26,7 @@ async fn osustats_main(
 
     // Retrieve user
     let user = match ctx.osu().user(params.username.as_str()).mode(mode).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
-            let content = format!("Could not find user `{}`", params.username);
-            return msg.error(&ctx, content).await;
-        }
+        Ok(user) => user,
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
             return Err(why.into());
