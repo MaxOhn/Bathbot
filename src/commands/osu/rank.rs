@@ -51,7 +51,6 @@ async fn rank_main(
         }
 
         let rank_holder_id_fut = ctx.clients.custom.get_userid_of_rank(args.rank, ranking);
-
         let user_fut = ctx.osu().user(name.as_str()).mode(mode);
 
         let (rank_holder_id_result, user_result) = tokio::join!(rank_holder_id_fut, user_fut,);
@@ -178,6 +177,7 @@ async fn rank_main(
     // Creating the embed
     let embed = RankEmbed::new(data, scores).build_owned().build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
+
     Ok(())
 }
 

@@ -1,6 +1,7 @@
 
 **[TODO]**
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
+- Benchmark for `smartstring`, `smallstr`, `smallvec`, and `arrayvec`
 - ~~Split database tables based on popular queries~~
 - ~~Fix `<mc` sometimes missing some users~~
 - ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~

@@ -23,7 +23,6 @@ async fn mostplayed(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         None => return super::require_link(&ctx, msg).await,
     };
 
-    // TODO: Check for other modes
     // Retrieve the user and their most played maps
     let user_fut = ctx.osu().user(&name).mode(GameMode::STD);
     let maps_fut_1 = ctx.osu().user_most_played(&name).limit(50);
@@ -46,8 +45,6 @@ async fn mostplayed(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
             return Err(why.into());
         }
     };
-
-    // TODO: Need mapset?
 
     // Accumulate all necessary data
     let pages = numbers::div_euclid(10, maps.len());

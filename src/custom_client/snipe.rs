@@ -374,7 +374,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
                 let mut inner_score: Option<InnerScore> = None;
                 let mut map_id = None;
                 let mut mapset_id = None;
-                // TODO: Use GameMods directly?
+                // Don't parse mods just yet since it might be unnecessary
                 let mut star_ratings: Option<HashMap<&str, f32>> = None;
                 // let mut artist = None;
                 // let mut title = None;
@@ -442,6 +442,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
                     .datetime_from_str(inner_score.date_set, "%F %T")
                     .unwrap_or_else(|why| {
                         warn!("Couldn't parse date `{}`: {}", inner_score.date_set, why);
+
                         Utc::now()
                     });
 

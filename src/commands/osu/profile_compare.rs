@@ -26,12 +26,14 @@ async fn compare_main(
     // Parse arguments
     let args = MultNameArgs::new(&ctx, args, 2);
     let mut names = args.names.into_iter();
+
     let (name1, name2) = match (names.next(), names.next()) {
         (Some(name1), Some(name2)) => (name1, name2),
         (Some(name1), None) => match ctx.get_link(msg.author.id.0) {
             Some(name2) => (name1, name2),
             None => {
                 let prefix = ctx.config_first_prefix(msg.guild_id);
+
                 let content = format!(
                     "Since you're not linked via `{}link`, \
                     you must specify two names.",

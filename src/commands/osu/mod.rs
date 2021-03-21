@@ -125,6 +125,7 @@ impl From<OsuError> for ErrorType {
     }
 }
 
+/// Insert the max combo of the score's map
 pub async fn prepare_score(ctx: &Context, score: &mut Score) -> OsuResult<()> {
     let mode = score.mode;
 
@@ -151,6 +152,7 @@ pub async fn prepare_score(ctx: &Context, score: &mut Score) -> OsuResult<()> {
     Ok(())
 }
 
+/// Insert the max combos of the scores' maps
 fn prepare_scores<'c, F>(
     ctx: &'c Context,
     fut: F,

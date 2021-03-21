@@ -1,3 +1,4 @@
+use super::prepare_score;
 use crate::{
     arguments::{Args, NameMapArgs},
     embeds::{CompareEmbed, EmbedData, NoScoresEmbed},
@@ -79,7 +80,14 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
 
     // Retrieve user's score on the map
     let mut score = match ctx.osu().beatmap_user_score(map_id, &name).await {
-        Ok(score) => score,
+        Ok(mut score) => match prepare_score(&ctx, &mut score.score).await {
+            Ok(_) => score,
+            Err(why) => {
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
+                return Err(why.into());
+            }
+        },
         Err(OsuError::NotFound) => return no_scores(ctx, msg, name, map_id).await,
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
