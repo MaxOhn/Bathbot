@@ -1,5 +1,6 @@
 
 **[TODO]**
+- Store osu users through redis for 10(?) minutes
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
 - Benchmark for `smartstring`, `smallstr`, `smallvec`, and `arrayvec`
 - ~~Split database tables based on popular queries~~

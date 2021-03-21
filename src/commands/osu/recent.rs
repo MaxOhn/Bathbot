@@ -12,7 +12,7 @@ use crate::{
 
 use futures::future::TryFutureExt;
 use rosu_v2::prelude::{
-    GameMode, OsuError,
+    GameMode, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
     Score,
 };
@@ -54,7 +54,7 @@ async fn recent_main(
     };
 
     // Retrieve the user and their recent scores
-    let user_fut = ctx.osu().user(name.as_str()).mode(mode).map_err(From::from);
+    let user_fut = ctx.osu().user(&name).mode(mode).map_err(From::from);
 
     let scores_fut = ctx
         .osu()
@@ -119,32 +119,32 @@ async fn recent_main(
 
     let map = score.map.as_ref().unwrap();
 
-    // Prepare retrieval of the map's global top 50 and the user's top 100
+    // Prepare retrieval of the the user's top 50 and score position on the map
     let map_score_fut = async {
-        match map.status {
-            Ranked | Loved | Qualified | Approved => {
-                let fut = ctx
-                    .osu()
-                    .beatmap_user_score(map.map_id, user.user_id)
-                    .mode(mode);
+        if score.grade != Grade::F && matches!(map.status, Ranked | Loved | Qualified | Approved) {
+            let fut = ctx
+                .osu()
+                .beatmap_user_score(map.map_id, user.user_id)
+                .mode(mode);
 
-                Some(fut.await)
-            }
-            _ => None,
+            Some(fut.await)
+        } else {
+            None
         }
     };
 
     let best_fut = async {
-        match map.status {
-            Ranked => Some(
-                ctx.osu()
-                    .user_scores(user.user_id)
-                    .best()
-                    .limit(50)
-                    .mode(mode)
-                    .await,
-            ),
-            _ => None,
+        if score.grade != Grade::F && map.status == Ranked {
+            let fut = ctx
+                .osu()
+                .user_scores(user.user_id)
+                .best()
+                .limit(50)
+                .mode(mode);
+
+            Some(fut.await)
+        } else {
+            None
         }
     };
 

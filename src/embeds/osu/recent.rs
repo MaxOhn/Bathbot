@@ -218,7 +218,7 @@ impl RecentEmbed {
             }
 
             if let Some(idx) = global_idx {
-                let _ = write!(description, "Global Top #{}", idx + 1);
+                let _ = write!(description, "Global Top #{}", idx);
             }
 
             description.push_str("**__");
