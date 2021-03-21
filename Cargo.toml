@@ -75,9 +75,9 @@ default_features = false
 features = ["cookies", "multipart"]
 
 [dependencies.rosu-v2]
-# git = "https://github.com/MaxOhn/rosu-v2"
-# branch = "main"
-path = "../rosu-v2"
+git = "https://github.com/MaxOhn/rosu-v2"
+branch = "main"
+# path = "../rosu-v2"
 features = ["cache", "metrics"]
 
 [dependencies.rosu-pp]
