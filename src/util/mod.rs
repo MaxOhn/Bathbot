@@ -18,10 +18,11 @@ pub use safe_content::content_safe;
 use crate::{BotResult, Context};
 
 use futures::stream::{FuturesOrdered, StreamExt};
+use hashbrown::HashSet;
 use image::{
     imageops::FilterType, DynamicImage, GenericImage, GenericImageView, ImageOutputFormat::Png,
 };
-use std::{collections::HashSet, iter::Extend};
+use std::iter::Extend;
 use tokio::time::{sleep, Duration};
 use twilight_model::id::{GuildId, UserId};
 #[inline]

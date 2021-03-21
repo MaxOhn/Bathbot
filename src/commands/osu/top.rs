@@ -14,6 +14,7 @@ use crate::{
 };
 
 use futures::future::TryFutureExt;
+use hashbrown::HashMap;
 use rosu_v2::prelude::{
     GameMode, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
@@ -21,7 +22,6 @@ use rosu_v2::prelude::{
 };
 use std::{
     cmp::{Ordering, Reverse},
-    collections::HashMap,
     sync::Arc,
 };
 use tokio::time::{sleep, Duration};

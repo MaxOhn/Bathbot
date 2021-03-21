@@ -2,7 +2,8 @@ use super::{Pages, Pagination};
 use crate::{embeds::BGRankingEmbed, BotResult, Context, CONFIG};
 
 use async_trait::async_trait;
-use std::{collections::HashMap, sync::Arc};
+use hashbrown::HashMap;
+use std::sync::Arc;
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{channel::Message, id::UserId};
 

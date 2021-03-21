@@ -8,9 +8,10 @@ use crate::{
 };
 
 use futures::stream::{FuturesOrdered, StreamExt};
+use hashbrown::HashSet;
 use itertools::Itertools;
 use rosu_v2::prelude::{GameMode, OsuError, Score};
-use std::{cmp::Ordering, collections::HashSet, fmt::Write, sync::Arc};
+use std::{cmp::Ordering, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
 
 macro_rules! user_id {

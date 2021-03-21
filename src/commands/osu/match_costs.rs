@@ -5,13 +5,9 @@ use crate::{
     BotResult, Context,
 };
 
+use hashbrown::{HashMap, HashSet};
 use rosu_v2::prelude::{GameMods, MatchGame, OsuError, Team, TeamType};
-use std::{
-    cmp::Ordering,
-    collections::{HashMap, HashSet},
-    fmt::Write,
-    sync::Arc,
-};
+use std::{cmp::Ordering, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
 
 const TOO_MANY_PLAYERS_TEXT: &str = "Too many players, cannot display message :(";

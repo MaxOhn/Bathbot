@@ -374,6 +374,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
                 let mut inner_score: Option<InnerScore> = None;
                 let mut map_id = None;
                 let mut mapset_id = None;
+                // TODO: Use GameMods directly?
                 let mut star_ratings: Option<HashMap<&str, f32>> = None;
                 // let mut artist = None;
                 // let mut title = None;

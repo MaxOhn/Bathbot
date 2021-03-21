@@ -7,9 +7,10 @@ use crate::{
 };
 
 use futures::stream::{FuturesOrdered, StreamExt};
+use hashbrown::HashMap;
 use itertools::Itertools;
 use rosu_v2::prelude::OsuError;
-use std::{cmp::Reverse, collections::HashMap, fmt::Write, sync::Arc};
+use std::{cmp::Reverse, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
 
 #[command]

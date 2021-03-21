@@ -29,13 +29,13 @@ use crate::{
 use chrono::{DateTime, Utc};
 use cow_utils::CowUtils;
 use governor::{clock::DefaultClock, state::keyed::DashMapStateStore, Quota, RateLimiter};
+use hashbrown::HashSet;
 use once_cell::sync::OnceCell;
 use reqwest::{multipart::Form, Client, Response, StatusCode};
 use rosu_v2::prelude::{GameMode, GameMods, User};
 use scraper::{Html, Node, Selector};
 use serde_json::Value;
 use std::{
-    collections::HashSet,
     fmt::{self, Write},
     hash::Hash,
     num::NonZeroU32,

@@ -7,8 +7,8 @@ use crate::{
     },
 };
 
+use hashbrown::HashMap;
 use rosu_v2::model::user::User;
-use std::collections::HashMap;
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct MedalStatsEmbed {

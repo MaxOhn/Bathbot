@@ -6,12 +6,9 @@ use crate::{
 };
 
 use async_trait::async_trait;
+use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, User};
-use std::{
-    collections::{BTreeMap, HashMap},
-    iter::Extend,
-    sync::Arc,
-};
+use std::{collections::BTreeMap, iter::Extend, sync::Arc};
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::channel::Message;
 
@@ -119,6 +116,7 @@ impl Pagination for PlayerSnipeListPagination {
                 Ok(maps) => maps,
                 Err(why) => {
                     unwind_error!(warn, why, "Error while getting maps from DB: {}");
+
                     HashMap::default()
                 }
             };

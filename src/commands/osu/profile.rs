@@ -13,13 +13,14 @@ use futures::{
     future::TryFutureExt,
     stream::{FuturesUnordered, TryStreamExt},
 };
+use hashbrown::HashMap;
 use image::{imageops::FilterType::Lanczos3, load_from_memory, png::PngEncoder, ColorType};
 use plotters::prelude::*;
 use reqwest::Response;
 use rosu_v2::prelude::{GameMode, GameMods, MonthlyCount, OsuError, Score, User};
 use std::{
     cmp::{Ordering::Equal, PartialOrd},
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap as StdHashMap},
     sync::Arc,
 };
 use twilight_model::channel::Message;
@@ -212,7 +213,7 @@ impl ProfileResult {
         let mut combo = MinMaxAvgU32::new();
         let mut map_len = MinMaxAvgF32::new();
         let mut map_combo = 0;
-        let mut mappers = HashMap::with_capacity(scores.len());
+        let mut mappers = StdHashMap::with_capacity(scores.len());
         let len = scores.len() as f32;
         let mut mod_combs = HashMap::with_capacity(5);
         let mut mods = HashMap::with_capacity(5);

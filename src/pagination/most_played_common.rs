@@ -3,8 +3,8 @@ use super::{Pages, Pagination};
 use crate::{embeds::MostPlayedCommonEmbed, BotResult};
 
 use async_trait::async_trait;
+use hashbrown::HashMap;
 use rosu_v2::prelude::MostPlayedMap;
-use std::collections::HashMap;
 use twilight_model::channel::Message;
 
 pub struct MostPlayedCommonPagination {

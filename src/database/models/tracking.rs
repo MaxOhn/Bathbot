@@ -1,8 +1,9 @@
 use chrono::{DateTime, Utc};
+use hashbrown::HashMap;
 use rosu_v2::model::GameMode;
 use serde_json::Value;
 use sqlx::{types::Json, ColumnIndex, Decode, Error, FromRow, Row, Type};
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap as StdHashMap, str::FromStr};
 use twilight_model::id::ChannelId;
 
 #[derive(Debug)]
@@ -22,7 +23,7 @@ impl TrackingUser {
         channel: ChannelId,
         limit: usize,
     ) -> Self {
-        let mut channels = HashMap::with_capacity(1);
+        let mut channels = HashMap::new();
         channels.insert(channel, limit);
 
         Self {
@@ -58,7 +59,7 @@ where
         let mode = GameMode::from(mode as u8);
         let last_top_score: DateTime<Utc> = row.try_get(2)?;
 
-        let channels = match serde_json::from_value::<HashMap<String, usize>>(row.try_get(3)?) {
+        let channels = match serde_json::from_value::<StdHashMap<String, usize>>(row.try_get(3)?) {
             Ok(channels) => channels
                 .into_iter()
                 .map(|(id, limit)| (ChannelId(u64::from_str(&id).unwrap()), limit))

@@ -5,7 +5,7 @@ use crate::{
     Context,
 };
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::{collections::VecDeque, sync::Arc};
 use tokio::{
     sync::{

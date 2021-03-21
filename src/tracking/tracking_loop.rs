@@ -9,8 +9,9 @@ use futures::{
     future::FutureExt,
     stream::{FuturesUnordered, StreamExt},
 };
+use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, Score};
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use tokio::time;
 use twilight_http::{
     api_error::{ApiError, ErrorCode, GeneralApiError},

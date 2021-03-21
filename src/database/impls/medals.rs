@@ -4,7 +4,7 @@ use crate::{
 };
 
 use futures::stream::StreamExt;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 impl Database {
     pub async fn get_medals(&self) -> BotResult<HashMap<u32, OsuMedal>> {

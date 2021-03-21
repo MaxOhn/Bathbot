@@ -3,9 +3,9 @@ use crate::{database::TrackingUser, BotResult, Database};
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use futures::stream::StreamExt;
+use hashbrown::HashMap;
 use rosu_v2::model::GameMode;
 use serde_json::Value;
-use std::collections::HashMap;
 use twilight_model::id::ChannelId;
 
 impl Database {
@@ -73,7 +73,7 @@ impl Database {
         channel: ChannelId,
         limit: usize,
     ) -> BotResult<()> {
-        let mut set = HashMap::with_capacity(1);
+        let mut set = HashMap::new();
         set.insert(channel, limit);
 
         let row = sqlx::query!(

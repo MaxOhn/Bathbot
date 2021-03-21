@@ -12,9 +12,10 @@ use crate::{
     BotResult,
 };
 
+use hashbrown::HashMap;
 use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::model::user::User;
-use std::{collections::HashMap, fmt::Write};
+use std::fmt::Write;
 use tokio::fs::File;
 use twilight_embed_builder::image_source::ImageSource;
 

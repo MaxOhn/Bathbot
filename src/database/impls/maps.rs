@@ -8,13 +8,13 @@ use futures::{
     future::{BoxFuture, FutureExt},
     stream::{StreamExt, TryStreamExt},
 };
+use hashbrown::HashMap;
 use rosu_v2::prelude::{
     Beatmap, Beatmapset, BeatmapsetCompact,
     RankStatus::{Approved, Loved, Ranked},
     Score,
 };
 use sqlx::PgConnection;
-use std::collections::HashMap;
 
 macro_rules! invalid_status {
     ($obj:ident) => {

@@ -285,6 +285,7 @@ fn draw_legend<'a, DB: DrawingBackend + 'a>(
 fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult {
     let total = scores.iter().fold(HashMap::new(), |mut map, score| {
         *map.entry(score.sniper.as_str()).or_insert(0) += 1;
+
         map
     });
 
@@ -300,11 +301,13 @@ fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult {
             if !names.contains(score.sniper.as_str()) {
                 return Some(None);
             }
+
             if score.date > *state {
                 while score.date > *state {
                     *state = *state + chrono::Duration::weeks(1);
                 }
             }
+
             Some(Some((score.sniper.as_str(), *state)))
         })
         .filter_map(|o| o)
@@ -335,11 +338,13 @@ fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult {
             if !names.contains(score.sniped.as_deref().unwrap()) {
                 return Some(None);
             }
+
             if score.date > *state {
                 while score.date > *state {
                     *state = *state + chrono::Duration::weeks(1);
                 }
             }
+
             Some(Some((score.sniped.as_deref().unwrap(), *state)))
         })
         .filter_map(|o| o)
@@ -363,8 +368,10 @@ fn finish_preparing<'a>(
                     .map(|(name, _)| name)
                     .fold(HashMap::new(), |mut map, name| {
                         *map.entry(name).or_insert(0) += 1;
+
                         map
                     });
+
             (date.date(), counts)
         })
         .unzip();

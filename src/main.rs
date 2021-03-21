@@ -43,16 +43,14 @@ extern crate log;
 use clap::{App, Arg};
 use darkredis::ConnectionPool;
 use dashmap::{DashMap, DashSet};
+use hashbrown::HashSet;
 use hyper::{
     service::{make_service_fn, service_fn},
     Body, Response,
 };
 use prometheus::{Encoder, TextEncoder};
 use rosu_v2::Osu;
-use std::env;
-use std::{
-    collections::HashSet, convert::Infallible, process, str::FromStr, sync::Arc, time::Duration,
-};
+use std::{convert::Infallible, env, process, str::FromStr, sync::Arc, time::Duration};
 use tokio::{
     runtime::Runtime,
     signal,

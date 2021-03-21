@@ -6,11 +6,11 @@ use crate::{database::TrackingUser, BotResult, Database};
 
 use chrono::{DateTime, Duration, Utc};
 use dashmap::DashMap;
+use hashbrown::HashMap;
 use priority_queue::PriorityQueue;
 use rosu_v2::model::GameMode;
 use std::{
     cmp::Reverse,
-    collections::HashMap,
     iter,
     sync::atomic::{AtomicBool, Ordering},
 };

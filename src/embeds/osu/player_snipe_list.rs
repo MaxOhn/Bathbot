@@ -9,11 +9,9 @@ use crate::{
     },
 };
 
+use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, User};
-use std::{
-    collections::{BTreeMap, HashMap},
-    fmt::Write,
-};
+use std::{collections::BTreeMap, fmt::Write};
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct PlayerSnipeListEmbed {

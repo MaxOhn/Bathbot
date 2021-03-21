@@ -4,10 +4,8 @@ use crate::{
     Context,
 };
 
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use hashbrown::{HashMap, HashSet};
+use std::{collections::HashMap as StdHashMap, sync::Arc};
 use strfmt::strfmt;
 use tokio::time::{interval, Duration};
 use twilight_http::{
@@ -24,7 +22,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
     }
 
     // Formatting of the embed image
-    let mut fmt_data = HashMap::new();
+    let mut fmt_data = StdHashMap::new();
     fmt_data.insert(String::from("width"), String::from("360"));
     fmt_data.insert(String::from("height"), String::from("180"));
 

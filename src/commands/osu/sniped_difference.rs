@@ -10,8 +10,9 @@ use crate::{
 };
 
 use chrono::{Duration, Utc};
+use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
-use std::{cmp::Reverse, collections::HashMap, sync::Arc};
+use std::{cmp::Reverse, sync::Arc};
 use twilight_model::channel::Message;
 
 async fn sniped_diff_main(

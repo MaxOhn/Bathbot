@@ -3,8 +3,9 @@ use crate::{
     util::constants::OSU_BASE,
 };
 
+use hashbrown::HashMap;
 use rosu_v2::prelude::MostPlayedMap;
-use std::{collections::HashMap, fmt::Write};
+use std::fmt::Write;
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct MostPlayedCommonEmbed {

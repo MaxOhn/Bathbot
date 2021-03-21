@@ -13,11 +13,12 @@ use crate::{
 };
 
 use cow_utils::CowUtils;
+use hashbrown::HashMap;
 use rosu_pp::{
     Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, StarResult, TaikoPP,
 };
 use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, GameMode};
-use std::{borrow::Cow, collections::HashMap, fmt::Write};
+use std::{borrow::Cow, fmt::Write};
 use tokio::fs::File;
 use twilight_embed_builder::image_source::ImageSource;
 

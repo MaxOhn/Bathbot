@@ -10,8 +10,9 @@ use crate::{
     BotResult, Context,
 };
 
+use hashbrown::HashSet;
 use rosu_v2::prelude::OsuError;
-use std::{cmp::Ordering, collections::HashSet, sync::Arc};
+use std::{cmp::Ordering, sync::Arc};
 use twilight_model::channel::Message;
 
 const GROUPS: [MedalGroup; 8] = [

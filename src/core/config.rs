@@ -1,12 +1,13 @@
 use crate::{BotResult, Error};
 
+use hashbrown::HashMap;
 use once_cell::sync::OnceCell;
 use rosu_v2::model::{GameMode, Grade};
 use serde::{
     de::{Deserializer, Error as SerdeError, Unexpected},
     Deserialize,
 };
-use std::{collections::HashMap, path::PathBuf, str::FromStr};
+use std::{path::PathBuf, str::FromStr};
 use tokio::fs;
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::id::EmojiId;

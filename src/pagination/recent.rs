@@ -6,12 +6,13 @@ use crate::{
 };
 
 use async_trait::async_trait;
+use hashbrown::HashMap;
 use rosu_v2::prelude::{
     BeatmapUserScore,
     RankStatus::{Approved, Loved, Qualified, Ranked},
     Score, User,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::channel::Message;
 

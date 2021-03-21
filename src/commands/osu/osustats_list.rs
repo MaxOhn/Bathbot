@@ -7,8 +7,9 @@ use crate::{
     BotResult, Context,
 };
 
+use hashbrown::HashMap;
 use rosu_v2::model::GameMode;
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use twilight_model::channel::Message;
 
 async fn osustats_main(

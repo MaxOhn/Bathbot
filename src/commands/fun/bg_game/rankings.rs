@@ -6,7 +6,8 @@ use crate::{
 };
 
 use cow_utils::CowUtils;
-use std::{collections::HashMap, sync::Arc};
+use hashbrown::HashMap;
+use std::sync::Arc;
 use twilight_model::{channel::Message, id::UserId};
 
 #[command]
@@ -82,7 +83,7 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     let initial_scores = scores
         .iter()
         .take(15)
-        .map(|(id, score)| (usernames.get(&id).unwrap(), *score))
+        .map(|(id, score)| (&usernames[id], *score))
         .collect();
 
     // Prepare initial page

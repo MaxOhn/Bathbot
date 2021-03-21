@@ -12,12 +12,9 @@ use crate::{
     BotResult, Context,
 };
 
+use hashbrown::HashMap;
 use rosu_v2::error::OsuError;
-use std::{
-    collections::{BTreeMap, HashMap},
-    fmt::Write,
-    sync::Arc,
-};
+use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
 
 #[command]
