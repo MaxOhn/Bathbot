@@ -1,4 +1,4 @@
-use super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
+use super::{request_user, MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
 use crate::{
     arguments::{Args, NameArgs},
     embeds::ProfileEmbed,
@@ -85,7 +85,7 @@ pub async fn profile_embed(
     msg: &Message,
 ) -> BotResult<Option<(ProfileEmbed, User)>> {
     // Retrieve the user and their top scores
-    let user_fut = ctx.osu().user(name).mode(mode);
+    let user_fut = request_user(&ctx, name, Some(mode));
     let scores_fut_1 = ctx.osu().user_scores(name).best().mode(mode).limit(50);
 
     let scores_fut_2 = ctx

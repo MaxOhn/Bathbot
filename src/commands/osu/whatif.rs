@@ -1,3 +1,4 @@
+use super::request_user;
 use crate::{
     arguments::{Args, NameFloatArgs},
     custom_client::RankParam,
@@ -36,7 +37,7 @@ async fn whatif_main(
     }
 
     // Retrieve the user and their top scores
-    let user_fut = ctx.osu().user(name.as_str()).mode(mode);
+    let user_fut = request_user(&ctx, &name, Some(mode));
     let scores_fut_1 = ctx.osu().user_scores(&name).best().mode(mode).limit(50);
 
     let scores_fut_2 = ctx

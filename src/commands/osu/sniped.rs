@@ -1,3 +1,4 @@
+use super::request_user;
 use crate::{
     arguments::{Args, NameArgs},
     custom_client::SnipeRecent,
@@ -47,7 +48,7 @@ async fn sniped(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         None => return super::require_link(&ctx, msg).await,
     };
 
-    let user = match ctx.osu().user(name.as_str()).mode(GameMode::STD).await {
+    let user = match request_user(&ctx, &name, Some(GameMode::STD)).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{}`", name);

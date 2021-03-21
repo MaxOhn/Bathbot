@@ -1,3 +1,4 @@
+use super::request_user;
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{AvatarEmbed, EmbedData},
@@ -5,7 +6,6 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu_v2::model::GameMode;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -22,7 +22,7 @@ async fn avatar(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         None => return super::require_link(&ctx, msg).await,
     };
 
-    let user = match ctx.osu().user(name.as_str()).mode(GameMode::STD).await {
+    let user = match request_user(&ctx, &name, None).await {
         Ok(user) => user,
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;

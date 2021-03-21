@@ -49,6 +49,11 @@ pub struct GuildCounters {
     pub unavailable: IntGauge,
 }
 
+pub struct OsuCounters {
+    pub rosu: IntCounterVec,
+    pub user_cached: IntCounter,
+}
+
 pub struct BotStats {
     pub registry: Registry,
     pub start_time: DateTime<Utc>,
@@ -58,7 +63,7 @@ pub struct BotStats {
     pub channel_count: IntGauge,
     pub guild_counts: GuildCounters,
     pub command_counts: IntCounterVec,
-    pub osu_metrics: IntCounterVec,
+    pub osu_metrics: OsuCounters,
     pub cache_metrics: Arc<Metrics>,
 }
 
@@ -82,6 +87,7 @@ impl BotStats {
         registry.register(Box::new(guild_counter.clone())).unwrap();
         registry.register(Box::new(command_counts.clone())).unwrap();
         registry.register(Box::new(osu_metrics.clone())).unwrap();
+
         let stats = Self {
             registry,
             start_time: Utc::now(),
@@ -122,25 +128,33 @@ impl BotStats {
             },
             channel_count,
             command_counts,
-            osu_metrics,
+            osu_metrics: OsuCounters {
+                user_cached: osu_metrics.with_label_values(&["osu! user cached"]),
+                rosu: osu_metrics,
+            },
             cache_metrics
         };
+
         stats
             .guild_counts
             .total
             .set(stats.cache_metrics.guilds.load(Relaxed) as i64);
+
         stats
             .guild_counts
             .unavailable
             .set(stats.cache_metrics.unavailable_guilds.load(Relaxed) as i64);
+
         stats
             .user_counts
             .total
             .set(stats.cache_metrics.members.load(Relaxed) as i64);
+
         stats
             .user_counts
             .unique
             .set(stats.cache_metrics.users.load(Relaxed) as i64);
+
         stats
     }
 
@@ -165,6 +179,11 @@ impl BotStats {
             Ok(counter) => counter.inc(),
             Err(why) => unwind_error!(warn, why, "Error while incrementing `{}`'s counter: {}", c),
         }
+    }
+
+    #[inline]
+    pub fn inc_cached_user(&self) {
+        self.osu_metrics.user_cached.inc();
     }
 }
 

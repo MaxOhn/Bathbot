@@ -1,3 +1,4 @@
+use super::request_user;
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, SnipedDiffEmbed},
@@ -29,7 +30,7 @@ async fn sniped_diff_main(
     };
 
     // Request the user
-    let user = match ctx.osu().user(name.as_str()).mode(GameMode::STD).await {
+    let user = match request_user(&ctx, &name, Some(GameMode::STD)).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{}`", name);

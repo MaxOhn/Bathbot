@@ -1,3 +1,4 @@
+use super::request_user;
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, MedalStatsEmbed},
@@ -28,7 +29,7 @@ async fn medalstats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         None => return super::require_link(&ctx, msg).await,
     };
 
-    let user_fut = ctx.osu().user(&name);
+    let user_fut = request_user(&ctx, &name, None);
     let medals_fut = ctx.psql().get_medals();
 
     let (mut user, all_medals) = match tokio::join!(user_fut, medals_fut) {

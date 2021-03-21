@@ -1,3 +1,4 @@
+use super::request_user;
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, MostPlayedEmbed},
@@ -6,7 +7,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::prelude::OsuError;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -24,7 +25,7 @@ async fn mostplayed(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     };
 
     // Retrieve the user and their most played maps
-    let user_fut = ctx.osu().user(&name).mode(GameMode::STD);
+    let user_fut = request_user(&ctx, &name, None);
     let maps_fut_1 = ctx.osu().user_most_played(&name).limit(50);
     let maps_fut_2 = ctx.osu().user_most_played(&name).limit(50).offset(50);
 

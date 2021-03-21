@@ -1,4 +1,4 @@
-use super::{prepare_scores, ErrorType};
+use super::{prepare_scores, request_user, ErrorType};
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, RecentListEmbed},
@@ -29,7 +29,7 @@ async fn recent_list_main(
     };
 
     // Retrieve the user and their recent scores
-    let user_fut = ctx.osu().user(name.as_str()).mode(mode).map_err(From::from);
+    let user_fut = request_user(&ctx, &name, Some(mode)).map_err(From::from);
 
     let scores_fut = ctx
         .osu()

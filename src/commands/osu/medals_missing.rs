@@ -1,3 +1,4 @@
+use super::request_user;
 use crate::{
     arguments::{Args, NameArgs},
     database::{MedalGroup, OsuMedal},
@@ -39,7 +40,7 @@ async fn medalsmissing(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
         None => return super::require_link(&ctx, msg).await,
     };
 
-    let user_fut = ctx.osu().user(&name);
+    let user_fut = request_user(&ctx, &name, None);
     let medals_fut = ctx.psql().get_medals();
 
     let (user, all_medals) = match tokio::join!(user_fut, medals_fut) {

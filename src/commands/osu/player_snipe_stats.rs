@@ -1,4 +1,4 @@
-use super::prepare_score;
+use super::{prepare_score, request_user};
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
@@ -32,7 +32,7 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
         None => return super::require_link(&ctx, msg).await,
     };
 
-    let user = match ctx.osu().user(name.as_str()).mode(GameMode::STD).await {
+    let user = match request_user(&ctx, &name, Some(GameMode::STD)).await {
         Ok(user) => user,
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;

@@ -1,3 +1,4 @@
+use super::request_user;
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, OsuStatsCountsEmbed},
@@ -22,7 +23,7 @@ async fn osustats_main(
         None => return super::require_link(&ctx, msg).await,
     };
 
-    let user = match ctx.osu().user(name.as_str()).mode(mode).await {
+    let user = match request_user(&ctx, &name, Some(mode)).await {
         Ok(user) => user,
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;

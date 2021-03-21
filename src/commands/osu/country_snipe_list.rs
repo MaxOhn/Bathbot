@@ -1,3 +1,4 @@
+use super::request_user;
 use crate::{
     arguments::Args,
     custom_client::SnipeCountryPlayer as SCP,
@@ -36,7 +37,7 @@ use twilight_model::channel::Message;
 async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     // Retrieve author's osu user to check if they're in the list
     let osu_user = match ctx.get_link(msg.author.id.0) {
-        Some(name) => match ctx.osu().user(name.as_str()).mode(GameMode::STD).await {
+        Some(name) => match request_user(&ctx, &name, Some(GameMode::STD)).await {
             Ok(user) => Some(user),
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_API_ISSUE).await;

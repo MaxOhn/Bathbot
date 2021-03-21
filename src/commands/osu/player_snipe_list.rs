@@ -1,3 +1,4 @@
+use super::request_user;
 use crate::{
     arguments::{Args, SnipeScoreArgs},
     custom_client::SnipeScoreParams,
@@ -13,7 +14,7 @@ use crate::{
 };
 
 use hashbrown::HashMap;
-use rosu_v2::error::OsuError;
+use rosu_v2::prelude::{GameMode, OsuError};
 use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -46,7 +47,7 @@ async fn playersnipelist(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
         None => return super::require_link(&ctx, msg).await,
     };
 
-    let user = match ctx.osu().user(&name).await {
+    let user = match request_user(&ctx, &name, Some(GameMode::STD)).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);

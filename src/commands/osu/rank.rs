@@ -1,3 +1,4 @@
+use super::request_user;
 use crate::{
     arguments::{Args, RankArgs},
     custom_client::{ManiaVariant, RankLeaderboard, RankParam},
@@ -51,7 +52,7 @@ async fn rank_main(
         }
 
         let rank_holder_id_fut = ctx.clients.custom.get_userid_of_rank(args.rank, ranking);
-        let user_fut = ctx.osu().user(name.as_str()).mode(mode);
+        let user_fut = request_user(&ctx, &name, Some(mode));
 
         let (rank_holder_id_result, user_result) = tokio::join!(rank_holder_id_fut, user_fut,);
 
@@ -100,9 +101,8 @@ async fn rank_main(
             .custom
             .get_rank_data(mode, RankParam::Rank(args.rank));
 
-        let user_fut = ctx.osu().user(name.as_str()).mode(mode);
-
-        let (pp_result, user_result) = tokio::join!(pp_fut, user_fut,);
+        let user_fut = request_user(&ctx, &name, Some(mode));
+        let (pp_result, user_result) = tokio::join!(pp_fut, user_fut);
 
         let required_pp = match pp_result {
             Ok(rank_pp) => rank_pp.pp,

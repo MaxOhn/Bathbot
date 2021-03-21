@@ -1,3 +1,4 @@
+use super::request_user;
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, RatioEmbed},
@@ -30,7 +31,7 @@ async fn ratios(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
 
     // Retrieve the user and their top scores
-    let user_fut = ctx.osu().user(&name).mode(GameMode::MNA);
+    let user_fut = request_user(&ctx, &name, Some(GameMode::MNA));
 
     let scores_fut_1 = ctx
         .osu()

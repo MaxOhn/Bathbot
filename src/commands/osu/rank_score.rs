@@ -1,3 +1,4 @@
+use super::request_user;
 use crate::{
     arguments::{Args, NameIntArgs},
     custom_client::RankLeaderboard,
@@ -55,7 +56,7 @@ async fn rank_score_main(
 
     // Retrieve the user and the id of the rank-holding user
     let (rank_holder_id_result, user_result) =
-        tokio::join!(user_id_fut, ctx.osu().user(name.as_str()).mode(mode));
+        tokio::join!(user_id_fut, request_user(&ctx, &name, Some(mode)));
 
     let rank_holder_id = match rank_holder_id_result {
         Ok(id) => id,

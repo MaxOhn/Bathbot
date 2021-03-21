@@ -8,7 +8,7 @@ use crate::{
 use async_trait::async_trait;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{
-    BeatmapUserScore,
+    BeatmapUserScore, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
     Score, User,
 };
@@ -150,6 +150,7 @@ impl Pagination for RecentPagination {
                 Ok(score) => {
                     self.map_scores.insert(map_id, score);
                 }
+                Err(OsuError::NotFound) => {}
                 Err(why) => unwind_error!(warn, why, "Error while requesting map score: {}"),
             }
         }

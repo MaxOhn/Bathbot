@@ -98,7 +98,7 @@ use futures::{
     future::FutureExt,
     stream::{FuturesUnordered, StreamExt},
 };
-use rosu_v2::prelude::{GameMode, OsuError, OsuResult, Score};
+use rosu_v2::prelude::{GameMode, OsuError, OsuResult, Score, User};
 use std::{
     borrow::Cow,
     cmp::PartialOrd,
@@ -123,6 +123,40 @@ impl From<OsuError> for ErrorType {
     fn from(e: OsuError) -> Self {
         Self::Osu(e)
     }
+}
+
+async fn request_user(ctx: &Context, name: &str, mode: Option<GameMode>) -> OsuResult<User> {
+    let mut key = String::with_capacity(2 + name.len());
+    key.push_str("__");
+    key.push_str(name);
+
+    let mut conn = ctx.clients.redis.get().await;
+
+    if let Ok(Some(bytes)) = conn.get(&key).await {
+        ctx.stats.inc_cached_user();
+        let user = serde_json::from_slice(&bytes).expect("failed to deserialize redis user");
+        debug!("Found user `{}` in cache", name);
+
+        return Ok(user);
+    }
+
+    let user_fut = ctx.osu().user(name);
+
+    let user = match mode {
+        Some(mode) => user_fut.mode(mode).await?,
+        None => user_fut.await?,
+    };
+
+    let bytes = serde_json::to_vec(&user).expect("failed to serialize user");
+
+    // Cache users for 10 minutes
+    let set_fut = conn.set_and_expire_seconds(key, bytes, 600);
+
+    if let Err(why) = set_fut.await {
+        unwind_error!(debug, why, "Failed to insert bytes into cache: {}");
+    }
+
+    Ok(user)
 }
 
 /// Insert the max combo of the score's map

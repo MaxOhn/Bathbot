@@ -37,13 +37,15 @@ async fn link(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()>
                 None => arg.to_owned(),
             };
 
-            if name.chars().count() > 32 {
-                let content = "That name is too long, must be at most 32 characters";
+            if name.chars().count() > 16 {
+                let content = "That name is too long, must be at most 16 characters";
+
                 return msg.error(&ctx, content).await;
             }
 
             if let Err(why) = ctx.add_link(discord_id, &name).await {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
                 return Err(why);
             }
 

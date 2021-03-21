@@ -1,4 +1,4 @@
-use super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
+use super::{request_user, MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
 use crate::{
     arguments::{Args, MultNameArgs},
     embeds::{EmbedData, ProfileCompareEmbed},
@@ -57,8 +57,8 @@ async fn compare_main(
     }
 
     // Retrieve all users and their scores
-    let user_fut1 = ctx.osu().user(&name1).mode(mode);
-    let user_fut2 = ctx.osu().user(&name2).mode(mode);
+    let user_fut1 = request_user(&ctx, &name1, Some(mode));
+    let user_fut2 = request_user(&ctx, &name2, Some(mode));
     let scores_fut_u1_1 = ctx.osu().user_scores(&name1).best().limit(50);
     let scores_fut_u2_1 = ctx.osu().user_scores(&name2).best().limit(50);
 

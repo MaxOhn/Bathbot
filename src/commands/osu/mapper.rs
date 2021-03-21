@@ -1,4 +1,4 @@
-use super::{prepare_scores, ErrorType};
+use super::{prepare_scores, request_user, ErrorType};
 use crate::{
     arguments::{try_link_name, Args},
     embeds::{EmbedData, TopEmbed},
@@ -80,7 +80,7 @@ async fn mapper_main(
     );
 
     // Retrieve the user and their top scores
-    let user_fut = ctx.osu().user(&user).mode(mode).map_err(From::from);
+    let user_fut = request_user(&ctx, &user, Some(mode)).map_err(From::from);
     let scores_fut_1 = ctx.osu().user_scores(&user).best().mode(mode).limit(50);
 
     let scores_fut_2 = ctx

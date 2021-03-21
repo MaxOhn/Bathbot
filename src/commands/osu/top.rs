@@ -1,4 +1,4 @@
-use super::{prepare_scores, ErrorType};
+use super::{prepare_scores, request_user, ErrorType};
 use crate::{
     arguments::{Args, GradeArg, TopArgs},
     embeds::{EmbedData, TopEmbed, TopSingleEmbed},
@@ -92,7 +92,7 @@ async fn top_main(
     };
 
     // Retrieve the user and their top scores
-    let user_fut = ctx.osu().user(&name).mode(mode).map_err(From::from);
+    let user_fut = request_user(&ctx, &name, Some(mode)).map_err(From::from);
     let scores_fut_1 = ctx.osu().user_scores(&name).best().mode(mode).limit(50);
 
     let scores_fut_2 = async {

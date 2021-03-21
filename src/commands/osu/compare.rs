@@ -1,4 +1,4 @@
-use super::prepare_score;
+use super::{prepare_score, request_user};
 use crate::{
     arguments::{Args, NameMapArgs},
     embeds::{CompareEmbed, EmbedData, NoScoresEmbed},
@@ -99,14 +99,8 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
     let map = score.score.map.as_ref().unwrap();
     let mapset_id = map.mapset_id;
 
+    // First try to just get the mapset from the DB
     let mapset_fut = ctx.psql().get_beatmapset(mapset_id);
-
-    // let mapset_fut = ctx.psql().get_beatmapset(mapset_id).or_else(|_| {
-    //     ctx.osu()
-    //         .beatmapset(mapset_id)
-    //         .map_ok(BeatmapsetCompact::from)
-    // });
-
     let user_fut = ctx.osu().user(score.score.user_id).mode(score.score.mode);
 
     let scores_fut = async {
@@ -213,7 +207,7 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
 }
 
 async fn no_scores(ctx: Arc<Context>, msg: &Message, name: String, map_id: u32) -> BotResult<()> {
-    let user_fut = ctx.osu().user(&name);
+    let user_fut = request_user(&ctx, &name, None);
     let map_fut = ctx.psql().get_beatmap(map_id, true);
 
     let (map, user) = match tokio::join!(map_fut, user_fut) {
