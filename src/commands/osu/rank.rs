@@ -32,7 +32,7 @@ async fn rank_main(
     };
 
     if args.rank == 0 {
-        let content = "Rank number must be between 1 and 10,000";
+        let content = "Rank can't be zero :clown:";
 
         return msg.error(&ctx, content).await;
     } else if args.rank > 10_000 && args.country.is_some() {

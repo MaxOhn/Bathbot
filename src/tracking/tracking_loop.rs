@@ -114,6 +114,7 @@ pub async fn process_tracking(ctx: &Context, mode: GameMode, scores: &mut [Score
         let scores_fut = ctx
             .osu()
             .user_scores(user_id)
+            .best()
             .offset(count)
             .limit(max - count)
             .mode(mode);

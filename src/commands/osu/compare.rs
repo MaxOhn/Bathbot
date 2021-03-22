@@ -21,12 +21,13 @@ use twilight_model::channel::Message;
 #[long_desc(
     "Display a user's top score on a given map. \n\
      If no map is given, I will choose the last map \
-     I can find in the embeds of this channel"
+     I can find in the embeds of this channel.\n\
+     Mods can be specified."
 )]
-#[usage("[username] [map url / map id]")]
+#[usage("[username] [map url / map id] [+mods]")]
 #[example(
     "badewanne3",
-    "badewanne3 2240404",
+    "badewanne3 2240404 +hdhr",
     "badewanne3 https://osu.ppy.sh/beatmapsets/902425#osu/2240404"
 )]
 #[aliases("c")]
@@ -225,18 +226,15 @@ async fn no_scores(
     map_id: u32,
     mods: Option<GameMods>,
 ) -> BotResult<()> {
-    let user_fut = request_user(&ctx, &name, None);
-    let map_fut = ctx.psql().get_beatmap(map_id, true);
-
-    let (map, user) = match tokio::join!(map_fut, user_fut) {
-        (Ok(map), Ok(user)) => (map, user),
-        (Err(_), Ok(user)) => match ctx.osu().beatmap().map_id(map_id).await {
+    let map = match ctx.psql().get_beatmap(map_id, true).await {
+        Ok(map) => map,
+        Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
             Ok(map) => {
                 if let Err(why) = ctx.psql().insert_beatmap(&map).await {
                     unwind_error!(warn, why, "Error while inserting compare map: {}");
                 }
 
-                (map, user)
+                map
             }
             Err(OsuError::NotFound) => {
                 let content = format!("There is no map with id {}", map_id);
@@ -249,12 +247,16 @@ async fn no_scores(
                 return Err(why.into());
             }
         },
-        (_, Err(OsuError::NotFound)) => {
+    };
+
+    let user = match request_user(&ctx, &name, Some(map.mode)).await {
+        Ok(user) => user,
+        Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{}`", name);
 
             return msg.error(&ctx, content).await;
         }
-        (_, Err(why)) => {
+        Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
