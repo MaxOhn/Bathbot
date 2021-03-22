@@ -337,8 +337,10 @@ fn simulate_score(
                 score.statistics.count_100 = n100;
                 score.statistics.count_50 = n50;
             }
+
             score.statistics.count_miss = miss;
             score.max_combo = combo;
+            score.accuracy = score.accuracy();
             score.grade = score.grade(None);
 
             attributes = StarResult::Osu(diff_attributes);
@@ -368,6 +370,7 @@ fn simulate_score(
             score.statistics.count_100 = 0;
             score.statistics.count_50 = 0;
             score.statistics.count_miss = 0;
+            score.accuracy = 100.0;
 
             score.grade = if mods.intersects(GameMods::Flashlight | GameMods::Hidden) {
                 if score.score == max_score {
@@ -423,7 +426,8 @@ fn simulate_score(
                 .unwrap_or(0)
                 .min(n_objects.saturating_sub(miss));
 
-            score.grade = score.grade(Some(acc * 100.0));
+            score.accuracy = acc * 100.0;
+            score.grade = score.grade(Some(score.accuracy));
 
             attributes = StarResult::Taiko(diff_attributes);
         }
@@ -497,7 +501,8 @@ fn simulate_score(
                 .unwrap_or(diff_attributes.max_combo as u32)
                 .min(diff_attributes.max_combo as u32 - miss as u32);
 
-            score.grade = score.grade(None);
+            score.accuracy = score.accuracy();
+            score.grade = score.grade(Some(score.accuracy));
 
             attributes = StarResult::Fruits(diff_attributes);
         }

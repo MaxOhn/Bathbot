@@ -368,7 +368,7 @@ impl NoScoresEmbed {
 
         let title = format!("{} - {} [{}]", mapset.artist, mapset.title, map.version);
 
-        let mut description = "No score".to_owned();
+        let mut description = "No scores".to_owned();
 
         if let Some(mods) = mods {
             let _ = write!(description, " with {}", mods);
