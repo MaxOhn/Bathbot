@@ -6,7 +6,7 @@ macro_rules! author {
             "{name}: {pp}pp (#{global} {country}{national})",
             name = $user.username,
             pp = crate::util::numbers::with_comma(stats.pp),
-            global = crate::util::numbers::with_comma_u64(stats.global_rank.unwrap() as u64),
+            global = crate::util::numbers::with_comma_u64(stats.global_rank.unwrap_or(0) as u64),
             country = $user.country_code,
             national = stats.country_rank.unwrap_or(0)
         );
