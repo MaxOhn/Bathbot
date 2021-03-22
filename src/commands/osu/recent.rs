@@ -1,4 +1,4 @@
-use super::{prepare_scores, request_user, ErrorType};
+use super::{prepare_score, request_user};
 use crate::{
     arguments::{Args, NameDashPArgs},
     embeds::{EmbedData, RecentEmbed},
@@ -10,7 +10,6 @@ use crate::{
     BotResult, Context,
 };
 
-use futures::future::TryFutureExt;
 use rosu_v2::prelude::{
     GameMode, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
@@ -54,7 +53,7 @@ async fn recent_main(
     };
 
     // Retrieve the user and their recent scores
-    let user_fut = request_user(&ctx, &name, Some(mode)).map_err(From::from);
+    let user_fut = request_user(&ctx, &name, Some(mode));
 
     let scores_fut = ctx
         .osu()
@@ -64,9 +63,7 @@ async fn recent_main(
         .limit(50)
         .include_fails(true);
 
-    let scores_fut = prepare_scores(&ctx, scores_fut);
-
-    let (user, scores) = match tokio::try_join!(user_fut, scores_fut) {
+    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
         Ok((_, scores)) if scores.is_empty() => {
             let content = format!(
                 "No recent {}plays found for user `{}`",
@@ -82,27 +79,39 @@ async fn recent_main(
             return msg.error(&ctx, content).await;
         }
         Ok((user, scores)) => (user, scores),
-        Err(ErrorType::Osu(OsuError::NotFound)) => {
+        Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
 
             return msg.error(&ctx, content).await;
         }
-        Err(ErrorType::Osu(why)) => {
+        Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
-        Err(ErrorType::Bot(why)) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
     };
 
     let num = num.unwrap_or(1).saturating_sub(1);
+    let mut iter = scores.iter_mut().skip(num);
 
-    let score = match scores.get(num) {
-        Some(score) => score,
+    let (score, tries) = match iter.next() {
+        Some(score) => match prepare_score(&ctx, score).await {
+            Ok(_) => {
+                let mods = score.mods;
+                let map_id = map_id!(score).unwrap();
+
+                let tries = 1 + iter
+                    .take_while(|s| map_id!(s).unwrap() == map_id && s.mods == mods)
+                    .count();
+
+                (score, tries)
+            }
+            Err(why) => {
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
+                return Err(why.into());
+            }
+        },
         None => {
             let content = format!(
                 "There {verb} only {num} score{plural} in `{name}`'{genitive} recent history.",
@@ -171,13 +180,6 @@ async fn recent_main(
         }
     };
 
-    // Accumulate all necessary data
-    let tries = scores
-        .iter()
-        .skip(num)
-        .take_while(|s| s.map.as_ref().unwrap().map_id == map.map_id && s.mods == score.mods)
-        .count();
-
     let data_fut = RecentEmbed::new(&user, score, best.as_deref(), map_score.as_ref(), false);
 
     let data = match data_fut.await {
@@ -205,10 +207,7 @@ async fn recent_main(
     // Set map on garbage collection list if unranked
     let gb = ctx.map_garbage_collector(&map);
 
-    // Store maps in DB
-    if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
-        unwind_error!(warn, why, "Error while storing recent maps in DB: {}");
-    }
+    // Note: Don't store maps in DB as their max combo isnt available
 
     // Process user and their top scores for tracking
     if let Some(ref mut scores) = best {
