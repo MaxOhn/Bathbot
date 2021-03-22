@@ -1,17 +1,17 @@
 use super::{prepare_score, request_user};
 use crate::{
-    arguments::{Args, NameMapArgs},
+    arguments::{Args, NameMapModArgs},
     embeds::{CompareEmbed, EmbedData, NoScoresEmbed},
     tracking::process_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        osu::{cached_message_extract, map_id_from_history, MapIdType},
+        osu::{cached_message_extract, map_id_from_history, MapIdType, ModSelection},
         MessageExt,
     },
     BotResult, Context,
 };
 
-use rosu_v2::prelude::{OsuError, RankStatus::Ranked};
+use rosu_v2::prelude::{GameMods, OsuError, RankStatus::Ranked};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use twilight_model::channel::Message;
@@ -31,7 +31,7 @@ use twilight_model::channel::Message;
 )]
 #[aliases("c")]
 async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    let args = NameMapArgs::new(&ctx, args);
+    let args = NameMapModArgs::new(&ctx, args);
 
     let map_id = if let Some(id) = args.map_id {
         match id {
@@ -78,8 +78,20 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
         None => return super::require_link(&ctx, msg).await,
     };
 
+    let arg_mods = match args.mods {
+        None | Some(ModSelection::Exclude(_)) => None,
+        Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) => Some(mods),
+    };
+
+    let score_fut = ctx.osu().beatmap_user_score(map_id, &name);
+
+    let score_result = match arg_mods {
+        None => score_fut.await,
+        Some(mods) => score_fut.mods(mods).await,
+    };
+
     // Retrieve user's score on the map
-    let mut score = match ctx.osu().beatmap_user_score(map_id, &name).await {
+    let mut score = match score_result {
         Ok(mut score) => match prepare_score(&ctx, &mut score.score).await {
             Ok(_) => score,
             Err(why) => {
@@ -88,7 +100,7 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
                 return Err(why.into());
             }
         },
-        Err(OsuError::NotFound) => return no_scores(ctx, msg, name, map_id).await,
+        Err(OsuError::NotFound) => return no_scores(ctx, msg, name, map_id, arg_mods).await,
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
@@ -157,7 +169,7 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
     // Accumulate all necessary data
     let mode = score.score.mode;
 
-    let data = match CompareEmbed::new(user, best.as_deref(), score).await {
+    let data = match CompareEmbed::new(user, best.as_deref(), score, arg_mods.is_some()).await {
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
@@ -206,7 +218,13 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
     Ok(())
 }
 
-async fn no_scores(ctx: Arc<Context>, msg: &Message, name: String, map_id: u32) -> BotResult<()> {
+async fn no_scores(
+    ctx: Arc<Context>,
+    msg: &Message,
+    name: String,
+    map_id: u32,
+    mods: Option<GameMods>,
+) -> BotResult<()> {
     let user_fut = request_user(&ctx, &name, None);
     let map_fut = ctx.psql().get_beatmap(map_id, true);
 
@@ -244,7 +262,7 @@ async fn no_scores(ctx: Arc<Context>, msg: &Message, name: String, map_id: u32) 
     };
 
     // Sending the embed
-    let embed = NoScoresEmbed::new(user, map).build().build()?;
+    let embed = NoScoresEmbed::new(user, map, mods).build_owned().build()?;
 
     msg.respond_embed(&ctx, embed)
         .await?

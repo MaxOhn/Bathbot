@@ -14,7 +14,7 @@ use crate::{
 
 use chrono::{DateTime, Utc};
 use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, ManiaPP, OsuPP, TaikoPP};
-use rosu_v2::prelude::{Beatmap, BeatmapUserScore, GameMode, Grade, Score, User};
+use rosu_v2::prelude::{Beatmap, BeatmapUserScore, GameMode, GameMods, Grade, Score, User};
 use std::{borrow::Cow, fmt::Write};
 use tokio::fs::File;
 use twilight_embed_builder::{
@@ -50,6 +50,7 @@ impl CompareEmbed {
         user: User,
         personal: Option<&[Score]>,
         map_score: BeatmapUserScore,
+        with_mods: bool,
     ) -> BotResult<Self> {
         let score = &map_score.score;
         let map = score.map.as_ref().unwrap();
@@ -189,7 +190,7 @@ impl CompareEmbed {
                 let _ = write!(description, "Personal Best #{}", idx + 1);
 
                 if global_idx <= GLOBAL_IDX_THRESHOLD {
-                    description.reserve(19);
+                    description.reserve(19 + 18 * with_mods as usize);
                     description.push_str(" and ");
                 }
             }
@@ -200,6 +201,10 @@ impl CompareEmbed {
 
             if personal_idx.is_some() || global_idx <= 50 {
                 description.push_str("**__");
+            }
+
+            if with_mods && global_idx <= GLOBAL_IDX_THRESHOLD {
+                description.push_str(" (Mod leaderboard)");
             }
 
             Some(description.into())
@@ -341,7 +346,7 @@ pub struct NoScoresEmbed {
 }
 
 impl NoScoresEmbed {
-    pub fn new(user: User, map: Beatmap) -> Self {
+    pub fn new(user: User, map: Beatmap, mods: Option<GameMods>) -> Self {
         let stats = user.statistics.as_ref().unwrap();
         let mapset = map.mapset.as_ref().unwrap();
 
@@ -363,8 +368,14 @@ impl NoScoresEmbed {
 
         let title = format!("{} - {} [{}]", mapset.artist, mapset.title, map.version);
 
+        let mut description = "No score".to_owned();
+
+        if let Some(mods) = mods {
+            let _ = write!(description, " with {}", mods);
+        }
+
         Self {
-            description: Some("No scores found".to_owned()),
+            description: Some(description),
             footer: Some(footer),
             thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id)).ok(),
             title: Some(title),

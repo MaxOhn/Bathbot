@@ -287,33 +287,45 @@ impl NameIntArgs {
     }
 }
 
-pub struct NameMapArgs {
+pub struct NameMapModArgs {
     pub name: Option<String>,
     pub map_id: Option<MapIdType>,
+    pub mods: Option<ModSelection>,
 }
 
-impl NameMapArgs {
+impl NameMapModArgs {
     pub fn new(ctx: &Context, args: Args) -> Self {
         let mut name = None;
         let mut map_id = None;
+        let mut mods = None;
 
         for arg in args {
             if map_id.is_none() {
                 if let Some(id) =
                     matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg))
                 {
-                    map_id = Some(id);
+                    map_id.replace(id);
+
                     continue;
                 }
             }
+
+            if mods.is_none() {
+                if let Some(m) = matcher::get_mods(arg) {
+                    mods.replace(m);
+
+                    continue;
+                }
+            }
+
             name = name.or_else(|| try_link_name(ctx, Some(arg)));
 
-            if map_id.is_some() && name.is_some() {
+            if map_id.is_some() && name.is_some() && mods.is_some() {
                 break;
             }
         }
 
-        Self { name, map_id }
+        Self { name, map_id, mods }
     }
 }
 
@@ -332,6 +344,7 @@ impl NameModArgs {
         for arg in args {
             if matches!(arg, "-c" | "-convert" | "-converts") {
                 converts = true;
+
                 continue;
             }
 
