@@ -454,5 +454,6 @@ impl CompareStrings {
             .max(self.count_a.len())
             .max(self.avg_pp.len())
             .max(self.pp_spread.len())
+            .max(10) // join date yyyy-mm-dd
     }
 }
