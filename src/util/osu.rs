@@ -138,8 +138,12 @@ pub fn pp_missing(start: f32, goal: f32, scores: &[Score]) -> (f32, usize) {
 }
 
 pub fn map_id_from_history(msgs: Vec<Message>) -> Option<MapIdType> {
-    msgs.into_iter()
-        .find_map(|msg| check_embeds_for_map_id(&msg.embeds))
+    msgs.into_iter().find_map(|msg| {
+        matcher::get_osu_map_id(&msg.content).or_else(|| {
+            matcher::get_osu_mapset_id(&msg.content)
+                .or_else(|| check_embeds_for_map_id(&msg.embeds))
+        })
+    })
 }
 
 #[inline]
