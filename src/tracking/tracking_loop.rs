@@ -1,7 +1,7 @@
 use crate::{
     commands::osu::prepare_score,
     embeds::{EmbedData, TrackNotificationEmbed},
-    Context,
+    BotResult, Context,
 };
 
 use chrono::{DateTime, Utc};
@@ -10,14 +10,14 @@ use futures::{
     stream::{FuturesUnordered, StreamExt},
 };
 use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMode, Score};
+use rosu_v2::prelude::{GameMode, Score, User};
 use std::sync::Arc;
 use tokio::time;
 use twilight_http::{
     api_error::{ApiError, ErrorCode, GeneralApiError},
     Error as TwilightError,
 };
-use twilight_model::id::ChannelId;
+use twilight_model::{channel::embed::Embed, id::ChannelId};
 
 #[cold]
 pub async fn tracking_loop(ctx: Arc<Context>) {
@@ -59,7 +59,7 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
                 Ok(mut scores) => {
                     // Note: If scores are empty, (user_id, mode) will not be reset into the tracking queue
                     if !scores.is_empty() {
-                        process_tracking(&ctx, mode, &mut scores).await
+                        process_tracking(&ctx, mode, &mut scores, None).await
                     }
                 }
                 Err(why) => {
@@ -78,7 +78,12 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
     }
 }
 
-pub async fn process_tracking(ctx: &Context, mode: GameMode, scores: &mut [Score]) {
+pub async fn process_tracking(
+    ctx: &Context,
+    mode: GameMode,
+    scores: &mut [Score],
+    user: Option<&User>,
+) {
     let user_id = match scores.first().map(|s| s.user_id) {
         Some(user_id) => user_id,
         None => return,
@@ -104,19 +109,21 @@ pub async fn process_tracking(ctx: &Context, mode: GameMode, scores: &mut [Score
         user_id, mode, last, new_last
     );
 
+    let mut user = TrackUser::new(user_id, mode, user);
+
     // Process scores
-    score_loop(ctx, user_id, mode, 0, max, last, scores, &channels).await;
+    score_loop(ctx, &mut user, 0, max, last, scores, &channels).await;
 
-    let count = scores.len();
+    let offset = scores.len();
 
-    // If another load of scores is requires, request and process them
-    if count < max {
+    // If another load of scores is required, request and process them
+    if let Some(max) = max.checked_sub(offset) {
         let scores_fut = ctx
             .osu()
             .user_scores(user_id)
             .best()
-            .offset(count)
-            .limit(max - count)
+            .offset(offset)
+            .limit(max)
             .mode(mode);
 
         match scores_fut.await {
@@ -125,17 +132,7 @@ pub async fn process_tracking(ctx: &Context, mode: GameMode, scores: &mut [Score
                     new_last = new_last.max(max);
                 }
 
-                score_loop(
-                    ctx,
-                    user_id,
-                    mode,
-                    count,
-                    max - count,
-                    last,
-                    &mut scores,
-                    &channels,
-                )
-                .await;
+                score_loop(ctx, &mut user, offset, max, last, &mut scores, &channels).await;
             }
             Err(why) => unwind_error!(
                 warn,
@@ -171,11 +168,9 @@ pub async fn process_tracking(ctx: &Context, mode: GameMode, scores: &mut [Score
     debug!("[Tracking] Reset ({},{})", user_id, mode);
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn score_loop(
     ctx: &Context,
-    user_id: u32,
-    mode: GameMode,
+    user: &mut TrackUser<'_>,
     start: usize,
     max: usize,
     last: DateTime<Utc>,
@@ -183,8 +178,6 @@ async fn score_loop(
     channels: &HashMap<ChannelId, usize>,
 ) {
     for (mut idx, score) in scores.iter_mut().enumerate().take(max) {
-        idx += start;
-
         // Skip if its an older score
         if score.created_at <= last {
             continue;
@@ -204,24 +197,10 @@ async fn score_loop(
 
         debug!(
             "[New top score] ({},{}): new {} | old {}",
-            user_id, mode, score.created_at, last
+            user.user_id, user.mode, score.created_at, last
         );
 
-        // Build embed
-        let data = TrackNotificationEmbed::new(score, idx + 1).await;
-
-        let embed = match data.build().build() {
-            Ok(embed) => embed,
-            Err(why) => {
-                unwind_error!(
-                    warn,
-                    why,
-                    "Error while creating tracking notification embed: {}"
-                );
-
-                continue;
-            }
-        };
+        idx += start;
 
         // Send the embed to each tracking channel
         for (&channel, &limit) in channels.iter() {
@@ -229,8 +208,17 @@ async fn score_loop(
                 continue;
             }
 
+            let embed = match user.embed(ctx, score, idx + 1).await {
+                Ok(embed) => embed,
+                Err(why) => {
+                    unwind_error!(warn, why, "Failed to create embed for tracking: {}");
+
+                    break;
+                }
+            };
+
             // Try to build and send the message
-            match ctx.http.create_message(channel).embed(embed.clone()) {
+            match ctx.http.create_message(channel).embed(embed) {
                 Ok(msg_fut) => {
                     let result = msg_fut.await;
 
@@ -272,6 +260,55 @@ async fn score_loop(
                     unwind_error!(warn, why, "Invalid embed for osu!tracking notification: {}")
                 }
             }
+
+            user.clear();
+        }
+    }
+}
+
+struct TrackUser<'u> {
+    user_id: u32,
+    mode: GameMode,
+    user_ref: Option<&'u User>,
+    user: Option<User>,
+    embed: Option<Embed>,
+}
+
+impl<'u> TrackUser<'u> {
+    #[inline]
+    fn new(user_id: u32, mode: GameMode, user_ref: Option<&'u User>) -> Self {
+        Self {
+            user_id,
+            mode,
+            user_ref,
+            user: None,
+            embed: None,
+        }
+    }
+
+    #[inline]
+    fn clear(&mut self) {
+        self.embed.take();
+    }
+
+    async fn embed(&mut self, ctx: &Context, score: &Score, idx: usize) -> BotResult<Embed> {
+        if let Some(ref embed) = self.embed {
+            Ok(embed.to_owned())
+        } else {
+            let data = if let Some(user) = self.user_ref {
+                TrackNotificationEmbed::new(user, score, idx).await
+            } else if let Some(ref user) = self.user {
+                TrackNotificationEmbed::new(user, score, idx).await
+            } else {
+                let user = ctx.osu().user(self.user_id).mode(self.mode).await?;
+                let user = self.user.get_or_insert(user);
+
+                TrackNotificationEmbed::new(user, score, idx).await
+            };
+
+            let embed = data.build().build()?;
+
+            Ok(self.embed.get_or_insert(embed).to_owned())
         }
     }
 }

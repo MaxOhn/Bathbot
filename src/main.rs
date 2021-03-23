@@ -71,6 +71,7 @@ pub type BotResult<T> = std::result::Result<T, Error>;
 
 fn main() {
     let runtime = Runtime::new().expect("Could not start runtime");
+
     if let Err(why) = runtime.block_on(async move { async_main().await }) {
         unwind_error!(error, why, "Critical error in main: {}");
     }

@@ -118,7 +118,7 @@ async fn common_main(
 
     // Process users and their top scores for tracking
     for scores in all_scores.iter_mut() {
-        process_tracking(&ctx, mode, scores).await;
+        process_tracking(&ctx, mode, scores, None).await;
     }
 
     // Consider only scores on common maps

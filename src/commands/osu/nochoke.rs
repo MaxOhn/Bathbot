@@ -79,7 +79,7 @@ async fn nochokes_main(
     };
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, mode, &mut scores).await;
+    process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
 
     // Unchoke scores asynchronously
     let unchoke_fut = scores

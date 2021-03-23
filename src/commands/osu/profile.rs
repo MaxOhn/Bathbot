@@ -126,7 +126,7 @@ pub async fn profile_embed(
     };
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, mode, &mut scores).await;
+    process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
 
     // Store maps in DB
     if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {

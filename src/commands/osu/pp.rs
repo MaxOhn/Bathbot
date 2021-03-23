@@ -90,7 +90,7 @@ async fn pp_main(
     };
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, mode, &mut scores).await;
+    process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
 
     // Accumulate all necessary data
     let data = PPMissingEmbed::new(user, scores, pp, rank);

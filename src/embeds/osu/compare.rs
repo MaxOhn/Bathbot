@@ -47,7 +47,7 @@ pub struct CompareEmbed {
 
 impl CompareEmbed {
     pub async fn new(
-        user: User,
+        user: &User,
         personal: Option<&[Score]>,
         map_score: BeatmapUserScore,
         with_mods: bool,

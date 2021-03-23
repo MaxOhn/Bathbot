@@ -67,7 +67,7 @@ async fn ratios(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, GameMode::MNA, &mut scores).await;
+    process_tracking(&ctx, GameMode::MNA, &mut scores, Some(&user)).await;
 
     // Accumulate all necessary data
     let data = RatioEmbed::new(user, scores);

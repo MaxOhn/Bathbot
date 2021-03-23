@@ -45,7 +45,7 @@ use tokio::time::{sleep, timeout, Duration};
 
 type ClientResult<T> = Result<T, CustomClientError>;
 
-static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), ", ", env!("CARGO_PKG_VERSION"));
+static USER_AGENT: &str = env!("CARGO_PKG_NAME");
 static OSU_SESSION: OnceCell<&'static str> = OnceCell::new();
 static BEATCONNECT_API_KEY: OnceCell<&'static str> = OnceCell::new();
 

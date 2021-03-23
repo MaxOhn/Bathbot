@@ -101,7 +101,7 @@ async fn topif_main(
     };
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, mode, &mut scores).await;
+    process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
 
     // Calculate bonus pp
     let actual_pp = scores

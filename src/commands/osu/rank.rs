@@ -171,7 +171,7 @@ async fn rank_main(
 
     if let Some(scores) = scores.as_deref_mut() {
         // Process user and their top scores for tracking
-        process_tracking(&ctx, mode, scores).await;
+        process_tracking(&ctx, mode, scores, Some(data.user())).await;
     }
 
     // Creating the embed

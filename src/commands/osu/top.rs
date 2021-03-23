@@ -141,7 +141,7 @@ async fn top_main(
     };
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, mode, &mut scores).await;
+    process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
 
     // Filter scores according to mods, combo, acc, and grade
     let scores = filter_scores(top_type, scores, &args);

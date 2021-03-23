@@ -215,7 +215,7 @@ async fn recent_main(
             unwind_error!(warn, why, "Error while storing best maps in DB: {}");
         }
 
-        process_tracking(&ctx, mode, scores).await;
+        process_tracking(&ctx, mode, scores, Some(&user)).await;
     }
 
     // Wait for minimizing

@@ -118,7 +118,7 @@ async fn mapper_main(
     };
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, mode, &mut scores).await;
+    process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
 
     let mut scores: Vec<_> = scores
         .into_iter()

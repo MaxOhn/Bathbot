@@ -170,7 +170,7 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
     // Accumulate all necessary data
     let mode = score.score.mode;
 
-    let data = match CompareEmbed::new(user, best.as_deref(), score, arg_mods.is_some()).await {
+    let data = match CompareEmbed::new(&user, best.as_deref(), score, arg_mods.is_some()).await {
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
@@ -192,7 +192,7 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
             unwind_error!(warn, why, "Error while storing best maps in DB: {}");
         }
 
-        process_tracking(&ctx, mode, scores).await;
+        process_tracking(&ctx, mode, scores, Some(&user)).await;
     }
 
     // Wait for minimizing

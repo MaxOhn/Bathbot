@@ -11,7 +11,7 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use rosu_v2::prelude::{GameMode, Score};
+use rosu_v2::prelude::{GameMode, Score, User};
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct TrackNotificationEmbed {
@@ -26,10 +26,9 @@ pub struct TrackNotificationEmbed {
 }
 
 impl TrackNotificationEmbed {
-    pub async fn new(score: &Score, idx: usize) -> Self {
+    pub async fn new(user: &User, score: &Score, idx: usize) -> Self {
         let map = score.map.as_ref().unwrap();
         let mapset = score.mapset.as_ref().unwrap();
-        let user = score.user.as_ref().unwrap();
 
         let description = format!("{} __**Personal Best #{}**__", mode_emote(map.mode), idx);
         let calculations = Calculations::MAX_PP | Calculations::STARS;

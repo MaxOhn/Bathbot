@@ -67,7 +67,7 @@ async fn whatif_main(
     };
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, mode, &mut scores).await;
+    process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
 
     let data = if scores.is_empty() {
         let rank_result = ctx
