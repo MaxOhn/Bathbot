@@ -15,18 +15,22 @@ pub async fn hint(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
         Ok(hint) => msg.send_response(&ctx, hint).await,
         Err(BgGameError::NotStarted) => {
             debug!("Could not get hint because game didn't start yet");
+
             Ok(())
         }
         Err(BgGameError::NoGame) => {
             let prefix = ctx.config_first_prefix(msg.guild_id);
+
             let content = format!(
                 "No running game in this channel.\nStart one with `{}bg start`.",
                 prefix
             );
+
             msg.error(&ctx, content).await
         }
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
             Err(why.into())
         }
     }

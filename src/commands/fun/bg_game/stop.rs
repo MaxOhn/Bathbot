@@ -11,14 +11,17 @@ pub async fn stop(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
         Ok(true) => Ok(()),
         Ok(false) => {
             let prefix = ctx.config_first_prefix(msg.guild_id);
+
             let content = format!(
                 "No running game in this channel.\nStart one with `{}bg start`.",
                 prefix
             );
+
             msg.error(&ctx, content).await
         }
         Err(why) => {
             let _ = msg.error(&ctx, "Error while stopping game \\:(").await;
+
             Err(why)
         }
     }

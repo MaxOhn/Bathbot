@@ -27,26 +27,33 @@ async fn roleassign(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
+
     let channel = args.channel_id;
     let msg_id = args.message_id;
     let role = args.role_id;
+
     if ctx.cache.role(role).is_none() {
         return msg.error(&ctx, "Role not found in this guild").await;
     }
+
     if ctx.cache.guild_channel(channel).is_none() {
         return msg.error(&ctx, "Channel not found in this guild").await;
     }
+
     let message = match ctx.http.message(channel, msg_id).await? {
         Some(message) => message,
         None => {
             let _ = msg.error(&ctx, "No message found with this id").await;
+
             warn!(
                 "(Channel,Message) ({},{}) for roleassign was not found",
                 channel, msg_id
             );
+
             return Ok(());
         }
     };
+
     match ctx
         .psql()
         .add_role_assign(channel.0, msg_id.0, role.0)
@@ -55,12 +62,15 @@ async fn roleassign(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         Ok(_) => debug!("Inserted into role_assign table"),
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
             return Err(why);
         }
     }
+
     ctx.add_role_assign(channel, msg_id, role);
     let data = RoleAssignEmbed::new(&ctx, message, msg.guild_id.unwrap(), role).await;
     let embed = data.build_owned().build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
+
     Ok(())
 }

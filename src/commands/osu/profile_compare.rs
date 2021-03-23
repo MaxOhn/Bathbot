@@ -127,6 +127,7 @@ async fn compare_main(
     // Process user and their top scores for tracking
     process_tracking(&ctx, mode, &mut scores1, Some(&user1)).await;
     process_tracking(&ctx, mode, &mut scores2, Some(&user2)).await;
+
     debug!(
         "Processed tracking for profile compare ({},{})",
         user1.username, user2.username

@@ -86,6 +86,7 @@ pub async fn help(
                 let content = "Your DMs seem blocked :(\n\
                    Did you disable messages from other server members?";
                 debug!("Error while creating DM channel: {}", why);
+
                 return msg.error(&ctx, content).await;
             }
         };

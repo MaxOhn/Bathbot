@@ -12,7 +12,7 @@ use crate::{
 
 use image::{png::PngEncoder, ColorType};
 use plotters::prelude::*;
-use rosu_v2::model::GameMode;
+use rosu_v2::prelude::{GameMode, OsuError};
 use std::{cmp::Ordering::Equal, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -53,12 +53,18 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
             Some(name) => {
                 let user = match request_user(&ctx, &name, Some(GameMode::STD)).await {
                     Ok(user) => user,
+                    Err(OsuError::NotFound) => {
+                        let content = format!("User `{}` was not found", name);
+
+                        return msg.error(&ctx, content).await;
+                    }
                     Err(why) => {
                         let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
                         return Err(why.into());
                     }
                 };
+
                 if SNIPE_COUNTRIES.contains_key(user.country_code.as_str()) {
                     user.country_code.to_owned()
                 } else {

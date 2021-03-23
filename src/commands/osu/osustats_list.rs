@@ -23,6 +23,7 @@ async fn osustats_main(
         Ok(args) => args.params,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
+
     if let Some(true) = params
         .country
         .as_ref()
@@ -37,16 +38,20 @@ async fn osustats_main(
         Err(why) => {
             let content = "Some issue with the osustats website, blame bade";
             let _ = msg.error(&ctx, content).await;
+
             return Err(why);
         }
     };
+
     let country = params.country.as_deref().unwrap_or("Global");
+
     if players.is_empty() {
         let content = format!(
             "No entries found for country `{}`.\n\
             Be sure to specify it with its acronym, e.g. `de` for germany.",
             country
         );
+
         return msg.error(&ctx, content).await;
     }
 
@@ -54,6 +59,7 @@ async fn osustats_main(
     let pages = numbers::div_euclid(15, amount);
     let first_place_id = players[&1].first().unwrap().user_id;
     let data = OsuStatsListEmbed::new(&players[&1], &params.country, first_place_id, (1, pages));
+
     let content = format!(
         "Country: `{country}` ~ `Rank: {rank_min} - {rank_max}`",
         country = country,
@@ -63,6 +69,7 @@ async fn osustats_main(
 
     // Creating the embed
     let embed = data.build().build()?;
+
     let response = ctx
         .http
         .create_message(msg.channel_id)
@@ -73,6 +80,7 @@ async fn osustats_main(
     // Skip pagination if too few entries
     if players.len() <= 1 {
         response.reaction_delete(&ctx, msg.author.id);
+
         return Ok(());
     }
 
@@ -80,11 +88,13 @@ async fn osustats_main(
     let pagination =
         OsuStatsListPagination::new(Arc::clone(&ctx), response, players, params, amount);
     let owner = msg.author.id;
+
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
             unwind_error!(warn, why, "Pagination error (osustatslist): {}")
         }
     });
+
     Ok(())
 }
 
@@ -106,26 +116,33 @@ async fn prepare_players(
     params: &mut OsuStatsListParams,
 ) -> BotResult<(usize, HashMap<usize, Vec<OsuStatsPlayer>>)> {
     let mut players = HashMap::with_capacity(2);
+
     // Retrieve page one
     let page = ctx.clients.custom.get_country_globals(&params).await?;
     let len = page.len();
+
     insert(&mut players, 1, page);
+
     if len < 15 {
         return Ok((len, players));
     }
+
     // Retrieve page ten
     params.page = 10;
     let page = ctx.clients.custom.get_country_globals(&params).await?;
     let len = page.len();
     insert(&mut players, 10, page);
+
     if len > 0 {
         return Ok((135 + len, players));
     }
+
     // Retrieve page five
     params.page = 5;
     let page = ctx.clients.custom.get_country_globals(&params).await?;
     let len = page.len();
     insert(&mut players, 5, page);
+
     if 0 < len && len < 15 {
         return Ok((60 + len, players));
     } else if len == 0 {
@@ -134,6 +151,7 @@ async fn prepare_players(
         let page = ctx.clients.custom.get_country_globals(&params).await?;
         let len = page.len();
         insert(&mut players, 3, page);
+
         if 0 < len && len < 15 {
             return Ok((30 + len, players));
         } else if len == 0 {
@@ -142,6 +160,7 @@ async fn prepare_players(
             let page = ctx.clients.custom.get_country_globals(&params).await?;
             let len = page.len();
             insert(&mut players, 2, page);
+
             return Ok((15 + len, players));
         } else if len == 15 {
             // Retrieve page four
@@ -149,6 +168,7 @@ async fn prepare_players(
             let page = ctx.clients.custom.get_country_globals(&params).await?;
             let len = page.len();
             insert(&mut players, 4, page);
+
             return Ok((45 + len, players));
         }
     } else if len == 15 {
@@ -157,6 +177,7 @@ async fn prepare_players(
         let page = ctx.clients.custom.get_country_globals(&params).await?;
         let len = page.len();
         insert(&mut players, 7, page);
+
         if 0 < len && len < 15 {
             return Ok((90 + len, players));
         } else if len == 0 {
@@ -165,19 +186,23 @@ async fn prepare_players(
             let page = ctx.clients.custom.get_country_globals(&params).await?;
             let len = page.len();
             insert(&mut players, 6, page);
+
             return Ok((75 + len, players));
         }
     }
+
     for idx in 8..=9 {
         // Retrieve page idx
         params.page = idx;
         let page = ctx.clients.custom.get_country_globals(&params).await?;
         let len = page.len();
         insert(&mut players, idx, page);
+
         if len < 15 {
             return Ok(((idx - 1) * 15 + len, players));
         }
     }
+
     Ok((120 + len, players))
 }
 

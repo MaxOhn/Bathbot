@@ -8,7 +8,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu_v2::model::GameMode;
+use rosu_v2::prelude::{GameMode, OsuError};
 use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -29,6 +29,11 @@ async fn osustats_main(
     // Retrieve user
     let user = match request_user(&ctx, params.username.as_str(), Some(mode)).await {
         Ok(user) => user,
+        Err(OsuError::NotFound) => {
+            let content = format!("User `{}` was not found", params.username);
+
+            return msg.error(&ctx, content).await;
+        }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 

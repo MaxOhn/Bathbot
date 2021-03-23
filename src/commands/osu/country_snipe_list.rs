@@ -11,7 +11,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu_v2::model::GameMode;
+use rosu_v2::prelude::{GameMode, OsuError};
 use std::{cmp::Ordering::Equal, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -39,6 +39,11 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
     let osu_user = match ctx.get_link(msg.author.id.0) {
         Some(name) => match request_user(&ctx, &name, Some(GameMode::STD)).await {
             Ok(user) => Some(user),
+            Err(OsuError::NotFound) => {
+                let content = format!("User `{}` was not found", name);
+
+                return msg.error(&ctx, content).await;
+            }
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 

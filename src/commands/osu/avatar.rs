@@ -6,6 +6,7 @@ use crate::{
     BotResult, Context,
 };
 
+use rosu_v2::error::OsuError;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -24,6 +25,11 @@ async fn avatar(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
     let user = match request_user(&ctx, &name, None).await {
         Ok(user) => user,
+        Err(OsuError::NotFound) => {
+            let content = format!("User `{}` was not found", name);
+
+            return msg.error(&ctx, content).await;
+        }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 

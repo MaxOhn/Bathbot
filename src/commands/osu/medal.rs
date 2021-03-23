@@ -23,22 +23,28 @@ async fn medal(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
         Some(name) => name,
         None => {
             let content = "You must specify a medal name.";
+
             return msg.error(&ctx, content).await;
         }
     };
+
     let medal = match ctx.clients.custom.get_osekai_medal(name).await {
         Ok(Some(medal)) => medal,
         Ok(None) => {
             let content = format!("No medal found with the name `{}`", name);
+
             return msg.error(&ctx, content).await;
         }
         Err(why) => {
             let content = "Some issue with the osekai api, blame bade";
             let _ = msg.error(&ctx, content).await;
+
             return Err(why.into());
         }
     };
+
     let embed = MedalEmbed::new(medal).build_owned().build()?;
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
+
     Ok(())
 }

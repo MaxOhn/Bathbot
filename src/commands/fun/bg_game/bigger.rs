@@ -18,18 +18,22 @@ pub async fn bigger(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> 
         }
         Err(BgGameError::NotStarted) => {
             debug!("Could not get subimage because game didn't start yet");
+
             Ok(())
         }
         Err(BgGameError::NoGame) => {
             let prefix = ctx.config_first_prefix(msg.guild_id);
+
             let content = format!(
                 "No running game in this channel.\nStart one with `{}bg start`.",
                 prefix
             );
+
             msg.error(&ctx, content).await
         }
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
             Err(why.into())
         }
     }
