@@ -78,7 +78,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         // If its given as map id, try to convert into mapset id
         MapIdType::Map(id) => {
             // Check if map is in DB
-            match ctx.psql().get_beatmap(id, true).await {
+            match ctx.psql().get_beatmap(id, false).await {
                 Ok(map) => (map.mapset_id, Some(id)),
                 Err(_) => {
                     // If not in DB, request through API
