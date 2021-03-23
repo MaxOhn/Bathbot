@@ -1,7 +1,7 @@
 use crate::{
     commands::osu::prepare_score,
     embeds::{EmbedData, TrackNotificationEmbed},
-    BotResult, Context,
+    Context, Error,
 };
 
 use chrono::{DateTime, Utc};
@@ -10,7 +10,7 @@ use futures::{
     stream::{FuturesUnordered, StreamExt},
 };
 use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMode, Score, User};
+use rosu_v2::prelude::{GameMode, OsuError, Score, User};
 use std::sync::Arc;
 use tokio::time;
 use twilight_http::{
@@ -112,7 +112,25 @@ pub async fn process_tracking(
     let mut user = TrackUser::new(user_id, mode, user);
 
     // Process scores
-    score_loop(ctx, &mut user, 0, max, last, scores, &channels).await;
+    match score_loop(ctx, &mut user, 0, max, last, scores, &channels).await {
+        Err(ErrorType::NotFound) => {
+            debug!(
+                "[Tracking] User ({},{}) not found, skip reset",
+                user_id, mode
+            );
+
+            return;
+        }
+        Err(ErrorType::Osu(why)) => {
+            unwind_error!(warn, why, "osu!api error while tracking: {}");
+
+            ctx.tracking().reset(user_id, mode).await;
+            debug!("[Tracking] Reset ({},{})", user_id, mode);
+
+            return;
+        }
+        _ => {}
+    }
 
     let offset = scores.len();
 
@@ -132,7 +150,12 @@ pub async fn process_tracking(
                     new_last = new_last.max(max);
                 }
 
-                score_loop(ctx, &mut user, offset, max, last, &mut scores, &channels).await;
+                let loop_fut =
+                    score_loop(ctx, &mut user, offset, max, last, &mut scores, &channels);
+
+                if let Err(ErrorType::Osu(why)) = loop_fut.await {
+                    unwind_error!(warn, why, "osu!api error while tracking: {}");
+                }
             }
             Err(why) => unwind_error!(
                 warn,
@@ -176,7 +199,7 @@ async fn score_loop(
     last: DateTime<Utc>,
     scores: &mut [Score],
     channels: &HashMap<ChannelId, usize>,
-) {
+) -> Result<(), ErrorType> {
     for (mut idx, score) in scores.iter_mut().enumerate().take(max) {
         // Skip if its an older score
         if score.created_at <= last {
@@ -210,8 +233,10 @@ async fn score_loop(
 
             let embed = match user.embed(ctx, score, idx + 1).await {
                 Ok(embed) => embed,
-                Err(why) => {
-                    unwind_error!(warn, why, "Failed to create embed for tracking: {}");
+                Err(ErrorType::NotFound) => return Err(ErrorType::NotFound),
+                Err(ErrorType::Osu(why)) => return Err(ErrorType::Osu(why)),
+                Err(ErrorType::Bot(why)) => {
+                    unwind_error!(warn, why, "Bot error while creating embed for tracking: {}");
 
                     break;
                 }
@@ -264,6 +289,8 @@ async fn score_loop(
             user.clear();
         }
     }
+
+    Ok(())
 }
 
 struct TrackUser<'u> {
@@ -291,7 +318,12 @@ impl<'u> TrackUser<'u> {
         self.embed.take();
     }
 
-    async fn embed(&mut self, ctx: &Context, score: &Score, idx: usize) -> BotResult<Embed> {
+    async fn embed(
+        &mut self,
+        ctx: &Context,
+        score: &Score,
+        idx: usize,
+    ) -> Result<Embed, ErrorType> {
         if let Some(ref embed) = self.embed {
             Ok(embed.to_owned())
         } else {
@@ -300,15 +332,26 @@ impl<'u> TrackUser<'u> {
             } else if let Some(ref user) = self.user {
                 TrackNotificationEmbed::new(user, score, idx).await
             } else {
-                let user = ctx.osu().user(self.user_id).mode(self.mode).await?;
+                let user = match ctx.osu().user(self.user_id).mode(self.mode).await {
+                    Ok(user) => user,
+                    Err(OsuError::NotFound) => return Err(ErrorType::NotFound),
+                    Err(why) => return Err(ErrorType::Osu(why)),
+                };
+
                 let user = self.user.get_or_insert(user);
 
                 TrackNotificationEmbed::new(user, score, idx).await
             };
 
-            let embed = data.build().build()?;
+            let embed = data.build().build().map_err(|e| ErrorType::Bot(e.into()))?;
 
             Ok(self.embed.get_or_insert(embed).to_owned())
         }
     }
+}
+
+enum ErrorType {
+    NotFound,
+    Osu(OsuError),
+    Bot(Error),
 }
