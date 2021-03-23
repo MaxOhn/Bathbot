@@ -69,7 +69,7 @@ use twilight_model::gateway::{
 };
 
 type Name = SmallString<[u8; 15]>;
-pub type BotResult<T> = std::result::Result<T, Error>;
+type BotResult<T> = std::result::Result<T, Error>;
 
 fn main() {
     let runtime = Runtime::new().expect("Could not start runtime");

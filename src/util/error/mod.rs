@@ -49,7 +49,6 @@ macro_rules! format_err {
 pub enum Error {
     Authority(Box<Error>),
     BgGame(BgGameError),
-    CacheDefrost(&'static str, Box<Error>),
     CreateMessage(CreateMessageError),
     ChronoParse(ChronoParseError),
     Command(Box<Error>, String),
@@ -85,7 +84,6 @@ impl StdError for Error {
         match self {
             Self::Authority(e) => Some(e),
             Self::BgGame(e) => Some(e),
-            Self::CacheDefrost(_, e) => Some(e),
             Self::CreateMessage(e) => Some(e),
             Self::ChronoParse(e) => Some(e),
             Self::Command(e, _) => Some(e),
@@ -123,7 +121,6 @@ impl fmt::Display for Error {
         match self {
             Self::Authority(_) => f.write_str("error while checking authorty status"),
             Self::BgGame(_) => f.write_str("background game error"),
-            Self::CacheDefrost(reason, _) => write!(f, "error defrosting cache: {}", reason),
             Self::CreateMessage(_) => f.write_str("error while creating message"),
             Self::ChronoParse(_) => f.write_str("chrono parse error"),
             Self::Command(_, cmd) => write!(f, "command error: {}", cmd),
