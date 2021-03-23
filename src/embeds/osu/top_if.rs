@@ -3,7 +3,7 @@ use crate::{
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
-        numbers::with_comma_u64,
+        numbers::with_comma_uint,
         ScoreExt,
     },
 };
@@ -60,7 +60,7 @@ impl TopIfEmbed {
                 grade = score.grade_emote(mode),
                 pp = pp,
                 acc = score.acc_string(mode),
-                score = with_comma_u64(score.score as u64),
+                score = with_comma_uint(score.score),
                 combo = osu::get_combo(score, map),
                 hits = score.hits_string(mode),
                 ago = how_long_ago(&score.created_at)

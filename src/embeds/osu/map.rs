@@ -4,7 +4,7 @@ use crate::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::sec_to_minsec,
         error::PPError,
-        numbers::{round, with_comma_u64},
+        numbers::{round, with_comma_uint},
         osu::{mode_emote, prepare_beatmap_file},
     },
     BotResult,
@@ -129,10 +129,10 @@ impl MapEmbed {
             let _ = writeln!(
                 pp_values,
                 "    |{:^len$}|{:^len$}|{:^len$}|{:^len$}",
-                with_comma_u64(acc_to_score(mod_mult, 95.0)),
-                with_comma_u64(acc_to_score(mod_mult, 97.0)),
-                with_comma_u64(acc_to_score(mod_mult, 99.0)),
-                with_comma_u64(acc_to_score(mod_mult, 100.0)),
+                with_comma_uint(acc_to_score(mod_mult, 95.0)),
+                with_comma_uint(acc_to_score(mod_mult, 97.0)),
+                with_comma_uint(acc_to_score(mod_mult, 99.0)),
+                with_comma_uint(acc_to_score(mod_mult, 100.0)),
                 len = len,
             );
 
@@ -208,8 +208,8 @@ impl MapEmbed {
 
         let mut field_name = format!(
             ":heart: {}  :play_pause: {}  | {:?}, {:?}",
-            with_comma_u64(mapset.favourite_count as u64),
-            with_comma_u64(mapset.playcount as u64),
+            with_comma_uint(mapset.favourite_count),
+            with_comma_uint(mapset.playcount),
             mapset.language.expect("no language in mapset"),
             mapset.genre.expect("no genre in mapset"),
         );

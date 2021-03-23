@@ -5,7 +5,7 @@ use crate::{
         datetime::how_long_ago,
         error::PPError,
         matcher::highlight_funny_numeral,
-        numbers::{round, with_comma_u64},
+        numbers::{round, with_comma_uint},
         osu::{grade_completion_mods, prepare_beatmap_file},
         ScoreExt,
     },
@@ -247,7 +247,7 @@ impl RecentEmbed {
             image: image.unwrap(),
             grade_completion_mods,
             stars,
-            score: with_comma_u64(score.score as u64),
+            score: with_comma_uint(score.score).to_string(),
             acc: round(score.accuracy),
             ago: how_long_ago(&score.created_at),
             pp,
@@ -514,7 +514,7 @@ fn score_cmp_description(
         } else if s.grade != Grade::F {
             let msg = format!(
                 "Missing {} score for a personal best on the map",
-                with_comma_u64((s.score - score.score + 1) as u64)
+                with_comma_uint(s.score - score.score + 1)
             );
 
             return Some(Cow::Owned(msg));

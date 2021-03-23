@@ -5,7 +5,7 @@ use crate::{
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
-        numbers::with_comma_u64,
+        numbers::with_comma_uint,
         osu::grade_emote,
         ScoreExt,
     },
@@ -77,7 +77,7 @@ impl OsuStatsGlobalsEmbed {
                 grade = grade,
                 pp = pp,
                 acc = score.accuracy,
-                score = with_comma_u64(score.score as u64),
+                score = with_comma_uint(score.score),
                 combo = combo,
                 hits = score.hits_string(score.map.mode),
                 ago = how_long_ago(&score.date)

@@ -1,6 +1,6 @@
 use crate::{
     embeds::{EmbedData, Footer},
-    util::numbers::with_comma_u64,
+    util::numbers::with_comma_uint,
 };
 
 use chrono::{DateTime, Utc};
@@ -21,37 +21,37 @@ impl CacheEmbed {
         let _ = writeln!(
             description,
             "Channels (Guilds): {}",
-            with_comma_u64(stats.metrics.channels_guild.load(Relaxed) as u64)
+            with_comma_uint(stats.metrics.channels_guild.load(Relaxed))
         );
         let _ = writeln!(
             description,
             "Channels (Private): {}",
-            with_comma_u64(stats.metrics.channels_private.load(Relaxed) as u64)
+            with_comma_uint(stats.metrics.channels_private.load(Relaxed))
         );
         let _ = writeln!(
             description,
             "Emojis: {}",
-            with_comma_u64(stats.metrics.emojis.load(Relaxed) as u64)
+            with_comma_uint(stats.metrics.emojis.load(Relaxed))
         );
         let _ = writeln!(
             description,
             "Guilds: {}",
-            with_comma_u64(stats.metrics.guilds.load(Relaxed) as u64)
+            with_comma_uint(stats.metrics.guilds.load(Relaxed))
         );
         let _ = writeln!(
             description,
             "Members: {}",
-            with_comma_u64(stats.metrics.members.load(Relaxed) as u64)
+            with_comma_uint(stats.metrics.members.load(Relaxed))
         );
         let _ = writeln!(
             description,
             "Messages: {}",
-            with_comma_u64(stats.metrics.messages.load(Relaxed) as u64)
+            with_comma_uint(stats.metrics.messages.load(Relaxed))
         );
         let _ = writeln!(
             description,
             "Roles: {}",
-            with_comma_u64(stats.metrics.roles.load(Relaxed) as u64)
+            with_comma_uint(stats.metrics.roles.load(Relaxed))
         );
         let _ = writeln!(
             description,
@@ -74,7 +74,7 @@ impl CacheEmbed {
                 guild_value,
                 "{:<len$}: {}",
                 guild.name,
-                with_comma_u64(guild.member_count as u64),
+                with_comma_uint(guild.member_count),
                 len = max_name_len
             );
         }

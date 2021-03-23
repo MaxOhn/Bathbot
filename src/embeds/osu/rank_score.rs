@@ -1,6 +1,6 @@
 use crate::{
     embeds::{Author, EmbedData},
-    util::{constants::AVATAR_URL, numbers::with_comma_u64},
+    util::{constants::AVATAR_URL, numbers::with_comma_uint},
 };
 
 use rosu_v2::model::user::User;
@@ -30,9 +30,9 @@ impl RankRankedScoreEmbed {
                 ranked score**, so {name} is already above that with **{score} ranked score**.",
                 rank = rank,
                 holder_name = rank_holder.username,
-                holder_score = with_comma_u64(rank_holder_score),
+                holder_score = with_comma_uint(rank_holder_score),
                 name = user.username,
-                score = with_comma_u64(user_score)
+                score = with_comma_uint(user_score)
             )
         } else {
             format!(
@@ -40,9 +40,9 @@ impl RankRankedScoreEmbed {
                  ranked score**, so {name} is missing **{missing}** score.",
                 rank = rank,
                 holder_name = rank_holder.username,
-                holder_score = with_comma_u64(rank_holder_score),
+                holder_score = with_comma_uint(rank_holder_score),
                 name = user.username,
-                missing = with_comma_u64(rank_holder_score - user_score),
+                missing = with_comma_uint(rank_holder_score - user_score),
             )
         };
 

@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::fmt;
 
 /// Round with two decimal positions
 #[inline]
@@ -6,74 +6,98 @@ pub fn round(n: f32) -> f32 {
     (100.0 * n).round() / 100.0
 }
 
-pub fn with_comma(n: f32) -> String {
-    let mut int = n.trunc() as i64;
-    assert!(int >= 0, "cannot round negative f32");
+pub struct FormatF32(f32);
 
-    let size = match int {
-        _ if int < 1000 => 6,
-        _ if int < 1_000_000 => 10,
-        _ => 14,
-    };
+impl fmt::Display for FormatF32 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut int = self.0.trunc() as i64;
+        debug_assert!(int >= 0, "cannot round negative f32");
 
-    let mut writer = String::with_capacity(size);
-    let mut rev = 0;
-    let mut triples = 0;
+        let mut rev = 0;
+        let mut triples = 0;
 
-    while int > 0 {
-        rev = rev * 1000 + int % 1000;
-        int /= 1000;
-        triples += 1;
-    }
-
-    let _ = write!(writer, "{}", rev % 1000);
-    rev /= 1000;
-
-    for _ in 0..triples - 1 {
-        let _ = write!(writer, ",{:0>3}", rev % 1000);
-        rev /= 1000;
-    }
-
-    let mut dec = (100.0 * n.fract()).round() as u32;
-
-    if dec > 0 {
-        if dec % 10 == 0 {
-            dec /= 10;
+        while int > 0 {
+            rev = rev * 1000 + int % 1000;
+            int /= 1000;
+            triples += 1;
         }
 
-        let _ = write!(writer, ".{}", dec);
-    }
+        write!(f, "{}", rev % 1000)?;
 
-    writer
+        for _ in 0..triples - 1 {
+            rev /= 1000;
+            write!(f, ",{:0>3}", rev % 1000)?;
+        }
+
+        let mut dec = (100.0 * self.0.fract()).round() as u32;
+
+        if dec > 0 {
+            if dec % 10 == 0 {
+                dec /= 10;
+            }
+
+            write!(f, ".{}", dec)?;
+        }
+
+        Ok(())
+    }
 }
 
-pub fn with_comma_u64(mut n: u64) -> String {
-    let size = match n {
-        _ if n < 1000 => 3,
-        _ if n < 1_000_000 => 7,
-        _ if n < 1_000_000_000 => 11,
-        _ => 15,
+#[inline]
+pub fn with_comma_float(n: f32) -> FormatF32 {
+    FormatF32(n)
+}
+
+pub struct FormatUint(u64);
+
+impl fmt::Display for FormatUint {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut n = self.0;
+
+        let mut rev = 0;
+        let mut triples = 0;
+
+        while n > 0 {
+            rev = rev * 1000 + n % 1000;
+            n /= 1000;
+            triples += 1;
+        }
+
+        write!(f, "{}", rev % 1000)?;
+
+        for _ in 0..triples - 1 {
+            rev /= 1000;
+            write!(f, ",{:0>3}", rev % 1000)?;
+        }
+
+        Ok(())
+    }
+}
+
+pub trait Uint {
+    fn into_u64(self) -> u64;
+}
+
+macro_rules! into_uint {
+    ($ty:ty) => {
+        impl Uint for $ty {
+            #[inline]
+            fn into_u64(self) -> u64 {
+                self as u64
+            }
+        }
     };
+}
 
-    let mut writer = String::with_capacity(size);
-    let mut rev = 0;
-    let mut triples = 0;
+into_uint!(u8);
+into_uint!(u16);
+into_uint!(u32);
+into_uint!(u64);
+into_uint!(usize);
 
-    while n > 0 {
-        rev = rev * 1000 + n % 1000;
-        n /= 1000;
-        triples += 1;
-    }
-
-    let _ = write!(writer, "{}", rev % 1000);
-    rev /= 1000;
-
-    for _ in 0..triples - 1 {
-        let _ = write!(writer, ",{:0>3}", rev % 1000);
-        rev /= 1000;
-    }
-
-    writer
+#[inline]
+pub fn with_comma_uint<T: Uint>(n: T) -> FormatUint {
+    FormatUint(n.into_u64())
 }
 
 #[inline]
@@ -102,6 +126,7 @@ mod tests {
     fn test_round() {
         let v1 = 3.1615;
         let v2 = 3.16;
+
         if round(v1) - v2 > std::f32::EPSILON {
             panic!("[test_round] round({})={} != {}", v1, round(v1), v2);
         }
@@ -109,11 +134,17 @@ mod tests {
 
     #[test]
     fn test_with_comma_u64() {
-        assert_eq!(with_comma_u64(31_415_926_u64), "31,415,926".to_owned());
+        assert_eq!(
+            with_comma_uint(31_415_926_u32).to_string(),
+            "31,415,926".to_owned()
+        );
     }
 
     #[test]
     fn test_with_comma_f32() {
-        assert_eq!(with_comma(31_925.53), "31,925.53".to_owned());
+        assert_eq!(
+            with_comma_float(31_925.53).to_string(),
+            "31,925.53".to_owned()
+        );
     }
 }

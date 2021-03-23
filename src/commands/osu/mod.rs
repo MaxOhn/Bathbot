@@ -90,7 +90,7 @@ pub use whatif::*;
 
 use crate::{
     custom_client::OsuStatsParams,
-    util::{numbers, MessageExt},
+    util::{numbers::with_comma_uint, MessageExt},
     BotResult, Context, Error,
 };
 
@@ -280,7 +280,7 @@ async fn get_globals_count(
 
         params = params.rank_max(rank);
         let (_, count) = ctx.clients.custom.get_global_scores(&params).await?;
-        counts.insert(rank, Cow::Owned(numbers::with_comma_u64(count as u64)));
+        counts.insert(rank, Cow::Owned(with_comma_uint(count).to_string()));
 
         if count == 0 {
             get_amount = false;

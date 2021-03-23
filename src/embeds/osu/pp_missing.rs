@@ -2,7 +2,7 @@ use crate::{
     embeds::{Author, EmbedData, Footer},
     util::{
         constants::AVATAR_URL,
-        numbers::{with_comma, with_comma_u64},
+        numbers::{with_comma_float, with_comma_uint},
         osu::pp_missing,
     },
 };
@@ -25,22 +25,22 @@ impl PPMissingEmbed {
         let title = format!(
             "What score is {name} missing to reach {pp_given}pp?",
             name = user.username,
-            pp_given = with_comma(pp),
+            pp_given = with_comma_float(pp),
         );
 
         let description = if scores.is_empty() {
             format!(
                 "To reach {pp}pp with one additional score, {user} needs to perform \
                  a **{pp}pp** score which would be the top #1",
-                pp = with_comma(pp),
+                pp = with_comma_float(pp),
                 user = user.username,
             )
         } else if stats.pp > pp {
             format!(
                 "{name} has {pp_raw}pp which is already more than {pp_given}pp.",
                 name = user.username,
-                pp_raw = with_comma(stats.pp),
-                pp_given = with_comma(pp)
+                pp_raw = with_comma_float(stats.pp),
+                pp_given = with_comma_float(pp)
             )
         } else {
             let (required, idx) = pp_missing(stats.pp, pp, &scores);
@@ -48,9 +48,9 @@ impl PPMissingEmbed {
             format!(
                 "To reach {pp}pp with one additional score, {user} needs to perform \
                  a **{required}pp** score which would be the top #{idx}",
-                pp = with_comma(pp),
+                pp = with_comma_float(pp),
                 user = user.username,
-                required = with_comma(required),
+                required = with_comma_float(required),
                 idx = idx
             )
         };
@@ -58,8 +58,8 @@ impl PPMissingEmbed {
         let footer = rank.map(|rank| {
             Footer::new(format!(
                 "The current rank for {pp}pp is #{rank}",
-                pp = with_comma(pp),
-                rank = with_comma_u64(rank as u64),
+                pp = with_comma_float(pp),
+                rank = with_comma_uint(rank),
             ))
         });
 

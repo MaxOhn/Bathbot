@@ -3,10 +3,10 @@ use crate::Name;
 use chrono::{offset::TimeZone, DateTime, Utc};
 use rosu_v2::model::GameMods;
 use serde::{
-    de::{Error, Unexpected},
+    de::{Error, Unexpected, Visitor},
     Deserialize, Deserializer,
 };
-use std::str::FromStr;
+use std::{fmt, str::FromStr};
 
 pub fn str_to_maybe_datetime<'de, D>(d: D) -> Result<Option<DateTime<Utc>>, D::Error>
 where
@@ -81,7 +81,19 @@ pub fn expect_negative_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Er
 }
 
 pub fn str_to_name<'de, D: Deserializer<'de>>(d: D) -> Result<Name, D::Error> {
-    let name: &str = Deserialize::deserialize(d)?;
+    d.deserialize_str(NameVisitor)
+}
 
-    Ok(name.into())
+struct NameVisitor;
+
+impl<'de> Visitor<'de> for NameVisitor {
+    type Value = Name;
+
+    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("a string")
+    }
+
+    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+        Ok(v.into())
+    }
 }

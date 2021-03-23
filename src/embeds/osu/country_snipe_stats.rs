@@ -3,7 +3,7 @@ use crate::{
     embeds::{EmbedData, Footer},
     util::{
         constants::OSU_BASE,
-        numbers::{round, with_comma_u64},
+        numbers::{round, with_comma_uint},
         Country,
     },
 };
@@ -63,8 +63,8 @@ impl CountrySnipeStatsEmbed {
 
         let footer = Footer::new(format!(
             "Unplayed maps: {}/{} ({}%)",
-            with_comma_u64(statistics.unplayed_maps as u64),
-            with_comma_u64(statistics.total_maps as u64),
+            with_comma_uint(statistics.unplayed_maps),
+            with_comma_uint(statistics.total_maps),
             percent
         ));
 

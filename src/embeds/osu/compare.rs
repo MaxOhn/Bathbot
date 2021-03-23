@@ -5,7 +5,7 @@ use crate::{
         datetime::how_long_ago,
         error::PPError,
         matcher::highlight_funny_numeral,
-        numbers::{round, with_comma, with_comma_u64},
+        numbers::{round, with_comma_float, with_comma_uint},
         osu::{grade_completion_mods, prepare_beatmap_file},
         ScoreExt,
     },
@@ -229,7 +229,7 @@ impl CompareEmbed {
             image: image.unwrap(),
             grade_completion_mods,
             stars,
-            score: with_comma_u64(score.score as u64),
+            score: with_comma_uint(score.score).to_string(),
             acc: round(score.accuracy),
             ago: how_long_ago(&score.created_at),
             pp,
@@ -356,8 +356,8 @@ impl NoScoresEmbed {
         let author_text = format!(
             "{name}: {pp}pp (#{global} {country}{national})",
             name = user.username,
-            pp = with_comma(stats.pp),
-            global = with_comma_u64(stats.global_rank.unwrap_or(0) as u64),
+            pp = with_comma_float(stats.pp),
+            global = with_comma_uint(stats.global_rank.unwrap_or(0)),
             country = user.country_code,
             national = stats.country_rank.unwrap_or(0),
         );

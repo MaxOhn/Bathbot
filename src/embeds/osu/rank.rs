@@ -3,7 +3,7 @@ use crate::{
     embeds::{Author, EmbedData},
     util::{
         constants::AVATAR_URL,
-        numbers::{with_comma, with_comma_u64},
+        numbers::{with_comma_float, with_comma_uint},
         osu::pp_missing,
     },
 };
@@ -46,9 +46,9 @@ impl RankEmbed {
                         country = country,
                         rank = rank,
                         holder_name = rank_holder.username,
-                        holder_pp = with_comma(rank_holder_pp),
+                        holder_pp = with_comma_float(rank_holder_pp),
                         name = user.username,
-                        pp = with_comma(user_pp)
+                        pp = with_comma_float(user_pp)
                     )
                 } else if let Some(scores) = scores {
                     let (required, _) = pp_missing(user_pp, rank_holder_pp, &scores);
@@ -60,10 +60,10 @@ impl RankEmbed {
                         country = country,
                         rank = rank,
                         holder_name = rank_holder.username,
-                        holder_pp = with_comma(rank_holder_pp),
+                        holder_pp = with_comma_float(rank_holder_pp),
                         name = user.username,
-                        missing = with_comma(rank_holder_pp - user_pp),
-                        pp = with_comma(required),
+                        missing = with_comma_float(rank_holder_pp - user_pp),
+                        pp = with_comma_float(required),
                     )
                 } else {
                     format!(
@@ -73,7 +73,7 @@ impl RankEmbed {
                         country = country,
                         rank = rank,
                         holder_name = rank_holder.username,
-                        holder_pp = with_comma(rank_holder_pp),
+                        holder_pp = with_comma_float(rank_holder_pp),
                         name = user.username,
                     )
                 };
@@ -90,17 +90,17 @@ impl RankEmbed {
                 let title = format!(
                     "How many pp is {name} missing to reach rank #{rank}?",
                     name = user.username,
-                    rank = with_comma_u64(*rank as u64),
+                    rank = with_comma_uint(*rank as u64),
                 );
 
                 let description = if user_pp > *required_pp {
                     format!(
                         "Rank #{rank} currently requires **{required_pp}pp**, \
                         so {name} is already above that with **{pp}pp**.",
-                        rank = with_comma_u64(*rank as u64),
-                        required_pp = with_comma(*required_pp),
+                        rank = with_comma_uint(*rank as u64),
+                        required_pp = with_comma_float(*required_pp),
                         name = user.username,
-                        pp = with_comma(user_pp)
+                        pp = with_comma_float(user_pp)
                     )
                 } else if let Some(scores) = scores {
                     let (required, _) = pp_missing(user_pp, *required_pp, &scores);
@@ -109,19 +109,19 @@ impl RankEmbed {
                         "Rank #{rank} currently requires **{required_pp}pp**, \
                         so {name} is missing **{missing}** raw pp, \
                         achievable with a single score worth **{pp}pp**.",
-                        rank = with_comma_u64(*rank as u64),
-                        required_pp = with_comma(*required_pp),
+                        rank = with_comma_uint(*rank as u64),
+                        required_pp = with_comma_float(*required_pp),
                         name = user.username,
-                        missing = with_comma(required_pp - user_pp),
-                        pp = with_comma(required),
+                        missing = with_comma_float(required_pp - user_pp),
+                        pp = with_comma_float(required),
                     )
                 } else {
                     format!(
                         "Rank #{rank} currently requires **{required_pp}pp**, \
                         so {name} is missing **{required_pp}** raw pp, \
                         achievable with a single score worth **{required_pp}pp**.",
-                        rank = with_comma_u64(*rank as u64),
-                        required_pp = with_comma(*required_pp),
+                        rank = with_comma_uint(*rank as u64),
+                        required_pp = with_comma_float(*required_pp),
                         name = user.username,
                     )
                 };

@@ -1,5 +1,6 @@
 
 **[TODO]**
+- Add max combo for `<map`
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
 - Benchmark for `smartstring`, `smallstr`, `smallvec`, and `arrayvec`
 - ~~Split database tables based on popular queries~~

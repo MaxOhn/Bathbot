@@ -5,7 +5,7 @@ use crate::{
     util::{
         constants::{BATHBOT_WORKSHOP, INVITE_LINK, OWNER_USER_ID},
         discord_avatar,
-        numbers::with_comma_u64,
+        numbers::with_comma_uint,
     },
     BotResult, Context,
 };
@@ -75,7 +75,11 @@ impl AboutEmbed {
         ))
         .icon_url(discord_avatar(owner.id, owner.avatar.as_deref().unwrap()));
         let fields = vec![
-            ("Guilds".to_owned(), with_comma_u64(guilds as u64), true),
+            (
+                "Guilds".to_owned(),
+                with_comma_uint(guilds as u64).to_string(),
+                true,
+            ),
             (
                 "Process CPU".to_owned(),
                 format!("{:.2}%", process_cpu),

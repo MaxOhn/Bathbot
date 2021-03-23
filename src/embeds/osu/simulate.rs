@@ -5,7 +5,7 @@ use crate::{
     util::{
         constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
         error::PPError,
-        numbers::{round, with_comma_u64},
+        numbers::{round, with_comma_uint},
         osu::{grade_completion_mods, prepare_beatmap_file, ModSelection},
         ScoreExt,
     },
@@ -210,7 +210,11 @@ impl EmbedData for SimulateEmbed {
 
         if self.mode == GameMode::MNA {
             fields.push(("PP".to_owned(), pp, true));
-            fields.push(("Score".to_owned(), with_comma_u64(self.score), true));
+            fields.push((
+                "Score".to_owned(),
+                with_comma_uint(self.score).to_string(),
+                true,
+            ));
         } else {
             fields.push(("PP".to_owned(), pp, true));
             let hits = if let Some(ref prev_hits) = self.prev_hits {
@@ -250,7 +254,7 @@ impl EmbedData for SimulateEmbed {
         };
 
         let score = if self.mode == GameMode::MNA {
-            with_comma_u64(self.score) + " "
+            with_comma_uint(self.score).to_string() + " "
         } else {
             String::new()
         };

@@ -3,7 +3,7 @@ use crate::{
     embeds::{Author, EmbedData},
     util::{
         constants::AVATAR_URL,
-        numbers::{round, with_comma, with_comma_u64},
+        numbers::{round, with_comma_float, with_comma_uint},
     },
 };
 
@@ -41,7 +41,7 @@ impl WhatIfEmbed {
                 let mut d = format!(
                     "A {pp}pp play would be {name}'s #1 best play.\n\
                      Their pp would change by **+{pp}** to **{pp}pp**",
-                    pp = with_comma(pp),
+                    pp = with_comma_float(pp),
                     name = user.username,
                 );
 
@@ -49,7 +49,7 @@ impl WhatIfEmbed {
                     let _ = write!(
                         d,
                         "\nand they would reach rank #{}.",
-                        with_comma_u64(rank.min(stats.global_rank.unwrap_or(0)) as u64)
+                        with_comma_uint(rank.min(stats.global_rank.unwrap_or(0)))
                     );
                 } else {
                     d.push('.');
@@ -71,14 +71,14 @@ impl WhatIfEmbed {
                     name = user.username,
                     num = new_pos,
                     pp_change = new_pp + bonus_pp - stats.pp,
-                    new_pp = with_comma(new_pp + bonus_pp)
+                    new_pp = with_comma_float(new_pp + bonus_pp)
                 );
 
                 if let Some(rank) = rank {
                     let _ = write!(
                         d,
                         "\nand they would reach rank #{}.",
-                        with_comma_u64(rank.min(stats.global_rank.unwrap_or(0)) as u64)
+                        with_comma_uint(rank.min(stats.global_rank.unwrap_or(0)))
                     );
                 } else {
                     d.push('.');

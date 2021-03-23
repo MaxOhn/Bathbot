@@ -4,7 +4,7 @@ use crate::{
     util::{
         constants::{AVATAR_URL, DARK_GREEN},
         datetime::{date_to_string, how_long_ago, sec_to_minsec},
-        numbers::{round, with_comma_u64},
+        numbers::{round, with_comma_uint},
         osu::grade_emote,
     },
 };
@@ -68,7 +68,7 @@ impl ProfileEmbed {
         let main_fields = vec![
             (
                 "Ranked score".to_owned(),
-                with_comma_u64(stats.ranked_score),
+                with_comma_uint(stats.ranked_score).to_string(),
                 true,
             ),
             (
@@ -78,12 +78,12 @@ impl ProfileEmbed {
             ),
             (
                 "Max combo".to_owned(),
-                with_comma_u64(stats.max_combo as u64),
+                with_comma_uint(stats.max_combo).to_string(),
                 true,
             ),
             (
                 "Total score".to_owned(),
-                with_comma_u64(stats.total_score),
+                with_comma_uint(stats.total_score).to_string(),
                 true,
             ),
             (
@@ -98,13 +98,13 @@ impl ProfileEmbed {
             ),
             (
                 "Total hits".to_owned(),
-                with_comma_u64(stats.total_hits as u64),
+                with_comma_uint(stats.total_hits).to_string(),
                 true,
             ),
             ("Bonus PP".to_owned(), format!("{}pp", bonus_pp), true),
             (
                 "Followers".to_owned(),
-                with_comma_u64(user.follower_count.unwrap() as u64),
+                with_comma_uint(user.follower_count.unwrap_or(0)).to_string(),
                 true,
             ),
             (
@@ -128,14 +128,14 @@ impl ProfileEmbed {
                 "Play count / time".to_owned(),
                 format!(
                     "{} / {} hrs",
-                    with_comma_u64(stats.playcount as u64),
+                    with_comma_uint(stats.playcount).to_string(),
                     stats.playtime / 3600
                 ),
                 true,
             ),
             (
                 "Replays watched".to_owned(),
-                with_comma_u64(stats.replays_watched as u64),
+                with_comma_uint(stats.replays_watched).to_string(),
                 true,
             ),
         ];

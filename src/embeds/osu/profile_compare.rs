@@ -3,7 +3,7 @@ use crate::{
     embeds::EmbedData,
     util::{
         datetime::sec_to_minsec,
-        numbers::{with_comma, with_comma_u64},
+        numbers::{with_comma_float, with_comma_uint},
     },
 };
 
@@ -126,7 +126,7 @@ impl ProfileCompareEmbed {
             .monthly_playcounts
             .unwrap()
             .iter()
-            .map(|date_count| date_count.count)
+            .map(|date_count| date_count.count as u64)
             .max()
             .unwrap_or(0);
 
@@ -134,15 +134,15 @@ impl ProfileCompareEmbed {
             .monthly_playcounts
             .unwrap()
             .iter()
-            .map(|date_count| date_count.count)
+            .map(|date_count| date_count.count as u64)
             .max()
             .unwrap_or(0);
 
         write_line(
             &mut d,
             "PC peak",
-            with_comma_u64(left_peak as u64),
-            with_comma_u64(right_peak as u64),
+            with_comma_uint(left_peak).to_string(),
+            with_comma_uint(right_peak).to_string(),
             left_peak,
             right_peak,
             max_left,
@@ -218,8 +218,8 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Max Combo",
-            with_comma_u64(stats1.max_combo as u64),
-            with_comma_u64(stats2.max_combo as u64),
+            with_comma_uint(stats1.max_combo).to_string(),
+            with_comma_uint(stats2.max_combo).to_string(),
             stats1.max_combo,
             stats2.max_combo,
             max_left,
@@ -309,8 +309,8 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Followers",
-            with_comma_u64(user1.follower_count.unwrap() as u64),
-            with_comma_u64(user2.follower_count.unwrap() as u64),
+            with_comma_uint(user1.follower_count.unwrap_or(0)).to_string(),
+            with_comma_uint(user2.follower_count.unwrap_or(0)).to_string(),
             user1.follower_count.unwrap(),
             user2.follower_count.unwrap(),
             max_left,
@@ -320,8 +320,8 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Replays seen",
-            with_comma_u64(stats1.replays_watched as u64),
-            with_comma_u64(stats2.replays_watched as u64),
+            with_comma_uint(stats1.replays_watched).to_string(),
+            with_comma_uint(stats2.replays_watched).to_string(),
             stats1.replays_watched,
             stats2.replays_watched,
             max_left,
@@ -413,13 +413,13 @@ impl CompareStrings {
         let pp_per_month_num = 30.67 * stats.pp / days;
 
         Self {
-            pp: with_comma(stats.pp) + "pp",
-            rank: format!("#{}", with_comma_u64(stats.global_rank.unwrap_or(0) as u64)),
-            ranked_score: with_comma_u64(stats.ranked_score),
-            total_score: with_comma_u64(stats.total_score),
-            total_hits: with_comma_u64(stats.total_hits),
-            play_count: with_comma_u64(stats.playcount as u64),
-            play_time: with_comma_u64(stats.playtime as u64 / 3600) + "hrs",
+            pp: with_comma_float(stats.pp).to_string() + "pp",
+            rank: format!("#{}", with_comma_uint(stats.global_rank.unwrap_or(0))),
+            ranked_score: with_comma_uint(stats.ranked_score).to_string(),
+            total_score: with_comma_uint(stats.total_score).to_string(),
+            total_hits: with_comma_uint(stats.total_hits).to_string(),
+            play_count: with_comma_uint(stats.playcount).to_string(),
+            play_time: with_comma_uint(stats.playtime / 3600).to_string() + "hrs",
             level: format!("{:.2}", stats.level.current),
             bonus_pp: format!("{:.2}pp", bonus_pp_num),
             bonus_pp_num,
@@ -427,9 +427,9 @@ impl CompareStrings {
             accuracy: format!("{:.2}%", stats.accuracy),
             pp_per_month: format!("{:.2}pp", pp_per_month_num),
             pp_per_month_num,
-            count_ss: with_comma_u64(stats.grade_counts.ssh as u64 + stats.grade_counts.ss as u64),
-            count_s: with_comma_u64(stats.grade_counts.sh as u64 + stats.grade_counts.s as u64),
-            count_a: with_comma_u64(stats.grade_counts.a as u64),
+            count_ss: (stats.grade_counts.ssh + stats.grade_counts.ss).to_string(),
+            count_s: (stats.grade_counts.sh + stats.grade_counts.s).to_string(),
+            count_a: (stats.grade_counts.a).to_string(),
             avg_pp: format!("{:.2}pp", result.pp.avg()),
             pp_spread: format!("{:.2}pp", result.pp.max() - result.pp.min()),
         }

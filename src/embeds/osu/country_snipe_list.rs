@@ -4,7 +4,7 @@ use crate::{
     embeds::{EmbedData, Footer},
     util::{
         constants::OSU_BASE,
-        numbers::{with_comma, with_comma_u64},
+        numbers::{with_comma_float, with_comma_uint},
         Country,
     },
 };
@@ -81,10 +81,10 @@ impl CountrySnipeListEmbed {
                 } else {
                     ""
                 },
-                count = with_comma_u64(player.count_first as u64),
-                pp = with_comma(player.avg_pp),
+                count = with_comma_uint(player.count_first),
+                pp = with_comma_float(player.avg_pp),
                 stars = player.avg_sr,
-                weighted = with_comma(player.pp),
+                weighted = with_comma_float(player.pp),
             );
         }
 
