@@ -9,7 +9,7 @@ use crate::{
         Cache,
     },
     database::{Database, GuildConfig},
-    BotResult, CustomClient, OsuTracking, Twitch,
+    BotResult, CustomClient, Name, OsuTracking, Twitch,
 };
 
 use darkredis::ConnectionPool;
@@ -61,7 +61,7 @@ pub struct ContextData {
     pub tracked_streams: DashMap<u64, Vec<u64>>,
     // Mapping (channel id, message id) to role id
     pub role_assigns: DashMap<(u64, u64), u64>,
-    pub discord_links: DashMap<u64, String>,
+    pub discord_links: DashMap<u64, Name>,
     pub bg_games: DashMap<ChannelId, GameWrapper>,
     pub osu_tracking: OsuTracking,
     pub msgs_to_process: DashSet<MessageId>,

@@ -8,7 +8,7 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher, numbers, MessageExt,
     },
-    BotResult, Context,
+    BotResult, Context, Name,
 };
 
 use futures::future::TryFutureExt;
@@ -20,7 +20,7 @@ async fn mapper_main(
     mode: GameMode,
     ctx: Arc<Context>,
     msg: &Message,
-    mapper: Option<String>,
+    mapper: Option<Name>,
     args: Args<'_>,
 ) -> BotResult<()> {
     // Parse arguments
@@ -30,7 +30,7 @@ async fn mapper_main(
 
     let mapper = if let Some(mapper) = mapper {
         match args.next() {
-            Some(arg) => user = arg.to_lowercase(),
+            Some(arg) => user = arg.to_lowercase().into(),
             None => match ctx.get_link(msg.author.id.0) {
                 Some(name) => user = name,
                 None => return super::require_link(&ctx, msg).await,
@@ -52,12 +52,14 @@ async fn mapper_main(
         match args.next() {
             Some(arg) if !matches!(arg.as_str(), "-c" | "-convert" | "-converts") => {
                 user = first;
-                arg.to_lowercase()
+
+                arg.to_lowercase().into()
             }
             _ => match ctx.get_link(msg.author.id.0) {
                 Some(name) => {
                     user = name;
-                    first.to_lowercase()
+
+                    first.to_lowercase().into()
                 }
                 None => {
                     let prefix = ctx.config_first_prefix(msg.guild_id);
@@ -81,11 +83,16 @@ async fn mapper_main(
 
     // Retrieve the user and their top scores
     let user_fut = request_user(&ctx, &user, Some(mode)).map_err(From::from);
-    let scores_fut_1 = ctx.osu().user_scores(&user).best().mode(mode).limit(50);
+    let scores_fut_1 = ctx
+        .osu()
+        .user_scores(user.as_str())
+        .best()
+        .mode(mode)
+        .limit(50);
 
     let scores_fut_2 = ctx
         .osu()
-        .user_scores(&user)
+        .user_scores(user.as_str())
         .best()
         .mode(mode)
         .offset(50)
@@ -139,8 +146,9 @@ async fn mapper_main(
         // or the map is created by mapper name and not guest diff'd by someone else
         let version = map.version.to_lowercase();
 
-        version.contains(&mapper)
-            || (mapset.creator_name.to_lowercase() == mapper && !matcher::is_guest_diff(&version))
+        version.contains(mapper.as_str())
+            || (mapset.creator_name.to_lowercase().as_str() == mapper.as_str()
+                && !matcher::is_guest_diff(&version))
     });
 
     // Accumulate all necessary data
@@ -302,6 +310,7 @@ async fn mapperctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()
 #[usage("[username]")]
 #[example("badewanne3")]
 pub async fn sotarks(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    let mapper = Some(String::from("sotarks"));
+    let mapper = Some("sotarks".into());
+
     mapper_main(GameMode::STD, ctx, msg, mapper, args).await
 }

@@ -100,6 +100,9 @@ default-features = false
 version = "1.0"
 features = ["derive", "rc"]
 
+[dependencies.smallstr]
+version = "0.2"
+
 [dependencies.sqlx]
 version = "0.5"
 default-features = false

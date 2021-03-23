@@ -8,7 +8,7 @@ use crate::{
         osu::{cached_message_extract, map_id_from_history, MapIdType, ModSelection},
         MessageExt,
     },
-    BotResult, Context,
+    BotResult, Context, Name,
 };
 
 use rosu_v2::prelude::{GameMods, OsuError, RankStatus::Ranked};
@@ -84,7 +84,7 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
         Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) => Some(mods),
     };
 
-    let score_fut = ctx.osu().beatmap_user_score(map_id, &name);
+    let score_fut = ctx.osu().beatmap_user_score(map_id, name.as_str());
 
     let score_result = match arg_mods {
         None => score_fut.await,
@@ -222,7 +222,7 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
 async fn no_scores(
     ctx: Arc<Context>,
     msg: &Message,
-    name: String,
+    name: Name,
     map_id: u32,
     mods: Option<GameMods>,
 ) -> BotResult<()> {
@@ -249,7 +249,7 @@ async fn no_scores(
         },
     };
 
-    let user = match request_user(&ctx, &name, Some(map.mode)).await {
+    let user = match request_user(&ctx, name.as_str(), Some(map.mode)).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{}`", name);

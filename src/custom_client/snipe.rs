@@ -1,5 +1,5 @@
-use super::deserialize::{expect_negative_u32, str_to_maybe_datetime};
-use crate::util::osu::ModSelection;
+use super::deserialize::{expect_negative_u32, str_to_maybe_datetime, str_to_name};
+use crate::{util::osu::ModSelection, Name};
 
 use chrono::{offset::TimeZone, Date, DateTime, NaiveDate, Utc};
 use rosu_v2::model::{GameMode, GameMods};
@@ -116,16 +116,16 @@ pub struct SnipeCountryStatistics {
 pub struct SnipeTopNationalDifference {
     #[serde(rename = "most_recent_top_national")]
     pub top_national: Option<usize>,
-    #[serde(rename = "name")]
-    pub username: String,
+    #[serde(rename = "name", deserialize_with = "str_to_name")]
+    pub username: Name,
     #[serde(rename = "total_top_national_difference")]
     pub difference: i32,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct SnipePlayer {
-    #[serde(rename = "name")]
-    pub username: String,
+    #[serde(rename = "name", deserialize_with = "str_to_name")]
+    pub username: Name,
     pub user_id: u32,
     #[serde(rename = "average_pp")]
     pub avg_pp: f32,
@@ -161,8 +161,8 @@ pub struct SnipePlayer {
 
 #[derive(Debug, Deserialize)]
 pub struct SnipeCountryPlayer {
-    #[serde(rename = "name")]
-    pub username: String,
+    #[serde(rename = "name", deserialize_with = "str_to_name")]
+    pub username: Name,
     pub user_id: u32,
     #[serde(rename = "average_pp")]
     pub avg_pp: f32,
@@ -185,9 +185,9 @@ pub struct SnipePlayerOldest {
 
 #[derive(Debug)]
 pub struct SnipeRecent {
-    pub sniped: Option<String>,
+    pub sniped: Option<Name>,
     pub sniped_id: Option<u32>,
-    pub sniper: String,
+    pub sniper: Name,
     pub sniper_id: u32,
     pub mods: GameMods,
     pub beatmap_id: u32,
@@ -215,9 +215,9 @@ impl<'de> Deserialize<'de> for SnipeRecent {
             where
                 V: MapAccess<'de>,
             {
-                let mut sniped = None;
+                let mut sniped: Option<Option<&str>> = None;
                 let mut sniped_id = None;
-                let mut sniper = None;
+                let mut sniper: Option<&str> = None;
                 let mut sniper_id = None;
                 let mut mods: Option<GameMods> = None;
                 let mut beatmap_id = None;
@@ -275,9 +275,9 @@ impl<'de> Deserialize<'de> for SnipeRecent {
                 let beatmap = beatmap.ok_or_else(|| Error::missing_field("map"))?;
 
                 let snipe = SnipeRecent {
-                    sniped,
+                    sniped: sniped.map(From::from),
                     sniped_id,
-                    sniper,
+                    sniper: sniper.into(),
                     sniper_id,
                     mods,
                     beatmap_id,

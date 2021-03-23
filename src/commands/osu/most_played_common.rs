@@ -64,8 +64,12 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
         .iter()
         .cloned()
         .map(|name| async {
-            let fut_1 = ctx.osu().user_most_played(&name).limit(50);
-            let fut_2 = ctx.osu().user_most_played(&name).limit(50).offset(50);
+            let fut_1 = ctx.osu().user_most_played(name.as_str()).limit(50);
+            let fut_2 = ctx
+                .osu()
+                .user_most_played(name.as_str())
+                .limit(50)
+                .offset(50);
 
             (name, tokio::try_join!(fut_1, fut_2))
         })

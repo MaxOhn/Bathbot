@@ -11,16 +11,17 @@ use crate::{
         matcher,
         osu::{MapIdType, ModSelection},
     },
-    Context,
+    Context, Name,
 };
 
 use itertools::Itertools;
 use rosu_v2::model::{GameMode, Grade};
+use smallstr::SmallString;
 use std::{cmp::Ordering, str::FromStr};
 use twilight_model::id::{ChannelId, MessageId, RoleId};
 
 pub struct BwsArgs {
-    pub name: Option<String>,
+    pub name: Option<Name>,
     pub rank_range: Option<RankRange>,
 }
 
@@ -100,7 +101,7 @@ impl MatchArgs {
 }
 
 pub struct MultNameArgs {
-    pub names: Vec<String>,
+    pub names: Vec<Name>,
 }
 
 impl MultNameArgs {
@@ -116,7 +117,7 @@ impl MultNameArgs {
 }
 
 pub struct MultNameLimitArgs {
-    pub names: Vec<String>,
+    pub names: Vec<Name>,
     pub limit: Option<usize>,
 }
 
@@ -155,7 +156,7 @@ impl MultNameLimitArgs {
 }
 
 pub struct NameArgs {
-    pub name: Option<String>,
+    pub name: Option<Name>,
 }
 
 impl NameArgs {
@@ -168,7 +169,7 @@ impl NameArgs {
 }
 
 pub struct NameDashPArgs {
-    pub name: Option<String>,
+    pub name: Option<Name>,
     pub has_dash_p: bool,
 }
 
@@ -190,7 +191,7 @@ impl NameDashPArgs {
 }
 
 pub struct NameFloatArgs {
-    pub name: Option<String>,
+    pub name: Option<Name>,
     pub float: f32,
 }
 
@@ -210,7 +211,7 @@ impl NameFloatArgs {
 }
 
 pub struct NameGradePassArgs {
-    pub name: Option<String>,
+    pub name: Option<Name>,
     pub grade: Option<GradeArg>,
 }
 
@@ -257,7 +258,7 @@ impl NameGradePassArgs {
         let name = args.into_iter().next().and_then(|arg| {
             matcher::get_mention_user(&arg)
                 .and_then(|id| ctx.get_link(id))
-                .or_else(|| Some(arg.to_owned()))
+                .or_else(|| Some(SmallString::from_str(arg)))
         });
 
         Ok(Self { name, grade })
@@ -265,7 +266,7 @@ impl NameGradePassArgs {
 }
 
 pub struct NameIntArgs {
-    pub name: Option<String>,
+    pub name: Option<Name>,
     pub number: Option<u32>,
 }
 
@@ -288,7 +289,7 @@ impl NameIntArgs {
 }
 
 pub struct NameMapModArgs {
-    pub name: Option<String>,
+    pub name: Option<Name>,
     pub map_id: Option<MapIdType>,
     pub mods: Option<ModSelection>,
 }
@@ -330,7 +331,7 @@ impl NameMapModArgs {
 }
 
 pub struct NameModArgs {
-    pub name: Option<String>,
+    pub name: Option<Name>,
     pub mods: Option<ModSelection>,
     pub converts: bool,
 }
@@ -373,7 +374,7 @@ impl OsuStatsArgs {
     pub fn new(
         ctx: &Context,
         args: Args,
-        mut username: Option<String>,
+        mut username: Option<Name>,
         mode: GameMode,
     ) -> Result<Self, &'static str> {
         let mut args: Vec<_> = args.take(8).collect();
@@ -438,7 +439,7 @@ impl OsuStatsArgs {
         if let Some(name) = args.pop() {
             username = matcher::get_mention_user(&name)
                 .and_then(|id| ctx.get_link(id))
-                .or_else(|| Some(name.to_owned()));
+                .or_else(|| Some(SmallString::from_str(name)));
         }
 
         if username.is_none() {
@@ -525,7 +526,7 @@ pub enum RankRange {
 }
 
 pub struct RankArgs {
-    pub name: Option<String>,
+    pub name: Option<Name>,
     pub country: Option<String>,
     pub rank: usize,
     pub variant: Option<ManiaVariant>,
@@ -748,7 +749,7 @@ impl SimulateMapArgs {
 }
 
 pub struct SimulateNameArgs {
-    pub name: Option<String>,
+    pub name: Option<Name>,
     pub mods: Option<ModSelection>,
     pub score: Option<u32>,
     pub n300: Option<u32>,
@@ -774,7 +775,7 @@ impl SimulateNameArgs {
         let name = args.pop().and_then(|arg| {
             matcher::get_mention_user(&arg)
                 .and_then(|id| ctx.get_link(id))
-                .or_else(|| Some(arg.to_owned()))
+                .or_else(|| Some(SmallString::from_str(arg)))
         });
 
         Ok(Self {
@@ -792,7 +793,7 @@ impl SimulateNameArgs {
 }
 
 pub struct SnipeScoreArgs {
-    pub name: Option<String>,
+    pub name: Option<Name>,
     pub order: SnipeScoreOrder,
     pub mods: Option<ModSelection>,
     pub descending: bool,
@@ -823,7 +824,7 @@ impl SnipeScoreArgs {
         };
 
         Self {
-            name: args.pop().map(str::to_owned),
+            name: args.pop().map(SmallString::from_str),
             order,
             mods,
             descending,
@@ -838,7 +839,7 @@ pub enum GradeArg {
 }
 
 pub struct TopArgs {
-    pub name: Option<String>,
+    pub name: Option<Name>,
     pub mods: Option<ModSelection>,
     pub acc_min: Option<f32>,
     pub acc_max: Option<f32>,
@@ -940,7 +941,7 @@ impl TopArgs {
         let name = args.into_iter().next().and_then(|arg| {
             matcher::get_mention_user(&arg)
                 .and_then(|id| ctx.get_link(id))
-                .or_else(|| Some(arg.to_owned()))
+                .or_else(|| Some(SmallString::from_str(arg)))
         });
 
         Ok(Self {
@@ -958,11 +959,11 @@ impl TopArgs {
     }
 }
 
-pub fn try_link_name(ctx: &Context, msg: Option<&str>) -> Option<String> {
+pub fn try_link_name(ctx: &Context, msg: Option<&str>) -> Option<Name> {
     msg.and_then(|arg| {
         matcher::get_mention_user(arg)
             .and_then(|id| ctx.get_link(id))
-            .or_else(|| Some(arg.to_owned()))
+            .or_else(|| Some(SmallString::from_str(arg)))
     })
 }
 

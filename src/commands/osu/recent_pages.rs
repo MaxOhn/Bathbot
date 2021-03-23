@@ -45,7 +45,7 @@ async fn recent_pages_main(
 
     let scores_fut = ctx
         .osu()
-        .user_scores(&name)
+        .user_scores(name.as_str())
         .recent()
         .mode(mode)
         .limit(50)

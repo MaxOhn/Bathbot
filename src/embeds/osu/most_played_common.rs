@@ -1,6 +1,7 @@
 use crate::{
     embeds::{osu, EmbedData},
     util::constants::OSU_BASE,
+    Name,
 };
 
 use hashbrown::HashMap;
@@ -15,7 +16,7 @@ pub struct MostPlayedCommonEmbed {
 
 impl MostPlayedCommonEmbed {
     pub fn new(
-        names: &[String],
+        names: &[Name],
         maps: &[MostPlayedMap],
         users_count: &[HashMap<u32, usize>],
         index: usize,

@@ -369,7 +369,7 @@ impl CustomClient {
             .text("sortBy", (params.order as u8).to_string())
             .text("sortOrder", (!params.descending as u8).to_string())
             .text("page", params.page.to_string())
-            .text("u1", params.username.clone());
+            .text("u1", params.username.clone().into_string());
 
         if let Some(selection) = params.mods {
             let mut mod_str = String::with_capacity(3);

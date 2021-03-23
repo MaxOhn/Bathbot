@@ -1,3 +1,5 @@
+use crate::Name;
+
 use chrono::{offset::TimeZone, DateTime, Utc};
 use rosu_v2::model::GameMods;
 use serde::{
@@ -76,4 +78,10 @@ pub fn adjust_mods<'de, D: Deserializer<'de>>(d: D) -> Result<GameMods, D::Error
 pub fn expect_negative_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
     let i: i64 = Deserialize::deserialize(d)?;
     Ok(i.max(0) as u32)
+}
+
+pub fn str_to_name<'de, D: Deserializer<'de>>(d: D) -> Result<Name, D::Error> {
+    let name: &str = Deserialize::deserialize(d)?;
+
+    Ok(name.into())
 }

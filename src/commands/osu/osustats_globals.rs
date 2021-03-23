@@ -42,7 +42,7 @@ async fn osustats_main(
     };
 
     // Retrieve their top global scores
-    params.username = user.username.clone();
+    params.username = user.username.as_str().into();
     let (scores, amount) = match ctx.clients.custom.get_global_scores(&params).await {
         Ok((scores, amount)) => (
             scores

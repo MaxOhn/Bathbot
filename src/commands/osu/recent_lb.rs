@@ -42,7 +42,7 @@ async fn recent_lb_main(
     // Retrieve the recent scores
     let scores_fut = ctx
         .osu()
-        .user_scores(&name)
+        .user_scores(name.as_str())
         .recent()
         .include_fails(true)
         .mode(mode)

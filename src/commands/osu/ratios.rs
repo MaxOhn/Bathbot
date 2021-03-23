@@ -35,14 +35,14 @@ async fn ratios(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
     let scores_fut_1 = ctx
         .osu()
-        .user_scores(&name)
+        .user_scores(name.as_str())
         .best()
         .mode(GameMode::MNA)
         .limit(50);
 
     let scores_fut_2 = ctx
         .osu()
-        .user_scores(&name)
+        .user_scores(name.as_str())
         .best()
         .mode(GameMode::MNA)
         .offset(50)

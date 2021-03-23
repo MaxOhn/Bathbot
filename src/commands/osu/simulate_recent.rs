@@ -42,7 +42,7 @@ async fn simulate_recent_main(
     // Retrieve the recent score
     let scores_fut = ctx
         .osu()
-        .user_scores(&name)
+        .user_scores(name.as_str())
         .recent()
         .mode(mode)
         .include_fails(true)

@@ -1,4 +1,4 @@
-use crate::{BotResult, Database};
+use crate::{BotResult, Database, Name};
 
 use dashmap::DashMap;
 use futures::stream::StreamExt;
@@ -34,14 +34,14 @@ impl Database {
     }
 
     #[cold]
-    pub async fn get_discord_links(&self) -> BotResult<DashMap<u64, String>> {
+    pub async fn get_discord_links(&self) -> BotResult<DashMap<u64, Name>> {
         let mut stream =
             sqlx::query_as!(LinkEntry, "SELECT * FROM discord_user_links").fetch(&self.pool);
 
         let links = DashMap::with_capacity(10_000);
 
         while let Some(link) = stream.next().await.transpose()? {
-            links.insert(link.discord_id as u64, link.osu_name);
+            links.insert(link.discord_id as u64, link.osu_name.into());
         }
 
         Ok(links)

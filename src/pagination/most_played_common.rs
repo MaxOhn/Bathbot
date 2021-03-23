@@ -1,6 +1,5 @@
 use super::{Pages, Pagination};
-
-use crate::{embeds::MostPlayedCommonEmbed, BotResult};
+use crate::{embeds::MostPlayedCommonEmbed, BotResult, Name};
 
 use async_trait::async_trait;
 use hashbrown::HashMap;
@@ -10,7 +9,7 @@ use twilight_model::channel::Message;
 pub struct MostPlayedCommonPagination {
     msg: Message,
     pages: Pages,
-    names: Vec<String>,
+    names: Vec<Name>,
     users_count: Vec<HashMap<u32, usize>>,
     maps: Vec<MostPlayedMap>,
 }
@@ -18,7 +17,7 @@ pub struct MostPlayedCommonPagination {
 impl MostPlayedCommonPagination {
     pub fn new(
         msg: Message,
-        names: Vec<String>,
+        names: Vec<Name>,
         users_count: Vec<HashMap<u32, usize>>,
         maps: Vec<MostPlayedMap>,
     ) -> Self {

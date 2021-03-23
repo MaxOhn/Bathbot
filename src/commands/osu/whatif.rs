@@ -38,11 +38,16 @@ async fn whatif_main(
 
     // Retrieve the user and their top scores
     let user_fut = request_user(&ctx, &name, Some(mode));
-    let scores_fut_1 = ctx.osu().user_scores(&name).best().mode(mode).limit(50);
+    let scores_fut_1 = ctx
+        .osu()
+        .user_scores(name.as_str())
+        .best()
+        .mode(mode)
+        .limit(50);
 
     let scores_fut_2 = ctx
         .osu()
-        .user_scores(&name)
+        .user_scores(name.as_str())
         .best()
         .mode(mode)
         .offset(50)

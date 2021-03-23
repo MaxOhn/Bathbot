@@ -43,7 +43,7 @@ async fn link(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()>
                 return msg.error(&ctx, content).await;
             }
 
-            if let Err(why) = ctx.add_link(discord_id, &name).await {
+            if let Err(why) = ctx.add_link(discord_id, name.as_str()).await {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
                 return Err(why);

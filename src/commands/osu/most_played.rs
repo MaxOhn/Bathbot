@@ -26,8 +26,12 @@ async fn mostplayed(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 
     // Retrieve the user and their most played maps
     let user_fut = request_user(&ctx, &name, None);
-    let maps_fut_1 = ctx.osu().user_most_played(&name).limit(50);
-    let maps_fut_2 = ctx.osu().user_most_played(&name).limit(50).offset(50);
+    let maps_fut_1 = ctx.osu().user_most_played(name.as_str()).limit(50);
+    let maps_fut_2 = ctx
+        .osu()
+        .user_most_played(name.as_str())
+        .limit(50)
+        .offset(50);
 
     let (user, maps) = match tokio::try_join!(user_fut, maps_fut_1, maps_fut_2) {
         Ok((user, mut maps, mut maps_2)) => {

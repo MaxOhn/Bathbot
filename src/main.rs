@@ -50,6 +50,7 @@ use hyper::{
 };
 use prometheus::{Encoder, TextEncoder};
 use rosu_v2::Osu;
+use smallstr::SmallString;
 use std::{convert::Infallible, env, process, str::FromStr, sync::Arc, time::Duration};
 use tokio::{
     runtime::Runtime,
@@ -67,6 +68,7 @@ use twilight_model::gateway::{
     Intents,
 };
 
+type Name = SmallString<[u8; 15]>;
 pub type BotResult<T> = std::result::Result<T, Error>;
 
 fn main() {

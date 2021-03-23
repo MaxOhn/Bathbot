@@ -4,7 +4,7 @@ use crate::{
     pagination::{CommonPagination, Pagination},
     tracking::process_tracking,
     util::{constants::OSU_API_ISSUE, get_combined_thumbnail, MessageExt},
-    BotResult, Context,
+    BotResult, Context, Name,
 };
 
 use futures::stream::{FuturesOrdered, StreamExt};
@@ -68,11 +68,16 @@ async fn common_main(
     let mut scores_futs = names
         .into_iter()
         .map(|name| async {
-            let fut_1 = ctx.osu().user_scores(&name).limit(50).mode(mode).best();
+            let fut_1 = ctx
+                .osu()
+                .user_scores(name.as_str())
+                .limit(50)
+                .mode(mode)
+                .best();
 
             let fut_2 = ctx
                 .osu()
-                .user_scores(&name)
+                .user_scores(name.as_str())
                 .limit(50)
                 .offset(50)
                 .mode(mode)
@@ -357,14 +362,14 @@ pub async fn commonctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
 }
 
 pub struct CommonUser {
-    name: String,
+    name: Name,
     user_id: Option<u32>,
     pub first_count: usize,
 }
 
 impl CommonUser {
     #[inline]
-    fn new(name: String, user_id: Option<u32>) -> Self {
+    fn new(name: Name, user_id: Option<u32>) -> Self {
         Self {
             name,
             user_id,

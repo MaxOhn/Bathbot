@@ -59,12 +59,12 @@ async fn compare_main(
     // Retrieve all users and their scores
     let user_fut1 = request_user(&ctx, &name1, Some(mode));
     let user_fut2 = request_user(&ctx, &name2, Some(mode));
-    let scores_fut_u1_1 = ctx.osu().user_scores(&name1).best().limit(50);
-    let scores_fut_u2_1 = ctx.osu().user_scores(&name2).best().limit(50);
+    let scores_fut_u1_1 = ctx.osu().user_scores(name1.as_str()).best().limit(50);
+    let scores_fut_u2_1 = ctx.osu().user_scores(name2.as_str()).best().limit(50);
 
     let scores_fut_u1_2 = ctx
         .osu()
-        .user_scores(&name1)
+        .user_scores(name1.as_str())
         .best()
         .mode(mode)
         .offset(50)
@@ -72,7 +72,7 @@ async fn compare_main(
 
     let scores_fut_u2_2 = ctx
         .osu()
-        .user_scores(&name2)
+        .user_scores(name2.as_str())
         .best()
         .mode(mode)
         .offset(50)

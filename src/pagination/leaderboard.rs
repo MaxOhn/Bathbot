@@ -1,6 +1,5 @@
 use super::{Pages, Pagination};
-
-use crate::{custom_client::ScraperScore, embeds::LeaderboardEmbed, BotResult};
+use crate::{custom_client::ScraperScore, embeds::LeaderboardEmbed, BotResult, Name};
 
 use async_trait::async_trait;
 use rosu_v2::model::beatmap::{Beatmap, BeatmapsetCompact};
@@ -12,7 +11,7 @@ pub struct LeaderboardPagination {
     map: Beatmap,
     mapset: Option<BeatmapsetCompact>,
     scores: Vec<ScraperScore>,
-    author_name: Option<String>,
+    author_name: Option<Name>,
     first_place_icon: Option<String>,
 }
 
@@ -22,7 +21,7 @@ impl LeaderboardPagination {
         map: Beatmap,
         mapset: Option<BeatmapsetCompact>,
         scores: Vec<ScraperScore>,
-        author_name: Option<String>,
+        author_name: Option<Name>,
         first_place_icon: Option<String>,
     ) -> Self {
         Self {
