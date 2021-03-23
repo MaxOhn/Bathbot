@@ -39,7 +39,7 @@ async fn bws(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         }
     };
 
-    let global_rank = user.statistics.as_ref().unwrap().global_rank.unwrap();
+    let global_rank = user.statistics.as_ref().unwrap().global_rank.unwrap_or(0);
 
     let rank_range = match args.rank_range {
         Some(RankRange::Single(rank)) => match rank.cmp(&global_rank) {

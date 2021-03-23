@@ -179,7 +179,7 @@ impl EmbedData for BWSEmbed {
 
 #[inline]
 fn bws(rank: Option<u32>, badges: usize) -> u64 {
-    let rank = rank.unwrap() as f64;
+    let rank = rank.unwrap_or(0) as f64;
     let badges = badges as i32;
 
     rank.powf(0.9937_f64.powi(badges * badges)).round() as u64

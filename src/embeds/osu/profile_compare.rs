@@ -414,7 +414,7 @@ impl CompareStrings {
 
         Self {
             pp: with_comma(stats.pp) + "pp",
-            rank: format!("#{}", with_comma_u64(stats.global_rank.unwrap() as u64)),
+            rank: format!("#{}", with_comma_u64(stats.global_rank.unwrap_or(0) as u64)),
             ranked_score: with_comma_u64(stats.ranked_score),
             total_score: with_comma_u64(stats.total_score),
             total_hits: with_comma_u64(stats.total_hits),

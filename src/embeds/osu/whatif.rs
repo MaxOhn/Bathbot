@@ -49,7 +49,7 @@ impl WhatIfEmbed {
                     let _ = write!(
                         d,
                         "\nand they would reach rank #{}.",
-                        with_comma_u64(rank.min(stats.global_rank.unwrap()) as u64)
+                        with_comma_u64(rank.min(stats.global_rank.unwrap_or(0)) as u64)
                     );
                 } else {
                     d.push('.');
@@ -78,7 +78,7 @@ impl WhatIfEmbed {
                     let _ = write!(
                         d,
                         "\nand they would reach rank #{}.",
-                        with_comma_u64(rank.min(stats.global_rank.unwrap()) as u64)
+                        with_comma_u64(rank.min(stats.global_rank.unwrap_or(0)) as u64)
                     );
                 } else {
                     d.push('.');
