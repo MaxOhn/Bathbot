@@ -330,7 +330,7 @@ impl CustomClient {
             .text("page", params.page.to_string());
 
         if let Some(ref country) = params.country {
-            form = form.text("country", country.to_owned());
+            form = form.text("country", country.to_string());
         }
 
         let url = "https://osustats.ppy.sh/api/getScoreRanking";

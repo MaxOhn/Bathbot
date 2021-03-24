@@ -4,20 +4,21 @@ use crate::{commands::osu::CommonUser, embeds::CommonEmbed, BotResult};
 
 use async_trait::async_trait;
 use rosu_v2::model::score::Score;
+use smallvec::SmallVec;
 use twilight_model::channel::Message;
 
 pub struct CommonPagination {
     msg: Message,
     pages: Pages,
-    users: Vec<CommonUser>,
-    scores_per_map: Vec<Vec<(usize, f32, Score)>>,
+    users: SmallVec<[CommonUser; 3]>,
+    scores_per_map: Vec<SmallVec<[(usize, f32, Score); 3]>>,
 }
 
 impl CommonPagination {
     pub fn new(
         msg: Message,
-        users: Vec<CommonUser>,
-        scores_per_map: Vec<Vec<(usize, f32, Score)>>,
+        users: SmallVec<[CommonUser; 3]>,
+        scores_per_map: Vec<SmallVec<[(usize, f32, Score); 3]>>,
     ) -> Self {
         Self {
             pages: Pages::new(10, scores_per_map.len()),

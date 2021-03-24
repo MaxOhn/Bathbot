@@ -1,8 +1,8 @@
 use super::deserialize::{
-    adjust_mods, str_to_datetime, str_to_f32, str_to_maybe_datetime, str_to_maybe_f32, str_to_name,
+    adjust_mods, str_to_datetime, str_to_f32, str_to_maybe_datetime, str_to_maybe_f32,
 };
 
-use crate::{util::osu::ModSelection, Name};
+use crate::{util::osu::ModSelection, CountryCode, Name};
 
 use chrono::{DateTime, Utc};
 use rosu_v2::prelude::{GameMode, GameMods, Grade, RankStatus};
@@ -27,7 +27,7 @@ struct Outer {
 
 #[derive(serde::Deserialize)]
 pub struct Inner {
-    #[serde(rename = "userName", deserialize_with = "str_to_name")]
+    #[serde(rename = "userName")]
     username: Name,
 }
 
@@ -94,7 +94,6 @@ pub struct OsuStatsMap {
     pub version: String,
     pub artist: String,
     pub title: String,
-    #[serde(deserialize_with = "str_to_name")]
     pub creator: Name,
     pub bpm: f32,
     pub source: String,
@@ -224,7 +223,7 @@ impl OsuStatsParams {
 
 #[derive(Debug)]
 pub struct OsuStatsListParams {
-    pub country: Option<String>,
+    pub country: Option<CountryCode>,
     pub mode: GameMode,
     pub page: usize,
     pub rank_min: usize,
@@ -233,7 +232,7 @@ pub struct OsuStatsListParams {
 
 impl OsuStatsListParams {
     #[inline]
-    pub fn new(country: Option<impl Into<String>>) -> Self {
+    pub fn new(country: Option<impl Into<CountryCode>>) -> Self {
         Self {
             country: country.map(|c| c.into()),
             mode: GameMode::STD,

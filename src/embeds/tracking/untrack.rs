@@ -1,16 +1,16 @@
-use crate::embeds::EmbedData;
+use crate::embeds::{EmbedData, EmbedFields};
 
 use std::{collections::HashSet, fmt::Write};
 
 pub struct UntrackEmbed {
     title: &'static str,
-    fields: Vec<(String, String, bool)>,
+    fields: EmbedFields,
 }
 
 impl UntrackEmbed {
     pub fn new(success: HashSet<String>, failed: Option<&String>) -> Self {
         let title = "Top score tracking";
-        let mut fields = Vec::new();
+        let mut fields = EmbedFields::new();
         let mut iter = success.iter();
 
         if let Some(first) = iter.next() {
@@ -41,7 +41,7 @@ impl EmbedData for UntrackEmbed {
     fn title_owned(&mut self) -> Option<String> {
         Some(self.title.to_owned())
     }
-    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+    fn fields_owned(self) -> Option<EmbedFields> {
         Some(self.fields)
     }
 }

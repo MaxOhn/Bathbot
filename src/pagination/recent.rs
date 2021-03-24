@@ -1,4 +1,4 @@
-use super::{Pages, Pagination};
+use super::{Pages, Pagination, ReactionVec};
 
 use crate::{
     embeds::{EmbedData, RecentEmbed},
@@ -13,7 +13,6 @@ use rosu_v2::prelude::{
     Score, User,
 };
 use std::sync::Arc;
-use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::channel::Message;
 
 pub struct RecentPagination {
@@ -71,7 +70,7 @@ impl Pagination for RecentPagination {
         &mut self.pages
     }
 
-    fn reactions() -> Vec<RequestReactionType> {
+    fn reactions() -> ReactionVec {
         Self::arrow_reactions_full()
     }
 

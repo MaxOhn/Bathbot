@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{osu, Author, EmbedData, Footer},
+    embeds::{osu, Author, EmbedData, Footer, EmbedFields},
     util::{
         constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
@@ -185,8 +185,8 @@ impl EmbedData for TopSingleEmbed {
         Some(&self.timestamp)
     }
 
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
-        let mut fields = vec![
+    fn fields(&self) -> Option<EmbedFields> {
+        let mut fields = smallvec![
             ("Grade".to_owned(), self.grade_completion_mods.clone(), true),
             ("Score".to_owned(), self.score.clone(), true),
             ("Acc".to_owned(), format!("{}%", self.acc), true),

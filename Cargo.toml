@@ -102,6 +102,11 @@ features = ["derive", "rc"]
 
 [dependencies.smallstr]
 version = "0.2"
+features = ["serde"]
+
+[dependencies.smallvec]
+version = "1.6"
+features = ["serde"]
 
 [dependencies.sqlx]
 version = "0.5"

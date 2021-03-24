@@ -1,6 +1,6 @@
 use crate::{
     custom_client::SnipePlayer,
-    embeds::{osu, Author, EmbedData, Footer},
+    embeds::{osu, Author, EmbedData, EmbedFields, Footer},
     pp::{Calculations, PPCalculator},
     util::{
         constants::{AVATAR_URL, OSU_BASE},
@@ -22,7 +22,7 @@ pub struct PlayerSnipeStatsEmbed {
     author: Option<Author>,
     footer: Option<Footer>,
     image: Option<ImageSource>,
-    fields: Option<Vec<(String, String, bool)>>,
+    fields: Option<EmbedFields>,
 }
 
 impl PlayerSnipeStatsEmbed {
@@ -36,7 +36,7 @@ impl PlayerSnipeStatsEmbed {
         let (description, fields) = if player.count_first == 0 {
             (String::from("No national #1s :("), None)
         } else {
-            let mut fields = Vec::with_capacity(7);
+            let mut fields = EmbedFields::with_capacity(7);
             let mut description = String::with_capacity(256);
 
             let _ = writeln!(
@@ -170,7 +170,7 @@ impl EmbedData for PlayerSnipeStatsEmbed {
         self.footer.take()
     }
 
-    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+    fn fields_owned(self) -> Option<EmbedFields> {
         self.fields
     }
 }

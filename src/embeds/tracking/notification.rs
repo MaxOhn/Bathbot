@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{osu, Author, EmbedData, Footer},
+    embeds::{osu, Author, EmbedData, EmbedFields, Footer},
     pp::{Calculations, PPCalculator},
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
@@ -15,7 +15,7 @@ use rosu_v2::prelude::{GameMode, Score, User};
 use twilight_embed_builder::image_source::ImageSource;
 
 pub struct TrackNotificationEmbed {
-    fields: Vec<(String, String, bool)>,
+    fields: EmbedFields,
     description: String,
     author: Author,
     title: String,
@@ -95,7 +95,7 @@ impl TrackNotificationEmbed {
             author,
             description,
             timestamp: score.created_at,
-            fields: vec![(name, value, false)],
+            fields: smallvec![(name, value, false)],
             url: format!("{}b/{}", OSU_BASE, map.map_id),
             thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id))
                 .unwrap(),
@@ -122,7 +122,7 @@ impl EmbedData for TrackNotificationEmbed {
     fn timestamp(&self) -> Option<&DateTime<Utc>> {
         Some(&self.timestamp)
     }
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
+    fn fields(&self) -> Option<EmbedFields> {
         Some(self.fields.clone())
     }
     fn thumbnail(&self) -> Option<&ImageSource> {

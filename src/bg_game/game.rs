@@ -123,6 +123,7 @@ impl Game {
     ) -> BotResult<()> {
         let reveal_result = {
             let reveal = self.reveal.read().await;
+
             reveal.full()
         };
 

@@ -4,13 +4,14 @@ use crate::{embeds::MostPlayedCommonEmbed, BotResult, Name};
 use async_trait::async_trait;
 use hashbrown::HashMap;
 use rosu_v2::prelude::MostPlayedMap;
+use smallvec::SmallVec;
 use twilight_model::channel::Message;
 
 pub struct MostPlayedCommonPagination {
     msg: Message,
     pages: Pages,
     names: Vec<Name>,
-    users_count: Vec<HashMap<u32, usize>>,
+    users_count: SmallVec<[HashMap<u32, usize>; 3]>,
     maps: Vec<MostPlayedMap>,
 }
 
@@ -18,7 +19,7 @@ impl MostPlayedCommonPagination {
     pub fn new(
         msg: Message,
         names: Vec<Name>,
-        users_count: Vec<HashMap<u32, usize>>,
+        users_count: SmallVec<[HashMap<u32, usize>; 3]>,
         maps: Vec<MostPlayedMap>,
     ) -> Self {
         Self {

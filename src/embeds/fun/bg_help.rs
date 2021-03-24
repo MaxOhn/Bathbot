@@ -1,20 +1,23 @@
-use crate::embeds::EmbedData;
+use crate::{
+    database::Prefix,
+    embeds::{EmbedData, EmbedFields},
+};
 
 pub struct BGHelpEmbed {
     title: &'static str,
     description: &'static str,
-    fields: Vec<(String, String, bool)>,
+    fields: EmbedFields,
 }
 
 impl BGHelpEmbed {
-    pub fn new(prefix: String) -> Self {
+    pub fn new(prefix: Prefix) -> Self {
         let description = "Given part of a map's background, \
             try to guess the **title** of the map's song.\n\
             You don't need to guess content in parentheses `(...)` \
             or content after `ft.` or `feat.`.\n\
             Use these subcommands to initiate with the game:";
 
-        let fields = vec![
+        let fields = smallvec![
             (
                 "start / s / skip / resolve / r".to_owned(),
                 format!(
@@ -80,7 +83,7 @@ impl EmbedData for BGHelpEmbed {
     fn description_owned(&mut self) -> Option<String> {
         Some(self.description.to_owned())
     }
-    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+    fn fields_owned(self) -> Option<EmbedFields> {
         Some(self.fields)
     }
 }

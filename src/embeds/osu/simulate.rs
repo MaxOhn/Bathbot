@@ -1,6 +1,6 @@
 use crate::{
     arguments::SimulateArgs,
-    embeds::{osu, EmbedData, Footer},
+    embeds::{osu, EmbedData, EmbedFields, Footer},
     pp::{Calculations, PPCalculator},
     util::{
         constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
@@ -189,14 +189,14 @@ impl EmbedData for SimulateEmbed {
     fn image(&self) -> Option<&ImageSource> {
         Some(&self.image)
     }
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
+    fn fields(&self) -> Option<EmbedFields> {
         let combo = if let Some(prev_combo) = self.prev_combo {
             format!("{} → {}", prev_combo, self.combo)
         } else {
             self.combo.to_owned()
         };
 
-        let mut fields = vec![
+        let mut fields = smallvec![
             ("Grade".to_owned(), self.grade_completion_mods.clone(), true),
             ("Acc".to_owned(), format!("{}%", self.acc), true),
             ("Combo".to_owned(), combo, true),

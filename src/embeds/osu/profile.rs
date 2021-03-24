@@ -1,6 +1,6 @@
 use crate::{
     commands::osu::{MinMaxAvgBasic, ProfileResult},
-    embeds::{Author, EmbedData, Footer},
+    embeds::{Author, EmbedData, Footer, EmbedFields},
     util::{
         constants::{AVATAR_URL, DARK_GREEN},
         datetime::{date_to_string, how_long_ago, sec_to_minsec},
@@ -25,8 +25,8 @@ pub struct ProfileEmbed {
     title: String,
     image: ImageSource,
     footer: Footer,
-    main_fields: Vec<(String, String, bool)>,
-    extended_fields: Option<Vec<(String, String, bool)>>,
+    main_fields: EmbedFields,
+    extended_fields: Option<EmbedFields>,
 }
 
 impl ProfileEmbed {
@@ -65,7 +65,7 @@ impl ProfileEmbed {
 
         let bonus_pp = (100.0 * 416.6667 * (1.0 - bonus_pow)).round() / 100.0;
 
-        let main_fields = vec![
+        let main_fields = smallvec![
             (
                 "Ranked score".to_owned(),
                 with_comma_uint(stats.ranked_score).to_string(),
@@ -185,7 +185,7 @@ impl ProfileEmbed {
 
             let _ = write!(combo, " [{} - {}]", values.combo.min(), values.combo.max());
             let mut extended_fields =
-                vec![("Averages of top 100 scores".to_owned(), avg_string, false)];
+                smallvec![("Averages of top 100 scores".to_owned(), avg_string, false)];
 
             let mult_mods = values.mod_combs_count.is_some();
 
@@ -366,7 +366,7 @@ impl EmbedData for ProfileEmbed {
         Some(&self.thumbnail)
     }
 
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
+    fn fields(&self) -> Option<EmbedFields> {
         let mut fields = self.main_fields.clone();
 
         if let Some(mut extended_fields) = self.extended_fields.clone() {

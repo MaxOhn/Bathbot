@@ -1,6 +1,6 @@
 use crate::{
     bail,
-    embeds::{EmbedData, Footer},
+    embeds::{EmbedData, EmbedFields, Footer},
     format_err,
     util::{
         constants::{BATHBOT_WORKSHOP, INVITE_LINK, OWNER_USER_ID},
@@ -20,7 +20,7 @@ pub struct AboutEmbed {
     thumbnail: Option<ImageSource>,
     timestamp: DateTime<Utc>,
     footer: Option<Footer>,
-    fields: Vec<(String, String, bool)>,
+    fields: EmbedFields,
 }
 
 impl AboutEmbed {
@@ -49,6 +49,7 @@ impl AboutEmbed {
                 / processors.len() as f32;
             let used_ram = (system.get_used_memory() + system.get_used_swap()) / 1000;
             let total_ram = (system.get_total_memory() + system.get_total_swap()) / 1000;
+
             (process_cpu, process_ram, total_cpu, used_ram, total_ram)
         };
 
@@ -74,7 +75,8 @@ impl AboutEmbed {
             owner.name, owner.discriminator
         ))
         .icon_url(discord_avatar(owner.id, owner.avatar.as_deref().unwrap()));
-        let fields = vec![
+
+        let fields = smallvec![
             (
                 "Guilds".to_owned(),
                 with_comma_uint(guilds as u64).to_string(),
@@ -123,15 +125,19 @@ impl EmbedData for AboutEmbed {
     fn title_owned(&mut self) -> Option<String> {
         self.title.take()
     }
+
     fn thumbnail_owned(&mut self) -> Option<ImageSource> {
         self.thumbnail.take()
     }
+
     fn footer_owned(&mut self) -> Option<Footer> {
         self.footer.take()
     }
-    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+
+    fn fields_owned(self) -> Option<EmbedFields> {
         Some(self.fields)
     }
+
     fn timestamp(&self) -> Option<&DateTime<Utc>> {
         Some(&self.timestamp)
     }

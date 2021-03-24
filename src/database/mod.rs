@@ -3,8 +3,8 @@ mod models;
 mod util;
 
 pub use models::{
-    DBBeatmap, DBBeatmapset, DBOsuMedal, GuildConfig, MapsetTagWrapper, MedalGroup, OsuMedal,
-    TagRow, TrackingUser,
+    Authorities, DBBeatmap, DBBeatmapset, DBOsuMedal, GuildConfig, MapsetTagWrapper, MedalGroup,
+    OsuMedal, Prefix, Prefixes, TagRow, TrackingUser,
 };
 
 use crate::BotResult;

@@ -1,6 +1,6 @@
 use crate::{
     database::{MedalGroup, OsuMedal},
-    embeds::{Author, EmbedData, Footer},
+    embeds::{Author, EmbedData, EmbedFields, Footer},
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         numbers::round,
@@ -14,14 +14,14 @@ use twilight_embed_builder::image_source::ImageSource;
 pub struct MedalStatsEmbed {
     thumbnail: Option<ImageSource>,
     author: Option<Author>,
-    fields: Vec<(String, String, bool)>,
+    fields: EmbedFields,
     footer: Option<Footer>,
     image: Option<ImageSource>,
 }
 
 impl MedalStatsEmbed {
     pub fn new(mut user: User, medals: HashMap<u32, OsuMedal>, with_graph: bool) -> Self {
-        let mut fields = Vec::with_capacity(5);
+        let mut fields = EmbedFields::with_capacity(5);
 
         // Be sure owned medals are sorted by date
         let owned = user.medals.as_mut().unwrap();
@@ -120,7 +120,7 @@ impl EmbedData for MedalStatsEmbed {
         self.thumbnail.take()
     }
 
-    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+    fn fields_owned(self) -> Option<EmbedFields> {
         Some(self.fields)
     }
 

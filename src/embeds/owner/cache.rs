@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{EmbedData, Footer},
+    embeds::{EmbedData, EmbedFields, Footer},
     util::numbers::with_comma_uint,
 };
 
@@ -11,7 +11,7 @@ pub struct CacheEmbed {
     description: Option<String>,
     footer: Option<Footer>,
     timestamp: DateTime<Utc>,
-    fields: Vec<(String, String, bool)>,
+    fields: EmbedFields,
 }
 
 impl CacheEmbed {
@@ -60,7 +60,7 @@ impl CacheEmbed {
         );
         let _ = writeln!(description, "Users: {}", stats.metrics.users.load(Relaxed));
 
-        let mut fields = Vec::new();
+        let mut fields = EmbedFields::new();
 
         let biggest_guilds = stats.biggest_guilds.unwrap();
         let max_name_len = biggest_guilds
@@ -119,7 +119,7 @@ impl EmbedData for CacheEmbed {
     fn timestamp(&self) -> Option<&DateTime<Utc>> {
         Some(&self.timestamp)
     }
-    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+    fn fields_owned(self) -> Option<EmbedFields> {
         Some(self.fields)
     }
 }

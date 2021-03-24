@@ -1,6 +1,6 @@
 use crate::{
     custom_client::SnipeCountryStatistics,
-    embeds::{EmbedData, Footer},
+    embeds::{EmbedData, EmbedFields, Footer},
     util::{
         constants::OSU_BASE,
         numbers::{round, with_comma_uint},
@@ -15,12 +15,12 @@ pub struct CountrySnipeStatsEmbed {
     title: Option<String>,
     footer: Option<Footer>,
     image: Option<ImageSource>,
-    fields: Vec<(String, String, bool)>,
+    fields: EmbedFields,
 }
 
 impl CountrySnipeStatsEmbed {
     pub fn new(country: Option<&Country>, statistics: SnipeCountryStatistics) -> Self {
-        let mut fields = Vec::with_capacity(2);
+        let mut fields = EmbedFields::with_capacity(2);
 
         if let Some(top_gain) = statistics.top_gain {
             fields.push((
@@ -95,7 +95,7 @@ impl EmbedData for CountrySnipeStatsEmbed {
         self.image.take()
     }
 
-    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+    fn fields_owned(self) -> Option<EmbedFields> {
         Some(self.fields)
     }
 }

@@ -86,6 +86,7 @@ impl GameWrapper {
             Some(rx) => rx,
             None => {
                 warn!("No rx left for bg game");
+
                 return;
             }
         };
@@ -116,6 +117,7 @@ impl GameWrapper {
 
                 let rx_fut = async {
                     let mut rx = rx.lock().await;
+
                     rx.recv().await
                 };
 

@@ -1,3 +1,5 @@
+use crate::Name;
+
 use rosu_v2::model::GameMode;
 use serde::Deserialize;
 use std::fmt;
@@ -104,7 +106,7 @@ pub struct BeatconnectMapSet {
     pub beatmapset_id: u32,
     pub title: String,
     pub artist: String,
-    pub creator: String,
+    pub creator: Name,
     #[serde(rename = "user_id")]
     pub creator_id: u32,
     pub bpm: f32,

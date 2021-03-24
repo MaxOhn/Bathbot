@@ -11,6 +11,7 @@ use futures::stream::{FuturesOrdered, StreamExt};
 use hashbrown::HashSet;
 use itertools::Itertools;
 use rosu_v2::prelude::{GameMode, OsuError, Score};
+use smallvec::SmallVec;
 use std::{cmp::Ordering, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -19,6 +20,8 @@ macro_rules! user_id {
         $scores[$idx].user.as_ref().unwrap().user_id
     };
 }
+
+type CommonUsers = SmallVec<[CommonUser; 3]>;
 
 async fn common_main(
     mode: GameMode,
@@ -88,7 +91,7 @@ async fn common_main(
         .collect::<FuturesOrdered<_>>();
 
     let mut all_scores = Vec::<Vec<_>>::with_capacity(count);
-    let mut users = Vec::with_capacity(count);
+    let mut users = CommonUsers::with_capacity(count);
 
     while let Some((mut name, result)) = scores_futs.next().await {
         match result {
@@ -150,7 +153,7 @@ async fn common_main(
     let mut all_scores: Vec<Score> = all_scores.into_iter().flatten().collect();
     all_scores.sort_unstable_by_key(|score| map_id!(score));
 
-    let mut scores_per_map: Vec<Vec<(usize, f32, Score)>> = all_scores
+    let mut scores_per_map: Vec<SmallVec<[(usize, f32, Score); 3]>> = all_scores
         .into_iter()
         .group_by(|score| map_id!(score))
         .into_iter()
@@ -167,7 +170,7 @@ async fn common_main(
                 scores.swap(1, 2);
             }
 
-            let mut scores: Vec<_> = scores
+            let mut scores: SmallVec<[(usize, f32, Score); 3]> = scores
                 .into_iter()
                 .map(|score| (0, score.pp.unwrap(), score))
                 .collect();

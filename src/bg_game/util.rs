@@ -35,11 +35,9 @@ pub async fn get_random_mapset<'m>(
 
 pub async fn get_title_artist(ctx: &Context, mapset_id: u32) -> GameResult<(String, String)> {
     let (mut title, artist) = {
-        if let Ok(mapset) = ctx
-            .psql()
-            .get_beatmapset::<BeatmapsetCompact>(mapset_id)
-            .await
-        {
+        let mapset_fut = ctx.psql().get_beatmapset::<BeatmapsetCompact>(mapset_id);
+
+        if let Ok(mapset) = mapset_fut.await {
             (mapset.title.to_lowercase(), mapset.artist)
         } else {
             match ctx.osu().beatmapset(mapset_id).await {

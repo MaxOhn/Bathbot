@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{osu, Author, EmbedData, Footer},
+    embeds::{osu, Author, EmbedData, Footer, EmbedFields},
     util::{
         constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
@@ -288,12 +288,12 @@ impl EmbedData for RecentEmbed {
         Some(&self.timestamp)
     }
 
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
+    fn fields(&self) -> Option<EmbedFields> {
         let score = highlight_funny_numeral(&self.score).into_owned();
         let acc = highlight_funny_numeral(&format!("{}%", self.acc)).into_owned();
         let pp = highlight_funny_numeral(&self.pp).into_owned();
 
-        let mut fields = vec![
+        let mut fields = smallvec![
             ("Grade".to_owned(), self.grade_completion_mods.clone(), true),
             ("Score".to_owned(), score, true),
             ("Acc".to_owned(), acc, true),

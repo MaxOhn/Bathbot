@@ -1,6 +1,6 @@
 use crate::{
     custom_client::SnipeRecent,
-    embeds::{Author, EmbedData},
+    embeds::{Author, EmbedData, EmbedFields},
     util::constants::AVATAR_URL,
 };
 
@@ -14,7 +14,7 @@ pub struct SnipedEmbed {
     title: &'static str,
     author: Option<Author>,
     image: Option<ImageSource>,
-    fields: Option<Vec<(String, String, bool)>>,
+    fields: Option<EmbedFields>,
 }
 
 impl SnipedEmbed {
@@ -38,7 +38,7 @@ impl SnipedEmbed {
             };
         }
 
-        let mut fields = Vec::with_capacity(2);
+        let mut fields = EmbedFields::with_capacity(2);
 
         if !sniper.is_empty() {
             let mut victims = HashMap::new();
@@ -118,7 +118,7 @@ impl EmbedData for SnipedEmbed {
         self.author.take()
     }
 
-    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+    fn fields_owned(self) -> Option<EmbedFields> {
         self.fields
     }
 }

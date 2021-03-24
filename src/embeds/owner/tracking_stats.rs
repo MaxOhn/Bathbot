@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{EmbedData, Footer},
+    embeds::{EmbedData, EmbedFields, Footer},
     tracking::TrackingStats,
 };
 
@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 
 pub struct TrackingStatsEmbed {
     title: Option<String>,
-    fields: Vec<(String, String, bool)>,
+    fields: EmbedFields,
     footer: Option<Footer>,
     timestamp: DateTime<Utc>,
 }
@@ -15,7 +15,7 @@ pub struct TrackingStatsEmbed {
 impl TrackingStatsEmbed {
     pub fn new(stats: TrackingStats) -> Self {
         let (user_id, mode) = stats.next_pop;
-        let fields = vec![
+        let fields = smallvec![
             (
                 "Currently tracking".to_owned(),
                 stats.tracking.to_string(),
@@ -66,7 +66,7 @@ impl TrackingStatsEmbed {
 }
 
 impl EmbedData for TrackingStatsEmbed {
-    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+    fn fields_owned(self) -> Option<EmbedFields> {
         Some(self.fields)
     }
     fn footer_owned(&mut self) -> Option<Footer> {

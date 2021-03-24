@@ -1,9 +1,12 @@
-use crate::{bg_game::MapsetTags, embeds::EmbedData};
+use crate::{
+    bg_game::MapsetTags,
+    embeds::{EmbedData, EmbedFields},
+};
 
 pub struct BGTagsEmbed {
     title: &'static str,
     description: Option<&'static str>,
-    fields: Vec<(String, String, bool)>,
+    fields: EmbedFields,
 }
 
 impl BGTagsEmbed {
@@ -22,7 +25,7 @@ impl BGTagsEmbed {
             "None".to_owned()
         };
 
-        let fields = vec![
+        let fields = smallvec![
             ("Included".to_owned(), include_value, true),
             ("Excluded".to_owned(), excluded_value, true),
             ("#Backgrounds".to_owned(), amount.to_string(), true),
@@ -48,7 +51,7 @@ impl EmbedData for BGTagsEmbed {
         self.description.take().map(str::to_owned)
     }
 
-    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+    fn fields_owned(self) -> Option<EmbedFields> {
         Some(self.fields)
     }
 }

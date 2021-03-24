@@ -10,6 +10,7 @@ use futures::stream::{FuturesOrdered, StreamExt};
 use hashbrown::HashMap;
 use itertools::Itertools;
 use rosu_v2::prelude::OsuError;
+use smallvec::SmallVec;
 use std::{cmp::Reverse, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -75,7 +76,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
         })
         .collect::<FuturesOrdered<_>>();
 
-    let mut users_count: Vec<HashMap<u32, usize>> = Vec::with_capacity(names.len());
+    let mut users_count = SmallVec::<[HashMap<u32, usize>; 3]>::with_capacity(names.len());
     let mut all_maps = HashMap::with_capacity(names.len() * 80);
 
     while let Some((name, map_result)) = map_futs.next().await {

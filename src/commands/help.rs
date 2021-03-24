@@ -26,7 +26,7 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
     let (custom_prefix, first_prefix) = if let Some(guild_id) = guild_id {
         let mut prefixes = ctx.config_prefixes(guild_id);
 
-        if prefixes == ["<"] {
+        if !prefixes.is_empty() && &prefixes[0] == "<" {
             (None, prefixes.swap_remove(0))
         } else {
             let mut prefix_iter = prefixes.iter();
@@ -40,7 +40,7 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
             (Some(prefixes_str), prefixes.swap_remove(0))
         }
     } else {
-        (None, "<".to_string())
+        (None, "<".into())
     };
 
     let prefix_desc = custom_prefix.map_or_else(

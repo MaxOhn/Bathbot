@@ -42,11 +42,14 @@ pub use utility::*;
 use crate::util::{constants::DARK_GREEN, datetime};
 
 use chrono::{DateTime, Utc};
+use smallvec::SmallVec;
 use twilight_embed_builder::{
     author::EmbedAuthorBuilder, builder::EmbedBuilder, footer::EmbedFooterBuilder,
     image_source::ImageSource,
 };
 use twilight_model::channel::embed::EmbedField;
+
+type EmbedFields = SmallVec<[(String, String, bool); 10]>;
 
 pub trait EmbedData: Send + Sync + Sized {
     // Make these point to the corresponding fields
@@ -74,7 +77,7 @@ pub trait EmbedData: Send + Sync + Sized {
     fn description(&self) -> Option<&str> {
         None
     }
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
+    fn fields(&self) -> Option<EmbedFields> {
         None
     }
     // ---
@@ -99,7 +102,7 @@ pub trait EmbedData: Send + Sync + Sized {
     fn description_owned(&mut self) -> Option<String> {
         None
     }
-    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+    fn fields_owned(self) -> Option<EmbedFields> {
         None
     }
 

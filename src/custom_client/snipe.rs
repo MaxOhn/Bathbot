@@ -1,4 +1,4 @@
-use super::deserialize::{expect_negative_u32, str_to_maybe_datetime, str_to_name};
+use super::deserialize::{expect_negative_u32, str_to_maybe_datetime};
 use crate::{util::osu::ModSelection, Name};
 
 use chrono::{offset::TimeZone, Date, DateTime, NaiveDate, Utc};
@@ -116,7 +116,7 @@ pub struct SnipeCountryStatistics {
 pub struct SnipeTopNationalDifference {
     #[serde(rename = "most_recent_top_national")]
     pub top_national: Option<usize>,
-    #[serde(rename = "name", deserialize_with = "str_to_name")]
+    #[serde(rename = "name")]
     pub username: Name,
     #[serde(rename = "total_top_national_difference")]
     pub difference: i32,
@@ -124,7 +124,7 @@ pub struct SnipeTopNationalDifference {
 
 #[derive(Debug, Deserialize)]
 pub struct SnipePlayer {
-    #[serde(rename = "name", deserialize_with = "str_to_name")]
+    #[serde(rename = "name")]
     pub username: Name,
     pub user_id: u32,
     #[serde(rename = "average_pp")]
@@ -161,7 +161,7 @@ pub struct SnipePlayer {
 
 #[derive(Debug, Deserialize)]
 pub struct SnipeCountryPlayer {
-    #[serde(rename = "name", deserialize_with = "str_to_name")]
+    #[serde(rename = "name")]
     pub username: Name,
     pub user_id: u32,
     #[serde(rename = "average_pp")]
@@ -565,14 +565,11 @@ struct SnipePlayerHistoryVisitor;
 impl<'de> Visitor<'de> for SnipePlayerHistoryVisitor {
     type Value = BTreeMap<Date<Utc>, u32>;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a map")
+    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("a map")
     }
 
-    fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
-    where
-        V: MapAccess<'de>,
-    {
+    fn visit_map<V: MapAccess<'de>>(self, mut map: V) -> Result<Self::Value, V::Error> {
         let mut history = BTreeMap::new();
 
         while let Some(key) = map.next_key()? {

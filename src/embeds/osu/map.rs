@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{Author, EmbedData, Footer},
+    embeds::{Author, EmbedData, EmbedFields, Footer},
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::sec_to_minsec,
@@ -26,7 +26,7 @@ pub struct MapEmbed {
     author: Author,
     image: Option<ImageSource>,
     timestamp: DateTime<Utc>,
-    fields: Vec<(String, String, bool)>,
+    fields: EmbedFields,
 }
 
 impl MapEmbed {
@@ -69,7 +69,7 @@ impl MapEmbed {
         }
 
         let mut info_value = String::with_capacity(128);
-        let mut fields = Vec::with_capacity(3);
+        let mut fields = EmbedFields::with_capacity(3);
 
         let map_path = prepare_beatmap_file(map.map_id).await?;
         let file = File::open(map_path).await.map_err(PPError::from)?;
@@ -302,7 +302,7 @@ impl EmbedData for MapEmbed {
         Some(&self.author)
     }
 
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
+    fn fields(&self) -> Option<EmbedFields> {
         Some(self.fields.clone())
     }
 

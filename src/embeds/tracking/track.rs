@@ -1,11 +1,11 @@
-use crate::embeds::EmbedData;
+use crate::embeds::{EmbedData, EmbedFields};
 
 use rosu_v2::model::GameMode;
 use std::fmt::Write;
 
 pub struct TrackEmbed {
     title: Option<String>,
-    fields: Vec<(String, String, bool)>,
+    fields: EmbedFields,
 }
 
 impl TrackEmbed {
@@ -17,7 +17,7 @@ impl TrackEmbed {
         limit: usize,
     ) -> Self {
         let title = format!("Top score tracking | mode={} | limit={}", mode, limit);
-        let mut fields = Vec::new();
+        let mut fields = EmbedFields::new();
         let mut iter = success.iter();
 
         if let Some(first) = iter.next() {
@@ -65,7 +65,7 @@ impl EmbedData for TrackEmbed {
     fn title_owned(&mut self) -> Option<String> {
         self.title.take()
     }
-    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+    fn fields_owned(self) -> Option<EmbedFields> {
         Some(self.fields)
     }
 }

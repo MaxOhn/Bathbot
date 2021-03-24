@@ -39,6 +39,8 @@ use crate::{
 extern crate proc_macros;
 #[macro_use]
 extern crate log;
+#[macro_use]
+extern crate smallvec;
 
 use clap::{App, Arg};
 use darkredis::ConnectionPool;
@@ -68,6 +70,7 @@ use twilight_model::gateway::{
     Intents,
 };
 
+type CountryCode = SmallString<[u8; 2]>;
 type Name = SmallString<[u8; 15]>;
 type BotResult<T> = std::result::Result<T, Error>;
 

@@ -43,6 +43,7 @@ pub use top_if::TopIfPagination;
 use crate::{embeds::EmbedData, util::numbers, BotResult, Context, CONFIG};
 
 use async_trait::async_trait;
+use smallvec::SmallVec;
 use std::time::Duration;
 use tokio::time;
 use tokio_stream::StreamExt;
@@ -53,6 +54,8 @@ use twilight_model::{
     gateway::payload::ReactionAdd,
     id::{EmojiId, UserId},
 };
+
+type ReactionVec = SmallVec<[RequestReactionType; 7]>;
 
 #[async_trait]
 pub trait Pagination: Sync + Sized {
@@ -69,14 +72,14 @@ pub trait Pagination: Sync + Sized {
     async fn build_page(&mut self) -> BotResult<Self::PageData>;
 
     // Optionally implement these
-    fn reactions() -> Vec<RequestReactionType> {
+    fn reactions() -> ReactionVec {
         Self::arrow_reactions()
     }
 
-    fn arrow_reactions() -> Vec<RequestReactionType> {
+    fn arrow_reactions() -> ReactionVec {
         let config = CONFIG.get().unwrap();
 
-        vec![
+        smallvec![
             config.jump_start(),
             config.single_step_back(),
             config.single_step(),
@@ -84,10 +87,10 @@ pub trait Pagination: Sync + Sized {
         ]
     }
 
-    fn arrow_reactions_full() -> Vec<RequestReactionType> {
+    fn arrow_reactions_full() -> ReactionVec {
         let config = CONFIG.get().unwrap();
 
-        vec![
+        smallvec![
             config.jump_start(),
             config.multi_step_back(),
             config.single_step_back(),

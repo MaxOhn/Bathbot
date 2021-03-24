@@ -5,6 +5,7 @@ use crate::{
 };
 
 use rosu_v2::model::score::Score;
+use smallvec::SmallVec;
 use std::fmt::Write;
 use twilight_embed_builder::image_source::ImageSource;
 
@@ -14,8 +15,10 @@ pub struct CommonEmbed {
     footer: Footer,
 }
 
+type CommonScore = SmallVec<[(usize, f32, Score); 3]>;
+
 impl CommonEmbed {
-    pub fn new(users: &[CommonUser], scores: &[Vec<(usize, f32, Score)>], index: usize) -> Self {
+    pub fn new(users: &[CommonUser], scores: &[CommonScore], index: usize) -> Self {
         let mut description = String::with_capacity(512);
 
         for (i, scores) in scores.iter().enumerate() {

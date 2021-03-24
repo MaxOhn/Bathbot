@@ -1,6 +1,6 @@
 use crate::{
     custom_client::OsekaiMedal,
-    embeds::EmbedData,
+    embeds::{EmbedData, EmbedFields},
     util::{
         constants::{FIELD_VALUE_SIZE, OSU_BASE},
         numbers::round,
@@ -15,7 +15,7 @@ pub struct MedalEmbed {
     url: Option<String>,
     thumbnail: Option<ImageSource>,
     title: Option<String>,
-    fields: Vec<(String, String, bool)>,
+    fields: EmbedFields,
 }
 
 impl MedalEmbed {
@@ -28,7 +28,7 @@ impl MedalEmbed {
             .mods
             .map_or_else(|| "Any".to_owned(), |mods| mods.to_string());
 
-        let mut fields = Vec::with_capacity(7);
+        let mut fields = EmbedFields::with_capacity(7);
         fields.push(("Description".to_owned(), medal.description, false));
 
         if let Some(solution) = medal.solution {
@@ -135,7 +135,7 @@ impl EmbedData for MedalEmbed {
         self.thumbnail.take()
     }
 
-    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
+    fn fields_owned(self) -> Option<EmbedFields> {
         Some(self.fields)
     }
 }

@@ -5,6 +5,7 @@ use crate::{
         constants::{AVATAR_URL, OSU_BASE},
         numbers::with_comma_uint,
     },
+    CountryCode,
 };
 
 use std::fmt::Write;
@@ -20,7 +21,7 @@ pub struct OsuStatsListEmbed {
 impl OsuStatsListEmbed {
     pub fn new(
         players: &[OsuStatsPlayer],
-        country: &Option<String>,
+        country: &Option<CountryCode>,
         first_place_id: u32,
         pages: (usize, usize),
     ) -> Self {

@@ -94,6 +94,7 @@ impl Iterator for IntoIter {
                 if self.shift == 32 {
                     return None;
                 }
+
                 let bit = 1 << self.shift;
                 self.shift += 1;
                 if self.tags.bits & bit != 0 {
