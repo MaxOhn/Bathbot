@@ -93,7 +93,7 @@ impl PlayerSnipeListEmbed {
     }
 }
 
-impl_into_builder!(PlayerSnipeListEmbed {
+impl_builder!(PlayerSnipeListEmbed {
     author,
     description,
     footer,

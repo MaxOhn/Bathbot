@@ -37,6 +37,8 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &MEDALSTATS_CMD,
                 &MEDALSMISSING_CMD,
                 &SEARCH_CMD,
+                &MATCHLIVE_CMD,
+                &MATCHLIVEREMOVE_CMD,
             ],
         ),
         CommandGroup::new(

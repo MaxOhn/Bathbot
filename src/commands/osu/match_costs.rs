@@ -35,7 +35,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     let warmups = args.warmups;
 
     // Retrieve the match
-    let (osu_match, games) = match ctx.osu().osu_match(match_id).await {
+    let (mut osu_match, games) = match ctx.osu().osu_match(match_id).await {
         Ok(mut osu_match) => {
             let games = osu_match.drain_games().skip(warmups).collect::<Vec<_>>();
 
@@ -83,7 +83,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     };
 
     // Accumulate all necessary data
-    let data = match MatchCostEmbed::new(osu_match, description, match_result) {
+    let data = match MatchCostEmbed::new(&mut osu_match, description, match_result) {
         Some(data) => data,
         None => return msg.error(&ctx, TOO_MANY_PLAYERS_TEXT).await,
     };
@@ -132,7 +132,7 @@ const TIEBREAKER_BONUS: f32 = 2.0;
 // global multiplier per combination (if at least 3)
 const MOD_BONUS: f32 = 0.02;
 
-fn process_match(games: &[MatchGame], finished: bool) -> MatchResult {
+pub fn process_match(games: &[MatchGame], finished: bool) -> MatchResult {
     let mut teams = HashMap::new();
     let mut point_costs = HashMap::new();
     let mut mods = HashMap::new();

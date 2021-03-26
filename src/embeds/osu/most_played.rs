@@ -49,7 +49,7 @@ impl MostPlayedEmbed {
     }
 }
 
-impl_into_builder!(MostPlayedEmbed {
+impl_builder!(MostPlayedEmbed {
     author,
     description,
     footer,

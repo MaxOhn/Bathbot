@@ -42,7 +42,7 @@ impl TrackingStatsEmbed {
     }
 }
 
-impl_into_builder!(TrackingStatsEmbed {
+impl_builder!(TrackingStatsEmbed {
     fields,
     footer,
     timestamp,

@@ -117,7 +117,7 @@ impl MedalStatsEmbed {
     }
 }
 
-impl_into_builder!(MedalStatsEmbed {
+impl_builder!(MedalStatsEmbed {
     author,
     fields,
     footer,

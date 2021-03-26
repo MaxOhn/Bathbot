@@ -32,4 +32,4 @@ impl RoleAssignEmbed {
     }
 }
 
-impl_into_builder!(RoleAssignEmbed { description });
+impl_builder!(RoleAssignEmbed { description });

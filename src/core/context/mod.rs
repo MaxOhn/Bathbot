@@ -1,5 +1,7 @@
 mod impls;
 
+pub use impls::{MatchLiveChannels, MatchTrackResult};
+
 use super::BotStats;
 
 use crate::{
@@ -66,6 +68,7 @@ pub struct ContextData {
     pub osu_tracking: OsuTracking,
     pub msgs_to_process: DashSet<MessageId>,
     pub map_garbage_collection: Mutex<HashSet<u32>>,
+    pub match_live: MatchLiveChannels,
 }
 
 impl Context {

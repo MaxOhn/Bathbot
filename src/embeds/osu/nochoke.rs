@@ -90,7 +90,7 @@ impl NoChokeEmbed {
     }
 }
 
-impl_into_builder!(NoChokeEmbed {
+impl_builder!(NoChokeEmbed {
     author,
     description,
     footer,

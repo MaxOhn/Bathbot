@@ -74,7 +74,7 @@ impl CountrySnipeStatsEmbed {
     }
 }
 
-impl_into_builder!(CountrySnipeStatsEmbed {
+impl_builder!(CountrySnipeStatsEmbed {
     fields,
     footer,
     image,

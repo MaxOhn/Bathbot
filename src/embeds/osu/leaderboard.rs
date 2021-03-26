@@ -136,7 +136,7 @@ impl LeaderboardEmbed {
     }
 }
 
-impl_into_builder!(LeaderboardEmbed {
+impl_builder!(LeaderboardEmbed {
     author,
     description,
     footer,

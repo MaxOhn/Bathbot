@@ -35,33 +35,51 @@ macro_rules! field {
     };
 }
 
-macro_rules! impl_as_builder {
-    ($ty:ty { $($field:ident,)+ }) => {
+#[allow(unused_macros)]
+macro_rules! impl_builder {
+    // Only through reference
+    (&$ty:ty { $($field:ident,)+ }) => {
         impl crate::embeds::EmbedData for $ty {
-            fn as_builder(&self) -> crate::embeds::EmbedBuilder {
-                crate::embeds::EmbedBuilder::new()
-                    $(.$field(&self.$field))+
-            }
+            impl_builder!(SUB &$ty { $($field,)+ });
         }
     };
 
-    ($ty:ty { $($field:ident),+ }) => {
-        impl_as_builder!($ty { $($field,)+ });
-    };
-}
-
-macro_rules! impl_into_builder {
+    // Only through ownership
     ($ty:ty { $($field:ident,)+ }) => {
         impl crate::embeds::EmbedData for $ty {
-            fn into_builder(self) -> crate::embeds::EmbedBuilder {
-                crate::embeds::EmbedBuilder::new()
-                    $(.$field(self.$field))+
-            }
+            impl_builder!(SUB $ty { $($field,)+ });
         }
     };
 
+    // Through both reference and ownership
+    (!$ty:ty { $($field:ident,)+ }) => {
+        impl crate::embeds::EmbedData for $ty {
+            impl_builder!(SUB &$ty { $($field,)+ });
+            impl_builder!(SUB $ty { $($field,)+ });
+        }
+    };
+
+    (SUB &$ty:ty { $($field:ident,)+ }) => {
+        fn as_builder(&self) -> crate::embeds::EmbedBuilder {
+            crate::embeds::EmbedBuilder::new()
+                $(.$field(&self.$field))+
+        }
+    };
+
+    (SUB $ty:ty { $($field:ident,)+ }) => {
+        fn into_builder(self) -> crate::embeds::EmbedBuilder {
+            crate::embeds::EmbedBuilder::new()
+                $(.$field(self.$field))+
+        }
+    };
+
+    // Without trailing comma
+    (&$ty:ty { $($field:ident),+ }) => {
+        impl_builder!(&$ty { $($field,)+ });
+    };
+
     ($ty:ty { $($field:ident),+ }) => {
-        impl_into_builder!($ty { $($field,)+ });
+        impl_builder!($ty { $($field,)+ });
     };
 }
 

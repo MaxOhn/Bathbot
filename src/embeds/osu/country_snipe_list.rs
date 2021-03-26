@@ -101,7 +101,7 @@ impl CountrySnipeListEmbed {
     }
 }
 
-impl_into_builder!(CountrySnipeListEmbed {
+impl_builder!(CountrySnipeListEmbed {
     description,
     footer,
     thumbnail,

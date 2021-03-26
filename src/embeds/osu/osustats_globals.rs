@@ -97,7 +97,7 @@ impl OsuStatsGlobalsEmbed {
     }
 }
 
-impl_into_builder!(OsuStatsGlobalsEmbed {
+impl_builder!(OsuStatsGlobalsEmbed {
     author,
     description,
     footer,

@@ -54,7 +54,7 @@ impl RankRankedScoreEmbed {
     }
 }
 
-impl_into_builder!(RankRankedScoreEmbed {
+impl_builder!(RankRankedScoreEmbed {
     author,
     description,
     thumbnail,

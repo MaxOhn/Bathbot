@@ -98,7 +98,7 @@ impl AboutEmbed {
     }
 }
 
-impl_into_builder!(AboutEmbed {
+impl_builder!(AboutEmbed {
     fields,
     footer,
     thumbnail,

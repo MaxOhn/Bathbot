@@ -121,7 +121,7 @@ impl MedalEmbed {
     }
 }
 
-impl_into_builder!(MedalEmbed {
+impl_builder!(MedalEmbed {
     fields,
     thumbnail,
     title,

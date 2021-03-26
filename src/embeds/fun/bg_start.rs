@@ -21,4 +21,4 @@ impl BGStartEmbed {
     }
 }
 
-impl_into_builder!(BGStartEmbed { description });
+impl_builder!(BGStartEmbed { description });

@@ -350,7 +350,7 @@ impl NoScoresEmbed {
     }
 }
 
-impl_into_builder!(NoScoresEmbed {
+impl_builder!(NoScoresEmbed {
     author,
     description,
     footer,

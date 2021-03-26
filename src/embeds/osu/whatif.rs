@@ -100,7 +100,7 @@ impl WhatIfEmbed {
     }
 }
 
-impl_into_builder!(WhatIfEmbed {
+impl_builder!(WhatIfEmbed {
     author,
     description,
     thumbnail,

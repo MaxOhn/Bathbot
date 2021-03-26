@@ -73,7 +73,7 @@ impl BGHelpEmbed {
     }
 }
 
-impl_into_builder!(BGHelpEmbed {
+impl_builder!(BGHelpEmbed {
     description,
     fields,
     title,

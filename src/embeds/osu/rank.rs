@@ -140,7 +140,7 @@ impl RankEmbed {
     }
 }
 
-impl_into_builder!(RankEmbed {
+impl_builder!(RankEmbed {
     author,
     description,
     thumbnail,

@@ -27,7 +27,9 @@ mod util;
 
 use crate::{
     arguments::Args,
-    core::{handle_event, logging, BotStats, Cache, CommandGroups, Context, CONFIG},
+    core::{
+        handle_event, logging, BotStats, Cache, CommandGroups, Context, MatchLiveChannels, CONFIG,
+    },
     custom_client::CustomClient,
     database::Database,
     tracking::OsuTracking,
@@ -164,6 +166,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         osu_tracking,
         msgs_to_process: DashSet::new(),
         map_garbage_collection: Mutex::new(HashSet::new()),
+        match_live: MatchLiveChannels::new(),
     };
 
     // Shard-cluster config
@@ -248,6 +251,8 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         let count = shutdown_ctx.stop_all_games().await;
         info!("Stopped {} bg games", count);
 
+        // TODO: Notify match live tracks
+
         info!("Shutting down");
         process::exit(0);
     });
@@ -263,6 +268,10 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     // Spawn background loop worker
     let background_ctx = Arc::clone(&ctx);
     tokio::spawn(Context::background_loop(background_ctx));
+
+    // Spawn osu match ticker worker
+    let match_live_ctx = Arc::clone(&ctx);
+    tokio::spawn(Context::match_live_loop(match_live_ctx));
 
     // Activate cluster
     let cluster_ctx = Arc::clone(&ctx);

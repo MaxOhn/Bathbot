@@ -79,7 +79,7 @@ impl CommonEmbed {
     }
 }
 
-impl_into_builder!(CommonEmbed {
+impl_builder!(CommonEmbed {
     description,
     footer,
     thumbnail

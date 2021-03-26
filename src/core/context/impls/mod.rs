@@ -3,10 +3,12 @@ mod bg_game;
 mod clients;
 mod guilds;
 mod links;
+mod match_live;
 mod shutdown;
 mod twitch;
 
 pub use background_loop::GarbageCollectMap;
+pub use match_live::{MatchLiveChannels, MatchTrackResult};
 
 use crate::{Context, OsuTracking};
 

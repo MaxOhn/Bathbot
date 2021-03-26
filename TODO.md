@@ -22,7 +22,7 @@
 
 **[Done]**
 - ~~Implement custom EmbedBuilder~~ (21.03.28)
-- ~~Benchmark for `smartstring`, `smallstr`, `smallvec`, and `arrayvec`~~ (21.03.23)
+- ~~Benchmark for `smartstring`, `smallstr`, `smallvec`, and `arrayvec`~~ (21.03.25)
 - ~~How far off personal bests on `<rp`~~ (21.02.28)
 - ~~Reformat `<common` embed~~ (21.02.14)
 - ~~Handle active bg games on shutdown~~ (21.02.13)
