@@ -16,7 +16,7 @@ use std::{borrow::Cow, cmp::Ordering, fmt::Write};
 
 const DESCRIPTION_BUFFER: usize = 45;
 
-type MatchLiveEmbeds = SmallVec<[MatchLiveEmbed; 2]>;
+pub type MatchLiveEmbeds = SmallVec<[MatchLiveEmbed; 2]>;
 
 pub struct MatchLiveEmbed {
     title: String,
@@ -55,6 +55,11 @@ macro_rules! team {
             let _ = write!($buf, ":red_circle: **Red Team** :red_circle:");
         }
     };
+}
+
+pub enum MatchLiveEmbedUpdate {
+    Modify,
+    Delete,
 }
 
 impl MatchLiveEmbed {
@@ -130,12 +135,15 @@ impl MatchLiveEmbed {
         embeds
     }
 
-    pub fn update(&mut self, lobby: &OsuMatch) -> (bool, Option<MatchLiveEmbeds>) {
+    pub fn update(
+        &mut self,
+        lobby: &OsuMatch,
+    ) -> (Option<MatchLiveEmbedUpdate>, Option<MatchLiveEmbeds>) {
         if lobby.events.is_empty() {
-            return (false, None);
+            return (None, None);
         }
 
-        let mut updated = false;
+        let mut update = None;
         let mut embeds = MatchLiveEmbeds::new();
         let mut last_game_id = self.game_id;
 
@@ -177,8 +185,14 @@ impl MatchLiveEmbed {
                     MatchEvent::Game { game, .. } => {
                         last_game_id = Some(game.game_id);
 
-                        if game.end_time.is_none() && game.game_id == game_id {
-                            continue;
+                        if game.game_id == game_id {
+                            if game.end_time.is_none() {
+                                continue;
+                            } else if embeds.is_empty() {
+                                update = Some(MatchLiveEmbedUpdate::Delete);
+                            } else {
+                                embeds.truncate(embeds.len() - 1);
+                            }
                         }
 
                         let (description, image) = game_content(lobby, &*game);
@@ -206,32 +220,43 @@ impl MatchLiveEmbed {
 
                 match event {
                     MatchEvent::Joined { user_id, .. } => {
-                        updated |= empty;
+                        if empty {
+                            update.replace(MatchLiveEmbedUpdate::Modify);
+                        }
 
                         push!(embed.description => "• `{}` joined the lobby" @ lobby[user_id])
                     }
                     MatchEvent::Left { user_id, .. } => {
-                        updated |= empty;
-
+                        if empty {
+                            update.replace(MatchLiveEmbedUpdate::Modify);
+                        }
                         push!(embed.description => "• `{}` left the lobby" @ lobby[user_id])
                     }
                     MatchEvent::Kicked { user_id, .. } => {
-                        updated |= empty;
+                        if empty {
+                            update.replace(MatchLiveEmbedUpdate::Modify);
+                        }
 
                         push!(embed.description => "• `{}` kicked from the lobby" @ lobby[user_id])
                     }
                     MatchEvent::HostChanged { user_id, .. } => {
-                        updated |= empty;
+                        if empty {
+                            update.replace(MatchLiveEmbedUpdate::Modify);
+                        }
 
                         push!(embed.description => "• `{}` became the new host" @ lobby[user_id])
                     }
                     MatchEvent::Create { user_id, .. } => {
-                        updated |= empty;
+                        if empty {
+                            update.replace(MatchLiveEmbedUpdate::Modify);
+                        }
 
                         push!(embed.description => "• `{}` created the lobby" @ lobby[user_id])
                     }
                     MatchEvent::Disbanded { .. } => {
-                        updated |= empty;
+                        if empty {
+                            update.replace(MatchLiveEmbedUpdate::Modify);
+                        }
 
                         embed.description.push_str("Lobby was closed\n")
                     }
@@ -277,7 +302,7 @@ impl MatchLiveEmbed {
             }
         }
 
-        (updated, (!embeds.is_empty()).then(|| embeds))
+        (update, (!embeds.is_empty()).then(|| embeds))
     }
 }
 

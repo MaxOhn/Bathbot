@@ -6,7 +6,6 @@ pub const RED: u32 = 0xE74C3C;
 pub const EMBED_SIZE: usize = 6000;
 pub const DESCRIPTION_SIZE: usize = 2048;
 pub const FIELD_VALUE_SIZE: usize = 1024;
-pub const FIELD_LIMIT: usize = 25;
 
 // osu!
 pub const OSU_BASE: &str = "https://osu.ppy.sh/";
