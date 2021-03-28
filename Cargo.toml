@@ -127,12 +127,6 @@ default_features = false
 branch = "custom-cache"
 git = "https://github.com/MaxOhn/twilight"
 
-[dependencies.twilight-embed-builder]
-# path = "../twilight/embed-builder"
-branch = "custom-cache"
-git = "https://github.com/MaxOhn/twilight"
-default_features = false
-
 [dependencies.twilight-gateway]
 # path = "../twilight/gateway"
 branch = "custom-cache"

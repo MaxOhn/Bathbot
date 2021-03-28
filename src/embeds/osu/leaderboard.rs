@@ -1,6 +1,6 @@
 use crate::{
     custom_client::ScraperScore,
-    embeds::{Author, EmbedData, Footer},
+    embeds::{Author, Footer},
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
@@ -20,11 +20,10 @@ use rosu_pp::{
 use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, GameMode};
 use std::{borrow::Cow, fmt::Write};
 use tokio::fs::File;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct LeaderboardEmbed {
     description: String,
-    thumbnail: ImageSource,
+    thumbnail: String,
     author: Author,
     footer: Footer,
 }
@@ -129,30 +128,20 @@ impl LeaderboardEmbed {
             author,
             description,
             footer,
-            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id))
-                .unwrap(),
+            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id),
         })
     }
 }
 
-impl EmbedData for LeaderboardEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
+// TODO: into_builder?
+impl_as_builder!(LeaderboardEmbed {
+    author,
+    description,
+    footer,
+    thumbnail,
+});
 
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
-    }
-}
-
+// TODO: return impl Display?
 async fn get_pp(
     mod_map: &mut HashMap<u32, (StarResult, f32)>,
     score: &ScraperScore,
@@ -233,6 +222,7 @@ async fn get_pp(
     format!("**{:.2}**/{:.2}PP", pp, max_pp)
 }
 
+// TODO: return impl Display?
 fn get_combo(score: &ScraperScore, map: &Beatmap) -> String {
     let mut combo = format!("**{}x**/", score.max_combo);
 

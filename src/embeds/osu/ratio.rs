@@ -1,16 +1,12 @@
-use crate::{
-    embeds::{Author, EmbedData},
-    util::constants::AVATAR_URL,
-};
+use crate::{embeds::Author, util::constants::AVATAR_URL};
 
 use rosu_v2::prelude::{Grade, Score, User};
 use std::{collections::BTreeMap, fmt::Write};
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct RatioEmbed {
-    description: Option<String>,
-    thumbnail: Option<ImageSource>,
-    author: Option<Author>,
+    description: String,
+    thumbnail: String,
+    author: Author,
 }
 
 impl RatioEmbed {
@@ -38,7 +34,7 @@ impl RatioEmbed {
             }
         }
 
-        let thumbnail = ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap();
+        let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
         let mut description = String::with_capacity(256);
 
         let _ = writeln!(
@@ -77,26 +73,18 @@ impl RatioEmbed {
         description.push_str("```");
 
         Self {
-            description: Some(description),
-            thumbnail: Some(thumbnail),
-            author: Some(author!(user)),
+            description,
+            thumbnail,
+            author: author!(user),
         }
     }
 }
 
-impl EmbedData for RatioEmbed {
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take()
-    }
-
-    fn author_owned(&mut self) -> Option<Author> {
-        self.author.take()
-    }
-
-    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
-        self.thumbnail.take()
-    }
-}
+impl_into_builder!(RatioEmbed {
+    author,
+    description,
+    thumbnail,
+});
 
 #[derive(Default)]
 struct RatioCategory {

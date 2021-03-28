@@ -91,8 +91,7 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     let data = BGRankingEmbed::new(author_idx, initial_scores, 1, (1, pages));
 
     // Creating the embed
-    let embed = data.build().build()?;
-
+    let embed = data.into_builder().build();
     let response = msg.respond_embed(&ctx, embed).await?;
 
     // Skip pagination if too few entries

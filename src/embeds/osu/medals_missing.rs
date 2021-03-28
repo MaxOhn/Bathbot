@@ -1,19 +1,19 @@
 use crate::{
     commands::osu::MedalType,
-    embeds::{Author, EmbedData, Footer},
+    embeds::{Author, Footer},
     util::constants::{AVATAR_URL, OSU_BASE},
 };
 
 use cow_utils::CowUtils;
 use rosu_v2::model::user::User;
 use std::fmt::Write;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct MedalsMissingEmbed {
-    thumbnail: ImageSource,
     author: Author,
     description: String,
     footer: Footer,
+    thumbnail: String,
+    title: &'static str,
 }
 
 impl MedalsMissingEmbed {
@@ -25,6 +25,7 @@ impl MedalsMissingEmbed {
         pages: (usize, usize),
     ) -> Self {
         let mut description = String::new();
+
         for (i, medal) in medals.iter().enumerate() {
             match medal {
                 MedalType::Group(g) => {
@@ -60,32 +61,19 @@ impl MedalsMissingEmbed {
             ));
 
         Self {
-            footer,
             author,
             description,
-            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
+            footer,
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            title: "Missing medals",
         }
     }
 }
 
-impl EmbedData for MedalsMissingEmbed {
-    fn title(&self) -> Option<&str> {
-        Some("Missing medals")
-    }
-
-    fn description(&self) -> Option<&str> {
-        Some(self.description.as_str())
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-}
+impl_into_builder!(MedalsMissingEmbed {
+    author,
+    description,
+    footer,
+    thumbnail,
+    title,
+});

@@ -5,10 +5,8 @@ use crate::{
     BotResult, Context,
 };
 
-use futures::{
-    stream::{FuturesUnordered, StreamExt},
-};
-use rosu_v2::prelude::{ OsuError};
+use futures::stream::{FuturesUnordered, StreamExt};
+use rosu_v2::prelude::OsuError;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -58,7 +56,10 @@ async fn tracklist(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
 
     drop(user_futs);
 
-    users.sort_unstable_by(|(u1, m1, _), (u2, m2, _)| (*m1 as u8).cmp(&(*m2 as u8)).then(u1.cmp(&u2)));
+    users.sort_unstable_by(|(u1, m1, _), (u2, m2, _)| {
+        (*m1 as u8).cmp(&(*m2 as u8)).then(u1.cmp(&u2))
+    });
+
     let embeds = TrackListEmbed::new(users);
 
     if embeds.is_empty() {
@@ -66,7 +67,7 @@ async fn tracklist(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
         msg.send_response(&ctx, content).await?;
     } else {
         for data in embeds {
-            let embed = data.build().build()?;
+            let embed = data.into_builder().build();
             msg.build_response(&ctx, |m| m.embed(embed)).await?;
         }
     }

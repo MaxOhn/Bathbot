@@ -65,8 +65,8 @@ async fn bws(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         .count();
 
     let embed = BWSEmbed::new(user, badges, rank_range)
-        .build_owned()
-        .build()?;
+        .into_builder()
+        .build();
 
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
 

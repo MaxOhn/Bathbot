@@ -261,8 +261,6 @@ async fn nochokes_main(
     let data = NoChokeEmbed::new(&user, scores_data.iter().take(5), unchoked_pp, (1, pages)).await;
 
     // Creating the embed
-    let embed = data.build().build()?;
-
     let response = ctx
         .http
         .create_message(msg.channel_id)
@@ -276,7 +274,7 @@ async fn nochokes_main(
             },
             name
         ))?
-        .embed(embed)?
+        .embed(data.into_builder().build())?
         .await?;
 
     // Add maps of scores to DB

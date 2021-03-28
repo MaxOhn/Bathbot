@@ -1,12 +1,9 @@
-use crate::{
-    database::Prefix,
-    embeds::{EmbedData, EmbedFields},
-};
+use crate::{database::Prefix, embeds::EmbedFields};
 
 pub struct BGHelpEmbed {
-    title: &'static str,
     description: &'static str,
     fields: EmbedFields,
+    title: &'static str,
 }
 
 impl BGHelpEmbed {
@@ -17,9 +14,9 @@ impl BGHelpEmbed {
             or content after `ft.` or `feat.`.\n\
             Use these subcommands to initiate with the game:";
 
-        let fields = smallvec![
-            (
-                "start / s / skip / resolve / r".to_owned(),
+        let fields = vec![
+            field!(
+                "start / s / skip / resolve / r",
                 format!(
                     "__If no game is running yet:__\n\
                     Start the game in the current channel.\n\
@@ -37,53 +34,47 @@ impl BGHelpEmbed {
                     Once the mania game is running, you can skip with `{prefix}bg s`.",
                     prefix = prefix
                 ),
-                false,
+                false
             ),
-            (
-                "hint / h / tip".to_owned(),
+            field!(
+                "hint / h / tip",
                 "Receive a hint (can be used multiple times)".to_owned(),
-                true,
+                true
             ),
-            (
-                "bigger / b / enhance".to_owned(),
+            field!(
+                "bigger / b / enhance",
                 "Increase the radius of the displayed image \
                 (can be used multiple times)"
                     .to_owned(),
-                true,
+                true
             ),
-            (
-                "stop / end / quit".to_owned(),
+            field!(
+                "stop / end / quit",
                 "Resolve the current background and stop the game in this channel".to_owned(),
-                true,
+                true
             ),
-            (
-                "ranking / leaderboard / lb / stats".to_owned(),
+            field!(
+                "ranking / leaderboard / lb / stats",
                 format!(
                     "Check out the global leaderboard for amount of correct guesses.\n\
                     If you add `server` or `s` at the end, e.g. `{prefix}bg lb s`, \
                     I will only consider members of the server.",
                     prefix = prefix
                 ),
-                false,
+                false
             ),
         ];
 
         Self {
-            fields,
             description,
+            fields,
             title: "Background guessing game",
         }
     }
 }
 
-impl EmbedData for BGHelpEmbed {
-    fn title_owned(&mut self) -> Option<String> {
-        Some(self.title.to_owned())
-    }
-    fn description_owned(&mut self) -> Option<String> {
-        Some(self.description.to_owned())
-    }
-    fn fields_owned(self) -> Option<EmbedFields> {
-        Some(self.fields)
-    }
-}
+impl_into_builder!(BGHelpEmbed {
+    description,
+    fields,
+    title,
+});

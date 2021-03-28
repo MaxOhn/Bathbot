@@ -1,12 +1,12 @@
-use crate::{embeds::EmbedData, util::constants::DESCRIPTION_SIZE};
+use crate::util::constants::DESCRIPTION_SIZE;
 
 use itertools::Itertools;
 use rosu_v2::model::GameMode;
 use std::fmt::Write;
 
 pub struct TrackListEmbed {
-    title: &'static str,
     description: String,
+    title: &'static str,
 }
 
 impl TrackListEmbed {
@@ -74,18 +74,11 @@ impl TrackListEmbed {
             });
 
         if description.lines().count() > 1 {
-            embeds.push(Self { title, description });
+            embeds.push(Self { description, title });
         }
 
         embeds
     }
 }
 
-impl EmbedData for TrackListEmbed {
-    fn title(&self) -> Option<&str> {
-        Some(self.title)
-    }
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-}
+impl_into_builder!(TrackListEmbed { description, title });

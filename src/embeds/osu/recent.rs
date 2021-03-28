@@ -1,7 +1,7 @@
 use crate::{
-    embeds::{osu, Author, EmbedData, Footer, EmbedFields},
+    embeds::{osu, Author, EmbedBuilder, EmbedData, Footer},
     util::{
-        constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
+        constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
         error::PPError,
         matcher::highlight_funny_numeral,
@@ -15,23 +15,18 @@ use crate::{
 use chrono::{DateTime, Utc};
 use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, ManiaPP, OsuPP, StarResult, TaikoPP};
 use rosu_v2::prelude::{BeatmapUserScore, GameMode, Grade, Score, User};
-use std::{borrow::Cow, fmt::Write};
+use std::fmt::Write;
 use tokio::fs::File;
-use twilight_embed_builder::{
-    author::EmbedAuthorBuilder, builder::EmbedBuilder, image_source::ImageSource,
-};
-use twilight_model::channel::embed::EmbedField;
 
 #[derive(Clone)]
 pub struct RecentEmbed {
-    description: Option<Cow<'static, str>>,
+    description: Option<String>,
     title: String,
     url: String,
     author: Author,
     footer: Footer,
     timestamp: DateTime<Utc>,
-    thumbnail: ImageSource,
-    image: ImageSource,
+    thumbnail: String,
 
     stars: f32,
     grade_completion_mods: String,
@@ -43,6 +38,7 @@ pub struct RecentEmbed {
     hits: String,
     if_fc: Option<(String, f32, String)>,
     map_info: String,
+    mapset_id: u32,
 }
 
 impl RecentEmbed {
@@ -223,17 +219,12 @@ impl RecentEmbed {
 
             description.push_str("**__");
 
-            Some(description.into())
+            Some(description)
         } else {
             extend_desc
                 .then(|| score_cmp_description(score, map_score))
                 .flatten()
         };
-
-        let image = ImageSource::url(format!(
-            "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
-            map.mapset_id
-        ));
 
         Ok(Self {
             description,
@@ -242,9 +233,7 @@ impl RecentEmbed {
             author: author!(user),
             footer,
             timestamp: score.created_at,
-            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id))
-                .unwrap(),
-            image: image.unwrap(),
+            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id),
             grade_completion_mods,
             stars,
             score: with_comma_uint(score.score).to_string(),
@@ -255,49 +244,27 @@ impl RecentEmbed {
             hits,
             map_info: osu::get_map_info(&map),
             if_fc,
+            mapset_id: mapset.mapset_id,
         })
     }
 }
 
 impl EmbedData for RecentEmbed {
-    fn description(&self) -> Option<&str> {
-        self.description.as_deref()
-    }
+    fn as_builder(&self) -> EmbedBuilder {
+        let image = format!(
+            "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
+            self.mapset_id
+        );
 
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
-    }
-
-    fn url(&self) -> Option<&str> {
-        Some(&self.url)
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-
-    fn image(&self) -> Option<&ImageSource> {
-        Some(&self.image)
-    }
-
-    fn timestamp(&self) -> Option<&DateTime<Utc>> {
-        Some(&self.timestamp)
-    }
-
-    fn fields(&self) -> Option<EmbedFields> {
         let score = highlight_funny_numeral(&self.score).into_owned();
         let acc = highlight_funny_numeral(&format!("{}%", self.acc)).into_owned();
         let pp = highlight_funny_numeral(&self.pp).into_owned();
 
-        let mut fields = smallvec![
-            ("Grade".to_owned(), self.grade_completion_mods.clone(), true),
-            ("Score".to_owned(), score, true),
-            ("Acc".to_owned(), acc, true),
-            ("PP".to_owned(), pp, true),
+        let mut fields = vec![
+            field!("Grade", self.grade_completion_mods.clone(), true),
+            field!("Score", score, true),
+            field!("Acc", acc, true),
+            field!("PP", pp, true),
         ];
 
         fields.reserve(3 + (self.if_fc.is_some() as usize) * 3);
@@ -307,58 +274,56 @@ impl EmbedData for RecentEmbed {
         let combo = highlight_funny_numeral(&self.combo).into_owned();
         let hits = highlight_funny_numeral(&self.hits).into_owned();
 
-        fields.push((
-            if mania { "Combo / Ratio" } else { "Combo" }.to_owned(),
-            combo,
-            true,
-        ));
+        let name = if mania { "Combo / Ratio" } else { "Combo" };
 
-        fields.push(("Hits".to_owned(), hits, true));
+        fields.push(field!(name, combo, true));
+        fields.push(field!("Hits", hits, true));
 
         if let Some((pp, acc, hits)) = &self.if_fc {
-            fields.push(("**If FC**: PP".to_owned(), pp.clone(), true));
-            fields.push(("Acc".to_owned(), format!("{}%", acc), true));
-            fields.push(("Hits".to_owned(), hits.clone(), true));
+            fields.push(field!("**If FC**: PP", pp.clone(), true));
+            fields.push(field!("Acc", format!("{}%", acc), true));
+            fields.push(field!("Hits", hits.clone(), true));
         }
 
-        fields.push(("Map Info".to_owned(), self.map_info.clone(), false));
+        fields.push(field!("Map Info".to_owned(), self.map_info.clone(), false));
 
-        Some(fields)
+        let builder = EmbedBuilder::new()
+            .author(&self.author)
+            .fields(fields)
+            .footer(&self.footer)
+            .image(image)
+            .timestamp(self.timestamp)
+            .title(&self.title)
+            .url(&self.url);
+
+        if let Some(ref description) = self.description {
+            builder.description(description)
+        } else {
+            builder
+        }
     }
 
-    fn minimize(self) -> EmbedBuilder {
-        let mut eb = EmbedBuilder::new();
-
+    fn into_builder(self) -> EmbedBuilder {
         let name = format!(
             "{}\t{}\t({}%)\t{}",
             self.grade_completion_mods, self.score, self.acc, self.ago
         );
 
         let value = format!("{} [ {} ] {}", self.pp, self.combo, self.hits);
-        let title = format!("{} [{}★]", self.title, self.stars);
+
+        let builder = EmbedBuilder::new()
+            .author(self.author)
+            .fields(vec![field!(name, value, false)])
+            .title(self.title)
+            .thumbnail(self.thumbnail)
+            .title(self.title)
+            .url(self.url);
 
         if let Some(description) = self.description {
-            eb = eb.description(description).unwrap();
+            builder.description(description)
+        } else {
+            builder
         }
-
-        let ab = EmbedAuthorBuilder::new()
-            .name(self.author.name)
-            .unwrap()
-            .url(self.author.url.unwrap())
-            .icon_url(self.author.icon_url.unwrap());
-
-        eb.color(DARK_GREEN)
-            .unwrap()
-            .thumbnail(self.thumbnail)
-            .title(title)
-            .unwrap()
-            .url(self.url)
-            .field(EmbedField {
-                name,
-                value,
-                inline: false,
-            })
-            .author(ab)
     }
 }
 
@@ -496,13 +461,10 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
     }
 }
 
-fn score_cmp_description(
-    score: &Score,
-    map_score: Option<&BeatmapUserScore>,
-) -> Option<Cow<'static, str>> {
+fn score_cmp_description(score: &Score, map_score: Option<&BeatmapUserScore>) -> Option<String> {
     if let Some(s) = map_score.map(|s| &s.score) {
         if s == score {
-            return Some(Cow::Borrowed("Personal best on the map"));
+            return Some("Personal best on the map".to_owned());
         } else if score.score > s.score {
             let msg = if s.grade == Grade::F {
                 "Would have been a personal best on the map"
@@ -510,14 +472,14 @@ fn score_cmp_description(
                 "Personal best on the map"
             };
 
-            return Some(Cow::Borrowed(msg));
+            return Some(msg.to_owned());
         } else if s.grade != Grade::F {
             let msg = format!(
                 "Missing {} score for a personal best on the map",
                 with_comma_uint(s.score - score.score + 1)
             );
 
-            return Some(Cow::Owned(msg));
+            return Some(msg);
         }
     }
 

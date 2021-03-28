@@ -138,8 +138,6 @@ async fn leaderboard_main(
     };
 
     // Sending the embed
-    let embed = data.build().build()?;
-
     let content = format!(
         "I found {} scores with the specified mods on the map's leaderboard",
         amount
@@ -149,7 +147,7 @@ async fn leaderboard_main(
         .http
         .create_message(msg.channel_id)
         .content(content)?
-        .embed(embed)?
+        .embed(data.into_builder().build())?
         .await?;
 
     // Add map to database if its not in already
@@ -170,6 +168,7 @@ async fn leaderboard_main(
     // Pagination
     let pagination =
         LeaderboardPagination::new(response, map, None, scores, author_name, first_place_icon);
+
     let owner = msg.author.id;
 
     gb.execute(&ctx).await;

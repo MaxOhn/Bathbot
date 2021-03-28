@@ -92,8 +92,8 @@ async fn sniped_diff_main(
 
     let data_fut = SnipedDiffEmbed::new(&user, diff, &scores, 0, (1, pages), &mut maps);
 
-    let data = match data_fut.await {
-        Ok(data) => data,
+    let embed = match data_fut.await {
+        Ok(data) => data.into_builder().build(),
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
@@ -102,7 +102,6 @@ async fn sniped_diff_main(
     };
 
     // Creating the embed
-    let embed = data.build().build()?;
     let response = msg.respond_embed(&ctx, embed).await?;
 
     // Skip pagination if too few entries

@@ -1,8 +1,8 @@
 use crate::{
     commands::osu::{MinMaxAvgBasic, ProfileResult},
-    embeds::{Author, EmbedData, Footer, EmbedFields},
+    embeds::{attachment, Author, EmbedBuilder, EmbedData, EmbedFields, Footer},
     util::{
-        constants::{AVATAR_URL, DARK_GREEN},
+        constants::AVATAR_URL,
         datetime::{date_to_string, how_long_ago, sec_to_minsec},
         numbers::{round, with_comma_uint},
         osu::grade_emote,
@@ -11,19 +11,14 @@ use crate::{
 
 use rosu_v2::prelude::{GameMode, Grade, User};
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
-use twilight_embed_builder::{
-    author::EmbedAuthorBuilder, builder::EmbedBuilder, footer::EmbedFooterBuilder,
-    image_source::ImageSource,
-};
-use twilight_model::channel::embed::EmbedField;
 
 #[derive(Clone)]
 pub struct ProfileEmbed {
     description: Option<String>,
     author: Author,
-    thumbnail: ImageSource,
+    thumbnail: String,
     title: String,
-    image: ImageSource,
+    image: String,
     footer: Footer,
     main_fields: EmbedFields,
     extended_fields: Option<EmbedFields>,
@@ -65,50 +60,42 @@ impl ProfileEmbed {
 
         let bonus_pp = (100.0 * 416.6667 * (1.0 - bonus_pow)).round() / 100.0;
 
-        let main_fields = smallvec![
-            (
-                "Ranked score".to_owned(),
+        let main_fields = vec![
+            field!(
+                "Ranked score",
                 with_comma_uint(stats.ranked_score).to_string(),
-                true,
+                true
             ),
-            (
-                "Accuracy".to_owned(),
-                format!("{:.2}%", stats.accuracy),
-                true,
-            ),
-            (
-                "Max combo".to_owned(),
+            field!("Accuracy", format!("{:.2}%", stats.accuracy), true),
+            field!(
+                "Max combo",
                 with_comma_uint(stats.max_combo).to_string(),
-                true,
+                true
             ),
-            (
-                "Total score".to_owned(),
+            field!(
+                "Total score",
                 with_comma_uint(stats.total_score).to_string(),
-                true,
+                true
             ),
-            (
-                "Level".to_owned(),
-                format!("{:.2}", stats.level.current),
-                true,
-            ),
-            (
-                "Medals".to_owned(),
+            field!("Level", format!("{:.2}", stats.level.current), true),
+            field!(
+                "Medals",
                 format!("{}", user.medals.as_ref().unwrap().len()),
-                true,
+                true
             ),
-            (
-                "Total hits".to_owned(),
+            field!(
+                "Total hits",
                 with_comma_uint(stats.total_hits).to_string(),
-                true,
+                true
             ),
-            ("Bonus PP".to_owned(), format!("{}pp", bonus_pp), true),
-            (
-                "Followers".to_owned(),
+            field!("Bonus PP", format!("{}pp", bonus_pp), true),
+            field!(
+                "Followers",
                 with_comma_uint(user.follower_count.unwrap_or(0)).to_string(),
-                true,
+                true
             ),
-            (
-                "Grades".to_owned(),
+            field!(
+                "Grades",
                 format!(
                     "{}{} {}{} {}{} {}{} {}{}",
                     grade_emote(Grade::XH),
@@ -122,21 +109,21 @@ impl ProfileEmbed {
                     grade_emote(Grade::A),
                     stats.grade_counts.a,
                 ),
-                false,
+                false
             ),
-            (
-                "Play count / time".to_owned(),
+            field!(
+                "Play count / time",
                 format!(
                     "{} / {} hrs",
                     with_comma_uint(stats.playcount).to_string(),
                     stats.playtime / 3600
                 ),
-                true,
+                true
             ),
-            (
-                "Replays watched".to_owned(),
+            field!(
+                "Replays watched",
                 with_comma_uint(stats.replays_watched).to_string(),
-                true,
+                true
             ),
         ];
 
@@ -184,8 +171,7 @@ impl ProfileEmbed {
             }
 
             let _ = write!(combo, " [{} - {}]", values.combo.min(), values.combo.max());
-            let mut extended_fields =
-                smallvec![("Averages of top 100 scores".to_owned(), avg_string, false)];
+            let mut extended_fields = vec![field!("Averages of top 100 scores", avg_string, false)];
 
             let mult_mods = values.mod_combs_count.is_some();
 
@@ -200,7 +186,7 @@ impl ProfileEmbed {
                     let _ = write!(value, " > `{} {}%`", mods, count);
                 }
 
-                extended_fields.push(("Favourite mod combinations".to_owned(), value, false));
+                extended_fields.push(field!("Favourite mod combinations", value, false));
             }
 
             extended_fields.reserve_exact(5);
@@ -214,7 +200,7 @@ impl ProfileEmbed {
                 let _ = write!(value, " > `{} {}%`", mods, count);
             }
 
-            extended_fields.push(("Favourite mods".to_owned(), value, false));
+            extended_fields.push(field!("Favourite mods", value, false));
             let len = values.mod_combs_pp.len();
             let mut value = String::with_capacity(len * 15);
             let mut iter = values.mod_combs_pp.iter();
@@ -231,7 +217,7 @@ impl ProfileEmbed {
                 "PP earned with mod"
             };
 
-            extended_fields.push((name.to_owned(), value, false));
+            extended_fields.push(field!(name, value, false));
 
             let ranked_count = user.ranked_and_approved_beatmapset_count.unwrap()
                 + user.loved_beatmapset_count.unwrap();
@@ -257,7 +243,7 @@ impl ProfileEmbed {
                     let _ = writeln!(mapper_stats, "Own maps in top scores: {}", own_top_scores);
                 }
 
-                extended_fields.push(("Mapsets from player".to_owned(), mapper_stats, false));
+                extended_fields.push(field!("Mapsets from player", mapper_stats, false));
             }
 
             let len = values
@@ -275,7 +261,7 @@ impl ProfileEmbed {
                 let _ = writeln!(value, "{}: {:.2}pp ({})", name, *pp, count);
             }
 
-            extended_fields.push(("Mappers in top 100".to_owned(), value, true));
+            extended_fields.push(field!("Mappers in top 100", value, true));
 
             let count_len = globals_count
                 .iter()
@@ -295,11 +281,11 @@ impl ProfileEmbed {
             }
 
             count_str.push_str("```");
-            extended_fields.push(("Global leaderboards".to_owned(), count_str, true));
+            extended_fields.push(field!("Global leaderboards", count_str, true));
 
             (None, Some(extended_fields))
         } else {
-            (Some("No Top scores".to_string()), None)
+            (Some("No Top scores".to_owned()), None)
         };
 
         Self {
@@ -309,104 +295,63 @@ impl ProfileEmbed {
             description,
             footer: Footer::new(footer_text),
             author: author!(user),
-            image: ImageSource::attachment("profile_graph.png").unwrap(),
-            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
+            image: attachment("profile_graph.png"),
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
         }
     }
 
-    pub fn minimize_borrowed(&self) -> EmbedBuilder {
-        let ab = EmbedAuthorBuilder::new()
-            .name(&self.author.name)
-            .unwrap()
-            .icon_url(self.author.icon_url.clone().unwrap())
-            .url(self.author.url.as_deref().unwrap());
+    pub fn expand(&self) -> EmbedBuilder {
+        let mut fields = self.main_fields.clone();
 
-        let mut eb = EmbedBuilder::new()
-            .title(self.title.as_str())
-            .unwrap()
-            .thumbnail(self.thumbnail.to_owned())
-            .image(self.image.to_owned())
-            .footer(EmbedFooterBuilder::new(&self.footer.text).unwrap())
-            .author(ab);
-
-        if let Some(description) = self.description.as_deref() {
-            eb = eb.description(description).unwrap();
+        if let Some(ref extended_fields) = self.extended_fields {
+            fields.append(&mut extended_fields.clone())
         }
 
-        for (name, value, inline) in self.main_fields.iter() {
-            eb = eb.field(EmbedField {
-                name: name.to_owned(),
-                value: value.to_owned(),
-                inline: *inline,
-            });
-        }
+        let builder = EmbedBuilder::new()
+            .author(&self.author)
+            .footer(&self.footer)
+            .image(&self.image)
+            .thumbnail(&self.thumbnail)
+            .title(&self.title);
 
-        eb.color(DARK_GREEN).unwrap()
+        if let Some(ref description) = self.description {
+            builder.description(description)
+        } else {
+            builder
+        }
     }
 }
 
 impl EmbedData for ProfileEmbed {
-    fn description(&self) -> Option<&str> {
-        self.description.as_deref()
-    }
+    fn as_builder(&self) -> EmbedBuilder {
+        let builder = EmbedBuilder::new()
+            .author(&self.author)
+            .fields(self.main_fields.clone())
+            .footer(&self.footer)
+            .image(&self.image)
+            .thumbnail(&self.thumbnail)
+            .title(&self.title);
 
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
-    }
-
-    fn fields(&self) -> Option<EmbedFields> {
-        let mut fields = self.main_fields.clone();
-
-        if let Some(mut extended_fields) = self.extended_fields.clone() {
-            fields.append(&mut extended_fields)
+        if let Some(ref description) = self.description {
+            builder.description(description)
+        } else {
+            builder
         }
-
-        Some(fields)
     }
 
-    fn image(&self) -> Option<&ImageSource> {
-        Some(&self.image)
-    }
-
-    fn minimize(self) -> EmbedBuilder {
-        let ab = EmbedAuthorBuilder::new()
-            .name(self.author.name)
-            .unwrap()
-            .icon_url(self.author.icon_url.unwrap())
-            .url(self.author.url.unwrap());
-
-        let mut eb = EmbedBuilder::new()
-            .title(self.title.as_str())
-            .unwrap()
-            .thumbnail(self.thumbnail.to_owned())
-            .image(self.image.to_owned())
-            .footer(EmbedFooterBuilder::new(&self.footer.text).unwrap())
-            .author(ab);
+    fn into_builder(self) -> EmbedBuilder {
+        let builder = EmbedBuilder::new()
+            .author(self.author)
+            .fields(self.main_fields)
+            .footer(self.footer)
+            .image(self.image)
+            .thumbnail(self.thumbnail)
+            .title(self.title);
 
         if let Some(description) = self.description {
-            eb = eb.description(description).unwrap();
+            builder.description(description)
+        } else {
+            builder
         }
-
-        for (name, value, inline) in self.main_fields {
-            eb = eb.field(EmbedField {
-                name,
-                value,
-                inline,
-            });
-        }
-
-        eb.color(DARK_GREEN).unwrap()
     }
 }

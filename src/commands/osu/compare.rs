@@ -180,7 +180,7 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
     };
 
     // Sending the embed
-    let embed = data.build().build()?;
+    let embed = data.as_builder().build();
     let response = msg.respond_embed(&ctx, embed).await?;
 
     response.reaction_delete(&ctx, msg.author.id);
@@ -203,12 +203,10 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
             return;
         }
 
-        let embed = data.minimize().build().unwrap();
-
         let embed_update = ctx
             .http
             .update_message(response.channel_id, response.id)
-            .embed(embed)
+            .embed(data.into_builder().build())
             .unwrap();
 
         if let Err(why) = embed_update.await {
@@ -264,7 +262,7 @@ async fn no_scores(
     };
 
     // Sending the embed
-    let embed = NoScoresEmbed::new(user, map, mods).build_owned().build()?;
+    let embed = NoScoresEmbed::new(user, map, mods).into_builder().build();
 
     msg.respond_embed(&ctx, embed)
         .await?

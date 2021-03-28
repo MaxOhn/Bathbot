@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{Author, EmbedData, Footer},
+    embeds::{Author, Footer},
     util::constants::SYMBOLS,
 };
 
@@ -21,10 +21,13 @@ impl BGRankingEmbed {
         let len = list
             .iter()
             .fold(0, |max, (user, _)| max.max(user.chars().count()));
+
         let mut description = String::with_capacity(256);
         description.push_str("```\n");
+
         for (mut i, (user, score)) in list.into_iter().enumerate() {
             i += idx;
+
             let _ = writeln!(
                 description,
                 "{:>2} {:1} # {:<len$} => {}",
@@ -39,11 +42,14 @@ impl BGRankingEmbed {
                 len = len
             );
         }
+
         description.push_str("```");
         let mut footer_text = format!("Page {}/{}", pages.0, pages.1);
+
         if let Some(author_idx) = author_idx {
             let _ = write!(footer_text, " ~ Your rank: {}", author_idx + 1);
         }
+
         Self {
             author: Author::new("Global leaderboard for correct guesses:"),
             description,
@@ -52,14 +58,8 @@ impl BGRankingEmbed {
     }
 }
 
-impl EmbedData for BGRankingEmbed {
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-}
+impl_into_builder!(BGRankingEmbed {
+    author,
+    description,
+    footer,
+});

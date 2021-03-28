@@ -20,9 +20,6 @@ use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
 use std::{error::Error as StdError, fmt, io::Error as IOError};
 use toml::de::Error as TomlError;
-use twilight_embed_builder::builder::{
-    EmbedBuildError, EmbedColorError, EmbedDescriptionError, EmbedTitleError,
-};
 use twilight_gateway::cluster::ClusterCommandError;
 use twilight_http::{
     request::channel::message::{
@@ -55,10 +52,6 @@ pub enum Error {
     Custom(String),
     CustomClient(CustomClientError),
     Database(DBError),
-    Embed(EmbedBuildError),
-    EmbedColor(EmbedColorError),
-    EmbedDescription(EmbedDescriptionError),
-    EmbedTitle(EmbedTitleError),
     Fmt(fmt::Error),
     Image(ImageError),
     InvalidConfig(TomlError),
@@ -90,10 +83,6 @@ impl StdError for Error {
             Self::Custom(_) => None,
             Self::CustomClient(e) => Some(e),
             Self::Database(e) => Some(e),
-            Self::Embed(e) => Some(e),
-            Self::EmbedColor(e) => Some(e),
-            Self::EmbedDescription(e) => Some(e),
-            Self::EmbedTitle(e) => Some(e),
             Self::Fmt(e) => Some(e),
             Self::Image(e) => Some(e),
             Self::InvalidConfig(e) => Some(e),
@@ -127,10 +116,6 @@ impl fmt::Display for Error {
             Self::Custom(e) => e.fmt(f),
             Self::CustomClient(_) => f.write_str("custom client error"),
             Self::Database(_) => f.write_str("database error"),
-            Self::Embed(_) => f.write_str("error while building embed"),
-            Self::EmbedColor(_) => f.write_str("embed color error"),
-            Self::EmbedDescription(_) => f.write_str("embed description error"),
-            Self::EmbedTitle(_) => f.write_str("embed title error"),
             Self::Fmt(_) => f.write_str("fmt error"),
             Self::Image(_) => f.write_str("image error"),
             Self::InvalidConfig(_) => f.write_str("config file was not in correct format"),
@@ -184,30 +169,6 @@ impl From<CustomClientError> for Error {
 impl From<DBError> for Error {
     fn from(e: DBError) -> Self {
         Error::Database(e)
-    }
-}
-
-impl From<EmbedBuildError> for Error {
-    fn from(e: EmbedBuildError) -> Self {
-        Error::Embed(e)
-    }
-}
-
-impl From<EmbedColorError> for Error {
-    fn from(e: EmbedColorError) -> Self {
-        Error::EmbedColor(e)
-    }
-}
-
-impl From<EmbedDescriptionError> for Error {
-    fn from(e: EmbedDescriptionError) -> Self {
-        Error::EmbedDescription(e)
-    }
-}
-
-impl From<EmbedTitleError> for Error {
-    fn from(e: EmbedTitleError) -> Self {
-        Error::EmbedTitle(e)
     }
 }
 

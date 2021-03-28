@@ -192,7 +192,7 @@ async fn recent_main(
     };
 
     // Creating the embed
-    let embed = data.build().build()?;
+    let embed = data.as_builder().build();
 
     let response = ctx
         .http
@@ -227,12 +227,10 @@ async fn recent_main(
             return;
         }
 
-        let embed = data.minimize().build().unwrap();
-
         let embed_update = ctx
             .http
             .update_message(response.channel_id, response.id)
-            .embed(embed)
+            .embed(data.into_builder().build())
             .unwrap();
 
         if let Err(why) = embed_update.await {

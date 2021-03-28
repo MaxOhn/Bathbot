@@ -203,9 +203,7 @@ async fn mapper_main(
         let data = TopEmbed::new(&user, scores.iter().take(5), (1, pages)).await;
 
         // Creating the embed
-        let embed = data.build().build()?;
-
-        msg.respond_embed(&ctx, embed).await?
+        msg.respond_embed(&ctx, data.into_builder().build()).await?
     };
 
     // Add maps of scores to DB

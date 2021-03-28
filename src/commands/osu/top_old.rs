@@ -306,12 +306,10 @@ async fn topold_main(
     .await;
 
     // Creating the embed
-    let embed = data.build().build()?;
-
     let response = ctx
         .http
         .create_message(msg.channel_id)
-        .embed(embed)?
+        .embed(data.into_builder().build())?
         .content(content)?
         .await?;
 

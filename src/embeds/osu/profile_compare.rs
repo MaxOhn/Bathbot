@@ -1,6 +1,6 @@
 use crate::{
     commands::osu::{CompareResult, MinMaxAvgBasic},
-    embeds::EmbedData,
+    embeds::attachment,
     util::{
         datetime::sec_to_minsec,
         numbers::{with_comma_float, with_comma_uint},
@@ -13,11 +13,10 @@ use std::{
     cmp::Reverse,
     fmt::{Display, Write},
 };
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct ProfileCompareEmbed {
-    description: Option<String>,
-    image: Option<ImageSource>,
+    description: String,
+    image: String,
 }
 
 impl ProfileCompareEmbed {
@@ -331,23 +330,13 @@ impl ProfileCompareEmbed {
         d.push_str("```");
 
         Self {
-            description: Some(d),
-            image: Some(ImageSource::attachment("avatar_fuse.png").unwrap()),
+            description: d,
+            image: attachment("avatar_fuse.png"),
         }
     }
 }
 
-impl EmbedData for ProfileCompareEmbed {
-    #[inline]
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take()
-    }
-
-    #[inline]
-    fn image_owned(&mut self) -> Option<ImageSource> {
-        self.image.take()
-    }
-}
+impl_into_builder!(ProfileCompareEmbed { description, image });
 
 #[allow(clippy::too_many_arguments)]
 fn write_line<T: PartialOrd, V: Display>(

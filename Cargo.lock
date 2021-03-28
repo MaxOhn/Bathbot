@@ -188,7 +188,6 @@ dependencies = [
  "tokio-stream",
  "toml",
  "twilight-cache-inmemory",
- "twilight-embed-builder",
  "twilight-gateway",
  "twilight-http",
  "twilight-model",
@@ -3294,14 +3293,6 @@ dependencies = [
  "serde_json",
  "tracing",
  "twilight-gateway",
- "twilight-model",
-]
-
-[[package]]
-name = "twilight-embed-builder"
-version = "0.3.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#c1be0d1e7874923c00b0d1a50569ef69823d24a3"
-dependencies = [
  "twilight-model",
 ]
 

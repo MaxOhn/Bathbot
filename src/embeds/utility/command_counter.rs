@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{Author, EmbedData, Footer},
+    embeds::{Author, Footer},
     util::{constants::SYMBOLS, datetime::how_long_ago},
 };
 
@@ -28,6 +28,7 @@ impl CommandCounterEmbed {
 
         for (mut i, (name, amount)) in list.into_iter().enumerate() {
             i += idx;
+
             let _ = writeln!(
                 description,
                 "{:>2} {:1} # {:<len$} => {}",
@@ -60,16 +61,8 @@ impl CommandCounterEmbed {
     }
 }
 
-impl EmbedData for CommandCounterEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-}
+impl_into_builder!(CommandCounterEmbed {
+    author,
+    description,
+    footer,
+});

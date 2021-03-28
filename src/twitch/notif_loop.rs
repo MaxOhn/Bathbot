@@ -87,19 +87,12 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                 None => continue,
             };
 
-            let data = TwitchNotifEmbed::new(&stream, users.get(&stream.user_id).unwrap());
-
-            let embed = match data.build().build() {
-                Ok(embed) => embed,
-                Err(why) => {
-                    error!("Error while creating twitch notif embed: {}", why);
-
-                    continue;
-                }
-            };
+            let data = TwitchNotifEmbed::new(&stream, &users[&stream.user_id]);
 
             for channel in channels {
-                match ctx.http.create_message(channel).embed(embed.clone()) {
+                let embed = data.as_builder().build();
+
+                match ctx.http.create_message(channel).embed(embed) {
                     Ok(msg_fut) => {
                         let result = msg_fut.await;
 

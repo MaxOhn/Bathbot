@@ -87,12 +87,13 @@ async fn medalsmissing(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
     );
 
     // Send the embed
-    let embed = data.build().build()?;
+    let embed = data.into_builder().build();
     let response = msg.respond_embed(&ctx, embed).await?;
 
     // Skip pagination if too few entries
     if medals.len() <= 15 {
         response.reaction_delete(&ctx, msg.author.id);
+
         return Ok(());
     }
 

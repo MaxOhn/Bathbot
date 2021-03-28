@@ -1,5 +1,6 @@
 use crate::{
     core::{Command, CommandGroup, CommandGroups},
+    embeds::{Author, EmbedBuilder, Footer},
     util::{
         constants::{
             BATHBOT_WORKSHOP, DARK_GREEN, DESCRIPTION_SIZE, EMBED_SIZE, FIELD_VALUE_SIZE,
@@ -11,9 +12,6 @@ use crate::{
 };
 
 use std::{collections::BTreeMap, fmt::Write};
-use twilight_embed_builder::{
-    author::EmbedAuthorBuilder, builder::EmbedBuilder, footer::EmbedFooterBuilder,
-};
 use twilight_model::{
     channel::{
         embed::{Embed, EmbedField},
@@ -111,15 +109,14 @@ pub async fn help(
         DESCRIPTION_SIZE,
     );
 
-    let mut eb = EmbedBuilder::new()
-        .color(DARK_GREEN)
-        .unwrap()
-        .description(desc)?;
+    let mut eb = EmbedBuilder::new().description(desc);
 
     let groups = cmds
         .groups
         .iter()
         .filter(|g| owner.0 == OWNER_USER_ID || g.name != "owner");
+
+    let mut fields = Vec::new();
 
     for group in groups {
         for (name, value) in create_group_fields(group, is_authority) {
@@ -133,8 +130,10 @@ pub async fn help(
                 group.name
             );
 
-            eb = if size + size_addition > EMBED_SIZE {
-                if let Err(why) = send_help_chunk(ctx, channel.id, owner, eb.build()?).await {
+            if size + size_addition > EMBED_SIZE {
+                let embed = eb.fields(fields).build();
+
+                if let Err(why) = send_help_chunk(ctx, channel.id, owner, embed).await {
                     unwind_error!(warn, why, "Error while sending help chunk: {}");
                     let content = "Could not DM you, have you disabled it?";
 
@@ -142,30 +141,25 @@ pub async fn help(
                 }
 
                 size = size_addition;
-
-                EmbedBuilder::new()
-                    .color(DARK_GREEN)
-                    .unwrap()
-                    .field(EmbedField {
-                        name,
-                        value,
-                        inline: false,
-                    })
+                fields = Vec::new();
+                eb = EmbedBuilder::new();
             } else {
                 size += size_addition;
+            }
 
-                eb.field(EmbedField {
-                    name,
-                    value,
-                    inline: false,
-                })
+            let field = EmbedField {
+                name,
+                value,
+                inline: false,
             };
+
+            fields.push(field);
         }
     }
 
-    let embed = eb.build()?;
+    if !fields.is_empty() {
+        let embed = eb.fields(fields).build();
 
-    if !embed.fields.is_empty() {
         if let Err(why) = send_help_chunk(ctx, channel.id, owner, embed).await {
             unwind_error!(warn, why, "Error while sending help chunk: {}");
             let content = "Could not DM you, have you disabled it?";
@@ -244,11 +238,11 @@ async fn send_help_chunk(
 pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotResult<()> {
     let name = cmd.names[0];
     let prefix = ctx.config_first_prefix(msg.guild_id);
+    let mut fields = Vec::new();
 
     let mut eb = EmbedBuilder::new()
-        .color(DARK_GREEN)?
-        .title(name)?
-        .description(cmd.long_desc.unwrap_or(cmd.short_desc))?;
+        .title(name)
+        .description(cmd.long_desc.unwrap_or(cmd.short_desc));
 
     let mut usage_len = 0;
 
@@ -257,12 +251,12 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
         usage_len = value.chars().count();
 
         let field = EmbedField {
-            name: String::from("How to use"),
+            name: "How to use".to_owned(),
             value,
             inline: usage_len <= 29,
         };
 
-        eb = eb.field(field);
+        fields.push(field);
     }
 
     let mut examples = cmd.examples.iter();
@@ -283,12 +277,12 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
             || ((usage_len > 29 || cmd.names.len() > 1) && example_len > 36);
 
         let field = EmbedField {
-            name: String::from("Examples"),
+            name: "Examples".to_owned(),
             value,
             inline: !not_inline,
         };
 
-        eb = eb.field(field);
+        fields.push(field);
     }
 
     let mut aliases = cmd.names.iter().skip(1);
@@ -302,11 +296,13 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
             write!(value, ", `{}`", alias)?;
         }
 
-        eb = eb.field(EmbedField {
-            name: String::from("Aliases"),
+        let field = EmbedField {
+            name: "Aliases".to_owned(),
             value,
             inline: true,
-        });
+        };
+
+        fields.push(field);
     }
 
     if cmd.authority {
@@ -330,19 +326,18 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
                 .to_owned()
         };
 
-        eb = eb.field(EmbedField {
-            name: String::from("Requires authority status"),
+        let field = EmbedField {
+            name: "Requires authority status".to_owned(),
             value,
             inline: false,
-        });
+        };
+
+        fields.push(field);
     }
 
     if cmd.owner {
-        let ab = EmbedAuthorBuilder::new()
-            .name("Can only be used by the bot owner")
-            .unwrap();
-
-        eb = eb.author(ab);
+        let author = Author::new("Can only be used by the bot owner");
+        eb = eb.author(author);
     }
 
     let footer_text = if cmd.only_guilds || cmd.authority {
@@ -351,8 +346,9 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
         "Available in servers and DMs"
     };
 
-    let fb = EmbedFooterBuilder::new(footer_text).unwrap();
-    let embed = eb.footer(fb).build()?;
+    let footer = Footer::new(footer_text);
+
+    let embed = eb.footer(footer).fields(fields).build();
     msg.build_response(ctx, |m| m.embed(embed)).await?;
 
     Ok(())
@@ -373,7 +369,7 @@ pub async fn failed_help(
         .collect();
 
     let (content, color) = if dists.is_empty() {
-        (String::from("There is no such command"), RED)
+        ("There is no such command".to_owned(), RED)
     } else {
         let mut names = dists.iter().take(5).map(|(_, &name)| name);
         let count = dists.len().min(5);
@@ -391,9 +387,9 @@ pub async fn failed_help(
     };
 
     let embed = EmbedBuilder::new()
-        .description(content)?
-        .color(color)?
-        .build()?;
+        .description(content)
+        .color(color)
+        .build();
 
     msg.build_response(ctx, |m| m.embed(embed)).await?;
 

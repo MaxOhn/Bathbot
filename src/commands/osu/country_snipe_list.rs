@@ -163,7 +163,7 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
     let data = CountrySnipeListEmbed::new(country, ordering, init_players, author_idx, (1, pages));
 
     // Creating the embed
-    let embed = data.build().build()?;
+    let embed = data.into_builder().build();
     let response = msg.respond_embed(&ctx, embed).await?;
 
     // Pagination

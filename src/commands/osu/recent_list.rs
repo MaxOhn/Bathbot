@@ -77,8 +77,8 @@ async fn recent_list_main(
     let pages = numbers::div_euclid(10, scores.len());
     let scores_iter = scores.iter().take(10);
 
-    let data = match RecentListEmbed::new(&user, scores_iter, (1, pages)).await {
-        Ok(data) => data,
+    let embed = match RecentListEmbed::new(&user, scores_iter, (1, pages)).await {
+        Ok(data) => data.into_builder().build(),
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
@@ -87,7 +87,6 @@ async fn recent_list_main(
     };
 
     // Creating the embed
-    let embed = data.build_owned().build()?;
     let response = msg.respond_embed(&ctx, embed).await?;
 
     // Skip pagination if too few entries

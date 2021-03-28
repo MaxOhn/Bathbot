@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{Author, EmbedData, EmbedFields, Footer},
+    embeds::{attachment, Author, EmbedFields, Footer},
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::sec_to_minsec,
@@ -15,16 +15,15 @@ use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, O
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
 use std::fmt::Write;
 use tokio::fs::File;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct MapEmbed {
     title: String,
     url: String,
-    thumbnail: Option<ImageSource>,
+    thumbnail: String,
     description: String,
     footer: Footer,
     author: Author,
-    image: Option<ImageSource>,
+    image: String,
     timestamp: DateTime<Utc>,
     fields: EmbedFields,
 }
@@ -69,7 +68,7 @@ impl MapEmbed {
         }
 
         let mut info_value = String::with_capacity(128);
-        let mut fields = EmbedFields::with_capacity(3);
+        let mut fields = Vec::with_capacity(3);
 
         let map_path = prepare_beatmap_file(map.map_id).await?;
         let file = File::open(map_path).await.map_err(PPError::from)?;
@@ -203,8 +202,8 @@ impl MapEmbed {
             let _ = write!(info_name, " +{}", mods);
         }
 
-        fields.push((info_name, info_value, true));
-        fields.push(("Download".to_owned(), download_value, true));
+        fields.push(field!(info_name, info_value, true));
+        fields.push(field!("Download", download_value, true));
 
         let mut field_name = format!(
             ":heart: {}  :play_pause: {}  | {:?}, {:?}",
@@ -218,7 +217,7 @@ impl MapEmbed {
             field_name.push_str(" :underage: NSFW");
         }
 
-        fields.push((field_name, pp_values, false));
+        fields.push(field!(field_name, pp_values, false));
 
         let (date_text, timestamp) = if let Some(ranked_date) = mapset.ranked_date {
             (format!("{:?}", map.status), ranked_date)
@@ -237,17 +236,13 @@ impl MapEmbed {
 
         let footer = Footer::new(footer_text);
 
-        let thumbnail = if with_thumbnail {
-            Some(ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id)).unwrap())
-        } else {
-            None
-        };
+        let thumbnail = with_thumbnail
+            .then(|| format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id))
+            .unwrap_or_default();
 
-        let image = if with_thumbnail {
-            None
-        } else {
-            Some(ImageSource::attachment("map_graph.png").unwrap())
-        };
+        let image = (!with_thumbnail)
+            .then(|| attachment("map_graph.png"))
+            .unwrap_or_default();
 
         let description = format!(
             ":musical_note: [Song preview](https://b.ppy.sh/preview/{}.mp3)",
@@ -273,40 +268,14 @@ fn acc_to_score(mod_mult: f32, acc: f32) -> u64 {
     (mod_mult * (acc * 10_000.0 - (100.0 - acc) * 50_000.0)).round() as u64
 }
 
-impl EmbedData for MapEmbed {
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        self.thumbnail.as_ref()
-    }
-
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
-    }
-
-    fn url(&self) -> Option<&str> {
-        Some(&self.url)
-    }
-
-    fn image(&self) -> Option<&ImageSource> {
-        self.image.as_ref()
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn fields(&self) -> Option<EmbedFields> {
-        Some(self.fields.clone())
-    }
-
-    fn timestamp(&self) -> Option<&DateTime<Utc>> {
-        Some(&self.timestamp)
-    }
-}
+impl_into_builder!(MapEmbed {
+    author,
+    description,
+    fields,
+    footer,
+    image,
+    thumbnail,
+    timestamp,
+    title,
+    url,
+});

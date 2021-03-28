@@ -47,7 +47,6 @@ use smallvec::SmallVec;
 use std::time::Duration;
 use tokio::time;
 use tokio_stream::StreamExt;
-use twilight_embed_builder::image_source::ImageSource;
 use twilight_http::{request::channel::reaction::RequestReactionType, Error};
 use twilight_model::{
     channel::{Message, Reaction, ReactionType},
@@ -112,7 +111,7 @@ pub trait Pagination: Sync + Sized {
         None
     }
 
-    fn thumbnail(&self) -> Option<ImageSource> {
+    fn thumbnail(&self) -> Option<String> {
         None
     }
 
@@ -192,13 +191,13 @@ pub trait Pagination: Sync + Sized {
                     update = update.content(content)?;
                 }
 
-                let mut eb = data.build();
+                let mut builder = data.as_builder();
 
                 if let Some(thumbnail) = self.thumbnail() {
-                    eb = eb.thumbnail(thumbnail);
+                    builder = builder.thumbnail(thumbnail);
                 }
 
-                update.embed(eb.build()?)?.await?;
+                update.embed(builder.build())?.await?;
 
                 PageChange::Change
             }

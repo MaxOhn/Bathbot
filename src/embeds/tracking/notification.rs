@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{osu, Author, EmbedData, EmbedFields, Footer},
+    embeds::{osu, Author, EmbedFields, Footer},
     pp::{Calculations, PPCalculator},
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
@@ -12,7 +12,6 @@ use crate::{
 
 use chrono::{DateTime, Utc};
 use rosu_v2::prelude::{GameMode, Score, User};
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct TrackNotificationEmbed {
     fields: EmbedFields,
@@ -20,7 +19,7 @@ pub struct TrackNotificationEmbed {
     author: Author,
     title: String,
     url: String,
-    thumbnail: ImageSource,
+    thumbnail: String,
     footer: Footer,
     timestamp: DateTime<Utc>,
 }
@@ -90,42 +89,25 @@ impl TrackNotificationEmbed {
         let author = author!(user).icon_url(format!("{}{}", AVATAR_URL, user.user_id));
 
         Self {
-            title,
-            footer,
             author,
             description,
+            fields: vec![field!(name, value, false)],
+            footer,
+            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id),
             timestamp: score.created_at,
-            fields: smallvec![(name, value, false)],
+            title,
             url: format!("{}b/{}", OSU_BASE, map.map_id),
-            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id))
-                .unwrap(),
         }
     }
 }
 
-impl EmbedData for TrackNotificationEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
-    }
-    fn url(&self) -> Option<&str> {
-        Some(&self.url)
-    }
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-    fn timestamp(&self) -> Option<&DateTime<Utc>> {
-        Some(&self.timestamp)
-    }
-    fn fields(&self) -> Option<EmbedFields> {
-        Some(self.fields.clone())
-    }
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
-    }
-}
+impl_as_builder!(TrackNotificationEmbed {
+    author,
+    description,
+    fields,
+    footer,
+    thumbnail,
+    timestamp,
+    title,
+    url,
+});

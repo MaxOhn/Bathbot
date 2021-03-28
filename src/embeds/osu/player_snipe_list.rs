@@ -1,6 +1,6 @@
 use crate::{
     custom_client::SnipeScore,
-    embeds::{osu, Author, EmbedData, Footer},
+    embeds::{osu, Author, Footer},
     pp::{Calculations, PPCalculator},
     util::{
         constants::{AVATAR_URL, OSU_BASE},
@@ -12,13 +12,12 @@ use crate::{
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, User};
 use std::{collections::BTreeMap, fmt::Write};
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct PlayerSnipeListEmbed {
-    description: String,
-    thumbnail: ImageSource,
     author: Author,
+    description: String,
     footer: Footer,
+    thumbnail: String,
 }
 
 impl PlayerSnipeListEmbed {
@@ -32,9 +31,9 @@ impl PlayerSnipeListEmbed {
         if scores.is_empty() {
             return Self {
                 author: author!(user),
-                thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
+                thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
                 footer: Footer::new("Page 1/1 ~ Total #1 scores: 0"),
-                description: String::from("No scores were found"),
+                description: "No scores were found".to_owned(),
             };
         }
 
@@ -80,32 +79,23 @@ impl PlayerSnipeListEmbed {
             );
         }
 
+        let footer = Footer::new(format!(
+            "Page {}/{} ~ Total scores: {}",
+            pages.0, pages.1, total
+        ));
+
         Self {
-            description,
             author: author!(user),
-            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
-            footer: Footer::new(format!(
-                "Page {}/{} ~ Total scores: {}",
-                pages.0, pages.1, total
-            )),
+            description,
+            footer,
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
         }
     }
 }
 
-impl EmbedData for PlayerSnipeListEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-}
+impl_into_builder!(PlayerSnipeListEmbed {
+    author,
+    description,
+    footer,
+    thumbnail,
+});

@@ -103,7 +103,7 @@ async fn search_main(
     let data = MapSearchEmbed::new(&maps, query.as_str(), (1, total_pages)).await;
 
     // Creating the embed
-    let embed = data.build().build()?;
+    let embed = data.into_builder().build();
     let response = msg.respond_embed(&ctx, embed).await?;
 
     // Skip pagination if too few entries

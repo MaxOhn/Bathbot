@@ -1,6 +1,6 @@
 use crate::{
     database::{MedalGroup, OsuMedal},
-    embeds::{Author, EmbedData, EmbedFields, Footer},
+    embeds::{attachment, Author, EmbedFields, Footer},
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         numbers::round,
@@ -9,32 +9,31 @@ use crate::{
 
 use hashbrown::HashMap;
 use rosu_v2::model::user::User;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct MedalStatsEmbed {
-    thumbnail: Option<ImageSource>,
-    author: Option<Author>,
+    author: Author,
     fields: EmbedFields,
-    footer: Option<Footer>,
-    image: Option<ImageSource>,
+    footer: Footer,
+    image: String,
+    thumbnail: String,
 }
 
 impl MedalStatsEmbed {
     pub fn new(mut user: User, medals: HashMap<u32, OsuMedal>, with_graph: bool) -> Self {
-        let mut fields = EmbedFields::with_capacity(5);
+        let mut fields = Vec::with_capacity(5);
 
         // Be sure owned medals are sorted by date
         let owned = user.medals.as_mut().unwrap();
         owned.sort_unstable_by_key(|m| m.achieved_at);
 
-        fields.push((
-            "Medals".to_owned(),
+        fields.push(field!(
+            "Medals",
             format!("{} / {}", owned.len(), medals.len()),
-            true,
+            true
         ));
 
         let completion = round(100.0 * owned.len() as f32 / medals.len() as f32);
-        fields.push(("Completion".to_owned(), format!("{}%", completion), true));
+        fields.push(field!("Completion", format!("{}%", completion), true));
 
         if let Some(medal) = owned.first() {
             let name = medals
@@ -42,7 +41,7 @@ impl MedalStatsEmbed {
                 .map_or("Unknown medal", |medal| medal.name.as_str());
 
             let value = format!("{} ({})", name, medal.achieved_at.format("%F"));
-            fields.push(("First medal".to_owned(), value, false));
+            fields.push(field!("First medal", value, false));
         }
 
         if let Some(medal) = owned.last() {
@@ -51,7 +50,7 @@ impl MedalStatsEmbed {
                 .map_or("Unknown medal", |medal| medal.name.as_str());
 
             let value = format!("{} ({})", name, medal.achieved_at.format("%F"));
-            fields.push(("Last medal".to_owned(), value, false));
+            fields.push(field!("Last medal", value, false));
         }
 
         if !owned.is_empty() {
@@ -77,7 +76,11 @@ impl MedalStatsEmbed {
             // Add to fields
             let mut add_group_field = |group: MedalGroup| {
                 if let Some((total, owned)) = counts.get(&group) {
-                    fields.push((group.to_string(), format!("{} / {}", owned, total), true));
+                    fields.push(field!(
+                        group.to_string(),
+                        format!("{} / {}", owned, total),
+                        true
+                    ));
                 }
             };
 
@@ -99,36 +102,26 @@ impl MedalStatsEmbed {
             ));
 
         let footer = Footer::new("Check osekai.net for more info");
-        let image = with_graph.then(|| ImageSource::attachment("medal_graph.png").unwrap());
+
+        let image = with_graph
+            .then(|| attachment("medal_graph.png"))
+            .unwrap_or_default();
 
         Self {
             image,
-            author: Some(author),
+            author,
             fields,
-            footer: Some(footer),
-            thumbnail: Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap()),
+            footer,
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
         }
     }
 }
 
-impl EmbedData for MedalStatsEmbed {
-    fn author_owned(&mut self) -> Option<Author> {
-        self.author.take()
-    }
-
-    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
-        self.thumbnail.take()
-    }
-
-    fn fields_owned(self) -> Option<EmbedFields> {
-        Some(self.fields)
-    }
-
-    fn footer_owned(&mut self) -> Option<Footer> {
-        self.footer.take()
-    }
-
-    fn image_owned(&mut self) -> Option<ImageSource> {
-        self.image.take()
-    }
-}
+impl_into_builder!(MedalStatsEmbed {
+    author,
+    fields,
+    footer,
+    image,
+    thumbnail,
+    footer,
+});

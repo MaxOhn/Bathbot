@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{osu, Author, EmbedData, Footer},
+    embeds::{osu, Author, Footer},
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
@@ -10,14 +10,13 @@ use crate::{
 
 use rosu_v2::prelude::{GameMode, Score, User};
 use std::fmt::Write;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct TopIfEmbed {
-    title: String,
-    description: String,
     author: Author,
-    thumbnail: ImageSource,
+    description: String,
     footer: Footer,
+    thumbnail: String,
+    title: String,
 }
 
 impl TopIfEmbed {
@@ -70,29 +69,19 @@ impl TopIfEmbed {
         description.pop();
 
         Self {
-            description,
             author: author!(user),
+            description,
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
             title: format!("Total pp: {} → **{}pp** ({:+})", pre_pp, post_pp, pp_diff),
-            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
         }
     }
 }
 
-impl EmbedData for TopIfEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
-    }
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
-    }
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-}
+impl_into_builder!(TopIfEmbed {
+    author,
+    description,
+    footer,
+    thumbnail,
+    title,
+});

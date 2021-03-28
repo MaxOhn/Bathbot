@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{osu, Author, EmbedData, Footer},
+    embeds::{osu, Author, Footer},
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
@@ -17,13 +17,12 @@ use rosu_pp::{
 use rosu_v2::prelude::{GameMode, Grade, Score, User};
 use std::fmt::Write;
 use tokio::fs::File;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct RecentListEmbed {
-    description: Option<String>,
-    thumbnail: Option<ImageSource>,
-    footer: Option<Footer>,
-    author: Option<Author>,
+    description: String,
+    thumbnail: String,
+    footer: Footer,
+    author: Author,
     title: &'static str,
 }
 
@@ -89,56 +88,22 @@ impl RecentListEmbed {
         }
 
         Ok(Self {
-            description: Some(description),
-            author: Some(author!(user)),
-            footer: Some(Footer::new(format!("Page {}/{}", pages.0, pages.1))),
-            thumbnail: Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap()),
+            description,
+            author: author!(user),
+            footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
             title: "List of recent scores:",
         })
     }
 }
 
-impl EmbedData for RecentListEmbed {
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take()
-    }
-
-    fn footer_owned(&mut self) -> Option<Footer> {
-        self.footer.take()
-    }
-
-    fn author_owned(&mut self) -> Option<Author> {
-        self.author.take()
-    }
-
-    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
-        self.thumbnail.take()
-    }
-
-    fn title_owned(&mut self) -> Option<String> {
-        Some(self.title.to_owned())
-    }
-
-    fn description(&self) -> Option<&str> {
-        self.description.as_deref()
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        self.footer.as_ref()
-    }
-
-    fn author(&self) -> Option<&Author> {
-        self.author.as_ref()
-    }
-
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        self.thumbnail.as_ref()
-    }
-
-    fn title(&self) -> Option<&str> {
-        Some(self.title)
-    }
-}
+impl_into_builder!(RecentListEmbed {
+    author,
+    description,
+    footer,
+    thumbnail,
+    title,
+});
 
 fn get_pp_stars(
     mod_map: &mut HashMap<(u32, u32), (StarResult, f32)>,

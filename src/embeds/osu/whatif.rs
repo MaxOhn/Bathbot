@@ -1,6 +1,6 @@
 use crate::{
     commands::osu::WhatIfData,
-    embeds::{Author, EmbedData},
+    embeds::Author,
     util::{
         constants::AVATAR_URL,
         numbers::{round, with_comma_float, with_comma_uint},
@@ -9,13 +9,12 @@ use crate::{
 
 use rosu_v2::model::user::User;
 use std::fmt::Write;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct WhatIfEmbed {
-    description: Option<String>,
-    title: Option<String>,
-    thumbnail: Option<ImageSource>,
-    author: Option<Author>,
+    author: Author,
+    description: String,
+    thumbnail: String,
+    title: String,
 }
 
 impl WhatIfEmbed {
@@ -93,28 +92,17 @@ impl WhatIfEmbed {
         };
 
         Self {
-            title: Some(title),
-            description: Some(description),
-            author: Some(author!(user)),
-            thumbnail: Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap()),
+            author: author!(user),
+            description,
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            title,
         }
     }
 }
 
-impl EmbedData for WhatIfEmbed {
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take()
-    }
-
-    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
-        self.thumbnail.take()
-    }
-
-    fn author_owned(&mut self) -> Option<Author> {
-        self.author.take()
-    }
-
-    fn title_owned(&mut self) -> Option<String> {
-        self.title.take()
-    }
-}
+impl_into_builder!(WhatIfEmbed {
+    author,
+    description,
+    thumbnail,
+    title,
+});

@@ -31,11 +31,14 @@ async fn commands(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
         .take(15)
         .map(|(name, amount)| (name, *amount))
         .collect();
+
     let pages = numbers::div_euclid(15, cmds.len());
-    let data = CommandCounterEmbed::new(sub_vec, &boot_time, 1, (1, pages));
+
+    let embed = CommandCounterEmbed::new(sub_vec, &boot_time, 1, (1, pages))
+        .into_builder()
+        .build();
 
     // Creating the embed
-    let embed = data.build().build()?;
     let response = msg.respond_embed(&ctx, embed).await?;
 
     // Pagination
@@ -47,5 +50,6 @@ async fn commands(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
             unwind_error!(warn, why, "Pagination error: {}")
         }
     });
+
     Ok(())
 }

@@ -1,7 +1,7 @@
 use crate::{
-    embeds::{osu, Author, EmbedData, Footer, EmbedFields},
+    embeds::{osu, Author, EmbedBuilder, EmbedData, Footer},
     util::{
-        constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
+        constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
         error::PPError,
         numbers::{round, with_comma_uint},
@@ -16,10 +16,6 @@ use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, OsuPP, StarResult, TaikoPP};
 use rosu_v2::prelude::{GameMode, Score, User};
 use std::fmt::Write;
 use tokio::fs::File;
-use twilight_embed_builder::{
-    author::EmbedAuthorBuilder, builder::EmbedBuilder, image_source::ImageSource,
-};
-use twilight_model::channel::embed::EmbedField;
 
 #[derive(Clone)]
 pub struct TopSingleEmbed {
@@ -29,8 +25,7 @@ pub struct TopSingleEmbed {
     author: Author,
     footer: Footer,
     timestamp: DateTime<Utc>,
-    thumbnail: ImageSource,
-    image: ImageSource,
+    thumbnail: String,
 
     stars: f32,
     grade_completion_mods: String,
@@ -42,6 +37,7 @@ pub struct TopSingleEmbed {
     hits: String,
     if_fc: Option<(String, f32, String)>,
     map_info: String,
+    mapset_id: u32,
 }
 
 impl TopSingleEmbed {
@@ -128,14 +124,10 @@ impl TopSingleEmbed {
 
         description.push_str("**__");
 
-        let image = ImageSource::url(&mapset.covers.cover).unwrap();
-
-        let thumbnail =
-            ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id)).unwrap();
+        let thumbnail = format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id);
 
         Ok(Self {
             title,
-            image,
             footer,
             thumbnail,
             description: Some(description),
@@ -152,101 +144,82 @@ impl TopSingleEmbed {
             hits,
             map_info: osu::get_map_info(&map),
             if_fc,
+            mapset_id: mapset.mapset_id,
         })
     }
 }
 
 impl EmbedData for TopSingleEmbed {
-    fn description(&self) -> Option<&str> {
-        self.description.as_deref()
-    }
+    fn as_builder(&self) -> EmbedBuilder {
+        let image = format!(
+            "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
+            self.mapset_id
+        );
 
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
-    }
-
-    fn url(&self) -> Option<&str> {
-        Some(&self.url)
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-
-    fn image(&self) -> Option<&ImageSource> {
-        Some(&self.image)
-    }
-
-    fn timestamp(&self) -> Option<&DateTime<Utc>> {
-        Some(&self.timestamp)
-    }
-
-    fn fields(&self) -> Option<EmbedFields> {
-        let mut fields = smallvec![
-            ("Grade".to_owned(), self.grade_completion_mods.clone(), true),
-            ("Score".to_owned(), self.score.clone(), true),
-            ("Acc".to_owned(), format!("{}%", self.acc), true),
-            ("PP".to_owned(), self.pp.clone(), true),
+        let mut fields = vec![
+            field!("Grade", self.grade_completion_mods.clone(), true),
+            field!("Score", self.score.clone(), true),
+            field!("Acc", format!("{}%", self.acc), true),
+            field!("PP", self.pp.clone(), true),
         ];
 
         let mania = self.hits.chars().filter(|&c| c == '/').count() == 5;
 
-        fields.push((
-            if mania { "Combo / Ratio" } else { "Combo" }.to_owned(),
+        fields.push(field!(
+            if mania { "Combo / Ratio" } else { "Combo" },
             self.combo.clone(),
-            true,
+            true
         ));
 
-        fields.push(("Hits".to_owned(), self.hits.clone(), true));
+        fields.push(field!("Hits", self.hits.clone(), true));
 
         if let Some((pp, acc, hits)) = &self.if_fc {
-            fields.push(("**If FC**: PP".to_owned(), pp.clone(), true));
-            fields.push(("Acc".to_owned(), format!("{}%", acc), true));
-            fields.push(("Hits".to_owned(), hits.clone(), true));
+            fields.push(field!("**If FC**: PP", pp.clone(), true));
+            fields.push(field!("Acc", format!("{}%", acc), true));
+            fields.push(field!("Hits", hits.clone(), true));
         }
 
-        fields.push(("Map Info".to_owned(), self.map_info.clone(), false));
+        fields.push(field!("Map Info", self.map_info.clone(), false));
 
-        Some(fields)
+        let builder = EmbedBuilder::new()
+            .author(&self.author)
+            .fields(fields)
+            .footer(&self.footer)
+            .image(image)
+            .timestamp(self.timestamp)
+            .title(&self.title)
+            .url(&self.url);
+
+        if let Some(ref description) = self.description {
+            builder.description(description)
+        } else {
+            builder
+        }
     }
 
-    fn minimize(self) -> EmbedBuilder {
-        let mut eb = EmbedBuilder::new();
-
+    fn into_builder(self) -> EmbedBuilder {
         let name = format!(
             "{}\t{}\t({}%)\t{}",
             self.grade_completion_mods, self.score, self.acc, self.ago
         );
 
         let value = format!("{} [ {} ] {}", self.pp, self.combo, self.hits);
-        let title = format!("{} [{}★]", self.title, self.stars);
 
-        if let Some(description) = self.description {
-            eb = eb.description(description).unwrap();
-        }
+        let mut title = self.title;
+        let _ = write!(title, " [{}★]", self.stars);
 
-        let ab = EmbedAuthorBuilder::new()
-            .name(self.author.name)
-            .unwrap()
-            .url(self.author.url.unwrap())
-            .icon_url(self.author.icon_url.unwrap());
-
-        eb.color(DARK_GREEN)
-            .unwrap()
+        let builder = EmbedBuilder::new()
+            .author(self.author)
+            .fields(vec![field!(name, value, false)])
             .thumbnail(self.thumbnail)
             .title(title)
-            .unwrap()
-            .url(self.url)
-            .field(EmbedField {
-                name,
-                value,
-                inline: false,
-            })
-            .author(ab)
+            .url(self.url);
+
+        if let Some(description) = self.description {
+            builder.description(description)
+        } else {
+            builder
+        }
     }
 }
 

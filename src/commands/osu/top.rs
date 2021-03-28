@@ -608,7 +608,7 @@ async fn single_embed(
     let data = TopSingleEmbed::new(&user, score, *idx, globals.as_deref()).await?;
 
     // Creating the embed
-    let embed = data.build().build()?;
+    let embed = data.as_builder().build();
     let response = msg.respond_embed(&ctx, embed).await?;
 
     ctx.store_msg(response.id);
@@ -622,12 +622,10 @@ async fn single_embed(
             return;
         }
 
-        let embed = data.minimize().build().unwrap();
-
         let embed_update = ctx
             .http
             .update_message(response.channel_id, response.id)
-            .embed(embed)
+            .embed(data.into_builder().build())
             .unwrap();
 
         if let Err(why) = embed_update.await {
@@ -649,8 +647,10 @@ async fn paginated_embed(
     let data = TopEmbed::new(&user, scores.iter().take(5), (1, pages)).await;
 
     // Creating the embed
-    let embed = data.build().build()?;
-    let create_msg = ctx.http.create_message(msg.channel_id).embed(embed)?;
+    let create_msg = ctx
+        .http
+        .create_message(msg.channel_id)
+        .embed(data.into_builder().build())?;
 
     let response = match content {
         Some(content) => create_msg.content(content)?.await?,

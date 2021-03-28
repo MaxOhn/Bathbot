@@ -114,13 +114,11 @@ async fn simulate_recent_main(
     };
 
     // Creating the embed
-    let embed = data.build().build()?;
-
     let response = ctx
         .http
         .create_message(msg.channel_id)
         .content("Simulated score:")?
-        .embed(embed)?
+        .embed(data.as_builder().build())?
         .await?;
 
     ctx.store_msg(response.id);
@@ -147,12 +145,10 @@ async fn simulate_recent_main(
             return;
         }
 
-        let embed = data.minimize().build().unwrap();
-
         let embed_update = ctx
             .http
             .update_message(response.channel_id, response.id)
-            .embed(embed)
+            .embed(data.into_builder().build())
             .unwrap();
 
         if let Err(why) = embed_update.await {

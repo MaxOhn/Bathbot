@@ -343,7 +343,7 @@ impl<'u> TrackUser<'u> {
                 TrackNotificationEmbed::new(user, score, idx).await
             };
 
-            let embed = data.build().build().map_err(|e| ErrorType::Bot(e.into()))?;
+            let embed = data.into_builder().build();
 
             Ok(self.embed.get_or_insert(embed).to_owned())
         }

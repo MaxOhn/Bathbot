@@ -1,6 +1,6 @@
 use crate::{
     custom_client::OsuStatsScore,
-    embeds::{osu, Author, EmbedData, Footer},
+    embeds::{osu, Author, Footer},
     pp::{Calculations, PPCalculator},
     util::{
         constants::{AVATAR_URL, OSU_BASE},
@@ -13,11 +13,10 @@ use crate::{
 
 use rosu_v2::model::user::User;
 use std::{collections::BTreeMap, fmt::Write};
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct OsuStatsGlobalsEmbed {
     description: String,
-    thumbnail: ImageSource,
+    thumbnail: String,
     author: Author,
     footer: Footer,
 }
@@ -32,9 +31,9 @@ impl OsuStatsGlobalsEmbed {
         if scores.is_empty() {
             return Self {
                 author: author!(user),
-                thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
+                thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
                 footer: Footer::new("Page 1/1 ~ Total scores: 0"),
-                description: String::from("No scores with these parameters were found"),
+                description: "No scores with these parameters were found".to_owned(),
             };
         }
 
@@ -90,28 +89,17 @@ impl OsuStatsGlobalsEmbed {
         ));
 
         Self {
-            footer,
-            description,
             author: author!(user),
-            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
+            description,
+            footer,
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
         }
     }
 }
 
-impl EmbedData for OsuStatsGlobalsEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-}
+impl_into_builder!(OsuStatsGlobalsEmbed {
+    author,
+    description,
+    footer,
+    thumbnail,
+});

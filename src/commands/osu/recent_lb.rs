@@ -140,8 +140,6 @@ async fn recent_lb_main(
     };
 
     // Sending the embed
-    let embed = data.build().build()?;
-
     let content = format!(
         "I found {} scores with the specified mods on the map's leaderboard",
         amount
@@ -151,7 +149,7 @@ async fn recent_lb_main(
         .http
         .create_message(msg.channel_id)
         .content(content)?
-        .embed(embed)?
+        .embed(data.into_builder().build())?
         .await?;
 
     // Store map in DB

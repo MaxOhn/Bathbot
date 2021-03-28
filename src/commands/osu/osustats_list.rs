@@ -68,13 +68,11 @@ async fn osustats_main(
     );
 
     // Creating the embed
-    let embed = data.build().build()?;
-
     let response = ctx
         .http
         .create_message(msg.channel_id)
         .content(content)?
-        .embed(embed)?
+        .embed(data.into_builder().build())?
         .await?;
 
     // Skip pagination if too few entries

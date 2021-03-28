@@ -1,6 +1,6 @@
 use crate::{
     custom_client::SnipeCountryStatistics,
-    embeds::{EmbedData, EmbedFields, Footer},
+    embeds::{attachment, EmbedFields, Footer},
     util::{
         constants::OSU_BASE,
         numbers::{round, with_comma_uint},
@@ -8,13 +8,11 @@ use crate::{
     },
 };
 
-use twilight_embed_builder::image_source::ImageSource;
-
 pub struct CountrySnipeStatsEmbed {
-    thumbnail: Option<ImageSource>,
-    title: Option<String>,
-    footer: Option<Footer>,
-    image: Option<ImageSource>,
+    thumbnail: String,
+    title: String,
+    footer: Footer,
+    image: String,
     fields: EmbedFields,
 }
 
@@ -23,18 +21,18 @@ impl CountrySnipeStatsEmbed {
         let mut fields = EmbedFields::with_capacity(2);
 
         if let Some(top_gain) = statistics.top_gain {
-            fields.push((
-                String::from("Most gained"),
+            fields.push(field!(
+                "Most gained",
                 format!("{} ({:+})", top_gain.username, top_gain.difference),
-                true,
+                true
             ));
         }
 
         if let Some(top_loss) = statistics.top_loss {
-            fields.push((
-                String::from("Most losses"),
+            fields.push(field!(
+                "Most losses",
                 format!("{} ({:+})", top_loss.username, top_loss.difference),
-                true,
+                true
             ));
         }
 
@@ -52,13 +50,11 @@ impl CountrySnipeStatsEmbed {
                     }
                 );
 
-                let thumbnail =
-                    ImageSource::url(format!("{}/images/flags/{}.png", OSU_BASE, country.acronym))
-                        .ok();
+                let thumbnail = format!("{}/images/flags/{}.png", OSU_BASE, country.acronym);
 
                 (title, thumbnail)
             }
-            None => (String::from("Global #1 statistics"), None),
+            None => ("Global #1 statistics".to_owned(), String::new()),
         };
 
         let footer = Footer::new(format!(
@@ -71,31 +67,17 @@ impl CountrySnipeStatsEmbed {
         Self {
             fields,
             thumbnail,
-            title: Some(title),
-            footer: Some(footer),
-            image: Some(ImageSource::attachment("stats_graph.png").unwrap()),
+            title,
+            footer,
+            image: attachment("stats_graph.png"),
         }
     }
 }
 
-impl EmbedData for CountrySnipeStatsEmbed {
-    fn footer_owned(&mut self) -> Option<Footer> {
-        self.footer.take()
-    }
-
-    fn title_owned(&mut self) -> Option<String> {
-        self.title.take()
-    }
-
-    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
-        self.thumbnail.take()
-    }
-
-    fn image_owned(&mut self) -> Option<ImageSource> {
-        self.image.take()
-    }
-
-    fn fields_owned(self) -> Option<EmbedFields> {
-        Some(self.fields)
-    }
-}
+impl_into_builder!(CountrySnipeStatsEmbed {
+    fields,
+    footer,
+    image,
+    thumbnail,
+    title,
+});

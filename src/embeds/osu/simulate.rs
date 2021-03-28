@@ -1,9 +1,9 @@
 use crate::{
     arguments::SimulateArgs,
-    embeds::{osu, EmbedData, EmbedFields, Footer},
+    embeds::{osu, EmbedBuilder, EmbedData, Footer},
     pp::{Calculations, PPCalculator},
     util::{
-        constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
+        constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         error::PPError,
         numbers::{round, with_comma_uint},
         osu::{grade_completion_mods, prepare_beatmap_file, ModSelection},
@@ -22,15 +22,12 @@ use rosu_v2::prelude::{
 };
 use std::fmt::Write;
 use tokio::fs::File;
-use twilight_embed_builder::{builder::EmbedBuilder, image_source::ImageSource};
-use twilight_model::channel::embed::EmbedField;
 
 pub struct SimulateEmbed {
     title: String,
     url: String,
     footer: Footer,
-    thumbnail: ImageSource,
-    image: ImageSource,
+    thumbnail: String,
 
     mode: GameMode,
     stars: f32,
@@ -45,6 +42,7 @@ pub struct SimulateEmbed {
     hits: String,
     removed_misses: Option<u32>,
     map_info: String,
+    mapset_id: u32,
 }
 
 impl SimulateEmbed {
@@ -152,13 +150,7 @@ impl SimulateEmbed {
             title,
             url: format!("{}b/{}", OSU_BASE, map.map_id),
             footer,
-            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id))
-                .unwrap(),
-            image: ImageSource::url(format!(
-                "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
-                map.mapset_id
-            ))
-            .unwrap(),
+            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id),
             grade_completion_mods,
             stars,
             score: unchoked_score.score as u64,
@@ -172,34 +164,28 @@ impl SimulateEmbed {
             prev_hits,
             prev_combo,
             prev_pp,
+            mapset_id: mapset.mapset_id,
         })
     }
 }
 
 impl EmbedData for SimulateEmbed {
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
-    }
-    fn url(&self) -> Option<&str> {
-        Some(&self.url)
-    }
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-    fn image(&self) -> Option<&ImageSource> {
-        Some(&self.image)
-    }
-    fn fields(&self) -> Option<EmbedFields> {
+    fn as_builder(&self) -> EmbedBuilder {
+        let image = format!(
+            "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
+            self.mapset_id
+        );
+
         let combo = if let Some(prev_combo) = self.prev_combo {
             format!("{} → {}", prev_combo, self.combo)
         } else {
             self.combo.to_owned()
         };
 
-        let mut fields = smallvec![
-            ("Grade".to_owned(), self.grade_completion_mods.clone(), true),
-            ("Acc".to_owned(), format!("{}%", self.acc), true),
-            ("Combo".to_owned(), combo, true),
+        let mut fields = vec![
+            field!("Grade", self.grade_completion_mods.clone(), true),
+            field!("Acc", format!("{}%", self.acc), true),
+            field!("Combo", combo, true),
         ];
 
         let pp = if let Some(prev_pp) = self.prev_pp {
@@ -209,28 +195,36 @@ impl EmbedData for SimulateEmbed {
         };
 
         if self.mode == GameMode::MNA {
-            fields.push(("PP".to_owned(), pp, true));
-            fields.push((
-                "Score".to_owned(),
+            fields.push(field!("PP", pp, true));
+
+            fields.push(field!(
+                "Score",
                 with_comma_uint(self.score).to_string(),
-                true,
+                true
             ));
         } else {
-            fields.push(("PP".to_owned(), pp, true));
+            fields.push(field!("PP", pp, true));
+
             let hits = if let Some(ref prev_hits) = self.prev_hits {
                 format!("{} → {}", prev_hits, &self.hits)
             } else {
                 self.hits.to_owned()
             };
-            fields.push(("Hits".to_owned(), hits, true));
+
+            fields.push(field!("Hits", hits, true));
         }
 
-        fields.push(("Map Info".to_owned(), self.map_info.clone(), false));
+        fields.push(field!("Map Info", self.map_info.clone(), false));
 
-        Some(fields)
+        EmbedBuilder::new()
+            .fields(fields)
+            .footer(&self.footer)
+            .image(image)
+            .title(&self.title)
+            .url(&self.url)
     }
 
-    fn minimize(self) -> EmbedBuilder {
+    fn into_builder(self) -> EmbedBuilder {
         let mut value = if let Some(prev_pp) = self.prev_pp {
             format!("{} → {}", prev_pp, self.pp)
         } else {
@@ -267,18 +261,14 @@ impl EmbedData for SimulateEmbed {
             combo = combo
         );
 
+        let mut title = self.title;
+        let _ = write!(title, " [{}★]", self.stars);
+
         EmbedBuilder::new()
-            .color(DARK_GREEN)
-            .unwrap()
-            .field(EmbedField {
-                name,
-                value,
-                inline: false,
-            })
+            .fields(vec![field!(name, value, false)])
             .thumbnail(self.thumbnail)
+            .title(title)
             .url(self.url)
-            .title(format!("{} [{}★]", self.title, self.stars))
-            .unwrap()
     }
 }
 

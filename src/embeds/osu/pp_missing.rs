@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{Author, EmbedData, Footer},
+    embeds::{Author, EmbedBuilder, EmbedData, Footer},
     util::{
         constants::AVATAR_URL,
         numbers::{with_comma_float, with_comma_uint},
@@ -8,14 +8,13 @@ use crate::{
 };
 
 use rosu_v2::prelude::{Score, User};
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct PPMissingEmbed {
-    description: Option<String>,
-    title: Option<String>,
-    thumbnail: Option<ImageSource>,
-    author: Option<Author>,
+    author: Author,
+    description: String,
     footer: Option<Footer>,
+    thumbnail: String,
+    title: String,
 }
 
 impl PPMissingEmbed {
@@ -64,33 +63,27 @@ impl PPMissingEmbed {
         });
 
         Self {
-            title: Some(title),
+            author: author!(user),
+            description,
             footer,
-            description: Some(description),
-            author: Some(author!(user)),
-            thumbnail: Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap()),
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            title,
         }
     }
 }
 
 impl EmbedData for PPMissingEmbed {
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take()
-    }
+    fn into_builder(self) -> EmbedBuilder {
+        let builder = EmbedBuilder::new()
+            .author(self.author)
+            .description(self.description)
+            .thumbnail(self.thumbnail)
+            .title(self.title);
 
-    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
-        self.thumbnail.take()
-    }
-
-    fn author_owned(&mut self) -> Option<Author> {
-        self.author.take()
-    }
-
-    fn title_owned(&mut self) -> Option<String> {
-        self.title.take()
-    }
-
-    fn footer_owned(&mut self) -> Option<Footer> {
-        self.footer.take()
+        if let Some(footer) = self.footer {
+            builder.footer(footer)
+        } else {
+            builder
+        }
     }
 }

@@ -1,11 +1,11 @@
-use crate::embeds::{EmbedData, EmbedFields};
+use crate::embeds::EmbedFields;
 
 use rosu_v2::model::GameMode;
 use std::fmt::Write;
 
 pub struct TrackEmbed {
-    title: Option<String>,
     fields: EmbedFields,
+    title: String,
 }
 
 impl TrackEmbed {
@@ -29,7 +29,7 @@ impl TrackEmbed {
                 let _ = write!(value, ", `{}`", name);
             }
 
-            fields.push(("Now tracking:".to_owned(), value, false));
+            fields.push(field!("Now tracking:".to_owned(), value, false));
         }
 
         let mut iter = failure.iter();
@@ -43,29 +43,19 @@ impl TrackEmbed {
                 let _ = write!(value, ", `{}`", name);
             }
 
-            fields.push(("Already tracked:".to_owned(), value, false));
+            fields.push(field!("Already tracked:".to_owned(), value, false));
         }
 
         if let Some(failed) = failed {
-            fields.push((
+            fields.push(field!(
                 "Failed to track:".to_owned(),
                 format!("`{}`", failed),
-                false,
+                false
             ));
         }
 
-        Self {
-            title: Some(title),
-            fields,
-        }
+        Self { fields, title }
     }
 }
 
-impl EmbedData for TrackEmbed {
-    fn title_owned(&mut self) -> Option<String> {
-        self.title.take()
-    }
-    fn fields_owned(self) -> Option<EmbedFields> {
-        Some(self.fields)
-    }
-}
+impl_into_builder!(TrackEmbed { fields, title });

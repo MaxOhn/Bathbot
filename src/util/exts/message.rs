@@ -1,11 +1,7 @@
-use crate::{
-    util::constants::{DARK_GREEN, RED},
-    BotResult, Context,
-};
+use crate::{embeds::EmbedBuilder, util::constants::RED, BotResult, Context};
 
 use async_trait::async_trait;
 use tokio::time::{timeout, Duration};
-use twilight_embed_builder::builder::EmbedBuilder;
 use twilight_http::request::channel::message::create_message::{CreateMessage, CreateMessageError};
 use twilight_model::{
     channel::{embed::Embed, Message, ReactionType},
@@ -73,10 +69,7 @@ impl MessageExt for Message {
         ctx: &Context,
         content: C,
     ) -> BotResult<Message> {
-        let embed = EmbedBuilder::new()
-            .color(DARK_GREEN)?
-            .description(content)?
-            .build()?;
+        let embed = EmbedBuilder::new().description(content).build();
 
         ctx.http
             .create_message(self.channel_id)
@@ -106,10 +99,7 @@ impl MessageExt for Message {
     }
 
     async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
-        let embed = EmbedBuilder::new()
-            .color(RED)?
-            .description(content)?
-            .build()?;
+        let embed = EmbedBuilder::new().color(RED).description(content).build();
 
         ctx.http
             .create_message(self.channel_id)
@@ -121,10 +111,7 @@ impl MessageExt for Message {
     }
 
     async fn reply<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
-        let embed = EmbedBuilder::new()
-            .color(DARK_GREEN)?
-            .description(content)?
-            .build()?;
+        let embed = EmbedBuilder::new().description(content).build();
 
         ctx.http
             .create_message(self.channel_id)

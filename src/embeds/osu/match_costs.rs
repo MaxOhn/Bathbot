@@ -1,19 +1,18 @@
 use crate::{
     commands::osu::MatchResult,
-    embeds::{EmbedData, Footer},
+    embeds::Footer,
     util::constants::{AVATAR_URL, DESCRIPTION_SIZE, OSU_BASE},
 };
 
 use rosu_v2::model::matches::OsuMatch;
 use std::{borrow::Cow, fmt::Write};
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct MatchCostEmbed {
-    description: Option<String>,
-    thumbnail: Option<ImageSource>,
-    title: Option<String>,
-    url: Option<String>,
-    footer: Option<Footer>,
+    description: String,
+    thumbnail: String,
+    title: String,
+    url: String,
+    footer: Footer,
 }
 
 impl MatchCostEmbed {
@@ -22,17 +21,17 @@ impl MatchCostEmbed {
         description: Option<String>,
         match_result: Option<MatchResult>,
     ) -> Option<Self> {
-        let mut thumbnail = None;
+        let mut thumbnail = String::new();
 
         let description = if let Some(description) = description {
             description
         } else {
-            thumbnail = ImageSource::url(format!(
+            let _ = write!(
+                thumbnail,
                 "{}{}",
                 AVATAR_URL,
                 match_result.as_ref().unwrap().mvp_id()
-            ))
-            .ok();
+            );
 
             let mut medals = vec!["🥇", "🥈", "🥉"];
             let mut description = String::with_capacity(256);
@@ -163,29 +162,19 @@ impl MatchCostEmbed {
         let footer = Footer::new("Note: Formula is subject to change; values are volatile");
 
         Some(Self {
-            title: Some(title),
-            footer: Some(footer),
+            title,
+            footer,
             thumbnail,
-            description: Some(description),
-            url: Some(format!("{}community/matches/{}", OSU_BASE, match_id)),
+            description,
+            url: format!("{}community/matches/{}", OSU_BASE, match_id),
         })
     }
 }
 
-impl EmbedData for MatchCostEmbed {
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take()
-    }
-    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
-        self.thumbnail.take()
-    }
-    fn title_owned(&mut self) -> Option<String> {
-        self.title.take()
-    }
-    fn url_owned(&mut self) -> Option<String> {
-        self.url.take()
-    }
-    fn footer_owned(&mut self) -> Option<Footer> {
-        self.footer.take()
-    }
-}
+impl_into_builder!(MatchCostEmbed {
+    description,
+    footer,
+    thumbnail,
+    title,
+    url,
+});

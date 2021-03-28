@@ -43,6 +43,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
         Some(Ok(num)) => num,
         Some(Err(_)) => {
             let content = "Could not parse mapset id. Be sure to specify it as first argument";
+
             return msg.error(&ctx, content).await;
         }
         None => {
@@ -50,6 +51,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
             Example: `21662 r hard farm streams alternate hardname tech weeb bluesky`\n\
             Tags: `farm, streams, alternate, old, meme, hardname, easy, hard, tech, \
             weeb, bluesky, english`";
+
             return msg.send_response(&ctx, content).await;
         }
     };
@@ -57,6 +59,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     // Check if there is background for the given mapset id
     if ctx.psql().get_tags_mapset(mapset_id).await.is_err() {
         let content = "No background entry found with this id";
+
         return msg.error(&ctx, content).await;
     }
 
@@ -66,6 +69,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
         None | Some(Err(_)) => {
             let content = "Could not parse action. \
                 Be sure to specify `r`, `remove`, `a`, or `add` as second argument";
+
             return msg.error(&ctx, content).await;
         }
     };
@@ -83,6 +87,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
                     easy, hard, tech, weeb, bluesky, english`",
                     tag
                 );
+
                 return msg.error(&ctx, content).await;
             }
             None => unreachable!(),
@@ -110,10 +115,12 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
                 "{}beatmapsets/{} is now tagged as:\n{}",
                 OSU_BASE, mapset_id, tags,
             );
+
             msg.send_response(&ctx, content).await?;
         }
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
             return Err(why);
         }
     }
@@ -143,6 +150,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
             _ => {
                 let content = "Could not parse first argument as mode. \
                 Provide either `mna`, or `std`";
+
                 return msg.error(&ctx, content).await;
             }
         },
@@ -153,6 +161,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         Ok(tags) => tags.iter().any(|tag| tag.untagged()),
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
             return Err(why);
         }
     };

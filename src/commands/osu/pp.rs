@@ -38,7 +38,12 @@ async fn pp_main(
 
     // Retrieve the user and their top scores
     let user_fut = request_user(&ctx, &name, Some(mode));
-    let scores_fut_1 = ctx.osu().user_scores(name.as_str()).best().mode(mode).limit(50);
+    let scores_fut_1 = ctx
+        .osu()
+        .user_scores(name.as_str())
+        .best()
+        .mode(mode)
+        .limit(50);
 
     let scores_fut_2 = ctx
         .osu()
@@ -96,7 +101,7 @@ async fn pp_main(
     let data = PPMissingEmbed::new(user, scores, pp, rank);
 
     // Creating the embed
-    let embed = data.build_owned().build()?;
+    let embed = data.into_builder().build();
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
 
     Ok(())

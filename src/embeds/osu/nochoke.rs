@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{osu, Author, EmbedData, Footer},
+    embeds::{osu, Author, Footer},
     pp::{Calculations, PPCalculator},
     util::{
         constants::{AVATAR_URL, OSU_BASE},
@@ -9,13 +9,12 @@ use crate::{
 
 use rosu_v2::prelude::{Score, User};
 use std::{borrow::Cow, fmt::Write};
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct NoChokeEmbed {
     description: String,
     title: String,
     author: Author,
-    thumbnail: ImageSource,
+    thumbnail: String,
     footer: Footer,
 }
 
@@ -85,30 +84,16 @@ impl NoChokeEmbed {
             title,
             author: author!(user),
             description,
-            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
         }
     }
 }
 
-impl EmbedData for NoChokeEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
-    }
-}
+impl_into_builder!(NoChokeEmbed {
+    author,
+    description,
+    footer,
+    thumbnail,
+    title,
+});

@@ -1,12 +1,9 @@
-use crate::{
-    bg_game::MapsetTags,
-    embeds::{EmbedData, EmbedFields},
-};
+use crate::{bg_game::MapsetTags, embeds::EmbedFields};
 
 pub struct BGTagsEmbed {
-    title: &'static str,
-    description: Option<&'static str>,
+    description: &'static str,
     fields: EmbedFields,
+    title: &'static str,
 }
 
 impl BGTagsEmbed {
@@ -25,33 +22,26 @@ impl BGTagsEmbed {
             "None".to_owned()
         };
 
-        let fields = smallvec![
-            ("Included".to_owned(), include_value, true),
-            ("Excluded".to_owned(), excluded_value, true),
-            ("#Backgrounds".to_owned(), amount.to_string(), true),
+        let fields = vec![
+            field!("Included", include_value, true),
+            field!("Excluded", excluded_value, true),
+            field!("#Backgrounds", amount.to_string(), true),
         ];
 
-        let description =
-            (amount == 0).then(|| "No stored backgrounds match these tags, try different ones");
+        let description = (amount == 0)
+            .then(|| "No stored backgrounds match these tags, try different ones")
+            .unwrap_or_default();
 
         Self {
-            title: "Selected tags",
             fields,
             description,
+            title: "Selected tags",
         }
     }
 }
 
-impl EmbedData for BGTagsEmbed {
-    fn title_owned(&mut self) -> Option<String> {
-        Some(self.title.to_owned())
-    }
-
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take().map(str::to_owned)
-    }
-
-    fn fields_owned(self) -> Option<EmbedFields> {
-        Some(self.fields)
-    }
-}
+impl_into_builder!(BGTagsEmbed {
+    description,
+    fields,
+    title,
+});

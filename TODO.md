@@ -1,5 +1,10 @@
 
 **[TODO]**
+- Implement custom EmbedBuilder
+- Add command to add snipe countries
+- `<favouritescores` commands
+- Request user in `<link`
+- `<matchlive` command
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
 - Benchmark for `smartstring`, `smallstr`, `smallvec`, and `arrayvec`
 - ~~Use DB medals instead of osekai~~ no solution

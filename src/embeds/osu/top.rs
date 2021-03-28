@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{osu, Author, EmbedData, Footer},
+    embeds::{osu, Author, Footer},
     pp::{Calculations, PPCalculator},
     util::{
         constants::{AVATAR_URL, OSU_BASE},
@@ -11,13 +11,12 @@ use crate::{
 
 use rosu_v2::prelude::{Score, User};
 use std::fmt::Write;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct TopEmbed {
-    description: String,
     author: Author,
-    thumbnail: ImageSource,
+    description: String,
     footer: Footer,
+    thumbnail: String,
 }
 
 impl TopEmbed {
@@ -71,28 +70,17 @@ impl TopEmbed {
         description.pop();
 
         Self {
-            description,
             author: author!(user),
+            description,
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
-            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
         }
     }
 }
 
-impl EmbedData for TopEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-}
+impl_into_builder!(TopEmbed {
+    author,
+    description,
+    footer,
+    thumbnail,
+});

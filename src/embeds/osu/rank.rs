@@ -1,6 +1,6 @@
 use crate::{
     commands::osu::RankData,
-    embeds::{Author, EmbedData},
+    embeds::Author,
     util::{
         constants::AVATAR_URL,
         numbers::{with_comma_float, with_comma_uint},
@@ -9,13 +9,12 @@ use crate::{
 };
 
 use rosu_v2::model::score::Score;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct RankEmbed {
-    description: Option<String>,
-    title: Option<String>,
-    thumbnail: Option<ImageSource>,
-    author: Option<Author>,
+    description: String,
+    title: String,
+    thumbnail: String,
+    author: Author,
 }
 
 impl RankEmbed {
@@ -133,25 +132,17 @@ impl RankEmbed {
         let user = data.user();
 
         Self {
-            title: Some(title),
-            description: Some(description),
-            author: Some(author!(user)),
-            thumbnail: Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap()),
+            title,
+            description,
+            author: author!(user),
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
         }
     }
 }
 
-impl EmbedData for RankEmbed {
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take()
-    }
-    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
-        self.thumbnail.take()
-    }
-    fn author_owned(&mut self) -> Option<Author> {
-        self.author.take()
-    }
-    fn title_owned(&mut self) -> Option<String> {
-        self.title.take()
-    }
-}
+impl_into_builder!(RankEmbed {
+    author,
+    description,
+    thumbnail,
+    title,
+});

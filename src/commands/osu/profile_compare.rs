@@ -150,7 +150,7 @@ async fn compare_main(
     let data = ProfileCompareEmbed::new(mode, user1, user2, profile_result1, profile_result2);
 
     // Creating the embed
-    let embed = data.build_owned().build()?;
+    let embed = data.into_builder().build();
 
     msg.build_response(&ctx, |m| match thumbnail {
         Some(bytes) => m.attachment("avatar_fuse.png", bytes).embed(embed),

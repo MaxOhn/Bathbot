@@ -170,7 +170,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     };
 
     // Creating the embed
-    let embed = data_fut.await.build().build()?;
+    let embed = data_fut.await.into_builder().build();
 
     let response = ctx
         .http

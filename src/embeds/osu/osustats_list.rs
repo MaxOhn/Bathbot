@@ -1,6 +1,6 @@
 use crate::{
     custom_client::OsuStatsPlayer,
-    embeds::{Author, EmbedData, Footer},
+    embeds::{Author, Footer},
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         numbers::with_comma_uint,
@@ -9,13 +9,12 @@ use crate::{
 };
 
 use std::fmt::Write;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct OsuStatsListEmbed {
-    description: String,
-    thumbnail: ImageSource,
     author: Author,
+    description: String,
     footer: Footer,
+    thumbnail: String,
 }
 
 impl OsuStatsListEmbed {
@@ -45,31 +44,18 @@ impl OsuStatsListEmbed {
             );
         }
 
-        let thumbnail = ImageSource::url(format!("{}{}", AVATAR_URL, first_place_id)).unwrap();
-
         Self {
             author,
-            thumbnail,
             description,
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
+            thumbnail: format!("{}{}", AVATAR_URL, first_place_id),
         }
     }
 }
 
-impl EmbedData for OsuStatsListEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-}
+impl_into_builder!(OsuStatsListEmbed {
+    author,
+    description,
+    footer,
+    thumbnail,
+});

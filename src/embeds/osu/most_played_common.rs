@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{osu, EmbedData},
+    embeds::{attachment, osu},
     util::constants::OSU_BASE,
     Name,
 };
@@ -7,11 +7,10 @@ use crate::{
 use hashbrown::HashMap;
 use rosu_v2::prelude::MostPlayedMap;
 use std::fmt::Write;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct MostPlayedCommonEmbed {
     description: String,
-    thumbnail: ImageSource,
+    thumbnail: String,
 }
 
 impl MostPlayedCommonEmbed {
@@ -39,12 +38,10 @@ impl MostPlayedCommonEmbed {
             );
 
             description.push('-');
-
             positions.extend(names.iter().map(|_| 0_u8));
 
             let count_0 = users_count[0][map_id];
             let count_1 = users_count[1][map_id];
-
             positions[(count_0 > count_1) as usize] += 1;
 
             if let Some(&count_2) = users_count.get(2).and_then(|counts| counts.get(map_id)) {
@@ -74,17 +71,12 @@ impl MostPlayedCommonEmbed {
 
         Self {
             description,
-            thumbnail: ImageSource::attachment("avatar_fuse.png").unwrap(),
+            thumbnail: attachment("avatar_fuse.png"),
         }
     }
 }
 
-impl EmbedData for MostPlayedCommonEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
-    }
-}
+impl_into_builder!(MostPlayedCommonEmbed {
+    description,
+    thumbnail,
+});

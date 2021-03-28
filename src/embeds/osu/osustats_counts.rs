@@ -1,17 +1,13 @@
-use crate::{
-    embeds::{Author, EmbedData},
-    util::constants::AVATAR_URL,
-};
+use crate::{embeds::Author, util::constants::AVATAR_URL};
 
 use rosu_v2::prelude::{GameMode, User};
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct OsuStatsCountsEmbed {
-    description: Option<String>,
-    thumbnail: Option<ImageSource>,
-    title: Option<String>,
-    author: Option<Author>,
+    description: String,
+    thumbnail: String,
+    title: String,
+    author: Author,
 }
 
 impl OsuStatsCountsEmbed {
@@ -43,28 +39,20 @@ impl OsuStatsCountsEmbed {
         description.push_str("```");
 
         Self {
-            description: Some(description),
-            author: Some(author!(user)),
-            thumbnail: Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap()),
-            title: Some(format!(
+            description,
+            author: author!(user),
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            title: format!(
                 "In how many top X {}map leaderboards is {}?",
                 mode, user.username
-            )),
+            ),
         }
     }
 }
 
-impl EmbedData for OsuStatsCountsEmbed {
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take()
-    }
-    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
-        self.thumbnail.take()
-    }
-    fn author_owned(&mut self) -> Option<Author> {
-        self.author.take()
-    }
-    fn title_owned(&mut self) -> Option<String> {
-        self.title.take()
-    }
-}
+impl_into_builder!(OsuStatsCountsEmbed {
+    author,
+    description,
+    thumbnail,
+    title,
+});

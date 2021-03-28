@@ -192,7 +192,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
 
     // Sending the embed
-    let embed = data.build().build()?;
+    let embed = data.into_builder().build();
     let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
 
     let response = if let Some(ref graph) = graph {

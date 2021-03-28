@@ -201,7 +201,7 @@ async fn recent_pages_main(
     };
 
     // Creating the embed
-    let embed = data.build().build()?;
+    let embed = data.as_builder().build();
 
     let response = ctx
         .http
@@ -231,7 +231,7 @@ async fn recent_pages_main(
             let update_fut = ctx
                 .http
                 .update_message(response.channel_id, response.id)
-                .embed(data.minimize().build().unwrap())
+                .embed(data.into_builder().build())
                 .unwrap();
 
             if let Err(why) = update_fut.await {

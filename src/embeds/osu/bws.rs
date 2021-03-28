@@ -1,18 +1,17 @@
 use crate::{
-    embeds::{Author, EmbedData},
+    embeds::Author,
     util::{constants::AVATAR_URL, numbers::with_comma_uint},
 };
 
 use itertools::Itertools;
 use rosu_v2::model::user::User;
 use std::{collections::BTreeMap, fmt::Write, iter};
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct BWSEmbed {
-    description: Option<String>,
-    title: Option<String>,
-    thumbnail: Option<ImageSource>,
-    author: Option<Author>,
+    description: String,
+    title: String,
+    thumbnail: String,
+    author: Author,
 }
 
 impl BWSEmbed {
@@ -154,28 +153,20 @@ impl BWSEmbed {
         );
 
         Self {
-            title: Some(title),
-            description: Some(description),
-            author: Some(author!(user)),
-            thumbnail: Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap()),
+            title,
+            description,
+            author: author!(user),
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
         }
     }
 }
 
-impl EmbedData for BWSEmbed {
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take()
-    }
-    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
-        self.thumbnail.take()
-    }
-    fn author_owned(&mut self) -> Option<Author> {
-        self.author.take()
-    }
-    fn title_owned(&mut self) -> Option<String> {
-        self.title.take()
-    }
-}
+impl_into_builder!(BWSEmbed {
+    author,
+    description,
+    thumbnail,
+    title,
+});
 
 #[inline]
 fn bws(rank: Option<u32>, badges: usize) -> u64 {

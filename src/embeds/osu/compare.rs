@@ -1,7 +1,7 @@
 use crate::{
-    embeds::{osu, Author, EmbedData, EmbedFields, Footer},
+    embeds::{osu, Author, EmbedBuilder, EmbedData, Footer},
     util::{
-        constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
+        constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
         error::PPError,
         matcher::highlight_funny_numeral,
@@ -15,25 +15,21 @@ use crate::{
 use chrono::{DateTime, Utc};
 use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, ManiaPP, OsuPP, TaikoPP};
 use rosu_v2::prelude::{Beatmap, BeatmapUserScore, GameMode, GameMods, Grade, Score, User};
-use std::{borrow::Cow, fmt::Write};
+use std::fmt::Write;
 use tokio::fs::File;
-use twilight_embed_builder::{
-    author::EmbedAuthorBuilder, builder::EmbedBuilder, image_source::ImageSource,
-};
-use twilight_model::channel::embed::EmbedField;
 
 const GLOBAL_IDX_THRESHOLD: usize = 500;
 
 pub struct CompareEmbed {
-    description: Option<Cow<'static, str>>,
+    author: Author,
+    description: String,
+    footer: Footer,
+    thumbnail: String,
+    timestamp: DateTime<Utc>,
     title: String,
     url: String,
-    author: Author,
-    footer: Footer,
-    timestamp: DateTime<Utc>,
-    thumbnail: ImageSource,
-    image: ImageSource,
 
+    mapset_id: u32,
     stars: f32,
     grade_completion_mods: String,
     score: String,
@@ -207,15 +203,15 @@ impl CompareEmbed {
                 description.push_str(" (Mod leaderboard)");
             }
 
-            Some(description.into())
+            description.into()
         } else {
-            None
+            String::new()
         };
 
-        let image = ImageSource::url(format!(
-            "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
-            map.mapset_id
-        ));
+        let acc = round(score.accuracy);
+        let ago = how_long_ago(&score.created_at);
+        let timestamp = score.created_at;
+        let score = with_comma_uint(score.score).to_string();
 
         Ok(Self {
             description,
@@ -223,62 +219,33 @@ impl CompareEmbed {
             url: format!("{}b/{}", OSU_BASE, map.map_id),
             author: author!(user),
             footer,
-            timestamp: score.created_at,
-            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id))
-                .unwrap(),
-            image: image.unwrap(),
+            timestamp,
+            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id),
             grade_completion_mods,
             stars,
-            score: with_comma_uint(score.score).to_string(),
-            acc: round(score.accuracy),
-            ago: how_long_ago(&score.created_at),
+            score,
+            acc,
+            ago,
             pp,
             combo,
             hits,
+            mapset_id: mapset.mapset_id,
             map_info: osu::get_map_info(&map),
         })
     }
 }
 
 impl EmbedData for CompareEmbed {
-    fn description(&self) -> Option<&str> {
-        self.description.as_deref()
-    }
-
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
-    }
-
-    fn url(&self) -> Option<&str> {
-        Some(&self.url)
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-
-    fn image(&self) -> Option<&ImageSource> {
-        Some(&self.image)
-    }
-
-    fn timestamp(&self) -> Option<&DateTime<Utc>> {
-        Some(&self.timestamp)
-    }
-
-    fn fields(&self) -> Option<EmbedFields> {
+    fn as_builder(&self) -> EmbedBuilder {
         let score = highlight_funny_numeral(&self.score).into_owned();
         let acc = highlight_funny_numeral(&format!("{}%", self.acc)).into_owned();
         let pp = highlight_funny_numeral(&self.pp).into_owned();
 
-        let mut fields = smallvec![
-            ("Grade".to_owned(), self.grade_completion_mods.clone(), true),
-            ("Score".to_owned(), score, true),
-            ("Acc".to_owned(), acc, true),
-            ("PP".to_owned(), pp, true),
+        let mut fields = vec![
+            field!("Grade", self.grade_completion_mods.clone(), true),
+            field!("Score", score, true),
+            field!("Acc", acc, true),
+            field!("PP", pp, true),
         ];
 
         fields.reserve(3);
@@ -288,61 +255,59 @@ impl EmbedData for CompareEmbed {
         let combo = highlight_funny_numeral(&self.combo).into_owned();
         let hits = highlight_funny_numeral(&self.hits).into_owned();
 
-        fields.push((
-            if mania { "Combo / Ratio" } else { "Combo" }.to_owned(),
+        fields.push(field!(
+            if mania { "Combo / Ratio" } else { "Combo" },
             combo,
-            true,
+            true
         ));
 
-        fields.push(("Hits".to_owned(), hits, true));
-        fields.push(("Map Info".to_owned(), self.map_info.clone(), false));
+        fields.push(field!("Hits", hits, true));
+        fields.push(field!("Map Info", self.map_info.clone(), false));
 
-        Some(fields)
+        let image = format!(
+            "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
+            self.mapset_id
+        );
+
+        EmbedBuilder::new()
+            .author(&self.author)
+            .description(&self.description)
+            .fields(fields)
+            .footer(&self.footer)
+            .image(image)
+            .timestamp(&self.timestamp)
+            .title(&self.title)
+            .url(&self.url)
     }
 
-    fn minimize(self) -> EmbedBuilder {
-        let mut eb = EmbedBuilder::new();
-
+    fn into_builder(self) -> EmbedBuilder {
         let name = format!(
             "{}\t{}\t({}%)\t{}",
             self.grade_completion_mods, self.score, self.acc, self.ago
         );
 
         let value = format!("{} [ {} ] {}", self.pp, self.combo, self.hits);
-        let title = format!("{} [{}★]", self.title, self.stars);
 
-        if let Some(description) = self.description {
-            eb = eb.description(description).unwrap();
-        }
+        let mut title = self.title;
+        let _ = write!(title, " [{}★]", self.stars);
 
-        let ab = EmbedAuthorBuilder::new()
-            .name(self.author.name)
-            .unwrap()
-            .url(self.author.url.unwrap())
-            .icon_url(self.author.icon_url.unwrap());
-
-        eb.color(DARK_GREEN)
-            .unwrap()
+        EmbedBuilder::new()
+            .author(self.author)
+            .description(self.description)
+            .fields(vec![field![name, value, false]])
             .thumbnail(self.thumbnail)
             .title(title)
-            .unwrap()
             .url(self.url)
-            .field(EmbedField {
-                name,
-                value,
-                inline: false,
-            })
-            .author(ab)
     }
 }
 
 pub struct NoScoresEmbed {
-    description: Option<String>,
-    thumbnail: Option<ImageSource>,
-    footer: Option<Footer>,
-    author: Option<Author>,
-    title: Option<String>,
-    url: Option<String>,
+    description: String,
+    thumbnail: String,
+    footer: Footer,
+    author: Author,
+    title: String,
+    url: String,
 }
 
 impl NoScoresEmbed {
@@ -375,38 +340,21 @@ impl NoScoresEmbed {
         }
 
         Self {
-            description: Some(description),
-            footer: Some(footer),
-            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id)).ok(),
-            title: Some(title),
-            url: Some(format!("{}b/{}", OSU_BASE, map.map_id)),
-            author: Some(author),
+            author,
+            description,
+            footer,
+            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id),
+            title,
+            url: format!("{}b/{}", OSU_BASE, map.map_id),
         }
     }
 }
 
-impl EmbedData for NoScoresEmbed {
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take()
-    }
-
-    fn url_owned(&mut self) -> Option<String> {
-        self.url.take()
-    }
-
-    fn title_owned(&mut self) -> Option<String> {
-        self.title.take()
-    }
-
-    fn footer_owned(&mut self) -> Option<Footer> {
-        self.footer.take()
-    }
-
-    fn author_owned(&mut self) -> Option<Author> {
-        self.author.take()
-    }
-
-    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
-        self.thumbnail.take()
-    }
-}
+impl_into_builder!(NoScoresEmbed {
+    author,
+    description,
+    footer,
+    thumbnail,
+    title,
+    url,
+});

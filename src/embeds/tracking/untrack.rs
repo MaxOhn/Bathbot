@@ -1,10 +1,10 @@
-use crate::embeds::{EmbedData, EmbedFields};
+use crate::embeds::EmbedFields;
 
 use std::{collections::HashSet, fmt::Write};
 
 pub struct UntrackEmbed {
-    title: &'static str,
     fields: EmbedFields,
+    title: &'static str,
 }
 
 impl UntrackEmbed {
@@ -22,26 +22,15 @@ impl UntrackEmbed {
                 let _ = write!(value, ", `{}`", name);
             }
 
-            fields.push(("No longer tracking:".to_owned(), value, false));
+            fields.push(field!("No longer tracking:", value, false));
         }
 
         if let Some(failed) = failed {
-            fields.push((
-                "Failed to untrack:".to_owned(),
-                format!("`{}`", failed),
-                false,
-            ));
+            fields.push(field!("Failed to untrack:", format!("`{}`", failed), false));
         }
 
-        Self { title, fields }
+        Self { fields, title }
     }
 }
 
-impl EmbedData for UntrackEmbed {
-    fn title_owned(&mut self) -> Option<String> {
-        Some(self.title.to_owned())
-    }
-    fn fields_owned(self) -> Option<EmbedFields> {
-        Some(self.fields)
-    }
-}
+impl_into_builder!(UntrackEmbed { fields, title });

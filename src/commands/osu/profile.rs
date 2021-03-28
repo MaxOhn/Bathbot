@@ -1,7 +1,7 @@
 use super::{request_user, MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
 use crate::{
     arguments::{Args, NameArgs},
-    embeds::ProfileEmbed,
+    embeds::{EmbedData, ProfileEmbed},
     pagination::ProfilePagination,
     tracking::process_tracking,
     util::{constants::OSU_API_ISSUE, MessageExt},
@@ -54,7 +54,7 @@ async fn profile_main(
     };
 
     // Send the embed
-    let embed = data.minimize_borrowed().build()?;
+    let embed = data.as_builder().build();
     let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
 
     let response = if let Some(graph) = graph {

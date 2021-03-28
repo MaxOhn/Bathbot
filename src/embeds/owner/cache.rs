@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{EmbedData, EmbedFields, Footer},
+    embeds::{EmbedBuilder, EmbedData, EmbedFields, Footer},
     util::numbers::with_comma_uint,
 };
 
@@ -8,10 +8,10 @@ use std::{fmt::Write, sync::atomic::Ordering::Relaxed};
 use twilight_cache_inmemory::CacheStats;
 
 pub struct CacheEmbed {
-    description: Option<String>,
-    footer: Option<Footer>,
-    timestamp: DateTime<Utc>,
+    description: String,
     fields: EmbedFields,
+    footer: Footer,
+    timestamp: DateTime<Utc>,
 }
 
 impl CacheEmbed {
@@ -23,44 +23,52 @@ impl CacheEmbed {
             "Channels (Guilds): {}",
             with_comma_uint(stats.metrics.channels_guild.load(Relaxed))
         );
+
         let _ = writeln!(
             description,
             "Channels (Private): {}",
             with_comma_uint(stats.metrics.channels_private.load(Relaxed))
         );
+
         let _ = writeln!(
             description,
             "Emojis: {}",
             with_comma_uint(stats.metrics.emojis.load(Relaxed))
         );
+
         let _ = writeln!(
             description,
             "Guilds: {}",
             with_comma_uint(stats.metrics.guilds.load(Relaxed))
         );
+
         let _ = writeln!(
             description,
             "Members: {}",
             with_comma_uint(stats.metrics.members.load(Relaxed))
         );
+
         let _ = writeln!(
             description,
             "Messages: {}",
             with_comma_uint(stats.metrics.messages.load(Relaxed))
         );
+
         let _ = writeln!(
             description,
             "Roles: {}",
             with_comma_uint(stats.metrics.roles.load(Relaxed))
         );
+
         let _ = writeln!(
             description,
             "Unavailable guilds: {}",
             stats.metrics.unavailable_guilds.load(Relaxed)
         );
+
         let _ = writeln!(description, "Users: {}", stats.metrics.users.load(Relaxed));
 
-        let mut fields = EmbedFields::new();
+        let mut fields = Vec::new();
 
         let biggest_guilds = stats.biggest_guilds.unwrap();
         let max_name_len = biggest_guilds
@@ -69,6 +77,7 @@ impl CacheEmbed {
 
         let mut guild_value = String::with_capacity(128);
         guild_value.push_str("```\n");
+
         for guild in biggest_guilds {
             let _ = writeln!(
                 guild_value,
@@ -78,8 +87,9 @@ impl CacheEmbed {
                 len = max_name_len
             );
         }
+
         guild_value.push_str("```");
-        fields.push(("Biggest guilds".to_owned(), guild_value, false));
+        fields.push(field!("Biggest guilds".to_owned(), guild_value, false));
 
         let most_mutuals_users = stats.most_mutuals_users.unwrap();
         let max_name_len = most_mutuals_users
@@ -88,6 +98,7 @@ impl CacheEmbed {
 
         let mut user_value = String::with_capacity(128);
         user_value.push_str("```\n");
+
         for user in most_mutuals_users {
             let _ = writeln!(
                 user_value,
@@ -97,29 +108,25 @@ impl CacheEmbed {
                 len = max_name_len
             );
         }
+
         user_value.push_str("```");
-        fields.push(("Most mutual guilds".to_owned(), user_value, false));
+        fields.push(field!("Most mutual guilds".to_owned(), user_value, false));
 
         Self {
-            description: Some(description),
-            footer: Some(Footer::new("Boot time")),
-            timestamp: start_time,
+            description,
             fields,
+            footer: Footer::new("Boot time"),
+            timestamp: start_time,
         }
     }
 }
 
 impl EmbedData for CacheEmbed {
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take()
-    }
-    fn footer_owned(&mut self) -> Option<Footer> {
-        self.footer.take()
-    }
-    fn timestamp(&self) -> Option<&DateTime<Utc>> {
-        Some(&self.timestamp)
-    }
-    fn fields_owned(self) -> Option<EmbedFields> {
-        Some(self.fields)
+    fn into_builder(self) -> EmbedBuilder {
+        EmbedBuilder::new()
+            .description(self.description)
+            .fields(self.fields)
+            .footer(self.footer)
+            .timestamp(self.timestamp)
     }
 }

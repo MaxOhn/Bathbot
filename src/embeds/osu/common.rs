@@ -1,17 +1,16 @@
 use crate::{
     commands::osu::CommonUser,
-    embeds::{EmbedData, Footer},
+    embeds::{attachment, Footer},
     util::constants::OSU_BASE,
 };
 
 use rosu_v2::model::score::Score;
 use smallvec::SmallVec;
 use std::fmt::Write;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct CommonEmbed {
     description: String,
-    thumbnail: ImageSource,
+    thumbnail: String,
     footer: Footer,
 }
 
@@ -75,21 +74,13 @@ impl CommonEmbed {
         Self {
             footer: Footer::new(footer),
             description,
-            thumbnail: ImageSource::attachment("avatar_fuse.png").unwrap(),
+            thumbnail: attachment("avatar_fuse.png"),
         }
     }
 }
 
-impl EmbedData for CommonEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-}
+impl_into_builder!(CommonEmbed {
+    description,
+    footer,
+    thumbnail
+});

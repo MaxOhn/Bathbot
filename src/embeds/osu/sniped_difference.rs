@@ -1,7 +1,7 @@
 use crate::{
     commands::osu::Difference,
     custom_client::SnipeRecent,
-    embeds::{osu, Author, EmbedData, Footer},
+    embeds::{osu, Author, Footer},
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
@@ -17,11 +17,10 @@ use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::model::user::User;
 use std::fmt::Write;
 use tokio::fs::File;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct SnipedDiffEmbed {
     description: String,
-    thumbnail: ImageSource,
+    thumbnail: String,
     title: &'static str,
     author: Author,
     footer: Footer,
@@ -114,30 +113,16 @@ impl SnipedDiffEmbed {
             title,
             description,
             author: author!(user),
-            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
             footer,
         })
     }
 }
 
-impl EmbedData for SnipedDiffEmbed {
-    fn title(&self) -> Option<&str> {
-        Some(self.title)
-    }
-
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-}
+impl_into_builder!(SnipedDiffEmbed {
+    author,
+    description,
+    footer,
+    thumbnail,
+    title,
+});
