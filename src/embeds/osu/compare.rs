@@ -203,13 +203,13 @@ impl CompareEmbed {
                 description.push_str(" (Mod leaderboard)");
             }
 
-            description.into()
+            description
         } else {
             String::new()
         };
 
         let acc = round(score.accuracy);
-        let ago = how_long_ago(&score.created_at);
+        let ago = how_long_ago(&score.created_at).to_string();
         let timestamp = score.created_at;
         let score = with_comma_uint(score.score).to_string();
 
@@ -275,7 +275,7 @@ impl EmbedData for CompareEmbed {
             .fields(fields)
             .footer(&self.footer)
             .image(image)
-            .timestamp(&self.timestamp)
+            .timestamp(self.timestamp)
             .title(&self.title)
             .url(&self.url)
     }

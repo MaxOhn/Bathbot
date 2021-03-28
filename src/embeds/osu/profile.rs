@@ -14,7 +14,7 @@ use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
 
 #[derive(Clone)]
 pub struct ProfileEmbed {
-    description: Option<String>,
+    description: String,
     author: Author,
     thumbnail: String,
     title: String,
@@ -283,9 +283,9 @@ impl ProfileEmbed {
             count_str.push_str("```");
             extended_fields.push(field!("Global leaderboards", count_str, true));
 
-            (None, Some(extended_fields))
+            (String::new(), Some(extended_fields))
         } else {
-            (Some("No Top scores".to_owned()), None)
+            ("No Top scores".to_owned(), None)
         };
 
         Self {
@@ -307,51 +307,37 @@ impl ProfileEmbed {
             fields.append(&mut extended_fields.clone())
         }
 
-        let builder = EmbedBuilder::new()
+        EmbedBuilder::new()
             .author(&self.author)
+            .description(&self.description)
+            .fields(fields)
             .footer(&self.footer)
             .image(&self.image)
             .thumbnail(&self.thumbnail)
-            .title(&self.title);
-
-        if let Some(ref description) = self.description {
-            builder.description(description)
-        } else {
-            builder
-        }
+            .title(&self.title)
     }
 }
 
 impl EmbedData for ProfileEmbed {
     fn as_builder(&self) -> EmbedBuilder {
-        let builder = EmbedBuilder::new()
+        EmbedBuilder::new()
             .author(&self.author)
+            .description(&self.description)
             .fields(self.main_fields.clone())
             .footer(&self.footer)
             .image(&self.image)
             .thumbnail(&self.thumbnail)
-            .title(&self.title);
-
-        if let Some(ref description) = self.description {
-            builder.description(description)
-        } else {
-            builder
-        }
+            .title(&self.title)
     }
 
     fn into_builder(self) -> EmbedBuilder {
-        let builder = EmbedBuilder::new()
+        EmbedBuilder::new()
             .author(self.author)
+            .description(self.description)
             .fields(self.main_fields)
             .footer(self.footer)
             .image(self.image)
             .thumbnail(self.thumbnail)
-            .title(self.title);
-
-        if let Some(description) = self.description {
-            builder.description(description)
-        } else {
-            builder
-        }
+            .title(self.title)
     }
 }

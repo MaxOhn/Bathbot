@@ -172,6 +172,8 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     // Creating the embed
     let embed = data_fut.await.into_builder().build();
 
+    // Note: No combined pictures since user ids are not available
+
     let response = ctx
         .http
         .create_message(msg.channel_id)

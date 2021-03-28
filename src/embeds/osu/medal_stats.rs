@@ -123,5 +123,4 @@ impl_into_builder!(MedalStatsEmbed {
     footer,
     image,
     thumbnail,
-    footer,
 });

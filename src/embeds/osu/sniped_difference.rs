@@ -91,7 +91,7 @@ impl SnipedDiffEmbed {
                 ),
             };
 
-            description += &how_long_ago(&score.date);
+            let _ = write!(description, "{}", how_long_ago(&score.date));
             description.push('\n');
         }
 

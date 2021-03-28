@@ -1,7 +1,7 @@
 use crate::{
     commands::osu::prepare_score,
     embeds::{EmbedData, TrackNotificationEmbed},
-    Context, Error,
+    Context,
 };
 
 use chrono::{DateTime, Utc};
@@ -235,11 +235,6 @@ async fn score_loop(
                 Ok(embed) => embed,
                 Err(ErrorType::NotFound) => return Err(ErrorType::NotFound),
                 Err(ErrorType::Osu(why)) => return Err(ErrorType::Osu(why)),
-                Err(ErrorType::Bot(why)) => {
-                    unwind_error!(warn, why, "Bot error while creating embed for tracking: {}");
-
-                    break;
-                }
             };
 
             // Try to build and send the message
@@ -353,5 +348,4 @@ impl<'u> TrackUser<'u> {
 enum ErrorType {
     NotFound,
     Osu(OsuError),
-    Bot(Error),
 }

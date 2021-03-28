@@ -191,7 +191,7 @@ pub trait Pagination: Sync + Sized {
                     update = update.content(content)?;
                 }
 
-                let mut builder = data.as_builder();
+                let mut builder = data.into_builder();
 
                 if let Some(thumbnail) = self.thumbnail() {
                     builder = builder.thumbnail(thumbnail);

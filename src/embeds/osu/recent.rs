@@ -20,7 +20,7 @@ use tokio::fs::File;
 
 #[derive(Clone)]
 pub struct RecentEmbed {
-    description: Option<String>,
+    description: String,
     title: String,
     url: String,
     author: Author,
@@ -219,11 +219,12 @@ impl RecentEmbed {
 
             description.push_str("**__");
 
-            Some(description)
+            description
         } else {
             extend_desc
                 .then(|| score_cmp_description(score, map_score))
                 .flatten()
+                .unwrap_or_default()
         };
 
         Ok(Self {
@@ -238,7 +239,7 @@ impl RecentEmbed {
             stars,
             score: with_comma_uint(score.score).to_string(),
             acc: round(score.accuracy),
-            ago: how_long_ago(&score.created_at),
+            ago: how_long_ago(&score.created_at).to_string(),
             pp,
             combo,
             hits,
@@ -287,20 +288,15 @@ impl EmbedData for RecentEmbed {
 
         fields.push(field!("Map Info".to_owned(), self.map_info.clone(), false));
 
-        let builder = EmbedBuilder::new()
+        EmbedBuilder::new()
             .author(&self.author)
+            .description(&self.description)
             .fields(fields)
             .footer(&self.footer)
             .image(image)
             .timestamp(self.timestamp)
             .title(&self.title)
-            .url(&self.url);
-
-        if let Some(ref description) = self.description {
-            builder.description(description)
-        } else {
-            builder
-        }
+            .url(&self.url)
     }
 
     fn into_builder(self) -> EmbedBuilder {
@@ -311,19 +307,16 @@ impl EmbedData for RecentEmbed {
 
         let value = format!("{} [ {} ] {}", self.pp, self.combo, self.hits);
 
-        let builder = EmbedBuilder::new()
-            .author(self.author)
-            .fields(vec![field!(name, value, false)])
-            .title(self.title)
-            .thumbnail(self.thumbnail)
-            .title(self.title)
-            .url(self.url);
+        let mut title = self.title;
+        let _ = write!(title, " [{}★]", self.stars);
 
-        if let Some(description) = self.description {
-            builder.description(description)
-        } else {
-            builder
-        }
+        EmbedBuilder::new()
+            .author(self.author)
+            .description(self.description)
+            .fields(vec![field!(name, value, false)])
+            .thumbnail(self.thumbnail)
+            .title(title)
+            .url(self.url)
     }
 }
 

@@ -174,11 +174,7 @@ impl EmbedBuilder {
     #[inline]
     pub fn description(mut self, description: impl Into<String>) -> Self {
         let description = description.into();
-
-        // TODO: Is the check required?
-        if !description.is_empty() {
-            self.0.description.replace(description.into());
-        }
+        self.0.description.replace(description);
 
         self
     }
@@ -202,8 +198,6 @@ impl EmbedBuilder {
         let url = image.into();
 
         if !url.is_empty() {
-            validate_image_url(&url);
-
             let image = EmbedImage {
                 height: None,
                 width: None,
@@ -218,8 +212,8 @@ impl EmbedBuilder {
     }
 
     #[inline]
-    pub fn timestamp(mut self, timestamp: impl AsRef<DateTime<Utc>>) -> Self {
-        let timestamp = datetime::date_to_string(timestamp.as_ref());
+    pub fn timestamp(mut self, timestamp: DateTime<Utc>) -> Self {
+        let timestamp = datetime::date_to_string(&timestamp);
         self.0.timestamp.replace(timestamp);
 
         self
@@ -237,8 +231,6 @@ impl EmbedBuilder {
         let url = thumbnail.into();
 
         if !url.is_empty() {
-            validate_image_url(&url);
-
             let thumbnail = EmbedThumbnail {
                 height: None,
                 width: None,

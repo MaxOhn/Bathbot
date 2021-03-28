@@ -1,8 +1,4 @@
-use crate::{
-    embeds::{attachment, osu},
-    util::constants::OSU_BASE,
-    Name,
-};
+use crate::{embeds::osu, util::constants::OSU_BASE, Name};
 
 use hashbrown::HashMap;
 use rosu_v2::prelude::MostPlayedMap;
@@ -10,7 +6,6 @@ use std::fmt::Write;
 
 pub struct MostPlayedCommonEmbed {
     description: String,
-    thumbnail: String,
 }
 
 impl MostPlayedCommonEmbed {
@@ -69,14 +64,8 @@ impl MostPlayedCommonEmbed {
 
         description.pop();
 
-        Self {
-            description,
-            thumbnail: attachment("avatar_fuse.png"),
-        }
+        Self { description }
     }
 }
 
-impl_into_builder!(MostPlayedCommonEmbed {
-    description,
-    thumbnail,
-});
+impl_into_builder!(MostPlayedCommonEmbed { description });

@@ -19,7 +19,7 @@ use tokio::fs::File;
 
 #[derive(Clone)]
 pub struct TopSingleEmbed {
-    description: Option<String>,
+    description: String,
     title: String,
     url: String,
     author: Author,
@@ -130,7 +130,7 @@ impl TopSingleEmbed {
             title,
             footer,
             thumbnail,
-            description: Some(description),
+            description,
             url: format!("{}b/{}", OSU_BASE, map.map_id),
             author: author!(user),
             timestamp: score.created_at,
@@ -138,7 +138,7 @@ impl TopSingleEmbed {
             stars,
             score: with_comma_uint(score.score).to_string(),
             acc: round(score.accuracy),
-            ago: how_long_ago(&score.created_at),
+            ago: how_long_ago(&score.created_at).to_string(),
             pp,
             combo,
             hits,
@@ -181,20 +181,15 @@ impl EmbedData for TopSingleEmbed {
 
         fields.push(field!("Map Info", self.map_info.clone(), false));
 
-        let builder = EmbedBuilder::new()
+        EmbedBuilder::new()
             .author(&self.author)
+            .description(&self.description)
             .fields(fields)
             .footer(&self.footer)
             .image(image)
             .timestamp(self.timestamp)
             .title(&self.title)
-            .url(&self.url);
-
-        if let Some(ref description) = self.description {
-            builder.description(description)
-        } else {
-            builder
-        }
+            .url(&self.url)
     }
 
     fn into_builder(self) -> EmbedBuilder {
@@ -208,18 +203,13 @@ impl EmbedData for TopSingleEmbed {
         let mut title = self.title;
         let _ = write!(title, " [{}★]", self.stars);
 
-        let builder = EmbedBuilder::new()
+        EmbedBuilder::new()
             .author(self.author)
+            .description(self.description)
             .fields(vec![field!(name, value, false)])
             .thumbnail(self.thumbnail)
             .title(title)
-            .url(self.url);
-
-        if let Some(description) = self.description {
-            builder.description(description)
-        } else {
-            builder
-        }
+            .url(self.url)
     }
 }
 

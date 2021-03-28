@@ -18,7 +18,10 @@ use rosu_pp::{
     Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, StarResult, TaikoPP,
 };
 use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, GameMode};
-use std::{borrow::Cow, fmt::Write};
+use std::{
+    borrow::Cow,
+    fmt::{self, Write},
+};
 use tokio::fs::File;
 
 pub struct LeaderboardEmbed {
@@ -133,20 +136,18 @@ impl LeaderboardEmbed {
     }
 }
 
-// TODO: into_builder?
-impl_as_builder!(LeaderboardEmbed {
+impl_into_builder!(LeaderboardEmbed {
     author,
     description,
     footer,
     thumbnail,
 });
 
-// TODO: return impl Display?
 async fn get_pp(
     mod_map: &mut HashMap<u32, (StarResult, f32)>,
     score: &ScraperScore,
     map: &Map,
-) -> String {
+) -> PPFormatter {
     let bits = score.enabled_mods.bits();
 
     let (mut attributes, mut max_pp) = mod_map.remove(&bits).map_or_else(
@@ -219,23 +220,37 @@ async fn get_pp(
 
     mod_map.insert(bits, (attributes, max_pp));
 
-    format!("**{:.2}**/{:.2}PP", pp, max_pp)
+    PPFormatter(pp, max_pp)
 }
 
-// TODO: return impl Display?
-fn get_combo(score: &ScraperScore, map: &Beatmap) -> String {
-    let mut combo = format!("**{}x**/", score.max_combo);
+struct PPFormatter(f32, f32);
 
-    let _ = if let Some(amount) = map.max_combo {
-        write!(combo, "{}x", amount)
-    } else {
-        write!(
-            combo,
-            " {} miss{}",
-            score.count_miss,
-            if score.count_miss != 1 { "es" } else { "" }
-        )
-    };
+impl fmt::Display for PPFormatter {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "**{:.2}**/{:.2}PP", self.0, self.1)
+    }
+}
 
-    combo
+fn get_combo<'a>(score: &'a ScraperScore, map: &'a Beatmap) -> ComboFormatter<'a> {
+    ComboFormatter(score, map)
+}
+
+struct ComboFormatter<'a>(&'a ScraperScore, &'a Beatmap);
+
+impl<'a> fmt::Display for ComboFormatter<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "**{}x**/", self.0.max_combo)?;
+
+        if let Some(amount) = self.1.max_combo {
+            write!(f, "{}x", amount)?;
+        } else {
+            write!(f, " {} miss", self.0.count_miss,)?;
+
+            if self.0.count_miss != 1 {
+                f.write_str("es")?;
+            }
+        }
+
+        Ok(())
+    }
 }

@@ -65,8 +65,8 @@ async fn get_mapsets(
     }
 
     // Send initial message
-    let data = BGStartEmbed::new(msg.author.id);
-    let response = msg.respond_embed(&ctx, data.build_owned()).await?;
+    let embed = BGStartEmbed::new(msg.author.id).into_builder().build();
+    let response = msg.respond_embed(&ctx, embed).await?;
 
     // Prepare the reaction stream
     let self_id = match ctx.cache.current_user() {
