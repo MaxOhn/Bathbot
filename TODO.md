@@ -1,12 +1,10 @@
 
 **[TODO]**
-- Implement custom EmbedBuilder
 - Add command to add snipe countries
 - `<favouritescores` commands
 - Request user in `<link`
 - `<matchlive` command
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
-- Benchmark for `smartstring`, `smallstr`, `smallvec`, and `arrayvec`
 - ~~Use DB medals instead of osekai~~ no solution
 - ~~Split database tables based on popular queries~~ queries simple enough
 - ~~Fix `<mc` sometimes missing some users~~ fixed with rosu-v2
@@ -23,6 +21,8 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Implement custom EmbedBuilder~~ (21.03.28)
+- ~~Benchmark for `smartstring`, `smallstr`, `smallvec`, and `arrayvec`~~ (21.03.23)
 - ~~How far off personal bests on `<rp`~~ (21.02.28)
 - ~~Reformat `<common` embed~~ (21.02.14)
 - ~~Handle active bg games on shutdown~~ (21.02.13)
