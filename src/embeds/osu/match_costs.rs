@@ -172,7 +172,7 @@ impl MatchCostEmbed {
     }
 }
 
-impl_builder!(!MatchCostEmbed {
+impl_builder!(MatchCostEmbed {
     description,
     footer,
     thumbnail,

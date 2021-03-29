@@ -153,23 +153,17 @@ impl<'m> ArgsFull<'m> {
 }
 
 #[derive(Debug)]
-pub enum ArgError<E> {
-    Eos,
-    Parse(E),
-}
+pub struct ArgError<E>(E);
 
 impl<E> From<E> for ArgError<E> {
     fn from(e: E) -> Self {
-        Self::Parse(e)
+        Self(e)
     }
 }
 
 impl<E: fmt::Display> fmt::Display for ArgError<E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Eos => f.write_str("end of string"),
-            Self::Parse(e) => write!(f, "{}", e),
-        }
+        write!(f, "{}", self.0)
     }
 }
 

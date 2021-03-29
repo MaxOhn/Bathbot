@@ -1,11 +1,10 @@
 use crate::{
-    commands::osu::process_match,
-    embeds::{EmbedData, MatchCostEmbed, MatchLiveEmbed, MatchLiveEmbedUpdate, MatchLiveEmbeds},
+    embeds::{EmbedData, MatchLiveEmbed, MatchLiveEmbedUpdate, MatchLiveEmbeds},
     Context,
 };
 
 use dashmap::{mapref::entry::Entry, DashMap};
-use rosu_v2::prelude::{MatchEvent, OsuMatch};
+use rosu_v2::prelude::OsuMatch;
 use smallvec::SmallVec;
 use std::sync::Arc;
 use tokio::{
@@ -47,6 +46,8 @@ pub enum MatchTrackResult {
     /// Failed to request match or send the embed messages
     Error,
 }
+
+const EMBED_LIMIT: usize = 15;
 
 impl Context {
     /// In case the channel tracks exactly one match, returns the match's id
@@ -202,11 +203,9 @@ impl Context {
 
             for entry in ctx.data.match_live.match_channels.iter() {
                 let (locked_match, channels) = entry.value();
-
                 let mut tracked_match = locked_match.lock().await;
-                let match_id = tracked_match.osu_match.match_id;
 
-                let mut next_match = match tracked_match.osu_match.get_next(ctx.osu()).await {
+                let next_match = match tracked_match.osu_match.get_next(ctx.osu()).await {
                     Ok(next_match) => next_match,
                     Err(why) => {
                         unwind_error!(warn, why, "Failed to request match for live ticker: {}");
@@ -221,15 +220,7 @@ impl Context {
                     .expect("no last live embed")
                     .update(&next_match);
 
-                std::mem::swap(&mut tracked_match.osu_match, &mut next_match);
-
-                // Put the previous game in all_events
-                match tracked_match.all_events {
-                    Some(ref mut all_events) => all_events.events.append(&mut next_match.events),
-                    None => {
-                        tracked_match.all_events.replace(next_match);
-                    }
-                }
+                tracked_match.osu_match = next_match;
 
                 match update {
                     Some(MatchLiveEmbedUpdate::Modify) => {
@@ -280,23 +271,6 @@ impl Context {
 
                     tracked_match.embeds.extend(embeds);
                 }
-
-                // Check if match is over
-                if tracked_match.osu_match.end_time.is_some() {
-                    let mut all_events = tracked_match.all_events.take().unwrap();
-
-                    all_events
-                        .events
-                        .append(&mut tracked_match.osu_match.events);
-
-                    all_events.events.retain(|event| {
-                        !matches!(event, MatchEvent::Game { game, .. } if game.end_time.is_none())
-                    });
-
-                    send_match_cost(&ctx, &mut tracked_match.osu_match, channels).await;
-
-                    remove.push(match_id);
-                }
             }
 
             // Remove the match id entries
@@ -305,36 +279,38 @@ impl Context {
             }
         }
     }
-}
 
-async fn send_match_cost(ctx: &Context, osu_match: &mut OsuMatch, channels: &ChannelList) {
-    let games: Vec<_> = osu_match.drain_games().collect();
-    let match_result = Some(process_match(&games, true));
+    pub async fn notify_match_live_shutdown(&self) -> usize {
+        let match_live = &self.data.match_live;
+        match_live.match_channels.clear();
 
-    let data = match MatchCostEmbed::new(&mut *osu_match, None, match_result) {
-        Some(data) => data,
-        None => return warn!("Match live embed could not be created"),
-    };
+        let content = "I'm about to reboot so the match tracking will be aborted, \
+            you can restart it in just a moment...";
 
-    for &(channel, _) in channels.iter() {
-        let embed = data.as_builder().build();
+        let mut notified = 0;
 
-        let fut = match ctx.http.create_message(channel).embed(embed) {
-            Ok(fut) => fut,
-            Err(why) => return warn!("Error while creating match cost message: {}", why),
-        };
+        for entry in match_live.channel_count.iter() {
+            if *entry.value() > 0 {
+                let _ = self
+                    .http
+                    .create_message(*entry.key())
+                    .content(content)
+                    .unwrap()
+                    .await;
 
-        if let Err(why) = fut.await {
-            warn!("Error while sending match cost message: {}", why)
+                notified += 1;
+            }
         }
+
+        match_live.channel_count.clear();
+
+        notified
     }
 }
 
 struct TrackedMatch {
     /// Most recent update of the match
     osu_match: OsuMatch,
-    /// Match containing all events *before* the most recent update
-    all_events: Option<OsuMatch>,
     /// All embeds of the match
     embeds: Vec<MatchLiveEmbed>,
 }
@@ -344,7 +320,6 @@ impl TrackedMatch {
     fn new(osu_match: OsuMatch, embeds: MatchLiveEmbeds) -> Self {
         Self {
             osu_match,
-            all_events: None,
             embeds: embeds.into_vec(),
         }
     }
@@ -362,34 +337,50 @@ async fn send_match_messages(
     // Msg of last embed will be stored, do it separately
     let last = iter.next_back().expect("no embed on fresh match");
 
-    for embed in iter {
-        let embed = embed.as_builder().build();
+    let content = if embeds.len() <= EMBED_LIMIT {
+        for embed in iter {
+            let embed = embed.as_builder().build();
 
-        match ctx.http.create_message(channel).embed(embed) {
-            Ok(msg_fut) => {
-                if let Err(why) = msg_fut.await {
-                    unwind_error!(warn, why, "Error while sending match live embed: {}");
+            match ctx.http.create_message(channel).embed(embed) {
+                Ok(msg_fut) => {
+                    if let Err(why) = msg_fut.await {
+                        unwind_error!(warn, why, "Error while sending match live embed: {}");
+                    }
+                }
+                Err(why) => {
+                    unwind_error!(warn, why, "Error while creating match live msg: {}");
                 }
             }
-            Err(why) => {
-                unwind_error!(warn, why, "Error while creating match live msg: {}");
-            }
+
+            sleep(Duration::from_millis(250)).await;
         }
 
-        sleep(Duration::from_millis(250)).await;
-    }
+        None
+    } else {
+        Some(
+            "The match has been going too long \
+            for me to send all previous messages.",
+        )
+    };
 
     let last = last.as_builder().build();
 
     match ctx.http.create_message(channel).embed(last) {
-        Ok(msg_fut) => match msg_fut.await {
-            Ok(msg) => Some(msg.id),
-            Err(why) => {
-                unwind_error!(error, why, "Failed to send last match live embed: {}");
+        Ok(msg_fut) => {
+            let msg_fut = match content {
+                Some(content) => msg_fut.content(content).unwrap(),
+                None => msg_fut,
+            };
 
-                None
+            match msg_fut.await {
+                Ok(msg) => Some(msg.id),
+                Err(why) => {
+                    unwind_error!(error, why, "Failed to send last match live embed: {}");
+
+                    None
+                }
             }
-        },
+        }
         Err(why) => {
             unwind_error!(error, why, "Failed to create last match live msg: {}");
 

@@ -251,7 +251,8 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         let count = shutdown_ctx.stop_all_games().await;
         info!("Stopped {} bg games", count);
 
-        // TODO: Notify match live tracks
+        let count = shutdown_ctx.notify_match_live_shutdown().await;
+        info!("Stopped match tracking in {} channels", count);
 
         info!("Shutting down");
         process::exit(0);
