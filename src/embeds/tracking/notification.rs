@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{osu, Author, EmbedBuilder, EmbedData, EmbedFields, Footer},
+    embeds::{osu, Author, EmbedFields, Footer},
     pp::{Calculations, PPCalculator},
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
@@ -101,16 +101,13 @@ impl TrackNotificationEmbed {
     }
 }
 
-impl EmbedData for TrackNotificationEmbed {
-    fn as_builder(&self) -> EmbedBuilder {
-        EmbedBuilder::new()
-            .author(&self.author)
-            .description(&self.description)
-            .fields(self.fields.clone())
-            .footer(&self.footer)
-            .thumbnail(&self.thumbnail)
-            .timestamp(self.timestamp)
-            .title(&self.title)
-            .url(&self.url)
-    }
-}
+impl_into_builder!(TrackNotificationEmbed {
+    author,
+    description,
+    fields,
+    footer,
+    thumbnail,
+    timestamp,
+    title,
+    url,
+});
