@@ -557,7 +557,7 @@ fn deserialize_history<'de, D>(d: D) -> Result<BTreeMap<Date<Utc>, u32>, D::Erro
 where
     D: Deserializer<'de>,
 {
-    Ok(d.deserialize_map(SnipePlayerHistoryVisitor)?)
+    d.deserialize_map(SnipePlayerHistoryVisitor)
 }
 
 struct SnipePlayerHistoryVisitor;

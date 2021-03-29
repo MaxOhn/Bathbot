@@ -160,7 +160,6 @@ impl Context {
 
                 // If no channel is tracking the match, remove the entry
                 if channels.is_empty() {
-                    drop(channels);
                     e.remove();
                 }
 
