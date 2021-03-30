@@ -4,7 +4,7 @@ use crate::{
 };
 
 use dashmap::{mapref::entry::Entry, DashMap};
-use rosu_v2::prelude::OsuMatch;
+use rosu_v2::prelude::{MatchEvent, OsuMatch};
 use smallvec::SmallVec;
 use std::sync::Arc;
 use tokio::{
@@ -127,8 +127,11 @@ impl Context {
                         None => return MatchTrackResult::Error,
                     };
 
-                    let tracked_match = TrackedMatch::new(osu_match, embeds);
-                    e.insert((Mutex::new(tracked_match), smallvec![(channel, msg)]));
+                    // Only add to tracking if it's not already disbanded
+                    if !matches!(osu_match.events.last(), Some(MatchEvent::Disbanded { .. })) {
+                        let tracked_match = TrackedMatch::new(osu_match, embeds);
+                        e.insert((Mutex::new(tracked_match), smallvec![(channel, msg)]));
+                    }
 
                     MatchTrackResult::Added
                 }
