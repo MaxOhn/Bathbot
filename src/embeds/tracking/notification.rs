@@ -101,7 +101,7 @@ impl TrackNotificationEmbed {
     }
 }
 
-impl_into_builder!(TrackNotificationEmbed {
+impl_builder!(TrackNotificationEmbed {
     author,
     description,
     fields,

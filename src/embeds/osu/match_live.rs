@@ -80,7 +80,7 @@ macro_rules! team {
 
 pub enum MatchLiveEmbedUpdate {
     Modify,
-    Delete,
+    Delete, // TODO: Modify instead of delete-add
 }
 
 impl MatchLiveEmbed {

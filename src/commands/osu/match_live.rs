@@ -16,13 +16,11 @@ use twilight_model::channel::Message;
     "Live track a multiplayer match in a channel.\n\
     Similar to what an mp link does, I will keep a channel up \
     to date about events in a match.\n\
-    Use the `matchliveremove` command to stop tracking the match.\n\
-    Note that the final matchcosts include all games, \
-    including potential warmups."
+    Use the `matchliveremove` command to stop tracking the match."
 )]
 #[usage("[match url / match id]")]
 #[example("58320988", "https://osu.ppy.sh/community/matches/58320988")]
-#[aliases("ml", "mla", "matchliveadd", "matchlivetrack")]
+#[aliases("ml", "mla", "matchliveadd", "mlt", "matchlivetrack")]
 async fn matchlive(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     let match_id = match args.next().and_then(matcher::get_osu_match_id) {
         Some(arg) => arg,
