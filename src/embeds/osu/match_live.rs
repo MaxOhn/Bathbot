@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{EmbedBuilder, EmbedData},
+    embeds::{EmbedBuilder, EmbedData, Footer},
     util::{
         constants::{DESCRIPTION_SIZE, OSU_BASE},
         datetime::sec_to_minsec,
@@ -23,6 +23,7 @@ pub struct MatchLiveEmbed {
     url: String,
     description: String,
     image: Option<String>,
+    footer: Option<Footer>,
     state: Option<GameState>,
 }
 
@@ -123,6 +124,7 @@ impl MatchLiveEmbed {
                             url: format!("{}community/matches/{}", OSU_BASE, lobby.match_id),
                             description,
                             image: None,
+                            footer: None,
                             state: None,
                         };
 
@@ -134,7 +136,7 @@ impl MatchLiveEmbed {
                         }
                     }
 
-                    let (description, image) = game_content(lobby, &*game);
+                    let (description, image, footer) = game_content(lobby, &*game);
                     state = Some(next_state);
 
                     let embed = Self {
@@ -142,6 +144,7 @@ impl MatchLiveEmbed {
                         url: format!("{}community/matches/{}", OSU_BASE, lobby.match_id),
                         description,
                         image,
+                        footer,
                         state,
                     };
 
@@ -166,6 +169,7 @@ impl MatchLiveEmbed {
                     url: format!("{}community/matches/{}", OSU_BASE, lobby.match_id),
                     description,
                     image: None,
+                    footer: None,
                     state: None,
                 };
 
@@ -180,6 +184,7 @@ impl MatchLiveEmbed {
                 url: format!("{}community/matches/{}", OSU_BASE, lobby.match_id),
                 description,
                 image: None,
+                footer: None,
                 state: None,
             };
 
@@ -209,6 +214,7 @@ impl MatchLiveEmbed {
                     url: format!("{}community/matches/{}", OSU_BASE, lobby.match_id),
                     description: String::new(),
                     image: None,
+                    footer: None,
                     state: None,
                 };
 
@@ -254,7 +260,7 @@ impl MatchLiveEmbed {
                             continue;
                         }
 
-                        let (description, image) = game_content(lobby, &*game);
+                        let (description, image, footer) = game_content(lobby, &*game);
 
                         // Same id and current game is finished => modify embed
                         if state.game_id == curr_state.game_id {
@@ -265,6 +271,7 @@ impl MatchLiveEmbed {
 
                             embed.description = description;
                             embed.image = image;
+                            embed.footer = footer;
                             embed.state = last_state;
 
                             update.get_or_insert(empty);
@@ -272,6 +279,7 @@ impl MatchLiveEmbed {
                             // Different game, can be either finished or not
                             embed.description = description;
                             embed.image = image;
+                            embed.footer = footer;
                             embed.state = last_state;
 
                             // If the game is on-going and has no following game event, return early
@@ -337,7 +345,7 @@ impl MatchLiveEmbed {
                         embed.description.push_str("• **Lobby was closed**")
                     }
                     MatchEvent::Game { game, .. } => {
-                        let (description, image) = game_content(lobby, &*game);
+                        let (description, image, footer) = game_content(lobby, &*game);
 
                         let state = GameState {
                             game_id: game.game_id,
@@ -349,6 +357,7 @@ impl MatchLiveEmbed {
                         if embed.description.is_empty() {
                             embed.description = description;
                             embed.image = image;
+                            embed.footer = footer;
                             embed.state = last_state;
                         } else {
                             let new_embed = Self {
@@ -356,6 +365,7 @@ impl MatchLiveEmbed {
                                 url: format!("{}community/matches/{}", OSU_BASE, lobby.match_id),
                                 description,
                                 image,
+                                footer,
                                 state: last_state,
                             };
 
@@ -385,6 +395,7 @@ impl MatchLiveEmbed {
                         url: format!("{}community/matches/{}", OSU_BASE, lobby.match_id),
                         description: String::new(),
                         image: None,
+                        footer: None,
                         state: None,
                     };
 
@@ -402,13 +413,19 @@ impl MatchLiveEmbed {
 
 impl EmbedData for MatchLiveEmbed {
     fn as_builder(&self) -> EmbedBuilder {
-        let builder = EmbedBuilder::new()
+        let mut builder = EmbedBuilder::new()
             .description(&self.description)
             .title(&self.title)
             .url(&self.url);
 
-        if let Some(ref image) = self.image {
+        builder = if let Some(ref image) = self.image {
             builder.image(image)
+        } else {
+            builder
+        };
+
+        if let Some(ref footer) = self.footer {
+            builder.footer(footer)
         } else {
             builder
         }
@@ -416,7 +433,7 @@ impl EmbedData for MatchLiveEmbed {
 }
 
 /// Return the description and image for a either in-progress or finished games
-fn game_content(lobby: &OsuMatch, game: &MatchGame) -> (String, Option<String>) {
+fn game_content(lobby: &OsuMatch, game: &MatchGame) -> (String, Option<String>, Option<Footer>) {
     let mut description = String::with_capacity(128);
 
     match game.end_time {
@@ -493,7 +510,23 @@ fn game_content(lobby: &OsuMatch, game: &MatchGame) -> (String, Option<String>) 
                 );
             }
 
-            (description, image)
+            let footer = team_scores.map(|(blue, red)| {
+                let difference = (blue as i64 - red as i64).abs();
+
+                let footer = match blue.cmp(&red) {
+                    Ordering::Greater => {
+                        format!("Blue Team wins by {}", with_comma_uint(difference as u64))
+                    }
+                    Ordering::Less => {
+                        format!("Red Team wins by {}", with_comma_uint(difference as u64))
+                    }
+                    Ordering::Equal => "Team scores are tied".to_owned(),
+                };
+
+                Footer::new(footer)
+            });
+
+            (description, image, footer)
         }
         None => {
             let image = match game.map {
@@ -541,7 +574,7 @@ fn game_content(lobby: &OsuMatch, game: &MatchGame) -> (String, Option<String>) 
                 game.scoring_type, game.team_type
             );
 
-            (description, image)
+            (description, image, None)
         }
     }
 }
@@ -557,9 +590,9 @@ struct ColumnSizes {
 }
 
 enum TeamLeads {
-    Score([u32; 3]),
+    Score([u64; 3]),
     Acc([f32; 3]),
-    Combo([u32; 3]),
+    Combo([u64; 3]),
 }
 
 impl TeamLeads {
@@ -575,33 +608,33 @@ impl TeamLeads {
     #[inline]
     fn update(&mut self, score: &MatchScore) {
         match self {
-            Self::Score(arr) => arr[score.team as usize] += score.score,
+            Self::Score(arr) => arr[score.team as usize] += score.score as u64,
             Self::Acc(arr) => {
                 arr[score.team as usize] = arr[score.team as usize].max(score.accuracy)
             }
             Self::Combo(arr) => {
-                arr[score.team as usize] = arr[score.team as usize].max(score.max_combo)
+                arr[score.team as usize] = arr[score.team as usize].max(score.max_combo as u64)
             }
         }
     }
 
     #[inline]
-    fn finish(self) -> (TeamValues, Option<(u32, u32)>) {
+    fn finish(self) -> (TeamValues, Option<(u64, u64)>) {
         match self {
             Self::Score(arr) => {
                 let team_scores =
                     (arr[0] == 0 && (arr[1] > 0 || arr[2] > 0)).then(|| (arr[1], arr[2]));
 
-                (TeamValues::U32(arr), team_scores)
+                (TeamValues::U64(arr), team_scores)
             }
             Self::Acc(arr) => (TeamValues::Float(arr), None),
-            Self::Combo(arr) => (TeamValues::U32(arr), None),
+            Self::Combo(arr) => (TeamValues::U64(arr), None),
         }
     }
 }
 
 enum TeamValues {
-    U32([u32; 3]),
+    U64([u64; 3]),
     Float([f32; 3]),
 }
 
@@ -609,7 +642,7 @@ fn prepare_scores(
     scores: &[MatchScore],
     users: &[UserCompact],
     scoring: ScoringType,
-) -> (Scores, ColumnSizes, Option<(u32, u32)>) {
+) -> (Scores, ColumnSizes, Option<(u64, u64)>) {
     let mut embed_scores = Scores::with_capacity(users.len());
     let mut sizes = ColumnSizes::default();
     let mut team_scores = TeamLeads::new(scoring);
@@ -648,7 +681,7 @@ fn prepare_scores(
     embed_scores.extend(iter);
 
     let scores = match team_scores.finish() {
-        (TeamValues::U32(arr), scores) => {
+        (TeamValues::U64(arr), scores) => {
             embed_scores.sort_unstable_by(|s1, s2| {
                 arr[s2.team]
                     .cmp(&arr[s1.team])

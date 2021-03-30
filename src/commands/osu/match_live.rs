@@ -11,6 +11,7 @@ use std::sync::Arc;
 use twilight_model::channel::Message;
 
 #[command]
+#[authority()]
 #[short_desc("Live track a multiplayer match")]
 #[long_desc(
     "Live track a multiplayer match in a channel.\n\
@@ -47,6 +48,7 @@ async fn matchlive(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResul
 }
 
 #[command]
+#[authority()]
 #[short_desc("Untrack a multiplayer match")]
 #[long_desc(
     "Untrack a multiplayer match in a channel.\n\
