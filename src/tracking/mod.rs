@@ -9,6 +9,7 @@ use dashmap::DashMap;
 use hashbrown::HashMap;
 use priority_queue::PriorityQueue;
 use rosu_v2::model::GameMode;
+use smallvec::SmallVec;
 use std::{
     cmp::Reverse,
     iter,
@@ -158,7 +159,7 @@ impl OsuTracking {
             .map(|user| (user.last_top_score, user.channels.to_owned()))
     }
 
-    pub async fn pop(&self) -> Option<Vec<(u32, GameMode)>> {
+    pub async fn pop(&self) -> Option<SmallVec<[(u32, GameMode); 5]>> {
         let len = self.queue.read().await.len();
 
         if len == 0 || self.stop_tracking.load(Ordering::Relaxed) {
@@ -194,13 +195,33 @@ impl OsuTracking {
         Some(elems)
     }
 
+    pub async fn remove_user_all(&self, user_id: u32, psql: &Database) -> BotResult<()> {
+        let removed: SmallVec<[_; 4]> = self
+            .users
+            .iter()
+            .filter(|guard| guard.key().0 == user_id)
+            .map(|guard| guard.key().1)
+            .collect();
+
+        for mode in removed {
+            let key = (user_id, mode);
+
+            debug!("Removing ({},{}) from tracking", user_id, mode);
+            psql.remove_osu_tracking(user_id, mode).await?;
+            self.queue.write().await.remove(&key);
+            self.users.remove(&key);
+        }
+
+        Ok(())
+    }
+
     pub async fn remove_user(
         &self,
         user_id: u32,
         channel: ChannelId,
         psql: &Database,
     ) -> BotResult<()> {
-        let removed: Vec<_> = self
+        let removed: SmallVec<[_; 4]> = self
             .users
             .iter_mut()
             .filter(|guard| guard.key().0 == user_id)
@@ -214,12 +235,9 @@ impl OsuTracking {
 
         for mode in removed {
             let key = (user_id, mode);
+            let entry = self.users.get(&key);
 
-            match self
-                .users
-                .get(&key)
-                .map(|guard| guard.value().channels.is_empty())
-            {
+            match entry.map(|guard| guard.value().channels.is_empty()) {
                 Some(true) => {
                     debug!("Removing ({},{}) from tracking", user_id, mode);
                     psql.remove_osu_tracking(user_id, mode).await?;

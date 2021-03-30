@@ -84,16 +84,19 @@ pub async fn process_tracking(
     scores: &mut [Score],
     user: Option<&User>,
 ) {
+    // Make sure scores is not empty
     let user_id = match scores.first().map(|s| s.user_id) {
         Some(user_id) => user_id,
         None => return,
     };
 
+    // Make sure the user is being tracked in general
     let (last, channels) = match ctx.tracking().get_tracked(user_id, mode) {
         Some(tuple) => tuple,
         None => return,
     };
 
+    // Make sure the user is being tracked in any channel
     let max = match channels.values().max() {
         Some(max) => *max,
         None => return,
@@ -153,8 +156,21 @@ pub async fn process_tracking(
                 let loop_fut =
                     score_loop(ctx, &mut user, offset, max, last, &mut scores, &channels);
 
-                if let Err(ErrorType::Osu(why)) = loop_fut.await {
-                    unwind_error!(warn, why, "osu!api error while tracking: {}");
+                match loop_fut.await {
+                    Ok(_) => {}
+                    Err(ErrorType::NotFound) => {
+                        if let Err(why) = ctx.tracking().remove_user_all(user_id, ctx.psql()).await
+                        {
+                            unwind_error!(
+                                warn,
+                                why,
+                                "Failed to remove unknown user from tracking: {}"
+                            );
+                        }
+                    }
+                    Err(ErrorType::Osu(why)) => {
+                        unwind_error!(warn, why, "osu!api error while tracking: {}")
+                    }
                 }
             }
             Err(why) => unwind_error!(
