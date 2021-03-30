@@ -69,6 +69,7 @@ pub enum BucketName {
     BgStart,
     BgBigger,
     BgHint,
+    MatchLive,
     Snipe,
 }
 
@@ -82,6 +83,7 @@ impl FromStr for BucketName {
             "bg_start" => BucketName::BgStart,
             "bg_bigger" => BucketName::BgBigger,
             "bg_hint" => BucketName::BgHint,
+            "match_live" => BucketName::MatchLive,
             "snipe" => BucketName::Snipe,
             _ => return Err("Unknown bucket name"),
         };
@@ -107,6 +109,7 @@ pub fn buckets() -> Buckets {
     insert_bucket(BucketName::BgStart, 2, 20, 3);
     insert_bucket(BucketName::BgBigger, 1, 8, 2);
     insert_bucket(BucketName::BgHint, 0, 10, 4);
+    insert_bucket(BucketName::MatchLive, 5, 900, 3);
     insert_bucket(BucketName::Snipe, 0, 600, 10);
 
     buckets
