@@ -1,5 +1,5 @@
 use crate::{
-    embeds::{EmbedData, MatchLiveEmbed, MatchLiveEmbedUpdate, MatchLiveEmbeds},
+    embeds::{EmbedData, MatchLiveEmbed, MatchLiveEmbeds},
     Context,
 };
 
@@ -224,43 +224,31 @@ impl Context {
 
                 tracked_match.osu_match = next_match;
 
-                match update {
-                    Some(MatchLiveEmbedUpdate::Modify) => {
-                        let data = tracked_match.embeds.last().unwrap();
+                if update {
+                    let data = tracked_match.embeds.last().unwrap();
 
-                        for (channel, msg) in channels.iter() {
-                            let msg = *msg.lock().await;
-                            let embed = data.as_builder().build();
-                            let update_result = ctx.http.update_message(*channel, msg).embed(embed);
+                    for (channel, msg) in channels.iter() {
+                        let msg = *msg.lock().await;
+                        let embed = data.as_builder().build();
+                        let update_result = ctx.http.update_message(*channel, msg).embed(embed);
 
-                            let update_fut = match update_result {
-                                Ok(update_fut) => update_fut,
-                                Err(why) => {
-                                    unwind_error!(
-                                        warn,
-                                        why,
-                                        "Failed to build msg update for live match: {}"
-                                    );
+                        let update_fut = match update_result {
+                            Ok(update_fut) => update_fut,
+                            Err(why) => {
+                                unwind_error!(
+                                    warn,
+                                    why,
+                                    "Failed to build msg update for live match: {}"
+                                );
 
-                                    continue;
-                                }
-                            };
-
-                            if let Err(why) = update_fut.await {
-                                unwind_error!(warn, why, "Failed to update match live msg: {}");
+                                continue;
                             }
+                        };
+
+                        if let Err(why) = update_fut.await {
+                            unwind_error!(warn, why, "Failed to update match live msg: {}");
                         }
                     }
-                    Some(MatchLiveEmbedUpdate::Delete) => {
-                        for (channel, msg) in channels.iter() {
-                            let msg = msg.lock().await;
-
-                            if let Err(why) = ctx.http.delete_message(*channel, *msg).await {
-                                unwind_error!(warn, why, "Failed to delete match live msg: {}");
-                            }
-                        }
-                    }
-                    None => {}
                 }
 
                 if let Some(embeds) = new_embeds {

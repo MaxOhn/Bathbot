@@ -46,7 +46,7 @@ pub use leaderboard::LeaderboardEmbed;
 pub use map::MapEmbed;
 pub use map_search::MapSearchEmbed;
 pub use match_costs::MatchCostEmbed;
-pub use match_live::{MatchLiveEmbed, MatchLiveEmbedUpdate, MatchLiveEmbeds};
+pub use match_live::{MatchLiveEmbed, MatchLiveEmbeds};
 pub use medal::MedalEmbed;
 pub use medal_stats::MedalStatsEmbed;
 pub use medals_missing::MedalsMissingEmbed;

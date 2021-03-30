@@ -78,11 +78,6 @@ macro_rules! team {
     };
 }
 
-pub enum MatchLiveEmbedUpdate {
-    Modify,
-    Delete, // TODO: Modify instead of delete-add
-}
-
 impl MatchLiveEmbed {
     pub fn new(lobby: &OsuMatch) -> MatchLiveEmbeds {
         let mut embeds = MatchLiveEmbeds::new();
@@ -194,12 +189,9 @@ impl MatchLiveEmbed {
         embeds
     }
 
-    pub fn update(
-        &mut self,
-        lobby: &OsuMatch,
-    ) -> (Option<MatchLiveEmbedUpdate>, Option<MatchLiveEmbeds>) {
+    pub fn update(&mut self, lobby: &OsuMatch) -> (bool, Option<MatchLiveEmbeds>) {
         if lobby.events.is_empty() {
-            return (None, None);
+            return (false, None);
         }
 
         let mut update = None;
@@ -210,7 +202,7 @@ impl MatchLiveEmbed {
             // SAFETY: i is guaranteed to be within bounds
             let event = unsafe { lobby.events.get_unchecked(i) };
 
-            // New embed, except if event is game with same id and still in progress
+            // The previous embed was a game
             if let Some(state) = last_state.take() {
                 let mut embed = Self {
                     title: lobby.name.to_owned(),
@@ -240,10 +232,6 @@ impl MatchLiveEmbed {
                         embed.description.push_str("• **Lobby was closed**")
                     }
                     MatchEvent::Game { game, .. } => {
-                        if embeds.is_empty() && !state.finished {
-                            update = Some(MatchLiveEmbedUpdate::Delete);
-                        }
-
                         let curr_state = GameState {
                             game_id: game.game_id,
                             finished: game.end_time.is_some(),
@@ -251,52 +239,66 @@ impl MatchLiveEmbed {
 
                         last_state = Some(curr_state);
 
-                        if state.game_id == curr_state.game_id {
-                            if curr_state.finished {
-                                embeds.pop();
-                            } else {
-                                update = None;
+                        if state.game_id == curr_state.game_id && !curr_state.finished {
+                            update.get_or_insert(false);
 
-                                // If the game is on-going and has no following game event, return early
-                                let last_game = lobby.events.get(i + 1..).map_or(true, |events| {
-                                    events.iter().all(|e| !matches!(e, MatchEvent::Game { .. }))
-                                });
-
-                                if last_game {
-                                    return (update, (!embeds.is_empty()).then(|| embeds));
-                                }
-
-                                continue;
-                            }
-                        }
-
-                        let (description, image) = game_content(lobby, &*game);
-
-                        embed.description = description;
-                        embed.image = image;
-                        embed.state = last_state;
-
-                        // If the game is on-going and has no following game event, return early
-                        if game.end_time.is_none() {
+                            // If the game is on-going and has no following game event, return early
                             let last_game = lobby.events.get(i + 1..).map_or(true, |events| {
                                 events.iter().all(|e| !matches!(e, MatchEvent::Game { .. }))
                             });
 
                             if last_game {
-                                embeds.push(embed);
+                                return (false, (!embeds.is_empty()).then(|| embeds));
+                            }
 
-                                return (update, Some(embeds));
+                            continue;
+                        }
+
+                        let (description, image) = game_content(lobby, &*game);
+
+                        // Same id and current game is finished => modify embed
+                        if state.game_id == curr_state.game_id {
+                            let (mut embed, empty) = match embeds.last_mut() {
+                                Some(embed) => (embed, false),
+                                None => (&mut *self, true),
+                            };
+
+                            embed.description = description;
+                            embed.image = image;
+                            embed.state = last_state;
+
+                            update.get_or_insert(empty);
+                        } else {
+                            // Different game, can be either finished or not
+                            embed.description = description;
+                            embed.image = image;
+                            embed.state = last_state;
+
+                            // If the game is on-going and has no following game event, return early
+                            if game.end_time.is_none() {
+                                let last_game = lobby.events.get(i + 1..).map_or(true, |events| {
+                                    events.iter().all(|e| !matches!(e, MatchEvent::Game { .. }))
+                                });
+
+                                if last_game {
+                                    embeds.push(embed);
+
+                                    return (update.unwrap_or(false), Some(embeds));
+                                }
                             }
                         }
                     }
                 }
 
+                update.get_or_insert(false);
+
                 match embeds.last_mut().filter(|e| e.description.is_empty()) {
                     Some(last) => std::mem::swap(last, &mut embed),
-                    None => embeds.push(embed),
+                    None if !embed.description.is_empty() => embeds.push(embed),
+                    _ => {}
                 }
 
-            // Extend existing embed unless its a game event
+            // The previous embed was not a game
             } else {
                 let (mut embed, empty) = match embeds.last_mut() {
                     Some(embed) => (embed, false),
@@ -305,44 +307,32 @@ impl MatchLiveEmbed {
 
                 match event {
                     MatchEvent::Joined { user_id, .. } => {
-                        if empty {
-                            update.replace(MatchLiveEmbedUpdate::Modify);
-                        }
+                        update.get_or_insert(empty);
 
                         push!(embed.description => "• `{}` joined the lobby" @ lobby[user_id])
                     }
                     MatchEvent::Left { user_id, .. } => {
-                        if empty {
-                            update.replace(MatchLiveEmbedUpdate::Modify);
-                        }
+                        update.get_or_insert(empty);
 
                         push!(embed.description => "• `{}` left the lobby" @ lobby[user_id])
                     }
                     MatchEvent::Kicked { user_id, .. } => {
-                        if empty {
-                            update.replace(MatchLiveEmbedUpdate::Modify);
-                        }
+                        update.get_or_insert(empty);
 
                         push!(embed.description => "• `{}` kicked from the lobby" @ lobby[user_id])
                     }
                     MatchEvent::HostChanged { user_id, .. } => {
-                        if empty {
-                            update.replace(MatchLiveEmbedUpdate::Modify);
-                        }
+                        update.get_or_insert(empty);
 
                         push!(embed.description => "• `{}` became the new host" @ lobby[user_id])
                     }
                     MatchEvent::Create { user_id, .. } => {
-                        if empty {
-                            update.replace(MatchLiveEmbedUpdate::Modify);
-                        }
+                        update.get_or_insert(empty);
 
                         push!(embed.description => "• `{}` created the lobby" @ lobby[user_id])
                     }
                     MatchEvent::Disbanded { .. } => {
-                        if empty {
-                            update.replace(MatchLiveEmbedUpdate::Modify);
-                        }
+                        update.get_or_insert(empty);
 
                         embed.description.push_str("• **Lobby was closed**")
                     }
@@ -378,7 +368,7 @@ impl MatchLiveEmbed {
                                 });
 
                                 if last_game {
-                                    return (update, Some(embeds));
+                                    return (update.unwrap_or(false), Some(embeds));
                                 }
                             }
 
@@ -403,7 +393,10 @@ impl MatchLiveEmbed {
             }
         }
 
-        (update, (!embeds.is_empty()).then(|| embeds))
+        (
+            update.unwrap_or(false),
+            (!embeds.is_empty()).then(|| embeds),
+        )
     }
 }
 
