@@ -80,7 +80,7 @@ impl RatioEmbed {
     }
 }
 
-impl_into_builder!(RatioEmbed {
+impl_builder!(RatioEmbed {
     author,
     description,
     thumbnail,

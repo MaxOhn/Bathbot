@@ -119,7 +119,7 @@ impl SnipedDiffEmbed {
     }
 }
 
-impl_into_builder!(SnipedDiffEmbed {
+impl_builder!(SnipedDiffEmbed {
     author,
     description,
     footer,

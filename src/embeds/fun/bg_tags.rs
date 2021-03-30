@@ -40,7 +40,7 @@ impl BGTagsEmbed {
     }
 }
 
-impl_into_builder!(BGTagsEmbed {
+impl_builder!(BGTagsEmbed {
     description,
     fields,
     title,

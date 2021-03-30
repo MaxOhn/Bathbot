@@ -97,7 +97,7 @@ impl SnipedEmbed {
     }
 }
 
-impl_into_builder!(SnipedEmbed {
+impl_builder!(SnipedEmbed {
     author,
     description,
     fields,

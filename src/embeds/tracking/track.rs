@@ -58,4 +58,4 @@ impl TrackEmbed {
     }
 }
 
-impl_into_builder!(TrackEmbed { fields, title });
+impl_builder!(TrackEmbed { fields, title });

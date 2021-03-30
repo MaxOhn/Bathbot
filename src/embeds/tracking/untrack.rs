@@ -33,4 +33,4 @@ impl UntrackEmbed {
     }
 }
 
-impl_into_builder!(UntrackEmbed { fields, title });
+impl_builder!(UntrackEmbed { fields, title });

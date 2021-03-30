@@ -16,7 +16,7 @@ impl InviteEmbed {
     }
 }
 
-impl_into_builder!(InviteEmbed {
+impl_builder!(InviteEmbed {
     description,
     footer,
     title,

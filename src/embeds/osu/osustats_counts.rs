@@ -50,7 +50,7 @@ impl OsuStatsCountsEmbed {
     }
 }
 
-impl_into_builder!(OsuStatsCountsEmbed {
+impl_builder!(OsuStatsCountsEmbed {
     author,
     description,
     thumbnail,

@@ -61,7 +61,7 @@ impl CommandCounterEmbed {
     }
 }
 
-impl_into_builder!(CommandCounterEmbed {
+impl_builder!(CommandCounterEmbed {
     author,
     description,
     footer,

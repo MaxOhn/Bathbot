@@ -144,7 +144,7 @@ impl PlayerSnipeStatsEmbed {
     }
 }
 
-impl_into_builder!(PlayerSnipeStatsEmbed {
+impl_builder!(PlayerSnipeStatsEmbed {
     author,
     description,
     fields,

@@ -6,7 +6,6 @@ use tokio::io::Error as IoError;
 pub enum PPError {
     IoError(IoError),
     NoMapId,
-    NoScore,
     Parse(ParseError),
 }
 
@@ -15,7 +14,6 @@ impl fmt::Display for PPError {
         match self {
             Self::IoError(_) => f.write_str("io error"),
             Self::NoMapId => f.write_str("missing map id"),
-            Self::NoScore => f.write_str("missing score"),
             Self::Parse(_) => f.write_str("error while parsing beatmap file"),
         }
     }
@@ -38,7 +36,6 @@ impl StdError for PPError {
         match self {
             Self::IoError(e) => Some(e),
             Self::NoMapId => None,
-            Self::NoScore => None,
             Self::Parse(e) => Some(e),
         }
     }

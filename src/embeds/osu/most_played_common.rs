@@ -68,4 +68,4 @@ impl MostPlayedCommonEmbed {
     }
 }
 
-impl_into_builder!(MostPlayedCommonEmbed { description });
+impl_builder!(MostPlayedCommonEmbed { description });

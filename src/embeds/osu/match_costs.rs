@@ -17,7 +17,7 @@ pub struct MatchCostEmbed {
 
 impl MatchCostEmbed {
     pub fn new(
-        mut osu_match: OsuMatch,
+        osu_match: &mut OsuMatch,
         description: Option<String>,
         match_result: Option<MatchResult>,
     ) -> Option<Self> {
@@ -157,7 +157,8 @@ impl MatchCostEmbed {
         };
 
         let match_id = osu_match.match_id;
-        let mut title = osu_match.name;
+        let mut title = String::new();
+        std::mem::swap(&mut title, &mut osu_match.name);
         title.retain(|c| c != '(' && c != ')');
         let footer = Footer::new("Note: Formula is subject to change; values are volatile");
 
@@ -171,7 +172,7 @@ impl MatchCostEmbed {
     }
 }
 
-impl_into_builder!(MatchCostEmbed {
+impl_builder!(MatchCostEmbed {
     description,
     footer,
     thumbnail,

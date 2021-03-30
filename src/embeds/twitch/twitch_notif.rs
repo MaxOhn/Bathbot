@@ -26,7 +26,7 @@ impl TwitchNotifEmbed {
     }
 }
 
-impl_as_builder!(TwitchNotifEmbed {
+impl_builder!(&TwitchNotifEmbed {
     author,
     description,
     image,

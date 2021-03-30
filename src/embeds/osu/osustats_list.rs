@@ -53,7 +53,7 @@ impl OsuStatsListEmbed {
     }
 }
 
-impl_into_builder!(OsuStatsListEmbed {
+impl_builder!(OsuStatsListEmbed {
     author,
     description,
     footer,

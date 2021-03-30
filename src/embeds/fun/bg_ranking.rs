@@ -58,7 +58,7 @@ impl BGRankingEmbed {
     }
 }
 
-impl_into_builder!(BGRankingEmbed {
+impl_builder!(BGRankingEmbed {
     author,
     description,
     footer,

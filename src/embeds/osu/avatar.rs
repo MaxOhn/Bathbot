@@ -28,4 +28,4 @@ impl AvatarEmbed {
     }
 }
 
-impl_into_builder!(AvatarEmbed { author, image, url });
+impl_builder!(AvatarEmbed { author, image, url });

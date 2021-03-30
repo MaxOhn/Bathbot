@@ -268,7 +268,7 @@ fn acc_to_score(mod_mult: f32, acc: f32) -> u64 {
     (mod_mult * (acc * 10_000.0 - (100.0 - acc) * 50_000.0)).round() as u64
 }
 
-impl_into_builder!(MapEmbed {
+impl_builder!(MapEmbed {
     author,
     description,
     fields,

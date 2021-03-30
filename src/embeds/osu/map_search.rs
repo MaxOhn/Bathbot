@@ -97,7 +97,7 @@ impl MapSearchEmbed {
     }
 }
 
-impl_into_builder!(MapSearchEmbed {
+impl_builder!(MapSearchEmbed {
     description,
     footer,
     title,

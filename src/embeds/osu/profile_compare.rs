@@ -336,7 +336,7 @@ impl ProfileCompareEmbed {
     }
 }
 
-impl_into_builder!(ProfileCompareEmbed { description, image });
+impl_builder!(ProfileCompareEmbed { description, image });
 
 #[allow(clippy::too_many_arguments)]
 fn write_line<T: PartialOrd, V: Display>(

@@ -70,7 +70,7 @@ impl MedalsMissingEmbed {
     }
 }
 
-impl_into_builder!(MedalsMissingEmbed {
+impl_builder!(MedalsMissingEmbed {
     author,
     description,
     footer,

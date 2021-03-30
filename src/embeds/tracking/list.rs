@@ -81,4 +81,4 @@ impl TrackListEmbed {
     }
 }
 
-impl_into_builder!(TrackListEmbed { description, title });
+impl_builder!(TrackListEmbed { description, title });

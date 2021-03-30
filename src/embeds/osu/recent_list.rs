@@ -97,7 +97,7 @@ impl RecentListEmbed {
     }
 }
 
-impl_into_builder!(RecentListEmbed {
+impl_builder!(RecentListEmbed {
     author,
     description,
     footer,

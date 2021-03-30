@@ -78,7 +78,7 @@ impl TopEmbed {
     }
 }
 
-impl_into_builder!(TopEmbed {
+impl_builder!(TopEmbed {
     author,
     description,
     footer,

@@ -161,7 +161,7 @@ impl BWSEmbed {
     }
 }
 
-impl_into_builder!(BWSEmbed {
+impl_builder!(BWSEmbed {
     author,
     description,
     thumbnail,

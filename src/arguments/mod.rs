@@ -674,32 +674,32 @@ impl SimulateArgs {
     }
 }
 
-impl Into<SimulateArgs> for SimulateMapArgs {
-    fn into(self) -> SimulateArgs {
-        SimulateArgs {
-            mods: self.mods,
-            score: self.score,
-            n300: self.n300,
-            n100: self.n100,
-            n50: self.n50,
-            miss: self.miss,
-            acc: self.acc,
-            combo: self.combo,
+impl From<SimulateMapArgs> for SimulateArgs {
+    fn from(args: SimulateMapArgs) -> Self {
+        Self {
+            mods: args.mods,
+            score: args.score,
+            n300: args.n300,
+            n100: args.n100,
+            n50: args.n50,
+            miss: args.miss,
+            acc: args.acc,
+            combo: args.combo,
         }
     }
 }
 
-impl Into<SimulateArgs> for SimulateNameArgs {
-    fn into(self) -> SimulateArgs {
-        SimulateArgs {
-            mods: self.mods,
-            score: self.score,
-            n300: self.n300,
-            n100: self.n100,
-            n50: self.n50,
-            miss: self.miss,
-            acc: self.acc,
-            combo: self.combo,
+impl From<SimulateNameArgs> for SimulateArgs {
+    fn from(args: SimulateNameArgs) -> Self {
+        Self {
+            mods: args.mods,
+            score: args.score,
+            n300: args.n300,
+            n100: args.n100,
+            n50: args.n50,
+            miss: args.miss,
+            acc: args.acc,
+            combo: args.combo,
         }
     }
 }
