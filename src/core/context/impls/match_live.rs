@@ -76,18 +76,14 @@ impl Context {
         let match_live = &self.data.match_live;
 
         // Increment the track counter for the channel
-        match match_live.channel_count.entry(channel) {
-            Entry::Occupied(mut entry) => {
-                // Return early if channel is already tracking three channels
-                if *entry.get() >= 3 {
-                    return MatchTrackResult::Capped;
-                }
+        let capped = match_live
+            .channel_count
+            .get(&channel)
+            .map_or(false, |entry| *entry.value() >= 3);
 
-                *entry.get_mut() += 1;
-            }
-            Entry::Vacant(entry) => {
-                entry.insert(1);
-            }
+        // Return early if channel is already tracking three channels
+        if capped {
+            return MatchTrackResult::Capped;
         }
 
         match match_live.match_channels.entry(match_id) {
@@ -97,25 +93,20 @@ impl Context {
 
                 // The match is already tracked in the current channel
                 if channel_list.iter().any(|&(id, _)| id == channel) {
-                    // Undo the increment from above
-                    match_live
-                        .channel_count
-                        .entry(channel)
-                        .and_modify(|count| *count = count.saturating_sub(1));
-
-                    MatchTrackResult::Duplicate
-                } else {
-                    let locked_match = tracked_match.lock().await;
-
-                    let msg = match send_match_messages(self, channel, &locked_match.embeds).await {
-                        Some(msg) => Mutex::new(msg),
-                        None => return MatchTrackResult::Error,
-                    };
-
-                    channel_list.push((channel, msg));
-
-                    MatchTrackResult::Added
+                    return MatchTrackResult::Duplicate;
                 }
+
+                let locked_match = tracked_match.lock().await;
+
+                let msg = match send_match_messages(self, channel, &locked_match.embeds).await {
+                    Some(msg) => Mutex::new(msg),
+                    None => return MatchTrackResult::Error,
+                };
+
+                *match_live.channel_count.entry(channel).or_insert(0) += 1;
+                channel_list.push((channel, msg));
+
+                MatchTrackResult::Added
             }
             // The match is not yet tracked -> request and store it
             Entry::Vacant(e) => match self.osu().osu_match(match_id).await {
@@ -129,6 +120,7 @@ impl Context {
 
                     // Only add to tracking if it's not already disbanded
                     if !matches!(osu_match.events.last(), Some(MatchEvent::Disbanded { .. })) {
+                        *match_live.channel_count.entry(channel).or_insert(0) += 1;
                         let tracked_match = TrackedMatch::new(osu_match, embeds);
                         e.insert((Mutex::new(tracked_match), smallvec![(channel, msg)]));
                     }
