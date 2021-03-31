@@ -1,18 +1,14 @@
 mod beatconnect;
 mod deserialize;
-mod most_played;
 mod osekai;
 mod osu_daily;
-mod osu_profile;
 mod osu_stats;
 mod score;
 mod snipe;
 
 pub use beatconnect::*;
-pub use most_played::MostPlayedMap;
 pub use osekai::*;
 pub use osu_daily::*;
-pub use osu_profile::*;
 pub use osu_stats::*;
 use score::ScraperScores;
 pub use score::{ScraperBeatmap, ScraperScore};
@@ -33,13 +29,13 @@ use crate::{
 use chrono::{DateTime, Utc};
 use cow_utils::CowUtils;
 use governor::{clock::DefaultClock, state::keyed::DashMapStateStore, Quota, RateLimiter};
+use hashbrown::HashSet;
 use once_cell::sync::OnceCell;
 use reqwest::{multipart::Form, Client, Response, StatusCode};
-use rosu::model::{GameMode, GameMods, User};
+use rosu_v2::prelude::{GameMode, GameMods, User};
 use scraper::{Html, Node, Selector};
 use serde_json::Value;
 use std::{
-    collections::HashSet,
     fmt::{self, Write},
     hash::Hash,
     num::NonZeroU32,
@@ -49,7 +45,7 @@ use tokio::time::{sleep, timeout, Duration};
 
 type ClientResult<T> = Result<T, CustomClientError>;
 
-static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), ", ", env!("CARGO_PKG_VERSION"));
+static USER_AGENT: &str = env!("CARGO_PKG_NAME");
 static OSU_SESSION: OnceCell<&'static str> = OnceCell::new();
 static BEATCONNECT_API_KEY: OnceCell<&'static str> = OnceCell::new();
 
@@ -334,7 +330,7 @@ impl CustomClient {
             .text("page", params.page.to_string());
 
         if let Some(ref country) = params.country {
-            form = form.text("country", country.to_owned());
+            form = form.text("country", country.to_string());
         }
 
         let url = "https://osustats.ppy.sh/api/getScoreRanking";
@@ -373,7 +369,7 @@ impl CustomClient {
             .text("sortBy", (params.order as u8).to_string())
             .text("sortOrder", (!params.descending as u8).to_string())
             .text("page", params.page.to_string())
-            .text("u1", params.username.clone());
+            .text("u1", params.username.clone().into_string());
 
         if let Some(selection) = params.mods {
             let mut mod_str = String::with_capacity(3);
@@ -431,32 +427,6 @@ impl CustomClient {
         };
 
         Ok((scores, amount))
-    }
-
-    // Retrieve the most played maps of a user
-    pub async fn get_most_played(
-        &self,
-        user_id: u32,
-        amount: u32,
-    ) -> ClientResult<Vec<MostPlayedMap>> {
-        let url = format!(
-            "{base}users/{id}/beatmapsets/most_played?limit={limit}",
-            base = OSU_BASE,
-            id = user_id,
-            limit = amount,
-        );
-
-        let response = self.make_request(url, Site::OsuWebsite).await?;
-        let bytes = response.bytes().await?;
-
-        let maps: Vec<MostPlayedMap> =
-            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
-                body: String::from_utf8_lossy(&bytes).into_owned(),
-                source,
-                request: "most played",
-            })?;
-
-        Ok(maps)
     }
 
     // Retrieve the leaderboard of a map (national / global)
@@ -562,65 +532,9 @@ impl CustomClient {
         Ok(response.bytes().await?.to_vec())
     }
 
-    pub async fn get_osu_profile(
-        &self,
-        user_id: u32,
-        mode: GameMode,
-        with_all_medals: bool,
-    ) -> ClientResult<(OsuProfile, OsuMedals)> {
-        let url = format!(
-            "{base}users/{user_id}/{mode}",
-            base = OSU_BASE,
-            user_id = user_id,
-            mode = mode
-        );
-
-        let body = self
-            .make_request(url, Site::OsuWebsite)
-            .await?
-            .text()
-            .await?;
-
-        let html = Html::parse_document(&body);
-        let user_element = Selector::parse("#json-user").unwrap();
-
-        let json = match html.select(&user_element).next() {
-            Some(element) => element.first_child().unwrap().value().as_text().unwrap(),
-            None => return Err(CustomClientError::MissingElement("#json-user")),
-        };
-
-        let user: OsuProfile =
-            serde_json::from_str(json.trim()).map_err(|source| CustomClientError::Parsing {
-                body: json.to_string(),
-                source,
-                request: "osu profile",
-            })?;
-
-        let medals = if with_all_medals {
-            let medal_element = Selector::parse("#json-achievements").unwrap();
-
-            let json = match html.select(&medal_element).next() {
-                Some(element) => element.first_child().unwrap().value().as_text().unwrap(),
-                None => return Err(CustomClientError::MissingElement("#json-achievements")),
-            };
-
-            serde_json::from_str::<Vec<OsuMedal>>(json.trim())
-                .map_err(|source| CustomClientError::Parsing {
-                    body: json.to_string(),
-                    source,
-                    request: "osu medals",
-                })?
-                .into()
-        } else {
-            OsuMedals::default()
-        };
-
-        Ok((user, medals))
-    }
-
     pub async fn get_rank_data(&self, mode: GameMode, param: RankParam) -> ClientResult<RankPP> {
         let key = &CONFIG.get().unwrap().tokens.osu_daily;
-        let mut url = format!("{}pp?k={}&m={}&", OSU_DAILY_API, key, mode as u8);
+        let mut url = format!("{}pp.php?k={}&m={}&", OSU_DAILY_API, key, mode as u8);
 
         let _ = match param {
             RankParam::Rank(rank) => write!(url, "t=rank&v={}", rank),

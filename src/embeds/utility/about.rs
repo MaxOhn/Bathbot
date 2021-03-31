@@ -1,26 +1,25 @@
 use crate::{
     bail,
-    embeds::{EmbedData, Footer},
+    embeds::{EmbedFields, Footer},
     format_err,
     util::{
         constants::{BATHBOT_WORKSHOP, INVITE_LINK, OWNER_USER_ID},
         discord_avatar,
-        numbers::with_comma_u64,
+        numbers::with_comma_uint,
     },
     BotResult, Context,
 };
 
 use chrono::{DateTime, Utc};
 use sysinfo::{get_current_pid, ProcessExt, ProcessorExt, System, SystemExt};
-use twilight_embed_builder::image_source::ImageSource;
 use twilight_model::id::UserId;
 
 pub struct AboutEmbed {
-    title: Option<String>,
-    thumbnail: Option<ImageSource>,
+    fields: EmbedFields,
+    footer: Footer,
+    thumbnail: String,
     timestamp: DateTime<Utc>,
-    footer: Option<Footer>,
-    fields: Vec<(String, String, bool)>,
+    title: String,
 }
 
 impl AboutEmbed {
@@ -49,6 +48,7 @@ impl AboutEmbed {
                 / processors.len() as f32;
             let used_ram = (system.get_used_memory() + system.get_used_swap()) / 1000;
             let total_ram = (system.get_total_memory() + system.get_total_swap()) / 1000;
+
             (process_cpu, process_ram, total_cpu, used_ram, total_ram)
         };
 
@@ -56,6 +56,7 @@ impl AboutEmbed {
             Some(user) => user,
             None => bail!("No CurrentUser in cache"),
         };
+
         let name = bot_user.name.clone();
         let shards = ctx.backend.cluster.info().len();
         let guild_counts = &ctx.stats.guild_counts;
@@ -63,72 +64,44 @@ impl AboutEmbed {
 
         let boot_time = ctx.stats.start_time;
 
-        let thumbnail = ImageSource::url(discord_avatar(
-            bot_user.id,
-            bot_user.avatar.as_deref().unwrap(),
-        ))
-        .unwrap();
+        let thumbnail = discord_avatar(bot_user.id, bot_user.avatar.as_deref().unwrap());
 
         let footer = Footer::new(format!(
             "Owner: {}#{} | Boot time",
             owner.name, owner.discriminator
         ))
         .icon_url(discord_avatar(owner.id, owner.avatar.as_deref().unwrap()));
+
         let fields = vec![
-            ("Guilds".to_owned(), with_comma_u64(guilds as u64), true),
-            (
-                "Process CPU".to_owned(),
-                format!("{:.2}%", process_cpu),
-                true,
-            ),
-            ("Total CPU".to_owned(), format!("{:.2}%", total_cpu), true),
-            ("Shards".to_owned(), shards.to_string(), true),
-            (
-                "Process RAM".to_owned(),
-                format!("{} MB", process_ram),
-                true,
-            ),
-            (
-                "Total RAM".to_owned(),
-                format!("{}/{} MB", used_ram, total_ram),
-                true,
-            ),
-            (
-                "Github".to_owned(),
+            field!("Guilds", with_comma_uint(guilds as u64).to_string(), true),
+            field!("Process CPU", format!("{:.2}%", process_cpu), true),
+            field!("Total CPU", format!("{:.2}%", total_cpu), true),
+            field!("Shards", shards.to_string(), true),
+            field!("Process RAM", format!("{} MB", process_ram), true),
+            field!("Total RAM", format!("{}/{} MB", used_ram, total_ram), true),
+            field!(
+                "Github",
                 "https://github.com/MaxOhn/Bathbot".to_string(),
-                false,
+                false
             ),
-            ("Invite link".to_owned(), INVITE_LINK.to_owned(), false),
-            (
-                "Bathbot discord server".to_owned(),
-                BATHBOT_WORKSHOP.to_owned(),
-                false,
-            ),
+            field!("Invite link", INVITE_LINK.to_owned(), false),
+            field!("Bathbot discord server", BATHBOT_WORKSHOP.to_owned(), false),
         ];
+
         Ok(Self {
-            footer: Some(footer),
             fields,
-            thumbnail: Some(thumbnail),
+            footer,
+            thumbnail,
             timestamp: boot_time,
-            title: Some(format!("About {}", name)),
+            title: format!("About {}", name),
         })
     }
 }
 
-impl EmbedData for AboutEmbed {
-    fn title_owned(&mut self) -> Option<String> {
-        self.title.take()
-    }
-    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
-        self.thumbnail.take()
-    }
-    fn footer_owned(&mut self) -> Option<Footer> {
-        self.footer.take()
-    }
-    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
-        Some(self.fields)
-    }
-    fn timestamp(&self) -> Option<&DateTime<Utc>> {
-        Some(&self.timestamp)
-    }
-}
+impl_builder!(AboutEmbed {
+    fields,
+    footer,
+    thumbnail,
+    timestamp,
+    title,
+});

@@ -8,7 +8,7 @@ use crate::{
     Args, BotResult, Context,
 };
 
-use rosu::model::GameMode;
+use rosu_v2::model::GameMode;
 use std::sync::Arc;
 use tokio::time::Duration;
 use tokio_stream::StreamExt;
@@ -65,14 +65,8 @@ async fn get_mapsets(
     }
 
     // Send initial message
-    let data = BGStartEmbed::new(msg.author.id);
-    let embed = data.build_owned().build()?;
-
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .embed(embed)?
-        .await?;
+    let embed = BGStartEmbed::new(msg.author.id).into_builder().build();
+    let response = msg.respond_embed(&ctx, embed).await?;
 
     // Prepare the reaction stream
     let self_id = match ctx.cache.current_user() {
@@ -192,12 +186,7 @@ async fn get_mapsets(
     };
 
     let data = BGTagsEmbed::new(included, excluded, mapsets.len());
-    let embed = data.build_owned().build()?;
-
-    ctx.http
-        .create_message(msg.channel_id)
-        .embed(embed)?
-        .await?;
+    msg.respond_embed(&ctx, data.into_builder().build()).await?;
 
     if !mapsets.is_empty() {
         info!(

@@ -1,9 +1,9 @@
+use super::request_user;
 use crate::{
     arguments::Args,
     custom_client::SnipeCountryPlayer as SCP,
     embeds::{CountrySnipeListEmbed, EmbedData},
     pagination::{CountrySnipeListPagination, Pagination},
-    unwind_error,
     util::{
         constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         numbers, MessageExt, SNIPE_COUNTRIES,
@@ -11,7 +11,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::model::GameMode;
+use rosu_v2::prelude::{GameMode, OsuError};
 use std::{cmp::Ordering::Equal, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -37,10 +37,10 @@ use twilight_model::channel::Message;
 async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     // Retrieve author's osu user to check if they're in the list
     let osu_user = match ctx.get_link(msg.author.id.0) {
-        Some(name) => match ctx.osu().user(name.as_str()).mode(GameMode::STD).await {
-            Ok(Some(user)) => Some(user),
-            Ok(None) => {
-                let content = format!("Could not find user `{}`", name);
+        Some(name) => match request_user(&ctx, &name, Some(GameMode::STD)).await {
+            Ok(user) => Some(user),
+            Err(OsuError::NotFound) => {
+                let content = format!("User `{}` was not found", name);
 
                 return msg.error(&ctx, content).await;
             }
@@ -78,12 +78,12 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
         },
         None => match osu_user {
             Some(ref user) => {
-                if SNIPE_COUNTRIES.contains_key(user.country.as_str()) {
-                    user.country.to_owned()
+                if SNIPE_COUNTRIES.contains_key(user.country_code.as_str()) {
+                    user.country_code.to_owned()
                 } else {
                     let content = format!(
                         "`{}`'s country {} is not supported :(",
-                        user.username, user.country
+                        user.username, user.country.name
                     );
 
                     return msg.error(&ctx, content).await;
@@ -163,13 +163,8 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
     let data = CountrySnipeListEmbed::new(country, ordering, init_players, author_idx, (1, pages));
 
     // Creating the embed
-    let embed = data.build().build()?;
-
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .embed(embed)?
-        .await?;
+    let embed = data.into_builder().build();
+    let response = msg.respond_embed(&ctx, embed).await?;
 
     // Pagination
     let pagination =

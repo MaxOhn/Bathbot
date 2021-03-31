@@ -1,26 +1,25 @@
 use crate::{
     custom_client::SnipeRecent,
-    embeds::{osu, Author, EmbedData},
+    embeds::{attachment, Author, EmbedFields},
     util::constants::AVATAR_URL,
 };
 
-use rosu::model::User;
+use rosu_v2::model::user::User;
 use std::collections::HashMap;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct SnipedEmbed {
-    description: Option<String>,
-    thumbnail: Option<ImageSource>,
+    author: Author,
+    description: String,
+    fields: EmbedFields,
+    image: String,
+    thumbnail: String,
     title: &'static str,
-    author: Option<Author>,
-    image: Option<ImageSource>,
-    fields: Option<Vec<(String, String, bool)>>,
 }
 
 impl SnipedEmbed {
     pub fn new(user: User, sniper: Vec<SnipeRecent>, snipee: Vec<SnipeRecent>) -> Self {
-        let thumbnail = ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap();
-        let author = osu::get_user_author(&user);
+        let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
+        let author = author!(user);
         let title = "National snipe scores of the last 8 weeks";
 
         if sniper.is_empty() && snipee.is_empty() {
@@ -28,17 +27,18 @@ impl SnipedEmbed {
                 "`{}` was neither sniped nor sniped other people",
                 user.username
             );
+
             return Self {
-                description: Some(description),
-                thumbnail: Some(thumbnail),
-                author: Some(author),
+                author,
+                description,
+                fields: Vec::new(),
+                image: String::new(),
+                thumbnail,
                 title,
-                image: None,
-                fields: None,
             };
         }
 
-        let mut fields = Vec::with_capacity(2);
+        let mut fields = EmbedFields::with_capacity(2);
 
         if !sniper.is_empty() {
             let mut victims = HashMap::new();
@@ -60,7 +60,7 @@ impl SnipedEmbed {
                 most_count
             );
 
-            fields.push((name, value, false));
+            fields.push(field!(name, value, false));
         }
 
         if !snipee.is_empty() {
@@ -83,42 +83,25 @@ impl SnipedEmbed {
                 most_count
             );
 
-            fields.push((name, value, false));
+            fields.push(field!(name, value, false));
         }
 
         Self {
+            author,
+            description: String::new(),
+            fields,
+            image: attachment("sniped_graph.png"),
+            thumbnail,
             title,
-            author: Some(author),
-            thumbnail: Some(thumbnail),
-            description: None,
-            fields: Some(fields),
-            image: Some(ImageSource::attachment("sniped_graph.png").unwrap()),
         }
     }
 }
 
-impl EmbedData for SnipedEmbed {
-    fn title_owned(&mut self) -> Option<String> {
-        Some(self.title.to_owned())
-    }
-
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take()
-    }
-
-    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
-        self.thumbnail.take()
-    }
-
-    fn image_owned(&mut self) -> Option<ImageSource> {
-        self.image.take()
-    }
-
-    fn author_owned(&mut self) -> Option<Author> {
-        self.author.take()
-    }
-
-    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
-        self.fields
-    }
-}
+impl_builder!(SnipedEmbed {
+    author,
+    description,
+    fields,
+    image,
+    thumbnail,
+    title,
+});

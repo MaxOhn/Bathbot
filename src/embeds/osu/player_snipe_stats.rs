@@ -1,37 +1,31 @@
 use crate::{
     custom_client::SnipePlayer,
-    embeds::{osu, Author, EmbedData, Footer},
+    embeds::{attachment, osu, Author, EmbedFields, Footer},
     pp::{Calculations, PPCalculator},
-    unwind_error,
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
-        numbers::{with_comma, with_comma_u64},
+        numbers::{with_comma_float, with_comma_uint},
         osu::grade_completion_mods,
         ScoreExt,
     },
 };
 
-use rosu::model::{Beatmap, GameMode, Score, User};
+use rosu_v2::prelude::{GameMode, Score, User};
 use std::fmt::Write;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct PlayerSnipeStatsEmbed {
-    description: Option<String>,
-    thumbnail: Option<ImageSource>,
+    description: String,
+    thumbnail: String,
     title: &'static str,
-    author: Option<Author>,
-    footer: Option<Footer>,
-    image: Option<ImageSource>,
-    fields: Option<Vec<(String, String, bool)>>,
+    author: Author,
+    footer: Footer,
+    image: String,
+    fields: EmbedFields,
 }
 
 impl PlayerSnipeStatsEmbed {
-    pub async fn new(
-        user: User,
-        player: SnipePlayer,
-        first_score: Option<(Score, Beatmap)>,
-    ) -> Self {
+    pub async fn new(user: User, player: SnipePlayer, first_score: Option<Score>) -> Self {
         let footer_text = format!(
             "{:+} #1{} since last update",
             player.difference,
@@ -39,9 +33,9 @@ impl PlayerSnipeStatsEmbed {
         );
 
         let (description, fields) = if player.count_first == 0 {
-            (String::from("No national #1s :("), None)
+            ("No national #1s :(".to_owned(), Vec::new())
         } else {
-            let mut fields = Vec::with_capacity(7);
+            let mut fields = EmbedFields::with_capacity(7);
             let mut description = String::with_capacity(256);
 
             let _ = writeln!(
@@ -50,23 +44,29 @@ impl PlayerSnipeStatsEmbed {
                 player.count_first, player.count_ranked, player.count_loved
             );
 
-            fields.push((String::from("Average PP:"), with_comma(player.avg_pp), true));
+            fields.push(field!(
+                "Average PP:",
+                with_comma_float(player.avg_pp).to_string(),
+                true
+            ));
 
-            fields.push((
-                String::from("Average acc:"),
+            fields.push(field!(
+                "Average acc:",
                 format!("{:.2}%", player.avg_acc),
-                true,
+                true
             ));
 
-            fields.push((
-                String::from("Average stars:"),
+            fields.push(field!(
+                "Average stars:",
                 format!("{:.2}★", player.avg_stars),
-                true,
+                true
             ));
 
-            if let Some((score, map)) = first_score {
+            if let Some(score) = first_score {
+                let map = score.map.as_ref().unwrap();
+
                 let calculations = Calculations::all();
-                let mut calculator = PPCalculator::new().score(&score).map(&map);
+                let mut calculator = PPCalculator::new().score(&score).map(map);
 
                 let (pp, max_pp, stars) = match calculator.calculate(calculations).await {
                     Ok(_) => (
@@ -88,20 +88,20 @@ impl PlayerSnipeStatsEmbed {
                     "**[{map}]({base}b/{id})**\t\
                     {grade}\t[{stars}]\t{score}\t({acc})\t[{combo}]\t\
                     [{pp}]\t {hits}\t{ago}",
-                    map = map,
+                    map = player.oldest_first.unwrap().map,
                     base = OSU_BASE,
-                    id = map.beatmap_id,
+                    id = map.map_id,
                     grade = grade_completion_mods(&score, &map),
                     stars = stars,
-                    score = with_comma_u64(score.score as u64),
+                    score = with_comma_uint(score.score),
                     acc = score.acc_string(GameMode::STD),
                     pp = pp,
-                    combo = osu::get_combo(&score, &map),
+                    combo = osu::get_combo(&score, map),
                     hits = score.hits_string(GameMode::STD),
-                    ago = how_long_ago(&score.date)
+                    ago = how_long_ago(&score.created_at)
                 );
 
-                fields.push((String::from("Oldest national #1:"), value, false));
+                fields.push(field!("Oldest national #1:", value, false));
             }
 
             let mut count_mods = player.count_mods.unwrap();
@@ -127,49 +127,29 @@ impl PlayerSnipeStatsEmbed {
                 }
             }
 
-            fields.push((String::from("Most used mods:"), value, false));
+            fields.push(field!("Most used mods:", value, false));
 
-            (description, Some(fields))
+            (description, fields)
         };
 
         Self {
             fields,
-            description: Some(description),
-            footer: Some(Footer::new(footer_text)),
-            author: Some(osu::get_user_author(&user)),
+            description,
+            footer: Footer::new(footer_text),
+            author: author!(user),
             title: "National #1 statistics",
-            image: Some(ImageSource::attachment("stats_graph.png").unwrap()),
-            thumbnail: Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap()),
+            image: attachment("stats_graph.png"),
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
         }
     }
 }
 
-impl EmbedData for PlayerSnipeStatsEmbed {
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take()
-    }
-
-    fn title_owned(&mut self) -> Option<String> {
-        Some(self.title.to_owned())
-    }
-
-    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
-        self.thumbnail.take()
-    }
-
-    fn image_owned(&mut self) -> Option<ImageSource> {
-        self.image.take()
-    }
-
-    fn author_owned(&mut self) -> Option<Author> {
-        self.author.take()
-    }
-
-    fn footer_owned(&mut self) -> Option<Footer> {
-        self.footer.take()
-    }
-
-    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
-        self.fields
-    }
-}
+impl_builder!(PlayerSnipeStatsEmbed {
+    author,
+    description,
+    fields,
+    footer,
+    image,
+    thumbnail,
+    title,
+});

@@ -1,4 +1,4 @@
-use super::{Pages, Pagination};
+use super::{Pages, Pagination, ReactionVec};
 
 use crate::{
     commands::osu::SnipeOrder, custom_client::SnipeCountryPlayer, embeds::CountrySnipeListEmbed,
@@ -6,7 +6,6 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::channel::Message;
 
 pub struct CountrySnipeListPagination {
@@ -57,10 +56,10 @@ impl Pagination for CountrySnipeListPagination {
         self.author_idx
     }
 
-    fn reactions() -> Vec<RequestReactionType> {
+    fn reactions() -> ReactionVec {
         let config = CONFIG.get().unwrap();
 
-        vec![
+        smallvec![
             config.jump_start(),
             config.multi_step_back(),
             config.single_step_back(),

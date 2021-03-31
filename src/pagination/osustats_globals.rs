@@ -1,4 +1,4 @@
-use super::{Pages, Pagination};
+use super::{Pages, Pagination, ReactionVec};
 use crate::{
     custom_client::{OsuStatsParams, OsuStatsScore},
     embeds::OsuStatsGlobalsEmbed,
@@ -6,9 +6,8 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use rosu::model::User;
+use rosu_v2::model::user::User;
 use std::{collections::BTreeMap, iter::Extend, sync::Arc};
-use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::channel::Message;
 
 pub struct OsuStatsGlobalsPagination {
@@ -58,7 +57,7 @@ impl Pagination for OsuStatsGlobalsPagination {
         &mut self.pages
     }
 
-    fn reactions() -> Vec<RequestReactionType> {
+    fn reactions() -> ReactionVec {
         Self::arrow_reactions_full()
     }
 

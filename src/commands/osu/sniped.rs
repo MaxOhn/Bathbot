@@ -1,8 +1,8 @@
+use super::request_user;
 use crate::{
     arguments::{Args, NameArgs},
     custom_client::SnipeRecent,
     embeds::{EmbedData, SnipedEmbed},
-    unwind_error,
     util::{
         constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         MessageExt, SNIPE_COUNTRIES,
@@ -21,7 +21,7 @@ use plotters::{
     },
     prelude::*,
 };
-use rosu::model::GameMode;
+use rosu_v2::prelude::{GameMode, OsuError};
 use std::{
     cmp::Reverse,
     collections::{HashMap, HashSet},
@@ -48,9 +48,9 @@ async fn sniped(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         None => return super::require_link(&ctx, msg).await,
     };
 
-    let user = match ctx.osu().user(name.as_str()).mode(GameMode::STD).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
+    let user = match request_user(&ctx, &name, Some(GameMode::STD)).await {
+        Ok(user) => user,
+        Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{}`", name);
 
             return msg.error(&ctx, content).await;
@@ -65,34 +65,32 @@ async fn sniped(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let client = &ctx.clients.custom;
     let now = Utc::now();
 
-    let (sniper_fut, snipee_fut) = if SNIPE_COUNTRIES.contains_key(user.country.as_str()) {
-        (
-            client.get_national_snipes(&user, true, now - Duration::weeks(8), now),
-            client.get_national_snipes(&user, false, now - Duration::weeks(8), now),
-        )
+    let (sniper, snipee) = if SNIPE_COUNTRIES.contains_key(user.country_code.as_str()) {
+        let sniper_fut = client.get_national_snipes(&user, true, now - Duration::weeks(8), now);
+        let snipee_fut = client.get_national_snipes(&user, false, now - Duration::weeks(8), now);
+
+        match tokio::try_join!(sniper_fut, snipee_fut) {
+            Ok((sniper, snipee)) => {
+                let sniper: Vec<_> = sniper
+                    .into_iter()
+                    .filter(|score| score.sniped.is_some())
+                    .collect();
+
+                (sniper, snipee)
+            }
+            Err(why) => {
+                let _ = msg.error(&ctx, HUISMETBENEN_ISSUE).await;
+
+                return Err(why.into());
+            }
+        }
     } else {
         let content = format!(
             "`{}`'s country {} is not supported :(",
-            user.username, user.country
+            user.username, user.country_code
         );
 
         return msg.error(&ctx, content).await;
-    };
-
-    let (sniper, snipee) = match tokio::try_join!(sniper_fut, snipee_fut) {
-        Ok((sniper, snipee)) => {
-            let sniper: Vec<_> = sniper
-                .into_iter()
-                .filter(|score| score.sniped.is_some())
-                .collect();
-
-            (sniper, snipee)
-        }
-        Err(why) => {
-            let _ = msg.error(&ctx, HUISMETBENEN_ISSUE).await;
-
-            return Err(why.into());
-        }
     };
 
     let graph = match graphs(user.username.as_str(), &sniper, &snipee) {
@@ -107,7 +105,7 @@ async fn sniped(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let data = SnipedEmbed::new(user, sniper, snipee);
 
     // Sending the embed
-    let embed = data.build_owned().build()?;
+    let embed = data.into_builder().build();
     let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
 
     let response = if let Some(graph) = graph {
@@ -288,6 +286,7 @@ fn draw_legend<'a, DB: DrawingBackend + 'a>(
 fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult {
     let total = scores.iter().fold(HashMap::new(), |mut map, score| {
         *map.entry(score.sniper.as_str()).or_insert(0) += 1;
+
         map
     });
 
@@ -303,11 +302,13 @@ fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult {
             if !names.contains(score.sniper.as_str()) {
                 return Some(None);
             }
+
             if score.date > *state {
                 while score.date > *state {
                     *state = *state + chrono::Duration::weeks(1);
                 }
             }
+
             Some(Some((score.sniper.as_str(), *state)))
         })
         .filter_map(|o| o)
@@ -338,11 +339,13 @@ fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult {
             if !names.contains(score.sniped.as_deref().unwrap()) {
                 return Some(None);
             }
+
             if score.date > *state {
                 while score.date > *state {
                     *state = *state + chrono::Duration::weeks(1);
                 }
             }
+
             Some(Some((score.sniped.as_deref().unwrap(), *state)))
         })
         .filter_map(|o| o)
@@ -366,8 +369,10 @@ fn finish_preparing<'a>(
                     .map(|(name, _)| name)
                     .fold(HashMap::new(), |mut map, name| {
                         *map.entry(name).or_insert(0) += 1;
+
                         map
                     });
+
             (date.date(), counts)
         })
         .unzip();

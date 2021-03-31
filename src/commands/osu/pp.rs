@@ -1,15 +1,15 @@
+use super::request_user;
 use crate::{
     arguments::{Args, NameFloatArgs},
     custom_client::RankParam,
     embeds::{EmbedData, PPMissingEmbed},
     tracking::process_tracking,
-    unwind_error,
     util::{constants::OSU_API_ISSUE, MessageExt},
     BotResult, Context,
 };
 
-use rosu::model::GameMode;
-use std::{collections::HashMap, sync::Arc};
+use rosu_v2::prelude::{GameMode, OsuError};
+use std::sync::Arc;
 use twilight_model::channel::Message;
 
 async fn pp_main(
@@ -22,42 +22,65 @@ async fn pp_main(
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
+
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
+
     let pp = args.float;
+
     if pp < 0.0 {
-        let content = "The pp number must be non-negative";
-        return msg.error(&ctx, content).await;
+        return msg.error(&ctx, "The pp number must be non-negative").await;
     } else if pp > (i64::MAX / 1024) as f32 {
-        let content = "Number too large";
-        return msg.error(&ctx, content).await;
+        return msg.error(&ctx, "Number too large").await;
     }
 
     // Retrieve the user and their top scores
-    let user_fut = ctx.osu().user(name.as_str()).mode(mode);
-    let scores_fut = ctx.osu().top_scores(name.as_str()).mode(mode).limit(100);
+    let user_fut = request_user(&ctx, &name, Some(mode));
+    let scores_fut_1 = ctx
+        .osu()
+        .user_scores(name.as_str())
+        .best()
+        .mode(mode)
+        .limit(50);
+
+    let scores_fut_2 = ctx
+        .osu()
+        .user_scores(name.as_str())
+        .best()
+        .mode(mode)
+        .offset(50)
+        .limit(50);
+
     let rank_fut = ctx.clients.custom.get_rank_data(mode, RankParam::Pp(pp));
 
-    let (user_result, scores_result, rank_result) = tokio::join!(user_fut, scores_fut, rank_fut);
+    let (user_result, scores_result_1, scores_result_2, rank_result) =
+        tokio::join!(user_fut, scores_fut_1, scores_fut_2, rank_fut);
 
     let user = match user_result {
-        Ok(Some(user)) => user,
-        Ok(None) => {
+        Ok(user) => user,
+        Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
+
             return msg.error(&ctx, content).await;
         }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
 
-    let scores = match scores_result {
-        Ok(scores) => scores,
-        Err(why) => {
+    let mut scores = match (scores_result_1, scores_result_2) {
+        (Ok(mut scores), Ok(mut scores_2)) => {
+            scores.append(&mut scores_2);
+
+            scores
+        }
+        (Err(why), _) | (_, Err(why)) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
@@ -66,20 +89,21 @@ async fn pp_main(
         Ok(rank_pp) => Some(rank_pp.rank as usize),
         Err(why) => {
             unwind_error!(warn, why, "Error while getting rank pp: {}");
+
             None
         }
     };
 
     // Process user and their top scores for tracking
-    let mut maps = HashMap::new();
-    process_tracking(&ctx, mode, &scores, Some(&user), &mut maps).await;
+    process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
 
     // Accumulate all necessary data
     let data = PPMissingEmbed::new(user, scores, pp, rank);
 
     // Creating the embed
-    let embed = data.build_owned().build()?;
+    let embed = data.into_builder().build();
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
+
     Ok(())
 }
 

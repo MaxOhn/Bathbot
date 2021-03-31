@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
-use rosu::model::{ApprovalStatus, GameMode, GameMods, Grade};
+use rosu_v2::prelude::{GameMode, GameMods, Grade, RankStatus};
 use serde::{de, Deserialize, Deserializer};
-use std::{convert::TryFrom, str::FromStr};
 
 #[derive(Deserialize)]
 pub struct ScraperScores {
@@ -40,28 +39,22 @@ pub struct ScraperScore {
 }
 
 impl<'de> Deserialize<'de> for ScraperScore {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
         struct Outer {
             id: u64,
             user_id: u32,
             #[serde(deserialize_with = "adjust_acc")]
             accuracy: f32,
-            #[serde(deserialize_with = "adjust_mods")]
             mods: GameMods,
             score: u32,
             max_combo: u32,
             perfect: bool,
             statistics: ScraperScoreStatistics,
             pp: Option<f32>,
-            #[serde(deserialize_with = "adjust_grade")]
             rank: Grade,
             #[serde(deserialize_with = "adjust_datetime")]
             created_at: DateTime<Utc>,
-            #[serde(deserialize_with = "adjust_mode")]
             mode_int: GameMode,
             replay: bool,
             beatmap: ScraperBeatmap,
@@ -91,6 +84,7 @@ impl<'de> Deserialize<'de> for ScraperScore {
         }
 
         let helper = Outer::deserialize(deserializer)?;
+
         Ok(ScraperScore {
             id: helper.id,
             user_id: helper.user_id,
@@ -121,7 +115,7 @@ impl<'de> Deserialize<'de> for ScraperScore {
 pub struct ScraperBeatmap {
     pub id: u32,
     pub beatmapset_id: u32,
-    #[serde(rename = "mode_int", deserialize_with = "adjust_mode")]
+    #[serde(rename = "mode_int")]
     pub mode: GameMode,
     pub difficulty_rating: f32,
     pub version: String,
@@ -148,60 +142,16 @@ pub struct ScraperBeatmap {
     pub count_total: u32,
     #[serde(deserialize_with = "adjust_datetime")]
     pub last_updated: DateTime<Utc>,
-    #[serde(deserialize_with = "adjust_approval")]
-    pub ranked: ApprovalStatus,
+    pub ranked: RankStatus,
 }
 
-fn adjust_acc<'de, D>(d: D) -> Result<f32, D::Error>
-where
-    D: Deserializer<'de>,
-{
+fn adjust_acc<'de, D: Deserializer<'de>>(d: D) -> Result<f32, D::Error> {
     let f: f32 = Deserialize::deserialize(d)?;
 
     Ok(f * 100.0)
 }
 
-fn adjust_mods<'de, D>(d: D) -> Result<GameMods, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let mods: Vec<&str> = Deserialize::deserialize(d)?;
-    let mods: Result<GameMods, _> = mods.into_iter().map(GameMods::from_str).collect();
-
-    mods.map_err(de::Error::custom)
-}
-
-fn adjust_grade<'de, D>(d: D) -> Result<Grade, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let g: &str = Deserialize::deserialize(d)?;
-
-    Grade::from_str(g).map_err(de::Error::custom)
-}
-
-fn adjust_mode<'de, D>(d: D) -> Result<GameMode, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let m: u8 = Deserialize::deserialize(d)?;
-
-    GameMode::try_from(m).map_err(de::Error::custom)
-}
-
-fn adjust_approval<'de, D>(d: D) -> Result<ApprovalStatus, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let m: i8 = Deserialize::deserialize(d)?;
-
-    ApprovalStatus::try_from(m).map_err(de::Error::custom)
-}
-
-fn adjust_datetime<'de, D>(d: D) -> Result<DateTime<Utc>, D::Error>
-where
-    D: Deserializer<'de>,
-{
+fn adjust_datetime<'de, D: Deserializer<'de>>(d: D) -> Result<DateTime<Utc>, D::Error> {
     let d: &str = Deserialize::deserialize(d)?;
 
     let d = DateTime::parse_from_rfc3339(d)

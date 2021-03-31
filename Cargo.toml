@@ -9,7 +9,6 @@ async-trait  = "0.1"
 bitflags     = "1.2"
 bytes        = "1.0"
 cow-utils    = "0.1"
-funty        = "=1.1.0" # TODO: Remove
 futures      = "0.3"
 governor     = "0.3"
 itertools    = "0.10"
@@ -18,10 +17,9 @@ log          = "0.4"
 once_cell    = "1.4"
 priority-queue = "1.0"
 proc_macros  = { path = "./proc_macros" }
-prometheus   = "0.11"
+prometheus   = "0.12"
 radix_trie   = "0.2"
 rand         = "0.8"
-rayon        = "1.3"
 regex        = "1.3"
 serde_json   = "1.0"
 strfmt       = "0.1.6"
@@ -44,10 +42,17 @@ version = "0.8"
 version = "4.0"
 features = ["serde"]
 
+[dependencies.dotenv]
+version = "0.15"
+
 [dependencies.flexi_logger]
 version = "0.17"
 default_features = false
 features = ["colors", "specfile", "compress"]
+
+[dependencies.hashbrown]
+version = "0.11"
+features = ["serde"]
 
 [dependencies.hyper]
 version = "0.14"
@@ -59,10 +64,6 @@ version = "0.23"
 default-features = false
 features = ["png", "gif"]
 
-[dependencies.openssl]
-version = "0.10"
-optional = true
-
 [dependencies.plotters]
 version = "0.3"
 default-features = false
@@ -73,22 +74,21 @@ version = "0.11"
 default_features = false
 features = ["cookies", "multipart"]
 
-[dependencies.rosu]
-# version = "0.5"
-git = "https://github.com/MaxOhn/rosu"
-branch = "master"
-# path = "../rosu"
+[dependencies.rosu-v2]
+git = "https://github.com/MaxOhn/rosu-v2"
+branch = "main"
+# path = "../rosu-v2"
 features = ["cache", "metrics"]
 
 [dependencies.rosu-pp]
-# path = "../rosu-pp"
+# path = "../rosu_v2-pp"
 git = "https://github.com/MaxOhn/rosu-pp"
 branch = "next"
 features = ["async_tokio"]
 # version = "0.1"
 
 [dependencies.rosu-pp-older]
-# path = "../rosu-pp-older"
+# path = "../rosu_v2-pp-older"
 git = "https://github.com/MaxOhn/rosu-pp-older.git"
 branch = "main"
 
@@ -100,15 +100,21 @@ default-features = false
 version = "1.0"
 features = ["derive", "rc"]
 
+[dependencies.smallstr]
+version = "0.2"
+features = ["serde"]
+
+[dependencies.smallvec]
+version = "1.6"
+features = ["serde"]
+
 [dependencies.sqlx]
-# version = "0.5"
-git = "https://github.com/launchbadge/sqlx"
-branch = "master"
+version = "0.5"
 default-features = false
-features = ["postgres", "runtime-tokio-rustls", "chrono", "macros", "json"]
+features = ["chrono", "json", "macros", "migrate", "postgres", "runtime-tokio-native-tls"]
 
 [dependencies.tokio]
-version = "1.0"
+version = "1.3"
 default_features = false
 features = ["fs", "io-util", "macros", "signal", "sync", "time"]
 
@@ -120,12 +126,6 @@ default_features = false
 # path = "../twilight/cache/in-memory"
 branch = "custom-cache"
 git = "https://github.com/MaxOhn/twilight"
-
-[dependencies.twilight-embed-builder]
-# path = "../twilight/embed-builder"
-branch = "custom-cache"
-git = "https://github.com/MaxOhn/twilight"
-default_features = false
 
 [dependencies.twilight-gateway]
 # path = "../twilight/gateway"
@@ -153,3 +153,7 @@ default_features = false
 
 [features]
 vendored-openssl = ["openssl/vendored"]
+
+[dependencies.openssl]
+version = "0.10"
+optional = true

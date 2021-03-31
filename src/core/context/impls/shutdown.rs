@@ -1,4 +1,4 @@
-use crate::{unwind_error, BotResult, Context};
+use crate::{BotResult, Context};
 
 use std::time::Instant;
 use twilight_model::gateway::presence::{ActivityType, Status};
@@ -61,7 +61,7 @@ impl Context {
         let mut count = 0;
 
         let content = "I'm about to reboot, you can start a \
-                        new game again in just a moment...";
+            new game again in just a moment...";
 
         for channel in active_games {
             match self.stop_game(channel).await {

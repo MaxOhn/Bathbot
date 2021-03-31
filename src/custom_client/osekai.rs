@@ -1,6 +1,6 @@
 use super::deserialize::{adjust_mods_maybe, str_to_f32, str_to_maybe_u32, str_to_u32};
 
-use rosu::model::{GameMode, GameMods};
+use rosu_v2::model::{GameMode, GameMods};
 use serde::{
     de::{Error, Unexpected},
     Deserialize, Deserializer,

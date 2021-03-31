@@ -12,9 +12,12 @@ use twilight_model::channel::Message;
 #[owner()]
 async fn cache(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     let stats = ctx.cache.stats(10, 10);
+
     let embed = CacheEmbed::new(stats, ctx.stats.start_time)
-        .build_owned()
-        .build()?;
+        .into_builder()
+        .build();
+
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
+
     Ok(())
 }

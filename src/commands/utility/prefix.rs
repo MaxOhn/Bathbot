@@ -1,4 +1,5 @@
 use crate::{
+    database::Prefix,
     util::{matcher, MessageExt},
     Args, BotResult, Context,
 };
@@ -24,6 +25,7 @@ use twilight_model::channel::Message;
 #[aliases("prefixes")]
 async fn prefix(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     let guild_id = msg.guild_id.unwrap();
+
     let action = match args.next() {
         Some("add") | Some("a") => Action::Add,
         Some("remove") | Some("r") => Action::Remove,
@@ -33,25 +35,33 @@ async fn prefix(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                 must be either `add` or `remove`, not `{}`",
                 other
             );
+
             return msg.error(&ctx, content).await;
         }
         None => {
             let prefixes = ctx.config_prefixes(guild_id);
             let mut content = String::new();
             current_prefixes(&mut content, &prefixes);
-            msg.respond(&ctx, content).await?;
+            msg.send_response(&ctx, content).await?;
+
             return Ok(());
         }
     };
+
     if args.is_empty() {
         let content = "After the first argument you should specify some prefix(es)";
+
         return msg.error(&ctx, content).await;
     }
-    let args: Vec<_> = args.take(5).map(|arg| arg.to_owned()).collect();
+
+    let args: Vec<Prefix> = args.take(5).map(|arg| arg.into()).collect();
+
     if args.iter().any(|arg| matcher::is_custom_emote(arg)) {
         let content = "Does not work with custom emotes unfortunately \\:(";
+
         return msg.error(&ctx, content).await;
     }
+
     ctx.update_config(guild_id, |config| match action {
         Action::Add => {
             config.prefixes.extend(args);
@@ -72,15 +82,18 @@ async fn prefix(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                 config.prefixes.retain(|p| p != &arg);
                 if config.prefixes.is_empty() {
                     config.prefixes.push(arg);
+
                     break;
                 }
             }
         }
     });
+
     let mut content = String::from("Prefixes updated!\n");
     let prefixes = ctx.config_prefixes(guild_id);
     current_prefixes(&mut content, &prefixes);
-    msg.respond(&ctx, content).await?;
+    msg.send_response(&ctx, content).await?;
+
     Ok(())
 }
 
@@ -89,13 +102,15 @@ enum Action {
     Remove,
 }
 
-fn current_prefixes(content: &mut String, prefixes: &[String]) {
+fn current_prefixes(content: &mut String, prefixes: &[Prefix]) {
     content.push_str("Prefixes for this server: ");
     let len = prefixes.iter().map(|p| p.len() + 4).sum();
     content.reserve_exact(len);
     let mut prefixes = prefixes.iter();
+
     if let Some(first) = prefixes.next() {
         let _ = write!(content, "`{}`", first);
+
         for prefix in prefixes {
             let _ = write!(content, ", `{}`", prefix);
         }

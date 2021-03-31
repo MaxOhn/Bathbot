@@ -1,10 +1,10 @@
 use crate::{
-    embeds::{osu, Author, EmbedData, Footer},
+    embeds::{osu, Author, EmbedBuilder, EmbedData, Footer},
     util::{
-        constants::{AVATAR_URL, DARK_GREEN, MAP_THUMB_URL, OSU_BASE},
+        constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
         error::PPError,
-        numbers::{round, with_comma_u64},
+        numbers::{round, with_comma_uint},
         osu::{grade_completion_mods, prepare_beatmap_file},
         ScoreExt,
     },
@@ -12,25 +12,20 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use rosu::model::{Beatmap, GameMode, Score, User};
 use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, OsuPP, StarResult, TaikoPP};
+use rosu_v2::prelude::{GameMode, Score, User};
 use std::fmt::Write;
 use tokio::fs::File;
-use twilight_embed_builder::{
-    author::EmbedAuthorBuilder, builder::EmbedBuilder, image_source::ImageSource,
-};
-use twilight_model::channel::embed::EmbedField;
 
 #[derive(Clone)]
 pub struct TopSingleEmbed {
-    description: Option<String>,
+    description: String,
     title: String,
     url: String,
     author: Author,
     footer: Footer,
     timestamp: DateTime<Utc>,
-    thumbnail: ImageSource,
-    image: ImageSource,
+    thumbnail: String,
 
     stars: f32,
     grade_completion_mods: String,
@@ -42,6 +37,7 @@ pub struct TopSingleEmbed {
     hits: String,
     if_fc: Option<(String, f32, String)>,
     map_info: String,
+    mapset_id: u32,
 }
 
 impl TopSingleEmbed {
@@ -49,13 +45,15 @@ impl TopSingleEmbed {
         user: &User,
         score: &Score,
         idx: usize,
-        map: &Beatmap,
         global: Option<&[Score]>,
     ) -> BotResult<Self> {
-        let map_path = prepare_beatmap_file(map.beatmap_id).await?;
+        let map = score.map.as_ref().unwrap();
+        let mapset = score.mapset.as_ref().unwrap();
+
+        let map_path = prepare_beatmap_file(map.map_id).await?;
         let file = File::open(map_path).await.map_err(PPError::from)?;
         let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
-        let mods = score.enabled_mods.bits();
+        let mods = score.mods.bits();
         let max_result = rosu_map.max_pp(mods);
         let attributes = max_result.attributes;
 
@@ -65,22 +63,32 @@ impl TopSingleEmbed {
         let if_fc = if_fc_struct(score, &rosu_map, attributes, mods);
 
         let pp = osu::get_pp(score.pp, Some(max_pp));
-        let hits = score.hits_string(map.mode);
+        let hits = score.hits_string(score.mode);
         let grade_completion_mods = grade_completion_mods(score, map);
 
-        let (combo, title) = if map.mode == GameMode::MNA {
-            let mut ratio = score.count_geki as f32;
+        let (combo, title) = if score.mode == GameMode::MNA {
+            let mut ratio = score.statistics.count_geki as f32;
 
-            if score.count300 > 0 {
-                ratio /= score.count300 as f32
+            if score.statistics.count_300 > 0 {
+                ratio /= score.statistics.count_300 as f32
             }
 
             let combo = format!("**{}x** / {:.2}", &score.max_combo, ratio);
-            let title = format!("{} {}", osu::get_keys(score.enabled_mods, &map), map);
+
+            let title = format!(
+                "{} {} - {} [{}]",
+                osu::get_keys(score.mods, &map),
+                mapset.artist,
+                mapset.title,
+                map.version
+            );
 
             (combo, title)
         } else {
-            (osu::get_combo(score, map), map.to_string())
+            (
+                osu::get_combo(score, map),
+                format!("{} - {} [{}]", mapset.artist, mapset.title, map.version),
+            )
         };
 
         let if_fc = if_fc.map(|if_fc| {
@@ -103,9 +111,9 @@ impl TopSingleEmbed {
 
         let footer = Footer::new(format!(
             "{:?} map by {} | played",
-            map.approval_status, map.creator
+            map.status, mapset.creator_name
         ))
-        .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
+        .icon_url(format!("{}{}", AVATAR_URL, mapset.creator_id));
 
         let mut description = format!("__**Personal Best #{}", idx);
 
@@ -116,129 +124,92 @@ impl TopSingleEmbed {
 
         description.push_str("**__");
 
-        let image = ImageSource::url(format!(
-            "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
-            map.beatmapset_id
-        ))
-        .unwrap();
-
-        let thumbnail =
-            ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id)).unwrap();
+        let thumbnail = format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id);
 
         Ok(Self {
             title,
-            image,
             footer,
             thumbnail,
-            description: Some(description),
-            url: format!("{}b/{}", OSU_BASE, map.beatmap_id),
-            author: osu::get_user_author(&user),
-            timestamp: score.date,
+            description,
+            url: format!("{}b/{}", OSU_BASE, map.map_id),
+            author: author!(user),
+            timestamp: score.created_at,
             grade_completion_mods,
             stars,
-            score: with_comma_u64(score.score as u64),
-            acc: round(score.accuracy(map.mode)),
-            ago: how_long_ago(&score.date),
+            score: with_comma_uint(score.score).to_string(),
+            acc: round(score.accuracy),
+            ago: how_long_ago(&score.created_at).to_string(),
             pp,
             combo,
             hits,
             map_info: osu::get_map_info(&map),
             if_fc,
+            mapset_id: mapset.mapset_id,
         })
     }
 }
 
 impl EmbedData for TopSingleEmbed {
-    fn description(&self) -> Option<&str> {
-        self.description.as_deref()
-    }
+    fn as_builder(&self) -> EmbedBuilder {
+        let image = format!(
+            "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
+            self.mapset_id
+        );
 
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
-    }
-
-    fn url(&self) -> Option<&str> {
-        Some(&self.url)
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-
-    fn image(&self) -> Option<&ImageSource> {
-        Some(&self.image)
-    }
-
-    fn timestamp(&self) -> Option<&DateTime<Utc>> {
-        Some(&self.timestamp)
-    }
-
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
         let mut fields = vec![
-            ("Grade".to_owned(), self.grade_completion_mods.clone(), true),
-            ("Score".to_owned(), self.score.clone(), true),
-            ("Acc".to_owned(), format!("{}%", self.acc), true),
-            ("PP".to_owned(), self.pp.clone(), true),
+            field!("Grade", self.grade_completion_mods.clone(), true),
+            field!("Score", self.score.clone(), true),
+            field!("Acc", format!("{}%", self.acc), true),
+            field!("PP", self.pp.clone(), true),
         ];
 
         let mania = self.hits.chars().filter(|&c| c == '/').count() == 5;
 
-        fields.push((
-            if mania { "Combo / Ratio" } else { "Combo" }.to_owned(),
+        fields.push(field!(
+            if mania { "Combo / Ratio" } else { "Combo" },
             self.combo.clone(),
-            true,
+            true
         ));
 
-        fields.push(("Hits".to_owned(), self.hits.clone(), true));
+        fields.push(field!("Hits", self.hits.clone(), true));
 
         if let Some((pp, acc, hits)) = &self.if_fc {
-            fields.push(("**If FC**: PP".to_owned(), pp.clone(), true));
-            fields.push(("Acc".to_owned(), format!("{}%", acc), true));
-            fields.push(("Hits".to_owned(), hits.clone(), true));
+            fields.push(field!("**If FC**: PP", pp.clone(), true));
+            fields.push(field!("Acc", format!("{}%", acc), true));
+            fields.push(field!("Hits", hits.clone(), true));
         }
 
-        fields.push(("Map Info".to_owned(), self.map_info.clone(), false));
+        fields.push(field!("Map Info", self.map_info.clone(), false));
 
-        Some(fields)
+        EmbedBuilder::new()
+            .author(&self.author)
+            .description(&self.description)
+            .fields(fields)
+            .footer(&self.footer)
+            .image(image)
+            .timestamp(self.timestamp)
+            .title(&self.title)
+            .url(&self.url)
     }
 
-    fn minimize(self) -> EmbedBuilder {
-        let mut eb = EmbedBuilder::new();
-
+    fn into_builder(self) -> EmbedBuilder {
         let name = format!(
             "{}\t{}\t({}%)\t{}",
             self.grade_completion_mods, self.score, self.acc, self.ago
         );
 
         let value = format!("{} [ {} ] {}", self.pp, self.combo, self.hits);
-        let title = format!("{} [{}★]", self.title, self.stars);
 
-        if let Some(description) = self.description {
-            eb = eb.description(description).unwrap();
-        }
+        let mut title = self.title;
+        let _ = write!(title, " [{}★]", self.stars);
 
-        let ab = EmbedAuthorBuilder::new()
-            .name(self.author.name)
-            .unwrap()
-            .url(self.author.url.unwrap())
-            .icon_url(self.author.icon_url.unwrap());
-
-        eb.color(DARK_GREEN)
-            .unwrap()
+        EmbedBuilder::new()
+            .author(self.author)
+            .description(self.description)
+            .fields(vec![field!(name, value, false)])
             .thumbnail(self.thumbnail)
             .title(title)
-            .unwrap()
             .url(self.url)
-            .field(EmbedField {
-                name,
-                value,
-                inline: false,
-            })
-            .author(ab)
     }
 }
 
@@ -253,22 +224,25 @@ struct IfFC {
 fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> Option<IfFC> {
     match attributes {
         StarResult::Osu(attributes)
-            if score.count_miss > 0 || score.max_combo < attributes.max_combo as u32 - 5 =>
+            if score.statistics.count_miss > 0
+                || score.max_combo < attributes.max_combo as u32 - 5 =>
         {
             let total_objects = (map.n_circles + map.n_sliders + map.n_spinners) as usize;
-            let passed_objects =
-                (score.count300 + score.count100 + score.count50 + score.count_miss) as usize;
+            let passed_objects = (score.statistics.count_300
+                + score.statistics.count_100
+                + score.statistics.count_50
+                + score.statistics.count_miss) as usize;
 
             let mut count300 =
-                score.count300 as usize + total_objects.saturating_sub(passed_objects);
+                score.statistics.count_300 as usize + total_objects.saturating_sub(passed_objects);
 
-            let count_hits = total_objects - score.count_miss as usize;
+            let count_hits = total_objects - score.statistics.count_miss as usize;
             let ratio = 1.0 - (count300 as f32 / count_hits as f32);
-            let new100s = (ratio * score.count_miss as f32).ceil() as u32;
+            let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
 
-            count300 += score.count_miss.saturating_sub(new100s) as usize;
-            let count100 = (score.count100 + new100s) as usize;
-            let count50 = score.count50 as usize;
+            count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
+            let count100 = (score.statistics.count_100 + new100s) as usize;
+            let count50 = score.statistics.count_50 as usize;
 
             let pp_result = OsuPP::new(&map)
                 .attributes(attributes)
@@ -291,20 +265,22 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
         }
         StarResult::Fruits(attributes) if score.max_combo != attributes.max_combo as u32 => {
             let total_objects = attributes.max_combo;
-            let passed_objects = (score.count300 + score.count100 + score.count_miss) as usize;
+            let passed_objects = (score.statistics.count_300
+                + score.statistics.count_100
+                + score.statistics.count_miss) as usize;
 
             let missing = total_objects - passed_objects;
             let missing_fruits = missing.saturating_sub(
                 attributes
                     .n_droplets
-                    .saturating_sub(score.count100 as usize),
+                    .saturating_sub(score.statistics.count_100 as usize),
             );
 
             let missing_droplets = missing - missing_fruits;
 
-            let n_fruits = score.count300 as usize + missing_fruits;
-            let n_droplets = score.count100 as usize + missing_droplets;
-            let n_tiny_droplet_misses = score.count_katu as usize;
+            let n_fruits = score.statistics.count_300 as usize + missing_fruits;
+            let n_droplets = score.statistics.count_100 as usize + missing_droplets;
+            let n_tiny_droplet_misses = score.statistics.count_katu as usize;
             let n_tiny_droplets = attributes
                 .n_tiny_droplets
                 .saturating_sub(n_tiny_droplet_misses);
@@ -335,19 +311,19 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
                 acc,
             })
         }
-        StarResult::Taiko(attributes) if score.count_miss > 0 => {
+        StarResult::Taiko(attributes) if score.statistics.count_miss > 0 => {
             let total_objects = map.n_circles as usize;
-            let passed_objects = score.total_hits(GameMode::TKO) as usize;
+            let passed_objects = score.total_hits() as usize;
 
             let mut count300 =
-                score.count300 as usize + total_objects.saturating_sub(passed_objects);
+                score.statistics.count_300 as usize + total_objects.saturating_sub(passed_objects);
 
-            let count_hits = total_objects - score.count_miss as usize;
+            let count_hits = total_objects - score.statistics.count_miss as usize;
             let ratio = 1.0 - (count300 as f32 / count_hits as f32);
-            let new100s = (ratio * score.count_miss as f32).ceil() as u32;
+            let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
 
-            count300 += score.count_miss.saturating_sub(new100s) as usize;
-            let count100 = (score.count100 + new100s) as usize;
+            count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
+            let count100 = (score.statistics.count_100 + new100s) as usize;
 
             let acc = 100.0 * (2 * count300 + count100) as f32 / (2 * total_objects) as f32;
 

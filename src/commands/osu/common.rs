@@ -1,28 +1,27 @@
-use super::ResultError;
 use crate::{
     arguments::{Args, MultNameArgs},
     embeds::{CommonEmbed, EmbedData},
     pagination::{CommonPagination, Pagination},
     tracking::process_tracking,
-    unwind_error,
     util::{constants::OSU_API_ISSUE, get_combined_thumbnail, MessageExt},
-    BotResult, Context,
+    BotResult, Context, Name,
 };
 
-use futures::{
-    future::{FutureExt, TryFutureExt},
-    stream::{FuturesOrdered, FuturesUnordered, TryStreamExt},
-};
+use futures::stream::{FuturesOrdered, StreamExt};
+use hashbrown::HashSet;
 use itertools::Itertools;
-use rayon::prelude::*;
-use rosu::model::{GameMode, Score, User};
-use std::{
-    cmp::Ordering,
-    collections::{HashMap, HashSet},
-    fmt::Write,
-    sync::Arc,
-};
+use rosu_v2::prelude::{GameMode, OsuError, Score};
+use smallvec::SmallVec;
+use std::{cmp::Ordering, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
+
+macro_rules! user_id {
+    ($scores:ident[$idx:literal]) => {
+        $scores[$idx].user.as_ref().unwrap().user_id
+    };
+}
+
+type CommonUsers = SmallVec<[CommonUser; 3]>;
 
 async fn common_main(
     mode: GameMode,
@@ -66,127 +65,114 @@ async fn common_main(
         return msg.error(&ctx, content).await;
     }
 
-    // Retrieve all users
-    let user_futs = names
-        .iter()
-        .enumerate()
-        .map(|(i, name)| {
-            ctx.osu()
-                .user(name.as_str())
+    let count = names.len();
+
+    // Retrieve each user's top scores
+    let mut scores_futs = names
+        .into_iter()
+        .map(|name| async {
+            let fut_1 = ctx
+                .osu()
+                .user_scores(name.as_str())
+                .limit(50)
                 .mode(mode)
-                .map(move |result| match result {
-                    Ok(Some(user)) => Ok(user),
-                    Ok(None) => Err(ResultError::None(i)),
-                    Err(why) => Err(ResultError::Osu(why)),
-                })
-                .map_ok(CommonUser::from)
+                .best();
+
+            let fut_2 = ctx
+                .osu()
+                .user_scores(name.as_str())
+                .limit(50)
+                .offset(50)
+                .mode(mode)
+                .best();
+
+            (name, tokio::try_join!(fut_1, fut_2))
         })
-        .collect::<FuturesOrdered<_>>()
-        .try_collect();
+        .collect::<FuturesOrdered<_>>();
 
-    let mut users: Vec<CommonUser> = match user_futs.await {
-        Ok(users) => users,
-        Err(ResultError::None(idx)) => {
-            let content = format!("User `{}` was not found", names[idx]);
+    let mut all_scores = Vec::<Vec<_>>::with_capacity(count);
+    let mut users = CommonUsers::with_capacity(count);
 
-            return msg.error(&ctx, content).await;
+    while let Some((mut name, result)) = scores_futs.next().await {
+        match result {
+            Ok((mut scores, mut scores_2)) => {
+                scores.append(&mut scores_2);
+                name.make_ascii_lowercase();
+
+                users.push(CommonUser::new(name, scores.first().map(|s| s.user_id)));
+                all_scores.push(scores);
+            }
+            Err(OsuError::NotFound) => {
+                let content = format!("User `{}` was not found", name);
+
+                return msg.error(&ctx, content).await;
+            }
+            Err(why) => {
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
+                return Err(why.into());
+            }
         }
-        Err(ResultError::Osu(why)) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+    }
 
-            return Err(why.into());
-        }
-    };
+    drop(scores_futs);
 
-    // Check if different names were given
-    // that both belong to the same user
+    // Check if different names that both belong to the same user were given
     if users.iter().unique_by(|user| user.id()).count() == 1 {
         let content = "Give at least two different users";
 
         return msg.error(&ctx, content).await;
     }
 
-    // Retrieve each user's top scores
-    let score_futs = users
-        .iter()
-        .map(|u| {
-            u.user
-                .get_top_scores(ctx.osu())
-                .limit(100)
-                .mode(mode)
-                .map_ok(move |scores| (u.user.user_id, scores))
-        })
-        .collect::<FuturesUnordered<_>>()
-        .try_collect();
-
-    let mut all_scores: Vec<(u32, Vec<Score>)> = match score_futs.await {
-        Ok(all_scores) => all_scores,
-        Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-            return Err(why.into());
-        }
-    };
-
     // Process users and their top scores for tracking
-    {
-        let mut maps = HashMap::new();
-
-        for (u, (_, scores)) in users.iter().zip(all_scores.iter()) {
-            process_tracking(&ctx, mode, scores, Some(&u.user), &mut maps).await;
-        }
+    for scores in all_scores.iter_mut() {
+        process_tracking(&ctx, mode, scores, None).await;
     }
 
     // Consider only scores on common maps
     let mut map_ids: HashSet<u32> = all_scores
         .iter()
-        .map(|(_, scores)| scores.iter().flat_map(|s| s.beatmap_id))
+        .map(|scores| scores.iter().flat_map(|s| map_id!(s)))
         .flatten()
         .collect();
 
     map_ids.retain(|&id| {
-        all_scores.iter().all(|(_, scores)| {
+        all_scores.iter().all(|scores| {
             scores
                 .iter()
-                .filter_map(|s| s.beatmap_id)
+                .filter_map(|s| map_id!(s))
                 .any(|map_id| map_id == id)
         })
     });
 
     all_scores
-        .par_iter_mut()
-        .for_each(|(_, scores)| scores.retain(|s| map_ids.contains(&s.beatmap_id.unwrap())));
+        .iter_mut()
+        .for_each(|scores| scores.retain(|s| map_ids.contains(&map_id!(s).unwrap())));
 
     // Flatten scores, sort by beatmap id, then group by beatmap id
-    let mut all_scores: Vec<(u32, Score)> = all_scores
-        .into_iter()
-        .map(|(user_id, scores)| scores.into_iter().map(move |score| (user_id, score)))
-        .flatten()
-        .collect();
+    let mut all_scores: Vec<Score> = all_scores.into_iter().flatten().collect();
+    all_scores.sort_unstable_by_key(|score| map_id!(score));
 
-    all_scores.sort_unstable_by_key(|(_, s)| s.beatmap_id);
-
-    let all_scores: HashMap<u32, Vec<(usize, f32)>> = all_scores
+    let mut scores_per_map: Vec<SmallVec<[(usize, f32, Score); 3]>> = all_scores
         .into_iter()
-        .group_by(|(_, score)| score.beatmap_id.unwrap())
+        .group_by(|score| map_id!(score))
         .into_iter()
-        .map(|(map_id, scores)| {
-            // Sort with respect to order of users
-            let mut scores: Vec<(u32, Score)> = scores.collect();
+        .map(|(_, scores)| {
+            // Sort with respect to order of names
+            let mut scores: Vec<Score> = scores.collect();
 
-            if scores[0].0 != users[0].id() {
-                let target = (scores[1].0 != users[0].id()) as usize + 1;
+            if user_id!(scores[0]) != users[0].id().unwrap() {
+                let target = (user_id!(scores[1]) != users[0].id().unwrap()) as usize + 1;
                 scores.swap(0, target);
             }
 
-            if scores[1].0 != users[1].id() {
+            if user_id!(scores[1]) != users[1].id().unwrap() {
                 scores.swap(1, 2);
             }
 
-            let mut scores: Vec<_> = scores
+            let mut scores: SmallVec<[(usize, f32, Score); 3]> = scores
                 .into_iter()
-                .flat_map(|(_, score)| score.pp)
-                .map(|pp| (0, pp))
+                .map(|score| (0, score.pp.unwrap(), score))
                 .collect();
 
             // Calculate the index of the pp ordered by their values
@@ -218,92 +204,21 @@ async fn common_main(
                 users[2].first_count += 1;
             }
 
-            (map_id, scores)
+            scores
         })
         .collect();
 
     // Sort the maps by their score's avg pp values
-    let mut pp_avg: Vec<(u32, f32)> = all_scores
-        .par_iter()
-        .map(|(&map_id, scores)| {
-            let sum = scores.iter().fold(0.0, |sum, (_, next)| sum + *next);
+    scores_per_map.sort_unstable_by(|s1, s2| {
+        let s1 = s1.iter().map(|(_, pp, _)| *pp).sum::<f32>();
+        let s2 = s2.iter().map(|(_, pp, _)| *pp).sum::<f32>();
 
-            (map_id, sum / scores.len() as f32)
-        })
-        .collect();
-
-    pp_avg.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
-
-    // Try retrieving all maps of common scores from the database
-    let mut maps = {
-        let map_id_vec = map_ids.iter().copied().collect_vec();
-
-        match ctx.psql().get_beatmaps(&map_id_vec).await {
-            Ok(maps) => maps,
-            Err(why) => {
-                unwind_error!(warn, why, "Error while getting maps from DB: {}");
-
-                HashMap::default()
-            }
-        }
-    };
-
-    let amount_common = map_ids.len();
-    map_ids.retain(|id| !maps.contains_key(id));
-
-    // Retrieve all missing maps from the API
-    let missing_maps = if map_ids.is_empty() {
-        None
-    } else {
-        let map_futs = map_ids
-            .into_iter()
-            .map(|id| {
-                ctx.osu()
-                    .beatmap()
-                    .map_id(id)
-                    .map(move |result| match result {
-                        Ok(Some(map)) => Ok(map),
-                        Ok(None) => Err(ResultError::None(id)),
-                        Err(why) => Err(ResultError::Osu(why)),
-                    })
-            })
-            .collect::<FuturesUnordered<_>>()
-            .try_collect::<Vec<_>>();
-
-        match map_futs.await {
-            Ok(missing_maps) => {
-                for map in missing_maps.iter() {
-                    maps.insert(map.beatmap_id, map.clone());
-                }
-
-                Some(missing_maps)
-            }
-            Err(ResultError::None(id)) => {
-                let content = format!("API returned no result for map id {}", id);
-
-                return msg.error(&ctx, content).await;
-            }
-            Err(ResultError::Osu(why)) => {
-                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-                return Err(why.into());
-            }
-        }
-    };
-
-    // Combine maps and scores into one variable
-    let map_scores = all_scores
-        .into_iter()
-        .filter_map(|(map_id, scores)| {
-            let map = maps.remove(&map_id)?;
-
-            Some((map_id, (map, scores)))
-        })
-        .collect();
+        s2.partial_cmp(&s1).unwrap_or(Ordering::Equal)
+    });
 
     // Accumulate all necessary data
     let mut content = String::with_capacity(16);
-    let len = names.len();
+    let len = users.len();
     let mut iter = users.iter().map(CommonUser::name);
 
     if let Some(first) = iter.next() {
@@ -323,6 +238,8 @@ async fn common_main(
         }
     }
 
+    let amount_common = scores_per_map.len();
+
     if amount_common == 0 {
         content.push_str(" have no common scores");
     } else {
@@ -336,12 +253,12 @@ async fn common_main(
 
     // Create the combined profile pictures
     let thumbnail_fut =
-        async { get_combined_thumbnail(&ctx, users.iter().map(CommonUser::id)).await };
+        async { get_combined_thumbnail(&ctx, users.iter().map(|u| u.id().unwrap())).await };
 
     let data_fut = async {
-        let id_pps = &pp_avg[..10.min(pp_avg.len())];
+        let limit = scores_per_map.len().min(10);
 
-        CommonEmbed::new(&users, &map_scores, id_pps, 0)
+        CommonEmbed::new(&users, &scores_per_map[..limit], 0)
     };
 
     let (thumbnail_result, data) = tokio::join!(thumbnail_fut, data_fut);
@@ -356,7 +273,7 @@ async fn common_main(
     };
 
     // Creating the embed
-    let embed = data.build().build()?;
+    let embed = data.into_builder().build();
     let mut m = ctx.http.create_message(msg.channel_id);
 
     m = match thumbnail {
@@ -366,24 +283,25 @@ async fn common_main(
 
     let response = m.content(content)?.embed(embed)?.await?;
 
-    // Add missing maps to database
-    if let Some(maps) = missing_maps {
-        match ctx.psql().insert_beatmaps(&maps).await {
-            Ok(n) if n < 2 => {}
-            Ok(n) => info!("Added {} maps to DB", n),
-            Err(why) => unwind_error!(warn, why, "Error while adding maps to DB: {}"),
-        }
+    // Add maps of scores to DB
+    let map_iter = scores_per_map
+        .iter()
+        .filter_map(|scores| scores.first())
+        .map(|(_, _, score)| score);
+
+    if let Err(why) = ctx.psql().store_scores_maps(map_iter).await {
+        unwind_error!(warn, why, "Error while adding score maps to DB: {}")
     }
 
     // Skip pagination if too few entries
-    if pp_avg.len() <= 10 {
+    if scores_per_map.len() <= 10 {
         response.reaction_delete(&ctx, msg.author.id);
 
         return Ok(());
     }
 
     // Pagination
-    let pagination = CommonPagination::new(response, users, map_scores, pp_avg);
+    let pagination = CommonPagination::new(response, users, scores_per_map);
     let owner = msg.author.id;
 
     tokio::spawn(async move {
@@ -447,15 +365,17 @@ pub async fn commonctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
 }
 
 pub struct CommonUser {
-    user: User,
+    name: Name,
+    user_id: Option<u32>,
     pub first_count: usize,
 }
 
-impl From<User> for CommonUser {
+impl CommonUser {
     #[inline]
-    fn from(user: User) -> Self {
+    fn new(name: Name, user_id: Option<u32>) -> Self {
         Self {
-            user,
+            name,
+            user_id,
             first_count: 0,
         }
     }
@@ -463,12 +383,12 @@ impl From<User> for CommonUser {
 
 impl CommonUser {
     #[inline]
-    fn id(&self) -> u32 {
-        self.user.user_id
+    pub fn id(&self) -> Option<u32> {
+        self.user_id
     }
 
     #[inline]
     pub fn name(&self) -> &str {
-        self.user.username.as_str()
+        self.name.as_str()
     }
 }

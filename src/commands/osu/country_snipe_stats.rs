@@ -1,8 +1,8 @@
+use super::request_user;
 use crate::{
     arguments::Args,
     custom_client::SnipeCountryPlayer,
     embeds::{CountrySnipeStatsEmbed, EmbedData},
-    unwind_error,
     util::{
         constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         MessageExt, SNIPE_COUNTRIES,
@@ -12,7 +12,7 @@ use crate::{
 
 use image::{png::PngEncoder, ColorType};
 use plotters::prelude::*;
-use rosu::model::GameMode;
+use rosu_v2::prelude::{GameMode, OsuError};
 use std::{cmp::Ordering::Equal, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -51,10 +51,10 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
         },
         None => match ctx.get_link(msg.author.id.0) {
             Some(name) => {
-                let user = match ctx.osu().user(name.as_str()).mode(GameMode::STD).await {
-                    Ok(Some(user)) => user,
-                    Ok(None) => {
-                        let content = format!("Could not find user `{}`", name);
+                let user = match request_user(&ctx, &name, Some(GameMode::STD)).await {
+                    Ok(user) => user,
+                    Err(OsuError::NotFound) => {
+                        let content = format!("User `{}` was not found", name);
 
                         return msg.error(&ctx, content).await;
                     }
@@ -64,12 +64,13 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
                         return Err(why.into());
                     }
                 };
-                if SNIPE_COUNTRIES.contains_key(user.country.as_str()) {
-                    user.country.to_owned()
+
+                if SNIPE_COUNTRIES.contains_key(user.country_code.as_str()) {
+                    user.country_code.to_owned()
                 } else {
                     let content = format!(
                         "`{}`'s country {} is not supported :(",
-                        user.username, user.country
+                        user.username, user.country_code
                     );
 
                     return msg.error(&ctx, content).await;
@@ -113,7 +114,7 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
     let data = CountrySnipeStatsEmbed::new(country, statistics);
 
     // Sending the embed
-    let embed = data.build_owned().build()?;
+    let embed = data.into_builder().build();
     let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
 
     if let Some(graph) = graph {

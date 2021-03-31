@@ -1,11 +1,17 @@
 use serde::{Deserialize, Serialize};
+use smallstr::SmallString;
+use smallvec::SmallVec;
 use sqlx::{postgres::PgRow, Error, FromRow, Row};
+
+pub type Prefix = SmallString<[u8; 2]>;
+pub type Prefixes = SmallVec<[Prefix; 5]>;
+pub type Authorities = SmallVec<[u64; 4]>;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct GuildConfig {
     pub with_lyrics: bool,
-    pub prefixes: Vec<String>,
-    pub authorities: Vec<u64>,
+    pub prefixes: Prefixes,
+    pub authorities: Authorities,
     #[serde(default, skip_serializing)]
     pub modified: bool,
 }
@@ -21,8 +27,8 @@ impl Default for GuildConfig {
     fn default() -> Self {
         GuildConfig {
             with_lyrics: true,
-            prefixes: vec!["<".to_owned()],
-            authorities: vec![],
+            prefixes: smallvec!["<".into()],
+            authorities: smallvec![],
             modified: true,
         }
     }

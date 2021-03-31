@@ -1,16 +1,23 @@
 use crate::{
+    commands::osu::prepare_score,
     embeds::{EmbedData, TrackNotificationEmbed},
-    unwind_error, Context,
+    Context,
 };
 
-use futures::future::{join_all, FutureExt};
-use rosu::model::{Beatmap, GameMode, Score, User};
-use std::{collections::HashMap, sync::Arc};
+use chrono::{DateTime, Utc};
+use futures::{
+    future::FutureExt,
+    stream::{FuturesUnordered, StreamExt},
+};
+use hashbrown::HashMap;
+use rosu_v2::prelude::{GameMode, OsuError, Score, User};
+use std::sync::Arc;
 use tokio::time;
 use twilight_http::{
     api_error::{ApiError, ErrorCode, GeneralApiError},
     Error as TwilightError,
 };
+use twilight_model::{channel::embed::Embed, id::ChannelId};
 
 #[cold]
 pub async fn tracking_loop(ctx: Arc<Context>) {
@@ -34,23 +41,25 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
         };
 
         // Build top score requests for each
-        let score_futs = tracked.iter().map(|&(user_id, mode)| {
-            ctx.osu()
-                .top_scores(user_id)
-                .mode(mode)
-                .limit(100)
-                .map(move |result| (user_id, mode, result))
-        });
+        let mut scores_futs = tracked
+            .iter()
+            .map(|&(user_id, mode)| {
+                ctx.osu()
+                    .user_scores(user_id)
+                    .best()
+                    .mode(mode)
+                    .limit(50)
+                    .map(move |result| (user_id, mode, result))
+            })
+            .collect::<FuturesUnordered<_>>();
 
         // Iterate over the request responses
-        let mut maps: HashMap<u32, Beatmap> = HashMap::new();
-
-        for (user_id, mode, result) in join_all(score_futs).await {
+        while let Some((user_id, mode, result)) = scores_futs.next().await {
             match result {
-                Ok(scores) => {
+                Ok(mut scores) => {
                     // Note: If scores are empty, (user_id, mode) will not be reset into the tracking queue
                     if !scores.is_empty() {
-                        process_tracking(&ctx, mode, &scores, None, &mut maps).await
+                        process_tracking(&ctx, mode, &mut scores, None).await
                     }
                 }
                 Err(why) => {
@@ -72,31 +81,28 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
 pub async fn process_tracking(
     ctx: &Context,
     mode: GameMode,
-    scores: &[Score],
+    scores: &mut [Score],
     user: Option<&User>,
-    maps: &mut HashMap<u32, Beatmap>,
 ) {
-    let id_option = scores
-        .first()
-        .map(|s| s.user_id)
-        .or_else(|| user.map(|u| u.user_id));
-
-    let user_id = match id_option {
-        Some(id) => id,
+    // Make sure scores is not empty
+    let user_id = match scores.first().map(|s| s.user_id) {
+        Some(user_id) => user_id,
         None => return,
     };
 
+    // Make sure the user is being tracked in general
     let (last, channels) = match ctx.tracking().get_tracked(user_id, mode) {
         Some(tuple) => tuple,
         None => return,
     };
 
+    // Make sure the user is being tracked in any channel
     let max = match channels.values().max() {
         Some(max) => *max,
         None => return,
     };
 
-    let new_last = match scores.iter().map(|s| s.date).max() {
+    let mut new_last = match scores.iter().map(|s| s.created_at).max() {
         Some(new_last) => new_last,
         None => return,
     };
@@ -106,96 +112,134 @@ pub async fn process_tracking(
         user_id, mode, last, new_last
     );
 
-    let mut user_value = None; // will be set if user is None but there is new top score
+    let mut user = TrackUser::new(user_id, mode, user);
 
-    for (idx, score) in scores.iter().enumerate().take(max) {
+    // Process scores
+    match score_loop(ctx, &mut user, 0, max, last, scores, &channels).await {
+        Err(ErrorType::NotFound) => {
+            debug!(
+                "[Tracking] User ({},{}) not found, skip reset",
+                user_id, mode
+            );
+
+            return;
+        }
+        Err(ErrorType::Osu(why)) => {
+            unwind_error!(warn, why, "osu!api error while tracking: {}");
+
+            ctx.tracking().reset(user_id, mode).await;
+            debug!("[Tracking] Reset ({},{})", user_id, mode);
+
+            return;
+        }
+        _ => {}
+    }
+
+    let offset = scores.len();
+
+    // If another load of scores is required, request and process them
+    if let Some(max) = max.checked_sub(offset) {
+        let scores_fut = ctx
+            .osu()
+            .user_scores(user_id)
+            .best()
+            .offset(offset)
+            .limit(max)
+            .mode(mode);
+
+        match scores_fut.await {
+            Ok(mut scores) => {
+                if let Some(max) = scores.iter().map(|s| s.created_at).max() {
+                    new_last = new_last.max(max);
+                }
+
+                let loop_fut =
+                    score_loop(ctx, &mut user, offset, max, last, &mut scores, &channels);
+
+                match loop_fut.await {
+                    Ok(_) => {}
+                    Err(ErrorType::NotFound) => {
+                        if let Err(why) = ctx.tracking().remove_user_all(user_id, ctx.psql()).await
+                        {
+                            unwind_error!(
+                                warn,
+                                why,
+                                "Failed to remove unknown user from tracking: {}"
+                            );
+                        }
+                    }
+                    Err(ErrorType::Osu(why)) => {
+                        unwind_error!(warn, why, "osu!api error while tracking: {}")
+                    }
+                }
+            }
+            Err(why) => unwind_error!(
+                warn,
+                why,
+                "Failed to request second load of scores for tracking: {}"
+            ),
+        }
+    }
+
+    // If new top score, update the date
+    if new_last > last {
+        debug!(
+            "[Tracking] Updating for ({},{}): {} -> {}",
+            user_id, mode, last, new_last
+        );
+
+        let update_fut = ctx
+            .tracking()
+            .update_last_date(user_id, mode, new_last, ctx.psql());
+
+        if let Err(why) = update_fut.await {
+            unwind_error!(
+                warn,
+                why,
+                "Error while updating tracking date for user ({},{}): {}",
+                user_id,
+                mode
+            );
+        }
+    }
+
+    ctx.tracking().reset(user_id, mode).await;
+    debug!("[Tracking] Reset ({},{})", user_id, mode);
+}
+
+async fn score_loop(
+    ctx: &Context,
+    user: &mut TrackUser<'_>,
+    start: usize,
+    max: usize,
+    last: DateTime<Utc>,
+    scores: &mut [Score],
+    channels: &HashMap<ChannelId, usize>,
+) -> Result<(), ErrorType> {
+    for (mut idx, score) in scores.iter_mut().enumerate().take(max) {
         // Skip if its an older score
-        if score.date <= last {
+        if score.created_at <= last {
             continue;
+        }
+
+        let requires_combo = score.map.as_ref().map_or(false, |m| {
+            matches!(m.mode, GameMode::STD | GameMode::CTB) && m.max_combo.is_none()
+        });
+
+        if requires_combo {
+            if let Err(why) = prepare_score(&ctx, score).await {
+                unwind_error!(warn, why, "Failed to fill in max combo for tracking: {}");
+
+                continue;
+            }
         }
 
         debug!(
             "[New top score] ({},{}): new {} | old {}",
-            user_id, mode, score.date, last
+            user.user_id, user.mode, score.created_at, last
         );
 
-        // Prepare beatmap
-        let map_id = match score.beatmap_id {
-            Some(id) => id,
-            None => {
-                warn!("No beatmap_id for ({},{})'s score", user_id, mode);
-                continue;
-            }
-        };
-
-        if !maps.contains_key(&map_id) {
-            match ctx.psql().get_beatmap(map_id).await {
-                Ok(map) => maps.insert(map_id, map),
-                Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
-                    Ok(Some(map)) => maps.insert(map_id, map),
-                    Ok(None) => {
-                        warn!("Beatmap id {} was not found for tracking", map_id);
-
-                        continue;
-                    }
-                    Err(why) => {
-                        unwind_error!(
-                            warn,
-                            why,
-                            "Error while retrieving tracking map id {}: {}",
-                            map_id
-                        );
-
-                        continue;
-                    }
-                },
-            };
-        }
-
-        let map = maps.get(&map_id).unwrap();
-
-        // Prepare user
-        let user = match (user, user_value.as_ref()) {
-            (Some(user), _) => user,
-            (None, Some(user)) => user,
-            (None, None) => match ctx.osu().user(user_id).mode(mode).await {
-                Ok(Some(user)) => {
-                    user_value = Some(user);
-                    user_value.as_ref().unwrap()
-                }
-                Ok(None) => {
-                    warn!("Empty result while retrieving tracking user {}", user_id);
-
-                    continue;
-                }
-                Err(why) => {
-                    unwind_error!(
-                        warn,
-                        why,
-                        "Error while retrieving tracking user {}: {}",
-                        user_id
-                    );
-
-                    continue;
-                }
-            },
-        };
-
-        // Build embed
-        let data = TrackNotificationEmbed::new(user, score, map, idx + 1).await;
-
-        let embed = match data.build().build() {
-            Ok(embed) => embed,
-            Err(why) => {
-                unwind_error!(
-                    warn,
-                    why,
-                    "Error while creating tracking notification embed: {}"
-                );
-
-                continue;
-            }
-        };
+        idx += start;
 
         // Send the embed to each tracking channel
         for (&channel, &limit) in channels.iter() {
@@ -203,22 +247,27 @@ pub async fn process_tracking(
                 continue;
             }
 
+            let embed = match user.embed(ctx, score, idx + 1).await {
+                Ok(embed) => embed,
+                Err(ErrorType::NotFound) => return Err(ErrorType::NotFound),
+                Err(ErrorType::Osu(why)) => return Err(ErrorType::Osu(why)),
+            };
+
             // Try to build and send the message
-            match ctx.http.create_message(channel).embed(embed.clone()) {
+            match ctx.http.create_message(channel).embed(embed) {
                 Ok(msg_fut) => {
                     let result = msg_fut.await;
+
                     if let Err(TwilightError::Response { error, .. }) = result {
                         if let ApiError::General(GeneralApiError {
                             code: ErrorCode::UnknownChannel,
                             ..
                         }) = error
                         {
-                            let result = ctx
-                                .tracking()
-                                .remove_channel(channel, None, ctx.psql())
-                                .await;
+                            let remove_fut =
+                                ctx.tracking().remove_channel(channel, None, ctx.psql());
 
-                            if let Err(why) = result {
+                            if let Err(why) = remove_fut.await {
                                 unwind_error!(
                                     warn,
                                     why,
@@ -247,30 +296,72 @@ pub async fn process_tracking(
                     unwind_error!(warn, why, "Invalid embed for osu!tracking notification: {}")
                 }
             }
+
+            user.clear();
         }
     }
 
-    if new_last > last {
-        debug!(
-            "[Tracking] Updating for ({},{}): {} -> {}",
-            user_id, mode, last, new_last
-        );
+    Ok(())
+}
 
-        let update_fut = ctx
-            .tracking()
-            .update_last_date(user_id, mode, new_last, ctx.psql());
+struct TrackUser<'u> {
+    user_id: u32,
+    mode: GameMode,
+    user_ref: Option<&'u User>,
+    user: Option<User>,
+    embed: Option<Embed>,
+}
 
-        if let Err(why) = update_fut.await {
-            unwind_error!(
-                warn,
-                why,
-                "Error while updating tracking date for user ({},{}): {}",
-                user_id,
-                mode
-            );
+impl<'u> TrackUser<'u> {
+    #[inline]
+    fn new(user_id: u32, mode: GameMode, user_ref: Option<&'u User>) -> Self {
+        Self {
+            user_id,
+            mode,
+            user_ref,
+            user: None,
+            embed: None,
         }
     }
 
-    ctx.tracking().reset(user_id, mode).await;
-    debug!("[Tracking] Reset ({},{})", user_id, mode);
+    #[inline]
+    fn clear(&mut self) {
+        self.embed.take();
+    }
+
+    async fn embed(
+        &mut self,
+        ctx: &Context,
+        score: &Score,
+        idx: usize,
+    ) -> Result<Embed, ErrorType> {
+        if let Some(ref embed) = self.embed {
+            Ok(embed.to_owned())
+        } else {
+            let data = if let Some(user) = self.user_ref {
+                TrackNotificationEmbed::new(user, score, idx).await
+            } else if let Some(ref user) = self.user {
+                TrackNotificationEmbed::new(user, score, idx).await
+            } else {
+                let user = match ctx.osu().user(self.user_id).mode(self.mode).await {
+                    Ok(user) => user,
+                    Err(OsuError::NotFound) => return Err(ErrorType::NotFound),
+                    Err(why) => return Err(ErrorType::Osu(why)),
+                };
+
+                let user = self.user.get_or_insert(user);
+
+                TrackNotificationEmbed::new(user, score, idx).await
+            };
+
+            let embed = data.into_builder().build();
+
+            Ok(self.embed.get_or_insert(embed).to_owned())
+        }
+    }
+}
+
+enum ErrorType {
+    NotFound,
+    Osu(OsuError),
 }

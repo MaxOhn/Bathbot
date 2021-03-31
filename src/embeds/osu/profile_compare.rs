@@ -1,24 +1,22 @@
 use crate::{
     commands::osu::{CompareResult, MinMaxAvgBasic},
-    custom_client::OsuProfile,
-    embeds::EmbedData,
+    embeds::attachment,
     util::{
         datetime::sec_to_minsec,
-        numbers::{with_comma, with_comma_u64},
+        numbers::{with_comma_float, with_comma_uint},
     },
 };
 
-use chrono::Utc;
-use rosu::model::{GameMode, User};
+use chrono::{DateTime, Utc};
+use rosu_v2::prelude::{GameMode, User, UserStatistics};
 use std::{
     cmp::Reverse,
     fmt::{Display, Write},
 };
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct ProfileCompareEmbed {
-    description: Option<String>,
-    image: Option<ImageSource>,
+    description: String,
+    image: String,
 }
 
 impl ProfileCompareEmbed {
@@ -28,12 +26,13 @@ impl ProfileCompareEmbed {
         user2: User,
         result1: CompareResult,
         result2: CompareResult,
-        profile1: OsuProfile,
-        profile2: OsuProfile,
     ) -> Self {
-        let left = CompareStrings::new(&user1, &result1);
+        let stats1 = user1.statistics.as_ref().unwrap();
+        let stats2 = user2.statistics.as_ref().unwrap();
+
+        let left = CompareStrings::new(stats1, user1.join_date, &result1);
         let max_left = left.max().max(user1.username.chars().count());
-        let right = CompareStrings::new(&user2, &result2);
+        let right = CompareStrings::new(stats2, user2.join_date, &result2);
         let max_right = right.max().max(user2.username.chars().count());
         let mut d = String::with_capacity(512);
         d.push_str("```\n");
@@ -68,21 +67,14 @@ impl ProfileCompareEmbed {
             "Rank",
             left.rank,
             right.rank,
-            Reverse(user1.pp_rank),
-            Reverse(user2.pp_rank),
+            Reverse(stats1.global_rank),
+            Reverse(stats2.global_rank),
             max_left,
             max_right,
         );
 
         write_line(
-            &mut d,
-            "PP",
-            left.pp,
-            right.pp,
-            user1.pp_raw,
-            user2.pp_raw,
-            max_left,
-            max_right,
+            &mut d, "PP", left.pp, right.pp, stats1.pp, stats2.pp, max_left, max_right,
         );
 
         write_line(
@@ -90,8 +82,8 @@ impl ProfileCompareEmbed {
             "Accuracy",
             left.accuracy,
             right.accuracy,
-            user1.accuracy,
-            user2.accuracy,
+            stats1.accuracy,
+            stats2.accuracy,
             max_left,
             max_right,
         );
@@ -101,8 +93,8 @@ impl ProfileCompareEmbed {
             "Level",
             left.level,
             right.level,
-            user1.level,
-            user2.level,
+            stats1.level.current,
+            stats2.level.current,
             max_left,
             max_right,
         );
@@ -112,8 +104,8 @@ impl ProfileCompareEmbed {
             "Playtime",
             left.play_time,
             right.play_time,
-            user1.total_seconds_played,
-            user2.total_seconds_played,
+            stats1.playtime,
+            stats2.playtime,
             max_left,
             max_right,
         );
@@ -123,31 +115,33 @@ impl ProfileCompareEmbed {
             "Playcount",
             left.play_count,
             right.play_count,
-            user1.playcount,
-            user2.playcount,
+            stats1.playcount,
+            stats2.playcount,
             max_left,
             max_right,
         );
 
-        let left_peak = profile1
+        let left_peak = user1
             .monthly_playcounts
+            .unwrap()
             .iter()
-            .map(|date_count| date_count.count)
+            .map(|date_count| date_count.count as u64)
             .max()
             .unwrap_or(0);
 
-        let right_peak = profile2
+        let right_peak = user2
             .monthly_playcounts
+            .unwrap()
             .iter()
-            .map(|date_count| date_count.count)
+            .map(|date_count| date_count.count as u64)
             .max()
             .unwrap_or(0);
 
         write_line(
             &mut d,
             "PC peak",
-            with_comma_u64(left_peak as u64),
-            with_comma_u64(right_peak as u64),
+            with_comma_uint(left_peak).to_string(),
+            with_comma_uint(right_peak).to_string(),
             left_peak,
             right_peak,
             max_left,
@@ -159,8 +153,8 @@ impl ProfileCompareEmbed {
             "Ranked score",
             left.ranked_score,
             right.ranked_score,
-            user1.ranked_score,
-            user2.ranked_score,
+            stats1.ranked_score,
+            stats2.ranked_score,
             max_left,
             max_right,
         );
@@ -170,8 +164,8 @@ impl ProfileCompareEmbed {
             "Total score",
             left.total_score,
             right.total_score,
-            user1.total_score,
-            user2.total_score,
+            stats1.total_score,
+            stats2.total_score,
             max_left,
             max_right,
         );
@@ -181,8 +175,8 @@ impl ProfileCompareEmbed {
             "Total hits",
             left.total_hits,
             right.total_hits,
-            user1.total_hits(),
-            user2.total_hits(),
+            stats1.total_hits,
+            stats2.total_hits,
             max_left,
             max_right,
         );
@@ -192,8 +186,8 @@ impl ProfileCompareEmbed {
             "SS count",
             left.count_ss,
             right.count_ss,
-            user1.count_ss + user1.count_ssh,
-            user2.count_ss + user2.count_ssh,
+            stats1.grade_counts.ss + stats1.grade_counts.ssh,
+            stats2.grade_counts.ss + stats2.grade_counts.ssh,
             max_left,
             max_right,
         );
@@ -203,8 +197,8 @@ impl ProfileCompareEmbed {
             "S count",
             left.count_s,
             right.count_s,
-            user1.count_s + user1.count_sh,
-            user2.count_s + user2.count_sh,
+            stats1.grade_counts.s + stats1.grade_counts.sh,
+            stats2.grade_counts.s + stats2.grade_counts.sh,
             max_left,
             max_right,
         );
@@ -214,8 +208,8 @@ impl ProfileCompareEmbed {
             "A count",
             left.count_a,
             right.count_a,
-            user1.count_a,
-            user2.count_a,
+            stats1.grade_counts.a + stats1.grade_counts.a,
+            stats2.grade_counts.a + stats2.grade_counts.a,
             max_left,
             max_right,
         );
@@ -223,10 +217,10 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Max Combo",
-            with_comma_u64(profile1.statistics.max_combo as u64),
-            with_comma_u64(profile2.statistics.max_combo as u64),
-            profile1.statistics.max_combo,
-            profile2.statistics.max_combo,
+            with_comma_uint(stats1.max_combo).to_string(),
+            with_comma_uint(stats2.max_combo).to_string(),
+            stats1.max_combo,
+            stats2.max_combo,
             max_left,
             max_right,
         );
@@ -297,35 +291,27 @@ impl ProfileCompareEmbed {
             max_right,
         );
 
-        write_line(
-            &mut d,
-            "Medals",
-            profile1.medals.len(),
-            profile2.medals.len(),
-            profile1.medals.len(),
-            profile2.medals.len(),
-            max_left,
-            max_right,
-        );
+        let medal1 = user1.medals.unwrap().len();
+        let medal2 = user2.medals.unwrap().len();
 
         write_line(
-            &mut d,
-            "Badges",
-            profile1.badges.len(),
-            profile2.badges.len(),
-            profile1.badges.len(),
-            profile2.badges.len(),
-            max_left,
-            max_right,
+            &mut d, "Medals", medal1, medal2, medal1, medal2, max_left, max_right,
+        );
+
+        let badges1 = user1.badges.unwrap().len();
+        let badges2 = user2.badges.unwrap().len();
+
+        write_line(
+            &mut d, "Badges", badges1, badges2, badges1, badges2, max_left, max_right,
         );
 
         write_line(
             &mut d,
             "Followers",
-            with_comma_u64(profile1.follower_count as u64),
-            with_comma_u64(profile2.follower_count as u64),
-            profile1.follower_count,
-            profile2.follower_count,
+            with_comma_uint(user1.follower_count.unwrap_or(0)).to_string(),
+            with_comma_uint(user2.follower_count.unwrap_or(0)).to_string(),
+            user1.follower_count.unwrap(),
+            user2.follower_count.unwrap(),
             max_left,
             max_right,
         );
@@ -333,10 +319,10 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Replays seen",
-            with_comma_u64(profile1.statistics.replays_watched as u64),
-            with_comma_u64(profile2.statistics.replays_watched as u64),
-            profile1.statistics.replays_watched,
-            profile2.statistics.replays_watched,
+            with_comma_uint(stats1.replays_watched).to_string(),
+            with_comma_uint(stats2.replays_watched).to_string(),
+            stats1.replays_watched,
+            stats2.replays_watched,
             max_left,
             max_right,
         );
@@ -344,23 +330,13 @@ impl ProfileCompareEmbed {
         d.push_str("```");
 
         Self {
-            description: Some(d),
-            image: Some(ImageSource::attachment("avatar_fuse.png").unwrap()),
+            description: d,
+            image: attachment("avatar_fuse.png"),
         }
     }
 }
 
-impl EmbedData for ProfileCompareEmbed {
-    #[inline]
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take()
-    }
-
-    #[inline]
-    fn image_owned(&mut self) -> Option<ImageSource> {
-        self.image.take()
-    }
-}
+impl_builder!(ProfileCompareEmbed { description, image });
 
 #[allow(clippy::too_many_arguments)]
 fn write_line<T: PartialOrd, V: Display>(
@@ -412,33 +388,37 @@ struct CompareStrings {
 }
 
 impl CompareStrings {
-    fn new(user: &User, result: &CompareResult) -> Self {
+    fn new(stats: &UserStatistics, join_date: DateTime<Utc>, result: &CompareResult) -> Self {
         let bonus_pow = 0.9994_f64.powi(
-            (user.count_ssh + user.count_ss + user.count_sh + user.count_s + user.count_a) as i32,
+            (stats.grade_counts.ssh
+                + stats.grade_counts.ss
+                + stats.grade_counts.sh
+                + stats.grade_counts.s
+                + stats.grade_counts.a) as i32,
         );
 
         let bonus_pp_num = (100.0 * 416.6667 * (1.0 - bonus_pow)).round() / 100.0;
-        let days = (Utc::now() - user.join_date).num_days() as f32;
-        let pp_per_month_num = 30.67 * user.pp_raw / days;
+        let days = (Utc::now() - join_date).num_days() as f32;
+        let pp_per_month_num = 30.67 * stats.pp / days;
 
         Self {
-            pp: with_comma(user.pp_raw) + "pp",
-            rank: format!("#{}", with_comma_u64(user.pp_rank as u64)),
-            ranked_score: with_comma_u64(user.ranked_score),
-            total_score: with_comma_u64(user.total_score),
-            total_hits: with_comma_u64(user.total_hits()),
-            play_count: with_comma_u64(user.playcount as u64),
-            play_time: with_comma_u64(user.total_seconds_played as u64 / 3600) + "hrs",
-            level: format!("{:.2}", user.level),
+            pp: with_comma_float(stats.pp).to_string() + "pp",
+            rank: format!("#{}", with_comma_uint(stats.global_rank.unwrap_or(0))),
+            ranked_score: with_comma_uint(stats.ranked_score).to_string(),
+            total_score: with_comma_uint(stats.total_score).to_string(),
+            total_hits: with_comma_uint(stats.total_hits).to_string(),
+            play_count: with_comma_uint(stats.playcount).to_string(),
+            play_time: with_comma_uint(stats.playtime / 3600).to_string() + "hrs",
+            level: format!("{:.2}", stats.level.current),
             bonus_pp: format!("{:.2}pp", bonus_pp_num),
             bonus_pp_num,
             avg_map_len: sec_to_minsec(result.map_len.avg()),
-            accuracy: format!("{:.2}%", user.accuracy),
+            accuracy: format!("{:.2}%", stats.accuracy),
             pp_per_month: format!("{:.2}pp", pp_per_month_num),
             pp_per_month_num,
-            count_ss: with_comma_u64(user.count_ssh as u64 + user.count_ss as u64),
-            count_s: with_comma_u64(user.count_sh as u64 + user.count_s as u64),
-            count_a: with_comma_u64(user.count_a as u64),
+            count_ss: (stats.grade_counts.ssh + stats.grade_counts.ss).to_string(),
+            count_s: (stats.grade_counts.sh + stats.grade_counts.s).to_string(),
+            count_a: (stats.grade_counts.a).to_string(),
             avg_pp: format!("{:.2}pp", result.pp.avg()),
             pp_spread: format!("{:.2}pp", result.pp.max() - result.pp.min()),
         }
@@ -463,5 +443,6 @@ impl CompareStrings {
             .max(self.count_a.len())
             .max(self.avg_pp.len())
             .max(self.pp_spread.len())
+            .max(10) // join date yyyy-mm-dd
     }
 }

@@ -15,14 +15,11 @@ use darkredis::Error as RedisError;
 use image::ImageError;
 use plotters::drawing::DrawingAreaErrorKind as DrawingError;
 use reqwest::Error as ReqwestError;
-use rosu::OsuError;
+use rosu_v2::error::OsuError;
 use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
 use std::{error::Error as StdError, fmt, io::Error as IOError};
 use toml::de::Error as TomlError;
-use twilight_embed_builder::builder::{
-    EmbedBuildError, EmbedColorError, EmbedDescriptionError, EmbedTitleError,
-};
 use twilight_gateway::cluster::ClusterCommandError;
 use twilight_http::{
     request::channel::message::{
@@ -49,17 +46,12 @@ macro_rules! format_err {
 pub enum Error {
     Authority(Box<Error>),
     BgGame(BgGameError),
-    CacheDefrost(&'static str, Box<Error>),
     CreateMessage(CreateMessageError),
     ChronoParse(ChronoParseError),
     Command(Box<Error>, String),
     Custom(String),
     CustomClient(CustomClientError),
     Database(DBError),
-    Embed(EmbedBuildError),
-    EmbedColor(EmbedColorError),
-    EmbedDescription(EmbedDescriptionError),
-    EmbedTitle(EmbedTitleError),
     Fmt(fmt::Error),
     Image(ImageError),
     InvalidConfig(TomlError),
@@ -85,17 +77,12 @@ impl StdError for Error {
         match self {
             Self::Authority(e) => Some(e),
             Self::BgGame(e) => Some(e),
-            Self::CacheDefrost(_, e) => Some(e),
             Self::CreateMessage(e) => Some(e),
             Self::ChronoParse(e) => Some(e),
             Self::Command(e, _) => Some(e),
             Self::Custom(_) => None,
             Self::CustomClient(e) => Some(e),
             Self::Database(e) => Some(e),
-            Self::Embed(e) => Some(e),
-            Self::EmbedColor(e) => Some(e),
-            Self::EmbedDescription(e) => Some(e),
-            Self::EmbedTitle(e) => Some(e),
             Self::Fmt(e) => Some(e),
             Self::Image(e) => Some(e),
             Self::InvalidConfig(e) => Some(e),
@@ -123,17 +110,12 @@ impl fmt::Display for Error {
         match self {
             Self::Authority(_) => f.write_str("error while checking authorty status"),
             Self::BgGame(_) => f.write_str("background game error"),
-            Self::CacheDefrost(reason, _) => write!(f, "error defrosting cache: {}", reason),
             Self::CreateMessage(_) => f.write_str("error while creating message"),
             Self::ChronoParse(_) => f.write_str("chrono parse error"),
             Self::Command(_, cmd) => write!(f, "command error: {}", cmd),
             Self::Custom(e) => e.fmt(f),
             Self::CustomClient(_) => f.write_str("custom client error"),
             Self::Database(_) => f.write_str("database error"),
-            Self::Embed(_) => f.write_str("error while building embed"),
-            Self::EmbedColor(_) => f.write_str("embed color error"),
-            Self::EmbedDescription(_) => f.write_str("embed description error"),
-            Self::EmbedTitle(_) => f.write_str("embed title error"),
             Self::Fmt(_) => f.write_str("fmt error"),
             Self::Image(_) => f.write_str("image error"),
             Self::InvalidConfig(_) => f.write_str("config file was not in correct format"),
@@ -187,30 +169,6 @@ impl From<CustomClientError> for Error {
 impl From<DBError> for Error {
     fn from(e: DBError) -> Self {
         Error::Database(e)
-    }
-}
-
-impl From<EmbedBuildError> for Error {
-    fn from(e: EmbedBuildError) -> Self {
-        Error::Embed(e)
-    }
-}
-
-impl From<EmbedColorError> for Error {
-    fn from(e: EmbedColorError) -> Self {
-        Error::EmbedColor(e)
-    }
-}
-
-impl From<EmbedDescriptionError> for Error {
-    fn from(e: EmbedDescriptionError) -> Self {
-        Error::EmbedDescription(e)
-    }
-}
-
-impl From<EmbedTitleError> for Error {
-    fn from(e: EmbedTitleError) -> Self {
-        Error::EmbedTitle(e)
     }
 }
 

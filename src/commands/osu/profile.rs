@@ -1,16 +1,10 @@
-use super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
+use super::{request_user, MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
 use crate::{
     arguments::{Args, NameArgs},
-    bail,
-    custom_client::{DateCount, OsuProfile},
-    embeds::ProfileEmbed,
+    embeds::{EmbedData, ProfileEmbed},
     pagination::ProfilePagination,
     tracking::process_tracking,
-    unwind_error,
-    util::{
-        constants::{OSU_API_ISSUE, OSU_WEB_ISSUE},
-        MessageExt,
-    },
+    util::{constants::OSU_API_ISSUE, MessageExt},
     BotResult, Context, Error,
 };
 
@@ -19,14 +13,14 @@ use futures::{
     future::TryFutureExt,
     stream::{FuturesUnordered, TryStreamExt},
 };
+use hashbrown::HashMap;
 use image::{imageops::FilterType::Lanczos3, load_from_memory, png::PngEncoder, ColorType};
 use plotters::prelude::*;
-use rayon::prelude::*;
 use reqwest::Response;
-use rosu::model::{Beatmap, GameMode, GameMods, Score};
+use rosu_v2::prelude::{GameMode, GameMods, MonthlyCount, OsuError, Score, User};
 use std::{
     cmp::{Ordering::Equal, PartialOrd},
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap as StdHashMap},
     sync::Arc,
 };
 use twilight_model::channel::Message;
@@ -44,22 +38,23 @@ async fn profile_main(
         None => return super::require_link(&ctx, msg).await,
     };
 
-    let (data, mut profile) = match profile_embed(&ctx, &name, mode, &msg).await? {
+    let (data, mut user) = match profile_embed(&ctx, &name, mode, &msg).await? {
         Some(data) => data,
         None => return Ok(()),
     };
 
     // Draw the graph
-    let graph = match graphs(&mut profile).await {
+    let graph = match graphs(&mut user).await {
         Ok(graph_option) => graph_option,
         Err(why) => {
             unwind_error!(warn, why, "Error while creating profile graph: {}");
+
             None
         }
     };
 
     // Send the embed
-    let embed = data.minimize_borrowed().build()?;
+    let embed = data.as_builder().build();
     let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
 
     let response = if let Some(graph) = graph {
@@ -88,135 +83,76 @@ pub async fn profile_embed(
     name: &str,
     mode: GameMode,
     msg: &Message,
-) -> BotResult<Option<(ProfileEmbed, OsuProfile)>> {
+) -> BotResult<Option<(ProfileEmbed, User)>> {
     // Retrieve the user and their top scores
-    let user_fut = ctx.osu().user(name).mode(mode).map_err(Error::Osu);
-    let scores_fut = ctx.osu().top_scores(name).mode(mode).limit(100);
-    let (user, scores) = match tokio::try_join!(user_fut, scores_fut.map_err(Error::Osu)) {
-        Ok((Some(user), scores)) => (user, scores),
-        Ok((None, _)) => {
-            let content = format!("User `{}` was not found", name);
-            msg.error(&ctx, content).await?;
-            return Ok(None);
-        }
-        Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-            return Err(why);
-        }
-    };
-    let (globals_result, profile_result) = tokio::join!(
-        super::get_globals_count(&ctx, &user.username, mode),
-        ctx.clients
-            .custom
-            .get_osu_profile(user.user_id, mode, false)
-    );
-    let globals_count = match globals_result {
+    let user_fut = request_user(&ctx, name, Some(mode));
+    let scores_fut_1 = ctx.osu().user_scores(name).best().mode(mode).limit(50);
+
+    let scores_fut_2 = ctx
+        .osu()
+        .user_scores(name)
+        .best()
+        .mode(mode)
+        .offset(50)
+        .limit(50);
+
+    let (user, mut scores): (_, Vec<_>) =
+        match tokio::try_join!(user_fut, scores_fut_1, scores_fut_2) {
+            Ok((user, mut scores, mut scores_2)) => {
+                scores.append(&mut scores_2);
+
+                (user, scores)
+            }
+            Err(OsuError::NotFound) => {
+                let content = format!("User `{}` was not found", name);
+                msg.error(&ctx, content).await?;
+
+                return Ok(None);
+            }
+            Err(why) => {
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
+                return Err(why.into());
+            }
+        };
+
+    let globals_count = match super::get_globals_count(&ctx, &user.username, mode).await {
         Ok(globals_count) => globals_count,
         Err(why) => {
             unwind_error!(error, why, "Error while requesting globals count: {}");
-            BTreeMap::new()
-        }
-    };
-    let profile = match profile_result {
-        Ok((profile, _)) => profile,
-        Err(why) => {
-            let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
-            return Err(why.into());
-        }
-    };
 
-    // Get all relevant maps from the database
-    let map_ids: Vec<u32> = scores.iter().flat_map(|s| s.beatmap_id).collect();
-    let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
-        Ok(maps) => maps,
-        Err(why) => {
-            unwind_error!(warn, why, "Error while getting maps from DB: {}");
-            HashMap::default()
+            BTreeMap::new()
         }
     };
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, mode, &scores, Some(&user), &mut maps).await;
+    process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
 
-    debug!("Found {}/{} beatmaps in DB", maps.len(), scores.len());
-    let retrieving_msg = if scores.len() - maps.len() > 10 {
-        let content = format!(
-            "Retrieving {} maps from the api...",
-            scores.len() - maps.len()
-        );
-        ctx.http
-            .create_message(msg.channel_id)
-            .content(content)?
-            .await
-            .ok()
-    } else {
-        None
-    };
-
-    // Retrieving all missing beatmaps
-    let mut score_maps = Vec::with_capacity(scores.len());
-    let mut missing_indices = Vec::new();
-    for (i, score) in scores.into_iter().enumerate() {
-        let map_id = score.beatmap_id.unwrap();
-        let map = if maps.contains_key(&map_id) {
-            maps.remove(&map_id).unwrap()
-        } else {
-            missing_indices.push(i);
-            match ctx.osu().beatmap().map_id(map_id).await? {
-                Some(map) => map,
-                None => bail!("The API returned not beatmap for map id {}", map_id),
-            }
-        };
-        score_maps.push((score, map));
+    // Store maps in DB
+    if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
+        unwind_error!(warn, why, "Error while storing profile maps in DB: {}");
     }
-    // Add missing maps to database
-    if !missing_indices.is_empty() {
-        let maps: Vec<_> = score_maps
-            .par_iter()
-            .enumerate()
-            .filter(|(i, _)| missing_indices.contains(i))
-            .map(|(_, (_, map))| map.clone())
-            .collect();
-        match ctx.psql().insert_beatmaps(&maps).await {
-            Ok(n) if n < 2 => {}
-            Ok(n) => info!("Added {} maps to DB", n),
-            Err(why) => unwind_error!(warn, why, "Error while adding maps to DB: {}"),
-        }
-    };
 
     // Check if user has top scores on their own maps
-    let own_top_scores =
-        if profile.ranked_and_approved_beatmapset_count + profile.loved_beatmapset_count > 0 {
-            score_maps
-                .iter()
-                .map(|(_, map)| map)
-                .filter(|map| map.creator == user.username)
-                .count()
-        } else {
-            0
-        };
+    let ranked_maps_count =
+        user.ranked_and_approved_beatmapset_count.unwrap() + user.loved_beatmapset_count.unwrap();
 
-    // Calculate profile stats
-    let profile_result = if score_maps.is_empty() {
-        None
+    let own_top_scores = if ranked_maps_count > 0 {
+        scores
+            .iter()
+            .filter(|score| score.mapset.as_ref().unwrap().creator_name == user.username)
+            .count()
     } else {
-        Some(ProfileResult::calc(mode, score_maps))
+        0
     };
 
-    // Accumulate all necessary data
-    let data = ProfileEmbed::new(
-        user,
-        profile_result,
-        globals_count,
-        &profile,
-        own_top_scores,
-        mode,
-    );
+    // Calculate profile stats
+    let profile_result = (!scores.is_empty()).then(|| ProfileResult::calc(mode, scores));
 
-    if let Some(msg) = retrieving_msg {
-        let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;
-    }
-    Ok(Some((data, profile)))
+    // Accumulate all necessary data
+    let data = ProfileEmbed::new(&user, profile_result, globals_count, own_top_scores, mode);
+
+    Ok(Some((data, user)))
 }
 
 #[command]
@@ -271,92 +207,119 @@ pub struct ProfileResult {
 }
 
 impl ProfileResult {
-    fn calc(mode: GameMode, tuples: Vec<(Score, Beatmap)>) -> Self {
+    fn calc(mode: GameMode, scores: Vec<Score>) -> Self {
         let mut acc = MinMaxAvgF32::new();
         let mut pp = MinMaxAvgF32::new();
         let mut combo = MinMaxAvgU32::new();
         let mut map_len = MinMaxAvgF32::new();
         let mut map_combo = 0;
-        let mut mappers = HashMap::with_capacity(tuples.len());
-        let len = tuples.len() as f32;
+        let mut mappers = StdHashMap::with_capacity(scores.len());
+        let len = scores.len() as f32;
         let mut mod_combs = HashMap::with_capacity(5);
         let mut mods = HashMap::with_capacity(5);
         let mut factor = 1.0;
         let mut mult_mods = false;
-        for (score, map) in tuples {
-            acc.add(score.accuracy(mode));
+
+        for score in scores.iter() {
+            let map = score.map.as_ref().unwrap();
+            let mapset = score.mapset.as_ref().unwrap();
+
+            acc.add(score.accuracy);
+
             if let Some(score_pp) = score.pp {
                 pp.add(score_pp);
             }
+
             combo.add(score.max_combo);
+
             if let Some(combo) = map.max_combo {
                 map_combo += combo;
             }
-            let seconds_drain = if score.enabled_mods.contains(GameMods::DoubleTime) {
+
+            let seconds_drain = if score.mods.contains(GameMods::DoubleTime) {
                 map.seconds_drain as f32 / 1.5
-            } else if score.enabled_mods.contains(GameMods::HalfTime) {
+            } else if score.mods.contains(GameMods::HalfTime) {
                 map.seconds_drain as f32 * 1.5
             } else {
                 map.seconds_drain as f32
             };
+
             map_len.add(seconds_drain);
 
-            let mut mapper = mappers.entry(map.creator).or_insert((0, 0.0));
+            let mut mapper = mappers.entry(&mapset.creator_name).or_insert((0, 0.0));
             let weighted_pp = score.pp.unwrap_or(0.0) * factor;
+
             factor *= 0.95;
             mapper.0 += 1;
             mapper.1 += weighted_pp;
+
             {
-                let mut mod_comb = mod_combs.entry(score.enabled_mods).or_insert((0, 0.0));
+                let mut mod_comb = mod_combs.entry(score.mods).or_insert((0, 0.0));
                 mod_comb.0 += 1;
                 mod_comb.1 += weighted_pp;
             }
-            if score.enabled_mods.is_empty() {
+
+            if score.mods.is_empty() {
                 *mods.entry(GameMods::NoMod).or_insert(0) += 1;
             } else {
-                mult_mods |= score.enabled_mods.len() > 1;
-                for m in score.enabled_mods {
+                mult_mods |= score.mods.len() > 1;
+
+                for m in score.mods {
                     *mods.entry(m).or_insert(0) += 1;
                 }
             }
         }
+
         map_combo /= len as u32;
+
         mod_combs
             .values_mut()
             .for_each(|(count, _)| *count = (*count as f32 * 100.0 / len) as u32);
+
         mods.values_mut()
             .for_each(|count| *count = (*count as f32 * 100.0 / len) as u32);
+
         let mut mappers: Vec<_> = mappers
             .into_iter()
-            .map(|(name, (count, pp))| (name, count, pp))
+            .map(|(name, (count, pp))| (name.to_owned(), count as u32, pp))
             .collect();
+
         mappers.sort_unstable_by(|(_, count_a, pp_a), (_, count_b, pp_b)| {
             match count_b.cmp(&count_a) {
                 Equal => pp_b.partial_cmp(pp_a).unwrap_or(Equal),
                 other => other,
             }
         });
+
         mappers = mappers[..5.min(mappers.len())].to_vec();
+
         let mod_combs_count = if mult_mods {
             let mut mod_combs_count: Vec<_> = mod_combs
                 .iter()
                 .map(|(name, (count, _))| (*name, *count))
                 .collect();
+
             mod_combs_count.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+
             Some(mod_combs_count)
         } else {
             None
         };
+
         let mod_combs_pp = {
             let mut mod_combs_pp: Vec<_> = mod_combs
                 .into_iter()
                 .map(|(name, (_, avg))| (name, avg))
                 .collect();
+
             mod_combs_pp.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Equal));
+
             mod_combs_pp
         };
+
         let mut mods_count: Vec<_> = mods.into_iter().collect();
         mods_count.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+
         Self {
             mode,
             acc,
@@ -375,19 +338,23 @@ impl ProfileResult {
 const W: u32 = 1350;
 const H: u32 = 350;
 
-async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
-    if profile.monthly_playcounts.len() < 2 {
+async fn graphs(user: &mut User) -> Result<Option<Vec<u8>>, Error> {
+    let monthly_playcount = user.monthly_playcounts.as_mut().unwrap();
+    let badges = user.badges.as_ref().unwrap();
+
+    if monthly_playcount.len() < 2 {
         return Ok(None);
     }
+
     static LEN: usize = W as usize * H as usize;
     let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
+
     {
         // Request all badge images
-        let badges = match profile.badges.is_empty() {
+        let badges = match badges.is_empty() {
             true => Vec::new(),
             false => {
-                profile
-                    .badges
+                badges
                     .iter()
                     .map(|badge| {
                         reqwest::get(&badge.image_url)
@@ -458,8 +425,7 @@ async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
             bottom
         };
 
-        let monthly_playcount = &mut profile.monthly_playcounts;
-        let replays = &mut profile.replays_watched_counts;
+        let replays = user.replays_watched_counts.as_mut().unwrap();
 
         // Spoof missing months
         // Making use of the fact that the dates are always of the form YYYY-MM-01
@@ -484,7 +450,12 @@ async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
                     .with_year(curr_year)
                     .unwrap();
 
-                monthly_playcount.insert(inserted + i, (spoofed_date, 0).into());
+                let count = MonthlyCount {
+                    start_date: spoofed_date,
+                    count: 0,
+                };
+
+                monthly_playcount.insert(inserted + i, count);
                 inserted += 1;
                 curr_month += 1;
 
@@ -513,8 +484,13 @@ async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
                 .get(i)
                 .map(|date_count| date_count.start_date == date);
 
+            let count = MonthlyCount {
+                start_date: date,
+                count: 0,
+            };
+
             if let None | Some(false) = cond {
-                replays.insert(i, (date, 0).into());
+                replays.insert(i, count);
             }
         }
 
@@ -577,7 +553,7 @@ async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
                 AreaSeries::new(
                     monthly_playcount
                         .iter()
-                        .map(|DateCount { start_date, count }| (*start_date, *count)),
+                        .map(|MonthlyCount { start_date, count }| (*start_date, *count)),
                     0,
                     &BLUE.mix(0.2),
                 )
@@ -590,7 +566,7 @@ async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
         chart.draw_series(
             monthly_playcount
                 .iter()
-                .map(|DateCount { start_date, count }| {
+                .map(|MonthlyCount { start_date, count }| {
                     Circle::new((*start_date, *count), 2, BLUE.filled())
                 }),
         )?;
@@ -601,7 +577,7 @@ async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
                 AreaSeries::new(
                     replays
                         .iter()
-                        .map(|DateCount { start_date, count }| (*start_date, *count)),
+                        .map(|MonthlyCount { start_date, count }| (*start_date, *count)),
                     0,
                     &RED.mix(0.2),
                 )
@@ -611,7 +587,7 @@ async fn graphs(profile: &mut OsuProfile) -> Result<Option<Vec<u8>>, Error> {
             .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], RED.stroke_width(2)));
 
         // Draw circles
-        chart.draw_secondary_series(replays.iter().map(|DateCount { start_date, count }| {
+        chart.draw_secondary_series(replays.iter().map(|MonthlyCount { start_date, count }| {
             Circle::new((*start_date, *count), 2, RED.filled())
         }))?;
 

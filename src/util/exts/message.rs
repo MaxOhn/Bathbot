@@ -1,12 +1,10 @@
-use crate::{unwind_error, util::constants::RED, BotResult, Context};
+use crate::{embeds::EmbedBuilder, util::constants::RED, BotResult, Context};
 
 use async_trait::async_trait;
-use std::fmt::Display;
 use tokio::time::{timeout, Duration};
-use twilight_embed_builder::builder::EmbedBuilder;
 use twilight_http::request::channel::message::create_message::{CreateMessage, CreateMessageError};
 use twilight_model::{
-    channel::{Message, ReactionType},
+    channel::{embed::Embed, Message, ReactionType},
     gateway::payload::ReactionAdd,
     id::UserId,
 };
@@ -21,9 +19,23 @@ pub trait MessageExt {
         F: Send + FnOnce(CreateMessage<'a>) -> Result<CreateMessage<'a>, CreateMessageError>;
 
     /// Response with simple content
+    async fn respond<C: Into<String> + Send>(
+        &self,
+        ctx: &Context,
+        content: C,
+    ) -> BotResult<Message>;
+
+    /// Response with simple content
     ///
     /// Includes reaction_delete
-    async fn respond<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()>;
+    async fn send_response<C: Into<String> + Send>(
+        &self,
+        ctx: &Context,
+        content: C,
+    ) -> BotResult<()>;
+
+    /// Reponse with the given embed
+    async fn respond_embed(&self, ctx: &Context, embed: Embed) -> BotResult<Message>;
 
     /// Response for an error message
     ///
@@ -33,7 +45,7 @@ pub trait MessageExt {
     /// Response with simple content by tagging the author
     ///
     /// Includes reaction_delete
-    async fn reply<C: Display + Send>(&self, ctx: &Context, content: C) -> BotResult<()>;
+    async fn reply<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()>;
 
     /// Give the author 60s to delete the message by reacting with `❌`
     fn reaction_delete(&self, ctx: &Context, owner: UserId);
@@ -52,21 +64,42 @@ impl MessageExt for Message {
         Ok(())
     }
 
-    async fn respond<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
+    async fn respond<C: Into<String> + Send>(
+        &self,
+        ctx: &Context,
+        content: C,
+    ) -> BotResult<Message> {
+        let embed = EmbedBuilder::new().description(content).build();
+
         ctx.http
             .create_message(self.channel_id)
-            .content(content)?
+            .embed(embed)?
+            .await
+            .map_err(|e| e.into())
+    }
+
+    async fn send_response<C: Into<String> + Send>(
+        &self,
+        ctx: &Context,
+        content: C,
+    ) -> BotResult<()> {
+        self.respond(ctx, content)
             .await?
             .reaction_delete(ctx, self.author.id);
 
         Ok(())
     }
 
+    async fn respond_embed(&self, ctx: &Context, embed: Embed) -> BotResult<Message> {
+        ctx.http
+            .create_message(self.channel_id)
+            .embed(embed)?
+            .await
+            .map_err(|e| e.into())
+    }
+
     async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
-        let embed = EmbedBuilder::new()
-            .color(RED)?
-            .description(content)?
-            .build()?;
+        let embed = EmbedBuilder::new().color(RED).description(content).build();
 
         ctx.http
             .create_message(self.channel_id)
@@ -77,12 +110,13 @@ impl MessageExt for Message {
         Ok(())
     }
 
-    async fn reply<C: Display + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
-        let content = format!("<@{}>: {}", self.author.id, content);
+    async fn reply<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
+        let embed = EmbedBuilder::new().description(content).build();
 
         ctx.http
             .create_message(self.channel_id)
-            .content(content)?
+            .embed(embed)?
+            .reply(self.id)
             .await?
             .reaction_delete(ctx, self.author.id);
 

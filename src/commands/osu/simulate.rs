@@ -1,7 +1,6 @@
 use crate::{
     arguments::{Args, SimulateMapArgs},
     embeds::{EmbedData, SimulateEmbed},
-    unwind_error,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         osu::{cached_message_extract, map_id_from_history, MapIdType},
@@ -10,6 +9,7 @@ use crate::{
     BotResult, Context,
 };
 
+use rosu_v2::prelude::{BeatmapsetCompact, OsuError};
 use std::sync::Arc;
 use tokio::time::{self, Duration};
 use twilight_model::channel::Message;
@@ -36,6 +36,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
     };
+
     let map_id = if let Some(id) = args.map_id {
         id
     } else if let Some(id) = ctx
@@ -48,45 +49,53 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
             Ok(msgs) => msgs,
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
                 return Err(why.into());
             }
         };
+
         match map_id_from_history(msgs) {
             Some(MapIdType::Map(id)) => id,
             Some(MapIdType::Set(_)) => {
                 let content = "Looks like you gave me a mapset id, I need a map id though";
+
                 return msg.error(&ctx, content).await;
             }
             None => {
                 let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";
+
                 return msg.error(&ctx, content).await;
             }
         }
     };
 
     // Retrieving the beatmap
-    let map = match ctx.psql().get_beatmap(map_id).await {
+    let mut map = match ctx.psql().get_beatmap(map_id, true).await {
         Ok(map) => map,
         Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
-            Ok(Some(map)) => map,
-            Ok(None) => {
+            Ok(map) => map,
+            Err(OsuError::NotFound) => {
                 let content = format!(
                     "Could not find beatmap with id `{}`. \
-                        Did you give me a mapset id instead of a map id?",
+                    Did you give me a mapset id instead of a map id?",
                     map_id
                 );
+
                 return msg.error(&ctx, content).await;
             }
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
                 return Err(why.into());
             }
         },
     };
 
+    let mapset: BeatmapsetCompact = map.mapset.take().unwrap().into();
+
     // Accumulate all necessary data
-    let data = match SimulateEmbed::new(None, &map, args.into()).await {
+    let data = match SimulateEmbed::new(None, &map, &mapset, args.into()).await {
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
@@ -96,12 +105,11 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     };
 
     // Creating the embed
-    let embed = data.build().build()?;
     let response = ctx
         .http
         .create_message(msg.channel_id)
         .content("Simulated score:")?
-        .embed(embed)?
+        .embed(data.as_builder().build())?
         .await?;
 
     ctx.store_msg(response.id);
@@ -124,12 +132,10 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
             return;
         }
 
-        let embed = data.minimize().build().unwrap();
-
         let _ = ctx
             .http
             .update_message(response.channel_id, response.id)
-            .embed(embed)
+            .embed(data.into_builder().build())
             .unwrap()
             .await;
     });

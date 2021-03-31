@@ -2,6 +2,7 @@
 /proc_macros/Cargo.lock
 /target
 config.toml
+.env
 logs
 /.vscode
 tracking

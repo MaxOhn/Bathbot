@@ -1,8 +1,8 @@
+use super::{prepare_scores, request_user, ErrorType};
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, RecentListEmbed},
     pagination::{Pagination, RecentListPagination},
-    unwind_error,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         numbers, MessageExt,
@@ -10,11 +10,9 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::model::GameMode;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use futures::future::TryFutureExt;
+use rosu_v2::prelude::{GameMode, OsuError};
+use std::sync::Arc;
 use twilight_model::channel::Message;
 
 async fn recent_list_main(
@@ -31,15 +29,19 @@ async fn recent_list_main(
     };
 
     // Retrieve the user and their recent scores
-    let user_fut = ctx.osu().user(name.as_str()).mode(mode);
-    let scores_fut = ctx.osu().recent_scores(name.as_str()).mode(mode).limit(50);
+    let user_fut = request_user(&ctx, &name, Some(mode)).map_err(From::from);
+
+    let scores_fut = ctx
+        .osu()
+        .user_scores(name.as_str())
+        .recent()
+        .mode(mode)
+        .limit(50)
+        .include_fails(true);
+
+    let scores_fut = prepare_scores(&ctx, scores_fut);
 
     let (user, scores) = match tokio::try_join!(user_fut, scores_fut) {
-        Ok((None, _)) => {
-            let content = format!("User `{}` was not found", name);
-
-            return msg.error(&ctx, content).await;
-        }
         Ok((_, scores)) if scores.is_empty() => {
             let content = format!(
                 "No recent {}plays found for user `{}`",
@@ -54,57 +56,29 @@ async fn recent_list_main(
 
             return msg.error(&ctx, content).await;
         }
-        Ok((Some(user), scores)) => (user, scores),
-        Err(why) => {
+        Ok((user, scores)) => (user, scores),
+        Err(ErrorType::Osu(OsuError::NotFound)) => {
+            let content = format!("User `{}` was not found", name);
+
+            return msg.error(&ctx, content).await;
+        }
+        Err(ErrorType::Osu(why)) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
-    };
+        Err(ErrorType::Bot(why)) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-    // Get all relevant maps from the database
-    let mut map_ids: HashSet<u32> = scores.iter().filter_map(|s| s.beatmap_id).collect();
-
-    let mut maps = {
-        let dedubed_ids: Vec<u32> = map_ids.iter().copied().collect();
-        let map_result = ctx.psql().get_beatmaps(&dedubed_ids).await;
-
-        match map_result {
-            Ok(maps) => maps,
-            Err(why) => {
-                unwind_error!(warn, why, "Error while retrieving maps from DB: {}");
-
-                HashMap::default()
-            }
+            return Err(why);
         }
     };
-
-    // Memoize which maps are already in the DB
-    map_ids.retain(|id| maps.contains_key(&id));
-
-    // Prepare the maps
-    for score in scores.iter().take(10) {
-        let map_id = score.beatmap_id.unwrap();
-
-        // Make sure map is ready
-        #[allow(clippy::clippy::map_entry)]
-        if !maps.contains_key(&map_id) {
-            let map = ctx
-                .osu()
-                .beatmap()
-                .map_id(score.beatmap_id.unwrap())
-                .await?
-                .unwrap();
-
-            maps.insert(map_id, map);
-        }
-    }
 
     let pages = numbers::div_euclid(10, scores.len());
     let scores_iter = scores.iter().take(10);
 
-    let data = match RecentListEmbed::new(&user, &maps, scores_iter, (1, pages)).await {
-        Ok(data) => data,
+    let embed = match RecentListEmbed::new(&user, scores_iter, (1, pages)).await {
+        Ok(data) => data.into_builder().build(),
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
@@ -113,13 +87,7 @@ async fn recent_list_main(
     };
 
     // Creating the embed
-    let embed = data.build_owned().build()?;
-
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .embed(embed)?
-        .await?;
+    let response = msg.respond_embed(&ctx, embed).await?;
 
     // Skip pagination if too few entries
     if scores.len() <= 10 {
@@ -129,8 +97,7 @@ async fn recent_list_main(
     }
 
     // Pagination
-    let pagination =
-        RecentListPagination::new(Arc::clone(&ctx), response, user, scores, maps, map_ids);
+    let pagination = RecentListPagination::new(Arc::clone(&ctx), response, user, scores);
     let owner = msg.author.id;
 
     tokio::spawn(async move {

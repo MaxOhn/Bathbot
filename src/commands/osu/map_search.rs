@@ -3,13 +3,12 @@ use crate::{
     custom_client::{BeatconnectMapSet, BeatconnectMapStatus, BeatconnectSearchParams},
     embeds::{EmbedData, MapSearchEmbed},
     pagination::{MapSearchPagination, Pagination},
-    unwind_error,
     util::{constants::BEATCONNECT_ISSUE, MessageExt},
     BotResult, Context,
 };
 
 use cow_utils::CowUtils;
-use rosu::model::GameMode;
+use rosu_v2::model::GameMode;
 use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -104,13 +103,8 @@ async fn search_main(
     let data = MapSearchEmbed::new(&maps, query.as_str(), (1, total_pages)).await;
 
     // Creating the embed
-    let embed = data.build().build()?;
-
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .embed(embed)?
-        .await?;
+    let embed = data.into_builder().build();
+    let response = msg.respond_embed(&ctx, embed).await?;
 
     // Skip pagination if too few entries
     if maps.len() <= 10 {

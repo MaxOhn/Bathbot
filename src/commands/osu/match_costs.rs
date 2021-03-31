@@ -5,20 +5,9 @@ use crate::{
     BotResult, Context,
 };
 
-use futures::{
-    future::TryFutureExt,
-    stream::{FuturesUnordered, TryStreamExt},
-};
-use rosu::{
-    model::{GameMods, Match, Team, TeamType},
-    OsuError,
-};
-use std::{
-    cmp::Ordering,
-    collections::{HashMap, HashSet},
-    fmt::Write,
-    sync::Arc,
-};
+use hashbrown::{HashMap, HashSet};
+use rosu_v2::prelude::{GameMods, MatchGame, OsuError, Team, TeamType};
+use std::{cmp::Ordering, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
 
 const TOO_MANY_PLAYERS_TEXT: &str = "Too many players, cannot display message :(";
@@ -46,13 +35,13 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     let warmups = args.warmups;
 
     // Retrieve the match
-    let osu_match = match ctx.osu().osu_match(match_id).await {
+    let (mut osu_match, games) = match ctx.osu().osu_match(match_id).await {
         Ok(mut osu_match) => {
-            osu_match.games.retain(|game| !game.scores.is_empty());
+            let games = osu_match.drain_games().skip(warmups).collect::<Vec<_>>();
 
-            osu_match
+            (osu_match, games)
         }
-        Err(OsuError::InvalidMultiplayerMatch) => {
+        Err(OsuError::NotFound) => {
             let content = "Either the mp id was invalid or the match was private";
 
             return msg.error(&ctx, content).await;
@@ -64,15 +53,8 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         }
     };
 
-    let mode = osu_match
-        .games
-        .first()
-        .map(|game| game.mode)
-        .unwrap_or_default();
-
     // Retrieve all users of the match
-    let users: HashSet<_> = osu_match
-        .games
+    let users: HashSet<_> = games
         .iter()
         .map(|game| game.scores.iter())
         .flatten()
@@ -85,61 +67,31 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         return msg.error(&ctx, TOO_MANY_PLAYERS_TEXT).await;
     }
 
-    let requests = users
-        .into_iter()
-        .map(|id| {
-            ctx.osu()
-                .user(id)
-                .mode(mode)
-                .map_ok(move |user| match user {
-                    Some(user) => (id, user.username),
-                    None => (id, id.to_string()),
-                })
-        })
-        .collect::<FuturesUnordered<_>>()
-        .try_collect();
-
-    let users: HashMap<_, _> = match requests.await {
-        Ok(users) => users,
-        Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-            return Err(why.into());
-        }
-    };
-
     // Process match
-    let (description, match_result) = if osu_match.games.len() <= warmups {
-        let mut description = String::from("No games played yet");
-
-        if !osu_match.games.is_empty() && warmups > 0 {
-            let _ = write!(
-                description,
-                " beyond the {} warmup{}",
-                warmups,
-                if warmups > 1 { "s" } else { "" }
-            );
-        }
+    let (description, match_result) = if games.is_empty() {
+        let description = format!(
+            "No games played yet beyond the {} warmup{}",
+            warmups,
+            if warmups > 1 { "s" } else { "" },
+        );
 
         (Some(description), None)
     } else {
-        let result = process_match(users.clone(), &osu_match, warmups);
+        let result = process_match(&games, osu_match.end_time.is_some());
 
         (None, Some(result))
     };
 
     // Accumulate all necessary data
-    let data = match MatchCostEmbed::new(osu_match.clone(), description, match_result) {
-        Ok(data) => data,
-        Err(_) => return msg.error(&ctx, TOO_MANY_PLAYERS_TEXT).await,
+    let data = match MatchCostEmbed::new(&mut osu_match, description, match_result) {
+        Some(data) => data,
+        None => return msg.error(&ctx, TOO_MANY_PLAYERS_TEXT).await,
     };
 
     // Creating the embed
-    let embed = data.build_owned().build()?;
-
     msg.build_response(&ctx, |mut m| {
         if warmups > 0 {
-            let mut content = String::from("Ignoring the first ");
+            let mut content = "Ignoring the first ".to_owned();
 
             if warmups == 1 {
                 content.push_str("map");
@@ -150,7 +102,8 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
             content.push_str(" as warmup:");
             m = m.content(content)?;
         }
-        m.embed(embed)
+
+        m.embed(data.into_builder().build())
     })
     .await?;
 
@@ -179,12 +132,7 @@ const TIEBREAKER_BONUS: f32 = 2.0;
 // global multiplier per combination (if at least 3)
 const MOD_BONUS: f32 = 0.02;
 
-fn process_match(
-    mut users: HashMap<u32, String>,
-    osu_match: &Match,
-    warmups: usize,
-) -> MatchResult {
-    let games = &osu_match.games[warmups..];
+pub fn process_match(games: &[MatchGame], finished: bool) -> MatchResult {
     let mut teams = HashMap::new();
     let mut point_costs = HashMap::new();
     let mut mods = HashMap::new();
@@ -200,7 +148,7 @@ fn process_match(
         for score in game.scores.iter().filter(|s| s.score > 0) {
             mods.entry(score.user_id)
                 .or_insert_with(HashSet::new)
-                .insert(score.enabled_mods.map(|mods| mods - GameMods::NoFail));
+                .insert(score.mods - GameMods::NoFail);
 
             let point_cost = score.score as f32 / avg + FLAT_PARTICIPATION_BONUS;
 
@@ -226,7 +174,7 @@ fn process_match(
     }
 
     // Tiebreaker bonus
-    if osu_match.end_time.is_some() && games.len() > 2 && match_scores.difference() == 1 {
+    if finished && games.len() > 2 && match_scores.difference() == 1 {
         let game = games.last().unwrap();
 
         point_costs
@@ -258,15 +206,6 @@ fn process_match(
     let mut mvp_id = 0;
 
     for (user_id, point_costs) in point_costs {
-        let name = match users.remove(&user_id) {
-            Some(name) => name,
-            None => {
-                warn!("No user `{}` in matchcost users", user_id);
-
-                continue;
-            }
-        };
-
         let sum: f32 = point_costs.iter().sum();
         let costs_len = point_costs.len() as f32;
         let mut match_cost = sum / costs_len;
@@ -280,7 +219,7 @@ fn process_match(
 
         data.entry(*teams.get(&user_id).unwrap())
             .or_insert_with(Vec::new)
-            .push((user_id, name, match_cost));
+            .push((user_id, match_cost));
 
         if match_cost > highest_cost {
             highest_cost = match_cost;
@@ -316,7 +255,7 @@ fn process_match(
     }
 }
 
-type PlayerResult = (u32, String, f32);
+type PlayerResult = (u32, f32);
 type TeamResult = Vec<PlayerResult>;
 
 pub enum MatchResult {

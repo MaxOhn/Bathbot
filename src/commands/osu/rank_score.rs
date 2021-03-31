@@ -1,3 +1,4 @@
+use super::request_user;
 use crate::{
     arguments::{Args, NameIntArgs},
     custom_client::RankLeaderboard,
@@ -9,8 +10,7 @@ use crate::{
     BotResult, Context,
 };
 
-use futures::future::TryFutureExt;
-use rosu::model::GameMode;
+use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -22,22 +22,28 @@ async fn rank_score_main(
     args: Args<'_>,
 ) -> BotResult<()> {
     let args = NameIntArgs::new(&ctx, args);
+
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
+
     let rank = match args.number {
         Some(n) => n as usize,
         None => {
             let content = "You must specify a target rank.";
+
             return msg.error(&ctx, content).await;
         }
     };
+
     if rank == 0 {
         let content = "Rank number must be between 1 and 10,000";
+
         return msg.error(&ctx, content).await;
     } else if rank > 10_000 {
         let content = "Unfortunately I can only provide data for ranks up to 10,000 :(";
+
         return msg.error(&ctx, content).await;
     }
 
@@ -49,41 +55,43 @@ async fn rank_score_main(
     };
 
     // Retrieve the user and the id of the rank-holding user
-    let (rank_holder_id_result, user_result) = tokio::join!(
-        user_id_fut,
-        ctx.osu()
-            .user(name.as_str())
-            .mode(mode)
-            .map_err(|e| e.into())
-    );
+    let (rank_holder_id_result, user_result) =
+        tokio::join!(user_id_fut, request_user(&ctx, &name, Some(mode)));
+
     let rank_holder_id = match rank_holder_id_result {
         Ok(id) => id,
         Err(why) => {
             let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
+
             return Err(why.into());
         }
     };
+
     let user = match user_result {
-        Ok(Some(user)) => user,
-        Ok(None) => {
+        Ok(user) => user,
+        Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
+
             return msg.error(&ctx, content).await;
         }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-            return Err(why);
+
+            return Err(why.into());
         }
     };
 
     // Retrieve rank-holding user
     let rank_holder = match ctx.osu().user(rank_holder_id).mode(mode).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
+        Ok(user) => user,
+        Err(OsuError::NotFound) => {
             let content = format!("User id `{}` was not found", rank_holder_id);
+
             return msg.error(&ctx, content).await;
         }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
@@ -92,8 +100,9 @@ async fn rank_score_main(
     let data = RankRankedScoreEmbed::new(user, rank, rank_holder);
 
     // Creating the embed
-    let embed = data.build_owned().build()?;
+    let embed = data.into_builder().build();
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
+
     Ok(())
 }
 

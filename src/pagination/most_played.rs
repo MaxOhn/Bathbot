@@ -1,9 +1,9 @@
 use super::{Pages, Pagination};
 
-use crate::{custom_client::MostPlayedMap, embeds::MostPlayedEmbed, BotResult};
+use crate::{embeds::MostPlayedEmbed, BotResult};
 
 use async_trait::async_trait;
-use rosu::model::User;
+use rosu_v2::prelude::{MostPlayedMap, User};
 use twilight_model::channel::Message;
 
 pub struct MostPlayedPagination {

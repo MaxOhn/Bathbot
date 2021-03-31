@@ -1,31 +1,31 @@
 use super::{Pages, Pagination};
-
-use crate::{custom_client::MostPlayedMap, embeds::MostPlayedCommonEmbed, BotResult};
+use crate::{embeds::MostPlayedCommonEmbed, BotResult, Name};
 
 use async_trait::async_trait;
-use rosu::model::User;
-use std::collections::HashMap;
+use hashbrown::HashMap;
+use rosu_v2::prelude::MostPlayedMap;
+use smallvec::SmallVec;
 use twilight_model::channel::Message;
 
 pub struct MostPlayedCommonPagination {
     msg: Message,
     pages: Pages,
-    users: Vec<User>,
-    users_count: Vec<HashMap<u32, u32>>,
+    names: Vec<Name>,
+    users_count: SmallVec<[HashMap<u32, usize>; 3]>,
     maps: Vec<MostPlayedMap>,
 }
 
 impl MostPlayedCommonPagination {
     pub fn new(
         msg: Message,
-        users: Vec<User>,
-        users_count: Vec<HashMap<u32, u32>>,
+        names: Vec<Name>,
+        users_count: SmallVec<[HashMap<u32, usize>; 3]>,
         maps: Vec<MostPlayedMap>,
     ) -> Self {
         Self {
             pages: Pages::new(10, maps.len()),
             msg,
-            users,
+            names,
             users_count,
             maps,
         }
@@ -54,7 +54,7 @@ impl Pagination for MostPlayedCommonPagination {
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         Ok(MostPlayedCommonEmbed::new(
-            &self.users,
+            &self.names,
             &self.maps[self.pages.index..(self.pages.index + 10).min(self.maps.len())],
             &self.users_count,
             self.pages.index,

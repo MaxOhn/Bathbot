@@ -1,4 +1,4 @@
-use crate::{embeds::EmbedData, util::content_safe, Context};
+use crate::{util::content_safe, Context};
 
 use twilight_model::{
     channel::Message,
@@ -6,13 +6,14 @@ use twilight_model::{
 };
 
 pub struct RoleAssignEmbed {
-    description: Option<String>,
+    description: String,
 }
 
 impl RoleAssignEmbed {
     pub async fn new(ctx: &Context, msg: Message, guild: GuildId, role: RoleId) -> Self {
         let mut content = msg.content.clone();
         content_safe(ctx, &mut content, Some(guild));
+
         let description = format!(
             "Whoever reacts to <@{author}>'s [message]\
             (https://discordapp.com/channels/{guild}/{channel}/{msg})\n\
@@ -26,14 +27,9 @@ impl RoleAssignEmbed {
             channel_mention = msg.channel_id,
             role_mention = role,
         );
-        Self {
-            description: Some(description),
-        }
+
+        Self { description }
     }
 }
 
-impl EmbedData for RoleAssignEmbed {
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take()
-    }
-}
+impl_builder!(RoleAssignEmbed { description });

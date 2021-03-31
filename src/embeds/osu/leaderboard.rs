@@ -1,11 +1,11 @@
 use crate::{
     custom_client::ScraperScore,
-    embeds::{Author, EmbedData, Footer},
+    embeds::{Author, Footer},
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago,
         error::PPError,
-        numbers::with_comma_u64,
+        numbers::with_comma_uint,
         osu::prepare_beatmap_file,
         ScoreExt,
     },
@@ -13,17 +13,20 @@ use crate::{
 };
 
 use cow_utils::CowUtils;
-use rosu::model::{Beatmap, GameMode};
+use hashbrown::HashMap;
 use rosu_pp::{
     Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, StarResult, TaikoPP,
 };
-use std::{borrow::Cow, collections::HashMap, fmt::Write};
+use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, GameMode};
+use std::{
+    borrow::Cow,
+    fmt::{self, Write},
+};
 use tokio::fs::File;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct LeaderboardEmbed {
     description: String,
-    thumbnail: ImageSource,
+    thumbnail: String,
     author: Author,
     footer: Footer,
 }
@@ -32,6 +35,7 @@ impl LeaderboardEmbed {
     pub async fn new<'i, S>(
         init_name: Option<&str>,
         map: &Beatmap,
+        mapset: Option<&BeatmapsetCompact>,
         scores: Option<S>,
         author_icon: &Option<String>,
         idx: usize,
@@ -39,16 +43,29 @@ impl LeaderboardEmbed {
     where
         S: Iterator<Item = &'i ScraperScore>,
     {
+        let (artist, title, creator_name, creator_id) = match map.mapset {
+            Some(ref ms) => (&ms.artist, &ms.title, &ms.creator_name, ms.creator_id),
+            None => {
+                let ms = mapset.expect("mapset neither in map nor in option");
+
+                (&ms.artist, &ms.title, &ms.creator_name, ms.creator_id)
+            }
+        };
+
         let mut author_text = String::with_capacity(32);
 
         if map.mode == GameMode::MNA {
-            let _ = write!(author_text, "[{}K] ", map.diff_cs as u32);
+            let _ = write!(author_text, "[{}K] ", map.cs as u32);
         }
 
-        let _ = write!(author_text, "{} [{:.2}★]", map, map.stars);
+        let _ = write!(
+            author_text,
+            "{} - {} [{}] [{:.2}★]",
+            artist, title, map.version, map.stars
+        );
 
         let description = if let Some(scores) = scores {
-            let map_path = prepare_beatmap_file(map.beatmap_id).await?;
+            let map_path = prepare_beatmap_file(map.map_id).await?;
             let file = File::open(map_path).await.map_err(PPError::from)?;
             let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
 
@@ -83,7 +100,7 @@ impl LeaderboardEmbed {
                     idx = idx + i + 1,
                     grade = score.grade_emote(map.mode),
                     name = username,
-                    score = with_comma_u64(score.score as u64),
+                    score = with_comma_uint(score.score),
                     combo = get_combo(&score, &map),
                     mods = if score.enabled_mods.is_empty() {
                         String::new()
@@ -101,48 +118,36 @@ impl LeaderboardEmbed {
             "No scores found".to_string()
         };
 
-        let mut author = Author::new(author_text).url(format!("{}b/{}", OSU_BASE, map.beatmap_id));
+        let mut author = Author::new(author_text).url(format!("{}b/{}", OSU_BASE, map.map_id));
 
         if let Some(ref author_icon) = author_icon {
             author = author.icon_url(author_icon.to_owned());
         }
 
-        let footer = Footer::new(format!("{:?} map by {}", map.approval_status, map.creator))
-            .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
+        let footer = Footer::new(format!("{:?} map by {}", map.status, creator_name))
+            .icon_url(format!("{}{}", AVATAR_URL, creator_id));
 
         Ok(Self {
             author,
             description,
             footer,
-            thumbnail: ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id))
-                .unwrap(),
+            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id),
         })
     }
 }
 
-impl EmbedData for LeaderboardEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
-    }
-}
+impl_builder!(LeaderboardEmbed {
+    author,
+    description,
+    footer,
+    thumbnail,
+});
 
 async fn get_pp(
     mod_map: &mut HashMap<u32, (StarResult, f32)>,
     score: &ScraperScore,
     map: &Map,
-) -> String {
+) -> PPFormatter {
     let bits = score.enabled_mods.bits();
 
     let (mut attributes, mut max_pp) = mod_map.remove(&bits).map_or_else(
@@ -215,22 +220,37 @@ async fn get_pp(
 
     mod_map.insert(bits, (attributes, max_pp));
 
-    format!("**{:.2}**/{:.2}PP", pp, max_pp)
+    PPFormatter(pp, max_pp)
 }
 
-fn get_combo(score: &ScraperScore, map: &Beatmap) -> String {
-    let mut combo = format!("**{}x**/", score.max_combo);
+struct PPFormatter(f32, f32);
 
-    let _ = if let Some(amount) = map.max_combo {
-        write!(combo, "{}x", amount)
-    } else {
-        write!(
-            combo,
-            " {} miss{}",
-            score.count_miss,
-            if score.count_miss != 1 { "es" } else { "" }
-        )
-    };
+impl fmt::Display for PPFormatter {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "**{:.2}**/{:.2}PP", self.0, self.1)
+    }
+}
 
-    combo
+fn get_combo<'a>(score: &'a ScraperScore, map: &'a Beatmap) -> ComboFormatter<'a> {
+    ComboFormatter(score, map)
+}
+
+struct ComboFormatter<'a>(&'a ScraperScore, &'a Beatmap);
+
+impl<'a> fmt::Display for ComboFormatter<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "**{}x**/", self.0.max_combo)?;
+
+        if let Some(amount) = self.1.max_combo {
+            write!(f, "{}x", amount)?;
+        } else {
+            write!(f, " {} miss", self.0.count_miss,)?;
+
+            if self.0.count_miss != 1 {
+                f.write_str("es")?;
+            }
+        }
+
+        Ok(())
+    }
 }

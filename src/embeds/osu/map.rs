@@ -1,37 +1,37 @@
 use crate::{
-    embeds::{Author, EmbedData, Footer},
+    embeds::{attachment, Author, EmbedFields, Footer},
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::sec_to_minsec,
         error::PPError,
-        numbers::{round, with_comma_u64},
+        numbers::{round, with_comma_uint},
         osu::{mode_emote, prepare_beatmap_file},
     },
     BotResult,
 };
 
 use chrono::{DateTime, Utc};
-use rosu::model::{Beatmap, GameMode, GameMods};
 use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, TaikoPP};
+use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
 use std::fmt::Write;
 use tokio::fs::File;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct MapEmbed {
     title: String,
     url: String,
-    thumbnail: Option<ImageSource>,
+    thumbnail: String,
     description: String,
     footer: Footer,
     author: Author,
-    image: Option<ImageSource>,
+    image: String,
     timestamp: DateTime<Utc>,
-    fields: Vec<(String, String, bool)>,
+    fields: EmbedFields,
 }
 
 impl MapEmbed {
     pub async fn new(
         map: &Beatmap,
+        mapset: &Beatmapset,
         mods: GameMods,
         with_thumbnail: bool,
         pages: (usize, usize),
@@ -39,10 +39,10 @@ impl MapEmbed {
         let mut title = String::with_capacity(32);
 
         if map.mode == GameMode::MNA {
-            let _ = write!(title, "[{}K] ", map.diff_cs as u32);
+            let _ = write!(title, "[{}K] ", map.cs as u32);
         }
 
-        let _ = write!(title, "{} - {}", map.artist, map.title);
+        let _ = write!(title, "{} - {}", mapset.artist, mapset.title);
 
         let download_value = format!(
             "[Mapset]({base}d/{mapset_id})\n\
@@ -50,7 +50,7 @@ impl MapEmbed {
             [Beatconnect](https://beatconnect.io/b/{mapset_id})\n\
             <osu://dl/{mapset_id}>",
             base = OSU_BASE,
-            mapset_id = map.beatmapset_id
+            mapset_id = map.mapset_id
         );
 
         let mut seconds_total = map.seconds_total;
@@ -70,7 +70,7 @@ impl MapEmbed {
         let mut info_value = String::with_capacity(128);
         let mut fields = Vec::with_capacity(3);
 
-        let map_path = prepare_beatmap_file(map.beatmap_id).await?;
+        let map_path = prepare_beatmap_file(map.map_id).await?;
         let file = File::open(map_path).await.map_err(PPError::from)?;
         let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
         let mod_bits = mods.bits();
@@ -128,10 +128,10 @@ impl MapEmbed {
             let _ = writeln!(
                 pp_values,
                 "    |{:^len$}|{:^len$}|{:^len$}|{:^len$}",
-                with_comma_u64(acc_to_score(mod_mult, 95.0)),
-                with_comma_u64(acc_to_score(mod_mult, 97.0)),
-                with_comma_u64(acc_to_score(mod_mult, 99.0)),
-                with_comma_u64(acc_to_score(mod_mult, 100.0)),
+                with_comma_uint(acc_to_score(mod_mult, 95.0)),
+                with_comma_uint(acc_to_score(mod_mult, 97.0)),
+                with_comma_uint(acc_to_score(mod_mult, 99.0)),
+                with_comma_uint(acc_to_score(mod_mult, 100.0)),
                 len = len,
             );
 
@@ -193,7 +193,7 @@ impl MapEmbed {
             round(ar),
             round(od),
             round(hp),
-            map.count_spinner,
+            map.count_spinners,
         );
 
         let mut info_name = format!("{} __[{}]__", mode_emote(map.mode), map.version);
@@ -202,28 +202,32 @@ impl MapEmbed {
             let _ = write!(info_name, " +{}", mods);
         }
 
-        fields.push((info_name, info_value, true));
-        fields.push(("Download".to_owned(), download_value, true));
+        fields.push(field!(info_name, info_value, true));
+        fields.push(field!("Download", download_value, true));
 
-        let field_name = format!(
+        let mut field_name = format!(
             ":heart: {}  :play_pause: {}  | {:?}, {:?}",
-            with_comma_u64(map.favourite_count as u64),
-            with_comma_u64(map.playcount as u64),
-            map.language,
-            map.genre,
+            with_comma_uint(mapset.favourite_count),
+            with_comma_uint(mapset.playcount),
+            mapset.language.expect("no language in mapset"),
+            mapset.genre.expect("no genre in mapset"),
         );
 
-        fields.push((field_name, pp_values, false));
+        if mapset.nsfw {
+            field_name.push_str(" :underage: NSFW");
+        }
 
-        let (date_text, timestamp) = if let Some(approved_date) = map.approved_date {
-            (format!("{:?}", map.approval_status), approved_date)
+        fields.push(field!(field_name, pp_values, false));
+
+        let (date_text, timestamp) = if let Some(ranked_date) = mapset.ranked_date {
+            (format!("{:?}", map.status), ranked_date)
         } else {
-            ("Last updated".to_owned(), map.last_update)
+            ("Last updated".to_owned(), map.last_updated)
         };
 
-        let author = Author::new(format!("Created by {}", map.creator))
-            .url(format!("{}u/{}", OSU_BASE, map.creator_id))
-            .icon_url(format!("{}{}", AVATAR_URL, map.creator_id));
+        let author = Author::new(format!("Created by {}", mapset.creator_name))
+            .url(format!("{}u/{}", OSU_BASE, mapset.creator_id))
+            .icon_url(format!("{}{}", AVATAR_URL, mapset.creator_id));
 
         let footer_text = format!(
             "Map {} out of {} in the mapset, {}",
@@ -232,21 +236,17 @@ impl MapEmbed {
 
         let footer = Footer::new(footer_text);
 
-        let thumbnail = if with_thumbnail {
-            Some(ImageSource::url(format!("{}{}l.jpg", MAP_THUMB_URL, map.beatmapset_id)).unwrap())
-        } else {
-            None
-        };
+        let thumbnail = with_thumbnail
+            .then(|| format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id))
+            .unwrap_or_default();
 
-        let image = if with_thumbnail {
-            None
-        } else {
-            Some(ImageSource::attachment("map_graph.png").unwrap())
-        };
+        let image = (!with_thumbnail)
+            .then(|| attachment("map_graph.png"))
+            .unwrap_or_default();
 
         let description = format!(
             ":musical_note: [Song preview](https://b.ppy.sh/preview/{}.mp3)",
-            map.beatmapset_id
+            mapset.mapset_id
         );
 
         Ok(Self {
@@ -258,7 +258,7 @@ impl MapEmbed {
             thumbnail,
             timestamp,
             description,
-            url: format!("{}b/{}", OSU_BASE, map.beatmap_id),
+            url: format!("{}b/{}", OSU_BASE, map.map_id),
         })
     }
 }
@@ -268,40 +268,14 @@ fn acc_to_score(mod_mult: f32, acc: f32) -> u64 {
     (mod_mult * (acc * 10_000.0 - (100.0 - acc) * 50_000.0)).round() as u64
 }
 
-impl EmbedData for MapEmbed {
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        self.thumbnail.as_ref()
-    }
-
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
-    }
-
-    fn url(&self) -> Option<&str> {
-        Some(&self.url)
-    }
-
-    fn image(&self) -> Option<&ImageSource> {
-        self.image.as_ref()
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn fields(&self) -> Option<Vec<(String, String, bool)>> {
-        Some(self.fields.clone())
-    }
-
-    fn timestamp(&self) -> Option<&DateTime<Utc>> {
-        Some(&self.timestamp)
-    }
-}
+impl_builder!(MapEmbed {
+    author,
+    description,
+    fields,
+    footer,
+    image,
+    thumbnail,
+    timestamp,
+    title,
+    url,
+});

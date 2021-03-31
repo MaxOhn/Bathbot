@@ -1,23 +1,21 @@
 use crate::{database::GuildConfig, BotResult, Database};
 
 use dashmap::DashMap;
-use sqlx::{types::Json, FromRow, Row};
+use futures::stream::StreamExt;
 use twilight_model::id::GuildId;
 
 impl Database {
     #[cold]
     pub async fn get_guilds(&self) -> BotResult<DashMap<GuildId, GuildConfig>> {
-        let guilds = sqlx::query("SELECT * FROM guilds")
-            .fetch_all(&self.pool)
-            .await?
-            .into_iter()
-            .map(|row| {
-                let id: i64 = row.get(0);
-                let config = GuildConfig::from_row(&row).unwrap();
+        let mut stream = sqlx::query!("SELECT * FROM guild_configs").fetch(&self.pool);
+        let guilds = DashMap::with_capacity(3000);
 
-                (GuildId(id as u64), config)
-            })
-            .collect();
+        while let Some(entry) = stream.next().await.transpose()? {
+            let guild_id: i64 = entry.guild_id;
+            let config = serde_json::from_value(entry.config)?;
+
+            guilds.insert(GuildId(guild_id as u64), config);
+        }
 
         Ok(guilds)
     }
@@ -27,16 +25,15 @@ impl Database {
         let mut result = Ok(());
 
         for guard in configs.iter().filter(|guard| guard.value().modified) {
-            let query = format!(
-                "INSERT INTO guilds VALUES ({},$1) ON CONFLICT (guild_id) DO UPDATE SET config=$1",
-                guard.key()
-            );
-
-            result = sqlx::query(&query)
-                .bind(Json(guard.value()))
-                .execute(&self.pool)
-                .await
-                .and(result);
+            result = sqlx::query!(
+                "INSERT INTO guild_configs VALUES ($1,$2) 
+                ON CONFLICT (guild_id) DO UPDATE SET config=$2",
+                guard.key().0 as i64,
+                serde_json::to_value(guard.value())?
+            )
+            .execute(&self.pool)
+            .await
+            .and(result);
 
             counter += 1;
         }

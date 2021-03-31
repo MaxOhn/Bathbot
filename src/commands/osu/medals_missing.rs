@@ -1,29 +1,30 @@
+use super::request_user;
 use crate::{
     arguments::{Args, NameArgs},
-    custom_client::{OsuMedal, OsuMedalGroup},
+    database::{MedalGroup, OsuMedal},
     embeds::{EmbedData, MedalsMissingEmbed},
     pagination::{MedalsMissingPagination, Pagination},
-    unwind_error,
     util::{
-        constants::{OSU_API_ISSUE, OSU_WEB_ISSUE},
+        constants::{GENERAL_ISSUE, OSU_WEB_ISSUE},
         numbers, MessageExt,
     },
     BotResult, Context,
 };
 
-use rosu::model::GameMode;
-use std::{cmp::Ordering, collections::HashSet, sync::Arc};
+use hashbrown::HashSet;
+use rosu_v2::prelude::OsuError;
+use std::{cmp::Ordering, sync::Arc};
 use twilight_model::channel::Message;
 
-const GROUPS: [OsuMedalGroup; 8] = [
-    OsuMedalGroup::Skill,
-    OsuMedalGroup::Dedication,
-    OsuMedalGroup::HushHush,
-    OsuMedalGroup::BeatmapPacks,
-    OsuMedalGroup::BeatmapChallengePacks,
-    OsuMedalGroup::SeasonalSpotlights,
-    OsuMedalGroup::BeatmapSpotlights,
-    OsuMedalGroup::ModIntroduction,
+const GROUPS: [MedalGroup; 8] = [
+    MedalGroup::Skill,
+    MedalGroup::Dedication,
+    MedalGroup::HushHush,
+    MedalGroup::BeatmapPacks,
+    MedalGroup::BeatmapChallengePacks,
+    MedalGroup::SeasonalSpotlights,
+    MedalGroup::BeatmapSpotlights,
+    MedalGroup::ModIntroduction,
 ];
 
 #[command]
@@ -33,49 +34,52 @@ const GROUPS: [OsuMedalGroup; 8] = [
 #[aliases("mm", "missingmedals")]
 async fn medalsmissing(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = NameArgs::new(&ctx, args);
+
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
-    let user = match ctx.osu().user(name.as_str()).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
+
+    let user_fut = request_user(&ctx, &name, None);
+    let medals_fut = ctx.psql().get_medals();
+
+    let (user, all_medals) = match tokio::join!(user_fut, medals_fut) {
+        (Ok(user), Ok(medals)) => (user, medals),
+        (Err(OsuError::NotFound), _) => {
             let content = format!("User `{}` was not found", name);
+
             return msg.error(&ctx, content).await;
         }
-        Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-            return Err(why.into());
+        (_, Err(why)) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
         }
-    };
-    let profile_fut = ctx
-        .clients
-        .custom
-        .get_osu_profile(user.user_id, GameMode::STD, true);
-    let (mut profile, medals) = match profile_fut.await {
-        Ok(tuple) => tuple,
-        Err(why) => {
+        (Err(why), _) => {
             let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
+
             return Err(why.into());
         }
     };
-    let medal_count = (medals.len() - profile.medals.len(), medals.len());
-    let owned: HashSet<_> = profile
-        .medals
-        .drain(..)
-        .map(|medal| medal.medal_id)
-        .collect();
-    let mut medals: Vec<_> = medals
+
+    let medals = user.medals.as_ref().unwrap();
+    let medal_count = (all_medals.len() - medals.len(), all_medals.len());
+    let owned: HashSet<_> = medals.iter().map(|medal| medal.medal_id).collect();
+
+    let mut medals: Vec<_> = all_medals
         .into_iter()
         .filter(|(id, _)| !owned.contains(id))
         .map(|(_, medal)| MedalType::Medal(medal))
         .collect();
+
     medals.extend(GROUPS.iter().copied().map(MedalType::Group));
     medals.sort_unstable();
+
     let limit = medals.len().min(15);
     let pages = numbers::div_euclid(15, medals.len());
+
     let data = MedalsMissingEmbed::new(
-        &profile,
+        &user,
         &medals[..limit],
         medal_count,
         limit == medals.len(),
@@ -83,39 +87,38 @@ async fn medalsmissing(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
     );
 
     // Send the embed
-    let embed = data.build().build()?;
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .embed(embed)?
-        .await?;
+    let embed = data.into_builder().build();
+    let response = msg.respond_embed(&ctx, embed).await?;
 
     // Skip pagination if too few entries
     if medals.len() <= 15 {
         response.reaction_delete(&ctx, msg.author.id);
+
         return Ok(());
     }
 
     // Pagination
-    let pagination = MedalsMissingPagination::new(response, profile, medals, medal_count);
+    let pagination = MedalsMissingPagination::new(response, user, medals, medal_count);
     let owner = msg.author.id;
+
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
             unwind_error!(warn, why, "Pagination error (medals missing): {}")
         }
     });
+
     Ok(())
 }
 
 pub enum MedalType {
-    Group(OsuMedalGroup),
+    Group(MedalGroup),
     Medal(OsuMedal),
 }
 
 impl MedalType {
-    fn group(&self) -> &OsuMedalGroup {
+    fn group(&self) -> &MedalGroup {
         match self {
-            Self::Group(g) => g,
+            Self::Group(g) => &g,
             Self::Medal(m) => &m.grouping,
         }
     }

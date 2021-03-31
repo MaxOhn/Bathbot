@@ -1,9 +1,9 @@
 use crate::{
     custom_client::{OsuStatsScore, ScraperScore},
-    util::osu::grade_emote,
+    util::{numbers::round, osu::grade_emote},
 };
 
-use rosu::model::{GameMode, GameMods, Grade, Score};
+use rosu_v2::prelude::{GameMode, GameMods, Grade, Score};
 use std::fmt::Write;
 
 pub trait ScoreExt: Send + Sync {
@@ -201,28 +201,28 @@ pub trait ScoreExt: Send + Sync {
 
 impl ScoreExt for Score {
     fn count_miss(&self) -> u32 {
-        self.count_miss
+        self.statistics.count_miss
     }
     fn count_50(&self) -> u32 {
-        self.count50
+        self.statistics.count_50
     }
     fn count_100(&self) -> u32 {
-        self.count100
+        self.statistics.count_100
     }
     fn count_300(&self) -> u32 {
-        self.count300
+        self.statistics.count_300
     }
     fn count_geki(&self) -> u32 {
-        self.count_geki
+        self.statistics.count_geki
     }
     fn count_katu(&self) -> u32 {
-        self.count_katu
+        self.statistics.count_katu
     }
     fn max_combo(&self) -> u32 {
         self.max_combo
     }
     fn mods(&self) -> GameMods {
-        self.enabled_mods
+        self.mods
     }
     fn grade(&self, _mode: GameMode) -> Grade {
         self.grade
@@ -233,35 +233,35 @@ impl ScoreExt for Score {
     fn pp(&self) -> Option<f32> {
         self.pp
     }
-    fn acc(&self, mode: GameMode) -> f32 {
-        self.accuracy(mode)
+    fn acc(&self, _: GameMode) -> f32 {
+        round(self.accuracy)
     }
 }
 
 impl ScoreExt for &Score {
     fn count_miss(&self) -> u32 {
-        self.count_miss
+        self.statistics.count_miss
     }
     fn count_50(&self) -> u32 {
-        self.count50
+        self.statistics.count_50
     }
     fn count_100(&self) -> u32 {
-        self.count100
+        self.statistics.count_100
     }
     fn count_300(&self) -> u32 {
-        self.count300
+        self.statistics.count_300
     }
     fn count_geki(&self) -> u32 {
-        self.count_geki
+        self.statistics.count_geki
     }
     fn count_katu(&self) -> u32 {
-        self.count_katu
+        self.statistics.count_katu
     }
     fn max_combo(&self) -> u32 {
         self.max_combo
     }
     fn mods(&self) -> GameMods {
-        self.enabled_mods
+        self.mods
     }
     fn grade(&self, _mode: GameMode) -> Grade {
         self.grade
@@ -272,8 +272,8 @@ impl ScoreExt for &Score {
     fn pp(&self) -> Option<f32> {
         self.pp
     }
-    fn acc(&self, mode: GameMode) -> f32 {
-        self.accuracy(mode)
+    fn acc(&self, _: GameMode) -> f32 {
+        round(self.accuracy)
     }
 }
 

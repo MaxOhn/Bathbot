@@ -1,8 +1,8 @@
 use super::deserialize::{expect_negative_u32, str_to_maybe_datetime};
-use crate::util::osu::ModSelection;
+use crate::{util::osu::ModSelection, Name};
 
 use chrono::{offset::TimeZone, Date, DateTime, NaiveDate, Utc};
-use rosu::model::{GameMode, GameMods};
+use rosu_v2::model::{GameMode, GameMods};
 use serde::{
     de::{Deserializer, Error, IgnoredAny, MapAccess, Unexpected, Visitor},
     Deserialize,
@@ -117,7 +117,7 @@ pub struct SnipeTopNationalDifference {
     #[serde(rename = "most_recent_top_national")]
     pub top_national: Option<usize>,
     #[serde(rename = "name")]
-    pub username: String,
+    pub username: Name,
     #[serde(rename = "total_top_national_difference")]
     pub difference: i32,
 }
@@ -125,7 +125,7 @@ pub struct SnipeTopNationalDifference {
 #[derive(Debug, Deserialize)]
 pub struct SnipePlayer {
     #[serde(rename = "name")]
-    pub username: String,
+    pub username: Name,
     pub user_id: u32,
     #[serde(rename = "average_pp")]
     pub avg_pp: f32,
@@ -162,7 +162,7 @@ pub struct SnipePlayer {
 #[derive(Debug, Deserialize)]
 pub struct SnipeCountryPlayer {
     #[serde(rename = "name")]
-    pub username: String,
+    pub username: Name,
     pub user_id: u32,
     #[serde(rename = "average_pp")]
     pub avg_pp: f32,
@@ -185,9 +185,9 @@ pub struct SnipePlayerOldest {
 
 #[derive(Debug)]
 pub struct SnipeRecent {
-    pub sniped: Option<String>,
+    pub sniped: Option<Name>,
     pub sniped_id: Option<u32>,
-    pub sniper: String,
+    pub sniper: Name,
     pub sniper_id: u32,
     pub mods: GameMods,
     pub beatmap_id: u32,
@@ -215,9 +215,9 @@ impl<'de> Deserialize<'de> for SnipeRecent {
             where
                 V: MapAccess<'de>,
             {
-                let mut sniped = None;
+                let mut sniped: Option<Option<&str>> = None;
                 let mut sniped_id = None;
-                let mut sniper = None;
+                let mut sniper: Option<&str> = None;
                 let mut sniper_id = None;
                 let mut mods: Option<GameMods> = None;
                 let mut beatmap_id = None;
@@ -275,9 +275,9 @@ impl<'de> Deserialize<'de> for SnipeRecent {
                 let beatmap = beatmap.ok_or_else(|| Error::missing_field("map"))?;
 
                 let snipe = SnipeRecent {
-                    sniped,
+                    sniped: sniped.map(From::from),
                     sniped_id,
-                    sniper,
+                    sniper: sniper.into(),
                     sniper_id,
                     mods,
                     beatmap_id,
@@ -374,6 +374,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
                 let mut inner_score: Option<InnerScore> = None;
                 let mut map_id = None;
                 let mut mapset_id = None;
+                // Don't parse mods just yet since it might be unnecessary
                 let mut star_ratings: Option<HashMap<&str, f32>> = None;
                 // let mut artist = None;
                 // let mut title = None;
@@ -441,6 +442,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
                     .datetime_from_str(inner_score.date_set, "%F %T")
                     .unwrap_or_else(|why| {
                         warn!("Couldn't parse date `{}`: {}", inner_score.date_set, why);
+
                         Utc::now()
                     });
 
@@ -555,7 +557,7 @@ fn deserialize_history<'de, D>(d: D) -> Result<BTreeMap<Date<Utc>, u32>, D::Erro
 where
     D: Deserializer<'de>,
 {
-    Ok(d.deserialize_map(SnipePlayerHistoryVisitor)?)
+    d.deserialize_map(SnipePlayerHistoryVisitor)
 }
 
 struct SnipePlayerHistoryVisitor;
@@ -563,14 +565,11 @@ struct SnipePlayerHistoryVisitor;
 impl<'de> Visitor<'de> for SnipePlayerHistoryVisitor {
     type Value = BTreeMap<Date<Utc>, u32>;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a map")
+    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("a map")
     }
 
-    fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
-    where
-        V: MapAccess<'de>,
-    {
+    fn visit_map<V: MapAccess<'de>>(self, mut map: V) -> Result<Self::Value, V::Error> {
         let mut history = BTreeMap::new();
 
         while let Some(key) = map.next_key()? {

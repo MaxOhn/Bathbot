@@ -1,26 +1,26 @@
 use crate::{
     custom_client::OsuStatsPlayer,
-    embeds::{Author, EmbedData, Footer},
+    embeds::{Author, Footer},
     util::{
         constants::{AVATAR_URL, OSU_BASE},
-        numbers::with_comma_u64,
+        numbers::with_comma_uint,
     },
+    CountryCode,
 };
 
 use std::fmt::Write;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct OsuStatsListEmbed {
-    description: String,
-    thumbnail: ImageSource,
     author: Author,
+    description: String,
     footer: Footer,
+    thumbnail: String,
 }
 
 impl OsuStatsListEmbed {
     pub fn new(
         players: &[OsuStatsPlayer],
-        country: &Option<String>,
+        country: &Option<CountryCode>,
         first_place_id: u32,
         pages: (usize, usize),
     ) -> Self {
@@ -40,35 +40,22 @@ impl OsuStatsListEmbed {
                 player.username,
                 OSU_BASE,
                 player.user_id,
-                with_comma_u64(player.count as u64)
+                with_comma_uint(player.count)
             );
         }
 
-        let thumbnail = ImageSource::url(format!("{}{}", AVATAR_URL, first_place_id)).unwrap();
-
         Self {
             author,
-            thumbnail,
             description,
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
+            thumbnail: format!("{}{}", AVATAR_URL, first_place_id),
         }
     }
 }
 
-impl EmbedData for OsuStatsListEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-}
+impl_builder!(OsuStatsListEmbed {
+    author,
+    description,
+    footer,
+    thumbnail,
+});

@@ -1,4 +1,4 @@
-use super::{Pages, Pagination};
+use super::{Pages, Pagination, ReactionVec};
 use crate::{
     custom_client::{OsuStatsListParams, OsuStatsPlayer},
     embeds::OsuStatsListEmbed,
@@ -6,8 +6,8 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use std::{collections::HashMap, sync::Arc};
-use twilight_http::request::channel::reaction::RequestReactionType;
+use hashbrown::HashMap;
+use std::sync::Arc;
 use twilight_model::channel::Message;
 
 pub struct OsuStatsListPagination {
@@ -56,7 +56,7 @@ impl Pagination for OsuStatsListPagination {
         &mut self.pages
     }
 
-    fn reactions() -> Vec<RequestReactionType> {
+    fn reactions() -> ReactionVec {
         Self::arrow_reactions_full()
     }
 

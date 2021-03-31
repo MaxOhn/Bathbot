@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 #[derive(Debug)]
 pub struct Country {
@@ -54,6 +54,7 @@ lazy_static::lazy_static! {
         add("South Korea", "KR");
         add("Spain", "ES");
         add("Sweden", "SE");
+        add("Switzerland", "CH");
         add("Taiwan", "TW");
         add("Thailand", "TH");
         add("Ukraine", "UA");

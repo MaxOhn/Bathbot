@@ -1,13 +1,13 @@
-use crate::embeds::EmbedData;
+use crate::{database::Prefix, embeds::EmbedFields};
 
 pub struct BGHelpEmbed {
-    title: &'static str,
     description: &'static str,
-    fields: Vec<(String, String, bool)>,
+    fields: EmbedFields,
+    title: &'static str,
 }
 
 impl BGHelpEmbed {
-    pub fn new(prefix: String) -> Self {
+    pub fn new(prefix: Prefix) -> Self {
         let description = "Given part of a map's background, \
             try to guess the **title** of the map's song.\n\
             You don't need to guess content in parentheses `(...)` \
@@ -15,8 +15,8 @@ impl BGHelpEmbed {
             Use these subcommands to initiate with the game:";
 
         let fields = vec![
-            (
-                "start / s / skip / resolve / r".to_owned(),
+            field!(
+                "start / s / skip / resolve / r",
                 format!(
                     "__If no game is running yet:__\n\
                     Start the game in the current channel.\n\
@@ -34,53 +34,47 @@ impl BGHelpEmbed {
                     Once the mania game is running, you can skip with `{prefix}bg s`.",
                     prefix = prefix
                 ),
-                false,
+                false
             ),
-            (
-                "hint / h / tip".to_owned(),
+            field!(
+                "hint / h / tip",
                 "Receive a hint (can be used multiple times)".to_owned(),
-                true,
+                true
             ),
-            (
-                "bigger / b / enhance".to_owned(),
+            field!(
+                "bigger / b / enhance",
                 "Increase the radius of the displayed image \
                 (can be used multiple times)"
                     .to_owned(),
-                true,
+                true
             ),
-            (
-                "stop / end / quit".to_owned(),
+            field!(
+                "stop / end / quit",
                 "Resolve the current background and stop the game in this channel".to_owned(),
-                true,
+                true
             ),
-            (
-                "ranking / leaderboard / lb / stats".to_owned(),
+            field!(
+                "ranking / leaderboard / lb / stats",
                 format!(
                     "Check out the global leaderboard for amount of correct guesses.\n\
                     If you add `server` or `s` at the end, e.g. `{prefix}bg lb s`, \
                     I will only consider members of the server.",
                     prefix = prefix
                 ),
-                false,
+                false
             ),
         ];
 
         Self {
-            fields,
             description,
+            fields,
             title: "Background guessing game",
         }
     }
 }
 
-impl EmbedData for BGHelpEmbed {
-    fn title_owned(&mut self) -> Option<String> {
-        Some(self.title.to_owned())
-    }
-    fn description_owned(&mut self) -> Option<String> {
-        Some(self.description.to_owned())
-    }
-    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
-        Some(self.fields)
-    }
-}
+impl_builder!(BGHelpEmbed {
+    description,
+    fields,
+    title,
+});

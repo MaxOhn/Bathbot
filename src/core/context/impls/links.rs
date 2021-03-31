@@ -1,16 +1,17 @@
-use crate::{BotResult, Context};
+use crate::{BotResult, Context, Name};
 
+use smallstr::SmallString;
 use twilight_model::id::{ChannelId, MessageId, RoleId};
 
 impl Context {
-    pub fn get_link(&self, discord_id: u64) -> Option<String> {
+    pub fn get_link(&self, discord_id: u64) -> Option<Name> {
         self.data
             .discord_links
             .get(&discord_id)
-            .map(|guard| guard.value().to_owned())
+            .map(|guard| SmallString::from_str(guard.value()))
     }
 
-    pub async fn add_link(&self, discord_id: u64, osu_name: impl Into<String>) -> BotResult<()> {
+    pub async fn add_link(&self, discord_id: u64, osu_name: impl Into<Name>) -> BotResult<()> {
         let name = osu_name.into();
 
         self.clients

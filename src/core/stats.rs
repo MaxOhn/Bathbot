@@ -1,4 +1,4 @@
-use crate::{core::Context, unwind_error};
+use crate::core::Context;
 
 use chrono::{DateTime, Utc};
 use log::info;
@@ -49,6 +49,11 @@ pub struct GuildCounters {
     pub unavailable: IntGauge,
 }
 
+pub struct OsuCounters {
+    pub rosu: IntCounterVec,
+    pub user_cached: IntCounter,
+}
+
 pub struct BotStats {
     pub registry: Registry,
     pub start_time: DateTime<Utc>,
@@ -58,7 +63,7 @@ pub struct BotStats {
     pub channel_count: IntGauge,
     pub guild_counts: GuildCounters,
     pub command_counts: IntCounterVec,
-    pub osu_metrics: IntCounterVec,
+    pub osu_metrics: OsuCounters,
     pub cache_metrics: Arc<Metrics>,
 }
 
@@ -82,65 +87,74 @@ impl BotStats {
         registry.register(Box::new(guild_counter.clone())).unwrap();
         registry.register(Box::new(command_counts.clone())).unwrap();
         registry.register(Box::new(osu_metrics.clone())).unwrap();
+
         let stats = Self {
             registry,
             start_time: Utc::now(),
             event_counts: EventStats {
-                channel_create: event_counter.get_metric_with_label_values(&["ChannelCreate"]).unwrap(),
-                channel_delete: event_counter.get_metric_with_label_values(&["ChannelDelete"]).unwrap(),
-                gateway_reconnect: event_counter.get_metric_with_label_values(&["GatewayReconnect"]).unwrap(),
-                guild_create: event_counter.get_metric_with_label_values(&["GuildCreate"]).unwrap(),
-                guild_delete: event_counter.get_metric_with_label_values(&["GuildDelete"]).unwrap(),
-                guild_update: event_counter.get_metric_with_label_values(&["GuildUpdate"]).unwrap(),
-                member_add: event_counter.get_metric_with_label_values(&["MemberAdd"]).unwrap(),
-                member_remove: event_counter.get_metric_with_label_values(&["MemberRemove"]).unwrap(),
-                member_update: event_counter.get_metric_with_label_values(&["MemberUpdate"]).unwrap(),
-                member_chunk: event_counter.get_metric_with_label_values(&["MemberChunk"]).unwrap(),
-                message_create: event_counter.get_metric_with_label_values(&["MessageCreate"]).unwrap(),
-                message_delete: event_counter.get_metric_with_label_values(&["MessageDelete"]).unwrap(),
-                message_delete_bulk: event_counter.get_metric_with_label_values(&["MessageDeleteBulk"]).unwrap(),
-                message_update: event_counter.get_metric_with_label_values(&["MessageUpdate"]).unwrap(),
-                reaction_add: event_counter.get_metric_with_label_values(&["ReactionAdd"]).unwrap(),
-                reaction_remove: event_counter.get_metric_with_label_values(&["ReactionRemove"]).unwrap(),
-                reaction_remove_all: event_counter.get_metric_with_label_values(&["ReactionRemoveAll"]).unwrap(),
-                reaction_remove_emoji: event_counter.get_metric_with_label_values(&["ReactionRemoveEmoji"]).unwrap(),
-                unavailable_guild: event_counter.get_metric_with_label_values(&["UnavailableGuild"]).unwrap(),
-                user_update: event_counter.get_metric_with_label_values(&["UserUpdate"]).unwrap(),
+                channel_create: event_counter.with_label_values(&["ChannelCreate"]),
+                channel_delete: event_counter.with_label_values(&["ChannelDelete"]),
+                gateway_reconnect: event_counter.with_label_values(&["GatewayReconnect"]),
+                guild_create: event_counter.with_label_values(&["GuildCreate"]),
+                guild_delete: event_counter.with_label_values(&["GuildDelete"]),
+                guild_update: event_counter.with_label_values(&["GuildUpdate"]),
+                member_add: event_counter.with_label_values(&["MemberAdd"]),
+                member_remove: event_counter.with_label_values(&["MemberRemove"]),
+                member_update: event_counter.with_label_values(&["MemberUpdate"]),
+                member_chunk: event_counter.with_label_values(&["MemberChunk"]),
+                message_create: event_counter.with_label_values(&["MessageCreate"]),
+                message_delete: event_counter.with_label_values(&["MessageDelete"]),
+                message_delete_bulk: event_counter.with_label_values(&["MessageDeleteBulk"]),
+                message_update: event_counter.with_label_values(&["MessageUpdate"]),
+                reaction_add: event_counter.with_label_values(&["ReactionAdd"]),
+                reaction_remove: event_counter.with_label_values(&["ReactionRemove"]),
+                reaction_remove_all: event_counter.with_label_values(&["ReactionRemoveAll"]),
+                reaction_remove_emoji: event_counter.with_label_values(&["ReactionRemoveEmoji"]),
+                unavailable_guild: event_counter.with_label_values(&["UnavailableGuild"]),
+                user_update: event_counter.with_label_values(&["UserUpdate"]),
             },
             message_counts: MessageCounters {
-                user_messages: message_counter.get_metric_with_label_values(&["User"]).unwrap(),
-                other_bot_messages: message_counter.get_metric_with_label_values(&["Bot"]).unwrap(),
-                own_messages: message_counter.get_metric_with_label_values(&["Own"]).unwrap(),
+                user_messages: message_counter.with_label_values(&["User"]),
+                other_bot_messages: message_counter.with_label_values(&["Bot"]),
+                own_messages: message_counter.with_label_values(&["Own"]),
             },
             user_counts: UserCounters {
-                unique: user_counter.get_metric_with_label_values(&["Unique"]).unwrap(),
-                total: user_counter.get_metric_with_label_values(&["Total"]).unwrap(),
+                unique: user_counter.with_label_values(&["Unique"]),
+                total: user_counter.with_label_values(&["Total"]),
             },
             guild_counts: GuildCounters {
-                total: guild_counter.get_metric_with_label_values(&["Total"]).unwrap(),
-                unavailable: guild_counter.get_metric_with_label_values(&["Unavailable"]).unwrap(),
+                total: guild_counter.with_label_values(&["Total"]),
+                unavailable: guild_counter.with_label_values(&["Unavailable"]),
             },
             channel_count,
             command_counts,
-            osu_metrics,
+            osu_metrics: OsuCounters {
+                user_cached: osu_metrics.with_label_values(&["User cached"]),
+                rosu: osu_metrics,
+            },
             cache_metrics
         };
+
         stats
             .guild_counts
             .total
             .set(stats.cache_metrics.guilds.load(Relaxed) as i64);
+
         stats
             .guild_counts
             .unavailable
             .set(stats.cache_metrics.unavailable_guilds.load(Relaxed) as i64);
+
         stats
             .user_counts
             .total
             .set(stats.cache_metrics.members.load(Relaxed) as i64);
+
         stats
             .user_counts
             .unique
             .set(stats.cache_metrics.users.load(Relaxed) as i64);
+
         stats
     }
 
@@ -165,6 +179,11 @@ impl BotStats {
             Ok(counter) => counter.inc(),
             Err(why) => unwind_error!(warn, why, "Error while incrementing `{}`'s counter: {}", c),
         }
+    }
+
+    #[inline]
+    pub fn inc_cached_user(&self) {
+        self.osu_metrics.user_cached.inc();
     }
 }
 

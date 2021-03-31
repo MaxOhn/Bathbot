@@ -1,3 +1,4 @@
+use super::request_user;
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, OsuStatsCountsEmbed},
@@ -5,7 +6,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::model::GameMode;
+use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -16,32 +17,40 @@ async fn osustats_main(
     args: Args<'_>,
 ) -> BotResult<()> {
     let args = NameArgs::new(&ctx, args);
+
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
-    let user = match ctx.osu().user(name.as_str()).mode(mode).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
-            let content = format!("Could not find user `{}`", name);
+
+    let user = match request_user(&ctx, &name, Some(mode)).await {
+        Ok(user) => user,
+        Err(OsuError::NotFound) => {
+            let content = format!("User `{}` was not found", name);
+
             return msg.error(&ctx, content).await;
         }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
+
     let counts = match super::get_globals_count(&ctx, &user.username, mode).await {
         Ok(counts) => counts,
         Err(why) => {
             let content = "Some issue with the osustats website, blame bade";
             let _ = msg.error(&ctx, content).await;
+
             return Err(why);
         }
     };
+
     let data = OsuStatsCountsEmbed::new(user, mode, counts);
-    let embed = data.build_owned().build()?;
+    let embed = data.into_builder().build();
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
+
     Ok(())
 }
 

@@ -4,10 +4,10 @@ use crate::{
 };
 
 use bitflags::bitflags;
-use rosu::model::{GameMode, GameMods, Grade};
 use rosu_pp::{
-    Beatmap, BeatmapExt as RosuBeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, TaikoPP,
+    Beatmap, BeatmapExt as rosu_v2BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, TaikoPP,
 };
+use rosu_v2::model::{GameMode, GameMods, Grade};
 use tokio::fs::File;
 
 bitflags! {

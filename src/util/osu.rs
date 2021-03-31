@@ -3,7 +3,7 @@ use crate::{
     CONFIG,
 };
 
-use rosu::model::{Beatmap, GameMode, GameMods, Grade, Score};
+use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score};
 use tokio::{
     fs::File,
     io::AsyncWriteExt,
@@ -138,15 +138,12 @@ pub fn pp_missing(start: f32, goal: f32, scores: &[Score]) -> (f32, usize) {
 }
 
 pub fn map_id_from_history(msgs: Vec<Message>) -> Option<MapIdType> {
-    for msg in msgs {
-        let option = check_embeds_for_map_id(&msg.embeds);
-
-        if option.is_some() {
-            return option;
-        }
-    }
-
-    None
+    msgs.into_iter().find_map(|msg| {
+        matcher::get_osu_map_id(&msg.content).or_else(|| {
+            matcher::get_osu_mapset_id(&msg.content)
+                .or_else(|| check_embeds_for_map_id(&msg.embeds))
+        })
+    })
 }
 
 #[inline]
@@ -155,24 +152,17 @@ pub fn cached_message_extract(msg: &CachedMessage) -> Option<MapIdType> {
 }
 
 fn check_embeds_for_map_id(embeds: &[Embed]) -> Option<MapIdType> {
-    for embed in embeds {
+    embeds.iter().find_map(|embed| {
         let url = embed
             .author
             .as_ref()
             .and_then(|author| author.url.as_deref());
 
-        let option = url
-            .and_then(matcher::get_osu_map_id)
+        url.and_then(matcher::get_osu_map_id)
             .or_else(|| url.and_then(matcher::get_osu_mapset_id))
             .or_else(|| embed.url.as_deref().and_then(matcher::get_osu_map_id))
-            .or_else(|| embed.url.as_deref().and_then(matcher::get_osu_mapset_id));
-
-        if option.is_some() {
-            return option;
-        }
-    }
-
-    None
+            .or_else(|| embed.url.as_deref().and_then(matcher::get_osu_mapset_id))
+    })
 }
 
 #[derive(Debug, Clone, Copy)]

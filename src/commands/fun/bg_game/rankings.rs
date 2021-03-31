@@ -1,13 +1,13 @@
 use crate::{
     embeds::{BGRankingEmbed, EmbedData},
     pagination::{BGRankingPagination, Pagination},
-    unwind_error,
     util::{constants::GENERAL_ISSUE, get_member_ids, numbers, MessageExt},
     Args, BotResult, Context,
 };
 
 use cow_utils::CowUtils;
-use std::{collections::HashMap, sync::Arc};
+use hashbrown::HashMap;
+use std::sync::Arc;
 use twilight_model::{channel::Message, id::UserId};
 
 #[command]
@@ -39,9 +39,7 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
             .unwrap_or(0);
 
         let wait_msg = if member_count > 6000 {
-            ctx.http
-                .create_message(msg.channel_id)
-                .content("Lots of members, give me a moment...")?
+            msg.respond(&ctx, "Lots of members, give me a moment...")
                 .await
                 .ok()
         } else {
@@ -85,7 +83,7 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     let initial_scores = scores
         .iter()
         .take(15)
-        .map(|(id, score)| (usernames.get(&id).unwrap(), *score))
+        .map(|(id, score)| (&usernames[id], *score))
         .collect();
 
     // Prepare initial page
@@ -93,13 +91,8 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     let data = BGRankingEmbed::new(author_idx, initial_scores, 1, (1, pages));
 
     // Creating the embed
-    let embed = data.build().build()?;
-
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .embed(embed)?
-        .await?;
+    let embed = data.into_builder().build();
+    let response = msg.respond_embed(&ctx, embed).await?;
 
     // Skip pagination if too few entries
     if scores.len() <= 15 {

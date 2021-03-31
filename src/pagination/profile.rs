@@ -1,14 +1,14 @@
-use super::PageChange;
+use super::{PageChange, ReactionVec};
 
 use crate::{
     embeds::{EmbedData, ProfileEmbed},
-    unwind_error, BotResult, Context, CONFIG,
+    BotResult, Context, CONFIG,
 };
 
 use std::time::Duration;
 use tokio::time;
 use tokio_stream::StreamExt;
-use twilight_http::{request::channel::reaction::RequestReactionType, Error};
+use twilight_http::Error;
 use twilight_model::{
     channel::{Message, Reaction, ReactionType},
     gateway::payload::ReactionAdd,
@@ -30,10 +30,10 @@ impl ProfilePagination {
         }
     }
 
-    fn reactions() -> Vec<RequestReactionType> {
+    fn reactions() -> ReactionVec {
         let config = CONFIG.get().unwrap();
 
-        vec![config.expand(), config.minimize()]
+        smallvec![config.expand(), config.minimize()]
     }
 
     pub async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> BotResult<()> {
@@ -45,6 +45,7 @@ impl ProfilePagination {
                     .create_reaction(self.msg.channel_id, self.msg.id, emoji)
                     .await?;
             }
+
             ctx.standby
                 .wait_for_reaction_stream(self.msg.id, move |r: &ReactionAdd| r.user_id == owner)
                 .timeout(Duration::from_secs(duration))
@@ -70,6 +71,7 @@ impl ProfilePagination {
             Ok(_) => {}
             Err(Error::Response { status, .. }) if status.as_u16() == 403 => {
                 time::sleep(time::Duration::from_millis(100)).await;
+
                 for emoji in Self::reactions() {
                     ctx.http
                         .delete_current_user_reaction(msg.channel_id, msg.id, emoji)
@@ -78,12 +80,13 @@ impl ProfilePagination {
             }
             Err(why) => return Err(why.into()),
         }
+
         if !self.minimized {
-            let eb = self.embed.minimize();
+            let embed = self.embed.into_builder().build();
 
             ctx.http
                 .update_message(msg.channel_id, msg.id)
-                .embed(eb.build()?)?
+                .embed(embed)?
                 .await?;
         }
 
@@ -94,15 +97,15 @@ impl ProfilePagination {
         let change = match self.process_reaction(&reaction.emoji).await {
             PageChange::None => PageChange::None,
             PageChange::Change => {
-                let eb = if self.minimized {
-                    self.embed.minimize_borrowed()
+                let builder = if self.minimized {
+                    self.embed.as_builder()
                 } else {
-                    self.embed.build()
+                    self.embed.expand()
                 };
 
                 ctx.http
                     .update_message(self.msg.channel_id, self.msg.id)
-                    .embed(eb.build()?)?
+                    .embed(builder.build())?
                     .await?;
 
                 PageChange::Change

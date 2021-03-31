@@ -1,13 +1,13 @@
 use crate::bg_game::MapsetTags;
 
-use rosu::model::GameMode;
+use rosu_v2::model::GameMode;
 use sqlx::{postgres::PgRow, Error, FromRow};
 use std::{fmt, ops::Deref};
 
 pub struct MapsetTagWrapper {
     pub mapset_id: u32,
     pub mode: GameMode,
-    pub filetype: String,
+    pub filename: String,
     pub tags: MapsetTags,
 }
 
@@ -30,17 +30,10 @@ impl MapsetTagWrapper {
     pub fn any(&self) -> bool {
         !self.tags.is_empty()
     }
-
-    #[allow(dead_code)]
-    #[inline]
-    pub fn has_tags(&self, tags: MapsetTags) -> bool {
-        self.contains(tags)
-    }
 }
 
-impl<'c> FromRow<'c, PgRow> for MapsetTagWrapper {
-    fn from_row(row: &PgRow) -> Result<Self, Error> {
-        let row = TagRow::from_row(row)?;
+impl From<TagRow> for MapsetTagWrapper {
+    fn from(row: TagRow) -> Self {
         let bits = row.farm as u32
             + ((row.streams as u32) << 1)
             + ((row.alternate as u32) << 2)
@@ -55,12 +48,19 @@ impl<'c> FromRow<'c, PgRow> for MapsetTagWrapper {
             + ((row.english as u32) << 11)
             + ((row.kpop as u32) << 12);
 
-        Ok(Self {
-            mapset_id: row.beatmapset_id,
+        Self {
+            mapset_id: row.mapset_id as u32,
             mode: (row.mode as u8).into(),
             tags: MapsetTags::from_bits(bits).unwrap(),
-            filetype: row.filetype,
-        })
+            filename: row.filename,
+        }
+    }
+}
+
+impl<'c> FromRow<'c, PgRow> for MapsetTagWrapper {
+    #[inline]
+    fn from_row(row: &PgRow) -> Result<Self, Error> {
+        TagRow::from_row(row).map(From::from)
     }
 }
 
@@ -71,21 +71,21 @@ impl fmt::Display for MapsetTagWrapper {
 }
 
 #[derive(FromRow)]
-struct TagRow {
-    beatmapset_id: u32,
-    mode: i8,
-    filetype: String,
-    farm: bool,
-    alternate: bool,
-    streams: bool,
-    old: bool,
-    meme: bool,
-    hardname: bool,
-    kpop: bool,
-    english: bool,
-    bluesky: bool,
-    weeb: bool,
-    tech: bool,
-    easy: bool,
-    hard: bool,
+pub struct TagRow {
+    pub mapset_id: i32,
+    pub mode: i16,
+    pub filename: String,
+    pub farm: bool,
+    pub alternate: bool,
+    pub streams: bool,
+    pub old: bool,
+    pub meme: bool,
+    pub hardname: bool,
+    pub kpop: bool,
+    pub english: bool,
+    pub bluesky: bool,
+    pub weeb: bool,
+    pub tech: bool,
+    pub easy: bool,
+    pub hard: bool,
 }

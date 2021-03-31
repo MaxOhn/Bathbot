@@ -1,15 +1,12 @@
+use super::request_user;
 use crate::{
     arguments::{Args, BwsArgs, RankRange},
     embeds::{BWSEmbed, EmbedData},
-    util::{
-        constants::{OSU_API_ISSUE, OSU_WEB_ISSUE},
-        matcher::tourney_badge,
-        MessageExt,
-    },
+    util::{constants::OSU_API_ISSUE, matcher::tourney_badge, MessageExt},
     BotResult, Context,
 };
 
-use rosu::model::GameMode;
+use rosu_v2::prelude::{GameMode, OsuError};
 use std::{cmp::Ordering, sync::Arc};
 use twilight_model::channel::Message;
 
@@ -33,51 +30,43 @@ async fn bws(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         None => return super::require_link(&ctx, msg).await,
     };
 
-    let user = match ctx.osu().user(name.as_str()).mode(mode).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
+    let user = match request_user(&ctx, &name, Some(mode)).await {
+        Ok(user) => user,
+        Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
+
             return msg.error(&ctx, content).await;
         }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
 
+    let global_rank = user.statistics.as_ref().unwrap().global_rank.unwrap_or(0);
+
     let rank_range = match args.rank_range {
-        Some(RankRange::Single(rank)) => match rank.cmp(&user.pp_rank) {
-            Ordering::Less => Some((rank, user.pp_rank)),
-            Ordering::Greater => Some((user.pp_rank, rank)),
+        Some(RankRange::Single(rank)) => match rank.cmp(&global_rank) {
+            Ordering::Less => Some((rank, global_rank)),
+            Ordering::Greater => Some((global_rank, rank)),
             Ordering::Equal => None,
         },
         Some(RankRange::Range(min, max)) => Some((min, max)),
         None => None,
     };
 
-    let profile_fut = ctx
-        .clients
-        .custom
-        .get_osu_profile(user.user_id, mode, false);
-
-    let profile = match profile_fut.await {
-        Ok((profile, _)) => profile,
-        Err(why) => {
-            let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
-
-            return Err(why.into());
-        }
-    };
-
-    let badges = profile
+    let badges = user
         .badges
+        .as_ref()
+        .unwrap()
         .iter()
         .filter(|badge| tourney_badge(badge.description.as_str()))
         .count();
 
     let embed = BWSEmbed::new(user, badges, rank_range)
-        .build_owned()
-        .build()?;
+        .into_builder()
+        .build();
 
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
 

@@ -1,35 +1,30 @@
 use super::{Pages, Pagination};
 
-use crate::{
-    commands::osu::CommonUser,
-    embeds::{CommonEmbed, MapScores},
-    BotResult,
-};
+use crate::{commands::osu::CommonUser, embeds::CommonEmbed, BotResult};
 
 use async_trait::async_trait;
+use rosu_v2::model::score::Score;
+use smallvec::SmallVec;
 use twilight_model::channel::Message;
 
 pub struct CommonPagination {
     msg: Message,
     pages: Pages,
-    users: Vec<CommonUser>,
-    map_scores: MapScores,
-    id_pps: Vec<(u32, f32)>,
+    users: SmallVec<[CommonUser; 3]>,
+    scores_per_map: Vec<SmallVec<[(usize, f32, Score); 3]>>,
 }
 
 impl CommonPagination {
     pub fn new(
         msg: Message,
-        users: Vec<CommonUser>,
-        map_scores: MapScores,
-        id_pps: Vec<(u32, f32)>,
+        users: SmallVec<[CommonUser; 3]>,
+        scores_per_map: Vec<SmallVec<[(usize, f32, Score); 3]>>,
     ) -> Self {
         Self {
-            pages: Pages::new(10, map_scores.len()),
+            pages: Pages::new(10, scores_per_map.len()),
             msg,
             users,
-            map_scores,
-            id_pps,
+            scores_per_map,
         }
     }
 }
@@ -57,8 +52,8 @@ impl Pagination for CommonPagination {
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         Ok(CommonEmbed::new(
             &self.users,
-            &self.map_scores,
-            &self.id_pps[self.pages.index..(self.pages.index + 10).min(self.id_pps.len())],
+            &self.scores_per_map
+                [self.pages.index..(self.pages.index + 10).min(self.scores_per_map.len())],
             self.pages.index,
         ))
     }

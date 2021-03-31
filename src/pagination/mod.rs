@@ -15,7 +15,6 @@ mod player_snipe_list;
 mod profile;
 mod recent;
 mod recent_list;
-mod scores;
 mod sniped_difference;
 mod top;
 mod top_if;
@@ -37,24 +36,25 @@ pub use player_snipe_list::PlayerSnipeListPagination;
 pub use profile::ProfilePagination;
 pub use recent::RecentPagination;
 pub use recent_list::RecentListPagination;
-pub use scores::ScoresPagination;
 pub use sniped_difference::SnipedDiffPagination;
 pub use top::TopPagination;
 pub use top_if::TopIfPagination;
 
-use crate::{embeds::EmbedData, unwind_error, util::numbers, BotResult, Context, CONFIG};
+use crate::{embeds::EmbedData, util::numbers, BotResult, Context, CONFIG};
 
 use async_trait::async_trait;
+use smallvec::SmallVec;
 use std::time::Duration;
 use tokio::time;
 use tokio_stream::StreamExt;
-use twilight_embed_builder::image_source::ImageSource;
 use twilight_http::{request::channel::reaction::RequestReactionType, Error};
 use twilight_model::{
     channel::{Message, Reaction, ReactionType},
     gateway::payload::ReactionAdd,
     id::{EmojiId, UserId},
 };
+
+type ReactionVec = SmallVec<[RequestReactionType; 7]>;
 
 #[async_trait]
 pub trait Pagination: Sync + Sized {
@@ -71,14 +71,14 @@ pub trait Pagination: Sync + Sized {
     async fn build_page(&mut self) -> BotResult<Self::PageData>;
 
     // Optionally implement these
-    fn reactions() -> Vec<RequestReactionType> {
+    fn reactions() -> ReactionVec {
         Self::arrow_reactions()
     }
 
-    fn arrow_reactions() -> Vec<RequestReactionType> {
+    fn arrow_reactions() -> ReactionVec {
         let config = CONFIG.get().unwrap();
 
-        vec![
+        smallvec![
             config.jump_start(),
             config.single_step_back(),
             config.single_step(),
@@ -86,10 +86,10 @@ pub trait Pagination: Sync + Sized {
         ]
     }
 
-    fn arrow_reactions_full() -> Vec<RequestReactionType> {
+    fn arrow_reactions_full() -> ReactionVec {
         let config = CONFIG.get().unwrap();
 
-        vec![
+        smallvec![
             config.jump_start(),
             config.multi_step_back(),
             config.single_step_back(),
@@ -111,7 +111,7 @@ pub trait Pagination: Sync + Sized {
         None
     }
 
-    fn thumbnail(&self) -> Option<ImageSource> {
+    fn thumbnail(&self) -> Option<String> {
         None
     }
 
@@ -191,13 +191,13 @@ pub trait Pagination: Sync + Sized {
                     update = update.content(content)?;
                 }
 
-                let mut eb = data.build();
+                let mut builder = data.into_builder();
 
                 if let Some(thumbnail) = self.thumbnail() {
-                    eb = eb.thumbnail(thumbnail);
+                    builder = builder.thumbnail(thumbnail);
                 }
 
-                update.embed(eb.build()?)?.await?;
+                update.embed(builder.build())?.await?;
 
                 PageChange::Change
             }

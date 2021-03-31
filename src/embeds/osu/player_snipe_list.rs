@@ -1,27 +1,23 @@
 use crate::{
     custom_client::SnipeScore,
-    embeds::{osu, Author, EmbedData, Footer},
+    embeds::{osu, Author, Footer},
     pp::{Calculations, PPCalculator},
-    unwind_error,
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::how_long_ago,
-        numbers::{round, with_comma_u64},
+        numbers::{round, with_comma_uint},
     },
 };
 
-use rosu::model::{Beatmap, User};
-use std::{
-    collections::{BTreeMap, HashMap},
-    fmt::Write,
-};
-use twilight_embed_builder::image_source::ImageSource;
+use hashbrown::HashMap;
+use rosu_v2::prelude::{Beatmap, User};
+use std::{collections::BTreeMap, fmt::Write};
 
 pub struct PlayerSnipeListEmbed {
-    description: String,
-    thumbnail: ImageSource,
     author: Author,
+    description: String,
     footer: Footer,
+    thumbnail: String,
 }
 
 impl PlayerSnipeListEmbed {
@@ -34,10 +30,10 @@ impl PlayerSnipeListEmbed {
     ) -> Self {
         if scores.is_empty() {
             return Self {
-                author: osu::get_user_author(user),
-                thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
+                author: author!(user),
+                thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
                 footer: Footer::new("Page 1/1 ~ Total #1 scores: 0"),
-                description: String::from("No scores were found"),
+                description: "No scores were found".to_owned(),
             };
         }
 
@@ -66,7 +62,7 @@ impl PlayerSnipeListEmbed {
                 "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
                 {pp} ~ ({acc}%) ~ {score}\n{{{n300}/{n100}/{n50}/{nmiss}}} ~ {ago}",
                 idx = idx + 1,
-                title = map.title,
+                title = map.mapset.as_ref().unwrap().title,
                 version = map.version,
                 base = OSU_BASE,
                 id = score.beatmap_id,
@@ -74,7 +70,7 @@ impl PlayerSnipeListEmbed {
                 stars = osu::get_stars(score.stars),
                 pp = pp,
                 acc = round(score.accuracy),
-                score = with_comma_u64(score.score as u64),
+                score = with_comma_uint(score.score),
                 n300 = count_300,
                 n100 = score.count_100,
                 n50 = score.count_50,
@@ -83,32 +79,23 @@ impl PlayerSnipeListEmbed {
             );
         }
 
+        let footer = Footer::new(format!(
+            "Page {}/{} ~ Total scores: {}",
+            pages.0, pages.1, total
+        ));
+
         Self {
+            author: author!(user),
             description,
-            author: osu::get_user_author(&user),
-            thumbnail: ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap(),
-            footer: Footer::new(format!(
-                "Page {}/{} ~ Total scores: {}",
-                pages.0, pages.1, total
-            )),
+            footer,
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
         }
     }
 }
 
-impl EmbedData for PlayerSnipeListEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-}
+impl_builder!(PlayerSnipeListEmbed {
+    author,
+    description,
+    footer,
+    thumbnail,
+});

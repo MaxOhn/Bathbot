@@ -1,9 +1,9 @@
+use super::request_user;
 use crate::{
     arguments::{Args, SnipeScoreArgs},
     custom_client::SnipeScoreParams,
     embeds::{EmbedData, PlayerSnipeListEmbed},
     pagination::{Pagination, PlayerSnipeListPagination},
-    unwind_error,
     util::{
         constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         numbers,
@@ -13,11 +13,9 @@ use crate::{
     BotResult, Context,
 };
 
-use std::{
-    collections::{BTreeMap, HashMap},
-    fmt::Write,
-    sync::Arc,
-};
+use hashbrown::HashMap;
+use rosu_v2::prelude::{GameMode, OsuError};
+use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
 
 #[command]
@@ -43,30 +41,37 @@ use twilight_model::channel::Message;
 #[aliases("psl")]
 async fn playersnipelist(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = SnipeScoreArgs::new(args);
+
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
         None => return super::require_link(&ctx, msg).await,
     };
-    let user = match ctx.osu().user(&name).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
+
+    let user = match request_user(&ctx, &name, Some(GameMode::STD)).await {
+        Ok(user) => user,
+        Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
+
             return msg.error(&ctx, content).await;
         }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
             return Err(why.into());
         }
     };
-    let country = if SNIPE_COUNTRIES.contains_key(user.country.as_str()) {
-        user.country.to_owned()
+
+    let country = if SNIPE_COUNTRIES.contains_key(user.country_code.as_str()) {
+        user.country_code.to_owned()
     } else {
         let content = format!(
             "`{}`'s country {} is not supported :(",
-            user.username, user.country
+            user.username, user.country_code
         );
+
         return msg.error(&ctx, content).await;
     };
+
     let params = SnipeScoreParams::new(user.user_id, country)
         .order(args.order)
         .descending(args.descending)
@@ -78,10 +83,12 @@ async fn playersnipelist(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
     let (scores, count) = match tokio::try_join!(scores_fut, count_fut) {
         Ok((scores, count)) => {
             let scores = scores.into_iter().enumerate().collect::<BTreeMap<_, _>>();
+
             (scores, count)
         }
         Err(why) => {
             let _ = msg.error(&ctx, HUISMETBENEN_ISSUE).await;
+
             return Err(why.into());
         }
     };
@@ -90,30 +97,30 @@ async fn playersnipelist(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
     let map_ids: Vec<_> = scores
         .values()
         .take(5)
-        .map(|score| score.beatmap_id)
+        .map(|score| score.beatmap_id as i32)
         .collect();
 
-    let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
+    let mut maps = match ctx.psql().get_beatmaps(&map_ids, true).await {
         Ok(maps) => maps,
         Err(why) => {
             unwind_error!(warn, why, "Error while getting maps from DB: {}");
+
             HashMap::default()
         }
     };
 
     // Retrieving all missing beatmaps
     for map_id in map_ids {
+        let map_id = map_id as u32;
+
         if !maps.contains_key(&map_id) {
             match ctx.osu().beatmap().map_id(map_id).await {
-                Ok(Some(map)) => {
+                Ok(map) => {
                     maps.insert(map_id, map);
-                }
-                Ok(None) => {
-                    let content = format!("The API returned no beatmap for map id {}", map_id);
-                    return msg.error(&ctx, content).await;
                 }
                 Err(why) => {
                     let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
                     return Err(why.into());
                 }
             }
@@ -121,29 +128,30 @@ async fn playersnipelist(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
     }
 
     let pages = numbers::div_euclid(5, count);
-
     let data = PlayerSnipeListEmbed::new(&user, &scores, &maps, count, (1, pages)).await;
+
     let mut content = format!(
         "`Order: {order:?} {descending}`",
         order = params.order,
         descending = if params.descending { "Desc" } else { "Asc" },
     );
+
     if let Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) = params.mods {
         let _ = write!(content, " ~ `Mods: {}`", mods,);
     }
 
     // Creating the embed
-    let embed = data.build().build()?;
     let response = ctx
         .http
         .create_message(msg.channel_id)
         .content(content)?
-        .embed(embed)?
+        .embed(data.into_builder().build())?
         .await?;
 
     // Skip pagination if too few entries
     if scores.len() <= 5 {
         response.reaction_delete(&ctx, msg.author.id);
+
         return Ok(());
     }
 
@@ -157,7 +165,9 @@ async fn playersnipelist(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
         count,
         params,
     );
+
     let owner = msg.author.id;
+
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
             unwind_error!(warn, why, "Pagination error (playersnipelist): {}")

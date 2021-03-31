@@ -1,38 +1,37 @@
 use crate::{
     commands::osu::MatchResult,
-    embeds::{EmbedData, Footer},
+    embeds::Footer,
     util::constants::{AVATAR_URL, DESCRIPTION_SIZE, OSU_BASE},
 };
 
-use rosu::model::Match;
-use std::fmt::Write;
-use twilight_embed_builder::image_source::ImageSource;
+use rosu_v2::model::matches::OsuMatch;
+use std::{borrow::Cow, fmt::Write};
 
 pub struct MatchCostEmbed {
-    description: Option<String>,
-    thumbnail: Option<ImageSource>,
-    title: Option<String>,
-    url: Option<String>,
-    footer: Option<Footer>,
+    description: String,
+    thumbnail: String,
+    title: String,
+    url: String,
+    footer: Footer,
 }
 
 impl MatchCostEmbed {
     pub fn new(
-        osu_match: Match,
+        osu_match: &mut OsuMatch,
         description: Option<String>,
         match_result: Option<MatchResult>,
-    ) -> Result<Self, ()> {
-        let mut thumbnail = None;
+    ) -> Option<Self> {
+        let mut thumbnail = String::new();
 
         let description = if let Some(description) = description {
             description
         } else {
-            thumbnail = ImageSource::url(format!(
+            let _ = write!(
+                thumbnail,
                 "{}{}",
                 AVATAR_URL,
                 match_result.as_ref().unwrap().mvp_id()
-            ))
-            .ok();
+            );
 
             let mut medals = vec!["🥇", "🥈", "🥉"];
             let mut description = String::with_capacity(256);
@@ -57,7 +56,14 @@ impl MatchCostEmbed {
                     // Blue team
                     let _ = writeln!(description, ":blue_circle: **Blue Team** :blue_circle:");
 
-                    for (i, (id, name, cost)) in blue.into_iter().enumerate() {
+                    for (i, (id, cost)) in blue.into_iter().enumerate() {
+                        let user_pos = osu_match.users.iter().position(|user| user.user_id == id);
+
+                        let name = match user_pos {
+                            Some(pos) => osu_match.users.swap_remove(pos).username.into(),
+                            None => Cow::Borrowed("Unknown user"),
+                        };
+
                         let medal = {
                             let mut idx = 0;
 
@@ -93,7 +99,14 @@ impl MatchCostEmbed {
                     // Red team
                     let _ = writeln!(description, "\n:red_circle: **Red Team** :red_circle:");
 
-                    for (i, (id, name, cost)) in red.into_iter().enumerate() {
+                    for (i, (id, cost)) in red.into_iter().enumerate() {
+                        let user_pos = osu_match.users.iter().position(|user| user.user_id == id);
+
+                        let name = match user_pos {
+                            Some(pos) => osu_match.users.swap_remove(pos).username.into(),
+                            None => Cow::Borrowed("Unknown user"),
+                        };
+
                         let medal = if !medals.is_empty() {
                             medals.remove(0)
                         } else {
@@ -113,7 +126,14 @@ impl MatchCostEmbed {
                     }
                 }
                 Some(MatchResult::HeadToHead { players, .. }) => {
-                    for (i, (id, name, cost)) in players.into_iter().enumerate() {
+                    for (i, (id, cost)) in players.into_iter().enumerate() {
+                        let user_pos = osu_match.users.iter().position(|user| user.user_id == id);
+
+                        let name = match user_pos {
+                            Some(pos) => osu_match.users.swap_remove(pos).username.into(),
+                            None => Cow::Borrowed("Unknown user"),
+                        };
+
                         let _ = writeln!(
                             description,
                             "**{idx}**: [{name}]({base}users/{user_id}) - **{cost:.2}** {medal}",
@@ -130,41 +150,32 @@ impl MatchCostEmbed {
             }
 
             if description.len() >= DESCRIPTION_SIZE {
-                return Err(());
+                return None;
             }
 
             description
         };
 
         let match_id = osu_match.match_id;
-        let mut title = osu_match.name;
+        let mut title = String::new();
+        std::mem::swap(&mut title, &mut osu_match.name);
         title.retain(|c| c != '(' && c != ')');
         let footer = Footer::new("Note: Formula is subject to change; values are volatile");
 
-        Ok(Self {
-            title: Some(title),
-            footer: Some(footer),
+        Some(Self {
+            title,
+            footer,
             thumbnail,
-            description: Some(description),
-            url: Some(format!("{}community/matches/{}", OSU_BASE, match_id)),
+            description,
+            url: format!("{}community/matches/{}", OSU_BASE, match_id),
         })
     }
 }
 
-impl EmbedData for MatchCostEmbed {
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take()
-    }
-    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
-        self.thumbnail.take()
-    }
-    fn title_owned(&mut self) -> Option<String> {
-        self.title.take()
-    }
-    fn url_owned(&mut self) -> Option<String> {
-        self.url.take()
-    }
-    fn footer_owned(&mut self) -> Option<Footer> {
-        self.footer.take()
-    }
-}
+impl_builder!(MatchCostEmbed {
+    description,
+    footer,
+    thumbnail,
+    title,
+    url,
+});

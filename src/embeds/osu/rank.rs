@@ -1,21 +1,20 @@
 use crate::{
     commands::osu::RankData,
-    embeds::{osu, Author, EmbedData},
+    embeds::Author,
     util::{
         constants::AVATAR_URL,
-        numbers::{with_comma, with_comma_u64},
+        numbers::{with_comma_float, with_comma_uint},
         osu::pp_missing,
     },
 };
 
-use rosu::model::Score;
-use twilight_embed_builder::image_source::ImageSource;
+use rosu_v2::model::score::Score;
 
 pub struct RankEmbed {
-    description: Option<String>,
-    title: Option<String>,
-    thumbnail: Option<ImageSource>,
-    author: Option<Author>,
+    description: String,
+    title: String,
+    thumbnail: String,
+    author: Author,
 }
 
 impl RankEmbed {
@@ -27,6 +26,9 @@ impl RankEmbed {
                 country,
                 rank_holder,
             } => {
+                let user_pp = user.statistics.as_ref().unwrap().pp;
+                let rank_holder_pp = rank_holder.statistics.as_ref().unwrap().pp;
+
                 let country = country.as_deref().unwrap_or("#");
 
                 let title = format!(
@@ -36,19 +38,19 @@ impl RankEmbed {
                     rank = rank
                 );
 
-                let description = if user.pp_raw > rank_holder.pp_raw {
+                let description = if user_pp > rank_holder_pp {
                     format!(
                         "Rank {country}{rank} is currently held by {holder_name} with \
                         **{holder_pp}pp**, so {name} is already above that with **{pp}pp**.",
                         country = country,
                         rank = rank,
                         holder_name = rank_holder.username,
-                        holder_pp = with_comma(rank_holder.pp_raw),
+                        holder_pp = with_comma_float(rank_holder_pp),
                         name = user.username,
-                        pp = with_comma(user.pp_raw)
+                        pp = with_comma_float(user_pp)
                     )
                 } else if let Some(scores) = scores {
-                    let (required, _) = pp_missing(user.pp_raw, rank_holder.pp_raw, &scores);
+                    let (required, _) = pp_missing(user_pp, rank_holder_pp, &scores);
 
                     format!(
                         "Rank {country}{rank} is currently held by {holder_name} with \
@@ -57,10 +59,10 @@ impl RankEmbed {
                         country = country,
                         rank = rank,
                         holder_name = rank_holder.username,
-                        holder_pp = with_comma(rank_holder.pp_raw),
+                        holder_pp = with_comma_float(rank_holder_pp),
                         name = user.username,
-                        missing = with_comma(rank_holder.pp_raw - user.pp_raw),
-                        pp = with_comma(required),
+                        missing = with_comma_float(rank_holder_pp - user_pp),
+                        pp = with_comma_float(required),
                     )
                 } else {
                     format!(
@@ -70,7 +72,7 @@ impl RankEmbed {
                         country = country,
                         rank = rank,
                         holder_name = rank_holder.username,
-                        holder_pp = with_comma(rank_holder.pp_raw),
+                        holder_pp = with_comma_float(rank_holder_pp),
                         name = user.username,
                     )
                 };
@@ -82,41 +84,43 @@ impl RankEmbed {
                 rank,
                 required_pp,
             } => {
+                let user_pp = user.statistics.as_ref().unwrap().pp;
+
                 let title = format!(
                     "How many pp is {name} missing to reach rank #{rank}?",
                     name = user.username,
-                    rank = with_comma_u64(*rank as u64),
+                    rank = with_comma_uint(*rank as u64),
                 );
 
-                let description = if user.pp_raw > *required_pp {
+                let description = if user_pp > *required_pp {
                     format!(
                         "Rank #{rank} currently requires **{required_pp}pp**, \
                         so {name} is already above that with **{pp}pp**.",
-                        rank = with_comma_u64(*rank as u64),
-                        required_pp = with_comma(*required_pp),
+                        rank = with_comma_uint(*rank as u64),
+                        required_pp = with_comma_float(*required_pp),
                         name = user.username,
-                        pp = with_comma(user.pp_raw)
+                        pp = with_comma_float(user_pp)
                     )
                 } else if let Some(scores) = scores {
-                    let (required, _) = pp_missing(user.pp_raw, *required_pp, &scores);
+                    let (required, _) = pp_missing(user_pp, *required_pp, &scores);
 
                     format!(
                         "Rank #{rank} currently requires **{required_pp}pp**, \
                         so {name} is missing **{missing}** raw pp, \
                         achievable with a single score worth **{pp}pp**.",
-                        rank = with_comma_u64(*rank as u64),
-                        required_pp = with_comma(*required_pp),
+                        rank = with_comma_uint(*rank as u64),
+                        required_pp = with_comma_float(*required_pp),
                         name = user.username,
-                        missing = with_comma(required_pp - user.pp_raw),
-                        pp = with_comma(required),
+                        missing = with_comma_float(required_pp - user_pp),
+                        pp = with_comma_float(required),
                     )
                 } else {
                     format!(
                         "Rank #{rank} currently requires **{required_pp}pp**, \
                         so {name} is missing **{required_pp}** raw pp, \
                         achievable with a single score worth **{required_pp}pp**.",
-                        rank = with_comma_u64(*rank as u64),
-                        required_pp = with_comma(*required_pp),
+                        rank = with_comma_uint(*rank as u64),
+                        required_pp = with_comma_float(*required_pp),
                         name = user.username,
                     )
                 };
@@ -128,25 +132,17 @@ impl RankEmbed {
         let user = data.user();
 
         Self {
-            title: Some(title),
-            description: Some(description),
-            author: Some(osu::get_user_author(&user)),
-            thumbnail: Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap()),
+            title,
+            description,
+            author: author!(user),
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
         }
     }
 }
 
-impl EmbedData for RankEmbed {
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take()
-    }
-    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
-        self.thumbnail.take()
-    }
-    fn author_owned(&mut self) -> Option<Author> {
-        self.author.take()
-    }
-    fn title_owned(&mut self) -> Option<String> {
-        self.title.take()
-    }
-}
+impl_builder!(RankEmbed {
+    author,
+    description,
+    thumbnail,
+    title,
+});

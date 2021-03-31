@@ -1,19 +1,18 @@
 use crate::{
     commands::osu::SnipeOrder,
     custom_client::SnipeCountryPlayer,
-    embeds::{EmbedData, Footer},
+    embeds::Footer,
     util::{
         constants::OSU_BASE,
-        numbers::{with_comma, with_comma_u64},
+        numbers::{with_comma_float, with_comma_uint},
         Country,
     },
 };
 
 use std::fmt::Write;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct CountrySnipeListEmbed {
-    thumbnail: Option<ImageSource>,
+    thumbnail: String,
     description: String,
     title: String,
     footer: Footer,
@@ -50,15 +49,13 @@ impl CountrySnipeListEmbed {
                     order_text
                 );
 
-                let thumbnail =
-                    ImageSource::url(format!("{}/images/flags/{}.png", OSU_BASE, country.acronym))
-                        .ok();
+                let thumbnail = format!("{}/images/flags/{}.png", OSU_BASE, country.acronym);
 
                 (title, thumbnail)
             }
             None => (
                 format!("Global #1 statistics, sorted by {}", order_text),
-                None,
+                String::new(),
             ),
         };
 
@@ -81,10 +78,10 @@ impl CountrySnipeListEmbed {
                 } else {
                     ""
                 },
-                count = with_comma_u64(player.count_first as u64),
-                pp = with_comma(player.avg_pp),
+                count = with_comma_uint(player.count_first),
+                pp = with_comma_float(player.avg_pp),
                 stars = player.avg_sr,
-                weighted = with_comma(player.pp),
+                weighted = with_comma_float(player.pp),
             );
         }
 
@@ -104,20 +101,9 @@ impl CountrySnipeListEmbed {
     }
 }
 
-impl EmbedData for CountrySnipeListEmbed {
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
-    }
-
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        self.thumbnail.as_ref()
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-}
+impl_builder!(CountrySnipeListEmbed {
+    description,
+    footer,
+    thumbnail,
+    title,
+});

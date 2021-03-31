@@ -1,7 +1,7 @@
+use super::prepare_score;
 use crate::{
     arguments::{Args, SimulateNameArgs},
     embeds::{EmbedData, SimulateEmbed},
-    unwind_error,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
@@ -9,7 +9,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::model::GameMode;
+use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use twilight_model::channel::Message;
@@ -33,14 +33,22 @@ async fn simulate_recent_main(
 
     let limit = num.map_or(1, |n| n + (n == 0) as usize);
 
+    if limit > 50 {
+        let content = "Recent history goes only 50 scores back.";
+
+        return msg.error(&ctx, content).await;
+    }
+
     // Retrieve the recent score
     let scores_fut = ctx
         .osu()
-        .recent_scores(name.as_str())
+        .user_scores(name.as_str())
+        .recent()
         .mode(mode)
-        .limit(limit as u32);
+        .include_fails(true)
+        .limit(limit);
 
-    let score = match scores_fut.await {
+    let mut score = match scores_fut.await {
         Ok(scores) if scores.is_empty() => {
             let content = format!(
                 "No recent {}plays found for user `{}`",
@@ -66,13 +74,25 @@ async fn simulate_recent_main(
             return msg.error(&ctx, content).await;
         }
         Ok(mut scores) => match scores.pop() {
-            Some(score) => score,
+            Some(mut score) => match prepare_score(&ctx, &mut score).await {
+                Ok(_) => score,
+                Err(why) => {
+                    let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
+                    return Err(why.into());
+                }
+            },
             None => {
                 let content = format!("No recent plays found for user `{}`", name);
 
                 return msg.error(&ctx, content).await;
             }
         },
+        Err(OsuError::NotFound) => {
+            let content = format!("User `{}` was not found", name);
+
+            return msg.error(&ctx, content).await;
+        }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
@@ -80,33 +100,11 @@ async fn simulate_recent_main(
         }
     };
 
-    // Retrieving the score's beatmap
-    let map_id = score.beatmap_id.unwrap();
-    let mut store_in_db = false;
-
-    let map = match ctx.psql().get_beatmap(map_id).await {
-        Ok(map) => map,
-        Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
-            Ok(Some(map)) => {
-                store_in_db = true;
-
-                map
-            }
-            Ok(None) => {
-                let content = format!("The API returned no beatmap for map id {}", map_id);
-
-                return msg.error(&ctx, content).await;
-            }
-            Err(why) => {
-                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-                return Err(why.into());
-            }
-        },
-    };
+    let map = score.map.take().unwrap();
+    let mapset = score.mapset.take().unwrap();
 
     // Accumulate all necessary data
-    let data = match SimulateEmbed::new(Some(score), &map, args.into()).await {
+    let data = match SimulateEmbed::new(Some(score), &map, &mapset, args.into()).await {
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
@@ -116,30 +114,23 @@ async fn simulate_recent_main(
     };
 
     // Creating the embed
-    let embed = data.build().build()?;
-
     let response = ctx
         .http
         .create_message(msg.channel_id)
         .content("Simulated score:")?
-        .embed(embed)?
+        .embed(data.as_builder().build())?
         .await?;
 
     ctx.store_msg(response.id);
     response.reaction_delete(&ctx, msg.author.id);
 
     // Store map in DB
-    if store_in_db {
-        match ctx.psql().insert_beatmap(&map).await {
-            Ok(true) => info!("Added map {} to DB", map.beatmap_id),
-            Ok(false) => {}
-            Err(why) => unwind_error!(
-                warn,
-                why,
-                "Error while storing map {} in DB: {}",
-                map.beatmap_id
-            ),
-        }
+    if let Err(why) = ctx.psql().insert_beatmap(&map).await {
+        unwind_error!(
+            warn,
+            why,
+            "Error while storing simulate recent map in DB: {}"
+        )
     }
 
     // Set map on garbage collection list if unranked
@@ -154,12 +145,10 @@ async fn simulate_recent_main(
             return;
         }
 
-        let embed = data.minimize().build().unwrap();
-
         let embed_update = ctx
             .http
             .update_message(response.channel_id, response.id)
-            .embed(embed)
+            .embed(data.into_builder().build())
             .unwrap();
 
         if let Err(why) = embed_update.await {

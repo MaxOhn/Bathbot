@@ -18,31 +18,28 @@ pub use safe_content::content_safe;
 use crate::{BotResult, Context};
 
 use futures::stream::{FuturesOrdered, StreamExt};
+use hashbrown::HashSet;
 use image::{
     imageops::FilterType, DynamicImage, GenericImage, GenericImageView, ImageOutputFormat::Png,
 };
-use std::{collections::HashSet, iter::Extend};
+use std::iter::Extend;
 use tokio::time::{sleep, Duration};
 use twilight_model::id::{GuildId, UserId};
-
-#[macro_export]
-macro_rules! unwind_error {
-    ($log:ident, $err:ident, $($arg:tt)+) => {
-        {
-            $log!($($arg)+, $err);
-            let mut err: &dyn ::std::error::Error = &$err;
-
-            while let Some(source) = err.source() {
-                $log!("  - caused by: {}", source);
-                err = source;
-            }
-        }
-    };
-}
-
 #[inline]
 pub fn discord_avatar(user_id: UserId, hash: &str) -> String {
     format!("{}avatars/{}/{}.webp?size=1024", DISCORD_CDN, user_id, hash)
+}
+
+macro_rules! get {
+    ($slice:ident[$idx:expr]) => {
+        unsafe { *$slice.get_unchecked($idx) }
+    };
+}
+
+macro_rules! set {
+    ($slice:ident[$idx:expr] = $val:expr) => {
+        unsafe { *$slice.get_unchecked_mut($idx) = $val }
+    };
 }
 
 pub fn levenshtein_distance(word_a: &str, word_b: &str) -> usize {
@@ -54,24 +51,27 @@ pub fn levenshtein_distance(word_a: &str, word_b: &str) -> usize {
 
     let mut costs: Vec<usize> = (0..=word_b.len()).collect();
 
+    // SAFETY for get! and set!:
+    // word_a.len() <= word_b.len() = B < B + 1 = costs.len()
+
     for (i, a) in (1..=word_a.len()).zip(word_a.chars()) {
         let mut last_val = i;
 
         for (j, b) in (1..=word_b.len()).zip(word_b.chars()) {
             let new_val = if a == b {
-                costs[j - 1]
+                get!(costs[j - 1])
             } else {
-                costs[j - 1].min(last_val).min(costs[j]) + 1
+                get!(costs[j - 1]).min(last_val).min(get!(costs[j])) + 1
             };
 
-            costs[j - 1] = last_val;
+            set!(costs[j - 1] = last_val);
             last_val = new_val;
         }
 
-        costs[word_b.len()] = last_val;
+        set!(costs[word_b.len()] = last_val);
     }
 
-    costs[word_b.len()]
+    get!(costs[word_b.len()])
 }
 
 pub async fn get_combined_thumbnail(

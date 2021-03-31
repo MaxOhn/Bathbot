@@ -1,3 +1,19 @@
+#![allow(clippy::upper_case_acronyms)]
+
+macro_rules! unwind_error {
+    ($log:ident, $err:ident, $($arg:tt)+) => {
+        {
+            $log!($($arg)+, $err);
+            let mut err: &dyn ::std::error::Error = &$err;
+
+            while let Some(source) = err.source() {
+                $log!("  - caused by: {}", source);
+                err = source;
+            }
+        }
+    };
+}
+
 mod arguments;
 mod bg_game;
 mod commands;
@@ -13,7 +29,9 @@ mod util;
 
 use crate::{
     arguments::Args,
-    core::{handle_event, logging, BotStats, Cache, CommandGroups, Context, CONFIG},
+    core::{
+        handle_event, logging, BotStats, Cache, CommandGroups, Context, MatchLiveChannels, CONFIG,
+    },
     custom_client::CustomClient,
     database::Database,
     tracking::OsuTracking,
@@ -25,19 +43,21 @@ use crate::{
 extern crate proc_macros;
 #[macro_use]
 extern crate log;
+#[macro_use]
+extern crate smallvec;
 
 use clap::{App, Arg};
 use darkredis::ConnectionPool;
 use dashmap::{DashMap, DashSet};
+use hashbrown::HashSet;
 use hyper::{
     service::{make_service_fn, service_fn},
     Body, Response,
 };
 use prometheus::{Encoder, TextEncoder};
-use rosu::{Osu, OsuCached};
-use std::{
-    collections::HashSet, convert::Infallible, process, str::FromStr, sync::Arc, time::Duration,
-};
+use rosu_v2::Osu;
+use smallstr::SmallString;
+use std::{convert::Infallible, env, process, str::FromStr, sync::Arc, time::Duration};
 use tokio::{
     runtime::Runtime,
     signal,
@@ -54,10 +74,13 @@ use twilight_model::gateway::{
     Intents,
 };
 
-pub type BotResult<T> = std::result::Result<T, Error>;
+type CountryCode = SmallString<[u8; 2]>;
+type Name = SmallString<[u8; 15]>;
+type BotResult<T> = std::result::Result<T, Error>;
 
 fn main() {
     let runtime = Runtime::new().expect("Could not start runtime");
+
     if let Err(why) = runtime.block_on(async move { async_main().await }) {
         unwind_error!(error, why, "Critical error in main: {}");
     }
@@ -65,20 +88,19 @@ fn main() {
 
 async fn async_main() -> BotResult<()> {
     logging::initialize()?;
+    dotenv::dotenv().expect("failed to load .env");
 
     // Load config file
     core::BotConfig::init("config.toml").await?;
 
+    let config = CONFIG.get().unwrap();
+
     // Prepare twitch client
-    let twitch = Twitch::new(
-        &CONFIG.get().unwrap().tokens.twitch_client_id,
-        &CONFIG.get().unwrap().tokens.twitch_token,
-    )
-    .await?;
+    let twitch = Twitch::new(&config.tokens.twitch_client_id, &config.tokens.twitch_token).await?;
 
     // Connect to the discord http client
     let http = HttpClient::builder()
-        .token(&CONFIG.get().unwrap().tokens.discord)
+        .token(&config.tokens.discord)
         .default_allowed_mentions(
             AllowedMentionsBuilder::new()
                 .parse_users()
@@ -95,18 +117,16 @@ async fn async_main() -> BotResult<()> {
     );
 
     // Connect to psql database and redis cache
-    let host = &CONFIG.get().unwrap().database.host;
-    let psql = Database::new(host).await?;
-    let redis_url = format!("{}:{}", host, CONFIG.get().unwrap().database.redis_port);
-    let redis = ConnectionPool::create(redis_url, None, 5).await?;
+    let db_uri = env::var("DATABASE_URL").expect("missing DATABASE_URL in .env");
+    let psql = Database::new(&db_uri)?;
+    let redis_uri = env::var("REDIS_URL").expect("missing REDIS_URL in .env");
+    let redis = ConnectionPool::create(redis_uri, None, 5).await?;
 
     // Connect to osu! API
-    let osu_token = &CONFIG.get().unwrap().tokens.osu;
+    let osu_client_id = config.tokens.osu_client_id;
+    let osu_client_secret = &config.tokens.osu_client_secret;
 
-    let osu = Osu::builder(osu_token, redis.clone())
-        .cache_duration(300)
-        .add_cached(OsuCached::User)
-        .build()?;
+    let osu = Osu::new(osu_client_id, osu_client_secret).await?;
 
     // Log custom client into osu!
     let custom = CustomClient::new().await?;
@@ -148,6 +168,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         osu_tracking,
         msgs_to_process: DashSet::new(),
         map_garbage_collection: Mutex::new(HashSet::new()),
+        match_live: MatchLiveChannels::new(),
     };
 
     // Shard-cluster config
@@ -210,6 +231,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     tokio::spawn(async move {
         if let Err(err) = signal::ctrl_c().await {
             unwind_error!(error, err, "Error while waiting for ctrlc: {}");
+
             return;
         }
 
@@ -231,6 +253,9 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         let count = shutdown_ctx.stop_all_games().await;
         info!("Stopped {} bg games", count);
 
+        let count = shutdown_ctx.notify_match_live_shutdown().await;
+        info!("Stopped match tracking in {} channels", count);
+
         info!("Shutting down");
         process::exit(0);
     });
@@ -246,6 +271,10 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     // Spawn background loop worker
     let background_ctx = Arc::clone(&ctx);
     tokio::spawn(Context::background_loop(background_ctx));
+
+    // Spawn osu match ticker worker
+    let match_live_ctx = Arc::clone(&ctx);
+    tokio::spawn(Context::match_live_loop(match_live_ctx));
 
     // Activate cluster
     let cluster_ctx = Arc::clone(&ctx);

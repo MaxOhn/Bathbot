@@ -5,13 +5,9 @@ use crate::{
     BotResult, Context,
 };
 
-use futures::future::{try_join_all, TryFutureExt};
-use rayon::prelude::*;
-use rosu::model::{GameMode, User};
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use futures::stream::{FuturesUnordered, StreamExt};
+use rosu_v2::prelude::{GameMode, OsuError};
+use std::{collections::HashSet, sync::Arc};
 use twilight_model::channel::Message;
 
 #[command]
@@ -27,56 +23,75 @@ use twilight_model::channel::Message;
 async fn untrack(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let mode = GameMode::STD;
     let args = MultNameArgs::new(&ctx, args, 10);
+
     let names = if args.names.is_empty() {
         let content = "You need to specify at least one osu username";
+
         return msg.error(&ctx, content).await;
     } else {
         args.names.into_iter().collect::<HashSet<_>>()
     };
+
     if let Some(name) = names.iter().find(|name| name.len() > 15) {
         let content = format!("`{}` is too long for an osu! username", name);
+
         return msg.error(&ctx, content).await;
     }
 
+    let count = names.len();
+
     // Retrieve all users
-    let user_futs = names.into_iter().map(|name| {
-        ctx.osu()
-            .user(name.as_str())
-            .mode(mode)
-            .map_ok(move |user| (name, user))
-    });
-    let users: HashMap<String, User> = match try_join_all(user_futs).await {
-        Ok(users) => match users.par_iter().find_any(|(_, user)| user.is_none()) {
-            Some((name, _)) => {
+    let mut user_futs = names
+        .into_iter()
+        .map(|name| {
+            ctx.osu()
+                .user(name.as_str())
+                .mode(mode)
+                .map(move |result| (name, result))
+        })
+        .collect::<FuturesUnordered<_>>();
+
+    let mut users = Vec::with_capacity(count);
+
+    while let Some((name, result)) = user_futs.next().await {
+        match result {
+            Ok(user) => users.push((user.user_id, user.username)),
+            Err(OsuError::NotFound) => {
                 let content = format!("User `{}` was not found", name);
+
                 return msg.error(&ctx, content).await;
             }
-            None => users
-                .into_iter()
-                .filter_map(|(name, user)| user.map(|user| (name, user)))
-                .collect(),
-        },
-        Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-            return Err(why.into());
+            Err(why) => {
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
+                return Err(why.into());
+            }
         }
-    };
+    }
+
+    // Free &ctx again
+    drop(user_futs);
+
     let channel = msg.channel_id;
     let mut success = HashSet::with_capacity(users.len());
-    for (name, User { user_id, .. }) in users.iter() {
+
+    for (user_id, username) in users.into_iter() {
         match ctx
             .tracking()
-            .remove_user(*user_id, channel, ctx.psql())
+            .remove_user(user_id, channel, ctx.psql())
             .await
         {
-            Ok(_) => success.insert(name),
+            Ok(_) => success.insert(username),
             Err(why) => {
                 warn!("Error while adding tracked entry: {}", why);
-                return send_message(&ctx, msg, Some(name), success).await;
+
+                return send_message(&ctx, msg, Some(&username), success).await;
             }
         };
     }
+
     send_message(&ctx, msg, None, success).await?;
+
     Ok(())
 }
 
@@ -84,9 +99,10 @@ async fn send_message(
     ctx: &Context,
     msg: &Message,
     name: Option<&String>,
-    success: HashSet<&String>,
+    success: HashSet<String>,
 ) -> BotResult<()> {
     let success = success.into_iter().collect();
-    let embed = UntrackEmbed::new(success, name).build_owned().build()?;
+    let embed = UntrackEmbed::new(success, name).into_builder().build();
+
     msg.build_response(&ctx, |m| m.embed(embed)).await
 }

@@ -115,7 +115,7 @@ pub async fn handle_event(
             // Get guild / default prefixes
             let prefixes = match msg.guild_id {
                 Some(guild_id) => ctx.config_prefixes(guild_id),
-                None => vec![String::from("<")],
+                None => smallvec!["<".into()],
             };
 
             // Parse msg content for prefixes

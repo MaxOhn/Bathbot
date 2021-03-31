@@ -1,109 +1,171 @@
 use crate::{
     bg_game::MapsetTags,
-    database::{util::CustomSQL, MapsetTagWrapper},
+    database::{util::CustomSQL, MapsetTagWrapper, TagRow},
     BotResult, Database,
 };
 
-use rosu::model::GameMode;
-use sqlx::Row;
-use std::{collections::HashSet, fmt::Write};
+use rosu_v2::model::GameMode;
 use tokio_stream::StreamExt;
-use twilight_model::id::UserId;
+
+struct StatsEntry {
+    discord_id: i64,
+    score: i32,
+}
 
 impl Database {
     pub async fn increment_bggame_score(&self, user_id: u64, amount: i32) -> BotResult<()> {
-        let query = format!(
-            "INSERT INTO bggame_stats VALUES ({},$1) ON CONFLICT (discord_id) DO UPDATE SET score=bggame_stats.score+$1",
-            user_id
-        );
-
-        sqlx::query(&query).bind(amount).execute(&self.pool).await?;
+        sqlx::query!(
+            "INSERT INTO bggame_scores VALUES ($1,$2) ON CONFLICT
+            (discord_id) DO UPDATE SET score=bggame_scores.score+$2",
+            user_id as i64,
+            amount
+        )
+        .execute(&self.pool)
+        .await?;
 
         Ok(())
     }
 
     pub async fn all_bggame_scores(&self) -> BotResult<Vec<(u64, u32)>> {
-        let scores = sqlx::query("SELECT * FROM bggame_stats")
+        let scores = sqlx::query_as!(StatsEntry, "SELECT * FROM bggame_scores")
             .fetch(&self.pool)
-            .map(|res| res.map(|row| (row.get::<i64, _>(0) as u64, row.get::<i32, _>(1) as u32)))
+            .map(|res| res.map(|entry| (entry.discord_id as u64, entry.score as u32)))
             .collect::<Result<_, _>>()
             .await?;
 
         Ok(scores)
     }
 
-    pub async fn get_bg_verified(&self) -> BotResult<HashSet<UserId>> {
-        let users = sqlx::query("SELECT user_id FROM bg_verified")
-            .fetch_all(&self.pool)
-            .await?
-            .into_iter()
-            .map(|row| UserId(row.get::<i64, _>(0) as u64))
-            .collect();
-
-        Ok(users)
-    }
-
     pub async fn add_tag_mapset(
         &self,
         mapset_id: u32,
-        filetype: &str,
+        filename: &str,
         mode: GameMode,
     ) -> BotResult<()> {
-        let query = "INSERT INTO map_tags (beatmapset_id,filetype,mode) VALUES ($1,$2,$3)";
-
-        sqlx::query(&query)
-            .bind(mapset_id)
-            .bind(filetype)
-            .bind(mode as i8)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query!(
+            "INSERT INTO map_tags (mapset_id,filename,mode) VALUES ($1,$2,$3)",
+            mapset_id as i32,
+            filename,
+            mode as i16
+        )
+        .execute(&self.pool)
+        .await?;
 
         Ok(())
     }
 
-    pub async fn set_tags_mapset(
-        &self,
-        mapset_id: u32,
-        tags: MapsetTags,
-        value: bool,
-    ) -> BotResult<()> {
-        let mut query = String::from("UPDATE map_tags SET").set_tags(",", tags, value)?;
-        write!(query, " WHERE beatmapset_id={}", mapset_id)?;
-        sqlx::query(&query).execute(&self.pool).await?;
+    pub async fn add_tags_mapset(&self, mapset_id: u32, tags: MapsetTags) -> BotResult<()> {
+        debug_assert_eq!(tags.bits().count_ones(), 1);
+
+        sqlx::query!(
+            "UPDATE map_tags SET
+            farm=map_tags.farm OR $1,
+            streams=map_tags.streams OR $2,
+            alternate=map_tags.alternate OR $3,
+            old=map_tags.old OR $4,
+            meme=map_tags.meme OR $5,
+            hardname=map_tags.hardname OR $6,
+            easy=map_tags.easy OR $7,
+            hard=map_tags.hard OR $8,
+            tech=map_tags.tech OR $9,
+            weeb=map_tags.weeb OR $10,
+            bluesky=map_tags.bluesky OR $11,
+            english=map_tags.english OR $12,
+            kpop=map_tags.kpop OR $13
+            WHERE mapset_id=$14",
+            tags == MapsetTags::Farm,
+            tags == MapsetTags::Streams,
+            tags == MapsetTags::Alternate,
+            tags == MapsetTags::Old,
+            tags == MapsetTags::Meme,
+            tags == MapsetTags::HardName,
+            tags == MapsetTags::Easy,
+            tags == MapsetTags::Hard,
+            tags == MapsetTags::Tech,
+            tags == MapsetTags::Weeb,
+            tags == MapsetTags::BlueSky,
+            tags == MapsetTags::English,
+            tags == MapsetTags::Kpop,
+            mapset_id as i32,
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn remove_tags_mapset(&self, mapset_id: u32, tags: MapsetTags) -> BotResult<()> {
+        debug_assert_eq!(tags.bits().count_ones(), 1);
+
+        sqlx::query!(
+            "UPDATE map_tags SET
+            farm=map_tags.farm AND $1,
+            streams=map_tags.streams AND $2,
+            alternate=map_tags.alternate AND $3,
+            old=map_tags.old AND $4,
+            meme=map_tags.meme AND $5,
+            hardname=map_tags.hardname AND $6,
+            easy=map_tags.easy AND $7,
+            hard=map_tags.hard AND $8,
+            tech=map_tags.tech AND $9,
+            weeb=map_tags.weeb AND $10,
+            bluesky=map_tags.bluesky AND $11,
+            english=map_tags.english AND $12,
+            kpop=map_tags.kpop AND $13
+            WHERE mapset_id=$14",
+            tags != MapsetTags::Farm,
+            tags != MapsetTags::Streams,
+            tags != MapsetTags::Alternate,
+            tags != MapsetTags::Old,
+            tags != MapsetTags::Meme,
+            tags != MapsetTags::HardName,
+            tags != MapsetTags::Easy,
+            tags != MapsetTags::Hard,
+            tags != MapsetTags::Tech,
+            tags != MapsetTags::Weeb,
+            tags != MapsetTags::BlueSky,
+            tags != MapsetTags::English,
+            tags != MapsetTags::Kpop,
+            mapset_id as i32,
+        )
+        .execute(&self.pool)
+        .await?;
 
         Ok(())
     }
 
     pub async fn get_tags_mapset(&self, mapset_id: u32) -> BotResult<MapsetTagWrapper> {
-        let query = format!(
-            "SELECT * FROM map_tags WHERE beatmapset_id={} LIMIT 1",
-            mapset_id
-        );
+        let tags = sqlx::query_as!(
+            TagRow,
+            "SELECT * FROM map_tags WHERE mapset_id=$1 LIMIT 1",
+            mapset_id as i32
+        )
+        .fetch_one(&self.pool)
+        .await?;
 
-        let tags = sqlx::query_as(&query).fetch_one(&self.pool).await?;
-
-        Ok(tags)
+        Ok(tags.into())
     }
 
     pub async fn get_all_tags_mapset(&self, mode: GameMode) -> BotResult<Vec<MapsetTagWrapper>> {
-        let query = "SELECT * FROM map_tags WHERE mode=$1";
-
-        let tags = sqlx::query_as(&query)
-            .bind(mode as i8)
-            .fetch_all(&self.pool)
+        let tags = sqlx::query_as!(TagRow, "SELECT * FROM map_tags WHERE mode=$1", mode as i16)
+            .fetch(&self.pool)
+            .map(|res| res.map(|row| row.into()))
+            .collect::<Result<_, _>>()
             .await?;
 
         Ok(tags)
     }
 
     pub async fn get_random_tags_mapset(&self, mode: GameMode) -> BotResult<MapsetTagWrapper> {
-        let query = "SELECT * FROM map_tags JOIN (SELECT beatmapset_id FROM map_tags WHERE mode=$1 ORDER BY RANDOM() LIMIT 1) as rndm USING(beatmapset_id)";
-        let tags = sqlx::query_as(query)
-            .bind(mode as i8)
-            .fetch_one(&self.pool)
-            .await?;
+        let tags = sqlx::query_as!(
+            TagRow,
+            "SELECT * FROM map_tags WHERE mode=$1 ORDER BY RANDOM() LIMIT 1",
+            mode as i16
+        )
+        .fetch_one(&self.pool)
+        .await?;
 
-        Ok(tags)
+        Ok(tags.into())
     }
 
     pub async fn get_specific_tags_mapset(
@@ -120,6 +182,7 @@ impl Database {
 
         if !included.is_empty() {
             query = query.set_tags(" AND ", included, true)?;
+
             if !excluded.is_empty() {
                 query.push_str(" AND");
             }
@@ -130,7 +193,7 @@ impl Database {
         }
 
         let tags = sqlx::query_as(&query)
-            .bind(mode as i8)
+            .bind(mode as i16)
             .fetch_all(&self.pool)
             .await?;
 

@@ -1,19 +1,14 @@
-use super::{Pages, Pagination};
+use super::{Pages, Pagination, ReactionVec};
 use crate::{
-    bail,
     custom_client::{SnipeScore, SnipeScoreParams},
     embeds::PlayerSnipeListEmbed,
-    unwind_error, BotResult, Context,
+    BotResult, Context,
 };
 
 use async_trait::async_trait;
-use rosu::model::{Beatmap, User};
-use std::{
-    collections::{BTreeMap, HashMap},
-    iter::Extend,
-    sync::Arc,
-};
-use twilight_http::request::channel::reaction::RequestReactionType;
+use hashbrown::HashMap;
+use rosu_v2::prelude::{Beatmap, User};
+use std::{collections::BTreeMap, iter::Extend, sync::Arc};
 use twilight_model::channel::Message;
 
 pub struct PlayerSnipeListPagination {
@@ -66,7 +61,7 @@ impl Pagination for PlayerSnipeListPagination {
         &mut self.pages
     }
 
-    fn reactions() -> Vec<RequestReactionType> {
+    fn reactions() -> ReactionVec {
         Self::arrow_reactions_full()
     }
 
@@ -112,25 +107,28 @@ impl Pagination for PlayerSnipeListPagination {
             .range(self.pages.index..self.pages.index + self.pages.per_page)
             .map(|(_, score)| score.beatmap_id)
             .filter(|map_id| !self.maps.contains_key(map_id))
+            .map(|id| id as i32)
             .collect();
 
         if !map_ids.is_empty() {
-            let mut maps = match self.ctx.psql().get_beatmaps(&map_ids).await {
+            let mut maps = match self.ctx.psql().get_beatmaps(&map_ids, true).await {
                 Ok(maps) => maps,
                 Err(why) => {
                     unwind_error!(warn, why, "Error while getting maps from DB: {}");
+
                     HashMap::default()
                 }
             };
 
             // Get missing maps from API
             for map_id in map_ids {
+                let map_id = map_id as u32;
+
                 if !maps.contains_key(&map_id) {
                     match self.ctx.osu().beatmap().map_id(map_id).await {
-                        Ok(Some(map)) => {
+                        Ok(map) => {
                             maps.insert(map_id, map);
                         }
-                        Ok(None) => bail!("The API returned no beatmap for map id {}", map_id),
                         Err(why) => return Err(why.into()),
                     }
                 }
@@ -149,6 +147,7 @@ impl Pagination for PlayerSnipeListPagination {
 
         Ok(embed_fut.await)
     }
+
     async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
         // Put maps into DB
         let maps: Vec<_> = self.maps.into_iter().map(|(_, map)| map).collect();

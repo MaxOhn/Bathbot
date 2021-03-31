@@ -1,15 +1,13 @@
 use crate::{
-    embeds::{Author, EmbedData},
+    embeds::Author,
     twitch::{TwitchStream, TwitchUser},
     util::constants::TWITCH_BASE,
 };
 
-use twilight_embed_builder::image_source::ImageSource;
-
 pub struct TwitchNotifEmbed {
     description: String,
-    thumbnail: ImageSource,
-    image: ImageSource,
+    thumbnail: String,
+    image: String,
     title: String,
     url: String,
     author: Author,
@@ -20,36 +18,19 @@ impl TwitchNotifEmbed {
         Self {
             title: stream.username.clone(),
             description: stream.title.clone(),
-            thumbnail: ImageSource::url(&user.image_url).unwrap(),
-            image: ImageSource::url(&stream.thumbnail_url).unwrap(),
+            thumbnail: user.image_url.clone(),
+            image: stream.thumbnail_url.clone(),
             url: format!("{}{}", TWITCH_BASE, user.display_name),
             author: Author::new("Now live on twitch:"),
         }
     }
 }
 
-impl EmbedData for TwitchNotifEmbed {
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-
-    fn author(&self) -> Option<&Author> {
-        Some(&self.author)
-    }
-
-    fn thumbnail(&self) -> Option<&ImageSource> {
-        Some(&self.thumbnail)
-    }
-
-    fn image(&self) -> Option<&ImageSource> {
-        Some(&self.image)
-    }
-
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
-    }
-
-    fn url(&self) -> Option<&str> {
-        Some(&self.url)
-    }
-}
+impl_builder!(&TwitchNotifEmbed {
+    author,
+    description,
+    image,
+    thumbnail,
+    title,
+    url,
+});

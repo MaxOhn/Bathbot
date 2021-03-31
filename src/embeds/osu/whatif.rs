@@ -1,25 +1,26 @@
 use crate::{
     commands::osu::WhatIfData,
-    embeds::{osu, Author, EmbedData},
+    embeds::Author,
     util::{
         constants::AVATAR_URL,
-        numbers::{round, with_comma, with_comma_u64},
+        numbers::{round, with_comma_float, with_comma_uint},
     },
 };
 
-use rosu::model::User;
+use rosu_v2::model::user::User;
 use std::fmt::Write;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct WhatIfEmbed {
-    description: Option<String>,
-    title: Option<String>,
-    thumbnail: Option<ImageSource>,
-    author: Option<Author>,
+    author: Author,
+    description: String,
+    thumbnail: String,
+    title: String,
 }
 
 impl WhatIfEmbed {
     pub fn new(user: User, pp: f32, data: WhatIfData) -> Self {
+        let stats = user.statistics.as_ref().unwrap();
+
         let title = format!(
             "What if {name} got a new {pp_given}pp score?",
             name = user.username,
@@ -39,7 +40,7 @@ impl WhatIfEmbed {
                 let mut d = format!(
                     "A {pp}pp play would be {name}'s #1 best play.\n\
                      Their pp would change by **+{pp}** to **{pp}pp**",
-                    pp = with_comma(pp),
+                    pp = with_comma_float(pp),
                     name = user.username,
                 );
 
@@ -47,7 +48,7 @@ impl WhatIfEmbed {
                     let _ = write!(
                         d,
                         "\nand they would reach rank #{}.",
-                        with_comma_u64(rank.min(user.pp_rank) as u64)
+                        with_comma_uint(rank.min(stats.global_rank.unwrap_or(0)))
                     );
                 } else {
                     d.push('.');
@@ -68,15 +69,15 @@ impl WhatIfEmbed {
                     pp = round(pp),
                     name = user.username,
                     num = new_pos,
-                    pp_change = new_pp + bonus_pp - user.pp_raw,
-                    new_pp = with_comma(new_pp + bonus_pp)
+                    pp_change = new_pp + bonus_pp - stats.pp,
+                    new_pp = with_comma_float(new_pp + bonus_pp)
                 );
 
                 if let Some(rank) = rank {
                     let _ = write!(
                         d,
                         "\nand they would reach rank #{}.",
-                        with_comma_u64(rank.min(user.pp_rank) as u64)
+                        with_comma_uint(rank.min(stats.global_rank.unwrap_or(0)))
                     );
                 } else {
                     d.push('.');
@@ -91,28 +92,17 @@ impl WhatIfEmbed {
         };
 
         Self {
-            title: Some(title),
-            description: Some(description),
-            author: Some(osu::get_user_author(&user)),
-            thumbnail: Some(ImageSource::url(format!("{}{}", AVATAR_URL, user.user_id)).unwrap()),
+            author: author!(user),
+            description,
+            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            title,
         }
     }
 }
 
-impl EmbedData for WhatIfEmbed {
-    fn description_owned(&mut self) -> Option<String> {
-        self.description.take()
-    }
-
-    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
-        self.thumbnail.take()
-    }
-
-    fn author_owned(&mut self) -> Option<Author> {
-        self.author.take()
-    }
-
-    fn title_owned(&mut self) -> Option<String> {
-        self.title.take()
-    }
-}
+impl_builder!(WhatIfEmbed {
+    author,
+    description,
+    thumbnail,
+    title,
+});

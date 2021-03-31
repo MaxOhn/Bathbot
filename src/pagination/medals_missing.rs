@@ -1,16 +1,15 @@
 use super::{Pages, Pagination};
 
-use crate::{
-    commands::osu::MedalType, custom_client::OsuProfile, embeds::MedalsMissingEmbed, BotResult,
-};
+use crate::{commands::osu::MedalType, embeds::MedalsMissingEmbed, BotResult};
 
 use async_trait::async_trait;
+use rosu_v2::model::user::User;
 use twilight_model::channel::Message;
 
 pub struct MedalsMissingPagination {
     msg: Message,
     pages: Pages,
-    profile: OsuProfile,
+    user: User,
     medals: Vec<MedalType>,
     medal_count: (usize, usize),
 }
@@ -18,14 +17,14 @@ pub struct MedalsMissingPagination {
 impl MedalsMissingPagination {
     pub fn new(
         msg: Message,
-        profile: OsuProfile,
+        user: User,
         medals: Vec<MedalType>,
         medal_count: (usize, usize),
     ) -> Self {
         Self {
             msg,
             pages: Pages::new(15, medals.len()),
-            profile,
+            user,
             medals,
             medal_count,
         }
@@ -58,7 +57,7 @@ impl Pagination for MedalsMissingPagination {
         let limit = self.medals.len().min(idx + self.pages.per_page);
 
         Ok(MedalsMissingEmbed::new(
-            &self.profile,
+            &self.user,
             &self.medals[idx..limit],
             self.medal_count,
             limit == self.medals.len(),

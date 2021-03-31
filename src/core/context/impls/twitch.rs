@@ -1,6 +1,5 @@
 use crate::Context;
 
-use rayon::prelude::*;
 use twilight_model::id::ChannelId;
 
 impl Context {
@@ -45,14 +44,7 @@ impl Context {
         self.data
             .tracked_streams
             .iter()
-            .par_bridge()
-            .filter_map(|guard| {
-                if guard.value().contains(&channel.0) {
-                    Some(*guard.key())
-                } else {
-                    None
-                }
-            })
+            .filter_map(|guard| guard.value().contains(&channel.0).then(|| *guard.key()))
             .collect()
     }
 }

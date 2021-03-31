@@ -1,14 +1,11 @@
 use super::*;
 use crate::{
     embeds::{EmbedData, TwitchNotifEmbed},
-    unwind_error, Context,
+    Context,
 };
 
-use rayon::prelude::*;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use hashbrown::{HashMap, HashSet};
+use std::{collections::HashMap as StdHashMap, sync::Arc};
 use strfmt::strfmt;
 use tokio::time::{interval, Duration};
 use twilight_http::{
@@ -25,7 +22,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
     }
 
     // Formatting of the embed image
-    let mut fmt_data = HashMap::new();
+    let mut fmt_data = StdHashMap::new();
     fmt_data.insert(String::from("width"), String::from("360"));
     fmt_data.insert(String::from("height"), String::from("180"));
 
@@ -44,6 +41,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
             Ok(streams) => streams,
             Err(why) => {
                 unwind_error!(warn, why, "Error while retrieving streams: {}");
+
                 continue;
             }
         };
@@ -72,7 +70,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
 
         // Put streams into a more suitable data type and process the thumbnail url
         let streams: Vec<(u64, TwitchStream)> = streams
-            .into_par_iter()
+            .into_iter()
             .map(|mut stream| {
                 if let Ok(thumbnail) = strfmt(&stream.thumbnail_url, &fmt_data) {
                     stream.thumbnail_url = thumbnail;
@@ -89,19 +87,12 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                 None => continue,
             };
 
-            let data = TwitchNotifEmbed::new(&stream, users.get(&stream.user_id).unwrap());
-
-            let embed = match data.build().build() {
-                Ok(embed) => embed,
-                Err(why) => {
-                    error!("Error while creating twitch notif embed: {}", why);
-
-                    continue;
-                }
-            };
+            let data = TwitchNotifEmbed::new(&stream, &users[&stream.user_id]);
 
             for channel in channels {
-                match ctx.http.create_message(channel).embed(embed.clone()) {
+                let embed = data.as_builder().build();
+
+                match ctx.http.create_message(channel).embed(embed) {
                     Ok(msg_fut) => {
                         let result = msg_fut.await;
 

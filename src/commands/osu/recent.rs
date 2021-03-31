@@ -1,8 +1,8 @@
+use super::{prepare_score, request_user};
 use crate::{
     arguments::{Args, NameDashPArgs},
     embeds::{EmbedData, RecentEmbed},
     tracking::process_tracking,
-    unwind_error,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
@@ -10,15 +10,12 @@ use crate::{
     BotResult, Context,
 };
 
-use reqwest::StatusCode;
-use rosu::{
-    model::{
-        ApprovalStatus::{Approved, Loved, Qualified, Ranked},
-        GameMode, Score,
-    },
-    OsuError,
+use rosu_v2::prelude::{
+    GameMode, Grade, OsuError,
+    RankStatus::{Approved, Loved, Qualified, Ranked},
+    Score,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use twilight_model::channel::Message;
 
@@ -56,15 +53,17 @@ async fn recent_main(
     };
 
     // Retrieve the user and their recent scores
-    let user_fut = ctx.osu().user(name.as_str()).mode(mode);
-    let scores_fut = ctx.osu().recent_scores(name.as_str()).mode(mode).limit(50);
+    let user_fut = request_user(&ctx, &name, Some(mode));
 
-    let (user, scores) = match tokio::try_join!(user_fut, scores_fut) {
-        Ok((None, _)) => {
-            let content = format!("User `{}` was not found", name);
+    let scores_fut = ctx
+        .osu()
+        .user_scores(name.as_str())
+        .recent()
+        .mode(mode)
+        .limit(50)
+        .include_fails(true);
 
-            return msg.error(&ctx, content).await;
-        }
+    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
         Ok((_, scores)) if scores.is_empty() => {
             let content = format!(
                 "No recent {}plays found for user `{}`",
@@ -79,24 +78,9 @@ async fn recent_main(
 
             return msg.error(&ctx, content).await;
         }
-        Ok((Some(user), scores)) => (user, scores),
-        Err(OsuError::Response {
-            status: StatusCode::UNAUTHORIZED,
-            ..
-        }) if name.contains('#') => {
-            let content = format!(
-                "You gave an invalid name, they can't contain the `#` symbol.\n\
-                If they are linked, you can also ping them as an argument, e.g.\n\
-                {prefix}recent{mode} <@{user_id}>",
-                prefix = ctx.config_first_prefix(msg.guild_id),
-                mode = match mode {
-                    GameMode::STD => "",
-                    GameMode::TKO => "taiko",
-                    GameMode::CTB => "ctb",
-                    GameMode::MNA => "mania",
-                },
-                user_id = msg.author.id,
-            );
+        Ok((user, scores)) => (user, scores),
+        Err(OsuError::NotFound) => {
+            let content = format!("User `{}` was not found", name);
 
             return msg.error(&ctx, content).await;
         }
@@ -108,9 +92,26 @@ async fn recent_main(
     };
 
     let num = num.unwrap_or(1).saturating_sub(1);
+    let mut iter = scores.iter_mut().skip(num);
 
-    let score = match scores.get(num) {
-        Some(score) => score,
+    let (score, tries) = match iter.next() {
+        Some(score) => match prepare_score(&ctx, score).await {
+            Ok(_) => {
+                let mods = score.mods;
+                let map_id = map_id!(score).unwrap();
+
+                let tries = 1 + iter
+                    .take_while(|s| map_id!(s).unwrap() == map_id && s.mods == mods)
+                    .count();
+
+                (score, tries)
+            }
+            Err(why) => {
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
+                return Err(why.into());
+            }
+        },
         None => {
             let content = format!(
                 "There {verb} only {num} score{plural} in `{name}`'{genitive} recent history.",
@@ -125,53 +126,43 @@ async fn recent_main(
         }
     };
 
-    let map_id = score.beatmap_id.unwrap();
-    let mut store_in_db = false;
+    let map = score.map.as_ref().unwrap();
 
-    let map = match ctx.psql().get_beatmap(map_id).await {
-        Ok(map) => map,
-        Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
-            Ok(Some(map)) => {
-                store_in_db = true;
+    // Prepare retrieval of the the user's top 50 and score position on the map
+    let map_score_fut = async {
+        if score.grade != Grade::F && matches!(map.status, Ranked | Loved | Qualified | Approved) {
+            let fut = ctx
+                .osu()
+                .beatmap_user_score(map.map_id, user.user_id)
+                .mode(mode);
 
-                map
-            }
-            Ok(None) => {
-                let content = format!("The API returned no beatmap for map id {}", map_id);
-
-                return msg.error(&ctx, content).await;
-            }
-            Err(why) => {
-                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-                return Err(why.into());
-            }
-        },
-    };
-
-    // Prepare retrieval of the map's global top 50 and the user's top 100
-    let global_fut = async {
-        match map.approval_status {
-            Ranked | Loved | Qualified | Approved => {
-                Some(map.get_global_leaderboard(ctx.osu()).limit(50).await)
-            }
-            _ => None,
+            Some(fut.await)
+        } else {
+            None
         }
     };
 
     let best_fut = async {
-        match map.approval_status {
-            Ranked => Some(user.get_top_scores(ctx.osu()).limit(100).mode(mode).await),
-            _ => None,
+        if score.grade != Grade::F && map.status == Ranked {
+            let fut = ctx
+                .osu()
+                .user_scores(user.user_id)
+                .best()
+                .limit(50)
+                .mode(mode);
+
+            Some(fut.await)
+        } else {
+            None
         }
     };
 
     // Retrieve and parse response
-    let (globals_result, best_result) = tokio::join!(global_fut, best_fut);
+    let (map_score_result, best_result) = tokio::join!(map_score_fut, best_fut);
 
-    let globals: Option<Vec<Score>> = match globals_result {
-        None => None,
-        Some(Ok(scores)) => Some(scores),
+    let map_score = match map_score_result {
+        None | Some(Err(OsuError::NotFound)) => None,
+        Some(Ok(score)) => Some(score),
         Some(Err(why)) => {
             unwind_error!(warn, why, "Error while getting global scores: {}");
 
@@ -179,7 +170,7 @@ async fn recent_main(
         }
     };
 
-    let best: Option<Vec<Score>> = match best_result {
+    let mut best: Option<Vec<Score>> = match best_result {
         None => None,
         Some(Ok(scores)) => Some(scores),
         Some(Err(why)) => {
@@ -189,21 +180,7 @@ async fn recent_main(
         }
     };
 
-    // Accumulate all necessary data
-    let tries = scores
-        .iter()
-        .skip(num)
-        .take_while(|s| s.beatmap_id.unwrap() == map_id && s.enabled_mods == score.enabled_mods)
-        .count();
-
-    let data_fut = RecentEmbed::new(
-        &user,
-        score,
-        &map,
-        best.as_deref(),
-        globals.as_deref(),
-        None,
-    );
+    let data_fut = RecentEmbed::new(&user, score, best.as_deref(), map_score.as_ref(), false);
 
     let data = match data_fut.await {
         Ok(data) => data,
@@ -215,7 +192,7 @@ async fn recent_main(
     };
 
     // Creating the embed
-    let embed = data.build().build()?;
+    let embed = data.as_builder().build();
 
     let response = ctx
         .http
@@ -230,26 +207,15 @@ async fn recent_main(
     // Set map on garbage collection list if unranked
     let gb = ctx.map_garbage_collector(&map);
 
-    // Store map in DB
-    if store_in_db {
-        match ctx.psql().insert_beatmap(&map).await {
-            Ok(true) => info!("Added map {} to DB", map.beatmap_id),
-            Ok(false) => {}
-            Err(why) => unwind_error!(
-                warn,
-                why,
-                "Error while storing map {} in DB: {}",
-                map.beatmap_id
-            ),
-        }
-    }
+    // Note: Don't store maps in DB as their max combo isnt available
 
     // Process user and their top scores for tracking
-    if let Some(ref scores) = best {
-        let mut maps = HashMap::new();
-        maps.insert(map.beatmap_id, map);
+    if let Some(ref mut scores) = best {
+        if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
+            unwind_error!(warn, why, "Error while storing best maps in DB: {}");
+        }
 
-        process_tracking(&ctx, mode, scores, Some(&user), &mut maps).await;
+        process_tracking(&ctx, mode, scores, Some(&user)).await;
     }
 
     // Wait for minimizing
@@ -261,12 +227,10 @@ async fn recent_main(
             return;
         }
 
-        let embed = data.minimize().build().unwrap();
-
         let embed_update = ctx
             .http
             .update_message(response.channel_id, response.id)
-            .embed(embed)
+            .embed(data.into_builder().build())
             .unwrap();
 
         if let Err(why) = embed_update.await {

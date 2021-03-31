@@ -1,12 +1,14 @@
 mod avatar;
 mod bws;
 mod common;
+mod compare;
 mod country_snipe_list;
 mod country_snipe_stats;
 mod leaderboard;
 mod map;
 mod map_search;
 mod match_costs;
+mod match_live;
 mod medal;
 mod medal_stats;
 mod medals_missing;
@@ -26,7 +28,6 @@ mod rank_score;
 mod ratio;
 mod recent;
 mod recent_list;
-mod scores;
 mod simulate;
 mod sniped;
 mod sniped_difference;
@@ -37,13 +38,15 @@ mod whatif;
 
 pub use avatar::AvatarEmbed;
 pub use bws::BWSEmbed;
-pub use common::{CommonEmbed, MapScores};
+pub use common::CommonEmbed;
+pub use compare::{CompareEmbed, NoScoresEmbed};
 pub use country_snipe_list::CountrySnipeListEmbed;
 pub use country_snipe_stats::CountrySnipeStatsEmbed;
 pub use leaderboard::LeaderboardEmbed;
 pub use map::MapEmbed;
 pub use map_search::MapSearchEmbed;
 pub use match_costs::MatchCostEmbed;
+pub use match_live::{MatchLiveEmbed, MatchLiveEmbeds};
 pub use medal::MedalEmbed;
 pub use medal_stats::MedalStatsEmbed;
 pub use medals_missing::MedalsMissingEmbed;
@@ -63,7 +66,6 @@ pub use rank_score::RankRankedScoreEmbed;
 pub use ratio::RatioEmbed;
 pub use recent::RecentEmbed;
 pub use recent_list::RecentListEmbed;
-pub use scores::ScoresEmbed;
 pub use simulate::SimulateEmbed;
 pub use sniped::SnipedEmbed;
 pub use sniped_difference::SnipedDiffEmbed;
@@ -72,33 +74,10 @@ pub use top_if::TopIfEmbed;
 pub use top_single::TopSingleEmbed;
 pub use whatif::WhatIfEmbed;
 
-use crate::{
-    embeds::Author,
-    util::{
-        constants::OSU_BASE,
-        datetime::sec_to_minsec,
-        numbers::{round, with_comma, with_comma_u64},
-        BeatmapExt, ScoreExt,
-    },
-};
+use crate::util::{datetime::sec_to_minsec, numbers::round, BeatmapExt, ScoreExt};
 
-use rosu::model::{Beatmap, GameMods, User};
+use rosu_v2::prelude::{Beatmap, GameMods};
 use std::fmt::Write;
-
-pub fn get_user_author(user: &User) -> Author {
-    let text = format!(
-        "{name}: {pp}pp (#{global} {country}{national})",
-        name = user.username,
-        pp = with_comma(user.pp_raw),
-        global = with_comma_u64(user.pp_rank as u64),
-        country = user.country,
-        national = user.pp_country_rank
-    );
-
-    Author::new(text)
-        .url(format!("{}u/{}", OSU_BASE, user.user_id))
-        .icon_url(format!("{}/images/flags/{}.png", OSU_BASE, user.country))
-}
 
 #[inline]
 pub fn get_stars(stars: f32) -> String {
@@ -155,7 +134,7 @@ pub fn get_keys(mods: GameMods, map: &Beatmap) -> String {
     if let Some(key_mod) = mods.has_key_mod() {
         format!("[{}]", key_mod)
     } else {
-        format!("[{}K]", map.diff_cs as u32)
+        format!("[{}K]", map.cs as u32)
     }
 }
 
@@ -168,10 +147,10 @@ pub fn get_map_info(map: &Beatmap) -> String {
         sec_to_minsec(map.seconds_drain),
         round(map.bpm),
         map.count_objects(),
-        round(map.diff_cs),
-        round(map.diff_ar),
-        round(map.diff_od),
-        round(map.diff_hp),
+        round(map.cs),
+        round(map.ar),
+        round(map.od),
+        round(map.hp),
         round(map.stars)
     )
 }

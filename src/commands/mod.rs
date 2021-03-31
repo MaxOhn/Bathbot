@@ -23,7 +23,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
             "all osu! modes",
             vec![
                 &LINK_CMD,
-                &SCORES_CMD,
+                &COMPARE_CMD,
                 &SIMULATE_CMD,
                 &MAP_CMD,
                 &MATCHCOSTS_CMD,
@@ -37,6 +37,8 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &MEDALSTATS_CMD,
                 &MEDALSMISSING_CMD,
                 &SEARCH_CMD,
+                &MATCHLIVE_CMD,
+                &MATCHLIVEREMOVE_CMD,
             ],
         ),
         CommandGroup::new(
@@ -174,15 +176,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
             "twitch",
             vec![&ADDSTREAM_CMD, &REMOVESTREAM_CMD, &TRACKEDSTREAMS_CMD],
         ),
-        CommandGroup::new(
-            "fun",
-            vec![
-                &MINESWEEPER_CMD,
-                &BACKGROUNDGAME_CMD,
-                &BGTAGS_CMD,
-                &BGTAGSMANUAL_CMD,
-            ],
-        ),
+        CommandGroup::new("games", vec![&MINESWEEPER_CMD, &BACKGROUNDGAME_CMD]),
         CommandGroup::new(
             "utility",
             vec![
@@ -196,7 +190,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &ECHO_CMD,
                 &AUTHORITIES_CMD,
                 &ROLEASSIGN_CMD,
-                &LYRICS_CMD,
+                &TOGGLESONGS_CMD,
             ],
         ),
         CommandGroup::new(
@@ -220,6 +214,8 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &ADDBG_CMD,
                 &CACHE_CMD,
                 &ACTIVEBG_CMD,
+                &BGTAGS_CMD,
+                &BGTAGSMANUAL_CMD,
                 &CHANGEGAME_CMD,
                 &TRACKINGTOGGLE_CMD,
                 &TRACKINGSTATS_CMD,

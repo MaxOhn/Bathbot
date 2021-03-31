@@ -1,16 +1,25 @@
+use super::{prepare_scores, request_user, ErrorType};
 use crate::{
     arguments::NameModArgs,
     embeds::{EmbedData, TopIfEmbed},
     pagination::{Pagination, TopIfPagination},
     pp::{Calculations, PPCalculator},
     tracking::process_tracking,
-    unwind_error,
-    util::{constants::OSU_API_ISSUE, numbers, osu::ModSelection, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        numbers,
+        osu::ModSelection,
+        MessageExt,
+    },
     Args, BotResult, Context,
 };
 
-use rosu::model::{GameMode, GameMods, Score};
-use std::{cmp::Ordering, collections::HashMap, fmt::Write, sync::Arc};
+use futures::{
+    future::TryFutureExt,
+    stream::{FuturesUnordered, TryStreamExt},
+};
+use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
+use std::{cmp::Ordering, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
 
 const NM: GameMods = GameMods::NoMod;
@@ -54,27 +63,50 @@ async fn topif_main(
     }
 
     // Retrieve the user and their top scores
-    let user_fut = ctx.osu().user(name.as_str()).mode(mode);
-    let scores_fut = ctx.osu().top_scores(name.as_str()).mode(mode).limit(100);
-    let join_result = tokio::try_join!(user_fut, scores_fut);
+    let user_fut = request_user(&ctx, &name, Some(mode)).map_err(From::from);
+    let scores_fut_1 = ctx
+        .osu()
+        .user_scores(name.as_str())
+        .best()
+        .mode(mode)
+        .limit(50);
 
-    let (user, scores) = match join_result {
-        Ok((Some(user), scores)) => (user, scores),
-        Ok((None, _)) => {
+    let scores_fut_2 = ctx
+        .osu()
+        .user_scores(name.as_str())
+        .best()
+        .mode(mode)
+        .offset(50)
+        .limit(50);
+
+    let scores_fut_1 = prepare_scores(&ctx, scores_fut_1);
+    let scores_fut_2 = prepare_scores(&ctx, scores_fut_2);
+
+    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut_1, scores_fut_2) {
+        Ok((user, mut scores, mut scores_2)) => {
+            scores.append(&mut scores_2);
+
+            (user, scores)
+        }
+        Err(ErrorType::Osu(OsuError::NotFound)) => {
             let content = format!("User `{}` was not found", name);
 
             return msg.error(&ctx, content).await;
         }
-        Err(why) => {
+        Err(ErrorType::Osu(why)) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
+        Err(ErrorType::Bot(why)) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
     };
 
     // Process user and their top scores for tracking
-    let mut maps = HashMap::new();
-    process_tracking(&ctx, mode, &scores, Some(&user), &mut maps).await;
+    process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
 
     // Calculate bonus pp
     let actual_pp = scores
@@ -83,163 +115,112 @@ async fn topif_main(
         .map(|(i, Score { pp, .. })| pp.unwrap() as f64 * 0.95_f64.powi(i as i32))
         .sum::<f64>();
 
-    let bonus_pp = user.pp_raw as f64 - actual_pp;
-
-    // Get all relevant maps from the database
-    let map_ids: Vec<u32> = scores.iter().filter_map(|s| s.beatmap_id).collect();
-
-    let mut maps = match ctx.psql().get_beatmaps(&map_ids).await {
-        Ok(maps) => maps,
-        Err(why) => {
-            unwind_error!(warn, why, "Error while getting maps from DB: {}");
-
-            HashMap::default()
-        }
-    };
-
-    debug!("Found {}/{} beatmaps in DB", maps.len(), scores.len());
-
-    let retrieving_msg = if scores.len() - maps.len() > 10 {
-        let content = format!(
-            "Retrieving {} maps from the api...",
-            scores.len() - maps.len()
-        );
-
-        ctx.http
-            .create_message(msg.channel_id)
-            .content(content)?
-            .await
-            .ok()
-    } else {
-        None
-    };
-
-    // Retrieving all missing beatmaps
-    let mut scores_data = Vec::with_capacity(scores.len());
-    let mut missing_maps = Vec::new();
-
-    for (i, score) in scores.into_iter().enumerate() {
-        let map_id = score.beatmap_id.unwrap();
-
-        let map = if let Some(map) = maps.remove(&map_id) {
-            map
-        } else {
-            match ctx.osu().beatmap().map_id(map_id).await {
-                Ok(Some(map)) => {
-                    missing_maps.push(map.clone());
-
-                    map
-                }
-                Ok(None) => {
-                    let content = format!("The API returned no beatmap for map id {}", map_id);
-
-                    return msg.error(&ctx, content).await;
-                }
-                Err(why) => {
-                    let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-                    return Err(why.into());
-                }
-            }
-        };
-
-        // Filter converts if specified
-        if !args.converts || map.mode == mode {
-            scores_data.push((i + 1, score, map, None));
-        }
-    }
+    let bonus_pp = user.statistics.as_ref().unwrap().pp as f64 - actual_pp;
+    let arg_mods = args.mods;
 
     // Modify scores
-    for (_, score, map, max_pp) in scores_data.iter_mut() {
-        let changed = match args.mods {
-            Some(ModSelection::Exact(mods)) => {
-                let changed = score.enabled_mods != mods;
-                score.enabled_mods = mods;
+    let scores_fut = scores
+        .into_iter()
+        .enumerate()
+        .map(|(i, mut score)| async move {
+            let map = score.map.as_ref().unwrap();
 
-                changed
+            if map.convert {
+                return Ok((i + 1, score, None));
             }
-            Some(ModSelection::Exclude(mut mods)) if mods != NM => {
-                if mods.contains(DT) {
-                    mods |= NC;
-                }
-                if mods.contains(SD) {
-                    mods |= PF
-                }
 
-                let changed = score.enabled_mods.intersects(mods);
-                score.enabled_mods.remove(mods);
+            let changed = match arg_mods {
+                Some(ModSelection::Exact(mods)) => {
+                    let changed = score.mods != mods;
+                    score.mods = mods;
 
-                changed
+                    changed
+                }
+                Some(ModSelection::Exclude(mut mods)) if mods != NM => {
+                    if mods.contains(DT) {
+                        mods |= NC;
+                    }
+
+                    if mods.contains(SD) {
+                        mods |= PF
+                    }
+
+                    let changed = score.mods.intersects(mods);
+                    score.mods.remove(mods);
+
+                    changed
+                }
+                Some(ModSelection::Include(mods)) if mods != NM => {
+                    let mut changed = false;
+
+                    if mods.contains(DT) && score.mods.contains(HT) {
+                        score.mods.remove(HT);
+                        changed = true;
+                    }
+
+                    if mods.contains(HT) && score.mods.contains(DT) {
+                        score.mods.remove(NC);
+                        changed = true;
+                    }
+
+                    if mods.contains(HR) && score.mods.contains(EZ) {
+                        score.mods.remove(EZ);
+                        changed = true;
+                    }
+
+                    if mods.contains(EZ) && score.mods.contains(HR) {
+                        score.mods.remove(HR);
+                        changed = true;
+                    }
+
+                    changed |= !score.mods.contains(mods);
+                    score.mods.insert(mods);
+
+                    changed
+                }
+                _ => false,
+            };
+
+            let mut calculations = Calculations::STARS | Calculations::MAX_PP;
+
+            if changed {
+                score.grade = score.grade(Some(score.accuracy));
+                calculations |= Calculations::PP;
             }
-            Some(ModSelection::Include(mods)) if mods != NM => {
-                let mut changed = false;
 
-                if mods.contains(DT) && score.enabled_mods.contains(HT) {
-                    score.enabled_mods.remove(HT);
-                    changed = true;
-                }
+            let mut calculator = PPCalculator::new().score(&score).map(map);
 
-                if mods.contains(HT) && score.enabled_mods.contains(DT) {
-                    score.enabled_mods.remove(NC);
-                    changed = true;
-                }
+            calculator.calculate(calculations).await?;
 
-                if mods.contains(HR) && score.enabled_mods.contains(EZ) {
-                    score.enabled_mods.remove(EZ);
-                    changed = true;
-                }
+            let max_pp = calculator.max_pp().unwrap_or(0.0);
+            let (stars, pp) = (calculator.stars(), calculator.pp());
 
-                if mods.contains(EZ) && score.enabled_mods.contains(HR) {
-                    score.enabled_mods.remove(HR);
-                    changed = true;
-                }
+            drop(calculator);
 
-                changed |= !score.enabled_mods.contains(mods);
-                score.enabled_mods.insert(mods);
-
-                changed
+            if let Some(stars) = stars {
+                score.map.as_mut().unwrap().stars = stars;
             }
-            _ => false,
-        };
 
-        let mut calculations = Calculations::STARS | Calculations::MAX_PP;
+            if let Some(pp) = pp {
+                score.pp.replace(pp);
+            }
 
-        if changed {
-            score.recalculate_grade(mode, None);
-            calculations |= Calculations::PP;
+            Ok((i + 1, score, Some(max_pp)))
+        })
+        .collect::<FuturesUnordered<_>>()
+        .try_collect();
+
+    let mut scores_data: Vec<_> = match scores_fut.await {
+        Ok(scores) => scores,
+        Err(why) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
         }
-
-        let mut calculator = PPCalculator::new().score(&*score).map(&*map);
-
-        match calculator.calculate(calculations).await {
-            Ok(_) => {
-                if let Some(pp) = calculator.max_pp() {
-                    max_pp.replace(pp);
-                }
-
-                let (stars, pp) = (calculator.stars(), calculator.pp());
-
-                drop(calculator);
-
-                if let Some(stars) = stars {
-                    map.stars = stars;
-                }
-
-                if let Some(pp) = pp {
-                    score.pp.replace(pp);
-                }
-            }
-            Err(why) => unwind_error!(
-                warn,
-                why,
-                "Error while calculating pp for topif {}: {}",
-                mode
-            ),
-        }
-    }
+    };
 
     // Sort by adjusted pp
-    scores_data.sort_unstable_by(|(_, s1, ..), (_, s2, ..)| {
+    scores_data.sort_unstable_by(|(_, s1, _), (_, s2, _)| {
         s2.pp.partial_cmp(&s1.pp).unwrap_or(Ordering::Equal)
     });
 
@@ -310,29 +291,21 @@ async fn topif_main(
         &user,
         scores_data.iter().take(5),
         mode,
-        user.pp_raw,
+        user.statistics.as_ref().unwrap().pp,
         adjusted_pp,
         (1, pages),
     )
     .await;
 
-    if let Some(msg) = retrieving_msg {
-        let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;
-    }
-
     // Creating the embed
-    let embed = data.build().build()?;
-    let create_msg = ctx.http.create_message(msg.channel_id).embed(embed)?;
-    let response = create_msg.content(content)?.await?;
+    let response = ctx
+        .http
+        .create_message(msg.channel_id)
+        .embed(data.into_builder().build())?
+        .content(content)?
+        .await?;
 
-    // Add missing maps to database
-    if !missing_maps.is_empty() {
-        match ctx.psql().insert_beatmaps(&missing_maps).await {
-            Ok(n) if n < 2 => {}
-            Ok(n) => info!("Added {} maps to DB", n),
-            Err(why) => unwind_error!(warn, why, "Error while adding maps to DB: {}"),
-        }
-    }
+    // Don't add maps of scores to DB since their stars were potentially changed
 
     // Skip pagination if too few entries
     if scores_data.len() <= 5 {
@@ -342,7 +315,7 @@ async fn topif_main(
     }
 
     // Pagination
-    let pre_pp = user.pp_raw;
+    let pre_pp = user.statistics.as_ref().unwrap().pp;
     let pagination = TopIfPagination::new(response, user, scores_data, mode, pre_pp, adjusted_pp);
     let owner = msg.author.id;
 

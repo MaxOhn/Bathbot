@@ -1,6 +1,6 @@
 use crate::{
     custom_client::OsekaiMedal,
-    embeds::EmbedData,
+    embeds::EmbedFields,
     util::{
         constants::{FIELD_VALUE_SIZE, OSU_BASE},
         numbers::round,
@@ -9,13 +9,12 @@ use crate::{
 
 use cow_utils::CowUtils;
 use std::fmt::Write;
-use twilight_embed_builder::image_source::ImageSource;
 
 pub struct MedalEmbed {
-    url: Option<String>,
-    thumbnail: Option<ImageSource>,
-    title: Option<String>,
-    fields: Vec<(String, String, bool)>,
+    url: String,
+    thumbnail: String,
+    title: String,
+    fields: EmbedFields,
 }
 
 impl MedalEmbed {
@@ -29,15 +28,15 @@ impl MedalEmbed {
             .map_or_else(|| "Any".to_owned(), |mods| mods.to_string());
 
         let mut fields = Vec::with_capacity(7);
-        fields.push(("Description".to_owned(), medal.description, false));
+        fields.push(field!("Description", medal.description, false));
 
         if let Some(solution) = medal.solution {
-            fields.push(("Solution".to_owned(), solution, false));
+            fields.push(field!("Solution", solution, false));
         }
 
-        fields.push(("Mode".to_owned(), mode, true));
-        fields.push(("Mods".to_owned(), mods, true));
-        fields.push(("Group".to_owned(), medal.group, true));
+        fields.push(field!("Mode", mode, true));
+        fields.push(field!("Mods", mods, true));
+        fields.push(field!("Group", medal.group, true));
 
         if let Some(diff) = medal.difficulty {
             let diff_name = format!("Voted difficulty [ {} / 10 ]", diff.total);
@@ -50,7 +49,7 @@ impl MedalEmbed {
                 round(diff.patterns),
             );
 
-            fields.push((diff_name, diff_value, false));
+            fields.push(field!(diff_name, diff_value, false));
         }
 
         if !medal.beatmaps.is_empty() {
@@ -73,7 +72,7 @@ impl MedalEmbed {
             }
 
             map_value.pop();
-            fields.push((format!("Beatmaps: {}", len), map_value, false));
+            fields.push(field!(format!("Beatmaps: {}", len), map_value, false));
         }
 
         if !medal.comments.is_empty() {
@@ -101,12 +100,12 @@ impl MedalEmbed {
             comment_value.pop();
 
             if !comment_value.is_empty() {
-                fields.push(("Comments".to_owned(), comment_value, false));
+                fields.push(field!("Comments".to_owned(), comment_value, false));
             }
         }
 
         let title = medal.name;
-        let thumbnail = ImageSource::url(medal.url).unwrap();
+        let thumbnail = medal.url;
 
         let url = format!(
             "https://osekai.net/medals/?medal={}",
@@ -114,28 +113,17 @@ impl MedalEmbed {
         );
 
         Self {
-            url: Some(url),
-            thumbnail: Some(thumbnail),
-            title: Some(title),
+            url,
+            thumbnail,
+            title,
             fields,
         }
     }
 }
 
-impl EmbedData for MedalEmbed {
-    fn title_owned(&mut self) -> Option<String> {
-        self.title.take()
-    }
-
-    fn url_owned(&mut self) -> Option<String> {
-        self.url.take()
-    }
-
-    fn thumbnail_owned(&mut self) -> Option<ImageSource> {
-        self.thumbnail.take()
-    }
-
-    fn fields_owned(self) -> Option<Vec<(String, String, bool)>> {
-        Some(self.fields)
-    }
-}
+impl_builder!(MedalEmbed {
+    fields,
+    thumbnail,
+    title,
+    url,
+});

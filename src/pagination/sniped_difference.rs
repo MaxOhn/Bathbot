@@ -4,9 +4,9 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use rosu::model::User;
+use hashbrown::HashMap;
 use rosu_pp::Beatmap;
-use std::collections::HashMap;
+use rosu_v2::model::user::User;
 use twilight_model::channel::Message;
 
 pub struct SnipedDiffPagination {

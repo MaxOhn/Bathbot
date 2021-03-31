@@ -1,4 +1,7 @@
-use crate::core::{Command, CommandGroups};
+use crate::{
+    core::{Command, CommandGroups},
+    database::Prefix,
+};
 
 use cow_utils::CowUtils;
 use std::borrow::Cow;
@@ -33,7 +36,7 @@ impl Invoke {
     }
 }
 
-pub fn find_prefix<'a>(prefixes: &[String], stream: &mut Stream<'a>) -> bool {
+pub fn find_prefix<'a>(prefixes: &[Prefix], stream: &mut Stream<'a>) -> bool {
     prefixes
         .iter()
         .find_map(|p| {

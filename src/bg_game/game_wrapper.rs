@@ -1,12 +1,11 @@
 use super::{game_loop, Game, GameResult, LoopResult};
 use crate::{
     database::MapsetTagWrapper,
-    unwind_error,
     util::{constants::OSU_BASE, error::BgGameError},
     Context,
 };
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::{collections::VecDeque, sync::Arc};
 use tokio::{
     sync::{
@@ -87,6 +86,7 @@ impl GameWrapper {
             Some(rx) => rx,
             None => {
                 warn!("No rx left for bg game");
+
                 return;
             }
         };
@@ -117,6 +117,7 @@ impl GameWrapper {
 
                 let rx_fut = async {
                     let mut rx = rx.lock().await;
+
                     rx.recv().await
                 };
 

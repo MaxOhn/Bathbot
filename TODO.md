@@ -1,14 +1,15 @@
 
 **[TODO]**
-- mp track command
-- Support mod inclusion / exclusion / exact for lb commands
+- Add command to add snipe countries
+- `<favouritescores` commands
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
-- ~~Check on IRC for tracking~~
-- ~~Split database tables based on popular queries~~
-- ~~Fix `<mc` sometimes missing some users~~
-- ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~
-- ~~`<playermedals` showing a list of a user's medals~~
-- ~~`<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)~~
+- ~~Check on IRC for tracking~~ irc only provides username, not id
+- ~~Use DB medals instead of osekai~~ no solution
+- ~~Split database tables based on popular queries~~ queries simple enough
+- ~~Fix `<mc` sometimes missing some users~~ fixed with rosu-v2
+- ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~ problem if too many maps
+- ~~`<playermedals` showing a list of a user's medals~~ seems unnecessary
+- ~~`<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)~~ no attractive embed format
 
 **[Sometime]**
 - Provide feature to disable certain commands in certain channels
@@ -19,6 +20,10 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Request user in `<link`~~ (21.03.30)
+- ~~`<matchlive` command~~ (21.03.30)
+- ~~Implement custom EmbedBuilder~~ (21.03.28)
+- ~~Benchmark for `smartstring`, `smallstr`, `smallvec`, and `arrayvec`~~ (21.03.25)
 - ~~How far off personal bests on `<rp`~~ (21.02.28)
 - ~~Reformat `<common` embed~~ (21.02.14)
 - ~~Handle active bg games on shutdown~~ (21.02.13)

@@ -1,3 +1,4 @@
+use super::request_user;
 use crate::{
     arguments::{Args, RankArgs},
     custom_client::{ManiaVariant, RankLeaderboard, RankParam},
@@ -10,9 +11,8 @@ use crate::{
     BotResult, Context,
 };
 
-use futures::future::TryFutureExt;
-use rosu::model::{GameMode, User};
-use std::{collections::HashMap, sync::Arc};
+use rosu_v2::prelude::{GameMode, OsuError, User};
+use std::sync::Arc;
 use twilight_model::channel::Message;
 
 async fn rank_main(
@@ -32,16 +32,19 @@ async fn rank_main(
     };
 
     if args.rank == 0 {
-        let content = "Rank number must be between 1 and 10,000";
+        let content = "Rank can't be zero :clown:";
+
         return msg.error(&ctx, content).await;
     } else if args.rank > 10_000 && args.country.is_some() {
         let content = "Unfortunately I can only provide data for country ranks up to 10,000 :(";
+
         return msg.error(&ctx, content).await;
     }
 
     let data = if args.rank <= 10_000 {
         // Retrieve the user and the id of the rank-holding user
         let mut ranking = RankLeaderboard::pp(mode, args.country.as_deref());
+
         match (mode, args.variant) {
             (GameMode::MNA, Some(ManiaVariant::K4)) => ranking = ranking.variant_4k(),
             (GameMode::MNA, Some(ManiaVariant::K7)) => ranking = ranking.variant_7k(),
@@ -49,12 +52,7 @@ async fn rank_main(
         }
 
         let rank_holder_id_fut = ctx.clients.custom.get_userid_of_rank(args.rank, ranking);
-
-        let user_fut = ctx
-            .osu()
-            .user(name.as_str())
-            .mode(mode)
-            .map_err(|e| e.into());
+        let user_fut = request_user(&ctx, &name, Some(mode));
 
         let (rank_holder_id_result, user_result) = tokio::join!(rank_holder_id_fut, user_fut,);
 
@@ -62,31 +60,31 @@ async fn rank_main(
             Ok(id) => id,
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
+
                 return Err(why.into());
             }
         };
 
         let user = match user_result {
-            Ok(Some(user)) => user,
-            Ok(None) => {
+            Ok(user) => user,
+            Err(OsuError::NotFound) => {
                 let content = format!("User `{}` was not found", name);
+
                 return msg.error(&ctx, content).await;
             }
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-                return Err(why);
+
+                return Err(why.into());
             }
         };
 
         // Retrieve rank-holding user
         let rank_holder = match ctx.osu().user(rank_holder_id).mode(mode).await {
-            Ok(Some(user)) => user,
-            Ok(None) => {
-                let content = format!("User id `{}` was not found", rank_holder_id);
-                return msg.error(&ctx, content).await;
-            }
+            Ok(user) => user,
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
                 return Err(why.into());
             }
         };
@@ -103,31 +101,29 @@ async fn rank_main(
             .custom
             .get_rank_data(mode, RankParam::Rank(args.rank));
 
-        let user_fut = ctx
-            .osu()
-            .user(name.as_str())
-            .mode(mode)
-            .map_err(|e| e.into());
-
-        let (pp_result, user_result) = tokio::join!(pp_fut, user_fut,);
+        let user_fut = request_user(&ctx, &name, Some(mode));
+        let (pp_result, user_result) = tokio::join!(pp_fut, user_fut);
 
         let required_pp = match pp_result {
             Ok(rank_pp) => rank_pp.pp,
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_DAILY_ISSUE).await;
+
                 return Err(why.into());
             }
         };
 
         let user = match user_result {
-            Ok(Some(user)) => user,
-            Ok(None) => {
+            Ok(user) => user,
+            Err(OsuError::NotFound) => {
                 let content = format!("User `{}` was not found", name);
+
                 return msg.error(&ctx, content).await;
             }
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-                return Err(why);
+
+                return Err(why.into());
             }
         };
 
@@ -139,13 +135,33 @@ async fn rank_main(
     };
 
     // Retrieve the user's top scores if required
-    let scores = if data.with_scores() {
+    let mut scores = if data.with_scores() {
         let user = data.user();
-        match user.get_top_scores(ctx.osu()).limit(100).mode(mode).await {
-            Ok(scores) if scores.is_empty() => None,
-            Ok(scores) => Some(scores),
+
+        let scores_fut_1 = ctx
+            .osu()
+            .user_scores(user.user_id)
+            .limit(50)
+            .best()
+            .mode(mode);
+
+        let scores_fut_2 = ctx
+            .osu()
+            .user_scores(user.user_id)
+            .offset(50)
+            .limit(50)
+            .best()
+            .mode(mode);
+
+        match tokio::try_join!(scores_fut_1, scores_fut_2) {
+            Ok((mut scores, mut scores_2)) => (!scores.is_empty()).then(|| {
+                scores.append(&mut scores_2);
+
+                scores
+            }),
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+
                 return Err(why.into());
             }
         }
@@ -153,15 +169,15 @@ async fn rank_main(
         None
     };
 
-    if let Some(scores) = scores.as_deref() {
+    if let Some(scores) = scores.as_deref_mut() {
         // Process user and their top scores for tracking
-        let mut maps = HashMap::new();
-        process_tracking(&ctx, mode, scores, Some(data.user()), &mut maps).await;
+        process_tracking(&ctx, mode, scores, Some(data.user())).await;
     }
 
     // Creating the embed
-    let embed = RankEmbed::new(data, scores).build_owned().build()?;
+    let embed = RankEmbed::new(data, scores).into_builder().build();
     msg.build_response(&ctx, |m| m.embed(embed)).await?;
+
     Ok(())
 }
 
@@ -237,10 +253,10 @@ impl RankData {
         match self {
             Self::Sub10k {
                 user, rank_holder, ..
-            } => user.pp_raw < rank_holder.pp_raw,
+            } => user.statistics.as_ref().unwrap().pp < rank_holder.statistics.as_ref().unwrap().pp,
             Self::Over10k {
                 user, required_pp, ..
-            } => user.pp_raw < *required_pp,
+            } => user.statistics.as_ref().unwrap().pp < *required_pp,
         }
     }
 

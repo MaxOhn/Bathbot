@@ -4,7 +4,7 @@ use crate::{
     BotResult, Context,
 };
 
-use rosu::model::GameMode;
+use rosu_v2::model::GameMode;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -38,7 +38,7 @@ async fn untrackall(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResu
     {
         Ok(amount) => {
             let content = format!("Untracked {} users in this channel", amount);
-            msg.respond(&ctx, content).await
+            msg.send_response(&ctx, content).await
         }
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;

@@ -1,6 +1,6 @@
 use crate::{
     custom_client::BeatconnectMapSet,
-    embeds::{EmbedData, Footer},
+    embeds::Footer,
     util::{constants::OSU_BASE, numbers::round},
 };
 
@@ -97,16 +97,8 @@ impl MapSearchEmbed {
     }
 }
 
-impl EmbedData for MapSearchEmbed {
-    fn title(&self) -> Option<&str> {
-        Some(&self.title)
-    }
-
-    fn description(&self) -> Option<&str> {
-        Some(&self.description)
-    }
-
-    fn footer(&self) -> Option<&Footer> {
-        Some(&self.footer)
-    }
-}
+impl_builder!(MapSearchEmbed {
+    description,
+    footer,
+    title,
+});
