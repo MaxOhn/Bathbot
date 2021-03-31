@@ -25,6 +25,7 @@ use image::{
 use std::iter::Extend;
 use tokio::time::{sleep, Duration};
 use twilight_model::id::{GuildId, UserId};
+
 #[inline]
 pub fn discord_avatar(user_id: UserId, hash: &str) -> String {
     format!("{}avatars/{}/{}.webp?size=1024", DISCORD_CDN, user_id, hash)
@@ -42,22 +43,20 @@ macro_rules! set {
     };
 }
 
-pub fn levenshtein_distance(word_a: &str, word_b: &str) -> usize {
-    let (word_a, word_b) = if word_a.chars().count() > word_b.chars().count() {
-        (word_b, word_a)
-    } else {
-        (word_a, word_b)
-    };
+pub fn levenshtein_distance<'w>(mut word_a: &'w str, mut word_b: &'w str) -> usize {
+    if word_a.chars().count() > word_b.chars().count() {
+        std::mem::swap(&mut word_a, &mut word_b);
+    }
 
     let mut costs: Vec<usize> = (0..=word_b.len()).collect();
 
     // SAFETY for get! and set!:
-    // word_a.len() <= word_b.len() = B < B + 1 = costs.len()
+    // word_a.len() <= word_b.len() = N < N + 1 = costs.len()
 
-    for (i, a) in (1..=word_a.len()).zip(word_a.chars()) {
+    for (a, i) in word_a.chars().zip(1..) {
         let mut last_val = i;
 
-        for (j, b) in (1..=word_b.len()).zip(word_b.chars()) {
+        for (b, j) in word_b.chars().zip(1..) {
             let new_val = if a == b {
                 get!(costs[j - 1])
             } else {
