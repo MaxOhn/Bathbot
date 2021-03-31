@@ -332,6 +332,7 @@ fn simulate_score(
                 score.statistics.count_50 = n50;
             }
 
+            score.mode = GameMode::STD;
             score.statistics.count_miss = miss;
             score.max_combo = combo;
             score.accuracy = score.accuracy();
@@ -356,6 +357,7 @@ fn simulate_score(
                 max_score /= 2;
             }
 
+            score.mode = GameMode::MNA;
             score.max_combo = 0;
             score.score = args.score.map_or(max_score, |s| s.min(max_score));
             score.statistics.count_geki = map.count_objects();
@@ -420,6 +422,7 @@ fn simulate_score(
                 .unwrap_or(0)
                 .min(n_objects.saturating_sub(miss));
 
+            score.mode = GameMode::TKO;
             score.accuracy = acc * 100.0;
             score.grade = score.grade(Some(score.accuracy));
 
@@ -484,6 +487,7 @@ fn simulate_score(
                 }
             }
 
+            score.mode = GameMode::CTB;
             score.statistics.count_300 = n_fruits as u32;
             score.statistics.count_100 = n_droplets as u32;
             score.statistics.count_50 = n_tiny_droplets as u32;
