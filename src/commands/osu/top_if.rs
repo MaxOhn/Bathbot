@@ -140,6 +140,7 @@ async fn topif_main(
                     if mods.contains(DT) {
                         mods |= NC;
                     }
+
                     if mods.contains(SD) {
                         mods |= PF
                     }
@@ -183,7 +184,7 @@ async fn topif_main(
             let mut calculations = Calculations::STARS | Calculations::MAX_PP;
 
             if changed {
-                score.grade = score.grade(None);
+                score.grade = score.grade(Some(score.accuracy));
                 calculations |= Calculations::PP;
             }
 
@@ -200,7 +201,9 @@ async fn topif_main(
                 score.map.as_mut().unwrap().stars = stars;
             }
 
-            score.pp = pp;
+            if let Some(pp) = pp {
+                score.pp.replace(pp);
+            }
 
             Ok((i + 1, score, Some(max_pp)))
         })
