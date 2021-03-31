@@ -190,7 +190,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &ECHO_CMD,
                 &AUTHORITIES_CMD,
                 &ROLEASSIGN_CMD,
-                &LYRICS_CMD,
+                &TOGGLESONGS_CMD,
             ],
         ),
         CommandGroup::new(
