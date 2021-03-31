@@ -10,13 +10,13 @@ pub fn str_to_maybe_datetime<'de, D>(d: D) -> Result<Option<DateTime<Utc>>, D::E
 where
     D: Deserializer<'de>,
 {
-    let s: Option<String> = Deserialize::deserialize(d)?;
-
-    s.map(|s| Utc.datetime_from_str(s.as_str(), "%F %T").map_err(|_| s))
-        .transpose()
-        .map_err(|s| {
-            Error::invalid_value(Unexpected::Str(s.as_str()), &r#"null or datetime "%F %T""#)
-        })
+    match <Option<String> as Deserialize>::deserialize(d)? {
+        Some(s) => match Utc.datetime_from_str(s.as_str(), "%F %T") {
+            Ok(date) => Ok(Some(date)),
+            Err(_) => Ok(None),
+        },
+        None => Ok(None),
+    }
 }
 
 pub fn str_to_datetime<'de, D: Deserializer<'de>>(d: D) -> Result<DateTime<Utc>, D::Error> {
