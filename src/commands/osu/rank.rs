@@ -1,17 +1,17 @@
 use super::request_user;
 use crate::{
     arguments::{Args, RankArgs},
-    custom_client::{ManiaVariant, RankLeaderboard, RankParam},
+    custom_client::RankParam,
     embeds::{EmbedData, RankEmbed},
     tracking::process_tracking,
     util::{
-        constants::{OSU_API_ISSUE, OSU_DAILY_ISSUE, OSU_WEB_ISSUE},
+        constants::{OSU_API_ISSUE, OSU_DAILY_ISSUE},
         MessageExt,
     },
     BotResult, Context,
 };
 
-use rosu_v2::prelude::{GameMode, OsuError, User};
+use rosu_v2::prelude::{GameMode, OsuError, User, UserCompact};
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -42,46 +42,31 @@ async fn rank_main(
     }
 
     let data = if args.rank <= 10_000 {
-        // Retrieve the user and the id of the rank-holding user
-        let mut ranking = RankLeaderboard::pp(mode, args.country.as_deref());
+        // Retrieve the user and the user thats holding the given rank
+        let page = (args.rank / 50) + (args.rank % 50 != 0) as usize;
 
-        match (mode, args.variant) {
-            (GameMode::MNA, Some(ManiaVariant::K4)) => ranking = ranking.variant_4k(),
-            (GameMode::MNA, Some(ManiaVariant::K7)) => ranking = ranking.variant_7k(),
-            _ => {}
+        let mut rank_holder_fut = ctx.osu().performance_rankings(mode).page(page as u32);
+
+        if let Some(ref country) = args.country {
+            rank_holder_fut = rank_holder_fut.country(country);
         }
 
-        let rank_holder_id_fut = ctx.clients.custom.get_userid_of_rank(args.rank, ranking);
         let user_fut = request_user(&ctx, &name, Some(mode));
 
-        let (rank_holder_id_result, user_result) = tokio::join!(rank_holder_id_fut, user_fut,);
+        let (user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
+            Ok((user, mut rankings)) => {
+                let idx = (args.rank + 49) % 50;
+                let mut stats = rankings.ranking.swap_remove(idx);
+                let mut rank_holder = *stats.user.take().unwrap();
+                rank_holder.statistics.replace(stats);
 
-        let rank_holder_id = match rank_holder_id_result {
-            Ok(id) => id,
-            Err(why) => {
-                let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
-
-                return Err(why.into());
+                (user, rank_holder)
             }
-        };
-
-        let user = match user_result {
-            Ok(user) => user,
             Err(OsuError::NotFound) => {
                 let content = format!("User `{}` was not found", name);
 
                 return msg.error(&ctx, content).await;
             }
-            Err(why) => {
-                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-                return Err(why.into());
-            }
-        };
-
-        // Retrieve rank-holding user
-        let rank_holder = match ctx.osu().user(rank_holder_id).mode(mode).await {
-            Ok(user) => user,
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
@@ -198,7 +183,6 @@ pub async fn rank(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
 #[short_desc("How many pp is a player missing to reach the given rank?")]
 #[long_desc(
     "How many pp is a player missing to reach the given rank?\n\
-    For ranks up to 10,000 you can also specify `+4k` or `+7k` for those specific leaderboard.\n\
     For ranks over 10,000 the data is provided by [osudaily](https://osudaily.net/)."
 )]
 #[usage("[username] [+4k/+7k] [[country]number]")]
@@ -239,7 +223,7 @@ pub enum RankData {
         user: User,
         rank: usize,
         country: Option<String>,
-        rank_holder: User,
+        rank_holder: UserCompact,
     },
     Over10k {
         user: User,

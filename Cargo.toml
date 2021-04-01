@@ -92,10 +92,6 @@ features = ["async_tokio"]
 git = "https://github.com/MaxOhn/rosu-pp-older.git"
 branch = "main"
 
-[dependencies.scraper]
-version = "0.12"
-default-features = false
-
 [dependencies.serde]
 version = "1.0"
 features = ["derive", "rc"]

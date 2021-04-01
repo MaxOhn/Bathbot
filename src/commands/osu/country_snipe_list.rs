@@ -83,7 +83,7 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
                 } else {
                     let content = format!(
                         "`{}`'s country {} is not supported :(",
-                        user.username, user.country.name
+                        user.username, user.country
                     );
 
                     return msg.error(&ctx, content).await;

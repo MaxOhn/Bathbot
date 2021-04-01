@@ -1,12 +1,8 @@
 use super::request_user;
 use crate::{
     arguments::{Args, NameIntArgs},
-    custom_client::RankLeaderboard,
     embeds::{EmbedData, RankRankedScoreEmbed},
-    util::{
-        constants::{OSU_API_ISSUE, OSU_WEB_ISSUE},
-        MessageExt,
-    },
+    util::{constants::OSU_API_ISSUE, MessageExt},
     BotResult, Context,
 };
 
@@ -16,7 +12,6 @@ use twilight_model::channel::Message;
 
 async fn rank_score_main(
     mode: GameMode,
-    ranking: Ranking,
     ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
@@ -47,45 +42,22 @@ async fn rank_score_main(
         return msg.error(&ctx, content).await;
     }
 
-    let user_id_fut = match ranking {
-        Ranking::Ranked => ctx
-            .clients
-            .custom
-            .get_userid_of_rank(rank, RankLeaderboard::score(mode)),
-    };
+    // Retrieve the user and the user thats holding the given rank
+    let page = (rank / 50) + (rank % 50 != 0) as usize;
+    let rank_holder_fut = ctx.osu().score_rankings(mode).page(page as u32);
+    let user_fut = request_user(&ctx, &name, Some(mode));
 
-    // Retrieve the user and the id of the rank-holding user
-    let (rank_holder_id_result, user_result) =
-        tokio::join!(user_id_fut, request_user(&ctx, &name, Some(mode)));
+    let (user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
+        Ok((user, mut rankings)) => {
+            let idx = (rank + 49) % 50;
+            let mut stats = rankings.ranking.swap_remove(idx);
+            let mut rank_holder = *stats.user.take().unwrap();
+            rank_holder.statistics.replace(stats);
 
-    let rank_holder_id = match rank_holder_id_result {
-        Ok(id) => id,
-        Err(why) => {
-            let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
-
-            return Err(why.into());
+            (user, rank_holder)
         }
-    };
-
-    let user = match user_result {
-        Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
-
-            return msg.error(&ctx, content).await;
-        }
-        Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-            return Err(why.into());
-        }
-    };
-
-    // Retrieve rank-holding user
-    let rank_holder = match ctx.osu().user(rank_holder_id).mode(mode).await {
-        Ok(user) => user,
-        Err(OsuError::NotFound) => {
-            let content = format!("User id `{}` was not found", rank_holder_id);
 
             return msg.error(&ctx, content).await;
         }
@@ -116,7 +88,7 @@ async fn rank_score_main(
 #[example("badewanne3 123")]
 #[aliases("rrs")]
 pub async fn rankrankedscore(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    rank_score_main(GameMode::STD, Ranking::Ranked, ctx, msg, args).await
+    rank_score_main(GameMode::STD, ctx, msg, args).await
 }
 
 #[command]
@@ -129,7 +101,7 @@ pub async fn rankrankedscore(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
 #[example("badewanne3 123")]
 #[aliases("rrsm")]
 pub async fn rankrankedscoremania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    rank_score_main(GameMode::MNA, Ranking::Ranked, ctx, msg, args).await
+    rank_score_main(GameMode::MNA, ctx, msg, args).await
 }
 
 #[command]
@@ -142,7 +114,7 @@ pub async fn rankrankedscoremania(ctx: Arc<Context>, msg: &Message, args: Args) 
 #[example("badewanne3 123")]
 #[aliases("rrst")]
 pub async fn rankrankedscoretaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    rank_score_main(GameMode::TKO, Ranking::Ranked, ctx, msg, args).await
+    rank_score_main(GameMode::TKO, ctx, msg, args).await
 }
 
 #[command]
@@ -155,10 +127,5 @@ pub async fn rankrankedscoretaiko(ctx: Arc<Context>, msg: &Message, args: Args) 
 #[example("badewanne3 123")]
 #[aliases("rrsc")]
 pub async fn rankrankedscorectb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    rank_score_main(GameMode::CTB, Ranking::Ranked, ctx, msg, args).await
-}
-
-enum Ranking {
-    // Total,
-    Ranked,
+    rank_score_main(GameMode::CTB, ctx, msg, args).await
 }

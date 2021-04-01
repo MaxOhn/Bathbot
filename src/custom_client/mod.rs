@@ -33,7 +33,6 @@ use hashbrown::HashSet;
 use once_cell::sync::OnceCell;
 use reqwest::{multipart::Form, Client, Response, StatusCode};
 use rosu_v2::prelude::{GameMode, GameMods, User};
-use scraper::{Html, Node, Selector};
 use serde_json::Value;
 use std::{
     fmt::{self, Write},
@@ -51,7 +50,6 @@ static BEATCONNECT_API_KEY: OnceCell<&'static str> = OnceCell::new();
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
 enum Site {
-    OsuWebsite,
     OsuStats,
     OsuHiddenApi,
     OsuAvatar,
@@ -564,133 +562,6 @@ impl CustomClient {
 
         Ok(rank_pp)
     }
-
-    pub async fn get_userid_of_rank(
-        &self,
-        rank: usize,
-        ranking: RankLeaderboard<'_>,
-    ) -> ClientResult<u32> {
-        if !(1..=10_000).contains(&rank) {
-            return Err(CustomClientError::RankIndex(rank));
-        }
-
-        let mut url = format!(
-            "{base}rankings/{mode}/",
-            base = OSU_BASE,
-            mode = ranking.variant
-        );
-
-        match ranking.leaderboard {
-            LeaderboardType::Score => url += "score?",
-            LeaderboardType::Pp { country } => {
-                url += "performance?";
-
-                if let Some(country) = country {
-                    let _ = write!(url, "country={}&", country);
-                }
-            }
-        }
-
-        if let GameModeVariant::Mania(Some(variant)) = ranking.variant {
-            let _ = write!(url, "variant={}&", variant);
-        }
-
-        let mut page_idx = rank / 50;
-
-        if rank % 50 != 0 {
-            page_idx += 1;
-        }
-
-        let _ = write!(url, "page={}", page_idx);
-
-        let body = self
-            .make_request(url, Site::OsuWebsite)
-            .await?
-            .text()
-            .await?;
-
-        let html = Html::parse_document(&body);
-        let ranking_page_table = Selector::parse(".ranking-page-table").unwrap();
-
-        let ranking_page_table = html
-            .select(&ranking_page_table)
-            .next()
-            .ok_or(CustomClientError::MissingElement(".ranking-page-table"))?;
-
-        let tbody = Selector::parse("tbody").unwrap();
-
-        let tbody = ranking_page_table
-            .select(&tbody)
-            .next()
-            .ok_or(CustomClientError::MissingElement("tbody"))?;
-
-        let child = tbody
-            .children()
-            .enumerate()
-            .filter(|(i, _)| i % 2 == 1) // Filter the empty lines
-            .map(|(_, child)| child)
-            .nth(if rank % 50 == 0 { 49 } else { (rank % 50) - 1 })
-            .unwrap();
-
-        let node = child
-            .children()
-            .nth(3)
-            .ok_or(CustomClientError::RankNode(1))?
-            .children()
-            .nth(1)
-            .ok_or(CustomClientError::RankNode(2))?
-            .children()
-            .nth(3)
-            .ok_or(CustomClientError::RankNode(3))?;
-
-        match node.value() {
-            Node::Element(e) => {
-                if let Some(id) = e.attr("data-user-id") {
-                    Ok(id.parse::<u32>().unwrap())
-                } else {
-                    Err(CustomClientError::MissingElement("attribute data-user-id"))
-                }
-            }
-            _ => Err(CustomClientError::MissingElement("attribute data-user-id")),
-        }
-    }
-}
-
-pub struct RankLeaderboard<'s> {
-    variant: GameModeVariant,
-    leaderboard: LeaderboardType<'s>,
-}
-
-impl<'s> RankLeaderboard<'s> {
-    pub fn score(mode: GameMode) -> Self {
-        Self {
-            variant: mode.into(),
-            leaderboard: LeaderboardType::Score,
-        }
-    }
-
-    pub fn pp(mode: GameMode, country: Option<&'s str>) -> Self {
-        Self {
-            variant: mode.into(),
-            leaderboard: LeaderboardType::Pp { country },
-        }
-    }
-
-    pub fn variant_4k(mut self) -> Self {
-        if let GameModeVariant::Mania(variant) = &mut self.variant {
-            variant.replace(ManiaVariant::K4);
-        }
-
-        self
-    }
-
-    pub fn variant_7k(mut self) -> Self {
-        if let GameModeVariant::Mania(variant) = &mut self.variant {
-            variant.replace(ManiaVariant::K7);
-        }
-
-        self
-    }
 }
 
 enum GameModeVariant {
@@ -754,11 +625,6 @@ impl fmt::Display for ManiaVariant {
 
         f.write_str(variant)
     }
-}
-
-enum LeaderboardType<'s> {
-    Score,
-    Pp { country: Option<&'s str> },
 }
 
 pub enum RankParam {

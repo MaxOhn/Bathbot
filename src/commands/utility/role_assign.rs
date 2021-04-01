@@ -18,7 +18,8 @@ use twilight_model::channel::Message;
      gain that role and and if they remove a reaction, \
      they lose the role.\n\
      The first argument must be the channel that contains the message, \
-     the second must be the message id, and the third must be the role."
+     the second must be the message id, and the third must be the role.\n\
+     **Note:** Be sure the bot has sufficient privileges to assign the role."
 )]
 #[usage("[channel mention / channel id] [message id] [role mention / role id]")]
 #[example("#general 681871156168753193 @Meetup")]

@@ -3,7 +3,7 @@ use crate::{
     util::{constants::AVATAR_URL, numbers::with_comma_uint},
 };
 
-use rosu_v2::model::user::User;
+use rosu_v2::model::user::{User, UserCompact};
 
 pub struct RankRankedScoreEmbed {
     description: String,
@@ -13,7 +13,7 @@ pub struct RankRankedScoreEmbed {
 }
 
 impl RankRankedScoreEmbed {
-    pub fn new(user: User, rank: usize, rank_holder: User) -> Self {
+    pub fn new(user: User, rank: usize, rank_holder: UserCompact) -> Self {
         let user_score = user.statistics.as_ref().unwrap().ranked_score;
         let rank_holder_score = rank_holder.statistics.as_ref().unwrap().ranked_score;
 
