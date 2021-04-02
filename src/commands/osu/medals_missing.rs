@@ -5,7 +5,7 @@ use crate::{
     embeds::{EmbedData, MedalsMissingEmbed},
     pagination::{MedalsMissingPagination, Pagination},
     util::{
-        constants::{GENERAL_ISSUE, OSU_WEB_ISSUE},
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         numbers, MessageExt,
     },
     BotResult, Context,
@@ -56,7 +56,7 @@ async fn medalsmissing(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
             return Err(why);
         }
         (Err(why), _) => {
-            let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
