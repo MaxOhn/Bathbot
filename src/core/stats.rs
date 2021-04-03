@@ -5,7 +5,7 @@ use log::info;
 use prometheus::{IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry};
 use std::{
     collections::HashMap,
-    sync::{atomic::Ordering::Relaxed, Arc},
+    sync::{atomic::Ordering::Acquire, Arc},
 };
 use twilight_cache_inmemory::Metrics;
 use twilight_model::{channel::Message, gateway::event::Event};
@@ -138,22 +138,22 @@ impl BotStats {
         stats
             .guild_counts
             .total
-            .set(stats.cache_metrics.guilds.load(Relaxed) as i64);
+            .set(stats.cache_metrics.guilds.load(Acquire) as i64);
 
         stats
             .guild_counts
             .unavailable
-            .set(stats.cache_metrics.unavailable_guilds.load(Relaxed) as i64);
+            .set(stats.cache_metrics.unavailable_guilds.load(Acquire) as i64);
 
         stats
             .user_counts
             .total
-            .set(stats.cache_metrics.members.load(Relaxed) as i64);
+            .set(stats.cache_metrics.members.load(Acquire) as i64);
 
         stats
             .user_counts
             .unique
-            .set(stats.cache_metrics.users.load(Relaxed) as i64);
+            .set(stats.cache_metrics.users.load(Acquire) as i64);
 
         stats
     }
@@ -197,38 +197,38 @@ impl Context {
                 self.stats
                     .guild_counts
                     .total
-                    .set(self.stats.cache_metrics.guilds.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.guilds.load(Acquire) as i64);
                 self.stats
                     .guild_counts
                     .unavailable
-                    .set(self.stats.cache_metrics.unavailable_guilds.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.unavailable_guilds.load(Acquire) as i64);
                 self.stats
                     .user_counts
                     .total
-                    .set(self.stats.cache_metrics.members.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.members.load(Acquire) as i64);
                 self.stats
                     .user_counts
                     .unique
-                    .set(self.stats.cache_metrics.users.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.users.load(Acquire) as i64);
                 self.stats.event_counts.guild_create.inc()
             }
             Event::GuildDelete(_) => {
                 self.stats
                     .guild_counts
                     .total
-                    .set(self.stats.cache_metrics.guilds.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.guilds.load(Acquire) as i64);
                 self.stats
                     .guild_counts
                     .unavailable
-                    .set(self.stats.cache_metrics.unavailable_guilds.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.unavailable_guilds.load(Acquire) as i64);
                 self.stats
                     .user_counts
                     .total
-                    .set(self.stats.cache_metrics.members.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.members.load(Acquire) as i64);
                 self.stats
                     .user_counts
                     .unique
-                    .set(self.stats.cache_metrics.users.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.users.load(Acquire) as i64);
                 self.stats.event_counts.guild_delete.inc()
             }
             Event::GuildUpdate(_) => self.stats.event_counts.guild_update.inc(),
@@ -236,22 +236,22 @@ impl Context {
                 self.stats
                     .user_counts
                     .total
-                    .set(self.stats.cache_metrics.members.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.members.load(Acquire) as i64);
                 self.stats
                     .user_counts
                     .unique
-                    .set(self.stats.cache_metrics.users.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.users.load(Acquire) as i64);
                 self.stats.event_counts.member_add.inc()
             }
             Event::MemberRemove(_) => {
                 self.stats
                     .user_counts
                     .total
-                    .set(self.stats.cache_metrics.members.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.members.load(Acquire) as i64);
                 self.stats
                     .user_counts
                     .unique
-                    .set(self.stats.cache_metrics.users.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.users.load(Acquire) as i64);
                 self.stats.event_counts.member_remove.inc()
             }
             Event::MemberUpdate(_) => self.stats.event_counts.member_update.inc(),
@@ -259,11 +259,11 @@ impl Context {
                 self.stats
                     .user_counts
                     .total
-                    .set(self.stats.cache_metrics.members.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.members.load(Acquire) as i64);
                 self.stats
                     .user_counts
                     .unique
-                    .set(self.stats.cache_metrics.users.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.users.load(Acquire) as i64);
                 self.stats.event_counts.member_chunk.inc()
             }
             Event::MessageCreate(_) => self.stats.event_counts.message_create.inc(),
@@ -278,11 +278,11 @@ impl Context {
                 self.stats
                     .guild_counts
                     .total
-                    .set(self.stats.cache_metrics.guilds.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.guilds.load(Acquire) as i64);
                 self.stats
                     .guild_counts
                     .unavailable
-                    .set(self.stats.cache_metrics.unavailable_guilds.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.unavailable_guilds.load(Acquire) as i64);
                 self.stats.event_counts.unavailable_guild.inc()
             }
             Event::UserUpdate(_) => self.stats.event_counts.user_update.inc(),
@@ -294,19 +294,19 @@ impl Context {
                 self.stats
                     .guild_counts
                     .total
-                    .set(self.stats.cache_metrics.guilds.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.guilds.load(Acquire) as i64);
                 self.stats
                     .guild_counts
                     .unavailable
-                    .set(self.stats.cache_metrics.unavailable_guilds.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.unavailable_guilds.load(Acquire) as i64);
                 self.stats
                     .user_counts
                     .total
-                    .set(self.stats.cache_metrics.members.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.members.load(Acquire) as i64);
                 self.stats
                     .user_counts
                     .unique
-                    .set(self.stats.cache_metrics.users.load(Relaxed) as i64);
+                    .set(self.stats.cache_metrics.users.load(Acquire) as i64);
                 info!("Shard {} is now Ready", shard_id)
             }
             Event::Resumed => info!("Shard {} is now Resumed", shard_id),

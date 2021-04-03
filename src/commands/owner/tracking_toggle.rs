@@ -11,7 +11,7 @@ async fn trackingtoggle(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<
         .stop_tracking
         .fetch_nand(true, Ordering::SeqCst);
 
-    let current = ctx.tracking().stop_tracking.load(Ordering::Relaxed);
+    let current = ctx.tracking().stop_tracking.load(Ordering::Acquire);
     let content = format!("Tracking toggle: {} -> {}", current, !current);
     msg.send_response(&ctx, content).await?;
 

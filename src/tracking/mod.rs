@@ -78,7 +78,7 @@ impl OsuTracking {
         let last_pop = *self.last_date.read().await;
         let interval = *self.interval.read().await;
         let cooldown = *self.cooldown.read().await;
-        let tracking = !self.stop_tracking.load(Ordering::Relaxed);
+        let tracking = !self.stop_tracking.load(Ordering::Acquire);
 
         let wait_interval = (last_pop + interval - Utc::now()).num_milliseconds();
         let ms_per_track = wait_interval as f32 / queue as f32;
@@ -162,7 +162,7 @@ impl OsuTracking {
     pub async fn pop(&self) -> Option<SmallVec<[(u32, GameMode); 5]>> {
         let len = self.queue.read().await.len();
 
-        if len == 0 || self.stop_tracking.load(Ordering::Relaxed) {
+        if len == 0 || self.stop_tracking.load(Ordering::Acquire) {
             return None;
         }
 

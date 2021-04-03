@@ -18,6 +18,9 @@ impl CacheEmbed {
     pub fn new(stats: CacheStats, start_time: DateTime<Utc>) -> Self {
         let mut description = String::with_capacity(256);
 
+        // Note: As inaccuracies in displaying these stats is non-critical,
+        // lifting restrictions by using Ordering::Relaxed is fine.
+
         let _ = writeln!(
             description,
             "Channels (Guilds): {}",
