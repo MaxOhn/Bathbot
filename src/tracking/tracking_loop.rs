@@ -116,11 +116,11 @@ pub async fn process_tracking(
 
     // Process scores
     match score_loop(ctx, &mut user, 0, max, last, scores, &channels).await {
+        Ok(_) => {}
         Err(ErrorType::NotFound) => {
-            debug!(
-                "[Tracking] User ({},{}) not found, skip reset",
-                user_id, mode
-            );
+            if let Err(why) = ctx.tracking().remove_user_all(user_id, ctx.psql()).await {
+                unwind_error!(warn, why, "Failed to remove unknown user from tracking: {}");
+            }
 
             return;
         }
@@ -132,7 +132,6 @@ pub async fn process_tracking(
 
             return;
         }
-        _ => {}
     }
 
     let offset = scores.len();
@@ -247,11 +246,7 @@ async fn score_loop(
                 continue;
             }
 
-            let embed = match user.embed(ctx, score, idx + 1).await {
-                Ok(embed) => embed,
-                Err(ErrorType::NotFound) => return Err(ErrorType::NotFound),
-                Err(ErrorType::Osu(why)) => return Err(ErrorType::Osu(why)),
-            };
+            let embed = user.embed(ctx, score, idx + 1).await?;
 
             // Try to build and send the message
             match ctx.http.create_message(channel).embed(embed) {
@@ -336,28 +331,28 @@ impl<'u> TrackUser<'u> {
         idx: usize,
     ) -> Result<Embed, ErrorType> {
         if let Some(ref embed) = self.embed {
-            Ok(embed.to_owned())
+            return Ok(embed.to_owned());
+        }
+
+        let data = if let Some(user) = self.user_ref {
+            TrackNotificationEmbed::new(user, score, idx).await
+        } else if let Some(ref user) = self.user {
+            TrackNotificationEmbed::new(user, score, idx).await
         } else {
-            let data = if let Some(user) = self.user_ref {
-                TrackNotificationEmbed::new(user, score, idx).await
-            } else if let Some(ref user) = self.user {
-                TrackNotificationEmbed::new(user, score, idx).await
-            } else {
-                let user = match ctx.osu().user(self.user_id).mode(self.mode).await {
-                    Ok(user) => user,
-                    Err(OsuError::NotFound) => return Err(ErrorType::NotFound),
-                    Err(why) => return Err(ErrorType::Osu(why)),
-                };
-
-                let user = self.user.get_or_insert(user);
-
-                TrackNotificationEmbed::new(user, score, idx).await
+            let user = match ctx.osu().user(self.user_id).mode(self.mode).await {
+                Ok(user) => user,
+                Err(OsuError::NotFound) => return Err(ErrorType::NotFound),
+                Err(why) => return Err(ErrorType::Osu(why)),
             };
 
-            let embed = data.into_builder().build();
+            let user = self.user.get_or_insert(user);
 
-            Ok(self.embed.get_or_insert(embed).to_owned())
-        }
+            TrackNotificationEmbed::new(user, score, idx).await
+        };
+
+        let embed = data.into_builder().build();
+
+        Ok(self.embed.get_or_insert(embed).to_owned())
     }
 }
 
