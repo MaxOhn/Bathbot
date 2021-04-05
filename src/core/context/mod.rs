@@ -54,7 +54,6 @@ pub struct Clients {
 pub struct BackendData {
     pub cluster: Cluster,
     pub total_shards: u64,
-    pub shards_per_cluster: u64,
 }
 
 pub struct ContextData {
@@ -94,18 +93,26 @@ impl Context {
         }
     }
 
-    pub async fn set_cluster_activity(
+    pub async fn set_cluster_activity<M>(
         &self,
         status: Status,
         activity_type: ActivityType,
-        message: String,
-    ) -> BotResult<()> {
-        for shard_id in 0..self.backend.total_shards {
+        message: M,
+    ) -> BotResult<()>
+    where
+        M: Into<String> + Clone,
+    {
+        for shard_id in 1..self.backend.total_shards {
             debug!("Setting activity for shard {}", shard_id);
 
             self.set_shard_activity(shard_id, status, activity_type, message.clone())
                 .await?;
         }
+
+        debug!("Setting activity for shard 0");
+
+        self.set_shard_activity(0, status, activity_type, message)
+            .await?;
 
         Ok(())
     }
@@ -117,18 +124,9 @@ impl Context {
         activity_type: ActivityType,
         message: impl Into<String>,
     ) -> BotResult<()> {
-        self.backend
-            .cluster
-            .command(
-                shard_id,
-                &UpdateStatus::new(
-                    Some(vec![generate_activity(activity_type, message.into())]),
-                    false,
-                    None,
-                    status,
-                ),
-            )
-            .await?;
+        let activities = Some(vec![generate_activity(activity_type, message.into())]);
+        let status = UpdateStatus::new(activities, false, None, status);
+        self.backend.cluster.command(shard_id, &status).await?;
 
         Ok(())
     }

@@ -46,7 +46,6 @@ extern crate log;
 #[macro_use]
 extern crate smallvec;
 
-use clap::{App, Arg};
 use darkredis::ConnectionPool;
 use dashmap::{DashMap, DashSet};
 use hashbrown::HashSet;
@@ -57,7 +56,7 @@ use hyper::{
 use prometheus::{Encoder, TextEncoder};
 use rosu_v2::Osu;
 use smallstr::SmallString;
-use std::{convert::Infallible, env, process, str::FromStr, sync::Arc, time::Duration};
+use std::{convert::Infallible, env, process, sync::Arc, time::Duration};
 use tokio::{
     runtime::Runtime,
     signal,
@@ -171,13 +170,6 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         match_live: MatchLiveChannels::new(),
     };
 
-    // Shard-cluster config
-    let (shards_per_cluster, total_shards, sharding_scheme) =
-        shard_schema_values().map_or((1, 1, ShardScheme::Auto), |(to, total)| {
-            info!("Setup: {} shards per cluster | {} total shards", to, total);
-            (to, total, ShardScheme::Range { from: 0, to, total })
-        });
-
     let intents = Intents::GUILDS
         | Intents::GUILD_MEMBERS
         | Intents::GUILD_MESSAGES
@@ -187,10 +179,10 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
 
     // Prepare cluster builder
     let mut cb = Cluster::builder(&CONFIG.get().unwrap().tokens.discord, intents)
-        .shard_scheme(sharding_scheme);
+        .shard_scheme(ShardScheme::Auto);
 
     // Check for resume data, pass to builder if present
-    let (cache, resume_map) = Cache::new(&clients.redis, total_shards, shards_per_cluster).await;
+    let (cache, resume_map) = Cache::new(&clients.redis).await;
     let resumed = if let Some(map) = resume_map {
         cb = cb.resume_sessions(map);
         info!("Cold resume successful");
@@ -216,10 +208,11 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         .await
         .map_err(|why| format_err!("Could not start cluster: {}", why))?;
 
+    let [_, total_shards] = cluster.config().shard_config().shard();
+
     let backend = crate::core::BackendData {
         cluster,
         total_shards,
-        shards_per_cluster,
     };
 
     // Final context
@@ -318,52 +311,6 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     time::sleep(time::Duration::from_secs(90)).await;
 
     Ok(())
-}
-
-fn shard_schema_values() -> Option<(u64, u64)> {
-    // Setup CLI arguments
-    let args = App::new("bathbot")
-        .arg(
-            Arg::with_name("total shards")
-                .short("s")
-                .long("shards")
-                .value_name("NUM")
-                .takes_value(true)
-                .help("How many shards in total (don't use)"),
-        )
-        .arg(
-            Arg::with_name("shards per cluster")
-                .short("c")
-                .long("per_cluster")
-                .value_name("NUM")
-                .takes_value(true)
-                .help("How many shards per cluster"),
-        )
-        .get_matches();
-
-    // Either of them given?
-    args.value_of("shards per cluster")
-        .or_else(|| args.value_of("total shards"))?;
-
-    // If so, parse
-    let shards_per_cluster = args
-        .value_of("shards per cluster")
-        .map(u64::from_str)
-        .transpose()
-        .ok()
-        .flatten()
-        .unwrap_or(1)
-        .saturating_sub(1); // (starts from 0)
-
-    let total_shards = args
-        .value_of("total shards")
-        .map(u64::from_str)
-        .transpose()
-        .ok()
-        .flatten()
-        .unwrap_or(shards_per_cluster + 1);
-
-    Some((shards_per_cluster, total_shards))
 }
 
 async fn _run_metrics_server(stats: Arc<BotStats>, shutdown_rx: oneshot::Receiver<()>) {

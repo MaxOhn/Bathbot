@@ -8,11 +8,7 @@ use twilight_gateway::shard::ResumeSession;
 pub struct Cache(InMemoryCache);
 
 impl Cache {
-    pub async fn new(
-        redis: &ConnectionPool,
-        total_shards: u64,
-        shards_per_cluster: u64,
-    ) -> (Self, Option<HashMap<u64, ResumeSession>>) {
+    pub async fn new(redis: &ConnectionPool) -> (Self, Option<HashMap<u64, ResumeSession>>) {
         let resource_types = ResourceType::CHANNEL
             | ResourceType::GUILD
             | ResourceType::MESSAGE
@@ -28,8 +24,7 @@ impl Cache {
             .build()
             .config();
 
-        let (cache, resume_map) =
-            InMemoryCache::from_redis(redis, total_shards, shards_per_cluster, config).await;
+        let (cache, resume_map) = InMemoryCache::from_redis(redis, config).await;
 
         (Self(cache), resume_map)
     }

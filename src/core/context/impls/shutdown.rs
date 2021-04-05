@@ -25,12 +25,7 @@ impl Context {
         let resume_data = self.backend.cluster.down_resumable();
 
         self.cache
-            .prepare_cold_resume(
-                &self.clients.redis,
-                resume_data,
-                self.backend.total_shards,
-                self.backend.shards_per_cluster,
-            )
+            .prepare_cold_resume(&self.clients.redis, resume_data)
             .await;
     }
 
