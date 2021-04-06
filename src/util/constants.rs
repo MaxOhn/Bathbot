@@ -14,7 +14,6 @@ pub const AVATAR_URL: &str = "https://a.ppy.sh/";
 pub const HUISMETBENEN: &str = "https://api.huismetbenen.nl/";
 pub const OSEKAI_MEDAL_API: &str = "https://osekai.net/medals/apiv2/";
 pub const OSU_DAILY_API: &str = "https://osudaily.net/api/";
-pub const BEATCONNECT_API: &str = "https://beatconnect.io/api/";
 
 // twitch
 pub const TWITCH_BASE: &str = "https://www.twitch.tv/";
@@ -30,7 +29,6 @@ pub const OSU_API_ISSUE: &str = "Some issue with the osu api, blame bade";
 pub const OSU_WEB_ISSUE: &str = "Some issue with the osu website, DDoS protection?";
 pub const HUISMETBENEN_ISSUE: &str = "Some issue with the huismetbenen api, blame bade";
 pub const OSU_DAILY_ISSUE: &str = "Some issue with the osudaily api, blame bade";
-pub const BEATCONNECT_ISSUE: &str = "Some issue with the beatconnect api, blame bade";
 
 // Misc
 pub const OWNER_USER_ID: u64 = 219905108316520448;

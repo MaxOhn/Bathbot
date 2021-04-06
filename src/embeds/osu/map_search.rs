@@ -1,9 +1,10 @@
 use crate::{
-    custom_client::BeatconnectMapSet,
+    arguments::MapSearchArgs,
     embeds::Footer,
     util::{constants::OSU_BASE, numbers::round},
 };
 
+use rosu_v2::prelude::{Beatmapset, BeatmapsetSearchSort, GameMode};
 use std::{collections::BTreeMap, fmt::Write};
 
 pub struct MapSearchEmbed {
@@ -14,11 +15,116 @@ pub struct MapSearchEmbed {
 
 impl MapSearchEmbed {
     pub async fn new(
-        maps: &BTreeMap<usize, BeatconnectMapSet>,
-        query: &str,
+        maps: &BTreeMap<usize, Beatmapset>,
+        args: &MapSearchArgs,
         pages: (usize, Option<usize>),
     ) -> Self {
-        let title = format!("Mapset results for `{}`", query);
+        let mut title = "Mapset results".to_owned();
+
+        let non_empty_args = args.query.is_some()
+            || args.mode.is_some()
+            || args.status.is_some()
+            || args.genre.is_some()
+            || args.language.is_some()
+            || args.video
+            || args.storyboard
+            || !args.nsfw
+            || args.sort != BeatmapsetSearchSort::Relevance
+            || !args.descending;
+
+        if non_empty_args {
+            title.push_str(" for `");
+            let mut pushed = false;
+
+            if let Some(ref query) = args.query {
+                title.push_str(query);
+                pushed = true;
+            }
+
+            if let Some(mode) = args.mode {
+                if pushed {
+                    title.push(' ');
+                }
+
+                let _ = write!(title, "mode={}", mode);
+                pushed = true;
+            }
+
+            if let Some(ref status) = args.status {
+                if pushed {
+                    title.push(' ');
+                }
+
+                match status.status() {
+                    Some(status) => {
+                        let _ = write!(title, "status={:?}", status);
+                    }
+                    None => title.push_str("status=Any"),
+                }
+
+                pushed = true;
+            }
+
+            if let Some(genre) = args.genre {
+                if pushed {
+                    title.push(' ');
+                }
+
+                let _ = write!(title, "genre={:?}", genre);
+                pushed = true;
+            }
+
+            if let Some(language) = args.language {
+                if pushed {
+                    title.push(' ');
+                }
+
+                let _ = write!(title, "language={:?}", language);
+                pushed = true;
+            }
+
+            if args.video {
+                if pushed {
+                    title.push(' ');
+                }
+
+                title.push_str("video=true");
+                pushed = true;
+            }
+
+            if args.storyboard {
+                if pushed {
+                    title.push(' ');
+                }
+
+                title.push_str("storyboard=true");
+                pushed = true;
+            }
+
+            if !args.nsfw {
+                if pushed {
+                    title.push(' ');
+                }
+
+                title.push_str("nsfw=false");
+                pushed = true;
+            }
+
+            if args.sort != BeatmapsetSearchSort::Relevance || !args.descending {
+                if pushed {
+                    title.push(' ');
+                }
+
+                let _ = write!(
+                    title,
+                    "sort={:?} ({})",
+                    args.sort,
+                    if args.descending { "desc" } else { "asc" }
+                );
+            }
+
+            title.push('`');
+        }
 
         if maps.is_empty() {
             return Self {
@@ -34,12 +140,13 @@ impl MapSearchEmbed {
 
         for (&i, mapset) in entries {
             let mut mode = String::with_capacity(4);
+            let maps = mapset.maps.as_ref().unwrap();
 
-            if mapset.mode_std {
+            if maps.iter().any(|map| map.mode == GameMode::STD) {
                 mode.push_str("osu!");
             }
 
-            if mapset.mode_mania {
+            if maps.iter().any(|map| map.mode == GameMode::MNA) {
                 if !mode.is_empty() {
                     mode.push_str(", ");
                 }
@@ -47,7 +154,7 @@ impl MapSearchEmbed {
                 mode.push_str("mania");
             }
 
-            if mapset.mode_taiko {
+            if maps.iter().any(|map| map.mode == GameMode::TKO) {
                 if !mode.is_empty() {
                     mode.push_str(", ");
                 }
@@ -55,7 +162,7 @@ impl MapSearchEmbed {
                 mode.push_str("taiko");
             }
 
-            if mapset.mode_ctb {
+            if maps.iter().any(|map| map.mode == GameMode::CTB) {
                 if !mode.is_empty() {
                     mode.push_str(", ");
                 }
@@ -66,15 +173,15 @@ impl MapSearchEmbed {
             let _ = writeln!(
                 description,
                 "**{idx}. [{artist} - {title}]({base}s/{set_id})** [{count} map{plural}]\n\
-                Creator: [{creator}]({base}u/{creator_id}) ({status}) ~ BPM: {bpm} ~ Mode: {mode}",
+                Creator: [{creator}]({base}u/{creator_id}) ({status:?}) ~ BPM: {bpm} ~ Mode: {mode}",
                 idx = i + 1,
                 artist = mapset.artist,
                 title = mapset.title,
                 base = OSU_BASE,
-                set_id = mapset.beatmapset_id,
-                count = mapset.maps.len(),
-                plural = if mapset.maps.len() != 1 { "s" } else { "" },
-                creator = mapset.creator,
+                set_id = mapset.mapset_id,
+                count = maps.len(),
+                plural = if maps.len() != 1 { "s" } else { "" },
+                creator = mapset.creator_name,
                 creator_id = mapset.creator_id,
                 status = mapset.status,
                 bpm = round(mapset.bpm),

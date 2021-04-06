@@ -274,7 +274,8 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
         }
 
         let not_inline = (usage_len <= 29 && cmd.names.len() > 1 && example_len > 27)
-            || ((usage_len > 29 || cmd.names.len() > 1) && example_len > 36);
+            || ((usage_len > 29 || cmd.names.len() > 1) && example_len > 36)
+            || example_len > 45;
 
         let field = EmbedField {
             name: "Examples".to_owned(),

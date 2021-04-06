@@ -1,4 +1,3 @@
-mod beatconnect;
 mod deserialize;
 mod osekai;
 mod osu_daily;
@@ -6,7 +5,6 @@ mod osu_stats;
 mod score;
 mod snipe;
 
-pub use beatconnect::*;
 pub use osekai::*;
 pub use osu_daily::*;
 pub use osu_stats::*;
@@ -16,9 +14,7 @@ pub use snipe::*;
 
 use crate::{
     util::{
-        constants::{
-            AVATAR_URL, BEATCONNECT_API, HUISMETBENEN, OSEKAI_MEDAL_API, OSU_BASE, OSU_DAILY_API,
-        },
+        constants::{AVATAR_URL, HUISMETBENEN, OSEKAI_MEDAL_API, OSU_BASE, OSU_DAILY_API},
         error::CustomClientError,
         numbers::round,
         osu::ModSelection,
@@ -46,7 +42,6 @@ type ClientResult<T> = Result<T, CustomClientError>;
 
 static USER_AGENT: &str = env!("CARGO_PKG_NAME");
 static OSU_SESSION: OnceCell<&'static str> = OnceCell::new();
-static BEATCONNECT_API_KEY: OnceCell<&'static str> = OnceCell::new();
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
 enum Site {
@@ -56,7 +51,6 @@ enum Site {
     OsuSnipe,
     Osekai,
     OsuDaily,
-    Beatconnect,
 }
 
 pub struct CustomClient {
@@ -69,7 +63,6 @@ impl CustomClient {
         let config = CONFIG.get().unwrap();
 
         OSU_SESSION.set(&config.tokens.osu_session).unwrap();
-        BEATCONNECT_API_KEY.set(&config.tokens.beatconnect).unwrap();
 
         let client = Client::builder().user_agent(USER_AGENT).build()?;
         let quota = Quota::per_second(NonZeroU32::new(2).unwrap());
@@ -99,32 +92,12 @@ impl CustomClient {
                     format!("osu_session={}", OSU_SESSION.get().unwrap()),
                 )
             }
-            Site::Beatconnect => req = req.header("token", *BEATCONNECT_API_KEY.get().unwrap()),
             _ => {}
         }
 
         self.ratelimit(site).await;
 
         Ok(req.send().await?.error_for_status()?)
-    }
-
-    pub async fn beatconnect_search(
-        &self,
-        params: &BeatconnectSearchParams,
-    ) -> ClientResult<BeatconnectSearchResponse> {
-        let url = format!("{}search?{}", BEATCONNECT_API, params);
-
-        let response = self.make_request(url, Site::Beatconnect).await?;
-        let bytes = response.bytes().await?;
-
-        let search: BeatconnectSearchResponse =
-            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
-                body: String::from_utf8_lossy(&bytes).into_owned(),
-                source,
-                request: "beatconnect search",
-            })?;
-
-        Ok(search)
     }
 
     pub async fn get_osekai_medal(&self, medal_name: &str) -> ClientResult<Option<OsekaiMedal>> {

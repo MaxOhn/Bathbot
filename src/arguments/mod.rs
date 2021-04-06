@@ -15,7 +15,10 @@ use crate::{
 };
 
 use itertools::Itertools;
-use rosu_v2::model::{GameMode, Grade};
+use rosu_v2::model::{
+    beatmap::{BeatmapsetSearchSort, Genre, Language, RankStatus},
+    GameMode, Grade,
+};
 use smallstr::SmallString;
 use std::{cmp::Ordering, str::FromStr};
 use twilight_model::id::{ChannelId, MessageId, RoleId};
@@ -73,6 +76,336 @@ impl MapModArgs {
         }
 
         Self { map_id, mods }
+    }
+}
+
+pub struct SearchRankStatus(Option<RankStatus>);
+
+impl SearchRankStatus {
+    pub fn status(&self) -> Option<RankStatus> {
+        self.0
+    }
+}
+
+pub struct MapSearchArgs {
+    pub query: Option<String>,
+    pub mode: Option<GameMode>,
+    pub status: Option<SearchRankStatus>,
+    pub genre: Option<Genre>,
+    pub language: Option<Language>,
+    pub video: bool,
+    pub storyboard: bool,
+    pub nsfw: bool,
+    pub sort: BeatmapsetSearchSort,
+    pub descending: bool,
+}
+
+impl MapSearchArgs {
+    pub fn new(args: Args) -> Result<Self, &'static str> {
+        let mut query = String::with_capacity(args.rest().len());
+
+        let chars = args
+            .rest()
+            .chars()
+            .skip_while(|c| c.is_whitespace())
+            .map(|c| c.to_ascii_lowercase());
+
+        query.extend(chars);
+
+        let mode = match query.find("mode=") {
+            Some(start) => {
+                let mut end = start + 1;
+
+                while end < query.len() && query.as_bytes()[end] != b' ' {
+                    end += 1;
+                }
+
+                let mode = match &query[start + "mode=".len()..end] {
+                    "0" | "osu" | "std" | "standard" => GameMode::STD,
+                    "1" | "tko" | "taiko" => GameMode::TKO,
+                    "2" | "ctb" | "fruits" | "catch" => GameMode::CTB,
+                    "3" | "mna" | "mania" => GameMode::MNA,
+                    _ => {
+                        let msg = "Could not parse mode. After `mode=` you must \
+                        specify the mode either by its name or by its number i.e. \
+                        0=osu, 1=taiko, 2=ctb, 3=mania.";
+
+                        return Err(msg);
+                    }
+                };
+
+                query.replace_range(start..end + (query.len() > end + 1) as usize, "");
+
+                Some(mode)
+            }
+            None => None,
+        };
+
+        let status = match query.find("status=") {
+            Some(start) => {
+                let mut end = start + 1;
+
+                while end < query.len() && query.as_bytes()[end] != b' ' {
+                    end += 1;
+                }
+
+                let status = match &query[start + "status=".len()..end] {
+                    "ranked" => Some(SearchRankStatus(Some(RankStatus::Ranked))),
+                    "loved" => Some(SearchRankStatus(Some(RankStatus::Loved))),
+                    "qualified" => Some(SearchRankStatus(Some(RankStatus::Qualified))),
+                    "pending" | "wip" => Some(SearchRankStatus(Some(RankStatus::Pending))),
+                    "graveyard" => Some(SearchRankStatus(Some(RankStatus::Graveyard))),
+                    "any" => Some(SearchRankStatus(None)),
+                    "leaderboard" => None,
+                    _ => {
+                        let msg = "Could not parse status. After `status=` you must \
+                        specify any of the following options: `ranked`, `loved`, `qualified`, \
+                        `pending`, `graveyard`, `any`, or `leaderboard`";
+
+                        return Err(msg);
+                    }
+                };
+
+                query.replace_range(start..end + (query.len() > end + 1) as usize, "");
+
+                status
+            }
+            None => None,
+        };
+
+        let genre = match query.find("genre=") {
+            Some(start) => {
+                let mut end = start + 1;
+
+                while end < query.len() && query.as_bytes()[end] != b' ' {
+                    end += 1;
+                }
+
+                let genre = match &query[start + "genre=".len()..end] {
+                    "any" => Genre::Any,
+                    "unspecified" => Genre::Unspecified,
+                    "videogame" | "videogames" => Genre::VideoGame,
+                    "anime" => Genre::Anime,
+                    "rock" => Genre::Rock,
+                    "pop" => Genre::Pop,
+                    "other" => Genre::Other,
+                    "novelty" => Genre::Novelty,
+                    "hiphop" => Genre::HipHop,
+                    "electronic" => Genre::Electronic,
+                    "metal" => Genre::Metal,
+                    "classical" => Genre::Classical,
+                    "folk" => Genre::Folk,
+                    "jazz" => Genre::Jazz,
+                    _ => {
+                        let msg = "Could not parse genre. After `genre=` you must \
+                        specify any of the following options: `any`, `unspecified`, \
+                        `videogame`, `anime`, `rock`, `pop`, `other`, `novelty`, `hiphop`, \
+                        `electronic`, `metal`, `classical`, `folk`, or `jazz`.";
+
+                        return Err(msg);
+                    }
+                };
+
+                query.replace_range(start..end + (query.len() > end + 1) as usize, "");
+
+                Some(genre)
+            }
+            None => None,
+        };
+
+        let language = match query.find("language=") {
+            Some(start) => {
+                let mut end = start + 1;
+
+                while end < query.len() && query.as_bytes()[end] != b' ' {
+                    end += 1;
+                }
+
+                let language = match &query[start + "language=".len()..end] {
+                    "any" => Language::Any,
+                    "english" => Language::English,
+                    "chinese" => Language::Chinese,
+                    "french" => Language::French,
+                    "german" => Language::German,
+                    "italian" => Language::Italian,
+                    "japanese" => Language::Japanese,
+                    "korean" => Language::Korean,
+                    "spanish" => Language::Spanish,
+                    "swedish" => Language::Swedish,
+                    "russian" => Language::Russian,
+                    "polish" => Language::Polish,
+                    "instrumental" => Language::Instrumental,
+                    "unspecified" => Language::Unspecified,
+                    "other" => Language::Other,
+                    _ => {
+                        let msg = "Could not parse language. After `language=` you must \
+                        specify any of the following options: `any`, `english`, `chinese`, \
+                        `french`, `german`, `italian`, `japanese`, `korean`, `spanish`, `swdish`, \
+                        `russian`, `polish`, `instrumental`, `unspecified`, or `other`.";
+
+                        return Err(msg);
+                    }
+                };
+
+                query.replace_range(start..end + (query.len() > end + 1) as usize, "");
+
+                Some(language)
+            }
+            None => None,
+        };
+
+        let video = match query.find("video=") {
+            Some(start) => {
+                let mut end = start + 1;
+
+                while end < query.len() && query.as_bytes()[end] != b' ' {
+                    end += 1;
+                }
+
+                let video = match query[start + "video=".len()..end].parse() {
+                    Ok(video) => video,
+                    Err(_) => {
+                        let msg = "Could not parse video boolean. After `video=` \
+                        you must specify either `true` or `false`.";
+
+                        return Err(msg);
+                    }
+                };
+
+                query.replace_range(start..end + (query.len() > end + 1) as usize, "");
+
+                video
+            }
+            None => false,
+        };
+
+        let storyboard = match query.find("storyboard=") {
+            Some(start) => {
+                let mut end = start + 1;
+
+                while end < query.len() && query.as_bytes()[end] != b' ' {
+                    end += 1;
+                }
+
+                let storyboard = match query[start + "storyboard=".len()..end].parse() {
+                    Ok(storyboard) => storyboard,
+                    Err(_) => {
+                        let msg = "Could not parse storyboard boolean. After `storyboard=` \
+                        you must specify either `true` or `false`.";
+
+                        return Err(msg);
+                    }
+                };
+
+                query.replace_range(start..end + (query.len() > end + 1) as usize, "");
+
+                storyboard
+            }
+            None => false,
+        };
+
+        let nsfw = match query.find("nsfw=") {
+            Some(start) => {
+                let mut end = start + 1;
+
+                while end < query.len() && query.as_bytes()[end] != b' ' {
+                    end += 1;
+                }
+
+                let nsfw = match query[start + "nsfw=".len()..end].parse() {
+                    Ok(nsfw) => nsfw,
+                    Err(_) => {
+                        let msg = "Could not parse nsfw boolean. After `nsfw=` \
+                        you must specify either `true` or `false`.";
+
+                        return Err(msg);
+                    }
+                };
+
+                query.replace_range(start..end + (query.len() > end + 1) as usize, "");
+
+                nsfw
+            }
+            None => true,
+        };
+
+        let sort = match query.find("sort=") {
+            Some(start) => {
+                let mut end = start + 1;
+
+                while end < query.len() && query.as_bytes()[end] != b' ' {
+                    end += 1;
+                }
+
+                let sort = match &query[start + "sort=".len()..end] {
+                    "artist" => BeatmapsetSearchSort::Artist,
+                    "favourites" => BeatmapsetSearchSort::Favourites,
+                    "playcount" | "plays" => BeatmapsetSearchSort::Playcount,
+                    "rankeddate" | "ranked" => BeatmapsetSearchSort::RankedDate,
+                    "rating" => BeatmapsetSearchSort::Rating,
+                    "relevance" => BeatmapsetSearchSort::Relevance,
+                    "stars" | "difficulty" => BeatmapsetSearchSort::Stars,
+                    "title" => BeatmapsetSearchSort::Title,
+                    _ => {
+                        let msg = "Could not parse sort. After `sort=` you must \
+                        specify any of the following options: `artist`, `favourites`, `playcount`, \
+                        `rankeddate`, `rating`, `relevance`, `difficulty`, or `title`.";
+
+                        return Err(msg);
+                    }
+                };
+
+                query.replace_range(start..end + (query.len() > end + 1) as usize, "");
+
+                sort
+            }
+            None => BeatmapsetSearchSort::Relevance,
+        };
+
+        let descending = match query.find("-asc") {
+            Some(start) => {
+                let end = start + "-asc".len();
+                let descending = query.len() < end && query.as_bytes()[end] != b' ';
+
+                if !descending {
+                    query.replace_range(start..end + (query.len() > end + 1) as usize, "");
+                }
+
+                descending
+            }
+            None => true,
+        };
+
+        let trailing_whitespace = query
+            .chars()
+            .rev()
+            .take_while(char::is_ascii_whitespace)
+            .count();
+
+        if trailing_whitespace > 0 {
+            query.truncate(query.len() - trailing_whitespace);
+        }
+
+        let preceeding_whitespace = query.chars().take_while(char::is_ascii_whitespace).count();
+
+        if preceeding_whitespace > 0 {
+            query.replace_range(..preceeding_whitespace, "");
+        }
+
+        let query = (!query.is_empty()).then(|| query);
+
+        Ok(Self {
+            query,
+            mode,
+            status,
+            genre,
+            language,
+            video,
+            storyboard,
+            nsfw,
+            sort,
+            descending,
+        })
     }
 }
 

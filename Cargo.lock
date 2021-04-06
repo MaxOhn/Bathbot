@@ -1275,9 +1275,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.92"
+version = "0.2.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56d855069fafbb9b344c0f962150cd2c1187975cb1c22c1522c240d8c4986714"
+checksum = "9385f66bf6105b241aa65a61cb923ef20efc665cb9f9bb50ac2f0c4b7f378d41"
 
 [[package]]
 name = "libz-sys"
@@ -2146,7 +2146,7 @@ dependencies = [
 [[package]]
 name = "rosu-v2"
 version = "0.1.0"
-source = "git+https://github.com/MaxOhn/rosu-v2?branch=main#55b2c914e2e90cd038e818fa56f02968f6ae0d72"
+source = "git+https://github.com/MaxOhn/rosu-v2?branch=main#ffb65b3e097007654c51a8d34b3bdda7ab2c883b"
 dependencies = [
  "bitflags",
  "bytes",

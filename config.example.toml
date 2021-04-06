@@ -10,7 +10,6 @@ osu_session = ""
 twitch_client_id = ""
 twitch_token = ""
 osu_daily = ""
-beatconnect = ""
 
 [database]
 host="localhost"

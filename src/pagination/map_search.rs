@@ -1,19 +1,18 @@
 use super::{Pages, Pagination};
-use crate::{
-    custom_client::{BeatconnectMapSet, BeatconnectSearchParams},
-    embeds::MapSearchEmbed,
-    BotResult, Context,
-};
+use crate::{arguments::MapSearchArgs, embeds::MapSearchEmbed, BotResult, Context};
 
 use async_trait::async_trait;
+use rosu_v2::prelude::{Beatmapset, BeatmapsetSearchResult};
 use std::{collections::BTreeMap, iter::Extend, sync::Arc};
 use twilight_model::channel::Message;
 
 pub struct MapSearchPagination {
     msg: Message,
     pages: Pages,
-    maps: BTreeMap<usize, BeatconnectMapSet>,
-    params: BeatconnectSearchParams,
+    maps: BTreeMap<usize, Beatmapset>,
+    search_result: BeatmapsetSearchResult,
+    args: MapSearchArgs,
+    request_page: usize,
     reached_last_page: bool,
     ctx: Arc<Context>,
 }
@@ -22,10 +21,12 @@ impl MapSearchPagination {
     pub fn new(
         ctx: Arc<Context>,
         msg: Message,
-        maps: BTreeMap<usize, BeatconnectMapSet>,
-        reached_last_page: bool,
-        params: BeatconnectSearchParams,
+        maps: BTreeMap<usize, Beatmapset>,
+        search_result: BeatmapsetSearchResult,
+        args: MapSearchArgs,
     ) -> Self {
+        let reached_last_page = maps.len() < 50;
+
         let pages = if reached_last_page {
             Pages::new(10, maps.len())
         } else {
@@ -41,8 +42,10 @@ impl MapSearchPagination {
             pages,
             msg,
             maps,
-            params,
+            search_result,
+            args,
             reached_last_page,
+            request_page: 0,
             ctx,
         }
     }
@@ -80,27 +83,22 @@ impl Pagination for MapSearchPagination {
             let mut total_pages = None;
 
             if count < self.pages.per_page {
-                self.params.next_page();
+                let mut next_search_result =
+                    self.search_result.get_next(self.ctx.osu()).await.unwrap()?;
 
-                let search = self
-                    .ctx
-                    .clients
-                    .custom
-                    .beatconnect_search(&self.params)
-                    .await?;
+                self.request_page += 1;
 
-                if search.is_last_page() {
-                    if search.mapsets.is_empty() {
+                if next_search_result.mapsets.len() < 50 {
+                    if next_search_result.mapsets.is_empty() {
                         let max = *self.maps.keys().last().unwrap();
 
                         self.pages = Pages::new(10, max + 1);
                         self.pages.index = self.pages.last_index;
                     } else {
-                        self.pages.total_pages =
-                            self.params.page * 5 + search.mapsets.len() / 10 + 1;
+                        let mapsets = next_search_result.mapsets.len();
 
-                        self.pages.last_index =
-                            (self.params.page * 5 + search.mapsets.len() / 10) * 10;
+                        self.pages.total_pages = self.request_page * 5 + mapsets / 10 + 1;
+                        self.pages.last_index = (self.request_page * 5 + mapsets / 10) * 10;
                     }
 
                     total_pages = Some(self.pages.total_pages);
@@ -112,24 +110,19 @@ impl Pagination for MapSearchPagination {
 
                 let idx = self.pages.index;
 
-                let iter = search
+                let iter = next_search_result
                     .mapsets
-                    .into_iter()
+                    .drain(..)
                     .enumerate()
                     .map(|(i, s)| (idx + i, s));
 
                 self.maps.extend(iter);
+                self.search_result = next_search_result;
             }
 
             total_pages
         };
 
-        let embed_fut = MapSearchEmbed::new(
-            &self.maps,
-            self.params.query.as_str(),
-            (self.page(), total_pages),
-        );
-
-        Ok(embed_fut.await)
+        Ok(MapSearchEmbed::new(&self.maps, &self.args, (self.page(), total_pages)).await)
     }
 }
