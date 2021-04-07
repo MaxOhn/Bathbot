@@ -74,7 +74,7 @@ async fn leaderboard_main(
             Err(OsuError::NotFound) => {
                 let content = format!(
                     "Could not find beatmap with id `{}`. \
-                        Did you give me a mapset id instead of a map id?",
+                    Did you give me a mapset id instead of a map id?",
                     map_id
                 );
 

@@ -125,6 +125,11 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
             (mapset, maps)
         }
+        Err(OsuError::NotFound) => {
+            let content = format!("Could find neither map nor mapset with id {}", mapset_id);
+
+            return msg.error(&ctx, content).await;
+        }
         Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
