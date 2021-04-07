@@ -96,10 +96,17 @@ async fn common_main(
     while let Some((mut name, result)) = scores_futs.next().await {
         match result {
             Ok((mut scores, mut scores_2)) => {
-                scores.append(&mut scores_2);
-                name.make_ascii_lowercase();
+                if let Some(user_id) = scores.first().map(|s| s.user_id) {
+                    scores.append(&mut scores_2);
+                    name.make_ascii_lowercase();
 
-                users.push(CommonUser::new(name, scores.first().map(|s| s.user_id)));
+                    users.push(CommonUser::new(name, user_id));
+                } else {
+                    let content = format!("User `{}` has no {} top scores", name, mode);
+
+                    return msg.error(&ctx, content).await;
+                }
+
                 all_scores.push(scores);
             }
             Err(OsuError::NotFound) => {
@@ -161,12 +168,12 @@ async fn common_main(
             // Sort with respect to order of names
             let mut scores: Vec<Score> = scores.collect();
 
-            if user_id!(scores[0]) != users[0].id().unwrap() {
-                let target = (user_id!(scores[1]) != users[0].id().unwrap()) as usize + 1;
+            if user_id!(scores[0]) != users[0].id() {
+                let target = (user_id!(scores[1]) != users[0].id()) as usize + 1;
                 scores.swap(0, target);
             }
 
-            if user_id!(scores[1]) != users[1].id().unwrap() {
+            if user_id!(scores[1]) != users[1].id() {
                 scores.swap(1, 2);
             }
 
@@ -253,7 +260,7 @@ async fn common_main(
 
     // Create the combined profile pictures
     let thumbnail_fut =
-        async { get_combined_thumbnail(&ctx, users.iter().map(|u| u.id().unwrap())).await };
+        async { get_combined_thumbnail(&ctx, users.iter().map(CommonUser::id)).await };
 
     let data_fut = async {
         let limit = scores_per_map.len().min(10);
@@ -366,13 +373,13 @@ pub async fn commonctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
 
 pub struct CommonUser {
     name: Name,
-    user_id: Option<u32>,
+    user_id: u32,
     pub first_count: usize,
 }
 
 impl CommonUser {
     #[inline]
-    fn new(name: Name, user_id: Option<u32>) -> Self {
+    fn new(name: Name, user_id: u32) -> Self {
         Self {
             name,
             user_id,
@@ -383,7 +390,7 @@ impl CommonUser {
 
 impl CommonUser {
     #[inline]
-    pub fn id(&self) -> Option<u32> {
+    pub fn id(&self) -> u32 {
         self.user_id
     }
 
