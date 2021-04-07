@@ -110,7 +110,7 @@ pub fn buckets() -> Buckets {
     insert_bucket(BucketName::BgBigger, 1, 8, 2);
     insert_bucket(BucketName::BgHint, 0, 10, 4);
     insert_bucket(BucketName::MatchLive, 5, 900, 3);
-    insert_bucket(BucketName::Snipe, 0, 600, 10);
+    insert_bucket(BucketName::Snipe, 0, 60, 10);
 
     buckets
 }
