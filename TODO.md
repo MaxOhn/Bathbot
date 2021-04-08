@@ -1,5 +1,6 @@
 
 **[TODO]**
+- Fix mode for `<topold`
 - Add command to add snipe countries
 - `<favouritescores` commands
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands

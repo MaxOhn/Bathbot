@@ -179,12 +179,11 @@ impl Context {
     }
 
     pub async fn match_live_loop(ctx: Arc<Context>) {
-        // TODO
-        // if cfg!(debug_assertions) {
-        //     info!("Skip match live tracking on debug");
+        if cfg!(debug_assertions) {
+            info!("Skip match live tracking on debug");
 
-        //     return;
-        // }
+            return;
+        }
 
         let mut interval = interval(Duration::from_secs(10));
         interval.tick().await;

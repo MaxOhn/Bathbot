@@ -91,9 +91,10 @@ async fn whatif_main(
         };
 
         WhatIfData::NoScores { rank }
-    } else if pp < scores.last().unwrap().pp.unwrap_or(0.0) {
+    } else if pp < scores.last().and_then(|s| s.pp).unwrap_or(0.0) {
         WhatIfData::NonTop100
     } else {
+        // TODO: Avoid allocating
         let pp_values: Vec<f32> = scores.iter().filter_map(|score| score.pp).collect();
 
         let mut actual: f32 = 0.0;
@@ -117,6 +118,7 @@ async fn whatif_main(
                 factor *= 0.95;
                 new_pos = i + 1;
             }
+
             potential += pp_value * factor;
             factor *= 0.95;
         }

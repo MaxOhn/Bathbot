@@ -26,6 +26,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &COMPARE_CMD,
                 &SIMULATE_CMD,
                 &MAP_CMD,
+                &FIX_CMD,
                 &MATCHCOSTS_CMD,
                 &BWS_CMD,
                 &AVATAR_CMD,

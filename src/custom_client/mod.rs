@@ -85,14 +85,11 @@ impl CustomClient {
         debug!("Requesting url {}", url);
         let mut req = self.client.get(url);
 
-        match site {
-            Site::OsuHiddenApi => {
-                req = req.header(
-                    "Cookie",
-                    format!("osu_session={}", OSU_SESSION.get().unwrap()),
-                )
-            }
-            _ => {}
+        if let Site::OsuHiddenApi = site {
+            req = req.header(
+                "Cookie",
+                format!("osu_session={}", OSU_SESSION.get().unwrap()),
+            )
         }
 
         self.ratelimit(site).await;

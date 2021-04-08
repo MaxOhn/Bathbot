@@ -99,6 +99,7 @@ pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadErro
 ///
 /// Second element: Index of hypothetical pp in scores
 pub fn pp_missing(start: f32, goal: f32, scores: &[Score]) -> (f32, usize) {
+    // TODO: Avoid allocating
     let pp_values: Vec<f32> = scores.iter().filter_map(|score| score.pp).collect();
     let size: usize = pp_values.len();
     let mut idx: usize = size - 1;
