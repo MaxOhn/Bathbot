@@ -14,7 +14,7 @@ use crate::{
 use chrono::{DateTime, Utc};
 use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, OsuPP, StarResult, TaikoPP};
 use rosu_v2::prelude::{GameMode, Score, User};
-use std::fmt::Write;
+use std::{borrow::Cow, fmt::Write};
 use tokio::fs::File;
 
 #[derive(Clone)]
@@ -28,7 +28,7 @@ pub struct TopSingleEmbed {
     thumbnail: String,
 
     stars: f32,
-    grade_completion_mods: String,
+    grade_completion_mods: Cow<'static, str>,
     score: String,
     acc: f32,
     ago: String,
@@ -157,7 +157,11 @@ impl EmbedData for TopSingleEmbed {
         );
 
         let mut fields = vec![
-            field!("Grade", self.grade_completion_mods.clone(), true),
+            field!(
+                "Grade",
+                self.grade_completion_mods.as_ref().to_owned(),
+                true
+            ),
             field!("Score", self.score.clone(), true),
             field!("Acc", format!("{}%", self.acc), true),
             field!("PP", self.pp.clone(), true),

@@ -49,7 +49,7 @@ pub trait ScoreExt: Send + Sync {
     }
 
     // Processing to strings
-    fn grade_emote(&self, mode: GameMode) -> String {
+    fn grade_emote(&self, mode: GameMode) -> &'static str {
         grade_emote(self.grade(mode))
     }
     fn hits_string(&self, mode: GameMode) -> String {

@@ -15,7 +15,7 @@ use crate::{
 use chrono::{DateTime, Utc};
 use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, ManiaPP, OsuPP, StarResult, TaikoPP};
 use rosu_v2::prelude::{BeatmapUserScore, GameMode, Grade, Score, User};
-use std::fmt::Write;
+use std::{borrow::Cow, fmt::Write};
 use tokio::fs::File;
 
 #[derive(Clone)]
@@ -29,7 +29,7 @@ pub struct RecentEmbed {
     thumbnail: String,
 
     stars: f32,
-    grade_completion_mods: String,
+    grade_completion_mods: Cow<'static, str>,
     score: String,
     acc: f32,
     ago: String,
@@ -262,7 +262,11 @@ impl EmbedData for RecentEmbed {
         let pp = highlight_funny_numeral(&self.pp).into_owned();
 
         let mut fields = vec![
-            field!("Grade", self.grade_completion_mods.clone(), true),
+            field!(
+                "Grade",
+                self.grade_completion_mods.as_ref().to_owned(),
+                true
+            ),
             field!("Score", score, true),
             field!("Acc", acc, true),
             field!("PP", pp, true),

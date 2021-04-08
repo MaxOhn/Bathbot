@@ -20,7 +20,7 @@ use rosu_pp::{
 use rosu_v2::prelude::{
     Beatmap, BeatmapsetCompact, GameMode, GameMods, Grade, Score, ScoreStatistics,
 };
-use std::fmt::Write;
+use std::{borrow::Cow, fmt::Write};
 use tokio::fs::File;
 
 pub struct SimulateEmbed {
@@ -31,7 +31,7 @@ pub struct SimulateEmbed {
 
     mode: GameMode,
     stars: f32,
-    grade_completion_mods: String,
+    grade_completion_mods: Cow<'static, str>,
     acc: f32,
     prev_pp: Option<f32>,
     pp: String,
@@ -183,7 +183,11 @@ impl EmbedData for SimulateEmbed {
         };
 
         let mut fields = vec![
-            field!("Grade", self.grade_completion_mods.clone(), true),
+            field!(
+                "Grade",
+                self.grade_completion_mods.as_ref().to_owned(),
+                true
+            ),
             field!("Acc", format!("{}%", self.acc), true),
             field!("Combo", combo, true),
         ];

@@ -4,6 +4,7 @@ use crate::{
 };
 
 use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score};
+use std::borrow::Cow;
 use tokio::{
     fs::File,
     io::AsyncWriteExt,
@@ -29,16 +30,16 @@ impl ModSelection {
 }
 
 #[inline]
-pub fn grade_emote(grade: Grade) -> String {
-    CONFIG.get().unwrap().grade(grade).to_owned()
+pub fn grade_emote(grade: Grade) -> &'static str {
+    CONFIG.get().unwrap().grade(grade)
 }
 
 #[inline]
-pub fn mode_emote(mode: GameMode) -> String {
-    CONFIG.get().unwrap().modes[&mode].to_owned()
+pub fn mode_emote(mode: GameMode) -> &'static str {
+    CONFIG.get().unwrap().modes[&mode].as_str()
 }
 
-pub fn grade_completion_mods(score: &impl ScoreExt, map: &Beatmap) -> String {
+pub fn grade_completion_mods(score: &impl ScoreExt, map: &Beatmap) -> Cow<'static, str> {
     let mode = map.mode();
     let grade = CONFIG.get().unwrap().grade(score.grade(mode));
     let mods = score.mods();
@@ -47,10 +48,10 @@ pub fn grade_completion_mods(score: &impl ScoreExt, map: &Beatmap) -> String {
         mods.is_empty(),
         score.grade(mode) == Grade::F && mode != GameMode::CTB,
     ) {
-        (true, true) => format!("{} ({}%)", grade, completion(score, map)),
-        (false, true) => format!("{} ({}%) +{}", grade, completion(score, map), mods),
-        (true, false) => grade.to_owned(),
-        (false, false) => format!("{} +{}", grade, mods),
+        (true, true) => format!("{} ({}%)", grade, completion(score, map)).into(),
+        (false, true) => format!("{} ({}%) +{}", grade, completion(score, map), mods).into(),
+        (true, false) => grade.into(),
+        (false, false) => format!("{} +{}", grade, mods).into(),
     }
 }
 
@@ -92,7 +93,12 @@ pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadErro
         info!("Downloaded {}.osu successfully", map_id);
     }
 
-    Ok(map_path.to_str().unwrap().to_owned())
+    let map_path = map_path
+        .into_os_string()
+        .into_string()
+        .expect("map_path OsString is no valid String");
+
+    Ok(map_path)
 }
 
 macro_rules! pp {
