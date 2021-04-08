@@ -94,13 +94,10 @@ async fn whatif_main(
     } else if pp < scores.last().and_then(|s| s.pp).unwrap_or(0.0) {
         WhatIfData::NonTop100
     } else {
-        // TODO: Avoid allocating
-        let pp_values: Vec<f32> = scores.iter().filter_map(|score| score.pp).collect();
-
         let mut actual: f32 = 0.0;
         let mut factor: f32 = 1.0;
 
-        for score in pp_values.iter() {
+        for score in scores.iter().filter_map(|score| score.pp) {
             actual += score * factor;
             factor *= 0.95;
         }
@@ -111,7 +108,13 @@ async fn whatif_main(
         let mut new_pos = scores.len();
         let mut factor = 1.0;
 
-        for (i, &pp_value) in pp_values.iter().enumerate().take(pp_values.len() - 1) {
+        let pp_iter = scores
+            .iter()
+            .take(scores.len() - 1)
+            .filter_map(|score| score.pp)
+            .enumerate();
+
+        for (i, pp_value) in pp_iter {
             if !used && pp_value < pp {
                 used = true;
                 potential += pp * factor;
@@ -128,7 +131,7 @@ async fn whatif_main(
         };
 
         let new_pp = potential;
-        let max_pp = pp_values.get(0).copied().unwrap_or(0.0);
+        let max_pp = scores.first().and_then(|s| s.pp).unwrap_or(0.0);
 
         let rank_result = ctx
             .clients
