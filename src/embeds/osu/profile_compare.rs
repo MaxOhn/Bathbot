@@ -412,7 +412,7 @@ impl CompareStrings {
             level: format!("{:.2}", stats.level.current),
             bonus_pp: format!("{:.2}pp", bonus_pp_num),
             bonus_pp_num,
-            avg_map_len: sec_to_minsec(result.map_len.avg()),
+            avg_map_len: sec_to_minsec(result.map_len.avg()).to_string(),
             accuracy: format!("{:.2}%", stats.accuracy),
             pp_per_month: format!("{:.2}pp", pp_per_month_num),
             pp_per_month_num,

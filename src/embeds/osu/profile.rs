@@ -139,7 +139,7 @@ impl ProfileEmbed {
                 values.pp.min(),
                 round(values.acc.min()),
                 values.combo.min(),
-                sec_to_minsec(values.map_len.min())
+                sec_to_minsec(values.map_len.min()).to_string()
             );
 
             let _ = writeln!(
@@ -148,7 +148,7 @@ impl ProfileEmbed {
                 values.pp.avg(),
                 round(values.acc.avg()),
                 values.combo.avg(),
-                sec_to_minsec(values.map_len.avg())
+                sec_to_minsec(values.map_len.avg()).to_string()
             );
 
             let _ = writeln!(
@@ -157,7 +157,7 @@ impl ProfileEmbed {
                 values.pp.max(),
                 round(values.acc.max()),
                 values.combo.max(),
-                sec_to_minsec(values.map_len.max())
+                sec_to_minsec(values.map_len.max()).to_string()
             );
 
             avg_string.push_str("```");
