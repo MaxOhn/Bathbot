@@ -15,7 +15,7 @@ use crate::{
 use chrono::{DateTime, Utc};
 use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, ManiaPP, OsuPP, TaikoPP};
 use rosu_v2::prelude::{Beatmap, BeatmapUserScore, GameMode, GameMods, Grade, Score, User};
-use std::fmt::Write;
+use std::{borrow::Cow, fmt::Write};
 use tokio::fs::File;
 
 const GLOBAL_IDX_THRESHOLD: usize = 500;
@@ -31,7 +31,7 @@ pub struct CompareEmbed {
 
     mapset_id: u32,
     stars: f32,
-    grade_completion_mods: String,
+    grade_completion_mods: Cow<'static, str>,
     score: String,
     acc: f32,
     ago: String,
@@ -242,7 +242,11 @@ impl EmbedData for CompareEmbed {
         let pp = highlight_funny_numeral(&self.pp).into_owned();
 
         let mut fields = vec![
-            field!("Grade", self.grade_completion_mods.clone(), true),
+            field!(
+                "Grade",
+                self.grade_completion_mods.as_ref().to_owned(),
+                true
+            ),
             field!("Score", score, true),
             field!("Acc", acc, true),
             field!("PP", pp, true),

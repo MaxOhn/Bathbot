@@ -4,12 +4,15 @@ use crate::{
         constants::{DESCRIPTION_SIZE, OSU_BASE},
         datetime::sec_to_minsec,
         numbers::{round, with_comma_uint},
+        osu::grade_emote,
+        ScoreExt,
     },
     Name,
 };
 
 use rosu_v2::prelude::{
-    MatchEvent, MatchGame, MatchScore, OsuMatch, ScoringType, TeamType, UserCompact,
+    GameMode, Grade, MatchEvent, MatchGame, MatchScore, OsuMatch, ScoringType, TeamType,
+    UserCompact,
 };
 use smallvec::SmallVec;
 use std::{borrow::Cow, cmp::Ordering, fmt::Write};
@@ -472,7 +475,7 @@ fn game_content(lobby: &OsuMatch, game: &MatchGame) -> (String, Option<String>, 
             description.push_str("**\n\n");
 
             let (scores, sizes, team_scores) =
-                prepare_scores(&game.scores, &lobby.users, game.scoring_type);
+                prepare_scores(game.mode, &game.scores, &lobby.users, game.scoring_type);
 
             let mut team = scores.first().unwrap().team;
 
@@ -492,7 +495,8 @@ fn game_content(lobby: &OsuMatch, game: &MatchGame) -> (String, Option<String>, 
 
                 let _ = write!(
                     description,
-                    "`{name:<len$}`",
+                    "{grade} `{name:<len$}`",
+                    grade = grade_emote(score.grade),
                     name = score.username,
                     len = sizes.name
                 );
@@ -639,6 +643,7 @@ enum TeamValues {
 }
 
 fn prepare_scores(
+    mode: GameMode,
     scores: &[MatchScore],
     users: &[UserCompact],
     scoring: ScoringType,
@@ -659,6 +664,7 @@ fn prepare_scores(
         let combo = with_comma_uint(score.max_combo).to_string();
         let mods = score.mods.to_string();
         let team = score.team as usize;
+        let grade = score.grade(mode);
 
         sizes.name = sizes.name.max(name.len());
         sizes.combo = sizes.combo.max(combo.len());
@@ -672,6 +678,7 @@ fn prepare_scores(
             mods,
             accuracy: score.accuracy,
             team,
+            grade,
             combo,
             score: score.score,
             score_str,
@@ -710,6 +717,7 @@ struct EmbedScore {
     mods: String,
     accuracy: f32,
     team: usize,
+    grade: Grade,
     combo: String,
     score: u32,
     score_str: String,
