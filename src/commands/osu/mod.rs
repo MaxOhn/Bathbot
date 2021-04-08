@@ -107,6 +107,7 @@ use std::{
     borrow::Cow,
     cmp::PartialOrd,
     collections::BTreeMap,
+    fmt::Write,
     future::Future,
     ops::{AddAssign, Div},
 };
@@ -130,9 +131,12 @@ impl From<OsuError> for ErrorType {
 }
 
 async fn request_user(ctx: &Context, name: &str, mode: Option<GameMode>) -> OsuResult<User> {
-    let mut key = String::with_capacity(2 + name.len());
-    key.push_str("__");
-    key.push_str(name);
+    let mut key = String::with_capacity(2 + name.len() + 2 * mode.is_some() as usize);
+    let _ = write!(key, "__{}", name);
+
+    if let Some(mode) = mode {
+        let _ = write!(key, "_{}", mode as u8);
+    }
 
     let mut conn = ctx.clients.redis.get().await;
 
