@@ -95,18 +95,22 @@ pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadErro
     Ok(map_path.to_str().unwrap().to_owned())
 }
 
+macro_rules! pp {
+    ($scores:ident[$idx:expr]) => {
+        $scores.get($idx).and_then(|s| s.pp).unwrap_or(0.0)
+    };
+}
+
 /// First element: Weighted missing pp to reach goal from start
 ///
 /// Second element: Index of hypothetical pp in scores
 pub fn pp_missing(start: f32, goal: f32, scores: &[Score]) -> (f32, usize) {
-    // TODO: Avoid allocating
-    let pp_values: Vec<f32> = scores.iter().filter_map(|score| score.pp).collect();
-    let size: usize = pp_values.len();
+    let size: usize = scores.len();
     let mut idx: usize = size - 1;
     let mut factor: f32 = 0.95_f32.powi(idx as i32);
     let mut top: f32 = start;
     let mut bot: f32 = 0.0;
-    let mut current: f32 = pp_values[idx];
+    let mut current: f32 = scores.last().and_then(|s| s.pp).unwrap_or(0.0);
 
     while top + bot < goal {
         top -= current * factor;
@@ -115,7 +119,7 @@ pub fn pp_missing(start: f32, goal: f32, scores: &[Score]) -> (f32, usize) {
             break;
         }
 
-        current = pp_values[idx - 1];
+        current = pp!(scores[idx - 1]);
         bot += current * factor;
         factor /= 0.95;
         idx -= 1;
@@ -125,14 +129,14 @@ pub fn pp_missing(start: f32, goal: f32, scores: &[Score]) -> (f32, usize) {
 
     if top + bot >= goal {
         factor *= 0.95;
-        required = (required + factor * pp_values[idx]) / factor;
+        required = (required + factor * pp!(scores[idx])) / factor;
         idx += 1;
     }
 
     idx += 1;
 
     if size < 100 {
-        required -= pp_values[size - 1] * 0.95_f32.powi(size as i32 - 1);
+        required -= pp!(scores[size - 1]) * 0.95_f32.powi(size as i32 - 1);
     }
 
     (required, idx)
