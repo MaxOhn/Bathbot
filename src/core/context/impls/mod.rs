@@ -1,3 +1,5 @@
+use super::Country;
+
 mod background_loop;
 mod bg_game;
 mod clients;
@@ -59,5 +61,18 @@ impl Context {
     #[inline]
     pub fn remove_msg(&self, msg: MessageId) -> bool {
         self.data.msgs_to_process.remove(&msg).is_some()
+    }
+
+    #[inline]
+    pub fn add_country(&self, country: String, code: Country) {
+        self.data.snipe_countries.insert(country, code);
+    }
+
+    #[inline]
+    pub fn get_country_code(&self, country: &str) -> Option<Country> {
+        self.data
+            .snipe_countries
+            .get(country)
+            .map(|entry| entry.value().to_owned())
     }
 }

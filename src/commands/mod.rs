@@ -209,6 +209,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
             "owner",
             vec![
                 &ADDBG_CMD,
+                &ADDCOUNTRY_CMD,
                 &CACHE_CMD,
                 &ACTIVEBG_CMD,
                 &BGTAGS_CMD,

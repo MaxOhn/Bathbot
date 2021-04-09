@@ -11,7 +11,7 @@ pub use cache::Cache;
 pub use commands::{Command, CommandGroup, CommandGroups};
 pub use config::{BotConfig, CONFIG};
 pub use context::{
-    generate_activity, BackendData, Clients, Context, ContextData, MatchLiveChannels,
+    generate_activity, BackendData, Clients, Context, ContextData, Country, MatchLiveChannels,
     MatchTrackResult,
 };
 pub use handler::handle_event;

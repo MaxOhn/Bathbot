@@ -158,6 +158,9 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     // osu! top score tracking
     let osu_tracking = OsuTracking::new(&clients.psql).await?;
 
+    // snipe countries
+    let snipe_countries = clients.psql.get_snipe_countries().await?;
+
     let data = crate::core::ContextData {
         guilds,
         tracked_streams,
@@ -168,6 +171,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         msgs_to_process: DashSet::new(),
         map_garbage_collection: Mutex::new(HashSet::new()),
         match_live: MatchLiveChannels::new(),
+        snipe_countries,
     };
 
     let intents = Intents::GUILDS
