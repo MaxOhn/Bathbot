@@ -1,6 +1,5 @@
 
 **[TODO]**
-- Add "Did you mean..." if invalid medal name for `<medal`
 - Add command to add snipe countries
 - `<favouritescores` commands
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
@@ -21,6 +20,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Add "Did you mean..." if invalid medal name for `<medal`~~ (21.04.09)
 - ~~Fix mode when caching users~~ (21.04.08)
 - ~~Request user in `<link`~~ (21.03.30)
 - ~~`<matchlive` command~~ (21.03.30)

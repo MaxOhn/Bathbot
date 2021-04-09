@@ -1,9 +1,5 @@
 use super::GameResult;
-use crate::{
-    database::MapsetTagWrapper,
-    util::{error::BgGameError, levenshtein_distance},
-    Context,
-};
+use crate::{database::MapsetTagWrapper, util::error::BgGameError, Context};
 
 use rand::RngCore;
 use rosu_v2::model::beatmap::BeatmapsetCompact;
@@ -68,11 +64,4 @@ pub async fn get_title_artist(ctx: &Context, mapset_id: u32) -> GameResult<(Stri
     }
 
     Ok((title.trim().to_owned(), artist.to_lowercase()))
-}
-
-pub fn similarity(word_a: &str, word_b: &str) -> f32 {
-    let len = word_a.chars().count().max(word_b.chars().count());
-    let dist = levenshtein_distance(word_a, word_b);
-
-    (len - dist) as f32 / len as f32
 }

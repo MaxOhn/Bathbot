@@ -43,6 +43,13 @@ macro_rules! set {
     };
 }
 
+pub fn similarity(word_a: &str, word_b: &str) -> f32 {
+    let len = word_a.chars().count().max(word_b.chars().count());
+    let dist = levenshtein_distance(word_a, word_b);
+
+    (len - dist) as f32 / len as f32
+}
+
 pub fn levenshtein_distance<'w>(mut word_a: &'w str, mut word_b: &'w str) -> usize {
     if word_a.chars().count() > word_b.chars().count() {
         std::mem::swap(&mut word_a, &mut word_b);

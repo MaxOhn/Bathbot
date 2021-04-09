@@ -1,7 +1,7 @@
 use super::{util, GameResult, Hints, ImageReveal};
 use crate::{
     database::MapsetTagWrapper,
-    util::{constants::OSU_BASE, error::BgGameError},
+    util::{constants::OSU_BASE, error::BgGameError, similarity},
     BotResult, Context, CONFIG,
 };
 
@@ -174,9 +174,9 @@ impl Game {
         }
 
         // Similar enough to the title?
-        let similarity = util::similarity(content, &self.title);
+        let similar = similarity(content, &self.title);
 
-        if similarity > 0.5 {
+        if similar > 0.5 {
             return ContentResult::Title(false);
         }
 
@@ -185,7 +185,7 @@ impl Game {
             if content == self.artist {
                 return ContentResult::Artist(true);
             // Similar enough to the artist?
-            } else if similarity < 0.3 && util::similarity(content, &self.artist) > 0.5 {
+            } else if similar < 0.3 && similarity(content, &self.artist) > 0.5 {
                 return ContentResult::Artist(false);
             }
         }
