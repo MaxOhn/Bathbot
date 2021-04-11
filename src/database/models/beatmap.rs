@@ -91,6 +91,7 @@ pub struct DBBeatmapset {
     pub ranked_date: DateTime<Utc>,
     pub genre: i16,
     pub language: i16,
+    pub bpm: f32,
 }
 
 impl From<DBBeatmapset> for BeatmapsetCompact {
@@ -136,7 +137,7 @@ impl From<DBBeatmapset> for Beatmapset {
                 download_disabled: false,
                 more_information: None,
             },
-            bpm: -1.0,
+            bpm: mapset.bpm,
             can_be_hyped: false,
             converts: None,
             covers: BeatmapsetCovers {
