@@ -248,8 +248,8 @@ fn _insert_mapset<'a>(
     let fut = async move {
         sqlx::query!(
             "INSERT INTO mapsets (mapset_id,user_id,artist,title,creator,
-            status,ranked_date,genre,language) VALUES
-            ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (mapset_id) DO NOTHING",
+            status,ranked_date,genre,language,bpm) VALUES
+            ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (mapset_id) DO NOTHING",
             mapset.mapset_id as i32,
             mapset.creator_id as i32,
             mapset.artist,
@@ -259,6 +259,7 @@ fn _insert_mapset<'a>(
             mapset.ranked_date,
             mapset.genre.map_or(1, |g| g as i16),
             mapset.language.map_or(1, |l| l as i16),
+            mapset.bpm,
         )
         .execute(&mut *conn)
         .await?;
