@@ -317,6 +317,10 @@ fn simulate_score(
                 score.statistics.count_300 = n300;
                 score.statistics.count_100 = n100;
                 score.statistics.count_50 = n50;
+            } else if miss > 0 && args.acc.is_none() {
+                score.statistics.count_300 = n_objects.saturating_sub(miss);
+                score.statistics.count_100 = 0;
+                score.statistics.count_50 = 0;
             } else {
                 let target_total = (acc * n_objects as f32 * 6.0).round() as u32;
                 let delta = target_total - (n_objects - miss);
