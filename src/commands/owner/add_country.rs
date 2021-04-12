@@ -4,6 +4,7 @@ use crate::{
     BotResult, Context,
 };
 
+use smallstr::SmallString;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -13,7 +14,15 @@ use twilight_model::channel::Message;
 #[owner()]
 async fn addcountry(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     let (country, code) = match (args.next(), args.next()) {
-        (Some(country), Some(code)) => (country.to_owned(), code.into()),
+        (Some(country), Some(code)) => {
+            if code.len() != 2 || code.chars().any(|c| !c.is_ascii_uppercase()) {
+                let content = "The country code must consist of two uppercase ASCII characters.";
+
+                return msg.error(&ctx, content).await;
+            }
+
+            (country.to_owned(), SmallString::<[u8; 2]>::from(code))
+        }
         _ => {
             let content = "You must specify two arguments: \
             first the country name, then the country code";
@@ -22,9 +31,25 @@ async fn addcountry(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResu
         }
     };
 
+    if let Some(name) = ctx.get_country(&code) {
+        let content = format!(
+            "The country code `{}` is already available for `{}`.",
+            code, name
+        );
+
+        return msg.error(&ctx, content).await;
+    }
+
+    let insert_fut = ctx.psql().insert_snipe_country(&country, code.as_str());
+
+    if let Err(why) = insert_fut.await {
+        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+        return Err(why);
+    }
+
+    let content = format!("Successfuly added country `{}` (`{}`)", country, code);
     ctx.add_country(country, code);
 
-    // TODO: Database
-
-    todo!()
+    msg.send_response(&ctx, content).await
 }

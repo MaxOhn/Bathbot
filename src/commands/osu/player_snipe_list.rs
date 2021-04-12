@@ -8,7 +8,7 @@ use crate::{
         constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         numbers,
         osu::ModSelection,
-        MessageExt, SNIPE_COUNTRIES,
+        MessageExt,
     },
     BotResult, Context,
 };
@@ -61,7 +61,7 @@ async fn playersnipelist(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
         }
     };
 
-    let country = if SNIPE_COUNTRIES.contains_key(user.country_code.as_str()) {
+    let country = if ctx.contains_country(user.country_code.as_str()) {
         user.country_code.to_owned()
     } else {
         let content = format!(

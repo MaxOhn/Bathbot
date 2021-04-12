@@ -4,8 +4,8 @@ use crate::{
     util::{
         constants::OSU_BASE,
         numbers::{round, with_comma_uint},
-        Country,
     },
+    CountryCode,
 };
 
 pub struct CountrySnipeStatsEmbed {
@@ -17,7 +17,7 @@ pub struct CountrySnipeStatsEmbed {
 }
 
 impl CountrySnipeStatsEmbed {
-    pub fn new(country: Option<&Country>, statistics: SnipeCountryStatistics) -> Self {
+    pub fn new(country: Option<(String, CountryCode)>, statistics: SnipeCountryStatistics) -> Self {
         let mut fields = EmbedFields::with_capacity(2);
 
         if let Some(top_gain) = statistics.top_gain {
@@ -39,18 +39,14 @@ impl CountrySnipeStatsEmbed {
         let percent = round(100.0 * statistics.unplayed_maps as f32 / statistics.total_maps as f32);
 
         let (title, thumbnail) = match country {
-            Some(country) => {
+            Some((country, code)) => {
                 let title = format!(
                     "{}{} #1 statistics",
-                    country.name,
-                    if country.name.ends_with('s') {
-                        "'"
-                    } else {
-                        "'s"
-                    }
+                    country,
+                    if country.ends_with('s') { "'" } else { "'s" }
                 );
 
-                let thumbnail = format!("{}/images/flags/{}.png", OSU_BASE, country.acronym);
+                let thumbnail = format!("{}/images/flags/{}.png", OSU_BASE, code);
 
                 (title, thumbnail)
             }

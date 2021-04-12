@@ -2,7 +2,7 @@ use super::{prepare_score, request_user};
 use crate::{
     arguments::{Args, NameArgs},
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
-    util::{constants::OSU_API_ISSUE, MessageExt, SNIPE_COUNTRIES},
+    util::{constants::OSU_API_ISSUE, MessageExt},
     BotResult, Context,
 };
 
@@ -46,7 +46,7 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
         }
     };
 
-    let player_fut = if SNIPE_COUNTRIES.contains_key(user.country_code.as_str()) {
+    let player_fut = if ctx.contains_country(user.country_code.as_str()) {
         ctx.clients
             .custom
             .get_snipe_player(&user.country_code, user.user_id)

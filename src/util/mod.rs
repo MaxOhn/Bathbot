@@ -1,5 +1,4 @@
 pub mod constants;
-mod country;
 pub mod datetime;
 pub mod error;
 pub mod exts;
@@ -10,7 +9,6 @@ pub mod osu;
 mod safe_content;
 
 use constants::DISCORD_CDN;
-pub use country::{Country, SNIPE_COUNTRIES};
 pub use exts::*;
 pub use matrix::Matrix;
 pub use safe_content::content_safe;

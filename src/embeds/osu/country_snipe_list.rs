@@ -5,8 +5,8 @@ use crate::{
     util::{
         constants::OSU_BASE,
         numbers::{with_comma_float, with_comma_uint},
-        Country,
     },
+    CountryCode,
 };
 
 use std::fmt::Write;
@@ -20,7 +20,7 @@ pub struct CountrySnipeListEmbed {
 
 impl CountrySnipeListEmbed {
     pub fn new<'i, S>(
-        country: Option<&Country>,
+        country: Option<&(String, CountryCode)>,
         order: SnipeOrder,
         players: S,
         author_idx: Option<usize>,
@@ -37,19 +37,15 @@ impl CountrySnipeListEmbed {
         };
 
         let (title, thumbnail) = match country {
-            Some(country) => {
+            Some((country, code)) => {
                 let title = format!(
                     "{}{} #1 list, sorted by {}",
-                    country.name,
-                    if country.name.ends_with('s') {
-                        "'"
-                    } else {
-                        "'s"
-                    },
+                    country,
+                    if country.ends_with('s') { "'" } else { "'s" },
                     order_text
                 );
 
-                let thumbnail = format!("{}/images/flags/{}.png", OSU_BASE, country.acronym);
+                let thumbnail = format!("{}/images/flags/{}.png", OSU_BASE, code);
 
                 (title, thumbnail)
             }

@@ -2,7 +2,7 @@ use super::{Pages, Pagination, ReactionVec};
 
 use crate::{
     commands::osu::SnipeOrder, custom_client::SnipeCountryPlayer, embeds::CountrySnipeListEmbed,
-    util::Country, BotResult, CONFIG,
+    BotResult, CountryCode, CONFIG,
 };
 
 use async_trait::async_trait;
@@ -12,7 +12,7 @@ pub struct CountrySnipeListPagination {
     msg: Message,
     pages: Pages,
     players: Vec<(usize, SnipeCountryPlayer)>,
-    country: Option<&'static Country>,
+    country: Option<(String, CountryCode)>,
     order: SnipeOrder,
     author_idx: Option<usize>,
 }
@@ -21,7 +21,7 @@ impl CountrySnipeListPagination {
     pub fn new(
         msg: Message,
         players: Vec<(usize, SnipeCountryPlayer)>,
-        country: Option<&'static Country>,
+        country: Option<(String, CountryCode)>,
         order: SnipeOrder,
         author_idx: Option<usize>,
     ) -> Self {
@@ -80,7 +80,7 @@ impl Pagination for CountrySnipeListPagination {
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         Ok(CountrySnipeListEmbed::new(
-            self.country,
+            self.country.as_ref(),
             self.order,
             self.players
                 .iter()

@@ -5,9 +5,9 @@ use crate::{
     embeds::{CountrySnipeStatsEmbed, EmbedData},
     util::{
         constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        MessageExt, SNIPE_COUNTRIES,
+        MessageExt,
     },
-    BotResult, Context,
+    BotResult, Context, CountryCode,
 };
 
 use image::{png::PngEncoder, ColorType};
@@ -30,23 +30,25 @@ use twilight_model::channel::Message;
 #[aliases("css")]
 #[bucket("snipe")]
 async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
-    let country = match args.next() {
+    let country_code: CountryCode = match args.next() {
         Some(arg) => match arg {
-            "global" | "world" => String::from("global"),
+            "global" | "world" => "global".into(),
             _ => {
-                if arg.len() != 2 || arg.chars().count() != 2 {
+                if arg.len() != 2 || !arg.is_ascii() {
                     let content = "The argument must be a country acronym of length two, e.g. `fr`";
+
                     return msg.error(&ctx, content).await;
                 }
 
-                let arg = arg.to_uppercase();
+                let code = arg.to_ascii_uppercase();
 
-                if !SNIPE_COUNTRIES.contains_key(arg.as_str()) {
-                    let content = "That country acronym is not supported :(";
+                if !ctx.contains_country(code.as_str()) {
+                    let content = format!("The country acronym `{}` is not supported :(", arg);
+
                     return msg.error(&ctx, content).await;
                 }
 
-                arg
+                code.into()
             }
         },
         None => match ctx.get_link(msg.author.id.0) {
@@ -65,8 +67,8 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
                     }
                 };
 
-                if SNIPE_COUNTRIES.contains_key(user.country_code.as_str()) {
-                    user.country_code.to_owned()
+                if ctx.contains_country(user.country_code.as_str()) {
+                    user.country_code.as_str().into()
                 } else {
                     let content = format!(
                         "`{}`'s country {} is not supported :(",
@@ -89,8 +91,8 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
 
     let (players, statistics) = {
         match tokio::try_join!(
-            client.get_snipe_country(&country),
-            client.get_country_statistics(&country),
+            client.get_snipe_country(&country_code),
+            client.get_country_statistics(&country_code),
         ) {
             Ok((players, statistics)) => (players, statistics),
             Err(why) => {
@@ -110,7 +112,9 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
         }
     };
 
-    let country = SNIPE_COUNTRIES.get(country.as_str());
+    let country = ctx
+        .get_country(country_code.as_str())
+        .map(|name| (name, country_code));
     let data = CountrySnipeStatsEmbed::new(country, statistics);
 
     // Sending the embed
@@ -231,5 +235,6 @@ fn graphs(players: &[SnipeCountryPlayer]) -> BotResult<Vec<u8>> {
     let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
     let png_encoder = PngEncoder::new(&mut png_bytes);
     png_encoder.encode(&buf, W, H, ColorType::Rgb8)?;
+
     Ok(png_bytes)
 }

@@ -6,9 +6,9 @@ use crate::{
     pagination::{CountrySnipeListPagination, Pagination},
     util::{
         constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        numbers, MessageExt, SNIPE_COUNTRIES,
+        numbers, MessageExt,
     },
-    BotResult, Context,
+    BotResult, Context, CountryCode,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -54,32 +54,32 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
     };
 
     // Parse country acronym
-    let country = match args.next() {
+    let country_code: CountryCode = match args.next() {
         Some(arg) => match arg {
-            "global" | "world" => String::from("global"),
+            "global" | "world" => "global".into(),
             _ => {
-                if arg.len() != 2 || arg.chars().count() != 2 {
+                if arg.len() != 2 || !arg.is_ascii() {
                     let content =
                         "The first argument must be a country acronym of length two, e.g. `fr`";
 
                     return msg.error(&ctx, content).await;
                 }
 
-                let arg = arg.to_uppercase();
+                let code = arg.to_ascii_uppercase();
 
-                if !SNIPE_COUNTRIES.contains_key(arg.as_str()) {
+                if !ctx.contains_country(code.as_str()) {
                     let content = format!("The country acronym `{}` is not supported :(", arg);
 
                     return msg.error(&ctx, content).await;
                 }
 
-                arg
+                code.into()
             }
         },
         None => match osu_user {
             Some(ref user) => {
-                if SNIPE_COUNTRIES.contains_key(user.country_code.as_str()) {
-                    user.country_code.to_owned()
+                if ctx.contains_country(user.country_code.as_str()) {
+                    user.country_code.as_str().into()
                 } else {
                     let content = format!(
                         "`{}`'s country {} is not supported :(",
@@ -121,7 +121,7 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
     };
 
     // Request players
-    let mut players = match ctx.clients.custom.get_snipe_country(&country).await {
+    let mut players = match ctx.clients.custom.get_snipe_country(&country_code).await {
         Ok(players) => players,
         Err(why) => {
             let _ = msg.error(&ctx, HUISMETBENEN_ISSUE).await;
@@ -159,8 +159,18 @@ async fn countrysnipelist(ctx: Arc<Context>, msg: &Message, mut args: Args) -> B
     // Prepare embed
     let pages = numbers::div_euclid(10, players.len());
     let init_players = players.iter().take(10);
-    let country = SNIPE_COUNTRIES.get(country.as_str());
-    let data = CountrySnipeListEmbed::new(country, ordering, init_players, author_idx, (1, pages));
+
+    let country = ctx
+        .get_country(country_code.as_str())
+        .map(|name| (name, country_code));
+
+    let data = CountrySnipeListEmbed::new(
+        country.as_ref(),
+        ordering,
+        init_players,
+        author_idx,
+        (1, pages),
+    );
 
     // Creating the embed
     let embed = data.into_builder().build();

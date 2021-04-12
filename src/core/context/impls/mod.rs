@@ -1,4 +1,4 @@
-use super::Country;
+use crate::CountryCode;
 
 mod background_loop;
 mod bg_game;
@@ -64,15 +64,20 @@ impl Context {
     }
 
     #[inline]
-    pub fn add_country(&self, country: String, code: Country) {
-        self.data.snipe_countries.insert(country, code);
+    pub fn add_country(&self, country: String, code: CountryCode) {
+        self.data.snipe_countries.insert(code, country);
     }
 
     #[inline]
-    pub fn get_country_code(&self, country: &str) -> Option<Country> {
+    pub fn contains_country(&self, code: &str) -> bool {
+        self.data.snipe_countries.contains_key(code)
+    }
+
+    #[inline]
+    pub fn get_country(&self, code: &str) -> Option<String> {
         self.data
             .snipe_countries
-            .get(country)
+            .get(code)
             .map(|entry| entry.value().to_owned())
     }
 }

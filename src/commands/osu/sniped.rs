@@ -5,7 +5,7 @@ use crate::{
     embeds::{EmbedData, SnipedEmbed},
     util::{
         constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        MessageExt, SNIPE_COUNTRIES,
+        MessageExt,
     },
     BotResult, Context,
 };
@@ -65,16 +65,13 @@ async fn sniped(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let client = &ctx.clients.custom;
     let now = Utc::now();
 
-    let (sniper, snipee) = if SNIPE_COUNTRIES.contains_key(user.country_code.as_str()) {
+    let (sniper, snipee) = if ctx.contains_country(user.country_code.as_str()) {
         let sniper_fut = client.get_national_snipes(&user, true, now - Duration::weeks(8), now);
         let snipee_fut = client.get_national_snipes(&user, false, now - Duration::weeks(8), now);
 
         match tokio::try_join!(sniper_fut, snipee_fut) {
-            Ok((sniper, snipee)) => {
-                let sniper: Vec<_> = sniper
-                    .into_iter()
-                    .filter(|score| score.sniped.is_some())
-                    .collect();
+            Ok((mut sniper, snipee)) => {
+                sniper.retain(|score| score.sniped.is_some());
 
                 (sniper, snipee)
             }

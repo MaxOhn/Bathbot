@@ -1,7 +1,6 @@
 mod impls;
 
 pub use impls::{MatchLiveChannels, MatchTrackResult};
-use smallstr::SmallString;
 
 use super::BotStats;
 
@@ -12,7 +11,7 @@ use crate::{
         Cache,
     },
     database::{Database, GuildConfig},
-    BotResult, CustomClient, Name, OsuTracking, Twitch,
+    BotResult, CountryCode, CustomClient, Name, OsuTracking, Twitch,
 };
 
 use darkredis::ConnectionPool;
@@ -31,8 +30,6 @@ use twilight_model::{
     id::{ChannelId, GuildId, MessageId},
 };
 use twilight_standby::Standby;
-
-pub type Country = SmallString<[u8; 2]>;
 
 pub struct Context {
     pub cache: Cache,
@@ -71,7 +68,7 @@ pub struct ContextData {
     pub msgs_to_process: DashSet<MessageId>,
     pub map_garbage_collection: Mutex<HashSet<u32>>,
     pub match_live: MatchLiveChannels,
-    pub snipe_countries: DashMap<String, Country>,
+    pub snipe_countries: DashMap<CountryCode, String>,
 }
 
 impl Context {

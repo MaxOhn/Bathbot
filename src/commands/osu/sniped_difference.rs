@@ -5,7 +5,7 @@ use crate::{
     pagination::{Pagination, SnipedDiffPagination},
     util::{
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        numbers, MessageExt, SNIPE_COUNTRIES,
+        numbers, MessageExt,
     },
     BotResult, Context,
 };
@@ -44,7 +44,7 @@ async fn sniped_diff_main(
         }
     };
 
-    if !SNIPE_COUNTRIES.contains_key(user.country_code.as_str()) {
+    if !ctx.contains_country(user.country_code.as_str()) {
         let content = format!(
             "`{}`'s country {} is not supported :(",
             user.username, user.country_code
