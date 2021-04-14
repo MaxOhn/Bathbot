@@ -130,6 +130,8 @@ impl From<OsuError> for ErrorType {
     }
 }
 
+const USER_CACHE_SECONDS: u32 = 600;
+
 async fn request_user(ctx: &Context, name: &str, mode: Option<GameMode>) -> OsuResult<User> {
     let mut key = String::with_capacity(2 + name.len() + 2 * mode.is_some() as usize);
     let _ = write!(key, "__{}", name);
@@ -150,15 +152,18 @@ async fn request_user(ctx: &Context, name: &str, mode: Option<GameMode>) -> OsuR
 
     let user_fut = ctx.osu().user(name);
 
-    let user = match mode {
+    let mut user = match mode {
         Some(mode) => user_fut.mode(mode).await?,
         None => user_fut.await?,
     };
 
+    // Remove html user page to reduce overhead
+    user.page.take();
+
     let bytes = serde_json::to_vec(&user).expect("failed to serialize user");
 
     // Cache users for 10 minutes
-    let set_fut = conn.set_and_expire_seconds(key, bytes, 600);
+    let set_fut = conn.set_and_expire_seconds(key, bytes, USER_CACHE_SECONDS);
 
     if let Err(why) = set_fut.await {
         unwind_error!(debug, why, "Failed to insert bytes into cache: {}");
