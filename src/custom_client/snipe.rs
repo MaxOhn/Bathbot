@@ -375,7 +375,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
                 let mut map_id = None;
                 let mut mapset_id = None;
                 // Don't parse mods just yet since it might be unnecessary
-                let mut star_ratings: Option<HashMap<&str, f32>> = None;
+                let mut star_ratings: Option<HashMap<&str, Option<f32>>> = None;
                 // let mut artist = None;
                 // let mut title = None;
                 // let mut diff_name = None;
@@ -452,7 +452,8 @@ impl<'de> Deserialize<'de> for SnipeScore {
                             srs.into_iter()
                                 .find(|(m, _)| GameMods::from_str(m).map_or(false, |m| m == mods))
                         })
-                        .map_or(0.0, |(_, sr)| sr)
+                        .and_then(|(_, sr)| sr)
+                        .unwrap_or(0.0)
                 });
 
                 let score = SnipeScore {
