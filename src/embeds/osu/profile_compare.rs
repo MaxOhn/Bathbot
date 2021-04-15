@@ -359,8 +359,8 @@ fn write_line<T: PartialOrd, V: Display>(
         winner_indicator = format_args!(
             "{winner_left}| {:^12} |{winner_right}",
             title,
-            winner_left = if cmp_left > cmp_right { "<" } else { " " },
-            winner_right = if cmp_left < cmp_right { ">" } else { " " },
+            winner_left = if cmp_left > cmp_right { '<' } else { ' ' },
+            winner_right = if cmp_left < cmp_right { '>' } else { ' ' },
         )
     );
 }
@@ -375,7 +375,7 @@ struct CompareStrings {
     play_time: String,
     level: String,
     bonus_pp: String,
-    bonus_pp_num: f64,
+    bonus_pp_num: f32,
     avg_map_len: String,
     accuracy: String,
     pp_per_month: String,
@@ -389,15 +389,6 @@ struct CompareStrings {
 
 impl CompareStrings {
     fn new(stats: &UserStatistics, join_date: DateTime<Utc>, result: &CompareResult) -> Self {
-        let bonus_pow = 0.9994_f64.powi(
-            (stats.grade_counts.ssh
-                + stats.grade_counts.ss
-                + stats.grade_counts.sh
-                + stats.grade_counts.s
-                + stats.grade_counts.a) as i32,
-        );
-
-        let bonus_pp_num = (100.0 * 416.6667 * (1.0 - bonus_pow)).round() / 100.0;
         let days = (Utc::now() - join_date).num_days() as f32;
         let pp_per_month_num = 30.67 * stats.pp / days;
 
@@ -410,8 +401,8 @@ impl CompareStrings {
             play_count: with_comma_uint(stats.playcount).to_string(),
             play_time: with_comma_uint(stats.playtime / 3600).to_string() + "hrs",
             level: format!("{:.2}", stats.level.current),
-            bonus_pp: format!("{:.2}pp", bonus_pp_num),
-            bonus_pp_num,
+            bonus_pp: format!("{:.2}pp", result.bonus_pp),
+            bonus_pp_num: result.bonus_pp,
             avg_map_len: sec_to_minsec(result.map_len.avg()).to_string(),
             accuracy: format!("{:.2}%", stats.accuracy),
             pp_per_month: format!("{:.2}pp", pp_per_month_num),

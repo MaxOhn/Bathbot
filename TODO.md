@@ -1,6 +1,7 @@
 
 **[TODO]**
-- Fix cold resume
+- Remove 404 users in tracking
+- Retrieve previous match state for `<mc` if start event not yet included
 - `<favouritescores` commands
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
 - ~~Check on IRC for tracking~~ irc only provides username, not id

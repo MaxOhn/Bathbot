@@ -159,13 +159,11 @@ impl_builder!(FixScoreEmbed {
 });
 
 fn new_pp(pp: f32, user: &User, scores: &[Score]) -> (usize, f32) {
-    let mut actual: f32 = 0.0;
-    let mut factor: f32 = 1.0;
-
-    for score in scores.iter().filter_map(|s| s.pp) {
-        actual += score * factor;
-        factor *= 0.95;
-    }
+    let actual: f32 = scores
+        .iter()
+        .filter_map(|s| s.weight)
+        .map(|weight| weight.pp)
+        .sum();
 
     let bonus_pp = user.statistics.as_ref().unwrap().pp - actual;
     let mut new_pp = 0.0;

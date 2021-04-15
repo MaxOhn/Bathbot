@@ -22,14 +22,14 @@ impl NoChokeEmbed {
     pub async fn new<'i, S>(
         user: &User,
         scores_data: S,
-        unchoked_pp: f64,
+        unchoked_pp: f32,
         pages: (usize, usize),
     ) -> Self
     where
         S: Iterator<Item = &'i (usize, Score, Score)>,
     {
         let pp_raw = user.statistics.as_ref().unwrap().pp;
-        let pp_diff = (100.0 * (unchoked_pp - pp_raw as f64)).round() / 100.0;
+        let pp_diff = (100.0 * (unchoked_pp - pp_raw as f32)).round() / 100.0;
         let mut description = String::with_capacity(512);
 
         for (idx, original, unchoked) in scores_data {

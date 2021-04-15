@@ -523,6 +523,7 @@ impl CustomClient {
         };
 
         let bytes = response.bytes().await?;
+
         let rank_pp =
             serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
                 body: String::from_utf8_lossy(&bytes).into_owned(),

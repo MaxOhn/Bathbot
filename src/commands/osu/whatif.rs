@@ -94,13 +94,11 @@ async fn whatif_main(
     } else if pp < scores.last().and_then(|s| s.pp).unwrap_or(0.0) {
         WhatIfData::NonTop100
     } else {
-        let mut actual: f32 = 0.0;
-        let mut factor: f32 = 1.0;
-
-        for score in scores.iter().filter_map(|score| score.pp) {
-            actual += score * factor;
-            factor *= 0.95;
-        }
+        let actual: f32 = scores
+            .iter()
+            .filter_map(|score| score.weight)
+            .map(|weight| weight.pp)
+            .sum();
 
         let bonus_pp = user.statistics.as_ref().unwrap().pp - actual;
         let mut potential = 0.0;

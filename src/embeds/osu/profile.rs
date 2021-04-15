@@ -50,15 +50,9 @@ impl ProfileEmbed {
 
         let stats = user.statistics.as_ref().unwrap();
 
-        let bonus_pow = 0.9994_f64.powi(
-            (stats.grade_counts.ssh
-                + stats.grade_counts.ss
-                + stats.grade_counts.sh
-                + stats.grade_counts.s
-                + stats.grade_counts.a) as i32,
-        );
-
-        let bonus_pp = (100.0 * 416.6667 * (1.0 - bonus_pow)).round() / 100.0;
+        let bonus_pp = profile_result
+            .as_ref()
+            .map_or(0.0, |result| result.bonus_pp);
 
         let main_fields = vec![
             field!(

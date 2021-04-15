@@ -1,5 +1,7 @@
 use crate::{
-    util::{constants::OSU_BASE, error::MapDownloadError, matcher, BeatmapExt, ScoreExt},
+    util::{
+        constants::OSU_BASE, error::MapDownloadError, matcher, numbers::round, BeatmapExt, ScoreExt,
+    },
     CONFIG,
 };
 
@@ -188,5 +190,87 @@ impl MapIdType {
         match self {
             Self::Map(id) | Self::Set(id) => *id,
         }
+    }
+}
+
+// Credits to https://github.com/RoanH/osu-BonusPP/blob/master/BonusPP/src/me/roan/bonuspp/BonusPP.java#L202
+pub struct BonusPP {
+    pp: f32,
+    ys: [f32; 100],
+    len: usize,
+
+    sum_x: f32,
+    avg_x: f32,
+    avg_y: f32,
+}
+
+impl BonusPP {
+    #[inline]
+    pub fn new() -> Self {
+        Self {
+            pp: 0.0,
+            ys: [0.0; 100],
+            len: 0,
+
+            sum_x: 0.0,
+            avg_x: 0.0,
+            avg_y: 0.0,
+        }
+    }
+
+    pub fn update(&mut self, weighted_pp: f32, idx: usize) {
+        self.pp += weighted_pp;
+        self.ys[idx] = weighted_pp.log(100.0);
+        self.len += 1;
+
+        let n = idx as f32 + 1.0;
+        let weight = (n + 1.0).ln();
+
+        self.sum_x += weight;
+        self.avg_x += n * weight;
+        self.avg_y += self.ys[idx] * weight;
+    }
+
+    pub fn calculate(self, total_pp: f32, playcount: usize) -> f32 {
+        let BonusPP {
+            mut pp,
+            len,
+            ys,
+            sum_x,
+            mut avg_x,
+            mut avg_y,
+        } = self;
+
+        avg_x /= sum_x;
+        avg_y /= sum_x;
+
+        let mut sum_xy = 0.0;
+        let mut sum_x2 = 0.0;
+
+        for n in 1..=len {
+            let diff_x = n as f32 - avg_x;
+            let ln_n = (n as f32 + 1.0).ln();
+
+            sum_xy += diff_x * (ys[n - 1] - avg_y) * ln_n;
+            sum_x2 += diff_x * diff_x * ln_n;
+        }
+
+        let xy = sum_xy / sum_x;
+        let x2 = sum_x2 / sum_x;
+
+        let m = xy / x2;
+        let b = avg_y - (xy / x2) * avg_x;
+
+        for n in 100..=playcount {
+            let val = 100.0_f32.powf(m * n as f32 + b);
+
+            if val <= 0.0 {
+                break;
+            }
+
+            pp += val;
+        }
+
+        round(total_pp - pp).min(416.67)
     }
 }

@@ -3,7 +3,7 @@ use crate::{
     arguments::{Args, MultNameArgs},
     embeds::{EmbedData, ProfileCompareEmbed},
     tracking::process_tracking,
-    util::{constants::OSU_API_ISSUE, MessageExt},
+    util::{constants::OSU_API_ISSUE, osu::BonusPP, MessageExt},
     BotResult, Context,
 };
 
@@ -133,8 +133,11 @@ async fn compare_main(
         user1.username, user2.username
     );
 
-    let profile_result1 = CompareResult::calc(mode, &scores1);
-    let profile_result2 = CompareResult::calc(mode, &scores2);
+    let stats1 = user1.statistics.as_ref().unwrap();
+    let profile_result1 = CompareResult::calc(mode, &scores1, stats1.pp, stats1.playcount as usize);
+
+    let stats2 = user2.statistics.as_ref().unwrap();
+    let profile_result2 = CompareResult::calc(mode, &scores2, stats2.pp, stats2.playcount as usize);
 
     // Create the thumbnail
     let thumbnail = match get_combined_thumbnail(&ctx, user1.user_id, user2.user_id).await {
@@ -224,16 +227,22 @@ pub struct CompareResult {
     pub mode: GameMode,
     pub pp: MinMaxAvgF32,
     pub map_len: MinMaxAvgU32,
+    pub bonus_pp: f32,
 }
 
 impl CompareResult {
-    fn calc(mode: GameMode, scores: &[Score]) -> Self {
+    fn calc(mode: GameMode, scores: &[Score], total_pp: f32, playcount: usize) -> Self {
         let mut pp = MinMaxAvgF32::new();
         let mut map_len = MinMaxAvgF32::new();
+        let mut bonus_pp = BonusPP::new();
 
-        for score in scores.iter() {
+        for (i, score) in scores.iter().enumerate() {
             if let Some(score_pp) = score.pp {
                 pp.add(score_pp);
+            }
+
+            if let Some(weighted_pp) = score.weight.map(|w| w.pp) {
+                bonus_pp.update(weighted_pp, i);
             }
 
             let map = score.map.as_ref().unwrap();
@@ -253,6 +262,7 @@ impl CompareResult {
             mode,
             pp,
             map_len: map_len.into(),
+            bonus_pp: bonus_pp.calculate(total_pp, playcount),
         }
     }
 }

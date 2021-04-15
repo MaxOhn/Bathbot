@@ -214,13 +214,13 @@ async fn topold_main(
     process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
 
     // Calculate bonus pp
-    let actual_pp = scores
+    let actual_pp: f32 = scores
         .iter()
-        .enumerate()
-        .map(|(i, Score { pp, .. })| pp.unwrap() as f64 * 0.95_f64.powi(i as i32))
-        .sum::<f64>();
+        .filter_map(|score| score.weight)
+        .map(|weight| weight.pp)
+        .sum();
 
-    let bonus_pp = user.statistics.as_ref().unwrap().pp as f64 - actual_pp;
+    let bonus_pp = user.statistics.as_ref().unwrap().pp - actual_pp;
 
     let scores_fut = scores
         .into_iter()
@@ -277,10 +277,11 @@ async fn topold_main(
     });
 
     // Calculate adjusted pp
-    let adjusted_pp = scores_data
+    let adjusted_pp: f32 = scores_data
         .iter()
-        .map(|(i, Score { pp, .. }, ..)| pp.unwrap_or(0.0) as f64 * 0.95_f64.powi(*i as i32 - 1))
-        .sum::<f64>();
+        .map(|(i, Score { pp, .. }, ..)| pp.unwrap_or(0.0) * 0.95_f32.powi(*i as i32 - 1))
+        .sum();
+
     let adjusted_pp = numbers::round((bonus_pp + adjusted_pp).max(0.0) as f32);
 
     // Accumulate all necessary data

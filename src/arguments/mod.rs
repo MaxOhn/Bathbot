@@ -1357,10 +1357,10 @@ fn acc(args: &mut Vec<impl AsRef<str>>) -> Result<Option<f32>, &'static str> {
             Some(Ok(acc)) => {
                 args.remove(idx);
 
-                if acc > 100.0 || acc < 0.0 {
-                    Err("Accuracy must be between 0.0 and 100.0")
-                } else {
+                if (0.0..=100.0).contains(&acc) {
                     Ok(Some(acc))
+                } else {
+                    Err("Accuracy must be between 0.0 and 100.0")
                 }
             }
             Some(Err(_)) => Err("Could not parse given accuracy, \

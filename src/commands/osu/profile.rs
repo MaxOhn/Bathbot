@@ -4,7 +4,7 @@ use crate::{
     embeds::{EmbedData, ProfileEmbed},
     pagination::ProfilePagination,
     tracking::process_tracking,
-    util::{constants::OSU_API_ISSUE, MessageExt},
+    util::{constants::OSU_API_ISSUE, osu::BonusPP, MessageExt},
     BotResult, Context, Error,
 };
 
@@ -147,7 +147,11 @@ pub async fn profile_embed(
     };
 
     // Calculate profile stats
-    let profile_result = (!scores.is_empty()).then(|| ProfileResult::calc(mode, scores));
+    let profile_result = (!scores.is_empty()).then(|| {
+        let stats = user.statistics.as_ref().unwrap();
+
+        ProfileResult::calc(mode, &scores, stats.pp, stats.playcount as usize)
+    });
 
     // Accumulate all necessary data
     let data = ProfileEmbed::new(&user, profile_result, globals_count, own_top_scores, mode);
@@ -196,6 +200,7 @@ pub struct ProfileResult {
 
     pub acc: MinMaxAvgF32,
     pub pp: MinMaxAvgF32,
+    pub bonus_pp: f32,
     pub map_combo: u32,
     pub combo: MinMaxAvgU32,
     pub map_len: MinMaxAvgU32,
@@ -207,7 +212,7 @@ pub struct ProfileResult {
 }
 
 impl ProfileResult {
-    fn calc(mode: GameMode, scores: Vec<Score>) -> Self {
+    fn calc(mode: GameMode, scores: &[Score], total_pp: f32, playcount: usize) -> Self {
         let mut acc = MinMaxAvgF32::new();
         let mut pp = MinMaxAvgF32::new();
         let mut combo = MinMaxAvgU32::new();
@@ -217,10 +222,10 @@ impl ProfileResult {
         let len = scores.len() as f32;
         let mut mod_combs = HashMap::with_capacity(5);
         let mut mods = HashMap::with_capacity(5);
-        let mut factor = 1.0;
         let mut mult_mods = false;
+        let mut bonus_pp = BonusPP::new();
 
-        for score in scores.iter() {
+        for (i, score) in scores.iter().enumerate() {
             let map = score.map.as_ref().unwrap();
             let mapset = score.mapset.as_ref().unwrap();
 
@@ -228,6 +233,18 @@ impl ProfileResult {
 
             if let Some(score_pp) = score.pp {
                 pp.add(score_pp);
+            }
+
+            if let Some(weighted_pp) = score.weight.map(|w| w.pp) {
+                bonus_pp.update(weighted_pp, i);
+
+                let mut mapper = mappers.entry(&mapset.creator_name).or_insert((0, 0.0));
+                mapper.0 += 1;
+                mapper.1 += weighted_pp;
+
+                let mut mod_comb = mod_combs.entry(score.mods).or_insert((0, 0.0));
+                mod_comb.0 += 1;
+                mod_comb.1 += weighted_pp;
             }
 
             combo.add(score.max_combo);
@@ -245,19 +262,6 @@ impl ProfileResult {
             };
 
             map_len.add(seconds_drain);
-
-            let mut mapper = mappers.entry(&mapset.creator_name).or_insert((0, 0.0));
-            let weighted_pp = score.pp.unwrap_or(0.0) * factor;
-
-            factor *= 0.95;
-            mapper.0 += 1;
-            mapper.1 += weighted_pp;
-
-            {
-                let mut mod_comb = mod_combs.entry(score.mods).or_insert((0, 0.0));
-                mod_comb.0 += 1;
-                mod_comb.1 += weighted_pp;
-            }
 
             if score.mods.is_empty() {
                 *mods.entry(GameMods::NoMod).or_insert(0) += 1;
@@ -324,6 +328,7 @@ impl ProfileResult {
             mode,
             acc,
             pp,
+            bonus_pp: bonus_pp.calculate(total_pp, playcount),
             combo,
             map_combo,
             map_len: map_len.into(),

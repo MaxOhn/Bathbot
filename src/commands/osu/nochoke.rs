@@ -235,12 +235,13 @@ async fn nochokes_main(
     };
 
     // Calculate bonus pp
-    let actual_pp = scores_data
+    let actual_pp: f32 = scores_data
         .iter()
-        .map(|(_, s, ..)| s.weight.as_ref().map_or(0.0, |w| w.pp as f64))
-        .sum::<f64>();
+        .filter_map(|(_, s, ..)| s.weight)
+        .map(|weight| weight.pp)
+        .sum();
 
-    let bonus_pp = user.statistics.as_ref().unwrap().pp as f64 - actual_pp;
+    let bonus_pp = user.statistics.as_ref().unwrap().pp - actual_pp;
 
     // Sort by unchoked pp
     scores_data.sort_unstable_by(|(_, _, s1), (_, _, s2)| {
@@ -248,11 +249,11 @@ async fn nochokes_main(
     });
 
     // Calculate total user pp without chokes
-    let mut unchoked_pp = scores_data
+    let mut unchoked_pp: f32 = scores_data
         .iter()
         .enumerate()
-        .map(|(i, (_, _, s))| s.pp.unwrap_or(0.0) as f64 * 0.95_f64.powi(i as i32))
-        .sum::<f64>();
+        .map(|(i, (_, _, s))| s.pp.unwrap_or(0.0) * 0.95_f32.powi(i as i32))
+        .sum();
 
     unchoked_pp = (100.0 * (unchoked_pp + bonus_pp)).round() / 100.0;
 

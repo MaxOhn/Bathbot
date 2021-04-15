@@ -11,7 +11,7 @@ pub struct NoChokePagination {
     pages: Pages,
     user: User,
     scores: Vec<(usize, Score, Score)>,
-    unchoked_pp: f64,
+    unchoked_pp: f32,
 }
 
 impl NoChokePagination {
@@ -19,7 +19,7 @@ impl NoChokePagination {
         msg: Message,
         user: User,
         scores: Vec<(usize, Score, Score)>,
-        unchoked_pp: f64,
+        unchoked_pp: f32,
     ) -> Self {
         Self {
             msg,
