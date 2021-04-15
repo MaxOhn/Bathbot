@@ -3,10 +3,7 @@ use crate::core::Context;
 use chrono::{DateTime, Utc};
 use log::info;
 use prometheus::{IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry};
-use std::{
-    collections::HashMap,
-    sync::{atomic::Ordering::Acquire, Arc},
-};
+use std::sync::{atomic::Ordering::Acquire, Arc};
 use twilight_cache_inmemory::Metrics;
 use twilight_model::{channel::Message, gateway::event::Event};
 
@@ -60,30 +57,34 @@ pub struct BotStats {
     pub event_counts: EventStats,
     pub message_counts: MessageCounters,
     pub user_counts: UserCounters,
-    pub channel_count: IntGauge,
     pub guild_counts: GuildCounters,
     pub command_counts: IntCounterVec,
     pub osu_metrics: OsuCounters,
     pub cache_metrics: Arc<Metrics>,
 }
 
-impl BotStats {
-    #[rustfmt::skip]
-    pub fn new(osu_metrics: IntCounterVec, cache_metrics: Arc<Metrics>) -> Self {
-        let event_counter = IntCounterVec::new(Opts::new("gateway_events", "Events received from the gateway"), &["events"]).unwrap();
-        let message_counter =IntCounterVec::new(Opts::new("messages", "Recieved messages"), &["sender_type"]).unwrap();
-        let user_counter =IntGaugeVec::new(Opts::new("user_counts", "User counts"), &["type"]).unwrap();
-        let channel_count = IntGauge::with_opts(Opts::new("channels", "Channel count")).unwrap();
-        let guild_counter =IntGaugeVec::new(Opts::new("guild_counts", "State of the guilds"), &["state"]).unwrap();
-        let command_counts =IntCounterVec::new(Opts::new("commands", "Executed commands"), &["name"]).unwrap();
+macro_rules! metric_vec {
+    (counter: $opt:literal, $help:literal, $label:literal) => {
+        IntCounterVec::new(Opts::new($opt, $help), &[$label]).unwrap();
+    };
 
-        let mut static_labels = HashMap::new();
-        static_labels.insert(String::from("cluster"), 0.to_string());
-        let registry =Registry::new_custom(Some(String::from("bathbot")), Some(static_labels)).unwrap();
+    (gauge: $opt:literal, $help:literal, $label:literal) => {
+        IntGaugeVec::new(Opts::new($opt, $help), &[$label]).unwrap();
+    };
+}
+
+impl BotStats {
+    pub fn new(osu_metrics: IntCounterVec, cache_metrics: Arc<Metrics>) -> Self {
+        let event_counter = metric_vec!(counter: "gateway_events", "Gateway events", "events");
+        let msg_counter = metric_vec!(counter: "messages", "Received messages", "sender_type");
+        let user_counter = metric_vec!(gauge: "user_counts", "User counts", "type");
+        let guild_counter = metric_vec!(gauge: "guild_counts", "State of the guilds", "state");
+        let command_counts = metric_vec!(counter: "commands", "Executed commands", "name");
+
+        let registry = Registry::new_custom(Some(String::from("bathbot")), None).unwrap();
         registry.register(Box::new(event_counter.clone())).unwrap();
-        registry.register(Box::new(message_counter.clone())).unwrap();
+        registry.register(Box::new(msg_counter.clone())).unwrap();
         registry.register(Box::new(user_counter.clone())).unwrap();
-        registry.register(Box::new(channel_count.clone())).unwrap();
         registry.register(Box::new(guild_counter.clone())).unwrap();
         registry.register(Box::new(command_counts.clone())).unwrap();
         registry.register(Box::new(osu_metrics.clone())).unwrap();
@@ -114,9 +115,9 @@ impl BotStats {
                 user_update: event_counter.with_label_values(&["UserUpdate"]),
             },
             message_counts: MessageCounters {
-                user_messages: message_counter.with_label_values(&["User"]),
-                other_bot_messages: message_counter.with_label_values(&["Bot"]),
-                own_messages: message_counter.with_label_values(&["Own"]),
+                user_messages: msg_counter.with_label_values(&["User"]),
+                other_bot_messages: msg_counter.with_label_values(&["Bot"]),
+                own_messages: msg_counter.with_label_values(&["Own"]),
             },
             user_counts: UserCounters {
                 unique: user_counter.with_label_values(&["Unique"]),
@@ -126,13 +127,12 @@ impl BotStats {
                 total: guild_counter.with_label_values(&["Total"]),
                 unavailable: guild_counter.with_label_values(&["Unavailable"]),
             },
-            channel_count,
             command_counts,
             osu_metrics: OsuCounters {
                 user_cached: osu_metrics.with_label_values(&["User cached"]),
                 rosu: osu_metrics,
             },
-            cache_metrics
+            cache_metrics,
         };
 
         stats
@@ -160,25 +160,18 @@ impl BotStats {
 
     #[inline]
     pub fn new_message(&self, ctx: &Context, msg: &Message) {
-        if msg.author.bot {
-            if ctx.is_own(msg) {
-                self.message_counts.own_messages.inc()
-            } else {
-                self.message_counts.other_bot_messages.inc()
-            }
-        } else {
+        if !msg.author.bot {
             self.message_counts.user_messages.inc()
+        } else if ctx.is_own(msg) {
+            self.message_counts.own_messages.inc()
+        } else {
+            self.message_counts.other_bot_messages.inc()
         }
     }
 
     #[inline]
     pub fn inc_command(&self, cmd: impl AsRef<str>) {
-        let c = cmd.as_ref();
-
-        match self.command_counts.get_metric_with_label_values(&[c]) {
-            Ok(counter) => counter.inc(),
-            Err(why) => unwind_error!(warn, why, "Error while incrementing `{}`'s counter: {}", c),
-        }
+        self.command_counts.with_label_values(&[cmd.as_ref()]).inc();
     }
 
     #[inline]

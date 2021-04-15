@@ -283,7 +283,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         if resumed {
             time::sleep(Duration::from_secs(5)).await;
             let activity_result = cluster_ctx
-                .set_cluster_activity(Status::Online, ActivityType::Playing, String::from("osu!"))
+                .set_cluster_activity(Status::Online, ActivityType::Playing, "osu!")
                 .await;
 
             if let Err(why) = activity_result {
