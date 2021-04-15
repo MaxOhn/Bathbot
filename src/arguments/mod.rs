@@ -1356,7 +1356,12 @@ fn acc(args: &mut Vec<impl AsRef<str>>) -> Result<Option<f32>, &'static str> {
         match args.get(idx).map(|arg| f32::from_str(arg.as_ref())) {
             Some(Ok(acc)) => {
                 args.remove(idx);
-                Ok(Some(acc))
+
+                if acc > 100.0 || acc < 0.0 {
+                    Err("Accuracy must be between 0.0 and 100.0")
+                } else {
+                    Ok(Some(acc))
+                }
             }
             Some(Err(_)) => Err("Could not parse given accuracy, \
                 try a decimal number between 0 and 100"),

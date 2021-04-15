@@ -287,7 +287,7 @@ fn simulate_score(
             let acc = args.acc.map_or(1.0, |a| a / 100.0);
             let mut n50 = args.n50.unwrap_or(0);
             let mut n100 = args.n100.unwrap_or(0);
-            let miss = args.miss.unwrap_or(0);
+            let mut miss = args.miss.unwrap_or(0);
             let n_objects = map.count_objects();
 
             let combo = args
@@ -323,7 +323,11 @@ fn simulate_score(
                 score.statistics.count_50 = 0;
             } else {
                 let target_total = (acc * n_objects as f32 * 6.0).round() as u32;
-                let delta = target_total - (n_objects - miss);
+                let left = n_objects.saturating_sub(miss);
+                let delta = target_total.saturating_sub(left);
+
+                // Increase miss count if acc cannot be fulfilled
+                miss += left.saturating_sub(target_total);
 
                 let mut n300 = delta / 5;
                 let mut n100 = (delta % 5).min(n_objects - n300 - miss);
