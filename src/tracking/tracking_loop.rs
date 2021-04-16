@@ -41,7 +41,7 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
         };
 
         // Build top score requests for each
-        let mut scores_futs = tracked
+        let mut scores_futs: FuturesUnordered<_> = tracked
             .iter()
             .map(|&(user_id, mode)| {
                 ctx.osu()
@@ -51,7 +51,7 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
                     .limit(50)
                     .map(move |result| (user_id, mode, result))
             })
-            .collect::<FuturesUnordered<_>>();
+            .collect();
 
         // Iterate over the request responses
         while let Some((user_id, mode, result)) = scores_futs.next().await {
@@ -60,6 +60,16 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
                     // Note: If scores are empty, (user_id, mode) will not be reset into the tracking queue
                     if !scores.is_empty() {
                         process_tracking(&ctx, mode, &mut scores, None).await
+                    }
+                }
+                Err(OsuError::NotFound) => {
+                    warn!(
+                        "404 response while retrieving user scores ({},{}) for tracking, don't reset entry",
+                        user_id, mode
+                    );
+
+                    if let Err(why) = ctx.tracking().remove_user_all(user_id, ctx.psql()).await {
+                        unwind_error!(warn, why, "Failed to remove unknown user from tracking: {}");
                     }
                 }
                 Err(why) => {
