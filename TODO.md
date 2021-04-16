@@ -1,7 +1,7 @@
 
 **[TODO]**
+- Remove user field of UserStatistics in rosu
 - Remove 404 users in tracking
-- Retrieve previous match state for `<mc` if start event not yet included
 - `<favouritescores` commands
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
 - ~~Check on IRC for tracking~~ irc only provides username, not id
@@ -21,6 +21,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Retrieve previous match state for `<mc` if start event not yet included~~ (21.04.16)
 - ~~Add command to add snipe countries~~ (21.04.12)
 - ~~Add "Did you mean..." if invalid medal name for `<medal`~~ (21.04.09)
 - ~~Fix mode when caching users~~ (21.04.08)

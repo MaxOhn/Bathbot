@@ -15,7 +15,7 @@ use rosu_v2::prelude::{
     UserCompact,
 };
 use smallvec::SmallVec;
-use std::{borrow::Cow, cmp::Ordering, fmt::Write};
+use std::{borrow::Cow, cmp::Ordering, collections::HashMap, fmt::Write};
 
 const DESCRIPTION_BUFFER: usize = 45;
 
@@ -44,7 +44,7 @@ macro_rules! push {
 
 macro_rules! username {
     ($lobby:ident[$user_id:ident]) => {
-        match $lobby.users.iter().find(|user| &user.user_id == $user_id) {
+        match $lobby.users.get(&$user_id) {
             Some(user) => Cow::Borrowed(&user.username),
             None => Cow::Owned(format!("User id {}", $user_id)),
         }
@@ -645,7 +645,7 @@ enum TeamValues {
 fn prepare_scores(
     mode: GameMode,
     scores: &[MatchScore],
-    users: &[UserCompact],
+    users: &HashMap<u32, UserCompact>,
     scoring: ScoringType,
 ) -> (Scores, ColumnSizes, Option<(u64, u64)>) {
     let mut embed_scores = Scores::with_capacity(users.len());
@@ -653,9 +653,7 @@ fn prepare_scores(
     let mut team_scores = TeamLeads::new(scoring);
 
     let iter = scores.iter().filter(|score| score.score > 0).map(|score| {
-        let user_opt = users.iter().find(|user| user.user_id == score.user_id);
-
-        let name: Name = match user_opt {
+        let name: Name = match users.get(&score.user_id) {
             Some(user) => user.username.as_str().into(),
             None => format!("`User id {}`", score.user_id).into(),
         };

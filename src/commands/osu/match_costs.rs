@@ -6,10 +6,11 @@ use crate::{
 };
 
 use hashbrown::{HashMap, HashSet};
-use rosu_v2::prelude::{GameMods, MatchGame, OsuError, Team, TeamType};
+use rosu_v2::prelude::{GameMods, MatchGame, Osu, OsuError, OsuMatch, OsuResult, Team, TeamType};
 use std::{cmp::Ordering, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
 
+const USER_LIMIT: usize = 50;
 const TOO_MANY_PLAYERS_TEXT: &str = "Too many players, cannot display message :(";
 
 #[command]
@@ -37,7 +38,8 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     // Retrieve the match
     let (mut osu_match, games) = match ctx.osu().osu_match(match_id).await {
         Ok(mut osu_match) => {
-            let games = osu_match.drain_games().skip(warmups).collect::<Vec<_>>();
+            retrieve_previous(&mut osu_match, ctx.osu()).await?;
+            let games: Vec<_> = osu_match.drain_games().skip(warmups).collect();
 
             (osu_match, games)
         }
@@ -53,7 +55,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         }
     };
 
-    // Retrieve all users of the match
+    // Count different users
     let users: HashSet<_> = games
         .iter()
         .map(|game| game.scores.iter())
@@ -63,17 +65,17 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         .collect();
 
     // Prematurely abort if its too many players to display in a message
-    if users.len() > 50 {
+    if users.len() > USER_LIMIT {
         return msg.error(&ctx, TOO_MANY_PLAYERS_TEXT).await;
     }
 
     // Process match
     let (description, match_result) = if games.is_empty() {
-        let description = format!(
-            "No games played yet beyond the {} warmup{}",
-            warmups,
-            if warmups > 1 { "s" } else { "" },
-        );
+        let mut description = format!("No games played yet beyond the {} warmup", warmups);
+
+        if warmups != 1 {
+            description.push('s');
+        }
 
         (Some(description), None)
     } else {
@@ -106,6 +108,37 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         m.embed(data.into_builder().build())
     })
     .await?;
+
+    Ok(())
+}
+
+async fn retrieve_previous(osu_match: &mut OsuMatch, osu: &Osu) -> OsuResult<()> {
+    let mut curr = &*osu_match;
+    let mut prev: Option<OsuMatch> = None;
+
+    // Retrieve at most 500 previous events
+    for _ in 0..5 {
+        match curr.get_previous(osu).await {
+            Some(Ok(next_prev)) => {
+                let prev_opt = prev.take();
+                curr = &*prev.get_or_insert(next_prev);
+
+                if let Some(mut prev) = prev_opt {
+                    prev.events.append(&mut osu_match.events);
+                    std::mem::swap(&mut prev.events, &mut osu_match.events);
+                    osu_match.users.extend(prev.users);
+                }
+            }
+            Some(Err(why)) => return Err(why),
+            None => break,
+        }
+    }
+
+    if let Some(mut prev) = prev {
+        prev.events.append(&mut osu_match.events);
+        std::mem::swap(&mut prev.events, &mut osu_match.events);
+        osu_match.users.extend(prev.users);
+    }
 
     Ok(())
 }

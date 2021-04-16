@@ -57,11 +57,9 @@ impl MatchCostEmbed {
                     let _ = writeln!(description, ":blue_circle: **Blue Team** :blue_circle:");
 
                     for (i, (id, cost)) in blue.into_iter().enumerate() {
-                        let user_pos = osu_match.users.iter().position(|user| user.user_id == id);
-
-                        let name = match user_pos {
-                            Some(pos) => osu_match.users.swap_remove(pos).username.into(),
-                            None => Cow::Borrowed("Unknown user"),
+                        let name = match osu_match.users.get(&id) {
+                            Some(user) => Cow::Borrowed(&user.username),
+                            None => Cow::Owned(format!("User id {}", id)),
                         };
 
                         let medal = {
@@ -100,11 +98,9 @@ impl MatchCostEmbed {
                     let _ = writeln!(description, "\n:red_circle: **Red Team** :red_circle:");
 
                     for (i, (id, cost)) in red.into_iter().enumerate() {
-                        let user_pos = osu_match.users.iter().position(|user| user.user_id == id);
-
-                        let name = match user_pos {
-                            Some(pos) => osu_match.users.swap_remove(pos).username.into(),
-                            None => Cow::Borrowed("Unknown user"),
+                        let name = match osu_match.users.get(&id) {
+                            Some(user) => Cow::Borrowed(&user.username),
+                            None => Cow::Owned(format!("User id {}", id)),
                         };
 
                         let medal = if !medals.is_empty() {
@@ -127,11 +123,9 @@ impl MatchCostEmbed {
                 }
                 Some(MatchResult::HeadToHead { players, .. }) => {
                     for (i, (id, cost)) in players.into_iter().enumerate() {
-                        let user_pos = osu_match.users.iter().position(|user| user.user_id == id);
-
-                        let name = match user_pos {
-                            Some(pos) => osu_match.users.swap_remove(pos).username.into(),
-                            None => Cow::Borrowed("Unknown user"),
+                        let name = match osu_match.users.get(&id) {
+                            Some(user) => Cow::Borrowed(&user.username),
+                            None => Cow::Owned(format!("User id {}", id)),
                         };
 
                         let _ = writeln!(
