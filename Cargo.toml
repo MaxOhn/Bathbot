@@ -77,11 +77,9 @@ branch = "main"
 features = ["cache", "metrics"]
 
 [dependencies.rosu-pp]
-# path = "../rosu_v2-pp"
 git = "https://github.com/MaxOhn/rosu-pp"
 branch = "next"
 features = ["async_tokio"]
-# version = "0.1"
 
 [dependencies.rosu-pp-older]
 # path = "../rosu_v2-pp-older"
