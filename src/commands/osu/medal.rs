@@ -18,7 +18,7 @@ use twilight_model::channel::Message;
 #[usage("[medal name]")]
 #[example(r#""50,000 plays""#, "any%")]
 async fn medal(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    let name = args.rest();
+    let name = args.rest().trim_matches('"');
 
     if name.is_empty() {
         let content = "You must specify a medal name.";
