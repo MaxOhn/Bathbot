@@ -241,6 +241,10 @@ impl BonusPP {
             mut avg_y,
         } = self;
 
+        if self.len < 100 {
+            return round(total_pp - pp);
+        }
+
         avg_x /= sum_x;
         avg_y /= sum_x;
 

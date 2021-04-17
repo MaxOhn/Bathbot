@@ -1,6 +1,5 @@
 
 **[TODO]**
-- Remove user field of UserStatistics in rosu
 - `<favouritescores` commands
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
 - ~~Check on IRC for tracking~~ irc only provides username, not id
