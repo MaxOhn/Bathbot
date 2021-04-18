@@ -128,10 +128,10 @@ impl MapEmbed {
             let _ = writeln!(
                 pp_values,
                 "    |{:^len$}|{:^len$}|{:^len$}|{:^len$}",
-                with_comma_uint(acc_to_score(mod_mult, 95.0)),
-                with_comma_uint(acc_to_score(mod_mult, 97.0)),
-                with_comma_uint(acc_to_score(mod_mult, 99.0)),
-                with_comma_uint(acc_to_score(mod_mult, 100.0)),
+                with_comma_uint(acc_to_score(mod_mult, 95.0)).to_string(),
+                with_comma_uint(acc_to_score(mod_mult, 97.0)).to_string(),
+                with_comma_uint(acc_to_score(mod_mult, 99.0)).to_string(),
+                with_comma_uint(acc_to_score(mod_mult, 100.0)).to_string(),
                 len = len,
             );
 
