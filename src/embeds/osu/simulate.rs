@@ -232,7 +232,7 @@ impl EmbedData for SimulateEmbed {
         let mut value = if let Some(prev_pp) = self.prev_pp {
             format!("{} → {}", prev_pp, self.pp)
         } else {
-            self.pp.to_string()
+            self.pp
         };
 
         if self.mode != GameMode::MNA {
@@ -243,27 +243,21 @@ impl EmbedData for SimulateEmbed {
             let _ = write!(value, " (+{}miss)", misses);
         }
 
-        let combo = if self.mode == GameMode::MNA {
-            String::new()
-        } else if let Some(prev_combo) = self.prev_combo {
-            format!(" [ {} → {} ]", prev_combo, self.combo)
-        } else {
-            format!(" [ {} ]", self.combo)
-        };
+        let mut name = String::with_capacity(50);
+        let _ = write!(name, "{} ", self.grade_completion_mods);
 
-        let score = if self.mode == GameMode::MNA {
-            with_comma_uint(self.score).to_string() + " "
+        if self.mode == GameMode::MNA {
+            let _ = write!(name, "{} ", with_comma_uint(self.score));
+            let _ = write!(name, "({}%)", self.acc);
         } else {
-            String::new()
-        };
+            let _ = write!(name, "({}%)", self.acc);
 
-        let name = format!(
-            "{grade} {score}({acc}%){combo}",
-            grade = self.grade_completion_mods,
-            score = score,
-            acc = self.acc,
-            combo = combo
-        );
+            let _ = if let Some(prev_combo) = self.prev_combo {
+                write!(name, " [ {} → {} ]", prev_combo, self.combo)
+            } else {
+                write!(name, " [ {} ]", self.combo)
+            };
+        }
 
         let mut title = self.title;
         let _ = write!(title, " [{}★]", self.stars);
