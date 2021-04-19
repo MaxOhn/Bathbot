@@ -18,7 +18,6 @@ use crate::{
         error::CustomClientError,
         numbers::round,
         osu::ModSelection,
-        CowUtils,
     },
     BotResult, CONFIG,
 };
@@ -30,12 +29,7 @@ use once_cell::sync::OnceCell;
 use reqwest::{multipart::Form, Client, Response, StatusCode};
 use rosu_v2::prelude::{GameMode, GameMods, User};
 use serde_json::Value;
-use std::{
-    fmt::{self, Write},
-    hash::Hash,
-    num::NonZeroU32,
-    str::FromStr,
-};
+use std::{fmt::Write, hash::Hash, num::NonZeroU32};
 use tokio::time::{sleep, timeout, Duration};
 
 type ClientResult<T> = Result<T, CustomClientError>;
@@ -531,70 +525,6 @@ impl CustomClient {
             })?;
 
         Ok(rank_pp)
-    }
-}
-
-// TODO: Can be removed?
-enum GameModeVariant {
-    Osu,
-    Taiko,
-    Fruits,
-    Mania(Option<ManiaVariant>),
-}
-
-impl From<GameMode> for GameModeVariant {
-    fn from(mode: GameMode) -> Self {
-        match mode {
-            GameMode::STD => GameModeVariant::Osu,
-            GameMode::TKO => GameModeVariant::Taiko,
-            GameMode::CTB => GameModeVariant::Fruits,
-            GameMode::MNA => GameModeVariant::Mania(None),
-        }
-    }
-}
-
-impl fmt::Display for GameModeVariant {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mode = match self {
-            Self::Osu => "osu",
-            Self::Taiko => "taiko",
-            Self::Fruits => "fruits",
-            Self::Mania(_) => "mania",
-        };
-
-        f.write_str(mode)
-    }
-}
-
-pub enum ManiaVariant {
-    K4,
-    K7,
-}
-
-impl FromStr for ManiaVariant {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if !s.starts_with('+') {
-            return Err(());
-        }
-
-        match s[1..].cow_to_ascii_lowercase().as_ref() {
-            "4k" | "k4" => Ok(Self::K4),
-            "7k" | "k7" => Ok(Self::K7),
-            _ => Err(()),
-        }
-    }
-}
-
-impl fmt::Display for ManiaVariant {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let variant = match self {
-            Self::K4 => "4k",
-            Self::K7 => "7k",
-        };
-
-        f.write_str(variant)
     }
 }
 

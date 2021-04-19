@@ -185,7 +185,7 @@ pub async fn rank(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     "How many pp is a player missing to reach the given rank?\n\
     For ranks over 10,000 the data is provided by [osudaily](https://osudaily.net/)."
 )]
-#[usage("[username] [+4k/+7k] [[country]number]")]
+#[usage("[username] [[country]number]")]
 #[example("badewanne3 be50", "badewanne3 123")]
 #[aliases("rankm", "reachmania", "reachm")]
 pub async fn rankmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
