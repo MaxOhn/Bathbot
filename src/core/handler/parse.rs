@@ -1,11 +1,11 @@
 use crate::{
+    arguments::Stream,
     core::{Command, CommandGroups},
     database::Prefix,
 };
 
 use cow_utils::CowUtils;
 use std::borrow::Cow;
-use uwl::Stream;
 
 #[derive(Debug)]
 pub enum Invoke {
@@ -37,28 +37,23 @@ impl Invoke {
 }
 
 pub fn find_prefix<'a>(prefixes: &[Prefix], stream: &mut Stream<'a>) -> bool {
-    prefixes
-        .iter()
-        .find_map(|p| {
-            let peeked = stream.peek_for_char(p.chars().count());
+    prefixes.iter().any(|p| {
+        if stream.starts_with(p) {
+            stream.increment(p.len());
 
-            (p == peeked).then(|| {
-                stream.advance_char(peeked.chars().count());
-
-                peeked
-            })
-        })
-        .is_some()
+            true
+        } else {
+            false
+        }
+    })
 }
 
 pub fn parse_invoke(stream: &mut Stream<'_>, groups: &CommandGroups) -> Invoke {
     let mut name = stream
-        .peek_until_char(|c| c.is_whitespace() || c.is_numeric())
+        .take_until_char(|c| c.is_whitespace() || c.is_numeric())
         .cow_to_lowercase();
 
-    stream.increment(name.len());
-    let num_str = stream.peek_until_char(|c| !c.is_numeric());
-    stream.increment(num_str.len());
+    let num_str = stream.take_while_char(char::is_numeric);
 
     let num = if num_str.is_empty() {
         None
@@ -74,16 +69,15 @@ pub fn parse_invoke(stream: &mut Stream<'_>, groups: &CommandGroups) -> Invoke {
         Some(n)
     };
 
-    stream.take_while_char(|c| c.is_whitespace());
+    stream.take_while_char(char::is_whitespace);
 
     match name.as_ref() {
         "h" | "help" => {
             let name = stream
-                .peek_until_char(|c| c.is_whitespace())
+                .take_until_char(char::is_whitespace)
                 .cow_to_lowercase();
 
-            stream.increment(name.chars().count());
-            stream.take_while_char(|c| c.is_whitespace());
+            stream.take_while_char(char::is_whitespace);
 
             if name.is_empty() {
                 Invoke::Help(None)
@@ -102,7 +96,7 @@ pub fn parse_invoke(stream: &mut Stream<'_>, groups: &CommandGroups) -> Invoke {
                 for sub_cmd in cmd.sub_commands {
                     if sub_cmd.names.contains(&name.as_ref()) {
                         stream.increment(name.chars().count());
-                        stream.take_while_char(|c| c.is_whitespace());
+                        stream.take_while_char(char::is_whitespace);
 
                         return Invoke::SubCommand {
                             main: cmd,

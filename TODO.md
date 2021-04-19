@@ -1,9 +1,8 @@
 
 **[TODO]**
-- `<favouritescores` commands
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
 - ~~Check on IRC for tracking~~ irc only provides username, not id
-- ~~Use DB medals instead of osekai~~ no solution
+- ~~Use DB medals instead of osekai~~ no medal solution available
 - ~~Split database tables based on popular queries~~ queries simple enough
 - ~~Fix `<mc` sometimes missing some users~~ fixed with rosu-v2
 - ~~Rewrite `<mapper`: request mapper as user, then request all beatmaps from that user id~~ problem if too many maps
@@ -11,6 +10,7 @@
 - ~~`<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)~~ no attractive embed format
 
 **[Sometime]**
+- `<favouritescores` commands
 - Provide feature to disable certain commands in certain channels
 - Experiment with different team/opponent scaling for `<mc`
 - Check on `thread 'tokio-runtime-worker' panicked at 'error binding to 169.254.124.89:9094:`

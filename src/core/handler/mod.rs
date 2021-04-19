@@ -5,6 +5,7 @@ use checks::{check_authority, check_ratelimit};
 use parse::{find_prefix, parse_invoke, Invoke};
 
 use crate::{
+    arguments::Stream,
     commands::help::{failed_help, help, help_command},
     core::{buckets::BucketName, Command, CommandGroups, Context},
     util::{constants::OWNER_USER_ID, MessageExt},
@@ -22,7 +23,6 @@ use twilight_model::{
     gateway::presence::{ActivityType, Status},
     guild::Permissions,
 };
-use uwl::Stream;
 
 pub async fn handle_event(
     shard_id: u64,
@@ -330,7 +330,7 @@ async fn process_command(
     let _ = ctx.http.create_typing_trigger(msg.channel_id).await;
 
     // Call command function
-    (cmd.fun)(ctx, msg, args, num)
-        .await
-        .map(ProcessResult::success)
+    (cmd.fun)(ctx, msg, args, num).await?;
+
+    Ok(ProcessResult::Success)
 }

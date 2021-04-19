@@ -1,5 +1,5 @@
+use super::Stream;
 use std::{collections::VecDeque, error::Error, fmt, iter};
-use uwl::Stream;
 
 pub struct Args<'m> {
     msg: &'m str,
@@ -69,18 +69,18 @@ impl<'m> Args<'m> {
         let stream = &mut self.stream;
         let start = stream.offset();
 
-        if stream.current()? == b'"' {
-            stream.next();
+        if stream.next()? == b'"' {
             stream.take_until(|b| b == b'"');
-            let is_quote = stream.current().map_or(false, |b| b == b'"');
-            stream.next();
+            let is_quote = stream.next().map_or(false, |b| b == b'"');
             let end = stream.offset();
 
             if start == end - 2 {
+                stream.take_while_char(char::is_whitespace);
+
                 return self.lex();
             }
 
-            stream.take_while_char(|c| c.is_whitespace());
+            stream.take_while_char(char::is_whitespace);
 
             let limits = if is_quote {
                 (start + 1, end - 1)
@@ -91,9 +91,9 @@ impl<'m> Args<'m> {
             return Some(limits);
         }
 
-        stream.take_while_char(|c| !c.is_whitespace());
+        stream.take_until_char(char::is_whitespace);
         let end = stream.offset();
-        stream.take_while_char(|c| c.is_whitespace());
+        stream.take_while_char(char::is_whitespace);
 
         Some((start, end))
     }
