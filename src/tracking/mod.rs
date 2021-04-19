@@ -6,7 +6,7 @@ use crate::{database::TrackingUser, BotResult, Database};
 
 use chrono::{DateTime, Duration, Utc};
 use dashmap::DashMap;
-use hashbrown::HashMap;
+use hashbrown::hash_map::{DefaultHashBuilder, HashMap};
 use priority_queue::PriorityQueue;
 use rosu_v2::model::GameMode;
 use smallvec::SmallVec;
@@ -23,7 +23,8 @@ lazy_static::lazy_static! {
     pub static ref OSU_TRACKING_COOLDOWN: f32 = 5000.0; // ms
 }
 
-type TrackingQueue = RwLock<PriorityQueue<(u32, GameMode), Reverse<DateTime<Utc>>>>;
+type TrackingQueue =
+    RwLock<PriorityQueue<(u32, GameMode), Reverse<DateTime<Utc>>, DefaultHashBuilder>>;
 
 pub struct TrackingStats {
     pub next_pop: (u32, GameMode),
