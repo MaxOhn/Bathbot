@@ -2,9 +2,9 @@ use crate::{
     arguments::Stream,
     core::{Command, CommandGroups},
     database::Prefix,
+    util::CowUtils,
 };
 
-use cow_utils::CowUtils;
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -51,7 +51,7 @@ pub fn find_prefix<'a>(prefixes: &[Prefix], stream: &mut Stream<'a>) -> bool {
 pub fn parse_invoke(stream: &mut Stream<'_>, groups: &CommandGroups) -> Invoke {
     let mut name = stream
         .take_until_char(|c| c.is_whitespace() || c.is_numeric())
-        .cow_to_lowercase();
+        .cow_to_ascii_lowercase();
 
     let num_str = stream.take_while_char(char::is_numeric);
 
@@ -75,7 +75,7 @@ pub fn parse_invoke(stream: &mut Stream<'_>, groups: &CommandGroups) -> Invoke {
         "h" | "help" => {
             let name = stream
                 .take_until_char(char::is_whitespace)
-                .cow_to_lowercase();
+                .cow_to_ascii_lowercase();
 
             stream.take_while_char(char::is_whitespace);
 
@@ -91,7 +91,7 @@ pub fn parse_invoke(stream: &mut Stream<'_>, groups: &CommandGroups) -> Invoke {
             if let Some(cmd) = groups.get(name.as_ref()) {
                 let name = stream
                     .peek_until_char(|c| c.is_whitespace())
-                    .cow_to_lowercase();
+                    .cow_to_ascii_lowercase();
 
                 for sub_cmd in cmd.sub_commands {
                     if sub_cmd.names.contains(&name.as_ref()) {

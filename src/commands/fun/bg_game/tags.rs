@@ -4,12 +4,11 @@ use crate::{
     database::MapsetTagWrapper,
     util::{
         constants::{GENERAL_ISSUE, OSU_BASE, OWNER_USER_ID},
-        MessageExt,
+        CowUtils, MessageExt,
     },
     Args, BotResult, Context, CONFIG,
 };
 
-use cow_utils::CowUtils;
 use rand::RngCore;
 use rosu_v2::model::GameMode;
 use std::{str::FromStr, sync::Arc, time::Duration};
@@ -144,7 +143,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
 async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     // Parse arguments as mode
     let mode = match args.next() {
-        Some(arg) => match arg.cow_to_lowercase().as_ref() {
+        Some(arg) => match arg.cow_to_ascii_lowercase().as_ref() {
             "mna" | "mania" | "m" => GameMode::MNA,
             "osu" | "std" | "standard" | "o" => GameMode::STD,
             _ => {
@@ -403,7 +402,7 @@ enum Action {
 impl FromStr for Action {
     type Err = ();
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value.cow_to_lowercase().as_ref() {
+        match value.cow_to_ascii_lowercase().as_ref() {
             "r" | "remove" => Ok(Self::Remove),
             "a" | "add" => Ok(Self::Add),
             _ => Err(()),

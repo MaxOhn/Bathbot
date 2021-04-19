@@ -1,12 +1,11 @@
 use crate::{
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        MessageExt,
+        CowUtils, MessageExt,
     },
     Args, BotResult, Context, CONFIG,
 };
 
-use cow_utils::CowUtils;
 use rosu_v2::prelude::{BeatmapsetCompact, GameMode, OsuError};
 use std::{str::FromStr, sync::Arc};
 use tokio::{
@@ -32,7 +31,7 @@ async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
 
     // Parse arguments as mode
     let mode = match args.next() {
-        Some(arg) => match arg.cow_to_lowercase().as_ref() {
+        Some(arg) => match arg.cow_to_ascii_lowercase().as_ref() {
             "mna" | "mania" | "m" => GameMode::MNA,
             "osu" | "std" | "standard" | "o" => GameMode::STD,
             _ => {
@@ -55,7 +54,7 @@ async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
         }
     };
     // Check if attachement has proper file type
-    let filetype = match filename_split.next().map(|ft| ft.cow_to_lowercase()) {
+    let filetype = match filename_split.next().map(CowUtils::cow_to_ascii_lowercase) {
         Some(filetype) if filetype == "jpg" || filetype == "jpeg" || filetype == "png" => filetype,
         _ => {
             let content = "Provided image has no appropriate file type. \

@@ -18,12 +18,12 @@ use crate::{
         error::CustomClientError,
         numbers::round,
         osu::ModSelection,
+        CowUtils,
     },
     BotResult, CONFIG,
 };
 
 use chrono::{DateTime, Utc};
-use cow_utils::CowUtils;
 use governor::{clock::DefaultClock, state::keyed::DashMapStateStore, Quota, RateLimiter};
 use hashbrown::HashSet;
 use once_cell::sync::OnceCell;
@@ -98,8 +98,7 @@ impl CustomClient {
     }
 
     pub async fn get_osekai_medal(&self, medal_name: &str) -> ClientResult<Option<OsekaiMedal>> {
-        let medal = medal_name.cow_replace(' ', "+");
-        let url = format!("{}get_medal?medal={}", OSEKAI_MEDAL_API, medal);
+        let url = format!("{}get_medal?medal={}", OSEKAI_MEDAL_API, medal_name);
         let response = self.make_request(url, Site::Osekai).await?;
         let bytes = response.bytes().await?;
 
@@ -535,6 +534,7 @@ impl CustomClient {
     }
 }
 
+// TODO: Can be removed?
 enum GameModeVariant {
     Osu,
     Taiko,
@@ -579,7 +579,7 @@ impl FromStr for ManiaVariant {
             return Err(());
         }
 
-        match s[1..].cow_to_lowercase().as_ref() {
+        match s[1..].cow_to_ascii_lowercase().as_ref() {
             "4k" | "k4" => Ok(Self::K4),
             "7k" | "k7" => Ok(Self::K7),
             _ => Err(()),

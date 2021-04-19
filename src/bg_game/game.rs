@@ -1,11 +1,10 @@
 use super::{util, GameResult, Hints, ImageReveal};
 use crate::{
     database::MapsetTagWrapper,
-    util::{constants::OSU_BASE, error::BgGameError, similarity},
+    util::{constants::OSU_BASE, error::BgGameError, similarity, CowUtils},
     BotResult, Context, CONFIG,
 };
 
-use cow_utils::CowUtils;
 use futures::future::TryFutureExt;
 use image::GenericImageView;
 use rosu_v2::model::GameMode;
@@ -212,7 +211,7 @@ pub async fn game_loop(
         let game = game_lock.read().await;
 
         if let Some(game) = game.as_ref() {
-            let content = msg.content.cow_to_lowercase();
+            let content = msg.content.cow_to_ascii_lowercase();
 
             match game.check_msg_content(content.as_ref()).await {
                 // Title correct?

@@ -1,9 +1,8 @@
 use crate::{
-    util::{Matrix, MessageExt},
+    util::{CowUtils, Matrix, MessageExt},
     Args, BotResult, Context,
 };
 
-use cow_utils::CowUtils;
 use rand::RngCore;
 use std::{
     fmt::{self, Write},
@@ -22,7 +21,7 @@ use twilight_model::channel::Message;
 )]
 #[usage("[easy / medium / hard]")]
 async fn minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
-    let difficulty = match args.next().map(|arg| arg.cow_to_lowercase()).as_deref() {
+    let difficulty = match args.next().map(CowUtils::cow_to_ascii_lowercase).as_deref() {
         None | Some("easy") => Difficulty::Easy,
         Some("medium") => Difficulty::Medium,
         Some("hard") => Difficulty::Hard,

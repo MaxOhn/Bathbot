@@ -7,12 +7,11 @@ use crate::{
         error::PPError,
         numbers::with_comma_uint,
         osu::prepare_beatmap_file,
-        ScoreExt,
+        CowUtils, ScoreExt,
     },
     BotResult,
 };
 
-use cow_utils::CowUtils;
 use hashbrown::HashMap;
 use rosu_pp::{
     Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, StarResult, TaikoPP,
@@ -71,10 +70,11 @@ impl LeaderboardEmbed {
 
             let mut mod_map = HashMap::new();
             let mut description = String::with_capacity(256);
-            let author_name = init_name.map_or_else(|| Cow::Borrowed(""), |n| n.cow_to_lowercase());
+            let author_name =
+                init_name.map_or_else(|| Cow::Borrowed(""), CowUtils::cow_to_ascii_lowercase);
 
             for (i, score) in scores.enumerate() {
-                let found_author = author_name == score.username.cow_to_lowercase();
+                let found_author = author_name == score.username.cow_to_ascii_lowercase();
                 let mut username = String::with_capacity(32);
 
                 if found_author {

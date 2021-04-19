@@ -1,11 +1,10 @@
 use crate::{
     embeds::{BGRankingEmbed, EmbedData},
     pagination::{BGRankingPagination, Pagination},
-    util::{constants::GENERAL_ISSUE, get_member_ids, numbers, MessageExt},
+    util::{constants::GENERAL_ISSUE, get_member_ids, numbers, CowUtils, MessageExt},
     Args, BotResult, Context,
 };
 
-use cow_utils::CowUtils;
 use hashbrown::HashMap;
 use std::sync::Arc;
 use twilight_model::{channel::Message, id::UserId};
@@ -26,7 +25,7 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     let server_opt = args
         .next()
         .filter(|_| msg.guild_id.is_some())
-        .map(CowUtils::cow_to_lowercase)
+        .map(CowUtils::cow_to_ascii_lowercase)
         .filter(|arg| arg.as_ref() == "server" || arg.as_ref() == "s");
 
     if server_opt.is_some() {

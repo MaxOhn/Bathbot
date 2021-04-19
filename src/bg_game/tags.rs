@@ -1,6 +1,8 @@
 #![allow(non_upper_case_globals)]
+
+use crate::util::CowUtils;
+
 use bitflags::bitflags;
-use cow_utils::CowUtils;
 use std::{fmt::Write, str::FromStr};
 
 bitflags! {
@@ -32,7 +34,7 @@ impl FromStr for MapsetTags {
     type Err = String;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let result = match value.cow_to_lowercase().as_ref() {
+        let result = match value.cow_to_ascii_lowercase().as_ref() {
             "farm" => Self::Farm,
             "stream" | "streams" => Self::Streams,
             "alt" | "alternate" => Self::Alternate,

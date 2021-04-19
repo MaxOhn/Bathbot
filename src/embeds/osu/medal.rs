@@ -4,10 +4,10 @@ use crate::{
     util::{
         constants::{FIELD_VALUE_SIZE, OSU_BASE},
         numbers::round,
+        CowUtils,
     },
 };
 
-use cow_utils::CowUtils;
 use std::fmt::Write;
 
 pub struct MedalEmbed {

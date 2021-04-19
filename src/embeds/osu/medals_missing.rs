@@ -1,10 +1,12 @@
 use crate::{
     commands::osu::MedalType,
     embeds::{Author, Footer},
-    util::constants::{AVATAR_URL, OSU_BASE},
+    util::{
+        constants::{AVATAR_URL, OSU_BASE},
+        CowUtils,
+    },
 };
 
-use cow_utils::CowUtils;
 use rosu_v2::model::user::User;
 use std::fmt::Write;
 

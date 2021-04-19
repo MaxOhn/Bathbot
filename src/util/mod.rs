@@ -1,4 +1,5 @@
 pub mod constants;
+mod cow;
 pub mod datetime;
 pub mod error;
 pub mod exts;
@@ -9,6 +10,7 @@ pub mod osu;
 mod safe_content;
 
 use constants::DISCORD_CDN;
+pub use cow::CowUtils;
 pub use exts::*;
 pub use matrix::Matrix;
 pub use safe_content::content_safe;

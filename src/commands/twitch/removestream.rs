@@ -1,9 +1,8 @@
 use crate::{
-    util::{constants::GENERAL_ISSUE, MessageExt},
+    util::{constants::GENERAL_ISSUE, CowUtils, MessageExt},
     Args, BotResult, Context,
 };
 
-use cow_utils::CowUtils;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -16,7 +15,7 @@ use twilight_model::channel::Message;
 async fn removestream(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     // Parse the stream name
     let name = match args.next() {
-        Some(name) => name.cow_to_lowercase(),
+        Some(name) => name.cow_to_ascii_lowercase(),
         None => {
             let content = "The first argument must be the name of the stream";
 
