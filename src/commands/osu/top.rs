@@ -66,7 +66,7 @@ async fn top_main(
         );
 
         return msg.error(&ctx, content).await;
-    } else if args.has_dash_p {
+    } else if args.has_dash_p_or_i {
         let cmd = match top_type {
             TopType::Top => "top",
             TopType::Recent => "rb",
@@ -76,7 +76,7 @@ async fn top_main(
         let prefix = ctx.config_first_prefix(msg.guild_id);
 
         let content = format!(
-            "`{prefix}{cmd}{mode} -p`? \
+            "`{prefix}{cmd}{mode} -i / -p`? \
             Try putting the number right after the command, e.g. `{prefix}{cmd}{mode}42`, or use the arrow reactions.",
             mode = mode_long,
             cmd = cmd,

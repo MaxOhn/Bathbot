@@ -1183,7 +1183,7 @@ pub struct TopArgs {
     pub grade: Option<GradeArg>,
     pub sort_by: TopSortBy,
     pub has_dash_r: bool,
-    pub has_dash_p: bool,
+    pub has_dash_p_or_i: bool,
 }
 
 impl TopArgs {
@@ -1271,7 +1271,7 @@ impl TopArgs {
         };
 
         let has_dash_r = keywords(&mut args, &["-r"]);
-        let has_dash_p = keywords(&mut args, &["-p"]);
+        let has_dash_p_or_i = keywords(&mut args, &["-p", "-i"]);
 
         let name = args.into_iter().next().and_then(|arg| {
             matcher::get_mention_user(&arg)
@@ -1289,7 +1289,7 @@ impl TopArgs {
             grade,
             sort_by,
             has_dash_r,
-            has_dash_p,
+            has_dash_p_or_i,
         })
     }
 }
@@ -1308,6 +1308,7 @@ fn mods(args: &mut Vec<impl AsRef<str>>) -> Option<ModSelection> {
 
         if mods.is_some() {
             args.remove(i);
+
             return mods;
         }
     }
@@ -1316,11 +1317,9 @@ fn mods(args: &mut Vec<impl AsRef<str>>) -> Option<ModSelection> {
 }
 
 fn acc(args: &mut Vec<impl AsRef<str>>) -> Result<Option<f32>, &'static str> {
-    if let Some(idx) = args.iter().position(|arg| {
-        let arg = arg.as_ref();
+    let mut arg_refs = args.iter().map(AsRef::as_ref);
 
-        arg == "-a" || arg == "-acc"
-    }) {
+    if let Some(idx) = arg_refs.position(|arg| arg == "-a" || arg == "-acc") {
         args.remove(idx);
 
         match args.get(idx).map(|arg| f32::from_str(arg.as_ref())) {
@@ -1343,20 +1342,18 @@ fn acc(args: &mut Vec<impl AsRef<str>>) -> Result<Option<f32>, &'static str> {
 }
 
 fn combo(args: &mut Vec<impl AsRef<str>>) -> Result<Option<u32>, &'static str> {
-    if let Some(idx) = args.iter().position(|arg| {
-        let arg = arg.as_ref();
+    let mut arg_refs = args.iter().map(AsRef::as_ref);
 
-        arg == "-c" || arg == "-combo"
-    }) {
+    if let Some(idx) = arg_refs.position(|arg| arg == "-c" || arg == "-combo") {
         args.remove(idx);
 
         match args.get(idx).map(|arg| u32::from_str(arg.as_ref())) {
             Some(Ok(combo)) => {
                 args.remove(idx);
+
                 Ok(Some(combo))
             }
-            Some(Err(_)) => Err("Could not parse given combo, \
-                try a non-negative integer"),
+            Some(Err(_)) => Err("Could not parse given combo, try a non-negative integer"),
             None => Ok(None),
         }
     } else {
@@ -1365,16 +1362,15 @@ fn combo(args: &mut Vec<impl AsRef<str>>) -> Result<Option<u32>, &'static str> {
 }
 
 fn n300(args: &mut Vec<impl AsRef<str>>) -> Result<Option<u32>, &'static str> {
-    if let Some(idx) = args.iter().position(|arg| {
-        let arg = arg.as_ref();
+    let mut arg_refs = args.iter().map(AsRef::as_ref);
 
-        arg == "-300" || arg == "-n300"
-    }) {
+    if let Some(idx) = arg_refs.position(|arg| arg == "-300" || arg == "-n300") {
         args.remove(idx);
 
         match args.get(idx).map(|arg| u32::from_str(arg.as_ref())) {
             Some(Ok(n300)) => {
                 args.remove(idx);
+
                 Ok(Some(n300))
             }
             Some(Err(_)) => Err("Could not parse given n300, try a non-negative integer"),
@@ -1386,16 +1382,15 @@ fn n300(args: &mut Vec<impl AsRef<str>>) -> Result<Option<u32>, &'static str> {
 }
 
 fn n100(args: &mut Vec<impl AsRef<str>>) -> Result<Option<u32>, &'static str> {
-    if let Some(idx) = args.iter().position(|arg| {
-        let arg = arg.as_ref();
+    let mut arg_refs = args.iter().map(AsRef::as_ref);
 
-        arg == "-100" || arg == "-n100"
-    }) {
+    if let Some(idx) = arg_refs.position(|arg| arg == "-100" || arg == "-n100") {
         args.remove(idx);
 
         match args.get(idx).map(|arg| u32::from_str(arg.as_ref())) {
             Some(Ok(n100)) => {
                 args.remove(idx);
+
                 Ok(Some(n100))
             }
             Some(Err(_)) => Err("Could not parse given n100, try a non-negative integer"),
@@ -1407,16 +1402,15 @@ fn n100(args: &mut Vec<impl AsRef<str>>) -> Result<Option<u32>, &'static str> {
 }
 
 fn n50(args: &mut Vec<impl AsRef<str>>) -> Result<Option<u32>, &'static str> {
-    if let Some(idx) = args.iter().position(|arg| {
-        let arg = arg.as_ref();
+    let mut arg_refs = args.iter().map(AsRef::as_ref);
 
-        arg == "-50" || arg == "-n50"
-    }) {
+    if let Some(idx) = arg_refs.position(|arg| arg == "-50" || arg == "-n50") {
         args.remove(idx);
 
         match args.get(idx).map(|arg| u32::from_str(arg.as_ref())) {
             Some(Ok(n50)) => {
                 args.remove(idx);
+
                 Ok(Some(n50))
             }
             Some(Err(_)) => Err("Could not parse given n50, try a non-negative integer"),
@@ -1428,11 +1422,9 @@ fn n50(args: &mut Vec<impl AsRef<str>>) -> Result<Option<u32>, &'static str> {
 }
 
 fn score(args: &mut Vec<impl AsRef<str>>) -> Result<Option<u32>, &'static str> {
-    if let Some(idx) = args.iter().position(|arg| {
-        let arg = arg.as_ref();
+    let mut arg_refs = args.iter().map(AsRef::as_ref);
 
-        arg == "-s" || arg == "-score"
-    }) {
+    if let Some(idx) = arg_refs.position(|arg| arg == "-s" || arg == "-score") {
         args.remove(idx);
 
         match args.get(idx).map(|arg| u32::from_str(arg.as_ref())) {
@@ -1450,16 +1442,15 @@ fn score(args: &mut Vec<impl AsRef<str>>) -> Result<Option<u32>, &'static str> {
 }
 
 fn miss(args: &mut Vec<impl AsRef<str>>) -> Result<Option<u32>, &'static str> {
-    if let Some(idx) = args.iter().position(|arg| {
-        let arg = arg.as_ref();
+    let mut arg_refs = args.iter().map(AsRef::as_ref);
 
-        arg == "-x" || arg == "-m"
-    }) {
+    if let Some(idx) = arg_refs.position(|arg| arg == "-x" || arg == "-m") {
         args.remove(idx);
 
         match args.get(idx).map(|arg| u32::from_str(arg.as_ref())) {
             Some(Ok(misses)) => {
                 args.remove(idx);
+
                 Ok(Some(misses))
             }
             Some(Err(_)) => Err("Could not parse given amount of misses, \
