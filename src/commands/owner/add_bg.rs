@@ -1,6 +1,6 @@
 use crate::{
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
         CowUtils, MessageExt,
     },
     Args, BotResult, Context, CONFIG,
@@ -108,7 +108,14 @@ async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
 
     // Check if valid mapset id
     let content = match prepare_mapset(&ctx, mapset_id, &attachment.filename, mode).await {
-        Ok(_) => format!("Background successfully added ({})", mode),
+        Ok(mapset) => format!(
+            "Background for [{artist} - {title}]({base}s/{id}) successfully added ({mode})",
+            artist = mapset.artist,
+            title = mapset.title,
+            base = OSU_BASE,
+            id = mapset_id,
+            mode = mode
+        ),
         Err(err_msg) => {
             let _ = remove_file(path).await;
 
@@ -126,15 +133,18 @@ async fn prepare_mapset(
     mapset_id: u32,
     filename: &str,
     mode: GameMode,
-) -> Result<(), &'static str> {
+) -> Result<BeatmapsetCompact, &'static str> {
     let db_fut = ctx.psql().get_beatmapset::<BeatmapsetCompact>(mapset_id);
 
-    if db_fut.await.is_err() {
-        match ctx.osu().beatmapset(mapset_id).await {
+    let mapset = match db_fut.await {
+        Ok(mapset) => mapset,
+        Err(_) => match ctx.osu().beatmapset(mapset_id).await {
             Ok(mapset) => {
                 if let Err(why) = ctx.psql().insert_beatmapset(&mapset).await {
                     unwind_error!(warn, why, "Failed to insert mapset in DB: {}");
                 }
+
+                mapset.into()
             }
             Err(OsuError::NotFound) => {
                 return Err("No mapset found with the name of the given file as id")
@@ -144,8 +154,8 @@ async fn prepare_mapset(
 
                 return Err(OSU_API_ISSUE);
             }
-        }
-    }
+        },
+    };
 
     if let Err(why) = ctx.psql().add_tag_mapset(mapset_id, filename, mode).await {
         unwind_error!(warn, why, "Error while adding mapset to tags table: {}");
@@ -153,7 +163,7 @@ async fn prepare_mapset(
         return Err("There is already an entry with this mapset id");
     }
 
-    Ok(())
+    Ok(mapset)
 }
 
 async fn download_attachment(attachment: &Attachment) -> BotResult<Vec<u8>> {
