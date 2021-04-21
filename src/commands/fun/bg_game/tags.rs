@@ -75,6 +75,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
 
     // Parse tags
     let mut tags = MapsetTags::empty();
+
     while !args.is_empty() {
         match args.next().map(MapsetTags::from_str) {
             Some(Ok(tag)) => tags.insert(tag),
@@ -189,7 +190,9 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
             Ok(mut tags) => {
                 if untagged {
                     if tags.iter().any(|tag| tag.untagged()) {
-                        tags.into_iter().filter(|tag| tag.untagged()).collect()
+                        tags.retain(|tag| tag.untagged());
+
+                        tags
                     } else {
                         let content = "All backgrounds have been tagged, \
                             here are some random ones you can review again though";
@@ -286,7 +289,8 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         let mut break_loop = true;
 
         // Run collector
-        let mut tags = MapsetTags::empty();
+        let mut add_tags = MapsetTags::empty();
+        let mut remove_tags = MapsetTags::empty();
 
         while let Some(Ok(reaction)) = reaction_stream.next().await {
             let tag = if let ReactionType::Unicode { ref name } = reaction.as_deref().emoji {
@@ -307,6 +311,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                     "✅" => {
                         owner = reaction.as_deref().user_id;
                         break_loop = false;
+
                         break;
                     }
                     "❌" => break,
@@ -318,25 +323,28 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
 
             match reaction {
                 ReactionWrapper::Add(_) => {
-                    tags.insert(tag);
+                    add_tags.insert(tag);
                 }
                 ReactionWrapper::Remove(_) => {
-                    tags.remove(tag);
+                    remove_tags.insert(tag);
                 }
             }
         }
 
-        let result = if tags.is_empty() {
-            ctx.psql().get_tags_mapset(mapset_id).await
-        } else {
-            match ctx.psql().add_tags_mapset(mapset_id, tags).await {
-                Ok(_) => ctx.psql().get_tags_mapset(mapset_id).await,
-                Err(why) => Err(why),
+        if !add_tags.is_empty() {
+            if let Err(why) = ctx.psql().add_tags_mapset(mapset_id, add_tags).await {
+                unwind_error!(warn, why, "Failed to add tags: {}");
             }
-        };
+        }
+
+        if !remove_tags.is_empty() {
+            if let Err(why) = ctx.psql().remove_tags_mapset(mapset_id, remove_tags).await {
+                unwind_error!(warn, why, "Failed to remove tags: {}");
+            }
+        }
 
         // Then show the final tags
-        match result {
+        match ctx.psql().get_tags_mapset(mapset_id).await {
             Ok(tags) => {
                 if !tags.is_empty() {
                     let content = format!(
@@ -355,7 +363,7 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         };
 
         if break_loop {
-            let content = "Exiting loop, thanks for helping out :)";
+            let content = "Exiting loop :wave:";
             msg.send_response(&ctx, content).await?;
 
             break;

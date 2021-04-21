@@ -55,8 +55,6 @@ impl Database {
     }
 
     pub async fn add_tags_mapset(&self, mapset_id: u32, tags: MapsetTags) -> BotResult<()> {
-        debug_assert_eq!(tags.bits().count_ones(), 1);
-
         sqlx::query!(
             "UPDATE map_tags SET
             farm=map_tags.farm OR $1,
@@ -73,19 +71,19 @@ impl Database {
             english=map_tags.english OR $12,
             kpop=map_tags.kpop OR $13
             WHERE mapset_id=$14",
-            tags == MapsetTags::Farm,
-            tags == MapsetTags::Streams,
-            tags == MapsetTags::Alternate,
-            tags == MapsetTags::Old,
-            tags == MapsetTags::Meme,
-            tags == MapsetTags::HardName,
-            tags == MapsetTags::Easy,
-            tags == MapsetTags::Hard,
-            tags == MapsetTags::Tech,
-            tags == MapsetTags::Weeb,
-            tags == MapsetTags::BlueSky,
-            tags == MapsetTags::English,
-            tags == MapsetTags::Kpop,
+            tags.contains(MapsetTags::Farm),
+            tags.contains(MapsetTags::Streams),
+            tags.contains(MapsetTags::Alternate),
+            tags.contains(MapsetTags::Old),
+            tags.contains(MapsetTags::Meme),
+            tags.contains(MapsetTags::HardName),
+            tags.contains(MapsetTags::Easy),
+            tags.contains(MapsetTags::Hard),
+            tags.contains(MapsetTags::Tech),
+            tags.contains(MapsetTags::Weeb),
+            tags.contains(MapsetTags::BlueSky),
+            tags.contains(MapsetTags::English),
+            tags.contains(MapsetTags::Kpop),
             mapset_id as i32,
         )
         .execute(&self.pool)
@@ -95,8 +93,6 @@ impl Database {
     }
 
     pub async fn remove_tags_mapset(&self, mapset_id: u32, tags: MapsetTags) -> BotResult<()> {
-        debug_assert_eq!(tags.bits().count_ones(), 1);
-
         sqlx::query!(
             "UPDATE map_tags SET
             farm=map_tags.farm AND $1,
@@ -113,19 +109,19 @@ impl Database {
             english=map_tags.english AND $12,
             kpop=map_tags.kpop AND $13
             WHERE mapset_id=$14",
-            tags != MapsetTags::Farm,
-            tags != MapsetTags::Streams,
-            tags != MapsetTags::Alternate,
-            tags != MapsetTags::Old,
-            tags != MapsetTags::Meme,
-            tags != MapsetTags::HardName,
-            tags != MapsetTags::Easy,
-            tags != MapsetTags::Hard,
-            tags != MapsetTags::Tech,
-            tags != MapsetTags::Weeb,
-            tags != MapsetTags::BlueSky,
-            tags != MapsetTags::English,
-            tags != MapsetTags::Kpop,
+            !tags.contains(MapsetTags::Farm),
+            !tags.contains(MapsetTags::Streams),
+            !tags.contains(MapsetTags::Alternate),
+            !tags.contains(MapsetTags::Old),
+            !tags.contains(MapsetTags::Meme),
+            !tags.contains(MapsetTags::HardName),
+            !tags.contains(MapsetTags::Easy),
+            !tags.contains(MapsetTags::Hard),
+            !tags.contains(MapsetTags::Tech),
+            !tags.contains(MapsetTags::Weeb),
+            !tags.contains(MapsetTags::BlueSky),
+            !tags.contains(MapsetTags::English),
+            !tags.contains(MapsetTags::Kpop),
             mapset_id as i32,
         )
         .execute(&self.pool)
