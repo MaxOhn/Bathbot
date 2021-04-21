@@ -19,6 +19,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Handle pruning of 2+ week old msgs~~ (21.04.21)
 - ~~Remove 404 users in tracking~~ (21.04.16)
 - ~~Retrieve previous match state for `<mc` if start event not yet included~~ (21.04.16)
 - ~~Add command to add snipe countries~~ (21.04.12)

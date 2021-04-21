@@ -5,6 +5,10 @@ use crate::{
 
 use std::{str::FromStr, sync::Arc};
 use tokio::time::{self, Duration};
+use twilight_http::{
+    api_error::{ApiError, ErrorCode::MessageTooOldToBulkDelete},
+    Error,
+};
 use twilight_model::channel::Message;
 
 #[command]
@@ -13,8 +17,9 @@ use twilight_model::channel::Message;
 #[short_desc("Prune messages in a channel")]
 #[long_desc(
     "Optionally provide a number to delete this \
-     many of the latest messages of a channel, defaults to 1. \
-     Amount must be between 1 and 99."
+     many of the latest messages of a channel, defaults to 1.\n\
+     Amount must be between 1 and 99.\n\
+     This command can not delete messages older than 2 weeks."
 )]
 #[usage("[number]")]
 #[example("3")]
@@ -24,10 +29,11 @@ async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
         Some(Ok(amount)) => {
             if !(1..100).contains(&amount) {
                 let content = "First argument must be an integer between 1 and 99";
+
                 return msg.error(&ctx, content).await;
-            } else {
-                amount + 1
             }
+
+            amount + 1
         }
         None | Some(Err(_)) => 2,
     };
@@ -59,10 +65,21 @@ async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
         return Ok(());
     }
 
-    if let Err(why) = ctx.http.delete_messages(msg.channel_id, messages).await {
-        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+    match ctx.http.delete_messages(msg.channel_id, messages).await {
+        Ok(_) => {}
+        Err(Error::Response {
+            error: ApiError::General(err),
+            ..
+        }) if err.code == MessageTooOldToBulkDelete => {
+            let content = "Cannot delete messages that are older than two weeks \\:(";
 
-        return Err(why.into());
+            return msg.error(&ctx, content).await;
+        }
+        Err(why) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why.into());
+        }
     }
 
     let response = ctx
