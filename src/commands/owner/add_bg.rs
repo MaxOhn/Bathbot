@@ -45,23 +45,28 @@ async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
 
     // Check if attachement as proper name
     let mut filename_split = attachment.filename.split('.');
+
     let mapset_id = match filename_split.next().map(u32::from_str) {
         Some(Ok(id)) => id,
         None | Some(Err(_)) => {
             let content = "Provided image has no appropriate name. \
                 Be sure to let the name be the mapset id, e.g. 948199.png";
+
             return msg.error(&ctx, content).await;
         }
     };
+
     // Check if attachement has proper file type
-    let filetype = match filename_split.next().map(CowUtils::cow_to_ascii_lowercase) {
-        Some(filetype) if filetype == "jpg" || filetype == "jpeg" || filetype == "png" => filetype,
-        _ => {
-            let content = "Provided image has no appropriate file type. \
-                It must be either `.jpg`, `.jpeg`, or `.png`";
-            return msg.error(&ctx, content).await;
-        }
-    };
+    let valid_filetype_opt = filename_split
+        .next()
+        .filter(|&filetype| filetype == "jpg" || filetype == "jpeg" || filetype == "png");
+
+    if valid_filetype_opt.is_none() {
+        let content = "Provided image has no appropriate file type. \
+            It must be either `.jpg`, `.jpeg`, or `.png`";
+
+        return msg.error(&ctx, content).await;
+    }
 
     // Download attachement
     let path = match download_attachment(&attachment).await {
@@ -102,7 +107,7 @@ async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
     };
 
     // Check if valid mapset id
-    let content = match prepare_mapset(&ctx, mapset_id, &filetype, mode).await {
+    let content = match prepare_mapset(&ctx, mapset_id, &attachment.filename, mode).await {
         Ok(_) => format!("Background successfully added ({})", mode),
         Err(err_msg) => {
             let _ = remove_file(path).await;
@@ -119,7 +124,7 @@ async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
 async fn prepare_mapset(
     ctx: &Context,
     mapset_id: u32,
-    filetype: &str,
+    filename: &str,
     mode: GameMode,
 ) -> Result<(), &'static str> {
     let db_fut = ctx.psql().get_beatmapset::<BeatmapsetCompact>(mapset_id);
@@ -142,7 +147,7 @@ async fn prepare_mapset(
         }
     }
 
-    if let Err(why) = ctx.psql().add_tag_mapset(mapset_id, filetype, mode).await {
+    if let Err(why) = ctx.psql().add_tag_mapset(mapset_id, filename, mode).await {
         unwind_error!(warn, why, "Error while adding mapset to tags table: {}");
 
         return Err("There is already an entry with this mapset id");
@@ -152,12 +157,5 @@ async fn prepare_mapset(
 }
 
 async fn download_attachment(attachment: &Attachment) -> BotResult<Vec<u8>> {
-    let data = reqwest::get(&attachment.url)
-        .await?
-        .bytes()
-        .await?
-        .into_iter()
-        .collect();
-
-    Ok(data)
+    Ok(reqwest::get(&attachment.url).await?.bytes().await?.to_vec())
 }
