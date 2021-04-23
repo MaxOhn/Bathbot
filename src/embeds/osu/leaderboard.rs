@@ -84,7 +84,7 @@ impl LeaderboardEmbed {
                 let _ = write!(
                     username,
                     "[{name}]({base}users/{id})",
-                    name = score.username,
+                    name = score.username.cow_replace('_', "\\_"),
                     base = OSU_BASE,
                     id = score.user_id
                 );
