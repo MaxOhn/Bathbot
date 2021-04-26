@@ -1,7 +1,10 @@
 use super::{util, GameResult, Hints, ImageReveal};
 use crate::{
     database::MapsetTagWrapper,
-    util::{constants::OSU_BASE, error::BgGameError, similarity, CowUtils},
+    util::{
+        constants::OSU_BASE, error::BgGameError, gestalt_pattern_matching, levenshtein_similarity,
+        CowUtils,
+    },
     BotResult, Context, CONFIG,
 };
 
@@ -155,27 +158,14 @@ impl Game {
             return ContentResult::Title(true);
         }
 
-        // Guessed sufficiently many words of the title?
-        if self.title.contains(' ') {
-            let mut same_word_len = 0;
+        // First check the title through levenshtein distance.
+        let similarity = levenshtein_similarity(content, &self.title);
 
-            for title_word in self.title.split(' ') {
-                for content_word in content.split(' ') {
-                    if title_word == content_word {
-                        same_word_len += title_word.len();
+        if similarity > 0.5 {
+            return ContentResult::Title(false);
 
-                        if same_word_len >= 9 {
-                            return ContentResult::Title(false);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Similar enough to the title?
-        let similar = similarity(content, &self.title);
-
-        if similar > 0.5 {
+        // Then through longest common substrings (generally more lenient than levenshtein)
+        } else if gestalt_pattern_matching(content, &self.title) > 0.5 {
             return ContentResult::Title(false);
         }
 
@@ -183,8 +173,8 @@ impl Game {
             // Guessed the artist exactly?
             if content == self.artist {
                 return ContentResult::Artist(true);
-            // Similar enough to the artist?
-            } else if similar < 0.3 && similarity(content, &self.artist) > 0.5 {
+            // Dissimilar enough from the title but similar enough to the artist?
+            } else if similarity < 0.3 && levenshtein_similarity(content, &self.artist) > 0.5 {
                 return ContentResult::Artist(false);
             }
         }

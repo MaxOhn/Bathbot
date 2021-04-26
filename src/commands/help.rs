@@ -365,7 +365,7 @@ pub async fn failed_help(
         .groups
         .iter()
         .flat_map(|group| group.commands.iter().flat_map(|&cmd| cmd.names))
-        .map(|name| (levenshtein_distance(arg, name), name))
+        .map(|name| (levenshtein_distance(arg, name).0, name))
         .filter(|(dist, _)| *dist < 3)
         .collect();
 

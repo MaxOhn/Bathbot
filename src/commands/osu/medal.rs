@@ -1,6 +1,6 @@
 use crate::{
     embeds::{EmbedData, MedalEmbed},
-    util::{constants::GENERAL_ISSUE, similarity, MessageExt},
+    util::{constants::GENERAL_ISSUE, levenshtein_similarity, MessageExt},
     Args, BotResult, Context,
 };
 
@@ -60,7 +60,7 @@ async fn no_medal(ctx: &Context, msg: &Message, name: &str) -> BotResult<()> {
         .map(|(_, medal)| {
             let medal = medal.name.to_ascii_lowercase();
 
-            (similarity(name, &medal), medal)
+            (levenshtein_similarity(name, &medal), medal)
         })
         .collect();
 
