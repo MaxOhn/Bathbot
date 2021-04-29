@@ -61,15 +61,13 @@ impl<'a> Stream<'a> {
 
         let src = self.src;
         let start = self.offset;
-        let mut end = start;
 
-        while let Some(b) = src.get(end) {
-            if !f(*b) {
-                break;
-            }
-
-            end += 1;
-        }
+        let end = src
+            .iter()
+            .enumerate()
+            .skip(start)
+            .find(|(_, b)| !f(**b))
+            .map_or_else(|| src.len(), |(i, _)| i);
 
         // SAFETY: self.src is constructed from a str in the first place
         // and start & end are being handled in a safe manner
@@ -83,15 +81,11 @@ impl<'a> Stream<'a> {
         }
 
         let src = self.rest();
-        let mut end = 0;
 
-        for c in src.chars() {
-            if !f(c) {
-                break;
-            }
-
-            end += c.len_utf8();
-        }
+        let end = src
+            .char_indices()
+            .find(|(_, c)| !f(*c))
+            .map_or_else(|| src.len(), |(i, _)| i);
 
         &src[..end]
     }
@@ -129,10 +123,7 @@ impl<'a> Stream<'a> {
 
     #[inline]
     pub fn starts_with(&self, prefix: &str) -> bool {
-        let bytes = prefix.as_bytes();
-
-        bytes.len() <= self.len() - self.offset
-            && bytes == &self.src[self.offset..self.offset + bytes.len()]
+        self.src[self.offset..].starts_with(prefix.as_bytes())
     }
 
     #[inline]
