@@ -41,10 +41,8 @@ impl TopEmbed {
                 unwind_error!(warn, why, "Error while calculating pp for top: {}");
             }
 
-            let pp = score.pp.or_else(|| calculator.pp());
-
             let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));
-            let pp = osu::get_pp(pp, calculator.max_pp());
+            let pp = osu::get_pp(score.pp.or_else(|| calculator.pp()), calculator.max_pp());
 
             let _ = writeln!(
                 description,

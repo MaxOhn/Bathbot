@@ -13,7 +13,7 @@ use crate::{
 
 use chrono::{DateTime, Utc};
 use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, OsuPP, StarResult, TaikoPP};
-use rosu_v2::prelude::{GameMode, Score, User};
+use rosu_v2::prelude::{GameMode, Grade, Score, User};
 use std::{borrow::Cow, fmt::Write};
 use tokio::fs::File;
 
@@ -57,7 +57,13 @@ impl TopSingleEmbed {
         let max_result = rosu_map.max_pp(mods);
         let attributes = max_result.attributes;
 
-        let max_pp = max_result.pp;
+        let max_pp = score
+            .pp
+            .filter(|pp| {
+                score.grade.eq_letter(Grade::X) && score.mode != GameMode::MNA && *pp > 0.0
+            })
+            .unwrap_or(max_result.pp);
+
         let stars = round(attributes.stars());
 
         let if_fc = if_fc_struct(score, &rosu_map, attributes, mods);

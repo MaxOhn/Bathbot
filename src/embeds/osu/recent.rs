@@ -59,7 +59,13 @@ impl RecentEmbed {
         let max_result = rosu_map.max_pp(mods);
         let mut attributes = max_result.attributes;
 
-        let max_pp = max_result.pp;
+        let max_pp = score
+            .pp
+            .filter(|pp| {
+                score.grade.eq_letter(Grade::X) && score.mode != GameMode::MNA && *pp > 0.0
+            })
+            .unwrap_or(max_result.pp);
+
         let stars = round(attributes.stars());
 
         let pp = if let Some(pp) = score.pp {
