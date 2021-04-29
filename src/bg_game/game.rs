@@ -161,11 +161,8 @@ impl Game {
         // First check the title through levenshtein distance.
         let similarity = levenshtein_similarity(content, &self.title);
 
-        if similarity > 0.5 {
-            return ContentResult::Title(false);
-
         // Then through longest common substrings (generally more lenient than levenshtein)
-        } else if gestalt_pattern_matching(content, &self.title) > 0.5 {
+        if similarity > 0.5 || gestalt_pattern_matching(content, &self.title) > 0.5 {
             return ContentResult::Title(false);
         }
 
