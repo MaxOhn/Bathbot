@@ -34,20 +34,13 @@ use twilight_model::channel::Message;
 async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = NameMapModArgs::new(&ctx, args);
 
-    let map_id = if let Some(id) = args.map_id {
-        match id {
-            MapIdType::Map(id) => id,
-            MapIdType::Set(_) => {
-                let content = "Looks like you gave me a mapset id, I need a map id though";
+    let map_id_opt = args.map_id.or_else(|| {
+        ctx.cache
+            .message_extract(msg.channel_id, cached_message_extract)
+    });
 
-                return msg.error(&ctx, content).await;
-            }
-        }
-    } else if let Some(id) = ctx
-        .cache
-        .message_extract(msg.channel_id, cached_message_extract)
-    {
-        id.id()
+    let map_id = if let Some(id) = map_id_opt {
+        id
     } else {
         let msgs = match ctx.retrieve_channel_history(msg.channel_id).await {
             Ok(msgs) => msgs,
@@ -59,18 +52,22 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
         };
 
         match map_id_from_history(msgs) {
-            Some(MapIdType::Map(id)) => id,
-            Some(MapIdType::Set(_)) => {
-                let content = "Looks like you gave me a mapset id, I need a map id though";
-
-                return msg.error(&ctx, content).await;
-            }
+            Some(id) => id,
             None => {
                 let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";
 
                 return msg.error(&ctx, content).await;
             }
+        }
+    };
+
+    let map_id = match map_id {
+        MapIdType::Map(id) => id,
+        MapIdType::Set(_) => {
+            let content = "Looks like you gave me a mapset id, I need a map id though";
+
+            return msg.error(&ctx, content).await;
         }
     };
 

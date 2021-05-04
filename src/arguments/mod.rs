@@ -1040,7 +1040,7 @@ impl From<SimulateNameArgs> for SimulateArgs {
 }
 
 pub struct SimulateMapArgs {
-    pub map_id: Option<u32>,
+    pub map_id: Option<MapIdType>,
     pub mods: Option<ModSelection>,
     pub score: Option<u32>,
     pub n300: Option<u32>,
@@ -1054,6 +1054,7 @@ pub struct SimulateMapArgs {
 impl SimulateMapArgs {
     pub fn new(args: Args) -> Result<Self, &'static str> {
         let mut args = args.take(16).collect();
+
         let mods = mods(&mut args);
         let acc = acc(&mut args)?;
         let combo = combo(&mut args)?;
@@ -1063,11 +1064,7 @@ impl SimulateMapArgs {
         let n50 = n50(&mut args)?;
         let score = score(&mut args)?;
 
-        let map_id = args
-            .pop()
-            .as_deref()
-            .and_then(matcher::get_osu_map_id)
-            .map(|id| id.id());
+        let map_id = args.pop().as_deref().and_then(matcher::get_osu_map_id);
 
         Ok(Self {
             map_id,

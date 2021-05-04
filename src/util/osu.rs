@@ -152,16 +152,17 @@ pub fn pp_missing(start: f32, goal: f32, scores: &[Score]) -> (f32, usize) {
 
 pub fn map_id_from_history(msgs: Vec<Message>) -> Option<MapIdType> {
     msgs.into_iter().find_map(|msg| {
-        matcher::get_osu_map_id(&msg.content).or_else(|| {
-            matcher::get_osu_mapset_id(&msg.content)
-                .or_else(|| check_embeds_for_map_id(&msg.embeds))
-        })
+        matcher::get_osu_map_id(&msg.content)
+            .or_else(|| matcher::get_osu_mapset_id(&msg.content))
+            .or_else(|| check_embeds_for_map_id(&msg.embeds))
     })
 }
 
 #[inline]
 pub fn cached_message_extract(msg: &CachedMessage) -> Option<MapIdType> {
-    check_embeds_for_map_id(&msg.embeds)
+    matcher::get_osu_map_id(&msg.content)
+        .or_else(|| matcher::get_osu_mapset_id(&msg.content))
+        .or_else(|| check_embeds_for_map_id(&msg.embeds))
 }
 
 fn check_embeds_for_map_id(embeds: &[Embed]) -> Option<MapIdType> {
@@ -224,7 +225,7 @@ impl BonusPP {
         self.len += 1;
 
         let n = idx as f32 + 1.0;
-        let weight = (n + 1.0).ln();
+        let weight = n.ln_1p();
 
         self.sum_x += weight;
         self.avg_x += n * weight;
@@ -253,7 +254,7 @@ impl BonusPP {
 
         for n in 1..=len {
             let diff_x = n as f32 - avg_x;
-            let ln_n = (n as f32 + 1.0).ln();
+            let ln_n = (n as f32).ln_1p();
 
             sum_xy += diff_x * (ys[n - 1] - avg_y) * ln_n;
             sum_x2 += diff_x * diff_x * ln_n;
