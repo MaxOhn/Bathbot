@@ -50,9 +50,7 @@ async fn rank_score_main(
     let (user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
         Ok((user, mut rankings)) => {
             let idx = (rank + 49) % 50;
-            let mut stats = rankings.ranking.swap_remove(idx);
-            let mut rank_holder = *stats.user.take().unwrap();
-            rank_holder.statistics.replace(stats);
+            let rank_holder = rankings.ranking.swap_remove(idx);
 
             (user, rank_holder)
         }
