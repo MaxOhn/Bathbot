@@ -49,6 +49,33 @@ pub enum Emotes {
     JumpEnd,
 }
 
+impl Emotes {
+    pub fn request_reaction(&self) -> RequestReactionType {
+        let emotes = &CONFIG.get().unwrap().emotes;
+
+        let emote = match self {
+            Emotes::Minimize => emotes.get(self),
+            Emotes::Expand => emotes.get(self),
+            Emotes::JumpStart => emotes.get(self),
+            Emotes::MultiStepBack => emotes.get(self),
+            Emotes::SingleStepBack => emotes.get(self),
+            Emotes::MyPosition => emotes.get(self),
+            Emotes::SingleStep => emotes.get(self),
+            Emotes::MultiStep => emotes.get(self),
+            Emotes::JumpEnd => emotes.get(self),
+        };
+
+        let (id, name) = emote
+            .unwrap_or_else(|| panic!("No {:?} emote in config", self))
+            .split_emote();
+
+        RequestReactionType::Custom {
+            id: EmojiId(id),
+            name: Some(name.to_owned()),
+        }
+    }
+}
+
 impl BotConfig {
     pub async fn init(filename: &str) -> BotResult<()> {
         let config_file = fs::read_to_string(filename)
@@ -87,123 +114,6 @@ impl BotConfig {
         let mna = self.modes[&GameMode::MNA].split_emote();
 
         [std, tko, ctb, mna]
-    }
-
-    pub fn minimize(&self) -> RequestReactionType {
-        let (id, name) = self
-            .emotes
-            .get(&Emotes::Minimize)
-            .unwrap_or_else(|| panic!("No minimize emote in config"))
-            .split_emote();
-
-        RequestReactionType::Custom {
-            id: EmojiId(id),
-            name: Some(name.to_owned()),
-        }
-    }
-
-    pub fn expand(&self) -> RequestReactionType {
-        let (id, name) = self
-            .emotes
-            .get(&Emotes::Expand)
-            .unwrap_or_else(|| panic!("No expand emote in config"))
-            .split_emote();
-
-        RequestReactionType::Custom {
-            id: EmojiId(id),
-            name: Some(name.to_owned()),
-        }
-    }
-
-    pub fn jump_start(&self) -> RequestReactionType {
-        let (id, name) = self
-            .emotes
-            .get(&Emotes::JumpStart)
-            .unwrap_or_else(|| panic!("No jump_start emote in config"))
-            .split_emote();
-
-        RequestReactionType::Custom {
-            id: EmojiId(id),
-            name: Some(name.to_owned()),
-        }
-    }
-
-    pub fn multi_step_back(&self) -> RequestReactionType {
-        let (id, name) = self
-            .emotes
-            .get(&Emotes::MultiStepBack)
-            .unwrap_or_else(|| panic!("No multi_step_back emote in config"))
-            .split_emote();
-
-        RequestReactionType::Custom {
-            id: EmojiId(id),
-            name: Some(name.to_owned()),
-        }
-    }
-
-    pub fn single_step_back(&self) -> RequestReactionType {
-        let (id, name) = self
-            .emotes
-            .get(&Emotes::SingleStepBack)
-            .unwrap_or_else(|| panic!("No single_step_back emote in config"))
-            .split_emote();
-
-        RequestReactionType::Custom {
-            id: EmojiId(id),
-            name: Some(name.to_owned()),
-        }
-    }
-
-    pub fn my_position(&self) -> RequestReactionType {
-        let (id, name) = self
-            .emotes
-            .get(&Emotes::MyPosition)
-            .unwrap_or_else(|| panic!("No my_position emote in config"))
-            .split_emote();
-
-        RequestReactionType::Custom {
-            id: EmojiId(id),
-            name: Some(name.to_owned()),
-        }
-    }
-
-    pub fn single_step(&self) -> RequestReactionType {
-        let (id, name) = self
-            .emotes
-            .get(&Emotes::SingleStep)
-            .unwrap_or_else(|| panic!("No single_step emote in config"))
-            .split_emote();
-
-        RequestReactionType::Custom {
-            id: EmojiId(id),
-            name: Some(name.to_owned()),
-        }
-    }
-
-    pub fn multi_step(&self) -> RequestReactionType {
-        let (id, name) = self
-            .emotes
-            .get(&Emotes::MultiStep)
-            .unwrap_or_else(|| panic!("No multi_step emote in config"))
-            .split_emote();
-
-        RequestReactionType::Custom {
-            id: EmojiId(id),
-            name: Some(name.to_owned()),
-        }
-    }
-
-    pub fn jump_end(&self) -> RequestReactionType {
-        let (id, name) = self
-            .emotes
-            .get(&Emotes::JumpEnd)
-            .unwrap_or_else(|| panic!("No jump_end emote in config"))
-            .split_emote();
-
-        RequestReactionType::Custom {
-            id: EmojiId(id),
-            name: Some(name.to_owned()),
-        }
     }
 }
 

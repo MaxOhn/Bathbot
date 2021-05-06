@@ -1,8 +1,9 @@
 use super::{PageChange, ReactionVec};
 
 use crate::{
+    core::Emotes,
     embeds::{EmbedData, ProfileEmbed},
-    BotResult, Context, CONFIG,
+    BotResult, Context,
 };
 
 use std::time::Duration;
@@ -31,9 +32,7 @@ impl ProfilePagination {
     }
 
     fn reactions() -> ReactionVec {
-        let config = CONFIG.get().unwrap();
-
-        smallvec![config.expand(), config.minimize()]
+        smallvec![Emotes::Expand, Emotes::Minimize]
     }
 
     pub async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> BotResult<()> {
@@ -42,7 +41,7 @@ impl ProfilePagination {
         let reaction_stream = {
             for emoji in Self::reactions() {
                 ctx.http
-                    .create_reaction(self.msg.channel_id, self.msg.id, emoji)
+                    .create_reaction(self.msg.channel_id, self.msg.id, emoji.request_reaction())
                     .await?;
             }
 
@@ -73,8 +72,10 @@ impl ProfilePagination {
                 time::sleep(time::Duration::from_millis(100)).await;
 
                 for emoji in Self::reactions() {
+                    let reaction_reaction = emoji.request_reaction();
+
                     ctx.http
-                        .delete_current_user_reaction(msg.channel_id, msg.id, emoji)
+                        .delete_current_user_reaction(msg.channel_id, msg.id, reaction_reaction)
                         .await?;
                 }
             }

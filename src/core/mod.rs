@@ -9,7 +9,7 @@ mod stats;
 
 pub use cache::Cache;
 pub use commands::{Command, CommandGroup, CommandGroups};
-pub use config::{BotConfig, CONFIG};
+pub use config::{BotConfig, Emotes, CONFIG};
 pub use context::{
     generate_activity, BackendData, Clients, Context, ContextData, MatchLiveChannels,
     MatchTrackResult,

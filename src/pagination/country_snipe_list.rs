@@ -1,8 +1,8 @@
 use super::{Pages, Pagination, ReactionVec};
 
 use crate::{
-    commands::osu::SnipeOrder, custom_client::SnipeCountryPlayer, embeds::CountrySnipeListEmbed,
-    BotResult, CountryCode, CONFIG,
+    commands::osu::SnipeOrder, core::Emotes, custom_client::SnipeCountryPlayer,
+    embeds::CountrySnipeListEmbed, BotResult, CountryCode,
 };
 
 use async_trait::async_trait;
@@ -57,16 +57,14 @@ impl Pagination for CountrySnipeListPagination {
     }
 
     fn reactions() -> ReactionVec {
-        let config = CONFIG.get().unwrap();
-
         smallvec![
-            config.jump_start(),
-            config.multi_step_back(),
-            config.single_step_back(),
-            config.my_position(),
-            config.single_step(),
-            config.multi_step(),
-            config.jump_end(),
+            Emotes::JumpStart,
+            Emotes::MultiStepBack,
+            Emotes::SingleStepBack,
+            Emotes::MyPosition,
+            Emotes::SingleStep,
+            Emotes::MultiStep,
+            Emotes::JumpEnd,
         ]
     }
 
