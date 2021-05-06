@@ -21,7 +21,7 @@ pub struct BotConfig {
     pub metric_server_port: u16,
     grades: HashMap<Grade, String>,
     pub modes: HashMap<GameMode, String>,
-    emotes: HashMap<Emotes, String>,
+    emotes: HashMap<Emote, String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -35,8 +35,8 @@ pub struct Tokens {
     pub twitch_token: String,
 }
 
-#[derive(Eq, PartialEq, Debug, Hash)]
-pub enum Emotes {
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
+pub enum Emote {
     Minimize,
     Expand,
 
@@ -47,22 +47,29 @@ pub enum Emotes {
     SingleStep,
     MultiStep,
     JumpEnd,
+
+    Custom(&'static str),
 }
 
-impl Emotes {
+impl Emote {
     pub fn request_reaction(&self) -> RequestReactionType {
         let emotes = &CONFIG.get().unwrap().emotes;
 
         let emote = match self {
-            Emotes::Minimize => emotes.get(self),
-            Emotes::Expand => emotes.get(self),
-            Emotes::JumpStart => emotes.get(self),
-            Emotes::MultiStepBack => emotes.get(self),
-            Emotes::SingleStepBack => emotes.get(self),
-            Emotes::MyPosition => emotes.get(self),
-            Emotes::SingleStep => emotes.get(self),
-            Emotes::MultiStep => emotes.get(self),
-            Emotes::JumpEnd => emotes.get(self),
+            Emote::Minimize => emotes.get(self),
+            Emote::Expand => emotes.get(self),
+            Emote::JumpStart => emotes.get(self),
+            Emote::MultiStepBack => emotes.get(self),
+            Emote::SingleStepBack => emotes.get(self),
+            Emote::MyPosition => emotes.get(self),
+            Emote::SingleStep => emotes.get(self),
+            Emote::MultiStep => emotes.get(self),
+            Emote::JumpEnd => emotes.get(self),
+            Emote::Custom(emote) => {
+                return RequestReactionType::Unicode {
+                    name: emote.to_string(),
+                }
+            }
         };
 
         let (id, name) = emote
@@ -135,7 +142,7 @@ impl SplitEmote for String {
     }
 }
 
-impl<'de> Deserialize<'de> for Emotes {
+impl<'de> Deserialize<'de> for Emote {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let s: &str = Deserialize::deserialize(d)?;
 

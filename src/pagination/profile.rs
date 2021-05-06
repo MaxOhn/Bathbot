@@ -1,8 +1,9 @@
 use super::{PageChange, ReactionVec};
 
 use crate::{
-    core::Emotes,
+    core::Emote,
     embeds::{EmbedData, ProfileEmbed},
+    util::send_reaction,
     BotResult, Context,
 };
 
@@ -32,17 +33,16 @@ impl ProfilePagination {
     }
 
     fn reactions() -> ReactionVec {
-        smallvec![Emotes::Expand, Emotes::Minimize]
+        smallvec![Emote::Expand, Emote::Minimize]
     }
 
     pub async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> BotResult<()> {
         ctx.store_msg(self.msg.id);
+        let reactions = Self::reactions();
 
         let reaction_stream = {
-            for emoji in Self::reactions() {
-                ctx.http
-                    .create_reaction(self.msg.channel_id, self.msg.id, emoji.request_reaction())
-                    .await?;
+            for emote in &reactions {
+                send_reaction(ctx, &self.msg, *emote).await?;
             }
 
             ctx.standby
@@ -71,8 +71,8 @@ impl ProfilePagination {
             Err(Error::Response { status, .. }) if status.as_u16() == 403 => {
                 time::sleep(time::Duration::from_millis(100)).await;
 
-                for emoji in Self::reactions() {
-                    let reaction_reaction = emoji.request_reaction();
+                for emote in &reactions {
+                    let reaction_reaction = emote.request_reaction();
 
                     ctx.http
                         .delete_current_user_reaction(msg.channel_id, msg.id, reaction_reaction)

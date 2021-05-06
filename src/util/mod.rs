@@ -15,7 +15,7 @@ pub use exts::*;
 pub use matrix::Matrix;
 pub use safe_content::content_safe;
 
-use crate::{BotResult, Context};
+use crate::{core::Emote, BotResult, Context};
 
 use futures::stream::{FuturesOrdered, StreamExt};
 use hashbrown::HashSet;
@@ -24,7 +24,11 @@ use image::{
 };
 use std::iter::Extend;
 use tokio::time::{sleep, Duration};
-use twilight_model::id::{GuildId, UserId};
+use twilight_http::Error;
+use twilight_model::{
+    channel::Message,
+    id::{GuildId, UserId},
+};
 
 #[inline]
 pub fn discord_avatar(user_id: UserId, hash: &str) -> String {
@@ -299,4 +303,79 @@ pub async fn get_member_ids(ctx: &Context, guild_id: GuildId) -> BotResult<HashS
     }
 
     Ok(members)
+}
+
+pub async fn send_reaction(ctx: &Context, msg: &Message, emote: Emote) -> BotResult<()> {
+    let channel = msg.channel_id;
+    let msg = msg.id;
+    let emoji = emote.request_reaction();
+
+    // Initial attempt, return if it's not a 429
+    let mut err = match ctx.http.create_reaction(channel, msg, emoji).await {
+        Ok(_) => return Ok(()),
+        Err(e) if matches!(e, Error::Response { status, .. } if status.as_u16() == 429) => e,
+        Err(e) => return Err(e.into()),
+    };
+
+    // 100ms - 400ms - 1600ms
+    for (i, duration) in ExponentialBackoff::new(4).factor(25).take(3).enumerate() {
+        debug!("Retry attempt #{} | Backoff {:?}", i + 1, duration);
+        sleep(duration).await;
+        let emoji = emote.request_reaction();
+
+        err = match ctx.http.create_reaction(channel, msg, emoji).await {
+            Ok(_) => return Ok(()),
+            Err(e) if matches!(e, Error::Response { status, .. } if status.as_u16() == 429) => e,
+            Err(e) => return Err(e.into()),
+        };
+    }
+
+    Err(err.into())
+}
+
+#[derive(Debug, Clone)]
+pub struct ExponentialBackoff {
+    current: Duration,
+    base: u32,
+    factor: u32,
+    max_delay: Option<Duration>,
+}
+
+impl ExponentialBackoff {
+    pub fn new(base: u32) -> Self {
+        ExponentialBackoff {
+            current: Duration::from_millis(base as u64),
+            base,
+            factor: 1,
+            max_delay: None,
+        }
+    }
+
+    pub fn factor(mut self, factor: u32) -> Self {
+        self.factor = factor;
+
+        self
+    }
+
+    pub fn max_delay(mut self, max_delay: u64) -> Self {
+        self.max_delay.replace(Duration::from_millis(max_delay));
+
+        self
+    }
+}
+
+impl Iterator for ExponentialBackoff {
+    type Item = Duration;
+
+    fn next(&mut self) -> Option<Duration> {
+        let duration = self.current * self.factor;
+
+        if let Some(max_delay) = self.max_delay.filter(|&max_delay| duration > max_delay) {
+            return Some(max_delay);
+        }
+
+        self.current *= self.base;
+
+        Some(duration)
+    }
 }

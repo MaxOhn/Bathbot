@@ -1,7 +1,7 @@
 use super::{Pages, Pagination, ReactionVec};
 
 use crate::{
-    commands::osu::SnipeOrder, core::Emotes, custom_client::SnipeCountryPlayer,
+    commands::osu::SnipeOrder, core::Emote, custom_client::SnipeCountryPlayer,
     embeds::CountrySnipeListEmbed, BotResult, CountryCode,
 };
 
@@ -58,13 +58,13 @@ impl Pagination for CountrySnipeListPagination {
 
     fn reactions() -> ReactionVec {
         smallvec![
-            Emotes::JumpStart,
-            Emotes::MultiStepBack,
-            Emotes::SingleStepBack,
-            Emotes::MyPosition,
-            Emotes::SingleStep,
-            Emotes::MultiStep,
-            Emotes::JumpEnd,
+            Emote::JumpStart,
+            Emote::MultiStepBack,
+            Emote::SingleStepBack,
+            Emote::MyPosition,
+            Emote::SingleStep,
+            Emote::MultiStep,
+            Emote::JumpEnd,
         ]
     }
 

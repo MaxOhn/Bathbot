@@ -40,7 +40,12 @@ pub use sniped_difference::SnipedDiffPagination;
 pub use top::TopPagination;
 pub use top_if::TopIfPagination;
 
-use crate::{core::Emotes, embeds::EmbedData, util::numbers, BotResult, Context, CONFIG};
+use crate::{
+    core::Emote,
+    embeds::EmbedData,
+    util::{numbers, send_reaction},
+    BotResult, Context, CONFIG,
+};
 
 use async_trait::async_trait;
 use smallvec::SmallVec;
@@ -54,7 +59,7 @@ use twilight_model::{
     id::{EmojiId, UserId},
 };
 
-type ReactionVec = SmallVec<[Emotes; 7]>;
+type ReactionVec = SmallVec<[Emote; 7]>;
 
 #[async_trait]
 pub trait Pagination: Sync + Sized {
@@ -77,21 +82,21 @@ pub trait Pagination: Sync + Sized {
 
     fn arrow_reactions() -> ReactionVec {
         smallvec![
-            Emotes::JumpStart,
-            Emotes::SingleStepBack,
-            Emotes::SingleStep,
-            Emotes::JumpEnd,
+            Emote::JumpStart,
+            Emote::SingleStepBack,
+            Emote::SingleStep,
+            Emote::JumpEnd,
         ]
     }
 
     fn arrow_reactions_full() -> ReactionVec {
         smallvec![
-            Emotes::JumpStart,
-            Emotes::MultiStepBack,
-            Emotes::SingleStepBack,
-            Emotes::SingleStep,
-            Emotes::MultiStep,
-            Emotes::JumpEnd,
+            Emote::JumpStart,
+            Emote::MultiStepBack,
+            Emote::SingleStepBack,
+            Emote::SingleStep,
+            Emote::MultiStep,
+            Emote::JumpEnd,
         ]
     }
 
@@ -132,23 +137,8 @@ pub trait Pagination: Sync + Sized {
         let reaction_stream = {
             let msg = self.msg();
 
-            for emoji in &reactions {
-                let reaction_result = ctx
-                    .http
-                    .create_reaction(msg.channel_id, msg.id, emoji.request_reaction())
-                    .await;
-
-                match reaction_result {
-                    Ok(_) => {}
-                    Err(Error::Ratelimiting { .. }) => {
-                        time::sleep(time::Duration::from_millis(100)).await;
-
-                        ctx.http
-                            .create_reaction(msg.channel_id, msg.id, emoji.request_reaction())
-                            .await?;
-                    }
-                    Err(why) => return Err(why.into()),
-                }
+            for emote in &reactions {
+                send_reaction(ctx, msg, *emote).await?;
             }
 
             ctx.standby
@@ -177,8 +167,8 @@ pub trait Pagination: Sync + Sized {
             Err(Error::Response { status, .. }) if status.as_u16() == 403 => {
                 time::sleep(time::Duration::from_millis(100)).await;
 
-                for emoji in &reactions {
-                    let request_reaction = emoji.request_reaction();
+                for emote in &reactions {
+                    let request_reaction = emote.request_reaction();
 
                     ctx.http
                         .delete_current_user_reaction(msg.channel_id, msg.id, request_reaction)

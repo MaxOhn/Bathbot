@@ -1,10 +1,11 @@
 use super::ReactionWrapper;
 use crate::{
     bg_game::MapsetTags,
+    core::Emote,
     database::MapsetTagWrapper,
     util::{
         constants::{GENERAL_ISSUE, OSU_BASE, OWNER_USER_ID},
-        CowUtils, MessageExt,
+        send_reaction, CowUtils, MessageExt,
     },
     Args, BotResult, Context, CONFIG,
 };
@@ -14,7 +15,6 @@ use rosu_v2::model::GameMode;
 use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::fs;
 use tokio_stream::StreamExt;
-use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{
     channel::{Message, ReactionType},
     gateway::event::Event,
@@ -277,13 +277,8 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         ];
 
         for &reaction in reactions.iter() {
-            let emote = RequestReactionType::Unicode {
-                name: reaction.to_string(),
-            };
-
-            ctx.http
-                .create_reaction(response.channel_id, response.id, emote)
-                .await?;
+            let emote = Emote::Custom(reaction);
+            send_reaction(&*ctx, &response, emote).await?;
         }
 
         let mut break_loop = true;

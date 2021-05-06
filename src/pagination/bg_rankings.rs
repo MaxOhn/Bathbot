@@ -1,5 +1,5 @@
 use super::{Pages, Pagination, ReactionVec};
-use crate::{core::Emotes, embeds::BGRankingEmbed, BotResult, Context};
+use crate::{core::Emote, embeds::BGRankingEmbed, BotResult, Context};
 
 use async_trait::async_trait;
 use hashbrown::HashMap;
@@ -60,11 +60,11 @@ impl Pagination for BGRankingPagination {
 
     fn reactions() -> ReactionVec {
         smallvec![
-            Emotes::JumpStart,
-            Emotes::SingleStepBack,
-            Emotes::MyPosition,
-            Emotes::SingleStep,
-            Emotes::JumpEnd,
+            Emote::JumpStart,
+            Emote::SingleStepBack,
+            Emote::MyPosition,
+            Emote::SingleStep,
+            Emote::JumpEnd,
         ]
     }
 

@@ -2,9 +2,10 @@ use super::ReactionWrapper;
 use crate::{
     bail,
     bg_game::MapsetTags,
+    core::Emote,
     database::MapsetTagWrapper,
     embeds::{BGStartEmbed, BGTagsEmbed, EmbedData},
-    util::{constants::GENERAL_ISSUE, MessageExt},
+    util::{constants::GENERAL_ISSUE, send_reaction, MessageExt},
     Args, BotResult, Context,
 };
 
@@ -12,7 +13,6 @@ use rosu_v2::model::GameMode;
 use std::sync::Arc;
 use tokio::time::Duration;
 use tokio_stream::StreamExt;
-use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{
     channel::{Message, ReactionType},
     gateway::event::Event,
@@ -114,13 +114,8 @@ async fn get_mapsets(
     ];
 
     for &reaction in reactions.iter() {
-        let emote = RequestReactionType::Unicode {
-            name: reaction.to_string(),
-        };
-
-        ctx.http
-            .create_reaction(response.channel_id, response.id, emote)
-            .await?;
+        let emote = Emote::Custom(reaction);
+        send_reaction(&*ctx, &response, emote).await?;
     }
 
     let mut included = MapsetTags::empty();

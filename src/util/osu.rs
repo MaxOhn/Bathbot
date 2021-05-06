@@ -1,3 +1,4 @@
+use super::ExponentialBackoff;
 use crate::{
     util::{
         constants::OSU_BASE, error::MapDownloadError, matcher, numbers::round, BeatmapExt, ScoreExt,
@@ -5,13 +6,10 @@ use crate::{
     CONFIG,
 };
 
+use bytes::Bytes;
 use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score};
 use std::borrow::Cow;
-use tokio::{
-    fs::File,
-    io::AsyncWriteExt,
-    time::{sleep, Duration},
-};
+use tokio::{fs::File, io::AsyncWriteExt, time::sleep};
 use twilight_cache_inmemory::model::CachedMessage;
 use twilight_model::channel::{embed::Embed, Message};
 
@@ -70,26 +68,7 @@ pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadErro
     map_path.push(format!("{}.osu", map_id));
 
     if !map_path.exists() {
-        let download_url = format!("{}osu/{}", OSU_BASE, map_id);
-        let mut content;
-        let mut delay = 500;
-        let mut attempts = 10;
-
-        while {
-            content = reqwest::get(&download_url).await?.bytes().await?;
-            (content.len() < 6 || &content.slice(0..6)[..] == b"<html>") && attempts > 0
-        } {
-            info!("Received invalid {}.osu, {}ms backoff", map_id, delay);
-            sleep(Duration::from_millis(delay)).await;
-
-            delay = (delay * 2).min(10_000);
-            attempts -= 1;
-        }
-
-        if content.len() < 6 || &content.slice(0..6)[..] == b"<html>" {
-            return Err(MapDownloadError::Content(map_id));
-        }
-
+        let content = request_beatmap_file(map_id).await?;
         let mut file = File::create(&map_path).await?;
         file.write_all(&content).await?;
         info!("Downloaded {}.osu successfully", map_id);
@@ -101,6 +80,33 @@ pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadErro
         .expect("map_path OsString is no valid String");
 
     Ok(map_path)
+}
+
+async fn request_beatmap_file(map_id: u32) -> Result<Bytes, MapDownloadError> {
+    let url = format!("{}osu/{}", OSU_BASE, map_id);
+    let mut content = reqwest::get(&url).await?.bytes().await?;
+
+    if content.len() >= 6 && &content.slice(0..6)[..] != b"<html>" {
+        return Ok(content);
+    }
+
+    // 500ms - 1000ms - 2000ms - 4000ms - 8000ms - 10000ms - 10000ms - ...
+    let backoff = ExponentialBackoff::new(2).factor(250).max_delay(10_000);
+
+    for (i, duration) in backoff.take(10).enumerate() {
+        debug!("Retry attempt #{} | Backoff {:?}", i + 1, duration);
+        sleep(duration).await;
+
+        content = reqwest::get(&url).await?.bytes().await?;
+
+        if content.len() >= 6 && &content.slice(0..6)[..] != b"<html>" {
+            return Ok(content);
+        }
+    }
+
+    (content.len() >= 6 && &content.slice(0..6)[..] != b"<html>")
+        .then(|| content)
+        .ok_or(MapDownloadError::Content(map_id))
 }
 
 macro_rules! pp {
