@@ -1,5 +1,6 @@
 
 **[TODO]**
+- Fix parsing members for cold resume
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
 - ~~Check on IRC for tracking~~ irc only provides username, not id
 - ~~Use DB medals instead of osekai~~ no medal solution available

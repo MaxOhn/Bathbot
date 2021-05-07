@@ -515,11 +515,11 @@ fn simulate_score(
     attributes
 }
 
-fn unchoke_score(score: &mut Score, map: &Beatmap, mut attributes: StarResult) -> StarResult {
-    match map.mode {
-        GameMode::STD
+fn unchoke_score(score: &mut Score, map: &Beatmap, attributes: StarResult) -> StarResult {
+    match attributes {
+        StarResult::Osu(ref attribs)
             if score.statistics.count_miss > 0
-                || score.max_combo < map.max_combo.unwrap_or(5) - 5 =>
+                || score.max_combo < map.max_combo.unwrap_or(attribs.max_combo as u32) - 5 =>
         {
             let total_objects = map.count_objects() as usize;
             let passed_objects = score.total_hits() as usize;
@@ -536,9 +536,9 @@ fn unchoke_score(score: &mut Score, map: &Beatmap, mut attributes: StarResult) -
 
             score.statistics.count_300 = count300 as u32;
             score.statistics.count_100 = count100 as u32;
-            score.max_combo = map.max_combo.unwrap_or(0);
+            score.max_combo = map.max_combo.unwrap_or(attribs.max_combo as u32);
         }
-        GameMode::MNA => {
+        StarResult::Mania(_) => {
             score.score = 1_000_000;
 
             score.grade = if score
@@ -552,18 +552,15 @@ fn unchoke_score(score: &mut Score, map: &Beatmap, mut attributes: StarResult) -
 
             return attributes;
         }
-        GameMode::CTB if score.max_combo != map.max_combo.unwrap_or(0) => {
-            let diff_attributes = match attributes {
-                StarResult::Fruits(attributes) => attributes,
-                _ => panic!("no ctb attributes after calculating stars for ctb map"),
-            };
-
-            let total_objects = diff_attributes.max_combo;
+        StarResult::Fruits(ref attribs)
+            if score.max_combo != map.max_combo.unwrap_or(attribs.max_combo as u32) =>
+        {
+            let total_objects = attribs.max_combo;
             let passed_objects = score.total_hits() as usize;
 
             let missing = total_objects - passed_objects;
             let missing_fruits = missing.saturating_sub(
-                diff_attributes
+                attribs
                     .n_droplets
                     .saturating_sub(score.statistics.count_100 as usize),
             );
@@ -572,7 +569,7 @@ fn unchoke_score(score: &mut Score, map: &Beatmap, mut attributes: StarResult) -
             let n_fruits = score.statistics.count_300 as usize + missing_fruits;
             let n_droplets = score.statistics.count_100 as usize + missing_droplets;
             let n_tiny_droplet_misses = score.statistics.count_katu as usize;
-            let n_tiny_droplets = diff_attributes
+            let n_tiny_droplets = attribs
                 .n_tiny_droplets
                 .saturating_sub(n_tiny_droplet_misses);
 
@@ -580,11 +577,9 @@ fn unchoke_score(score: &mut Score, map: &Beatmap, mut attributes: StarResult) -
             score.statistics.count_100 = n_droplets as u32;
             score.statistics.count_katu = n_tiny_droplet_misses as u32;
             score.statistics.count_50 = n_tiny_droplets as u32;
-            score.max_combo = diff_attributes.max_combo as u32;
-
-            attributes = StarResult::Fruits(diff_attributes);
+            score.max_combo = attribs.max_combo as u32;
         }
-        GameMode::TKO if score.grade == Grade::F || score.statistics.count_miss > 0 => {
+        StarResult::Taiko(_) if score.grade == Grade::F || score.statistics.count_miss > 0 => {
             let total_objects = map.count_circles as usize;
             let passed_objects = score.total_hits() as usize;
 
