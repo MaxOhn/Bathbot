@@ -102,26 +102,22 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     // Request mapset through API
     let (mapset, maps) = match ctx.osu().beatmapset(mapset_id).await {
         Ok(mut mapset) => {
-            if let Some(ref mut maps) = mapset.maps {
-                let mode = maps.first().map(|m| m.mode).unwrap_or_default();
+            let mut maps = mapset.maps.take().unwrap_or_default();
 
-                // For mania sort first by mania key, then star rating
-                if mode == GameMode::MNA {
-                    maps.sort_unstable_by(|m1, m2| {
-                        m1.cs
+            maps.sort_unstable_by(|m1, m2| {
+                (m1.mode as u8)
+                    .cmp(&(m2.mode as u8))
+                    .then_with(|| match m1.mode {
+                        // For mania sort first by mania key, then star rating
+                        GameMode::MNA => m1
+                            .cs
                             .partial_cmp(&m2.cs)
                             .unwrap_or(Ordering::Equal)
-                            .then(m1.stars.partial_cmp(&m2.stars).unwrap_or(Ordering::Equal))
-                    });
-                // For other mods just sort by star rating
-                } else {
-                    maps.sort_unstable_by(|m1, m2| {
-                        m1.stars.partial_cmp(&m2.stars).unwrap_or(Ordering::Equal)
-                    });
-                }
-            }
-
-            let maps = mapset.maps.take().unwrap_or_default();
+                            .then(m1.stars.partial_cmp(&m2.stars).unwrap_or(Ordering::Equal)),
+                        // For other mods just sort by star rating
+                        _ => m1.stars.partial_cmp(&m2.stars).unwrap_or(Ordering::Equal),
+                    })
+            });
 
             (mapset, maps)
         }

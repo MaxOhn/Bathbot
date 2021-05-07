@@ -208,8 +208,8 @@ async fn _insert_map(conn: &mut PgConnection, map: &Beatmap) -> BotResult<()> {
     sqlx::query!(
         "INSERT INTO maps (map_id,mapset_id,user_id,checksum,version,seconds_total,
         seconds_drain,count_circles,count_sliders,count_spinners,hp,cs,od,ar,mode,
-        status,last_update,stars,bpm) VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+        status,last_update,stars,bpm,max_combo) VALUES
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
         ON CONFLICT (map_id) DO NOTHING",
         map.map_id as i32,
         map.mapset_id as i32,
@@ -230,6 +230,7 @@ async fn _insert_map(conn: &mut PgConnection, map: &Beatmap) -> BotResult<()> {
         map.last_updated,
         map.stars,
         map.bpm,
+        map.max_combo.map(|combo| combo as i32),
     )
     .execute(&mut *conn)
     .await?;
