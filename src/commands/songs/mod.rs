@@ -23,7 +23,7 @@ pub use tijdmachine::*;
 use crate::{util::MessageExt, BotResult, Context};
 
 use std::sync::Arc;
-use tokio::time;
+use tokio::time::{interval, Duration};
 use twilight_model::channel::Message;
 
 async fn song_send(lyrics: &[&str], delay: u64, ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
@@ -32,7 +32,7 @@ async fn song_send(lyrics: &[&str], delay: u64, ctx: Arc<Context>, msg: &Message
         .map_or(true, |guild_id| ctx.config_lyrics(guild_id));
 
     if allow {
-        let mut interval = time::interval(time::Duration::from_millis(delay));
+        let mut interval = interval(Duration::from_millis(delay));
         for line in lyrics {
             interval.tick().await;
 

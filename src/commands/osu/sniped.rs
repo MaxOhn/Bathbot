@@ -295,14 +295,14 @@ fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult {
 
     let categorized: Vec<_> = scores
         .iter()
-        .scan(Utc::now() - chrono::Duration::weeks(7), |state, score| {
+        .scan(Utc::now() - Duration::weeks(7), |state, score| {
             if !names.contains(score.sniper.as_str()) {
                 return Some(None);
             }
 
             if score.date > *state {
                 while score.date > *state {
-                    *state = *state + chrono::Duration::weeks(1);
+                    *state = *state + Duration::weeks(1);
                 }
             }
 
@@ -332,14 +332,14 @@ fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult {
     let categorized: Vec<_> = scores
         .iter()
         .filter(|score| score.sniped.is_some())
-        .scan(Utc::now() - chrono::Duration::weeks(7), |state, score| {
+        .scan(Utc::now() - Duration::weeks(7), |state, score| {
             if !names.contains(score.sniped.as_deref().unwrap()) {
                 return Some(None);
             }
 
             if score.date > *state {
                 while score.date > *state {
-                    *state = *state + chrono::Duration::weeks(1);
+                    *state = *state + Duration::weeks(1);
                 }
             }
 

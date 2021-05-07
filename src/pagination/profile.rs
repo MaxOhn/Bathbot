@@ -8,7 +8,7 @@ use crate::{
 };
 
 use std::time::Duration;
-use tokio::time;
+use tokio::time::sleep;
 use tokio_stream::StreamExt;
 use twilight_http::Error;
 use twilight_model::{
@@ -69,7 +69,7 @@ impl ProfilePagination {
         match ctx.http.delete_all_reactions(msg.channel_id, msg.id).await {
             Ok(_) => {}
             Err(Error::Response { status, .. }) if status.as_u16() == 403 => {
-                time::sleep(time::Duration::from_millis(100)).await;
+                sleep(Duration::from_millis(100)).await;
 
                 for emote in &reactions {
                     let reaction_reaction = emote.request_reaction();

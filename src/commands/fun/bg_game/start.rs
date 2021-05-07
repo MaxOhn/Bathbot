@@ -10,8 +10,7 @@ use crate::{
 };
 
 use rosu_v2::model::GameMode;
-use std::sync::Arc;
-use tokio::time::Duration;
+use std::{sync::Arc, time::Duration};
 use tokio_stream::StreamExt;
 use twilight_model::{
     channel::{Message, ReactionType},

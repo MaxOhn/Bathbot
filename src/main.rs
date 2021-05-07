@@ -312,7 +312,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     info!("Exited event loop");
 
     // Give the ctrlc handler time to finish
-    time::sleep(time::Duration::from_secs(90)).await;
+    time::sleep(Duration::from_secs(90)).await;
 
     Ok(())
 }
