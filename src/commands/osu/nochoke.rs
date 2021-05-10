@@ -139,6 +139,7 @@ async fn nochokes_main(
                     unchoked.statistics.count_miss = 0;
                     unchoked.pp = Some(pp_result.pp);
                     unchoked.grade = unchoked.grade(None);
+                    unchoked.accuracy = unchoked.accuracy();
                 }
                 GameMode::CTB if score.max_combo != map.max_combo.unwrap_or(0) => {
                     let attributes = match rosu_pp::fruits::stars(&rosu_map, mods, None) {
@@ -191,6 +192,7 @@ async fn nochokes_main(
                     unchoked.statistics.count_miss = 0;
                     unchoked.pp = Some(pp_result.pp);
                     unchoked.grade = unchoked.grade(Some(acc));
+                    unchoked.accuracy = unchoked.accuracy();
                 }
                 GameMode::TKO if score.statistics.count_miss > 0 => {
                     let total_objects = map.count_circles as usize;
@@ -215,6 +217,7 @@ async fn nochokes_main(
                     unchoked.statistics.count_miss = 0;
                     unchoked.pp = Some(pp_result.pp);
                     unchoked.grade = unchoked.grade(Some(acc));
+                    unchoked.accuracy = unchoked.accuracy();
                 }
                 GameMode::MNA => bail!("can not unchoke mania scores"),
                 _ => {} // Nothing to unchoke

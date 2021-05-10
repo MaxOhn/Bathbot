@@ -601,6 +601,7 @@ fn unchoke_score(score: &mut Score, map: &Beatmap, attributes: StarResult) -> St
 
     score.statistics.count_miss = 0;
     score.grade = score.grade(None);
+    score.accuracy = score.accuracy();
 
     attributes
 }

@@ -1,5 +1,6 @@
 
 **[TODO]**
+- Fix `<mpc` when there are no common maps (e.g. `<mpc zuljanae idke`)
 - Fix parsing members for cold resume
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
 - ~~Check on IRC for tracking~~ irc only provides username, not id
