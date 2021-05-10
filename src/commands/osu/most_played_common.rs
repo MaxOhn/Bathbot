@@ -131,8 +131,8 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     maps.sort_unstable_by_key(|m| Reverse(total_counts.get(&m.map.map_id)));
 
     // Accumulate all necessary data
-    let len = names.iter().map(|name| name.len() + 4).sum();
-    let mut content = String::with_capacity(len);
+    let mut content = String::with_capacity(16);
+    let len = names.len();
     let mut iter = names.iter();
 
     if let Some(first) = iter.next() {
@@ -152,8 +152,10 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
         }
     }
 
-    if amount_common == 0 {
+    let response = if amount_common == 0 {
         content.push_str(" don't share any maps in their 100 most played maps");
+
+        msg.respond(&ctx, content).await?
     } else {
         let _ = write!(
             content,
@@ -161,25 +163,24 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
             amount_common,
             if amount_common > 1 { "s" } else { "" }
         );
-    }
 
-    let data_fut = async {
-        let initial_maps = &maps[..10.min(maps.len())];
+        let data_fut = async {
+            let initial_maps = &maps[..10.min(maps.len())];
 
-        MostPlayedCommonEmbed::new(&names, initial_maps, &users_count, 0)
+            MostPlayedCommonEmbed::new(&names, initial_maps, &users_count, 0)
+        };
+
+        // Creating the embed
+        let embed = data_fut.await.into_builder().build();
+
+        // Note: No combined pictures since user ids are not available
+
+        ctx.http
+            .create_message(msg.channel_id)
+            .content(content)?
+            .embed(embed)?
+            .await?
     };
-
-    // Creating the embed
-    let embed = data_fut.await.into_builder().build();
-
-    // Note: No combined pictures since user ids are not available
-
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .content(content)?
-        .embed(embed)?
-        .await?;
 
     // Skip pagination if too few entries
     if maps.len() <= 10 {
