@@ -176,7 +176,7 @@ lazy_static! {
 
 lazy_static! {
     static ref OSU_URL_MATCH_MATCHER: Regex =
-        Regex::new(r"https://osu.ppy.sh/community/matches/(\d+)").unwrap();
+        Regex::new(r"https://osu.ppy.sh/(?:community/matches|mp)/(\d+)").unwrap();
 }
 
 lazy_static! {

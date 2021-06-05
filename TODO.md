@@ -5,12 +5,9 @@
 - Ensure capital first letter for `<addcountry`
 - Command for compact `<osu`
 - Server setting to not send expanded `<r`
-- Accept `https://osu.ppy.sh/mp/{match url}` as mp url
 - Add toggle to enable/disable match live tracker
 - Add commands for performance leaderboard
-- FL FCs after `<topif -HD!` shouldn't be S/SS but SH/XH
 - Ignore purely numeric msg contents when looking up channel history for map ids
-- Anticipate missing genre for rosu-v2 (map id 2019)
 - Bonus pp on `<taiko` for `Misieuroo` i.e. top plays but 0pp
 - Bonus pp on `<oct` for `zelths` shows -3k
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
@@ -32,6 +29,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Accept `https://osu.ppy.sh/mp/{match url}` as mp url~~ (21.06.06)
 - ~~Handle pruning of 2+ week old msgs~~ (21.04.21)
 - ~~Remove 404 users in tracking~~ (21.04.16)
 - ~~Retrieve previous match state for `<mc` if start event not yet included~~ (21.04.16)
