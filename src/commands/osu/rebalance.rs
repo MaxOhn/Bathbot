@@ -20,7 +20,7 @@ use futures::{
 };
 use rosu_pp_newer::{osu_delta, osu_sotarks, osu_xexxar};
 use rosu_v2::prelude::{GameMode, OsuError, Score};
-use std::{cmp::Ordering, ops::Deref, sync::Arc};
+use std::{cmp::Ordering, sync::Arc};
 use tokio::fs::File;
 use twilight_model::channel::Message;
 
@@ -37,9 +37,7 @@ async fn rebalance_main(
     msg: &Message,
     mut args: Args<'_>,
 ) -> BotResult<()> {
-    let version = args.next().map(CowUtils::cow_to_ascii_lowercase);
-
-    let version = match version.as_ref().map(|c| c.deref()) {
+    let version = match args.next().map(CowUtils::cow_to_ascii_lowercase).as_deref() {
         Some("xexxar") => Version::Xexxar,
         Some("delta") | Some("delta_t") | Some("deltat") => Version::Delta,
         Some("sotarks") => Version::Sotarks,
