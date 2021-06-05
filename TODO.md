@@ -7,7 +7,6 @@
 - Server setting to not send expanded `<r`
 - Add toggle to enable/disable match live tracker
 - Add commands for performance leaderboard
-- Ignore purely numeric msg contents when looking up channel history for map ids
 - Bonus pp on `<taiko` for `Misieuroo` i.e. top plays but 0pp
 - Bonus pp on `<oct` for `zelths` shows -3k
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
@@ -29,6 +28,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Ignore purely numeric msg contents when looking up channel history for map ids~~ (21.06.06)
 - ~~Accept `https://osu.ppy.sh/mp/{match url}` as mp url~~ (21.06.06)
 - ~~Handle pruning of 2+ week old msgs~~ (21.04.21)
 - ~~Remove 404 users in tracking~~ (21.04.16)
