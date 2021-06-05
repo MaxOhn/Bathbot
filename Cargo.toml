@@ -79,6 +79,11 @@ git = "https://github.com/MaxOhn/rosu-pp"
 branch = "next"
 features = ["async_tokio"]
 
+[dependencies.rosu-pp-newer]
+# path = "../rosu_v2-pp-newer"
+git = "https://github.com/MaxOhn/rosu-pp-newer.git"
+branch = "main"
+
 [dependencies.rosu-pp-older]
 # path = "../rosu_v2-pp-older"
 git = "https://github.com/MaxOhn/rosu-pp-older.git"
@@ -102,7 +107,7 @@ default-features = false
 features = ["chrono", "json", "macros", "migrate", "postgres", "runtime-tokio-native-tls"]
 
 [dependencies.tokio]
-version = "1.0"
+version = "1.6"
 default_features = false
 features = ["fs", "io-util", "macros", "rt-multi-thread", "signal", "sync", "time"]
 

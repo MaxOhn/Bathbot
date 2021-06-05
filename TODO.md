@@ -1,5 +1,18 @@
 
 **[TODO]**
+- Deadlock at daily background loop?
+- Ensure match live is dropped when lobby is closed
+- Ensure capital first letter for `<addcountry`
+- Command for compact `<osu`
+- Server setting to not send expanded `<r`
+- Accept `https://osu.ppy.sh/mp/{match url}` as mp url
+- Add toggle to enable/disable match live tracker
+- Add commands for performance leaderboard
+- FL FCs after `<topif -HD!` shouldn't be S/SS but SH/XH
+- Ignore purely numeric msg contents when looking up channel history for map ids
+- Anticipate missing genre for rosu-v2 (map id 2019)
+- Bonus pp on `<taiko` for `Misieuroo` i.e. top plays but 0pp
+- Bonus pp on `<oct` for `zelths` shows -3k
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
 - ~~Check on IRC for tracking~~ irc only provides username, not id
 - ~~Use DB medals instead of osekai~~ no medal solution available

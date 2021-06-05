@@ -67,6 +67,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &MAPPER_CMD,
                 &TOPIF_CMD,
                 &TOPOLD_CMD,
+                &REBALANCE_CMD,
                 &SNIPED_CMD,
                 &SNIPEDGAIN_CMD,
                 &SNIPEDLOSS_CMD,

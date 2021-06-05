@@ -155,6 +155,7 @@ dependencies = [
  "regex",
  "reqwest",
  "rosu-pp",
+ "rosu-pp-newer",
  "rosu-pp-older",
  "rosu-v2",
  "serde",
@@ -2047,6 +2048,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rosu-pp-newer"
+version = "0.1.0"
+source = "git+https://github.com/MaxOhn/rosu-pp-newer.git?branch=main#577d3f6f156eafbe9a252651c0f62580d82e22f5"
+dependencies = [
+ "lazy_static",
+ "rosu-pp",
+ "tokio",
+]
+
+[[package]]
 name = "rosu-pp-older"
 version = "0.1.0"
 source = "git+https://github.com/MaxOhn/rosu-pp-older.git?branch=main#08c466da7b64fe91412be3e2e106e62a6cf6944c"
@@ -2704,9 +2715,9 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.5.0"
+version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83f0c8e7c0addab50b663055baf787d0af7f413a46e6e7fb9559a4e4db7137a5"
+checksum = "0a38d31d7831c6ed7aad00aa4c12d9375fd225a6dd77da1d25b707346319a975"
 dependencies = [
  "autocfg",
  "bytes",
