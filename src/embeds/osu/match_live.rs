@@ -477,7 +477,14 @@ fn game_content(lobby: &OsuMatch, game: &MatchGame) -> (String, Option<String>, 
             let (scores, sizes, team_scores) =
                 prepare_scores(game.mode, &game.scores, &lobby.users, game.scoring_type);
 
-            let mut team = scores.first().unwrap().team;
+            let mut team = match scores.first().map(|s| s.team) {
+                Some(team) => team,
+                None => {
+                    description.push_str("Game aborted");
+
+                    return (description, image, None);
+                }
+            };
 
             if matches!(game.team_type, TeamType::TeamVS | TeamType::TagTeamVS) {
                 team!(team,team_scores -> description);

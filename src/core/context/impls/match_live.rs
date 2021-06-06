@@ -213,6 +213,10 @@ impl Context {
                     .expect("no last live embed")
                     .update(&next_match);
 
+                if next_match.end_time.is_some() {
+                    remove.push(next_match.match_id);
+                }
+
                 tracked_match.osu_match = next_match;
 
                 if update {

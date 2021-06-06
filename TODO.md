@@ -1,7 +1,5 @@
 
 **[TODO]**
-- Deadlock at daily background loop?
-- Ensure match live is dropped when lobby is closed
 - Command for compact `<osu`
 - Server setting to not send expanded `<r`
 - Add toggle to enable/disable match live tracker
@@ -25,6 +23,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Ensure match live is dropped when lobby is closed~~ (21.06.06)
 - ~~Ensure capital first letter for `<addcountry`~~ (21.06.06)
 - ~~Bonus pp on `<taiko` for `Misieuroo` i.e. top plays but 0pp~~ (21.06.06)
 - ~~Bonus pp on `<oct` for `zelths` shows -3k~~ (21.06.06)
