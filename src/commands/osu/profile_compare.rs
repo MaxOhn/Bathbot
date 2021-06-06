@@ -13,7 +13,7 @@ use image::{
     ImageOutputFormat::Png,
     Rgba,
 };
-use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
+use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score, UserStatistics};
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
@@ -59,8 +59,18 @@ async fn compare_main(
     // Retrieve all users and their scores
     let user_fut1 = request_user(&ctx, &name1, Some(mode));
     let user_fut2 = request_user(&ctx, &name2, Some(mode));
-    let scores_fut_u1_1 = ctx.osu().user_scores(name1.as_str()).best().limit(50);
-    let scores_fut_u2_1 = ctx.osu().user_scores(name2.as_str()).best().limit(50);
+    let scores_fut_u1_1 = ctx
+        .osu()
+        .user_scores(name1.as_str())
+        .mode(mode)
+        .best()
+        .limit(50);
+    let scores_fut_u2_1 = ctx
+        .osu()
+        .user_scores(name2.as_str())
+        .mode(mode)
+        .best()
+        .limit(50);
 
     let scores_fut_u1_2 = ctx
         .osu()
@@ -133,11 +143,8 @@ async fn compare_main(
         user1.username, user2.username
     );
 
-    let stats1 = user1.statistics.as_ref().unwrap();
-    let profile_result1 = CompareResult::calc(mode, &scores1, stats1.pp, stats1.playcount as usize);
-
-    let stats2 = user2.statistics.as_ref().unwrap();
-    let profile_result2 = CompareResult::calc(mode, &scores2, stats2.pp, stats2.playcount as usize);
+    let profile_result1 = CompareResult::calc(mode, &scores1, user1.statistics.as_ref().unwrap());
+    let profile_result2 = CompareResult::calc(mode, &scores2, user2.statistics.as_ref().unwrap());
 
     // Create the thumbnail
     let thumbnail = match get_combined_thumbnail(&ctx, user1.user_id, user2.user_id).await {
@@ -231,7 +238,7 @@ pub struct CompareResult {
 }
 
 impl CompareResult {
-    fn calc(mode: GameMode, scores: &[Score], total_pp: f32, playcount: usize) -> Self {
+    fn calc(mode: GameMode, scores: &[Score], stats: &UserStatistics) -> Self {
         let mut pp = MinMaxAvgF32::new();
         let mut map_len = MinMaxAvgF32::new();
         let mut bonus_pp = BonusPP::new();
@@ -262,7 +269,7 @@ impl CompareResult {
             mode,
             pp,
             map_len: map_len.into(),
-            bonus_pp: bonus_pp.calculate(total_pp, playcount),
+            bonus_pp: bonus_pp.calculate(stats),
         }
     }
 }

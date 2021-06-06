@@ -17,7 +17,7 @@ use hashbrown::HashMap;
 use image::{imageops::FilterType::Lanczos3, load_from_memory, png::PngEncoder, ColorType};
 use plotters::prelude::*;
 use reqwest::Response;
-use rosu_v2::prelude::{GameMode, GameMods, MonthlyCount, OsuError, Score, User};
+use rosu_v2::prelude::{GameMode, GameMods, MonthlyCount, OsuError, Score, User, UserStatistics};
 use std::{
     cmp::{Ordering::Equal, PartialOrd},
     collections::{BTreeMap, HashMap as StdHashMap},
@@ -147,11 +147,8 @@ pub async fn profile_embed(
     };
 
     // Calculate profile stats
-    let profile_result = (!scores.is_empty()).then(|| {
-        let stats = user.statistics.as_ref().unwrap();
-
-        ProfileResult::calc(mode, &scores, stats.pp, stats.playcount as usize)
-    });
+    let profile_result = (!scores.is_empty())
+        .then(|| ProfileResult::calc(mode, &scores, user.statistics.as_ref().unwrap()));
 
     // Accumulate all necessary data
     let data = ProfileEmbed::new(&user, profile_result, globals_count, own_top_scores, mode);
@@ -212,7 +209,7 @@ pub struct ProfileResult {
 }
 
 impl ProfileResult {
-    fn calc(mode: GameMode, scores: &[Score], total_pp: f32, playcount: usize) -> Self {
+    fn calc(mode: GameMode, scores: &[Score], stats: &UserStatistics) -> Self {
         let mut acc = MinMaxAvgF32::new();
         let mut pp = MinMaxAvgF32::new();
         let mut combo = MinMaxAvgU32::new();
@@ -328,7 +325,7 @@ impl ProfileResult {
             mode,
             acc,
             pp,
-            bonus_pp: bonus_pp.calculate(total_pp, playcount),
+            bonus_pp: bonus_pp.calculate(stats),
             combo,
             map_combo,
             map_len: map_len.into(),

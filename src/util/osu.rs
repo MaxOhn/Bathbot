@@ -7,7 +7,7 @@ use crate::{
 };
 
 use bytes::Bytes;
-use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score};
+use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score, UserStatistics};
 use std::borrow::Cow;
 use tokio::{fs::File, io::AsyncWriteExt, time::sleep};
 use twilight_cache_inmemory::model::CachedMessage;
@@ -214,6 +214,8 @@ pub struct BonusPP {
 }
 
 impl BonusPP {
+    const MAX: f32 = 416.6667;
+
     #[inline]
     pub fn new() -> Self {
         Self {
@@ -240,7 +242,7 @@ impl BonusPP {
         self.avg_y += self.ys[idx] * weight;
     }
 
-    pub fn calculate(self, total_pp: f32, playcount: usize) -> f32 {
+    pub fn calculate(self, stats: &UserStatistics) -> f32 {
         let BonusPP {
             mut pp,
             len,
@@ -250,8 +252,13 @@ impl BonusPP {
             mut avg_y,
         } = self;
 
-        if self.len < 100 {
-            return round(total_pp - pp);
+        if stats.pp.abs() < f32::EPSILON {
+            let counts = &stats.grade_counts;
+            let sum = counts.ssh + counts.ss + counts.sh + counts.s + counts.a;
+
+            return round(Self::MAX * (1.0 - 0.9994_f32.powi(sum)));
+        } else if self.len < 100 {
+            return round(stats.pp - pp);
         }
 
         avg_x /= sum_x;
@@ -274,7 +281,7 @@ impl BonusPP {
         let m = xy / x2;
         let b = avg_y - (xy / x2) * avg_x;
 
-        for n in 100..=playcount {
+        for n in 100..=stats.playcount {
             let val = 100.0_f32.powf(m * n as f32 + b);
 
             if val <= 0.0 {
@@ -284,6 +291,6 @@ impl BonusPP {
             pp += val;
         }
 
-        round(total_pp - pp).min(416.67)
+        round(stats.pp - pp).min(Self::MAX)
     }
 }
