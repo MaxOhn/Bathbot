@@ -269,7 +269,7 @@ async fn require_link(ctx: &Context, msg: &Message) -> BotResult<()> {
 
     let content = format!(
         "Either specify an osu name or link your discord \
-        to an osu profile via `{}link osuname`",
+        to an osu profile via `{}link \"osu! username\"`",
         prefix
     );
 

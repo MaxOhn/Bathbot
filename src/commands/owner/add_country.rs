@@ -31,6 +31,19 @@ async fn addcountry(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResu
         }
     };
 
+    if country
+        .chars()
+        .next()
+        .filter(|c| c.is_uppercase())
+        .is_none()
+        || country.chars().skip(1).any(|c| !c.is_lowercase())
+    {
+        let content =
+            "The country name should start with a capital letter followed by lowercase letters";
+
+        return msg.error(&ctx, content).await;
+    }
+
     if let Some(name) = ctx.get_country(&code) {
         let content = format!(
             "The country code `{}` is already available for `{}`.",
