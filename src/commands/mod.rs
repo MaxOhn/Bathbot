@@ -76,6 +76,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &COUNTRYSNIPESTATS_CMD,
                 &COUNTRYSNIPELIST_CMD,
                 &RANKRANKEDSCORE_CMD,
+                &COUNTRYRANKING_CMD,
             ],
         ),
         CommandGroup::new(
@@ -102,6 +103,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &MAPPERMANIA_CMD,
                 &TOPOLDMANIA_CMD,
                 &RANKRANKEDSCOREMANIA_CMD,
+                &COUNTRYRANKINGMANIA_CMD,
             ],
         ),
         CommandGroup::new(
@@ -129,6 +131,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &TOPIFTAIKO_CMD,
                 &TOPOLDTAIKO_CMD,
                 &RANKRANKEDSCORETAIKO_CMD,
+                &COUNTRYRANKINGTAIKO_CMD,
             ],
         ),
         CommandGroup::new(
@@ -156,6 +159,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
                 &TOPIFCTB_CMD,
                 &TOPOLDCTB_CMD,
                 &RANKRANKEDSCORECTB_CMD,
+                &COUNTRYRANKINGCTB_CMD,
             ],
         ),
         CommandGroup::new(

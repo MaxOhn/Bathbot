@@ -74,13 +74,12 @@ impl Pagination for PlayerSnipeListPagination {
     }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        let entries = self
+        let count = self
             .scores
-            .range(self.pages.index..self.pages.index + self.pages.per_page);
+            .range(self.pages.index..self.pages.index + self.pages.per_page)
+            .count();
 
-        let count = entries.count();
-
-        if count < self.pages.per_page && self.total - self.pages.index > count {
+        if count < self.pages.per_page && count < self.total - self.pages.index {
             let huismetbenen_page = self.pages.index / 50;
             self.params.page(huismetbenen_page as u8);
 

@@ -1,8 +1,10 @@
 
+`<rankingperformance` | `<rankingpp` | `<rpp` | `<pplb` | `<ppleaderboard`
+`<rankingrankedscore` | `<rrs` | `<rankingscore`
+
 **[TODO]**
 - Command for compact `<osu`
 - Server setting to not send expanded `<r`
-- Add toggle to enable/disable match live tracker
 - Add commands for performance leaderboard
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
 - ~~Check on IRC for tracking~~ irc only provides username, not id
@@ -14,6 +16,7 @@
 - ~~`<medals` showing a list of all medals (`https://osekai.net/medals/apiv2/all_medals` / osu)~~ no attractive embed format
 
 **[Sometime]**
+- Add toggle to enable/disable match live tracker
 - `<favouritescores` commands
 - Provide feature to disable certain commands in certain channels
 - Experiment with different team/opponent scaling for `<mc`
