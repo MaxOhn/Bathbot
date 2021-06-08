@@ -1,11 +1,8 @@
 
-`<rankingperformance` | `<rankingpp` | `<rpp` | `<pplb` | `<ppleaderboard`
-`<rankingrankedscore` | `<rrs` | `<rankingscore`
-
 **[TODO]**
+- Add content to `<mapper` again
 - Command for compact `<osu`
 - Server setting to not send expanded `<r`
-- Add commands for performance leaderboard
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
 - ~~Check on IRC for tracking~~ irc only provides username, not id
 - ~~Use DB medals instead of osekai~~ no medal solution available
@@ -26,6 +23,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Add commands for performance leaderboard~~ (21.06.08)
 - ~~Ensure match live is dropped when lobby is closed~~ (21.06.06)
 - ~~Ensure capital first letter for `<addcountry`~~ (21.06.06)
 - ~~Bonus pp on `<taiko` for `Misieuroo` i.e. top plays but 0pp~~ (21.06.06)
