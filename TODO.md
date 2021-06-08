@@ -1,6 +1,5 @@
 
 **[TODO]**
-- Add content to `<mapper` again
 - Command for compact `<osu`
 - Server setting to not send expanded `<r`
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
@@ -23,6 +22,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Add content to `<mapper` again~~ (21.06.08)
 - ~~Add commands for performance leaderboard~~ (21.06.08)
 - ~~Ensure match live is dropped when lobby is closed~~ (21.06.06)
 - ~~Ensure capital first letter for `<addcountry`~~ (21.06.06)
