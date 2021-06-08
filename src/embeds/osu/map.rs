@@ -1,3 +1,4 @@
+use super::calculate_od;
 use crate::{
     embeds::{attachment, Author, EmbedFields, Footer},
     util::{
@@ -85,14 +86,7 @@ impl MapEmbed {
         let ar = attributes.ar;
         let hp = attributes.hp;
         let cs = attributes.cs;
-
-        let od = if mods.contains(GameMods::HardRock) {
-            (attributes.od * 1.4).min(10.0)
-        } else if mods.contains(GameMods::Easy) {
-            attributes.od * 0.5
-        } else {
-            attributes.od
-        };
+        let od = calculate_od(attributes.od, attributes.clock_rate);
 
         let mut attributes = rosu_map.stars(mod_bits, None);
         let stars = attributes.stars();

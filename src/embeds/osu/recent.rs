@@ -249,7 +249,7 @@ impl RecentEmbed {
             pp,
             combo,
             hits,
-            map_info: osu::get_map_info(&map),
+            map_info: osu::get_map_info(&map, score.mods, stars),
             if_fc,
             mapset_id: mapset.mapset_id,
         })

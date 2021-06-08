@@ -211,6 +211,7 @@ impl CompareEmbed {
         let acc = round(score.accuracy);
         let ago = how_long_ago(&score.created_at).to_string();
         let timestamp = score.created_at;
+        let mods = score.mods;
         let score = with_comma_uint(score.score).to_string();
 
         Ok(Self {
@@ -230,7 +231,7 @@ impl CompareEmbed {
             combo,
             hits,
             mapset_id: mapset.mapset_id,
-            map_info: osu::get_map_info(&map),
+            map_info: osu::get_map_info(&map, mods, stars),
         })
     }
 }

@@ -82,6 +82,7 @@ pub use whatif::WhatIfEmbed;
 
 use crate::util::{datetime::sec_to_minsec, numbers::round, BeatmapExt, ScoreExt};
 
+use rosu_pp::Mods;
 use rosu_v2::prelude::{Beatmap, GameMods};
 use std::fmt::Write;
 
@@ -145,18 +146,86 @@ pub fn get_keys(mods: GameMods, map: &Beatmap) -> String {
 }
 
 #[inline]
-pub fn get_map_info(map: &Beatmap) -> String {
+pub fn calculate_od(od: f32, clock_rate: f32) -> f32 {
+    let ms = difficulty_range(od, OD_MIN, OD_MID, OD_MAX) / clock_rate;
+
+    (OD_MIN - ms) / (OD_MIN - OD_MID) * 5.0
+}
+
+const OD_MIN: f32 = 80.0;
+const OD_MID: f32 = 50.0;
+const OD_MAX: f32 = 20.0;
+
+#[inline]
+pub fn calculate_ar(ar: f32, clock_rate: f32) -> f32 {
+    let ms = difficulty_range(ar, AR_MIN, AR_MID, AR_MAX) / clock_rate;
+
+    if ms > AR_MID {
+        (AR_MIN - ms) / (AR_MIN - AR_MID) * 5.0
+    } else {
+        (AR_MID - ms) / (AR_MID - AR_MAX) * 5.0 + 5.0
+    }
+}
+
+const AR_MIN: f32 = 1800.0;
+const AR_MID: f32 = 1200.0;
+const AR_MAX: f32 = 450.0;
+
+#[inline]
+fn difficulty_range(difficulty: f32, min: f32, mid: f32, max: f32) -> f32 {
+    if difficulty > 5.0 {
+        mid + (max - mid) * (difficulty - 5.0) / 5.0
+    } else if difficulty < 5.0 {
+        mid - (mid - min) * (5.0 - difficulty) / 5.0
+    } else {
+        mid
+    }
+}
+
+/// The stars argument must already be adjusted for mods
+pub fn get_map_info(map: &Beatmap, mods: GameMods, stars: f32) -> String {
+    let clock_rate = mods.bits().speed();
+
+    let mut sec_total = map.seconds_total;
+    let mut sec_drain = map.seconds_drain;
+    let mut bpm = map.bpm;
+    let mut cs = map.cs;
+    let mut ar = map.ar;
+    let mut od = map.od;
+    let mut hp = map.hp;
+
+    if mods.contains(GameMods::HardRock) {
+        hp = (hp * 1.5).min(10.0);
+        od = (od * 1.5).min(10.0);
+        ar = (ar * 1.5).min(10.0);
+        cs = (cs * 1.3).min(10.0);
+    } else if mods.contains(GameMods::Easy) {
+        hp *= 0.5;
+        od *= 0.5;
+        ar *= 0.5;
+        cs *= 0.5;
+    }
+
+    if clock_rate != 1.0 {
+        bpm *= clock_rate;
+        sec_total = (sec_total as f32 / clock_rate) as u32;
+        sec_drain = (sec_drain as f32 / clock_rate) as u32;
+
+        od = calculate_od(od, clock_rate);
+        ar = calculate_ar(ar, clock_rate);
+    }
+
     format!(
         "Length: `{}` (`{}`) BPM: `{}` Objects: `{}`\n\
         CS: `{}` AR: `{}` OD: `{}` HP: `{}` Stars: `{}`",
-        sec_to_minsec(map.seconds_total),
-        sec_to_minsec(map.seconds_drain),
-        round(map.bpm),
+        sec_to_minsec(sec_total),
+        sec_to_minsec(sec_drain),
+        round(bpm),
         map.count_objects(),
-        round(map.cs),
-        round(map.ar),
-        round(map.od),
-        round(map.hp),
-        round(map.stars)
+        round(cs),
+        round(ar),
+        round(od),
+        round(hp),
+        round(stars)
     )
 }

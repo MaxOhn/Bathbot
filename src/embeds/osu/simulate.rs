@@ -159,7 +159,7 @@ impl SimulateEmbed {
             pp,
             combo,
             hits,
-            map_info: osu::get_map_info(map),
+            map_info: osu::get_map_info(map, unchoked_score.mods, stars),
             removed_misses: misses,
             prev_hits,
             prev_combo,
