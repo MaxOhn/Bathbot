@@ -15,7 +15,7 @@ use std::sync::Arc;
 use tokio::time;
 use twilight_http::{
     api_error::{ApiError, ErrorCode, GeneralApiError},
-    Error as TwilightError,
+    error::ErrorType as TwilightErrorType,
 };
 use twilight_model::{channel::embed::Embed, id::ChannelId};
 
@@ -263,38 +263,44 @@ async fn score_loop(
                 Ok(msg_fut) => {
                     let result = msg_fut.await;
 
-                    if let Err(TwilightError::Response { error, .. }) = result {
-                        if let ApiError::General(GeneralApiError {
-                            code: ErrorCode::UnknownChannel,
-                            ..
-                        }) = error
-                        {
-                            let remove_fut =
-                                ctx.tracking().remove_channel(channel, None, ctx.psql());
+                    // if let Err(TwilightError {
+                    //     kind: TwilightErrorType::Response { error, .. },
+                    //     ..
+                    // }) = result
+                    if let Err(why) = result {
+                        if let TwilightErrorType::Response { error, .. } = why.kind() {
+                            if let ApiError::General(GeneralApiError {
+                                code: ErrorCode::UnknownChannel,
+                                ..
+                            }) = error
+                            {
+                                let remove_fut =
+                                    ctx.tracking().remove_channel(channel, None, ctx.psql());
 
-                            if let Err(why) = remove_fut.await {
-                                unwind_error!(
-                                    warn,
-                                    why,
-                                    "Could not remove osu tracks from unknown channel {}: {}",
-                                    channel
-                                );
+                                if let Err(why) = remove_fut.await {
+                                    unwind_error!(
+                                        warn,
+                                        why,
+                                        "Could not remove osu tracks from unknown channel {}: {}",
+                                        channel
+                                    );
+                                } else {
+                                    debug!("Removed osu tracking of unknown channel {}", channel);
+                                }
                             } else {
-                                debug!("Removed osu tracking of unknown channel {}", channel);
+                                warn!(
+                                    "Error from API while sending osu notif (channel {}): {}",
+                                    channel, error
+                                )
                             }
                         } else {
-                            warn!(
-                                "Error from API while sending osu notif (channel {}): {}",
-                                channel, error
-                            )
+                            unwind_error!(
+                                warn,
+                                why,
+                                "Error while sending osu notif (channel {}): {}",
+                                channel
+                            );
                         }
-                    } else if let Err(why) = result {
-                        unwind_error!(
-                            warn,
-                            why,
-                            "Error while sending osu notif (channel {}): {}",
-                            channel
-                        );
                     }
                 }
                 Err(why) => {

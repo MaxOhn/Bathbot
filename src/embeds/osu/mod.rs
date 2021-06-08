@@ -206,7 +206,7 @@ pub fn get_map_info(map: &Beatmap, mods: GameMods, stars: f32) -> String {
         cs *= 0.5;
     }
 
-    if clock_rate != 1.0 {
+    if (clock_rate - 1.0).abs() > f32::EPSILON {
         bpm *= clock_rate;
         sec_total = (sec_total as f32 / clock_rate) as u32;
         sec_drain = (sec_drain as f32 / clock_rate) as u32;

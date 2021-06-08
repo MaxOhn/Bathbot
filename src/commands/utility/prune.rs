@@ -7,7 +7,7 @@ use std::{str::FromStr, sync::Arc};
 use tokio::time::{self, Duration};
 use twilight_http::{
     api_error::{ApiError, ErrorCode::MessageTooOldToBulkDelete},
-    Error,
+    error::ErrorType,
 };
 use twilight_model::channel::Message;
 
@@ -67,18 +67,20 @@ async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
 
     match ctx.http.delete_messages(msg.channel_id, messages).await {
         Ok(_) => {}
-        Err(Error::Response {
-            error: ApiError::General(err),
-            ..
-        }) if err.code == MessageTooOldToBulkDelete => {
-            let content = "Cannot delete messages that are older than two weeks \\:(";
-
-            return msg.error(&ctx, content).await;
-        }
         Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            if matches!(why.kind(), ErrorType::Response {
+                error: ApiError::General(err),
+                ..
+            } if err.code == MessageTooOldToBulkDelete)
+            {
+                let content = "Cannot delete messages that are older than two weeks \\:(";
 
-            return Err(why.into());
+                return msg.error(&ctx, content).await;
+            } else {
+                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(why.into());
+            }
         }
     }
 

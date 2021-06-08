@@ -10,7 +10,7 @@ use crate::{
 use std::time::Duration;
 use tokio::time::sleep;
 use tokio_stream::StreamExt;
-use twilight_http::Error;
+use twilight_http::error::ErrorType;
 use twilight_model::{
     channel::{Message, Reaction, ReactionType},
     gateway::payload::ReactionAdd,
@@ -68,18 +68,22 @@ impl ProfilePagination {
 
         match ctx.http.delete_all_reactions(msg.channel_id, msg.id).await {
             Ok(_) => {}
-            Err(Error::Response { status, .. }) if status.as_u16() == 403 => {
-                sleep(Duration::from_millis(100)).await;
+            Err(why) => {
+                if matches!(why.kind(), ErrorType::Response { status, ..} if status.as_u16() == 403)
+                {
+                    sleep(Duration::from_millis(100)).await;
 
-                for emote in &reactions {
-                    let reaction_reaction = emote.request_reaction();
+                    for emote in &reactions {
+                        let reaction_reaction = emote.request_reaction();
 
-                    ctx.http
-                        .delete_current_user_reaction(msg.channel_id, msg.id, reaction_reaction)
-                        .await?;
+                        ctx.http
+                            .delete_current_user_reaction(msg.channel_id, msg.id, reaction_reaction)
+                            .await?;
+                    }
+                } else {
+                    return Err(why.into());
                 }
             }
-            Err(why) => return Err(why.into()),
         }
 
         if !self.minimized {

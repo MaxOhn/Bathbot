@@ -24,7 +24,7 @@ use image::{
 };
 use std::iter::Extend;
 use tokio::time::{sleep, Duration};
-use twilight_http::Error;
+use twilight_http::error::ErrorType;
 use twilight_model::{
     channel::Message,
     id::{GuildId, UserId},
@@ -313,7 +313,9 @@ pub async fn send_reaction(ctx: &Context, msg: &Message, emote: Emote) -> BotRes
     // Initial attempt, return if it's not a 429
     let mut err = match ctx.http.create_reaction(channel, msg, emoji).await {
         Ok(_) => return Ok(()),
-        Err(e) if matches!(e, Error::Response { status, .. } if status.as_u16() == 429) => e,
+        Err(e) if matches!(e.kind(), ErrorType::Response { status, .. } if status.as_u16() == 429) => {
+            e
+        }
         Err(e) => return Err(e.into()),
     };
 
@@ -325,7 +327,9 @@ pub async fn send_reaction(ctx: &Context, msg: &Message, emote: Emote) -> BotRes
 
         err = match ctx.http.create_reaction(channel, msg, emoji).await {
             Ok(_) => return Ok(()),
-            Err(e) if matches!(e, Error::Response { status, .. } if status.as_u16() == 429) => e,
+            Err(e) if matches!(e.kind(), ErrorType::Response { status, .. } if status.as_u16() == 429) => {
+                e
+            }
             Err(e) => return Err(e.into()),
         };
     }

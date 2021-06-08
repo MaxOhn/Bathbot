@@ -56,22 +56,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-tungstenite"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07b30ef0ea5c20caaa54baea49514a206308989c68be7ecd86c7f956e4da6378"
-dependencies = [
- "futures-io",
- "futures-util",
- "log",
- "pin-project-lite",
- "tokio",
- "tokio-rustls",
- "tungstenite",
- "webpki-roots",
-]
-
-[[package]]
 name = "atoi"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -493,16 +477,6 @@ dependencies = [
 
 [[package]]
 name = "dirs"
-version = "2.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13aea89a5c93364a98e9b37b2fa237effbb694d5cfe01c5b70941f7eb087d5e3"
-dependencies = [
- "cfg-if 0.1.10",
- "dirs-sys",
-]
-
-[[package]]
-name = "dirs"
 version = "3.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "30baa043103c9d0c2a57cf537cc2f35623889dc0d405e6c3cccfadbc81c71309"
@@ -511,10 +485,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "dirs-next"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b98cf8ebf19c3d1b223e151f99a4f9f0690dca41414773390fc824184ac833e1"
+dependencies = [
+ "cfg-if 1.0.0",
+ "dirs-sys-next",
+]
+
+[[package]]
 name = "dirs-sys"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03d86534ed367a67548dc68113a0f5db55432fdfbb6e6f9d77704397d95d5780"
+dependencies = [
+ "libc",
+ "redox_users",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "dirs-sys-next"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ebda144c4fe02d1f7ea1a7d9641b6fc6b580adcfa024ae48797ecdeb6825b4d"
 dependencies = [
  "libc",
  "redox_users",
@@ -641,16 +636,16 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "font-kit"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f9042cb45150fb2b2a012fc03d0f1d2071f18e90397b9d2a5ec8ade8464bf20"
+checksum = "46c9a156ec38864999bc9c4156e5f3b50224d4a5578028a64e5a3875caa9ee28"
 dependencies = [
  "bitflags",
  "byteorder",
  "core-foundation",
  "core-graphics",
  "core-text",
- "dirs 2.0.2",
+ "dirs-next",
  "dwrote",
  "float-ord",
  "freetype",
@@ -1029,9 +1024,9 @@ checksum = "6456b8a6c8f33fee7d958fcd1b60d55b11940a79e63ae87013e6d22e26034440"
 
 [[package]]
 name = "hyper"
-version = "0.14.8"
+version = "0.14.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3f71a7eea53a3f8257a7b4795373ff886397178cd634430ea94e12d7fe4fe34"
+checksum = "07d6baa1b441335f3ce5098ac421fb6547c46dda735ca1bc6d0153c838f9dd83"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -1043,7 +1038,7 @@ dependencies = [
  "httparse",
  "httpdate",
  "itoa",
- "pin-project",
+ "pin-project-lite",
  "socket2",
  "tokio",
  "tower-service",
@@ -2060,7 +2055,7 @@ dependencies = [
 [[package]]
 name = "rosu-v2"
 version = "0.1.0"
-source = "git+https://github.com/MaxOhn/rosu-v2?branch=next#a64d2214bcca96ca472e3a24aa32db852371ed97"
+source = "git+https://github.com/MaxOhn/rosu-v2?branch=next#42665dce898362315ba116c69a16f6830b27ccf9"
 dependencies = [
  "bitflags",
  "bytes",
@@ -2162,9 +2157,9 @@ dependencies = [
 
 [[package]]
 name = "security-framework"
-version = "2.3.0"
+version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b239a3d5db51252f6f48f42172c65317f37202f4a21021bf5f9d40a408f4592c"
+checksum = "23a2ac85147a3a11d77ecf1bc7166ec0b92febfa4461c37944e180f319ece467"
 dependencies = [
  "bitflags",
  "core-foundation",
@@ -2424,7 +2419,7 @@ dependencies = [
  "crossbeam-channel",
  "crossbeam-queue",
  "crossbeam-utils",
- "dirs 3.0.2",
+ "dirs",
  "either",
  "futures-channel",
  "futures-core",
@@ -2767,6 +2762,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-tungstenite"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e96bb520beab540ab664bd5a9cfeaa1fcd846fa68c830b42e2c8963071251d2"
+dependencies = [
+ "futures-util",
+ "log",
+ "pin-project",
+ "rustls",
+ "tokio",
+ "tokio-rustls",
+ "tungstenite",
+ "webpki",
+ "webpki-roots",
+]
+
+[[package]]
 name = "tokio-util"
 version = "0.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2864,8 +2876,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-cache-inmemory"
-version = "0.3.6"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#6ee6629e7a98ad3928015418522c52c457382d92"
+version = "0.4.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#3cf325a381d7bdbd51db755d0366214d81c982a8"
 dependencies = [
  "bitflags",
  "darkredis",
@@ -2881,20 +2893,18 @@ dependencies = [
 
 [[package]]
 name = "twilight-gateway"
-version = "0.3.4"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#6ee6629e7a98ad3928015418522c52c457382d92"
+version = "0.4.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#3cf325a381d7bdbd51db755d0366214d81c982a8"
 dependencies = [
- "async-tungstenite",
  "bitflags",
  "dashmap",
  "flate2",
- "futures-channel",
- "futures-timer",
  "futures-util",
  "once_cell",
  "serde",
  "serde_json",
  "tokio",
+ "tokio-tungstenite",
  "tracing",
  "twilight-gateway-queue",
  "twilight-http",
@@ -2904,11 +2914,9 @@ dependencies = [
 
 [[package]]
 name = "twilight-gateway-queue"
-version = "0.3.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#6ee6629e7a98ad3928015418522c52c457382d92"
+version = "0.4.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#3cf325a381d7bdbd51db755d0366214d81c982a8"
 dependencies = [
- "futures-channel",
- "futures-util",
  "tokio",
  "tracing",
  "twilight-http",
@@ -2916,11 +2924,10 @@ dependencies = [
 
 [[package]]
 name = "twilight-http"
-version = "0.3.9"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#6ee6629e7a98ad3928015418522c52c457382d92"
+version = "0.4.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#3cf325a381d7bdbd51db755d0366214d81c982a8"
 dependencies = [
  "bytes",
- "futures-channel",
  "futures-util",
  "hyper",
  "hyper-rustls",
@@ -2936,8 +2943,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-model"
-version = "0.3.7"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#6ee6629e7a98ad3928015418522c52c457382d92"
+version = "0.4.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#3cf325a381d7bdbd51db755d0366214d81c982a8"
 dependencies = [
  "bitflags",
  "serde",
@@ -2948,12 +2955,12 @@ dependencies = [
 
 [[package]]
 name = "twilight-standby"
-version = "0.3.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#6ee6629e7a98ad3928015418522c52c457382d92"
+version = "0.4.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#3cf325a381d7bdbd51db755d0366214d81c982a8"
 dependencies = [
  "dashmap",
- "futures-channel",
  "futures-util",
+ "tokio",
  "tracing",
  "twilight-model",
 ]

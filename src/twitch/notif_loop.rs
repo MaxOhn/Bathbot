@@ -10,7 +10,7 @@ use strfmt::strfmt;
 use tokio::time::{interval, Duration};
 use twilight_http::{
     api_error::{ApiError, ErrorCode, GeneralApiError},
-    Error as TwilightError,
+    error::ErrorType,
 };
 
 #[cold]
@@ -96,39 +96,41 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
                     Ok(msg_fut) => {
                         let result = msg_fut.await;
 
-                        if let Err(TwilightError::Response { error, .. }) = result {
-                            match error {
-                                ApiError::General(GeneralApiError {
-                                    code: ErrorCode::UnknownChannel,
-                                    ..
-                                }) => {
-                                    if let Err(why) =
-                                        ctx.psql().remove_channel_tracks(channel.0).await
-                                    {
-                                        unwind_error!(
+                        if let Err(why) = result {
+                            if let ErrorType::Response { error, .. } = why.kind() {
+                                match error {
+                                    ApiError::General(GeneralApiError {
+                                        code: ErrorCode::UnknownChannel,
+                                        ..
+                                    }) => {
+                                        if let Err(why) =
+                                            ctx.psql().remove_channel_tracks(channel.0).await
+                                        {
+                                            unwind_error!(
                                             warn, why,
                                                 "Could not remove stream tracks from unknown channel {}: {}",
                                                 channel
                                             );
-                                    } else {
-                                        debug!(
-                                            "Removed twitch tracking of unknown channel {}",
-                                            channel
-                                        );
+                                        } else {
+                                            debug!(
+                                                "Removed twitch tracking of unknown channel {}",
+                                                channel
+                                            );
+                                        }
                                     }
-                                }
-                                why => warn!(
+                                    why => warn!(
                                     "Error from API while sending twitch notif (channel {}): {}",
                                     channel, why
                                 ),
+                                }
+                            } else {
+                                unwind_error!(
+                                    warn,
+                                    why,
+                                    "Error while sending twitch notif (channel {}): {}",
+                                    channel
+                                );
                             }
-                        } else if let Err(why) = result {
-                            unwind_error!(
-                                warn,
-                                why,
-                                "Error while sending twitch notif (channel {}): {}",
-                                channel
-                            );
                         }
                     }
                     Err(why) => unwind_error!(warn, why, "Invalid embed for twitch notif: {}"),

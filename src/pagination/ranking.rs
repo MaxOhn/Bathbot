@@ -27,6 +27,7 @@ pub struct RankingPagination {
 }
 
 impl RankingPagination {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         msg: Message,
         mode: GameMode,

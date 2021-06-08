@@ -65,12 +65,13 @@ use tokio::{
 };
 use tokio_stream::StreamExt;
 use twilight_gateway::{cluster::ShardScheme, Cluster};
-use twilight_http::{
-    request::channel::allowed_mentions::AllowedMentionsBuilder, Client as HttpClient,
-};
-use twilight_model::gateway::{
-    presence::{ActivityType, Status},
-    Intents,
+use twilight_http::Client as HttpClient;
+use twilight_model::{
+    channel::message::allowed_mentions::AllowedMentionsBuilder,
+    gateway::{
+        presence::{ActivityType, Status},
+        Intents,
+    },
 };
 
 type CountryCode = SmallString<[u8; 2]>;
@@ -102,9 +103,10 @@ async fn async_main() -> BotResult<()> {
         .token(&config.tokens.discord)
         .default_allowed_mentions(
             AllowedMentionsBuilder::new()
-                .parse_users()
-                .parse_roles()
-                .build_solo(),
+                .replied_user()
+                .roles()
+                .users()
+                .build(),
         )
         .build();
 
