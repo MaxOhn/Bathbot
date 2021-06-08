@@ -83,9 +83,16 @@ impl MapEmbed {
 
         let attributes = rosu_map.attributes().mods(mod_bits);
         let ar = attributes.ar;
-        let od = attributes.od;
         let hp = attributes.hp;
         let cs = attributes.cs;
+
+        let od = if mods.contains(GameMods::HardRock) {
+            (attributes.od * 1.4).min(10.0)
+        } else if mods.contains(GameMods::Easy) {
+            attributes.od * 0.5
+        } else {
+            attributes.od
+        };
 
         let mut attributes = rosu_map.stars(mod_bits, None);
         let stars = attributes.stars();
