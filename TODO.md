@@ -1,5 +1,6 @@
 
 **[TODO]**
+- Restructure things in `<help`
 - Command for compact `<osu`
 - Server setting to not send expanded `<r`
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands

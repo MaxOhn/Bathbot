@@ -69,7 +69,7 @@ impl WhatIfEmbed {
                     pp = round(pp),
                     name = user.username,
                     num = new_pos,
-                    pp_change = new_pp + bonus_pp - stats.pp,
+                    pp_change = (new_pp + bonus_pp - stats.pp).max(0.0),
                     new_pp = with_comma_float(new_pp + bonus_pp)
                 );
 
