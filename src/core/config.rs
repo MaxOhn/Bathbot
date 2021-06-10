@@ -2,7 +2,7 @@ use crate::{BotResult, Error};
 
 use hashbrown::HashMap;
 use once_cell::sync::OnceCell;
-use rosu_v2::model::{GameMode, Grade};
+use rosu_v2::model::Grade;
 use serde::{
     de::{Deserializer, Error as SerdeError, Unexpected},
     Deserialize,
@@ -20,7 +20,6 @@ pub struct BotConfig {
     pub metric_server_ip: [u8; 4],
     pub metric_server_port: u16,
     grades: HashMap<Grade, String>,
-    pub modes: HashMap<GameMode, String>,
     emotes: HashMap<Emote, String>,
 }
 
@@ -37,6 +36,11 @@ pub struct Tokens {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub enum Emote {
+    Std,
+    Tko,
+    Ctb,
+    Mna,
+
     Minimize,
     Expand,
 
@@ -52,24 +56,20 @@ pub enum Emote {
 }
 
 impl Emote {
+    #[inline]
+    pub fn text(self) -> &'static str {
+        CONFIG.get().unwrap().emotes.get(&self).unwrap()
+    }
+
     pub fn request_reaction(&self) -> RequestReactionType {
         let emotes = &CONFIG.get().unwrap().emotes;
 
-        let emote = match self {
-            Emote::Minimize => emotes.get(self),
-            Emote::Expand => emotes.get(self),
-            Emote::JumpStart => emotes.get(self),
-            Emote::MultiStepBack => emotes.get(self),
-            Emote::SingleStepBack => emotes.get(self),
-            Emote::MyPosition => emotes.get(self),
-            Emote::SingleStep => emotes.get(self),
-            Emote::MultiStep => emotes.get(self),
-            Emote::JumpEnd => emotes.get(self),
-            Emote::Custom(emote) => {
-                return RequestReactionType::Unicode {
-                    name: emote.to_string(),
-                }
-            }
+        let emote = if let Self::Custom(emote) = self {
+            return RequestReactionType::Unicode {
+                name: emote.to_string(),
+            };
+        } else {
+            emotes.get(self)
         };
 
         let (id, name) = emote
@@ -104,24 +104,6 @@ impl BotConfig {
             .get(&grade)
             .unwrap_or_else(|| panic!("No grade emote for grade {} in config", grade))
     }
-
-    #[allow(dead_code)]
-    pub fn mode(&self, mode: GameMode) -> (u64, &str) {
-        self.modes
-            .get(&mode)
-            .unwrap_or_else(|| panic!("No mode emote for mode {} in config", mode))
-            .split_emote()
-    }
-
-    #[allow(dead_code)]
-    pub fn all_modes(&self) -> [(u64, &str); 4] {
-        let std = self.modes[&GameMode::STD].split_emote();
-        let tko = self.modes[&GameMode::TKO].split_emote();
-        let ctb = self.modes[&GameMode::CTB].split_emote();
-        let mna = self.modes[&GameMode::MNA].split_emote();
-
-        [std, tko, ctb, mna]
-    }
 }
 
 pub static CONFIG: OnceCell<BotConfig> = OnceCell::new();
@@ -147,6 +129,10 @@ impl<'de> Deserialize<'de> for Emote {
         let s: &str = Deserialize::deserialize(d)?;
 
         let other = match s {
+            "osu_std" => Self::Std,
+            "osu_taiko" => Self::Tko,
+            "osu_ctb" => Self::Ctb,
+            "osu_mania" => Self::Mna,
             "minimize" => Self::Minimize,
             "expand" => Self::Expand,
             "jump_start" => Self::JumpStart,
@@ -159,9 +145,7 @@ impl<'de> Deserialize<'de> for Emote {
             other => {
                 return Err(SerdeError::invalid_value(
                     Unexpected::Str(other),
-                    &r#""minimize", "expand", "jump_start", "multi_step_back", 
-                    "single_step_back", "my_position", "single_step", 
-                    "multi_step", or "jump_end""#,
+                    &"the name of a required emote",
                 ))
             }
         };

@@ -5,18 +5,12 @@ metric_server_port = 9091
 
 [tokens]
 discord = ""
-osu = ""
+osu_client_id = 1234
+osu_client_secret = ""
 osu_session = ""
 twitch_client_id = ""
 twitch_token = ""
 osu_daily = ""
-
-[database]
-host="localhost"
-db_user="user"
-db_pw="password"
-db_name="db_name"
-redis_port=1234
 
 # adjust if necessary
 [grades]
@@ -30,13 +24,11 @@ X = "<:X_:515354674929336320>"
 SH = "<:SH:515354675323600933>"
 XH = "<:XH:515354675059621888>"
 
-[modes]
-0 = "<:osu_std:755004407795679274>"
-1 = "<:osu_taiko:755004408353521674>"
-2 = "<:osu_ctb:755004407799873607>"
-3 = "<:osu_mania:755004407799742588>"
-
-[other]
+[emotes]
+osu_std = "<:osu_std:755004407795679274>"
+osu_taiko = "<:osu_taiko:755004408353521674>"
+osu_ctb = "<:osu_ctb:755004407799873607>"
+osu_mania = "<:osu_mania:755004407799742588>"
 minimize = "<:minimize:789599916821053471>"
 expand = "<:expand:789599916754206740>"
 jump_start = "<:jump_start:789892244000866314>"

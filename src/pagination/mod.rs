@@ -48,7 +48,7 @@ use crate::{
     core::Emote,
     embeds::EmbedData,
     util::{numbers, send_reaction},
-    BotResult, Context, CONFIG,
+    BotResult, Context,
 };
 
 use async_trait::async_trait;
@@ -56,11 +56,11 @@ use smallvec::SmallVec;
 use std::time::Duration;
 use tokio::time::sleep;
 use tokio_stream::StreamExt;
-use twilight_http::{error::ErrorType, request::channel::reaction::RequestReactionType};
+use twilight_http::error::ErrorType;
 use twilight_model::{
     channel::{Message, Reaction, ReactionType},
     gateway::payload::ReactionAdd,
-    id::{EmojiId, UserId},
+    id::UserId,
 };
 
 type ReactionVec = SmallVec<[Emote; 7]>;
@@ -311,17 +311,6 @@ pub trait Pagination: Sync + Sized {
             }
             None => PageChange::None,
         }
-    }
-
-    fn mode_reactions() -> Vec<RequestReactionType> {
-        CONFIG
-            .get()
-            .unwrap()
-            .all_modes()
-            .iter()
-            .map(|(id, name)| (EmojiId(*id), Some(name.to_string())))
-            .map(|(id, name)| RequestReactionType::Custom { id, name })
-            .collect()
     }
 
     #[inline]

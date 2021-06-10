@@ -1,5 +1,6 @@
 use super::ExponentialBackoff;
 use crate::{
+    core::Emote,
     util::{
         constants::OSU_BASE, error::MapDownloadError, matcher, numbers::round, BeatmapExt, ScoreExt,
     },
@@ -36,7 +37,14 @@ pub fn grade_emote(grade: Grade) -> &'static str {
 
 #[inline]
 pub fn mode_emote(mode: GameMode) -> &'static str {
-    CONFIG.get().unwrap().modes[&mode].as_str()
+    let emote = match mode {
+        GameMode::STD => Emote::Std,
+        GameMode::TKO => Emote::Tko,
+        GameMode::CTB => Emote::Ctb,
+        GameMode::MNA => Emote::Mna,
+    };
+
+    emote.text()
 }
 
 pub fn grade_completion_mods(score: &impl ScoreExt, map: &Beatmap) -> Cow<'static, str> {
