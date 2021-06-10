@@ -1,23 +1,18 @@
 use crate::{
-    core::{Command, CommandGroup, CommandGroups},
+    core::{Command, CommandGroups},
     embeds::{Author, EmbedBuilder, Footer},
     util::{
-        constants::{
-            BATHBOT_WORKSHOP, DARK_GREEN, DESCRIPTION_SIZE, EMBED_SIZE, FIELD_VALUE_SIZE,
-            OWNER_USER_ID, RED,
-        },
+        constants::{BATHBOT_WORKSHOP, DARK_GREEN, DESCRIPTION_SIZE, OWNER_USER_ID, RED},
         levenshtein_distance, MessageExt,
     },
     BotResult, Context,
 };
 
 use std::{collections::BTreeMap, fmt::Write};
+use tokio::time::{sleep, Duration};
 use twilight_model::{
-    channel::{
-        embed::{Embed, EmbedField},
-        Message,
-    },
-    id::{ChannelId, GuildId, UserId},
+    channel::{embed::EmbedField, Message},
+    id::GuildId,
 };
 
 fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
@@ -51,10 +46,10 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         use __**`{prefix}help [command]`**__, e.g. `{prefix}help simulate`.
         - If you want to specify an argument, e.g. a username, that contains \
         spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
-        - If you used `{prefix}link osuname`, you can omit the osu username for any command that needs one.\n\
+        - If you've used `{prefix}link \"osu! username\"`, you can omit the username for any command that needs one.\n\
         - If you react with :x: within one minute to my response, I will delete it.\n\
         - With the arrow reactions you can scroll through pages e.g. check an earlier play than the most recent one. \
-        Note that generally only reactions of the response invoker (\"owner\") will be processed.\n\
+        Note that generally only reactions of the response invoker (user who used command) will be processed.\n\
         - ~~`Strikethrough`~~ commands indicate that either you can't use them in DMs or \
         you lack authority status in the server.\n\
         - If you have questions, complains, or suggestions for the bot, feel free to join its \
@@ -66,7 +61,7 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         `+hd!`: only HD scores\n\
         `-nm!`: scores that are not NoMod\n\
         `-nfsohdez!`: scores that have neither NF, SO, HD, or EZ\n\
-        \n__**These are all commands:**__", prefix_desc, prefix = first_prefix, discord_url = BATHBOT_WORKSHOP)
+        \n__**All commands:**__\n", prefix_desc, prefix = first_prefix, discord_url = BATHBOT_WORKSHOP)
 }
 
 pub async fn help(
@@ -99,8 +94,8 @@ pub async fn help(
         let _ = msg.reply(ctx, content).await;
     }
 
-    let desc = description(ctx, msg.guild_id);
-    let mut size = desc.len();
+    let mut buf = description(ctx, msg.guild_id);
+    let mut size = buf.len();
 
     debug_assert!(
         size < DESCRIPTION_SIZE,
@@ -109,128 +104,79 @@ pub async fn help(
         DESCRIPTION_SIZE,
     );
 
-    let mut eb = EmbedBuilder::new().description(desc);
-
     let groups = cmds
         .groups
         .iter()
         .filter(|g| owner.0 == OWNER_USER_ID || g.name != "owner");
 
-    let mut fields = Vec::new();
+    let mut next_size;
 
     for group in groups {
-        for (name, value) in create_group_fields(group, is_authority) {
-            let size_addition = name.chars().count() + value.chars().count();
+        next_size = group.name.len() + 14;
 
-            debug_assert!(
-                size_addition < EMBED_SIZE,
-                "embed size {} > {} [{}]",
-                size_addition,
-                EMBED_SIZE,
-                group.name
-            );
+        if size + next_size > DESCRIPTION_SIZE {
+            let embed = EmbedBuilder::new().description(buf).build();
 
-            if size + size_addition > EMBED_SIZE {
-                let embed = eb.fields(fields).build();
+            if let Err(why) = ctx.http.create_message(channel.id).embed(embed)?.await {
+                unwind_error!(warn, why, "Error while sending help chunk: {}");
+                let content = "Could not DM you, perhaps you disabled it?";
 
-                if let Err(why) = send_help_chunk(ctx, channel.id, owner, embed).await {
+                return msg.error(ctx, content).await;
+            }
+
+            sleep(Duration::from_millis(50)).await;
+            buf = String::with_capacity(DESCRIPTION_SIZE);
+            size = 0;
+        }
+
+        size += next_size;
+        let _ = writeln!(buf, "\n**• __{}__**", group.name);
+
+        for &cmd in group.commands.iter() {
+            next_size =
+                (cmd.authority) as usize * 4 + 5 + cmd.names[0].len() + cmd.short_desc.len();
+
+            if size + next_size > DESCRIPTION_SIZE {
+                let embed = EmbedBuilder::new().description(buf).build();
+
+                if let Err(why) = ctx.http.create_message(channel.id).embed(embed)?.await {
                     unwind_error!(warn, why, "Error while sending help chunk: {}");
-                    let content = "Could not DM you, have you disabled it?";
+                    let content = "Could not DM you, perhaps you disabled it?";
 
                     return msg.error(ctx, content).await;
                 }
 
-                size = size_addition;
-                fields = Vec::new();
-                eb = EmbedBuilder::new();
-            } else {
-                size += size_addition;
+                sleep(Duration::from_millis(50)).await;
+                buf = String::with_capacity(DESCRIPTION_SIZE);
+                size = 0;
             }
 
-            let field = EmbedField {
-                name,
-                value,
-                inline: false,
-            };
+            size += next_size;
 
-            fields.push(field);
+            let _ = writeln!(
+                buf,
+                "{strikethrough}`{}`{strikethrough}: {}",
+                cmd.names[0],
+                cmd.short_desc,
+                strikethrough = if cmd.authority && !is_authority {
+                    "~~"
+                } else {
+                    ""
+                }
+            );
         }
     }
 
-    if !fields.is_empty() {
-        let embed = eb.fields(fields).build();
+    if !buf.is_empty() {
+        let embed = EmbedBuilder::new().description(buf).build();
 
-        if let Err(why) = send_help_chunk(ctx, channel.id, owner, embed).await {
+        if let Err(why) = ctx.http.create_message(channel.id).embed(embed)?.await {
             unwind_error!(warn, why, "Error while sending help chunk: {}");
-            let content = "Could not DM you, have you disabled it?";
+            let content = "Could not DM you, perhaps you disabled it?";
 
             return msg.error(ctx, content).await;
         }
     }
-
-    Ok(())
-}
-
-fn create_group_fields(group: &CommandGroup, is_authority: bool) -> Vec<(String, String)> {
-    let mut fields = Vec::with_capacity(1);
-
-    let len = group
-        .commands
-        .iter()
-        .map(|&c| c.names[0].len() + 5 + c.short_desc.len())
-        .sum::<usize>()
-        .min(FIELD_VALUE_SIZE);
-
-    let mut value = String::with_capacity(len);
-
-    // No owner check so be sure owner commands are in the owner group
-    for &cmd in &group.commands {
-        let next_line = format!(
-            "{strikethrough}`{}`{strikethrough}: {}",
-            cmd.names[0],
-            cmd.short_desc,
-            strikethrough = if cmd.authority && !is_authority {
-                "~~"
-            } else {
-                ""
-            }
-        );
-
-        if value.chars().count() + next_line.chars().count() >= FIELD_VALUE_SIZE {
-            if fields.is_empty() {
-                fields.push((group.name.to_owned(), value));
-            } else {
-                let name = format!("More {}", group.name);
-                fields.push((name, value));
-            }
-
-            value = String::with_capacity(128);
-        }
-
-        let _ = writeln!(value, "{}", next_line);
-    }
-
-    if fields.is_empty() {
-        fields.push((group.name.to_owned(), value));
-    } else {
-        let name = format!("More {}", group.name);
-        fields.push((name, value));
-    }
-
-    fields
-}
-
-async fn send_help_chunk(
-    ctx: &Context,
-    channel: ChannelId,
-    owner: UserId,
-    embed: Embed,
-) -> BotResult<()> {
-    ctx.http
-        .create_message(channel)
-        .embed(embed)?
-        .await?
-        .reaction_delete(ctx, owner);
 
     Ok(())
 }
