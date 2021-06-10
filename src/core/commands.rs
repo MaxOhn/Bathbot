@@ -1,3 +1,4 @@
+use super::Emote;
 use crate::{commands::command_groups, Args, BotResult, Context};
 
 use futures::future::BoxFuture;
@@ -39,14 +40,16 @@ impl fmt::Debug for Command {
 pub struct CommandGroup {
     pub name: String,
     pub commands: Vec<&'static Command>,
+    pub emote: Emote,
 }
 
 impl CommandGroup {
     #[inline]
-    pub fn new(name: &str, commands: Vec<&'static Command>) -> Self {
+    pub fn new(name: &str, emote: Emote, commands: Vec<&'static Command>) -> Self {
         Self {
             name: name.to_owned(),
             commands,
+            emote,
         }
     }
 }

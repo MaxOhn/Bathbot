@@ -112,7 +112,9 @@ pub async fn help(
     let mut next_size;
 
     for group in groups {
-        next_size = group.name.len() + 14;
+        let emote = group.emote.text();
+
+        next_size = emote.len() + group.name.len() + 11;
 
         if size + next_size > DESCRIPTION_SIZE {
             let embed = EmbedBuilder::new().description(buf).build();
@@ -130,7 +132,7 @@ pub async fn help(
         }
 
         size += next_size;
-        let _ = writeln!(buf, "\n**• __{}__**", group.name);
+        let _ = writeln!(buf, "\n{} __**{}**__", emote, group.name);
 
         for &cmd in group.commands.iter() {
             next_size =

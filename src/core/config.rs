@@ -7,7 +7,7 @@ use serde::{
     de::{Deserializer, Error as SerdeError, Unexpected},
     Deserialize,
 };
-use std::{path::PathBuf, str::FromStr};
+use std::{borrow::Cow, path::PathBuf, str::FromStr};
 use tokio::fs;
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::id::EmojiId;
@@ -41,6 +41,10 @@ pub enum Emote {
     Ctb,
     Mna,
 
+    Osu,
+    Twitch,
+    Tracking,
+
     Minimize,
     Expand,
 
@@ -57,8 +61,12 @@ pub enum Emote {
 
 impl Emote {
     #[inline]
-    pub fn text(self) -> &'static str {
-        CONFIG.get().unwrap().emotes.get(&self).unwrap()
+    pub fn text(self) -> Cow<'static, str> {
+        if let Self::Custom(emote) = self {
+            format!(":{}:", emote).into()
+        } else {
+            CONFIG.get().unwrap().emotes.get(&self).unwrap().into()
+        }
     }
 
     pub fn request_reaction(&self) -> RequestReactionType {
@@ -129,10 +137,13 @@ impl<'de> Deserialize<'de> for Emote {
         let s: &str = Deserialize::deserialize(d)?;
 
         let other = match s {
+            "osu" => Self::Osu,
             "osu_std" => Self::Std,
             "osu_taiko" => Self::Tko,
             "osu_ctb" => Self::Ctb,
             "osu_mania" => Self::Mna,
+            "twitch" => Self::Twitch,
+            "tracking" => Self::Tracking,
             "minimize" => Self::Minimize,
             "expand" => Self::Expand,
             "jump_start" => Self::JumpStart,

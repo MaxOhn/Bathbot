@@ -36,7 +36,7 @@ pub fn grade_emote(grade: Grade) -> &'static str {
 }
 
 #[inline]
-pub fn mode_emote(mode: GameMode) -> &'static str {
+pub fn mode_emote(mode: GameMode) -> Cow<'static, str> {
     let emote = match mode {
         GameMode::STD => Emote::Std,
         GameMode::TKO => Emote::Tko,

@@ -15,12 +15,13 @@ use tracking::*;
 use twitch::*;
 use utility::*;
 
-use crate::core::CommandGroup;
+use crate::core::{CommandGroup, Emote};
 
 pub fn command_groups() -> Vec<CommandGroup> {
     vec![
         CommandGroup::new(
             "all osu! modes",
+            Emote::Osu,
             vec![
                 &LINK_CMD,
                 &COMPARE_CMD,
@@ -44,6 +45,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
         ),
         CommandGroup::new(
             "osu!standard",
+            Emote::Std,
             vec![
                 &RECENT_CMD,
                 &TOP_CMD,
@@ -83,6 +85,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
         ),
         CommandGroup::new(
             "osu!mania",
+            Emote::Mna,
             vec![
                 &RECENTMANIA_CMD,
                 &TOPMANIA_CMD,
@@ -112,6 +115,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
         ),
         CommandGroup::new(
             "osu!taiko",
+            Emote::Tko,
             vec![
                 &RECENTTAIKO_CMD,
                 &TOPTAIKO_CMD,
@@ -142,6 +146,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
         ),
         CommandGroup::new(
             "osu!catch the beat",
+            Emote::Ctb,
             vec![
                 &RECENTCTB_CMD,
                 &TOPCTB_CMD,
@@ -172,6 +177,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
         ),
         CommandGroup::new(
             "osu!tracking",
+            Emote::Tracking,
             vec![
                 &TRACK_CMD,
                 &TRACKMANIA_CMD,
@@ -184,11 +190,17 @@ pub fn command_groups() -> Vec<CommandGroup> {
         ),
         CommandGroup::new(
             "twitch",
+            Emote::Twitch,
             vec![&ADDSTREAM_CMD, &REMOVESTREAM_CMD, &TRACKEDSTREAMS_CMD],
         ),
-        CommandGroup::new("games", vec![&MINESWEEPER_CMD, &BACKGROUNDGAME_CMD]),
+        CommandGroup::new(
+            "games",
+            Emote::Custom("video_game"),
+            vec![&MINESWEEPER_CMD, &BACKGROUNDGAME_CMD],
+        ),
         CommandGroup::new(
             "utility",
+            Emote::Custom("tools"),
             vec![
                 &PING_CMD,
                 &ROLL_CMD,
@@ -205,6 +217,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
         ),
         CommandGroup::new(
             "songs",
+            Emote::Custom("musical_note"),
             vec![
                 &BOMBSAWAY_CMD,
                 &CATCHIT_CMD,
@@ -220,6 +233,7 @@ pub fn command_groups() -> Vec<CommandGroup> {
         ),
         CommandGroup::new(
             "owner",
+            Emote::Custom("crown"),
             vec![
                 &ADDBG_CMD,
                 &ADDCOUNTRY_CMD,
