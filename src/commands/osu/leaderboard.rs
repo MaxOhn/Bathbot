@@ -14,7 +14,6 @@ use rosu_v2::error::OsuError;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
-#[allow(clippy::cognitive_complexity)]
 async fn leaderboard_main(
     national: bool,
     ctx: Arc<Context>,
