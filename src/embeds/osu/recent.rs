@@ -465,26 +465,26 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
 }
 
 fn score_cmp_description(score: &Score, map_score: Option<&BeatmapUserScore>) -> Option<String> {
-    if let Some(s) = map_score.map(|s| &s.score) {
-        if s == score {
-            return Some("Personal best on the map".to_owned());
-        } else if score.score > s.score {
-            let msg = if s.grade == Grade::F {
-                "Would have been a personal best on the map"
-            } else {
-                "Personal best on the map"
-            };
+    let s = map_score.map(|s| &s.score)?;
 
-            return Some(msg.to_owned());
-        } else if s.grade != Grade::F {
-            let msg = format!(
-                "Missing {} score for a personal best on the map",
-                with_comma_uint(s.score - score.score + 1)
-            );
+    if s == score {
+        Some("Personal best on the map".to_owned())
+    } else if score.score > s.score {
+        let msg = if s.grade == Grade::F {
+            "Would have been a personal best on the map"
+        } else {
+            "Personal best on the map"
+        };
 
-            return Some(msg);
-        }
+        Some(msg.to_owned())
+    } else if s.grade != Grade::F {
+        let msg = format!(
+            "Missing {} score for a personal best on the map",
+            with_comma_uint(s.score - score.score + 1)
+        );
+
+        Some(msg)
+    } else {
+        None
     }
-
-    None
 }
