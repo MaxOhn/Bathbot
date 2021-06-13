@@ -66,11 +66,11 @@ features = ["bitmap_backend", "image", "line_series", "datetime", "area_series",
 [dependencies.reqwest]
 version = "0.11"
 default_features = false
-features = ["cookies", "multipart"]
+features = ["cookies", "multipart", "rustls-tls-native-roots"]
 
 [dependencies.rosu-v2]
 git = "https://github.com/MaxOhn/rosu-v2"
-branch = "next"
+branch = "hyper"
 # path = "../rosu-v2"
 features = ["cache", "metrics"]
 

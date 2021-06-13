@@ -1,5 +1,6 @@
 
 **[TODO]**
+- `<recommend` command
 - Command for compact `<osu`
 - Server setting to not send expanded `<r`
 - Add convert exclusion argument for `mapper`, `topif` and the osustats commands
