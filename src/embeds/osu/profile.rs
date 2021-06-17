@@ -213,8 +213,7 @@ impl ProfileEmbed {
 
             extended_fields.push(field!(name, value, false));
 
-            let ranked_count = user.ranked_and_approved_beatmapset_count.unwrap()
-                + user.loved_beatmapset_count.unwrap();
+            let ranked_count = user.ranked_mapset_count.unwrap() + user.loved_mapset_count.unwrap();
 
             if ranked_count > 0 {
                 let mut mapper_stats = String::with_capacity(64);
@@ -222,15 +221,15 @@ impl ProfileEmbed {
                 let _ = writeln!(
                     mapper_stats,
                     "`Ranked {}` • `Unranked {}`",
-                    user.ranked_and_approved_beatmapset_count.unwrap(),
-                    user.unranked_beatmapset_count.unwrap(),
+                    user.ranked_mapset_count.unwrap(),
+                    user.pending_mapset_count.unwrap(),
                 );
 
                 let _ = writeln!(
                     mapper_stats,
                     "`Loved {}` • `Graveyard {}`",
-                    user.loved_beatmapset_count.unwrap(),
-                    user.graveyard_beatmapset_count.unwrap(),
+                    user.loved_mapset_count.unwrap(),
+                    user.graveyard_mapset_count.unwrap(),
                 );
 
                 if own_top_scores > 0 {

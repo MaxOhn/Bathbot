@@ -70,7 +70,7 @@ features = ["cookies", "multipart", "rustls-tls-native-roots"]
 
 [dependencies.rosu-v2]
 git = "https://github.com/MaxOhn/rosu-v2"
-branch = "hyper"
+branch = "next"
 # path = "../rosu-v2"
 features = ["cache", "metrics"]
 

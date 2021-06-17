@@ -135,7 +135,7 @@ pub async fn profile_embed(
 
     // Check if user has top scores on their own maps
     let ranked_maps_count =
-        user.ranked_and_approved_beatmapset_count.unwrap() + user.loved_beatmapset_count.unwrap();
+        user.ranked_mapset_count.unwrap() + user.loved_mapset_count.unwrap();
 
     let own_top_scores = if ranked_maps_count > 0 {
         scores
