@@ -221,15 +221,15 @@ impl ProfileEmbed {
                 let _ = writeln!(
                     mapper_stats,
                     "`Ranked {}` • `Unranked {}`",
-                    user.ranked_mapset_count.unwrap(),
-                    user.pending_mapset_count.unwrap(),
+                    user.ranked_mapset_count.unwrap_or(0),
+                    user.pending_mapset_count.unwrap_or(0),
                 );
 
                 let _ = writeln!(
                     mapper_stats,
                     "`Loved {}` • `Graveyard {}`",
-                    user.loved_mapset_count.unwrap(),
-                    user.graveyard_mapset_count.unwrap(),
+                    user.loved_mapset_count.unwrap_or(0),
+                    user.graveyard_mapset_count.unwrap_or(0),
                 );
 
                 if own_top_scores > 0 {
