@@ -199,7 +199,7 @@ lazy_static! {
 }
 
 lazy_static! {
-    static ref IGNORE_BADGE_MATCHER: Regex = Regex::new(r"(?i)contrib|nomination|assessment|global|moderation|beatmap|spotlight|map|pending|aspire|elite|monthly|exemplary|outstanding|longstanding|idol").unwrap();
+    static ref IGNORE_BADGE_MATCHER: Regex = Regex::new(r"^((?i)contrib|nomination|assessment|global|moderation|beatmap|spotlight|map|pending|aspire|elite|monthly|exemplary|outstanding|longstanding|idol[^@]+)").unwrap();
 }
 
 lazy_static! {
