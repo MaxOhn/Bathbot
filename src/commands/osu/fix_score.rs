@@ -13,7 +13,7 @@ use crate::{
 };
 
 use rosu_pp::{fruits::stars, Beatmap as Map, FruitsPP, ManiaPP, OsuPP, StarResult, TaikoPP};
-use rosu_v2::prelude::{Beatmap, GameMode, OsuError, Score};
+use rosu_v2::prelude::{Beatmap, GameMode, OsuError, RankStatus, Score};
 use std::sync::Arc;
 use tokio::fs::File;
 use twilight_model::channel::Message;
@@ -208,25 +208,23 @@ async fn fix(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     };
 
     // Check if the next 50 top scores are required
-    if let (Some(pp), Some((_, best))) = (&unchoked_pp, &mut scores) {
-        let lowest_pp_required = best.last().and_then(|score| score.pp).unwrap_or(0.0);
+    if let Some((_, best)) = scores.as_mut().filter(|_| {
+        unchoked_pp.is_some() || matches!(map.status, RankStatus::Ranked | RankStatus::Approved)
+    }) {
+        let best_fut = ctx
+            .osu()
+            .user_scores(user.user_id)
+            .offset(50)
+            .limit(50)
+            .best()
+            .mode(map.mode);
 
-        if *pp < lowest_pp_required {
-            let best_fut = ctx
-                .osu()
-                .user_scores(user.user_id)
-                .offset(50)
-                .limit(50)
-                .best()
-                .mode(map.mode);
+        match best_fut.await {
+            Ok(mut scores) => best.append(&mut scores),
+            Err(why) => {
+                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
-            match best_fut.await {
-                Ok(mut scores) => best.append(&mut scores),
-                Err(why) => {
-                    let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-                    return Err(why.into());
-                }
+                return Err(why.into());
             }
         }
 

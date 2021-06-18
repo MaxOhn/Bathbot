@@ -47,13 +47,14 @@ impl FixScoreEmbed {
             let _ = if matches!(map.status, RankStatus::Ranked | RankStatus::Approved) {
                 if in_best || best.len() < 100 {
                     let mut old_idx = None;
+                    let mut actual_offset = 0.0;
 
                     if let Some(idx) = best.iter().position(|s| s == &score) {
-                        best.remove(idx);
+                        actual_offset = best.remove(idx).weight.unwrap().pp;
                         old_idx.replace(idx + 1);
                     }
 
-                    let (new_idx, new_pp) = new_pp(pp, &user, &best);
+                    let (new_idx, new_pp) = new_pp(pp, &user, &best, actual_offset);
 
                     if let Some(old_idx) = old_idx {
                         write!(
@@ -84,7 +85,7 @@ impl FixScoreEmbed {
                 }
             // Map not ranked but in top100
             } else if in_best || best.len() < 100 {
-                let (idx, new_pp) = new_pp(pp, &user, &best);
+                let (idx, new_pp) = new_pp(pp, &user, &best, 0.0);
 
                 write!(
                     description,
@@ -113,7 +114,7 @@ impl FixScoreEmbed {
             // Map is not ranked
             if !matches!(map.status, RankStatus::Ranked | RankStatus::Approved) {
                 if best.iter().any(|s| s.pp < score.pp) || best.len() < 100 {
-                    let (idx, new_pp) = new_pp(score.pp.unwrap_or(0.0), &user, &best);
+                    let (idx, new_pp) = new_pp(score.pp.unwrap_or(0.0), &user, &best, 0.0);
 
                     let _ = write!(
                         description,
@@ -158,24 +159,20 @@ impl_builder!(FixScoreEmbed {
     url,
 });
 
-fn new_pp(pp: f32, user: &User, scores: &[Score]) -> (usize, f32) {
+fn new_pp(pp: f32, user: &User, scores: &[Score], actual_offset: f32) -> (usize, f32) {
     let actual: f32 = scores
         .iter()
         .filter_map(|s| s.weight)
         .map(|weight| weight.pp)
         .sum();
 
-    let bonus_pp = user.statistics.as_ref().unwrap().pp - actual;
+    let bonus_pp = user.statistics.as_ref().unwrap().pp - (actual + actual_offset);
     let mut new_pp = 0.0;
     let mut used = false;
     let mut new_pos = scores.len();
     let mut factor = 1.0;
 
-    let pp_iter = scores
-        .iter()
-        .take(scores.len() - 1)
-        .filter_map(|s| s.pp)
-        .enumerate();
+    let pp_iter = scores.iter().take(99).filter_map(|s| s.pp).enumerate();
 
     for (i, pp_value) in pp_iter {
         if !used && pp_value < pp {
