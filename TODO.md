@@ -1,5 +1,7 @@
 
 **[TODO]**
+- For helpybot: don't only ignore $ msgs but #waifu altogether
+- When e.g. `<c` as a reply to a msg, use that msg's map
 - `<recommend` command
 - Command for compact `<osu`
 - Server setting to not send expanded `<r`

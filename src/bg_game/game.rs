@@ -204,7 +204,7 @@ pub async fn game_loop(
                 // Title correct?
                 ContentResult::Title(exact) => {
                     let content = format!(
-                        "{} \\:)\nMapset: {}/beatmapsets/{}",
+                        "{} \\:)\nMapset: {}beatmapsets/{}",
                         if exact {
                             format!("Gratz {}, you guessed it", msg.author.name)
                         } else {
