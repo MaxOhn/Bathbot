@@ -200,8 +200,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         false
     };
 
-    let cache_metrics = cache.stats(0, 0);
-    let stats = Arc::new(BotStats::new(clients.osu.metrics(), cache_metrics.metrics));
+    let stats = Arc::new(BotStats::new(clients.osu.metrics(), cache.metrics()));
 
     // Provide stats to locale address
     let (tx, rx) = oneshot::channel();
@@ -209,7 +208,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     tokio::spawn(_run_metrics_server(metrics_stats, rx));
 
     // Build cluster
-    let cluster = cb
+    let (cluster, mut event_stream) = cb
         .build()
         .await
         .map_err(|why| format_err!("Could not start cluster: {}", why))?;
@@ -294,10 +293,9 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         }
     });
 
-    let mut bot_events = ctx.backend.cluster.events();
     let cmd_groups = Arc::new(CommandGroups::new());
 
-    while let Some((shard, event)) = bot_events.next().await {
+    while let Some((shard, event)) = event_stream.next().await {
         ctx.update_stats(shard, &event);
         ctx.cache.update(&event);
         ctx.standby.process(&event);

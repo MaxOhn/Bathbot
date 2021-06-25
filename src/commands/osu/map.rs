@@ -197,7 +197,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
 
     let response = if let Some(ref graph) = graph {
-        m.attachment("map_graph.png", graph.clone()).await?
+        m.file("map_graph.png", graph.clone()).await?
     } else {
         m.await?
     };

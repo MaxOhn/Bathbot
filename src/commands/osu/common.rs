@@ -284,7 +284,7 @@ async fn common_main(
     let mut m = ctx.http.create_message(msg.channel_id);
 
     m = match thumbnail {
-        Some(bytes) => m.attachment("avatar_fuse.png", bytes),
+        Some(bytes) => m.file("avatar_fuse.png", bytes),
         None => m,
     };
 

@@ -2,8 +2,8 @@ use crate::core::Context;
 
 use chrono::{DateTime, Utc};
 use log::info;
-use prometheus::{IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry};
-use std::sync::{atomic::Ordering::Acquire, Arc};
+use prometheus::{IntCounter, IntCounterVec, Opts, Registry};
+use std::sync::Arc;
 use twilight_cache_inmemory::Metrics;
 use twilight_model::{channel::Message, gateway::event::Event};
 
@@ -36,16 +36,6 @@ pub struct MessageCounters {
     pub own_messages: IntCounter,
 }
 
-pub struct UserCounters {
-    pub unique: IntGauge,
-    pub total: IntGauge,
-}
-
-pub struct GuildCounters {
-    pub total: IntGauge,
-    pub unavailable: IntGauge,
-}
-
 pub struct OsuCounters {
     pub rosu: IntCounterVec,
     pub user_cached: IntCounter,
@@ -56,8 +46,6 @@ pub struct BotStats {
     pub start_time: DateTime<Utc>,
     pub event_counts: EventStats,
     pub message_counts: MessageCounters,
-    pub user_counts: UserCounters,
-    pub guild_counts: GuildCounters,
     pub command_counts: IntCounterVec,
     pub osu_metrics: OsuCounters,
     pub cache_metrics: Arc<Metrics>,
@@ -77,15 +65,14 @@ impl BotStats {
     pub fn new(osu_metrics: IntCounterVec, cache_metrics: Arc<Metrics>) -> Self {
         let event_counter = metric_vec!(counter: "gateway_events", "Gateway events", "events");
         let msg_counter = metric_vec!(counter: "messages", "Received messages", "sender_type");
-        let user_counter = metric_vec!(gauge: "user_counts", "User counts", "type");
-        let guild_counter = metric_vec!(gauge: "guild_counts", "State of the guilds", "state");
         let command_counts = metric_vec!(counter: "commands", "Executed commands", "name");
 
         let registry = Registry::new_custom(Some(String::from("bathbot")), None).unwrap();
         registry.register(Box::new(event_counter.clone())).unwrap();
         registry.register(Box::new(msg_counter.clone())).unwrap();
-        registry.register(Box::new(user_counter.clone())).unwrap();
-        registry.register(Box::new(guild_counter.clone())).unwrap();
+        registry
+            .register(Box::new(cache_metrics.metrics.clone()))
+            .unwrap();
         registry.register(Box::new(command_counts.clone())).unwrap();
         registry.register(Box::new(osu_metrics.clone())).unwrap();
 
@@ -119,14 +106,6 @@ impl BotStats {
                 other_bot_messages: msg_counter.with_label_values(&["Bot"]),
                 own_messages: msg_counter.with_label_values(&["Own"]),
             },
-            user_counts: UserCounters {
-                unique: user_counter.with_label_values(&["Unique"]),
-                total: user_counter.with_label_values(&["Total"]),
-            },
-            guild_counts: GuildCounters {
-                total: guild_counter.with_label_values(&["Total"]),
-                unavailable: guild_counter.with_label_values(&["Unavailable"]),
-            },
             command_counts,
             osu_metrics: OsuCounters {
                 user_cached: osu_metrics.with_label_values(&["User cached"]),
@@ -134,26 +113,6 @@ impl BotStats {
             },
             cache_metrics,
         };
-
-        stats
-            .guild_counts
-            .total
-            .set(stats.cache_metrics.guilds.load(Acquire) as i64);
-
-        stats
-            .guild_counts
-            .unavailable
-            .set(stats.cache_metrics.unavailable_guilds.load(Acquire) as i64);
-
-        stats
-            .user_counts
-            .total
-            .set(stats.cache_metrics.members.load(Acquire) as i64);
-
-        stats
-            .user_counts
-            .unique
-            .set(stats.cache_metrics.users.load(Acquire) as i64);
 
         stats
     }
@@ -186,79 +145,13 @@ impl Context {
             Event::ChannelCreate(_) => self.stats.event_counts.channel_create.inc(),
             Event::ChannelDelete(_) => self.stats.event_counts.channel_delete.inc(),
             Event::GatewayReconnect => self.stats.event_counts.gateway_reconnect.inc(),
-            Event::GuildCreate(_) => {
-                self.stats
-                    .guild_counts
-                    .total
-                    .set(self.stats.cache_metrics.guilds.load(Acquire) as i64);
-                self.stats
-                    .guild_counts
-                    .unavailable
-                    .set(self.stats.cache_metrics.unavailable_guilds.load(Acquire) as i64);
-                self.stats
-                    .user_counts
-                    .total
-                    .set(self.stats.cache_metrics.members.load(Acquire) as i64);
-                self.stats
-                    .user_counts
-                    .unique
-                    .set(self.stats.cache_metrics.users.load(Acquire) as i64);
-                self.stats.event_counts.guild_create.inc()
-            }
-            Event::GuildDelete(_) => {
-                self.stats
-                    .guild_counts
-                    .total
-                    .set(self.stats.cache_metrics.guilds.load(Acquire) as i64);
-                self.stats
-                    .guild_counts
-                    .unavailable
-                    .set(self.stats.cache_metrics.unavailable_guilds.load(Acquire) as i64);
-                self.stats
-                    .user_counts
-                    .total
-                    .set(self.stats.cache_metrics.members.load(Acquire) as i64);
-                self.stats
-                    .user_counts
-                    .unique
-                    .set(self.stats.cache_metrics.users.load(Acquire) as i64);
-                self.stats.event_counts.guild_delete.inc()
-            }
+            Event::GuildCreate(_) => self.stats.event_counts.guild_create.inc(),
+            Event::GuildDelete(_) => self.stats.event_counts.guild_delete.inc(),
             Event::GuildUpdate(_) => self.stats.event_counts.guild_update.inc(),
-            Event::MemberAdd(_) => {
-                self.stats
-                    .user_counts
-                    .total
-                    .set(self.stats.cache_metrics.members.load(Acquire) as i64);
-                self.stats
-                    .user_counts
-                    .unique
-                    .set(self.stats.cache_metrics.users.load(Acquire) as i64);
-                self.stats.event_counts.member_add.inc()
-            }
-            Event::MemberRemove(_) => {
-                self.stats
-                    .user_counts
-                    .total
-                    .set(self.stats.cache_metrics.members.load(Acquire) as i64);
-                self.stats
-                    .user_counts
-                    .unique
-                    .set(self.stats.cache_metrics.users.load(Acquire) as i64);
-                self.stats.event_counts.member_remove.inc()
-            }
+            Event::MemberAdd(_) => self.stats.event_counts.member_add.inc(),
+            Event::MemberRemove(_) => self.stats.event_counts.member_remove.inc(),
             Event::MemberUpdate(_) => self.stats.event_counts.member_update.inc(),
-            Event::MemberChunk(_) => {
-                self.stats
-                    .user_counts
-                    .total
-                    .set(self.stats.cache_metrics.members.load(Acquire) as i64);
-                self.stats
-                    .user_counts
-                    .unique
-                    .set(self.stats.cache_metrics.users.load(Acquire) as i64);
-                self.stats.event_counts.member_chunk.inc()
-            }
+            Event::MemberChunk(_) => self.stats.event_counts.member_chunk.inc(),
             Event::MessageCreate(_) => self.stats.event_counts.message_create.inc(),
             Event::MessageDelete(_) => self.stats.event_counts.message_delete.inc(),
             Event::MessageDeleteBulk(_) => self.stats.event_counts.message_delete_bulk.inc(),
@@ -267,39 +160,13 @@ impl Context {
             Event::ReactionRemove(_) => self.stats.event_counts.reaction_remove.inc(),
             Event::ReactionRemoveAll(_) => self.stats.event_counts.reaction_remove_all.inc(),
             Event::ReactionRemoveEmoji(_) => self.stats.event_counts.reaction_remove_emoji.inc(),
-            Event::UnavailableGuild(_) => {
-                self.stats
-                    .guild_counts
-                    .total
-                    .set(self.stats.cache_metrics.guilds.load(Acquire) as i64);
-                self.stats
-                    .guild_counts
-                    .unavailable
-                    .set(self.stats.cache_metrics.unavailable_guilds.load(Acquire) as i64);
-                self.stats.event_counts.unavailable_guild.inc()
-            }
+            Event::UnavailableGuild(_) => self.stats.event_counts.unavailable_guild.inc(),
             Event::UserUpdate(_) => self.stats.event_counts.user_update.inc(),
 
             Event::ShardConnecting(_) => info!("Shard {} is now Connecting", shard_id),
             Event::ShardIdentifying(_) => info!("Shard {} is now Identifying", shard_id),
             Event::ShardConnected(_) => info!("Shard {} is now Connected", shard_id),
             Event::Ready(_) => {
-                self.stats
-                    .guild_counts
-                    .total
-                    .set(self.stats.cache_metrics.guilds.load(Acquire) as i64);
-                self.stats
-                    .guild_counts
-                    .unavailable
-                    .set(self.stats.cache_metrics.unavailable_guilds.load(Acquire) as i64);
-                self.stats
-                    .user_counts
-                    .total
-                    .set(self.stats.cache_metrics.members.load(Acquire) as i64);
-                self.stats
-                    .user_counts
-                    .unique
-                    .set(self.stats.cache_metrics.users.load(Acquire) as i64);
                 info!("Shard {} is now Ready", shard_id)
             }
             Event::Resumed => info!("Shard {} is now Resumed", shard_id),

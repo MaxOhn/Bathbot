@@ -104,17 +104,20 @@ fn clean_users(ctx: &Context, s: &mut String, guild: Option<GuildId>) {
             };
 
             if let Ok(id) = u64::from_str(&s[mention_start..mention_end]) {
+                let user = ctx.cache.user(UserId(id));
+
                 let replacement = if let Some(guild_id) = guild {
-                    if let Some(member) = ctx.cache.member(guild_id, UserId(id)) {
-                        format!(
-                            "@{}#{:04}",
-                            member.nick.as_deref().unwrap_or(&member.user.name),
-                            member.user.discriminator
-                        )
-                    } else {
-                        "@invalid-user".to_string()
+                    match (ctx.cache.member(guild_id, UserId(id)), user) {
+                        (Some(member), Some(user)) => {
+                            format!(
+                                "@{}#{:04}",
+                                member.nick.as_deref().unwrap_or(&user.name),
+                                user.discriminator
+                            )
+                        }
+                        _ => "@invalid-user".to_string(),
                     }
-                } else if let Some(user) = ctx.cache.user(UserId(id)) {
+                } else if let Some(user) = user {
                     format!("@{}#{:04}", user.name, user.discriminator)
                 } else {
                     "@invalid-user".to_string()

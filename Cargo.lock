@@ -2878,28 +2878,27 @@ dependencies = [
 
 [[package]]
 name = "twilight-cache-inmemory"
-version = "0.4.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#3cf325a381d7bdbd51db755d0366214d81c982a8"
+version = "0.5.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#da5bef1bcedb5f0cbc75c1d536083a406385589b"
 dependencies = [
  "bitflags",
  "darkredis",
  "dashmap",
  "futures",
  "log",
+ "prometheus",
  "serde",
  "serde_json",
  "tracing",
- "twilight-gateway",
  "twilight-model",
 ]
 
 [[package]]
 name = "twilight-gateway"
-version = "0.4.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#3cf325a381d7bdbd51db755d0366214d81c982a8"
+version = "0.5.1"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#da5bef1bcedb5f0cbc75c1d536083a406385589b"
 dependencies = [
  "bitflags",
- "dashmap",
  "flate2",
  "futures-util",
  "once_cell",
@@ -2916,8 +2915,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-gateway-queue"
-version = "0.4.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#3cf325a381d7bdbd51db755d0366214d81c982a8"
+version = "0.5.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#da5bef1bcedb5f0cbc75c1d536083a406385589b"
 dependencies = [
  "tokio",
  "tracing",
@@ -2926,27 +2925,23 @@ dependencies = [
 
 [[package]]
 name = "twilight-http"
-version = "0.4.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#3cf325a381d7bdbd51db755d0366214d81c982a8"
+version = "0.5.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#da5bef1bcedb5f0cbc75c1d536083a406385589b"
 dependencies = [
- "bytes",
- "futures-util",
  "hyper",
  "hyper-rustls",
  "percent-encoding",
  "rand",
  "serde",
  "serde_json",
- "serde_repr",
  "tokio",
- "tracing",
  "twilight-model",
 ]
 
 [[package]]
 name = "twilight-model"
-version = "0.4.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#3cf325a381d7bdbd51db755d0366214d81c982a8"
+version = "0.5.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#da5bef1bcedb5f0cbc75c1d536083a406385589b"
 dependencies = [
  "bitflags",
  "serde",
@@ -2957,8 +2952,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-standby"
-version = "0.4.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=custom-cache#3cf325a381d7bdbd51db755d0366214d81c982a8"
+version = "0.5.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#da5bef1bcedb5f0cbc75c1d536083a406385589b"
 dependencies = [
  "dashmap",
  "futures-util",

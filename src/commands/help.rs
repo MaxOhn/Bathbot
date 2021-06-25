@@ -84,7 +84,9 @@ pub async fn help(
             }
         };
 
-        ctx.cache.cache_private_channel(channel)
+        ctx.cache.cache_private_channel(channel.clone());
+
+        channel
     };
 
     let owner = msg.author.id;

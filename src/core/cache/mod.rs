@@ -11,8 +11,8 @@ impl Cache {
     pub async fn new(redis: &ConnectionPool) -> (Self, Option<HashMap<u64, ResumeSession>>) {
         let resource_types = ResourceType::CHANNEL
             | ResourceType::GUILD
-            | ResourceType::MESSAGE
             | ResourceType::MEMBER
+            | ResourceType::MESSAGE
             | ResourceType::REACTION
             | ResourceType::ROLE
             | ResourceType::USER_CURRENT
@@ -25,6 +25,20 @@ impl Cache {
             .config();
 
         let (cache, resume_map) = InMemoryCache::from_redis(redis, config).await;
+
+        let resume_map = resume_map.map(|resume_map| {
+            resume_map
+                .into_iter()
+                .map(|(key, (session_id, sequence))| {
+                    let session = ResumeSession {
+                        session_id,
+                        sequence,
+                    };
+
+                    (key, session)
+                })
+                .collect()
+        });
 
         (Self(cache), resume_map)
     }

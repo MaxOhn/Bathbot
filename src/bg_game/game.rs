@@ -134,7 +134,7 @@ impl Game {
                 ctx.http
                     .create_message(channel)
                     .content(content)?
-                    .attachment("bg_img.png", bytes)
+                    .file("bg_img.png", bytes)
                     .await?;
             }
             Err(why) => {

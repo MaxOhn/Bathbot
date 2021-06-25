@@ -1,7 +1,6 @@
 use super::Cache;
 use crate::util::constants::OWNER_USER_ID;
 
-use std::ops::Deref;
 use twilight_model::{
     channel::{permission_overwrite::PermissionOverwriteType, GuildChannel},
     guild::Permissions,
@@ -74,7 +73,7 @@ impl Cache {
         let mut permissions = Permissions::empty();
 
         if let Some(channel) = self.guild_channel(channel_id) {
-            if let GuildChannel::Text(channel) = channel.deref() {
+            if let GuildChannel::Text(channel) = channel {
                 permissions = self.get_guild_permissions_for(user_id, Some(guild_id));
 
                 if permissions.contains(Permissions::ADMINISTRATOR) {

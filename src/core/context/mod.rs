@@ -24,7 +24,7 @@ use twilight_gateway::Cluster;
 use twilight_http::Client as HttpClient;
 use twilight_model::{
     gateway::{
-        payload::UpdateStatus,
+        payload::UpdatePresence,
         presence::{Activity, ActivityType, Status},
     },
     id::{ChannelId, GuildId, MessageId},
@@ -125,8 +125,8 @@ impl Context {
         activity_type: ActivityType,
         message: impl Into<String>,
     ) -> BotResult<()> {
-        let activities = Some(vec![generate_activity(activity_type, message.into())]);
-        let status = UpdateStatus::new(activities, false, None, status);
+        let activities = vec![generate_activity(activity_type, message.into())];
+        let status = UpdatePresence::new(activities, false, None, status).unwrap();
         self.backend.cluster.command(shard_id, &status).await?;
 
         Ok(())
@@ -138,6 +138,7 @@ pub fn generate_activity(activity_type: ActivityType, message: String) -> Activi
     Activity {
         assets: None,
         application_id: None,
+        buttons: Vec::new(),
         created_at: None,
         details: None,
         flags: None,

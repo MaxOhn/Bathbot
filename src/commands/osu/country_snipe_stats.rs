@@ -122,7 +122,7 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
     let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
 
     if let Some(graph) = graph {
-        m.attachment("stats_graph.png", graph).await?
+        m.file("stats_graph.png", graph).await?
     } else {
         m.await?
     };

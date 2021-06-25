@@ -163,7 +163,7 @@ async fn compare_main(
     let embed = data.into_builder().build();
 
     msg.build_response(&ctx, |m| match thumbnail {
-        Some(bytes) => m.attachment("avatar_fuse.png", bytes).embed(embed),
+        Some(bytes) => m.file("avatar_fuse.png", bytes).embed(embed),
         None => m.embed(embed),
     })
     .await?;

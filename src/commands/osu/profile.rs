@@ -58,7 +58,7 @@ async fn profile_main(
     let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
 
     let response = if let Some(graph) = graph {
-        m.attachment("profile_graph.png", graph).await?
+        m.file("profile_graph.png", graph).await?
     } else {
         m.await?
     };

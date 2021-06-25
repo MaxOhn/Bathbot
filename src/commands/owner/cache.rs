@@ -11,7 +11,7 @@ use twilight_model::channel::Message;
 #[short_desc("Display stats about the internal cache")]
 #[owner()]
 async fn cache(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
-    let stats = ctx.cache.stats(10, 10);
+    let stats = ctx.cache.stats();
 
     let embed = CacheEmbed::new(stats, ctx.stats.start_time)
         .into_builder()

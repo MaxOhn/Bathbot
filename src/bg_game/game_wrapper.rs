@@ -108,7 +108,7 @@ impl GameWrapper {
                     .create_message(channel)
                     .content("Here's the next one:")
                     .unwrap()
-                    .attachment("bg_img.png", img)
+                    .file("bg_img.png", img)
                     .await;
 
                 if let Err(why) = msg_result {
