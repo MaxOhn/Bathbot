@@ -6,7 +6,10 @@ use crate::{
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         error::PPError,
-        osu::{cached_message_extract, map_id_from_history, prepare_beatmap_file, MapIdType},
+        osu::{
+            cached_message_extract, map_id_from_history, map_id_from_msg, prepare_beatmap_file,
+            MapIdType,
+        },
         MessageExt,
     },
     BotResult, Context,
@@ -16,7 +19,7 @@ use rosu_pp::{fruits::stars, Beatmap as Map, FruitsPP, ManiaPP, OsuPP, StarResul
 use rosu_v2::prelude::{Beatmap, GameMode, OsuError, RankStatus, Score};
 use std::sync::Arc;
 use tokio::fs::File;
-use twilight_model::channel::Message;
+use twilight_model::channel::{message::MessageType, Message};
 
 #[command]
 #[short_desc("Display a user's pp after unchoking their score on a map")]
@@ -35,20 +38,21 @@ use twilight_model::channel::Message;
 async fn fix(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = NameMapArgs::new(&ctx, args);
 
-    let map_id = if let Some(id) = args.map_id {
-        match id {
-            MapIdType::Map(id) => id,
-            MapIdType::Set(_) => {
-                let content = "Looks like you gave me a mapset id, I need a map id though";
+    let map_id_opt = args
+        .map_id
+        .or_else(|| {
+            msg.referenced_message
+                .as_ref()
+                .filter(|_| msg.kind == MessageType::Reply)
+                .and_then(|msg| map_id_from_msg(msg))
+        })
+        .or_else(|| {
+            ctx.cache
+                .message_extract(msg.channel_id, cached_message_extract)
+        });
 
-                return msg.error(&ctx, content).await;
-            }
-        }
-    } else if let Some(id) = ctx
-        .cache
-        .message_extract(msg.channel_id, cached_message_extract)
-    {
-        id.id()
+    let map_id = if let Some(id) = map_id_opt {
+        id
     } else {
         let msgs = match ctx.retrieve_channel_history(msg.channel_id).await {
             Ok(msgs) => msgs,
@@ -59,19 +63,23 @@ async fn fix(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             }
         };
 
-        match map_id_from_history(msgs) {
-            Some(MapIdType::Map(id)) => id,
-            Some(MapIdType::Set(_)) => {
-                let content = "Looks like you gave me a mapset id, I need a map id though";
-
-                return msg.error(&ctx, content).await;
-            }
+        match map_id_from_history(&msgs) {
+            Some(id) => id,
             None => {
                 let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";
 
                 return msg.error(&ctx, content).await;
             }
+        }
+    };
+
+    let map_id = match map_id {
+        MapIdType::Map(id) => id,
+        MapIdType::Set(_) => {
+            let content = "Looks like you gave me a mapset id, I need a map id though";
+
+            return msg.error(&ctx, content).await;
         }
     };
 

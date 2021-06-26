@@ -1,7 +1,6 @@
 
 **[TODO]**
 - For helpybot: don't only ignore $ msgs but #waifu altogether
-- When e.g. `<c` as a reply to a msg, use that msg's map
 - `<recommend` command
 - Command for compact `<osu`
 - Server setting to not send expanded `<r`
@@ -25,6 +24,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~When e.g. `<c` as a reply to a msg, use that msg's map~~ (21.06.26)
 - ~~Restructure things in `<help`~~ (21.06.10)
 - ~~Add content to `<mapper` again~~ (21.06.08)
 - ~~Add commands for performance leaderboard~~ (21.06.08)

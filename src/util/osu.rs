@@ -164,16 +164,19 @@ pub fn pp_missing(start: f32, goal: f32, scores: &[Score]) -> (f32, usize) {
     (required, idx)
 }
 
-pub fn map_id_from_history(msgs: Vec<Message>) -> Option<MapIdType> {
-    msgs.into_iter().find_map(|msg| {
-        if msg.content.chars().all(|c| c.is_numeric()) {
-            return check_embeds_for_map_id(&msg.embeds);
-        }
+#[inline]
+pub fn map_id_from_history(msgs: &[Message]) -> Option<MapIdType> {
+    msgs.iter().find_map(map_id_from_msg)
+}
 
-        matcher::get_osu_map_id(&msg.content)
-            .or_else(|| matcher::get_osu_mapset_id(&msg.content))
-            .or_else(|| check_embeds_for_map_id(&msg.embeds))
-    })
+pub fn map_id_from_msg(msg: &Message) -> Option<MapIdType> {
+    if msg.content.chars().all(|c| c.is_numeric()) {
+        return check_embeds_for_map_id(&msg.embeds);
+    }
+
+    matcher::get_osu_map_id(&msg.content)
+        .or_else(|| matcher::get_osu_mapset_id(&msg.content))
+        .or_else(|| check_embeds_for_map_id(&msg.embeds))
 }
 
 #[inline]
@@ -201,19 +204,10 @@ fn check_embeds_for_map_id(embeds: &[Embed]) -> Option<MapIdType> {
     })
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Copy, Clone, Debug)]
 pub enum MapIdType {
     Map(u32),
     Set(u32),
-}
-
-impl MapIdType {
-    #[inline]
-    pub fn id(&self) -> u32 {
-        match self {
-            Self::Map(id) | Self::Set(id) => *id,
-        }
-    }
 }
 
 // Credits to https://github.com/RoanH/osu-BonusPP/blob/master/BonusPP/src/me/roan/bonuspp/BonusPP.java#L202

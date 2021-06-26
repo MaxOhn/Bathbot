@@ -5,7 +5,9 @@ use crate::{
     tracking::process_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        osu::{cached_message_extract, map_id_from_history, MapIdType, ModSelection},
+        osu::{
+            cached_message_extract, map_id_from_history, map_id_from_msg, MapIdType, ModSelection,
+        },
         MessageExt,
     },
     BotResult, Context, Name,
@@ -14,7 +16,7 @@ use crate::{
 use rosu_v2::prelude::{GameMods, OsuError, RankStatus::Ranked};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
-use twilight_model::channel::Message;
+use twilight_model::channel::{message::MessageType, Message};
 
 #[command]
 #[short_desc("Compare a player's score on a map")]
@@ -34,10 +36,18 @@ use twilight_model::channel::Message;
 async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = NameMapModArgs::new(&ctx, args);
 
-    let map_id_opt = args.map_id.or_else(|| {
-        ctx.cache
-            .message_extract(msg.channel_id, cached_message_extract)
-    });
+    let map_id_opt = args
+        .map_id
+        .or_else(|| {
+            msg.referenced_message
+                .as_ref()
+                .filter(|_| msg.kind == MessageType::Reply)
+                .and_then(|msg| map_id_from_msg(msg))
+        })
+        .or_else(|| {
+            ctx.cache
+                .message_extract(msg.channel_id, cached_message_extract)
+        });
 
     let map_id = if let Some(id) = map_id_opt {
         id
@@ -51,7 +61,7 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
             }
         };
 
-        match map_id_from_history(msgs) {
+        match map_id_from_history(&msgs) {
             Some(id) => id,
             None => {
                 let content = "No beatmap specified and none found in recent channel history. \

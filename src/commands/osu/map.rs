@@ -6,7 +6,10 @@ use crate::{
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         error::PPError,
-        osu::{cached_message_extract, map_id_from_history, prepare_beatmap_file, MapIdType},
+        osu::{
+            cached_message_extract, map_id_from_history, map_id_from_msg, prepare_beatmap_file,
+            MapIdType,
+        },
         MessageExt,
     },
     BotResult, Context, Error,
@@ -19,7 +22,7 @@ use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError};
 use std::{cmp::Ordering, sync::Arc};
 use tokio::fs::File;
-use twilight_model::channel::Message;
+use twilight_model::channel::{message::MessageType, Message};
 
 const W: u32 = 590;
 const H: u32 = 150;
@@ -39,12 +42,20 @@ const H: u32 = 150;
 async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let args = MapModArgs::new(args);
 
-    let map_id = if let Some(id) = args.map_id {
-        id
-    } else if let Some(id) = ctx
-        .cache
-        .message_extract(msg.channel_id, cached_message_extract)
-    {
+    let map_id_opt = args
+        .map_id
+        .or_else(|| {
+            msg.referenced_message
+                .as_ref()
+                .filter(|_| msg.kind == MessageType::Reply)
+                .and_then(|msg| map_id_from_msg(msg))
+        })
+        .or_else(|| {
+            ctx.cache
+                .message_extract(msg.channel_id, cached_message_extract)
+        });
+
+    let map_id = if let Some(id) = map_id_opt {
         id
     } else {
         let msgs = match ctx.retrieve_channel_history(msg.channel_id).await {
@@ -56,7 +67,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             }
         };
 
-        match map_id_from_history(msgs) {
+        match map_id_from_history(&msgs) {
             Some(id) => id,
             None => {
                 let content = "No beatmap specified and none found in recent channel history. \
