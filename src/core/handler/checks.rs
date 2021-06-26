@@ -44,9 +44,10 @@ pub fn check_authority(ctx: &Context, msg: &Message) -> BotResult<Option<String>
                     ctx.cache.role(role).map_or_else(
                         || {
                             warn!("Role {} not cached for guild {}", role, guild_id);
+
                             None
                         },
-                        |role| Some(role.name.clone()),
+                        |role| Some(role.name),
                     )
                 })
                 .collect();

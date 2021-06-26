@@ -72,51 +72,49 @@ impl Cache {
 
         let mut permissions = Permissions::empty();
 
-        if let Some(channel) = self.guild_channel(channel_id) {
-            if let GuildChannel::Text(channel) = channel {
-                permissions = self.get_guild_permissions_for(user_id, Some(guild_id));
+        if let Some(GuildChannel::Text(channel)) = self.guild_channel(channel_id) {
+            permissions = self.get_guild_permissions_for(user_id, Some(guild_id));
 
-                if permissions.contains(Permissions::ADMINISTRATOR) {
-                    return Permissions::all();
-                }
+            if permissions.contains(Permissions::ADMINISTRATOR) {
+                return Permissions::all();
+            }
 
-                if let Some(member) = self.member(guild_id, user_id) {
-                    let mut everyone_allowed = Permissions::empty();
-                    let mut everyone_denied = Permissions::empty();
-                    let mut user_allowed = Permissions::empty();
-                    let mut user_denied = Permissions::empty();
-                    let mut role_allowed = Permissions::empty();
-                    let mut role_denied = Permissions::empty();
+            if let Some(member) = self.member(guild_id, user_id) {
+                let mut everyone_allowed = Permissions::empty();
+                let mut everyone_denied = Permissions::empty();
+                let mut user_allowed = Permissions::empty();
+                let mut user_denied = Permissions::empty();
+                let mut role_allowed = Permissions::empty();
+                let mut role_denied = Permissions::empty();
 
-                    for overwrite in &channel.permission_overwrites {
-                        match overwrite.kind {
-                            PermissionOverwriteType::Member(member_id) => {
-                                if member_id == user_id {
-                                    user_allowed |= overwrite.allow;
-                                    user_denied |= overwrite.deny;
-                                }
+                for overwrite in &channel.permission_overwrites {
+                    match overwrite.kind {
+                        PermissionOverwriteType::Member(member_id) => {
+                            if member_id == user_id {
+                                user_allowed |= overwrite.allow;
+                                user_denied |= overwrite.deny;
                             }
-                            PermissionOverwriteType::Role(role_id) => {
-                                if role_id.0 == channel.guild_id.unwrap().0 {
-                                    everyone_allowed |= overwrite.allow;
-                                    everyone_denied |= overwrite.deny
-                                } else if member.roles.contains(&role_id) {
-                                    role_allowed |= overwrite.allow;
-                                    role_denied |= overwrite.deny;
-                                }
+                        }
+                        PermissionOverwriteType::Role(role_id) => {
+                            if role_id.0 == channel.guild_id.unwrap().0 {
+                                everyone_allowed |= overwrite.allow;
+                                everyone_denied |= overwrite.deny
+                            } else if member.roles.contains(&role_id) {
+                                role_allowed |= overwrite.allow;
+                                role_denied |= overwrite.deny;
                             }
                         }
                     }
-
-                    permissions &= !everyone_denied;
-                    permissions |= everyone_allowed;
-
-                    permissions &= !role_denied;
-                    permissions |= role_allowed;
-
-                    permissions &= !user_denied;
-                    permissions |= user_allowed;
                 }
+
+                permissions &= !everyone_denied;
+                permissions |= everyone_allowed;
+
+                permissions &= !role_denied;
+                permissions |= role_allowed;
+
+                permissions &= !user_denied;
+                permissions |= user_allowed;
             }
         }
 

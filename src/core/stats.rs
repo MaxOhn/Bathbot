@@ -76,7 +76,7 @@ impl BotStats {
         registry.register(Box::new(command_counts.clone())).unwrap();
         registry.register(Box::new(osu_metrics.clone())).unwrap();
 
-        let stats = Self {
+        Self {
             registry,
             start_time: Utc::now(),
             event_counts: EventStats {
@@ -112,9 +112,7 @@ impl BotStats {
                 rosu: osu_metrics,
             },
             cache_metrics,
-        };
-
-        stats
+        }
     }
 
     #[inline]
