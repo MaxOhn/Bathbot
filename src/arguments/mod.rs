@@ -621,38 +621,6 @@ impl NameIntArgs {
     }
 }
 
-pub struct NameMapArgs {
-    pub name: Option<Name>,
-    pub map_id: Option<MapIdType>,
-}
-
-impl NameMapArgs {
-    pub fn new(ctx: &Context, args: Args) -> Self {
-        let mut name = None;
-        let mut map_id = None;
-
-        for arg in args.take(2) {
-            if map_id.is_none() {
-                if let Some(id) =
-                    matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg))
-                {
-                    map_id.replace(id);
-
-                    continue;
-                }
-            }
-
-            name = name.or_else(|| try_link_name(ctx, Some(arg)));
-
-            if map_id.is_some() && name.is_some() {
-                break;
-            }
-        }
-
-        Self { name, map_id }
-    }
-}
-
 pub struct NameMapModArgs {
     pub name: Option<Name>,
     pub map_id: Option<MapIdType>,

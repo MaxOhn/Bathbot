@@ -6,7 +6,7 @@ use crate::{
     },
 };
 
-use rosu_v2::prelude::{Beatmap, RankStatus, Score, User};
+use rosu_v2::prelude::{Beatmap, GameMods, RankStatus, Score, User};
 use std::fmt::Write;
 
 pub struct FixScoreEmbed {
@@ -23,6 +23,7 @@ impl FixScoreEmbed {
         map: Beatmap,
         scores: Option<(Score, Vec<Score>)>,
         unchoked_pp: Option<f32>,
+        mods: Option<GameMods>,
     ) -> Self {
         let author = author!(user);
         let thumbnail = format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id);
@@ -138,7 +139,10 @@ impl FixScoreEmbed {
             description
         // The user has no score on the map
         } else {
-            "No score on the map".to_owned()
+            match mods {
+                Some(mods) => format!("No {} score on the map", mods),
+                None => "No score on the map".to_owned(),
+            }
         };
 
         Self {

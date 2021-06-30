@@ -1,6 +1,6 @@
 use super::{prepare_score, request_user};
 use crate::{
-    arguments::{Args, NameMapArgs},
+    arguments::{Args, NameMapModArgs},
     embeds::{EmbedData, FixScoreEmbed},
     tracking::process_tracking,
     util::{
@@ -8,7 +8,7 @@ use crate::{
         error::PPError,
         osu::{
             cached_message_extract, map_id_from_history, map_id_from_msg, prepare_beatmap_file,
-            MapIdType,
+            MapIdType, ModSelection,
         },
         MessageExt,
     },
@@ -26,17 +26,19 @@ use twilight_model::channel::{message::MessageType, Message};
 #[long_desc(
     "Display a user's pp after unchoking their score on a map. \n\
      If no map is given, I will choose the last map \
-     I can find in the embeds of this channel."
+     I can find in the embeds of this channel.\n\
+     Mods can be specified but only if there already is a score \
+     on the map with those mods."
 )]
 #[aliases("fixscore")]
-#[usage("[username] [map url / map id]")]
+#[usage("[username] [map url / map id] [+mods]")]
 #[example(
     "badewanne3",
-    "badewanne3 2240404",
+    "badewanne3 2240404 +hdhr",
     "https://osu.ppy.sh/beatmapsets/902425#osu/2240404"
 )]
 async fn fix(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    let args = NameMapArgs::new(&ctx, args);
+    let args = NameMapModArgs::new(&ctx, args);
 
     let map_id_opt = args
         .map_id
@@ -88,7 +90,17 @@ async fn fix(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         None => return super::require_link(&ctx, msg).await,
     };
 
+    let arg_mods = match args.mods {
+        None | Some(ModSelection::Exclude(_)) => None,
+        Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) => Some(mods),
+    };
+
     let score_fut = ctx.osu().beatmap_user_score(map_id, name.as_str());
+
+    let score_fut = match arg_mods {
+        None => score_fut,
+        Some(mods) => score_fut.mods(mods),
+    };
 
     // Retrieve user's score on the map, the user itself, and the map including mapset
     let (user, map, mut scores) = match score_fut.await {
@@ -241,7 +253,7 @@ async fn fix(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
     let gb = ctx.map_garbage_collector(&map);
 
-    let embed = FixScoreEmbed::new(user, map, scores, unchoked_pp)
+    let embed = FixScoreEmbed::new(user, map, scores, unchoked_pp, arg_mods)
         .into_builder()
         .build();
 
