@@ -23,12 +23,13 @@ impl Context {
         // Kill the shards and get their resume info
         // DANGER: WE WILL NOT BE GETTING EVENTS FROM THIS POINT ONWARDS, REBOOT REQUIRED
         let resume_data = self
-            .backend
             .cluster
             .down_resumable()
             .into_iter()
             .map(|(key, value)| (key, (value.session_id, value.sequence)))
             .collect();
+
+        debug!("Received resume data");
 
         self.cache
             .prepare_cold_resume(&self.clients.redis, resume_data)
@@ -40,13 +41,9 @@ impl Context {
         let start = Instant::now();
         let guilds = &self.data.guilds;
         let count = self.clients.psql.insert_guilds(guilds).await?;
-        let end = Instant::now();
+        let elapsed = start.elapsed();
 
-        info!(
-            "Stored {} guild configs in {}ms",
-            count,
-            (end - start).as_millis()
-        );
+        info!("Stored {} guild configs in {:?}", count, elapsed);
 
         Ok(())
     }

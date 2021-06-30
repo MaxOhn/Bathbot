@@ -56,7 +56,12 @@ use hyper::{
 use prometheus::{Encoder, TextEncoder};
 use rosu_v2::Osu;
 use smallstr::SmallString;
-use std::{convert::Infallible, env, process, sync::Arc, time::Duration};
+use std::{
+    convert::Infallible,
+    env, process,
+    sync::{atomic::Ordering, Arc},
+    time::Duration,
+};
 use tokio::{
     runtime::Runtime,
     signal,
@@ -213,15 +218,8 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         .await
         .map_err(|why| format_err!("Could not start cluster: {}", why))?;
 
-    let [_, total_shards] = cluster.config().shard_config().shard();
-
-    let backend = crate::core::BackendData {
-        cluster,
-        total_shards,
-    };
-
     // Final context
-    let ctx = Arc::new(Context::new(cache, stats, http, clients, backend, data).await);
+    let ctx = Arc::new(Context::new(cache, stats, http, clients, cluster, data).await);
 
     // Setup graceful shutdown
     let shutdown_ctx = Arc::clone(&ctx);
@@ -238,6 +236,12 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         if tx.send(()).is_err() {
             error!("Failed to send shutdown message to metric loop");
         }
+
+        // Disable tracking while preparing shutdown
+        shutdown_ctx
+            .tracking()
+            .stop_tracking
+            .store(true, Ordering::SeqCst);
 
         shutdown_ctx.initiate_cold_resume().await;
 
@@ -279,7 +283,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
 
     tokio::spawn(async move {
         time::sleep(Duration::from_secs(1)).await;
-        cluster_ctx.backend.cluster.up().await;
+        cluster_ctx.cluster.up().await;
 
         if resumed {
             time::sleep(Duration::from_secs(5)).await;

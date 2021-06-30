@@ -2793,7 +2793,7 @@ dependencies = [
 [[package]]
 name = "twilight-cache-inmemory"
 version = "0.5.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#f20310d80f7447840c0a3ce8252e6fdfb7d97212"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#5b7f4f301946416278bec4ca54da79a1e18edb43"
 dependencies = [
  "bitflags",
  "darkredis",
@@ -2809,7 +2809,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway"
 version = "0.5.1"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#f20310d80f7447840c0a3ce8252e6fdfb7d97212"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#5b7f4f301946416278bec4ca54da79a1e18edb43"
 dependencies = [
  "bitflags",
  "flate2",
@@ -2829,7 +2829,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway-queue"
 version = "0.5.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#f20310d80f7447840c0a3ce8252e6fdfb7d97212"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#5b7f4f301946416278bec4ca54da79a1e18edb43"
 dependencies = [
  "tokio",
  "tracing",
@@ -2839,7 +2839,7 @@ dependencies = [
 [[package]]
 name = "twilight-http"
 version = "0.5.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#f20310d80f7447840c0a3ce8252e6fdfb7d97212"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#5b7f4f301946416278bec4ca54da79a1e18edb43"
 dependencies = [
  "hyper",
  "hyper-rustls",
@@ -2854,7 +2854,7 @@ dependencies = [
 [[package]]
 name = "twilight-model"
 version = "0.5.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#f20310d80f7447840c0a3ce8252e6fdfb7d97212"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#5b7f4f301946416278bec4ca54da79a1e18edb43"
 dependencies = [
  "bitflags",
  "serde",
@@ -2866,7 +2866,7 @@ dependencies = [
 [[package]]
 name = "twilight-standby"
 version = "0.5.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#f20310d80f7447840c0a3ce8252e6fdfb7d97212"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#5b7f4f301946416278bec4ca54da79a1e18edb43"
 dependencies = [
  "dashmap",
  "futures-util",

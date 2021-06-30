@@ -38,7 +38,7 @@ impl AboutEmbed {
         };
 
         let name = bot_user.name;
-        let shards = ctx.backend.cluster.info().len();
+        let shards = ctx.cluster.info().len();
         let guilds = ctx.stats.cache_metrics.guilds.get();
         let boot_time = ctx.stats.start_time;
 

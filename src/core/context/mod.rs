@@ -37,7 +37,7 @@ pub struct Context {
     pub http: HttpClient,
     pub standby: Standby,
     pub buckets: Buckets,
-    pub backend: BackendData,
+    pub cluster: Cluster,
     pub clients: Clients,
     // private to avoid deadlocks by messing up references
     data: ContextData,
@@ -49,11 +49,6 @@ pub struct Clients {
     pub osu: Osu,
     pub custom: CustomClient,
     pub twitch: Twitch,
-}
-
-pub struct BackendData {
-    pub cluster: Cluster,
-    pub total_shards: u64,
 }
 
 pub struct ContextData {
@@ -79,7 +74,7 @@ impl Context {
         stats: Arc<BotStats>,
         http: HttpClient,
         clients: Clients,
-        backend: BackendData,
+        cluster: Cluster,
         data: ContextData,
     ) -> Self {
         Context {
@@ -88,7 +83,7 @@ impl Context {
             http,
             standby: Standby::new(),
             clients,
-            backend,
+            cluster,
             data,
             buckets: buckets(),
         }
@@ -103,7 +98,9 @@ impl Context {
     where
         M: Into<String> + Clone,
     {
-        for shard_id in 1..self.backend.total_shards {
+        let [_, total_shards] = self.cluster.config().shard_config().shard();
+
+        for shard_id in 1..total_shards {
             debug!("Setting activity for shard {}", shard_id);
 
             self.set_shard_activity(shard_id, status, activity_type, message.clone())
@@ -127,7 +124,7 @@ impl Context {
     ) -> BotResult<()> {
         let activities = vec![generate_activity(activity_type, message.into())];
         let status = UpdatePresence::new(activities, false, None, status).unwrap();
-        self.backend.cluster.command(shard_id, &status).await?;
+        self.cluster.command(shard_id, &status).await?;
 
         Ok(())
     }
