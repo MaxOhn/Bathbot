@@ -11,7 +11,7 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use sysinfo::{get_current_pid, ProcessExt, ProcessorExt, System, SystemExt};
+use sysinfo::{get_current_pid, ProcessExt, ProcessorExt, RefreshKind, System, SystemExt};
 use twilight_model::id::UserId;
 
 pub struct AboutEmbed {
@@ -30,26 +30,30 @@ impl AboutEmbed {
             .await?
             .ok_or_else(|| format_err!("Cache does not contain user of owner"))?;
 
-        let (process_cpu, process_ram, total_cpu, used_ram, total_ram) = {
-            let mut system = System::new_all();
-            system.refresh_all();
+        let refreshes = RefreshKind::new().with_cpu().with_memory().with_processes();
+        let mut system = System::new_with_specifics(refreshes);
+
+        let (process_ram, total_cpu, used_ram, total_ram) = {
+            system.refresh_specifics(refreshes);
+
             let pid = get_current_pid()
                 .map_err(|why| format_err!("Could not get current PID: {}", why))?;
-            let process = system
-                .get_process(pid)
-                .ok_or_else(|| format_err!("No process with PID {}", pid))?;
-            let process_cpu = process.cpu_usage();
-            let process_ram = process.memory() / 1000;
-            let processors = system.get_processors();
-            let total_cpu: f32 = processors
-                .iter()
-                .map(ProcessorExt::get_cpu_usage)
-                .sum::<f32>()
-                / processors.len() as f32;
-            let used_ram = (system.get_used_memory() + system.get_used_swap()) / 1000;
-            let total_ram = (system.get_total_memory() + system.get_total_swap()) / 1000;
 
-            (process_cpu, process_ram, total_cpu, used_ram, total_ram)
+            let process = system
+                .process(pid)
+                .ok_or_else(|| format_err!("No process with PID {}", pid))?;
+
+            let process_ram = process.memory() / 1000;
+            let processors = system.processors();
+            let processor_count = processors.len() as f32;
+
+            let total_cpu: f32 =
+                processors.iter().map(ProcessorExt::cpu_usage).sum::<f32>() / processor_count;
+
+            let used_ram = (system.used_memory() + system.used_swap()) / 1000;
+            let total_ram = (system.total_memory() + system.total_swap()) / 1000;
+
+            (process_ram, total_cpu, used_ram, total_ram)
         };
 
         let bot_user = match ctx.cache.current_user() {
@@ -73,11 +77,10 @@ impl AboutEmbed {
 
         let fields = vec![
             field!("Guilds", with_comma_uint(guilds as u64).to_string(), true),
-            field!("Process CPU", format!("{:.2}%", process_cpu), true),
-            field!("Total CPU", format!("{:.2}%", total_cpu), true),
-            field!("Shards", shards.to_string(), true),
-            field!("Process RAM", format!("{} MB", process_ram), true),
             field!("Total RAM", format!("{}/{} MB", used_ram, total_ram), true),
+            field!("Process RAM", format!("{} MB", process_ram), true),
+            field!("Shards", shards.to_string(), true),
+            field!("Total CPU", format!("{:.2}%", total_cpu), true),
             field!(
                 "Github",
                 "https://github.com/MaxOhn/Bathbot".to_string(),

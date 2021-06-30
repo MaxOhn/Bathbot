@@ -372,30 +372,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crossbeam-deque"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94af6efb46fef72616855b036a624cf27ba656ffc9be1b9a3c931cfc7749a9a9"
-dependencies = [
- "cfg-if 1.0.0",
- "crossbeam-epoch",
- "crossbeam-utils",
-]
-
-[[package]]
-name = "crossbeam-epoch"
-version = "0.9.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ec02e091aa634e2c3ada4a392989e7c3116673ef0ac5b72232439094d73b7fd"
-dependencies = [
- "cfg-if 1.0.0",
- "crossbeam-utils",
- "lazy_static",
- "memoffset",
- "scopeguard",
-]
-
-[[package]]
 name = "crossbeam-queue"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -604,9 +580,9 @@ dependencies = [
 
 [[package]]
 name = "flexi_logger"
-version = "0.17.1"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33ab94b6ac8eb69f1496a6993f26f785b5fd6d99b7416023eb2a6175c0b242b1"
+checksum = "8ba2265890613939b533fa11c3728651531419ac549ccf527896201581f23991"
 dependencies = [
  "atty",
  "chrono",
@@ -931,12 +907,6 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7afe4a420e3fe79967a00898cc1f4db7c8a49a9333a29f8a4bd76a253d5cd04"
-
-[[package]]
-name = "hashbrown"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
@@ -1093,12 +1063,12 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "1.6.2"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "824845a0bf897a9042383849b02c1bc219c2383772efcd5c6f9766fa4b81aef3"
+checksum = "bc633605454125dec4b66843673f01c7df2b89479b32e0ed634e43a91cff62a5"
 dependencies = [
  "autocfg",
- "hashbrown 0.9.1",
+ "hashbrown 0.11.2",
 ]
 
 [[package]]
@@ -1282,15 +1252,6 @@ name = "memchr"
 version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b16bd47d9e329435e309c58469fe0791c2d0d1ba96ec0954152a5ae2b04387dc"
-
-[[package]]
-name = "memoffset"
-version = "0.6.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59accc507f1338036a0477ef61afdae33cde60840f4dfe481319ce3ad116ddf9"
-dependencies = [
- "autocfg",
-]
 
 [[package]]
 name = "mime"
@@ -1718,9 +1679,9 @@ dependencies = [
 
 [[package]]
 name = "plotters-backend"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b07fffcddc1cb3a1de753caa4e4df03b79922ba43cf882acc1bdd7e8df9f4590"
+checksum = "fd8be10f7485c8a323ea100b20d6052c27cf5968f08f8e3a56ee9f0cf38ebd3d"
 
 [[package]]
 name = "plotters-bitmap"
@@ -1900,31 +1861,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d51e9f596de227fda2ea6c84607f5558e196eeaf43c986b724ba4fb8fdf497e7"
 dependencies = [
  "rand_core",
-]
-
-[[package]]
-name = "rayon"
-version = "1.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c06aca804d41dbc8ba42dfd964f0d01334eceb64314b9ecf7c5fad5188a06d90"
-dependencies = [
- "autocfg",
- "crossbeam-deque",
- "either",
- "rayon-core",
-]
-
-[[package]]
-name = "rayon-core"
-version = "1.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d78120e2c850279833f1dd3582f730c4ab53ed95aeaaaa862a2a5c71b1656d8e"
-dependencies = [
- "crossbeam-channel",
- "crossbeam-deque",
- "crossbeam-utils",
- "lazy_static",
- "num_cpus",
 ]
 
 [[package]]
@@ -2584,16 +2520,16 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.11.7"
+version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e15d793f059727ad34a9245503c13b38262bb32e9906d8122ca64d6ca54b0858"
+checksum = "41c72bb3368a39bb153f226d8dd426ee33d54bc31f44037c078391b4a0b8dc04"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
+ "core-foundation-sys",
  "doc-comment",
  "libc",
  "ntapi",
  "once_cell",
- "rayon",
  "winapi 0.3.9",
 ]
 
@@ -2849,9 +2785,9 @@ checksum = "59547bce71d9c38b83d9c0e92b6066c4253371f15005def0c30d9657f50c7642"
 
 [[package]]
 name = "ttf-parser"
-version = "0.12.2"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c56097738aec26a3f347edf99f5c84d9d4e3a4b8ce5513ebca85cb621fc7c50"
+checksum = "7ae2f58a822f08abdaf668897e96a5656fe72f5a9ce66422423e8849384872e6"
 
 [[package]]
 name = "tungstenite"
@@ -2879,7 +2815,7 @@ dependencies = [
 [[package]]
 name = "twilight-cache-inmemory"
 version = "0.5.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#4df2fe618137ca9431b60015e57b3567ea756da1"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#f20310d80f7447840c0a3ce8252e6fdfb7d97212"
 dependencies = [
  "bitflags",
  "darkredis",
@@ -2889,14 +2825,13 @@ dependencies = [
  "prometheus",
  "serde",
  "serde_json",
- "tracing",
  "twilight-model",
 ]
 
 [[package]]
 name = "twilight-gateway"
 version = "0.5.1"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#4df2fe618137ca9431b60015e57b3567ea756da1"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#f20310d80f7447840c0a3ce8252e6fdfb7d97212"
 dependencies = [
  "bitflags",
  "flate2",
@@ -2916,7 +2851,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway-queue"
 version = "0.5.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#4df2fe618137ca9431b60015e57b3567ea756da1"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#f20310d80f7447840c0a3ce8252e6fdfb7d97212"
 dependencies = [
  "tokio",
  "tracing",
@@ -2926,7 +2861,7 @@ dependencies = [
 [[package]]
 name = "twilight-http"
 version = "0.5.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#4df2fe618137ca9431b60015e57b3567ea756da1"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#f20310d80f7447840c0a3ce8252e6fdfb7d97212"
 dependencies = [
  "hyper",
  "hyper-rustls",
@@ -2941,7 +2876,7 @@ dependencies = [
 [[package]]
 name = "twilight-model"
 version = "0.5.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#4df2fe618137ca9431b60015e57b3567ea756da1"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#f20310d80f7447840c0a3ce8252e6fdfb7d97212"
 dependencies = [
  "bitflags",
  "serde",
@@ -2953,7 +2888,7 @@ dependencies = [
 [[package]]
 name = "twilight-standby"
 version = "0.5.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#4df2fe618137ca9431b60015e57b3567ea756da1"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#f20310d80f7447840c0a3ce8252e6fdfb7d97212"
 dependencies = [
  "dashmap",
  "futures-util",

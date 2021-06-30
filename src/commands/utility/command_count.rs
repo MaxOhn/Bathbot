@@ -13,15 +13,17 @@ use twilight_model::channel::Message;
 #[short_desc("List of popular commands")]
 #[long_desc("Let me show you my most popular commands since my last reboot")]
 async fn commands(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
-    let mut cmds = ctx.stats.command_counts.collect()[0]
+    let mut cmds: Vec<_> = ctx.stats.command_counts.collect()[0]
         .get_metric()
         .iter()
         .map(|metric| {
             let name = metric.get_label()[0].get_value();
             let count = metric.get_counter().get_value();
+
             (name.to_owned(), count as u32)
         })
-        .collect::<Vec<_>>();
+        .collect();
+
     cmds.sort_unstable_by(|&(_, a), &(_, b)| b.cmp(&a));
 
     // Prepare embed data
@@ -47,7 +49,7 @@ async fn commands(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 90).await {
-            unwind_error!(warn, why, "Pagination error: {}")
+            unwind_error!(warn, why, "Pagination error (command count): {}")
         }
     });
 

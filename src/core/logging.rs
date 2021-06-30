@@ -1,19 +1,22 @@
 use crate::Error;
 
-use flexi_logger::{Age, Cleanup, Criterion, DeferredNow, Duplicate, Logger, LoggerHandle, Naming};
+use flexi_logger::{
+    Age, Cleanup, Criterion, DeferredNow, Duplicate, FileSpec, Logger, LoggerHandle, Naming,
+};
 use log::Record;
 use once_cell::sync::OnceCell;
 
 static LOGGER: OnceCell<LoggerHandle> = OnceCell::new();
 
 pub fn initialize() -> Result<(), Error> {
+    let file = FileSpec::default().directory("logs");
+
     let log_init_status = LOGGER.set(
-        Logger::with_str("bathbot_twilight")
-            .log_to_file()
-            .directory("logs")
+        Logger::try_with_str("bathbot_twilight")
+            .unwrap()
+            .log_to_file(file)
             .format(log_format)
             .format_for_files(log_format_files)
-            .o_timestamp(true)
             .rotate(
                 Criterion::Age(Age::Day),
                 Naming::Timestamps,
