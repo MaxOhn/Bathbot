@@ -104,6 +104,7 @@ use crate::{
     BotResult, Context, Error,
 };
 
+use deadpool_redis::redis::AsyncCommands;
 use futures::{
     future::FutureExt,
     stream::{FuturesUnordered, StreamExt},
@@ -136,7 +137,7 @@ impl From<OsuError> for ErrorType {
     }
 }
 
-const USER_CACHE_SECONDS: u32 = 600;
+const USER_CACHE_SECONDS: usize = 600;
 
 async fn request_user(ctx: &Context, name: &str, mode: Option<GameMode>) -> OsuResult<User> {
     let mut key = String::with_capacity(2 + name.len() + 2 * mode.is_some() as usize);
@@ -146,15 +147,31 @@ async fn request_user(ctx: &Context, name: &str, mode: Option<GameMode>) -> OsuR
         let _ = write!(key, "_{}", mode as u8);
     }
 
-    let mut conn = ctx.clients.redis.get().await;
+    let mut conn = match ctx.clients.redis.get().await {
+        Ok(mut conn) => {
+            if let Ok(bytes) = conn.get::<_, Vec<u8>>(&key).await {
+                if !bytes.is_empty() {
+                    ctx.stats.inc_cached_user();
+                    let user =
+                        serde_cbor::from_slice(&bytes).expect("failed to deserialize redis user");
+                    debug!("Found user `{}` in cache", name);
 
-    if let Ok(Some(bytes)) = conn.get(&key).await {
-        ctx.stats.inc_cached_user();
-        let user = serde_json::from_slice(&bytes).expect("failed to deserialize redis user");
-        debug!("Found user `{}` in cache", name);
+                    return Ok(user);
+                }
+            }
 
-        return Ok(user);
-    }
+            conn
+        }
+        Err(why) => {
+            unwind_error!(warn, why, "Failed to get redis connection for user: {}");
+            let user_fut = ctx.osu().user(name);
+
+            return match mode {
+                Some(mode) => user_fut.mode(mode).await,
+                None => user_fut.await,
+            };
+        }
+    };
 
     let user_fut = ctx.osu().user(name);
 
@@ -166,11 +183,10 @@ async fn request_user(ctx: &Context, name: &str, mode: Option<GameMode>) -> OsuR
     // Remove html user page to reduce overhead
     user.page.take();
 
-    let bytes = serde_json::to_vec(&user).expect("failed to serialize user");
+    let bytes = serde_cbor::to_vec(&user).expect("failed to serialize user");
+    let set_fut = conn.set_ex::<_, _, ()>(key, bytes, USER_CACHE_SECONDS);
 
     // Cache users for 10 minutes
-    let set_fut = conn.set_and_expire_seconds(key, bytes, USER_CACHE_SECONDS);
-
     if let Err(why) = set_fut.await {
         unwind_error!(debug, why, "Failed to insert bytes into cache: {}");
     }

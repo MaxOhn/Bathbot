@@ -101,8 +101,8 @@ dependencies = [
  "bitflags",
  "bytes",
  "chrono",
- "darkredis",
  "dashmap",
+ "deadpool-redis",
  "dotenv",
  "flexi_logger",
  "futures",
@@ -128,6 +128,7 @@ dependencies = [
  "rosu-pp-older",
  "rosu-v2",
  "serde",
+ "serde_cbor",
  "serde_json",
  "smallstr",
  "smallvec",
@@ -246,6 +247,19 @@ name = "color_quant"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
+
+[[package]]
+name = "combine"
+version = "4.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2d47c1b11006b87e492b53b313bb699ce60e16613c4dddaa91f8f7c220ab2fa"
+dependencies = [
+ "bytes",
+ "futures-util",
+ "memchr",
+ "pin-project-lite",
+ "tokio",
+]
 
 [[package]]
 name = "const_fn"
@@ -410,17 +424,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "darkredis"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd75df5d84e3d811c34e3bded9546a6a5eff77196cfd968a01b136235308e14a"
-dependencies = [
- "futures",
- "quick-error",
- "tokio",
-]
-
-[[package]]
 name = "dashmap"
 version = "4.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -429,6 +432,29 @@ dependencies = [
  "cfg-if 1.0.0",
  "num_cpus",
  "serde",
+]
+
+[[package]]
+name = "deadpool"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6284d3fbd2821de00878c70e55e89859c3115c4cacbd63a8dbd56887e88d069f"
+dependencies = [
+ "async-trait",
+ "num_cpus",
+ "tokio",
+]
+
+[[package]]
+name = "deadpool-redis"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "637b3ef314fe3393113b2fbf2c98eb557aad7110dcf6b1a7e9b40bdd2589abc0"
+dependencies = [
+ "async-trait",
+ "deadpool",
+ "log",
+ "redis",
 ]
 
 [[package]]
@@ -502,6 +528,12 @@ name = "dotenv"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
+
+[[package]]
+name = "dtoa"
+version = "0.4.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56899898ce76aaf4a0f24d914c97ea6ed976d42fec6ad33fcbb0a1103e07b2b0"
 
 [[package]]
 name = "dwrote"
@@ -1792,12 +1824,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "quick-error"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a993555f31e5a609f617c12db6250dedcac1b0a85076912c436e6fc9b2c8e6a3"
-
-[[package]]
 name = "quote"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1860,6 +1886,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d51e9f596de227fda2ea6c84607f5558e196eeaf43c986b724ba4fb8fdf497e7"
 dependencies = [
  "rand_core",
+]
+
+[[package]]
+name = "redis"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4f0ceb2ec0dd769483ecd283f6615aa83dcd0be556d5294c6e659caefe7cc54"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "combine",
+ "dtoa",
+ "futures-util",
+ "itoa",
+ "percent-encoding",
+ "pin-project-lite",
+ "tokio",
+ "tokio-util",
+ "url",
 ]
 
 [[package]]
@@ -2809,11 +2854,11 @@ dependencies = [
 [[package]]
 name = "twilight-cache-inmemory"
 version = "0.5.1"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#335c9a74301575bd73847f6ee30fbf66e5c0cb9e"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#a4ee843e28bbf1a6216953dc5d3573f1f5ef10ea"
 dependencies = [
  "bitflags",
- "darkredis",
  "dashmap",
+ "deadpool-redis",
  "futures",
  "log",
  "prometheus",
@@ -2825,7 +2870,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway"
 version = "0.5.2"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#335c9a74301575bd73847f6ee30fbf66e5c0cb9e"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#a4ee843e28bbf1a6216953dc5d3573f1f5ef10ea"
 dependencies = [
  "bitflags",
  "flate2",
@@ -2845,7 +2890,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway-queue"
 version = "0.5.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#335c9a74301575bd73847f6ee30fbf66e5c0cb9e"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#a4ee843e28bbf1a6216953dc5d3573f1f5ef10ea"
 dependencies = [
  "tokio",
  "tracing",
@@ -2855,7 +2900,7 @@ dependencies = [
 [[package]]
 name = "twilight-http"
 version = "0.5.3"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#335c9a74301575bd73847f6ee30fbf66e5c0cb9e"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#a4ee843e28bbf1a6216953dc5d3573f1f5ef10ea"
 dependencies = [
  "hyper",
  "hyper-rustls",
@@ -2870,7 +2915,7 @@ dependencies = [
 [[package]]
 name = "twilight-model"
 version = "0.5.2"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#335c9a74301575bd73847f6ee30fbf66e5c0cb9e"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#a4ee843e28bbf1a6216953dc5d3573f1f5ef10ea"
 dependencies = [
  "bitflags",
  "serde",
@@ -2882,7 +2927,7 @@ dependencies = [
 [[package]]
 name = "twilight-standby"
 version = "0.5.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#335c9a74301575bd73847f6ee30fbf66e5c0cb9e"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#a4ee843e28bbf1a6216953dc5d3573f1f5ef10ea"
 dependencies = [
  "dashmap",
  "futures-util",

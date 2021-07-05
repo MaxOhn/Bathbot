@@ -11,7 +11,7 @@ pub use pp::PPError;
 pub use twitch::TwitchError;
 
 use chrono::format::ParseError as ChronoParseError;
-use darkredis::Error as RedisError;
+use deadpool_redis::{redis::RedisError, CreatePoolError};
 use image::ImageError;
 use plotters::drawing::DrawingAreaErrorKind as DrawingError;
 use reqwest::Error as ReqwestError;
@@ -49,6 +49,7 @@ pub enum Error {
     CreateMessage(CreateMessageError),
     ChronoParse(ChronoParseError),
     Command(Box<Error>, String),
+    CreateRedisPool(CreatePoolError),
     Custom(String),
     CustomClient(CustomClientError),
     Database(DBError),
@@ -80,6 +81,7 @@ impl StdError for Error {
             Self::CreateMessage(e) => Some(e),
             Self::ChronoParse(e) => Some(e),
             Self::Command(e, _) => Some(e),
+            Self::CreateRedisPool(e) => Some(e),
             Self::Custom(_) => None,
             Self::CustomClient(e) => Some(e),
             Self::Database(e) => Some(e),
@@ -113,6 +115,7 @@ impl fmt::Display for Error {
             Self::CreateMessage(_) => f.write_str("error while creating message"),
             Self::ChronoParse(_) => f.write_str("chrono parse error"),
             Self::Command(_, cmd) => write!(f, "command error: {}", cmd),
+            Self::CreateRedisPool(_) => f.write_str("failed to create redis pool"),
             Self::Custom(e) => e.fmt(f),
             Self::CustomClient(_) => f.write_str("custom client error"),
             Self::Database(_) => f.write_str("database error"),
@@ -157,6 +160,12 @@ impl From<CreateMessageError> for Error {
 impl From<ChronoParseError> for Error {
     fn from(e: ChronoParseError) -> Self {
         Error::ChronoParse(e)
+    }
+}
+
+impl From<CreatePoolError> for Error {
+    fn from(e: CreatePoolError) -> Self {
+        Error::CreateRedisPool(e)
     }
 }
 

@@ -31,9 +31,13 @@ impl Context {
 
         debug!("Received resume data");
 
-        self.cache
-            .prepare_cold_resume(&self.clients.redis, resume_data)
-            .await;
+        let cold_resume_fut = self
+            .cache
+            .prepare_cold_resume(&self.clients.redis, resume_data);
+
+        if let Err(why) = cold_resume_fut.await {
+            unwind_error!(error, why, "Failed to prepare cold resume: {}");
+        }
     }
 
     #[cold]

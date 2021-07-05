@@ -1,6 +1,6 @@
 mod get_impls;
 
-use darkredis::ConnectionPool;
+use deadpool_redis::Pool;
 use std::{collections::HashMap, ops::Deref};
 use twilight_cache_inmemory::{InMemoryCache, ResourceType};
 use twilight_gateway::shard::ResumeSession;
@@ -8,7 +8,7 @@ use twilight_gateway::shard::ResumeSession;
 pub struct Cache(InMemoryCache);
 
 impl Cache {
-    pub async fn new(redis: &ConnectionPool) -> (Self, Option<HashMap<u64, ResumeSession>>) {
+    pub async fn new(redis: &Pool) -> (Self, Option<HashMap<u64, ResumeSession>>) {
         let resource_types = ResourceType::CHANNEL
             | ResourceType::GUILD
             | ResourceType::MEMBER

@@ -46,8 +46,8 @@ extern crate log;
 #[macro_use]
 extern crate smallvec;
 
-use darkredis::ConnectionPool;
 use dashmap::{DashMap, DashSet};
+use deadpool_redis::{Config as RedisConfig, PoolConfig as RedisPoolConfig};
 use hashbrown::HashSet;
 use hyper::{
     service::{make_service_fn, service_fn},
@@ -122,11 +122,20 @@ async fn async_main() -> BotResult<()> {
         bot_user.name, bot_user.discriminator
     );
 
-    // Connect to psql database and redis cache
+    // Connect to psql database
     let db_uri = env::var("DATABASE_URL").expect("missing DATABASE_URL in .env");
     let psql = Database::new(&db_uri)?;
+
+    // Connect to redis
     let redis_uri = env::var("REDIS_URL").expect("missing REDIS_URL in .env");
-    let redis = ConnectionPool::create(redis_uri, None, 5).await?;
+
+    let redis_config = RedisConfig {
+        connection: None,
+        pool: Some(RedisPoolConfig::new(4)),
+        url: Some(redis_uri),
+    };
+
+    let redis = redis_config.create_pool()?;
 
     // Connect to osu! API
     let osu_client_id = config.tokens.osu_client_id;

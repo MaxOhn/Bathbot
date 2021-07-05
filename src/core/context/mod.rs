@@ -14,8 +14,8 @@ use crate::{
     BotResult, CountryCode, CustomClient, Name, OsuTracking, Twitch,
 };
 
-use darkredis::ConnectionPool;
 use dashmap::{DashMap, DashSet};
+use deadpool_redis::Pool as RedisPool;
 use hashbrown::HashSet;
 use rosu_v2::Osu;
 use std::sync::Arc;
@@ -45,7 +45,7 @@ pub struct Context {
 
 pub struct Clients {
     pub psql: Database,
-    pub redis: ConnectionPool,
+    pub redis: RedisPool,
     pub osu: Osu,
     pub custom: CustomClient,
     pub twitch: Twitch,
