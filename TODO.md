@@ -20,10 +20,10 @@
 - Experiment with different team/opponent scaling for `<mc`
 - Check on `thread 'tokio-runtime-worker' panicked at 'error binding to 169.254.124.89:9094:`
     `error creating server listener: Cannot assign requested address (os error 99)'"`
-- Write peppy a mail
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Write peppy a mail~~ (21.06.26)
 - ~~When e.g. `<c` as a reply to a msg, use that msg's map~~ (21.06.26)
 - ~~Restructure things in `<help`~~ (21.06.10)
 - ~~Add content to `<mapper` again~~ (21.06.08)

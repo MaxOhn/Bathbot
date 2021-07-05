@@ -68,7 +68,6 @@ pub struct ContextData {
 
 impl Context {
     #[cold]
-    #[inline]
     pub async fn new(
         cache: Cache,
         stats: Arc<BotStats>,

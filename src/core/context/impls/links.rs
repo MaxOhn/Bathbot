@@ -32,7 +32,6 @@ impl Context {
     }
 
     #[cold]
-    #[inline]
     pub fn add_role_assign(&self, channel_id: ChannelId, msg_id: MessageId, role_id: RoleId) {
         self.data
             .role_assigns

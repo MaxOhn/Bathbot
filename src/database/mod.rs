@@ -9,15 +9,16 @@ pub use models::{
 
 use crate::BotResult;
 
-use sqlx::postgres::PgPool;
+use sqlx::postgres::{PgPool, PgPoolOptions};
 
 pub struct Database {
     pool: PgPool,
 }
 
 impl Database {
+    #[cold]
     pub fn new(uri: &str) -> BotResult<Self> {
-        let pool = PgPool::connect_lazy(uri)?;
+        let pool = PgPoolOptions::new().max_connections(4).connect_lazy(uri)?;
 
         Ok(Self { pool })
     }
