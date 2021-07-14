@@ -147,61 +147,38 @@ pub fn highlight_funny_numeral(content: &str) -> Cow<str> {
 
 lazy_static! {
     static ref ROLE_ID_MATCHER: Regex = Regex::new(r"<@&(\d+)>").unwrap();
-}
 
-lazy_static! {
     static ref CHANNEL_ID_MATCHER: Regex = Regex::new(r"<#(\d+)>").unwrap();
-}
 
-lazy_static! {
     static ref MENTION_MATCHER: Regex = Regex::new(r"<@!?(\d+)>").unwrap();
-}
 
-lazy_static! {
     static ref OSU_URL_USER_MATCHER: Regex = Regex::new(r"https://osu.ppy.sh/users/(\d+)").unwrap();
-}
 
-lazy_static! {
     static ref OSU_URL_MAP_NEW_MATCHER: Regex = Regex::new(
         r"https://osu.ppy.sh/beatmapsets/(\d+)(?:(?:#(?:osu|mania|taiko|fruits)|<#\d+>)/(\d+))?"
     )
     .unwrap();
-}
 
-lazy_static! {
-    static ref OSU_URL_MAP_OLD_MATCHER: Regex = Regex::new(r"https://osu.ppy.sh/b/(\d+)").unwrap();
+    static ref OSU_URL_MAP_OLD_MATCHER: Regex =
+        Regex::new(r"https://osu.ppy.sh/b(?:eatmaps)?/(\d+)").unwrap();
     static ref OSU_URL_MAPSET_OLD_MATCHER: Regex =
         Regex::new(r"https://osu.ppy.sh/s/(\d+)").unwrap();
-}
 
-lazy_static! {
     static ref OSU_URL_MATCH_MATCHER: Regex =
         Regex::new(r"https://osu.ppy.sh/(?:community/matches|mp)/(\d+)").unwrap();
-}
 
-lazy_static! {
     static ref MOD_PLUS_MATCHER: Regex = Regex::new(r"^\+(\w+)!?$").unwrap();
     static ref MOD_MINUS_MATCHER: Regex = Regex::new(r"^-(\w+)!$").unwrap();
-}
 
-lazy_static! {
     static ref HIT_RESULTS_MATCHER: Regex = Regex::new(r".*\{(\d+/){2,}\d+}.*").unwrap();
-}
 
-lazy_static! {
     static ref OSU_DIFF_MATCHER: Regex =
         Regex::new(".*'s? (easy|normal|hard|insane|expert|extra|extreme|emotions|repetition)")
             .unwrap();
-}
 
-lazy_static! {
     static ref EMOJI_MATCHER: Regex = Regex::new(r"<(a?):([^:\n]+):(\d+)>").unwrap();
-}
 
-lazy_static! {
     static ref IGNORE_BADGE_MATCHER: Regex = Regex::new(r"^((?i)contrib|nomination|assessment|global|moderation|beatmap|spotlight|map|pending|aspire|elite|monthly|exemplary|outstanding|longstanding|idol[^@]+)").unwrap();
-}
 
-lazy_static! {
     static ref SEVEN_TWO_SEVEN: Regex = Regex::new("(?P<num>7[.,]?2[.,]?7)").unwrap();
 }
