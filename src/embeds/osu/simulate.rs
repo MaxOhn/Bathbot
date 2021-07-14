@@ -3,7 +3,7 @@ use crate::{
     embeds::{osu, EmbedBuilder, EmbedData, Footer},
     pp::{Calculations, PPCalculator},
     util::{
-        constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
+        constants::{AVATAR_URL, MAP_THUMB_URL},
         error::PPError,
         numbers::{round, with_comma_uint},
         osu::{grade_completion_mods, prepare_beatmap_file, ModSelection},
@@ -148,9 +148,9 @@ impl SimulateEmbed {
 
         Ok(Self {
             title,
-            url: format!("{}b/{}", OSU_BASE, map.map_id),
+            url: map.url.to_owned(),
             footer,
-            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id),
+            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id), // mapset.covers is empty :(
             grade_completion_mods,
             stars,
             score: unchoked_score.score as u64,

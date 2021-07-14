@@ -1,7 +1,6 @@
 use crate::{
     embeds::{osu, Author, Footer},
     util::{
-        constants::OSU_BASE,
         datetime::how_long_ago,
         error::PPError,
         osu::{grade_completion_mods, prepare_beatmap_file},
@@ -57,13 +56,12 @@ impl RecentListEmbed {
 
             let _ = write!(
                 description,
-                "**{idx}. {grade}\t[{title} [{version}]]({base}b/{id})** [{stars}]",
+                "**{idx}. {grade}\t[{title} [{version}]]({url})** [{stars}]",
                 idx = idx + i,
                 grade = grade_completion_mods(&score, map),
                 title = mapset.title,
                 version = map.version,
-                base = OSU_BASE,
-                id = map.map_id,
+                url = map.url,
                 stars = stars,
             );
 

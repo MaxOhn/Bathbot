@@ -1,7 +1,7 @@
 use crate::{
     embeds::Author,
     util::{
-        constants::{MAP_THUMB_URL, OSU_BASE},
+        constants::MAP_THUMB_URL,
         numbers::{round, with_comma_float},
     },
 };
@@ -26,8 +26,8 @@ impl FixScoreEmbed {
         mods: Option<GameMods>,
     ) -> Self {
         let author = author!(user);
+        let url = map.url;
         let thumbnail = format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id);
-        let url = format!("{}b/{}", OSU_BASE, map.map_id);
 
         let mapset = map.mapset.as_ref().unwrap();
         let title = format!("{} - {} [{}]", mapset.artist, mapset.title, map.version);

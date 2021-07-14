@@ -1,7 +1,7 @@
 use crate::{
     embeds::{osu, Author, EmbedBuilder, EmbedData, Footer},
     util::{
-        constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
+        constants::AVATAR_URL,
         datetime::how_long_ago,
         error::PPError,
         numbers::{round, with_comma_uint},
@@ -37,7 +37,7 @@ pub struct TopSingleEmbed {
     hits: String,
     if_fc: Option<(String, f32, String)>,
     map_info: String,
-    mapset_id: u32,
+    mapset_cover: String,
 }
 
 impl TopSingleEmbed {
@@ -130,14 +130,12 @@ impl TopSingleEmbed {
 
         description.push_str("**__");
 
-        let thumbnail = format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id);
-
         Ok(Self {
             title,
             footer,
-            thumbnail,
+            thumbnail: mapset.covers.list.to_owned(),
             description,
-            url: format!("{}b/{}", OSU_BASE, map.map_id),
+            url: map.url.to_owned(),
             author: author!(user),
             timestamp: score.created_at,
             grade_completion_mods,
@@ -150,18 +148,13 @@ impl TopSingleEmbed {
             hits,
             map_info: osu::get_map_info(&map, score.mods, stars),
             if_fc,
-            mapset_id: mapset.mapset_id,
+            mapset_cover: mapset.covers.cover.to_owned(),
         })
     }
 }
 
 impl EmbedData for TopSingleEmbed {
     fn as_builder(&self) -> EmbedBuilder {
-        let image = format!(
-            "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
-            self.mapset_id
-        );
-
         let mut fields = vec![
             field!(
                 "Grade",
@@ -196,7 +189,7 @@ impl EmbedData for TopSingleEmbed {
             .description(&self.description)
             .fields(fields)
             .footer(&self.footer)
-            .image(image)
+            .image(&self.mapset_cover)
             .timestamp(self.timestamp)
             .title(&self.title)
             .url(&self.url)

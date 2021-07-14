@@ -2,7 +2,7 @@ use super::calculate_od;
 use crate::{
     embeds::{attachment, Author, EmbedFields, Footer},
     util::{
-        constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
+        constants::{AVATAR_URL, OSU_BASE},
         datetime::sec_to_minsec,
         error::PPError,
         numbers::{round, with_comma_uint},
@@ -226,9 +226,14 @@ impl MapEmbed {
             ("Last updated".to_owned(), map.last_updated)
         };
 
+        let creator_avatar_url = mapset.creator.as_ref().map_or_else(
+            || format!("{}{}", AVATAR_URL, mapset.creator_id),
+            |creator| creator.avatar_url.to_owned(),
+        );
+
         let author = Author::new(format!("Created by {}", mapset.creator_name))
             .url(format!("{}u/{}", OSU_BASE, mapset.creator_id))
-            .icon_url(format!("{}{}", AVATAR_URL, mapset.creator_id));
+            .icon_url(creator_avatar_url);
 
         let footer_text = format!(
             "Map {} out of {} in the mapset, {}",
@@ -238,7 +243,7 @@ impl MapEmbed {
         let footer = Footer::new(footer_text);
 
         let thumbnail = with_thumbnail
-            .then(|| format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id))
+            .then(|| mapset.covers.cover.to_owned())
             .unwrap_or_default();
 
         let image = (!with_thumbnail)
@@ -259,7 +264,7 @@ impl MapEmbed {
             thumbnail,
             timestamp,
             description,
-            url: format!("{}b/{}", OSU_BASE, map.map_id),
+            url: map.url.to_owned(),
         })
     }
 }

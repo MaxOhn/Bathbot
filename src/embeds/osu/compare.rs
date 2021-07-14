@@ -217,11 +217,11 @@ impl CompareEmbed {
         Ok(Self {
             description,
             title,
-            url: format!("{}b/{}", OSU_BASE, map.map_id),
+            url: map.url.to_owned(),
             author: author!(user),
             footer,
             timestamp,
-            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id),
+            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id), // mapset.covers is empty :(
             grade_completion_mods,
             stars,
             score,

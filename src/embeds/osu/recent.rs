@@ -1,7 +1,7 @@
 use crate::{
     embeds::{osu, Author, EmbedBuilder, EmbedData, Footer},
     util::{
-        constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
+        constants::AVATAR_URL,
         datetime::how_long_ago,
         error::PPError,
         matcher::highlight_funny_numeral,
@@ -38,7 +38,7 @@ pub struct RecentEmbed {
     hits: String,
     if_fc: Option<(String, f32, String)>,
     map_info: String,
-    mapset_id: u32,
+    mapset_cover: String,
 }
 
 impl RecentEmbed {
@@ -236,11 +236,11 @@ impl RecentEmbed {
         Ok(Self {
             description,
             title,
-            url: format!("{}b/{}", OSU_BASE, map.map_id),
+            url: map.url.to_owned(),
             author: author!(user),
             footer,
             timestamp: score.created_at,
-            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id),
+            thumbnail: mapset.covers.list.to_owned(),
             grade_completion_mods,
             stars,
             score: with_comma_uint(score.score).to_string(),
@@ -251,18 +251,13 @@ impl RecentEmbed {
             hits,
             map_info: osu::get_map_info(&map, score.mods, stars),
             if_fc,
-            mapset_id: mapset.mapset_id,
+            mapset_cover: mapset.covers.cover.to_owned(),
         })
     }
 }
 
 impl EmbedData for RecentEmbed {
     fn as_builder(&self) -> EmbedBuilder {
-        let image = format!(
-            "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
-            self.mapset_id
-        );
-
         let score = highlight_funny_numeral(&self.score).into_owned();
         let acc = highlight_funny_numeral(&format!("{}%", self.acc)).into_owned();
         let pp = highlight_funny_numeral(&self.pp).into_owned();
@@ -303,7 +298,7 @@ impl EmbedData for RecentEmbed {
             .description(&self.description)
             .fields(fields)
             .footer(&self.footer)
-            .image(image)
+            .image(&self.mapset_cover)
             .timestamp(self.timestamp)
             .title(&self.title)
             .url(&self.url)
