@@ -354,7 +354,7 @@ impl ScoreExt for &ScraperScore {
         self.max_combo
     }
     fn mods(&self) -> GameMods {
-        self.enabled_mods
+        self.mods
     }
     fn hits(&self, _: u8) -> u32 {
         let mut amount = self.count300 + self.count100 + self.count_miss;

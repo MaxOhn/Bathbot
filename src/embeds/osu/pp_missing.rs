@@ -1,7 +1,6 @@
 use crate::{
     embeds::{Author, EmbedBuilder, EmbedData, Footer},
     util::{
-        constants::AVATAR_URL,
         numbers::{with_comma_float, with_comma_uint},
         osu::pp_missing,
     },
@@ -66,7 +65,7 @@ impl PPMissingEmbed {
             author: author!(user),
             description,
             footer,
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: user.avatar_url,
             title,
         }
     }

@@ -1,12 +1,7 @@
 use crate::{
     embeds::{osu, Author, Footer},
     pp::{Calculations, PPCalculator},
-    util::{
-        constants::{AVATAR_URL, OSU_BASE},
-        datetime::how_long_ago,
-        numbers::with_comma_uint,
-        ScoreExt,
-    },
+    util::{constants::OSU_BASE, datetime::how_long_ago, numbers::with_comma_uint, ScoreExt},
 };
 
 use rosu_v2::prelude::{Score, User};
@@ -71,7 +66,7 @@ impl TopEmbed {
             author: author!(user),
             description,
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: user.avatar_url.to_owned(),
         }
     }
 }

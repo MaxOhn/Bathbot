@@ -2,7 +2,6 @@ use crate::{
     commands::osu::RankData,
     embeds::Author,
     util::{
-        constants::AVATAR_URL,
         numbers::{with_comma_float, with_comma_uint},
         osu::pp_missing,
     },
@@ -135,7 +134,7 @@ impl RankEmbed {
             title,
             description,
             author: author!(user),
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: user.avatar_url,
         }
     }
 }

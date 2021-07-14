@@ -1,4 +1,4 @@
-use crate::{embeds::Author, util::constants::AVATAR_URL};
+use crate::embeds::Author;
 
 use rosu_v2::prelude::{GameMode, User};
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
@@ -41,7 +41,7 @@ impl OsuStatsCountsEmbed {
         Self {
             description,
             author: author!(user),
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: user.avatar_url,
             title: format!(
                 "In how many top X {}map leaderboards is {}?",
                 mode, user.username

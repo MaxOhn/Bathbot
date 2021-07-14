@@ -1,7 +1,4 @@
-use crate::{
-    embeds::Author,
-    util::constants::{AVATAR_URL, OSU_BASE},
-};
+use crate::{embeds::Author, util::constants::OSU_BASE};
 
 use rosu_v2::model::user::User;
 
@@ -22,7 +19,7 @@ impl AvatarEmbed {
 
         Self {
             author,
-            image: format!("{}{}", AVATAR_URL, user.user_id),
+            image: user.avatar_url,
             url: format!("{}u/{}", OSU_BASE, user.user_id),
         }
     }

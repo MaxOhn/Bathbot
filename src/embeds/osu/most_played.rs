@@ -1,6 +1,6 @@
 use crate::{
     embeds::{osu, Author, Footer},
-    util::constants::{AVATAR_URL, OSU_BASE},
+    util::constants::OSU_BASE,
 };
 
 use rosu_v2::prelude::{MostPlayedMap, User};
@@ -19,7 +19,7 @@ impl MostPlayedEmbed {
     where
         M: Iterator<Item = &'m MostPlayedMap>,
     {
-        let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
+        let thumbnail = user.avatar_url.to_owned();
         let mut description = String::with_capacity(10 * 70);
 
         for most_played in maps {

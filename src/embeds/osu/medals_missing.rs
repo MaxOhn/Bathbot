@@ -1,10 +1,7 @@
 use crate::{
     commands::osu::MedalType,
     embeds::{Author, Footer},
-    util::{
-        constants::{AVATAR_URL, OSU_BASE},
-        CowUtils,
-    },
+    util::{constants::OSU_BASE, CowUtils},
 };
 
 use rosu_v2::model::user::User;
@@ -66,7 +63,7 @@ impl MedalsMissingEmbed {
             author,
             description,
             footer,
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: user.avatar_url.to_owned(),
             title: "Missing medals",
         }
     }

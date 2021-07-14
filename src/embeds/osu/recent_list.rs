@@ -1,7 +1,7 @@
 use crate::{
     embeds::{osu, Author, Footer},
     util::{
-        constants::{AVATAR_URL, OSU_BASE},
+        constants::OSU_BASE,
         datetime::how_long_ago,
         error::PPError,
         osu::{grade_completion_mods, prepare_beatmap_file},
@@ -91,7 +91,7 @@ impl RecentListEmbed {
             description,
             author: author!(user),
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: user.avatar_url.to_owned(),
             title: "List of recent scores:",
         })
     }

@@ -1,7 +1,4 @@
-use crate::{
-    embeds::Author,
-    util::{constants::AVATAR_URL, numbers::with_comma_uint},
-};
+use crate::{embeds::Author, util::numbers::with_comma_uint};
 
 use rosu_v2::model::user::{User, UserCompact};
 
@@ -49,7 +46,7 @@ impl RankRankedScoreEmbed {
             title,
             description,
             author: author!(user),
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: user.avatar_url,
         }
     }
 }

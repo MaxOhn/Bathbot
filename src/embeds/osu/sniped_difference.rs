@@ -3,10 +3,7 @@ use crate::{
     custom_client::SnipeRecent,
     embeds::{osu, Author, Footer},
     util::{
-        constants::{AVATAR_URL, OSU_BASE},
-        datetime::how_long_ago,
-        error::PPError,
-        numbers::round,
+        constants::OSU_BASE, datetime::how_long_ago, error::PPError, numbers::round,
         osu::prepare_beatmap_file,
     },
     BotResult,
@@ -113,7 +110,7 @@ impl SnipedDiffEmbed {
             title,
             description,
             author: author!(user),
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: user.avatar_url.to_owned(),
             footer,
         })
     }

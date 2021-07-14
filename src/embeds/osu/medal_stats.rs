@@ -1,10 +1,7 @@
 use crate::{
     database::{MedalGroup, OsuMedal},
     embeds::{attachment, Author, EmbedFields, Footer},
-    util::{
-        constants::{AVATAR_URL, OSU_BASE},
-        numbers::round,
-    },
+    util::{constants::OSU_BASE, numbers::round},
 };
 
 use hashbrown::HashMap;
@@ -112,7 +109,7 @@ impl MedalStatsEmbed {
             author,
             fields,
             footer,
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: user.avatar_url,
         }
     }
 }

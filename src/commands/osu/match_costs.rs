@@ -6,8 +6,10 @@ use crate::{
 };
 
 use hashbrown::{HashMap, HashSet};
-use rosu_v2::prelude::{GameMods, MatchGame, Osu, OsuError, OsuMatch, OsuResult, Team, TeamType};
-use std::{cmp::Ordering, fmt::Write, sync::Arc};
+use rosu_v2::prelude::{
+    GameMods, MatchGame, Osu, OsuError, OsuMatch, OsuResult, Team, TeamType, UserCompact,
+};
+use std::{cmp::Ordering, collections::HashMap as StdHashMap, fmt::Write, sync::Arc};
 use twilight_model::channel::Message;
 
 const USER_LIMIT: usize = 50;
@@ -79,7 +81,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 
         (Some(description), None)
     } else {
-        let result = process_match(&games, osu_match.end_time.is_some());
+        let result = process_match(&games, osu_match.end_time.is_some(), &osu_match.users);
 
         (None, Some(result))
     };
@@ -165,7 +167,11 @@ const TIEBREAKER_BONUS: f32 = 2.0;
 // global multiplier per combination (if at least 3)
 const MOD_BONUS: f32 = 0.02;
 
-pub fn process_match(games: &[MatchGame], finished: bool) -> MatchResult {
+pub fn process_match(
+    games: &[MatchGame],
+    finished: bool,
+    users: &StdHashMap<u32, UserCompact>,
+) -> MatchResult {
     let mut teams = HashMap::new();
     let mut point_costs = HashMap::new();
     let mut mods = HashMap::new();
@@ -236,7 +242,8 @@ pub fn process_match(games: &[MatchGame], finished: bool) -> MatchResult {
     // Calculate match costs by combining point costs
     let mut data = HashMap::with_capacity(team_vs as usize + 1);
     let mut highest_cost = 0.0;
-    let mut mvp_id = 0;
+    // let mut mvp_id = 0;
+    let mut mvp_avatar_url = None;
 
     for (user_id, point_costs) in point_costs {
         let sum: f32 = point_costs.iter().sum();
@@ -256,9 +263,15 @@ pub fn process_match(games: &[MatchGame], finished: bool) -> MatchResult {
 
         if match_cost > highest_cost {
             highest_cost = match_cost;
-            mvp_id = user_id;
+            // mvp_id = user_id;
+
+            if let Some(user) = users.get(&user_id) {
+                mvp_avatar_url.replace(user.avatar_url.as_str());
+            }
         }
     }
+
+    let mvp_avatar_url = mvp_avatar_url.map_or_else(String::new, |url| url.to_owned());
 
     if team_vs {
         let blue = match data.remove(&Team::Blue) {
@@ -279,12 +292,12 @@ pub fn process_match(games: &[MatchGame], finished: bool) -> MatchResult {
             None => Vec::new(),
         };
 
-        MatchResult::team(mvp_id, match_scores, blue, red)
+        MatchResult::team(mvp_avatar_url, match_scores, blue, red)
     } else {
         let mut players = data.remove(&Team::None).unwrap_or_default();
         sort!(players);
 
-        MatchResult::solo(mvp_id, players)
+        MatchResult::solo(mvp_avatar_url, players)
     }
 }
 
@@ -295,20 +308,25 @@ pub enum MatchResult {
     TeamVS {
         blue: TeamResult,
         red: TeamResult,
-        mvp: u32,
+        mvp_avatar_url: String,
         match_scores: MatchScores,
     },
     HeadToHead {
         players: TeamResult,
-        mvp: u32,
+        mvp_avatar_url: String,
     },
 }
 
 impl MatchResult {
     #[inline]
-    fn team(mvp: u32, match_scores: MatchScores, blue: TeamResult, red: TeamResult) -> Self {
+    fn team(
+        mvp_avatar_url: String,
+        match_scores: MatchScores,
+        blue: TeamResult,
+        red: TeamResult,
+    ) -> Self {
         Self::TeamVS {
-            mvp,
+            mvp_avatar_url,
             match_scores,
             blue,
             red,
@@ -316,15 +334,10 @@ impl MatchResult {
     }
 
     #[inline]
-    fn solo(mvp: u32, players: TeamResult) -> Self {
-        Self::HeadToHead { mvp, players }
-    }
-
-    #[inline]
-    pub fn mvp_id(&self) -> u32 {
-        match self {
-            MatchResult::TeamVS { mvp, .. } => *mvp,
-            MatchResult::HeadToHead { mvp, .. } => *mvp,
+    fn solo(mvp_avatar_url: String, players: TeamResult) -> Self {
+        Self::HeadToHead {
+            mvp_avatar_url,
+            players,
         }
     }
 }

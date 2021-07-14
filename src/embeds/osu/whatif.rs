@@ -1,10 +1,7 @@
 use crate::{
     commands::osu::WhatIfData,
     embeds::Author,
-    util::{
-        constants::AVATAR_URL,
-        numbers::{round, with_comma_float, with_comma_uint},
-    },
+    util::numbers::{round, with_comma_float, with_comma_uint},
 };
 
 use rosu_v2::model::user::User;
@@ -94,7 +91,7 @@ impl WhatIfEmbed {
         Self {
             author: author!(user),
             description,
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: user.avatar_url,
             title,
         }
     }

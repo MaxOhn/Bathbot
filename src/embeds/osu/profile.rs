@@ -2,7 +2,6 @@ use crate::{
     commands::osu::{MinMaxAvgBasic, ProfileResult},
     embeds::{attachment, Author, EmbedBuilder, EmbedData, EmbedFields, Footer},
     util::{
-        constants::AVATAR_URL,
         datetime::{date_to_string, how_long_ago, sec_to_minsec},
         numbers::{round, with_comma_uint},
         osu::grade_emote,
@@ -289,7 +288,7 @@ impl ProfileEmbed {
             footer: Footer::new(footer_text),
             author: author!(user),
             image: attachment("profile_graph.png"),
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: user.avatar_url.to_owned(),
         }
     }
 

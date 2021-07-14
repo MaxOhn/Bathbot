@@ -3,7 +3,7 @@ use crate::{
     embeds::{osu, Author, Footer},
     pp::{Calculations, PPCalculator},
     util::{
-        constants::{AVATAR_URL, OSU_BASE},
+        constants::OSU_BASE,
         datetime::how_long_ago,
         numbers::{round, with_comma_uint},
     },
@@ -31,7 +31,7 @@ impl PlayerSnipeListEmbed {
         if scores.is_empty() {
             return Self {
                 author: author!(user),
-                thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+                thumbnail: user.avatar_url.to_owned(),
                 footer: Footer::new("Page 1/1 ~ Total #1 scores: 0"),
                 description: "No scores were found".to_owned(),
             };
@@ -88,7 +88,7 @@ impl PlayerSnipeListEmbed {
             author: author!(user),
             description,
             footer,
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: user.avatar_url.to_owned(),
         }
     }
 }

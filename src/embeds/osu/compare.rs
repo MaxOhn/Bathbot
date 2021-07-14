@@ -334,7 +334,7 @@ impl NoScoresEmbed {
 
         let author = Author::new(author_text)
             .url(format!("{}u/{}", OSU_BASE, user.user_id))
-            .icon_url(format!("{}{}", AVATAR_URL, user.user_id));
+            .icon_url(user.avatar_url);
 
         let title = format!("{} - {} [{}]", mapset.artist, mapset.title, map.version);
 
@@ -350,7 +350,7 @@ impl NoScoresEmbed {
             footer,
             thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id),
             title,
-            url: format!("{}b/{}", OSU_BASE, map.map_id),
+            url: map.url,
         }
     }
 }

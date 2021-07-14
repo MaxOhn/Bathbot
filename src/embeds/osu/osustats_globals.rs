@@ -3,10 +3,7 @@ use crate::{
     embeds::{osu, Author, Footer},
     pp::{Calculations, PPCalculator},
     util::{
-        constants::{AVATAR_URL, OSU_BASE},
-        datetime::how_long_ago,
-        numbers::with_comma_uint,
-        osu::grade_emote,
+        constants::OSU_BASE, datetime::how_long_ago, numbers::with_comma_uint, osu::grade_emote,
         ScoreExt,
     },
 };
@@ -31,7 +28,7 @@ impl OsuStatsGlobalsEmbed {
         if scores.is_empty() {
             return Self {
                 author: author!(user),
-                thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+                thumbnail: user.avatar_url.to_owned(),
                 footer: Footer::new("Page 1/1 ~ Total scores: 0"),
                 description: "No scores with these parameters were found".to_owned(),
             };
@@ -92,7 +89,7 @@ impl OsuStatsGlobalsEmbed {
             author: author!(user),
             description,
             footer,
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: user.avatar_url.to_owned(),
         }
     }
 }

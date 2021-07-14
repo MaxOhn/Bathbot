@@ -1,4 +1,4 @@
-use crate::{embeds::Author, util::constants::AVATAR_URL};
+use crate::embeds::Author;
 
 use rosu_v2::prelude::{Grade, Score, User};
 use std::{collections::BTreeMap, fmt::Write};
@@ -34,7 +34,7 @@ impl RatioEmbed {
             }
         }
 
-        let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
+        let thumbnail = user.avatar_url;
         let mut description = String::with_capacity(256);
 
         let _ = writeln!(

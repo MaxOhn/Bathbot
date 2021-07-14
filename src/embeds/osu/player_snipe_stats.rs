@@ -3,7 +3,7 @@ use crate::{
     embeds::{attachment, osu, Author, EmbedFields, Footer},
     pp::{Calculations, PPCalculator},
     util::{
-        constants::{AVATAR_URL, OSU_BASE},
+        constants::OSU_BASE,
         datetime::how_long_ago,
         numbers::{with_comma_float, with_comma_uint},
         osu::grade_completion_mods,
@@ -139,7 +139,7 @@ impl PlayerSnipeStatsEmbed {
             author: author!(user),
             title: "National #1 statistics",
             image: attachment("stats_graph.png"),
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: user.avatar_url,
         }
     }
 }

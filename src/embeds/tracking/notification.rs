@@ -86,7 +86,7 @@ impl TrackNotificationEmbed {
         ))
         .icon_url(format!("{}{}", AVATAR_URL, mapset.creator_id));
 
-        let author = author!(user).icon_url(format!("{}{}", AVATAR_URL, user.user_id));
+        let author = author!(user).icon_url(user.avatar_url.to_owned());
 
         Self {
             author,

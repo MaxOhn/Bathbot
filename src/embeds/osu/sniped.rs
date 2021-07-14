@@ -1,7 +1,6 @@
 use crate::{
     custom_client::SnipeRecent,
     embeds::{attachment, Author, EmbedFields},
-    util::constants::AVATAR_URL,
 };
 
 use rosu_v2::model::user::User;
@@ -18,7 +17,7 @@ pub struct SnipedEmbed {
 
 impl SnipedEmbed {
     pub fn new(user: User, sniper: Vec<SnipeRecent>, snipee: Vec<SnipeRecent>) -> Self {
-        let thumbnail = format!("{}{}", AVATAR_URL, user.user_id);
+        let thumbnail = user.avatar_url;
         let author = author!(user);
         let title = "National snipe scores of the last 8 weeks";
 

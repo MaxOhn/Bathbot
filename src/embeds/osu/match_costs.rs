@@ -1,7 +1,7 @@
 use crate::{
     commands::osu::MatchResult,
     embeds::Footer,
-    util::constants::{AVATAR_URL, DESCRIPTION_SIZE, OSU_BASE},
+    util::constants::{DESCRIPTION_SIZE, OSU_BASE},
 };
 
 use rosu_v2::model::matches::OsuMatch;
@@ -26,13 +26,6 @@ impl MatchCostEmbed {
         let description = if let Some(description) = description {
             description
         } else {
-            let _ = write!(
-                thumbnail,
-                "{}{}",
-                AVATAR_URL,
-                match_result.as_ref().unwrap().mvp_id()
-            );
-
             let mut medals = vec!["🥇", "🥈", "🥉"];
             let mut description = String::with_capacity(256);
 
@@ -41,7 +34,7 @@ impl MatchCostEmbed {
                     match_scores,
                     blue,
                     red,
-                    ..
+                    mvp_avatar_url,
                 }) => {
                     // "Title"
                     let _ = writeln!(description,
@@ -120,8 +113,13 @@ impl MatchCostEmbed {
                             medal = medal,
                         );
                     }
+
+                    thumbnail = mvp_avatar_url;
                 }
-                Some(MatchResult::HeadToHead { players, .. }) => {
+                Some(MatchResult::HeadToHead {
+                    players,
+                    mvp_avatar_url,
+                }) => {
                     for (i, (id, cost)) in players.into_iter().enumerate() {
                         let name = match osu_match.users.get(&id) {
                             Some(user) => Cow::Borrowed(&user.username),
@@ -139,6 +137,8 @@ impl MatchCostEmbed {
                             medal = medals.get(i).unwrap_or(&""),
                         );
                     }
+
+                    thumbnail = mvp_avatar_url;
                 }
                 None => unreachable!(),
             }

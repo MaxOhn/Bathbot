@@ -147,14 +147,17 @@ async fn compare_main(
     let profile_result2 = CompareResult::calc(mode, &scores2, user2.statistics.as_ref().unwrap());
 
     // Create the thumbnail
-    let thumbnail = match get_combined_thumbnail(&ctx, user1.user_id, user2.user_id).await {
-        Ok(thumbnail) => Some(thumbnail),
-        Err(why) => {
-            unwind_error!(warn, why, "Error while combining avatars: {}");
+    let thumbnail =
+        match get_combined_thumbnail(&ctx, user1.avatar_url.as_str(), user2.avatar_url.as_str())
+            .await
+        {
+            Ok(thumbnail) => Some(thumbnail),
+            Err(why) => {
+                unwind_error!(warn, why, "Error while combining avatars: {}");
 
-            None
-        }
-    };
+                None
+            }
+        };
 
     // Accumulate all necessary data
     let data = ProfileCompareEmbed::new(mode, user1, user2, profile_result1, profile_result2);
@@ -274,12 +277,16 @@ impl CompareResult {
     }
 }
 
-async fn get_combined_thumbnail(ctx: &Context, user_id1: u32, user_id2: u32) -> BotResult<Vec<u8>> {
+async fn get_combined_thumbnail(
+    ctx: &Context,
+    user1_url: &str,
+    user2_url: &str,
+) -> BotResult<Vec<u8>> {
     let mut img = DynamicImage::ImageRgba8(ImageBuffer::from_pixel(720, 128, Rgba([0, 0, 0, 0])));
 
     let (pfp1, pfp2) = tokio::try_join!(
-        ctx.clients.custom.get_avatar(user_id1),
-        ctx.clients.custom.get_avatar(user_id2),
+        ctx.clients.custom.get_avatar_with_url(user1_url),
+        ctx.clients.custom.get_avatar_with_url(user2_url),
     )?;
 
     let pfp1 = image::load_from_memory(&pfp1)?.resize_exact(128, 128, FilterType::Lanczos3);

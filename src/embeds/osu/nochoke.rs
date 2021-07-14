@@ -1,10 +1,7 @@
 use crate::{
     embeds::{osu, Author, Footer},
     pp::{Calculations, PPCalculator},
-    util::{
-        constants::{AVATAR_URL, OSU_BASE},
-        ScoreExt,
-    },
+    util::{constants::OSU_BASE, ScoreExt},
 };
 
 use rosu_v2::prelude::{Score, User};
@@ -84,7 +81,7 @@ impl NoChokeEmbed {
             title,
             author: author!(user),
             description,
-            thumbnail: format!("{}{}", AVATAR_URL, user.user_id),
+            thumbnail: user.avatar_url.to_owned(),
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
         }
     }

@@ -119,7 +119,7 @@ async fn rank_main(
 
     // Retrieve the user's top scores if required
     let mut scores = if data.with_scores() {
-        let user = data.user();
+        let user = data.user_borrow();
 
         let scores_fut_1 = ctx
             .osu()
@@ -154,7 +154,7 @@ async fn rank_main(
 
     if let Some(scores) = scores.as_deref_mut() {
         // Process user and their top scores for tracking
-        process_tracking(&ctx, mode, scores, Some(data.user())).await;
+        process_tracking(&ctx, mode, scores, Some(data.user_borrow())).await;
     }
 
     // Creating the embed
@@ -231,6 +231,7 @@ pub enum RankData {
 }
 
 impl RankData {
+    #[inline]
     fn with_scores(&self) -> bool {
         match self {
             Self::Sub10k {
@@ -242,7 +243,16 @@ impl RankData {
         }
     }
 
-    pub fn user(&self) -> &User {
+    #[inline]
+    pub fn user_borrow(&self) -> &User {
+        match self {
+            Self::Sub10k { user, .. } => user,
+            Self::Over10k { user, .. } => user,
+        }
+    }
+
+    #[inline]
+    pub fn user(self) -> User {
         match self {
             Self::Sub10k { user, .. } => user,
             Self::Over10k { user, .. } => user,

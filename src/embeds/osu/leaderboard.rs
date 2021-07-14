@@ -102,10 +102,10 @@ impl LeaderboardEmbed {
                     name = username,
                     score = with_comma_uint(score.score),
                     combo = get_combo(&score, &map),
-                    mods = if score.enabled_mods.is_empty() {
+                    mods = if score.mods.is_empty() {
                         String::new()
                     } else {
-                        format!(" **+{}**", score.enabled_mods)
+                        format!(" **+{}**", score.mods)
                     },
                     pp = get_pp(&mut mod_map, &score, &rosu_map).await,
                     acc = score.accuracy,
@@ -148,7 +148,7 @@ async fn get_pp(
     score: &ScraperScore,
     map: &Map,
 ) -> PPFormatter {
-    let bits = score.enabled_mods.bits();
+    let bits = score.mods.bits();
 
     let (mut attributes, mut max_pp) = mod_map.remove(&bits).map_or_else(
         || {
