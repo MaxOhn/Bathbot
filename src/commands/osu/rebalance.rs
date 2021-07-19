@@ -149,7 +149,8 @@ async fn rebalance_main(
     // Calculate adjusted pp
     let adjusted_pp: f32 = scores_data
         .iter()
-        .map(|(i, Score { pp, .. }, ..)| pp.unwrap_or(0.0) * 0.95_f32.powi(*i as i32 - 1))
+        .enumerate()
+        .map(|(i, (_, Score { pp, .. }, ..))| pp.unwrap_or(0.0) * 0.95_f32.powi(i as i32))
         .sum();
 
     let post_pp = numbers::round((bonus_pp + adjusted_pp).max(0.0) as f32);
