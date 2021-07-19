@@ -195,9 +195,9 @@ pub fn get_map_info(map: &Beatmap, mods: GameMods, stars: f32) -> String {
     let mut hp = map.hp;
 
     if mods.contains(GameMods::HardRock) {
-        hp = (hp * 1.5).min(10.0);
-        od = (od * 1.5).min(10.0);
-        ar = (ar * 1.5).min(10.0);
+        hp = (hp * 1.4).min(10.0);
+        od = (od * 1.4).min(10.0);
+        ar = (ar * 1.4).min(10.0);
         cs = (cs * 1.3).min(10.0);
     } else if mods.contains(GameMods::Easy) {
         hp *= 0.5;
