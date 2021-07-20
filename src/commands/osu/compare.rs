@@ -129,6 +129,7 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
                 .osu()
                 .user_scores(score.score.user_id)
                 .best()
+                .limit(100)
                 .mode(score.score.mode);
 
             Some(fut.await)

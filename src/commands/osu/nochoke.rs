@@ -42,30 +42,17 @@ async fn nochokes_main(
 
     // Retrieve the user and their top scores
     let user_fut = request_user(&ctx, &name, Some(mode)).map_err(From::from);
-    let scores_fut_1 = ctx
+    let scores_fut = ctx
         .osu()
         .user_scores(name.as_str())
         .best()
         .mode(mode)
-        .limit(50);
+        .limit(100);
 
-    let scores_fut_2 = ctx
-        .osu()
-        .user_scores(name.as_str())
-        .best()
-        .mode(mode)
-        .offset(50)
-        .limit(50);
+    let scores_fut = prepare_scores(&ctx, scores_fut);
 
-    let scores_fut_1 = prepare_scores(&ctx, scores_fut_1);
-    let scores_fut_2 = prepare_scores(&ctx, scores_fut_2);
-
-    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut_1, scores_fut_2) {
-        Ok((user, mut scores, mut scores_2)) => {
-            scores.append(&mut scores_2);
-
-            (user, scores)
-        }
+    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
+        Ok((user, scores)) => (user, scores),
         Err(ErrorType::Osu(OsuError::NotFound)) => {
             let content = format!("User `{}` was not found", name);
 

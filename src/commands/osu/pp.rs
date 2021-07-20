@@ -38,25 +38,16 @@ async fn pp_main(
 
     // Retrieve the user and their top scores
     let user_fut = request_user(&ctx, &name, Some(mode));
-    let scores_fut_1 = ctx
+    let scores_fut = ctx
         .osu()
         .user_scores(name.as_str())
         .best()
         .mode(mode)
-        .limit(50);
-
-    let scores_fut_2 = ctx
-        .osu()
-        .user_scores(name.as_str())
-        .best()
-        .mode(mode)
-        .offset(50)
-        .limit(50);
+        .limit(100);
 
     let rank_fut = ctx.clients.custom.get_rank_data(mode, RankParam::Pp(pp));
 
-    let (user_result, scores_result_1, scores_result_2, rank_result) =
-        tokio::join!(user_fut, scores_fut_1, scores_fut_2, rank_fut);
+    let (user_result, scores_result, rank_result) = tokio::join!(user_fut, scores_fut, rank_fut);
 
     let user = match user_result {
         Ok(user) => user,
@@ -72,13 +63,9 @@ async fn pp_main(
         }
     };
 
-    let mut scores = match (scores_result_1, scores_result_2) {
-        (Ok(mut scores), Ok(mut scores_2)) => {
-            scores.append(&mut scores_2);
-
-            scores
-        }
-        (Err(why), _) | (_, Err(why)) => {
+    let mut scores = match scores_result {
+        Ok(scores) => scores,
+        Err(why) => {
             let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());

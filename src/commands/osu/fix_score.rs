@@ -117,7 +117,7 @@ async fn fix(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
                     .osu()
                     .user_scores(score.user_id)
                     .mode(score.mode)
-                    .limit(50)
+                    .limit(100)
                     .best();
 
                 let (user, best) = match tokio::join!(mapset_fut, user_fut, best_fut) {
@@ -227,27 +227,10 @@ async fn fix(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         None => None,
     };
 
-    // Check if the next 50 top scores are required
+    // Process tracking
     if let Some((_, best)) = scores.as_mut().filter(|_| {
         unchoked_pp.is_some() || matches!(map.status, RankStatus::Ranked | RankStatus::Approved)
     }) {
-        let best_fut = ctx
-            .osu()
-            .user_scores(user.user_id)
-            .offset(50)
-            .limit(50)
-            .best()
-            .mode(map.mode);
-
-        match best_fut.await {
-            Ok(mut scores) => best.append(&mut scores),
-            Err(why) => {
-                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-                return Err(why.into());
-            }
-        }
-
         process_tracking(&ctx, map.mode, best, Some(&user)).await;
     }
 

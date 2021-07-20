@@ -33,27 +33,15 @@ async fn ratios(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     // Retrieve the user and their top scores
     let user_fut = request_user(&ctx, &name, Some(GameMode::MNA));
 
-    let scores_fut_1 = ctx
+    let scores_fut = ctx
         .osu()
         .user_scores(name.as_str())
         .best()
         .mode(GameMode::MNA)
-        .limit(50);
+        .limit(100);
 
-    let scores_fut_2 = ctx
-        .osu()
-        .user_scores(name.as_str())
-        .best()
-        .mode(GameMode::MNA)
-        .offset(50)
-        .limit(50);
-
-    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut_1, scores_fut_2) {
-        Ok((user, mut scores, mut scores_2)) => {
-            scores.append(&mut scores_2);
-
-            (user, scores)
-        }
+    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
+        Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
 

@@ -59,51 +59,25 @@ async fn compare_main(
     // Retrieve all users and their scores
     let user_fut1 = request_user(&ctx, &name1, Some(mode));
     let user_fut2 = request_user(&ctx, &name2, Some(mode));
-    let scores_fut_u1_1 = ctx
+
+    let scores_fut_u1 = ctx
         .osu()
         .user_scores(name1.as_str())
         .mode(mode)
         .best()
-        .limit(50);
-    let scores_fut_u2_1 = ctx
+        .limit(100);
+
+    let scores_fut_u2 = ctx
         .osu()
         .user_scores(name2.as_str())
         .mode(mode)
         .best()
-        .limit(50);
+        .limit(100);
 
-    let scores_fut_u1_2 = ctx
-        .osu()
-        .user_scores(name1.as_str())
-        .best()
-        .mode(mode)
-        .offset(50)
-        .limit(50);
-
-    let scores_fut_u2_2 = ctx
-        .osu()
-        .user_scores(name2.as_str())
-        .best()
-        .mode(mode)
-        .offset(50)
-        .limit(50);
-
-    let fut_result = tokio::try_join!(
-        user_fut1,
-        user_fut2,
-        scores_fut_u1_1,
-        scores_fut_u1_2,
-        scores_fut_u2_1,
-        scores_fut_u2_2,
-    );
+    let fut_result = tokio::try_join!(user_fut1, user_fut2, scores_fut_u1, scores_fut_u2,);
 
     let (user1, user2, mut scores1, mut scores2) = match fut_result {
-        Ok((user1, user2, mut scores1, mut scores1_, mut scores2, mut scores2_)) => {
-            scores1.append(&mut scores1_);
-            scores2.append(&mut scores2_);
-
-            (user1, user2, scores1, scores2)
-        }
+        Ok((user1, user2, scores1, scores2)) => (user1, user2, scores1, scores2),
         Err(OsuError::NotFound) => {
             let content = "At least one of the players was not found";
 

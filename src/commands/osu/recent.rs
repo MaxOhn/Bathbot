@@ -13,7 +13,6 @@ use crate::{
 use rosu_v2::prelude::{
     GameMode, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
-    Score,
 };
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
@@ -148,7 +147,7 @@ async fn recent_main(
                 .osu()
                 .user_scores(user.user_id)
                 .best()
-                .limit(50)
+                .limit(100)
                 .mode(mode);
 
             Some(fut.await)
@@ -170,7 +169,7 @@ async fn recent_main(
         }
     };
 
-    let mut best: Option<Vec<Score>> = match best_result {
+    let mut best = match best_result {
         None => None,
         Some(Ok(scores)) => Some(scores),
         Some(Err(why)) => {

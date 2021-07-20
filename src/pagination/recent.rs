@@ -121,7 +121,7 @@ impl Pagination for RecentPagination {
                 .osu()
                 .user_scores(self.user.user_id)
                 .best()
-                .limit(50)
+                .limit(100)
                 .mode(score.mode);
 
             match user_fut.await {

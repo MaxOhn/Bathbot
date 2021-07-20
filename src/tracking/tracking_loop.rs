@@ -112,7 +112,7 @@ pub async fn process_tracking(
         None => return,
     };
 
-    let mut new_last = match scores.iter().map(|s| s.created_at).max() {
+    let new_last = match scores.iter().map(|s| s.created_at).max() {
         Some(new_last) => new_last,
         None => return,
     };
@@ -125,7 +125,7 @@ pub async fn process_tracking(
     let mut user = TrackUser::new(user_id, mode, user);
 
     // Process scores
-    match score_loop(ctx, &mut user, 0, max, last, scores, &channels).await {
+    match score_loop(ctx, &mut user, max, last, scores, &channels).await {
         Ok(_) => {}
         Err(ErrorType::NotFound) => {
             if let Err(why) = ctx.tracking().remove_user_all(user_id, ctx.psql()).await {
@@ -141,52 +141,6 @@ pub async fn process_tracking(
             debug!("[Tracking] Reset ({},{})", user_id, mode);
 
             return;
-        }
-    }
-
-    let offset = scores.len();
-
-    // If another load of scores is required, request and process them
-    if let Some(max) = max.checked_sub(offset) {
-        let scores_fut = ctx
-            .osu()
-            .user_scores(user_id)
-            .best()
-            .offset(offset)
-            .limit(max)
-            .mode(mode);
-
-        match scores_fut.await {
-            Ok(mut scores) => {
-                if let Some(max) = scores.iter().map(|s| s.created_at).max() {
-                    new_last = new_last.max(max);
-                }
-
-                let loop_fut =
-                    score_loop(ctx, &mut user, offset, max, last, &mut scores, &channels);
-
-                match loop_fut.await {
-                    Ok(_) => {}
-                    Err(ErrorType::NotFound) => {
-                        if let Err(why) = ctx.tracking().remove_user_all(user_id, ctx.psql()).await
-                        {
-                            unwind_error!(
-                                warn,
-                                why,
-                                "Failed to remove unknown user from tracking: {}"
-                            );
-                        }
-                    }
-                    Err(ErrorType::Osu(why)) => {
-                        unwind_error!(warn, why, "osu!api error while tracking: {}")
-                    }
-                }
-            }
-            Err(why) => unwind_error!(
-                warn,
-                why,
-                "Failed to request second load of scores for tracking: {}"
-            ),
         }
     }
 
@@ -219,13 +173,12 @@ pub async fn process_tracking(
 async fn score_loop(
     ctx: &Context,
     user: &mut TrackUser<'_>,
-    start: usize,
     max: usize,
     last: DateTime<Utc>,
     scores: &mut [Score],
     channels: &HashMap<ChannelId, usize>,
 ) -> Result<(), ErrorType> {
-    for (mut idx, score) in scores.iter_mut().enumerate().take(max) {
+    for (idx, score) in (1..).zip(scores.iter_mut()).take(max) {
         // Skip if its an older score
         if score.created_at <= last {
             continue;
@@ -248,26 +201,18 @@ async fn score_loop(
             user.user_id, user.mode, score.created_at, last
         );
 
-        idx += start;
-
         // Send the embed to each tracking channel
         for (&channel, &limit) in channels.iter() {
-            if idx + 1 > limit {
+            if idx > limit {
                 continue;
             }
 
-            let embed = user.embed(ctx, score, idx + 1).await?;
+            let embed = user.embed(ctx, score, idx).await?;
 
             // Try to build and send the message
             match ctx.http.create_message(channel).embed(embed) {
                 Ok(msg_fut) => {
-                    let result = msg_fut.await;
-
-                    // if let Err(TwilightError {
-                    //     kind: TwilightErrorType::Response { error, .. },
-                    //     ..
-                    // }) = result
-                    if let Err(why) = result {
+                    if let Err(why) = msg_fut.await {
                         if let TwilightErrorType::Response { error, .. } = why.kind() {
                             if let ApiError::General(GeneralApiError {
                                 code: ErrorCode::UnknownChannel,

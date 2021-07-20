@@ -121,27 +121,15 @@ async fn rank_main(
     let mut scores = if data.with_scores() {
         let user = data.user_borrow();
 
-        let scores_fut_1 = ctx
+        let scores_fut = ctx
             .osu()
             .user_scores(user.user_id)
-            .limit(50)
+            .limit(100)
             .best()
             .mode(mode);
 
-        let scores_fut_2 = ctx
-            .osu()
-            .user_scores(user.user_id)
-            .offset(50)
-            .limit(50)
-            .best()
-            .mode(mode);
-
-        match tokio::try_join!(scores_fut_1, scores_fut_2) {
-            Ok((mut scores, mut scores_2)) => (!scores.is_empty()).then(|| {
-                scores.append(&mut scores_2);
-
-                scores
-            }),
+        match scores_fut.await {
+            Ok(scores) => (!scores.is_empty()).then(|| scores),
             Err(why) => {
                 let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
@@ -152,7 +140,7 @@ async fn rank_main(
         None
     };
 
-    if let Some(scores) = scores.as_deref_mut() {
+    if let Some(ref mut scores) = scores {
         // Process user and their top scores for tracking
         process_tracking(&ctx, mode, scores, Some(data.user_borrow())).await;
     }

@@ -86,35 +86,22 @@ pub async fn profile_embed(
 ) -> BotResult<Option<(ProfileEmbed, User)>> {
     // Retrieve the user and their top scores
     let user_fut = request_user(&ctx, name, Some(mode));
-    let scores_fut_1 = ctx.osu().user_scores(name).best().mode(mode).limit(50);
+    let scores_fut = ctx.osu().user_scores(name).best().mode(mode).limit(100);
 
-    let scores_fut_2 = ctx
-        .osu()
-        .user_scores(name)
-        .best()
-        .mode(mode)
-        .offset(50)
-        .limit(50);
+    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
+        Ok((user, scores)) => (user, scores),
+        Err(OsuError::NotFound) => {
+            let content = format!("User `{}` was not found", name);
+            msg.error(&ctx, content).await?;
 
-    let (user, mut scores): (_, Vec<_>) =
-        match tokio::try_join!(user_fut, scores_fut_1, scores_fut_2) {
-            Ok((user, mut scores, mut scores_2)) => {
-                scores.append(&mut scores_2);
+            return Ok(None);
+        }
+        Err(why) => {
+            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
 
-                (user, scores)
-            }
-            Err(OsuError::NotFound) => {
-                let content = format!("User `{}` was not found", name);
-                msg.error(&ctx, content).await?;
-
-                return Ok(None);
-            }
-            Err(why) => {
-                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-                return Err(why.into());
-            }
-        };
+            return Err(why.into());
+        }
+    };
 
     let globals_count = match super::get_globals_count(&ctx, &user.username, mode).await {
         Ok(globals_count) => globals_count,
@@ -134,8 +121,7 @@ pub async fn profile_embed(
     }
 
     // Check if user has top scores on their own maps
-    let ranked_maps_count =
-        user.ranked_mapset_count.unwrap() + user.loved_mapset_count.unwrap();
+    let ranked_maps_count = user.ranked_mapset_count.unwrap() + user.loved_mapset_count.unwrap();
 
     let own_top_scores = if ranked_maps_count > 0 {
         scores

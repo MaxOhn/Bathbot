@@ -48,7 +48,7 @@ async fn recent_pages_main(
         .user_scores(name.as_str())
         .recent()
         .mode(mode)
-        .limit(50)
+        .limit(100)
         .include_fails(true);
 
     let scores_fut = prepare_scores(&ctx, scores_fut);
@@ -150,7 +150,7 @@ async fn recent_pages_main(
                     .osu()
                     .user_scores(user.user_id)
                     .best()
-                    .limit(50)
+                    .limit(100)
                     .mode(mode);
 
                 Some(fut.await)

@@ -56,30 +56,17 @@ async fn rebalance_main(
 
     // Retrieve the user and their top scores
     let user_fut = request_user(&ctx, &name, Some(mode)).map_err(From::from);
-    let scores_fut_1 = ctx
+    let scores_fut = ctx
         .osu()
         .user_scores(name.as_str())
         .best()
         .mode(mode)
-        .limit(50);
+        .limit(100);
 
-    let scores_fut_2 = ctx
-        .osu()
-        .user_scores(name.as_str())
-        .best()
-        .mode(mode)
-        .offset(50)
-        .limit(50);
+    let scores_fut = prepare_scores(&ctx, scores_fut);
 
-    let scores_fut_1 = prepare_scores(&ctx, scores_fut_1);
-    let scores_fut_2 = prepare_scores(&ctx, scores_fut_2);
-
-    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut_1, scores_fut_2) {
-        Ok((user, mut scores, mut scores_2)) => {
-            scores.append(&mut scores_2);
-
-            (user, scores)
-        }
+    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
+        Ok((user, scores)) => (user, scores),
         Err(ErrorType::Osu(OsuError::NotFound)) => {
             let content = format!("User `{}` was not found", name);
 
@@ -215,7 +202,7 @@ async fn rebalance_main(
     Note that the command will **not** change scores, just recalculate their pp.\n\
     To use this command, specify the version name **first**, then a username.\n\
     Available versions are:\n  \
-    - `xexxar` (see https://github.com/emu1337/osu) [commit 75735d2]\n  \
+    - `xexxar` (see https://github.com/emu1337/osu) [commit 5b80bdb]\n  \
     - `delta` (see https://github.com/HeBuwei/osu) [commit 422d74e]\n  \
     - `sotarks` (see https://sotarks.stanr.info/)\n\
     The translations are not exactly accurate so expect a few differences in the results.

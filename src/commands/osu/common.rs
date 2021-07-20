@@ -71,22 +71,15 @@ async fn common_main(
     let mut scores_futs = names
         .into_iter()
         .map(|name| async {
-            let fut_1 = ctx
+            let scores_fut = ctx
                 .osu()
                 .user_scores(name.as_str())
-                .limit(50)
+                .limit(100)
                 .mode(mode)
-                .best();
+                .best()
+                .await;
 
-            let fut_2 = ctx
-                .osu()
-                .user_scores(name.as_str())
-                .limit(50)
-                .offset(50)
-                .mode(mode)
-                .best();
-
-            (name, tokio::try_join!(fut_1, fut_2))
+            (name, scores_fut)
         })
         .collect::<FuturesOrdered<_>>();
 
@@ -95,9 +88,8 @@ async fn common_main(
 
     while let Some((mut name, result)) = scores_futs.next().await {
         match result {
-            Ok((mut scores, mut scores_2)) => {
+            Ok(scores) => {
                 if let Some(user_id) = scores.first().map(|s| s.user_id) {
-                    scores.append(&mut scores_2);
                     name.make_ascii_lowercase();
 
                     users.push(CommonUser::new(name, user_id));

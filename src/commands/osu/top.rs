@@ -93,41 +93,18 @@ async fn top_main(
 
     // Retrieve the user and their top scores
     let user_fut = request_user(&ctx, &name, Some(mode)).map_err(From::from);
-    let scores_fut_1 = ctx
+
+    let scores_fut = ctx
         .osu()
         .user_scores(name.as_str())
         .best()
         .mode(mode)
-        .limit(50);
+        .limit(100);
 
-    let scores_fut_2 = async {
-        let n = num.map_or(50, |n| n.saturating_sub(50));
+    let scores_fut = prepare_scores(&ctx, scores_fut);
 
-        if n > 0 {
-            let fut = ctx
-                .osu()
-                .user_scores(name.as_str())
-                .best()
-                .mode(mode)
-                .offset(50)
-                .limit(n);
-
-            Ok(Some(prepare_scores(&ctx, fut).await?))
-        } else {
-            Ok(None)
-        }
-    };
-
-    let scores_fut_1 = prepare_scores(&ctx, scores_fut_1);
-
-    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut_1, scores_fut_2) {
-        Ok((user, mut scores, scores_2_opt)) => {
-            if let Some(mut scores_2) = scores_2_opt {
-                scores.append(&mut scores_2);
-            }
-
-            (user, scores)
-        }
+    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
+        Ok((user, scores)) => (user, scores),
         Err(ErrorType::Osu(OsuError::NotFound)) => {
             let content = format!("User `{}` was not found", name);
 

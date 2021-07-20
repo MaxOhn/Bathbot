@@ -36,7 +36,7 @@ async fn recent_list_main(
         .user_scores(name.as_str())
         .recent()
         .mode(mode)
-        .limit(50)
+        .limit(100)
         .include_fails(true);
 
     let scores_fut = prepare_scores(&ctx, scores_fut);
