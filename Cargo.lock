@@ -406,9 +406,9 @@ dependencies = [
 
 [[package]]
 name = "crypto-mac"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4857fd85a0c34b3c3297875b747c1e02e06b6a0ea32dd892d8192b9ce0813ea6"
+checksum = "bff07008ec701e8028e2ceb8f83f0e4274ee62bd2dbdc4fefff2e9a91824081a"
 dependencies = [
  "generic-array",
  "subtle",
@@ -2035,7 +2035,7 @@ dependencies = [
 [[package]]
 name = "rosu-v2"
 version = "0.2.0"
-source = "git+https://github.com/MaxOhn/rosu-v2?branch=next#581fcee512bfbe0555d61b0b95d830090a5b2227"
+source = "git+https://github.com/MaxOhn/rosu-v2?branch=next#39db167194aa2b1d705464ca8917482a9b117b24"
 dependencies = [
  "bitflags",
  "bytes",
@@ -2678,9 +2678,9 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.8.1"
+version = "1.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98c8b05dc14c75ea83d63dd391100353789f5f24b8b3866542a5e85c8be8e985"
+checksum = "c2602b8af3767c285202012822834005f596c811042315fa7e9f5b12b2a43207"
 dependencies = [
  "autocfg",
  "bytes",
@@ -2853,8 +2853,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-cache-inmemory"
-version = "0.5.1"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#a4ee843e28bbf1a6216953dc5d3573f1f5ef10ea"
+version = "0.5.2"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#e6a258210e6e5da37061a673ebe5ce9294d97c54"
 dependencies = [
  "bitflags",
  "dashmap",
@@ -2869,8 +2869,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-gateway"
-version = "0.5.2"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#a4ee843e28bbf1a6216953dc5d3573f1f5ef10ea"
+version = "0.5.3"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#e6a258210e6e5da37061a673ebe5ce9294d97c54"
 dependencies = [
  "bitflags",
  "flate2",
@@ -2890,7 +2890,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway-queue"
 version = "0.5.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#a4ee843e28bbf1a6216953dc5d3573f1f5ef10ea"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#e6a258210e6e5da37061a673ebe5ce9294d97c54"
 dependencies = [
  "tokio",
  "tracing",
@@ -2899,8 +2899,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-http"
-version = "0.5.3"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#a4ee843e28bbf1a6216953dc5d3573f1f5ef10ea"
+version = "0.5.5"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#e6a258210e6e5da37061a673ebe5ce9294d97c54"
 dependencies = [
  "hyper",
  "hyper-rustls",
@@ -2914,8 +2914,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-model"
-version = "0.5.2"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#a4ee843e28bbf1a6216953dc5d3573f1f5ef10ea"
+version = "0.5.3"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#e6a258210e6e5da37061a673ebe5ce9294d97c54"
 dependencies = [
  "bitflags",
  "serde",
@@ -2927,7 +2927,7 @@ dependencies = [
 [[package]]
 name = "twilight-standby"
 version = "0.5.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#a4ee843e28bbf1a6216953dc5d3573f1f5ef10ea"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#e6a258210e6e5da37061a673ebe5ce9294d97c54"
 dependencies = [
  "dashmap",
  "futures-util",

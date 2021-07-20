@@ -1,7 +1,6 @@
 use crate::core::Context;
 
 use chrono::{DateTime, Utc};
-use log::info;
 use prometheus::{IntCounter, IntCounterVec, Opts, Registry};
 use std::sync::Arc;
 use twilight_cache_inmemory::Metrics;

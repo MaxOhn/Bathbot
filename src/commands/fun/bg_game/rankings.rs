@@ -26,7 +26,7 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
         .next()
         .filter(|_| msg.guild_id.is_some())
         .map(CowUtils::cow_to_ascii_lowercase)
-        .filter(|arg| arg.as_ref() == "server" || arg.as_ref() == "s");
+        .filter(|arg| arg == "server" || arg == "s");
 
     if server_opt.is_some() {
         let guild_id = msg.guild_id.unwrap();
