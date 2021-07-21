@@ -1,5 +1,6 @@
 
 **[TODO]**
+- Remove `#![allow(deprecated)]` in `main.rs` with twilight 0.6
 - For helpybot: don't only ignore $ msgs but #waifu altogether
 - `<recommend` command
 - Command for compact `<osu`
