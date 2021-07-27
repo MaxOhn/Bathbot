@@ -5,7 +5,6 @@
 - `<recommend` command
 - Command for compact `<osu`
 - Server setting to not send expanded `<r`
-- Add convert exclusion argument for `mapper`, `topif` and the osustats commands
 - ~~Check on IRC for tracking~~ irc only provides username, not id
 - ~~Use DB medals instead of osekai~~ no medal solution available
 - ~~Split database tables based on popular queries~~ queries simple enough
@@ -18,12 +17,13 @@
 - Add toggle to enable/disable match live tracker
 - `<favouritescores` commands
 - Provide feature to disable certain commands in certain channels
-- Experiment with different team/opponent scaling for `<mc`
+- Add convert exclusion argument for `mapper`, `topif` and the osustats commands
 - Check on `thread 'tokio-runtime-worker' panicked at 'error binding to 169.254.124.89:9094:`
     `error creating server listener: Cannot assign requested address (os error 99)'"`
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Handle first 2021 pp version of rosu_pp_older~~ (21.7.27)
 - ~~Write peppy a mail~~ (21.06.26)
 - ~~When e.g. `<c` as a reply to a msg, use that msg's map~~ (21.06.26)
 - ~~Restructure things in `<help`~~ (21.06.10)

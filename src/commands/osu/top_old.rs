@@ -225,7 +225,7 @@ async fn topold_main(
             let rosu_map = Beatmap::parse(file).await.map_err(PPError::from)?;
             let mods = score.mods.bits();
 
-            if (mode == GameMode::STD && year >= 2021)
+            if (mode == GameMode::STD && year >= 2022)
                 || (mode == GameMode::MNA && year >= 2018)
                 || (mode == GameMode::TKO && year >= 2020)
                 || (mode == GameMode::CTB && year >= 2020)
@@ -238,6 +238,7 @@ async fn topold_main(
                 (GameMode::STD, 2015..=2017) => pp_std!(osu_2015, rosu_map, score, mods),
                 (GameMode::STD, 2018) => pp_std!(osu_2018, rosu_map, score, mods),
                 (GameMode::STD, 2019..=2020) => pp_std!(osu_2019, rosu_map, score, mods),
+                (GameMode::STD, 2021..=2021) => pp_std!(osu_2021, rosu_map, score, mods),
                 (GameMode::MNA, 2014..=2017) => pp_mna!(mania_ppv1, rosu_map, score, mods),
                 (GameMode::TKO, 2014..=2019) => pp_tko!(taiko_ppv1, rosu_map, score, mods),
                 (GameMode::CTB, 2014..=2019) => pp_ctb!(fruits_ppv1, rosu_map, score, mods),
@@ -337,7 +338,7 @@ async fn topold_main(
     => https://osu.ppy.sh/home/news/2018-05-16-performance-updates\n  \
     - 2019: Angles, speed, spaced streams\n    \
     => https://osu.ppy.sh/home/news/2019-02-05-new-changes-to-star-rating-performance-points\n  \
-    - 2021: Accuracy nerf\n    \
+    - 2021: High AR nerf, NF & SO buff, speed & acc adjustment\n    \
     => https://osu.ppy.sh/home/news/2021-01-14-performance-points-updates"
 )]
 #[usage("[username] [year]")]
@@ -427,7 +428,8 @@ fn content_date_range(mode: GameMode, year: u32) -> &'static str {
         (GameMode::STD, 2015..=2017) => "between april 2015 and may 2018",
         (GameMode::STD, 2018) => "between may 2018 and february 2019",
         (GameMode::STD, 2019..=2020) => "between february 2019 and january 2021",
-        (GameMode::STD, _) => "since january 2021",
+        (GameMode::STD, 2021..=2021) => "between january 2021 and july 2021",
+        (GameMode::STD, _) => "since july 2021",
 
         (GameMode::MNA, 2014..=2017) => "between march 2014 and may 2018",
         (GameMode::MNA, _) => "since may 2018",
