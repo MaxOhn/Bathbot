@@ -1,7 +1,7 @@
 use super::request_user;
 use crate::{
     arguments::{Args, SnipeScoreArgs},
-    custom_client::SnipeScoreParams,
+    custom_client::{SnipeScoreOrder, SnipeScoreParams},
     embeds::{EmbedData, PlayerSnipeListEmbed},
     pagination::{Pagination, PlayerSnipeListPagination},
     util::{
@@ -81,8 +81,13 @@ async fn playersnipelist(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
     let count_fut = ctx.clients.custom.get_national_firsts_count(&params);
 
     let (scores, count) = match tokio::try_join!(scores_fut, count_fut) {
-        Ok((scores, count)) => {
+        Ok((scores, mut count)) => {
             let scores = scores.into_iter().enumerate().collect::<BTreeMap<_, _>>();
+
+            // * TODO: Remove this when it's fixed on huismetbenen
+            if params.order != SnipeScoreOrder::Pp {
+                count = count.min(1000);
+            }
 
             (scores, count)
         }

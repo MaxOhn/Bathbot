@@ -13,7 +13,7 @@ use std::{
     str::FromStr,
 };
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SnipeScoreOrder {
     Accuracy = 0,
     Length = 1,
