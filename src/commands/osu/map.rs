@@ -63,7 +63,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(why.into());
+                return Err(why);
             }
         };
 
@@ -187,7 +187,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
     // Accumulate all necessary data
     let data_fut = MapEmbed::new(
-        &map,
+        map,
         &mapset,
         mods,
         graph.is_none(),
@@ -277,7 +277,7 @@ fn graph(strains: Vec<(f32, f32)>, mut background: DynamicImage) -> BotResult<Ve
     let max_strain = strains
         .iter()
         .copied()
-        .max_by(|(_, a), (_, b)| a.partial_cmp(&b).unwrap_or(Ordering::Equal))
+        .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(Ordering::Equal))
         .map_or(0.0, |(_, s)| s);
 
     if max_strain <= std::f32::EPSILON {

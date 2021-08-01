@@ -61,7 +61,7 @@ async fn fix(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(why.into());
+                return Err(why);
             }
         };
 
@@ -211,7 +211,7 @@ async fn fix(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
     let unchoked_pp = match scores {
         Some((ref mut score, _)) => {
-            if score.pp.is_some() && !needs_unchoking(&score, &map) {
+            if score.pp.is_some() && !needs_unchoking(score, &map) {
                 None
             } else {
                 match unchoke_pp(score, &map).await {

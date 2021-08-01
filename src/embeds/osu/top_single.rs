@@ -83,7 +83,7 @@ impl TopSingleEmbed {
 
             let title = format!(
                 "{} {} - {} [{}]",
-                osu::get_keys(score.mods, &map),
+                osu::get_keys(score.mods, map),
                 mapset.artist,
                 mapset.title,
                 map.version
@@ -146,7 +146,7 @@ impl TopSingleEmbed {
             pp,
             combo,
             hits,
-            map_info: osu::get_map_info(&map, score.mods, stars),
+            map_info: osu::get_map_info(map, score.mods, stars),
             if_fc,
             mapset_cover: mapset.covers.cover.to_owned(),
         })
@@ -247,7 +247,7 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
             let count100 = (score.statistics.count_100 + new100s) as usize;
             let count50 = score.statistics.count_50 as usize;
 
-            let pp_result = OsuPP::new(&map)
+            let pp_result = OsuPP::new(map)
                 .attributes(attributes)
                 .mods(mods)
                 .n300(count300)
@@ -288,7 +288,7 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
                 .n_tiny_droplets
                 .saturating_sub(n_tiny_droplet_misses);
 
-            let pp_result = FruitsPP::new(&map)
+            let pp_result = FruitsPP::new(map)
                 .attributes(attributes)
                 .mods(mods)
                 .fruits(n_fruits)
@@ -330,7 +330,7 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
 
             let acc = 100.0 * (2 * count300 + count100) as f32 / (2 * total_objects) as f32;
 
-            let pp_result = TaikoPP::new(&map)
+            let pp_result = TaikoPP::new(map)
                 .attributes(attributes)
                 .mods(mods)
                 .accuracy(acc)

@@ -138,7 +138,7 @@ impl Pagination for RecentPagination {
         // Make sure map leaderboard is ready
         let has_leaderboard = matches!(map.status, Ranked | Loved | Qualified | Approved);
 
-        #[allow(clippy::clippy::map_entry)]
+        #[allow(clippy::map_entry)]
         if !self.map_scores.contains_key(&map_id) && has_leaderboard {
             let score_fut = self
                 .ctx

@@ -91,7 +91,7 @@ impl PlayerSnipeStatsEmbed {
                     map = player.oldest_first.unwrap().map,
                     base = OSU_BASE,
                     id = map.map_id,
-                    grade = grade_completion_mods(&score, &map),
+                    grade = grade_completion_mods(&score, map),
                     stars = stars,
                     score = with_comma_uint(score.score),
                     acc = score.acc_string(GameMode::STD),

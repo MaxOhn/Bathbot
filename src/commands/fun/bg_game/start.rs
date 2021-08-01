@@ -65,7 +65,7 @@ async fn get_mapsets(
 
     // Send initial message
     let embed = BGStartEmbed::new(msg.author.id).into_builder().build();
-    let response = msg.respond_embed(&ctx, embed).await?;
+    let response = msg.respond_embed(ctx, embed).await?;
 
     // Prepare the reaction stream
     let self_id = match ctx.cache.current_user() {
@@ -180,7 +180,7 @@ async fn get_mapsets(
     };
 
     let data = BGTagsEmbed::new(included, excluded, mapsets.len());
-    msg.respond_embed(&ctx, data.into_builder().build()).await?;
+    msg.respond_embed(ctx, data.into_builder().build()).await?;
 
     if !mapsets.is_empty() {
         info!(

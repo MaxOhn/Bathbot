@@ -46,7 +46,7 @@ async fn leaderboard_main(
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(why.into());
+                return Err(why);
             }
         };
 

@@ -189,7 +189,7 @@ async fn score_loop(
         });
 
         if requires_combo {
-            if let Err(why) = prepare_score(&ctx, score).await {
+            if let Err(why) = prepare_score(ctx, score).await {
                 unwind_error!(warn, why, "Failed to fill in max combo for tracking: {}");
 
                 continue;

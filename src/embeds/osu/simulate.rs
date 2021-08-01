@@ -109,7 +109,7 @@ impl SimulateEmbed {
         let attributes = if is_some {
             simulate_score(&mut unchoked_score, map, args, attributes)
         } else {
-            unchoke_score(&mut unchoked_score, &map, attributes)
+            unchoke_score(&mut unchoked_score, map, attributes)
         };
 
         let PpResult { pp, .. } = pp(&unchoked_score, &rosu_map, attributes);
@@ -198,17 +198,15 @@ impl EmbedData for SimulateEmbed {
             self.pp.to_owned()
         };
 
-        if self.mode == GameMode::MNA {
-            fields.push(field!("PP", pp, true));
+        fields.push(field!("PP", pp, true));
 
+        if self.mode == GameMode::MNA {
             fields.push(field!(
                 "Score",
                 with_comma_uint(self.score).to_string(),
                 true
             ));
         } else {
-            fields.push(field!("PP", pp, true));
-
             let hits = if let Some(ref prev_hits) = self.prev_hits {
                 format!("{} → {}", prev_hits, &self.hits)
             } else {
@@ -610,7 +608,7 @@ fn pp(score: &Score, map: &Map, attributes: StarResult) -> PpResult {
     let mods = score.mods.bits();
 
     match map.mode {
-        Mode::STD => OsuPP::new(&map)
+        Mode::STD => OsuPP::new(map)
             .attributes(attributes)
             .mods(mods)
             .combo(score.max_combo as usize)
@@ -619,12 +617,12 @@ fn pp(score: &Score, map: &Map, attributes: StarResult) -> PpResult {
             .n50(score.statistics.count_50 as usize)
             .misses(score.statistics.count_miss as usize)
             .calculate(),
-        Mode::MNA => ManiaPP::new(&map)
+        Mode::MNA => ManiaPP::new(map)
             .attributes(attributes)
             .mods(mods)
             .score(score.score)
             .calculate(),
-        Mode::CTB => FruitsPP::new(&map)
+        Mode::CTB => FruitsPP::new(map)
             .attributes(attributes)
             .mods(mods)
             .combo(score.max_combo as usize)
@@ -633,7 +631,7 @@ fn pp(score: &Score, map: &Map, attributes: StarResult) -> PpResult {
             .misses(score.statistics.count_miss as usize)
             .accuracy(score.accuracy)
             .calculate(),
-        Mode::TKO => TaikoPP::new(&map)
+        Mode::TKO => TaikoPP::new(map)
             .attributes(attributes)
             .combo(score.max_combo as usize)
             .mods(mods)

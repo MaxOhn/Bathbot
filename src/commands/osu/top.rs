@@ -528,8 +528,8 @@ fn filter_scores(top_type: TopType, scores: Vec<Score>, args: &TopArgs) -> Vec<(
 
             scores_indices.sort_unstable_by(|(a, _), (b, _)| {
                 acc_cache
-                    .get(&b)
-                    .partial_cmp(&acc_cache.get(&a))
+                    .get(b)
+                    .partial_cmp(&acc_cache.get(a))
                     .unwrap_or(Ordering::Equal)
             });
         }

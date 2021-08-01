@@ -38,7 +38,7 @@ async fn profile_main(
         None => return super::require_link(&ctx, msg).await,
     };
 
-    let (data, mut user) = match profile_embed(&ctx, &name, mode, &msg).await? {
+    let (data, mut user) = match profile_embed(&ctx, &name, mode, msg).await? {
         Some(data) => data,
         None => return Ok(()),
     };
@@ -58,7 +58,11 @@ async fn profile_main(
     let m = ctx.http.create_message(msg.channel_id).embeds(embed)?;
 
     let response = if let Some(graph) = graph {
-        m.files(&[("profile_graph.png", &graph)]).exec().await?.model().await?
+        m.files(&[("profile_graph.png", &graph)])
+            .exec()
+            .await?
+            .model()
+            .await?
     } else {
         m.exec().await?.model().await?
     };
@@ -85,25 +89,25 @@ pub async fn profile_embed(
     msg: &Message,
 ) -> BotResult<Option<(ProfileEmbed, User)>> {
     // Retrieve the user and their top scores
-    let user_fut = request_user(&ctx, name, Some(mode));
+    let user_fut = request_user(ctx, name, Some(mode));
     let scores_fut = ctx.osu().user_scores(name).best().mode(mode).limit(100);
 
     let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
-            msg.error(&ctx, content).await?;
+            msg.error(ctx, content).await?;
 
             return Ok(None);
         }
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = msg.error(ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
     };
 
-    let globals_count = match super::get_globals_count(&ctx, &user.username, mode).await {
+    let globals_count = match super::get_globals_count(ctx, &user.username, mode).await {
         Ok(globals_count) => globals_count,
         Err(why) => {
             unwind_error!(error, why, "Error while requesting globals count: {}");
@@ -113,7 +117,7 @@ pub async fn profile_embed(
     };
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
+    process_tracking(ctx, mode, &mut scores, Some(&user)).await;
 
     // Store maps in DB
     if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
@@ -272,7 +276,7 @@ impl ProfileResult {
             .collect();
 
         mappers.sort_unstable_by(|(_, count_a, pp_a), (_, count_b, pp_b)| {
-            match count_b.cmp(&count_a) {
+            match count_b.cmp(count_a) {
                 Equal => pp_b.partial_cmp(pp_a).unwrap_or(Equal),
                 other => other,
             }

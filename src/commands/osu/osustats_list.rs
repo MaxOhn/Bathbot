@@ -115,7 +115,7 @@ async fn prepare_players(
     let mut players = HashMap::with_capacity(2);
 
     // Retrieve page one
-    let page = ctx.clients.custom.get_country_globals(&params).await?;
+    let page = ctx.clients.custom.get_country_globals(params).await?;
     let len = page.len();
 
     insert(&mut players, 1, page);
@@ -126,7 +126,7 @@ async fn prepare_players(
 
     // Retrieve page ten
     params.page = 10;
-    let page = ctx.clients.custom.get_country_globals(&params).await?;
+    let page = ctx.clients.custom.get_country_globals(params).await?;
     let len = page.len();
     insert(&mut players, 10, page);
 
@@ -136,7 +136,7 @@ async fn prepare_players(
 
     // Retrieve page five
     params.page = 5;
-    let page = ctx.clients.custom.get_country_globals(&params).await?;
+    let page = ctx.clients.custom.get_country_globals(params).await?;
     let len = page.len();
     insert(&mut players, 5, page);
 
@@ -145,7 +145,7 @@ async fn prepare_players(
     } else if len == 0 {
         // Retrieve page three
         params.page = 3;
-        let page = ctx.clients.custom.get_country_globals(&params).await?;
+        let page = ctx.clients.custom.get_country_globals(params).await?;
         let len = page.len();
         insert(&mut players, 3, page);
 
@@ -154,7 +154,7 @@ async fn prepare_players(
         } else if len == 0 {
             // Retrieve page two
             params.page = 2;
-            let page = ctx.clients.custom.get_country_globals(&params).await?;
+            let page = ctx.clients.custom.get_country_globals(params).await?;
             let len = page.len();
             insert(&mut players, 2, page);
 
@@ -162,7 +162,7 @@ async fn prepare_players(
         } else if len == 15 {
             // Retrieve page four
             params.page = 4;
-            let page = ctx.clients.custom.get_country_globals(&params).await?;
+            let page = ctx.clients.custom.get_country_globals(params).await?;
             let len = page.len();
             insert(&mut players, 4, page);
 
@@ -171,7 +171,7 @@ async fn prepare_players(
     } else if len == 15 {
         // Retrieve page seven
         params.page = 7;
-        let page = ctx.clients.custom.get_country_globals(&params).await?;
+        let page = ctx.clients.custom.get_country_globals(params).await?;
         let len = page.len();
         insert(&mut players, 7, page);
 
@@ -180,7 +180,7 @@ async fn prepare_players(
         } else if len == 0 {
             // Retrieve page six
             params.page = 6;
-            let page = ctx.clients.custom.get_country_globals(&params).await?;
+            let page = ctx.clients.custom.get_country_globals(params).await?;
             let len = page.len();
             insert(&mut players, 6, page);
 
@@ -191,7 +191,7 @@ async fn prepare_players(
     for idx in 8..=9 {
         // Retrieve page idx
         params.page = idx;
-        let page = ctx.clients.custom.get_country_globals(&params).await?;
+        let page = ctx.clients.custom.get_country_globals(params).await?;
         let len = page.len();
         insert(&mut players, idx, page);
 

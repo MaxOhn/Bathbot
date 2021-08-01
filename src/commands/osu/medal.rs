@@ -28,7 +28,7 @@ async fn medal(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
     let medal = match ctx.clients.custom.get_osekai_medal(name).await {
         Ok(Some(medal)) => medal,
-        Ok(None) => return no_medal(&ctx, &msg, name).await,
+        Ok(None) => return no_medal(&ctx, msg, name).await,
         Err(why) => {
             let content = "Some issue with the osekai api, blame bade";
             let _ = msg.error(&ctx, content).await;
@@ -83,5 +83,5 @@ async fn no_medal(ctx: &Context, msg: &Message, name: &str) -> BotResult<()> {
         content.push('?');
     }
 
-    msg.error(&ctx, content).await
+    msg.error(ctx, content).await
 }

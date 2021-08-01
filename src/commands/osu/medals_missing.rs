@@ -118,7 +118,7 @@ pub enum MedalType {
 impl MedalType {
     fn group(&self) -> &MedalGroup {
         match self {
-            Self::Group(g) => &g,
+            Self::Group(g) => g,
             Self::Medal(m) => &m.grouping,
         }
     }

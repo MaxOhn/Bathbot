@@ -71,7 +71,7 @@ async fn prefix(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                 } else if b == "<" {
                     Ordering::Greater
                 } else {
-                    a.cmp(&b)
+                    a.cmp(b)
                 }
             });
             config.prefixes.dedup();

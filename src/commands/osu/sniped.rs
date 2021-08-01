@@ -312,7 +312,7 @@ fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult {
 
             Some(Some((score.sniper.as_str(), *state)))
         })
-        .filter_map(|o| o)
+        .flatten()
         .collect();
 
     finish_preparing(names, categorized)
@@ -349,7 +349,7 @@ fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult {
 
             Some(Some((score.sniped.as_deref().unwrap(), *state)))
         })
-        .filter_map(|o| o)
+        .flatten()
         .collect();
 
     finish_preparing(names, categorized)

@@ -202,7 +202,7 @@ async fn recent_main(
     ctx.store_msg(response.id);
 
     // Set map on garbage collection list if unranked
-    let gb = ctx.map_garbage_collector(&map);
+    let gb = ctx.map_garbage_collector(map);
 
     // Note: Don't store maps in DB as their max combo isnt available
 

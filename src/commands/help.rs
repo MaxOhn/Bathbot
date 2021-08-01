@@ -79,7 +79,7 @@ pub async fn help(
             Ok(channel_res) => match channel_res.model().await {
                 Ok(channel) => channel,
                 Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+                    let _ = msg.error(ctx, GENERAL_ISSUE).await;
 
                     return Err(why.into());
                 }
@@ -89,7 +89,7 @@ pub async fn help(
                    Did you disable messages from other server members?";
                 debug!("Error while creating DM channel: {}", why);
 
-                return msg.error(&ctx, content).await;
+                return msg.error(ctx, content).await;
             }
         };
 

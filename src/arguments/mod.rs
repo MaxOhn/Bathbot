@@ -426,7 +426,7 @@ impl MatchArgs {
 
         let warmups = args
             .next()
-            .and_then(|num| usize::from_str(&num).ok())
+            .and_then(|num| usize::from_str(num).ok())
             .unwrap_or(2);
 
         Ok(Self { match_id, warmups })
@@ -532,7 +532,7 @@ impl NameFloatArgs {
     pub fn new(ctx: &Context, args: Args) -> Result<Self, &'static str> {
         let mut args = args.take_all();
 
-        let float = match args.next_back().and_then(|arg| f32::from_str(&arg).ok()) {
+        let float = match args.next_back().and_then(|arg| f32::from_str(arg).ok()) {
             Some(float) => float,
             None => return Err("You need to provide a decimal number as last argument"),
         };
@@ -589,7 +589,7 @@ impl NameGradePassArgs {
         }
 
         let name = args.into_iter().next().and_then(|arg| {
-            matcher::get_mention_user(&arg)
+            matcher::get_mention_user(arg)
                 .and_then(|id| ctx.get_link(id))
                 .or_else(|| Some(SmallString::from_str(arg)))
         });
@@ -770,7 +770,7 @@ impl OsuStatsArgs {
 
         // Parse username
         if let Some(name) = args.pop() {
-            username = matcher::get_mention_user(&name)
+            username = matcher::get_mention_user(name)
                 .and_then(|id| ctx.get_link(id))
                 .or_else(|| Some(SmallString::from_str(name)));
         }
@@ -1073,7 +1073,7 @@ impl SimulateNameArgs {
         let score = score(&mut args)?;
 
         let name = args.pop().and_then(|arg| {
-            matcher::get_mention_user(&arg)
+            matcher::get_mention_user(arg)
                 .and_then(|id| ctx.get_link(id))
                 .or_else(|| Some(SmallString::from_str(arg)))
         });
@@ -1239,7 +1239,7 @@ impl TopArgs {
         let has_dash_p_or_i = keywords(&mut args, &["-p", "-i"]);
 
         let name = args.into_iter().next().and_then(|arg| {
-            matcher::get_mention_user(&arg)
+            matcher::get_mention_user(arg)
                 .and_then(|id| ctx.get_link(id))
                 .or_else(|| Some(SmallString::from_str(arg)))
         });

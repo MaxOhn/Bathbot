@@ -42,7 +42,7 @@ impl TrackNotificationEmbed {
         let title = if map.mode == GameMode::MNA {
             format!(
                 "{} {} - {} [{}] [{}★]",
-                osu::get_keys(score.mods, &map),
+                osu::get_keys(score.mods, map),
                 mapset.artist,
                 mapset.title,
                 map.version,

@@ -61,7 +61,7 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
         scores.retain(|(id, _)| members.contains(id));
     }
 
-    scores.sort_unstable_by(|(_, a), (_, b)| b.cmp(&a));
+    scores.sort_unstable_by(|(_, a), (_, b)| b.cmp(a));
     let author_idx = scores.iter().position(|(user, _)| *user == msg.author.id.0);
 
     // Gather usernames for initial page

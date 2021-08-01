@@ -101,13 +101,13 @@ impl LeaderboardEmbed {
                     grade = score.grade_emote(map.mode),
                     name = username,
                     score = with_comma_uint(score.score),
-                    combo = get_combo(&score, &map),
+                    combo = get_combo(score, map),
                     mods = if score.mods.is_empty() {
                         String::new()
                     } else {
                         format!(" **+{}**", score.mods)
                     },
-                    pp = get_pp(&mut mod_map, &score, &rosu_map).await,
+                    pp = get_pp(&mut mod_map, score, &rosu_map).await,
                     acc = score.accuracy,
                     ago = how_long_ago(&score.date),
                 );

@@ -104,5 +104,5 @@ async fn send_message(
     let success = success.into_iter().collect();
     let embed = &[UntrackEmbed::new(success, name).into_builder().build()];
 
-    msg.build_response(&ctx, |m| m.embeds(embed)).await
+    msg.build_response(ctx, |m| m.embeds(embed)).await
 }

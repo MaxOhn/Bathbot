@@ -28,14 +28,14 @@ fn clean_roles(ctx: &Context, s: &mut String) {
                 if let Some(role) = ctx.cache.role(RoleId(id)) {
                     *s = s.replace(&to_replace, &format!("@{}", &role.name))
                 } else {
-                    *s = s.replace(&to_replace, &"@deleted-role")
+                    *s = s.replace(&to_replace, "@deleted-role")
                 }
             } else {
                 let id = &s[mention_start..mention_end].to_string();
 
                 if !id.is_empty() && id.as_bytes().iter().all(u8::is_ascii_digit) {
                     let to_replace = format!("<@&{}>", id);
-                    *s = s.replace(&to_replace, &"@deleted-role");
+                    *s = s.replace(&to_replace, "@deleted-role");
                 } else {
                     progress = mention_end;
                 }
@@ -63,14 +63,14 @@ fn clean_channels(ctx: &Context, s: &mut String) {
                     let replacement = format!("#{}", channel.name());
                     *s = s.replace(&to_replace, &replacement)
                 } else {
-                    *s = s.replace(&to_replace, &"#deleted-channel")
+                    *s = s.replace(&to_replace, "#deleted-channel")
                 }
             } else {
                 let id = &s[mention_start..mention_end].to_string();
 
                 if !id.is_empty() && id.as_bytes().iter().all(u8::is_ascii_digit) {
                     let to_replace = format!("<#{}>", id);
-                    *s = s.replace(&to_replace, &"#deleted-channel");
+                    *s = s.replace(&to_replace, "#deleted-channel");
                 } else {
                     progress = mention_end;
                 }
@@ -132,7 +132,7 @@ fn clean_users(ctx: &Context, s: &mut String, guild: Option<GuildId>) {
                 if !id.is_empty() && id.as_bytes().iter().all(u8::is_ascii_digit) {
                     let code_start = if has_exclamation { "<@!" } else { "<@" };
                     let to_replace = format!("{}{}>", code_start, id);
-                    *s = s.replace(&to_replace, &"@invalid-user");
+                    *s = s.replace(&to_replace, "@invalid-user");
                 } else {
                     progress = mention_end;
                 }

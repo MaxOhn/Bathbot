@@ -97,7 +97,7 @@ impl Pagination for BGRankingPagination {
             .iter()
             .skip(self.pages.index)
             .take(self.pages.per_page)
-            .map(|(id, score)| (self.usernames.get(&id).unwrap(), *score))
+            .map(|(id, score)| (self.usernames.get(id).unwrap(), *score))
             .collect();
 
         Ok(BGRankingEmbed::new(

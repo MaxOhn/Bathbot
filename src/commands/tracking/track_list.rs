@@ -57,7 +57,7 @@ async fn tracklist(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     drop(user_futs);
 
     users.sort_unstable_by(|(u1, m1, _), (u2, m2, _)| {
-        (*m1 as u8).cmp(&(*m2 as u8)).then(u1.cmp(&u2))
+        (*m1 as u8).cmp(&(*m2 as u8)).then(u1.cmp(u2))
     });
 
     let embeds = TrackListEmbed::new(users);

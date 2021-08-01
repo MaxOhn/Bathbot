@@ -50,7 +50,7 @@ impl CommandCounterEmbed {
             "Page {}/{} ~ Started counting {}",
             pages.0,
             pages.1,
-            how_long_ago(&booted_up)
+            how_long_ago(booted_up)
         );
 
         Self {

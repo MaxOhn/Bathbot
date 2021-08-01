@@ -181,9 +181,10 @@ impl MessageExt for Message {
 
         tokio::spawn(async move {
             let reaction_result = timeout(Duration::from_secs(60), reaction_fut).await;
-            stats.message_counts.reaction_deleted_messages.inc();
 
             if let Ok(Ok(_)) = reaction_result {
+                stats.message_counts.reaction_deleted_messages.inc();
+
                 if let Err(why) = http.delete_message(channel_id, msg_id).exec().await {
                     unwind_error!(warn, why, "Error while reaction-deleting msg: {}");
                 }

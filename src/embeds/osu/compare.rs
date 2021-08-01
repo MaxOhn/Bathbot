@@ -152,7 +152,7 @@ impl CompareEmbed {
 
             let title = format!(
                 "{} {} - {} [{}]",
-                osu::get_keys(score.mods, &map),
+                osu::get_keys(score.mods, map),
                 mapset.artist,
                 mapset.title,
                 map.version
@@ -231,7 +231,7 @@ impl CompareEmbed {
             combo,
             hits,
             mapset_id: mapset.mapset_id,
-            map_info: osu::get_map_info(&map, mods, stars),
+            map_info: osu::get_map_info(map, mods, stars),
         })
     }
 }

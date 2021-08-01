@@ -191,8 +191,6 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                 if untagged {
                     if tags.iter().any(|tag| tag.untagged()) {
                         tags.retain(|tag| tag.untagged());
-
-                        tags
                     } else {
                         let content = "All backgrounds have been tagged, \
                             here are some random ones you can review again though";
@@ -200,12 +198,10 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                         let _ = msg.send_response(&ctx, content).await;
                         untagged = false;
                         tags.truncate(1);
-
-                        tags
                     }
-                } else {
-                    tags
                 }
+
+                tags
             }
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;

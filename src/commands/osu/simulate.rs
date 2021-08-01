@@ -58,7 +58,7 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
             Err(why) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(why.into());
+                return Err(why);
             }
         };
 

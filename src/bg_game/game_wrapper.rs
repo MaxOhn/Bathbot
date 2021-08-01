@@ -84,11 +84,7 @@ impl GameWrapper {
 
         let rx = match self.rx.take() {
             Some(rx) => rx,
-            None => {
-                warn!("No rx left for bg game");
-
-                return;
-            }
+            None => return warn!("No rx left for bg game"),
         };
 
         let mut previous_ids = VecDeque::with_capacity(50);
