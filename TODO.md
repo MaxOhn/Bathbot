@@ -1,6 +1,5 @@
 
 **[TODO]**
-- Add metric to see how often msg-delete function is used
 - Look into slash commands again to find arguments not to use them :^)
 - Suggest quotes when multiple arguments on `<link`
 - Remove `#![allow(deprecated)]` in `main.rs` with twilight 0.6
@@ -26,7 +25,8 @@
 - Add proper readme and make project public
 
 **[Done]**
-- ~~Handle first 2021 pp version of rosu_pp_older~~ (21.7.27)
+- ~~Add metric to see how often msg-delete function is used~~ (21.08.01)
+- ~~Handle first 2021 pp version of rosu_pp_older~~ (21.07.27)
 - ~~Write peppy a mail~~ (21.06.26)
 - ~~When e.g. `<c` as a reply to a msg, use that msg's map~~ (21.06.26)
 - ~~Restructure things in `<help`~~ (21.06.10)

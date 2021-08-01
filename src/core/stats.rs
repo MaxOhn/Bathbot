@@ -33,6 +33,7 @@ pub struct MessageCounters {
     pub user_messages: IntCounter,
     pub other_bot_messages: IntCounter,
     pub own_messages: IntCounter,
+    pub reaction_deleted_messages: IntCounter,
 }
 
 pub struct OsuCounters {
@@ -104,6 +105,7 @@ impl BotStats {
                 user_messages: msg_counter.with_label_values(&["User"]),
                 other_bot_messages: msg_counter.with_label_values(&["Bot"]),
                 own_messages: msg_counter.with_label_values(&["Own"]),
+                reaction_deleted_messages: msg_counter.with_label_values(&["Reaction-deleted"]),
             },
             command_counts,
             osu_metrics: OsuCounters {

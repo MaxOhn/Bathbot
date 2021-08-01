@@ -1,6 +1,7 @@
 use crate::{embeds::EmbedBuilder, util::constants::RED, BotResult, Context};
 
 use async_trait::async_trait;
+use std::sync::Arc;
 use tokio::time::{timeout, Duration};
 use twilight_http::request::channel::message::create_message::{CreateMessage, CreateMessageError};
 use twilight_model::{
@@ -162,6 +163,7 @@ impl MessageExt for Message {
     fn reaction_delete(&self, ctx: &Context, owner: UserId) {
         let standby = ctx.standby.clone();
         let http = ctx.http.clone();
+        let stats = Arc::clone(&ctx.stats);
         let channel_id = self.channel_id;
         let msg_id = self.id;
 
@@ -179,6 +181,7 @@ impl MessageExt for Message {
 
         tokio::spawn(async move {
             let reaction_result = timeout(Duration::from_secs(60), reaction_fut).await;
+            stats.message_counts.reaction_deleted_messages.inc();
 
             if let Ok(Ok(_)) = reaction_result {
                 if let Err(why) = http.delete_message(channel_id, msg_id).exec().await {
