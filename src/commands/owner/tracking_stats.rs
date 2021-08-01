@@ -12,8 +12,8 @@ use twilight_model::channel::Message;
 #[owner()]
 async fn trackingstats(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     let stats = ctx.tracking().stats().await;
-    let embed = TrackingStatsEmbed::new(stats).into_builder().build();
-    msg.build_response(&ctx, |m| m.embed(embed)).await?;
+    let embed = &[TrackingStatsEmbed::new(stats).into_builder().build()];
+    msg.build_response(&ctx, |m| m.embeds(embed)).await?;
 
     Ok(())
 }

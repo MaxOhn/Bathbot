@@ -65,17 +65,21 @@ async fn medalstats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         }
     };
 
-    let embed = MedalStatsEmbed::new(user, all_medals, graph.is_some())
+    let embed = &[MedalStatsEmbed::new(user, all_medals, graph.is_some())
         .into_builder()
-        .build();
+        .build()];
 
     // Send the embed
-    let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
+    let m = ctx.http.create_message(msg.channel_id).embeds(embed)?;
 
     let response = if let Some(graph) = graph {
-        m.file("medal_graph.png", graph).await?
+        m.files(&[("medal_graph.png", &graph)])
+            .exec()
+            .await?
+            .model()
+            .await?
     } else {
-        m.await?
+        m.exec().await?.model().await?
     };
 
     response.reaction_delete(&ctx, msg.author.id);

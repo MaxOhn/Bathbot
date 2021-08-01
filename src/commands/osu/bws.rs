@@ -64,11 +64,11 @@ async fn bws(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         .filter(|badge| tourney_badge(badge.description.as_str()))
         .count();
 
-    let embed = BWSEmbed::new(user, badges, rank_range)
+    let embed = &[BWSEmbed::new(user, badges, rank_range)
         .into_builder()
-        .build();
+        .build()];
 
-    msg.build_response(&ctx, |m| m.embed(embed)).await?;
+    msg.build_response(&ctx, |m| m.embeds(embed)).await?;
 
     Ok(())
 }

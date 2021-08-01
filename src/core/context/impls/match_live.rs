@@ -224,11 +224,11 @@ impl Context {
 
                     for (channel, msg) in channels.iter() {
                         let msg = *msg.lock().await;
-                        let embed = data.as_builder().build();
-                        let update_result = ctx.http.update_message(*channel, msg).embed(embed);
+                        let embed = &[data.as_builder().build()];
+                        let update_result = ctx.http.update_message(*channel, msg).embeds(embed);
 
                         let update_fut = match update_result {
-                            Ok(update_fut) => update_fut,
+                            Ok(update_fut) => update_fut.exec(),
                             Err(why) => {
                                 unwind_error!(
                                     warn,
@@ -281,6 +281,7 @@ impl Context {
                     .create_message(*entry.key())
                     .content(content)
                     .unwrap()
+                    .exec()
                     .await;
 
                 notified += 1;
@@ -326,9 +327,9 @@ async fn send_match_messages(
         for embed in iter {
             let embed = embed.as_builder().build();
 
-            match ctx.http.create_message(channel).embed(embed) {
+            match ctx.http.create_message(channel).embeds(&[embed]) {
                 Ok(msg_fut) => {
-                    if let Err(why) = msg_fut.await {
+                    if let Err(why) = msg_fut.exec().await {
                         unwind_error!(warn, why, "Error while sending match live embed: {}");
                     }
                 }
@@ -350,15 +351,26 @@ async fn send_match_messages(
 
     let last = last.as_builder().build();
 
-    match ctx.http.create_message(channel).embed(last) {
+    match ctx.http.create_message(channel).embeds(&[last]) {
         Ok(msg_fut) => {
             let msg_fut = match content {
                 Some(content) => msg_fut.content(content).unwrap(),
                 None => msg_fut,
             };
 
-            match msg_fut.await {
-                Ok(msg) => Some(msg.id),
+            match msg_fut.exec().await {
+                Ok(msg_res) => match msg_res.model().await {
+                    Ok(msg) => Some(msg.id),
+                    Err(why) => {
+                        unwind_error!(
+                            error,
+                            why,
+                            "Failed to desserialize last match live embed response: {}"
+                        );
+
+                        None
+                    }
+                },
                 Err(why) => {
                     unwind_error!(error, why, "Failed to send last match live embed: {}");
 

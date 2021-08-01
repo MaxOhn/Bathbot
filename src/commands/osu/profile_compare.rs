@@ -137,13 +137,15 @@ async fn compare_main(
     let data = ProfileCompareEmbed::new(mode, user1, user2, profile_result1, profile_result2);
 
     // Creating the embed
-    let embed = data.into_builder().build();
+    let embed = &[data.into_builder().build()];
 
-    msg.build_response(&ctx, |m| match thumbnail {
-        Some(bytes) => m.file("avatar_fuse.png", bytes).embed(embed),
-        None => m.embed(embed),
-    })
-    .await?;
+    let m = ctx.http.create_message(msg.channel_id).embeds(embed)?;
+
+    let _ = if let Some(bytes) = thumbnail.as_deref() {
+        m.files(&[("avatar_fuse.png", bytes)]).exec().await?
+    } else {
+        m.exec().await?
+    };
 
     Ok(())
 }

@@ -42,10 +42,13 @@ async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
         .http
         .channel_messages(msg.channel_id)
         .limit(amount)
-        .unwrap();
+        .unwrap()
+        .exec();
 
     let mut messages = match msgs_fut.await {
         Ok(msgs) => msgs
+            .models()
+            .await?
             .into_iter()
             .take(amount as usize)
             .map(|msg| msg.id)
@@ -59,13 +62,21 @@ async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
 
     if messages.len() < 2 {
         if let Some(msg_id) = messages.pop() {
-            ctx.http.delete_message(msg.channel_id, msg_id).await?;
+            ctx.http
+                .delete_message(msg.channel_id, msg_id)
+                .exec()
+                .await?;
         }
 
         return Ok(());
     }
 
-    match ctx.http.delete_messages(msg.channel_id, messages).await {
+    match ctx
+        .http
+        .delete_messages(msg.channel_id, &messages)
+        .exec()
+        .await
+    {
         Ok(_) => {}
         Err(why) => {
             if matches!(why.kind(), ErrorType::Response {
@@ -84,16 +95,15 @@ async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
         }
     }
 
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .content(format!("Deleted the last {} messages", amount - 1))?
+    let response = msg
+        .respond(&ctx, format!("Deleted the last {} messages", amount - 1))
         .await?;
 
     time::sleep(Duration::from_secs(6)).await;
 
     ctx.http
         .delete_message(response.channel_id, response.id)
+        .exec()
         .await?;
 
     Ok(())

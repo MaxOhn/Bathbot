@@ -53,7 +53,7 @@ use crate::{
 
 use async_trait::async_trait;
 use smallvec::SmallVec;
-use std::time::Duration;
+use std::{borrow::Cow, time::Duration};
 use tokio::time::sleep;
 use tokio_stream::StreamExt;
 use twilight_http::error::ErrorType;
@@ -120,7 +120,7 @@ pub trait Pagination: Sync + Sized {
         None
     }
 
-    fn content(&self) -> Option<String> {
+    fn content(&self) -> Option<Cow<str>> {
         None
     }
 
@@ -166,18 +166,23 @@ pub trait Pagination: Sync + Sized {
             return Ok(());
         }
 
-        match ctx.http.delete_all_reactions(msg.channel_id, msg.id).await {
+        match ctx
+            .http
+            .delete_all_reactions(msg.channel_id, msg.id)
+            .exec()
+            .await
+        {
             Ok(_) => {}
             Err(why) => {
-                if matches!(why.kind(), ErrorType::Response { status, .. }if status.as_u16() == 403)
-                {
+                if matches!(why.kind(), ErrorType::Response { status, .. }if status.raw() == 403) {
                     sleep(Duration::from_millis(100)).await;
 
                     for emote in &reactions {
                         let request_reaction = emote.request_reaction();
 
                         ctx.http
-                            .delete_current_user_reaction(msg.channel_id, msg.id, request_reaction)
+                            .delete_current_user_reaction(msg.channel_id, msg.id, &request_reaction)
+                            .exec()
                             .await?;
                     }
                 } else {
@@ -197,9 +202,10 @@ pub trait Pagination: Sync + Sized {
                 self.process_data(&data);
                 let msg = self.msg();
                 let mut update = ctx.http.update_message(msg.channel_id, msg.id);
+                let content = self.content();
 
-                if let Some(content) = self.content() {
-                    update = update.content(content)?;
+                if let Some(ref content) = content {
+                    update = update.content(Some(content.as_ref()))?;
                 }
 
                 let mut builder = data.into_builder();
@@ -208,13 +214,16 @@ pub trait Pagination: Sync + Sized {
                     builder = builder.thumbnail(thumbnail);
                 }
 
-                update.embed(builder.build())?.await?;
+                update.embeds(&[builder.build()])?.exec().await?;
 
                 PageChange::Change
             }
             PageChange::Delete => {
                 let msg = self.msg();
-                ctx.http.delete_message(msg.channel_id, msg.id).await?;
+                ctx.http
+                    .delete_message(msg.channel_id, msg.id)
+                    .exec()
+                    .await?;
 
                 PageChange::Delete
             }

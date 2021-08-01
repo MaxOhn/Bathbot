@@ -66,18 +66,27 @@ impl ProfilePagination {
             return Ok(());
         }
 
-        match ctx.http.delete_all_reactions(msg.channel_id, msg.id).await {
+        match ctx
+            .http
+            .delete_all_reactions(msg.channel_id, msg.id)
+            .exec()
+            .await
+        {
             Ok(_) => {}
             Err(why) => {
-                if matches!(why.kind(), ErrorType::Response { status, ..} if status.as_u16() == 403)
-                {
+                if matches!(why.kind(), ErrorType::Response { status, ..} if status.raw() == 403) {
                     sleep(Duration::from_millis(100)).await;
 
                     for emote in &reactions {
                         let reaction_reaction = emote.request_reaction();
 
                         ctx.http
-                            .delete_current_user_reaction(msg.channel_id, msg.id, reaction_reaction)
+                            .delete_current_user_reaction(
+                                msg.channel_id,
+                                msg.id,
+                                &reaction_reaction,
+                            )
+                            .exec()
                             .await?;
                     }
                 } else {
@@ -91,7 +100,8 @@ impl ProfilePagination {
 
             ctx.http
                 .update_message(msg.channel_id, msg.id)
-                .embed(embed)?
+                .embeds(&[embed])?
+                .exec()
                 .await?;
         }
 
@@ -110,7 +120,8 @@ impl ProfilePagination {
 
                 ctx.http
                     .update_message(self.msg.channel_id, self.msg.id)
-                    .embed(builder.build())?
+                    .embeds(&[builder.build()])?
+                    .exec()
                     .await?;
 
                 PageChange::Change
@@ -118,6 +129,7 @@ impl ProfilePagination {
             PageChange::Delete => {
                 ctx.http
                     .delete_message(self.msg.channel_id, self.msg.id)
+                    .exec()
                     .await?;
 
                 PageChange::Delete

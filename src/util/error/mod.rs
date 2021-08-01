@@ -25,6 +25,7 @@ use twilight_http::{
     request::channel::message::{
         create_message::CreateMessageError, update_message::UpdateMessageError,
     },
+    response::DeserializeBodyError,
     Error as HttpError,
 };
 
@@ -68,6 +69,7 @@ pub enum Error {
     Reqwest(ReqwestError),
     Serde(SerdeJsonError),
     TwilightCluster(ClusterCommandError),
+    TwilightDeserialize(DeserializeBodyError),
     TwilightHttp(HttpError),
     Twitch(TwitchError),
     UpdateMessage(UpdateMessageError),
@@ -100,6 +102,7 @@ impl StdError for Error {
             Self::Reqwest(e) => Some(e),
             Self::Serde(e) => Some(e),
             Self::TwilightCluster(e) => Some(e),
+            Self::TwilightDeserialize(e) => Some(e),
             Self::TwilightHttp(e) => Some(e),
             Self::Twitch(e) => Some(e),
             Self::UpdateMessage(e) => Some(e),
@@ -137,8 +140,9 @@ impl fmt::Display for Error {
             Self::Redis(_) => f.write_str("error while communicating with redis cache"),
             Self::Reqwest(_) => f.write_str("reqwest error"),
             Self::Serde(_) => f.write_str("serde error"),
-            Self::TwilightHttp(_) => f.write_str("error while making discord request"),
             Self::TwilightCluster(_) => f.write_str("error occurred on cluster request"),
+            Self::TwilightDeserialize(_) => f.write_str("twilight failed to deserialize response"),
+            Self::TwilightHttp(_) => f.write_str("error while making discord request"),
             Self::Twitch(_) => f.write_str("twitch error"),
             Self::UpdateMessage(_) => f.write_str("error while updating message"),
         }
@@ -250,6 +254,12 @@ impl From<ClusterCommandError> for Error {
 impl From<HttpError> for Error {
     fn from(e: HttpError) -> Self {
         Error::TwilightHttp(e)
+    }
+}
+
+impl From<DeserializeBodyError> for Error {
+    fn from(e: DeserializeBodyError) -> Self {
+        Error::TwilightDeserialize(e)
     }
 }
 

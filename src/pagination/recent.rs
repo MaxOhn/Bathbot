@@ -12,7 +12,7 @@ use rosu_v2::prelude::{
     RankStatus::{Approved, Loved, Qualified, Ranked},
     Score, User,
 };
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 use twilight_model::channel::Message;
 
 pub struct RecentPagination {
@@ -82,8 +82,8 @@ impl Pagination for RecentPagination {
         self.embed_data.replace(data.clone());
     }
 
-    fn content(&self) -> Option<String> {
-        Some(format!("Recent score #{}", self.pages.index + 1))
+    fn content(&self) -> Option<Cow<str>> {
+        Some(format!("Recent score #{}", self.pages.index + 1).into())
     }
 
     async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
@@ -94,7 +94,8 @@ impl Pagination for RecentPagination {
         let _ = ctx
             .http
             .update_message(msg.channel_id, msg.id)
-            .embed(embed)?
+            .embeds(&[embed])?
+            .exec()
             .await;
 
         // Set maps on garbage collection list if unranked

@@ -72,10 +72,8 @@ impl Emote {
     pub fn request_reaction(&self) -> RequestReactionType {
         let emotes = &CONFIG.get().unwrap().emotes;
 
-        let emote = if let Self::Custom(emote) = self {
-            return RequestReactionType::Unicode {
-                name: emote.to_string(),
-            };
+        let emote = if let Self::Custom(name) = self {
+            return RequestReactionType::Unicode { name };
         } else {
             emotes.get(self)
         };
@@ -86,7 +84,7 @@ impl Emote {
 
         RequestReactionType::Custom {
             id: EmojiId(id),
-            name: Some(name.to_owned()),
+            name: Some(name),
         }
     }
 }

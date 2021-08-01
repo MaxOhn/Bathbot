@@ -201,13 +201,11 @@ async fn recent_pages_main(
     };
 
     // Creating the embed
-    let embed = data.as_builder().build();
+    let content = format!("Try #{}", tries);
+    let embed = &[data.as_builder().build()];
 
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .content(format!("Try #{}", tries))?
-        .embed(embed)?
+    let response = msg
+        .build_response_msg(&ctx, |m| m.content(&content)?.embeds(embed))
         .await?;
 
     ctx.store_msg(response.id);
@@ -228,13 +226,15 @@ async fn recent_pages_main(
                 return;
             }
 
+            let embed = &[data.into_builder().build()];
+
             let update_fut = ctx
                 .http
                 .update_message(response.channel_id, response.id)
-                .embed(data.into_builder().build())
+                .embeds(embed)
                 .unwrap();
 
-            if let Err(why) = update_fut.await {
+            if let Err(why) = update_fut.exec().await {
                 unwind_error!(warn, why, "Error minimizing recent msg: {}");
             }
         });

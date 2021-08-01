@@ -13,8 +13,13 @@ use twilight_model::channel::Message;
 pub async fn bigger(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     match ctx.game_bigger(msg.channel_id).await {
         Ok(img) => {
-            msg.build_response(&ctx, |m| Ok(m.file("bg_img.png", img)))
-                .await
+            ctx.http
+                .create_message(msg.channel_id)
+                .files(&[("bg_img.png", &img)])
+                .exec()
+                .await?;
+
+            Ok(())
         }
         Err(BgGameError::NotStarted) => {
             debug!("Could not get subimage because game didn't start yet");

@@ -71,6 +71,7 @@ pub async fn handle_event(
                     match ctx
                         .http
                         .add_guild_member_role(guild_id, reaction.user_id, role_id)
+                        .exec()
                         .await
                     {
                         Ok(_) => debug!("Assigned react-role to user"),
@@ -86,6 +87,7 @@ pub async fn handle_event(
                     match ctx
                         .http
                         .remove_guild_member_role(guild_id, reaction.user_id, role_id)
+                        .exec()
                         .await
                     {
                         Ok(_) => debug!("Removed react-role from user"),
@@ -327,7 +329,7 @@ async fn process_command(
     let args = Args::new(&msg.content, stream);
 
     // Broadcast typing event
-    let _ = ctx.http.create_typing_trigger(msg.channel_id).await;
+    let _ = ctx.http.create_typing_trigger(msg.channel_id).exec().await;
 
     // Call command function
     (cmd.fun)(ctx, msg, args, num).await?;

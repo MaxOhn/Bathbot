@@ -210,9 +210,9 @@ async fn score_loop(
             let embed = user.embed(ctx, score, idx).await?;
 
             // Try to build and send the message
-            match ctx.http.create_message(channel).embed(embed) {
+            match ctx.http.create_message(channel).embeds(&[embed]) {
                 Ok(msg_fut) => {
-                    if let Err(why) = msg_fut.await {
+                    if let Err(why) = msg_fut.exec().await {
                         if let TwilightErrorType::Response { error, .. } = why.kind() {
                             if let ApiError::General(GeneralApiError {
                                 code: ErrorCode::UnknownChannel,

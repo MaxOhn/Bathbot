@@ -108,7 +108,8 @@ impl GameWrapper {
                     .create_message(channel)
                     .content("Here's the next one:")
                     .unwrap()
-                    .file("bg_img.png", img)
+                    .files(&[("bg_img.png", &img)])
+                    .exec()
                     .await;
 
                 if let Err(why) = msg_result {
@@ -142,7 +143,7 @@ impl GameWrapper {
                                 OSU_BASE, game.mapset_id
                             );
 
-                            if let Err(why) = game.resolve(&ctx, channel, content).await {
+                            if let Err(why) = game.resolve(&ctx, channel, &content).await {
                                 unwind_error!(
                                     warn,
                                     why,
@@ -164,7 +165,7 @@ impl GameWrapper {
                                 OSU_BASE, game.mapset_id
                             );
 
-                            if let Err(why) = game.resolve(&ctx, channel, content).await {
+                            if let Err(why) = game.resolve(&ctx, channel, &content).await {
                                 unwind_error!(
                                     warn,
                                     why,

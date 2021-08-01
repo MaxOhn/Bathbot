@@ -73,6 +73,7 @@ impl Context {
                         .create_message(channel)
                         .content(content)
                         .unwrap()
+                        .exec()
                         .await;
 
                     count += 1;

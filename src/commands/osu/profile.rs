@@ -54,13 +54,13 @@ async fn profile_main(
     };
 
     // Send the embed
-    let embed = data.as_builder().build();
-    let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
+    let embed = &[data.as_builder().build()];
+    let m = ctx.http.create_message(msg.channel_id).embeds(embed)?;
 
     let response = if let Some(graph) = graph {
-        m.file("profile_graph.png", graph).await?
+        m.files(&[("profile_graph.png", &graph)]).exec().await?.model().await?
     } else {
-        m.await?
+        m.exec().await?.model().await?
     };
 
     // Pagination

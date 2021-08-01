@@ -105,20 +105,22 @@ async fn track_main(
             Err(why) => {
                 unwind_error!(warn, why, "Error while adding tracked entry: {}");
 
-                let embed = TrackEmbed::new(mode, success, failure, Some(username), limit)
-                    .into_builder()
-                    .build();
+                let embed = &[
+                    TrackEmbed::new(mode, success, failure, Some(username), limit)
+                        .into_builder()
+                        .build(),
+                ];
 
-                return msg.build_response(&ctx, |m| m.embed(embed)).await;
+                return msg.build_response(&ctx, |m| m.embeds(embed)).await;
             }
         }
     }
 
-    let embed = TrackEmbed::new(mode, success, failure, None, limit)
+    let embed = &[TrackEmbed::new(mode, success, failure, None, limit)
         .into_builder()
-        .build();
+        .build()];
 
-    msg.build_response(&ctx, |m| m.embed(embed)).await?;
+    msg.build_response(&ctx, |m| m.embeds(embed)).await?;
 
     Ok(())
 }

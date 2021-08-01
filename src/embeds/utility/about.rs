@@ -26,10 +26,7 @@ impl AboutEmbed {
 
         let owner = match ctx.cache.user(owner_id) {
             Some(user) => user,
-            None => match ctx.http.user(owner_id).await? {
-                Some(user) => user,
-                None => bail!("User of owner could not be retrieved"),
-            },
+            None => ctx.http.user(owner_id).exec().await?.model().await?,
         };
 
         let bot_user = match ctx.cache.current_user() {

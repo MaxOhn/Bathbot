@@ -117,11 +117,10 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     };
 
     // Creating the embed
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .content("Simulated score:")?
-        .embed(data.as_builder().build())?
+    let embed = &[data.as_builder().build()];
+
+    let response = msg
+        .build_response_msg(&ctx, |m| m.content("Simulated score:")?.embeds(embed))
         .await?;
 
     ctx.store_msg(response.id);
@@ -147,8 +146,9 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         let _ = ctx
             .http
             .update_message(response.channel_id, response.id)
-            .embed(data.into_builder().build())
+            .embeds(&[data.into_builder().build()])
             .unwrap()
+            .exec()
             .await;
     });
 

@@ -32,7 +32,7 @@ async fn country_ranking_main(
     let response = ctx
         .http
         .create_message(msg.channel_id)
-        .embed(data.into_builder().build())?
+        .embeds(&[data.into_builder().build()])?.exec().await?.model()
         .await?;
 
     // Pagination

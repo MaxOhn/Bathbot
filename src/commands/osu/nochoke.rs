@@ -250,22 +250,22 @@ async fn nochokes_main(
     // Accumulate all necessary data
     let pages = numbers::div_euclid(5, scores_data.len());
     let data = NoChokeEmbed::new(&user, scores_data.iter().take(5), unchoked_pp, (1, pages)).await;
+    let embed = &[data.into_builder().build()];
+
+    let content = format!(
+        "No-choke top {}scores for `{}`:",
+        match mode {
+            GameMode::STD => "",
+            GameMode::TKO => "taiko ",
+            GameMode::CTB => "ctb ",
+            GameMode::MNA => panic!("can not unchoke mania scores"),
+        },
+        name
+    );
 
     // Creating the embed
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .content(format!(
-            "No-choke top {}scores for `{}`:",
-            match mode {
-                GameMode::STD => "",
-                GameMode::TKO => "taiko ",
-                GameMode::CTB => "ctb ",
-                GameMode::MNA => panic!("can not unchoke mania scores"),
-            },
-            name
-        ))?
-        .embed(data.into_builder().build())?
+    let response = msg
+        .build_response_msg(&ctx, |m| m.content(&content)?.embeds(embed))
         .await?;
 
     // Add maps of scores to DB

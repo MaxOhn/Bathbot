@@ -190,10 +190,9 @@ async fn mapper_main(
         let data = TopEmbed::new(&user, scores.iter().take(5), (1, pages)).await;
 
         // Creating the embed
-        ctx.http
-            .create_message(msg.channel_id)
-            .content(content)?
-            .embed(data.into_builder().build())?
+        let embed = &[data.into_builder().build()];
+
+        msg.build_response_msg(&ctx, |m| m.content(&content)?.embeds(embed))
             .await?
     };
 

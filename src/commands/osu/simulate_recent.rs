@@ -114,11 +114,10 @@ async fn simulate_recent_main(
     };
 
     // Creating the embed
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .content("Simulated score:")?
-        .embed(data.as_builder().build())?
+    let embed = &[data.as_builder().build()];
+
+    let response = msg
+        .build_response_msg(&ctx, |m| m.content("Simulated score:")?.embeds(embed))
         .await?;
 
     ctx.store_msg(response.id);
@@ -145,13 +144,15 @@ async fn simulate_recent_main(
             return;
         }
 
+        let embed = &[data.into_builder().build()];
+
         let embed_update = ctx
             .http
             .update_message(response.channel_id, response.id)
-            .embed(data.into_builder().build())
+            .embeds(embed)
             .unwrap();
 
-        if let Err(why) = embed_update.await {
+        if let Err(why) = embed_update.exec().await {
             unwind_error!(warn, why, "Error minimizing simulaterecent msg: {}");
         }
     });

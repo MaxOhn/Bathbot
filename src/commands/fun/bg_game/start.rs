@@ -47,7 +47,7 @@ pub async fn start(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResul
     };
 
     if !(mapsets.is_empty() || ctx.has_running_game(msg.channel_id)) {
-        let _ = ctx.http.create_typing_trigger(msg.channel_id).await;
+        let _ = ctx.http.create_typing_trigger(msg.channel_id).exec().await;
         ctx.add_game_and_start(Arc::clone(&ctx), msg.channel_id, mapsets);
     }
 

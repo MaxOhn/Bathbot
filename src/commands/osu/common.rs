@@ -272,15 +272,24 @@ async fn common_main(
     };
 
     // Creating the embed
-    let embed = data.into_builder().build();
-    let mut m = ctx.http.create_message(msg.channel_id);
+    let embed = &[data.into_builder().build()];
 
-    m = match thumbnail {
-        Some(bytes) => m.file("avatar_fuse.png", bytes),
-        None => m,
+    let m = ctx
+        .http
+        .create_message(msg.channel_id)
+        .content(&content)?
+        .embeds(embed)?;
+
+    let response = match thumbnail {
+        Some(bytes) => {
+            m.files(&[("avatar_fuse.png", &bytes)])
+                .exec()
+                .await?
+                .model()
+                .await?
+        }
+        None => m.exec().await?.model().await?,
     };
-
-    let response = m.content(content)?.embed(embed)?.await?;
 
     // Add maps of scores to DB
     let map_iter = scores_per_map

@@ -214,8 +214,9 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
         let embed_update = ctx
             .http
             .update_message(response.channel_id, response.id)
-            .embed(data.into_builder().build())
-            .unwrap();
+            .embeds(&[data.into_builder().build()])
+            .unwrap()
+            .exec();
 
         if let Err(why) = embed_update.await {
             unwind_error!(warn, why, "Error minimizing compare msg: {}");

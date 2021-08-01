@@ -118,13 +118,13 @@ async fn countrysnipestats(ctx: Arc<Context>, msg: &Message, mut args: Args) -> 
     let data = CountrySnipeStatsEmbed::new(country, statistics);
 
     // Sending the embed
-    let embed = data.into_builder().build();
-    let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
+    let embed = &[data.into_builder().build()];
+    let m = ctx.http.create_message(msg.channel_id).embeds(embed)?;
 
     if let Some(graph) = graph {
-        m.file("stats_graph.png", graph).await?
+        m.files(&[("stats_graph.png", &graph)]).exec().await?
     } else {
-        m.await?
+        m.exec().await?
     };
 
     Ok(())

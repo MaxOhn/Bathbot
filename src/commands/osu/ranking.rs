@@ -92,11 +92,7 @@ async fn ranking_main(
     );
 
     // Creating the embed
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .embed(data.into_builder().build())?
-        .await?;
+    let response = msg.respond_embed(&ctx, data.into_builder().build()).await?;
 
     // Pagination
     let pagination = RankingPagination::new(

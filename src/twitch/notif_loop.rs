@@ -92,9 +92,9 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
             for channel in channels {
                 let embed = data.as_builder().build();
 
-                match ctx.http.create_message(channel).embed(embed) {
+                match ctx.http.create_message(channel).embeds(&[embed]) {
                     Ok(msg_fut) => {
-                        let result = msg_fut.await;
+                        let result = msg_fut.exec().await;
 
                         if let Err(why) = result {
                             if let ErrorType::Response { error, .. } = why.kind() {

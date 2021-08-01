@@ -1,5 +1,8 @@
 
 **[TODO]**
+- Add metric to see how often msg-delete function is used
+- Look into slash commands again to find arguments not to use them :^)
+- Suggest quotes when multiple arguments on `<link`
 - Remove `#![allow(deprecated)]` in `main.rs` with twilight 0.6
 - For helpybot: don't only ignore $ msgs but #waifu altogether
 - `<recommend` command

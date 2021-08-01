@@ -2,7 +2,9 @@ use crate::{
     core::{Command, CommandGroups},
     embeds::{Author, EmbedBuilder, Footer},
     util::{
-        constants::{BATHBOT_WORKSHOP, DARK_GREEN, DESCRIPTION_SIZE, OWNER_USER_ID, RED},
+        constants::{
+            BATHBOT_WORKSHOP, DARK_GREEN, DESCRIPTION_SIZE, GENERAL_ISSUE, OWNER_USER_ID, RED,
+        },
         levenshtein_distance, MessageExt,
     },
     BotResult, Context,
@@ -73,8 +75,15 @@ pub async fn help(
     let channel = if let Some(channel) = ctx.cache.private_channel(msg.author.id) {
         channel
     } else {
-        let channel = match ctx.http.create_private_channel(msg.author.id).await {
-            Ok(channel) => channel,
+        let channel = match ctx.http.create_private_channel(msg.author.id).exec().await {
+            Ok(channel_res) => match channel_res.model().await {
+                Ok(channel) => channel,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    return Err(why.into());
+                }
+            },
             Err(why) => {
                 let content = "Your DMs seem blocked :(\n\
                    Did you disable messages from other server members?";
@@ -119,9 +128,10 @@ pub async fn help(
         next_size = emote.len() + group.name.len() + 11;
 
         if size + next_size > DESCRIPTION_SIZE {
-            let embed = EmbedBuilder::new().description(buf).build();
+            let embed = &[EmbedBuilder::new().description(buf).build()];
+            let msg_fut = ctx.http.create_message(channel.id).embeds(embed)?;
 
-            if let Err(why) = ctx.http.create_message(channel.id).embed(embed)?.await {
+            if let Err(why) = msg_fut.exec().await {
                 unwind_error!(warn, why, "Error while sending help chunk: {}");
                 let content = "Could not DM you, perhaps you disabled it?";
 
@@ -141,9 +151,10 @@ pub async fn help(
                 (cmd.authority) as usize * 4 + 5 + cmd.names[0].len() + cmd.short_desc.len();
 
             if size + next_size > DESCRIPTION_SIZE {
-                let embed = EmbedBuilder::new().description(buf).build();
+                let embed = &[EmbedBuilder::new().description(buf).build()];
+                let msg_fut = ctx.http.create_message(channel.id).embeds(embed)?;
 
-                if let Err(why) = ctx.http.create_message(channel.id).embed(embed)?.await {
+                if let Err(why) = msg_fut.exec().await {
                     unwind_error!(warn, why, "Error while sending help chunk: {}");
                     let content = "Could not DM you, perhaps you disabled it?";
 
@@ -172,9 +183,10 @@ pub async fn help(
     }
 
     if !buf.is_empty() {
-        let embed = EmbedBuilder::new().description(buf).build();
+        let embed = &[EmbedBuilder::new().description(buf).build()];
+        let msg_fut = ctx.http.create_message(channel.id).embeds(embed)?;
 
-        if let Err(why) = ctx.http.create_message(channel.id).embed(embed)?.await {
+        if let Err(why) = msg_fut.exec().await {
             unwind_error!(warn, why, "Error while sending help chunk: {}");
             let content = "Could not DM you, perhaps you disabled it?";
 
@@ -299,8 +311,8 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
 
     let footer = Footer::new(footer_text);
 
-    let embed = eb.footer(footer).fields(fields).build();
-    msg.build_response(ctx, |m| m.embed(embed)).await?;
+    let embed = &[eb.footer(footer).fields(fields).build()];
+    msg.build_response(ctx, |m| m.embeds(embed)).await?;
 
     Ok(())
 }
@@ -337,12 +349,12 @@ pub async fn failed_help(
         (content, DARK_GREEN)
     };
 
-    let embed = EmbedBuilder::new()
+    let embed = &[EmbedBuilder::new()
         .description(content)
         .color(color)
-        .build();
+        .build()];
 
-    msg.build_response(ctx, |m| m.embed(embed)).await?;
+    msg.build_response(ctx, |m| m.embeds(embed)).await?;
 
     Ok(())
 }

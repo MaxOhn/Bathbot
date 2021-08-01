@@ -55,7 +55,7 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
         };
 
         if let Some(msg) = wait_msg {
-            let _ = ctx.http.delete_message(msg.channel_id, msg.id).await;
+            let _ = ctx.http.delete_message(msg.channel_id, msg.id).exec().await;
         }
 
         scores.retain(|(id, _)| members.contains(id));
@@ -70,9 +70,12 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
     for &id in scores.iter().take(15).map(|(id, _)| id) {
         let name = match ctx.cache.user(UserId(id)) {
             Some(user) => user.name.to_owned(),
-            None => match ctx.http.user(UserId(id)).await {
-                Ok(Some(user)) => user.name,
-                Ok(None) | Err(_) => String::from("Unknown user"),
+            None => match ctx.http.user(UserId(id)).exec().await {
+                Ok(user_res) => match user_res.model().await {
+                    Ok(user) => user.name,
+                    Err(_) => String::from("Unknown user"),
+                },
+                Err(_) => String::from("Unknown user"),
             },
         };
 

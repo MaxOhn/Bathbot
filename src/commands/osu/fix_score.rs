@@ -236,11 +236,11 @@ async fn fix(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
     let gb = ctx.map_garbage_collector(&map);
 
-    let embed = FixScoreEmbed::new(user, map, scores, unchoked_pp, arg_mods)
+    let embed = &[FixScoreEmbed::new(user, map, scores, unchoked_pp, arg_mods)
         .into_builder()
-        .build();
+        .build()];
 
-    msg.build_response(&ctx, |m| m.embed(embed)).await?;
+    msg.build_response(&ctx, |m| m.embeds(embed)).await?;
 
     // Set map on garbage collection list if unranked
     gb.execute(&ctx).await;

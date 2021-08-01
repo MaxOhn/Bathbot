@@ -117,12 +117,7 @@ impl Game {
         hints.get(&self.title, &self.artist)
     }
 
-    pub async fn resolve(
-        &self,
-        ctx: &Context,
-        channel: ChannelId,
-        content: String,
-    ) -> BotResult<()> {
+    pub async fn resolve(&self, ctx: &Context, channel: ChannelId, content: &str) -> BotResult<()> {
         let reveal_result = {
             let reveal = self.reveal.read().await;
 
@@ -134,7 +129,8 @@ impl Game {
                 ctx.http
                     .create_message(channel)
                     .content(content)?
-                    .file("bg_img.png", bytes)
+                    .files(&[("bg_img.png", &bytes)])
+                    .exec()
                     .await?;
             }
             Err(why) => {
@@ -145,7 +141,11 @@ impl Game {
                     self.mapset_id
                 );
 
-                ctx.http.create_message(channel).content(content)?.await?;
+                ctx.http
+                    .create_message(channel)
+                    .content(content)?
+                    .exec()
+                    .await?;
             }
         }
 
@@ -215,7 +215,7 @@ pub async fn game_loop(
                     );
 
                     // Send message
-                    if let Err(why) = game.resolve(ctx, channel, content).await {
+                    if let Err(why) = game.resolve(ctx, channel, &content).await {
                         unwind_error!(warn, why, "Error while sending msg for winner: {}");
                     }
 
@@ -242,9 +242,9 @@ pub async fn game_loop(
                     };
 
                     // Send message
-                    let msg_fut = ctx.http.create_message(channel).content(content).unwrap();
+                    let msg_fut = ctx.http.create_message(channel).content(&content).unwrap();
 
-                    if let Err(why) = msg_fut.await {
+                    if let Err(why) = msg_fut.exec().await {
                         unwind_error!(warn, why, "Error while sending msg for correct artist: {}");
                     }
                 }

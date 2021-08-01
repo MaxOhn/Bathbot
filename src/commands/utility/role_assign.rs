@@ -41,14 +41,17 @@ async fn roleassign(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         return msg.error(&ctx, "Channel not found in this guild").await;
     }
 
-    let message = match ctx.http.message(channel, msg_id).await? {
-        Some(message) => message,
-        None => {
+    let message = match ctx.http.message(channel, msg_id).exec().await {
+        Ok(msg_res) => msg_res.model().await?,
+        Err(why) => {
             let _ = msg.error(&ctx, "No message found with this id").await;
 
-            warn!(
-                "(Channel,Message) ({},{}) for roleassign was not found",
-                channel, msg_id
+            unwind_error!(
+                warn,
+                why,
+                "(Channel,Message) ({},{}) for roleassign was not found: {}",
+                channel,
+                msg_id
             );
 
             return Ok(());
@@ -70,8 +73,8 @@ async fn roleassign(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 
     ctx.add_role_assign(channel, msg_id, role);
     let data = RoleAssignEmbed::new(&ctx, message, msg.guild_id.unwrap(), role).await;
-    let embed = data.into_builder().build();
-    msg.build_response(&ctx, |m| m.embed(embed)).await?;
+    let embed = &[data.into_builder().build()];
+    msg.build_response(&ctx, |m| m.embeds(embed)).await?;
 
     Ok(())
 }

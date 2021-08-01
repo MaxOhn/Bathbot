@@ -106,7 +106,7 @@ async fn async_main() -> BotResult<()> {
 
     // Connect to the discord http client
     let http = HttpClient::builder()
-        .token(&config.tokens.discord)
+        .token(config.tokens.discord.to_owned())
         .default_allowed_mentions(
             AllowedMentionsBuilder::new()
                 .replied_user()
@@ -116,7 +116,7 @@ async fn async_main() -> BotResult<()> {
         )
         .build();
 
-    let bot_user = http.current_user().await?;
+    let bot_user = http.current_user().exec().await?.model().await?;
 
     info!(
         "Connecting to Discord as {}#{}...",

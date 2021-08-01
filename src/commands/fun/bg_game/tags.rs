@@ -230,8 +230,11 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         let response = ctx
             .http
             .create_message(msg.channel_id)
-            .content(content)?
-            .file("bg_img.png", img)
+            .content(&content)?
+            .files(&[("bg_img.png", &img)])
+            .exec()
+            .await?
+            .model()
             .await?;
 
         let msg_id = response.id;

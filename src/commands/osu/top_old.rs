@@ -295,14 +295,13 @@ async fn topold_main(
     .await;
 
     // Creating the embed
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .embed(data.into_builder().build())?
-        .content(content)?
+    let embed = &[data.into_builder().build()];
+
+    let response = msg
+        .build_response_msg(&ctx, |m| m.content(&content)?.embeds(embed))
         .await?;
 
-    // Don't add maps of scores to DB since their stars were potentially changed
+    // * Don't add maps of scores to DB since their stars were potentially changed
 
     // Skip pagination if too few entries
     if scores_data.len() <= 5 {

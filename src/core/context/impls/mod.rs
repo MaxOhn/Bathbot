@@ -1,4 +1,4 @@
-use crate::CountryCode;
+use crate::{BotResult, CountryCode};
 
 mod background_loop;
 mod bg_game;
@@ -14,7 +14,6 @@ pub use match_live::{MatchLiveChannels, MatchTrackResult};
 
 use crate::{Context, OsuTracking};
 
-use twilight_http::error::Error as HttpError;
 use twilight_model::{
     channel::{Message, Reaction},
     id::{ChannelId, MessageId, RoleId},
@@ -40,17 +39,16 @@ impl Context {
         &self.data.osu_tracking
     }
 
-    pub async fn retrieve_channel_history(
-        &self,
-        channel_id: ChannelId,
-    ) -> Result<Vec<Message>, HttpError> {
+    pub async fn retrieve_channel_history(&self, channel_id: ChannelId) -> BotResult<Vec<Message>> {
         let req = self.http.channel_messages(channel_id).limit(50).unwrap();
 
-        if let Some(earliest_cached) = self.cache.oldest_message(channel_id) {
-            req.before(earliest_cached).await
+        let req_fut = if let Some(earliest_cached) = self.cache.oldest_message(channel_id) {
+            req.before(earliest_cached).exec()
         } else {
-            req.await
-        }
+            req.exec()
+        };
+
+        req_fut.await?.models().await.map_err(|e| e.into())
     }
 
     #[inline]

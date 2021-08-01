@@ -92,22 +92,29 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         None => return msg.error(&ctx, TOO_MANY_PLAYERS_TEXT).await,
     };
 
-    // Creating the embed
-    msg.build_response(&ctx, |mut m| {
-        if warmups > 0 {
-            let mut content = "Ignoring the first ".to_owned();
+    let embed = &[data.into_builder().build()];
 
-            if warmups == 1 {
-                content.push_str("map");
-            } else {
-                let _ = write!(content, "{} maps", warmups);
-            }
+    let content = (warmups > 0).then(|| {
+        let mut content = "Ignoring the first ".to_owned();
 
-            content.push_str(" as warmup:");
-            m = m.content(content)?;
+        if warmups == 1 {
+            content.push_str("map");
+        } else {
+            let _ = write!(content, "{} maps", warmups);
         }
 
-        m.embed(data.into_builder().build())
+        content.push_str(" as warmup:");
+
+        content
+    });
+
+    // Creating the embed
+    msg.build_response(&ctx, |m| {
+        if let Some(ref content) = content {
+            m.content(content)?.embeds(embed)
+        } else {
+            m.embeds(embed)
+        }
     })
     .await?;
 

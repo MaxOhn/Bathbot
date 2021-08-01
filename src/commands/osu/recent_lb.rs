@@ -145,11 +145,10 @@ async fn recent_lb_main(
         amount
     );
 
-    let response = ctx
-        .http
-        .create_message(msg.channel_id)
-        .content(content)?
-        .embed(data.into_builder().build())?
+    let embed = &[data.into_builder().build()];
+
+    let response = msg
+        .build_response_msg(&ctx, |m| m.content(&content)?.embeds(embed))
         .await?;
 
     // Store map in DB

@@ -12,11 +12,18 @@ use twilight_model::{
 #[async_trait]
 pub trait MessageExt {
     /// Response with content, embed, attachment, ...
+    async fn build_response_msg<'a, 'b, F>(&self, ctx: &'a Context, f: F) -> BotResult<Message>
+    where
+        'a: 'b,
+        F: Send + FnOnce(CreateMessage<'b>) -> Result<CreateMessage<'b>, CreateMessageError>;
+
+    /// Response with content, embed, attachment, ...
     ///
     /// Includes reaction_delete
-    async fn build_response<'a, F>(&self, ctx: &'a Context, f: F) -> BotResult<()>
+    async fn build_response<'a, 'b, F>(&self, ctx: &'a Context, f: F) -> BotResult<()>
     where
-        F: Send + FnOnce(CreateMessage<'a>) -> Result<CreateMessage<'a>, CreateMessageError>;
+        'a: 'b,
+        F: Send + FnOnce(CreateMessage<'b>) -> Result<CreateMessage<'b>, CreateMessageError>;
 
     /// Response with simple content
     async fn respond<C: Into<String> + Send>(
@@ -53,11 +60,28 @@ pub trait MessageExt {
 
 #[async_trait]
 impl MessageExt for Message {
-    async fn build_response<'a, F>(&self, ctx: &'a Context, f: F) -> BotResult<()>
+    async fn build_response_msg<'a, 'b, F>(&self, ctx: &'a Context, f: F) -> BotResult<Message>
     where
-        F: Send + FnOnce(CreateMessage<'a>) -> Result<CreateMessage<'a>, CreateMessageError>,
+        'a: 'b,
+        F: Send + FnOnce(CreateMessage<'b>) -> Result<CreateMessage<'b>, CreateMessageError>,
     {
         f(ctx.http.create_message(self.channel_id))?
+            .exec()
+            .await?
+            .model()
+            .await
+            .map_err(|e| e.into())
+    }
+
+    async fn build_response<'a, 'b, F>(&self, ctx: &'a Context, f: F) -> BotResult<()>
+    where
+        'a: 'b,
+        F: Send + FnOnce(CreateMessage<'b>) -> Result<CreateMessage<'b>, CreateMessageError>,
+    {
+        f(ctx.http.create_message(self.channel_id))?
+            .exec()
+            .await?
+            .model()
             .await?
             .reaction_delete(ctx, self.author.id);
 
@@ -73,7 +97,10 @@ impl MessageExt for Message {
 
         ctx.http
             .create_message(self.channel_id)
-            .embed(embed)?
+            .embeds(&[embed])?
+            .exec()
+            .await?
+            .model()
             .await
             .map_err(|e| e.into())
     }
@@ -93,7 +120,10 @@ impl MessageExt for Message {
     async fn respond_embed(&self, ctx: &Context, embed: Embed) -> BotResult<Message> {
         ctx.http
             .create_message(self.channel_id)
-            .embed(embed)?
+            .embeds(&[embed])?
+            .exec()
+            .await?
+            .model()
             .await
             .map_err(|e| e.into())
     }
@@ -103,7 +133,10 @@ impl MessageExt for Message {
 
         ctx.http
             .create_message(self.channel_id)
-            .embed(embed)?
+            .embeds(&[embed])?
+            .exec()
+            .await?
+            .model()
             .await?
             .reaction_delete(ctx, self.author.id);
 
@@ -115,8 +148,11 @@ impl MessageExt for Message {
 
         ctx.http
             .create_message(self.channel_id)
-            .embed(embed)?
+            .embeds(&[embed])?
             .reply(self.id)
+            .exec()
+            .await?
+            .model()
             .await?
             .reaction_delete(ctx, self.author.id);
 
@@ -145,7 +181,7 @@ impl MessageExt for Message {
             let reaction_result = timeout(Duration::from_secs(60), reaction_fut).await;
 
             if let Ok(Ok(_)) = reaction_result {
-                if let Err(why) = http.delete_message(channel_id, msg_id).await {
+                if let Err(why) = http.delete_message(channel_id, msg_id).exec().await {
                     unwind_error!(warn, why, "Error while reaction-deleting msg: {}");
                 }
             }

@@ -37,8 +37,8 @@ async fn medal(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         }
     };
 
-    let embed = MedalEmbed::new(medal).into_builder().build();
-    msg.build_response(&ctx, |m| m.embed(embed)).await?;
+    let embed = &[MedalEmbed::new(medal).into_builder().build()];
+    msg.build_response(&ctx, |m| m.embeds(embed)).await?;
 
     Ok(())
 }

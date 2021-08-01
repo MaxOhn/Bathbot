@@ -14,15 +14,9 @@ use twilight_model::channel::Message;
 #[usage("[sentence]")]
 async fn echo(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let channel = msg.channel_id;
-    ctx.http.delete_message(channel, msg.id).await?;
+    ctx.http.delete_message(channel, msg.id).exec().await?;
     let mut content = args.rest().to_owned();
     content_safe(&ctx, &mut content, msg.guild_id);
 
-    ctx.http
-        .create_message(msg.channel_id)
-        .content(content)?
-        .await?
-        .reaction_delete(&ctx, msg.author.id);
-
-    Ok(())
+    msg.build_response(&ctx, |m| m.content(&content)).await
 }

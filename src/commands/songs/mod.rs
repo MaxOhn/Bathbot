@@ -33,12 +33,14 @@ async fn song_send(lyrics: &[&str], delay: u64, ctx: Arc<Context>, msg: &Message
 
     if allow {
         let mut interval = interval(Duration::from_millis(delay));
+
         for line in lyrics {
             interval.tick().await;
 
             ctx.http
                 .create_message(msg.channel_id)
-                .content(format!("♫ {} ♫", line))?
+                .content(&format!("♫ {} ♫", line))?
+                .exec()
                 .await?;
         }
     } else {

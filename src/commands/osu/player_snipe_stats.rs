@@ -122,13 +122,13 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     let data = PlayerSnipeStatsEmbed::new(user, player, first_score).await;
 
     // Sending the embed
-    let embed = data.into_builder().build();
-    let m = ctx.http.create_message(msg.channel_id).embed(embed)?;
+    let embed = &[data.into_builder().build()];
+    let m = ctx.http.create_message(msg.channel_id).embeds(embed)?;
 
     let response = if let Some(graph) = graph {
-        m.file("stats_graph.png", graph).await?
+        m.files(&[("stats_graph.png", &graph)]).exec().await?.model().await?
     } else {
-        m.await?
+        m.exec().await?.model().await?
     };
 
     response.reaction_delete(&ctx, msg.author.id);

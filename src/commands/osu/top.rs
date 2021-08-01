@@ -599,13 +599,15 @@ async fn single_embed(
             return;
         }
 
+        let embed = &[data.into_builder().build()];
+
         let embed_update = ctx
             .http
             .update_message(response.channel_id, response.id)
-            .embed(data.into_builder().build())
+            .embeds(embed)
             .unwrap();
 
-        if let Err(why) = embed_update.await {
+        if let Err(why) = embed_update.exec().await {
             unwind_error!(warn, why, "Error minimizing top msg: {}");
         }
     });
@@ -622,16 +624,14 @@ async fn paginated_embed(
 ) -> BotResult<()> {
     let pages = numbers::div_euclid(5, scores.len());
     let data = TopEmbed::new(&user, scores.iter().take(5), (1, pages)).await;
+    let embed = &[data.into_builder().build()];
 
     // Creating the embed
-    let create_msg = ctx
-        .http
-        .create_message(msg.channel_id)
-        .embed(data.into_builder().build())?;
+    let create_msg = ctx.http.create_message(msg.channel_id).embeds(embed)?;
 
     let response = match content {
-        Some(content) => create_msg.content(content)?.await?,
-        None => create_msg.await?,
+        Some(content) => create_msg.content(&content)?.exec().await?.model().await?,
+        None => create_msg.exec().await?.model().await?,
     };
 
     // Skip pagination if too few entries

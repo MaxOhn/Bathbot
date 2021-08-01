@@ -275,6 +275,9 @@ pub async fn get_member_ids(ctx: &Context, guild_id: GuildId) -> BotResult<HashS
         .guild_members(guild_id)
         .limit(1000)
         .unwrap()
+        .exec()
+        .await?
+        .models()
         .await?;
 
     let mut last = members.last().unwrap().user.id;
@@ -292,6 +295,9 @@ pub async fn get_member_ids(ctx: &Context, guild_id: GuildId) -> BotResult<HashS
                 .limit(1000)
                 .unwrap()
                 .after(last)
+                .exec()
+                .await?
+                .models()
                 .await?;
 
             last = new_members.last().unwrap().user.id;
@@ -308,12 +314,12 @@ pub async fn get_member_ids(ctx: &Context, guild_id: GuildId) -> BotResult<HashS
 pub async fn send_reaction(ctx: &Context, msg: &Message, emote: Emote) -> BotResult<()> {
     let channel = msg.channel_id;
     let msg = msg.id;
-    let emoji = emote.request_reaction();
+    let emoji = &emote.request_reaction();
 
     // Initial attempt, return if it's not a 429
-    let mut err = match ctx.http.create_reaction(channel, msg, emoji).await {
+    let mut err = match ctx.http.create_reaction(channel, msg, emoji).exec().await {
         Ok(_) => return Ok(()),
-        Err(e) if matches!(e.kind(), ErrorType::Response { status, .. } if status.as_u16() == 429) => {
+        Err(e) if matches!(e.kind(), ErrorType::Response { status, .. } if status.raw() == 429) => {
             e
         }
         Err(e) => return Err(e.into()),
@@ -325,9 +331,9 @@ pub async fn send_reaction(ctx: &Context, msg: &Message, emote: Emote) -> BotRes
         sleep(duration).await;
         let emoji = emote.request_reaction();
 
-        err = match ctx.http.create_reaction(channel, msg, emoji).await {
+        err = match ctx.http.create_reaction(channel, msg, &emoji).exec().await {
             Ok(_) => return Ok(()),
-            Err(e) if matches!(e.kind(), ErrorType::Response { status, .. } if status.as_u16() == 429) => {
+            Err(e) if matches!(e.kind(), ErrorType::Response { status, .. } if status.raw() == 429) => {
                 e
             }
             Err(e) => return Err(e.into()),
