@@ -1,8 +1,6 @@
 
 **[TODO]**
 - Look into slash commands again to find arguments not to use them :^)
-- Suggest quotes when multiple arguments on `<link`
-- Remove `#![allow(deprecated)]` in `main.rs` with twilight 0.6
 - For helpybot: don't only ignore $ msgs but #waifu altogether
 - `<recommend` command
 - Command for compact `<osu`
@@ -25,6 +23,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Suggest quotes when multiple arguments on `<link`~~ (21.08.01)
 - ~~Add metric to see how often msg-delete function is used~~ (21.08.01)
 - ~~Handle first 2021 pp version of rosu_pp_older~~ (21.07.27)
 - ~~Write peppy a mail~~ (21.06.26)

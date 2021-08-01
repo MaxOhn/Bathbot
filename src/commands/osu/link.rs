@@ -23,6 +23,18 @@ use twilight_model::channel::Message;
 async fn link(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
     let discord_id = msg.author.id.0;
 
+    let content = args.rest();
+
+    if !(content.starts_with('"') && content.ends_with('"')) && content.contains(' ') {
+        let suggestion = format!(
+            "Usernames containing whitespace must be encapsulated with quotation marks.\n\
+            Did you mean `\"{}\"`?",
+            content
+        );
+
+        return msg.error(&ctx, suggestion).await;
+    }
+
     match args.next() {
         Some(arg) => {
             let name = match matcher::get_osu_user_id(arg) {

@@ -1,5 +1,4 @@
 #![allow(clippy::upper_case_acronyms)]
-#![allow(deprecated)]
 
 macro_rules! unwind_error {
     ($log:ident, $err:ident, $($arg:tt)+) => {
