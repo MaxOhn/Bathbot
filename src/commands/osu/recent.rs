@@ -198,7 +198,6 @@ async fn recent_main(
         .build_response_msg(&ctx, |m| m.content(&content)?.embeds(embed))
         .await?;
 
-    response.reaction_delete(&ctx, msg.author.id);
     ctx.store_msg(response.id);
 
     // Set map on garbage collection list if unranked

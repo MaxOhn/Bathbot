@@ -124,7 +124,6 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
         .await?;
 
     ctx.store_msg(response.id);
-    response.reaction_delete(&ctx, msg.author.id);
 
     // Add map to database if its not in already
     if let Err(why) = ctx.psql().insert_beatmap(&map).await {

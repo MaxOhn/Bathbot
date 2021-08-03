@@ -233,8 +233,6 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
     // Skip pagination if too few entries
     if map_count == 1 {
-        response.reaction_delete(&ctx, msg.author.id);
-
         return Ok(());
     }
 

@@ -54,7 +54,6 @@ impl ProfilePagination {
 
         while let Some(Ok(reaction)) = reaction_stream.next().await {
             match self.next_page(reaction.0, ctx).await {
-                Ok(PageChange::Delete) => return Ok(()),
                 Ok(_) => {}
                 Err(why) => unwind_error!(warn, why, "Error while paginating profile: {}"),
             }
@@ -126,14 +125,6 @@ impl ProfilePagination {
 
                 PageChange::Change
             }
-            PageChange::Delete => {
-                ctx.http
-                    .delete_message(self.msg.channel_id, self.msg.id)
-                    .exec()
-                    .await?;
-
-                PageChange::Delete
-            }
         };
 
         Ok(change)
@@ -154,7 +145,6 @@ impl ProfilePagination {
                 },
                 _ => return PageChange::None,
             },
-            ReactionType::Unicode { name } if name == "❌" => return PageChange::Delete,
             _ => return PageChange::None,
         };
 

@@ -303,8 +303,6 @@ async fn common_main(
 
     // Skip pagination if too few entries
     if scores_per_map.len() <= 10 {
-        response.reaction_delete(&ctx, msg.author.id);
-
         return Ok(());
     }
 

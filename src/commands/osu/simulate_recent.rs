@@ -121,7 +121,6 @@ async fn simulate_recent_main(
         .await?;
 
     ctx.store_msg(response.id);
-    response.reaction_delete(&ctx, msg.author.id);
 
     // Store map in DB
     if let Err(why) = ctx.psql().insert_beatmap(&map).await {

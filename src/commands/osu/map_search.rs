@@ -66,8 +66,6 @@ async fn search(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 
     // Skip pagination if too few entries
     if maps.len() <= 10 {
-        response.reaction_delete(&ctx, msg.author.id);
-
         return Ok(());
     }
 

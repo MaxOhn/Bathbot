@@ -589,7 +589,6 @@ async fn single_embed(
     let response = msg.respond_embed(&ctx, embed).await?;
 
     ctx.store_msg(response.id);
-    response.reaction_delete(&ctx, msg.author.id);
 
     // Minimize embed after delay
     tokio::spawn(async move {
@@ -636,8 +635,6 @@ async fn paginated_embed(
 
     // Skip pagination if too few entries
     if scores.len() <= 5 {
-        response.reaction_delete(&ctx, msg.author.id);
-
         return Ok(());
     }
 

@@ -92,8 +92,6 @@ async fn medalsmissing(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
 
     // Skip pagination if too few entries
     if medals.len() <= 15 {
-        response.reaction_delete(&ctx, msg.author.id);
-
         return Ok(());
     }
 

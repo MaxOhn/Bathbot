@@ -105,17 +105,11 @@ async fn sniped(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let embed = &[data.into_builder().build()];
     let m = ctx.http.create_message(msg.channel_id).embeds(embed)?;
 
-    let response = if let Some(graph) = graph {
-        m.files(&[("sniped_graph.png", &graph)])
-            .exec()
-            .await?
-            .model()
-            .await?
+    if let Some(graph) = graph {
+        m.files(&[("sniped_graph.png", &graph)]).exec().await?;
     } else {
-        m.exec().await?.model().await?
-    };
-
-    response.reaction_delete(&ctx, msg.author.id);
+        m.exec().await?;
+    }
 
     Ok(())
 }

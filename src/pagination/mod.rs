@@ -154,7 +154,6 @@ pub trait Pagination: Sync + Sized {
 
         while let Some(Ok(reaction)) = reaction_stream.next().await {
             match self.next_page(reaction.0, ctx).await {
-                Ok(PageChange::Delete) => return Ok(()),
                 Ok(_) => {}
                 Err(why) => unwind_error!(warn, why, "Error while paginating: {}"),
             }
@@ -174,7 +173,7 @@ pub trait Pagination: Sync + Sized {
         {
             Ok(_) => {}
             Err(why) => {
-                if matches!(why.kind(), ErrorType::Response { status, .. }if status.raw() == 403) {
+                if matches!(why.kind(), ErrorType::Response { status, .. } if status.raw() == 403) {
                     sleep(Duration::from_millis(100)).await;
 
                     for emote in &reactions {
@@ -217,15 +216,6 @@ pub trait Pagination: Sync + Sized {
                 update.embeds(&[builder.build()])?.exec().await?;
 
                 PageChange::Change
-            }
-            PageChange::Delete => {
-                let msg = self.msg();
-                ctx.http
-                    .delete_message(msg.channel_id, msg.id)
-                    .exec()
-                    .await?;
-
-                PageChange::Delete
             }
         };
 
@@ -308,7 +298,6 @@ pub trait Pagination: Sync + Sized {
                 },
                 _ => None,
             },
-            ReactionType::Unicode { name } if name == "❌" => return PageChange::Delete,
             _ => None,
         };
 
@@ -356,7 +345,6 @@ pub trait Pagination: Sync + Sized {
 pub enum PageChange {
     None,
     Change,
-    Delete,
 }
 
 #[derive(Copy, Clone, Debug)]

@@ -76,7 +76,6 @@ async fn osustats_main(
 
     // Skip pagination if too few entries
     if players.len() <= 1 {
-        response.reaction_delete(&ctx, msg.author.id);
 
         return Ok(());
     }

@@ -154,8 +154,6 @@ async fn playersnipelist(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 
     // Skip pagination if too few entries
     if scores.len() <= 5 {
-        response.reaction_delete(&ctx, msg.author.id);
-
         return Ok(());
     }
 

@@ -217,8 +217,6 @@ async fn recent_pages_main(
 
     // Skip pagination if too few entries
     if scores.len() <= 1 {
-        response.reaction_delete(&ctx, msg.author.id);
-
         tokio::spawn(async move {
             sleep(Duration::from_secs(60)).await;
 

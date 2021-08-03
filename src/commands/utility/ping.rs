@@ -21,7 +21,6 @@ async fn ping(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
         .exec()
         .await?;
 
-    response.reaction_delete(&ctx, msg.author.id);
 
     Ok(())
 }

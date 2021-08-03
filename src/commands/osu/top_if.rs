@@ -295,7 +295,6 @@ async fn topif_main(
 
     // Skip pagination if too few entries
     if scores_data.len() <= 5 {
-        response.reaction_delete(&ctx, msg.author.id);
 
         return Ok(());
     }

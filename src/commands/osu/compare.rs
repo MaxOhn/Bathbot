@@ -191,7 +191,6 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
     let embed = data.as_builder().build();
     let response = msg.respond_embed(&ctx, embed).await?;
 
-    response.reaction_delete(&ctx, msg.author.id);
     ctx.store_msg(response.id);
 
     // Process user and their top scores for tracking
@@ -273,9 +272,7 @@ async fn no_scores(
     // Sending the embed
     let embed = NoScoresEmbed::new(user, map, mods).into_builder().build();
 
-    msg.respond_embed(&ctx, embed)
-        .await?
-        .reaction_delete(&ctx, msg.author.id);
+    msg.respond_embed(&ctx, embed).await?;
 
     Ok(())
 }

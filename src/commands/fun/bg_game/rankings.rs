@@ -98,8 +98,6 @@ pub async fn rankings(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
 
     // Skip pagination if too few entries
     if scores.len() <= 15 {
-        response.reaction_delete(&ctx, msg.author.id);
-
         return Ok(());
     }
 
