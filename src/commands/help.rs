@@ -1,5 +1,5 @@
 use crate::{
-    core::{Command, CommandGroups},
+    core::{Command, CMD_GROUPS},
     embeds::{Author, EmbedBuilder, Footer},
     util::{
         constants::{
@@ -66,12 +66,7 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         \n__**All commands:**__\n", prefix_desc, prefix = first_prefix, discord_url = BATHBOT_WORKSHOP)
 }
 
-pub async fn help(
-    ctx: &Context,
-    cmds: &CommandGroups,
-    msg: &Message,
-    is_authority: bool,
-) -> BotResult<()> {
+pub async fn help(ctx: &Context, msg: &Message, is_authority: bool) -> BotResult<()> {
     let channel = if let Some(channel) = ctx.cache.private_channel(msg.author.id) {
         channel
     } else {
@@ -115,7 +110,7 @@ pub async fn help(
         DESCRIPTION_SIZE,
     );
 
-    let groups = cmds
+    let groups = CMD_GROUPS
         .groups
         .iter()
         .filter(|g| owner.0 == OWNER_USER_ID || g.name != "owner");
@@ -317,13 +312,8 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
     Ok(())
 }
 
-pub async fn failed_help(
-    ctx: &Context,
-    arg: &str,
-    cmds: &CommandGroups,
-    msg: &Message,
-) -> BotResult<()> {
-    let dists: BTreeMap<_, _> = cmds
+pub async fn failed_help(ctx: &Context, arg: &str, msg: &Message) -> BotResult<()> {
+    let dists: BTreeMap<_, _> = CMD_GROUPS
         .groups
         .iter()
         .flat_map(|group| group.commands.iter().flat_map(|&cmd| cmd.names))

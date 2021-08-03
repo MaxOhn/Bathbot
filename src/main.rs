@@ -29,9 +29,7 @@ mod util;
 
 use crate::{
     arguments::Args,
-    core::{
-        handle_event, logging, BotStats, Cache, CommandGroups, Context, MatchLiveChannels, CONFIG,
-    },
+    core::{handle_event, logging, BotStats, Cache, Context, MatchLiveChannels, CONFIG},
     custom_client::CustomClient,
     database::Database,
     tracking::OsuTracking,
@@ -40,9 +38,14 @@ use crate::{
 };
 
 #[macro_use]
-extern crate proc_macros;
+extern crate lazy_static;
+
 #[macro_use]
 extern crate log;
+
+#[macro_use]
+extern crate proc_macros;
+
 #[macro_use]
 extern crate smallvec;
 
@@ -306,17 +309,14 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         }
     });
 
-    let cmd_groups = Arc::new(CommandGroups::new());
-
     while let Some((shard, event)) = event_stream.next().await {
         ctx.update_stats(shard, &event);
         ctx.cache.update(&event);
         ctx.standby.process(&event);
         let c = Arc::clone(&ctx);
-        let cmds = Arc::clone(&cmd_groups);
 
         tokio::spawn(async move {
-            if let Err(why) = handle_event(shard, event, c, cmds).await {
+            if let Err(why) = handle_event(shard, event, c).await {
                 unwind_error!(error, why, "Error while handling event: {}");
             }
         });

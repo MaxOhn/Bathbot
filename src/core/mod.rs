@@ -8,7 +8,7 @@ pub mod logging;
 mod stats;
 
 pub use cache::Cache;
-pub use commands::{Command, CommandGroup, CommandGroups};
+pub use commands::{Command, CommandGroup, CommandGroups, CMD_GROUPS};
 pub use config::{BotConfig, Emote, CONFIG};
 pub use context::{
     generate_activity, Clients, Context, ContextData, MatchLiveChannels, MatchTrackResult,

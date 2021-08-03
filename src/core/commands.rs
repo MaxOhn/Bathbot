@@ -1,5 +1,5 @@
 use super::Emote;
-use crate::{commands::command_groups, Args, BotResult, Context};
+use crate::{Args, BotResult, Context};
 
 use futures::future::BoxFuture;
 use radix_trie::Trie;
@@ -55,13 +55,13 @@ impl CommandGroup {
 }
 
 pub struct CommandGroups {
-    pub groups: Vec<CommandGroup>,
+    pub groups: [CommandGroup; 11],
     trie: CommandTree,
 }
 
-impl CommandGroups {
-    pub fn new() -> Self {
-        let groups = command_groups();
+lazy_static! {
+    pub static ref CMD_GROUPS: CommandGroups = {
+        let groups = crate::commands::command_groups();
         let mut trie = Trie::new();
 
         for group in groups.iter() {
@@ -77,9 +77,11 @@ impl CommandGroups {
             }
         }
 
-        Self { groups, trie }
-    }
+        CommandGroups { groups, trie }
+    };
+}
 
+impl CommandGroups {
     #[inline]
     pub fn get(&self, command: &str) -> Option<&'static Command> {
         self.trie.get(command).copied()

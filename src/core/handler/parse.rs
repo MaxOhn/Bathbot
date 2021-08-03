@@ -1,6 +1,6 @@
 use crate::{
     arguments::Stream,
-    core::{Command, CommandGroups},
+    core::{Command, CMD_GROUPS},
     database::Prefix,
     util::CowUtils,
 };
@@ -48,7 +48,7 @@ pub fn find_prefix<'a>(prefixes: &[Prefix], stream: &mut Stream<'a>) -> bool {
     })
 }
 
-pub fn parse_invoke(stream: &mut Stream<'_>, groups: &CommandGroups) -> Invoke {
+pub fn parse_invoke(stream: &mut Stream<'_>) -> Invoke {
     let mut name = stream
         .take_until_char(|c| c.is_whitespace() || c.is_numeric())
         .cow_to_ascii_lowercase();
@@ -81,14 +81,14 @@ pub fn parse_invoke(stream: &mut Stream<'_>, groups: &CommandGroups) -> Invoke {
 
             if name.is_empty() {
                 Invoke::Help(None)
-            } else if let Some(cmd) = groups.get(name.as_ref()) {
+            } else if let Some(cmd) = CMD_GROUPS.get(name.as_ref()) {
                 Invoke::Help(Some(cmd))
             } else {
                 Invoke::FailedHelp(name.into_owned())
             }
         }
         _ => {
-            if let Some(cmd) = groups.get(name.as_ref()) {
+            if let Some(cmd) = CMD_GROUPS.get(name.as_ref()) {
                 let name = stream
                     .peek_until_char(|c| c.is_whitespace())
                     .cow_to_ascii_lowercase();

@@ -17,8 +17,8 @@ use utility::*;
 
 use crate::core::{CommandGroup, Emote};
 
-pub fn command_groups() -> Vec<CommandGroup> {
-    vec![
+pub fn command_groups() -> [CommandGroup; 11] {
+    [
         CommandGroup::new(
             "all osu! modes",
             Emote::Osu,

@@ -3,7 +3,6 @@ use super::{
     osu::{MapIdType, ModSelection},
 };
 
-use lazy_static::lazy_static;
 use regex::Regex;
 use rosu_v2::model::GameMods;
 use std::{borrow::Cow, str::FromStr};

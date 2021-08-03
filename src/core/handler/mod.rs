@@ -7,7 +7,7 @@ use parse::{find_prefix, parse_invoke, Invoke};
 use crate::{
     arguments::Stream,
     commands::help::{failed_help, help, help_command},
-    core::{buckets::BucketName, Command, CommandGroups, Context},
+    core::{buckets::BucketName, Command, Context},
     util::{constants::OWNER_USER_ID, MessageExt},
     Args, BotResult, Error,
 };
@@ -24,12 +24,7 @@ use twilight_model::{
     guild::Permissions,
 };
 
-pub async fn handle_event(
-    shard_id: u64,
-    event: Event,
-    ctx: Arc<Context>,
-    cmds: Arc<CommandGroups>,
-) -> BotResult<()> {
+pub async fn handle_event(shard_id: u64, event: Event, ctx: Arc<Context>) -> BotResult<()> {
     match event {
         // ####################
         // ## Gateway status ##
@@ -129,7 +124,7 @@ pub async fn handle_event(
             }
 
             // Parse msg content for commands
-            let invoke = parse_invoke(&mut stream, &cmds);
+            let invoke = parse_invoke(&mut stream);
 
             if let Invoke::None = invoke {
                 return Ok(());
@@ -149,14 +144,14 @@ pub async fn handle_event(
                 Invoke::Help(None) => {
                     let is_authority = check_authority(&ctx, msg).transpose().is_none();
 
-                    help(&ctx, &cmds, msg, is_authority)
+                    help(&ctx, msg, is_authority)
                         .await
                         .map(ProcessResult::success)
                 }
                 Invoke::Help(Some(cmd)) => help_command(&ctx, cmd, msg)
                     .await
                     .map(ProcessResult::success),
-                Invoke::FailedHelp(arg) => failed_help(&ctx, arg, &cmds, msg)
+                Invoke::FailedHelp(arg) => failed_help(&ctx, arg, msg)
                     .await
                     .map(ProcessResult::success),
                 Invoke::None => unreachable!(),

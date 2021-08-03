@@ -1,5 +1,6 @@
 
 **[TODO]**
+- Handle 401 response in rosu_v2 e.g. for secret mp matches
 - Look into slash commands again to find arguments not to use them :^)
 - For helpybot: don't only ignore $ msgs but #waifu altogether
 - `<recommend` command
