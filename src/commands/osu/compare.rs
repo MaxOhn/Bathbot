@@ -270,9 +270,13 @@ async fn no_scores(
     };
 
     // Sending the embed
-    let embed = NoScoresEmbed::new(user, map, mods).into_builder().build();
+    let embed = &[NoScoresEmbed::new(user, map, mods).into_builder().build()];
 
-    msg.respond_embed(&ctx, embed).await?;
+    ctx.http
+        .create_message(msg.channel_id)
+        .embeds(embed)?
+        .exec()
+        .await?;
 
     Ok(())
 }

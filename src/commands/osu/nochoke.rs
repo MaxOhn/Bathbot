@@ -264,8 +264,12 @@ async fn nochokes_main(
     );
 
     // Creating the embed
-    let response = msg
-        .build_response_msg(&ctx, |m| m.content(&content)?.embeds(embed))
+    let response_raw = ctx
+        .http
+        .create_message(msg.channel_id)
+        .content(&content)?
+        .embeds(embed)?
+        .exec()
         .await?;
 
     // Add maps of scores to DB
@@ -279,6 +283,8 @@ async fn nochokes_main(
     if scores_data.len() <= 5 {
         return Ok(());
     }
+
+    let response = response_raw.model().await?;
 
     // Pagination
     let pagination = NoChokePagination::new(response, user, scores_data, unchoked_pp);

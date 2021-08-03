@@ -102,12 +102,19 @@ async fn sniped_diff_main(
     };
 
     // Creating the embed
-    let response = msg.respond_embed(&ctx, embed).await?;
+    let response_raw = ctx
+        .http
+        .create_message(msg.channel_id)
+        .embeds(&[embed])?
+        .exec()
+        .await?;
 
     // Skip pagination if too few entries
     if scores.len() <= 5 {
         return Ok(());
     }
+
+    let response = response_raw.model().await?;
 
     // Pagination
     let pagination = SnipedDiffPagination::new(response, user, diff, scores, maps);

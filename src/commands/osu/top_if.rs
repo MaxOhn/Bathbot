@@ -287,17 +287,22 @@ async fn topif_main(
     // Creating the embed
     let embed = &[data.into_builder().build()];
 
-    let response = msg
-        .build_response_msg(&ctx, |m| m.content(&content)?.embeds(embed))
+    let response_raw = ctx
+        .http
+        .create_message(msg.channel_id)
+        .content(&content)?
+        .embeds(embed)?
+        .exec()
         .await?;
 
     // * Don't add maps of scores to DB since their stars were potentially changed
 
     // Skip pagination if too few entries
     if scores_data.len() <= 5 {
-
         return Ok(());
     }
+
+    let response = response_raw.model().await?;
 
     // Pagination
     let pre_pp = user.statistics.as_ref().unwrap().pp;

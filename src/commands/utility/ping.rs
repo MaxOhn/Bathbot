@@ -21,6 +21,5 @@ async fn ping(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
         .exec()
         .await?;
 
-
     Ok(())
 }

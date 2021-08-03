@@ -56,13 +56,21 @@ async fn mostplayed(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     let data = MostPlayedEmbed::new(&user, maps.iter().take(10), (1, pages));
 
     // Creating the embed
-    let embed = data.into_builder().build();
-    let response = msg.respond_embed(&ctx, embed).await?;
+    let embed = &[data.into_builder().build()];
+
+    let response_raw = ctx
+        .http
+        .create_message(msg.channel_id)
+        .embeds(embed)?
+        .exec()
+        .await?;
 
     // Skip pagination if too few entries
     if maps.len() <= 10 {
         return Ok(());
     }
+
+    let response = response_raw.model().await?;
 
     // Pagination
     let pagination = MostPlayedPagination::new(response, user, maps);

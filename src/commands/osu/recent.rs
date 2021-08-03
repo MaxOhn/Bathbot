@@ -203,7 +203,7 @@ async fn recent_main(
     // Set map on garbage collection list if unranked
     let gb = ctx.map_garbage_collector(map);
 
-    // Note: Don't store maps in DB as their max combo isnt available
+    // * Note: Don't store maps in DB as their max combo isnt available
 
     // Process user and their top scores for tracking
     if let Some(ref mut scores) = best {

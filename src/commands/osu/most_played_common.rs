@@ -152,32 +152,33 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
         }
     }
 
-    let response = if amount_common == 0 {
+    if amount_common == 0 {
         content.push_str(" don't share any maps in their 100 most played maps");
 
-        msg.respond(&ctx, content).await?
-    } else {
-        let _ = write!(
-            content,
-            " have {}/100 common most played map{}",
-            amount_common,
-            if amount_common > 1 { "s" } else { "" }
-        );
+        return msg.send_response(&ctx, content).await;
+    }
 
-        let data_fut = async {
-            let initial_maps = &maps[..10.min(maps.len())];
+    let _ = write!(
+        content,
+        " have {}/100 common most played map{}",
+        amount_common,
+        if amount_common > 1 { "s" } else { "" }
+    );
 
-            MostPlayedCommonEmbed::new(&names, initial_maps, &users_count, 0)
-        };
+    let data_fut = async {
+        let initial_maps = &maps[..10.min(maps.len())];
 
-        // Creating the embed
-        let embed = &[data_fut.await.into_builder().build()];
-
-        // * Note: No combined pictures since user ids are not available
-
-        msg.build_response_msg(&ctx, |m| m.content(&content)?.embeds(embed))
-            .await?
+        MostPlayedCommonEmbed::new(&names, initial_maps, &users_count, 0)
     };
+
+    // Creating the embed
+    let embed = &[data_fut.await.into_builder().build()];
+
+    // * Note: No combined pictures since user ids are not available
+
+    let response = msg
+        .build_response_msg(&ctx, |m| m.content(&content)?.embeds(embed))
+        .await?;
 
     // Skip pagination if too few entries
     if maps.len() <= 10 {

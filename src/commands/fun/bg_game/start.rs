@@ -180,7 +180,13 @@ async fn get_mapsets(
     };
 
     let data = BGTagsEmbed::new(included, excluded, mapsets.len());
-    msg.respond_embed(ctx, data.into_builder().build()).await?;
+    let embed = &[data.into_builder().build()];
+
+    ctx.http
+        .create_message(msg.channel_id)
+        .embeds(embed)?
+        .exec()
+        .await?;
 
     if !mapsets.is_empty() {
         info!(

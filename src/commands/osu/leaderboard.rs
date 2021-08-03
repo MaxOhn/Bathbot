@@ -151,8 +151,12 @@ async fn leaderboard_main(
 
     let embed = &[data.into_builder().build()];
 
-    let response = msg
-        .build_response_msg(&ctx, |m| m.content(&content)?.embeds(embed))
+    let response_raw = ctx
+        .http
+        .create_message(msg.channel_id)
+        .content(&content)?
+        .embeds(embed)?
+        .exec()
         .await?;
 
     // Add map to database if its not in already
@@ -167,6 +171,8 @@ async fn leaderboard_main(
     if scores.len() <= 10 {
         return Ok(());
     }
+
+    let response = response_raw.model().await?;
 
     // Pagination
     let pagination =

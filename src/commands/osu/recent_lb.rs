@@ -147,8 +147,12 @@ async fn recent_lb_main(
 
     let embed = &[data.into_builder().build()];
 
-    let response = msg
-        .build_response_msg(&ctx, |m| m.content(&content)?.embeds(embed))
+    let response_raw = ctx
+        .http
+        .create_message(msg.channel_id)
+        .content(&content)?
+        .embeds(embed)?
+        .exec()
         .await?;
 
     // Store map in DB
@@ -163,6 +167,8 @@ async fn recent_lb_main(
     if scores.len() <= 10 {
         return Ok(());
     }
+
+    let response = response_raw.model().await?;
 
     // Pagination
     let pagination = LeaderboardPagination::new(
