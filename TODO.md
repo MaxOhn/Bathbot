@@ -1,7 +1,6 @@
 
 **[TODO]**
 - Use tracing for logging
-- No metric server on debug
 - Use user avatar as author icon for `<r` & co
 - Fix background loop deadlock
 - Handle 401 response in rosu_v2 e.g. for secret mp matches
@@ -29,6 +28,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~No metrics server on debug~~ (21.08.05)
 - ~~Fix bonus pp rounding in `<osu`~~ (21.08.04)
 - ~~Suggest quotes when multiple arguments on `<link`~~ (21.08.01)
 - ~~Add metric to see how often msg-delete function is used~~ (21.08.01)

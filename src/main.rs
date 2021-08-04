@@ -221,8 +221,13 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
 
     // Provide stats to locale address
     let (tx, rx) = oneshot::channel();
-    let metrics_stats = Arc::clone(&stats);
-    tokio::spawn(_run_metrics_server(metrics_stats, rx));
+
+    if cfg!(debug_assertions) {
+        info!("Skip metrics server on debug");
+    } else {
+        let metrics_stats = Arc::clone(&stats);
+        tokio::spawn(run_metrics_server(metrics_stats, rx));
+    }
 
     // Build cluster
     let (cluster, mut event_stream) = cb
@@ -330,7 +335,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     Ok(())
 }
 
-async fn _run_metrics_server(stats: Arc<BotStats>, shutdown_rx: oneshot::Receiver<()>) {
+async fn run_metrics_server(stats: Arc<BotStats>, shutdown_rx: oneshot::Receiver<()>) {
     let metric_service = make_service_fn(move |_| {
         let stats = Arc::clone(&stats);
 
