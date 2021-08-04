@@ -222,7 +222,7 @@ pub struct BonusPP {
 }
 
 impl BonusPP {
-    const MAX: f32 = 416.6667;
+    const MAX: f32 = 416.67;
 
     #[inline]
     pub fn new() -> Self {

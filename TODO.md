@@ -1,6 +1,5 @@
 
 **[TODO]**
-- Round bonus pp in `<osu`
 - Handle 401 response in rosu_v2 e.g. for secret mp matches
 - Look into slash commands again to find arguments not to use them :^)
 - For helpybot: don't only ignore $ msgs but #waifu altogether
@@ -25,6 +24,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Fix bonus pp rounding in `<osu`~~ (21.08.04)
 - ~~Suggest quotes when multiple arguments on `<link`~~ (21.08.01)
 - ~~Add metric to see how often msg-delete function is used~~ (21.08.01)
 - ~~Handle first 2021 pp version of rosu_pp_older~~ (21.07.27)
