@@ -72,7 +72,7 @@ use tokio::{
     time,
 };
 use tokio_stream::StreamExt;
-use twilight_gateway::{cluster::ShardScheme, Cluster};
+use twilight_gateway::{cluster::ShardScheme, Cluster, EventTypeFlags};
 use twilight_http::Client as HttpClient;
 use twilight_model::{
     channel::message::allowed_mentions::AllowedMentionsBuilder,
@@ -118,12 +118,15 @@ async fn async_main() -> BotResult<()> {
         )
         .build();
 
-    let bot_user = http.current_user().exec().await?.model().await?;
+    let current_user = http.current_user().exec().await?.model().await?;
+    let application_id = current_user.id.0.into();
 
     info!(
         "Connecting to Discord as {}#{}...",
-        bot_user.name, bot_user.discriminator
+        current_user.name, current_user.discriminator
     );
+
+    http.set_application_id(application_id);
 
     // Connect to psql database
     let db_uri = env::var("DATABASE_URL").expect("missing DATABASE_URL in .env");
@@ -200,8 +203,30 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         | Intents::DIRECT_MESSAGES
         | Intents::DIRECT_MESSAGE_REACTIONS;
 
+    let ignore_flags = EventTypeFlags::BAN_ADD
+        | EventTypeFlags::BAN_REMOVE
+        | EventTypeFlags::CHANNEL_PINS_UPDATE
+        | EventTypeFlags::GIFT_CODE_UPDATE
+        | EventTypeFlags::GUILD_INTEGRATIONS_UPDATE
+        | EventTypeFlags::INTEGRATION_CREATE
+        | EventTypeFlags::INTEGRATION_DELETE
+        | EventTypeFlags::INTEGRATION_UPDATE
+        | EventTypeFlags::INVITE_CREATE
+        | EventTypeFlags::INVITE_DELETE
+        | EventTypeFlags::PRESENCE_UPDATE
+        | EventTypeFlags::PRESENCES_REPLACE
+        | EventTypeFlags::STAGE_INSTANCE_CREATE
+        | EventTypeFlags::STAGE_INSTANCE_DELETE
+        | EventTypeFlags::STAGE_INSTANCE_UPDATE
+        | EventTypeFlags::TYPING_START
+        | EventTypeFlags::VOICE_SERVER_UPDATE
+        | EventTypeFlags::VOICE_STATE_UPDATE
+        | EventTypeFlags::WEBHOOKS_UPDATE;
+
     // Prepare cluster builder
     let mut cb = Cluster::builder(&CONFIG.get().unwrap().tokens.discord, intents)
+        .event_types(EventTypeFlags::all() - ignore_flags)
+        .http_client(http.clone())
         .shard_scheme(ShardScheme::Auto);
 
     // Check for resume data, pass to builder if present
@@ -364,6 +389,6 @@ async fn run_metrics_server(stats: Arc<BotStats>, shutdown_rx: oneshot::Receiver
     info!("Running metrics server...");
 
     if let Err(why) = server.await {
-        error!("Metrics server failed: {}", why);
+        unwind_error!(error, why, "Metrics server failed: {}");
     }
 }

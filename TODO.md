@@ -1,6 +1,5 @@
 
 **[TODO]**
-- Use tracing for logging
 - Use user avatar as author icon for `<r` & co
 - Fix background loop deadlock
 - Handle 401 response in rosu_v2 e.g. for secret mp matches
@@ -9,6 +8,7 @@
 - `<recommend` command
 - Command for compact `<osu`
 - Server setting to not send expanded `<r`
+- ~~Use tracing for logging~~ file rotation with flexi logger is just too convenient
 - ~~Use `https://osu.ppy.sh/assets/images/flags/{regional_indicator}-{regional_indicator}.svg` for country flags~~ discord doesnt like svgs
 - ~~Check on IRC for tracking~~ irc only provides username, not id
 - ~~Use DB medals instead of osekai~~ no medal solution available
