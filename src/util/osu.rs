@@ -32,7 +32,8 @@ impl ModSelection {
 
 #[inline]
 pub fn flag_url(country_code: &str) -> String {
-    format!("{}/images/flags/{}.png", OSU_BASE, country_code)
+    // format!("{}/images/flags/{}.png", OSU_BASE, country_code) // from osu itself but outdated
+    format!("https://osuflags.omkserver.nl/{}-256.png", country_code) // kelderman
 }
 
 #[allow(dead_code)]

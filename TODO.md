@@ -1,11 +1,16 @@
 
 **[TODO]**
+- Use tracing for logging
+- No metric server on debug
+- Use user avatar as author icon for `<r` & co
+- Fix background loop deadlock
 - Handle 401 response in rosu_v2 e.g. for secret mp matches
 - Look into slash commands again to find arguments not to use them :^)
 - For helpybot: don't only ignore $ msgs but #waifu altogether
 - `<recommend` command
 - Command for compact `<osu`
 - Server setting to not send expanded `<r`
+- ~~Use `https://osu.ppy.sh/assets/images/flags/{regional_indicator}-{regional_indicator}.svg` for country flags~~ discord doesnt like svgs
 - ~~Check on IRC for tracking~~ irc only provides username, not id
 - ~~Use DB medals instead of osekai~~ no medal solution available
 - ~~Split database tables based on popular queries~~ queries simple enough
