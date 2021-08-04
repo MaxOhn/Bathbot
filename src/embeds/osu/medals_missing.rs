@@ -1,7 +1,7 @@
 use crate::{
     commands::osu::MedalType,
     embeds::{Author, Footer},
-    util::{constants::OSU_BASE, CowUtils},
+    util::{constants::OSU_BASE, osu::flag_url, CowUtils},
 };
 
 use rosu_v2::model::user::User;
@@ -54,10 +54,7 @@ impl MedalsMissingEmbed {
 
         let author = Author::new(&user.username)
             .url(format!("{}u/{}", OSU_BASE, user.user_id))
-            .icon_url(format!(
-                "{}/images/flags/{}.png",
-                OSU_BASE, &user.country_code
-            ));
+            .icon_url(flag_url(user.country_code.as_str()));
 
         Self {
             author,

@@ -1,7 +1,7 @@
 use crate::{
     commands::osu::UserValue,
     embeds::{Author, Footer},
-    util::constants::OSU_BASE,
+    util::osu::flag_url,
 };
 
 use rosu_v2::prelude::GameMode;
@@ -84,11 +84,7 @@ impl RankingEmbed {
                     "https://osu.ppy.sh/rankings/{}/{}?country={}",
                     mode, url_type, code
                 ))
-                .icon_url(format!(
-                    "{}/images/flags/{}.png",
-                    OSU_BASE,
-                    code.to_ascii_uppercase()
-                ))
+                .icon_url(flag_url(code))
         } else {
             author.url(format!("https://osu.ppy.sh/rankings/{}/{}", mode, url_type))
         };

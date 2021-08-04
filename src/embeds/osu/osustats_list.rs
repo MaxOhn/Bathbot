@@ -4,6 +4,7 @@ use crate::{
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         numbers::with_comma_uint,
+        osu::flag_url,
     },
     CountryCode,
 };
@@ -27,7 +28,7 @@ impl OsuStatsListEmbed {
         let mut author = Author::new("Most global leaderboard scores");
 
         if let Some(country) = country {
-            author = author.icon_url(format!("{}/images/flags/{}.png", OSU_BASE, country))
+            author = author.icon_url(flag_url(country.as_str()));
         }
 
         let mut description = String::with_capacity(1024);

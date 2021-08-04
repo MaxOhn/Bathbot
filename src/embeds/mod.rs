@@ -17,11 +17,7 @@ macro_rules! author {
                 crate::util::constants::OSU_BASE,
                 $user.user_id
             ))
-            .icon_url(format!(
-                "{}/images/flags/{}.png",
-                crate::util::constants::OSU_BASE,
-                $user.country_code
-            ))
+            .icon_url(crate::util::osu::flag_url($user.country_code.as_str()))
     }};
 }
 

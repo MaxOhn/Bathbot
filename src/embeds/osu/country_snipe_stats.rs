@@ -2,8 +2,8 @@ use crate::{
     custom_client::SnipeCountryStatistics,
     embeds::{attachment, EmbedFields, Footer},
     util::{
-        constants::OSU_BASE,
         numbers::{round, with_comma_uint},
+        osu::flag_url,
     },
     CountryCode,
 };
@@ -46,7 +46,7 @@ impl CountrySnipeStatsEmbed {
                     if country.ends_with('s') { "'" } else { "'s" }
                 );
 
-                let thumbnail = format!("{}/images/flags/{}.png", OSU_BASE, code);
+                let thumbnail = flag_url(code.as_str());
 
                 (title, thumbnail)
             }

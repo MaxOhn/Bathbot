@@ -57,7 +57,7 @@ async fn ranking_main(
             .ranking
             .get(0)
             .and_then(|user| user.country.as_deref())
-            .unwrap_or("Unknown country")
+            .unwrap_or("XX")
     });
 
     let url_type = ranking_type.url_type();

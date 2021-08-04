@@ -31,6 +31,34 @@ impl ModSelection {
 }
 
 #[inline]
+pub fn flag_url(country_code: &str) -> String {
+    format!("{}/images/flags/{}.png", OSU_BASE, country_code)
+}
+
+#[allow(dead_code)]
+#[inline]
+pub fn flag_url_svg(country_code: &str) -> String {
+    assert_eq!(
+        country_code.len(),
+        2,
+        "country code `{}` is invalid",
+        country_code
+    );
+
+    const OFFSET: u32 = 0x1F1A5;
+    let bytes = country_code.as_bytes();
+
+    let url = format!(
+        "{}assets/images/flags/{:x}-{:x}.svg",
+        OSU_BASE,
+        bytes[0].to_ascii_uppercase() as u32 + OFFSET,
+        bytes[1].to_ascii_uppercase() as u32 + OFFSET
+    );
+
+    url
+}
+
+#[inline]
 pub fn grade_emote(grade: Grade) -> &'static str {
     CONFIG.get().unwrap().grade(grade)
 }

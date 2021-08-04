@@ -5,6 +5,7 @@ use crate::{
     util::{
         constants::OSU_BASE,
         numbers::{with_comma_float, with_comma_uint},
+        osu::flag_url,
     },
     CountryCode,
 };
@@ -45,7 +46,7 @@ impl CountrySnipeListEmbed {
                     order_text
                 );
 
-                let thumbnail = format!("{}/images/flags/{}.png", OSU_BASE, code);
+                let thumbnail = flag_url(code.as_str());
 
                 (title, thumbnail)
             }

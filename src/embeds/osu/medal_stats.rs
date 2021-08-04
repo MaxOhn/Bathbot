@@ -1,7 +1,7 @@
 use crate::{
     database::{MedalGroup, OsuMedal},
     embeds::{attachment, Author, EmbedFields, Footer},
-    util::{constants::OSU_BASE, numbers::round},
+    util::{constants::OSU_BASE, numbers::round, osu::flag_url},
 };
 
 use hashbrown::HashMap;
@@ -93,10 +93,7 @@ impl MedalStatsEmbed {
 
         let author = Author::new(user.username)
             .url(format!("{}u/{}", OSU_BASE, user.user_id))
-            .icon_url(format!(
-                "{}/images/flags/{}.png",
-                OSU_BASE, user.country_code
-            ));
+            .icon_url(flag_url(user.country_code.as_str()));
 
         let footer = Footer::new("Check osekai.net for more info");
 
