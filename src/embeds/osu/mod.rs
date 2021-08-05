@@ -100,7 +100,7 @@ pub fn get_mods(mods: GameMods) -> String {
     }
 }
 
-pub fn get_combo(score: impl ScoreExt, map: impl BeatmapExt) -> String {
+pub fn get_combo(score: &dyn ScoreExt, map: &dyn BeatmapExt) -> String {
     let mut combo = String::from("**");
     let _ = write!(combo, "{}x**/", score.max_combo());
 

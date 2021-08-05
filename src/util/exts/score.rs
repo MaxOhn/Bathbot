@@ -238,46 +238,7 @@ impl ScoreExt for Score {
     }
 }
 
-impl ScoreExt for &Score {
-    fn count_miss(&self) -> u32 {
-        self.statistics.count_miss
-    }
-    fn count_50(&self) -> u32 {
-        self.statistics.count_50
-    }
-    fn count_100(&self) -> u32 {
-        self.statistics.count_100
-    }
-    fn count_300(&self) -> u32 {
-        self.statistics.count_300
-    }
-    fn count_geki(&self) -> u32 {
-        self.statistics.count_geki
-    }
-    fn count_katu(&self) -> u32 {
-        self.statistics.count_katu
-    }
-    fn max_combo(&self) -> u32 {
-        self.max_combo
-    }
-    fn mods(&self) -> GameMods {
-        self.mods
-    }
-    fn grade(&self, _mode: GameMode) -> Grade {
-        self.grade
-    }
-    fn score(&self) -> u32 {
-        self.score
-    }
-    fn pp(&self) -> Option<f32> {
-        self.pp
-    }
-    fn acc(&self, _: GameMode) -> f32 {
-        round(self.accuracy)
-    }
-}
-
-impl ScoreExt for &OsuStatsScore {
+impl ScoreExt for OsuStatsScore {
     fn count_miss(&self) -> u32 {
         self.count_miss
     }
@@ -331,7 +292,7 @@ impl ScoreExt for &OsuStatsScore {
     }
 }
 
-impl ScoreExt for &ScraperScore {
+impl ScoreExt for ScraperScore {
     fn count_miss(&self) -> u32 {
         self.count_miss
     }

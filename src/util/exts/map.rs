@@ -13,7 +13,7 @@ pub trait BeatmapExt: Send + Sync {
     fn ar(&self) -> f32;
 }
 
-impl BeatmapExt for &Beatmap {
+impl BeatmapExt for Beatmap {
     fn max_combo(&self) -> Option<u32> {
         self.max_combo
     }
@@ -40,7 +40,7 @@ impl BeatmapExt for &Beatmap {
     }
 }
 
-impl BeatmapExt for &OsuStatsMap {
+impl BeatmapExt for OsuStatsMap {
     fn max_combo(&self) -> Option<u32> {
         self.max_combo
     }

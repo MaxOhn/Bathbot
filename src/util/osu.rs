@@ -76,7 +76,7 @@ pub fn mode_emote(mode: GameMode) -> Cow<'static, str> {
     emote.text()
 }
 
-pub fn grade_completion_mods(score: &impl ScoreExt, map: &Beatmap) -> Cow<'static, str> {
+pub fn grade_completion_mods(score: &dyn ScoreExt, map: &Beatmap) -> Cow<'static, str> {
     let mode = map.mode();
     let grade = CONFIG.get().unwrap().grade(score.grade(mode));
     let mods = score.mods();
@@ -93,7 +93,7 @@ pub fn grade_completion_mods(score: &impl ScoreExt, map: &Beatmap) -> Cow<'stati
 }
 
 #[inline]
-fn completion(score: &impl ScoreExt, map: &Beatmap) -> u32 {
+fn completion(score: &dyn ScoreExt, map: &Beatmap) -> u32 {
     let passed = score.hits(map.mode() as u8);
     let total = map.count_objects();
 

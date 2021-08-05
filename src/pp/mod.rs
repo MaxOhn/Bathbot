@@ -20,8 +20,8 @@ bitflags! {
 
 #[derive(Default)]
 pub struct PPCalculator<'s, 'm> {
-    score: Option<Box<dyn ScoreExt + 's>>,
-    map: Option<Box<dyn BeatmapExt + 'm>>,
+    score: Option<&'s dyn ScoreExt>,
+    map: Option<&'m dyn BeatmapExt>,
 
     mods: Option<GameMods>,
 
@@ -44,15 +44,15 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
     }
 
     #[inline]
-    pub fn score(mut self, score: impl ScoreExt + 's) -> Self {
-        self.score.replace(Box::new(score));
+    pub fn score(mut self, score: &'s dyn ScoreExt) -> Self {
+        self.score.replace(score);
 
         self
     }
 
     #[inline]
-    pub fn map(mut self, map: impl BeatmapExt + 'm) -> Self {
-        self.map.replace(Box::new(map));
+    pub fn map(mut self, map: &'m dyn BeatmapExt) -> Self {
+        self.map.replace(map);
 
         self
     }

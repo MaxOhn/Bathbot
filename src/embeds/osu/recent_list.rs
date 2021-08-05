@@ -58,7 +58,7 @@ impl RecentListEmbed {
                 description,
                 "**{idx}. {grade}\t[{title} [{version}]]({url})** [{stars}]",
                 idx = idx + i,
-                grade = grade_completion_mods(&score, map),
+                grade = grade_completion_mods(score, map),
                 title = mapset.title,
                 version = map.version,
                 url = map.url,
