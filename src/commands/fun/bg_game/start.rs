@@ -2,10 +2,9 @@ use super::ReactionWrapper;
 use crate::{
     bail,
     bg_game::MapsetTags,
-    core::Emote,
     database::MapsetTagWrapper,
     embeds::{BGStartEmbed, BGTagsEmbed, EmbedData},
-    util::{constants::GENERAL_ISSUE, send_reaction, MessageExt},
+    util::{constants::GENERAL_ISSUE, send_reaction, MessageExt, Emote},
     Args, BotResult, Context,
 };
 

@@ -1,6 +1,7 @@
 pub mod constants;
 mod cow;
 pub mod datetime;
+mod emote;
 pub mod error;
 pub mod exts;
 pub mod matcher;
@@ -11,11 +12,12 @@ mod safe_content;
 
 use constants::DISCORD_CDN;
 pub use cow::CowUtils;
+pub use emote::Emote;
 pub use exts::*;
 pub use matrix::Matrix;
 pub use safe_content::content_safe;
 
-use crate::{core::Emote, BotResult, Context};
+use crate::{BotResult, Context};
 
 use futures::stream::{FuturesOrdered, StreamExt};
 use hashbrown::HashSet;

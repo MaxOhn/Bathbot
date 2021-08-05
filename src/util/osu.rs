@@ -1,8 +1,8 @@
 use super::ExponentialBackoff;
 use crate::{
-    core::Emote,
     util::{
-        constants::OSU_BASE, error::MapDownloadError, matcher, numbers::round, BeatmapExt, ScoreExt,
+        constants::OSU_BASE, error::MapDownloadError, matcher, numbers::round, BeatmapExt, Emote,
+        ScoreExt,
     },
     CONFIG,
 };

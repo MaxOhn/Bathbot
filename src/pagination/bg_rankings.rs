@@ -1,5 +1,5 @@
 use super::{Pages, Pagination, ReactionVec};
-use crate::{core::Emote, embeds::BGRankingEmbed, BotResult, Context};
+use crate::{ embeds::BGRankingEmbed, BotResult, Context, util::Emote};
 
 use async_trait::async_trait;
 use hashbrown::HashMap;

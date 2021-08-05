@@ -1,11 +1,10 @@
 use super::ReactionWrapper;
 use crate::{
     bg_game::MapsetTags,
-    core::Emote,
     database::MapsetTagWrapper,
     util::{
         constants::{GENERAL_ISSUE, OSU_BASE, OWNER_USER_ID},
-        send_reaction, CowUtils, MessageExt,
+        send_reaction, CowUtils, MessageExt, Emote
     },
     Args, BotResult, Context, CONFIG,
 };

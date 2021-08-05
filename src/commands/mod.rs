@@ -15,7 +15,7 @@ use tracking::*;
 use twitch::*;
 use utility::*;
 
-use crate::core::{CommandGroup, Emote};
+use crate::{core::CommandGroup, util::Emote};
 
 pub fn command_groups() -> [CommandGroup; 11] {
     [

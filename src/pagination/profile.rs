@@ -1,9 +1,8 @@
 use super::{PageChange, ReactionVec};
 
 use crate::{
-    core::Emote,
     embeds::{EmbedData, ProfileEmbed},
-    util::send_reaction,
+    util::{send_reaction, Emote},
     BotResult, Context,
 };
 

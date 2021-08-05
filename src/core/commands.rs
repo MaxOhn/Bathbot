@@ -1,5 +1,4 @@
-use super::Emote;
-use crate::{Args, BotResult, Context};
+use crate::{Args, BotResult, Context, util::Emote};
 
 use futures::future::BoxFuture;
 use radix_trie::Trie;

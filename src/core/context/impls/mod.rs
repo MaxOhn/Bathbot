@@ -2,7 +2,6 @@ use crate::{BotResult, CountryCode};
 
 mod background_loop;
 mod bg_game;
-mod clients;
 mod guilds;
 mod links;
 mod match_live;

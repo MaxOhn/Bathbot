@@ -45,9 +45,8 @@ pub use top::TopPagination;
 pub use top_if::TopIfPagination;
 
 use crate::{
-    core::Emote,
     embeds::EmbedData,
-    util::{numbers, send_reaction},
+    util::{numbers, send_reaction, Emote},
     BotResult, Context,
 };
 
