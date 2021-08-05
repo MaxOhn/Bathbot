@@ -302,7 +302,6 @@ struct TrackedMatch {
 }
 
 impl TrackedMatch {
-    #[inline]
     fn new(osu_match: OsuMatch, embeds: MatchLiveEmbeds) -> Self {
         Self {
             osu_match,

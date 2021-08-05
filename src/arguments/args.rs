@@ -9,14 +9,12 @@ pub struct Args<'m> {
 impl<'m> Iterator for Args<'m> {
     type Item = &'m str;
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let (start, end) = self.lex()?;
 
         Some(&self.msg[start..end])
     }
 
-    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         let lower = match self.stream.current_char() {
             Some(c) => !c.is_whitespace() as usize,
@@ -30,22 +28,18 @@ impl<'m> Iterator for Args<'m> {
 }
 
 impl<'m> Args<'m> {
-    #[inline]
     pub fn new(msg: &'m str, stream: Stream<'m>) -> Self {
         Self { msg, stream }
     }
 
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.stream.is_empty()
     }
 
-    #[inline]
     pub fn rest(&self) -> &'m str {
         self.stream.rest()
     }
 
-    #[inline]
     pub fn take_n(mut self, n: usize) -> ArgsFull<'m> {
         let limits = iter::from_fn(|| self.lex()).take(n).collect();
 
@@ -55,7 +49,6 @@ impl<'m> Args<'m> {
         }
     }
 
-    #[inline]
     pub fn take_all(mut self) -> ArgsFull<'m> {
         let limits = iter::from_fn(|| self.lex()).collect();
 
@@ -107,26 +100,22 @@ pub struct ArgsFull<'m> {
 impl<'m> Iterator for ArgsFull<'m> {
     type Item = &'m str;
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let (start, end) = self.limits.pop_front()?;
 
         Some(&self.msg[start..end])
     }
 
-    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         let exact = self.limits.len();
 
         (exact, Some(exact))
     }
 
-    #[inline]
     fn count(self) -> usize {
         self.limits.len()
     }
 
-    #[inline]
     fn last(self) -> Option<Self::Item> {
         let (start, end) = self.limits.back()?;
 
@@ -135,7 +124,6 @@ impl<'m> Iterator for ArgsFull<'m> {
 }
 
 impl<'m> DoubleEndedIterator for ArgsFull<'m> {
-    #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         let (start, end) = self.limits.pop_back()?;
 
@@ -144,7 +132,6 @@ impl<'m> DoubleEndedIterator for ArgsFull<'m> {
 }
 
 impl<'m> ArgsFull<'m> {
-    #[inline]
     pub fn current(&self) -> Option<&'m str> {
         let (start, end) = self.limits.front()?;
 

@@ -102,7 +102,6 @@ impl Game {
         })
     }
 
-    #[inline]
     pub async fn sub_image(&self) -> GameResult<Vec<u8>> {
         let mut reveal = self.reveal.write().await;
         reveal.increase_radius();
@@ -110,7 +109,6 @@ impl Game {
         reveal.sub_image()
     }
 
-    #[inline]
     pub async fn hint(&self) -> String {
         let mut hints = self.hints.write().await;
 

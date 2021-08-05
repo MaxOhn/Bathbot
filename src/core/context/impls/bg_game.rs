@@ -57,7 +57,6 @@ impl Context {
         }
     }
 
-    #[inline]
     pub fn remove_game(&self, channel: ChannelId) {
         self.data.bg_games.remove(&channel);
     }

@@ -33,7 +33,6 @@ impl Context {
             .map(|guard| RoleId(*guard.value()))
     }
 
-    #[inline]
     pub fn tracking(&self) -> &OsuTracking {
         &self.data.osu_tracking
     }
@@ -50,27 +49,22 @@ impl Context {
         req_fut.await?.models().await.map_err(|e| e.into())
     }
 
-    #[inline]
     pub fn store_msg(&self, msg: MessageId) {
         self.data.msgs_to_process.insert(msg);
     }
 
-    #[inline]
     pub fn remove_msg(&self, msg: MessageId) -> bool {
         self.data.msgs_to_process.remove(&msg).is_some()
     }
 
-    #[inline]
     pub fn add_country(&self, country: String, code: CountryCode) {
         self.data.snipe_countries.insert(code, country);
     }
 
-    #[inline]
     pub fn contains_country(&self, code: &str) -> bool {
         self.data.snipe_countries.contains_key(code)
     }
 
-    #[inline]
     pub fn get_country(&self, code: &str) -> Option<String> {
         self.data
             .snipe_countries

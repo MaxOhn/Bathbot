@@ -211,7 +211,6 @@ enum ProcessResult {
 }
 
 impl ProcessResult {
-    #[inline]
     fn success(_: ()) -> Self {
         Self::Success
     }

@@ -31,26 +31,22 @@ pub struct PPCalculator<'s, 'm> {
 }
 
 impl<'s, 'm> PPCalculator<'s, 'm> {
-    #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
-    #[inline]
     pub fn mods(mut self, mods: GameMods) -> Self {
         self.mods.replace(mods);
 
         self
     }
 
-    #[inline]
     pub fn score(mut self, score: &'s dyn ScoreExt) -> Self {
         self.score.replace(score);
 
         self
     }
 
-    #[inline]
     pub fn map(mut self, map: &'m dyn BeatmapExt) -> Self {
         self.map.replace(map);
 
@@ -235,17 +231,14 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
         Ok(())
     }
 
-    #[inline]
     pub fn pp(&self) -> Option<f32> {
         self.pp
     }
 
-    #[inline]
     pub fn max_pp(&self) -> Option<f32> {
         self.max_pp
     }
 
-    #[inline]
     pub fn stars(&self) -> Option<f32> {
         self.stars
     }

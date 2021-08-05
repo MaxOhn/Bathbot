@@ -8,7 +8,6 @@ pub struct ScraperScores {
 }
 
 impl ScraperScores {
-    #[inline]
     pub fn get(self) -> Vec<ScraperScore> {
         self.scores
     }

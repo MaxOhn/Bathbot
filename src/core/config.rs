@@ -46,7 +46,6 @@ impl BotConfig {
         Ok(())
     }
 
-    #[inline]
     pub fn grade(&self, grade: Grade) -> &str {
         self.grades
             .get(&grade)

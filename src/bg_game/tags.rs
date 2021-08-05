@@ -24,7 +24,6 @@ bitflags! {
 }
 
 impl Default for MapsetTags {
-    #[inline]
     fn default() -> Self {
         Self::all()
     }
@@ -56,7 +55,6 @@ impl FromStr for MapsetTags {
 }
 
 impl MapsetTags {
-    #[inline]
     pub fn size(self) -> usize {
         self.bits().count_ones() as usize
     }

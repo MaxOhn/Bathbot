@@ -297,19 +297,18 @@ async fn topold_main(
     // Creating the embed
     let embed = &[data.into_builder().build()];
 
-        let response_raw = ctx
-            .http
-            .create_message(msg.channel_id)
-            .content(&content)?
-            .embeds(embed)?
-            .exec()
-            .await?;
+    let response_raw = ctx
+        .http
+        .create_message(msg.channel_id)
+        .content(&content)?
+        .embeds(embed)?
+        .exec()
+        .await?;
 
     // * Don't add maps of scores to DB since their stars were potentially changed
 
     // Skip pagination if too few entries
     if scores_data.len() <= 5 {
-
         return Ok(());
     }
 
@@ -406,7 +405,6 @@ pub async fn topoldctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
     topold_main(GameMode::CTB, ctx, msg, args).await
 }
 
-#[inline]
 fn plural(name: &str) -> &'static str {
     match name.chars().last() {
         Some('s') => "'",
@@ -414,7 +412,6 @@ fn plural(name: &str) -> &'static str {
     }
 }
 
-#[inline]
 fn mode_str(mode: GameMode) -> &'static str {
     match mode {
         GameMode::STD => "",

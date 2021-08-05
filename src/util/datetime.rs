@@ -4,18 +4,15 @@ use crate::BotResult;
 use chrono::{offset::TimeZone, DateTime, Datelike, Utc};
 use std::fmt;
 
-#[inline]
 pub fn date_to_string(date: &DateTime<Utc>) -> String {
     date.format(DATE_FORMAT).to_string()
 }
 
 #[allow(dead_code)]
-#[inline]
 pub fn string_to_date(date: String) -> BotResult<DateTime<Utc>> {
     Ok(Utc.datetime_from_str(&date, DATE_FORMAT)?)
 }
 
-#[inline]
 pub fn sec_to_minsec(secs: u32) -> SecToMinSecFormatter {
     SecToMinSecFormatter { secs }
 }
@@ -31,7 +28,6 @@ impl fmt::Display for SecToMinSecFormatter {
 }
 
 // thx saki :)
-#[inline]
 pub fn how_long_ago(date: &DateTime<Utc>) -> HowLongAgoFormatter {
     HowLongAgoFormatter(date)
 }

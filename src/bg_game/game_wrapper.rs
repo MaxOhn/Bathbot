@@ -26,7 +26,6 @@ pub struct GameWrapper {
 }
 
 impl GameWrapper {
-    #[inline]
     pub fn new() -> Self {
         let (tx, rx) = mpsc::channel(5);
 
@@ -37,7 +36,6 @@ impl GameWrapper {
         }
     }
 
-    #[inline]
     pub async fn stop(&self) -> GameResult<()> {
         let tx = self.tx.lock().await;
 
@@ -46,7 +44,6 @@ impl GameWrapper {
             .map_err(|_| BgGameError::StopToken)
     }
 
-    #[inline]
     pub async fn restart(&self) -> GameResult<()> {
         let tx = self.tx.lock().await;
 
@@ -55,7 +52,6 @@ impl GameWrapper {
             .map_err(|_| BgGameError::RestartToken)
     }
 
-    #[inline]
     pub async fn sub_image(&self) -> GameResult<Option<Vec<u8>>> {
         let game_option = timeout(TIMEOUT, self.game.read()).await?;
 
@@ -65,7 +61,6 @@ impl GameWrapper {
         }
     }
 
-    #[inline]
     pub async fn hint(&self) -> GameResult<Option<String>> {
         let game_option = timeout(TIMEOUT, self.game.read()).await?;
 

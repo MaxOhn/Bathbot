@@ -24,7 +24,6 @@ pub struct Bucket {
 }
 
 impl Bucket {
-    #[inline]
     fn new(ratelimit: Ratelimit) -> Self {
         Self {
             ratelimit,

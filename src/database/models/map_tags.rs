@@ -20,13 +20,11 @@ impl Deref for MapsetTagWrapper {
 }
 
 impl MapsetTagWrapper {
-    #[inline]
     pub fn untagged(&self) -> bool {
         self.tags.is_empty()
     }
 
     #[allow(dead_code)]
-    #[inline]
     pub fn any(&self) -> bool {
         !self.tags.is_empty()
     }
@@ -58,7 +56,6 @@ impl From<TagRow> for MapsetTagWrapper {
 }
 
 impl<'c> FromRow<'c, PgRow> for MapsetTagWrapper {
-    #[inline]
     fn from_row(row: &PgRow) -> Result<Self, Error> {
         TagRow::from_row(row).map(From::from)
     }

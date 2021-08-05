@@ -325,7 +325,6 @@ pub enum MatchResult {
 }
 
 impl MatchResult {
-    #[inline]
     fn team(
         mvp_avatar_url: String,
         match_scores: MatchScores,
@@ -340,7 +339,6 @@ impl MatchResult {
         }
     }
 
-    #[inline]
     fn solo(mvp_avatar_url: String, players: TeamResult) -> Self {
         Self::HeadToHead {
             mvp_avatar_url,
@@ -353,7 +351,6 @@ impl MatchResult {
 pub struct MatchScores(u8, u8);
 
 impl MatchScores {
-    #[inline]
     fn incr(&mut self, team: Team) {
         match team {
             Team::Blue => self.0 = self.0.saturating_add(1),
@@ -362,17 +359,14 @@ impl MatchScores {
         }
     }
 
-    #[inline]
     pub fn blue(self) -> u8 {
         self.0
     }
 
-    #[inline]
     pub fn red(self) -> u8 {
         self.1
     }
 
-    #[inline]
     fn difference(&self) -> u8 {
         let min = self.0.min(self.1);
         let max = self.0.max(self.1);

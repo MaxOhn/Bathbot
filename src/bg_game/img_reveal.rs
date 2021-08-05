@@ -28,7 +28,6 @@ impl ImageReveal {
         }
     }
 
-    #[inline]
     pub fn increase_radius(&mut self) {
         self.radius += 75;
     }

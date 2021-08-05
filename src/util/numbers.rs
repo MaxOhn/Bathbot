@@ -1,7 +1,6 @@
 use std::fmt;
 
 /// Round with two decimal positions
-#[inline]
 pub fn round(n: f32) -> f32 {
     (100.0 * n).round() / 100.0
 }
@@ -43,7 +42,6 @@ impl fmt::Display for FormatF32 {
     }
 }
 
-#[inline]
 pub fn with_comma_float(n: f32) -> FormatF32 {
     FormatF32(n)
 }
@@ -81,7 +79,6 @@ pub trait Uint {
 macro_rules! into_uint {
     ($ty:ty) => {
         impl Uint for $ty {
-            #[inline]
             fn into_u64(self) -> u64 {
                 self as u64
             }
@@ -95,12 +92,10 @@ into_uint!(u32);
 into_uint!(u64);
 into_uint!(usize);
 
-#[inline]
 pub fn with_comma_uint<T: Uint>(n: T) -> FormatUint {
     FormatUint(n.into_u64())
 }
 
-#[inline]
 pub fn div_euclid(group: usize, total: usize) -> usize {
     if total % group == 0 && total > 0 {
         total / group
@@ -109,7 +104,6 @@ pub fn div_euclid(group: usize, total: usize) -> usize {
     }
 }
 
-#[inline]
 pub fn last_multiple(per_page: usize, total: usize) -> usize {
     if per_page <= total && total % per_page == 0 {
         total - per_page

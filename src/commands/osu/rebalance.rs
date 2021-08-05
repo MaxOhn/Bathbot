@@ -299,7 +299,6 @@ async fn osu_sotarks(score: &mut Score) -> BotResult<f32> {
     Ok(max_pp)
 }
 
-#[inline]
 fn plural(name: &str) -> &'static str {
     match name.chars().last() {
         Some('s') => "'",
@@ -307,7 +306,6 @@ fn plural(name: &str) -> &'static str {
     }
 }
 
-#[inline]
 fn mode_str(mode: GameMode) -> &'static str {
     match mode {
         GameMode::STD => "",
@@ -317,7 +315,6 @@ fn mode_str(mode: GameMode) -> &'static str {
     }
 }
 
-#[inline]
 fn content_version(version: Version) -> &'static str {
     match version {
         Version::Delta => "on the delta_t version",

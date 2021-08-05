@@ -68,7 +68,6 @@ impl CustomClient {
         })
     }
 
-    #[inline]
     async fn ratelimit(&self, site: Site) {
         self.ratelimiter.until_key_ready(&site).await
     }
@@ -486,7 +485,6 @@ impl CustomClient {
         Ok(scores.get())
     }
 
-    #[inline]
     pub async fn get_avatar(&self, user_id: u32) -> ClientResult<Vec<u8>> {
         let url = format!("{}{}", AVATAR_URL, user_id);
 

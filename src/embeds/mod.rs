@@ -112,7 +112,6 @@ pub trait EmbedData: Send + Sync + Sized {
     }
 }
 
-#[inline]
 fn validate_image_url(url: &str) {
     debug_assert!(
         url.starts_with("http:") || url.starts_with("https:"),
@@ -121,7 +120,6 @@ fn validate_image_url(url: &str) {
     );
 }
 
-#[inline]
 pub fn attachment(filename: impl AsRef<str>) -> String {
     #[cfg(debug_assert)]
     match filename.rfind('.') {
@@ -159,33 +157,28 @@ impl Default for EmbedBuilder {
 }
 
 impl EmbedBuilder {
-    #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
-    #[inline]
     pub fn build(mut self) -> Embed {
         self.0.kind.push_str("rich");
 
         self.0
     }
 
-    #[inline]
     pub fn author(mut self, author: impl Into<EmbedAuthor>) -> Self {
         self.0.author.replace(author.into());
 
         self
     }
 
-    #[inline]
     pub fn color(mut self, color: u32) -> Self {
         self.0.color.replace(color);
 
         self
     }
 
-    #[inline]
     pub fn description(mut self, description: impl Into<String>) -> Self {
         let description = description.into();
         self.0.description.replace(description);
@@ -193,21 +186,18 @@ impl EmbedBuilder {
         self
     }
 
-    #[inline]
     pub fn fields(mut self, fields: EmbedFields) -> Self {
         self.0.fields = fields;
 
         self
     }
 
-    #[inline]
     pub fn footer(mut self, footer: impl Into<EmbedFooter>) -> Self {
         self.0.footer.replace(footer.into());
 
         self
     }
 
-    #[inline]
     pub fn image(mut self, image: impl Into<String>) -> Self {
         let url = image.into();
 
@@ -225,7 +215,6 @@ impl EmbedBuilder {
         self
     }
 
-    #[inline]
     pub fn timestamp(mut self, timestamp: DateTime<Utc>) -> Self {
         let timestamp = datetime::date_to_string(&timestamp);
         self.0.timestamp.replace(timestamp);
@@ -233,14 +222,12 @@ impl EmbedBuilder {
         self
     }
 
-    #[inline]
     pub fn title(mut self, title: impl Into<String>) -> Self {
         self.0.title.replace(title.into());
 
         self
     }
 
-    #[inline]
     pub fn thumbnail(mut self, thumbnail: impl Into<String>) -> Self {
         let url = thumbnail.into();
 
@@ -258,7 +245,6 @@ impl EmbedBuilder {
         self
     }
 
-    #[inline]
     pub fn url(mut self, url: impl Into<String>) -> Self {
         self.0.url.replace(url.into());
 
@@ -270,7 +256,6 @@ impl EmbedBuilder {
 pub struct Footer(EmbedFooter);
 
 impl Footer {
-    #[inline]
     pub fn new(text: impl Into<String>) -> Self {
         Self(EmbedFooter {
             text: text.into(),
@@ -279,7 +264,6 @@ impl Footer {
         })
     }
 
-    #[inline]
     pub fn icon_url(mut self, icon_url: impl Into<String>) -> Self {
         let icon_url = icon_url.into();
         validate_image_url(&icon_url);
@@ -288,26 +272,22 @@ impl Footer {
         self
     }
 
-    #[inline]
     pub fn into_footer(self) -> EmbedFooter {
         self.0
     }
 
-    #[inline]
     pub fn as_footer(&self) -> &EmbedFooter {
         &self.0
     }
 }
 
 impl From<Footer> for EmbedFooter {
-    #[inline]
     fn from(footer: Footer) -> Self {
         footer.into_footer()
     }
 }
 
 impl From<&Footer> for EmbedFooter {
-    #[inline]
     fn from(footer: &Footer) -> Self {
         footer.as_footer().to_owned()
     }
@@ -317,7 +297,6 @@ impl From<&Footer> for EmbedFooter {
 pub struct Author(EmbedAuthor);
 
 impl Author {
-    #[inline]
     pub fn new(name: impl Into<String>) -> Self {
         Self(EmbedAuthor {
             name: Some(name.into()),
@@ -327,14 +306,12 @@ impl Author {
         })
     }
 
-    #[inline]
     pub fn url(mut self, url: impl Into<String>) -> Self {
         self.0.url.replace(url.into());
 
         self
     }
 
-    #[inline]
     pub fn icon_url(mut self, icon_url: impl Into<String>) -> Self {
         let icon_url = icon_url.into();
         validate_image_url(&icon_url);
@@ -343,26 +320,22 @@ impl Author {
         self
     }
 
-    #[inline]
     pub fn into_author(self) -> EmbedAuthor {
         self.0
     }
 
-    #[inline]
     pub fn as_author(&self) -> &EmbedAuthor {
         &self.0
     }
 }
 
 impl From<Author> for EmbedAuthor {
-    #[inline]
     fn from(author: Author) -> Self {
         author.into_author()
     }
 }
 
 impl From<&Author> for EmbedAuthor {
-    #[inline]
     fn from(author: &Author) -> Self {
         author.as_author().to_owned()
     }

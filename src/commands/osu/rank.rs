@@ -219,7 +219,6 @@ pub enum RankData {
 }
 
 impl RankData {
-    #[inline]
     fn with_scores(&self) -> bool {
         match self {
             Self::Sub10k {
@@ -231,7 +230,6 @@ impl RankData {
         }
     }
 
-    #[inline]
     pub fn user_borrow(&self) -> &User {
         match self {
             Self::Sub10k { user, .. } => user,
@@ -239,7 +237,6 @@ impl RankData {
         }
     }
 
-    #[inline]
     pub fn user(self) -> User {
         match self {
             Self::Sub10k { user, .. } => user,

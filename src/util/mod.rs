@@ -32,7 +32,6 @@ use twilight_model::{
     id::{GuildId, UserId},
 };
 
-#[inline]
 pub fn discord_avatar(user_id: UserId, hash: &str) -> String {
     format!("{}avatars/{}/{}.webp?size=1024", DISCORD_CDN, user_id, hash)
 }

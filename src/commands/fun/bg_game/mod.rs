@@ -56,7 +56,6 @@ enum ReactionWrapper {
 }
 
 impl ReactionWrapper {
-    #[inline]
     fn as_deref(&self) -> &Reaction {
         match self {
             Self::Add(r) | Self::Remove(r) => r,

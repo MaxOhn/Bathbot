@@ -114,7 +114,6 @@ impl BotStats {
         }
     }
 
-    #[inline]
     pub fn new_message(&self, ctx: &Context, msg: &Message) {
         if !msg.author.bot {
             self.message_counts.user_messages.inc()
@@ -125,12 +124,10 @@ impl BotStats {
         }
     }
 
-    #[inline]
     pub fn inc_command(&self, cmd: impl AsRef<str>) {
         self.command_counts.with_label_values(&[cmd.as_ref()]).inc();
     }
 
-    #[inline]
     pub fn inc_cached_user(&self) {
         self.osu_metrics.user_cached.inc();
     }

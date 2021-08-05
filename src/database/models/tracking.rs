@@ -15,7 +15,6 @@ pub struct TrackingUser {
 }
 
 impl TrackingUser {
-    #[inline]
     pub fn new(
         user_id: u32,
         mode: GameMode,
@@ -34,7 +33,6 @@ impl TrackingUser {
         }
     }
 
-    #[inline]
     pub fn remove_channel(&mut self, channel: ChannelId) -> bool {
         self.channels.remove(&channel).is_some()
     }

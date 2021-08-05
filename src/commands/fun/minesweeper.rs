@@ -109,7 +109,6 @@ impl Minesweeper {
         Self { field, mines }
     }
 
-    #[inline]
     fn dim(&self) -> (usize, usize) {
         (self.field.width(), self.field.height())
     }
@@ -141,7 +140,6 @@ impl fmt::Display for Cell {
 }
 
 impl Default for Cell {
-    #[inline]
     fn default() -> Self {
         Self::None
     }

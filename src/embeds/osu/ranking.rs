@@ -105,7 +105,6 @@ impl_builder!(RankingEmbed {
     author,
 });
 
-#[inline]
 fn mode_str(mode: GameMode) -> &'static str {
     match mode {
         GameMode::STD => "",

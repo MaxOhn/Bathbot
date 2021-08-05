@@ -94,7 +94,6 @@ impl_builder!(RankingCountriesEmbed {
     url,
 });
 
-#[inline]
 fn mode_str(mode: GameMode) -> &'static str {
     match mode {
         GameMode::STD => "",

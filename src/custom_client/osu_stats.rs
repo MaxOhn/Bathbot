@@ -143,7 +143,6 @@ pub struct OsuStatsParams {
 }
 
 impl OsuStatsParams {
-    #[inline]
     pub fn new(username: impl Into<Name>) -> Self {
         Self {
             username: username.into(),
@@ -159,63 +158,54 @@ impl OsuStatsParams {
         }
     }
 
-    #[inline]
     pub fn mode(mut self, mode: GameMode) -> Self {
         self.mode = mode;
 
         self
     }
 
-    #[inline]
     pub fn rank_min(mut self, rank_min: usize) -> Self {
         self.rank_min = rank_min;
 
         self
     }
 
-    #[inline]
     pub fn rank_max(mut self, rank_max: usize) -> Self {
         self.rank_max = rank_max.min(100);
 
         self
     }
 
-    #[inline]
     pub fn acc_min(mut self, acc_min: f32) -> Self {
         self.acc_min = acc_min;
 
         self
     }
 
-    #[inline]
     pub fn acc_max(mut self, acc_max: f32) -> Self {
         self.acc_max = acc_max.min(100.0);
 
         self
     }
 
-    #[inline]
     pub fn order(mut self, order: OsuStatsOrder) -> Self {
         self.order = order;
 
         self
     }
 
-    #[inline]
     pub fn descending(mut self, descending: bool) -> Self {
         self.descending = descending;
 
         self
     }
 
-    #[inline]
     pub fn mods(mut self, selection: ModSelection) -> Self {
         self.mods = Some(selection);
 
         self
     }
 
-    #[inline]
     pub fn page(&mut self, page: usize) {
         self.page = page;
     }
@@ -231,7 +221,6 @@ pub struct OsuStatsListParams {
 }
 
 impl OsuStatsListParams {
-    #[inline]
     pub fn new(country: Option<impl Into<CountryCode>>) -> Self {
         Self {
             country: country.map(|c| c.into()),
@@ -242,21 +231,18 @@ impl OsuStatsListParams {
         }
     }
 
-    #[inline]
     pub fn mode(mut self, mode: GameMode) -> Self {
         self.mode = mode;
 
         self
     }
 
-    #[inline]
     pub fn rank_min(mut self, rank_min: usize) -> Self {
         self.rank_min = rank_min;
 
         self
     }
 
-    #[inline]
     pub fn rank_max(mut self, rank_max: usize) -> Self {
         self.rank_max = rank_max.min(100);
 

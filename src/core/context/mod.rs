@@ -128,18 +128,15 @@ impl Context {
         Ok(())
     }
 
-    #[inline]
     pub fn osu(&self) -> &Osu {
         &self.clients.osu
     }
 
-    #[inline]
     pub fn psql(&self) -> &Database {
         &self.clients.psql
     }
 }
 
-#[inline]
 pub fn generate_activity(activity_type: ActivityType, message: String) -> Activity {
     Activity {
         assets: None,

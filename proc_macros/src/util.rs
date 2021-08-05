@@ -63,7 +63,6 @@ impl LitExt for Lit {
         }
     }
 
-    #[inline]
     fn to_ident(&self) -> Ident {
         Ident::new(&self.to_str(), self.span())
     }
@@ -75,12 +74,10 @@ pub trait IdentExt: Sized {
 }
 
 impl IdentExt for Ident {
-    #[inline]
     fn to_uppercase(&self) -> Self {
         format_ident!("{}", self.to_string().to_uppercase())
     }
 
-    #[inline]
     fn with_suffix(&self, suffix: &str) -> Ident {
         format_ident!("{}_{}", self.to_string().to_uppercase(), suffix)
     }
@@ -106,13 +103,11 @@ impl<T> std::ops::Deref for AsOption<T> {
 }
 
 impl<T> Default for AsOption<T> {
-    #[inline]
     fn default() -> Self {
         AsOption(None)
     }
 }
 
-#[inline]
 pub fn populate_fut_lifetimes_on_refs(args: &mut Vec<Argument>) {
     for arg in args {
         match &mut arg.kind {

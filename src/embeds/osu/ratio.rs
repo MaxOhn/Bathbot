@@ -109,7 +109,6 @@ impl RatioCategory {
             + s.statistics.count_miss;
     }
 
-    #[inline]
     fn ratio(&self) -> f32 {
         if self.count_300 == 0 {
             self.count_geki as f32
@@ -118,7 +117,6 @@ impl RatioCategory {
         }
     }
 
-    #[inline]
     fn miss_percent(&self) -> f32 {
         (self.count_objects > 0) as u8 as f32 * 100.0 * self.count_miss as f32
             / self.count_objects as f32

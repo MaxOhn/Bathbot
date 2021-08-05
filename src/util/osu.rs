@@ -22,7 +22,6 @@ pub enum ModSelection {
 }
 
 impl ModSelection {
-    #[inline]
     pub fn mods(&self) -> GameMods {
         match self {
             Self::Include(m) | Self::Exclude(m) | Self::Exact(m) => *m,
@@ -30,14 +29,12 @@ impl ModSelection {
     }
 }
 
-#[inline]
 pub fn flag_url(country_code: &str) -> String {
     // format!("{}/images/flags/{}.png", OSU_BASE, country_code) // from osu itself but outdated
     format!("https://osuflags.omkserver.nl/{}-256.png", country_code) // kelderman
 }
 
 #[allow(dead_code)]
-#[inline]
 pub fn flag_url_svg(country_code: &str) -> String {
     assert_eq!(
         country_code.len(),
@@ -59,12 +56,10 @@ pub fn flag_url_svg(country_code: &str) -> String {
     url
 }
 
-#[inline]
 pub fn grade_emote(grade: Grade) -> &'static str {
     CONFIG.get().unwrap().grade(grade)
 }
 
-#[inline]
 pub fn mode_emote(mode: GameMode) -> Cow<'static, str> {
     let emote = match mode {
         GameMode::STD => Emote::Std,
@@ -92,7 +87,6 @@ pub fn grade_completion_mods(score: &dyn ScoreExt, map: &Beatmap) -> Cow<'static
     }
 }
 
-#[inline]
 fn completion(score: &dyn ScoreExt, map: &Beatmap) -> u32 {
     let passed = score.hits(map.mode() as u8);
     let total = map.count_objects();
@@ -193,7 +187,6 @@ pub fn pp_missing(start: f32, goal: f32, scores: &[Score]) -> (f32, usize) {
     (required, idx)
 }
 
-#[inline]
 pub fn map_id_from_history(msgs: &[Message]) -> Option<MapIdType> {
     msgs.iter().find_map(map_id_from_msg)
 }
@@ -208,7 +201,6 @@ pub fn map_id_from_msg(msg: &Message) -> Option<MapIdType> {
         .or_else(|| check_embeds_for_map_id(&msg.embeds))
 }
 
-#[inline]
 pub fn cached_message_extract(msg: &CachedMessage) -> Option<MapIdType> {
     if msg.content.chars().all(|c| c.is_numeric()) {
         return check_embeds_for_map_id(&msg.embeds);
@@ -253,7 +245,6 @@ pub struct BonusPP {
 impl BonusPP {
     const MAX: f32 = 416.67;
 
-    #[inline]
     pub fn new() -> Self {
         Self {
             pp: 0.0,

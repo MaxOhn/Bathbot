@@ -607,7 +607,6 @@ enum TeamLeads {
 }
 
 impl TeamLeads {
-    #[inline]
     fn new(scoring: ScoringType) -> Self {
         match scoring {
             ScoringType::ScoreV2 | ScoringType::Score => Self::Score([0; 3]),
@@ -616,7 +615,6 @@ impl TeamLeads {
         }
     }
 
-    #[inline]
     fn update(&mut self, score: &MatchScore) {
         match self {
             Self::Score(arr) => arr[score.team as usize] += score.score as u64,
@@ -629,7 +627,6 @@ impl TeamLeads {
         }
     }
 
-    #[inline]
     fn finish(self) -> (TeamValues, Option<(u64, u64)>) {
         match self {
             Self::Score(arr) => {

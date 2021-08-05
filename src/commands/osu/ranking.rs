@@ -217,7 +217,6 @@ pub enum RankingType {
 }
 
 impl RankingType {
-    #[inline]
     fn url_type(self) -> &'static str {
         match self {
             RankingType::Performance => "performance",
@@ -225,7 +224,6 @@ impl RankingType {
         }
     }
 
-    #[inline]
     fn title(self, country: Option<&str>) -> Cow<'static, str> {
         match (self, country) {
             (RankingType::Performance, None) => "Performance".into(),

@@ -54,7 +54,6 @@ pub struct TwitchStream {
 }
 
 impl TwitchStream {
-    #[inline]
     pub fn is_live(&self) -> bool {
         self.live
     }

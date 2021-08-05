@@ -493,7 +493,6 @@ pub struct NameArgs {
 }
 
 impl NameArgs {
-    #[inline]
     pub fn new(ctx: &Context, mut args: Args) -> Self {
         let name = try_link_name(ctx, args.next());
 
@@ -507,7 +506,6 @@ pub struct NameDashPArgs {
 }
 
 impl NameDashPArgs {
-    #[inline]
     pub fn new(ctx: &Context, mut args: Args) -> Self {
         let mut name = None;
         let mut has_dash_p = false;
@@ -964,7 +962,6 @@ pub struct SimulateArgs {
 }
 
 impl SimulateArgs {
-    #[inline]
     pub fn is_some(&self) -> bool {
         self.acc.is_some()
             || self.mods.is_some()
@@ -1459,7 +1456,6 @@ trait DottedValue: PartialOrd + FromStr + Copy {
 macro_rules! impl_dotted_value {
     ($type:ty) => {
         impl DottedValue for $type {
-            #[inline]
             fn min(self, other: Self) -> Self {
                 match self.partial_cmp(&other).unwrap_or(Ordering::Equal) {
                     Ordering::Less | Ordering::Equal => self,
@@ -1467,7 +1463,6 @@ macro_rules! impl_dotted_value {
                 }
             }
 
-            #[inline]
             fn max(self, other: Self) -> Self {
                 match self.partial_cmp(&other).unwrap_or(Ordering::Equal) {
                     Ordering::Less | Ordering::Equal => other,

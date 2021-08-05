@@ -377,7 +377,6 @@ pub struct CommonUser {
 }
 
 impl CommonUser {
-    #[inline]
     fn new(name: Name, user_id: u32) -> Self {
         Self {
             name,
@@ -388,12 +387,10 @@ impl CommonUser {
 }
 
 impl CommonUser {
-    #[inline]
     pub fn id(&self) -> u32 {
         self.user_id
     }
 
-    #[inline]
     pub fn name(&self) -> &str {
         self.name.as_str()
     }

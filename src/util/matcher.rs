@@ -7,7 +7,6 @@ use regex::Regex;
 use rosu_v2::model::GameMods;
 use std::{borrow::Cow, str::FromStr};
 
-#[inline]
 pub fn is_custom_emote(msg: &str) -> bool {
     EMOJI_MATCHER.is_match(msg)
 }
@@ -18,17 +17,14 @@ enum MentionType {
     User,
 }
 
-#[inline]
 pub fn get_mention_channel(msg: &str) -> Option<u64> {
     get_mention(MentionType::Channel, msg)
 }
 
-#[inline]
 pub fn get_mention_role(msg: &str) -> Option<u64> {
     get_mention(MentionType::Role, msg)
 }
 
-#[inline]
 pub fn get_mention_user(msg: &str) -> Option<u64> {
     get_mention(MentionType::User, msg)
 }
@@ -49,7 +45,6 @@ fn get_mention(mention_type: MentionType, msg: &str) -> Option<u64> {
         .and_then(|c| c.as_str().parse::<u64>().ok())
 }
 
-#[inline]
 pub fn get_osu_user_id(msg: &str) -> Option<u32> {
     OSU_URL_USER_MATCHER
         .captures(msg)
@@ -124,22 +119,18 @@ pub fn get_mods(msg: &str) -> Option<ModSelection> {
 }
 
 #[allow(dead_code)]
-#[inline]
 pub fn is_hit_results(msg: &str) -> bool {
     HIT_RESULTS_MATCHER.is_match(msg)
 }
 
-#[inline]
 pub fn is_guest_diff(msg: &str) -> bool {
     OSU_DIFF_MATCHER.is_match(msg)
 }
 
-#[inline]
 pub fn tourney_badge(description: &str) -> bool {
     !IGNORE_BADGE_MATCHER.is_match_at(description, 0)
 }
 
-#[inline]
 pub fn highlight_funny_numeral(content: &str) -> Cow<str> {
     SEVEN_TWO_SEVEN.replace_all(content, "__${num}__")
 }

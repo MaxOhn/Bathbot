@@ -12,7 +12,6 @@ pub struct Values {
 }
 
 impl Values {
-    #[inline]
     pub fn new(name: Ident, literals: Vec<Lit>, span: Span) -> Self {
         Values {
             name,
@@ -78,7 +77,6 @@ pub fn parse_values(attr: &Attribute) -> Result<Values> {
     }
 }
 
-#[inline]
 pub fn parse<T: AttributeOption>(values: Values) -> Result<T> {
     T::parse(values)
 }
@@ -120,21 +118,18 @@ impl AttributeOption for Option<String> {
 }
 
 impl AttributeOption for Vec<Ident> {
-    #[inline]
     fn parse(values: Values) -> Result<Self> {
         Ok(values.literals.into_iter().map(|l| l.to_ident()).collect())
     }
 }
 
 impl AttributeOption for String {
-    #[inline]
     fn parse(values: Values) -> Result<Self> {
         Ok(values.literals[0].to_str())
     }
 }
 
 impl<T: AttributeOption> AttributeOption for AsOption<T> {
-    #[inline]
     fn parse(values: Values) -> Result<Self> {
         Ok(AsOption(Some(T::parse(values)?)))
     }

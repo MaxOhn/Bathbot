@@ -34,7 +34,6 @@ pub enum Emote {
 }
 
 impl Emote {
-    #[inline]
     pub fn text(self) -> Cow<'static, str> {
         if let Self::Custom(emote) = self {
             format!(":{}:", emote).into()
@@ -68,7 +67,6 @@ trait SplitEmote {
 }
 
 impl SplitEmote for String {
-    #[inline]
     fn split_emote(&self) -> (u64, &str) {
         let mut split = self.split(':');
         let name = split.nth(1).unwrap();

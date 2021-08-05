@@ -310,32 +310,26 @@ pub trait Pagination: Sync + Sized {
         }
     }
 
-    #[inline]
     fn index(&self) -> usize {
         self.pages().index
     }
 
-    #[inline]
     fn last_index(&self) -> usize {
         self.pages().last_index
     }
 
-    #[inline]
     fn per_page(&self) -> usize {
         self.pages().per_page
     }
 
-    #[inline]
     fn total_pages(&self) -> usize {
         self.pages().total_pages
     }
 
-    #[inline]
     fn index_mut(&mut self) -> &mut usize {
         &mut self.pages_mut().index
     }
 
-    #[inline]
     fn page(&self) -> usize {
         self.index() / self.per_page() + 1
     }

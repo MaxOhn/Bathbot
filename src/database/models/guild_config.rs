@@ -23,7 +23,6 @@ impl<'c> FromRow<'c, PgRow> for GuildConfig {
 }
 
 impl Default for GuildConfig {
-    #[inline]
     fn default() -> Self {
         GuildConfig {
             with_lyrics: true,

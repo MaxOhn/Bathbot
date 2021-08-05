@@ -12,7 +12,6 @@ use tokio::{
 };
 
 impl Context {
-    #[inline]
     pub fn map_garbage_collector(&self, map: &Beatmap) -> GarbageCollectMap {
         GarbageCollectMap::new(map)
     }
@@ -108,7 +107,6 @@ impl Context {
 pub struct GarbageCollectMap(Option<u32>);
 
 impl GarbageCollectMap {
-    #[inline]
     pub fn new(map: &Beatmap) -> Self {
         match map.status {
             Ranked | Loved | Approved => Self(None),
@@ -116,7 +114,6 @@ impl GarbageCollectMap {
         }
     }
 
-    #[inline]
     pub async fn execute(self, ctx: &Context) {
         if let Some(map_id) = self.0 {
             let mut lock = ctx.data.map_garbage_collection.lock().await;

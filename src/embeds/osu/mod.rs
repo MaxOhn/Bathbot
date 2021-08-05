@@ -86,12 +86,10 @@ use rosu_pp::Mods;
 use rosu_v2::prelude::{Beatmap, GameMods};
 use std::fmt::Write;
 
-#[inline]
 pub fn get_stars(stars: f32) -> String {
     format!("{:.2}★", stars)
 }
 
-#[inline]
 pub fn get_mods(mods: GameMods) -> String {
     if mods.is_empty() {
         String::new()
@@ -136,7 +134,6 @@ pub fn get_pp(actual: Option<f32>, max: Option<f32>) -> String {
     result
 }
 
-#[inline]
 pub fn get_keys(mods: GameMods, map: &Beatmap) -> String {
     if let Some(key_mod) = mods.has_key_mod() {
         format!("[{}]", key_mod)
@@ -145,7 +142,6 @@ pub fn get_keys(mods: GameMods, map: &Beatmap) -> String {
     }
 }
 
-#[inline]
 pub fn calculate_od(od: f32, clock_rate: f32) -> f32 {
     let ms = difficulty_range(od, OD_MIN, OD_MID, OD_MAX) / clock_rate;
 
@@ -156,7 +152,6 @@ const OD_MIN: f32 = 80.0;
 const OD_MID: f32 = 50.0;
 const OD_MAX: f32 = 20.0;
 
-#[inline]
 pub fn calculate_ar(ar: f32, clock_rate: f32) -> f32 {
     let ms = difficulty_range(ar, AR_MIN, AR_MID, AR_MAX) / clock_rate;
 
@@ -171,7 +166,6 @@ const AR_MIN: f32 = 1800.0;
 const AR_MID: f32 = 1200.0;
 const AR_MAX: f32 = 450.0;
 
-#[inline]
 fn difficulty_range(difficulty: f32, min: f32, mid: f32, max: f32) -> f32 {
     if difficulty > 5.0 {
         mid + (max - mid) * (difficulty - 5.0) / 5.0

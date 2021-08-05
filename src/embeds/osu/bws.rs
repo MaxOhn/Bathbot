@@ -165,7 +165,6 @@ impl_builder!(BWSEmbed {
     title,
 });
 
-#[inline]
 fn bws(rank: Option<u32>, badges: usize) -> u64 {
     let rank = rank.unwrap_or(0) as f64;
     let badges = badges as i32;

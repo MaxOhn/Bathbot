@@ -52,7 +52,6 @@ pub struct SnipeScoreParams {
 }
 
 impl SnipeScoreParams {
-    #[inline]
     pub fn new(user_id: u32, country_code: impl Into<String>) -> Self {
         Self {
             user_id,
@@ -66,35 +65,30 @@ impl SnipeScoreParams {
     }
 
     #[allow(dead_code)]
-    #[inline]
     pub fn mode(mut self, mode: GameMode) -> Self {
         self.mode = mode;
 
         self
     }
 
-    #[inline]
     pub fn order(mut self, order: SnipeScoreOrder) -> Self {
         self.order = order;
 
         self
     }
 
-    #[inline]
     pub fn descending(mut self, descending: bool) -> Self {
         self.descending = descending;
 
         self
     }
 
-    #[inline]
     pub fn mods(mut self, selection: Option<ModSelection>) -> Self {
         self.mods = selection;
 
         self
     }
 
-    #[inline]
     pub fn page(&mut self, page: u8) {
         self.page = page;
     }

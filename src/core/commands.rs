@@ -1,4 +1,4 @@
-use crate::{Args, BotResult, Context, util::Emote};
+use crate::{util::Emote, Args, BotResult, Context};
 
 use futures::future::BoxFuture;
 use radix_trie::Trie;
@@ -43,7 +43,6 @@ pub struct CommandGroup {
 }
 
 impl CommandGroup {
-    #[inline]
     pub fn new(name: &str, emote: Emote, commands: Vec<&'static Command>) -> Self {
         Self {
             name: name.to_owned(),
@@ -81,7 +80,6 @@ lazy_static! {
 }
 
 impl CommandGroups {
-    #[inline]
     pub fn get(&self, command: &str) -> Option<&'static Command> {
         self.trie.get(command).copied()
     }
