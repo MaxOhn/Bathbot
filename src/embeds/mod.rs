@@ -80,14 +80,14 @@ macro_rules! impl_builder {
 }
 
 mod fun;
-mod osu;
+// mod osu;
 mod owner;
 mod tracking;
 mod twitch;
 mod utility;
 
 pub use fun::*;
-pub use osu::*;
+// pub use osu::*;
 pub use owner::*;
 pub use tracking::*;
 pub use twitch::*;

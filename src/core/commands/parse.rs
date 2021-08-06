@@ -1,9 +1,5 @@
-use crate::{
-    arguments::Stream,
-    core::{Command, CMD_GROUPS},
-    database::Prefix,
-    util::CowUtils,
-};
+use super::{Command, CMD_GROUPS};
+use crate::{arguments::Stream, database::Prefix, util::CowUtils};
 
 use std::borrow::Cow;
 

@@ -7,12 +7,15 @@ use twilight_cache_inmemory::Metrics;
 use twilight_model::{channel::Message, gateway::event::Event};
 
 pub struct EventStats {
-    pub gateway_reconnect: IntCounter,
     pub channel_create: IntCounter,
     pub channel_delete: IntCounter,
+    pub channel_update: IntCounter,
+    pub gateway_invalidate: IntCounter,
+    pub gateway_reconnect: IntCounter,
     pub guild_create: IntCounter,
     pub guild_delete: IntCounter,
     pub guild_update: IntCounter,
+    pub interaction_create: IntCounter,
     pub member_add: IntCounter,
     pub member_remove: IntCounter,
     pub member_update: IntCounter,
@@ -25,6 +28,9 @@ pub struct EventStats {
     pub reaction_remove: IntCounter,
     pub reaction_remove_all: IntCounter,
     pub reaction_remove_emoji: IntCounter,
+    pub role_create: IntCounter,
+    pub role_delete: IntCounter,
+    pub role_update: IntCounter,
     pub unavailable_guild: IntCounter,
     pub user_update: IntCounter,
 }
@@ -81,10 +87,13 @@ impl BotStats {
             event_counts: EventStats {
                 channel_create: event_counter.with_label_values(&["ChannelCreate"]),
                 channel_delete: event_counter.with_label_values(&["ChannelDelete"]),
+                channel_update: event_counter.with_label_values(&["ChannelUpdate"]),
+                gateway_invalidate: event_counter.with_label_values(&["GatewayInvalidate"]),
                 gateway_reconnect: event_counter.with_label_values(&["GatewayReconnect"]),
                 guild_create: event_counter.with_label_values(&["GuildCreate"]),
                 guild_delete: event_counter.with_label_values(&["GuildDelete"]),
                 guild_update: event_counter.with_label_values(&["GuildUpdate"]),
+                interaction_create: event_counter.with_label_values(&["InteractionCreate"]),
                 member_add: event_counter.with_label_values(&["MemberAdd"]),
                 member_remove: event_counter.with_label_values(&["MemberRemove"]),
                 member_update: event_counter.with_label_values(&["MemberUpdate"]),
@@ -97,6 +106,9 @@ impl BotStats {
                 reaction_remove: event_counter.with_label_values(&["ReactionRemove"]),
                 reaction_remove_all: event_counter.with_label_values(&["ReactionRemoveAll"]),
                 reaction_remove_emoji: event_counter.with_label_values(&["ReactionRemoveEmoji"]),
+                role_create: event_counter.with_label_values(&["RoleCreate"]),
+                role_delete: event_counter.with_label_values(&["RoleDelete"]),
+                role_update: event_counter.with_label_values(&["RoleUpdate"]),
                 unavailable_guild: event_counter.with_label_values(&["UnavailableGuild"]),
                 user_update: event_counter.with_label_values(&["UserUpdate"]),
             },
@@ -114,60 +126,11 @@ impl BotStats {
         }
     }
 
-    pub fn new_message(&self, ctx: &Context, msg: &Message) {
-        if !msg.author.bot {
-            self.message_counts.user_messages.inc()
-        } else if ctx.is_own(msg) {
-            self.message_counts.own_messages.inc()
-        } else {
-            self.message_counts.other_bot_messages.inc()
-        }
-    }
-
     pub fn inc_command(&self, cmd: impl AsRef<str>) {
         self.command_counts.with_label_values(&[cmd.as_ref()]).inc();
     }
 
     pub fn inc_cached_user(&self) {
         self.osu_metrics.user_cached.inc();
-    }
-}
-
-impl Context {
-    pub fn update_stats(&self, shard_id: u64, event: &Event) {
-        match event {
-            Event::ChannelCreate(_) => self.stats.event_counts.channel_create.inc(),
-            Event::ChannelDelete(_) => self.stats.event_counts.channel_delete.inc(),
-            Event::GatewayReconnect => self.stats.event_counts.gateway_reconnect.inc(),
-            Event::GuildCreate(_) => self.stats.event_counts.guild_create.inc(),
-            Event::GuildDelete(_) => self.stats.event_counts.guild_delete.inc(),
-            Event::GuildUpdate(_) => self.stats.event_counts.guild_update.inc(),
-            Event::MemberAdd(_) => self.stats.event_counts.member_add.inc(),
-            Event::MemberRemove(_) => self.stats.event_counts.member_remove.inc(),
-            Event::MemberUpdate(_) => self.stats.event_counts.member_update.inc(),
-            Event::MemberChunk(_) => self.stats.event_counts.member_chunk.inc(),
-            Event::MessageCreate(_) => self.stats.event_counts.message_create.inc(),
-            Event::MessageDelete(_) => self.stats.event_counts.message_delete.inc(),
-            Event::MessageDeleteBulk(_) => self.stats.event_counts.message_delete_bulk.inc(),
-            Event::MessageUpdate(_) => self.stats.event_counts.message_update.inc(),
-            Event::ReactionAdd(_) => self.stats.event_counts.reaction_add.inc(),
-            Event::ReactionRemove(_) => self.stats.event_counts.reaction_remove.inc(),
-            Event::ReactionRemoveAll(_) => self.stats.event_counts.reaction_remove_all.inc(),
-            Event::ReactionRemoveEmoji(_) => self.stats.event_counts.reaction_remove_emoji.inc(),
-            Event::UnavailableGuild(_) => self.stats.event_counts.unavailable_guild.inc(),
-            Event::UserUpdate(_) => self.stats.event_counts.user_update.inc(),
-
-            Event::ShardConnecting(_) => info!("Shard {} is now Connecting", shard_id),
-            Event::ShardIdentifying(_) => info!("Shard {} is now Identifying", shard_id),
-            Event::ShardConnected(_) => info!("Shard {} is now Connected", shard_id),
-            Event::Ready(_) => {
-                info!("Shard {} is now Ready", shard_id)
-            }
-            Event::Resumed => info!("Shard {} is now Resumed", shard_id),
-            Event::ShardResuming(_) => info!("Shard {} is now Resuming", shard_id),
-            Event::ShardReconnecting(_) => info!("Shard {} is now Reconnecting", shard_id),
-            Event::ShardDisconnected(_) => info!("Shard {} is now Disconnected", shard_id),
-            _ => {}
-        }
     }
 }

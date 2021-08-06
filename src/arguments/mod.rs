@@ -5,13 +5,14 @@ pub use args::Args;
 pub use stream::Stream;
 
 use crate::{
-    commands::osu::TopSortBy,
+    // commands::osu::TopSortBy,
     custom_client::{OsuStatsListParams, OsuStatsOrder, OsuStatsParams, SnipeScoreOrder},
     util::{
         matcher,
         osu::{MapIdType, ModSelection},
     },
-    Context, Name,
+    Context,
+    Name,
 };
 
 use itertools::Itertools;
@@ -1144,126 +1145,122 @@ pub enum GradeArg {
     Range { top: Grade, bot: Grade },
 }
 
-pub struct TopArgs {
-    pub name: Option<Name>,
-    pub mods: Option<ModSelection>,
-    pub acc_min: Option<f32>,
-    pub acc_max: Option<f32>,
-    pub combo_min: Option<u32>,
-    pub combo_max: Option<u32>,
-    pub grade: Option<GradeArg>,
-    pub sort_by: TopSortBy,
-    pub has_dash_r: bool,
-    pub has_dash_p_or_i: bool,
-}
+// pub struct TopArgs {
+//     pub name: Option<Name>,
+//     pub mods: Option<ModSelection>,
+//     pub acc_min: Option<f32>,
+//     pub acc_max: Option<f32>,
+//     pub combo_min: Option<u32>,
+//     pub combo_max: Option<u32>,
+//     pub grade: Option<GradeArg>,
+//     pub sort_by: TopSortBy,
+//     pub has_dash_r: bool,
+//     pub has_dash_p_or_i: bool,
+// }
 
-impl TopArgs {
-    pub fn new(ctx: &Context, args: Args) -> Result<Self, &'static str> {
-        let mut args: Vec<_> = args.take(10).collect();
+// impl TopArgs {
+//     pub fn new(ctx: &Context, args: Args) -> Result<Self, &'static str> {
+//         let mut args: Vec<_> = args.take(10).collect();
 
-        let mut acc_min = None;
-        let mut acc_max = None;
+//         let mut acc_min = None;
+//         let mut acc_max = None;
 
-        if let Some(idx) = args.iter().position(|&arg| arg == "-a") {
-            args.remove(idx);
-            if let Some((min, minmax)) = args.get(idx).and_then(parse_dotted) {
-                args.remove(idx);
-                if let Some(min) = min {
-                    acc_min.replace(min);
-                    acc_max.replace(minmax);
-                } else {
-                    acc_min.replace(minmax);
-                }
-            } else {
-                return Err("After the acc keyword you must specify either \
-                    a decimal number for min acc or two decimal numbers \
-                    of the form `a..b` for min and max acc");
-            }
-        }
+//         if let Some(idx) = args.iter().position(|&arg| arg == "-a") {
+//             args.remove(idx);
+//             if let Some((min, minmax)) = args.get(idx).and_then(parse_dotted) {
+//                 args.remove(idx);
+//                 if let Some(min) = min {
+//                     acc_min.replace(min);
+//                     acc_max.replace(minmax);
+//                 } else {
+//                     acc_min.replace(minmax);
+//                 }
+//             } else {
+//                 return Err("After the acc keyword you must specify either \
+//                     a decimal number for min acc or two decimal numbers \
+//                     of the form `a..b` for min and max acc");
+//             }
+//         }
 
-        let mut combo_min = None;
-        let mut combo_max = None;
+//         let mut combo_min = None;
+//         let mut combo_max = None;
 
-        if let Some(idx) = args.iter().position(|&arg| arg == "-c") {
-            args.remove(idx);
-            if let Some((min, minmax)) = args.get(idx).and_then(parse_dotted) {
-                args.remove(idx);
-                if let Some(min) = min {
-                    combo_min.replace(min);
-                    combo_max.replace(minmax);
-                } else {
-                    combo_min.replace(minmax);
-                }
-            } else {
-                return Err("After the combo keyword you must specify either \
-                            an integer for min combo or two integer numbers of the \
-                            form `a..b` for min and max combo");
-            }
-        }
+//         if let Some(idx) = args.iter().position(|&arg| arg == "-c") {
+//             args.remove(idx);
+//             if let Some((min, minmax)) = args.get(idx).and_then(parse_dotted) {
+//                 args.remove(idx);
+//                 if let Some(min) = min {
+//                     combo_min.replace(min);
+//                     combo_max.replace(minmax);
+//                 } else {
+//                     combo_min.replace(minmax);
+//                 }
+//             } else {
+//                 return Err("After the combo keyword you must specify either \
+//                             an integer for min combo or two integer numbers of the \
+//                             form `a..b` for min and max combo");
+//             }
+//         }
 
-        let mut grade = None;
+//         let mut grade = None;
 
-        if let Some(idx) = args.iter().position(|&arg| arg == "-g" || arg == "-grade") {
-            args.remove(idx);
-            if let Some((min, mut max)) = args.get(idx).and_then(parse_dotted) {
-                args.remove(idx);
+//         if let Some(idx) = args.iter().position(|&arg| arg == "-g" || arg == "-grade") {
+//             args.remove(idx);
+//             if let Some((min, mut max)) = args.get(idx).and_then(parse_dotted) {
+//                 args.remove(idx);
 
-                match min {
-                    Some(mut min) => {
-                        if min == Grade::SH {
-                            min = Grade::S;
-                        } else if min == Grade::XH {
-                            min = Grade::X;
-                        }
+//                 match min {
+//                     Some(mut min) => {
+//                         if min == Grade::SH {
+//                             min = Grade::S;
+//                         } else if min == Grade::XH {
+//                             min = Grade::X;
+//                         }
 
-                        if max == Grade::S {
-                            max = Grade::SH;
-                        } else if max == Grade::X {
-                            max = Grade::XH;
-                        }
+//                         if max == Grade::S {
+//                             max = Grade::SH;
+//                         } else if max == Grade::X {
+//                             max = Grade::XH;
+//                         }
 
-                        grade.replace(GradeArg::Range { bot: min, top: max })
-                    }
-                    None => grade.replace(GradeArg::Single(max)),
-                };
-            } else {
-                return Err("Could not parse given grade, try SS, S, A, B, C, or D");
-            }
-        }
+//                         grade.replace(GradeArg::Range { bot: min, top: max })
+//                     }
+//                     None => grade.replace(GradeArg::Single(max)),
+//                 };
+//             } else {
+//                 return Err("Could not parse given grade, try SS, S, A, B, C, or D");
+//             }
+//         }
 
-        let mods = mods(&mut args);
+//         let mods = mods(&mut args);
 
-        let sort_by = if keywords(&mut args, &["--a", "--acc", "—a", "—acc"]) {
-            TopSortBy::Acc
-        } else if keywords(&mut args, &["--c", "--combo", "—c", "—combo"]) {
-            TopSortBy::Combo
-        } else {
-            TopSortBy::None
-        };
+//         let sort_by = if keywords(&mut args, &["--a", "--acc"]) {
+//             TopSortBy::Acc
+//         } else if keywords(&mut args, &["--c", "--combo"]) {
+//             TopSortBy::Combo
+//         } else {
+//             TopSortBy::None
+//         };
 
-        let has_dash_r = keywords(&mut args, &["-r"]);
-        let has_dash_p_or_i = keywords(&mut args, &["-p", "-i"]);
+//         let has_dash_r = keywords(&mut args, &["-r"]);
+//         let has_dash_p_or_i = keywords(&mut args, &["-p", "-i"]);
 
-        let name = args.into_iter().next().and_then(|arg| {
-            matcher::get_mention_user(arg)
-                .and_then(|id| ctx.get_link(id))
-                .or_else(|| Some(SmallString::from_str(arg)))
-        });
+//         let name = try_link_name(ctx, args.into_iter().next());
 
-        Ok(Self {
-            name,
-            mods,
-            acc_min,
-            acc_max,
-            combo_min,
-            combo_max,
-            grade,
-            sort_by,
-            has_dash_r,
-            has_dash_p_or_i,
-        })
-    }
-}
+//         Ok(Self {
+//             name,
+//             mods,
+//             acc_min,
+//             acc_max,
+//             combo_min,
+//             combo_max,
+//             grade,
+//             sort_by,
+//             has_dash_r,
+//             has_dash_p_or_i,
+//         })
+//     }
+// }
 
 pub fn try_link_name(ctx: &Context, msg: Option<&str>) -> Option<Name> {
     msg.and_then(|arg| {

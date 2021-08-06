@@ -9,7 +9,8 @@ mod shutdown;
 mod twitch;
 
 pub use background_loop::GarbageCollectMap;
-pub use match_live::{MatchLiveChannels, MatchTrackResult};
+// pub use match_live::{MatchLiveChannels, MatchTrackResult};
+pub use match_live::MatchLiveChannels;
 
 use crate::{Context, OsuTracking};
 

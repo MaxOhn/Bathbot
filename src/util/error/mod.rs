@@ -18,12 +18,19 @@ use reqwest::Error as ReqwestError;
 use rosu_v2::error::OsuError;
 use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
-use std::{error::Error as StdError, fmt, io::Error as IOError};
+use std::{
+    error::Error as StdError,
+    fmt::{Display, Error as FmtError, Formatter, Result as FmtResult},
+    io::Error as IOError,
+};
 use toml::de::Error as TomlError;
 use twilight_gateway::cluster::ClusterCommandError;
 use twilight_http::{
-    request::channel::message::{
-        create_message::CreateMessageError, update_message::UpdateMessageError,
+    request::{
+        application::{InteractionError, UpdateOriginalResponseError},
+        channel::message::{
+            create_message::CreateMessageError, update_message::UpdateMessageError,
+        },
     },
     response::DeserializeBodyError,
     Error as HttpError,
@@ -54,12 +61,14 @@ pub enum Error {
     Custom(String),
     CustomClient(CustomClientError),
     Database(DBError),
-    Fmt(fmt::Error),
+    Fmt(FmtError),
     Image(ImageError),
+    Interaction(InteractionError),
     InvalidConfig(TomlError),
     InvalidSession(u64),
     IO(IOError),
     MapDownload(MapDownloadError),
+    MissingSlashAuthor,
     NoConfig,
     NoLoggingSpec,
     Osu(OsuError),
@@ -72,7 +81,14 @@ pub enum Error {
     TwilightDeserialize(DeserializeBodyError),
     TwilightHttp(HttpError),
     Twitch(TwitchError),
+    UnexpectedCommandOption {
+        cmd: &'static str,
+        kind: &'static str,
+        name: String,
+    },
+    UnknownSlashCommand(String),
     UpdateMessage(UpdateMessageError),
+    UpdateOriginalResponse(UpdateOriginalResponseError),
 }
 
 impl StdError for Error {
@@ -89,10 +105,12 @@ impl StdError for Error {
             Self::Database(e) => Some(e),
             Self::Fmt(e) => Some(e),
             Self::Image(e) => Some(e),
+            Self::Interaction(e) => Some(e),
             Self::InvalidConfig(e) => Some(e),
             Self::InvalidSession(_) => None,
             Self::IO(e) => Some(e),
             Self::MapDownload(e) => Some(e),
+            Self::MissingSlashAuthor => None,
             Self::NoConfig => None,
             Self::NoLoggingSpec => None,
             Self::Osu(e) => Some(e),
@@ -105,13 +123,16 @@ impl StdError for Error {
             Self::TwilightDeserialize(e) => Some(e),
             Self::TwilightHttp(e) => Some(e),
             Self::Twitch(e) => Some(e),
+            Self::UnexpectedCommandOption { .. } => None,
+            Self::UnknownSlashCommand(_) => None,
             Self::UpdateMessage(e) => Some(e),
+            Self::UpdateOriginalResponse(e) => Some(e),
         }
     }
 }
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         match self {
             Self::Authority(_) => f.write_str("error while checking authorty status"),
             Self::BgGame(_) => f.write_str("background game error"),
@@ -124,6 +145,7 @@ impl fmt::Display for Error {
             Self::Database(_) => f.write_str("database error"),
             Self::Fmt(_) => f.write_str("fmt error"),
             Self::Image(_) => f.write_str("image error"),
+            Self::Interaction(_) => f.write_str("interaction error"),
             Self::InvalidConfig(_) => f.write_str("config file was not in correct format"),
             Self::InvalidSession(shard) => write!(
                 f,
@@ -132,6 +154,9 @@ impl fmt::Display for Error {
             ),
             Self::IO(_) => f.write_str("io error"),
             Self::MapDownload(_) => f.write_str("error while downloading new map"),
+            Self::MissingSlashAuthor => {
+                f.write_str("interaction contained neither member nor user")
+            }
             Self::NoConfig => f.write_str("config file was not found"),
             Self::NoLoggingSpec => f.write_str("logging config was not found"),
             Self::Osu(_) => f.write_str("osu error"),
@@ -144,7 +169,14 @@ impl fmt::Display for Error {
             Self::TwilightDeserialize(_) => f.write_str("twilight failed to deserialize response"),
             Self::TwilightHttp(_) => f.write_str("error while making discord request"),
             Self::Twitch(_) => f.write_str("twitch error"),
+            Self::UnexpectedCommandOption { cmd, kind, name } => write!(
+                f,
+                "unexpected {} option for slash command `{}`: `{}`",
+                kind, cmd, name
+            ),
+            Self::UnknownSlashCommand(name) => write!(f, "unknown slash command `{}`", name),
             Self::UpdateMessage(_) => f.write_str("error while updating message"),
+            Self::UpdateOriginalResponse(_) => f.write_str("update original response error"),
         }
     }
 }
@@ -155,15 +187,21 @@ impl From<BgGameError> for Error {
     }
 }
 
-impl From<CreateMessageError> for Error {
-    fn from(e: CreateMessageError) -> Self {
-        Error::CreateMessage(e)
-    }
-}
-
 impl From<ChronoParseError> for Error {
     fn from(e: ChronoParseError) -> Self {
         Error::ChronoParse(e)
+    }
+}
+
+impl From<ClusterCommandError> for Error {
+    fn from(e: ClusterCommandError) -> Self {
+        Error::TwilightCluster(e)
+    }
+}
+
+impl From<CreateMessageError> for Error {
+    fn from(e: CreateMessageError) -> Self {
+        Error::CreateMessage(e)
     }
 }
 
@@ -185,9 +223,27 @@ impl From<DBError> for Error {
     }
 }
 
-impl From<fmt::Error> for Error {
-    fn from(e: fmt::Error) -> Self {
+impl From<DeserializeBodyError> for Error {
+    fn from(e: DeserializeBodyError) -> Self {
+        Error::TwilightDeserialize(e)
+    }
+}
+
+impl<T: StdError + Send + Sync> From<DrawingError<T>> for Error {
+    fn from(e: DrawingError<T>) -> Self {
+        Error::Plotter(e.to_string())
+    }
+}
+
+impl From<FmtError> for Error {
+    fn from(e: FmtError) -> Self {
         Error::Fmt(e)
+    }
+}
+
+impl From<HttpError> for Error {
+    fn from(e: HttpError) -> Self {
+        Error::TwilightHttp(e)
     }
 }
 
@@ -197,9 +253,9 @@ impl From<ImageError> for Error {
     }
 }
 
-impl From<MapDownloadError> for Error {
-    fn from(e: MapDownloadError) -> Self {
-        Error::MapDownload(e)
+impl From<InteractionError> for Error {
+    fn from(e: InteractionError) -> Self {
+        Error::Interaction(e)
     }
 }
 
@@ -209,15 +265,15 @@ impl From<IOError> for Error {
     }
 }
 
-impl From<OsuError> for Error {
-    fn from(e: OsuError) -> Self {
-        Error::Osu(e)
+impl From<MapDownloadError> for Error {
+    fn from(e: MapDownloadError) -> Self {
+        Error::MapDownload(e)
     }
 }
 
-impl<T: StdError + Send + Sync> From<DrawingError<T>> for Error {
-    fn from(e: DrawingError<T>) -> Self {
-        Error::Plotter(e.to_string())
+impl From<OsuError> for Error {
+    fn from(e: OsuError) -> Self {
+        Error::Osu(e)
     }
 }
 
@@ -245,24 +301,6 @@ impl From<SerdeJsonError> for Error {
     }
 }
 
-impl From<ClusterCommandError> for Error {
-    fn from(e: ClusterCommandError) -> Self {
-        Error::TwilightCluster(e)
-    }
-}
-
-impl From<HttpError> for Error {
-    fn from(e: HttpError) -> Self {
-        Error::TwilightHttp(e)
-    }
-}
-
-impl From<DeserializeBodyError> for Error {
-    fn from(e: DeserializeBodyError) -> Self {
-        Error::TwilightDeserialize(e)
-    }
-}
-
 impl From<TwitchError> for Error {
     fn from(e: TwitchError) -> Self {
         Error::Twitch(e)
@@ -272,5 +310,11 @@ impl From<TwitchError> for Error {
 impl From<UpdateMessageError> for Error {
     fn from(e: UpdateMessageError) -> Self {
         Error::UpdateMessage(e)
+    }
+}
+
+impl From<UpdateOriginalResponseError> for Error {
+    fn from(e: UpdateOriginalResponseError) -> Self {
+        Error::UpdateOriginalResponse(e)
     }
 }

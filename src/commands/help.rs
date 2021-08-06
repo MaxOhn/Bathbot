@@ -7,7 +7,7 @@ use crate::{
         },
         levenshtein_distance, MessageExt,
     },
-    BotResult, Context,
+    BotResult, Context, MessageBuilder,
 };
 
 use std::{collections::BTreeMap, fmt::Write};
@@ -305,8 +305,10 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
 
     let footer = Footer::new(footer_text);
 
-    let embed = &[eb.footer(footer).fields(fields).build()];
-    msg.build_response(ctx, |m| m.embeds(embed)).await?;
+    let embed = eb.footer(footer).fields(fields).build();
+    let builder = MessageBuilder::new().embed(embed);
+
+    msg.create_message(ctx, builder).await?;
 
     Ok(())
 }
@@ -338,12 +340,13 @@ pub async fn failed_help(ctx: &Context, arg: &str, msg: &Message) -> BotResult<(
         (content, DARK_GREEN)
     };
 
-    let embed = &[EmbedBuilder::new()
+    let embed = EmbedBuilder::new()
         .description(content)
         .color(color)
-        .build()];
+        .build();
+    let builder = MessageBuilder::new().embed(embed);
 
-    msg.build_response(ctx, |m| m.embeds(embed)).await?;
+    msg.create_message(ctx, builder).await?;
 
     Ok(())
 }

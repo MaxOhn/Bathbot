@@ -1,12 +1,11 @@
-use proc_macro2::{Span, TokenStream as TokenStream2};
+use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, ToTokens};
 use syn::{
     parenthesized,
     parse::{Parse, ParseStream, Result},
-    parse_quote,
     punctuated::Punctuated,
     token::{Comma, Mut},
-    Ident, Lifetime, Lit, PathArguments, Type,
+    Ident, Lit, Type,
 };
 
 macro_rules! propagate_err {
@@ -70,12 +69,18 @@ impl LitExt for Lit {
 
 pub trait IdentExt: Sized {
     fn to_uppercase(&self) -> Self;
+    fn with_underscore_prefix(&self) -> Ident;
     fn with_suffix(&self, suf: &str) -> Ident;
 }
 
 impl IdentExt for Ident {
     fn to_uppercase(&self) -> Self {
         format_ident!("{}", self.to_string().to_uppercase())
+    }
+
+    #[inline]
+    fn with_underscore_prefix(&self) -> Ident {
+        format_ident!("__{}", self.to_string())
     }
 
     fn with_suffix(&self, suffix: &str) -> Ident {
@@ -105,25 +110,5 @@ impl<T> std::ops::Deref for AsOption<T> {
 impl<T> Default for AsOption<T> {
     fn default() -> Self {
         AsOption(None)
-    }
-}
-
-pub fn populate_fut_lifetimes_on_refs(args: &mut Vec<Argument>) {
-    for arg in args {
-        match &mut arg.kind {
-            Type::Reference(reference) => {
-                reference.lifetime = Some(Lifetime::new("'fut", Span::call_site()))
-            }
-            Type::Path(path) => {
-                if path.path.is_ident("Args") {
-                    if let Some(segment) = path.path.segments.last_mut() {
-                        let arg = parse_quote! { <'fut> };
-                        let generics = PathArguments::AngleBracketed(arg);
-                        segment.arguments = generics;
-                    }
-                }
-            }
-            _ => {}
-        }
     }
 }

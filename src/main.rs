@@ -29,12 +29,15 @@ mod util;
 
 use crate::{
     arguments::Args,
-    core::{handle_event, logging, BotStats, Cache, Context, MatchLiveChannels, CONFIG},
+    core::{
+        commands::{self as cmds, CommandData, CommandDataCompact},
+        logging, BotStats, Cache, Context, MatchLiveChannels, CONFIG,
+    },
     custom_client::CustomClient,
     database::Database,
     tracking::OsuTracking,
     twitch::Twitch,
-    util::error::Error,
+    util::{error::Error, MessageBuilder},
 };
 
 #[macro_use]
@@ -72,9 +75,10 @@ use tokio::{
     time,
 };
 use tokio_stream::StreamExt;
-use twilight_gateway::{cluster::ShardScheme, Cluster, EventTypeFlags};
+use twilight_gateway::{cluster::ShardScheme, Cluster, Event, EventTypeFlags};
 use twilight_http::Client as HttpClient;
 use twilight_model::{
+    application::interaction::Interaction,
     channel::message::allowed_mentions::AllowedMentionsBuilder,
     gateway::{
         presence::{ActivityType, Status},
@@ -260,6 +264,15 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         .await
         .map_err(|why| format_err!("Could not start cluster: {}", why))?;
 
+    // Slash commands
+    let slash_commands = commands::slash_commands();
+    info!("Setting {} slash commands...", slash_commands.len());
+
+    // TODO: Set to global
+    http.set_guild_commands(741040473476694159.into(), &slash_commands)?
+        .exec()
+        .await?;
+
     // Final context
     let ctx = Arc::new(Context::new(cache, stats, http, clients, cluster, data).await);
 
@@ -297,8 +310,8 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         let count = shutdown_ctx.stop_all_games().await;
         info!("Stopped {} bg games", count);
 
-        let count = shutdown_ctx.notify_match_live_shutdown().await;
-        info!("Stopped match tracking in {} channels", count);
+        // let count = shutdown_ctx.notify_match_live_shutdown().await;
+        // info!("Stopped match tracking in {} channels", count);
 
         info!("Shutting down");
         process::exit(0);
@@ -309,16 +322,16 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     tokio::spawn(twitch::twitch_loop(twitch_ctx));
 
     // Spawn osu tracking worker
-    let osu_tracking_ctx = Arc::clone(&ctx);
-    tokio::spawn(tracking::tracking_loop(osu_tracking_ctx));
+    // let osu_tracking_ctx = Arc::clone(&ctx);
+    // tokio::spawn(tracking::tracking_loop(osu_tracking_ctx));
 
     // Spawn background loop worker
     let background_ctx = Arc::clone(&ctx);
     tokio::spawn(Context::background_loop(background_ctx));
 
     // Spawn osu match ticker worker
-    let match_live_ctx = Arc::clone(&ctx);
-    tokio::spawn(Context::match_live_loop(match_live_ctx));
+    // let match_live_ctx = Arc::clone(&ctx);
+    // tokio::spawn(Context::match_live_loop(match_live_ctx));
 
     // Activate cluster
     let cluster_ctx = Arc::clone(&ctx);
@@ -339,14 +352,13 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         }
     });
 
-    while let Some((shard, event)) = event_stream.next().await {
-        ctx.update_stats(shard, &event);
+    while let Some((shard_id, event)) = event_stream.next().await {
         ctx.cache.update(&event);
         ctx.standby.process(&event);
-        let c = Arc::clone(&ctx);
+        let ctx = Arc::clone(&ctx);
 
         tokio::spawn(async move {
-            if let Err(why) = handle_event(shard, event, c).await {
+            if let Err(why) = handle_event(ctx, event, shard_id).await {
                 unwind_error!(error, why, "Error while handling event: {}");
             }
         });
@@ -391,4 +403,156 @@ async fn run_metrics_server(stats: Arc<BotStats>, shutdown_rx: oneshot::Receiver
     if let Err(why) = server.await {
         unwind_error!(error, why, "Metrics server failed: {}");
     }
+}
+
+async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResult<()> {
+    match event {
+        Event::BanAdd(_) => {}
+        Event::BanRemove(_) => {}
+        Event::ChannelCreate(_) => ctx.stats.event_counts.channel_create.inc(),
+        Event::ChannelDelete(_) => ctx.stats.event_counts.channel_delete.inc(),
+        Event::ChannelPinsUpdate(_) => {}
+        Event::ChannelUpdate(_) => ctx.stats.event_counts.channel_update.inc(),
+        Event::GatewayHeartbeat(_) => {}
+        Event::GatewayHeartbeatAck => {}
+        Event::GatewayHello(_) => {}
+        Event::GatewayInvalidateSession(reconnect) => {
+            ctx.stats.event_counts.gateway_invalidate.inc();
+
+            if reconnect {
+                warn!(
+                    "Gateway has invalidated session for shard {}, but its reconnectable",
+                    shard_id
+                );
+            } else {
+                return Err(Error::InvalidSession(shard_id));
+            }
+        }
+        Event::GatewayReconnect => {
+            info!("Gateway requested shard {} to reconnect", shard_id);
+            ctx.stats.event_counts.gateway_reconnect.inc();
+        }
+        Event::GiftCodeUpdate => {}
+        Event::GuildCreate(_) => ctx.stats.event_counts.guild_create.inc(),
+        Event::GuildDelete(_) => ctx.stats.event_counts.guild_delete.inc(),
+        Event::GuildEmojisUpdate(_) => {}
+        Event::GuildIntegrationsUpdate(_) => {}
+        Event::GuildUpdate(_) => ctx.stats.event_counts.guild_update.inc(),
+        Event::IntegrationCreate(_) => {}
+        Event::IntegrationDelete(_) => {}
+        Event::IntegrationUpdate(_) => {}
+        Event::InteractionCreate(e) => {
+            if let Interaction::ApplicationCommand(cmd) = e.0 {
+                ctx.stats.event_counts.interaction_create.inc();
+                cmds::handle_interaction(ctx, *cmd).await?;
+            }
+        }
+        Event::InviteCreate(_) => {}
+        Event::InviteDelete(_) => {}
+        Event::MemberAdd(_) => ctx.stats.event_counts.member_add.inc(),
+        Event::MemberRemove(_) => ctx.stats.event_counts.member_remove.inc(),
+        Event::MemberUpdate(_) => ctx.stats.event_counts.member_update.inc(),
+        Event::MemberChunk(_) => ctx.stats.event_counts.member_chunk.inc(),
+        Event::MessageCreate(msg) => {
+            ctx.stats.event_counts.message_create.inc();
+
+            if !msg.author.bot {
+                ctx.stats.message_counts.user_messages.inc()
+            } else if ctx.is_own(&*msg) {
+                ctx.stats.message_counts.own_messages.inc()
+            } else {
+                ctx.stats.message_counts.other_bot_messages.inc()
+            }
+
+            cmds::handle_message(ctx, msg.0).await?;
+        }
+        Event::MessageDelete(msg) => {
+            ctx.stats.event_counts.message_delete.inc();
+            ctx.remove_msg(msg.id);
+        }
+        Event::MessageDeleteBulk(msgs) => {
+            ctx.stats.event_counts.message_delete_bulk.inc();
+
+            for id in msgs.ids.into_iter() {
+                ctx.remove_msg(id);
+            }
+        }
+        Event::MessageUpdate(_) => ctx.stats.event_counts.message_update.inc(),
+        Event::PresenceUpdate(_) => {}
+        Event::PresencesReplace => {}
+        Event::ReactionAdd(reaction_add) => {
+            ctx.stats.event_counts.reaction_add.inc();
+            let reaction = &reaction_add.0;
+
+            if let Some(guild_id) = reaction.guild_id {
+                if let Some(role_id) = ctx.get_role_assign(reaction) {
+                    let add_role_fut =
+                        ctx.http
+                            .add_guild_member_role(guild_id, reaction.user_id, role_id);
+
+                    match add_role_fut.exec().await {
+                        Ok(_) => debug!("Assigned react-role to user"),
+                        Err(why) => error!("Error while assigning react-role to user: {}", why),
+                    }
+                }
+            }
+        }
+        Event::ReactionRemove(reaction_remove) => {
+            ctx.stats.event_counts.reaction_remove.inc();
+            let reaction = &reaction_remove.0;
+
+            if let Some(guild_id) = reaction.guild_id {
+                if let Some(role_id) = ctx.get_role_assign(reaction) {
+                    let remove_role_fut =
+                        ctx.http
+                            .remove_guild_member_role(guild_id, reaction.user_id, role_id);
+
+                    match remove_role_fut.exec().await {
+                        Ok(_) => debug!("Removed react-role from user"),
+                        Err(why) => error!("Error while removing react-role from user: {}", why),
+                    }
+                }
+            }
+        }
+        Event::ReactionRemoveAll(_) => ctx.stats.event_counts.reaction_remove_all.inc(),
+        Event::ReactionRemoveEmoji(_) => ctx.stats.event_counts.reaction_remove_emoji.inc(),
+        Event::Ready(_) => {
+            info!("Shard {} is ready", shard_id);
+
+            let fut =
+                ctx.set_shard_activity(shard_id, Status::Online, ActivityType::Playing, "osu!");
+
+            match fut.await {
+                Ok(_) => info!("Game is set for shard {}", shard_id),
+                Err(why) => unwind_error!(
+                    error,
+                    why,
+                    "Failed to set shard activity at ready event for shard {}: {}",
+                    shard_id
+                ),
+            }
+        }
+        Event::Resumed => info!("Shard {} is resumed", shard_id),
+        Event::RoleCreate(_) => ctx.stats.event_counts.role_create.inc(),
+        Event::RoleDelete(_) => ctx.stats.event_counts.role_delete.inc(),
+        Event::RoleUpdate(_) => ctx.stats.event_counts.role_update.inc(),
+        Event::ShardConnected(_) => info!("Shard {} is connected", shard_id),
+        Event::ShardConnecting(_) => info!("Shard {} is connecting...", shard_id),
+        Event::ShardDisconnected(_) => info!("Shard {} is disconnected", shard_id),
+        Event::ShardIdentifying(_) => info!("Shard {} is identifying...", shard_id),
+        Event::ShardReconnecting(_) => info!("Shard {} is reconnecting...", shard_id),
+        Event::ShardPayload(_) => {}
+        Event::ShardResuming(_) => info!("Shard {} is resuming...", shard_id),
+        Event::StageInstanceCreate(_) => {}
+        Event::StageInstanceDelete(_) => {}
+        Event::StageInstanceUpdate(_) => {}
+        Event::TypingStart(_) => {}
+        Event::UnavailableGuild(_) => ctx.stats.event_counts.unavailable_guild.inc(),
+        Event::UserUpdate(_) => ctx.stats.event_counts.user_update.inc(),
+        Event::VoiceServerUpdate(_) => {}
+        Event::VoiceStateUpdate(_) => {}
+        Event::WebhooksUpdate(_) => {}
+    }
+
+    Ok(())
 }

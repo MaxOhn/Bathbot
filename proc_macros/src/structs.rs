@@ -13,8 +13,6 @@ use syn::{
 pub struct CommandFun {
     // #[...]
     pub attributes: Vec<Attribute>,
-    // pub / nothing
-    pub visibility: Visibility,
     // name
     pub name: Ident,
     // (...)
@@ -31,7 +29,7 @@ impl Parse for CommandFun {
         let attributes = input.call(Attribute::parse_outer)?;
 
         // pub / nothing
-        let visibility = input.parse::<Visibility>()?;
+        let _ = input.parse::<Visibility>()?;
 
         // async fn
         input.parse::<Token![async]>()?;
@@ -40,53 +38,52 @@ impl Parse for CommandFun {
         // name
         let name = input.parse::<Ident>()?;
 
-        // (_: Arc<Context>, _: &Message)
+        // arguments
         let Parenthesised(args) = input.parse::<Parenthesised<FnArg>>()?;
 
-        let mut args = args
+        let mut args: Vec<_> = args
             .into_iter()
             .map(parse_argument)
-            .collect::<Result<Vec<_>>>()?;
+            .collect::<Result<_>>()?;
 
-        let mut iter = args.iter();
+        let mut iter = args.iter_mut();
 
-        if iter
-            .next()
-            .map_or(true, |arg| arg.kind != parse_quote! { Arc<Context> })
-        {
-            return Err(input.error("expected first argument of type `Arc<Context>`"));
-        }
-
-        if iter
-            .next()
-            .map_or(true, |arg| arg.kind != parse_quote! { &Message })
-        {
-            return Err(input.error("expected second argument of type `&Message`"));
-        }
-
-        if iter
-            .next()
-            .map_or(true, |arg| arg.kind != parse_quote! { Args })
-        {
-            return Err(input.error("expected third argument of type `Args`"));
+        match iter.next() {
+            Some(arg) if arg.kind == parse_quote! { Arc<Context> } => {}
+            Some(arg) => {
+                return Err(Error::new(
+                    arg.kind.span(),
+                    "expected first argument of type `Arc<Context>`",
+                ));
+            }
+            None => {
+                return Err(Error::new(
+                    Span::call_site(),
+                    "expected first argument of type `Arc<Context>`",
+                ));
+            }
         }
 
         match iter.next() {
-            Some(arg) if arg.kind != parse_quote! { Option<usize> } => {
-                return Err(input.error("optional fourth argument must be of type `Option<usize>`"))
+            Some(arg) if arg.kind == parse_quote! { CommandData } => {
+                arg.kind = parse_quote! { CommandData<'fut> };
             }
-            Some(_) => {}
+            Some(arg) => {
+                return Err(Error::new(
+                    arg.kind.span(),
+                    "expected second argument of type `CommandData`",
+                ));
+            }
             None => {
-                let mutable = None;
-                let name = Ident::new("_num", Span::call_site());
-                let kind = Type::Verbatim(parse_quote!(Option<usize>));
-
-                args.push(Argument {
-                    mutable,
-                    name,
-                    kind,
-                });
+                return Err(Error::new(
+                    Span::call_site(),
+                    "expected second argument of type `CommandData`",
+                ));
             }
+        }
+
+        if let Some(next) = iter.next() {
+            return Err(Error::new(next.span(), "expected only two arguments"));
         }
 
         // -> BotResult<()>
@@ -108,7 +105,6 @@ impl Parse for CommandFun {
 
         Ok(Self {
             attributes,
-            visibility,
             name,
             args,
             ret,
@@ -121,7 +117,6 @@ impl ToTokens for CommandFun {
     fn to_tokens(&self, stream: &mut TokenStream2) {
         let Self {
             attributes: _,
-            visibility,
             name,
             args,
             ret,
@@ -129,9 +124,8 @@ impl ToTokens for CommandFun {
         } = self;
 
         stream.extend(quote! {
-            #visibility fn #name<'fut> (#(#args),*) -> futures::future::BoxFuture<'fut, #ret> {
-                use futures::future::FutureExt;
-                async move { #(#body)* }.boxed()
+            async fn #name<'fut>(#(#args),*) -> #ret {
+                #(#body)*
             }
         });
     }

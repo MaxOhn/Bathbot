@@ -1,24 +1,24 @@
-mod bombsaway;
-mod catchit;
-mod ding;
-mod fireandflames;
-mod fireflies;
-mod flamingo;
-mod pretender;
-mod rockefeller;
-mod saygoodbye;
-mod tijdmachine;
+// mod bombsaway;
+// mod catchit;
+// mod ding;
+// mod fireandflames;
+// mod fireflies;
+// mod flamingo;
+// mod pretender;
+// mod rockefeller;
+// mod saygoodbye;
+// mod tijdmachine;
 
-pub use bombsaway::*;
-pub use catchit::*;
-pub use ding::*;
-pub use fireandflames::*;
-pub use fireflies::*;
-pub use flamingo::*;
-pub use pretender::*;
-pub use rockefeller::*;
-pub use saygoodbye::*;
-pub use tijdmachine::*;
+// pub use bombsaway::*;
+// pub use catchit::*;
+// pub use ding::*;
+// pub use fireandflames::*;
+// pub use fireflies::*;
+// pub use flamingo::*;
+// pub use pretender::*;
+// pub use rockefeller::*;
+// pub use saygoodbye::*;
+// pub use tijdmachine::*;
 
 use crate::{util::MessageExt, BotResult, Context};
 

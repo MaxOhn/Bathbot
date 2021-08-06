@@ -33,7 +33,7 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
         panic!("expected `#[command]`, got #[command({})]", attr);
     }
 
-    let mut fun = parse_macro_input!(input as CommandFun);
+    let fun = parse_macro_input!(input as CommandFun);
     let mut options = Options::default();
 
     for attribute in &fun.attributes {
@@ -79,14 +79,15 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
         panic!("require `#[short_desc(\"...\")]`")
     };
 
-    populate_fut_lifetimes_on_refs(&mut fun.args);
     let fun_name_str = fun.name.to_string();
-    let fun_name = fun.name.clone();
+    let fun_name = fun.name.with_underscore_prefix();
+    let direct_name = fun.name.clone();
+    let ret = fun.ret.clone();
 
-    let sub_commands = sub_commands
+    let sub_commands: Vec<_> = sub_commands
         .into_iter()
         .map(|i| i.with_suffix("CMD"))
-        .collect::<Vec<_>>();
+        .collect();
 
     let cmd_name = fun.name.with_suffix("CMD");
     let command_path = quote!(crate::core::Command);
@@ -107,6 +108,12 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
         };
 
         #fun
+
+        fn #fun_name<'fut>(ctx: Arc<Context>, msg: &'fut Message, args: Args<'fut>, num: Option<usize>) -> futures::future::BoxFuture<'fut, #ret> {
+            use futures::future::FutureExt;
+
+            async move { #direct_name(ctx, CommandData::Message { msg, args, num }).await }.boxed()
+        }
     };
 
     stream.into()

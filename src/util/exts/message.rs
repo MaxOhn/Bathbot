@@ -1,129 +1,89 @@
-use crate::{embeds::EmbedBuilder, util::constants::RED, BotResult, Context};
+use crate::{
+    embeds::EmbedBuilder, util::constants::RED, BotResult, CommandData, CommandDataCompact,
+    Context, MessageBuilder,
+};
 
 use async_trait::async_trait;
-use twilight_http::request::channel::message::create_message::{CreateMessage, CreateMessageError};
-use twilight_model::channel::{embed::Embed, Message};
+use std::{borrow::Cow, slice};
+use twilight_http::Response;
+use twilight_model::{
+    application::{
+        callback::{CallbackData, InteractionResponse},
+        interaction::ApplicationCommand,
+    },
+    channel::Message,
+    id::{ChannelId, InteractionId, MessageId},
+};
 
 #[async_trait]
 pub trait MessageExt {
-    /// Response with content, embed, attachment, ...
-    async fn build_response_msg<'a, 'b, F>(&self, ctx: &'a Context, f: F) -> BotResult<Message>
-    where
-        'a: 'b,
-        F: Send + FnOnce(CreateMessage<'b>) -> Result<CreateMessage<'b>, CreateMessageError>;
-
-    /// Response with content, embed, attachment, ...
-    ///
-    /// Includes reaction_delete
-    async fn build_response<'a, 'b, F>(&self, ctx: &'a Context, f: F) -> BotResult<()>
-    where
-        'a: 'b,
-        F: Send + FnOnce(CreateMessage<'b>) -> Result<CreateMessage<'b>, CreateMessageError>;
-
-    /// Response with simple content
-    async fn respond<C: Into<String> + Send>(
+    async fn create_message<'c>(
         &self,
         ctx: &Context,
-        content: C,
-    ) -> BotResult<Message>;
+        builder: MessageBuilder<'c>,
+    ) -> BotResult<Option<Response<Message>>>;
 
-    /// Response with simple content
-    ///
-    /// Includes reaction_delete
-    async fn send_response<C: Into<String> + Send>(
+    async fn update_message<'c>(
         &self,
         ctx: &Context,
-        content: C,
-    ) -> BotResult<()>;
+        builder: MessageBuilder<'c>,
+        response: Option<Response<Message>>,
+    ) -> BotResult<Response<Message>>;
 
-    /// Reponse with the given embed
-    async fn respond_embed(&self, ctx: &Context, embed: Embed) -> BotResult<Message>;
-
-    /// Response for an error message
-    ///
-    /// Includes reaction_delete
+    // TODO: add boolean for ephemeral or not
     async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()>;
 
-    /// Response with simple content by tagging the author
-    ///
-    /// Includes reaction_delete
     async fn reply<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()>;
 }
 
 #[async_trait]
-impl MessageExt for Message {
-    async fn build_response_msg<'a, 'b, F>(&self, ctx: &'a Context, f: F) -> BotResult<Message>
-    where
-        'a: 'b,
-        F: Send + FnOnce(CreateMessage<'b>) -> Result<CreateMessage<'b>, CreateMessageError>,
-    {
-        f(ctx.http.create_message(self.channel_id))?
-            .exec()
-            .await?
-            .model()
-            .await
-            .map_err(|e| e.into())
-    }
-
-    async fn build_response<'a, 'b, F>(&self, ctx: &'a Context, f: F) -> BotResult<()>
-    where
-        'a: 'b,
-        F: Send + FnOnce(CreateMessage<'b>) -> Result<CreateMessage<'b>, CreateMessageError>,
-    {
-        f(ctx.http.create_message(self.channel_id))?.exec().await?;
-
-        Ok(())
-    }
-
-    async fn respond<C: Into<String> + Send>(
+impl MessageExt for (MessageId, ChannelId) {
+    async fn create_message<'c>(
         &self,
         ctx: &Context,
-        content: C,
-    ) -> BotResult<Message> {
-        let embed = EmbedBuilder::new().description(content).build();
+        builder: MessageBuilder<'c>,
+    ) -> BotResult<Option<Response<Message>>> {
+        let mut req = ctx.http.create_message(self.1);
 
-        ctx.http
-            .create_message(self.channel_id)
-            .embeds(&[embed])?
-            .exec()
-            .await?
-            .model()
-            .await
-            .map_err(|e| e.into())
+        if let Some(ref content) = builder.content {
+            req = req.content(content.as_ref())?;
+        }
+
+        if let Some(ref embed) = builder.embed {
+            req = req.embeds(slice::from_ref(embed))?;
+        }
+
+        Ok(Some(req.exec().await?))
     }
 
-    async fn send_response<C: Into<String> + Send>(
+    async fn update_message<'c>(
         &self,
         ctx: &Context,
-        content: C,
-    ) -> BotResult<()> {
-        let embed = EmbedBuilder::new().description(content).build();
+        builder: MessageBuilder<'c>,
+        response: Option<Response<Message>>,
+    ) -> BotResult<Response<Message>> {
+        let msg_id = match response {
+            Some(response) => response.model().await?.id,
+            None => self.0,
+        };
 
-        ctx.http
-            .create_message(self.channel_id)
-            .embeds(&[embed])?
-            .exec()
-            .await?;
+        let mut req = ctx
+            .http
+            .update_message(self.1, msg_id)
+            .content(builder.content.as_ref().map(Cow::as_ref))?;
 
-        Ok(())
-    }
+        if let Some(ref embed) = builder.embed {
+            req = req.embeds(slice::from_ref(embed))?;
+        }
 
-    async fn respond_embed(&self, ctx: &Context, embed: Embed) -> BotResult<Message> {
-        ctx.http
-            .create_message(self.channel_id)
-            .embeds(&[embed])?
-            .exec()
-            .await?
-            .model()
-            .await
-            .map_err(|e| e.into())
+        Ok(req.exec().await?)
     }
 
     async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
-        let embed = EmbedBuilder::new().color(RED).description(content).build();
+        let embed = EmbedBuilder::new().description(content).build();
 
         ctx.http
-            .create_message(self.channel_id)
+            .create_message(self.1)
             .embeds(&[embed])?
             .exec()
             .await?;
@@ -135,12 +95,239 @@ impl MessageExt for Message {
         let embed = EmbedBuilder::new().description(content).build();
 
         ctx.http
-            .create_message(self.channel_id)
+            .create_message(self.1)
             .embeds(&[embed])?
-            .reply(self.id)
+            .reply(self.0)
             .exec()
             .await?;
 
         Ok(())
+    }
+}
+
+#[async_trait]
+impl<'s> MessageExt for (InteractionId, &'s str) {
+    async fn create_message<'c>(
+        &self,
+        ctx: &Context,
+        builder: MessageBuilder<'c>,
+    ) -> BotResult<Option<Response<Message>>> {
+        let response = InteractionResponse::ChannelMessageWithSource(CallbackData {
+            allowed_mentions: None,
+            content: builder.content.map(Cow::into_owned),
+            embeds: builder.embed.map_or_else(Vec::new, |e| vec![e]),
+            flags: None,
+            tts: None,
+        });
+
+        ctx.http
+            .interaction_callback(self.0, self.1, &response)
+            .exec()
+            .await?;
+
+        Ok(None)
+    }
+
+    async fn update_message<'c>(
+        &self,
+        ctx: &Context,
+        builder: MessageBuilder<'c>,
+        _: Option<Response<Message>>,
+    ) -> BotResult<Response<Message>> {
+        let req = ctx
+            .http
+            .update_interaction_original(self.1)?
+            .content(builder.content.as_ref().map(Cow::as_ref))?
+            .embeds(builder.embed.as_ref().map(slice::from_ref))?;
+
+        Ok(req.exec().await?)
+    }
+
+    async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
+        let embed = EmbedBuilder::new().color(RED).description(content).build();
+        let builder = MessageBuilder::new().embed(embed);
+
+        self.create_message(ctx, builder).await.map(|_| ())
+    }
+
+    async fn reply<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
+        let embed = EmbedBuilder::new().description(content).build();
+        let builder = MessageBuilder::new().embed(embed);
+
+        self.create_message(ctx, builder).await.map(|_| ())
+    }
+}
+
+#[async_trait]
+impl MessageExt for Message {
+    async fn create_message<'c>(
+        &self,
+        ctx: &Context,
+        builder: MessageBuilder<'c>,
+    ) -> BotResult<Option<Response<Message>>> {
+        (self.id, self.channel_id)
+            .create_message(ctx, builder)
+            .await
+    }
+
+    async fn update_message<'c>(
+        &self,
+        ctx: &Context,
+        builder: MessageBuilder<'c>,
+        response: Option<Response<Message>>,
+    ) -> BotResult<Response<Message>> {
+        (self.id, self.channel_id)
+            .update_message(ctx, builder, response)
+            .await
+    }
+
+    async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
+        (self.id, self.channel_id).error(ctx, content).await
+    }
+
+    async fn reply<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
+        (self.id, self.channel_id).reply(ctx, content).await
+    }
+}
+
+#[async_trait]
+impl MessageExt for ApplicationCommand {
+    async fn create_message<'c>(
+        &self,
+        ctx: &Context,
+        builder: MessageBuilder<'c>,
+    ) -> BotResult<Option<Response<Message>>> {
+        (self.id, self.token.as_str())
+            .create_message(ctx, builder)
+            .await
+    }
+
+    async fn update_message<'c>(
+        &self,
+        ctx: &Context,
+        builder: MessageBuilder<'c>,
+        response: Option<Response<Message>>,
+    ) -> BotResult<Response<Message>> {
+        (self.id, self.token.as_str())
+            .update_message(ctx, builder, response)
+            .await
+    }
+
+    async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
+        (self.id, self.token.as_str()).error(ctx, content).await
+    }
+
+    async fn reply<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
+        (self.id, self.token.as_str()).reply(ctx, content).await
+    }
+}
+
+#[async_trait]
+impl<'m> MessageExt for CommandData<'m> {
+    async fn create_message<'c>(
+        &self,
+        ctx: &Context,
+        builder: MessageBuilder<'c>,
+    ) -> BotResult<Option<Response<Message>>> {
+        match self {
+            Self::Message { msg, .. } => msg.create_message(ctx, builder).await,
+            Self::Interaction { command } => command.create_message(ctx, builder).await,
+        }
+    }
+
+    async fn update_message<'c>(
+        &self,
+        ctx: &Context,
+        builder: MessageBuilder<'c>,
+        response: Option<Response<Message>>,
+    ) -> BotResult<Response<Message>> {
+        match self {
+            Self::Message { msg, .. } => msg.update_message(ctx, builder, response).await,
+            Self::Interaction { command } => command.update_message(ctx, builder, response).await,
+        }
+    }
+
+    async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
+        match self {
+            Self::Message { msg, .. } => msg.error(ctx, content).await,
+            Self::Interaction { command } => command.error(ctx, content).await,
+        }
+    }
+
+    async fn reply<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
+        match self {
+            Self::Message { msg, .. } => msg.reply(ctx, content).await,
+            Self::Interaction { command } => command.reply(ctx, content).await,
+        }
+    }
+}
+
+#[async_trait]
+impl MessageExt for CommandDataCompact {
+    async fn create_message<'c>(
+        &self,
+        ctx: &Context,
+        builder: MessageBuilder<'c>,
+    ) -> BotResult<Option<Response<Message>>> {
+        match self {
+            CommandDataCompact::Message { msg_id, channel_id } => {
+                (*msg_id, *channel_id).create_message(ctx, builder).await
+            }
+            CommandDataCompact::Interaction {
+                interaction_id,
+                token,
+            } => {
+                (*interaction_id, token.as_str())
+                    .create_message(ctx, builder)
+                    .await
+            }
+        }
+    }
+
+    async fn update_message<'c>(
+        &self,
+        ctx: &Context,
+        builder: MessageBuilder<'c>,
+        response: Option<Response<Message>>,
+    ) -> BotResult<Response<Message>> {
+        match self {
+            CommandDataCompact::Message { msg_id, channel_id } => {
+                (*msg_id, *channel_id)
+                    .update_message(ctx, builder, response)
+                    .await
+            }
+            CommandDataCompact::Interaction {
+                interaction_id,
+                token,
+            } => {
+                (*interaction_id, token.as_str())
+                    .update_message(ctx, builder, response)
+                    .await
+            }
+        }
+    }
+
+    async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
+        match self {
+            CommandDataCompact::Message { msg_id, channel_id } => {
+                (*msg_id, *channel_id).error(ctx, content).await
+            }
+            CommandDataCompact::Interaction {
+                interaction_id,
+                token,
+            } => (*interaction_id, token.as_str()).error(ctx, content).await,
+        }
+    }
+
+    async fn reply<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
+        match self {
+            CommandDataCompact::Message { msg_id, channel_id } => {
+                (*msg_id, *channel_id).reply(ctx, content).await
+            }
+            CommandDataCompact::Interaction {
+                interaction_id,
+                token,
+            } => (*interaction_id, token.as_str()).reply(ctx, content).await,
+        }
     }
 }
