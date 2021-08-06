@@ -64,6 +64,7 @@ pub enum Error {
     Fmt(FmtError),
     Image(ImageError),
     Interaction(InteractionError),
+    InvalidCommandOptions,
     InvalidConfig(TomlError),
     InvalidSession(u64),
     IO(IOError),
@@ -106,6 +107,7 @@ impl StdError for Error {
             Self::Fmt(e) => Some(e),
             Self::Image(e) => Some(e),
             Self::Interaction(e) => Some(e),
+            Self::InvalidCommandOptions => None,
             Self::InvalidConfig(e) => Some(e),
             Self::InvalidSession(_) => None,
             Self::IO(e) => Some(e),
@@ -146,6 +148,7 @@ impl Display for Error {
             Self::Fmt(_) => f.write_str("fmt error"),
             Self::Image(_) => f.write_str("image error"),
             Self::Interaction(_) => f.write_str("interaction error"),
+            Self::InvalidCommandOptions => f.write_str("received invalid options for command"),
             Self::InvalidConfig(_) => f.write_str("config file was not in correct format"),
             Self::InvalidSession(shard) => write!(
                 f,

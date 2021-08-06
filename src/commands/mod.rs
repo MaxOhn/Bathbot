@@ -219,15 +219,14 @@ pub fn command_groups() -> [CommandGroup; 11] {
         CommandGroup::new(
             "twitch",
             Emote::Twitch,
-            vec![
-            // &ADDSTREAM_CMD, &REMOVESTREAM_CMD, &TRACKEDSTREAMS_CMD
-            ],
+            vec![&ADDSTREAM_CMD, &REMOVESTREAM_CMD, &TRACKEDSTREAMS_CMD],
         ),
         CommandGroup::new(
             "games",
             Emote::Custom("video_game"),
             vec![
-            // &MINESWEEPER_CMD, &BACKGROUNDGAME_CMD
+                &MINESWEEPER_CMD,
+                // &BACKGROUNDGAME_CMD
             ],
         ),
         CommandGroup::new(
@@ -285,5 +284,10 @@ pub fn command_groups() -> [CommandGroup; 11] {
 
 // TODO: Make array when done
 pub fn slash_commands() -> Vec<Command> {
-    vec![slash_link_command(), slash_ping_command()]
+    vec![
+        slash_link_command(),
+        slash_ping_command(),
+        slash_trackstream_command(),
+        slash_minesweeper_command(),
+    ]
 }

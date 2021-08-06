@@ -19,6 +19,13 @@ pub enum CommandData<'m> {
 }
 
 impl<'m> CommandData<'m> {
+    pub fn channel_id(&self) -> ChannelId {
+        match self {
+            Self::Message { msg, .. } => msg.channel_id,
+            Self::Interaction { command } => command.channel_id,
+        }
+    }
+
     pub fn author(&self) -> BotResult<&User> {
         match self {
             Self::Message { msg, .. } => Ok(&msg.author),

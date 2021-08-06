@@ -1,5 +1,5 @@
 use crate::{
-    commands::{osu, utility},
+    commands::{fun, osu, twitch, utility},
     util::ApplicationCommandExt,
     BotResult, Context, Error,
 };
@@ -9,12 +9,16 @@ use twilight_model::application::interaction::ApplicationCommand;
 
 pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
     // TODO: Ratelimit
+    // TODO: Command count metric
+
     let cmd_name = command.data.name.to_owned();
     log_slash(&ctx, &command, cmd_name.as_str());
 
     let command_result = match cmd_name.as_str() {
         "link" => osu::slash_link(ctx, command).await,
         "ping" => utility::slash_ping(ctx, command).await,
+        "trackstream" => twitch::slash_trackstream(ctx, command).await,
+        "minesweeper" => fun::slash_minesweeper(ctx, command).await,
         _ => return Err(Error::UnknownSlashCommand(cmd_name)),
     };
 

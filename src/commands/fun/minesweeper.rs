@@ -1,6 +1,6 @@
 use crate::{
-    util::{CowUtils, Matrix, MessageExt},
-    Args, BotResult, Context,
+    util::{ApplicationCommandExt, CowUtils, Matrix, MessageExt},
+    Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
 use rand::RngCore;
@@ -8,7 +8,13 @@ use std::{
     fmt::{self, Write},
     sync::Arc,
 };
-use twilight_model::channel::Message;
+use twilight_model::{
+    application::{
+        command::{ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice},
+        interaction::{application_command::CommandDataOption, ApplicationCommand},
+    },
+    channel::Message,
+};
 
 #[command]
 #[short_desc("Play a game of minesweeper")]
@@ -20,16 +26,18 @@ use twilight_model::channel::Message;
     - `hard`: 9x11 grid"
 )]
 #[usage("[easy / medium / hard]")]
-async fn minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
-    let difficulty = match args.next().map(CowUtils::cow_to_ascii_lowercase).as_deref() {
-        None | Some("easy") => Difficulty::Easy,
-        Some("medium") => Difficulty::Medium,
-        Some("hard") => Difficulty::Hard,
-        // Some("extreme") | Some("expert") => Difficulty::Expert,
-        _ => {
-            let content = "The argument must be either `easy`, `medium`, `hard`";
-            return msg.error(&ctx, content).await;
-        }
+async fn minesweeper(ctx: Arc<Context>, mut data: CommandData) -> BotResult<()> {
+    let difficulty = match &mut data {
+        CommandData::Message { args, msg, .. } => match Difficulty::args(args) {
+            Ok(difficulty) => difficulty,
+            Err(content) => {
+                let builder = MessageBuilder::new().content(content);
+                msg.create_message(&ctx, builder).await?;
+
+                return Ok(());
+            }
+        },
+        CommandData::Interaction { command } => Difficulty::slash(command)?,
     };
 
     let game = difficulty.create();
@@ -40,6 +48,7 @@ async fn minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRes
         for y in 0..h {
             let _ = write!(field, "||:{}:||", game.field[(x, y)]);
         }
+
         field.push('\n');
     }
 
@@ -50,7 +59,8 @@ async fn minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRes
         w, h, game.mines, field
     );
 
-    msg.send_response(&ctx, content).await?;
+    let builder = MessageBuilder::new().content(content);
+    data.create_message(&ctx, builder).await?;
 
     Ok(())
 }
@@ -59,16 +69,56 @@ enum Difficulty {
     Easy,
     Medium,
     Hard,
-    // Expert,
+    Expert,
 }
 
 impl Difficulty {
+    fn args(args: &mut Args) -> Result<Self, &'static str> {
+        match args.next().map(CowUtils::cow_to_ascii_lowercase).as_deref() {
+            None | Some("easy") => Ok(Self::Easy),
+            Some("medium") => Ok(Self::Medium),
+            Some("hard") => Ok(Self::Hard),
+            // Some("expert") => Ok(Self::Expert),
+            _ => return Err("The argument must be either `easy`, `medium`, or `hard`"),
+        }
+    }
+
+    fn slash(command: &mut ApplicationCommand) -> BotResult<Self> {
+        let mut difficulty = None;
+
+        for option in command.yoink_options() {
+            match option {
+                CommandDataOption::String { name, value } => match name.as_str() {
+                    "difficulty" => match value.as_str() {
+                        "Easy" => difficulty = Some(Self::Easy),
+                        "Medium" => difficulty = Some(Self::Medium),
+                        "Hard" => difficulty = Some(Self::Hard),
+                        "Expert" => difficulty = Some(Self::Expert),
+                        _ => bail_cmd_option!("minesweeper", string, value),
+                    },
+                    _ => bail_cmd_option!("minesweeper", string, name),
+                },
+                CommandDataOption::Integer { name, .. } => {
+                    bail_cmd_option!("minesweeper", integer, name)
+                }
+                CommandDataOption::Boolean { name, .. } => {
+                    bail_cmd_option!("minesweeper", boolean, name)
+                }
+                CommandDataOption::SubCommand { name, options } => {
+                    bail_cmd_option!("minesweeper", subcommand, name)
+                }
+            }
+        }
+
+        difficulty.ok_or(Error::InvalidCommandOptions)
+    }
+
     fn create(&self) -> Minesweeper {
         match self {
             Difficulty::Easy => Minesweeper::new(6, 6, 6),
             Difficulty::Medium => Minesweeper::new(8, 8, 12),
             Difficulty::Hard => Minesweeper::new(11, 9, 20),
-            // Difficulty::Expert => Minesweeper::new(13, 13, 40),
+            Difficulty::Expert => Minesweeper::new(13, 13, 40),
         }
     }
 }
@@ -142,5 +192,39 @@ impl fmt::Display for Cell {
 impl Default for Cell {
     fn default() -> Self {
         Self::None
+    }
+}
+
+pub async fn slash_minesweeper(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
+    minesweeper(ctx, CommandData::Interaction { command }).await
+}
+
+pub fn slash_minesweeper_command() -> Command {
+    Command {
+        application_id: None,
+        guild_id: None,
+        name: "minesweeper".to_owned(),
+        default_permission: None,
+        description: "Play a game of minesweeper".to_owned(),
+        id: None,
+        options: vec![CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![
+                CommandOptionChoice::String {
+                    name: "Easy".to_owned(),
+                    value: "Easy".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "Medium".to_owned(),
+                    value: "Medium".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "Hard".to_owned(),
+                    value: "Hard".to_owned(),
+                },
+            ],
+            description: "Choose a difficulty".to_owned(),
+            name: "difficulty".to_owned(),
+            required: true,
+        })],
     }
 }

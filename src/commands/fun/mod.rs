@@ -1,5 +1,5 @@
 // mod bg_game;
-// mod minesweeper;
+mod minesweeper;
 
 // pub use bg_game::*;
-// pub use minesweeper::*;
+pub use minesweeper::*;
