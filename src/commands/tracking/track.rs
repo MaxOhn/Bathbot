@@ -1,8 +1,8 @@
+use super::TrackArgs;
 use crate::{
-    arguments::{Args, MultNameLimitArgs},
     embeds::{EmbedData, TrackEmbed},
     util::{constants::OSU_API_ISSUE, MessageExt},
-    BotResult, Context,
+    Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
 use chrono::Utc;
@@ -10,50 +10,36 @@ use futures::{
     future::FutureExt,
     stream::{FuturesUnordered, StreamExt},
 };
+use hashbrown::HashSet;
 use rosu_v2::prelude::{GameMode, OsuError};
-use std::{collections::HashSet, sync::Arc};
+use std::sync::Arc;
 use twilight_model::channel::Message;
 
-async fn track_main(
-    mode: GameMode,
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-    num: Option<usize>,
-) -> BotResult<()> {
-    let args = match MultNameLimitArgs::new(&ctx, args, 10) {
-        Ok(args) => args,
-        Err(err_msg) => return msg.error(&ctx, err_msg).await,
-    };
-
-    let names = if args.names.is_empty() {
-        let content = "You need to specify at least one osu username";
-
-        return msg.error(&ctx, content).await;
-    } else {
-        args.names.into_iter().collect::<HashSet<_>>()
-    };
+pub async fn _track(ctx: Arc<Context>, data: CommandData<'_>, args: TrackArgs) -> BotResult<()> {
+    let mut names: HashSet<_> = args.more_names.into_iter().collect();
+    names.insert(args.name);
 
     if let Some(name) = names.iter().find(|name| name.len() > 15) {
         let content = format!("`{}` is too long for an osu! username", name);
 
-        return msg.error(&ctx, content).await;
+        return data.error(&ctx, content).await;
     }
 
-    let limit = match args.limit.or(num) {
+    let limit = match args.limit {
         Some(limit) if limit == 0 || limit > 100 => {
             let content = "The given limit must be between 1 and 100";
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Some(limit) => limit,
         None => 50,
     };
 
     let count = names.len();
+    let mode = args.mode.unwrap_or(GameMode::STD);
 
     // Retrieve all users
-    let mut user_futs = names
+    let mut user_futs: FuturesUnordered<_> = names
         .into_iter()
         .map(|name| {
             ctx.osu()
@@ -61,7 +47,7 @@ async fn track_main(
                 .mode(mode)
                 .map(move |result| (name, result))
         })
-        .collect::<FuturesUnordered<_>>();
+        .collect();
 
     let mut users = Vec::with_capacity(count);
 
@@ -71,10 +57,10 @@ async fn track_main(
             Err(OsuError::NotFound) => {
                 let content = format!("User `{}` was not found", name);
 
-                return msg.error(&ctx, content).await;
+                return data.error(&ctx, content).await;
             }
             Err(why) => {
-                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+                let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
                 return Err(why.into());
             }
@@ -84,13 +70,7 @@ async fn track_main(
     // Free &ctx again
     drop(user_futs);
 
-    if users.is_empty() {
-        let content = "None of the given users were found by the API";
-
-        return msg.error(&ctx, content).await;
-    }
-
-    let channel = msg.channel_id;
+    let channel = data.channel_id();
     let mut success = Vec::with_capacity(users.len());
     let mut failure = Vec::new();
 
@@ -105,22 +85,22 @@ async fn track_main(
             Err(why) => {
                 unwind_error!(warn, why, "Error while adding tracked entry: {}");
 
-                let embed = &[
-                    TrackEmbed::new(mode, success, failure, Some(username), limit)
-                        .into_builder()
-                        .build(),
-                ];
+                let embed = TrackEmbed::new(mode, success, failure, Some(username), limit)
+                    .into_builder()
+                    .build();
+                let builder = MessageBuilder::new().embed(embed);
+                data.create_message(&ctx, builder).await?;
 
-                return msg.build_response(&ctx, |m| m.embeds(embed)).await;
+                return Ok(());
             }
         }
     }
 
-    let embed = &[TrackEmbed::new(mode, success, failure, None, limit)
+    let embed = TrackEmbed::new(mode, success, failure, None, limit)
         .into_builder()
-        .build()];
-
-    msg.build_response(&ctx, |m| m.embeds(embed)).await?;
+        .build();
+    let builder = MessageBuilder::new().embed(embed);
+    data.create_message(&ctx, builder).await?;
 
     Ok(())
 }
@@ -145,13 +125,18 @@ async fn track_main(
     "-limit 45 cookiezi whitecat",
     "\"freddie benson\""
 )]
-pub async fn track(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    track_main(GameMode::STD, ctx, msg, args, num).await
+pub async fn track(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            let track_args = match TrackArgs::args(&ctx, &mut args, num, Some(GameMode::STD)) {
+                Ok(args) => args,
+                Err(content) => return msg.error(&ctx, content).await,
+            };
+
+            _track(ctx, CommandData::Message { msg, args, num }, track_args).await
+        }
+        CommandData::Interaction { command } => super::slash_track(ctx, command).await,
+    }
 }
 
 #[command]
@@ -174,13 +159,18 @@ pub async fn track(
     "-limit 45 cookiezi whitecat",
     "\"freddie benson\""
 )]
-pub async fn trackmania(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    track_main(GameMode::MNA, ctx, msg, args, num).await
+pub async fn trackmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            let track_args = match TrackArgs::args(&ctx, &mut args, num, Some(GameMode::MNA)) {
+                Ok(args) => args,
+                Err(content) => return msg.error(&ctx, content).await,
+            };
+
+            _track(ctx, CommandData::Message { msg, args, num }, track_args).await
+        }
+        CommandData::Interaction { command } => super::slash_track(ctx, command).await,
+    }
 }
 
 #[command]
@@ -203,13 +193,18 @@ pub async fn trackmania(
     "-limit 45 cookiezi whitecat",
     "\"freddie benson\""
 )]
-pub async fn tracktaiko(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    track_main(GameMode::TKO, ctx, msg, args, num).await
+pub async fn tracktaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            let track_args = match TrackArgs::args(&ctx, &mut args, num, Some(GameMode::TKO)) {
+                Ok(args) => args,
+                Err(content) => return msg.error(&ctx, content).await,
+            };
+
+            _track(ctx, CommandData::Message { msg, args, num }, track_args).await
+        }
+        CommandData::Interaction { command } => super::slash_track(ctx, command).await,
+    }
 }
 
 #[command]
@@ -232,11 +227,16 @@ pub async fn tracktaiko(
     "-limit 45 cookiezi whitecat",
     "\"freddie benson\""
 )]
-pub async fn trackctb(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    track_main(GameMode::CTB, ctx, msg, args, num).await
+pub async fn trackctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            let track_args = match TrackArgs::args(&ctx, &mut args, num, Some(GameMode::CTB)) {
+                Ok(args) => args,
+                Err(content) => return msg.error(&ctx, content).await,
+            };
+
+            _track(ctx, CommandData::Message { msg, args, num }, track_args).await
+        }
+        CommandData::Interaction { command } => super::slash_track(ctx, command).await,
+    }
 }

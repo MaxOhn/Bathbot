@@ -39,6 +39,12 @@ impl<'m> CommandData<'m> {
     }
 }
 
+impl<'m> From<ApplicationCommand> for CommandData<'m> {
+    fn from(command: ApplicationCommand) -> Self {
+        Self::Interaction { command }
+    }
+}
+
 pub enum CommandDataCompact {
     Message {
         msg_id: MessageId,

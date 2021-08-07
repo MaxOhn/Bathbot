@@ -101,13 +101,9 @@ pub async fn slash_trackstream(
     mut command: ApplicationCommand,
 ) -> BotResult<()> {
     match StreamArgs::slash(&mut command)? {
-        StreamCommandKind::Add(name) => {
-            _addstream(ctx, CommandData::Interaction { command }, name.as_str()).await
-        }
-        StreamCommandKind::Remove(name) => {
-            _removestream(ctx, CommandData::Interaction { command }, name.as_str()).await
-        }
-        StreamCommandKind::List => tracked(ctx, CommandData::Interaction { command }).await,
+        StreamCommandKind::Add(name) => _addstream(ctx, command.into(), name.as_str()).await,
+        StreamCommandKind::Remove(name) => _removestream(ctx, command.into(), name.as_str()).await,
+        StreamCommandKind::List => tracked(ctx, command.into()).await,
     }
 }
 

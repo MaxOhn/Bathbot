@@ -180,7 +180,7 @@ async fn link(ctx: Arc<Context>, mut data: CommandData) -> BotResult<()> {
 }
 
 pub async fn slash_link(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
-    link(ctx, CommandData::Interaction { command }).await
+    link(ctx, command.into()).await
 }
 
 pub fn slash_link_command() -> Command {

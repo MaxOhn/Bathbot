@@ -39,11 +39,12 @@ use osu::*;
 use owner::*;
 use songs::*;
 use tracking::*;
-use twilight_model::application::command::Command;
 use twitch::*;
 use utility::*;
 
 use crate::{core::CommandGroup, util::Emote};
+
+use twilight_model::application::command::Command;
 
 pub fn command_groups() -> [CommandGroup; 11] {
     [
@@ -207,13 +208,13 @@ pub fn command_groups() -> [CommandGroup; 11] {
             "osu!tracking",
             Emote::Tracking,
             vec![
-                // &TRACK_CMD,
-                // &TRACKMANIA_CMD,
-                // &TRACKTAIKO_CMD,
-                // &TRACKCTB_CMD,
-                // &TRACKLIST_CMD,
-                // &UNTRACK_CMD,
-                // &UNTRACKALL_CMD,
+                &TRACK_CMD,
+                &TRACKMANIA_CMD,
+                &TRACKTAIKO_CMD,
+                &TRACKCTB_CMD,
+                &TRACKLIST_CMD,
+                &UNTRACK_CMD,
+                &UNTRACKALL_CMD,
             ],
         ),
         CommandGroup::new(
@@ -286,6 +287,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
 pub fn slash_commands() -> Vec<Command> {
     vec![
         slash_link_command(),
+        slash_track_command(),
         slash_ping_command(),
         slash_trackstream_command(),
         slash_minesweeper_command(),

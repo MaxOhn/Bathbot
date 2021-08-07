@@ -13,6 +13,8 @@ use syn::{
 pub struct CommandFun {
     // #[...]
     pub attributes: Vec<Attribute>,
+    // pub / nothing
+    visibility: Visibility,
     // name
     pub name: Ident,
     // (...)
@@ -29,7 +31,7 @@ impl Parse for CommandFun {
         let attributes = input.call(Attribute::parse_outer)?;
 
         // pub / nothing
-        let _ = input.parse::<Visibility>()?;
+        let visibility = input.parse::<Visibility>()?;
 
         // async fn
         input.parse::<Token![async]>()?;
@@ -105,6 +107,7 @@ impl Parse for CommandFun {
 
         Ok(Self {
             attributes,
+            visibility,
             name,
             args,
             ret,
@@ -117,6 +120,7 @@ impl ToTokens for CommandFun {
     fn to_tokens(&self, stream: &mut TokenStream2) {
         let Self {
             attributes: _,
+            visibility,
             name,
             args,
             ret,
@@ -124,7 +128,7 @@ impl ToTokens for CommandFun {
         } = self;
 
         stream.extend(quote! {
-            async fn #name<'fut>(#(#args),*) -> #ret {
+            #visibility async fn #name<'fut>(#(#args),*) -> #ret {
                 #(#body)*
             }
         });

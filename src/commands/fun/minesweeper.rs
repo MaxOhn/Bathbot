@@ -196,7 +196,7 @@ impl Default for Cell {
 }
 
 pub async fn slash_minesweeper(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
-    minesweeper(ctx, CommandData::Interaction { command }).await
+    minesweeper(ctx, command.into()).await
 }
 
 pub fn slash_minesweeper_command() -> Command {

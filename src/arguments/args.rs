@@ -1,4 +1,6 @@
 use super::Stream;
+use crate::{util::matcher, Context, Name};
+
 use std::{collections::VecDeque, error::Error, fmt, iter};
 
 pub struct Args<'m> {
@@ -89,6 +91,12 @@ impl<'m> Args<'m> {
         stream.take_while_char(char::is_whitespace);
 
         Some((start, end))
+    }
+
+    pub fn try_link_name(ctx: &Context, arg: &str) -> Option<Name> {
+        matcher::get_mention_user(arg)
+            .and_then(|id| ctx.get_link(id))
+            .or_else(|| Some(arg.into()))
     }
 }
 

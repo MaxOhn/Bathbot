@@ -1,5 +1,5 @@
 use crate::{
-    commands::{fun, osu, twitch, utility},
+    commands::{fun, osu, tracking, twitch, utility},
     util::ApplicationCommandExt,
     BotResult, Context, Error,
 };
@@ -16,9 +16,10 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
 
     let command_result = match cmd_name.as_str() {
         "link" => osu::slash_link(ctx, command).await,
-        "ping" => utility::slash_ping(ctx, command).await,
-        "trackstream" => twitch::slash_trackstream(ctx, command).await,
         "minesweeper" => fun::slash_minesweeper(ctx, command).await,
+        "ping" => utility::slash_ping(ctx, command).await,
+        "track" => tracking::slash_track(ctx, command).await,
+        "trackstream" => twitch::slash_trackstream(ctx, command).await,
         _ => return Err(Error::UnknownSlashCommand(cmd_name)),
     };
 

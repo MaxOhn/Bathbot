@@ -2,10 +2,13 @@ use crate::{
     arguments::Args,
     embeds::{EmbedData, TrackListEmbed},
     util::{constants::OSU_API_ISSUE, MessageExt},
-    BotResult, Context,
+    BotResult, CommandData, Context, MessageBuilder,
 };
 
-use futures::stream::{FuturesUnordered, StreamExt};
+use futures::{
+    future::FutureExt,
+    stream::{FuturesUnordered, StreamExt},
+};
 use rosu_v2::prelude::OsuError;
 use std::sync::Arc;
 use twilight_model::channel::Message;
@@ -14,12 +17,12 @@ use twilight_model::channel::Message;
 #[authority()]
 #[short_desc("Display tracked users of a channel")]
 #[aliases("tl")]
-async fn tracklist(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
-    let tracked = ctx.tracking().list(msg.channel_id);
-
+pub async fn tracklist(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    let channel_id = data.channel_id();
+    let tracked = ctx.tracking().list(channel_id);
     let count = tracked.len();
 
-    let mut user_futs = tracked
+    let mut user_futs: FuturesUnordered<_> = tracked
         .into_iter()
         .map(|(user_id, mode, limit)| {
             ctx.osu()
@@ -27,7 +30,7 @@ async fn tracklist(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
                 .mode(mode)
                 .map(move |result| (user_id, mode, limit, result))
         })
-        .collect::<FuturesUnordered<_>>();
+        .collect();
 
     let mut users = Vec::with_capacity(count);
 
@@ -35,9 +38,7 @@ async fn tracklist(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
         match result {
             Ok(user) => users.push((user.username, mode, limit)),
             Err(OsuError::NotFound) => {
-                let remove_fut = ctx
-                    .tracking()
-                    .remove_user(user_id, msg.channel_id, ctx.psql());
+                let remove_fut = ctx.tracking().remove_user(user_id, channel_id, ctx.psql());
 
                 if let Err(why) = remove_fut.await {
                     warn!(
@@ -47,7 +48,7 @@ async fn tracklist(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
                 }
             }
             Err(why) => {
-                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+                let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
                 return Err(why.into());
             }
@@ -64,11 +65,13 @@ async fn tracklist(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
 
     if embeds.is_empty() {
         let content = "No tracked users in this channel";
-        msg.send_response(&ctx, content).await?;
+        let builder = MessageBuilder::new().content(content);
+        data.create_message(&ctx, builder).await?;
     } else {
-        for data in embeds {
-            let embed = &[data.into_builder().build()];
-            msg.build_response(&ctx, |m| m.embeds(embed)).await?;
+        for embed_data in embeds {
+            let embed = embed_data.into_builder().build();
+            let builder = MessageBuilder::new().embed(embed);
+            data.create_message(&ctx, builder).await?;
         }
     }
 
