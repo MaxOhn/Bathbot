@@ -1,3 +1,5 @@
+use crate::embeds::EmbedBuilder;
+
 use std::borrow::Cow;
 use twilight_model::channel::embed::Embed;
 
@@ -18,9 +20,34 @@ impl<'c> MessageBuilder<'c> {
         self
     }
 
-    pub fn embed(mut self, embed: Embed) -> Self {
-        self.embed.replace(embed);
+    pub fn embed(mut self, embed: impl IntoEmbed) -> Self {
+        self.embed.replace(embed.into_embed());
 
         self
+    }
+}
+
+impl<'c> From<Embed> for MessageBuilder<'c> {
+    fn from(embed: Embed) -> Self {
+        Self {
+            content: None,
+            embed: Some(embed),
+        }
+    }
+}
+
+trait IntoEmbed {
+    fn into_embed(self) -> Embed;
+}
+
+impl IntoEmbed for Embed {
+    fn into_embed(self) -> Embed {
+        self
+    }
+}
+
+impl IntoEmbed for String {
+    fn into_embed(self) -> Embed {
+        EmbedBuilder::new().description(self).build()
     }
 }

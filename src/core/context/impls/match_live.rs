@@ -1,6 +1,5 @@
 use crate::{
-    embeds::EmbedData,
-    // embeds::{EmbedData, MatchLiveEmbed, MatchLiveEmbeds},
+    embeds::{EmbedData, MatchLiveEmbed, MatchLiveEmbeds},
     Context,
 };
 
@@ -73,69 +72,69 @@ impl Context {
             .map(|entry| *entry.key())
     }
 
-    // pub async fn add_match_track(&self, channel: ChannelId, match_id: u32) -> MatchTrackResult {
-    //     let match_live = &self.data.match_live;
+    pub async fn add_match_track(&self, channel: ChannelId, match_id: u32) -> MatchTrackResult {
+        let match_live = &self.data.match_live;
 
-    //     // Increment the track counter for the channel
-    //     let capped = match_live
-    //         .channel_count
-    //         .get(&channel)
-    //         .map_or(false, |entry| *entry.value() >= 3);
+        // Increment the track counter for the channel
+        let capped = match_live
+            .channel_count
+            .get(&channel)
+            .map_or(false, |entry| *entry.value() >= 3);
 
-    //     // Return early if channel is already tracking three channels
-    //     if capped {
-    //         return MatchTrackResult::Capped;
-    //     }
+        // Return early if channel is already tracking three channels
+        if capped {
+            return MatchTrackResult::Capped;
+        }
 
-    //     match match_live.match_channels.entry(match_id) {
-    //         // The match is already being tracked in some channel
-    //         Entry::Occupied(mut e) => {
-    //             let (tracked_match, channel_list) = e.get_mut();
+        match match_live.match_channels.entry(match_id) {
+            // The match is already being tracked in some channel
+            Entry::Occupied(mut e) => {
+                let (tracked_match, channel_list) = e.get_mut();
 
-    //             // The match is already tracked in the current channel
-    //             if channel_list.iter().any(|&(id, _)| id == channel) {
-    //                 return MatchTrackResult::Duplicate;
-    //             }
+                // The match is already tracked in the current channel
+                if channel_list.iter().any(|&(id, _)| id == channel) {
+                    return MatchTrackResult::Duplicate;
+                }
 
-    //             let locked_match = tracked_match.lock().await;
+                let locked_match = tracked_match.lock().await;
 
-    //             let msg = match send_match_messages(self, channel, &locked_match.embeds).await {
-    //                 Some(msg) => Mutex::new(msg),
-    //                 None => return MatchTrackResult::Error,
-    //             };
+                let msg = match send_match_messages(self, channel, &locked_match.embeds).await {
+                    Some(msg) => Mutex::new(msg),
+                    None => return MatchTrackResult::Error,
+                };
 
-    //             *match_live.channel_count.entry(channel).or_insert(0) += 1;
-    //             channel_list.push((channel, msg));
+                *match_live.channel_count.entry(channel).or_insert(0) += 1;
+                channel_list.push((channel, msg));
 
-    //             MatchTrackResult::Added
-    //         }
-    //         // The match is not yet tracked -> request and store it
-    //         Entry::Vacant(e) => match self.osu().osu_match(match_id).await {
-    //             Ok(osu_match) => {
-    //                 let embeds = MatchLiveEmbed::new(&osu_match);
+                MatchTrackResult::Added
+            }
+            // The match is not yet tracked -> request and store it
+            Entry::Vacant(e) => match self.osu().osu_match(match_id).await {
+                Ok(osu_match) => {
+                    let embeds = MatchLiveEmbed::new(&osu_match);
 
-    //                 let msg = match send_match_messages(self, channel, &embeds).await {
-    //                     Some(msg) => Mutex::new(msg),
-    //                     None => return MatchTrackResult::Error,
-    //                 };
+                    let msg = match send_match_messages(self, channel, &embeds).await {
+                        Some(msg) => Mutex::new(msg),
+                        None => return MatchTrackResult::Error,
+                    };
 
-    //                 // Only add to tracking if it's not already disbanded
-    //                 if !matches!(osu_match.events.last(), Some(MatchEvent::Disbanded { .. })) {
-    //                     *match_live.channel_count.entry(channel).or_insert(0) += 1;
-    //                     let tracked_match = TrackedMatch::new(osu_match, embeds);
-    //                     e.insert((Mutex::new(tracked_match), smallvec![(channel, msg)]));
-    //                 }
+                    // Only add to tracking if it's not already disbanded
+                    if !matches!(osu_match.events.last(), Some(MatchEvent::Disbanded { .. })) {
+                        *match_live.channel_count.entry(channel).or_insert(0) += 1;
+                        let tracked_match = TrackedMatch::new(osu_match, embeds);
+                        e.insert((Mutex::new(tracked_match), smallvec![(channel, msg)]));
+                    }
 
-    //                 MatchTrackResult::Added
-    //             }
-    //             Err(why) => {
-    //                 unwind_error!(warn, why, "Failed to request initial match: {}");
+                    MatchTrackResult::Added
+                }
+                Err(why) => {
+                    unwind_error!(warn, why, "Failed to request initial match: {}");
 
-    //                 MatchTrackResult::Error
-    //             }
-    //         },
-    //     }
-    // }
+                    MatchTrackResult::Error
+                }
+            },
+        }
+    }
 
     /// Returns false if the match wasn't tracked in the channel
     pub fn remove_match_track(&self, channel: ChannelId, match_id: u32) -> bool {
@@ -180,90 +179,90 @@ impl Context {
     }
 
     pub async fn match_live_loop(ctx: Arc<Context>) {
-        // if cfg!(debug_assertions) {
-        //     info!("Skip match live tracking on debug");
+        if cfg!(debug_assertions) {
+            info!("Skip match live tracking on debug");
 
-        //     return;
-        // }
+            return;
+        }
 
-        // let mut interval = interval(Duration::from_secs(10));
-        // interval.tick().await;
+        let mut interval = interval(Duration::from_secs(10));
+        interval.tick().await;
 
-        // // Match ids of matches that finished this iteration
-        // let mut remove = Vec::new();
+        // Match ids of matches that finished this iteration
+        let mut remove = Vec::new();
 
-        // loop {
-        //     interval.tick().await;
+        loop {
+            interval.tick().await;
 
-        //     for entry in ctx.data.match_live.match_channels.iter() {
-        //         let (locked_match, channels) = entry.value();
-        //         let mut tracked_match = locked_match.lock().await;
+            for entry in ctx.data.match_live.match_channels.iter() {
+                let (locked_match, channels) = entry.value();
+                let mut tracked_match = locked_match.lock().await;
 
-        //         let next_match = match tracked_match.osu_match.get_next(ctx.osu()).await {
-        //             Ok(next_match) => next_match,
-        //             Err(why) => {
-        //                 unwind_error!(warn, why, "Failed to request match for live ticker: {}");
+                let next_match = match tracked_match.osu_match.get_next(ctx.osu()).await {
+                    Ok(next_match) => next_match,
+                    Err(why) => {
+                        unwind_error!(warn, why, "Failed to request match for live ticker: {}");
 
-        //                 continue;
-        //             }
-        //         };
+                        continue;
+                    }
+                };
 
-        //         let (update, new_embeds) = tracked_match
-        //             .embeds
-        //             .last_mut()
-        //             .expect("no last live embed")
-        //             .update(&next_match);
+                let (update, new_embeds) = tracked_match
+                    .embeds
+                    .last_mut()
+                    .expect("no last live embed")
+                    .update(&next_match);
 
-        //         if next_match.end_time.is_some() {
-        //             remove.push(next_match.match_id);
-        //         }
+                if next_match.end_time.is_some() {
+                    remove.push(next_match.match_id);
+                }
 
-        //         tracked_match.osu_match = next_match;
+                tracked_match.osu_match = next_match;
 
-        //         if update {
-        //             let data = tracked_match.embeds.last().unwrap();
+                if update {
+                    let data = tracked_match.embeds.last().unwrap();
 
-        //             for (channel, msg) in channels.iter() {
-        //                 let msg = *msg.lock().await;
-        //                 let embed = &[data.as_builder().build()];
-        //                 let update_result = ctx.http.update_message(*channel, msg).embeds(embed);
+                    for (channel, msg) in channels.iter() {
+                        let msg = *msg.lock().await;
+                        let embed = &[data.as_builder().build()];
+                        let update_result = ctx.http.update_message(*channel, msg).embeds(embed);
 
-        //                 let update_fut = match update_result {
-        //                     Ok(update_fut) => update_fut.exec(),
-        //                     Err(why) => {
-        //                         unwind_error!(
-        //                             warn,
-        //                             why,
-        //                             "Failed to build msg update for live match: {}"
-        //                         );
+                        let update_fut = match update_result {
+                            Ok(update_fut) => update_fut.exec(),
+                            Err(why) => {
+                                unwind_error!(
+                                    warn,
+                                    why,
+                                    "Failed to build msg update for live match: {}"
+                                );
 
-        //                         continue;
-        //                     }
-        //                 };
+                                continue;
+                            }
+                        };
 
-        //                 if let Err(why) = update_fut.await {
-        //                     unwind_error!(warn, why, "Failed to update match live msg: {}");
-        //                 }
-        //             }
-        //         }
+                        if let Err(why) = update_fut.await {
+                            unwind_error!(warn, why, "Failed to update match live msg: {}");
+                        }
+                    }
+                }
 
-        //         if let Some(embeds) = new_embeds {
-        //             for (channel, msg_lock) in channels.iter() {
-        //                 match send_match_messages(&ctx, *channel, &embeds).await {
-        //                     Some(msg) => *msg_lock.lock().await = msg,
-        //                     None => error!("Failed to send last match live message"),
-        //                 }
-        //             }
+                if let Some(embeds) = new_embeds {
+                    for (channel, msg_lock) in channels.iter() {
+                        match send_match_messages(&ctx, *channel, &embeds).await {
+                            Some(msg) => *msg_lock.lock().await = msg,
+                            None => error!("Failed to send last match live message"),
+                        }
+                    }
 
-        //             tracked_match.embeds.extend(embeds);
-        //         }
-        //     }
+                    tracked_match.embeds.extend(embeds);
+                }
+            }
 
-        //     // Remove the match id entries
-        //     for match_id in remove.drain(..) {
-        //         ctx.remove_all_match_tracks(match_id);
-        //     }
-        // }
+            // Remove the match id entries
+            for match_id in remove.drain(..) {
+                ctx.remove_all_match_tracks(match_id);
+            }
+        }
     }
 
     pub async fn notify_match_live_shutdown(&self) -> usize {
@@ -299,90 +298,89 @@ struct TrackedMatch {
     /// Most recent update of the match
     osu_match: OsuMatch,
     /// All embeds of the match
-    // embeds: Vec<MatchLiveEmbed>,
-    embeds: Vec<()>,
+    embeds: Vec<MatchLiveEmbed>,
 }
 
 impl TrackedMatch {
-    // fn new(osu_match: OsuMatch, embeds: MatchLiveEmbeds) -> Self {
-    //     Self {
-    //         osu_match,
-    //         embeds: embeds.into_vec(),
-    //     }
-    // }
+    fn new(osu_match: OsuMatch, embeds: MatchLiveEmbeds) -> Self {
+        Self {
+            osu_match,
+            embeds: embeds.into_vec(),
+        }
+    }
 }
 
-// /// Sends a message to the channel for each embed
-// /// and returns the last of these messages
-// async fn send_match_messages(
-//     ctx: &Context,
-//     channel: ChannelId,
-//     embeds: &[MatchLiveEmbed],
-// ) -> Option<MessageId> {
-//     let mut iter = embeds.iter();
+/// Sends a message to the channel for each embed
+/// and returns the last of these messages
+async fn send_match_messages(
+    ctx: &Context,
+    channel: ChannelId,
+    embeds: &[MatchLiveEmbed],
+) -> Option<MessageId> {
+    let mut iter = embeds.iter();
 
-//     // Msg of last embed will be stored, do it separately
-//     let last = iter.next_back().expect("no embed on fresh match");
+    // Msg of last embed will be stored, do it separately
+    let last = iter.next_back().expect("no embed on fresh match");
 
-//     let content = if embeds.len() <= EMBED_LIMIT {
-//         for embed in iter {
-//             let embed = embed.as_builder().build();
+    let content = if embeds.len() <= EMBED_LIMIT {
+        for embed in iter {
+            let embed = embed.as_builder().build();
 
-//             match ctx.http.create_message(channel).embeds(&[embed]) {
-//                 Ok(msg_fut) => {
-//                     if let Err(why) = msg_fut.exec().await {
-//                         unwind_error!(warn, why, "Error while sending match live embed: {}");
-//                     }
-//                 }
-//                 Err(why) => {
-//                     unwind_error!(warn, why, "Error while creating match live msg: {}");
-//                 }
-//             }
+            match ctx.http.create_message(channel).embeds(&[embed]) {
+                Ok(msg_fut) => {
+                    if let Err(why) = msg_fut.exec().await {
+                        unwind_error!(warn, why, "Error while sending match live embed: {}");
+                    }
+                }
+                Err(why) => {
+                    unwind_error!(warn, why, "Error while creating match live msg: {}");
+                }
+            }
 
-//             sleep(Duration::from_millis(250)).await;
-//         }
+            sleep(Duration::from_millis(250)).await;
+        }
 
-//         None
-//     } else {
-//         Some(
-//             "The match has been going too long \
-//             for me to send all previous messages.",
-//         )
-//     };
+        None
+    } else {
+        Some(
+            "The match has been going too long \
+            for me to send all previous messages.",
+        )
+    };
 
-//     let last = last.as_builder().build();
+    let last = last.as_builder().build();
 
-//     match ctx.http.create_message(channel).embeds(&[last]) {
-//         Ok(msg_fut) => {
-//             let msg_fut = match content {
-//                 Some(content) => msg_fut.content(content).unwrap(),
-//                 None => msg_fut,
-//             };
+    match ctx.http.create_message(channel).embeds(&[last]) {
+        Ok(msg_fut) => {
+            let msg_fut = match content {
+                Some(content) => msg_fut.content(content).unwrap(),
+                None => msg_fut,
+            };
 
-//             match msg_fut.exec().await {
-//                 Ok(msg_res) => match msg_res.model().await {
-//                     Ok(msg) => Some(msg.id),
-//                     Err(why) => {
-//                         unwind_error!(
-//                             error,
-//                             why,
-//                             "Failed to desserialize last match live embed response: {}"
-//                         );
+            match msg_fut.exec().await {
+                Ok(msg_res) => match msg_res.model().await {
+                    Ok(msg) => Some(msg.id),
+                    Err(why) => {
+                        unwind_error!(
+                            error,
+                            why,
+                            "Failed to desserialize last match live embed response: {}"
+                        );
 
-//                         None
-//                     }
-//                 },
-//                 Err(why) => {
-//                     unwind_error!(error, why, "Failed to send last match live embed: {}");
+                        None
+                    }
+                },
+                Err(why) => {
+                    unwind_error!(error, why, "Failed to send last match live embed: {}");
 
-//                     None
-//                 }
-//             }
-//         }
-//         Err(why) => {
-//             unwind_error!(error, why, "Failed to create last match live msg: {}");
+                    None
+                }
+            }
+        }
+        Err(why) => {
+            unwind_error!(error, why, "Failed to create last match live msg: {}");
 
-//             None
-//         }
-//     }
-// }
+            None
+        }
+    }
+}

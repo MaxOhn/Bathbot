@@ -6,13 +6,16 @@ use crate::{
         osu::{cached_message_extract, map_id_from_history, map_id_from_msg, MapIdType},
         MessageExt,
     },
-    BotResult, Context,
+    BotResult, CommandData, Context,
 };
 
 use rosu_v2::prelude::{BeatmapsetCompact, OsuError};
 use std::sync::Arc;
 use tokio::time::{self, Duration};
-use twilight_model::channel::{message::MessageType, Message};
+use twilight_model::{
+    application::{command::Command, interaction::ApplicationCommand},
+    channel::{message::MessageType, Message},
+};
 
 #[command]
 #[short_desc("Simulate a score on a map")]
@@ -31,7 +34,7 @@ use twilight_model::channel::{message::MessageType, Message};
     "https://osu.ppy.sh/beatmapsets/948199#osu/1980365 -a 97.56"
 )]
 #[aliases("s")]
-async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+async fn simulate(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let args = match SimulateMapArgs::new(args) {
         Ok(args) => args,
         Err(err_msg) => return msg.error(&ctx, err_msg).await,
@@ -152,4 +155,20 @@ async fn simulate(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
     });
 
     Ok(())
+}
+
+pub async fn slash_simulate(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
+    todo!()
+}
+
+pub fn slash_simulate_command() -> Command {
+    Command {
+        application_id: None,
+        guild_id: None,
+        name: "simulate".to_owned(),
+        default_permission: None,
+        description: "Simulate a score on a map".to_owned(),
+        id: None,
+        options: vec![],
+    }
 }

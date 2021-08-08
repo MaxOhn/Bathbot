@@ -93,10 +93,14 @@ impl<'m> Args<'m> {
         Some((start, end))
     }
 
-    pub fn try_link_name(ctx: &Context, arg: &str) -> Option<Name> {
-        matcher::get_mention_user(arg)
-            .and_then(|id| ctx.get_link(id))
-            .or_else(|| Some(arg.into()))
+    pub fn try_link_name(ctx: &Context, arg: &str) -> Result<Name, &'static str> {
+        match matcher::get_mention_user(arg) {
+            Some(id) => match ctx.get_link(id) {
+                Some(name) => Ok(name),
+                None => Err("The specified user is not linked to an osu profile"),
+            },
+            None => Ok(arg.into()),
+        }
     }
 }
 

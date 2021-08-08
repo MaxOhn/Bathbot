@@ -1,16 +1,18 @@
 use crate::{
-    arguments::{Args, MatchArgs},
     embeds::{EmbedData, MatchCostEmbed},
-    util::{constants::OSU_API_ISSUE, MessageExt},
-    BotResult, Context,
+    util::{constants::OSU_API_ISSUE, matcher, ApplicationCommandExt, MessageExt},
+    Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
 use hashbrown::{HashMap, HashSet};
 use rosu_v2::prelude::{
     GameMods, MatchGame, Osu, OsuError, OsuMatch, OsuResult, Team, TeamType, UserCompact,
 };
-use std::{cmp::Ordering, collections::HashMap as StdHashMap, fmt::Write, sync::Arc};
-use twilight_model::channel::Message;
+use std::{cmp::Ordering, collections::HashMap as StdHashMap, fmt::Write, mem, sync::Arc};
+use twilight_model::application::{
+    command::{ChoiceCommandOptionData, Command, CommandOption},
+    interaction::{application_command::CommandDataOption, ApplicationCommand},
+};
 
 const USER_LIMIT: usize = 50;
 const TOO_MANY_PLAYERS_TEXT: &str = "Too many players, cannot display message :(";
@@ -28,12 +30,23 @@ const TOO_MANY_PLAYERS_TEXT: &str = "Too many players, cannot display message :(
 #[usage("[match url / match id] [amount of warmups]")]
 #[example("58320988 1", "https://osu.ppy.sh/community/matches/58320988")]
 #[aliases("mc", "matchcost")]
-async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    let args = match MatchArgs::new(args) {
-        Ok(args) => args,
-        Err(err_msg) => return msg.error(&ctx, err_msg).await,
-    };
+async fn matchcosts(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => match MatchCostArgs::args(&mut args) {
+            Ok(matchcost_args) => {
+                _matchcosts(ctx, CommandData::Message { msg, args, num }, matchcost_args).await
+            }
+            Err(content) => msg.error(&ctx, content).await,
+        },
+        CommandData::Interaction { command } => slash_matchcost(ctx, command).await,
+    }
+}
 
+async fn _matchcosts(
+    ctx: Arc<Context>,
+    data: CommandData<'_>,
+    args: MatchCostArgs,
+) -> BotResult<()> {
     let match_id = args.match_id;
     let warmups = args.warmups;
 
@@ -48,10 +61,10 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         Err(OsuError::NotFound) => {
             let content = "Either the mp id was invalid or the match was private";
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -68,7 +81,7 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 
     // Prematurely abort if its too many players to display in a message
     if users.len() > USER_LIMIT {
-        return msg.error(&ctx, TOO_MANY_PLAYERS_TEXT).await;
+        return data.error(&ctx, TOO_MANY_PLAYERS_TEXT).await;
     }
 
     // Process match
@@ -87,12 +100,12 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     };
 
     // Accumulate all necessary data
-    let data = match MatchCostEmbed::new(&mut osu_match, description, match_result) {
+    let embed_data = match MatchCostEmbed::new(&mut osu_match, description, match_result) {
         Some(data) => data,
-        None => return msg.error(&ctx, TOO_MANY_PLAYERS_TEXT).await,
+        None => return data.error(&ctx, TOO_MANY_PLAYERS_TEXT).await,
     };
 
-    let embed = &[data.into_builder().build()];
+    let embed = embed_data.into_builder().build();
 
     let content = (warmups > 0).then(|| {
         let mut content = "Ignoring the first ".to_owned();
@@ -109,14 +122,13 @@ async fn matchcosts(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     });
 
     // Creating the embed
-    msg.build_response(&ctx, |m| {
-        if let Some(ref content) = content {
-            m.content(content)?.embeds(embed)
-        } else {
-            m.embeds(embed)
-        }
-    })
-    .await?;
+    let mut builder = MessageBuilder::new().embed(embed);
+
+    if let Some(content) = content {
+        builder = builder.content(content);
+    }
+
+    data.create_message(&ctx, builder).await?;
 
     Ok(())
 }
@@ -134,7 +146,7 @@ async fn retrieve_previous(osu_match: &mut OsuMatch, osu: &Osu) -> OsuResult<()>
 
                 if let Some(mut prev) = prev_opt {
                     prev.events.append(&mut osu_match.events);
-                    std::mem::swap(&mut prev.events, &mut osu_match.events);
+                    mem::swap(&mut prev.events, &mut osu_match.events);
                     osu_match.users.extend(prev.users);
                 }
             }
@@ -145,7 +157,7 @@ async fn retrieve_previous(osu_match: &mut OsuMatch, osu: &Osu) -> OsuResult<()>
 
     if let Some(mut prev) = prev {
         prev.events.append(&mut osu_match.events);
-        std::mem::swap(&mut prev.events, &mut osu_match.events);
+        mem::swap(&mut prev.events, &mut osu_match.events);
         osu_match.users.extend(prev.users);
     }
 
@@ -249,7 +261,6 @@ pub fn process_match(
     // Calculate match costs by combining point costs
     let mut data = HashMap::with_capacity(team_vs as usize + 1);
     let mut highest_cost = 0.0;
-    // let mut mvp_id = 0;
     let mut mvp_avatar_url = None;
 
     for (user_id, point_costs) in point_costs {
@@ -270,7 +281,6 @@ pub fn process_match(
 
         if match_cost > highest_cost {
             highest_cost = match_cost;
-            // mvp_id = user_id;
 
             if let Some(user) = users.get(&user_id) {
                 mvp_avatar_url.replace(user.avatar_url.as_str());
@@ -372,5 +382,97 @@ impl MatchScores {
         let max = self.0.max(self.1);
 
         max - min
+    }
+}
+
+struct MatchCostArgs {
+    match_id: u32,
+    warmups: usize,
+}
+
+impl MatchCostArgs {
+    fn args(args: &mut Args) -> Result<Self, &'static str> {
+        let match_id = match args.next().and_then(|arg| matcher::get_osu_match_id(arg)) {
+            Some(id) => id,
+            None => {
+                return Err("The first argument must be either a match \
+                    id or the multiplayer link to a match")
+            }
+        };
+
+        let warmups = args.next().and_then(|num| num.parse().ok()).unwrap_or(2);
+
+        Ok(Self { match_id, warmups })
+    }
+
+    fn slash(command: &mut ApplicationCommand) -> BotResult<Result<Self, &'static str>> {
+        let mut match_id = None;
+        let mut warmups = None;
+
+        for option in command.yoink_options() {
+            match option {
+                CommandDataOption::String { name, value } => match name.as_str() {
+                    "match_url" => match matcher::get_osu_match_id(value.as_str()) {
+                        Some(id) => match_id = Some(id),
+                        None => {
+                            let content = "Could not parse match url. Be sure it's \
+                                a valid mp url or a match id";
+
+                            return Ok(Err(content));
+                        }
+                    },
+                    _ => bail_cmd_option!("matchcost", string, name),
+                },
+                CommandDataOption::Integer { name, value } => match name.as_str() {
+                    "warmups" => warmups = Some(value.max(0) as usize),
+                    _ => bail_cmd_option!("matchcost", integer, name),
+                },
+                CommandDataOption::Boolean { name, .. } => {
+                    bail_cmd_option!("matchcost", boolean, name)
+                }
+                CommandDataOption::SubCommand { name, .. } => {
+                    bail_cmd_option!("matchcost", subcommand, name)
+                }
+            }
+        }
+
+        let args = MatchCostArgs {
+            match_id: match_id.ok_or(Error::InvalidCommandOptions)?,
+            warmups: warmups.unwrap_or(2),
+        };
+
+        Ok(Ok(args))
+    }
+}
+
+pub async fn slash_matchcost(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    match MatchCostArgs::slash(&mut command)? {
+        Ok(args) => _matchcosts(ctx, command.into(), args).await,
+        Err(content) => command.error(&ctx, content).await,
+    }
+}
+
+pub fn slash_matchcost_command() -> Command {
+    Command {
+        application_id: None,
+        guild_id: None,
+        name: "matchcost".to_owned(),
+        default_permission: None,
+        description: "Display performance ratings for a multiplayer match".to_owned(),
+        id: None,
+        options: vec![
+            CommandOption::String(ChoiceCommandOptionData {
+                choices: vec![],
+                description: "Specify a match url or match id".to_owned(),
+                name: "match_url".to_owned(),
+                required: true,
+            }),
+            CommandOption::Integer(ChoiceCommandOptionData {
+                choices: vec![],
+                description: "Specify the amount of warmups to ignore".to_owned(),
+                name: "warmups".to_owned(),
+                required: false,
+            }),
+        ],
     }
 }

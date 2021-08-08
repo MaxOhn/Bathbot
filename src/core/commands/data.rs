@@ -3,7 +3,7 @@ use crate::{Args, BotResult, Error};
 use twilight_model::{
     application::interaction::ApplicationCommand,
     channel::Message,
-    id::{ChannelId, InteractionId, MessageId},
+    id::{ChannelId, GuildId, InteractionId, MessageId},
     user::User,
 };
 
@@ -19,6 +19,13 @@ pub enum CommandData<'m> {
 }
 
 impl<'m> CommandData<'m> {
+    pub fn guild_id(&self) -> Option<GuildId> {
+        match self {
+            Self::Message { msg, .. } => msg.guild_id,
+            Self::Interaction { command } => command.guild_id,
+        }
+    }
+
     pub fn channel_id(&self) -> ChannelId {
         match self {
             Self::Message { msg, .. } => msg.channel_id,
@@ -36,6 +43,10 @@ impl<'m> CommandData<'m> {
                 .or_else(|| command.user.as_ref())
                 .ok_or(Error::MissingSlashAuthor),
         }
+    }
+
+    pub fn compact(self) -> CommandDataCompact {
+        self.into()
     }
 }
 

@@ -1,27 +1,40 @@
 /// E.g: `bail_cmd_option!("link", subcommand, name)`
 macro_rules! bail_cmd_option {
-    ($cmd:literal, string, $name:ident) => {
+    ($cmd:expr, string, $name:ident) => {
         bail_cmd_option!(@ $cmd, "string", $name);
     };
-    ($cmd:literal, integer, $name:ident) => {
+    ($cmd:expr, integer, $name:ident) => {
         bail_cmd_option!(@ $cmd, "integer", $name);
     };
-    ($cmd:literal, boolean, $name:ident) => {
+    ($cmd:expr, boolean, $name:ident) => {
         bail_cmd_option!(@ $cmd, "boolean", $name);
     };
-    ($cmd:literal, subcommand, $name:ident) => {
+    ($cmd:expr, subcommand, $name:ident) => {
         bail_cmd_option!(@ $cmd, "subcommand", $name);
     };
-    ($cmd:literal, $any:tt, $name:ident) => {
+    ($cmd:expr, $any:tt, $name:ident) => {
        compile_error!("expected `string`, `integer`, `boolean`, or `subcommand` as second argument");
     };
 
-    (@ $cmd:literal, $kind:literal, $name:ident) => {
+    (@ $cmd:expr, $kind:literal, $name:ident) => {
         return Err(crate::Error::UnexpectedCommandOption {
             cmd: $cmd,
             kind: $kind,
             name: $name,
         })
+    };
+}
+
+/// E.g: `parse_mode_option!(mode, value, "recent score")`
+macro_rules! parse_mode_option {
+    ($mode:ident, $value:ident, $origin:literal) => {
+        match $value.as_str() {
+            "osu" => $mode = Some(GameMode::STD),
+            "taiko" => $mode = Some(GameMode::TKO),
+            "catch" => $mode = Some(GameMode::CTB),
+            "mania" => $mode = Some(GameMode::MNA),
+            _ => bail_cmd_option!(concat!($origin, " mode"), string, $value),
+        }
     };
 }
 
@@ -57,7 +70,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 // &SIMULATE_CMD,
                 // &MAP_CMD,
                 // &FIX_CMD,
-                // &MATCHCOSTS_CMD,
+                &MATCHCOSTS_CMD,
                 // &BWS_CMD,
                 // &AVATAR_CMD,
                 // &MOSTPLAYED_CMD,
@@ -76,7 +89,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
             "osu!standard",
             Emote::Std,
             vec![
-                // &RECENT_CMD,
+                &RECENT_CMD,
                 // &TOP_CMD,
                 // &RECENTBEST_CMD,
                 // &OSU_CMD,
@@ -116,7 +129,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
             "osu!mania",
             Emote::Mna,
             vec![
-                // &RECENTMANIA_CMD,
+                &RECENTMANIA_CMD,
                 // &TOPMANIA_CMD,
                 // &RECENTBESTMANIA_CMD,
                 // &MANIA_CMD,
@@ -133,7 +146,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 // &SIMULATERECENTMANIA_CMD,
                 // &RECENTLISTMANIA_CMD,
                 // &RECENTPAGESMANIA_CMD,
-                // &RATIOS_CMD,
+                &RATIOS_CMD,
                 // &MAPPERMANIA_CMD,
                 // &TOPOLDMANIA_CMD,
                 // &RANKRANKEDSCOREMANIA_CMD,
@@ -146,7 +159,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
             "osu!taiko",
             Emote::Tko,
             vec![
-                // &RECENTTAIKO_CMD,
+                &RECENTTAIKO_CMD,
                 // &TOPTAIKO_CMD,
                 // &RECENTBESTTAIKO_CMD,
                 // &TAIKO_CMD,
@@ -177,7 +190,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
             "osu!catch the beat",
             Emote::Ctb,
             vec![
-                // &RECENTCTB_CMD,
+                &RECENTCTB_CMD,
                 // &TOPCTB_CMD,
                 // &RECENTBESTCTB_CMD,
                 // &CTB_CMD,
@@ -235,7 +248,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
             Emote::Custom("tools"),
             vec![
                 &PING_CMD,
-                // &ROLL_CMD,
+                &ROLL_CMD,
                 // &ABOUT_CMD,
                 // &COMMANDS_CMD,
                 // &INVITE_CMD,
@@ -251,16 +264,16 @@ pub fn command_groups() -> [CommandGroup; 11] {
             "songs",
             Emote::Custom("musical_note"),
             vec![
-                // &BOMBSAWAY_CMD,
-                // &CATCHIT_CMD,
-                // &DING_CMD,
-                // &FIREANDFLAMES_CMD,
-                // &FIREFLIES_CMD,
-                // &FLAMINGO_CMD,
-                // &PRETENDER_CMD,
-                // &ROCKEFELLER_CMD,
-                // &SAYGOODBYE_CMD,
-                // &TIJDMACHINE_CMD,
+                &BOMBSAWAY_CMD,
+                &CATCHIT_CMD,
+                &DING_CMD,
+                &FIREANDFLAMES_CMD,
+                &FIREFLIES_CMD,
+                &FLAMINGO_CMD,
+                &PRETENDER_CMD,
+                &ROCKEFELLER_CMD,
+                &SAYGOODBYE_CMD,
+                &TIJDMACHINE_CMD,
             ],
         ),
         CommandGroup::new(
@@ -269,7 +282,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
             vec![
                 // &ADDBG_CMD,
                 // &ADDCOUNTRY_CMD,
-                // &CACHE_CMD,
+                &CACHE_CMD,
                 // &ACTIVEBG_CMD,
                 // &BGTAGS_CMD,
                 // &BGTAGSMANUAL_CMD,
@@ -283,13 +296,20 @@ pub fn command_groups() -> [CommandGroup; 11] {
     ]
 }
 
+// TODO: slash_help
 // TODO: Make array when done
 pub fn slash_commands() -> Vec<Command> {
     vec![
+        slash_recent_command(),
         slash_link_command(),
+        slash_matchcost_command(),
+        slash_roll_command(),
         slash_track_command(),
+        slash_ratio_command(),
         slash_ping_command(),
         slash_trackstream_command(),
+        slash_song_command(),
         slash_minesweeper_command(),
+        slash_cache_command(),
     ]
 }

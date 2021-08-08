@@ -109,7 +109,7 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
 
         #fun
 
-        fn #fun_name<'fut>(ctx: Arc<Context>, msg: &'fut Message, args: Args<'fut>, num: Option<usize>) -> futures::future::BoxFuture<'fut, #ret> {
+        fn #fun_name<'fut>(ctx: Arc<Context>, msg: &'fut twilight_model::channel::Message, args: crate::Args<'fut>, num: Option<usize>) -> futures::future::BoxFuture<'fut, #ret> {
             use futures::future::FutureExt;
 
             async move { #direct_name(ctx, CommandData::Message { msg, args, num }).await }.boxed()

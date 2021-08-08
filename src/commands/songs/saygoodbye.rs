@@ -1,13 +1,17 @@
-use super::song_send;
-use crate::{Args, BotResult, Context};
+use crate::{BotResult, CommandData, Context};
 
 use std::sync::Arc;
-use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("https://youtu.be/SyJMQg3spck?t=43")]
 #[bucket("songs")]
-pub async fn saygoodbye(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
+async fn saygoodbye(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    let (lyrics, delay) = _saygoodbye();
+
+    super::song_send(lyrics, delay, ctx, data).await
+}
+
+pub fn _saygoodbye() -> (&'static [&'static str], u64) {
     let lyrics = &[
         "It still kills meeee",
         "(it - still - kills - me)",
@@ -19,5 +23,6 @@ pub async fn saygoodbye(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<
         "Before we say our goodbyes",
         "\\~\\~\\~ say our goodbyyeees \\~\\~\\~",
     ];
-    song_send(lyrics, 2500, ctx, msg).await
+
+    (lyrics, 2500)
 }

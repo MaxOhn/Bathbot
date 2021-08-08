@@ -1,13 +1,17 @@
-use super::song_send;
-use crate::{Args, BotResult, Context};
+use crate::{BotResult, CommandData, Context};
 
 use std::sync::Arc;
-use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("https://youtu.be/_yWU0lFghxU?t=54")]
 #[bucket("songs")]
-pub async fn ding(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
+async fn ding(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    let (lyrics, delay) = _ding();
+
+    super::song_send(lyrics, delay, ctx, data).await
+}
+
+pub fn _ding() -> (&'static [&'static str], u64) {
     let lyrics = &[
         "Oh-oh-oh, hübsches Ding",
         "Ich versteck' mein' Ehering",
@@ -18,5 +22,6 @@ pub async fn ding(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
         "Wenn ich dich seh', dann muss ich sing'n:",
         "Tingalingaling, you pretty thing!",
     ];
-    song_send(lyrics, 2500, ctx, msg).await
+
+    (lyrics, 2500)
 }

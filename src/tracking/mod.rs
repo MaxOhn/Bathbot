@@ -1,6 +1,6 @@
-// mod tracking_loop;
+mod tracking_loop;
 
-// pub use tracking_loop::{process_tracking, tracking_loop};
+pub use tracking_loop::{process_tracking, tracking_loop};
 
 use crate::{database::TrackingUser, BotResult, Database};
 

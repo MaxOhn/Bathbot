@@ -1,13 +1,17 @@
-use super::song_send;
-use crate::{Args, BotResult, Context};
+use crate::{BotResult, CommandData, Context};
 
 use std::sync::Arc;
-use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("https://youtu.be/DT6tpUbWOms?t=47")]
 #[bucket("songs")]
-pub async fn tijdmachine(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
+async fn tijdmachine(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    let (lyrics, delay) = _tijdmachine();
+
+    super::song_send(lyrics, delay, ctx, data).await
+}
+
+pub fn _tijdmachine() -> (&'static [&'static str], u64) {
     let lyrics = &[
         "Als ik denk aan al die dagen,",
         "dat ik mij zo heb misdragen.",
@@ -17,5 +21,6 @@ pub async fn tijdmachine(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult
         "en zal ik blijven sparen,",
         "sparen voor een tijjjdmaaachine.",
     ];
-    song_send(lyrics, 2500, ctx, msg).await
+
+    (lyrics, 2500)
 }

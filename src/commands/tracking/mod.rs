@@ -43,18 +43,6 @@ enum TrackCommandKind {
     List,
 }
 
-macro_rules! parse_mode {
-    ($mode:ident, $value:ident, $origin:literal) => {
-        match $value.as_str() {
-            "osu" => $mode = Some(GameMode::STD),
-            "taiko" => $mode = Some(GameMode::TKO),
-            "catch" => $mode = Some(GameMode::CTB),
-            "mania" => $mode = Some(GameMode::MNA),
-            _ => bail_cmd_option!($origin, string, $value),
-        }
-    };
-}
-
 impl TrackArgs {
     fn args(
         ctx: &Context,
@@ -65,7 +53,11 @@ impl TrackArgs {
         let mut name = None;
         let mut more_names = Vec::new();
 
-        while let Some(arg) = args.next().and_then(|arg| Args::try_link_name(ctx, arg)) {
+        while let Some(arg) = args
+            .next()
+            .map(|arg| Args::try_link_name(ctx, arg))
+            .transpose()?
+        {
             if matches!(arg.as_str(), "-limit" | "-l") {
                 match args.next().map(str::parse) {
                     Some(Ok(num)) => limit = Some(num),
@@ -107,7 +99,7 @@ impl TrackArgs {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "mode" => parse_mode!(mode, value, "track add mode"),
+                                    "mode" => parse_mode_option!(mode, value, "track add"),
                                     "name" => username = Some(value.into()),
                                     _ if name.starts_with("name") => more_names.push(value.into()),
                                     _ => bail_cmd_option!("track add", string, name),
@@ -157,10 +149,10 @@ impl TrackArgs {
                                                 match option {
                                                     CommandDataOption::String { name, value } => {
                                                         match name.as_str() {
-                                                            "mode" => parse_mode!(
+                                                            "mode" => parse_mode_option!(
                                                                 mode,
                                                                 value,
-                                                                "track remove user mode"
+                                                                "track remove user"
                                                             ),
                                                             "name" => username = Some(value.into()),
                                                             _ if name.starts_with("name") => {
@@ -217,10 +209,10 @@ impl TrackArgs {
                                                 match option {
                                                     CommandDataOption::String { name, value } => {
                                                         match name.as_str() {
-                                                            "mode" => parse_mode!(
+                                                            "mode" => parse_mode_option!(
                                                                 mode,
                                                                 value,
-                                                                "track remove all mode"
+                                                                "track remove all"
                                                             ),
                                                             _ => bail_cmd_option!(
                                                                 "track remove all",

@@ -16,7 +16,7 @@ mod link;
 // mod map;
 // mod map_search;
 // mod mapper;
-// mod match_costs;
+mod match_costs;
 // mod match_live;
 // mod medal;
 // mod medal_stats;
@@ -36,9 +36,9 @@ mod link;
 // mod rank_score;
 // mod ranking;
 // mod ranking_countries;
-// mod ratios;
+mod ratios;
 // mod rebalance;
-// mod recent;
+mod recent;
 // mod recent_lb;
 // mod recent_list;
 // mod recent_pages;
@@ -63,7 +63,7 @@ pub use link::*;
 // pub use map::*;
 // pub use map_search::*;
 // pub use mapper::*;
-// pub use match_costs::*;
+pub use match_costs::*;
 // pub use match_live::*;
 // pub use medal::*;
 // pub use medal_stats::*;
@@ -83,9 +83,9 @@ pub use link::*;
 // pub use rank_score::*;
 // pub use ranking::*;
 // pub use ranking_countries::*;
-// pub use ratios::*;
+pub use ratios::*;
 // pub use rebalance::*;
-// pub use recent::*;
+pub use recent::*;
 // pub use recent_lb::*;
 // pub use recent_list::*;
 // pub use recent_pages::*;
@@ -101,7 +101,7 @@ pub use link::*;
 use crate::{
     custom_client::OsuStatsParams,
     util::{numbers::with_comma_uint, MessageExt},
-    BotResult, Context, Error,
+    BotResult, CommandData, Context, Error,
 };
 
 use deadpool_redis::redis::AsyncCommands;
@@ -118,7 +118,10 @@ use std::{
     future::Future,
     ops::{AddAssign, Div},
 };
-use twilight_model::channel::Message;
+use twilight_model::{
+    application::{command::CommandOptionChoice, interaction::ApplicationCommand},
+    channel::Message,
+};
 
 enum ErrorType {
     Bot(Error),
@@ -284,7 +287,14 @@ where
     })
 }
 
-async fn require_link(ctx: &Context, msg: &Message) -> BotResult<()> {
+async fn require_link(ctx: &Context, data: &CommandData<'_>) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, .. } => require_link_msg(ctx, msg).await,
+        CommandData::Interaction { command } => require_link_slash(ctx, command).await,
+    }
+}
+
+async fn require_link_msg(ctx: &Context, msg: &Message) -> BotResult<()> {
     let prefix = ctx.config_first_prefix(msg.guild_id);
 
     let content = format!(
@@ -294,6 +304,13 @@ async fn require_link(ctx: &Context, msg: &Message) -> BotResult<()> {
     );
 
     msg.error(ctx, content).await
+}
+
+async fn require_link_slash(ctx: &Context, command: &ApplicationCommand) -> BotResult<()> {
+    let content = "Either specify an osu name or link your discord \
+    to an osu profile with the `/link` command";
+
+    command.error(&ctx, content).await
 }
 
 /// Be sure the whitespaces in the given name are __not__ replaced
@@ -458,4 +475,25 @@ impl Inc for u32 {
     fn inc(&mut self) {
         *self += 1;
     }
+}
+
+fn mode_choices() -> Vec<CommandOptionChoice> {
+    vec![
+        CommandOptionChoice::String {
+            name: "osu".to_owned(),
+            value: "osu".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "taiko".to_owned(),
+            value: "taiko".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "catch".to_owned(),
+            value: "catch".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "mania".to_owned(),
+            value: "mania".to_owned(),
+        },
+    ]
 }

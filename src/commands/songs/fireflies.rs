@@ -1,13 +1,17 @@
-use super::song_send;
-use crate::{Args, BotResult, Context};
+use crate::{BotResult, CommandData, Context};
 
 use std::sync::Arc;
-use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("https://youtu.be/psuRGfAaju4?t=25")]
 #[bucket("songs")]
-pub async fn fireflies(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
+async fn fireflies(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    let (lyrics, delay) = _fireflies();
+
+    super::song_send(lyrics, delay, ctx, data).await
+}
+
+pub fn _fireflies() -> (&'static [&'static str], u64) {
     let lyrics = &[
         "You would not believe your eyes",
         "If ten million fireflies",
@@ -16,5 +20,6 @@ pub async fn fireflies(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<(
         "And leave teardrops everywhere",
         "You'd think me rude, but I would just stand and -- stare",
     ];
-    song_send(lyrics, 2500, ctx, msg).await
+
+    (lyrics, 2500)
 }

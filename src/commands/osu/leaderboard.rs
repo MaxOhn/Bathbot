@@ -9,12 +9,15 @@ use crate::{
         },
         MessageExt,
     },
-    BotResult, Context,
+    BotResult, CommandData, Context,
 };
 
 use rosu_v2::error::OsuError;
 use std::sync::Arc;
-use twilight_model::channel::{message::MessageType, Message};
+use twilight_model::{
+    application::{command::Command, interaction::ApplicationCommand},
+    channel::{message::MessageType, Message},
+};
 
 async fn leaderboard_main(
     national: bool,
@@ -202,7 +205,7 @@ async fn leaderboard_main(
 #[usage("[map url / map id] [mods]")]
 #[example("2240404", "https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
 #[aliases("lb", "glb", "globalleaderboard")]
-pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+async fn leaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     leaderboard_main(false, ctx, msg, args).await
 }
 
@@ -217,6 +220,22 @@ pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 #[usage("[map url / map id] [mods]")]
 #[example("2240404", "https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
 #[aliases("blb")]
-pub async fn belgianleaderboard(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
+async fn belgianleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     leaderboard_main(true, ctx, msg, args).await
+}
+
+pub async fn slash_leaderboard(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
+    todo!()
+}
+
+pub fn slash_leaderboard_command() -> Command {
+    Command {
+        application_id: None,
+        guild_id: None,
+        name: "leaderboard".to_owned(),
+        default_permission: None,
+        description: "Display the global leaderboard of a map".to_owned(),
+        id: None,
+        options: vec![],
+    }
 }
