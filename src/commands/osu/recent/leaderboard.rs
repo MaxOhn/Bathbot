@@ -1,5 +1,5 @@
+use super::RecentLeaderboardArgs;
 use crate::{
-    arguments::{Args, NameModArgs},
     embeds::{EmbedData, LeaderboardEmbed},
     pagination::{LeaderboardPagination, Pagination},
     util::{
@@ -7,37 +7,39 @@ use crate::{
         osu::ModSelection,
         MessageExt,
     },
-    BotResult, Context,
+    BotResult, CommandData, Context, MessageBuilder,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
-use twilight_model::channel::Message;
 
-async fn recent_lb_main(
-    mode: GameMode,
-    national: bool,
+pub(super) async fn _recentleaderboard(
     ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-    num: Option<usize>,
+    data: CommandData<'_>,
+    args: RecentLeaderboardArgs,
+    national: bool,
 ) -> BotResult<()> {
-    let author_name = ctx.get_link(msg.author.id.0);
-    let args = NameModArgs::new(&ctx, args);
+    let author_id = data.author()?.id;
+    let author_name = ctx.get_link(author_id.0);
     let selection = args.mods;
 
-    let name = match args.name.or_else(|| author_name.clone()) {
+    let name = match args.name {
         Some(name) => name,
-        None => return super::require_link(&ctx, msg).await,
+        None => match author_name.clone() {
+            Some(name) => name,
+            None => return super::require_link(&ctx, &data).await,
+        },
     };
 
-    let limit = num.map_or(1, |n| n + (n == 0) as usize);
+    let limit = args.index.map_or(1, |n| n + (n == 0) as usize);
 
     if limit > 50 {
         let content = "Recent history goes only 50 scores back.";
 
-        return msg.error(&ctx, content).await;
+        return data.error(&ctx, content).await;
     }
+
+    let mode = args.mode;
 
     // Retrieve the recent scores
     let scores_fut = ctx
@@ -57,7 +59,7 @@ async fn recent_lb_main(
                 if name.ends_with('s') { "" } else { "s" }
             );
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Ok(mut scores) => match scores.pop() {
             Some(mut score) => {
@@ -79,16 +81,16 @@ async fn recent_lb_main(
                     name
                 );
 
-                return msg.error(&ctx, content).await;
+                return data.error(&ctx, content).await;
             }
         },
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -108,7 +110,7 @@ async fn recent_lb_main(
     let scores = match scores_fut.await {
         Ok(scores) => scores,
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_WEB_ISSUE).await;
+            let _ = data.error(&ctx, OSU_WEB_ISSUE).await;
 
             return Err(why.into());
         }
@@ -130,10 +132,10 @@ async fn recent_lb_main(
         0,
     );
 
-    let data = match data_fut.await {
+    let embed_data = match data_fut.await {
         Ok(data) => data,
         Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
@@ -145,15 +147,9 @@ async fn recent_lb_main(
         amount
     );
 
-    let embed = &[data.into_builder().build()];
-
-    let response_raw = ctx
-        .http
-        .create_message(msg.channel_id)
-        .content(&content)?
-        .embeds(embed)?
-        .exec()
-        .await?;
+    let embed = embed_data.into_builder().build();
+    let builder = MessageBuilder::new().content(content).embed(embed);
+    let response_raw = data.create_message(&ctx, builder).await?;
 
     // Store map in DB
     if let Err(why) = ctx.psql().insert_beatmap(&map).await {
@@ -168,7 +164,7 @@ async fn recent_lb_main(
         return Ok(());
     }
 
-    let response = response_raw.model().await?;
+    let response = data.get_response(&ctx, response_raw).await?;
 
     // Pagination
     let pagination = LeaderboardPagination::new(
@@ -180,12 +176,10 @@ async fn recent_lb_main(
         first_place_icon,
     );
 
-    let owner = msg.author.id;
-
     gb.execute(&ctx).await;
 
     tokio::spawn(async move {
-        if let Err(why) = pagination.start(&ctx, owner, 60).await {
+        if let Err(why) = pagination.start(&ctx, author_id, 60).await {
             unwind_error!(warn, why, "Pagination error (recentleaderboard): {}")
         }
     });
@@ -204,13 +198,24 @@ async fn recent_lb_main(
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rblb")]
-pub async fn recentbelgianleaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    recent_lb_main(GameMode::STD, true, ctx, msg, args, num).await
+pub async fn recentbelgianleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match RecentLeaderboardArgs::args(&ctx, &mut args, GameMode::STD, num) {
+                Ok(recent_args) => {
+                    _recentleaderboard(
+                        ctx,
+                        CommandData::Message { msg, args, num },
+                        recent_args,
+                        true,
+                    )
+                    .await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+    }
 }
 
 #[command]
@@ -224,13 +229,24 @@ pub async fn recentbelgianleaderboard(
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rmblb")]
-pub async fn recentmaniabelgianleaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    recent_lb_main(GameMode::MNA, true, ctx, msg, args, num).await
+pub async fn recentmaniabelgianleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match RecentLeaderboardArgs::args(&ctx, &mut args, GameMode::MNA, num) {
+                Ok(recent_args) => {
+                    _recentleaderboard(
+                        ctx,
+                        CommandData::Message { msg, args, num },
+                        recent_args,
+                        true,
+                    )
+                    .await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+    }
 }
 
 #[command]
@@ -244,13 +260,24 @@ pub async fn recentmaniabelgianleaderboard(
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rtblb")]
-pub async fn recenttaikobelgianleaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    recent_lb_main(GameMode::TKO, true, ctx, msg, args, num).await
+pub async fn recenttaikobelgianleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match RecentLeaderboardArgs::args(&ctx, &mut args, GameMode::TKO, num) {
+                Ok(recent_args) => {
+                    _recentleaderboard(
+                        ctx,
+                        CommandData::Message { msg, args, num },
+                        recent_args,
+                        true,
+                    )
+                    .await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+    }
 }
 
 #[command]
@@ -264,13 +291,24 @@ pub async fn recenttaikobelgianleaderboard(
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rcblb")]
-pub async fn recentctbbelgianleaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    recent_lb_main(GameMode::CTB, true, ctx, msg, args, num).await
+pub async fn recentctbbelgianleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match RecentLeaderboardArgs::args(&ctx, &mut args, GameMode::CTB, num) {
+                Ok(recent_args) => {
+                    _recentleaderboard(
+                        ctx,
+                        CommandData::Message { msg, args, num },
+                        recent_args,
+                        true,
+                    )
+                    .await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+    }
 }
 
 #[command]
@@ -284,13 +322,24 @@ pub async fn recentctbbelgianleaderboard(
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rlb", "rglb", "recentgloballeaderboard")]
-pub async fn recentleaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    recent_lb_main(GameMode::STD, false, ctx, msg, args, num).await
+pub async fn recentleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match RecentLeaderboardArgs::args(&ctx, &mut args, GameMode::STD, num) {
+                Ok(recent_args) => {
+                    _recentleaderboard(
+                        ctx,
+                        CommandData::Message { msg, args, num },
+                        recent_args,
+                        false,
+                    )
+                    .await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+    }
 }
 
 #[command]
@@ -304,13 +353,24 @@ pub async fn recentleaderboard(
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rmlb", "rmglb", "recentmaniagloballeaderboard")]
-pub async fn recentmanialeaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    recent_lb_main(GameMode::MNA, false, ctx, msg, args, num).await
+pub async fn recentmanialeaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match RecentLeaderboardArgs::args(&ctx, &mut args, GameMode::MNA, num) {
+                Ok(recent_args) => {
+                    _recentleaderboard(
+                        ctx,
+                        CommandData::Message { msg, args, num },
+                        recent_args,
+                        false,
+                    )
+                    .await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+    }
 }
 
 #[command]
@@ -324,13 +384,24 @@ pub async fn recentmanialeaderboard(
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rtlb", "rtglb", "recenttaikogloballeaderboard")]
-pub async fn recenttaikoleaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    recent_lb_main(GameMode::TKO, false, ctx, msg, args, num).await
+pub async fn recenttaikoleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match RecentLeaderboardArgs::args(&ctx, &mut args, GameMode::TKO, num) {
+                Ok(recent_args) => {
+                    _recentleaderboard(
+                        ctx,
+                        CommandData::Message { msg, args, num },
+                        recent_args,
+                        false,
+                    )
+                    .await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+    }
 }
 
 #[command]
@@ -344,11 +415,22 @@ pub async fn recenttaikoleaderboard(
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
 #[aliases("rclb", "rcglb", "recentctbgloballeaderboard")]
-pub async fn recentctbleaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    recent_lb_main(GameMode::CTB, false, ctx, msg, args, num).await
+pub async fn recentctbleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match RecentLeaderboardArgs::args(&ctx, &mut args, GameMode::CTB, num) {
+                Ok(recent_args) => {
+                    _recentleaderboard(
+                        ctx,
+                        CommandData::Message { msg, args, num },
+                        recent_args,
+                        false,
+                    )
+                    .await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+    }
 }

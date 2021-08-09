@@ -1,4 +1,4 @@
-use super::{prepare_scores, request_user, ErrorType};
+use super::ErrorType;
 use crate::{
     arguments::{Args, GradeArg, NameGradePassArgs},
     embeds::{EmbedData, RecentEmbed},
@@ -8,7 +8,7 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
-    BotResult, Context,
+    BotResult, CommandData, CommandDataCompact, Context, MessageBuilder,
 };
 
 use futures::future::TryFutureExt;
@@ -35,13 +35,13 @@ async fn recent_pages_main(
 
     let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
         Some(name) => name,
-        None => return super::require_link(&ctx, msg).await,
+        None => return super::require_link_msg(&ctx, msg).await,
     };
 
     let num = num.unwrap_or(1).saturating_sub(1);
 
     // Retrieve the user and their recent scores
-    let user_fut = request_user(&ctx, &name, Some(mode)).map_err(From::from);
+    let user_fut = super::request_user(&ctx, &name, Some(mode)).map_err(From::from);
 
     let scores_fut = ctx
         .osu()
@@ -51,7 +51,7 @@ async fn recent_pages_main(
         .limit(100)
         .include_fails(true);
 
-    let scores_fut = prepare_scores(&ctx, scores_fut);
+    let scores_fut = super::prepare_scores(&ctx, scores_fut);
 
     let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
         Ok((_, scores)) if scores.is_empty() => {
@@ -191,7 +191,7 @@ async fn recent_pages_main(
     let map_score = map_scores.get(&map_id);
     let data_fut = RecentEmbed::new(&user, score, best.as_deref(), map_score, true);
 
-    let data = match data_fut.await {
+    let embed_data = match data_fut.await {
         Ok(data) => data,
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
@@ -202,13 +202,12 @@ async fn recent_pages_main(
 
     // Creating the embed
     let content = format!("Try #{}", tries);
-    let embed = &[data.as_builder().build()];
+    let embed = embed_data.as_builder().build();
+    let builder = MessageBuilder::new().content(content).embed(embed);
+    let response = msg.create_message(&ctx, builder).await?;
 
-    let response = msg
-        .build_response_msg(&ctx, |m| m.content(&content)?.embeds(embed))
-        .await?;
-
-    ctx.store_msg(response.id);
+    // TODO
+    // ctx.store_msg(response.id);
 
     // Process user and their top scores for tracking
     if let Some(ref mut scores) = best {
@@ -217,28 +216,28 @@ async fn recent_pages_main(
 
     // Skip pagination if too few entries
     if scores.len() <= 1 {
+        let data: CommandDataCompact = msg.into();
+
         tokio::spawn(async move {
             sleep(Duration::from_secs(60)).await;
 
-            if !ctx.remove_msg(response.id) {
-                return;
-            }
+            // TODO
+            // if !ctx.remove_msg(response.id) {
+            //     return;
+            // }
 
-            let embed = &[data.into_builder().build()];
+            let builder = embed_data.into_builder().build().into();
 
-            let update_fut = ctx
-                .http
-                .update_message(response.channel_id, response.id)
-                .embeds(embed)
-                .unwrap();
-
-            if let Err(why) = update_fut.exec().await {
+            if let Err(why) = data.update_message(&ctx, builder, response).await {
                 unwind_error!(warn, why, "Error minimizing recent msg: {}");
             }
         });
 
         return Ok(());
     }
+
+    // Unwrapping valid since it's not a slash command
+    let response = response.unwrap().model().await?;
 
     // Pagination
     let pagination = RecentPagination::new(
@@ -249,7 +248,7 @@ async fn recent_pages_main(
         num,
         best,
         map_scores,
-        data,
+        embed_data,
     );
 
     let owner = msg.author.id;
@@ -278,13 +277,13 @@ async fn recent_pages_main(
 #[usage("[username] [-pass] [-grade grade[..grade]]")]
 #[example("badewanne3 -pass", "badewanne3 -grade B", "badewanne3 -grade A..SS")]
 #[aliases("rp")]
-pub async fn recentpages(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    recent_pages_main(GameMode::STD, ctx, msg, args, num).await
+pub async fn recentpages(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, args, num } => {
+            recent_pages_main(GameMode::STD, ctx, msg, args, num).await
+        }
+        CommandData::Interaction { .. } => panic!(),
+    }
 }
 
 #[command]
@@ -302,13 +301,13 @@ pub async fn recentpages(
 #[usage("[username] [-pass] [-grade grade[..grade]]")]
 #[example("badewanne3 -pass", "badewanne3 -grade B", "badewanne3 -grade A..SS")]
 #[aliases("rpm")]
-pub async fn recentpagesmania(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    recent_pages_main(GameMode::MNA, ctx, msg, args, num).await
+pub async fn recentpagesmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, args, num } => {
+            recent_pages_main(GameMode::MNA, ctx, msg, args, num).await
+        }
+        CommandData::Interaction { .. } => panic!(),
+    }
 }
 
 #[command]
@@ -326,13 +325,13 @@ pub async fn recentpagesmania(
 #[usage("[username] [-pass] [-grade grade[..grade]]")]
 #[example("badewanne3 -pass", "badewanne3 -grade B", "badewanne3 -grade A..SS")]
 #[aliases("rpt")]
-pub async fn recentpagestaiko(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    recent_pages_main(GameMode::TKO, ctx, msg, args, num).await
+pub async fn recentpagestaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, args, num } => {
+            recent_pages_main(GameMode::TKO, ctx, msg, args, num).await
+        }
+        CommandData::Interaction { .. } => panic!(),
+    }
 }
 
 #[command]
@@ -350,11 +349,11 @@ pub async fn recentpagestaiko(
 #[usage("[username] [-pass] [-grade grade[..grade]]")]
 #[example("badewanne3 -pass", "badewanne3 -grade B", "badewanne3 -grade A..SS")]
 #[aliases("rpc")]
-pub async fn recentpagesctb(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    recent_pages_main(GameMode::CTB, ctx, msg, args, num).await
+pub async fn recentpagesctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, args, num } => {
+            recent_pages_main(GameMode::CTB, ctx, msg, args, num).await
+        }
+        CommandData::Interaction { .. } => panic!(),
+    }
 }

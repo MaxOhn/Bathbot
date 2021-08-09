@@ -8,12 +8,9 @@ use std::{
     fmt::{self, Write},
     sync::Arc,
 };
-use twilight_model::{
-    application::{
-        command::{ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice},
-        interaction::{application_command::CommandDataOption, ApplicationCommand},
-    },
-    channel::Message,
+use twilight_model::application::{
+    command::{ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice},
+    interaction::{application_command::CommandDataOption, ApplicationCommand},
 };
 
 #[command]
@@ -104,7 +101,7 @@ impl Difficulty {
                 CommandDataOption::Boolean { name, .. } => {
                     bail_cmd_option!("minesweeper", boolean, name)
                 }
-                CommandDataOption::SubCommand { name, options } => {
+                CommandDataOption::SubCommand { name, .. } => {
                     bail_cmd_option!("minesweeper", subcommand, name)
                 }
             }

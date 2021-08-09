@@ -18,6 +18,7 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
         "cache" => owner::slash_cache(ctx, command).await,
         "link" => osu::slash_link(ctx, command).await,
         "matchcost" => osu::slash_matchcost(ctx, command).await,
+        "medal" => osu::slash_medal(ctx, command).await,
         "minesweeper" => fun::slash_minesweeper(ctx, command).await,
         "ping" => utility::slash_ping(ctx, command).await,
         "ratio" => osu::slash_ratio(ctx, command).await,

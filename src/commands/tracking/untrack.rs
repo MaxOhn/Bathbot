@@ -2,7 +2,7 @@ use super::TrackArgs;
 use crate::{
     embeds::{EmbedData, UntrackEmbed},
     util::{constants::OSU_API_ISSUE, MessageExt},
-    Args, BotResult, CommandData, Context, MessageBuilder,
+    BotResult, CommandData, Context, MessageBuilder,
 };
 
 use futures::{
@@ -12,7 +12,6 @@ use futures::{
 use hashbrown::HashSet;
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
-use twilight_model::channel::Message;
 
 #[command]
 #[authority()]
@@ -38,7 +37,7 @@ async fn untrack(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     }
 }
 
-pub async fn _untrack(ctx: Arc<Context>, data: CommandData<'_>, args: TrackArgs) -> BotResult<()> {
+pub(super) async fn _untrack(ctx: Arc<Context>, data: CommandData<'_>, args: TrackArgs) -> BotResult<()> {
     let mode = args.mode.unwrap_or(GameMode::STD);
 
     let mut names: HashSet<_> = args.more_names.into_iter().collect();

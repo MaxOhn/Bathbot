@@ -1,10 +1,9 @@
 use crate::{
     util::{constants::GENERAL_ISSUE, MessageExt},
-    Args, BotResult, CommandData, Context, MessageBuilder,
+    BotResult, CommandData, Context, MessageBuilder,
 };
 
 use std::sync::Arc;
-use twilight_model::channel::Message;
 
 #[command]
 #[authority()]

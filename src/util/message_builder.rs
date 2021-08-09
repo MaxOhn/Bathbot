@@ -7,6 +7,7 @@ use twilight_model::channel::embed::Embed;
 pub struct MessageBuilder<'c> {
     pub content: Option<Cow<'c, str>>,
     pub embed: Option<Embed>,
+    pub file: Option<(&'static str, &'c [u8])>,
 }
 
 impl<'c> MessageBuilder<'c> {
@@ -25,6 +26,12 @@ impl<'c> MessageBuilder<'c> {
 
         self
     }
+
+    pub fn file(mut self, name: &'static str, data: &'c [u8]) -> Self {
+        self.file.replace((name, data));
+
+        self
+    }
 }
 
 impl<'c> From<Embed> for MessageBuilder<'c> {
@@ -32,11 +39,12 @@ impl<'c> From<Embed> for MessageBuilder<'c> {
         Self {
             content: None,
             embed: Some(embed),
+            file: None,
         }
     }
 }
 
-trait IntoEmbed {
+pub trait IntoEmbed {
     fn into_embed(self) -> Embed;
 }
 

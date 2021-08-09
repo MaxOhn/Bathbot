@@ -1,10 +1,7 @@
-use crate::{util::MessageExt, Args, BotResult, CommandData, Context, MessageBuilder};
+use crate::{util::MessageExt, BotResult, CommandData, Context, MessageBuilder};
 
 use std::{sync::Arc, time::Instant};
-use twilight_model::{
-    application::{command::Command, interaction::ApplicationCommand},
-    channel::Message,
-};
+use twilight_model::application::{command::Command, interaction::ApplicationCommand};
 
 #[command]
 #[short_desc("Check if I'm online")]
@@ -26,7 +23,7 @@ async fn ping(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 pub async fn slash_ping(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
-    ping(ctx, CommandData::Interaction { command }).await
+    ping(ctx, command.into()).await
 }
 
 pub fn slash_ping_command() -> Command {

@@ -1,11 +1,10 @@
 use crate::{
     embeds::{EmbedData, MedalEmbed},
     util::{constants::GENERAL_ISSUE, levenshtein_similarity, MessageExt},
-    Args, BotResult, Context,
+    BotResult, CommandData, Context,
 };
 
 use std::{cmp::Ordering, fmt::Write, sync::Arc};
-use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Display info about an osu! medal")]
@@ -17,39 +16,46 @@ use twilight_model::channel::Message;
 )]
 #[usage("[medal name]")]
 #[example(r#""50,000 plays""#, "any%")]
-async fn medal(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    let name = args.rest().trim_matches('"');
+async fn medal(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, args, num } => {
+            let name = args.rest().trim_matches('"');
 
-    if name.is_empty() {
-        let content = "You must specify a medal name.";
+            if name.is_empty() {
+                return msg.error(&ctx, "You must specify a medal name.").await;
+            }
 
-        return msg.error(&ctx, content).await;
+            _medal(ctx, CommandData::Message { msg, args, num }, name).await
+        }
+        CommandData::Interaction { command } => super::slash_medal(ctx, command).await,
     }
+}
 
+pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str) -> BotResult<()> {
     let medal = match ctx.clients.custom.get_osekai_medal(name).await {
         Ok(Some(medal)) => medal,
-        Ok(None) => return no_medal(&ctx, msg, name).await,
+        Ok(None) => return no_medal(&ctx, &data, name).await,
         Err(why) => {
             let content = "Some issue with the osekai api, blame bade";
-            let _ = msg.error(&ctx, content).await;
+            let _ = data.error(&ctx, content).await;
 
             return Err(why.into());
         }
     };
 
-    let embed = &[MedalEmbed::new(medal).into_builder().build()];
-    msg.build_response(&ctx, |m| m.embeds(embed)).await?;
+    let builder = MedalEmbed::new(medal).into_builder().build().into();
+    data.create_message(&ctx, builder).await?;
 
     Ok(())
 }
 
 const SIMILARITY_THRESHOLD: f32 = 0.8;
 
-async fn no_medal(ctx: &Context, msg: &Message, name: &str) -> BotResult<()> {
+async fn no_medal(ctx: &Context, data: &CommandData<'_>, name: &str) -> BotResult<()> {
     let medals = match ctx.psql().get_medals().await {
         Ok(medals) => medals,
         Err(why) => {
-            let _ = msg.error(ctx, GENERAL_ISSUE).await;
+            let _ = data.error(ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
@@ -83,5 +89,5 @@ async fn no_medal(ctx: &Context, msg: &Message, name: &str) -> BotResult<()> {
         content.push('?');
     }
 
-    msg.error(ctx, content).await
+    data.error(ctx, content).await
 }

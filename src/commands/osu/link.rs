@@ -8,12 +8,9 @@ use crate::{
 
 use rosu_v2::error::OsuError;
 use std::{fmt::Write, sync::Arc};
-use twilight_model::{
-    application::{
-        command::{ChoiceCommandOptionData, Command, CommandOption, OptionsCommandOptionData},
-        interaction::{application_command::CommandDataOption, ApplicationCommand},
-    },
-    channel::Message,
+use twilight_model::application::{
+    command::{ChoiceCommandOptionData, Command, CommandOption, OptionsCommandOptionData},
+    interaction::{application_command::CommandDataOption, ApplicationCommand},
 };
 
 struct LinkArgs {

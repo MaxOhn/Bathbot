@@ -310,8 +310,8 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         let count = shutdown_ctx.stop_all_games().await;
         info!("Stopped {} bg games", count);
 
-        // let count = shutdown_ctx.notify_match_live_shutdown().await;
-        // info!("Stopped match tracking in {} channels", count);
+        let count = shutdown_ctx.notify_match_live_shutdown().await;
+        info!("Stopped match tracking in {} channels", count);
 
         info!("Shutting down");
         process::exit(0);
@@ -322,16 +322,16 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     tokio::spawn(twitch::twitch_loop(twitch_ctx));
 
     // Spawn osu tracking worker
-    // let osu_tracking_ctx = Arc::clone(&ctx);
-    // tokio::spawn(tracking::tracking_loop(osu_tracking_ctx));
+    let osu_tracking_ctx = Arc::clone(&ctx);
+    tokio::spawn(tracking::tracking_loop(osu_tracking_ctx));
 
     // Spawn background loop worker
     let background_ctx = Arc::clone(&ctx);
     tokio::spawn(Context::background_loop(background_ctx));
 
     // Spawn osu match ticker worker
-    // let match_live_ctx = Arc::clone(&ctx);
-    // tokio::spawn(Context::match_live_loop(match_live_ctx));
+    let match_live_ctx = Arc::clone(&ctx);
+    tokio::spawn(Context::match_live_loop(match_live_ctx));
 
     // Activate cluster
     let cluster_ctx = Arc::clone(&ctx);

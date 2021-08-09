@@ -1,12 +1,10 @@
 use crate::{
-    arguments::Args,
     util::{constants::GENERAL_ISSUE, MessageExt},
     BotResult, CommandData, Context, MessageBuilder,
 };
 
 use rosu_v2::model::GameMode;
 use std::sync::Arc;
-use twilight_model::channel::Message;
 
 #[command]
 #[authority()]

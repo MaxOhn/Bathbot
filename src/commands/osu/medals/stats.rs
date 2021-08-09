@@ -1,12 +1,10 @@
-use super::request_user;
 use crate::{
-    arguments::{Args, NameArgs},
     embeds::{EmbedData, MedalStatsEmbed},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
-    BotResult, Context, Error,
+    BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
 use chrono::Datelike;
@@ -14,22 +12,37 @@ use image::{png::PngEncoder, ColorType};
 use plotters::prelude::*;
 use rosu_v2::prelude::{MedalCompact, OsuError};
 use std::sync::Arc;
-use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Display medal stats for a user")]
 #[usage("[username]")]
 #[example("badewanne3", r#""im a fancy lad""#)]
 #[aliases("ms")]
-async fn medalstats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    let args = NameArgs::new(&ctx, args);
+async fn medalstats(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            let name = args.next().map(Name::from);
 
-    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+            _medalstats(ctx, CommandData::Message { msg, args, num }, name).await
+        }
+        CommandData::Interaction { command } => super::slash_medal(ctx, command).await,
+    }
+}
+
+pub(super) async fn _medalstats(
+    ctx: Arc<Context>,
+    data: CommandData<'_>,
+    name: Option<Name>,
+) -> BotResult<()> {
+    let name = match name {
         Some(name) => name,
-        None => return super::require_link(&ctx, msg).await,
+        None => match ctx.get_link(data.author()?.id.0) {
+            Some(name) => name,
+            None => return super::require_link(&ctx, &data).await,
+        },
     };
 
-    let user_fut = request_user(&ctx, &name, None);
+    let user_fut = super::request_user(&ctx, &name, None);
     let medals_fut = ctx.psql().get_medals();
 
     let (mut user, all_medals) = match tokio::join!(user_fut, medals_fut) {
@@ -37,15 +50,15 @@ async fn medalstats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         (Err(OsuError::NotFound), _) => {
             let content = format!("User `{}` was not found", name);
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         (_, Err(why)) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
         (Err(why), _) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -65,18 +78,17 @@ async fn medalstats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
         }
     };
 
-    let embed = &[MedalStatsEmbed::new(user, all_medals, graph.is_some())
+    let embed = MedalStatsEmbed::new(user, all_medals, graph.is_some())
         .into_builder()
-        .build()];
+        .build();
 
-    // Send the embed
-    let m = ctx.http.create_message(msg.channel_id).embeds(embed)?;
+    let mut builder = MessageBuilder::new().embed(embed);
 
-    if let Some(graph) = graph {
-        m.files(&[("medal_graph.png", &graph)]).exec().await?;
-    } else {
-        m.exec().await?;
+    if let Some(ref graph) = graph {
+        builder = builder.file("medal_graph.png", graph);
     }
+
+    data.create_message(&ctx, builder).await?;
 
     Ok(())
 }
@@ -84,7 +96,7 @@ async fn medalstats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 const W: u32 = 1350;
 const H: u32 = 350;
 
-fn graph(medals: &[MedalCompact]) -> Result<Option<Vec<u8>>, Error> {
+fn graph(medals: &[MedalCompact]) -> BotResult<Option<Vec<u8>>> {
     static LEN: usize = W as usize * H as usize;
     let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
     {

@@ -1,43 +1,39 @@
-use super::prepare_score;
+use super::RecentSimulateArgs;
 use crate::{
-    arguments::{Args, SimulateNameArgs},
     embeds::{EmbedData, SimulateEmbed},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
-    BotResult, Context,
+    BotResult, CommandData, CommandDataCompact, Context, MessageBuilder,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
-use twilight_model::channel::Message;
 
-async fn simulate_recent_main(
-    mode: GameMode,
+pub(super) async fn _recentsimulate(
     ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-    num: Option<usize>,
+    data: CommandData<'_>,
+    mut args: RecentSimulateArgs,
 ) -> BotResult<()> {
-    let mut args = match SimulateNameArgs::new(&ctx, args) {
-        Ok(args) => args,
-        Err(err_msg) => return msg.error(&ctx, err_msg).await,
-    };
-
-    let name = match args.name.take().or_else(|| ctx.get_link(msg.author.id.0)) {
+    let name = match args.name.take() {
         Some(name) => name,
-        None => return super::require_link(&ctx, msg).await,
+        None => match ctx.get_link(data.author()?.id.0) {
+            Some(name) => name,
+            None => return super::require_link(&ctx, &data).await,
+        },
     };
 
-    let limit = num.map_or(1, |n| n + (n == 0) as usize);
+    let limit = args.index.map_or(1, |n| n + (n == 0) as usize);
 
     if limit > 50 {
         let content = "Recent history goes only 50 scores back.";
 
-        return msg.error(&ctx, content).await;
+        return data.error(&ctx, content).await;
     }
+
+    let mode = args.mode;
 
     // Retrieve the recent score
     let scores_fut = ctx
@@ -61,7 +57,7 @@ async fn simulate_recent_main(
                 name
             );
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Ok(scores) if scores.len() < limit => {
             let content = format!(
@@ -71,13 +67,13 @@ async fn simulate_recent_main(
                 if name.ends_with('s') { "" } else { "s" }
             );
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Ok(mut scores) => match scores.pop() {
-            Some(mut score) => match prepare_score(&ctx, &mut score).await {
+            Some(mut score) => match super::prepare_score(&ctx, &mut score).await {
                 Ok(_) => score,
                 Err(why) => {
-                    let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+                    let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
                     return Err(why.into());
                 }
@@ -85,16 +81,16 @@ async fn simulate_recent_main(
             None => {
                 let content = format!("No recent plays found for user `{}`", name);
 
-                return msg.error(&ctx, content).await;
+                return data.error(&ctx, content).await;
             }
         },
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -104,23 +100,24 @@ async fn simulate_recent_main(
     let mapset = score.mapset.take().unwrap();
 
     // Accumulate all necessary data
-    let data = match SimulateEmbed::new(Some(score), &map, &mapset, args.into()).await {
+    let embed_data = match SimulateEmbed::new(Some(score), &map, &mapset, args).await {
         Ok(data) => data,
         Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
     };
 
     // Creating the embed
-    let embed = &[data.as_builder().build()];
+    let embed = embed_data.as_builder().build();
+    let builder = MessageBuilder::new()
+        .content("Simulated score:")
+        .embed(embed);
+    let response = data.create_message(&ctx, builder).await?;
 
-    let response = msg
-        .build_response_msg(&ctx, |m| m.content("Simulated score:")?.embeds(embed))
-        .await?;
-
-    ctx.store_msg(response.id);
+    // TODO
+    // ctx.store_msg(response.id);
 
     // Store map in DB
     if let Err(why) = ctx.psql().insert_beatmap(&map).await {
@@ -131,6 +128,8 @@ async fn simulate_recent_main(
         )
     }
 
+    let data: CommandDataCompact = data.into();
+
     // Set map on garbage collection list if unranked
     let gb = ctx.map_garbage_collector(&map);
 
@@ -139,19 +138,14 @@ async fn simulate_recent_main(
         gb.execute(&ctx).await;
         sleep(Duration::from_secs(45)).await;
 
-        if !ctx.remove_msg(response.id) {
-            return;
-        }
+        // TODO
+        // if !ctx.remove_msg(response.id) {
+        //     return;
+        // }
 
-        let embed = &[data.into_builder().build()];
+        let builder = embed_data.into_builder().build().into();
 
-        let embed_update = ctx
-            .http
-            .update_message(response.channel_id, response.id)
-            .embeds(embed)
-            .unwrap();
-
-        if let Err(why) = embed_update.exec().await {
+        if let Err(why) = data.update_message(&ctx, builder, response).await {
             unwind_error!(warn, why, "Error minimizing simulaterecent msg: {}");
         }
     });
@@ -167,17 +161,22 @@ async fn simulate_recent_main(
     e.g. `sr42 badewanne3` to get the 42nd most recent score."
 )]
 #[usage(
-    "[username] [+mods] [-a acc%] [-c combo] [-300 #300s] [-100 #100s] [-50 #50s] [-m #misses]"
+    "[username] [+mods] [acc=number] [combo=integer] [n300=integer] [n100=integer] [n50=integer] [misses=integer]"
 )]
-#[example("badewanne3 +hr -a 99.3 -300 1422 -m 1")]
+#[example("badewanne3 +hr acc=99.3 n300=1422 misses=1")]
 #[aliases("sr")]
-pub async fn simulaterecent(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    simulate_recent_main(GameMode::STD, ctx, msg, args, num).await
+pub async fn simulaterecent(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match RecentSimulateArgs::args(&ctx, &mut args, GameMode::STD, num) {
+                Ok(recent_args) => {
+                    _recentsimulate(ctx, CommandData::Message { msg, args, num }, recent_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+    }
 }
 
 #[command]
@@ -190,13 +189,18 @@ pub async fn simulaterecent(
 #[usage("[username] [+mods] [-s score]")]
 #[example("badewanne3 +dt -s 895000")]
 #[aliases("srm")]
-pub async fn simulaterecentmania(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    simulate_recent_main(GameMode::MNA, ctx, msg, args, num).await
+pub async fn simulaterecentmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match RecentSimulateArgs::args(&ctx, &mut args, GameMode::MNA, num) {
+                Ok(recent_args) => {
+                    _recentsimulate(ctx, CommandData::Message { msg, args, num }, recent_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+    }
 }
 
 #[command]
@@ -209,13 +213,18 @@ pub async fn simulaterecentmania(
 #[usage("[username] [+mods] [-a acc%] [-c combo] [-m #misses]")]
 #[example("badewanne3 +hr -a 99.3 -m 1")]
 #[aliases("srt")]
-pub async fn simulaterecenttaiko(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    simulate_recent_main(GameMode::TKO, ctx, msg, args, num).await
+pub async fn simulaterecenttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match RecentSimulateArgs::args(&ctx, &mut args, GameMode::TKO, num) {
+                Ok(recent_args) => {
+                    _recentsimulate(ctx, CommandData::Message { msg, args, num }, recent_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+    }
 }
 
 #[command]
@@ -230,11 +239,16 @@ pub async fn simulaterecenttaiko(
 )]
 #[example("badewanne3 +hr -a 99.3 -300 1422 -m 1")]
 #[aliases("src")]
-pub async fn simulaterecentctb(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args,
-    num: Option<usize>,
-) -> BotResult<()> {
-    simulate_recent_main(GameMode::CTB, ctx, msg, args, num).await
+pub async fn simulaterecentctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match RecentSimulateArgs::args(&ctx, &mut args, GameMode::CTB, num) {
+                Ok(recent_args) => {
+                    _recentsimulate(ctx, CommandData::Message { msg, args, num }, recent_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+    }
 }

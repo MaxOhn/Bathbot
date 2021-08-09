@@ -42,7 +42,7 @@ async fn song_send(
         .guild_id()
         .map_or(true, |guild_id| ctx.config_lyrics(guild_id));
 
-    let channel_id = data.channel_id();
+    // let channel_id = data.channel_id();
 
     if allow {
         let mut interval = interval(Duration::from_millis(delay));

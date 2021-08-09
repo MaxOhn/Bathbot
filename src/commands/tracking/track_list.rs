@@ -1,5 +1,4 @@
 use crate::{
-    arguments::Args,
     embeds::{EmbedData, TrackListEmbed},
     util::{constants::OSU_API_ISSUE, MessageExt},
     BotResult, CommandData, Context, MessageBuilder,
@@ -11,7 +10,6 @@ use futures::{
 };
 use rosu_v2::prelude::OsuError;
 use std::sync::Arc;
-use twilight_model::channel::Message;
 
 #[command]
 #[authority()]

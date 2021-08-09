@@ -1,5 +1,5 @@
 use crate::{
-    arguments::SimulateArgs,
+    commands::osu::RecentSimulateArgs,
     embeds::{osu, EmbedBuilder, EmbedData, Footer},
     pp::{Calculations, PPCalculator},
     util::{
@@ -50,7 +50,7 @@ impl SimulateEmbed {
         score: Option<Score>,
         map: &Beatmap,
         mapset: &BeatmapsetCompact,
-        args: SimulateArgs,
+        args: RecentSimulateArgs,
     ) -> BotResult<Self> {
         let is_some = args.is_some();
 
@@ -271,7 +271,7 @@ impl EmbedData for SimulateEmbed {
 fn simulate_score(
     score: &mut Score,
     map: &Beatmap,
-    args: SimulateArgs,
+    args: RecentSimulateArgs,
     mut attributes: StarResult,
 ) -> StarResult {
     match attributes {
@@ -279,19 +279,19 @@ fn simulate_score(
             let acc = args.acc.map_or(1.0, |a| a / 100.0);
             let mut n50 = args.n50.unwrap_or(0);
             let mut n100 = args.n100.unwrap_or(0);
-            let mut miss = args.miss.unwrap_or(0);
-            let n_objects = map.count_objects();
+            let mut miss = args.misses.unwrap_or(0);
+            let n_objects = map.count_objects() as usize;
 
             let combo = args
                 .combo
-                .unwrap_or(diff_attributes.max_combo as u32)
-                .min((diff_attributes.max_combo as u32).saturating_sub(miss));
+                .unwrap_or(diff_attributes.max_combo)
+                .min((diff_attributes.max_combo).saturating_sub(miss));
 
             if n50 > 0 || n100 > 0 {
                 let placed_points = 2 * n100 + n50 + miss;
                 let missing_objects = n_objects - n100 - n50 - miss;
                 let missing_points =
-                    ((6.0 * acc * n_objects as f32).round() as u32).saturating_sub(placed_points);
+                    ((6.0 * acc * n_objects as f32).round() as usize).saturating_sub(placed_points);
 
                 let mut n300 = missing_objects.min(missing_points / 6);
                 n50 += missing_objects - n300;
@@ -306,15 +306,15 @@ fn simulate_score(
                     n50 -= 4 * n;
                 }
 
-                score.statistics.count_300 = n300;
-                score.statistics.count_100 = n100;
-                score.statistics.count_50 = n50;
+                score.statistics.count_300 = n300 as u32;
+                score.statistics.count_100 = n100 as u32;
+                score.statistics.count_50 = n50 as u32;
             } else if miss > 0 && args.acc.is_none() {
-                score.statistics.count_300 = n_objects.saturating_sub(miss);
+                score.statistics.count_300 = n_objects.saturating_sub(miss) as u32;
                 score.statistics.count_100 = 0;
                 score.statistics.count_50 = 0;
             } else {
-                let target_total = (acc * n_objects as f32 * 6.0).round() as u32;
+                let target_total = (acc * n_objects as f32 * 6.0).round() as usize;
                 let left = n_objects.saturating_sub(miss);
                 let delta = target_total.saturating_sub(left);
 
@@ -331,14 +331,14 @@ fn simulate_score(
                 n100 += 5 * n;
                 n50 -= 4 * n;
 
-                score.statistics.count_300 = n300;
-                score.statistics.count_100 = n100;
-                score.statistics.count_50 = n50;
+                score.statistics.count_300 = n300 as u32;
+                score.statistics.count_100 = n100 as u32;
+                score.statistics.count_50 = n50 as u32;
             }
 
             score.mode = GameMode::STD;
-            score.statistics.count_miss = miss;
-            score.max_combo = combo;
+            score.statistics.count_miss = miss as u32;
+            score.max_combo = combo as u32;
             score.accuracy = score.accuracy();
             score.grade = score.grade(None);
 
@@ -389,13 +389,13 @@ fn simulate_score(
         StarResult::Taiko(diff_attributes) => {
             let n100 = args.n100.unwrap_or(0);
             let n300 = args.n300.unwrap_or(0);
-            let miss = args.miss.unwrap_or(0);
-            let n_objects = map.count_circles;
+            let miss = args.misses.unwrap_or(0);
+            let n_objects = map.count_circles as usize;
             let missing = n_objects - (n300 + n100 + miss);
 
             match args.acc {
                 Some(acc) => {
-                    let target_total = (acc * n_objects as f32 * 2.0 / 100.0).round() as u32;
+                    let target_total = (acc * n_objects as f32 * 2.0 / 100.0).round() as usize;
 
                     let new300 = target_total
                         .saturating_sub(2 * n300)
@@ -404,16 +404,16 @@ fn simulate_score(
 
                     let new100 = missing - new300;
 
-                    score.statistics.count_300 = n300 + new300;
-                    score.statistics.count_100 = n100 + new100;
-                    score.statistics.count_miss = miss;
+                    score.statistics.count_300 = (n300 + new300) as u32;
+                    score.statistics.count_100 = (n100 + new100) as u32;
                 }
                 None => {
-                    score.statistics.count_300 = n300 + missing;
-                    score.statistics.count_100 = n100;
-                    score.statistics.count_miss = miss;
+                    score.statistics.count_300 = (n300 + missing) as u32;
+                    score.statistics.count_100 = (n100) as u32;
                 }
             }
+
+            score.statistics.count_miss = miss as u32;
 
             let acc = (2 * score.statistics.count_300 + score.statistics.count_100) as f32
                 / (2 * (score.statistics.count_300
@@ -422,9 +422,10 @@ fn simulate_score(
 
             score.max_combo = args
                 .combo
+                .map(|c| c as u32)
                 .or(map.max_combo)
                 .unwrap_or(0)
-                .min(n_objects.saturating_sub(miss));
+                .min(n_objects.saturating_sub(miss) as u32);
 
             score.mode = GameMode::TKO;
             score.accuracy = acc * 100.0;
@@ -438,14 +439,12 @@ fn simulate_score(
             let mut n_droplets;
             let mut n_fruits;
 
-            let miss = diff_attributes
-                .max_combo
-                .min(args.miss.unwrap_or(0) as usize);
+            let miss = diff_attributes.max_combo.min(args.misses.unwrap_or(0));
 
             match args.acc {
                 Some(acc) => {
                     n_droplets = match args.n100 {
-                        Some(n100) => diff_attributes.n_droplets.min(n100 as usize),
+                        Some(n100) => diff_attributes.n_droplets.min(n100),
                         None => diff_attributes.n_droplets.saturating_sub(miss),
                     };
 
@@ -454,7 +453,7 @@ fn simulate_score(
                     );
 
                     n_tiny_droplets = match args.n50 {
-                        Some(n50) => diff_attributes.n_tiny_droplets.min(n50 as usize),
+                        Some(n50) => diff_attributes.n_tiny_droplets.min(n50),
                         None => ((acc / 100.0
                             * (diff_attributes.max_combo + diff_attributes.n_tiny_droplets) as f32)
                             .round() as usize)
@@ -500,8 +499,8 @@ fn simulate_score(
 
             score.max_combo = args
                 .combo
-                .unwrap_or(diff_attributes.max_combo as u32)
-                .min(diff_attributes.max_combo as u32 - miss as u32);
+                .unwrap_or(diff_attributes.max_combo)
+                .min(diff_attributes.max_combo - miss) as u32;
 
             score.accuracy = score.accuracy();
             score.grade = score.grade(Some(score.accuracy));

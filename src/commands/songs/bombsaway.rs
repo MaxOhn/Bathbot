@@ -8,7 +8,7 @@ use std::sync::Arc;
 pub async fn bombsaway(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let (lyrics, delay) = _bombsaway();
 
-    super::song_send(lyrics, 2750, ctx, data).await
+    super::song_send(lyrics, delay, ctx, data).await
 }
 
 pub fn _bombsaway() -> (&'static [&'static str], u64) {

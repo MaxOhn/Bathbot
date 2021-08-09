@@ -1,6 +1,6 @@
 use crate::{
     embeds::EmbedBuilder, util::constants::RED, BotResult, CommandData, CommandDataCompact,
-    Context, MessageBuilder,
+    Context, Error, MessageBuilder,
 };
 
 use async_trait::async_trait;
@@ -34,6 +34,12 @@ pub trait MessageExt {
     async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()>;
 
     async fn reply<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()>;
+
+    async fn get_response(
+        &self,
+        ctx: &Context,
+        response: Option<Response<Message>>,
+    ) -> BotResult<Message>;
 }
 
 #[async_trait]
@@ -53,7 +59,10 @@ impl MessageExt for (MessageId, ChannelId) {
             req = req.embeds(slice::from_ref(embed))?;
         }
 
-        Ok(Some(req.exec().await?))
+        match builder.file {
+            Some(tuple) => Ok(Some(req.files(&[tuple]).exec().await?)),
+            None => Ok(Some(req.exec().await?)),
+        }
     }
 
     async fn update_message<'c>(
@@ -103,6 +112,18 @@ impl MessageExt for (MessageId, ChannelId) {
 
         Ok(())
     }
+
+    async fn get_response(
+        &self,
+        _: &Context,
+        response: Option<Response<Message>>,
+    ) -> BotResult<Message> {
+        response
+            .expect("response must be `Some`")
+            .model()
+            .await
+            .map_err(Error::from)
+    }
 }
 
 #[async_trait]
@@ -119,6 +140,8 @@ impl<'s> MessageExt for (InteractionId, &'s str) {
             flags: None,
             tts: None,
         });
+
+        // TODO: Use builder.file
 
         ctx.http
             .interaction_callback(self.0, self.1, &response)
@@ -156,6 +179,19 @@ impl<'s> MessageExt for (InteractionId, &'s str) {
 
         self.create_message(ctx, builder).await.map(|_| ())
     }
+
+    async fn get_response(
+        &self,
+        ctx: &Context,
+        response: Option<Response<Message>>,
+    ) -> BotResult<Message> {
+        let response = match response {
+            Some(response) => response,
+            None => ctx.http.get_interaction_original(self.1)?.exec().await?,
+        };
+
+        response.model().await.map_err(Error::from)
+    }
 }
 
 #[async_trait]
@@ -188,6 +224,14 @@ impl MessageExt for Message {
     async fn reply<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
         (self.id, self.channel_id).reply(ctx, content).await
     }
+
+    async fn get_response(
+        &self,
+        ctx: &Context,
+        response: Option<Response<Message>>,
+    ) -> BotResult<Message> {
+        (self.id, self.channel_id).get_response(ctx, response).await
+    }
 }
 
 #[async_trait]
@@ -219,6 +263,16 @@ impl MessageExt for ApplicationCommand {
 
     async fn reply<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
         (self.id, self.token.as_str()).reply(ctx, content).await
+    }
+
+    async fn get_response(
+        &self,
+        ctx: &Context,
+        response: Option<Response<Message>>,
+    ) -> BotResult<Message> {
+        (self.id, self.token.as_str())
+            .get_response(ctx, response)
+            .await
     }
 }
 
@@ -258,6 +312,17 @@ impl<'m> MessageExt for CommandData<'m> {
         match self {
             Self::Message { msg, .. } => msg.reply(ctx, content).await,
             Self::Interaction { command } => command.reply(ctx, content).await,
+        }
+    }
+
+    async fn get_response(
+        &self,
+        ctx: &Context,
+        response: Option<Response<Message>>,
+    ) -> BotResult<Message> {
+        match self {
+            Self::Message { msg, .. } => msg.get_response(ctx, response).await,
+            Self::Interaction { command } => command.get_response(ctx, response).await,
         }
     }
 }
@@ -328,6 +393,26 @@ impl MessageExt for CommandDataCompact {
                 interaction_id,
                 token,
             } => (*interaction_id, token.as_str()).reply(ctx, content).await,
+        }
+    }
+
+    async fn get_response(
+        &self,
+        ctx: &Context,
+        response: Option<Response<Message>>,
+    ) -> BotResult<Message> {
+        match self {
+            CommandDataCompact::Message { msg_id, channel_id } => {
+                (*msg_id, *channel_id).get_response(ctx, response).await
+            }
+            CommandDataCompact::Interaction {
+                interaction_id,
+                token,
+            } => {
+                (*interaction_id, token.as_str())
+                    .get_response(ctx, response)
+                    .await
+            }
         }
     }
 }

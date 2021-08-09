@@ -82,7 +82,7 @@ impl TrackArgs {
     }
 
     fn slash(command: &mut ApplicationCommand) -> BotResult<TrackCommandKind> {
-        let kind = None;
+        let mut kind = None;
 
         for option in command.yoink_options() {
             match option {
@@ -91,10 +91,10 @@ impl TrackArgs {
                 CommandDataOption::Boolean { name, .. } => bail_cmd_option!("track", boolean, name),
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
                     "add" => {
-                        let mode = None;
-                        let username = None;
-                        let limit = None;
-                        let more_names = Vec::new();
+                        let mut mode = None;
+                        let mut username = None;
+                        let mut limit = None;
+                        let mut more_names = Vec::new();
 
                         for option in options {
                             match option {
@@ -111,7 +111,7 @@ impl TrackArgs {
                                 CommandDataOption::Boolean { name, .. } => {
                                     bail_cmd_option!("track add", boolean, name)
                                 }
-                                CommandDataOption::SubCommand { name, options } => {
+                                CommandDataOption::SubCommand { name, .. } => {
                                     bail_cmd_option!("track add", subcommand, name)
                                 }
                             }
@@ -141,9 +141,9 @@ impl TrackArgs {
                                 CommandDataOption::SubCommand { name, options } => {
                                     match name.as_str() {
                                         "user" => {
-                                            let mode = None;
-                                            let username = None;
-                                            let more_names = Vec::new();
+                                            let mut mode = None;
+                                            let mut username = None;
+                                            let mut more_names = Vec::new();
 
                                             for option in options {
                                                 match option {
@@ -180,8 +180,7 @@ impl TrackArgs {
                                                         )
                                                     }
                                                     CommandDataOption::SubCommand {
-                                                        name,
-                                                        options,
+                                                        name, ..
                                                     } => {
                                                         bail_cmd_option!(
                                                             "track remove user",
@@ -203,7 +202,7 @@ impl TrackArgs {
                                             kind = Some(TrackCommandKind::RemoveSpecific(args));
                                         }
                                         "all" => {
-                                            let mode = None;
+                                            let mut mode = None;
 
                                             for option in options {
                                                 match option {
@@ -236,8 +235,7 @@ impl TrackArgs {
                                                         )
                                                     }
                                                     CommandDataOption::SubCommand {
-                                                        name,
-                                                        options,
+                                                        name, ..
                                                     } => {
                                                         bail_cmd_option!(
                                                             "track remove all",

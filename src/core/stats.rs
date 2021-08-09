@@ -1,10 +1,7 @@
-use crate::core::Context;
-
 use chrono::{DateTime, Utc};
 use prometheus::{IntCounter, IntCounterVec, Opts, Registry};
 use std::sync::Arc;
 use twilight_cache_inmemory::Metrics;
-use twilight_model::{channel::Message, gateway::event::Event};
 
 pub struct EventStats {
     pub channel_create: IntCounter,

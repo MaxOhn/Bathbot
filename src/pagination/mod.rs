@@ -2,10 +2,10 @@
 // mod command_count;
 // mod common;
 // mod country_snipe_list;
-// mod leaderboard;
+mod leaderboard;
 // mod map;
 // mod map_search;
-// mod medals_missing;
+mod medals_missing;
 // mod most_played;
 // mod most_played_common;
 // mod nochoke;
@@ -15,8 +15,8 @@
 // mod profile;
 // mod ranking;
 // mod ranking_countries;
-// mod recent;
-// mod recent_list;
+mod recent;
+mod recent_list;
 // mod sniped_difference;
 // mod top;
 // mod top_if;
@@ -25,10 +25,10 @@
 // pub use command_count::CommandCountPagination;
 // pub use common::CommonPagination;
 // pub use country_snipe_list::CountrySnipeListPagination;
-// pub use leaderboard::LeaderboardPagination;
+pub use leaderboard::LeaderboardPagination;
 // pub use map::MapPagination;
 // pub use map_search::MapSearchPagination;
-// pub use medals_missing::MedalsMissingPagination;
+pub use medals_missing::MedalsMissingPagination;
 // pub use most_played::MostPlayedPagination;
 // pub use most_played_common::MostPlayedCommonPagination;
 // pub use nochoke::NoChokePagination;
@@ -38,8 +38,8 @@
 // pub use profile::ProfilePagination;
 // pub use ranking::RankingPagination;
 // pub use ranking_countries::RankingCountriesPagination;
-// pub use recent::RecentPagination;
-// pub use recent_list::RecentListPagination;
+pub use recent::RecentPagination;
+pub use recent_list::RecentListPagination;
 // pub use sniped_difference::SnipedDiffPagination;
 // pub use top::TopPagination;
 // pub use top_if::TopIfPagination;

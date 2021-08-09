@@ -8,7 +8,7 @@ pub use tracked::*;
 
 use crate::{
     util::{ApplicationCommandExt, CowUtils},
-    Args, BotResult, CommandData, Context, Error,
+    Args, BotResult, Context, Error,
 };
 
 use std::{borrow::Cow, sync::Arc};
@@ -34,7 +34,7 @@ impl StreamArgs {
     }
 
     fn slash(command: &mut ApplicationCommand) -> BotResult<StreamCommandKind> {
-        let kind = None;
+        let mut kind = None;
 
         for option in command.yoink_options() {
             match option {
@@ -61,7 +61,7 @@ impl StreamArgs {
                                 CommandDataOption::Boolean { name, .. } => {
                                     bail_cmd_option!("trackstream add", boolean, name)
                                 }
-                                CommandDataOption::SubCommand { name, options } => {
+                                CommandDataOption::SubCommand { name, .. } => {
                                     bail_cmd_option!("trackstream add", subcommand, name)
                                 }
                             }
@@ -80,7 +80,7 @@ impl StreamArgs {
                                 CommandDataOption::Boolean { name, .. } => {
                                     bail_cmd_option!("trackstream remove", boolean, name)
                                 }
-                                CommandDataOption::SubCommand { name, options } => {
+                                CommandDataOption::SubCommand { name, .. } => {
                                     bail_cmd_option!("trackstream remove", subcommand, name)
                                 }
                             }
