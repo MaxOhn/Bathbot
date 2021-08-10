@@ -1,35 +1,34 @@
 use crate::{
     util::{constants::GENERAL_ISSUE, error::BgGameError, MessageExt},
-    Args, BotResult, Context,
+    BotResult, CommandData, Context, MessageBuilder,
 };
 
 use std::sync::Arc;
-use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Get a hint for the current background")]
 #[aliases("h", "tip")]
 #[bucket("bg_hint")]
-pub async fn hint(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
-    match ctx.game_hint(msg.channel_id).await {
-        Ok(hint) => msg.send_response(&ctx, hint).await,
+pub(super) async fn hint(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match ctx.game_hint(data.channel_id()).await {
+        Ok(hint) => {
+            let builder = MessageBuilder::new().content(hint);
+            data.create_message(&ctx, builder).await?;
+
+            Ok(())
+        }
         Err(BgGameError::NotStarted) => {
             debug!("Could not get hint because game didn't start yet");
 
             Ok(())
         }
         Err(BgGameError::NoGame) => {
-            let prefix = ctx.config_first_prefix(msg.guild_id);
+            let content = "No running game in this channel.\nStart one with `bg start`.";
 
-            let content = format!(
-                "No running game in this channel.\nStart one with `{}bg start`.",
-                prefix
-            );
-
-            msg.error(&ctx, content).await
+            data.error(&ctx, content).await
         }
         Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
             Err(why.into())
         }

@@ -7,20 +7,19 @@ use twilight_model::id::ChannelId;
 
 impl Context {
     pub fn add_game_and_start(
-        &self,
-        ctx: Arc<Context>,
+        this: Arc<Context>,
         channel: ChannelId,
         mapsets: Vec<MapsetTagWrapper>,
     ) {
-        if self.data.bg_games.get(&channel).is_some() {
-            self.data.bg_games.remove(&channel);
+        if this.data.bg_games.get(&channel).is_some() {
+            this.data.bg_games.remove(&channel);
         }
 
-        self.data
+        this.data
             .bg_games
             .entry(channel)
             .or_insert_with(GameWrapper::new)
-            .start(ctx, channel, mapsets);
+            .start(Arc::clone(&this), channel, mapsets);
     }
 
     pub fn has_running_game(&self, channel: ChannelId) -> bool {

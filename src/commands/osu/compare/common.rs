@@ -1,10 +1,10 @@
+use super::TripleArgs;
 use crate::{
-    arguments::{Args, MultNameArgs},
     embeds::{CommonEmbed, EmbedData},
     pagination::{CommonPagination, Pagination},
     tracking::process_tracking,
     util::{constants::OSU_API_ISSUE, get_combined_thumbnail, MessageExt},
-    BotResult, Context, Name,
+    BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
 use futures::stream::{FuturesOrdered, StreamExt};
@@ -13,7 +13,6 @@ use itertools::Itertools;
 use rosu_v2::prelude::{GameMode, OsuError, Score};
 use smallvec::SmallVec;
 use std::{cmp::Ordering, fmt::Write, sync::Arc};
-use twilight_model::channel::Message;
 
 macro_rules! user_id {
     ($scores:ident[$idx:literal]) => {
@@ -23,46 +22,53 @@ macro_rules! user_id {
 
 type CommonUsers = SmallVec<[CommonUser; 3]>;
 
-async fn common_main(
-    mode: GameMode,
+pub(super) async fn _common(
     ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
+    data: CommandData<'_>,
+    args: TripleArgs,
 ) -> BotResult<()> {
-    let mut args = MultNameArgs::new(&ctx, args, 3);
+    let TripleArgs {
+        name1,
+        name2,
+        name3,
+        mode,
+    } = args;
 
-    let names = match args.names.len() {
-        0 => {
-            let content = "You need to specify at least one osu username. \
-                If you're not linked, you must specify at least two names.";
+    let author_id = data.author()?.id;
 
-            return msg.error(&ctx, content).await;
-        }
-        1 => match ctx.get_link(msg.author.id.0) {
-            Some(name) => {
-                args.names.insert(0, name);
-
-                args.names
-            }
+    let name1 = match name1 {
+        Some(name) => name,
+        None => match ctx.get_link(author_id.0) {
+            Some(name) => name,
             None => {
-                let prefix = ctx.config_first_prefix(msg.guild_id);
+                let content =
+                    "Since you're not linked with the `link` command, you must specify two names.";
 
-                let content = format!(
-                    "Since you're not linked via `{}link`, \
-                    you must specify at least two names.",
-                    prefix
-                );
-
-                return msg.error(&ctx, content).await;
+                return data.error(&ctx, content).await;
             }
         },
-        _ => args.names,
     };
 
-    if names.iter().unique().count() == 1 {
-        let content = "Give at least two different names";
+    let mut names = Vec::with_capacity(3);
+    names.push(name1);
+    names.push(name2);
 
-        return msg.error(&ctx, content).await;
+    if let Some(name) = name3 {
+        names.push(name);
+    }
+
+    {
+        let unique: HashSet<_> = names.iter().collect();
+
+        if unique.len() == 1 {
+            let content = "Give at least two different names";
+
+            return data.error(&ctx, content).await;
+        } else if unique.len() < names.len() {
+            drop(unique);
+
+            names.dedup(); // * Note: Doesn't consider [a, b, a] but whatever
+        }
     }
 
     let count = names.len();
@@ -96,7 +102,7 @@ async fn common_main(
                 } else {
                     let content = format!("User `{}` has no {} top scores", name, mode);
 
-                    return msg.error(&ctx, content).await;
+                    return data.error(&ctx, content).await;
                 }
 
                 all_scores.push(scores);
@@ -104,10 +110,10 @@ async fn common_main(
             Err(OsuError::NotFound) => {
                 let content = format!("User `{}` was not found", name);
 
-                return msg.error(&ctx, content).await;
+                return data.error(&ctx, content).await;
             }
             Err(why) => {
-                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+                let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
                 return Err(why.into());
             }
@@ -120,7 +126,7 @@ async fn common_main(
     if users.iter().unique_by(|user| user.id()).count() == 1 {
         let content = "Give at least two different users";
 
-        return msg.error(&ctx, content).await;
+        return data.error(&ctx, content).await;
     }
 
     // Process users and their top scores for tracking
@@ -260,7 +266,7 @@ async fn common_main(
         CommonEmbed::new(&users, &scores_per_map[..limit], 0)
     };
 
-    let (thumbnail_result, data) = tokio::join!(thumbnail_fut, data_fut);
+    let (thumbnail_result, embed_data) = tokio::join!(thumbnail_fut, data_fut);
 
     let thumbnail = match thumbnail_result {
         Ok(thumbnail) => Some(thumbnail),
@@ -272,24 +278,14 @@ async fn common_main(
     };
 
     // Creating the embed
-    let embed = &[data.into_builder().build()];
+    let embed = embed_data.into_builder().build();
+    let mut builder = MessageBuilder::new().content(content).embed(embed);
 
-    let m = ctx
-        .http
-        .create_message(msg.channel_id)
-        .content(&content)?
-        .embeds(embed)?;
+    if let Some(bytes) = thumbnail.as_deref() {
+        builder = builder.file("avatar_fuse.png", bytes);
+    }
 
-    let response = match thumbnail {
-        Some(bytes) => {
-            m.files(&[("avatar_fuse.png", &bytes)])
-                .exec()
-                .await?
-                .model()
-                .await?
-        }
-        None => m.exec().await?.model().await?,
-    };
+    let response_raw = data.create_message(&ctx, builder).await?;
 
     // Add maps of scores to DB
     let map_iter = scores_per_map
@@ -306,9 +302,11 @@ async fn common_main(
         return Ok(());
     }
 
+    let response = data.get_response(&ctx, response_raw).await?;
+
     // Pagination
     let pagination = CommonPagination::new(response, users, scores_per_map);
-    let owner = msg.author.id;
+    let owner = author_id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -327,8 +325,20 @@ async fn common_main(
 )]
 #[usage("[name1] [name2] [name3]")]
 #[example("badewanne3 \"nathan on osu\" idke")]
-pub async fn common(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    common_main(GameMode::STD, ctx, msg, args).await
+pub async fn common(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match TripleArgs::args(&ctx, &mut args, Some(GameMode::STD)) {
+                Ok(common_args) => {
+                    let data = CommandData::Message { msg, args, num };
+
+                    _common(ctx, data, common_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+    }
 }
 
 #[command]
@@ -340,8 +350,20 @@ pub async fn common(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 #[usage("[name1] [name2] [name3]")]
 #[example("badewanne3 \"nathan on osu\" idke")]
 #[aliases("commonm")]
-pub async fn commonmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    common_main(GameMode::MNA, ctx, msg, args).await
+pub async fn commonmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match TripleArgs::args(&ctx, &mut args, Some(GameMode::MNA)) {
+                Ok(common_args) => {
+                    let data = CommandData::Message { msg, args, num };
+
+                    _common(ctx, data, common_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+    }
 }
 
 #[command]
@@ -353,8 +375,20 @@ pub async fn commonmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 #[usage("[name1] [name2] [name3]")]
 #[example("badewanne3 \"nathan on osu\" idke")]
 #[aliases("commont")]
-pub async fn commontaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    common_main(GameMode::TKO, ctx, msg, args).await
+pub async fn commontaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match TripleArgs::args(&ctx, &mut args, Some(GameMode::TKO)) {
+                Ok(common_args) => {
+                    let data = CommandData::Message { msg, args, num };
+
+                    _common(ctx, data, common_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+    }
 }
 
 #[command]
@@ -366,8 +400,20 @@ pub async fn commontaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 #[usage("[name1] [name2] [name3]")]
 #[example("badewanne3 \"nathan on osu\" idke")]
 #[aliases("commonc")]
-pub async fn commonctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    common_main(GameMode::CTB, ctx, msg, args).await
+pub async fn commonctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match TripleArgs::args(&ctx, &mut args, Some(GameMode::CTB)) {
+                Ok(common_args) => {
+                    let data = CommandData::Message { msg, args, num };
+
+                    _common(ctx, data, common_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+    }
 }
 
 pub struct CommonUser {

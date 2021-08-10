@@ -1,8 +1,8 @@
 use super::{game_loop, Game, GameResult, LoopResult};
 use crate::{
     database::MapsetTagWrapper,
-    util::{constants::OSU_BASE, error::BgGameError},
-    Context,
+    util::{constants::OSU_BASE, error::BgGameError, MessageExt},
+    Context, MessageBuilder,
 };
 
 use hashbrown::HashMap;
@@ -14,7 +14,10 @@ use tokio::{
     },
     time::{sleep, timeout, Duration},
 };
-use twilight_model::{gateway::payload::MessageCreate, id::ChannelId};
+use twilight_model::{
+    gateway::payload::MessageCreate,
+    id::{ChannelId, MessageId},
+};
 
 const TIMEOUT: Duration = Duration::from_secs(10);
 const GAME_LEN: Duration = Duration::from_secs(180);
@@ -94,16 +97,11 @@ impl GameWrapper {
                     *arced_game = Some(game);
                 }
 
-                let msg_result = ctx
-                    .http
-                    .create_message(channel)
+                let builder = MessageBuilder::new()
                     .content("Here's the next one:")
-                    .unwrap()
-                    .files(&[("bg_img.png", &img)])
-                    .exec()
-                    .await;
+                    .file("bg_img.png", &img);
 
-                if let Err(why) = msg_result {
+                if let Err(why) = (MessageId(0), channel).create_message(&ctx, builder).await {
                     unwind_error!(warn, why, "Error while sending initial bg game msg: {}");
                 }
 

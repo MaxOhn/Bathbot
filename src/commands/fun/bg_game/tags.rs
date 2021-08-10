@@ -4,9 +4,9 @@ use crate::{
     database::MapsetTagWrapper,
     util::{
         constants::{GENERAL_ISSUE, OSU_BASE, OWNER_USER_ID},
-        send_reaction, CowUtils, MessageExt, Emote
+        send_reaction, CowUtils, Emote, MessageExt,
     },
-    Args, BotResult, Context, CONFIG,
+    BotResult, CommandData, Context, MessageBuilder, CONFIG,
 };
 
 use rand::RngCore;
@@ -14,10 +14,7 @@ use rosu_v2::model::GameMode;
 use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::fs;
 use tokio_stream::StreamExt;
-use twilight_model::{
-    channel::{Message, ReactionType},
-    gateway::event::Event,
-};
+use twilight_model::{channel::ReactionType, gateway::event::Event};
 
 #[command]
 #[short_desc("Help tagging backgrounds by tagging them manually")]
@@ -35,7 +32,12 @@ use twilight_model::{
 #[example("21662 r hard farm streams alternate hardname tech weeb bluesky")]
 #[aliases("bgtm", "bgtagmanual")]
 #[owner()]
-async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
+async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    let (msg, mut args) = match data {
+        CommandData::Message { msg, args, .. } => (msg, args),
+        CommandData::Interaction { .. } => unreachable!(),
+    };
+
     // Parse mapset id
     let mapset_id = match args.next().map(u32::from_str) {
         Some(Ok(num)) => num,
@@ -50,7 +52,10 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
             Tags: `farm, streams, alternate, old, meme, hardname, easy, hard, tech, \
             weeb, bluesky, english`";
 
-            return msg.send_response(&ctx, content).await;
+            let builder = MessageBuilder::new().content(content);
+            msg.create_message(&ctx, builder).await?;
+
+            return Ok(());
         }
     };
 
@@ -115,7 +120,8 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
                 OSU_BASE, mapset_id, tags,
             );
 
-            msg.send_response(&ctx, content).await?;
+            let builder = MessageBuilder::new().content(content);
+            msg.create_message(&ctx, builder).await?;
         }
         Err(why) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
@@ -140,7 +146,12 @@ async fn bgtagsmanual(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotRe
 #[usage("[std / mna]")]
 #[aliases("bgt", "bgtag")]
 #[owner()]
-async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
+async fn bgtags(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    let (msg, mut args) = match data {
+        CommandData::Message { msg, args, .. } => (msg, args),
+        CommandData::Interaction { .. } => unreachable!(),
+    };
+
     // Parse arguments as mode
     let mode = match args.next() {
         Some(arg) => match arg.cow_to_ascii_lowercase().as_ref() {
@@ -169,7 +180,8 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
         let content = "All backgrounds have been tagged, \
             here are some random ones you can review again though";
 
-        let _ = msg.send_response(&ctx, content).await;
+        let builder = MessageBuilder::new().content(content);
+        let _ = msg.create_message(&ctx, builder).await;
     }
 
     let mut owner = msg.author.id;
@@ -194,7 +206,8 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                         let content = "All backgrounds have been tagged, \
                             here are some random ones you can review again though";
 
-                        let _ = msg.send_response(&ctx, content).await;
+                        let builder = MessageBuilder::new().content(content);
+                        let _ = msg.create_message(&ctx, builder).await;
                         untagged = false;
                         tags.truncate(1);
                     }
@@ -345,19 +358,20 @@ async fn bgtags(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                         OSU_BASE, mapset_id, tags,
                     );
 
-                    msg.send_response(&ctx, content).await?;
+                    let builder = MessageBuilder::new().content(content);
+                    msg.create_message(&ctx, builder).await?;
                 }
             }
             Err(why) => {
-                let _ = msg.send_response(&ctx, GENERAL_ISSUE).await;
+                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
                 return Err(why);
             }
         };
 
         if break_loop {
-            let content = "Exiting loop :wave:";
-            msg.send_response(&ctx, content).await?;
+            let builder = MessageBuilder::new().content("Exiting loop :wave:");
+            msg.create_message(&ctx, builder).await?;
 
             break;
         }

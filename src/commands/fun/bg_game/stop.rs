@@ -1,26 +1,20 @@
-use crate::{util::MessageExt, Args, BotResult, Context};
+use crate::{util::MessageExt, BotResult, CommandData, Context};
 
 use std::sync::Arc;
-use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Stop the bg game")]
 #[aliases("end", "quit")]
-pub async fn stop(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
-    match ctx.stop_game(msg.channel_id).await {
+pub(super) async fn stop(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match ctx.stop_game(data.channel_id()).await {
         Ok(true) => Ok(()),
         Ok(false) => {
-            let prefix = ctx.config_first_prefix(msg.guild_id);
+            let content = "No running game in this channel.\nStart one with `bg start`.";
 
-            let content = format!(
-                "No running game in this channel.\nStart one with `{}bg start`.",
-                prefix
-            );
-
-            msg.error(&ctx, content).await
+            data.error(&ctx, content).await
         }
         Err(why) => {
-            let _ = msg.error(&ctx, "Error while stopping game \\:(").await;
+            let _ = data.error(&ctx, "Error while stopping game \\:(").await;
 
             Err(why)
         }

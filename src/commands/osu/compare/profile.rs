@@ -1,10 +1,9 @@
-use super::{request_user, MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
+use super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32, ProfileArgs};
 use crate::{
-    arguments::{Args, MultNameArgs},
     embeds::{EmbedData, ProfileCompareEmbed},
     tracking::process_tracking,
     util::{constants::OSU_API_ISSUE, osu::BonusPP, MessageExt},
-    BotResult, Context,
+    BotResult, CommandData, Context, MessageBuilder,
 };
 
 use image::{
@@ -15,50 +14,34 @@ use image::{
 };
 use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score, UserStatistics};
 use std::sync::Arc;
-use twilight_model::channel::Message;
 
-async fn compare_main(
-    mode: GameMode,
+pub(super) async fn _profilecompare(
     ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
+    data: CommandData<'_>,
+    args: ProfileArgs,
 ) -> BotResult<()> {
-    // Parse arguments
-    let args = MultNameArgs::new(&ctx, args, 2);
-    let mut names = args.names.into_iter();
+    let ProfileArgs { name1, name2, mode } = args;
 
-    let (name1, name2) = match (names.next(), names.next()) {
-        (Some(name1), Some(name2)) => (name1, name2),
-        (Some(name1), None) => match ctx.get_link(msg.author.id.0) {
-            Some(name2) => (name1, name2),
+    let name1 = match name1 {
+        Some(name) => name,
+        None => match ctx.get_link(data.author()?.id.0) {
+            Some(name) => name,
             None => {
-                let prefix = ctx.config_first_prefix(msg.guild_id);
+                let content =
+                    "Since you're not linked with the `link` command, you must specify two names.";
 
-                let content = format!(
-                    "Since you're not linked via `{}link`, \
-                    you must specify two names.",
-                    prefix
-                );
-
-                return msg.error(&ctx, content).await;
+                return data.error(&ctx, content).await;
             }
         },
-        (None, _) => {
-            let content = "You need to specify at least one osu username. \
-                If you're not linked, you must specify two names.";
-
-            return msg.error(&ctx, content).await;
-        }
     };
-    if name1 == name2 {
-        let content = "Give two different names";
 
-        return msg.error(&ctx, content).await;
+    if name1 == name2 {
+        return data.error(&ctx, "Give two different names").await;
     }
 
     // Retrieve all users and their scores
-    let user_fut1 = request_user(&ctx, &name1, Some(mode));
-    let user_fut2 = request_user(&ctx, &name2, Some(mode));
+    let user_fut1 = super::request_user(&ctx, &name1, Some(mode));
+    let user_fut2 = super::request_user(&ctx, &name2, Some(mode));
 
     let scores_fut_u1 = ctx
         .osu()
@@ -81,10 +64,10 @@ async fn compare_main(
         Err(OsuError::NotFound) => {
             let content = "At least one of the players was not found";
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -93,7 +76,7 @@ async fn compare_main(
     if user1.user_id == user2.user_id {
         let content = "Give at least two different users";
 
-        return msg.error(&ctx, content).await;
+        return data.error(&ctx, content).await;
     }
 
     let content = if scores1.is_empty() {
@@ -105,7 +88,7 @@ async fn compare_main(
     };
 
     if let Some(content) = content {
-        return msg.error(&ctx, content).await;
+        return data.error(&ctx, content).await;
     }
 
     // Process user and their top scores for tracking
@@ -133,19 +116,16 @@ async fn compare_main(
             }
         };
 
-    // Accumulate all necessary data
-    let data = ProfileCompareEmbed::new(mode, user1, user2, profile_result1, profile_result2);
-
     // Creating the embed
-    let embed = &[data.into_builder().build()];
+    let embed_data = ProfileCompareEmbed::new(mode, user1, user2, profile_result1, profile_result2);
+    let embed = embed_data.into_builder().build();
+    let mut builder = MessageBuilder::new().embed(embed);
 
-    let m = ctx.http.create_message(msg.channel_id).embeds(embed)?;
+    if let Some(bytes) = thumbnail.as_deref() {
+        builder = builder.file("avatar_fuse.png", bytes);
+    }
 
-    let _ = if let Some(bytes) = thumbnail.as_deref() {
-        m.files(&[("avatar_fuse.png", bytes)]).exec().await?
-    } else {
-        m.exec().await?
-    };
+    data.create_message(&ctx, builder).await?;
 
     Ok(())
 }
@@ -161,8 +141,19 @@ async fn compare_main(
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
 #[aliases("oc", "compareosu", "co")]
-pub async fn osucompare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    compare_main(GameMode::STD, ctx, msg, args).await
+pub async fn osucompare(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match ProfileArgs::args(&ctx, &mut args, GameMode::STD) {
+                Ok(profile_args) => {
+                    _profilecompare(ctx, CommandData::Message { msg, args, num }, profile_args)
+                        .await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+    }
 }
 
 #[command]
@@ -176,8 +167,19 @@ pub async fn osucompare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
 #[aliases("ocm")]
-pub async fn osucomparemania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    compare_main(GameMode::MNA, ctx, msg, args).await
+pub async fn osucomparemania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match ProfileArgs::args(&ctx, &mut args, GameMode::MNA) {
+                Ok(profile_args) => {
+                    _profilecompare(ctx, CommandData::Message { msg, args, num }, profile_args)
+                        .await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+    }
 }
 
 #[command]
@@ -191,8 +193,19 @@ pub async fn osucomparemania(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
 #[aliases("oct")]
-pub async fn osucomparetaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    compare_main(GameMode::TKO, ctx, msg, args).await
+pub async fn osucomparetaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match ProfileArgs::args(&ctx, &mut args, GameMode::TKO) {
+                Ok(profile_args) => {
+                    _profilecompare(ctx, CommandData::Message { msg, args, num }, profile_args)
+                        .await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+    }
 }
 
 #[command]
@@ -206,8 +219,19 @@ pub async fn osucomparetaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> Bo
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
 #[aliases("occ")]
-pub async fn osucomparectb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    compare_main(GameMode::CTB, ctx, msg, args).await
+pub async fn osucomparectb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match ProfileArgs::args(&ctx, &mut args, GameMode::CTB) {
+                Ok(profile_args) => {
+                    _profilecompare(ctx, CommandData::Message { msg, args, num }, profile_args)
+                        .await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+    }
 }
 pub struct CompareResult {
     pub mode: GameMode,

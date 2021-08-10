@@ -1,7 +1,7 @@
 use super::{Pages, Pagination, ReactionVec};
 
 use crate::{
-    commands::osu::{RankingType, UserValue},
+    commands::osu::{RankingKind, UserValue},
     embeds::RankingEmbed,
     BotResult, Context,
 };
@@ -23,7 +23,7 @@ pub struct RankingPagination {
     url_type: &'static str,
     country_code: Option<String>,
     total: usize,
-    ranking_type: RankingType,
+    ranking_type: RankingKind,
 }
 
 impl RankingPagination {
@@ -37,7 +37,7 @@ impl RankingPagination {
         title: Cow<'static, str>,
         url_type: &'static str,
         country_code: Option<String>,
-        ranking_type: RankingType,
+        ranking_type: RankingKind,
     ) -> Self {
         Self {
             pages: Pages::new(20, total),
@@ -64,7 +64,7 @@ impl RankingPagination {
             let page = page as u32;
 
             let ranking = match (self.ranking_type, &self.country_code) {
-                (RankingType::Performance, Some(country)) => {
+                (RankingKind::Performance, Some(country)) => {
                     self.ctx
                         .osu()
                         .performance_rankings(self.mode)
@@ -72,14 +72,14 @@ impl RankingPagination {
                         .page(page)
                         .await?
                 }
-                (RankingType::Performance, None) => {
+                (RankingKind::Performance, None) => {
                     self.ctx
                         .osu()
                         .performance_rankings(self.mode)
                         .page(page)
                         .await?
                 }
-                (RankingType::Score, _) => {
+                (RankingKind::Score, _) => {
                     self.ctx.osu().score_rankings(self.mode).page(page).await?
                 }
             };
@@ -90,11 +90,11 @@ impl RankingPagination {
                 .ranking
                 .into_iter()
                 .map(|user| match ranking_type {
-                    RankingType::Performance => (
+                    RankingKind::Performance => (
                         UserValue::Pp(user.statistics.as_ref().unwrap().pp.round() as u32),
                         user.username,
                     ),
-                    RankingType::Score => (
+                    RankingKind::Score => (
                         UserValue::Score(user.statistics.as_ref().unwrap().ranked_score),
                         user.username,
                     ),

@@ -1,6 +1,5 @@
-use super::{prepare_score, request_user};
+use super::ScoreArgs;
 use crate::{
-    arguments::{Args, NameMapModArgs},
     embeds::{CompareEmbed, EmbedData, NoScoresEmbed},
     tracking::process_tracking,
     util::{
@@ -10,13 +9,13 @@ use crate::{
         },
         MessageExt,
     },
-    BotResult, Context, Name,
+    BotResult, CommandData, CommandDataCompact, Context, MessageBuilder, Name,
 };
 
 use rosu_v2::prelude::{GameMods, OsuError, RankStatus::Ranked};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
-use twilight_model::channel::{message::MessageType, Message};
+use twilight_model::channel::message::MessageType;
 
 #[command]
 #[short_desc("Compare a player's score on a map")]
@@ -33,60 +32,78 @@ use twilight_model::channel::{message::MessageType, Message};
     "badewanne3 https://osu.ppy.sh/beatmapsets/902425#osu/2240404"
 )]
 #[aliases("c")]
-async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    let args = NameMapModArgs::new(&ctx, args);
+async fn compare(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    // let args = NameMapModArgs::new(&ctx, args);
 
-    let map_id_opt = args
-        .map_id
-        .or_else(|| {
-            msg.referenced_message
-                .as_ref()
-                .filter(|_| msg.kind == MessageType::Reply)
-                .and_then(|msg| map_id_from_msg(msg))
-        })
-        .or_else(|| {
-            ctx.cache
-                .message_extract(msg.channel_id, cached_message_extract)
-        });
+    // let map_id_opt = args
+    //     .map_id
+    //     .or_else(|| {
+    //         msg.referenced_message
+    //             .as_ref()
+    //             .filter(|_| msg.kind == MessageType::Reply)
+    //             .and_then(|msg| map_id_from_msg(msg))
+    //     })
+    //     .or_else(|| {
+    //         ctx.cache
+    //             .message_extract(msg.channel_id, cached_message_extract)
+    //     });
 
-    let map_id = if let Some(id) = map_id_opt {
-        id
-    } else {
-        let msgs = match ctx.retrieve_channel_history(msg.channel_id).await {
-            Ok(msgs) => msgs,
-            Err(why) => {
-                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+    // let map_id = if let Some(id) = map_id_opt {
+    //     id
+    // } else {
+    //     let msgs = match ctx.retrieve_channel_history(msg.channel_id).await {
+    //         Ok(msgs) => msgs,
+    //         Err(why) => {
+    //             let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(why);
-            }
-        };
+    //             return Err(why);
+    //         }
+    //     };
 
-        match map_id_from_history(&msgs) {
-            Some(id) => id,
-            None => {
-                let content = "No beatmap specified and none found in recent channel history. \
-                    Try specifying a map either by url to the map, or just by map id.";
+    //     match map_id_from_history(&msgs) {
+    //         Some(id) => id,
+    //         None => {
+    //             let content = "No beatmap specified and none found in recent channel history. \
+    //                 Try specifying a map either by url to the map, or just by map id.";
 
-                return msg.error(&ctx, content).await;
-            }
-        }
-    };
+    //             return data.error(&ctx, content).await;
+    //         }
+    //     }
+    // };
 
-    let map_id = match map_id {
-        MapIdType::Map(id) => id,
-        MapIdType::Set(_) => {
-            let content = "Looks like you gave me a mapset id, I need a map id though";
+    // let map_id = match map_id {
+    //     MapIdType::Map(id) => id,
+    //     MapIdType::Set(_) => {
+    //         let content = "Looks like you gave me a mapset id, I need a map id though";
 
-            return msg.error(&ctx, content).await;
-        }
-    };
+    //         return data.error(&ctx, content).await;
+    //     }
+    // };
 
-    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+    // let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+    //     Some(name) => name,
+    //     None => return super::require_link(&ctx, &data).await,
+    // };
+
+    todo!()
+}
+
+pub(super) async fn _compare(
+    ctx: Arc<Context>,
+    data: CommandData<'_>,
+    args: ScoreArgs,
+) -> BotResult<()> {
+    let ScoreArgs { name, mods, map_id } = args;
+
+    let name = match name {
         Some(name) => name,
-        None => return super::require_link(&ctx, msg).await,
+        None => match ctx.get_link(data.author()?.id.0) {
+            Some(name) => name,
+            None => return super::require_link(&ctx, &data).await,
+        },
     };
 
-    let arg_mods = match args.mods {
+    let arg_mods = match mods {
         None | Some(ModSelection::Exclude(_)) => None,
         Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) => Some(mods),
     };
@@ -100,17 +117,17 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
 
     // Retrieve user's score on the map
     let mut score = match score_result {
-        Ok(mut score) => match prepare_score(&ctx, &mut score.score).await {
+        Ok(mut score) => match super::prepare_score(&ctx, &mut score.score).await {
             Ok(_) => score,
             Err(why) => {
-                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+                let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
                 return Err(why.into());
             }
         },
-        Err(OsuError::NotFound) => return no_scores(ctx, msg, name, map_id, arg_mods).await,
+        Err(OsuError::NotFound) => return no_scores(ctx, &data, name, map_id, arg_mods).await,
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -140,7 +157,7 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
 
     let (user, scores_opt) = match tokio::join!(mapset_fut, user_fut, scores_fut) {
         (_, Err(why), _) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -153,7 +170,7 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
             let mapset = match ctx.osu().beatmapset(mapset_id).await {
                 Ok(mapset) => mapset,
                 Err(why) => {
-                    let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+                    let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
                     return Err(why.into());
                 }
@@ -178,20 +195,22 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
     // Accumulate all necessary data
     let mode = score.score.mode;
 
-    let data = match CompareEmbed::new(&user, best.as_deref(), score, arg_mods.is_some()).await {
-        Ok(data) => data,
-        Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+    let embed_data =
+        match CompareEmbed::new(&user, best.as_deref(), score, arg_mods.is_some()).await {
+            Ok(data) => data,
+            Err(why) => {
+                let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
-        }
-    };
+                return Err(why);
+            }
+        };
 
     // Sending the embed
-    let embed = data.as_builder().build();
-    let response = msg.respond_embed(&ctx, embed).await?;
+    let builder = embed_data.as_builder().build().into();
+    let response = data.create_message(&ctx, builder).await?;
 
-    ctx.store_msg(response.id);
+    // TODO
+    // ctx.store_msg(response.id);
 
     // Process user and their top scores for tracking
     if let Some(ref mut scores) = best {
@@ -202,22 +221,20 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
         process_tracking(&ctx, mode, scores, Some(&user)).await;
     }
 
+    let data: CommandDataCompact = data.into();
+
     // Wait for minimizing
     tokio::spawn(async move {
         sleep(Duration::from_secs(45)).await;
 
-        if !ctx.remove_msg(response.id) {
-            return;
-        }
+        // TODO
+        // if !ctx.remove_msg(response.id) {
+        //     return;
+        // }
 
-        let embed_update = ctx
-            .http
-            .update_message(response.channel_id, response.id)
-            .embeds(&[data.into_builder().build()])
-            .unwrap()
-            .exec();
+        let builder = embed_data.into_builder().build().into();
 
-        if let Err(why) = embed_update.await {
+        if let Err(why) = data.update_message(&ctx, builder, response).await {
             unwind_error!(warn, why, "Error minimizing compare msg: {}");
         }
     });
@@ -227,7 +244,7 @@ async fn compare(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> 
 
 async fn no_scores(
     ctx: Arc<Context>,
-    msg: &Message,
+    data: &CommandData<'_>,
     name: Name,
     map_id: u32,
     mods: Option<GameMods>,
@@ -245,38 +262,34 @@ async fn no_scores(
             Err(OsuError::NotFound) => {
                 let content = format!("There is no map with id {}", map_id);
 
-                return msg.error(&ctx, content).await;
+                return data.error(&ctx, content).await;
             }
             Err(why) => {
-                let _ = msg.send_response(&ctx, OSU_API_ISSUE).await;
+                let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
                 return Err(why.into());
             }
         },
     };
 
-    let user = match request_user(&ctx, name.as_str(), Some(map.mode)).await {
+    let user = match super::request_user(&ctx, name.as_str(), Some(map.mode)).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{}`", name);
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
     };
 
     // Sending the embed
-    let embed = &[NoScoresEmbed::new(user, map, mods).into_builder().build()];
-
-    ctx.http
-        .create_message(msg.channel_id)
-        .embeds(embed)?
-        .exec()
-        .await?;
+    let embed = NoScoresEmbed::new(user, map, mods).into_builder().build();
+    let builder = MessageBuilder::new().embed(embed);
+    data.create_message(&ctx, builder).await?;
 
     Ok(())
 }

@@ -4,50 +4,62 @@ use crate::{
     bg_game::MapsetTags,
     database::MapsetTagWrapper,
     embeds::{BGStartEmbed, BGTagsEmbed, EmbedData},
-    util::{constants::GENERAL_ISSUE, send_reaction, MessageExt, Emote},
-    Args, BotResult, Context,
+    util::{constants::GENERAL_ISSUE, send_reaction, Emote, MessageExt},
+    BotResult, CommandData, Context, MessageBuilder,
 };
 
 use rosu_v2::model::GameMode;
 use std::{sync::Arc, time::Duration};
 use tokio_stream::StreamExt;
-use twilight_model::{
-    channel::{Message, ReactionType},
-    gateway::event::Event,
-};
+use twilight_model::{channel::ReactionType, gateway::event::Event};
+
+pub(super) async fn restart(ctx: &Context, data: &CommandData<'_>) -> BotResult<bool> {
+    match ctx.restart_game(data.channel_id()).await {
+        Ok(restarted) => Ok(restarted),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    }
+}
 
 #[command]
 #[bucket("bg_start")]
 #[short_desc("Start the bg game or skip the current background")]
 #[aliases("s", "resolve", "r", "skip")]
-pub async fn start(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
-    match ctx.restart_game(msg.channel_id).await {
-        Ok(true) => return Ok(()),
-        Ok(false) => {}
-        Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
+async fn start(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    if restart(&ctx, &data).await? {
+        return Ok(());
     }
 
-    let mode = match args.next() {
-        Some("m") | Some("mania") => GameMode::MNA,
-        _ => GameMode::STD,
-    };
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            let mode = match args.next() {
+                Some("m") | Some("mania") => GameMode::MNA,
+                _ => GameMode::STD,
+            };
 
-    let mapsets = match get_mapsets(&ctx, msg, mode).await {
+            _start(ctx, CommandData::Message { msg, args, num }, mode).await
+        }
+        CommandData::Interaction { command } => super::slash_backgroundgame(ctx, command).await,
+    }
+}
+
+pub async fn _start(ctx: Arc<Context>, data: CommandData<'_>, mode: GameMode) -> BotResult<()> {
+    let mapsets = match get_mapsets(&ctx, &data, mode).await {
         Ok(mapsets) => mapsets,
         Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
     };
 
-    if !(mapsets.is_empty() || ctx.has_running_game(msg.channel_id)) {
-        let _ = ctx.http.create_typing_trigger(msg.channel_id).exec().await;
-        ctx.add_game_and_start(Arc::clone(&ctx), msg.channel_id, mapsets);
+    let channel_id = data.channel_id();
+
+    if !(mapsets.is_empty() || ctx.has_running_game(channel_id)) {
+        Context::add_game_and_start(ctx, channel_id, mapsets);
     }
 
     Ok(())
@@ -55,16 +67,18 @@ pub async fn start(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResul
 
 async fn get_mapsets(
     ctx: &Context,
-    msg: &Message,
+    data: &CommandData<'_>,
     mode: GameMode,
 ) -> BotResult<Vec<MapsetTagWrapper>> {
     if mode == GameMode::MNA {
         return ctx.psql().get_all_tags_mapset(GameMode::MNA).await;
     }
 
+    let author_id = data.author()?.id;
+
     // Send initial message
-    let embed = BGStartEmbed::new(msg.author.id).into_builder().build();
-    let response = msg.respond_embed(ctx, embed).await?;
+    let builder = BGStartEmbed::new(author_id).into_builder().build().into();
+    let response_raw = data.create_message(&ctx, builder).await?;
 
     // Prepare the reaction stream
     let self_id = match ctx.cache.current_user() {
@@ -72,6 +86,7 @@ async fn get_mapsets(
         None => bail!("No CurrentUser in cache"),
     };
 
+    let response = data.get_response(&ctx, response_raw).await?;
     let response_id = response.id;
 
     let reaction_stream = ctx
@@ -138,9 +153,10 @@ async fn get_mapsets(
                 "🎨" => MapsetTags::Weeb,
                 "🌀" => MapsetTags::Streams,
                 "🍨" => MapsetTags::Kpop,
-                "✅" if reaction.as_deref().user_id == msg.author.id => break,
-                "❌" if reaction.as_deref().user_id == msg.author.id => {
-                    msg.reply(ctx, "Game cancelled").await?;
+                "✅" if reaction.as_deref().user_id == author_id => break,
+                "❌" if reaction.as_deref().user_id == author_id => {
+                    let builder = MessageBuilder::new().content("Game cancelled");
+                    response.create_message(&ctx, builder).await?;
 
                     return Ok(Vec::new());
                 }
@@ -172,20 +188,16 @@ async fn get_mapsets(
     let mapsets = match mapset_fut.await {
         Ok(mapsets) => mapsets,
         Err(why) => {
-            let _ = msg.error(ctx, GENERAL_ISSUE).await;
+            let _ = response.error(ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
     };
 
     let data = BGTagsEmbed::new(included, excluded, mapsets.len());
-    let embed = &[data.into_builder().build()];
+    let builder = data.into_builder().build().into();
 
-    ctx.http
-        .create_message(msg.channel_id)
-        .embeds(embed)?
-        .exec()
-        .await?;
+    response.create_message(&ctx, builder).await?;
 
     if !mapsets.is_empty() {
         info!(

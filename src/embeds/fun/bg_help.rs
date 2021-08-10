@@ -7,7 +7,9 @@ pub struct BGHelpEmbed {
 }
 
 impl BGHelpEmbed {
-    pub fn new(prefix: Prefix) -> Self {
+    pub fn new(prefix: Option<Prefix>) -> Self {
+        let prefix = prefix.unwrap_or_else(|| "/".into());
+
         let description = "Given part of a map's background, \
             try to guess the **title** of the map's song.\n\
             You don't need to guess content in parentheses `(...)` \

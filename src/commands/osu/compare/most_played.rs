@@ -1,18 +1,16 @@
+use super::TripleArgs;
 use crate::{
-    arguments::{Args, MultNameArgs},
     embeds::{EmbedData, MostPlayedCommonEmbed},
     pagination::{MostPlayedCommonPagination, Pagination},
     util::{constants::OSU_API_ISSUE, MessageExt},
-    BotResult, Context,
+    BotResult, CommandData, Context, MessageBuilder,
 };
 
 use futures::stream::{FuturesOrdered, StreamExt};
-use hashbrown::HashMap;
-use itertools::Itertools;
+use hashbrown::{HashMap, HashSet};
 use rosu_v2::prelude::OsuError;
 use smallvec::SmallVec;
 use std::{cmp::Reverse, fmt::Write, sync::Arc};
-use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Compare the 100 most played maps of multiple users")]
@@ -23,41 +21,72 @@ use twilight_model::channel::Message;
 #[usage("[name1] [name2] [name3")]
 #[example("badewanne3 \"nathan on osu\" idke")]
 #[aliases("commonmostplayed", "mpc")]
-async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    let mut args = MultNameArgs::new(&ctx, args, 3);
-
-    let names = match args.names.len() {
-        0 => {
-            let content = "You need to specify at least one osu username. \
-                If you're not linked, you must specify at least two names.";
-
-            return msg.error(&ctx, content).await;
-        }
-        1 => match ctx.get_link(msg.author.id.0) {
-            Some(name) => {
-                args.names.insert(0, name);
-
-                args.names
+async fn mostplayedcommon(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match TripleArgs::args(&ctx, &mut args, None) {
+                Ok(mostplayed_args) => {
+                    _mostplayedcommon(
+                        ctx,
+                        CommandData::Message { msg, args, num },
+                        mostplayed_args,
+                    )
+                    .await
+                }
+                Err(content) => msg.error(&ctx, content).await,
             }
+        }
+        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+    }
+}
+
+pub(super) async fn _mostplayedcommon(
+    ctx: Arc<Context>,
+    data: CommandData<'_>,
+    args: TripleArgs,
+) -> BotResult<()> {
+    let TripleArgs {
+        name1,
+        name2,
+        name3,
+        mode: _,
+    } = args;
+
+    let author_id = data.author()?.id;
+
+    let name1 = match name1 {
+        Some(name) => name,
+        None => match ctx.get_link(author_id.0) {
+            Some(name) => name,
             None => {
-                let prefix = ctx.config_first_prefix(msg.guild_id);
+                let content =
+                    "Since you're not linked with the `link` command, you must specify two names.";
 
-                let content = format!(
-                    "Since you're not linked via `{}link`, \
-                    you must specify at least two names.",
-                    prefix
-                );
-
-                return msg.error(&ctx, content).await;
+                return data.error(&ctx, content).await;
             }
         },
-        _ => args.names,
     };
 
-    if names.iter().unique().count() == 1 {
-        let content = "Give at least two different names";
+    let mut names = Vec::with_capacity(3);
+    names.push(name1);
+    names.push(name2);
 
-        return msg.error(&ctx, content).await;
+    if let Some(name) = name3 {
+        names.push(name);
+    }
+
+    {
+        let unique: HashSet<_> = names.iter().collect();
+
+        if unique.len() == 1 {
+            let content = "Give at least two different names";
+
+            return data.error(&ctx, content).await;
+        } else if unique.len() < names.len() {
+            drop(unique);
+
+            names.dedup(); // * Note: Doesn't consider [a, b, a] but whatever
+        }
     }
 
     // Retrieve all most played maps and store their count for each user
@@ -91,10 +120,10 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
             Err(OsuError::NotFound) => {
                 let content = format!("User `{}` was not found", name);
 
-                return msg.error(&ctx, content).await;
+                return data.error(&ctx, content).await;
             }
             Err(why) => {
-                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+                let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
                 return Err(why.into());
             }
@@ -154,8 +183,10 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
 
     if amount_common == 0 {
         content.push_str(" don't share any maps in their 100 most played maps");
+        let builder = MessageBuilder::new().embed(content);
+        data.create_message(&ctx, builder).await?;
 
-        return msg.send_response(&ctx, content).await;
+        return Ok(());
     }
 
     let _ = write!(
@@ -172,26 +203,27 @@ async fn mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     };
 
     // Creating the embed
-    let embed = &[data_fut.await.into_builder().build()];
+    let embed = data_fut.await.into_builder().build();
+    let builder = MessageBuilder::new().content(content).embed(embed);
 
     // * Note: No combined pictures since user ids are not available
 
-    let response = msg
-        .build_response_msg(&ctx, |m| m.content(&content)?.embeds(embed))
-        .await?;
+    let response_raw = data.create_message(&ctx, builder).await?;
 
     // Skip pagination if too few entries
     if maps.len() <= 10 {
         return Ok(());
     }
 
+    let response = data.get_response(&ctx, response_raw).await?;
+
     // Pagination
     let pagination = MostPlayedCommonPagination::new(response, names, users_count, maps);
-    let owner = msg.author.id;
+    let owner = author_id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (mostcommonplayed): {}")
+            unwind_error!(warn, why, "Pagination error (mostplayedcommon): {}")
         }
     });
 

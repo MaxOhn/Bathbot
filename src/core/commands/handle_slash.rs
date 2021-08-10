@@ -15,12 +15,16 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
     log_slash(&ctx, &command, cmd_name.as_str());
 
     let command_result = match cmd_name.as_str() {
+        "avatar" => osu::slash_avatar(ctx, command).await,
+        "backgroundgame" => fun::slash_backgroundgame(ctx, command).await,
         "cache" => owner::slash_cache(ctx, command).await,
+        "compare" => osu::slash_compare(ctx, command).await,
         "link" => osu::slash_link(ctx, command).await,
         "matchcost" => osu::slash_matchcost(ctx, command).await,
         "medal" => osu::slash_medal(ctx, command).await,
         "minesweeper" => fun::slash_minesweeper(ctx, command).await,
         "ping" => utility::slash_ping(ctx, command).await,
+        "ranking" => osu::slash_ranking(ctx, command).await,
         "ratio" => osu::slash_ratio(ctx, command).await,
         "recent" => osu::slash_recent(ctx, command).await,
         "roll" => utility::slash_roll(ctx, command).await,
