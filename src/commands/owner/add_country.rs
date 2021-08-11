@@ -1,18 +1,21 @@
 use crate::{
-    arguments::Args,
     util::{constants::GENERAL_ISSUE, MessageExt},
-    BotResult, Context,
+    BotResult, CommandData, Context, MessageBuilder,
 };
 
 use smallstr::SmallString;
 use std::sync::Arc;
-use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Add a country for snipe commands")]
 #[usage("[country name] [country code]")]
 #[owner()]
-async fn addcountry(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
+async fn addcountry(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    let (msg, mut args) = match data {
+        CommandData::Message { msg, args, .. } => (msg, args),
+        CommandData::Interaction { .. } => unreachable!(),
+    };
+
     let (country, code) = match (args.next(), args.next()) {
         (Some(country), Some(code)) => {
             if code.len() != 2 || code.chars().any(|c| !c.is_ascii_uppercase()) {
@@ -63,6 +66,8 @@ async fn addcountry(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResu
 
     let content = format!("Successfuly added country `{}` (`{}`)", country, code);
     ctx.add_country(country, code);
+    let builder = MessageBuilder::new().embed(content);
+    msg.create_message(&ctx, builder).await?;
 
-    msg.send_response(&ctx, content).await
+    Ok(())
 }

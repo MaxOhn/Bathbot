@@ -1,10 +1,10 @@
 use crate::{
     util::{matcher, MessageExt},
-    Args, BotResult, Context,
+    BotResult, CommandData, Context, MessageBuilder,
 };
 
 use std::{fmt::Write, sync::Arc};
-use twilight_model::{channel::Message, id::ChannelId};
+use twilight_model::id::ChannelId;
 
 #[command]
 #[short_desc("Display active bg games")]
@@ -15,12 +15,23 @@ use twilight_model::{channel::Message, id::ChannelId};
 )]
 #[usage("[channel id]")]
 #[owner()]
-async fn activebg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
+async fn activebg(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    let (msg, mut args) = match data {
+        CommandData::Message { msg, args, .. } => (msg, args),
+        CommandData::Interaction { .. } => unreachable!(),
+    };
+
     match args.next().and_then(matcher::get_mention_channel) {
         Some(channel) => match ctx.stop_game(ChannelId(channel)).await {
-            Ok(true) => msg.send_response(&ctx, "Game stopped").await,
-            Ok(false) => msg.send_response(&ctx, "No game in that channel").await,
-            Err(why) => msg.error(&ctx, why.to_string()).await,
+            Ok(true) => {
+                let builder = MessageBuilder::new().content("Game stopped");
+                msg.create_message(&ctx, builder).await?;
+            }
+            Ok(false) => {
+                let builder = MessageBuilder::new().content("No game in that channel");
+                msg.create_message(&ctx, builder).await?;
+            }
+            Err(why) => return msg.error(&ctx, why.to_string()).await,
         },
         None => {
             let channels = ctx.game_channels();
@@ -39,8 +50,10 @@ async fn activebg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult
             }
 
             content.push_str("\n```");
-
-            msg.send_response(&ctx, content).await
+            let builder = MessageBuilder::new().content(content);
+            msg.create_message(&ctx, builder).await?;
         }
     }
+
+    Ok(())
 }

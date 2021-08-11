@@ -1,5 +1,5 @@
 use super::{Pages, Pagination};
-use crate::{arguments::MapSearchArgs, embeds::MapSearchEmbed, BotResult, Context};
+use crate::{commands::osu::MapSearchArgs, embeds::MapSearchEmbed, BotResult, Context};
 
 use async_trait::async_trait;
 use rosu_v2::prelude::{Beatmapset, BeatmapsetSearchResult};

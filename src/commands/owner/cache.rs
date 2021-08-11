@@ -27,7 +27,7 @@ pub async fn slash_cache(ctx: Arc<Context>, command: ApplicationCommand) -> BotR
     cache(ctx, command.into()).await
 }
 
-pub fn slash_cache_command() -> Command {
+pub fn _slash_cache_command() -> Command {
     Command {
         application_id: None,
         guild_id: None,

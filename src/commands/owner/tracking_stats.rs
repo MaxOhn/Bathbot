@@ -1,19 +1,18 @@
 use crate::{
     embeds::{EmbedData, TrackingStatsEmbed},
     util::MessageExt,
-    Args, BotResult, Context,
+    BotResult, CommandData, Context,
 };
 
 use std::sync::Arc;
-use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Display stats about osu!tracking")]
 #[owner()]
-async fn trackingstats(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
+async fn trackingstats(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let stats = ctx.tracking().stats().await;
-    let embed = &[TrackingStatsEmbed::new(stats).into_builder().build()];
-    msg.build_response(&ctx, |m| m.embeds(embed)).await?;
+    let builder = TrackingStatsEmbed::new(stats).into_builder().build().into();
+    data.create_message(&ctx, builder).await?;
 
     Ok(())
 }

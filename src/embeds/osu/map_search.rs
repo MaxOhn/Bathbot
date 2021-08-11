@@ -1,5 +1,5 @@
 use crate::{
-    arguments::MapSearchArgs,
+    commands::osu::MapSearchArgs,
     embeds::Footer,
     util::{constants::OSU_BASE, numbers::round},
 };

@@ -3,7 +3,7 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
         CowUtils, MessageExt,
     },
-    Args, BotResult, Context, CONFIG,
+    BotResult, CommandData, Context, MessageBuilder, CONFIG,
 };
 
 use rosu_v2::prelude::{BeatmapsetCompact, GameMode, OsuError};
@@ -12,13 +12,18 @@ use tokio::{
     fs::{remove_file, File},
     io::AsyncWriteExt,
 };
-use twilight_model::channel::{Attachment, Message};
+use twilight_model::channel::Attachment;
 
 #[command]
 #[short_desc("Add background for the background game")]
 #[aliases("bgadd")]
 #[owner()]
-async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
+async fn addbg(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    let (msg, mut args) = match data {
+        CommandData::Message { msg, args, .. } => (msg, args),
+        CommandData::Interaction { .. } => unreachable!(),
+    };
+
     // Check if msg has an attachement
     let attachment = match msg.attachments.first() {
         Some(attachment) => attachment.to_owned(),
@@ -123,7 +128,8 @@ async fn addbg(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
         }
     };
 
-    msg.send_response(&ctx, content).await?;
+    let builder = MessageBuilder::new().embed(content);
+    msg.create_message(&ctx, builder).await?;
 
     Ok(())
 }

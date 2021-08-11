@@ -38,6 +38,58 @@ macro_rules! parse_mode_option {
     };
 }
 
+/*
+    TODO:
+
+    _osu:_
+    bws
+    csl
+    css
+    fix
+    lb
+    map
+    mapper
+    mp
+    nc
+    osc
+    osg
+    osl
+    psl
+    pss
+    pp
+    profile
+    rebalance
+    simulate
+    sg
+    sl
+    sniped
+    topif
+    topold
+    top
+    whatif
+
+    _owner:_
+    x activebg
+    x addbg
+    x addcountry
+    x changegame
+    x trackingcooldown
+    x trackinginterval
+    x trackingstats
+    x trackingtoggle
+
+    _utility:_
+    about
+    authorities
+    commands
+    echo
+    invite
+    prefix
+    prune
+    roleassign
+    togglesongs
+*/
+
 pub mod fun;
 pub mod help;
 pub mod osu;
@@ -80,9 +132,9 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &MEDAL_CMD,
                 &MEDALSTATS_CMD,
                 &MEDALSMISSING_CMD,
-                // &SEARCH_CMD,
-                // &MATCHLIVE_CMD,
-                // &MATCHLIVEREMOVE_CMD,
+                &SEARCH_CMD,
+                &MATCHLIVE_CMD,
+                &MATCHLIVEREMOVE_CMD,
             ],
         ),
         CommandGroup::new(
@@ -96,7 +148,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &OSUCOMPARE_CMD,
                 // &PP_CMD,
                 // &WHATIF_CMD,
-                // &RANK_CMD,
+                &RANK_CMD,
                 &COMMON_CMD,
                 &RECENTLEADERBOARD_CMD,
                 &RECENTBELGIANLEADERBOARD_CMD,
@@ -119,7 +171,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 // &PLAYERSNIPELIST_CMD,
                 // &COUNTRYSNIPESTATS_CMD,
                 // &COUNTRYSNIPELIST_CMD,
-                // &RANKRANKEDSCORE_CMD,
+                &RANKRANKEDSCORE_CMD,
                 &PPRANKING_CMD,
                 &RANKEDSCORERANKING_CMD,
                 &COUNTRYRANKING_CMD,
@@ -136,7 +188,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &OSUCOMPAREMANIA_CMD,
                 // &PPMANIA_CMD,
                 // &WHATIFMANIA_CMD,
-                // &RANKMANIA_CMD,
+                &RANKMANIA_CMD,
                 &COMMONMANIA_CMD,
                 &RECENTMANIALEADERBOARD_CMD,
                 &RECENTMANIABELGIANLEADERBOARD_CMD,
@@ -149,7 +201,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &RATIOS_CMD,
                 // &MAPPERMANIA_CMD,
                 // &TOPOLDMANIA_CMD,
-                // &RANKRANKEDSCOREMANIA_CMD,
+                &RANKRANKEDSCOREMANIA_CMD,
                 &PPRANKINGMANIA_CMD,
                 &RANKEDSCORERANKINGMANIA_CMD,
                 &COUNTRYRANKINGMANIA_CMD,
@@ -166,7 +218,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &OSUCOMPARETAIKO_CMD,
                 // &PPTAIKO_CMD,
                 // &WHATIFTAIKO_CMD,
-                // &RANKTAIKO_CMD,
+                &RANKTAIKO_CMD,
                 &COMMONTAIKO_CMD,
                 &RECENTTAIKOLEADERBOARD_CMD,
                 &RECENTTAIKOBELGIANLEADERBOARD_CMD,
@@ -211,7 +263,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 // &MAPPERCTB_CMD,
                 // &TOPIFCTB_CMD,
                 // &TOPOLDCTB_CMD,
-                // &RANKRANKEDSCORECTB_CMD,
+                &RANKRANKEDSCORECTB_CMD,
                 &PPRANKINGCTB_CMD,
                 &RANKEDSCORERANKINGCTB_CMD,
                 &COUNTRYRANKINGCTB_CMD,
@@ -277,17 +329,17 @@ pub fn command_groups() -> [CommandGroup; 11] {
             "owner",
             Emote::Custom("crown"),
             vec![
-                // &ADDBG_CMD,
-                // &ADDCOUNTRY_CMD,
+                &ADDBG_CMD,
+                &ADDCOUNTRY_CMD,
                 &CACHE_CMD,
-                // &ACTIVEBG_CMD,
+                &ACTIVEBG_CMD,
                 &BGTAGS_CMD,
                 &BGTAGSMANUAL_CMD,
-                // &CHANGEGAME_CMD,
-                // &TRACKINGTOGGLE_CMD,
-                // &TRACKINGSTATS_CMD,
-                // &TRACKINGCOOLDOWN_CMD,
-                // &TRACKINGINTERVAL_CMD,
+                &CHANGEGAME_CMD,
+                &TRACKINGTOGGLE_CMD,
+                &TRACKINGSTATS_CMD,
+                &TRACKINGCOOLDOWN_CMD,
+                &TRACKINGINTERVAL_CMD,
             ],
         ),
     ]
@@ -302,16 +354,19 @@ pub fn slash_commands() -> Vec<Command> {
         slash_link_command(),
         slash_backgroundgame_command(),
         slash_matchcost_command(),
+        slash_rank_command(),
         slash_medal_command(),
         slash_roll_command(),
         slash_track_command(),
         slash_ranking_command(),
-        slash_ratio_command(),
         slash_ping_command(),
+        slash_mapsearch_command(),
+        slash_ratio_command(),
         slash_trackstream_command(),
+        slash_matchlive_command(),
         slash_avatar_command(),
         slash_song_command(),
         slash_minesweeper_command(),
-        slash_cache_command(),
+        // slash_cache_command(), // TODO: + other owner commands
     ]
 }

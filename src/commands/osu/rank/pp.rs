@@ -1,6 +1,5 @@
-use super::request_user;
+use super::PpArgs;
 use crate::{
-    arguments::{Args, RankArgs},
     custom_client::RankParam,
     embeds::{EmbedData, RankEmbed},
     tracking::process_tracking,
@@ -8,50 +7,49 @@ use crate::{
         constants::{OSU_API_ISSUE, OSU_DAILY_ISSUE},
         MessageExt,
     },
-    BotResult, Context,
+    BotResult, CommandData, Context,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError, User, UserCompact};
 use std::sync::Arc;
-use twilight_model::channel::Message;
 
-async fn rank_main(
-    mode: GameMode,
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
-    let args = match RankArgs::new(&ctx, args) {
-        Ok(args) => args,
-        Err(err_msg) => return msg.error(&ctx, err_msg).await,
-    };
+pub(super) async fn _rank(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) -> BotResult<()> {
+    let PpArgs {
+        name,
+        mode,
+        country,
+        rank,
+    } = args;
 
-    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+    let name = match name {
         Some(name) => name,
-        None => return super::require_link(&ctx, msg).await,
+        None => match ctx.get_link(data.author()?.id.0) {
+            Some(name) => name,
+            None => return super::require_link(&ctx, &data).await,
+        },
     };
 
-    if args.rank == 0 {
+    if rank == 0 {
         let content = "Rank can't be zero :clown:";
 
-        return msg.error(&ctx, content).await;
-    } else if args.rank > 10_000 && args.country.is_some() {
+        return data.error(&ctx, content).await;
+    } else if rank > 10_000 && country.is_some() {
         let content = "Unfortunately I can only provide data for country ranks up to 10,000 :(";
 
-        return msg.error(&ctx, content).await;
+        return data.error(&ctx, content).await;
     }
 
-    let data = if args.rank <= 10_000 {
+    let rank_data = if rank <= 10_000 {
         // Retrieve the user and the user thats holding the given rank
-        let page = (args.rank / 50) + (args.rank % 50 != 0) as usize;
+        let page = (rank / 50) + (rank % 50 != 0) as usize;
 
         let mut rank_holder_fut = ctx.osu().performance_rankings(mode).page(page as u32);
 
-        if let Some(ref country) = args.country {
+        if let Some(ref country) = country {
             rank_holder_fut = rank_holder_fut.country(country);
         }
 
-        let user_fut = request_user(&ctx, &name, Some(mode));
+        let user_fut = super::request_user(&ctx, &name, Some(mode));
 
         let (user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
             Ok((user, mut rankings)) => {
@@ -63,10 +61,10 @@ async fn rank_main(
             Err(OsuError::NotFound) => {
                 let content = format!("User `{}` was not found", name);
 
-                return msg.error(&ctx, content).await;
+                return data.error(&ctx, content).await;
             }
             Err(why) => {
-                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+                let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
                 return Err(why.into());
             }
@@ -74,23 +72,23 @@ async fn rank_main(
 
         RankData::Sub10k {
             user,
-            rank: args.rank,
-            country: args.country,
+            rank,
+            country,
             rank_holder,
         }
     } else {
         let pp_fut = ctx
             .clients
             .custom
-            .get_rank_data(mode, RankParam::Rank(args.rank));
+            .get_rank_data(mode, RankParam::Rank(rank));
 
-        let user_fut = request_user(&ctx, &name, Some(mode));
+        let user_fut = super::request_user(&ctx, &name, Some(mode));
         let (pp_result, user_result) = tokio::join!(pp_fut, user_fut);
 
         let required_pp = match pp_result {
             Ok(rank_pp) => rank_pp.pp,
             Err(why) => {
-                let _ = msg.error(&ctx, OSU_DAILY_ISSUE).await;
+                let _ = data.error(&ctx, OSU_DAILY_ISSUE).await;
 
                 return Err(why.into());
             }
@@ -101,10 +99,10 @@ async fn rank_main(
             Err(OsuError::NotFound) => {
                 let content = format!("User `{}` was not found", name);
 
-                return msg.error(&ctx, content).await;
+                return data.error(&ctx, content).await;
             }
             Err(why) => {
-                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+                let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
                 return Err(why.into());
             }
@@ -118,8 +116,8 @@ async fn rank_main(
     };
 
     // Retrieve the user's top scores if required
-    let mut scores = if data.with_scores() {
-        let user = data.user_borrow();
+    let mut scores = if rank_data.with_scores() {
+        let user = rank_data.user_borrow();
 
         let scores_fut = ctx
             .osu()
@@ -131,7 +129,7 @@ async fn rank_main(
         match scores_fut.await {
             Ok(scores) => (!scores.is_empty()).then(|| scores),
             Err(why) => {
-                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+                let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
                 return Err(why.into());
             }
@@ -142,12 +140,12 @@ async fn rank_main(
 
     if let Some(ref mut scores) = scores {
         // Process user and their top scores for tracking
-        process_tracking(&ctx, mode, scores, Some(data.user_borrow())).await;
+        process_tracking(&ctx, mode, scores, Some(rank_data.user_borrow())).await;
     }
 
     // Creating the embed
-    let embed = &[RankEmbed::new(data, scores).into_builder().build()];
-    msg.build_response(&ctx, |m| m.embeds(embed)).await?;
+    let embed = RankEmbed::new(rank_data, scores).into_builder().build();
+    data.create_message(&ctx, embed.into()).await?;
 
     Ok(())
 }
@@ -161,8 +159,18 @@ async fn rank_main(
 #[usage("[username] [[country]number]")]
 #[example("badewanne3 be50", "badewanne3 123")]
 #[aliases("reach")]
-pub async fn rank(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    rank_main(GameMode::STD, ctx, msg, args).await
+pub async fn rank(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match PpArgs::args(&ctx, &mut args, GameMode::STD) {
+                Ok(rank_args) => {
+                    _rank(ctx, CommandData::Message { msg, args, num }, rank_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_rank(ctx, command).await,
+    }
 }
 
 #[command]
@@ -174,8 +182,18 @@ pub async fn rank(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
 #[usage("[username] [[country]number]")]
 #[example("badewanne3 be50", "badewanne3 123")]
 #[aliases("rankm", "reachmania", "reachm")]
-pub async fn rankmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    rank_main(GameMode::MNA, ctx, msg, args).await
+pub async fn rankmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match PpArgs::args(&ctx, &mut args, GameMode::MNA) {
+                Ok(rank_args) => {
+                    _rank(ctx, CommandData::Message { msg, args, num }, rank_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_rank(ctx, command).await,
+    }
 }
 
 #[command]
@@ -187,8 +205,18 @@ pub async fn rankmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
 #[usage("[username] [[country]number]")]
 #[example("badewanne3 be50", "badewanne3 123")]
 #[aliases("rankt", "reachtaiko", "reacht")]
-pub async fn ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    rank_main(GameMode::TKO, ctx, msg, args).await
+pub async fn ranktaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match PpArgs::args(&ctx, &mut args, GameMode::TKO) {
+                Ok(rank_args) => {
+                    _rank(ctx, CommandData::Message { msg, args, num }, rank_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_rank(ctx, command).await,
+    }
 }
 
 #[command]
@@ -200,8 +228,18 @@ pub async fn ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
 #[usage("[username] [[country]number]")]
 #[example("badewanne3 be50", "badewanne3 123")]
 #[aliases("rankc", "reachctb", "reachc")]
-pub async fn rankctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    rank_main(GameMode::CTB, ctx, msg, args).await
+pub async fn rankctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match PpArgs::args(&ctx, &mut args, GameMode::CTB) {
+                Ok(rank_args) => {
+                    _rank(ctx, CommandData::Message { msg, args, num }, rank_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_rank(ctx, command).await,
+    }
 }
 
 pub enum RankData {

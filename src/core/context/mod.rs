@@ -1,7 +1,6 @@
 mod impls;
 
-// pub use impls::{MatchLiveChannels, MatchTrackResult};
-pub use impls::MatchLiveChannels;
+pub use impls::{MatchLiveChannels, MatchTrackResult};
 
 use super::BotStats;
 

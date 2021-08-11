@@ -59,3 +59,9 @@ impl IntoEmbed for String {
         EmbedBuilder::new().description(self).build()
     }
 }
+
+impl<'s> IntoEmbed for &'s str {
+    fn into_embed(self) -> Embed {
+        EmbedBuilder::new().description(self).build()
+    }
+}

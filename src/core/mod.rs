@@ -10,11 +10,6 @@ pub use cache::Cache;
 pub use commands::{Command, CommandGroup, CommandGroups, CMD_GROUPS};
 pub use config::{BotConfig, CONFIG};
 pub use context::{
-    generate_activity,
-    Clients,
-    Context,
-    ContextData,
-    MatchLiveChannels,
-    // MatchTrackResult,
+    generate_activity, Clients, Context, ContextData, MatchLiveChannels, MatchTrackResult,
 };
 pub use stats::BotStats;

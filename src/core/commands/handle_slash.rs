@@ -10,6 +10,7 @@ use twilight_model::application::interaction::ApplicationCommand;
 pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
     // TODO: Ratelimit
     // TODO: Command count metric
+    // TODO: Extend 3s response time for long commands
 
     let cmd_name = command.data.name.to_owned();
     log_slash(&ctx, &command, cmd_name.as_str());
@@ -21,13 +22,16 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
         "compare" => osu::slash_compare(ctx, command).await,
         "link" => osu::slash_link(ctx, command).await,
         "matchcost" => osu::slash_matchcost(ctx, command).await,
+        "matchlive" => osu::slash_matchlive(ctx, command).await,
         "medal" => osu::slash_medal(ctx, command).await,
         "minesweeper" => fun::slash_minesweeper(ctx, command).await,
         "ping" => utility::slash_ping(ctx, command).await,
+        "rank" => osu::slash_rank(ctx, command).await,
         "ranking" => osu::slash_ranking(ctx, command).await,
         "ratio" => osu::slash_ratio(ctx, command).await,
         "recent" => osu::slash_recent(ctx, command).await,
         "roll" => utility::slash_roll(ctx, command).await,
+        "search" => osu::slash_mapsearch(ctx, command).await,
         "song" => songs::slash_song(ctx, command).await,
         "track" => tracking::slash_track(ctx, command).await,
         "trackstream" => twitch::slash_trackstream(ctx, command).await,
