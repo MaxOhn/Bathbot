@@ -747,20 +747,23 @@ impl OsuStatsArgs {
         // Parse mods
         let mods = mods(&mut args);
         // Parse descending/ascending
-        let descending = !keywords(&mut args, &["--asc", "--ascending"]);
+        let descending = !keywords(&mut args, &["--asc", "--ascending", "—asc", "—ascending"]);
 
         // Parse order
-        let sort_by = if keywords(&mut args, &["--a", "--acc"]) {
+        let sort_by = if keywords(&mut args, &["--a", "--acc", "—a", "—acc"]) {
             OsuStatsOrder::Accuracy
-        } else if keywords(&mut args, &["--c", "--combo"]) {
+        } else if keywords(&mut args, &["--c", "--combo", "—c", "—combo"]) {
             OsuStatsOrder::Combo
-        } else if keywords(&mut args, &["--p", "--pp"]) {
+        } else if keywords(&mut args, &["--p", "--pp", "—p", "—pp"]) {
             OsuStatsOrder::Pp
-        } else if keywords(&mut args, &["--r", "--rank"]) {
+        } else if keywords(&mut args, &["--r", "--rank", "—r", "—rank"]) {
             OsuStatsOrder::Rank
-        } else if keywords(&mut args, &["--s", "--score"]) {
+        } else if keywords(&mut args, &["--s", "--score", "—s", "—score"]) {
             OsuStatsOrder::Score
-        } else if keywords(&mut args, &["--m", "--miss", "--misses"]) {
+        } else if keywords(
+            &mut args,
+            &["--m", "--miss", "--misses", "—m", "—miss", "—misses"],
+        ) {
             OsuStatsOrder::Misses
         } else {
             OsuStatsOrder::PlayDate
@@ -1102,19 +1105,25 @@ impl SnipeScoreArgs {
         // Parse mods
         let mods = mods(&mut args);
         // Parse descending/ascending
-        let descending = !keywords(&mut args, &["--asc", "--ascending"]);
+        let descending = !keywords(&mut args, &["--asc", "--ascending", "—asc", "—ascending"]);
         // Parse order
-        let order = if keywords(&mut args, &["--a", "--acc"]) {
+        let order = if keywords(&mut args, &["--a", "--acc", "—a", "—acc"]) {
             SnipeScoreOrder::Accuracy
-        } else if keywords(&mut args, &["--md", "--mapdate"]) {
+        } else if keywords(&mut args, &["--md", "--mapdate", "—md", "—mapdate"]) {
             SnipeScoreOrder::MapApprovalDate
-        } else if keywords(&mut args, &["--m", "--miss", "--misses"]) {
+        } else if keywords(
+            &mut args,
+            &["--m", "--miss", "--misses", "—m", "—miss", "—misses"],
+        ) {
             SnipeScoreOrder::Misses
-        } else if keywords(&mut args, &["--sd", "--scoredate"]) {
+        } else if keywords(&mut args, &["--sd", "--scoredate", "—sd", "—scoredate"]) {
             SnipeScoreOrder::ScoreDate
-        } else if keywords(&mut args, &["--s", "--stars"]) {
+        } else if keywords(&mut args, &["--s", "--stars", "—s", "—stars"]) {
             SnipeScoreOrder::Stars
-        } else if keywords(&mut args, &["--l", "--len", "--length"]) {
+        } else if keywords(
+            &mut args,
+            &["--l", "--len", "--length", "—l", "—len", "—length"],
+        ) {
             SnipeScoreOrder::Length
         } else {
             SnipeScoreOrder::Pp
@@ -1224,9 +1233,9 @@ impl TopArgs {
 
         let mods = mods(&mut args);
 
-        let sort_by = if keywords(&mut args, &["--a", "--acc"]) {
+        let sort_by = if keywords(&mut args, &["--a", "--acc", "—a", "—acc"]) {
             TopSortBy::Acc
-        } else if keywords(&mut args, &["--c", "--combo"]) {
+        } else if keywords(&mut args, &["--c", "--combo", "—c", "—combo"]) {
             TopSortBy::Combo
         } else {
             TopSortBy::None
