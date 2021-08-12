@@ -1,43 +1,37 @@
-use super::request_user;
 use crate::{
-    arguments::{Args, NameFloatArgs},
     custom_client::RankParam,
     embeds::{EmbedData, WhatIfEmbed},
     tracking::process_tracking,
-    util::{constants::OSU_API_ISSUE, MessageExt},
-    BotResult, Context,
+    util::{constants::OSU_API_ISSUE, ApplicationCommandExt, MessageExt},
+    Args, BotResult, CommandData, Context, Error, Name,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
-use twilight_model::channel::Message;
+use twilight_model::application::{
+    command::{BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption},
+    interaction::{application_command::CommandDataOption, ApplicationCommand},
+};
 
-async fn whatif_main(
-    mode: GameMode,
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
-    let args = match NameFloatArgs::new(&ctx, args) {
-        Ok(args) => args,
-        Err(err_msg) => return msg.error(&ctx, err_msg).await,
-    };
+async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> BotResult<()> {
+    let WhatIfArgs { name, mode, pp } = args;
 
-    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+    let name = match name {
         Some(name) => name,
-        None => return super::require_link(&ctx, msg).await,
+        None => match ctx.get_link(data.author()?.id.0) {
+            Some(name) => name,
+            None => return super::require_link(&ctx, &data).await,
+        },
     };
-
-    let pp = args.float;
 
     if pp < 0.0 {
-        return msg.error(&ctx, "The pp number must be non-negative").await;
+        return data.error(&ctx, "The pp number must be non-negative").await;
     } else if pp > (i64::MAX / 1024) as f32 {
-        return msg.error(&ctx, "Number too large").await;
+        return data.error(&ctx, "Number too large").await;
     }
 
     // Retrieve the user and their top scores
-    let user_fut = request_user(&ctx, &name, Some(mode));
+    let user_fut = super::request_user(&ctx, &name, Some(mode));
 
     let scores_fut = ctx
         .osu()
@@ -51,10 +45,10 @@ async fn whatif_main(
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -63,7 +57,7 @@ async fn whatif_main(
     // Process user and their top scores for tracking
     process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
 
-    let data = if scores.is_empty() {
+    let whatif_data = if scores.is_empty() {
         let rank_result = ctx
             .clients
             .custom
@@ -144,8 +138,12 @@ async fn whatif_main(
     };
 
     // Sending the embed
-    let embed = &[WhatIfEmbed::new(user, pp, data).into_builder().build()];
-    msg.build_response(&ctx, |m| m.embeds(embed)).await?;
+    let builder = WhatIfEmbed::new(user, pp, whatif_data)
+        .into_builder()
+        .build()
+        .into();
+
+    data.create_message(&ctx, builder).await?;
 
     Ok(())
 }
@@ -159,8 +157,18 @@ async fn whatif_main(
 #[usage("[username] [number]")]
 #[example("badewanne3 321.98")]
 #[aliases("wi")]
-pub async fn whatif(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    whatif_main(GameMode::STD, ctx, msg, args).await
+pub async fn whatif(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match WhatIfArgs::args(&ctx, &mut args, GameMode::STD) {
+                Ok(whatif_args) => {
+                    _whatif(ctx, CommandData::Message { msg, args, num }, whatif_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => slash_whatif(ctx, command).await,
+    }
 }
 
 #[command]
@@ -172,8 +180,18 @@ pub async fn whatif(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
 #[usage("[username] [number]")]
 #[example("badewanne3 321.98")]
 #[aliases("wim")]
-pub async fn whatifmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    whatif_main(GameMode::MNA, ctx, msg, args).await
+pub async fn whatifmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match WhatIfArgs::args(&ctx, &mut args, GameMode::MNA) {
+                Ok(whatif_args) => {
+                    _whatif(ctx, CommandData::Message { msg, args, num }, whatif_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => slash_whatif(ctx, command).await,
+    }
 }
 
 #[command]
@@ -185,8 +203,18 @@ pub async fn whatifmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 #[usage("[username] [number]")]
 #[example("badewanne3 321.98")]
 #[aliases("wit")]
-pub async fn whatiftaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    whatif_main(GameMode::TKO, ctx, msg, args).await
+pub async fn whatiftaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match WhatIfArgs::args(&ctx, &mut args, GameMode::TKO) {
+                Ok(whatif_args) => {
+                    _whatif(ctx, CommandData::Message { msg, args, num }, whatif_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => slash_whatif(ctx, command).await,
+    }
 }
 
 #[command]
@@ -198,8 +226,18 @@ pub async fn whatiftaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRes
 #[usage("[username] [number]")]
 #[example("badewanne3 321.98")]
 #[aliases("wic")]
-pub async fn whatifctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    whatif_main(GameMode::CTB, ctx, msg, args).await
+pub async fn whatifctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match WhatIfArgs::args(&ctx, &mut args, GameMode::CTB) {
+                Ok(whatif_args) => {
+                    _whatif(ctx, CommandData::Message { msg, args, num }, whatif_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => slash_whatif(ctx, command).await,
+    }
 }
 
 pub enum WhatIfData {
@@ -214,4 +252,118 @@ pub enum WhatIfData {
         max_pp: f32,
         rank: Option<u32>,
     },
+}
+
+struct WhatIfArgs {
+    name: Option<Name>,
+    mode: GameMode,
+    pp: f32,
+}
+
+impl WhatIfArgs {
+    fn args(ctx: &Context, args: &mut Args, mode: GameMode) -> Result<Self, &'static str> {
+        let mut name = None;
+        let mut pp = None;
+
+        for arg in args.take(2) {
+            match arg.parse() {
+                Ok(num) => pp = Some(num),
+                Err(_) => name = Some(Args::try_link_name(ctx, arg)?),
+            }
+        }
+
+        let pp = pp.ok_or("You need to provide a decimal number")?;
+
+        Ok(Self { name, pp, mode })
+    }
+
+    fn slash(ctx: &Context, command: &mut ApplicationCommand) -> BotResult<Result<Self, String>> {
+        let mut username = None;
+        let mut mode = None;
+        let mut pp = None;
+
+        for option in command.yoink_options() {
+            match option {
+                CommandDataOption::String { name, value } => match name.as_str() {
+                    "mode" => parse_mode_option!(mode, value, "whatif"),
+                    "name" => username = Some(value.into()),
+                    "discord" => match value.parse() {
+                        Ok(id) => match ctx.get_link(id) {
+                            Some(name) => username = Some(name),
+                            None => {
+                                let content = format!("<@{}> is not linked to an osu profile", id);
+
+                                return Ok(Err(content));
+                            }
+                        },
+                        Err(_) => {
+                            bail_cmd_option!("whatif discord", string, value)
+                        }
+                    },
+                    _ => bail_cmd_option!("whatif", string, name),
+                },
+                CommandDataOption::Integer { name, .. } => {
+                    bail_cmd_option!("whatif", integer, name)
+                }
+                CommandDataOption::Boolean { name, .. } => {
+                    bail_cmd_option!("whatif", boolean, name)
+                }
+                CommandDataOption::SubCommand { name, .. } => {
+                    bail_cmd_option!("whatif", subcommand, name)
+                }
+            }
+        }
+
+        let args = Self {
+            pp: pp.ok_or(Error::InvalidCommandOptions)?,
+            name: username,
+            mode: mode.unwrap_or(GameMode::STD),
+        };
+
+        Ok(Ok(args))
+    }
+}
+
+pub async fn slash_whatif(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    match WhatIfArgs::slash(&ctx, &mut command)? {
+        Ok(args) => _whatif(ctx, command.into(), args).await,
+        Err(content) => command.error(&ctx, content).await,
+    }
+}
+
+pub fn slash_whatif_command() -> Command {
+    Command {
+        application_id: None,
+        guild_id: None,
+        name: "whatif".to_owned(),
+        default_permission: None,
+        description: "Display the impact of a new X pp score for a user".to_owned(),
+        id: None,
+        options: vec![
+            // TODO
+            // CommandOption::Number(ChoiceCommandOptionData {
+            //     choices: vec![],
+            //     description: "Specify a pp amount".to_owned(),
+            //     name: "pp".to_owned(),
+            //     required: true,
+            // }),
+            CommandOption::String(ChoiceCommandOptionData {
+                choices: super::mode_choices(),
+                description: "Specify the gamemode".to_owned(),
+                name: "mode".to_owned(),
+                required: false,
+            }),
+            CommandOption::String(ChoiceCommandOptionData {
+                choices: vec![],
+                description: "Specify a username".to_owned(),
+                name: "name".to_owned(),
+                required: false,
+            }),
+            CommandOption::User(BaseCommandOptionData {
+                description: "Specify a linked discord user".to_owned(),
+                name: "discord".to_owned(),
+                required: false,
+            }),
+        ],
+    }
 }

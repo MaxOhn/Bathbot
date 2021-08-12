@@ -22,7 +22,7 @@ mod osustats_list;
 mod player_snipe_list;
 mod player_snipe_stats;
 mod pp_missing;
-// mod profile;
+mod profile;
 mod profile_compare;
 mod rank;
 mod rank_score;
@@ -37,7 +37,7 @@ mod sniped;
 mod top;
 mod top_if;
 mod top_single;
-// mod whatif;
+mod whatif;
 
 pub use avatar::AvatarEmbed;
 pub use bws::BWSEmbed;
@@ -63,7 +63,7 @@ pub use osustats_list::OsuStatsListEmbed;
 pub use player_snipe_list::PlayerSnipeListEmbed;
 pub use player_snipe_stats::PlayerSnipeStatsEmbed;
 pub use pp_missing::PPMissingEmbed;
-// pub use profile::ProfileEmbed;
+pub use profile::ProfileEmbed;
 pub use profile_compare::ProfileCompareEmbed;
 pub use rank::RankEmbed;
 pub use rank_score::RankRankedScoreEmbed;
@@ -78,7 +78,7 @@ pub use sniped::SnipedEmbed;
 pub use top::TopEmbed;
 pub use top_if::TopIfEmbed;
 pub use top_single::TopSingleEmbed;
-// pub use whatif::WhatIfEmbed;
+pub use whatif::WhatIfEmbed;
 
 use crate::util::{datetime::sec_to_minsec, numbers::round, BeatmapExt, ScoreExt};
 

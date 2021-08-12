@@ -67,24 +67,38 @@ impl MedalCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => username = Some(value),
-                                    "discord" => {}
-                                    _ => bail_cmd_option!("medal info", string, name),
+                                    "name" => username = Some(value.into()),
+                                    "discord" => match value.parse() {
+                                        Ok(id) => match ctx.get_link(id) {
+                                            Some(name) => username = Some(name),
+                                            None => {
+                                                let content = format!(
+                                                    "<@{}> is not linked to an osu profile",
+                                                    id
+                                                );
+
+                                                return Ok(Err(content.into()));
+                                            }
+                                        },
+                                        Err(_) => {
+                                            bail_cmd_option!("medal stats discord", string, value)
+                                        }
+                                    },
+                                    _ => bail_cmd_option!("medal stats", string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("medal info", integer, name)
+                                    bail_cmd_option!("medal stats", integer, name)
                                 }
                                 CommandDataOption::Boolean { name, .. } => {
                                     bail_cmd_option!("medal info", boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("medal info", subcommand, name)
+                                    bail_cmd_option!("medal stats", subcommand, name)
                                 }
                             }
                         }
 
-                        let name = username.map(Name::from);
-                        kind = Some(MedalCommandKind::Stats(name));
+                        kind = Some(MedalCommandKind::Stats(username));
                     }
                     "missing" => {
                         let mut username = None;
@@ -92,47 +106,45 @@ impl MedalCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => username = Some(value),
-                                    "discord" => {}
-                                    _ => bail_cmd_option!("medal info", string, name),
+                                    "name" => username = Some(value.into()),
+                                    "discord" => match value.parse() {
+                                        Ok(id) => match ctx.get_link(id) {
+                                            Some(name) => username = Some(name),
+                                            None => {
+                                                let content = format!(
+                                                    "<@{}> is not linked to an osu profile",
+                                                    id
+                                                );
+
+                                                return Ok(Err(content.into()));
+                                            }
+                                        },
+                                        Err(_) => {
+                                            bail_cmd_option!("medal missing discord", string, value)
+                                        }
+                                    },
+                                    _ => bail_cmd_option!("medal missing", string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("medal info", integer, name)
+                                    bail_cmd_option!("medal missing", integer, name)
                                 }
                                 CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("medal info", boolean, name)
+                                    bail_cmd_option!("medal missing", boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("medal info", subcommand, name)
+                                    bail_cmd_option!("medal missing", subcommand, name)
                                 }
                             }
                         }
 
-                        let name = username.map(Name::from);
-                        kind = Some(MedalCommandKind::Missing(name));
+                        kind = Some(MedalCommandKind::Missing(username));
                     }
                     _ => bail_cmd_option!("medal", subcommand, name),
                 },
             }
         }
 
-        let mut kind = kind.ok_or(Error::InvalidCommandOptions)?;
-
-        if let MedalCommandKind::Missing(name) | MedalCommandKind::Stats(name) = &mut kind {
-            if let Some(resolved) = command.data.resolved.take().filter(|_| name.is_none()) {
-                if let Some(user) = resolved.users.first() {
-                    if let Some(link) = ctx.get_link(user.id.0) {
-                        name.insert(link);
-                    } else {
-                        let content = format!("<@{}> is not linked to an osu profile", user.id);
-
-                        return Ok(Err(content));
-                    }
-                }
-            }
-        }
-
-        Ok(Ok(kind))
+        kind.ok_or(Error::InvalidCommandOptions).map(Ok)
     }
 }
 

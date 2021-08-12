@@ -49,7 +49,6 @@ macro_rules! parse_mode_option {
     lb
     map
     mapper
-    mp
     nc
     osc
     osg
@@ -57,7 +56,6 @@ macro_rules! parse_mode_option {
     psl
     pss
     pp
-    profile
     rebalance
     simulate
     sg
@@ -66,7 +64,6 @@ macro_rules! parse_mode_option {
     topif
     topold
     top
-    whatif
 
     _owner:_
     x activebg
@@ -125,7 +122,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &MATCHCOSTS_CMD,
                 // &BWS_CMD,
                 &AVATAR_CMD,
-                // &MOSTPLAYED_CMD,
+                &MOSTPLAYED_CMD,
                 &MOSTPLAYEDCOMMON_CMD,
                 // &LEADERBOARD_CMD,
                 // &BELGIANLEADERBOARD_CMD,
@@ -144,10 +141,10 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &RECENT_CMD,
                 // &TOP_CMD,
                 // &RECENTBEST_CMD,
-                // &OSU_CMD,
+                &OSU_CMD,
                 &OSUCOMPARE_CMD,
-                // &PP_CMD,
-                // &WHATIF_CMD,
+                &PP_CMD,
+                &WHATIF_CMD,
                 &RANK_CMD,
                 &COMMON_CMD,
                 &RECENTLEADERBOARD_CMD,
@@ -184,10 +181,10 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &RECENTMANIA_CMD,
                 // &TOPMANIA_CMD,
                 // &RECENTBESTMANIA_CMD,
-                // &MANIA_CMD,
+                &MANIA_CMD,
                 &OSUCOMPAREMANIA_CMD,
-                // &PPMANIA_CMD,
-                // &WHATIFMANIA_CMD,
+                &PPMANIA_CMD,
+                &WHATIFMANIA_CMD,
                 &RANKMANIA_CMD,
                 &COMMONMANIA_CMD,
                 &RECENTMANIALEADERBOARD_CMD,
@@ -214,10 +211,10 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &RECENTTAIKO_CMD,
                 // &TOPTAIKO_CMD,
                 // &RECENTBESTTAIKO_CMD,
-                // &TAIKO_CMD,
+                &TAIKO_CMD,
                 &OSUCOMPARETAIKO_CMD,
-                // &PPTAIKO_CMD,
-                // &WHATIFTAIKO_CMD,
+                &PPTAIKO_CMD,
+                &WHATIFTAIKO_CMD,
                 &RANKTAIKO_CMD,
                 &COMMONTAIKO_CMD,
                 &RECENTTAIKOLEADERBOARD_CMD,
@@ -245,11 +242,11 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &RECENTCTB_CMD,
                 // &TOPCTB_CMD,
                 // &RECENTBESTCTB_CMD,
-                // &CTB_CMD,
+                &CTB_CMD,
                 &OSUCOMPARECTB_CMD,
-                // &PPCTB_CMD,
-                // &WHATIFCTB_CMD,
-                // &RANKCTB_CMD,
+                &PPCTB_CMD,
+                &WHATIFCTB_CMD,
+                &RANKCTB_CMD,
                 &COMMONCTB_CMD,
                 &RECENTCTBLEADERBOARD_CMD,
                 &RECENTCTBBELGIANLEADERBOARD_CMD,
@@ -353,11 +350,15 @@ pub fn slash_commands() -> Vec<Command> {
         slash_compare_command(),
         slash_link_command(),
         slash_backgroundgame_command(),
+        slash_profile_command(),
         slash_matchcost_command(),
+        slash_roll_command(),
+        slash_whatif_command(),
+        slash_pp_command(),
         slash_rank_command(),
         slash_medal_command(),
-        slash_roll_command(),
         slash_track_command(),
+        slash_mostplayed_command(),
         slash_ranking_command(),
         slash_ping_command(),
         slash_mapsearch_command(),

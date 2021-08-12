@@ -1,43 +1,37 @@
-use super::request_user;
 use crate::{
-    arguments::{Args, NameFloatArgs},
     custom_client::RankParam,
     embeds::{EmbedData, PPMissingEmbed},
     tracking::process_tracking,
-    util::{constants::OSU_API_ISSUE, MessageExt},
-    BotResult, Context,
+    util::{constants::OSU_API_ISSUE, ApplicationCommandExt, MessageExt},
+    Args, BotResult, CommandData, Context, Error, Name,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
-use twilight_model::channel::Message;
+use twilight_model::application::{
+    command::{BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption},
+    interaction::{application_command::CommandDataOption, ApplicationCommand},
+};
 
-async fn pp_main(
-    mode: GameMode,
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
-    let args = match NameFloatArgs::new(&ctx, args) {
-        Ok(args) => args,
-        Err(err_msg) => return msg.error(&ctx, err_msg).await,
-    };
+async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) -> BotResult<()> {
+    let PpArgs { name, mode, pp } = args;
 
-    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+    let name = match name {
         Some(name) => name,
-        None => return super::require_link(&ctx, msg).await,
+        None => match ctx.get_link(data.author()?.id.0) {
+            Some(name) => name,
+            None => return super::require_link(&ctx, &data).await,
+        },
     };
-
-    let pp = args.float;
 
     if pp < 0.0 {
-        return msg.error(&ctx, "The pp number must be non-negative").await;
+        return data.error(&ctx, "The pp number must be non-negative").await;
     } else if pp > (i64::MAX / 1024) as f32 {
-        return msg.error(&ctx, "Number too large").await;
+        return data.error(&ctx, "Number too large").await;
     }
 
     // Retrieve the user and their top scores
-    let user_fut = request_user(&ctx, &name, Some(mode));
+    let user_fut = super::request_user(&ctx, &name, Some(mode));
     let scores_fut = ctx
         .osu()
         .user_scores(name.as_str())
@@ -54,10 +48,10 @@ async fn pp_main(
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -66,7 +60,7 @@ async fn pp_main(
     let mut scores = match scores_result {
         Ok(scores) => scores,
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -85,11 +79,11 @@ async fn pp_main(
     process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
 
     // Accumulate all necessary data
-    let data = PPMissingEmbed::new(user, scores, pp, rank);
+    let embed_data = PPMissingEmbed::new(user, scores, pp, rank);
 
     // Creating the embed
-    let embed = &[data.into_builder().build()];
-    msg.build_response(&ctx, |m| m.embeds(embed)).await?;
+    let builder = embed_data.into_builder().build().into();
+    data.create_message(&ctx, builder).await?;
 
     Ok(())
 }
@@ -102,8 +96,18 @@ async fn pp_main(
 )]
 #[usage("[username] [number]")]
 #[example("badewanne3 8000")]
-pub async fn pp(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    pp_main(GameMode::STD, ctx, msg, args).await
+pub async fn pp(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match PpArgs::args(&ctx, &mut args, GameMode::STD) {
+                Ok(whatif_args) => {
+                    _pp(ctx, CommandData::Message { msg, args, num }, whatif_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => slash_pp(ctx, command).await,
+    }
 }
 
 #[command]
@@ -115,8 +119,18 @@ pub async fn pp(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
 #[usage("[username] [number]")]
 #[example("badewanne3 8000")]
 #[aliases("ppm")]
-pub async fn ppmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    pp_main(GameMode::MNA, ctx, msg, args).await
+pub async fn ppmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match PpArgs::args(&ctx, &mut args, GameMode::MNA) {
+                Ok(whatif_args) => {
+                    _pp(ctx, CommandData::Message { msg, args, num }, whatif_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => slash_pp(ctx, command).await,
+    }
 }
 
 #[command]
@@ -128,8 +142,18 @@ pub async fn ppmania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
 #[usage("[username] [number]")]
 #[example("badewanne3 8000")]
 #[aliases("ppt")]
-pub async fn pptaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    pp_main(GameMode::TKO, ctx, msg, args).await
+pub async fn pptaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match PpArgs::args(&ctx, &mut args, GameMode::TKO) {
+                Ok(whatif_args) => {
+                    _pp(ctx, CommandData::Message { msg, args, num }, whatif_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => slash_pp(ctx, command).await,
+    }
 }
 
 #[command]
@@ -141,6 +165,130 @@ pub async fn pptaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<
 #[usage("[username] [number]")]
 #[example("badewanne3 8000")]
 #[aliases("ppc")]
-pub async fn ppctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    pp_main(GameMode::CTB, ctx, msg, args).await
+pub async fn ppctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match PpArgs::args(&ctx, &mut args, GameMode::CTB) {
+                Ok(whatif_args) => {
+                    _pp(ctx, CommandData::Message { msg, args, num }, whatif_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => slash_pp(ctx, command).await,
+    }
+}
+
+struct PpArgs {
+    name: Option<Name>,
+    mode: GameMode,
+    pp: f32,
+}
+
+impl PpArgs {
+    fn args(ctx: &Context, args: &mut Args, mode: GameMode) -> Result<Self, &'static str> {
+        let mut name = None;
+        let mut pp = None;
+
+        for arg in args.take(2) {
+            match arg.parse() {
+                Ok(num) => pp = Some(num),
+                Err(_) => name = Some(Args::try_link_name(ctx, arg)?),
+            }
+        }
+
+        let pp = pp.ok_or("You need to provide a decimal number")?;
+
+        Ok(Self { name, pp, mode })
+    }
+
+    fn slash(ctx: &Context, command: &mut ApplicationCommand) -> BotResult<Result<Self, String>> {
+        let mut username = None;
+        let mut mode = None;
+        let mut pp = None;
+
+        for option in command.yoink_options() {
+            match option {
+                CommandDataOption::String { name, value } => match name.as_str() {
+                    "mode" => parse_mode_option!(mode, value, "pp"),
+                    "name" => username = Some(value.into()),
+                    "discord" => match value.parse() {
+                        Ok(id) => match ctx.get_link(id) {
+                            Some(name) => username = Some(name),
+                            None => {
+                                let content = format!("<@{}> is not linked to an osu profile", id);
+
+                                return Ok(Err(content));
+                            }
+                        },
+                        Err(_) => {
+                            bail_cmd_option!("pp discord", string, value)
+                        }
+                    },
+                    _ => bail_cmd_option!("pp", string, name),
+                },
+                CommandDataOption::Integer { name, .. } => {
+                    bail_cmd_option!("pp", integer, name)
+                }
+                CommandDataOption::Boolean { name, .. } => {
+                    bail_cmd_option!("pp", boolean, name)
+                }
+                CommandDataOption::SubCommand { name, .. } => {
+                    bail_cmd_option!("pp", subcommand, name)
+                }
+            }
+        }
+
+        let args = Self {
+            pp: pp.ok_or(Error::InvalidCommandOptions)?,
+            name: username,
+            mode: mode.unwrap_or(GameMode::STD),
+        };
+
+        Ok(Ok(args))
+    }
+}
+
+pub async fn slash_pp(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    match PpArgs::slash(&ctx, &mut command)? {
+        Ok(args) => _pp(ctx, command.into(), args).await,
+        Err(content) => command.error(&ctx, content).await,
+    }
+}
+
+pub fn slash_pp_command() -> Command {
+    Command {
+        application_id: None,
+        guild_id: None,
+        name: "pp".to_owned(),
+        default_permission: None,
+        description: "How many pp are missing to reach the given amount?".to_owned(),
+        id: None,
+        options: vec![
+            // TODO
+            // CommandOption::Number(ChoiceCommandOptionData {
+            //     choices: vec![],
+            //     description: "Specify a target pp amount".to_owned(),
+            //     name: "pp".to_owned(),
+            //     required: true,
+            // }),
+            CommandOption::String(ChoiceCommandOptionData {
+                choices: super::mode_choices(),
+                description: "Specify the gamemode".to_owned(),
+                name: "mode".to_owned(),
+                required: false,
+            }),
+            CommandOption::String(ChoiceCommandOptionData {
+                choices: vec![],
+                description: "Specify a username".to_owned(),
+                name: "name".to_owned(),
+                required: false,
+            }),
+            CommandOption::User(BaseCommandOptionData {
+                description: "Specify a linked discord user".to_owned(),
+                name: "discord".to_owned(),
+                required: false,
+            }),
+        ],
+    }
 }

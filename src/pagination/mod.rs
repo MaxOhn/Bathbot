@@ -6,13 +6,13 @@ mod leaderboard;
 // mod map;
 mod map_search;
 mod medals_missing;
-// mod most_played;
+mod most_played;
 mod most_played_common;
 // mod nochoke;
 // mod osustats_globals;
 // mod osustats_list;
 // mod player_snipe_list;
-// mod profile;
+mod profile;
 mod ranking;
 mod ranking_countries;
 mod recent;
@@ -29,13 +29,13 @@ pub use leaderboard::LeaderboardPagination;
 // pub use map::MapPagination;
 pub use map_search::MapSearchPagination;
 pub use medals_missing::MedalsMissingPagination;
-// pub use most_played::MostPlayedPagination;
+pub use most_played::MostPlayedPagination;
 pub use most_played_common::MostPlayedCommonPagination;
 // pub use nochoke::NoChokePagination;
 // pub use osustats_globals::OsuStatsGlobalsPagination;
 // pub use osustats_list::OsuStatsListPagination;
 // pub use player_snipe_list::PlayerSnipeListPagination;
-// pub use profile::ProfilePagination;
+pub use profile::ProfilePagination;
 pub use ranking::RankingPagination;
 pub use ranking_countries::RankingCountriesPagination;
 pub use recent::RecentPagination;
@@ -152,9 +152,8 @@ pub trait Pagination: Sync + Sized {
         tokio::pin!(reaction_stream);
 
         while let Some(Ok(reaction)) = reaction_stream.next().await {
-            match self.next_page(reaction.0, ctx).await {
-                Ok(_) => {}
-                Err(why) => unwind_error!(warn, why, "Error while paginating: {}"),
+            if let Err(why) = self.next_page(reaction.0, ctx).await {
+                unwind_error!(warn, why, "Error while paginating: {}")
             }
         }
 
@@ -164,28 +163,22 @@ pub trait Pagination: Sync + Sized {
             return Ok(());
         }
 
-        match ctx
-            .http
-            .delete_all_reactions(msg.channel_id, msg.id)
-            .exec()
-            .await
-        {
-            Ok(_) => {}
-            Err(why) => {
-                if matches!(why.kind(), ErrorType::Response { status, .. } if status.raw() == 403) {
-                    sleep(Duration::from_millis(100)).await;
+        let delete_fut = ctx.http.delete_all_reactions(msg.channel_id, msg.id).exec();
 
-                    for emote in &reactions {
-                        let request_reaction = emote.request_reaction();
+        if let Err(why) = delete_fut.await {
+            if matches!(why.kind(), ErrorType::Response { status, .. } if status.raw() == 403) {
+                sleep(Duration::from_millis(100)).await;
 
-                        ctx.http
-                            .delete_current_user_reaction(msg.channel_id, msg.id, &request_reaction)
-                            .exec()
-                            .await?;
-                    }
-                } else {
-                    return Err(why.into());
+                for emote in &reactions {
+                    let request_reaction = emote.request_reaction();
+
+                    ctx.http
+                        .delete_current_user_reaction(msg.channel_id, msg.id, &request_reaction)
+                        .exec()
+                        .await?;
                 }
+            } else {
+                return Err(why.into());
             }
         }
 
@@ -227,10 +220,7 @@ pub trait Pagination: Sync + Sized {
                 name: Some(name), ..
             } => match name.as_str() {
                 // Move to start
-                "jump_start" => match self.index() {
-                    0 => None,
-                    _ => Some(0),
-                },
+                "jump_start" => (self.index() != 0).then(|| 0),
                 // Move one page left
                 "multi_step_back" => match self.index() {
                     0 => None,
@@ -256,45 +246,17 @@ pub trait Pagination: Sync + Sized {
                     }
                 }
                 // Move one index right
-                "single_step" => {
-                    if self.index() == self.last_index() {
-                        None
-                    } else {
-                        Some(self.last_index().min(self.index() + self.single_step()))
-                    }
-                }
+                "single_step" => (self.index() != self.last_index())
+                    .then(|| self.last_index().min(self.index() + self.single_step())),
                 // Move one page right
-                "multi_step" => {
-                    if self.index() == self.last_index() {
-                        None
-                    } else {
-                        Some(self.last_index().min(self.index() + self.multi_step()))
-                    }
-                }
+                "multi_step" => (self.index() != self.last_index())
+                    .then(|| self.last_index().min(self.index() + self.multi_step())),
                 // Move to end
-                "jump_end" => {
-                    if self.index() == self.last_index() {
-                        None
-                    } else {
-                        Some(self.last_index())
-                    }
-                }
-                "osu_std" => match self.index() {
-                    0 => None,
-                    _ => Some(0),
-                },
-                "osu_taiko" => match self.index() {
-                    1 => None,
-                    _ => Some(1),
-                },
-                "osu_ctb" => match self.index() {
-                    2 => None,
-                    _ => Some(2),
-                },
-                "osu_mania" => match self.index() {
-                    3 => None,
-                    _ => Some(3),
-                },
+                "jump_end" => (self.index() != self.last_index()).then(|| self.last_index()),
+                "osu_std" => (self.index() != 0).then(|| 0),
+                "osu_taiko" => (self.index() != 1).then(|| 1),
+                "osu_ctb" => (self.index() != 2).then(|| 2),
+                "osu_mania" => (self.index() != 3).then(|| 3),
                 _ => None,
             },
             _ => None,
@@ -335,6 +297,7 @@ pub trait Pagination: Sync + Sized {
     }
 }
 
+#[derive(Eq, PartialEq)]
 pub enum PageChange {
     None,
     Change,

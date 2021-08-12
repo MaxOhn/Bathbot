@@ -8,32 +8,54 @@ use crate::{
     },
 };
 
-use rosu_v2::prelude::{GameMode, Grade, User};
+use rosu_v2::prelude::{GameMode, Grade, User, UserStatistics};
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
+use twilight_model::channel::embed::EmbedField;
 
 #[derive(Clone)]
 pub struct ProfileEmbed {
-    description: String,
     author: Author,
-    thumbnail: String,
-    title: String,
-    image: String,
+    description: Option<String>,
+    fields: EmbedFields,
     footer: Footer,
-    main_fields: EmbedFields,
-    extended_fields: Option<EmbedFields>,
+    image: String,
+    thumbnail: String,
+    title: Option<String>,
 }
 
 impl ProfileEmbed {
-    pub fn new(
-        user: &User,
-        profile_result: Option<ProfileResult>,
-        globals_count: BTreeMap<usize, Cow<'static, str>>,
-        own_top_scores: usize,
-        mode: GameMode,
-    ) -> Self {
+    pub fn compact(user: &User, max_pp: f32) -> Self {
+        let author = author!(user);
+
+        let mut footer_text = footer_text(user);
+        // TODO: Insert mode emote into footer start
+
+        let stats = user.statistics.as_ref().unwrap();
+        let level = stats.level.current as f32 + stats.level.progress as f32 / 100.0;
+        let playtime = stats.playtime / 60 / 60;
+
+        let description = format!(
+            "Accuracy: `{:.2}%` • Level: {:.2}\n\
+            Playcount: `{}` (`{} hrs`)\n\
+            Max pp play: `{:.2}pp`",
+            stats.accuracy, level, stats.playcount, playtime, max_pp
+        );
+
+        Self {
+            author,
+            description: Some(description),
+            fields: Vec::new(),
+            footer: Footer::new(footer_text),
+            image: attachment("profile_graph.png"),
+            thumbnail: user.avatar_url.to_owned(),
+            title: None,
+        }
+    }
+
+    pub fn medium(user: &User, bonus_pp: f32) -> Self {
         let title = format!(
             "{} statistics:",
-            match mode {
+            match user.mode {
                 GameMode::STD => "osu!",
                 GameMode::TKO => "Taiko",
                 GameMode::CTB => "CtB",
@@ -41,86 +63,47 @@ impl ProfileEmbed {
             }
         );
 
-        let footer_text = format!(
-            "Joined osu! {} ({})",
-            date_to_string(&user.join_date),
-            how_long_ago_text(&user.join_date),
+        let footer_text = footer_text(user);
+        let stats = user.statistics.as_ref().unwrap();
+        let fields = main_fields(user, stats, bonus_pp);
+
+        Self {
+            author: author!(user),
+            description: None,
+            fields,
+            footer: Footer::new(footer_text),
+            image: attachment("profile_graph.png"),
+            thumbnail: user.avatar_url.to_owned(),
+            title: Some(title),
+        }
+    }
+
+    pub fn full(
+        user: &User,
+        profile_result: Option<&ProfileResult>,
+        globals_count: &BTreeMap<usize, Cow<'static, str>>,
+        own_top_scores: usize,
+    ) -> Self {
+        let title = format!(
+            "{} statistics:",
+            match user.mode {
+                GameMode::STD => "osu!",
+                GameMode::TKO => "Taiko",
+                GameMode::CTB => "CtB",
+                GameMode::MNA => "Mania",
+            }
         );
 
+        let footer_text = footer_text(user);
         let stats = user.statistics.as_ref().unwrap();
 
         let bonus_pp = profile_result
             .as_ref()
             .map_or(0.0, |result| result.bonus_pp);
 
-        let main_fields = vec![
-            field!(
-                "Ranked score",
-                with_comma_uint(stats.ranked_score).to_string(),
-                true
-            ),
-            field!("Accuracy", format!("{:.2}%", stats.accuracy), true),
-            field!(
-                "Max combo",
-                with_comma_uint(stats.max_combo).to_string(),
-                true
-            ),
-            field!(
-                "Total score",
-                with_comma_uint(stats.total_score).to_string(),
-                true
-            ),
-            field!("Level", format!("{:.2}", stats.level.current), true),
-            field!(
-                "Medals",
-                format!("{}", user.medals.as_ref().unwrap().len()),
-                true
-            ),
-            field!(
-                "Total hits",
-                with_comma_uint(stats.total_hits).to_string(),
-                true
-            ),
-            field!("Bonus PP", format!("{}pp", bonus_pp), true),
-            field!(
-                "Followers",
-                with_comma_uint(user.follower_count.unwrap_or(0)).to_string(),
-                true
-            ),
-            field!(
-                "Grades",
-                format!(
-                    "{}{} {}{} {}{} {}{} {}{}",
-                    grade_emote(Grade::XH),
-                    stats.grade_counts.ssh,
-                    grade_emote(Grade::X),
-                    stats.grade_counts.ss,
-                    grade_emote(Grade::SH),
-                    stats.grade_counts.sh,
-                    grade_emote(Grade::S),
-                    stats.grade_counts.s,
-                    grade_emote(Grade::A),
-                    stats.grade_counts.a,
-                ),
-                false
-            ),
-            field!(
-                "Play count / time",
-                format!(
-                    "{} / {} hrs",
-                    with_comma_uint(stats.playcount).to_string(),
-                    stats.playtime / 3600
-                ),
-                true
-            ),
-            field!(
-                "Replays watched",
-                with_comma_uint(stats.replays_watched).to_string(),
-                true
-            ),
-        ];
+        let mut fields = main_fields(user, stats, bonus_pp);
 
-        let (description, extended_fields) = if let Some(values) = profile_result {
+        let description = if let Some(values) = profile_result {
             let mut avg_string = String::with_capacity(256);
             avg_string.push_str("```\n");
             let _ = writeln!(avg_string, "   |   PP   |  Acc  | Combo | Map len");
@@ -164,11 +147,11 @@ impl ProfileEmbed {
             }
 
             let _ = write!(combo, " [{} - {}]", values.combo.min(), values.combo.max());
-            let mut extended_fields = vec![field!("Averages of top 100 scores", avg_string, false)];
+            fields.push(field!("Averages of top 100 scores", avg_string, false));
 
             let mult_mods = values.mod_combs_count.is_some();
 
-            if let Some(mod_combs_count) = values.mod_combs_count {
+            if let Some(mod_combs_count) = values.mod_combs_count.as_ref() {
                 let len = mod_combs_count.len();
                 let mut value = String::with_capacity(len * 14);
                 let mut iter = mod_combs_count.iter();
@@ -179,10 +162,10 @@ impl ProfileEmbed {
                     let _ = write!(value, " > `{} {}%`", mods, count);
                 }
 
-                extended_fields.push(field!("Favourite mod combinations", value, false));
+                fields.push(field!("Favourite mod combinations", value, false));
             }
 
-            extended_fields.reserve_exact(5);
+            fields.reserve_exact(5);
             let len = values.mods_count.len();
             let mut value = String::with_capacity(len * 14);
             let mut iter = values.mods_count.iter();
@@ -193,7 +176,7 @@ impl ProfileEmbed {
                 let _ = write!(value, " > `{} {}%`", mods, count);
             }
 
-            extended_fields.push(field!("Favourite mods", value, false));
+            fields.push(field!("Favourite mods", value, false));
             let len = values.mod_combs_pp.len();
             let mut value = String::with_capacity(len * 15);
             let mut iter = values.mod_combs_pp.iter();
@@ -210,7 +193,7 @@ impl ProfileEmbed {
                 "PP earned with mod"
             };
 
-            extended_fields.push(field!(name, value, false));
+            fields.push(field!(name, value, false));
 
             let ranked_count = user.ranked_mapset_count.unwrap() + user.loved_mapset_count.unwrap();
 
@@ -235,7 +218,7 @@ impl ProfileEmbed {
                     let _ = writeln!(mapper_stats, "Own maps in top scores: {}", own_top_scores);
                 }
 
-                extended_fields.push(field!("Mapsets from player", mapper_stats, false));
+                fields.push(field!("Mapsets from player", mapper_stats, false));
             }
 
             let len = values
@@ -253,7 +236,7 @@ impl ProfileEmbed {
                 let _ = writeln!(value, "{}: {:.2}pp ({})", name, *pp, count);
             }
 
-            extended_fields.push(field!("Mappers in top 100", value, true));
+            fields.push(field!("Mappers in top 100", value, true));
 
             let count_len = globals_count
                 .iter()
@@ -273,63 +256,119 @@ impl ProfileEmbed {
             }
 
             count_str.push_str("```");
-            extended_fields.push(field!("Global leaderboards", count_str, true));
+            fields.push(field!("Global leaderboards", count_str, true));
 
-            (String::new(), Some(extended_fields))
+            None
         } else {
-            ("No Top scores".to_owned(), None)
+            Some("No Top scores".to_owned())
         };
 
         Self {
-            title,
-            main_fields,
-            extended_fields,
-            description,
-            footer: Footer::new(footer_text),
             author: author!(user),
+            description,
+            fields,
+            footer: Footer::new(footer_text),
             image: attachment("profile_graph.png"),
             thumbnail: user.avatar_url.to_owned(),
+            title: Some(title),
         }
     }
+}
 
-    pub fn expand(&self) -> EmbedBuilder {
-        let mut fields = self.main_fields.clone();
+fn footer_text(user: &User) -> String {
+    format!(
+        "Joined osu! {} ({})",
+        date_to_string(&user.join_date),
+        how_long_ago_text(&user.join_date),
+    )
+}
 
-        if let Some(ref extended_fields) = self.extended_fields {
-            fields.append(&mut extended_fields.clone())
-        }
-
-        EmbedBuilder::new()
-            .author(&self.author)
-            .description(&self.description)
-            .fields(fields)
-            .footer(&self.footer)
-            .image(&self.image)
-            .thumbnail(&self.thumbnail)
-            .title(&self.title)
-    }
+fn main_fields(user: &User, stats: &UserStatistics, bonus_pp: f32) -> Vec<EmbedField> {
+    vec![
+        field!(
+            "Ranked score",
+            with_comma_uint(stats.ranked_score).to_string(),
+            true
+        ),
+        field!("Accuracy", format!("{:.2}%", stats.accuracy), true),
+        field!(
+            "Max combo",
+            with_comma_uint(stats.max_combo).to_string(),
+            true
+        ),
+        field!(
+            "Total score",
+            with_comma_uint(stats.total_score).to_string(),
+            true
+        ),
+        field!("Level", format!("{:.2}", stats.level.current), true),
+        field!(
+            "Medals",
+            format!("{}", user.medals.as_ref().unwrap().len()),
+            true
+        ),
+        field!(
+            "Total hits",
+            with_comma_uint(stats.total_hits).to_string(),
+            true
+        ),
+        field!("Bonus PP", format!("{}pp", bonus_pp), true),
+        field!(
+            "Followers",
+            with_comma_uint(user.follower_count.unwrap_or(0)).to_string(),
+            true
+        ),
+        field!(
+            "Grades",
+            format!(
+                "{}{} {}{} {}{} {}{} {}{}",
+                grade_emote(Grade::XH),
+                stats.grade_counts.ssh,
+                grade_emote(Grade::X),
+                stats.grade_counts.ss,
+                grade_emote(Grade::SH),
+                stats.grade_counts.sh,
+                grade_emote(Grade::S),
+                stats.grade_counts.s,
+                grade_emote(Grade::A),
+                stats.grade_counts.a,
+            ),
+            false
+        ),
+        field!(
+            "Play count / time",
+            format!(
+                "{} / {} hrs",
+                with_comma_uint(stats.playcount).to_string(),
+                stats.playtime / 60 / 60
+            ),
+            true
+        ),
+        field!(
+            "Replays watched",
+            with_comma_uint(stats.replays_watched).to_string(),
+            true
+        ),
+    ]
 }
 
 impl EmbedData for ProfileEmbed {
     fn as_builder(&self) -> EmbedBuilder {
-        EmbedBuilder::new()
+        let mut builder = EmbedBuilder::new()
             .author(&self.author)
-            .description(&self.description)
-            .fields(self.main_fields.clone())
+            .fields(self.fields.clone())
             .footer(&self.footer)
             .image(&self.image)
-            .thumbnail(&self.thumbnail)
-            .title(&self.title)
-    }
+            .thumbnail(&self.thumbnail);
 
-    fn into_builder(self) -> EmbedBuilder {
-        EmbedBuilder::new()
-            .author(self.author)
-            .description(self.description)
-            .fields(self.main_fields)
-            .footer(self.footer)
-            .image(self.image)
-            .thumbnail(self.thumbnail)
-            .title(self.title)
+        if let Some(ref description) = self.description {
+            builder = builder.description(description);
+        }
+
+        if let Some(ref title) = self.title {
+            builder = builder.title(title);
+        }
+
+        builder
     }
 }

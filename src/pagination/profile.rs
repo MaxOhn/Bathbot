@@ -1,6 +1,7 @@
 use super::{PageChange, ReactionVec};
 
 use crate::{
+    commands::osu::{ProfileData, ProfileSize},
     embeds::{EmbedData, ProfileEmbed},
     util::{send_reaction, Emote},
     BotResult, Context,
@@ -18,16 +19,16 @@ use twilight_model::{
 
 pub struct ProfilePagination {
     msg: Message,
-    embed: ProfileEmbed,
-    minimized: bool,
+    data: ProfileData,
+    current_size: ProfileSize,
 }
 
 impl ProfilePagination {
-    pub fn new(msg: Message, embed: ProfileEmbed) -> Self {
+    pub fn new(msg: Message, data: ProfileData, kind: ProfileSize) -> Self {
         Self {
             msg,
-            embed,
-            minimized: true,
+            data,
+            current_size: kind,
         }
     }
 
@@ -52,9 +53,8 @@ impl ProfilePagination {
         tokio::pin!(reaction_stream);
 
         while let Some(Ok(reaction)) = reaction_stream.next().await {
-            match self.next_page(reaction.0, ctx).await {
-                Ok(_) => {}
-                Err(why) => unwind_error!(warn, why, "Error while paginating profile: {}"),
+            if let Err(why) = self.next_page(reaction.0, ctx).await {
+                unwind_error!(warn, why, "Error while paginating profile: {}");
             }
         }
 
@@ -64,96 +64,68 @@ impl ProfilePagination {
             return Ok(());
         }
 
-        match ctx
-            .http
-            .delete_all_reactions(msg.channel_id, msg.id)
-            .exec()
-            .await
-        {
-            Ok(_) => {}
-            Err(why) => {
-                if matches!(why.kind(), ErrorType::Response { status, ..} if status.raw() == 403) {
-                    sleep(Duration::from_millis(100)).await;
+        let delete_fut = ctx.http.delete_all_reactions(msg.channel_id, msg.id).exec();
 
-                    for emote in &reactions {
-                        let reaction_reaction = emote.request_reaction();
+        if let Err(why) = delete_fut.await {
+            if matches!(why.kind(), ErrorType::Response { status, ..} if status.raw() == 403) {
+                sleep(Duration::from_millis(100)).await;
 
-                        ctx.http
-                            .delete_current_user_reaction(
-                                msg.channel_id,
-                                msg.id,
-                                &reaction_reaction,
-                            )
-                            .exec()
-                            .await?;
-                    }
-                } else {
-                    return Err(why.into());
+                for emote in &reactions {
+                    let reaction_reaction = emote.request_reaction();
+
+                    ctx.http
+                        .delete_current_user_reaction(msg.channel_id, msg.id, &reaction_reaction)
+                        .exec()
+                        .await?;
                 }
+            } else {
+                return Err(why.into());
             }
-        }
-
-        if !self.minimized {
-            let embed = self.embed.into_builder().build();
-
-            ctx.http
-                .update_message(msg.channel_id, msg.id)
-                .embeds(&[embed])?
-                .exec()
-                .await?;
         }
 
         Ok(())
     }
 
     async fn next_page(&mut self, reaction: Reaction, ctx: &Context) -> BotResult<PageChange> {
-        let change = match self.process_reaction(&reaction.emoji).await {
-            PageChange::None => PageChange::None,
-            PageChange::Change => {
-                let builder = if self.minimized {
-                    self.embed.as_builder()
-                } else {
-                    self.embed.expand()
-                };
+        if self.process_reaction(&reaction.emoji) == PageChange::None {
+            return Ok(PageChange::None);
+        }
 
-                ctx.http
-                    .update_message(self.msg.channel_id, self.msg.id)
-                    .embeds(&[builder.build()])?
-                    .exec()
-                    .await?;
+        let embed = ProfileEmbed::get_or_create(ctx, self.current_size, &mut self.data).await;
 
-                PageChange::Change
-            }
-        };
+        ctx.http
+            .update_message(self.msg.channel_id, self.msg.id)
+            .embeds(&[embed.as_builder().build()])?
+            .exec()
+            .await?;
 
-        Ok(change)
+        Ok(PageChange::Change)
     }
 
-    async fn process_reaction(&mut self, reaction: &ReactionType) -> PageChange {
-        let change_result = match reaction {
+    fn process_reaction(&mut self, reaction: &ReactionType) -> PageChange {
+        match reaction {
             ReactionType::Custom {
                 name: Some(name), ..
             } => match name.as_str() {
-                "expand" => match self.minimized {
-                    true => Some(false),
-                    false => None,
+                "expand" => match self.current_size.expand() {
+                    Some(size) => {
+                        self.current_size = size;
+
+                        PageChange::Change
+                    }
+                    None => PageChange::None,
                 },
-                "minimize" => match self.minimized {
-                    true => None,
-                    false => Some(true),
+                "minimize" => match self.current_size.minimize() {
+                    Some(size) => {
+                        self.current_size = size;
+
+                        PageChange::Change
+                    }
+                    None => PageChange::None,
                 },
-                _ => return PageChange::None,
+                _ => PageChange::None,
             },
-            _ => return PageChange::None,
-        };
-
-        match change_result {
-            Some(min) => {
-                self.minimized = min;
-
-                PageChange::Change
-            }
-            None => PageChange::None,
+            _ => PageChange::None,
         }
     }
 }

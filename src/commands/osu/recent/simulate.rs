@@ -186,8 +186,8 @@ pub async fn simulaterecent(ctx: Arc<Context>, data: CommandData) -> BotResult<(
     To get a previous recent map, you can add a number right after the command,\n\
     e.g. `srm42 badewanne3` to get the 42nd most recent map."
 )]
-#[usage("[username] [+mods] [-s score]")]
-#[example("badewanne3 +dt -s 895000")]
+#[usage("[username] [+mods] [score=number]")]
+#[example("badewanne3 +dt score=895000")]
 #[aliases("srm")]
 pub async fn simulaterecentmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
@@ -210,8 +210,10 @@ pub async fn simulaterecentmania(ctx: Arc<Context>, data: CommandData) -> BotRes
     To get a previous recent score, you can add a number right after the command,\n\
     e.g. `srt42 badewanne3` to get the 42nd most recent score."
 )]
-#[usage("[username] [+mods] [-a acc%] [-c combo] [-m #misses]")]
-#[example("badewanne3 +hr -a 99.3 -m 1")]
+#[usage(
+    "[username] [+mods] [acc=number] [combo=integer] [n300=integer] [n100=integer] [misses=integer]"
+)]
+#[example("badewanne3 +hr acc=99.3 n300=1422 misses=1")]
 #[aliases("srt")]
 pub async fn simulaterecenttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
@@ -232,12 +234,13 @@ pub async fn simulaterecenttaiko(ctx: Arc<Context>, data: CommandData) -> BotRes
 #[long_desc(
     "Unchoke a user's most recent ctb play.\n\
     To get a previous recent score, you can add a number right after the command,\n\
-    e.g. `src42 badewanne3` to get the 42nd most recent score."
+    e.g. `src42 badewanne3` to get the 42nd most recent score.\n\
+    Note: n300 = #fruits ~ n100 = #droplets ~ n50 = #tiny droplets."
 )]
 #[usage(
-    "[username] [+mods] [-a acc%] [-c combo] [-300 #fruits] [-100 #droplets] [-50 #tiny droplets] [-m #misses]"
+    "[username] [+mods] [acc=number] [combo=integer] [n300=integer] [n100=integer] [n50=integer] [misses=integer]"
 )]
-#[example("badewanne3 +hr -a 99.3 -300 1422 -m 1")]
+#[example("badewanne3 +hr acc=99.3 n300=1422 misses=1")]
 #[aliases("src")]
 pub async fn simulaterecentctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {

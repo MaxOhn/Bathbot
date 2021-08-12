@@ -344,13 +344,13 @@ impl CompareCommandKind {
                             (None, None, None) => return Ok(Err(AT_LEAST_ONE.into())),
                         };
 
-                        let mode = mode.unwrap_or(GameMode::STD);
                         let args = TripleArgs {
                             name1,
                             name2,
                             name3,
-                            mode,
+                            mode: mode.unwrap_or(GameMode::STD),
                         };
+
                         kind = Some(CompareCommandKind::Top(args));
                     }
                     "mostplayed" => {
@@ -447,14 +447,14 @@ impl CompareCommandKind {
                             (None, None, None) => return Ok(Err(AT_LEAST_ONE.into())),
                         };
 
-                        let mode = mode.unwrap_or(GameMode::STD);
                         let args = TripleArgs {
                             name1,
                             name2,
                             name3,
-                            mode,
+                            mode: mode.unwrap_or(GameMode::STD),
                         };
-                        kind = Some(CompareCommandKind::Top(args));
+
+                        kind = Some(CompareCommandKind::Mostplayed(args));
                     }
                     _ => bail_cmd_option!("compare", subcommand, name),
                 },

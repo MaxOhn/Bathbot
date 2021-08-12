@@ -38,7 +38,7 @@ pub trait MessageExt {
     async fn get_response(
         &self,
         ctx: &Context,
-        response: Option<Response<Message>>,
+        response_raw: Option<Response<Message>>,
     ) -> BotResult<Message>;
 }
 
@@ -116,9 +116,9 @@ impl MessageExt for (MessageId, ChannelId) {
     async fn get_response(
         &self,
         _: &Context,
-        response: Option<Response<Message>>,
+        response_raw: Option<Response<Message>>,
     ) -> BotResult<Message> {
-        response
+        response_raw
             .expect("response must be `Some`")
             .model()
             .await
@@ -183,9 +183,9 @@ impl<'s> MessageExt for (InteractionId, &'s str) {
     async fn get_response(
         &self,
         ctx: &Context,
-        response: Option<Response<Message>>,
+        response_raw: Option<Response<Message>>,
     ) -> BotResult<Message> {
-        let response = match response {
+        let response = match response_raw {
             Some(response) => response,
             None => ctx.http.get_interaction_original(self.1)?.exec().await?,
         };
@@ -228,9 +228,11 @@ impl MessageExt for Message {
     async fn get_response(
         &self,
         ctx: &Context,
-        response: Option<Response<Message>>,
+        response_raw: Option<Response<Message>>,
     ) -> BotResult<Message> {
-        (self.id, self.channel_id).get_response(ctx, response).await
+        (self.id, self.channel_id)
+            .get_response(ctx, response_raw)
+            .await
     }
 }
 
@@ -268,10 +270,10 @@ impl MessageExt for ApplicationCommand {
     async fn get_response(
         &self,
         ctx: &Context,
-        response: Option<Response<Message>>,
+        response_raw: Option<Response<Message>>,
     ) -> BotResult<Message> {
         (self.id, self.token.as_str())
-            .get_response(ctx, response)
+            .get_response(ctx, response_raw)
             .await
     }
 }
@@ -318,11 +320,11 @@ impl<'m> MessageExt for CommandData<'m> {
     async fn get_response(
         &self,
         ctx: &Context,
-        response: Option<Response<Message>>,
+        response_raw: Option<Response<Message>>,
     ) -> BotResult<Message> {
         match self {
-            Self::Message { msg, .. } => msg.get_response(ctx, response).await,
-            Self::Interaction { command } => command.get_response(ctx, response).await,
+            Self::Message { msg, .. } => msg.get_response(ctx, response_raw).await,
+            Self::Interaction { command } => command.get_response(ctx, response_raw).await,
         }
     }
 }
@@ -399,18 +401,18 @@ impl MessageExt for CommandDataCompact {
     async fn get_response(
         &self,
         ctx: &Context,
-        response: Option<Response<Message>>,
+        response_raw: Option<Response<Message>>,
     ) -> BotResult<Message> {
         match self {
             CommandDataCompact::Message { msg_id, channel_id } => {
-                (*msg_id, *channel_id).get_response(ctx, response).await
+                (*msg_id, *channel_id).get_response(ctx, response_raw).await
             }
             CommandDataCompact::Interaction {
                 interaction_id,
                 token,
             } => {
                 (*interaction_id, token.as_str())
-                    .get_response(ctx, response)
+                    .get_response(ctx, response_raw)
                     .await
             }
         }

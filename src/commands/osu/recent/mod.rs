@@ -138,7 +138,7 @@ impl RecentSimulateArgs {
         let mut score = None;
 
         for arg in args {
-            if let Some(idx) = arg.chars().position(|c| c == '=').filter(|&i| i > 0) {
+            if let Some(idx) = arg.find(|c| c == '=').filter(|&i| i > 0) {
                 let key = &arg[..idx];
                 let value = &arg[idx + 1..];
 
@@ -176,8 +176,12 @@ impl RecentSimulateArgs {
                         Err(_) => parse_fail!(key, "a valid mod abbreviation"),
                     },
                     _ => {
-                        let content = "Unrecognized option `{}`.\n\
-                        Available options are: `n300`, `n100`, `n50`, `misses`, `acc`, `combo`, and `score`.";
+                        let content = format!(
+                            "Unrecognized option `{}`.\n\
+                            Available options are: `n300`, `n100`, `n50`, \
+                            `misses`, `acc`, `combo`, and `score`.",
+                            key
+                        );
 
                         return Err(content.into());
                     }
@@ -224,15 +228,6 @@ enum RecentCommandKind {
 }
 
 impl RecentCommandKind {
-    fn name_mut(&mut self) -> &mut Option<Name> {
-        match self {
-            Self::Leaderboard(args) => &mut args.name,
-            Self::List(args) => &mut args.name,
-            Self::Score(args) => &mut args.name,
-            Self::Simulate(args) => &mut args.name,
-        }
-    }
-
     fn slash(
         ctx: &Context,
         command: &mut ApplicationCommand,
@@ -258,7 +253,22 @@ impl RecentCommandKind {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
                                     "name" => username = Some(value.into()),
-                                    "discord" => {}
+                                    "discord" => match value.parse() {
+                                        Ok(id) => match ctx.get_link(id) {
+                                            Some(name) => username = Some(name),
+                                            None => {
+                                                let content = format!(
+                                                    "<@{}> is not linked to an osu profile",
+                                                    id
+                                                );
+
+                                                return Ok(Err(content.into()));
+                                            }
+                                        },
+                                        Err(_) => {
+                                            bail_cmd_option!("recent score discord", string, value)
+                                        }
+                                    },
                                     "mode" => parse_mode_option!(mode, value, "recent score"),
                                     _ => bail_cmd_option!("recent score", string, name),
                                 },
@@ -301,7 +311,26 @@ impl RecentCommandKind {
                                             return Ok(Err(content.into()));
                                         }
                                     },
-                                    "discord" => {}
+                                    "discord" => match value.parse() {
+                                        Ok(id) => match ctx.get_link(id) {
+                                            Some(name) => username = Some(name),
+                                            None => {
+                                                let content = format!(
+                                                    "<@{}> is not linked to an osu profile",
+                                                    id
+                                                );
+
+                                                return Ok(Err(content.into()));
+                                            }
+                                        },
+                                        Err(_) => {
+                                            bail_cmd_option!(
+                                                "recent leaderboard discord",
+                                                string,
+                                                value
+                                            )
+                                        }
+                                    },
                                     "mode" => parse_mode_option!(mode, value, "recent leaderboard"),
                                     _ => bail_cmd_option!("recent leaderboard", string, name),
                                 },
@@ -335,7 +364,22 @@ impl RecentCommandKind {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
                                     "name" => username = Some(value.into()),
-                                    "discord" => {}
+                                    "discord" => match value.parse() {
+                                        Ok(id) => match ctx.get_link(id) {
+                                            Some(name) => username = Some(name),
+                                            None => {
+                                                let content = format!(
+                                                    "<@{}> is not linked to an osu profile",
+                                                    id
+                                                );
+
+                                                return Ok(Err(content.into()));
+                                            }
+                                        },
+                                        Err(_) => {
+                                            bail_cmd_option!("recent list discord", string, value)
+                                        }
+                                    },
                                     "mode" => parse_mode_option!(mode, value, "recent list"),
                                     _ => bail_cmd_option!("recent list", string, name),
                                 },
@@ -383,7 +427,26 @@ impl RecentCommandKind {
                                             return Ok(Err(content.into()));
                                         }
                                     },
-                                    "discord" => {}
+                                    "discord" => match value.parse() {
+                                        Ok(id) => match ctx.get_link(id) {
+                                            Some(name) => username = Some(name),
+                                            None => {
+                                                let content = format!(
+                                                    "<@{}> is not linked to an osu profile",
+                                                    id
+                                                );
+
+                                                return Ok(Err(content.into()));
+                                            }
+                                        },
+                                        Err(_) => {
+                                            bail_cmd_option!(
+                                                "recent simulate discord",
+                                                string,
+                                                value
+                                            )
+                                        }
+                                    },
                                     "mode" => parse_mode_option!(mode, value, "recent simulate"),
                                     _ => bail_cmd_option!("recent simulate", string, name),
                                 },
@@ -393,7 +456,6 @@ impl RecentCommandKind {
                                     "n100" => n100 = Some(value.max(0) as usize),
                                     "n50" => n50 = Some(value.max(0) as usize),
                                     "misses" => misses = Some(value.max(0) as usize),
-                                    "acc" => todo!(), // TODO: Number
                                     "combo" => combo = Some(value.max(0) as usize),
                                     "score" => score = Some(value.max(0) as u32),
                                     _ => bail_cmd_option!("recent simulate", integer, name),
@@ -428,23 +490,7 @@ impl RecentCommandKind {
             }
         }
 
-        let mut kind = kind.ok_or(Error::InvalidCommandOptions)?;
-
-        if let Some(resolved) = command.data.resolved.take() {
-            let name = kind.name_mut();
-
-            if let Some(user) = resolved.users.first().filter(|_| name.is_none()) {
-                if let Some(link) = ctx.get_link(user.id.0) {
-                    name.insert(link);
-                } else {
-                    let content = format!("<@{}> is not linked to an osu profile", user.id);
-
-                    return Ok(Err(content.into()));
-                }
-            }
-        }
-
-        Ok(Ok(kind))
+        kind.ok_or(Error::InvalidCommandOptions).map(Ok)
     }
 }
 

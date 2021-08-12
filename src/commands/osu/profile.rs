@@ -1,11 +1,10 @@
-use super::{request_user, MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
+use super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
 use crate::{
-    arguments::{Args, NameArgs},
     embeds::{EmbedData, ProfileEmbed},
     pagination::ProfilePagination,
     tracking::process_tracking,
-    util::{constants::OSU_API_ISSUE, osu::BonusPP, MessageExt},
-    BotResult, Context, Error,
+    util::{constants::OSU_API_ISSUE, osu::BonusPP, ApplicationCommandExt, MessageExt},
+    Args, BotResult, CommandData, Context, Error, MessageBuilder, Name,
 };
 
 use chrono::Datelike;
@@ -19,32 +18,67 @@ use plotters::prelude::*;
 use reqwest::Response;
 use rosu_v2::prelude::{GameMode, GameMods, MonthlyCount, OsuError, Score, User, UserStatistics};
 use std::{
+    borrow::Cow,
     cmp::{Ordering::Equal, PartialOrd},
     collections::{BTreeMap, HashMap as StdHashMap},
+    mem,
     sync::Arc,
 };
-use twilight_model::channel::Message;
+use twilight_model::application::{
+    command::{
+        BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice,
+    },
+    interaction::{application_command::CommandDataOption, ApplicationCommand},
+};
 
-async fn profile_main(
-    mode: GameMode,
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
-    let args = NameArgs::new(&ctx, args);
+async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -> BotResult<()> {
+    let ProfileArgs { name, mode, kind } = args;
 
-    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+    let author_id = data.author()?.id;
+
+    let name = match name {
         Some(name) => name,
-        None => return super::require_link(&ctx, msg).await,
+        None => match ctx.get_link(author_id.0) {
+            Some(name) => name,
+            None => return super::require_link(&ctx, &data).await,
+        },
     };
 
-    let (data, mut user) = match profile_embed(&ctx, &name, mode, msg).await? {
-        Some(data) => data,
-        None => return Ok(()),
+    // Retrieve the user and their top scores
+    let user_fut = super::request_user(&ctx, &name, Some(mode));
+    let scores_fut = ctx
+        .osu()
+        .user_scores(name.as_str())
+        .best()
+        .mode(mode)
+        .limit(100);
+
+    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
+        Ok((user, scores)) => (user, scores),
+        Err(OsuError::NotFound) => {
+            let content = format!("User `{}` was not found", name);
+
+            return data.error(&ctx, content).await;
+        }
+        Err(why) => {
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+
+            return Err(why.into());
+        }
     };
+
+    // Process user and their top scores for tracking
+    process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
+
+    // Store maps in DB
+    if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
+        unwind_error!(warn, why, "Error while storing profile maps in DB: {}");
+    }
+
+    let mut profile_data = ProfileData::new(user, scores);
 
     // Draw the graph
-    let graph = match graphs(&mut user).await {
+    let graph = match graphs(&mut profile_data.user).await {
         Ok(graph_option) => graph_option,
         Err(why) => {
             unwind_error!(warn, why, "Error while creating profile graph: {}");
@@ -53,23 +87,23 @@ async fn profile_main(
         }
     };
 
-    // Send the embed
-    let embed = &[data.as_builder().build()];
-    let m = ctx.http.create_message(msg.channel_id).embeds(embed)?;
+    // Create the embed
+    let embed_data = ProfileEmbed::get_or_create(&ctx, kind, &mut profile_data).await;
 
-    let response = if let Some(graph) = graph {
-        m.files(&[("profile_graph.png", &graph)])
-            .exec()
-            .await?
-            .model()
-            .await?
-    } else {
-        m.exec().await?.model().await?
-    };
+    // Send the embed
+    let embed = embed_data.as_builder().build();
+    let mut builder = MessageBuilder::new().embed(embed);
+
+    if let Some(bytes) = graph.as_deref() {
+        builder = builder.file("profile_graph.png", bytes);
+    }
+
+    let response_raw = data.create_message(&ctx, builder).await?;
+    let response = data.get_response(&ctx, response_raw).await?;
 
     // Pagination
-    let pagination = ProfilePagination::new(response, data);
-    let owner = msg.author.id;
+    let pagination = ProfilePagination::new(response, profile_data, kind);
+    let owner = author_id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -80,106 +114,433 @@ async fn profile_main(
     Ok(())
 }
 
-// Known issue: `msg` won't be correct when pagination is the caller,
-// so the author won't be able to reaction-delete error messages.
-pub async fn profile_embed(
-    ctx: &Context,
-    name: &str,
-    mode: GameMode,
-    msg: &Message,
-) -> BotResult<Option<(ProfileEmbed, User)>> {
-    // Retrieve the user and their top scores
-    let user_fut = request_user(ctx, name, Some(mode));
-    let scores_fut = ctx.osu().user_scores(name).best().mode(mode).limit(100);
+impl ProfileEmbed {
+    pub async fn get_or_create<'map>(
+        ctx: &Context,
+        kind: ProfileSize,
+        profile_data: &'map mut ProfileData,
+    ) -> &'map Self {
+        if profile_data.embeds.get(kind).is_none() {
+            let user = &profile_data.user;
 
-    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
-        Ok((user, scores)) => (user, scores),
-        Err(OsuError::NotFound) => {
-            let content = format!("User `{}` was not found", name);
-            msg.error(ctx, content).await?;
+            let data = match kind {
+                ProfileSize::Compact => {
+                    let max_pp = profile_data
+                        .scores
+                        .first()
+                        .and_then(|score| score.pp)
+                        .unwrap_or(0.0);
 
-            return Ok(None);
+                    ProfileEmbed::compact(user, max_pp)
+                }
+                ProfileSize::Medium => {
+                    let scores = &profile_data.scores;
+
+                    if profile_data.profile_result.is_none() && !scores.is_empty() {
+                        let stats = user.statistics.as_ref().unwrap();
+
+                        profile_data.profile_result =
+                            Some(ProfileResult::calc(user.mode, scores, stats));
+                    }
+
+                    let bonus_pp = profile_data
+                        .profile_result
+                        .as_ref()
+                        .map_or(0.0, |result| result.bonus_pp);
+
+                    ProfileEmbed::medium(user, bonus_pp)
+                }
+                ProfileSize::Full => {
+                    let scores = &profile_data.scores;
+                    let mode = user.mode;
+                    let own_top_scores = profile_data.own_top_scores();
+
+                    let globals_count = match profile_data.globals_count.as_ref() {
+                        Some(counts) => counts,
+                        None => match super::get_globals_count(ctx, &user.username, mode).await {
+                            Ok(globals_count) => profile_data.globals_count.insert(globals_count),
+                            Err(why) => {
+                                unwind_error!(
+                                    error,
+                                    why,
+                                    "Error while requesting globals count: {}"
+                                );
+
+                                profile_data.globals_count.insert(BTreeMap::new())
+                            }
+                        },
+                    };
+
+                    if profile_data.profile_result.is_none() && !scores.is_empty() {
+                        let stats = user.statistics.as_ref().unwrap();
+
+                        profile_data.profile_result =
+                            Some(ProfileResult::calc(mode, scores, stats));
+                    }
+
+                    let profile_result = profile_data.profile_result.as_ref();
+
+                    ProfileEmbed::full(&user, profile_result, globals_count, own_top_scores)
+                }
+            };
+
+            profile_data.embeds.insert(kind, data);
         }
-        Err(why) => {
-            let _ = msg.error(ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
-        }
-    };
-
-    let globals_count = match super::get_globals_count(ctx, &user.username, mode).await {
-        Ok(globals_count) => globals_count,
-        Err(why) => {
-            unwind_error!(error, why, "Error while requesting globals count: {}");
-
-            BTreeMap::new()
-        }
-    };
-
-    // Process user and their top scores for tracking
-    process_tracking(ctx, mode, &mut scores, Some(&user)).await;
-
-    // Store maps in DB
-    if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
-        unwind_error!(warn, why, "Error while storing profile maps in DB: {}");
+        // Annoying NLL workaround
+        //   - https://github.com/rust-lang/rust/issues/43234
+        //   - https://github.com/rust-lang/rust/issues/51826
+        profile_data.embeds.get(kind).unwrap()
     }
-
-    // Check if user has top scores on their own maps
-    let ranked_maps_count = user.ranked_mapset_count.unwrap() + user.loved_mapset_count.unwrap();
-
-    let own_top_scores = if ranked_maps_count > 0 {
-        scores
-            .iter()
-            .filter(|score| score.mapset.as_ref().unwrap().creator_name == user.username)
-            .count()
-    } else {
-        0
-    };
-
-    // Calculate profile stats
-    let profile_result = (!scores.is_empty())
-        .then(|| ProfileResult::calc(mode, &scores, user.statistics.as_ref().unwrap()));
-
-    // Accumulate all necessary data
-    let data = ProfileEmbed::new(&user, profile_result, globals_count, own_top_scores, mode);
-
-    Ok(Some((data, user)))
 }
 
 #[command]
 #[short_desc("Display statistics of a user")]
-#[usage("[username]")]
-#[example("badewanne3")]
+#[long_desc(
+    "Display statistics of a user.\n\
+    You can choose between `compact`, `medium`, and `full` embed \
+    by specifying the argument `size=...`. Defaults to `compact`."
+)]
+#[usage("[username] [size=compact/medium/full]")]
+#[example("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
 #[aliases("profile")]
-pub async fn osu(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    profile_main(GameMode::STD, ctx, msg, args).await
+async fn osu(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match ProfileArgs::args(&ctx, &mut args, GameMode::STD) {
+                Ok(profile_args) => {
+                    _profile(ctx, CommandData::Message { msg, args, num }, profile_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => slash_profile(ctx, command).await,
+    }
 }
 
 #[command]
 #[short_desc("Display statistics of a mania user")]
-#[usage("[username]")]
-#[example("badewanne3")]
+#[long_desc(
+    "Display statistics of a mania user.\n\
+    You can choose between `compact`, `medium`, and `full` embed \
+    by specifying the argument `size=...`. Defaults to `compact`."
+)]
+#[usage("[username] [size=compact/medium/full]")]
+#[example("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
 #[aliases("profilemania", "maniaprofile", "profilem")]
-pub async fn mania(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    profile_main(GameMode::MNA, ctx, msg, args).await
+async fn mania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match ProfileArgs::args(&ctx, &mut args, GameMode::MNA) {
+                Ok(profile_args) => {
+                    _profile(ctx, CommandData::Message { msg, args, num }, profile_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => slash_profile(ctx, command).await,
+    }
 }
 
 #[command]
 #[short_desc("Display statistics of a taiko user")]
-#[usage("[username]")]
-#[example("badewanne3")]
+#[long_desc(
+    "Display statistics of a taiko user.\n\
+    You can choose between `compact`, `medium`, and `full` embed \
+    by specifying the argument `size=...`. Defaults to `compact`."
+)]
+#[usage("[username] [size=compact/medium/full]")]
+#[example("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
 #[aliases("profiletaiko", "taikoprofile", "profilet")]
-pub async fn taiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    profile_main(GameMode::TKO, ctx, msg, args).await
+async fn taiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match ProfileArgs::args(&ctx, &mut args, GameMode::TKO) {
+                Ok(profile_args) => {
+                    _profile(ctx, CommandData::Message { msg, args, num }, profile_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => slash_profile(ctx, command).await,
+    }
 }
 
 #[command]
 #[short_desc("Display statistics of a ctb user")]
-#[usage("[username]")]
-#[example("badewanne3")]
+#[long_desc(
+    "Display statistics of a ctb user.\n\
+    You can choose between `compact`, `medium`, and `full` embed \
+    by specifying the argument `size=...`. Defaults to `compact`."
+)]
+#[usage("[username] [size=compact/medium/full]")]
+#[example("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
 #[aliases("profilectb", "ctbprofile", "profilec")]
-pub async fn ctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    profile_main(GameMode::CTB, ctx, msg, args).await
+async fn ctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match ProfileArgs::args(&ctx, &mut args, GameMode::CTB) {
+                Ok(profile_args) => {
+                    _profile(ctx, CommandData::Message { msg, args, num }, profile_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => slash_profile(ctx, command).await,
+    }
+}
+
+#[derive(Copy, Clone)]
+pub enum ProfileSize {
+    Compact,
+    Medium,
+    Full,
+}
+
+impl ProfileSize {
+    pub fn minimize(&self) -> Option<Self> {
+        match self {
+            ProfileSize::Compact => None,
+            ProfileSize::Medium => Some(ProfileSize::Compact),
+            ProfileSize::Full => Some(ProfileSize::Medium),
+        }
+    }
+
+    pub fn expand(&self) -> Option<Self> {
+        match self {
+            ProfileSize::Compact => Some(ProfileSize::Medium),
+            ProfileSize::Medium => Some(ProfileSize::Full),
+            ProfileSize::Full => None,
+        }
+    }
+}
+
+impl Default for ProfileSize {
+    fn default() -> Self {
+        Self::Compact
+    }
+}
+
+struct ProfileArgs {
+    name: Option<Name>,
+    mode: GameMode,
+    kind: ProfileSize,
+}
+
+impl ProfileArgs {
+    fn args(ctx: &Context, args: &mut Args, mode: GameMode) -> Result<Self, Cow<'static, str>> {
+        let mut name = None;
+        let mut kind = None;
+
+        for arg in args.take(2) {
+            if let Some(idx) = arg.find(|c| c == '=').filter(|&i| i > 0) {
+                let key = &arg[..idx];
+                let value = &arg[idx + 1..];
+
+                match key {
+                    "size" => {
+                        kind = match value {
+                            "compact" | "small" => Some(ProfileSize::Compact),
+                            "medium" => Some(ProfileSize::Medium),
+                            "full" | "big" => Some(ProfileSize::Full),
+                            _ => {
+                                let content = "Could not parse size. Must be either `compact`, `medium`, or `full`.";
+
+                                return Err(content.into());
+                            }
+                        };
+                    }
+                    _ => {
+                        let content = format!(
+                            "Unrecognized option `{}`.\n\
+                            Available options are: `size`.",
+                            key
+                        );
+
+                        return Err(content.into());
+                    }
+                }
+            } else {
+                name = Some(Args::try_link_name(ctx, arg)?);
+            }
+        }
+
+        let args = Self {
+            name,
+            mode,
+            kind: kind.unwrap_or_default(),
+        };
+
+        Ok(args)
+    }
+
+    fn slash(ctx: &Context, command: &mut ApplicationCommand) -> BotResult<Result<Self, String>> {
+        let mut username = None;
+        let mut mode = None;
+        let mut kind = None;
+
+        for option in command.yoink_options() {
+            match option {
+                CommandDataOption::String { name, value } => match name.as_str() {
+                    "mode" => parse_mode_option!(mode, value, "profile"),
+                    "size" => match value.as_str() {
+                        "compact" => kind = Some(ProfileSize::Compact),
+                        "medium" => kind = Some(ProfileSize::Medium),
+                        "full" => kind = Some(ProfileSize::Full),
+                        _ => bail_cmd_option!("profile size", string, value),
+                    },
+                    "name" => username = Some(value.into()),
+                    "discord" => match value.parse() {
+                        Ok(id) => match ctx.get_link(id) {
+                            Some(name) => username = Some(name),
+                            None => {
+                                let content = format!("<@{}> is not linked to an osu profile", id);
+
+                                return Ok(Err(content));
+                            }
+                        },
+                        Err(_) => {
+                            bail_cmd_option!("profile discord", string, value)
+                        }
+                    },
+                    _ => bail_cmd_option!("profile", string, name),
+                },
+                CommandDataOption::Integer { name, .. } => {
+                    bail_cmd_option!("profile", integer, name)
+                }
+                CommandDataOption::Boolean { name, .. } => {
+                    bail_cmd_option!("profile", boolean, name)
+                }
+                CommandDataOption::SubCommand { name, .. } => {
+                    bail_cmd_option!("profile", subcommand, name)
+                }
+            }
+        }
+
+        let args = Self {
+            name: username,
+            mode: mode.unwrap_or(GameMode::STD),
+            kind: kind.unwrap_or_default(),
+        };
+
+        Ok(Ok(args))
+    }
+}
+
+pub async fn slash_profile(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    match ProfileArgs::slash(&ctx, &mut command)? {
+        Ok(args) => _profile(ctx, command.into(), args).await,
+        Err(content) => command.error(&ctx, content).await,
+    }
+}
+
+pub fn slash_profile_command() -> Command {
+    Command {
+        application_id: None,
+        guild_id: None,
+        name: "profile".to_owned(),
+        default_permission: None,
+        description: "Display statistics of a user".to_owned(),
+        id: None,
+        options: vec![
+            CommandOption::String(ChoiceCommandOptionData {
+                choices: super::mode_choices(),
+                description: "Specify a gamemode".to_owned(),
+                name: "mode".to_owned(),
+                required: false,
+            }),
+            CommandOption::String(ChoiceCommandOptionData {
+                choices: vec![
+                    CommandOptionChoice::String {
+                        name: "compact".to_owned(),
+                        value: "compact".to_owned(),
+                    },
+                    CommandOptionChoice::String {
+                        name: "medium".to_owned(),
+                        value: "medium".to_owned(),
+                    },
+                    CommandOptionChoice::String {
+                        name: "full".to_owned(),
+                        value: "full".to_owned(),
+                    },
+                ],
+                description: "Choose an embed size".to_owned(),
+                name: "size".to_owned(),
+                required: false,
+            }),
+            CommandOption::String(ChoiceCommandOptionData {
+                choices: vec![],
+                description: "Specify a username".to_owned(),
+                name: "name".to_owned(),
+                required: false,
+            }),
+            CommandOption::User(BaseCommandOptionData {
+                description: "Specify a linked discord user".to_owned(),
+                name: "discord".to_owned(),
+                required: false,
+            }),
+        ],
+    }
+}
+
+pub struct ProfileData {
+    user: User,
+    scores: Vec<Score>,
+    embeds: ProfileEmbedMap,
+    profile_result: Option<ProfileResult>,
+    globals_count: Option<BTreeMap<usize, Cow<'static, str>>>,
+}
+
+impl ProfileData {
+    fn new(user: User, scores: Vec<Score>) -> Self {
+        Self {
+            user,
+            scores,
+            embeds: ProfileEmbedMap::default(),
+            profile_result: None,
+            globals_count: None,
+        }
+    }
+
+    /// Check if user has top scores on their own maps
+    pub fn own_top_scores(&self) -> usize {
+        let ranked_maps_count =
+            self.user.ranked_mapset_count.unwrap() + self.user.loved_mapset_count.unwrap();
+
+        if ranked_maps_count > 0 {
+            self.scores
+                .iter()
+                .filter(|score| score.mapset.as_ref().unwrap().creator_name == self.user.username)
+                .count()
+        } else {
+            0
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct ProfileEmbedMap {
+    compact: Option<ProfileEmbed>,
+    medium: Option<ProfileEmbed>,
+    full: Option<ProfileEmbed>,
+}
+
+impl ProfileEmbedMap {
+    pub fn get(&self, kind: ProfileSize) -> Option<&ProfileEmbed> {
+        match kind {
+            ProfileSize::Compact => self.compact.as_ref(),
+            ProfileSize::Medium => self.medium.as_ref(),
+            ProfileSize::Full => self.full.as_ref(),
+        }
+    }
+
+    pub fn insert(&mut self, kind: ProfileSize, embed: ProfileEmbed) -> &ProfileEmbed {
+        match kind {
+            ProfileSize::Compact => self.compact.insert(embed),
+            ProfileSize::Medium => self.medium.insert(embed),
+            ProfileSize::Full => self.full.insert(embed),
+        }
+    }
 }
 
 pub struct ProfileResult {
@@ -331,8 +692,8 @@ const W: u32 = 1350;
 const H: u32 = 350;
 
 async fn graphs(user: &mut User) -> Result<Option<Vec<u8>>, Error> {
-    let monthly_playcount = user.monthly_playcounts.as_mut().unwrap();
-    let badges = user.badges.as_ref().unwrap();
+    let mut monthly_playcount = mem::replace(&mut user.monthly_playcounts, None).unwrap();
+    let badges = mem::replace(&mut user.badges, None).unwrap();
 
     if monthly_playcount.len() < 2 {
         return Ok(None);

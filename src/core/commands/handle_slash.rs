@@ -25,7 +25,10 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
         "matchlive" => osu::slash_matchlive(ctx, command).await,
         "medal" => osu::slash_medal(ctx, command).await,
         "minesweeper" => fun::slash_minesweeper(ctx, command).await,
+        "mostplayed" => osu::slash_mostplayed(ctx, command).await,
         "ping" => utility::slash_ping(ctx, command).await,
+        "pp" => osu::slash_pp(ctx, command).await,
+        "profile" => osu::slash_profile(ctx, command).await,
         "rank" => osu::slash_rank(ctx, command).await,
         "ranking" => osu::slash_ranking(ctx, command).await,
         "ratio" => osu::slash_ratio(ctx, command).await,
@@ -35,6 +38,7 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
         "song" => songs::slash_song(ctx, command).await,
         "track" => tracking::slash_track(ctx, command).await,
         "trackstream" => twitch::slash_trackstream(ctx, command).await,
+        "whatif" => osu::slash_whatif(ctx, command).await,
         _ => return Err(Error::UnknownSlashCommand(cmd_name)),
     };
 
