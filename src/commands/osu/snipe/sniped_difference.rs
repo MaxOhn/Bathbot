@@ -1,44 +1,44 @@
-use super::request_user;
 use crate::{
-    arguments::{Args, NameArgs},
     embeds::{EmbedData, SnipedDiffEmbed},
     pagination::{Pagination, SnipedDiffPagination},
     util::{
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         numbers, MessageExt,
     },
-    BotResult, Context,
+    BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
 use chrono::{Duration, Utc};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{cmp::Reverse, sync::Arc};
-use twilight_model::channel::Message;
 
-async fn sniped_diff_main(
-    diff: Difference,
+pub(super) async fn _sniped_diff(
     ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
+    data: CommandData<'_>,
+    diff: Difference,
+    name: Option<Name>,
 ) -> BotResult<()> {
-    let args = NameArgs::new(&ctx, args);
+    let author_id = data.author()?.id;
 
-    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+    let name = match name {
         Some(name) => name,
-        None => return super::require_link(&ctx, msg).await,
+        None => match ctx.get_link(author_id.0) {
+            Some(name) => name,
+            None => return super::require_link(&ctx, &data).await,
+        },
     };
 
     // Request the user
-    let user = match request_user(&ctx, &name, Some(GameMode::STD)).await {
+    let user = match super::request_user(&ctx, &name, Some(GameMode::STD)).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{}`", name);
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -50,7 +50,7 @@ async fn sniped_diff_main(
             user.username, user.country_code
         );
 
-        return msg.error(&ctx, content).await;
+        return data.error(&ctx, content).await;
     }
 
     let client = &ctx.clients.custom;
@@ -66,7 +66,7 @@ async fn sniped_diff_main(
     let mut scores = match scores_fut.await {
         Ok(scores) => scores,
         Err(why) => {
-            let _ = msg.error(&ctx, HUISMETBENEN_ISSUE).await;
+            let _ = data.error(&ctx, HUISMETBENEN_ISSUE).await;
 
             return Err(why.into());
         }
@@ -82,7 +82,10 @@ async fn sniped_diff_main(
             }
         );
 
-        return msg.send_response(&ctx, content).await;
+        let builder = MessageBuilder::new().embed(content);
+        data.create_message(&ctx, builder).await?;
+
+        return Ok(());
     }
 
     scores.sort_unstable_by_key(|s| Reverse(s.date));
@@ -92,34 +95,29 @@ async fn sniped_diff_main(
 
     let data_fut = SnipedDiffEmbed::new(&user, diff, &scores, 0, (1, pages), &mut maps);
 
-    let embed = match data_fut.await {
-        Ok(data) => data.into_builder().build(),
+    let builder = match data_fut.await {
+        Ok(data) => data.into_builder().build().into(),
         Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
     };
 
     // Creating the embed
-    let response_raw = ctx
-        .http
-        .create_message(msg.channel_id)
-        .embeds(&[embed])?
-        .exec()
-        .await?;
+    let response_raw = data.create_message(&ctx, builder).await?;
 
     // Skip pagination if too few entries
     if scores.len() <= 5 {
         return Ok(());
     }
 
-    let response = response_raw.model().await?;
+    let response = data.get_response(&ctx, response_raw).await?;
 
     // Pagination
     let pagination = SnipedDiffPagination::new(response, user, diff, scores, maps);
 
-    let owner = msg.author.id;
+    let owner = author_id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -141,8 +139,16 @@ async fn sniped_diff_main(
 #[example("badewanne3")]
 #[aliases("sg", "snipegain", "snipesgain")]
 #[bucket("snipe")]
-async fn snipedgain(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    sniped_diff_main(Difference::Gain, ctx, msg, args).await
+async fn snipedgain(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            let name = args.next().map(Name::from);
+            let data = CommandData::Message { msg, args, num };
+
+            _sniped_diff(ctx, data, Difference::Gain, name).await
+        }
+        CommandData::Interaction { command } => super::slash_snipe(ctx, command).await,
+    }
 }
 
 #[command]
@@ -163,8 +169,16 @@ async fn snipedgain(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<(
     "snipeslost"
 )]
 #[bucket("snipe")]
-async fn snipedloss(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    sniped_diff_main(Difference::Loss, ctx, msg, args).await
+async fn snipedloss(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            let name = args.next().map(Name::from);
+            let data = CommandData::Message { msg, args, num };
+
+            _sniped_diff(ctx, data, Difference::Loss, name).await
+        }
+        CommandData::Interaction { command } => super::slash_snipe(ctx, command).await,
+    }
 }
 
 #[derive(Copy, Clone)]

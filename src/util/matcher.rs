@@ -30,7 +30,7 @@ pub fn get_mention_user(msg: &str) -> Option<u64> {
 }
 
 fn get_mention(mention_type: MentionType, msg: &str) -> Option<u64> {
-    if let Ok(id) = msg.parse::<u64>() {
+    if let Ok(id) = msg.parse() {
         return Some(id);
     }
 
@@ -42,7 +42,7 @@ fn get_mention(mention_type: MentionType, msg: &str) -> Option<u64> {
 
     captures
         .and_then(|c| c.get(1))
-        .and_then(|c| c.as_str().parse::<u64>().ok())
+        .and_then(|c| c.as_str().parse().ok())
 }
 
 pub fn get_osu_user_id(msg: &str) -> Option<u32> {

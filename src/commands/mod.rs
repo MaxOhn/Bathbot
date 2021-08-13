@@ -41,10 +41,10 @@ macro_rules! parse_mode_option {
 /*
     TODO:
 
+    help
+
     _osu:_
     bws
-    csl
-    css
     fix
     lb
     map
@@ -53,14 +53,9 @@ macro_rules! parse_mode_option {
     osc
     osg
     osl
-    psl
-    pss
     pp
     rebalance
     simulate
-    sg
-    sl
-    sniped
     topif
     topold
     top
@@ -76,14 +71,10 @@ macro_rules! parse_mode_option {
     x trackingtoggle
 
     _utility:_
-    about
     authorities
     commands
     echo
-    invite
-    prefix
     prune
-    roleassign
     togglesongs
 */
 
@@ -161,13 +152,13 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 // &TOPIF_CMD,
                 // &TOPOLD_CMD,
                 // &REBALANCE_CMD,
-                // &SNIPED_CMD,
-                // &SNIPEDGAIN_CMD,
-                // &SNIPEDLOSS_CMD,
-                // &PLAYERSNIPESTATS_CMD,
-                // &PLAYERSNIPELIST_CMD,
-                // &COUNTRYSNIPESTATS_CMD,
-                // &COUNTRYSNIPELIST_CMD,
+                &SNIPED_CMD,
+                &SNIPEDGAIN_CMD,
+                &SNIPEDLOSS_CMD,
+                &PLAYERSNIPESTATS_CMD,
+                &PLAYERSNIPELIST_CMD,
+                &COUNTRYSNIPESTATS_CMD,
+                &COUNTRYSNIPELIST_CMD,
                 &RANKRANKEDSCORE_CMD,
                 &PPRANKING_CMD,
                 &RANKEDSCORERANKING_CMD,
@@ -295,14 +286,14 @@ pub fn command_groups() -> [CommandGroup; 11] {
             vec![
                 &PING_CMD,
                 &ROLL_CMD,
-                // &ABOUT_CMD,
+                &ABOUT_CMD,
                 // &COMMANDS_CMD,
-                // &INVITE_CMD,
+                &INVITE_CMD,
                 // &PRUNE_CMD,
-                // &PREFIX_CMD,
+                &PREFIX_CMD,
                 // &ECHO_CMD,
                 // &AUTHORITIES_CMD,
-                // &ROLEASSIGN_CMD,
+                &ROLEASSIGN_CMD,
                 // &TOGGLESONGS_CMD,
             ],
         ),
@@ -351,23 +342,27 @@ pub fn slash_commands() -> Vec<Command> {
         slash_link_command(),
         slash_backgroundgame_command(),
         slash_profile_command(),
+        slash_snipe_command(),
         slash_matchcost_command(),
         slash_roll_command(),
         slash_whatif_command(),
         slash_pp_command(),
         slash_rank_command(),
         slash_medal_command(),
-        slash_track_command(),
+        // slash_track_command(),
         slash_mostplayed_command(),
         slash_ranking_command(),
         slash_ping_command(),
         slash_mapsearch_command(),
         slash_ratio_command(),
-        slash_trackstream_command(),
-        slash_matchlive_command(),
+        // slash_trackstream_command(),
+        // slash_matchlive_command(),
+        slash_invite_command(),
+        slash_about_command(),
         slash_avatar_command(),
         slash_song_command(),
         slash_minesweeper_command(),
         // slash_cache_command(), // TODO: + other owner commands
+        // slash_roleassign_command(),
     ]
 }

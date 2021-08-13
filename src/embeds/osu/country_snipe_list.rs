@@ -32,9 +32,9 @@ impl CountrySnipeListEmbed {
     {
         let order_text = match order {
             SnipeOrder::Count => "#1 count",
-            SnipeOrder::PP => "average pp of #1s",
+            SnipeOrder::Pp => "average pp of #1s",
             SnipeOrder::Stars => "average stars of #1s",
-            SnipeOrder::WeightedPP => "weighted pp from #1s",
+            SnipeOrder::WeightedPp => "weighted pp from #1s",
         };
 
         let (title, thumbnail) = match country {
@@ -68,9 +68,9 @@ impl CountrySnipeListEmbed {
                 base = OSU_BASE,
                 id = player.user_id,
                 c = if order == SnipeOrder::Count { "__" } else { "" },
-                p = if order == SnipeOrder::PP { "__" } else { "" },
+                p = if order == SnipeOrder::Pp { "__" } else { "" },
                 s = if order == SnipeOrder::Stars { "__" } else { "" },
-                w = if order == SnipeOrder::WeightedPP {
+                w = if order == SnipeOrder::WeightedPp {
                     "__"
                 } else {
                     ""

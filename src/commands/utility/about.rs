@@ -1,27 +1,43 @@
 use crate::{
     embeds::{AboutEmbed, EmbedData},
     util::{constants::GENERAL_ISSUE, MessageExt},
-    Args, BotResult, Context,
+    BotResult, CommandData, Context,
 };
 
 use std::sync::Arc;
-use twilight_model::channel::Message;
+use twilight_model::application::{command::Command, interaction::ApplicationCommand};
 
 #[command]
 #[short_desc("Displaying some information about this bot")]
 #[aliases("info")]
-async fn about(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
-    let data = match AboutEmbed::new(&ctx).await {
+async fn about(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    let embed_data = match AboutEmbed::new(&ctx).await {
         Ok(data) => data,
         Err(why) => {
-            msg.error(&ctx, GENERAL_ISSUE).await?;
+            data.error(&ctx, GENERAL_ISSUE).await?;
 
             return Err(why);
         }
     };
 
-    let embed = &[data.into_builder().build()];
-    msg.build_response(&ctx, |m| m.embeds(embed)).await?;
+    let builder = embed_data.into_builder().build().into();
+    data.create_message(&ctx, builder).await?;
 
     Ok(())
+}
+
+pub async fn slash_about(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
+    about(ctx, command.into()).await
+}
+
+pub fn slash_about_command() -> Command {
+    Command {
+        application_id: None,
+        guild_id: None,
+        name: "about".to_owned(),
+        default_permission: None,
+        description: "Displaying some information about this bot".to_owned(),
+        id: None,
+        options: Vec::new(),
+    }
 }

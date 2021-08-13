@@ -24,6 +24,12 @@ pub enum SnipeScoreOrder {
     Stars = 6,
 }
 
+impl Default for SnipeScoreOrder {
+    fn default() -> Self {
+        Self::Pp
+    }
+}
+
 impl fmt::Display for SnipeScoreOrder {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let name = match self {

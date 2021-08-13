@@ -1,4 +1,3 @@
-use super::RecentArgs;
 use crate::{
     embeds::{EmbedData, RecentEmbed},
     tracking::process_tracking,
@@ -6,7 +5,7 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
-    BotResult, CommandData, Context, MessageBuilder,
+    Args, BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
 use rosu_v2::prelude::{
@@ -329,5 +328,27 @@ pub async fn recentctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+    }
+}
+
+pub(super) struct RecentArgs {
+    pub name: Option<Name>,
+    pub index: Option<usize>,
+    pub mode: GameMode,
+}
+
+impl RecentArgs {
+    fn args(
+        ctx: &Context,
+        args: &mut Args,
+        mode: GameMode,
+        index: Option<usize>,
+    ) -> Result<Self, &'static str> {
+        let name = args
+            .next()
+            .map(|arg| Args::try_link_name(ctx, arg))
+            .transpose()?;
+
+        Ok(Self { name, index, mode })
     }
 }

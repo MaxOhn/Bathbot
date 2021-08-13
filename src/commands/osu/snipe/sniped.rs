@@ -1,13 +1,11 @@
-use super::request_user;
 use crate::{
-    arguments::{Args, NameArgs},
     custom_client::SnipeRecent,
     embeds::{EmbedData, SnipedEmbed},
     util::{
         constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
-    BotResult, Context,
+    BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
 use chrono::{Date, DateTime, Duration, Utc};
@@ -27,7 +25,6 @@ use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
-use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Sniped users of the last 8 weeks")]
@@ -40,23 +37,40 @@ use twilight_model::channel::Message;
 #[example("badewanne3")]
 #[aliases("snipes")]
 #[bucket("snipe")]
-async fn sniped(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    let args = NameArgs::new(&ctx, args);
+async fn sniped(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            let name = args.next().map(Name::from);
+            let data = CommandData::Message { msg, args, num };
 
-    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+            _sniped(ctx, data, name).await
+        }
+        CommandData::Interaction { command } => super::slash_snipe(ctx, command).await,
+    }
+}
+
+pub(super) async fn _sniped(
+    ctx: Arc<Context>,
+    data: CommandData<'_>,
+    name: Option<Name>,
+) -> BotResult<()> {
+    let name = match name {
         Some(name) => name,
-        None => return super::require_link(&ctx, msg).await,
+        None => match ctx.get_link(data.author()?.id.0) {
+            Some(name) => name,
+            None => return super::require_link(&ctx, &data).await,
+        },
     };
 
-    let user = match request_user(&ctx, &name, Some(GameMode::STD)).await {
+    let user = match super::request_user(&ctx, &name, Some(GameMode::STD)).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{}`", name);
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -76,7 +90,7 @@ async fn sniped(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
                 (sniper, snipee)
             }
             Err(why) => {
-                let _ = msg.error(&ctx, HUISMETBENEN_ISSUE).await;
+                let _ = data.error(&ctx, HUISMETBENEN_ISSUE).await;
 
                 return Err(why.into());
             }
@@ -87,7 +101,7 @@ async fn sniped(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
             user.username, user.country_code
         );
 
-        return msg.error(&ctx, content).await;
+        return data.error(&ctx, content).await;
     };
 
     let graph = match graphs(user.username.as_str(), &sniper, &snipee) {
@@ -99,17 +113,17 @@ async fn sniped(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         }
     };
 
-    let data = SnipedEmbed::new(user, sniper, snipee);
+    let embed_data = SnipedEmbed::new(user, sniper, snipee);
 
     // Sending the embed
-    let embed = &[data.into_builder().build()];
-    let m = ctx.http.create_message(msg.channel_id).embeds(embed)?;
+    let embed = embed_data.into_builder().build();
+    let mut builder = MessageBuilder::new().embed(embed);
 
-    if let Some(graph) = graph {
-        m.files(&[("sniped_graph.png", &graph)]).exec().await?;
-    } else {
-        m.exec().await?;
+    if let Some(bytes) = graph.as_deref() {
+        builder = builder.file("sniped_graph.png", bytes);
     }
+
+    data.create_message(&ctx, builder).await?;
 
     Ok(())
 }

@@ -1,15 +1,16 @@
-use super::RecentSimulateArgs;
 use crate::{
     embeds::{EmbedData, SimulateEmbed},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        matcher,
+        osu::ModSelection,
         MessageExt,
     },
-    BotResult, CommandData, CommandDataCompact, Context, MessageBuilder,
+    Args, BotResult, CommandData, CommandDataCompact, Context, MessageBuilder, Name,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 use tokio::time::{sleep, Duration};
 
 pub(super) async fn _recentsimulate(
@@ -253,5 +254,125 @@ pub async fn simulaterecentctb(ctx: Arc<Context>, data: CommandData) -> BotResul
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+    }
+}
+
+pub struct RecentSimulateArgs {
+    pub name: Option<Name>,
+    pub index: Option<usize>,
+    pub mode: GameMode,
+    pub mods: Option<ModSelection>,
+    pub n300: Option<usize>,
+    pub n100: Option<usize>,
+    pub n50: Option<usize>,
+    pub misses: Option<usize>,
+    pub acc: Option<f32>,
+    pub combo: Option<usize>,
+    pub score: Option<u32>,
+}
+
+macro_rules! parse_fail {
+    ($key:ident, $ty:literal) => {
+        return Err(format!(concat!("Failed to parse `{}`. Must be ", $ty, "."), $key).into());
+    };
+}
+
+impl RecentSimulateArgs {
+    fn args(
+        ctx: &Context,
+        args: &mut Args,
+        mode: GameMode,
+        index: Option<usize>,
+    ) -> Result<Self, Cow<'static, str>> {
+        let mut name = None;
+        let mut mods = None;
+        let mut n300 = None;
+        let mut n100 = None;
+        let mut n50 = None;
+        let mut misses = None;
+        let mut acc = None;
+        let mut combo = None;
+        let mut score = None;
+
+        for arg in args {
+            if let Some(idx) = arg.find(|c| c == '=').filter(|&i| i > 0) {
+                let key = &arg[..idx];
+                let value = &arg[idx + 1..];
+
+                match key {
+                    "n300" => match value.parse() {
+                        Ok(value) => n300 = Some(value),
+                        Err(_) => parse_fail!(key, "a positive integer"),
+                    },
+                    "n100" => match value.parse() {
+                        Ok(value) => n100 = Some(value),
+                        Err(_) => parse_fail!(key, "a positive integer"),
+                    },
+                    "n50" => match value.parse() {
+                        Ok(value) => n50 = Some(value),
+                        Err(_) => parse_fail!(key, "a positive integer"),
+                    },
+                    "misses" | "miss" | "m" => match value.parse() {
+                        Ok(value) => misses = Some(value),
+                        Err(_) => parse_fail!(key, "a positive integer"),
+                    },
+                    "acc" | "a" | "accuracy" => match value.parse() {
+                        Ok(value) => acc = Some(value),
+                        Err(_) => parse_fail!(key, "a number"),
+                    },
+                    "combo" | "c" => match value.parse() {
+                        Ok(value) => combo = Some(value),
+                        Err(_) => parse_fail!(key, "a positive integer"),
+                    },
+                    "score" | "s" => match value.parse() {
+                        Ok(value) => score = Some(value),
+                        Err(_) => parse_fail!(key, "a positive integer"),
+                    },
+                    "mods" => match value.parse() {
+                        Ok(m) => mods = Some(ModSelection::Exact(m)),
+                        Err(_) => parse_fail!(key, "a valid mod abbreviation"),
+                    },
+                    _ => {
+                        let content = format!(
+                            "Unrecognized option `{}`.\n\
+                            Available options are: `n300`, `n100`, `n50`, \
+                            `misses`, `acc`, `combo`, and `score`.",
+                            key
+                        );
+
+                        return Err(content.into());
+                    }
+                }
+            } else if let Some(m) = matcher::get_mods(arg) {
+                mods.replace(m);
+            } else {
+                name = Some(Args::try_link_name(ctx, arg)?);
+            }
+        }
+
+        Ok(Self {
+            name,
+            index,
+            mode,
+            mods,
+            n300,
+            n100,
+            n50,
+            misses,
+            acc,
+            combo,
+            score,
+        })
+    }
+
+    pub fn is_some(&self) -> bool {
+        self.acc.is_some()
+            || self.mods.is_some()
+            || self.combo.is_some()
+            || self.misses.is_some()
+            || self.score.is_some()
+            || self.n300.is_some()
+            || self.n100.is_some()
+            || self.n50.is_some()
     }
 }

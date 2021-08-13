@@ -1,9 +1,7 @@
-use super::{prepare_score, request_user};
 use crate::{
-    arguments::{Args, NameArgs},
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
     util::{constants::OSU_API_ISSUE, MessageExt},
-    BotResult, Context,
+    BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
 use chrono::{Date, Datelike, Utc};
@@ -11,7 +9,6 @@ use image::{png::PngEncoder, ColorType};
 use plotters::prelude::*;
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{collections::BTreeMap, sync::Arc};
-use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Stats about a user's #1 scores in their country leaderboards")]
@@ -24,23 +21,40 @@ use twilight_model::channel::Message;
 #[example("badewanne3")]
 #[aliases("pss")]
 #[bucket("snipe")]
-async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    let args = NameArgs::new(&ctx, args);
+async fn playersnipestats(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            let name = args.next().map(Name::from);
+            let data = CommandData::Message { msg, args, num };
 
-    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+            _playersnipestats(ctx, data, name).await
+        }
+        CommandData::Interaction { command } => super::slash_snipe(ctx, command).await,
+    }
+}
+
+pub(super) async fn _playersnipestats(
+    ctx: Arc<Context>,
+    data: CommandData<'_>,
+    name: Option<Name>,
+) -> BotResult<()> {
+    let name = match name {
         Some(name) => name,
-        None => return super::require_link(&ctx, msg).await,
+        None => match ctx.get_link(data.author()?.id.0) {
+            Some(name) => name,
+            None => return super::require_link(&ctx, &data).await,
+        },
     };
 
-    let user = match request_user(&ctx, &name, Some(GameMode::STD)).await {
+    let user = match super::request_user(&ctx, &name, Some(GameMode::STD)).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -56,7 +70,7 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
             user.username, user.country_code
         );
 
-        return msg.error(&ctx, content).await;
+        return data.error(&ctx, content).await;
     };
 
     let player = match player_fut.await {
@@ -64,8 +78,10 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
         Err(why) => {
             unwind_error!(warn, why, "Error for command `playersnipestats`: {}");
             let content = format!("`{}` has never had any national #1s", name);
+            let builder = MessageBuilder::new().embed(content);
+            data.create_message(&ctx, builder).await?;
 
-            return msg.send_response(&ctx, content).await;
+            return Ok(());
         }
     };
 
@@ -84,7 +100,7 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
                 .mode(GameMode::STD);
 
             match score_fut.await {
-                Ok(mut score) => match prepare_score(&ctx, &mut score.score).await {
+                Ok(mut score) => match super::prepare_score(&ctx, &mut score.score).await {
                     Ok(_) => Ok(Some(score.score)),
                     Err(why) => Err(why),
                 },
@@ -113,23 +129,23 @@ async fn playersnipestats(ctx: Arc<Context>, msg: &Message, args: Args) -> BotRe
     let first_score = match first_score_result {
         Ok(score) => score,
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
     };
 
-    let data = PlayerSnipeStatsEmbed::new(user, player, first_score).await;
+    let embed_data = PlayerSnipeStatsEmbed::new(user, player, first_score).await;
 
     // Sending the embed
-    let embed = &[data.into_builder().build()];
-    let m = ctx.http.create_message(msg.channel_id).embeds(embed)?;
+    let embed = embed_data.into_builder().build();
+    let mut builder = MessageBuilder::new().embed(embed);
 
-    if let Some(graph) = graph {
-        m.files(&[("stats_graph.png", &graph)]).exec().await?;
-    } else {
-        m.exec().await?;
+    if let Some(bytes) = graph.as_deref() {
+        builder = builder.file("stats_graph.png", bytes);
     }
+
+    data.create_message(&ctx, builder).await?;
 
     Ok(())
 }

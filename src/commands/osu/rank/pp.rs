@@ -1,4 +1,3 @@
-use super::PpArgs;
 use crate::{
     custom_client::RankParam,
     embeds::{EmbedData, RankEmbed},
@@ -7,7 +6,7 @@ use crate::{
         constants::{OSU_API_ISSUE, OSU_DAILY_ISSUE},
         MessageExt,
     },
-    BotResult, CommandData, Context,
+    Args, BotResult, CommandData, Context, Name,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError, User, UserCompact};
@@ -280,5 +279,55 @@ impl RankData {
             Self::Sub10k { user, .. } => user,
             Self::Over10k { user, .. } => user,
         }
+    }
+}
+
+pub(super) struct PpArgs {
+    pub name: Option<Name>,
+    pub mode: GameMode,
+    pub country: Option<String>,
+    pub rank: usize,
+}
+
+impl PpArgs {
+    fn args(ctx: &Context, args: &mut Args<'_>, mode: GameMode) -> Result<Self, &'static str> {
+        let mut name = None;
+        let mut country = None;
+        let mut rank = None;
+
+        for arg in args.take(2) {
+            match arg.parse() {
+                Ok(num) => rank = Some(num),
+                Err(_) => {
+                    if arg.len() >= 3 {
+                        let (prefix, suffix) = arg.split_at(2);
+                        let valid_country = prefix.chars().all(|c| c.is_ascii_alphabetic());
+
+                        if let (true, Ok(num)) = (valid_country, suffix.parse()) {
+                            country = Some(prefix.to_owned());
+                            rank = Some(num);
+                        } else {
+                            name = Some(Args::try_link_name(ctx, arg)?);
+                        }
+                    } else {
+                        name = Some(Args::try_link_name(ctx, arg)?);
+                    }
+                }
+            }
+        }
+
+        const COUNTRY_PARSE_ERROR: &str =
+            "Could not parse rank. Provide it either as positive number \
+            or as country acronym followed by a positive number e.g. `be10` \
+            as one of the first two arguments.";
+
+        let rank = rank.ok_or(COUNTRY_PARSE_ERROR)?;
+
+        Ok(Self {
+            name,
+            mode,
+            country,
+            rank,
+        })
     }
 }

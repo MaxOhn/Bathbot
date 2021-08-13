@@ -1,4 +1,4 @@
-use super::{ErrorType, RecentListArgs};
+use super::ErrorType;
 use crate::{
     embeds::{EmbedData, RecentListEmbed},
     pagination::{Pagination, RecentListPagination},
@@ -6,7 +6,7 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         numbers, MessageExt,
     },
-    BotResult, CommandData, Context,
+    Args, BotResult, CommandData, Context, Name,
 };
 
 use futures::future::TryFutureExt;
@@ -183,5 +183,21 @@ pub async fn recentlistctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+    }
+}
+
+pub(super) struct RecentListArgs {
+    pub name: Option<Name>,
+    pub mode: GameMode,
+}
+
+impl RecentListArgs {
+    fn args(ctx: &Context, args: &mut Args, mode: GameMode) -> Result<Self, &'static str> {
+        let name = args
+            .next()
+            .map(|arg| Args::try_link_name(ctx, arg))
+            .transpose()?;
+
+        Ok(Self { name, mode })
     }
 }

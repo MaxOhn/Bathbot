@@ -1,8 +1,7 @@
-use super::ScoreArgs;
 use crate::{
     embeds::{EmbedData, RankRankedScoreEmbed},
     util::{constants::OSU_API_ISSUE, MessageExt},
-    BotResult, CommandData, Context,
+    Args, BotResult, CommandData, Context, Name,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -156,5 +155,29 @@ pub async fn rankrankedscorectb(ctx: Arc<Context>, data: CommandData) -> BotResu
             }
         }
         CommandData::Interaction { command } => super::slash_rank(ctx, command).await,
+    }
+}
+
+pub(super) struct ScoreArgs {
+    pub name: Option<Name>,
+    pub mode: GameMode,
+    pub rank: usize,
+}
+
+impl ScoreArgs {
+    fn args(ctx: &Context, args: &mut Args<'_>, mode: GameMode) -> Result<Self, &'static str> {
+        let mut name = None;
+        let mut rank = None;
+
+        for arg in args.take(2) {
+            match arg.parse() {
+                Ok(num) => rank = Some(num),
+                Err(_) => name = Some(Args::try_link_name(ctx, arg)?),
+            }
+        }
+
+        let rank = rank.ok_or("You must specify a target rank.")?;
+
+        Ok(Self { name, mode, rank })
     }
 }

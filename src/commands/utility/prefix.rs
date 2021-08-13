@@ -1,11 +1,10 @@
 use crate::{
     database::Prefix,
     util::{matcher, MessageExt},
-    Args, BotResult, Context,
+    BotResult, CommandData, Context, MessageBuilder,
 };
 
 use std::{cmp::Ordering, fmt::Write, sync::Arc};
-use twilight_model::channel::Message;
 
 #[command]
 #[short_desc("Change my prefixes for a server")]
@@ -23,7 +22,12 @@ use twilight_model::channel::Message;
 #[usage("[add / remove] [prefix]")]
 #[example("add $ 🍆 new_pref", "remove < !!")]
 #[aliases("prefixes")]
-async fn prefix(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
+async fn prefix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    let (msg, mut args) = match data {
+        CommandData::Message { msg, args, .. } => (msg, args),
+        CommandData::Interaction { .. } => unreachable!(),
+    };
+
     let guild_id = msg.guild_id.unwrap();
 
     let action = match args.next() {
@@ -42,7 +46,8 @@ async fn prefix(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
             let prefixes = ctx.config_prefixes(guild_id);
             let mut content = String::new();
             current_prefixes(&mut content, &prefixes);
-            msg.send_response(&ctx, content).await?;
+            let builder = MessageBuilder::new().embed(content);
+            msg.create_message(&ctx, builder).await?;
 
             return Ok(());
         }
@@ -65,6 +70,7 @@ async fn prefix(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
     ctx.update_config(guild_id, |config| match action {
         Action::Add => {
             config.prefixes.extend(args);
+
             config.prefixes.sort_unstable_by(|a, b| {
                 if a == "<" {
                     Ordering::Less
@@ -74,12 +80,14 @@ async fn prefix(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
                     a.cmp(b)
                 }
             });
+
             config.prefixes.dedup();
             config.prefixes.truncate(5);
         }
         Action::Remove => {
             for arg in args {
                 config.prefixes.retain(|p| p != &arg);
+
                 if config.prefixes.is_empty() {
                     config.prefixes.push(arg);
 
@@ -92,7 +100,8 @@ async fn prefix(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<(
     let mut content = String::from("Prefixes updated!\n");
     let prefixes = ctx.config_prefixes(guild_id);
     current_prefixes(&mut content, &prefixes);
-    msg.send_response(&ctx, content).await?;
+    let builder = MessageBuilder::new().embed(content);
+    msg.create_message(&ctx, builder).await?;
 
     Ok(())
 }

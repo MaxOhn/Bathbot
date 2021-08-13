@@ -16,10 +16,12 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
     log_slash(&ctx, &command, cmd_name.as_str());
 
     let command_result = match cmd_name.as_str() {
+        "about" => utility::slash_about(ctx, command).await,
         "avatar" => osu::slash_avatar(ctx, command).await,
         "backgroundgame" => fun::slash_backgroundgame(ctx, command).await,
         "cache" => owner::slash_cache(ctx, command).await,
         "compare" => osu::slash_compare(ctx, command).await,
+        "invite" => utility::slash_invite(ctx, command).await,
         "link" => osu::slash_link(ctx, command).await,
         "matchcost" => osu::slash_matchcost(ctx, command).await,
         "matchlive" => osu::slash_matchlive(ctx, command).await,
@@ -33,8 +35,10 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
         "ranking" => osu::slash_ranking(ctx, command).await,
         "ratio" => osu::slash_ratio(ctx, command).await,
         "recent" => osu::slash_recent(ctx, command).await,
+        "roleassign" => utility::slash_roleassign(ctx, command).await,
         "roll" => utility::slash_roll(ctx, command).await,
         "search" => osu::slash_mapsearch(ctx, command).await,
+        "snipe" => osu::slash_snipe(ctx, command).await,
         "song" => songs::slash_song(ctx, command).await,
         "track" => tracking::slash_track(ctx, command).await,
         "trackstream" => twitch::slash_trackstream(ctx, command).await,

@@ -3,7 +3,7 @@ use crate::{
     embeds::{EmbedData, ProfileEmbed},
     pagination::ProfilePagination,
     tracking::process_tracking,
-    util::{constants::OSU_API_ISSUE, osu::BonusPP, ApplicationCommandExt, MessageExt},
+    util::{constants::OSU_API_ISSUE, osu::BonusPP, ApplicationCommandExt, CowUtils, MessageExt},
     Args, BotResult, CommandData, Context, Error, MessageBuilder, Name,
 };
 
@@ -332,7 +332,7 @@ impl ProfileArgs {
         let mut name = None;
         let mut kind = None;
 
-        for arg in args.take(2) {
+        for arg in args.take(2).map(CowUtils::cow_to_ascii_lowercase) {
             if let Some(idx) = arg.find(|c| c == '=').filter(|&i| i > 0) {
                 let key = &arg[..idx];
                 let value = &arg[idx + 1..];
@@ -361,7 +361,7 @@ impl ProfileArgs {
                     }
                 }
             } else {
-                name = Some(Args::try_link_name(ctx, arg)?);
+                name = Some(Args::try_link_name(ctx, arg.as_ref())?);
             }
         }
 

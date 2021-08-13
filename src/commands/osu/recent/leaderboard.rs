@@ -1,13 +1,13 @@
-use super::RecentLeaderboardArgs;
 use crate::{
     embeds::{EmbedData, LeaderboardEmbed},
     pagination::{LeaderboardPagination, Pagination},
     util::{
         constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
+        matcher,
         osu::ModSelection,
         MessageExt,
     },
-    BotResult, CommandData, Context, MessageBuilder,
+    Args, BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -432,5 +432,39 @@ pub async fn recentctbleaderboard(ctx: Arc<Context>, data: CommandData) -> BotRe
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+    }
+}
+
+pub(super) struct RecentLeaderboardArgs {
+    pub name: Option<Name>,
+    pub index: Option<usize>,
+    pub mode: GameMode,
+    pub mods: Option<ModSelection>,
+}
+
+impl RecentLeaderboardArgs {
+    fn args(
+        ctx: &Context,
+        args: &mut Args,
+        mode: GameMode,
+        index: Option<usize>,
+    ) -> Result<Self, &'static str> {
+        let mut name = None;
+        let mut mods = None;
+
+        for arg in args {
+            if let Some(m) = matcher::get_mods(arg) {
+                mods.replace(m);
+            } else {
+                name.replace(Args::try_link_name(ctx, arg)?);
+            }
+        }
+
+        Ok(Self {
+            name,
+            index,
+            mode,
+            mods,
+        })
     }
 }

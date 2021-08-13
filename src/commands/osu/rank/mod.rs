@@ -8,7 +8,7 @@ use super::{request_user, require_link};
 
 use crate::{
     util::{ApplicationCommandExt, MessageExt},
-    Args, BotResult, Context, Error, Name,
+    BotResult, Context, Error,
 };
 
 use rosu_v2::prelude::GameMode;
@@ -20,80 +20,6 @@ use twilight_model::application::{
     },
     interaction::{application_command::CommandDataOption, ApplicationCommand},
 };
-
-struct PpArgs {
-    name: Option<Name>,
-    mode: GameMode,
-    country: Option<String>,
-    rank: usize,
-}
-
-impl PpArgs {
-    fn args(ctx: &Context, args: &mut Args<'_>, mode: GameMode) -> Result<Self, &'static str> {
-        let mut name = None;
-        let mut country = None;
-        let mut rank = None;
-
-        for arg in args.take(2) {
-            match arg.parse() {
-                Ok(num) => rank = Some(num),
-                Err(_) => {
-                    if arg.len() >= 3 {
-                        let (prefix, suffix) = arg.split_at(2);
-                        let valid_country = prefix.chars().all(|c| c.is_ascii_alphabetic());
-
-                        if let (true, Ok(num)) = (valid_country, suffix.parse()) {
-                            country = Some(prefix.to_owned());
-                            rank = Some(num);
-                        } else {
-                            name = Some(Args::try_link_name(ctx, arg)?);
-                        }
-                    } else {
-                        name = Some(Args::try_link_name(ctx, arg)?);
-                    }
-                }
-            }
-        }
-
-        const COUNTRY_PARSE_ERROR: &str =
-            "Could not parse rank. Provide it either as positive number \
-            or as country acronym followed by a positive number e.g. `be10` \
-            as one of the first two arguments.";
-
-        let rank = rank.ok_or(COUNTRY_PARSE_ERROR)?;
-
-        Ok(Self {
-            name,
-            mode,
-            country,
-            rank,
-        })
-    }
-}
-
-struct ScoreArgs {
-    name: Option<Name>,
-    mode: GameMode,
-    rank: usize,
-}
-
-impl ScoreArgs {
-    fn args(ctx: &Context, args: &mut Args<'_>, mode: GameMode) -> Result<Self, &'static str> {
-        let mut name = None;
-        let mut rank = None;
-
-        for arg in args.take(2) {
-            match arg.parse() {
-                Ok(num) => rank = Some(num),
-                Err(_) => name = Some(Args::try_link_name(ctx, arg)?),
-            }
-        }
-
-        let rank = rank.ok_or("You must specify a target rank.")?;
-
-        Ok(Self { name, mode, rank })
-    }
-}
 
 enum RankCommandKind {
     Performance(PpArgs),
