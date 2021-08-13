@@ -1,4 +1,4 @@
-use crate::{Args, BotResult, Error};
+use crate::{util, Args, BotResult, Error};
 
 use twilight_model::{
     application::interaction::ApplicationCommand,
@@ -18,31 +18,17 @@ pub enum CommandData<'m> {
     },
 }
 
-impl<'m> CommandData<'m> {
+impl CommandData<'_> {
     pub fn guild_id(&self) -> Option<GuildId> {
-        match self {
-            Self::Message { msg, .. } => msg.guild_id,
-            Self::Interaction { command } => command.guild_id,
-        }
+        util::Authored::guild_id(self)
     }
 
     pub fn channel_id(&self) -> ChannelId {
-        match self {
-            Self::Message { msg, .. } => msg.channel_id,
-            Self::Interaction { command } => command.channel_id,
-        }
+        util::Authored::channel_id(self)
     }
 
     pub fn author(&self) -> BotResult<&User> {
-        match self {
-            Self::Message { msg, .. } => Ok(&msg.author),
-            Self::Interaction { command } => command
-                .member
-                .as_ref()
-                .and_then(|member| member.user.as_ref())
-                .or_else(|| command.user.as_ref())
-                .ok_or(Error::MissingSlashAuthor),
-        }
+        util::Authored::author(self).ok_or(Error::MissingSlashAuthor)
     }
 
     pub fn compact(self) -> CommandDataCompact {
@@ -50,7 +36,7 @@ impl<'m> CommandData<'m> {
     }
 }
 
-impl<'m> From<ApplicationCommand> for CommandData<'m> {
+impl From<ApplicationCommand> for CommandData<'_> {
     fn from(command: ApplicationCommand) -> Self {
         Self::Interaction { command }
     }
@@ -67,8 +53,8 @@ pub enum CommandDataCompact {
     },
 }
 
-impl<'m> From<CommandData<'m>> for CommandDataCompact {
-    fn from(data: CommandData<'m>) -> Self {
+impl From<CommandData<'_>> for CommandDataCompact {
+    fn from(data: CommandData<'_>) -> Self {
         match data {
             CommandData::Message { msg, .. } => msg.into(),
             CommandData::Interaction { command } => command.into(),
@@ -76,8 +62,8 @@ impl<'m> From<CommandData<'m>> for CommandDataCompact {
     }
 }
 
-impl<'m> From<&'m Message> for CommandDataCompact {
-    fn from(msg: &'m Message) -> Self {
+impl From<&Message> for CommandDataCompact {
+    fn from(msg: &Message) -> Self {
         Self::Message {
             msg_id: msg.id,
             channel_id: msg.channel_id,

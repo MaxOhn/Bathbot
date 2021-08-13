@@ -1,3 +1,4 @@
+mod authored;
 pub mod constants;
 mod cow;
 pub mod datetime;
@@ -11,6 +12,7 @@ pub mod numbers;
 pub mod osu;
 mod safe_content;
 
+pub use authored::Authored;
 use constants::DISCORD_CDN;
 pub use cow::CowUtils;
 pub use emote::Emote;

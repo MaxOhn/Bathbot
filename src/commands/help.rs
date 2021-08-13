@@ -1,19 +1,23 @@
 use crate::{
-    core::{Command, CMD_GROUPS},
+    core::{commands::CommandDataCompact, Command, CMD_GROUPS},
     embeds::{Author, EmbedBuilder, Footer},
     util::{
         constants::{
             BATHBOT_WORKSHOP, DARK_GREEN, DESCRIPTION_SIZE, GENERAL_ISSUE, OWNER_USER_ID, RED,
         },
-        levenshtein_distance, MessageExt,
+        levenshtein_distance, ApplicationCommandExt, MessageExt,
     },
-    BotResult, Context, MessageBuilder,
+    BotResult, CommandData, Context, MessageBuilder,
 };
 
-use std::{collections::BTreeMap, fmt::Write};
+use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 use tokio::time::{sleep, Duration};
 use twilight_model::{
-    channel::{embed::EmbedField, Message},
+    application::{
+        command::{ChoiceCommandOptionData, Command as SlashCommand, CommandOption},
+        interaction::{application_command::CommandDataOption, ApplicationCommand},
+    },
+    channel::embed::EmbedField,
     id::GuildId,
 };
 
@@ -65,15 +69,17 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         \n__**All commands:**__\n", prefix_desc, prefix = first_prefix, discord_url = BATHBOT_WORKSHOP)
 }
 
-pub async fn help(ctx: &Context, msg: &Message, is_authority: bool) -> BotResult<()> {
-    let channel = if let Some(channel) = ctx.cache.private_channel(msg.author.id) {
+pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> BotResult<()> {
+    let owner = data.author()?.id;
+
+    let channel = if let Some(channel) = ctx.cache.private_channel(owner) {
         channel
     } else {
-        let channel = match ctx.http.create_private_channel(msg.author.id).exec().await {
+        let channel = match ctx.http.create_private_channel(owner).exec().await {
             Ok(channel_res) => match channel_res.model().await {
                 Ok(channel) => channel,
                 Err(why) => {
-                    let _ = msg.error(ctx, GENERAL_ISSUE).await;
+                    let _ = data.error(ctx, GENERAL_ISSUE).await;
 
                     return Err(why.into());
                 }
@@ -83,7 +89,7 @@ pub async fn help(ctx: &Context, msg: &Message, is_authority: bool) -> BotResult
                    Did you disable messages from other server members?";
                 debug!("Error while creating DM channel: {}", why);
 
-                return msg.error(ctx, content).await;
+                return data.error(ctx, content).await;
             }
         };
 
@@ -92,14 +98,15 @@ pub async fn help(ctx: &Context, msg: &Message, is_authority: bool) -> BotResult
         channel
     };
 
-    let owner = msg.author.id;
+    let guild_id = data.guild_id();
 
-    if msg.guild_id.is_some() {
+    if guild_id.is_some() {
         let content = "Don't mind me sliding into your DMs :eyes:";
-        let _ = msg.reply(ctx, content).await;
+        let builder = MessageBuilder::new().embed(content);
+        let _ = data.create_message(ctx, builder).await;
     }
 
-    let mut buf = description(ctx, msg.guild_id);
+    let mut buf = description(ctx, guild_id);
     let mut size = buf.len();
 
     debug_assert!(
@@ -129,7 +136,7 @@ pub async fn help(ctx: &Context, msg: &Message, is_authority: bool) -> BotResult
                 unwind_error!(warn, why, "Error while sending help chunk: {}");
                 let content = "Could not DM you, perhaps you disabled it?";
 
-                return msg.error(ctx, content).await;
+                return data.error(ctx, content).await;
             }
 
             sleep(Duration::from_millis(50)).await;
@@ -152,7 +159,7 @@ pub async fn help(ctx: &Context, msg: &Message, is_authority: bool) -> BotResult
                     unwind_error!(warn, why, "Error while sending help chunk: {}");
                     let content = "Could not DM you, perhaps you disabled it?";
 
-                    return msg.error(ctx, content).await;
+                    return data.error(ctx, content).await;
                 }
 
                 sleep(Duration::from_millis(50)).await;
@@ -184,16 +191,21 @@ pub async fn help(ctx: &Context, msg: &Message, is_authority: bool) -> BotResult
             unwind_error!(warn, why, "Error while sending help chunk: {}");
             let content = "Could not DM you, perhaps you disabled it?";
 
-            return msg.error(ctx, content).await;
+            return data.error(ctx, content).await;
         }
     }
 
     Ok(())
 }
 
-pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotResult<()> {
+pub async fn help_command(
+    ctx: &Context,
+    cmd: &Command,
+    guild_id: Option<GuildId>,
+    data: CommandDataCompact,
+) -> BotResult<()> {
     let name = cmd.names[0];
-    let prefix = ctx.config_first_prefix(msg.guild_id);
+    let prefix = ctx.config_first_prefix(guild_id);
     let mut fields = Vec::new();
 
     let mut eb = EmbedBuilder::new()
@@ -263,7 +275,7 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
     }
 
     if cmd.authority {
-        let value = if let Some(guild_id) = msg.guild_id {
+        let value = if let Some(guild_id) = guild_id {
             let authorities = ctx.config_authorities(guild_id);
             let mut value = "You need admin permission".to_owned();
             let mut iter = authorities.iter();
@@ -308,12 +320,12 @@ pub async fn help_command(ctx: &Context, cmd: &Command, msg: &Message) -> BotRes
     let embed = eb.footer(footer).fields(fields).build();
     let builder = MessageBuilder::new().embed(embed);
 
-    msg.create_message(ctx, builder).await?;
+    data.create_message(ctx, builder).await?;
 
     Ok(())
 }
 
-pub async fn failed_help(ctx: &Context, arg: &str, msg: &Message) -> BotResult<()> {
+pub async fn failed_help(ctx: &Context, arg: &str, data: CommandDataCompact) -> BotResult<()> {
     let dists: BTreeMap<_, _> = CMD_GROUPS
         .groups
         .iter()
@@ -344,9 +356,59 @@ pub async fn failed_help(ctx: &Context, arg: &str, msg: &Message) -> BotResult<(
         .description(content)
         .color(color)
         .build();
-    let builder = MessageBuilder::new().embed(embed);
 
-    msg.create_message(ctx, builder).await?;
+    let builder = MessageBuilder::new().embed(embed);
+    data.create_message(ctx, builder).await?;
 
     Ok(())
+}
+
+pub async fn slash_help(
+    ctx: Arc<Context>,
+    mut command: ApplicationCommand,
+    is_authority: bool,
+) -> BotResult<()> {
+    let mut cmd_name = None;
+
+    for option in command.yoink_options() {
+        match option {
+            CommandDataOption::String { name, value } => match name.as_str() {
+                "command" => cmd_name = Some(value),
+                _ => bail_cmd_option!("help", string, name),
+            },
+            CommandDataOption::Integer { name, .. } => bail_cmd_option!("help", integer, name),
+            CommandDataOption::Boolean { name, .. } => bail_cmd_option!("help", boolean, name),
+            CommandDataOption::SubCommand { name, .. } => {
+                bail_cmd_option!("help", subcommand, name)
+            }
+        }
+    }
+
+    match cmd_name {
+        Some(name) => {
+            if let Some(cmd) = CMD_GROUPS.get(name.as_str()) {
+                help_command(&ctx, cmd, command.guild_id, command.into()).await
+            } else {
+                failed_help(&ctx, &name, command.into()).await
+            }
+        }
+        None => help(&ctx, command.into(), is_authority).await,
+    }
+}
+
+pub fn slash_help_command() -> SlashCommand {
+    SlashCommand {
+        application_id: None,
+        guild_id: None,
+        name: "help".to_owned(),
+        default_permission: None,
+        description: "Display general help or help for a specific command".to_owned(),
+        id: None,
+        options: vec![CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a command name".to_owned(),
+            name: "command".to_owned(),
+            required: false,
+        })],
+    }
 }

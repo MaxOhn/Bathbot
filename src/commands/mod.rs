@@ -41,8 +41,6 @@ macro_rules! parse_mode_option {
 /*
     TODO:
 
-    help
-
     _osu:_
     bws
     fix
@@ -61,14 +59,14 @@ macro_rules! parse_mode_option {
     top
 
     _owner:_
-    x activebg
-    x addbg
-    x addcountry
-    x changegame
-    x trackingcooldown
-    x trackinginterval
-    x trackingstats
-    x trackingtoggle
+    activebg
+    addbg
+    addcountry
+    changegame
+    trackingcooldown
+    trackinginterval
+    trackingstats
+    trackingtoggle
 
     _utility:_
     authorities
@@ -333,10 +331,10 @@ pub fn command_groups() -> [CommandGroup; 11] {
     ]
 }
 
-// TODO: slash_help
 // TODO: Make array when done
 pub fn slash_commands() -> Vec<Command> {
     vec![
+        help::slash_help_command(),
         slash_recent_command(),
         slash_compare_command(),
         slash_link_command(),
@@ -349,20 +347,20 @@ pub fn slash_commands() -> Vec<Command> {
         slash_pp_command(),
         slash_rank_command(),
         slash_medal_command(),
-        // slash_track_command(),
+        slash_track_command(),
         slash_mostplayed_command(),
         slash_ranking_command(),
         slash_ping_command(),
         slash_mapsearch_command(),
         slash_ratio_command(),
-        // slash_trackstream_command(),
-        // slash_matchlive_command(),
+        slash_trackstream_command(),
+        slash_matchlive_command(),
         slash_invite_command(),
         slash_about_command(),
         slash_avatar_command(),
         slash_song_command(),
         slash_minesweeper_command(),
-        // slash_cache_command(), // TODO: + other owner commands
-        // slash_roleassign_command(),
+        slash_cache_command(),
+        slash_roleassign_command(),
     ]
 }
