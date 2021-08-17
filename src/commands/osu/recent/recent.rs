@@ -20,26 +20,6 @@ pub(super) async fn _recent(
     data: CommandData<'_>,
     args: RecentArgs,
 ) -> BotResult<()> {
-    // TODO: Check for -p?
-    // if args.has_dash_p {
-    //     let prefix = ctx.config_first_prefix(msg.guild_id);
-
-    //     let content = format!(
-    //         "`{prefix}recent{mode} -p`? \
-    //         Try putting the number right after the command, e.g. `{prefix}recent{mode}42`.\n\
-    //         Alternatively you can checkout the `recentpages{mode}` command.",
-    //         mode = match mode {
-    //             GameMode::STD => "",
-    //             GameMode::MNA => "mania",
-    //             GameMode::TKO => "taiko",
-    //             GameMode::CTB => "ctb",
-    //         },
-    //         prefix = prefix
-    //     );
-
-    //     return data.error(&ctx, content).await;
-    // }
-
     let name = match args.name {
         Some(name) => name,
         None => match ctx.get_link(data.author()?.id.0) {

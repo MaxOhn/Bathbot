@@ -1,5 +1,4 @@
 use crate::{
-    commands::osu::RecentSimulateArgs,
     embeds::{osu, EmbedBuilder, EmbedData, Footer},
     pp::{Calculations, PPCalculator},
     util::{
@@ -22,6 +21,60 @@ use rosu_v2::prelude::{
 };
 use std::{borrow::Cow, fmt::Write};
 use tokio::fs::File;
+
+pub struct SimulateArgs {
+    mods: Option<ModSelection>,
+    n300: Option<usize>,
+    n100: Option<usize>,
+    n50: Option<usize>,
+    misses: Option<usize>,
+    acc: Option<f32>,
+    combo: Option<usize>,
+    score: Option<u32>,
+}
+
+impl SimulateArgs {
+    fn is_some(&self) -> bool {
+        self.mods.is_some()
+            || self.n300.is_some()
+            || self.n100.is_some()
+            || self.n50.is_some()
+            || self.misses.is_some()
+            || self.acc.is_some()
+            || self.combo.is_some()
+            || self.score.is_some()
+    }
+}
+
+impl From<crate::commands::osu::RecentSimulateArgs> for SimulateArgs {
+    fn from(args: crate::commands::osu::RecentSimulateArgs) -> Self {
+        Self {
+            mods: args.mods,
+            n300: args.n300,
+            n100: args.n100,
+            n50: args.n50,
+            misses: args.misses,
+            acc: args.acc,
+            combo: args.combo,
+            score: args.score,
+        }
+    }
+}
+
+impl From<crate::commands::osu::SimulateArgs> for SimulateArgs {
+    fn from(args: crate::commands::osu::SimulateArgs) -> Self {
+        Self {
+            mods: args.mods,
+            n300: args.n300,
+            n100: args.n100,
+            n50: args.n50,
+            misses: args.misses,
+            acc: args.acc,
+            combo: args.combo,
+            score: args.score,
+        }
+    }
+}
 
 pub struct SimulateEmbed {
     title: String,
@@ -50,7 +103,7 @@ impl SimulateEmbed {
         score: Option<Score>,
         map: &Beatmap,
         mapset: &BeatmapsetCompact,
-        args: RecentSimulateArgs,
+        args: SimulateArgs,
     ) -> BotResult<Self> {
         let is_some = args.is_some();
 
@@ -271,7 +324,7 @@ impl EmbedData for SimulateEmbed {
 fn simulate_score(
     score: &mut Score,
     map: &Beatmap,
-    args: RecentSimulateArgs,
+    args: SimulateArgs,
     mut attributes: StarResult,
 ) -> StarResult {
     match attributes {

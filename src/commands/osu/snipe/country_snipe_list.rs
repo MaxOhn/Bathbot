@@ -198,7 +198,7 @@ impl CountryListArgs {
                             "stars" => Some(SnipeOrder::Stars),
                             "weighted" | "weightedpp" => Some(SnipeOrder::WeightedPp),
                             _ => {
-                                let content = "Could not parse sort. \
+                                let content = "Failed to parse `sort`. \
                                     Must be either `count`, `pp`, `stars`, or `weighted`.";
 
                                 return Err(content.into());
@@ -229,7 +229,7 @@ impl CountryListArgs {
                 country = Some(code.into())
             } else {
                 let content = format!(
-                    "Could not parse `{}`.\n\
+                    "Failed to parse `{}`.\n\
                     It must be either a two ASCII character country code or \
                     `sort=count/pp/stars/weighted`",
                     arg

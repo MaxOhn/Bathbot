@@ -202,15 +202,15 @@ fn insert(
 #[long_desc(
     "Display either the global or a national leaderboard of players, \
     sorted by their amounts of scores on a map's global leaderboard.\n\
-    The rank range can be specified with `-r` followed by either a number \
+    The rank range can be specified with `rank=` followed by either a number \
     for max rank, or two numbers of the form `a..b` for min and max rank.\n\
     The rank range default to 1..100.\n\
     To specify a country, provide its acronym, e.g. `de` for germany.\n\
     If no country is specified, I'll show the global leaderboard.\n\
     Check https://osustats.ppy.sh/r for more info."
 )]
-#[usage("[-r [num..]num] [country acronym]")]
-#[example("-r 42 be", "-r 1..5", "fr")]
+#[usage("[rank=[num..]num] [country acronym]")]
+#[example("rankr=42 be", "rank=1..5", "fr")]
 #[aliases("osl")]
 pub async fn osustatslist(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
@@ -229,15 +229,15 @@ pub async fn osustatslist(ctx: Arc<Context>, data: CommandData) -> BotResult<()>
 #[long_desc(
     "Display either the global or a national leaderboard of mania players, \
     sorted by their amounts of scores on a map's global leaderboard.\n\
-    The rank range can be specified with `-r` followed by either a number \
+    The rank range can be specified with `rank=` followed by either a number \
     for max rank, or two numbers of the form `a..b` for min and max rank.\n\
     The rank range default to 1..100.\n\
     To specify a country, provide its acronym, e.g. `de` for germany.\n\
     If no country is specified, I'll show the global leaderboard.\n\
     Check https://osustats.ppy.sh/r for more info."
 )]
-#[usage("[-r [num..]num] [country acronym]")]
-#[example("-r 42 be", "-r 1..5", "fr")]
+#[usage("[rank=[num..]num] [country acronym]")]
+#[example("rankr=42 be", "rank=1..5", "fr")]
 #[aliases("oslm")]
 pub async fn osustatslistmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
@@ -256,15 +256,15 @@ pub async fn osustatslistmania(ctx: Arc<Context>, data: CommandData) -> BotResul
 #[long_desc(
     "Display either the global or a national leaderboard of taiko players, \
     sorted by their amounts of scores on a map's global leaderboard.\n\
-    The rank range can be specified with `-r` followed by either a number \
+    The rank range can be specified with `rank=` followed by either a number \
     for max rank, or two numbers of the form `a..b` for min and max rank.\n\
     The rank range default to 1..100.\n\
     To specify a country, provide its acronym, e.g. `de` for germany.\n\
     If no country is specified, I'll show the global leaderboard.\n\
     Check https://osustats.ppy.sh/r for more info."
 )]
-#[usage("[-r [num..]num] [country acronym]")]
-#[example("-r 42 be", "-r 1..5", "fr")]
+#[usage("[rank=[num..]num] [country acronym]")]
+#[example("rankr=42 be", "rank=1..5", "fr")]
 #[aliases("oslt")]
 pub async fn osustatslisttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
@@ -283,15 +283,15 @@ pub async fn osustatslisttaiko(ctx: Arc<Context>, data: CommandData) -> BotResul
 #[long_desc(
     "Display either the global or a national leaderboard of ctb players, \
     sorted by their amounts of scores on a map's global leaderboard.\n\
-    The rank range can be specified with `-r` followed by either a number \
+    The rank range can be specified with `rank=` followed by either a number \
     for max rank, or two numbers of the form `a..b` for min and max rank.\n\
     The rank range default to 1..100.\n\
     To specify a country, provide its acronym, e.g. `de` for germany.\n\
     If no country is specified, I'll show the global leaderboard.\n\
     Check https://osustats.ppy.sh/r for more info."
 )]
-#[usage("[-r [num..]num] [country acronym]")]
-#[example("-r 42 be", "-r 1..5", "fr")]
+#[usage("[rank=[num..]num] [country acronym]")]
+#[example("rankr=42 be", "rank=1..5", "fr")]
 #[aliases("oslc")]
 pub async fn osustatslistctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
@@ -309,7 +309,7 @@ impl OsuStatsListParams {
     const MIN_RANK: usize = 1;
     const MAX_RANK: usize = 100;
 
-    const ERR_PARSE_RANK: &'static str = "Could not parse rank.\n\
+    const ERR_PARSE_RANK: &'static str = "Failed to parse `rank`.\n\
         Must be either a positive integer \
         or two positive integers of the form `a..b` e.g. `2..45`.";
 
@@ -364,7 +364,7 @@ impl OsuStatsListParams {
                 country = Some(arg.into());
             } else {
                 let content = format!(
-                    "Could not parse `{}` as either rank or country.\n\
+                    "Failed to parse `{}` as either rank or country.\n\
                     Be sure the specified country is a valid two ASCII letter country code.\n\
                     A rank range can be specified like `rank=2..45`.",
                     arg
@@ -400,7 +400,7 @@ impl OsuStatsListParams {
                             country = Some(value.into())
                         } else {
                             let content = format!(
-                                "Could not parse `{}` as country.\n\
+                                "Failed to parse `{}` as country.\n\
                                 Be sure to specify a valid two ASCII letter country code.",
                                 value
                             );

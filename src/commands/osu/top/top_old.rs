@@ -529,7 +529,7 @@ impl OldArgs {
         let first = args.next();
         let second = args.next();
 
-        const ERR_PARSE_YEAR: &str = "Could not parse year. Be sure to specify a valid number.";
+        const ERR_PARSE_YEAR: &str = "Failed to parse year. Be sure to specify a valid number.";
 
         let (name, year) = match second {
             Some(second) => match second.parse() {

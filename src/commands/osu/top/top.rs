@@ -1,6 +1,5 @@
-use super::ErrorType;
+use super::{ErrorType, GradeArg};
 use crate::{
-    core::commands::CommandDataCompact,
     embeds::{EmbedData, TopEmbed, TopSingleEmbed},
     pagination::{Pagination, TopPagination},
     tracking::process_tracking,
@@ -180,25 +179,26 @@ pub(super) async fn _top(
 #[short_desc("Display a user's top plays")]
 #[long_desc(
     "Display a user's top plays.\n\
-     Mods can be specified.\n\
-     A combo and accuracy range can be specified with `-c` and `-a`. \
-     After this keyword, you must specify either a number for min combo/acc, \
-     or two numbers of the form `x..y` for min and max combo/acc.\n\
-     The grade can be specified with `-grade`, either followed by grading \
-     letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a range of the \
-     form `x..y` with `x` and `y` being a grading letter.\n\
-     Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo.\n\
+     Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
+     There are also multiple options you can set by specifying `key=value`.\n\
+     These are the keys with their values:\n\
+     - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
+     - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
+     - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
+     - `sort`: `acc`, `combo`, `date` (= `rb` command), `length`, or `position` (default)\n\
+     - `reverse`: `true` or `false` (default)\n\
      \n\
      Instead of showing the scores in a list, you can also __show a single score__ by \
      specifying a number right after the command, e.g. `<top2 badewanne3`."
 )]
 #[usage(
-    "[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods] [--a/--c]"
+    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] \
+    [grade=grade[..grade]] [sort=acc/combo/date/length/position] [reverse=true/false]"
 )]
 #[example(
-    "badewanne3 -a 97.34..99.5 -grade A +hdhr --c",
-    "vaxei -c 1234 -dt! --a",
-    "peppy -c 200..500 -grade B..S"
+    "badewanne3 acc=97.34..99.5 grade=A +hdhr sort=combo",
+    "vaxei -dt! combo=1234 sort=length",
+    "peppy combo=200..500 grade=B..S reverse=true"
 )]
 #[aliases("topscores", "osutop")]
 async fn top(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
@@ -217,25 +217,26 @@ async fn top(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 #[short_desc("Display a user's top mania plays")]
 #[long_desc(
     "Display a user's top mania plays.\n\
-     Mods can be specified.\n\
-     A combo and accuracy range can be specified with `-c` and `-a`. \
-     After this keyword, you must specify either a number for min combo/acc, \
-     or two numbers of the form `x..y` for min and max combo/acc.\n\
-     The grade can be specified with `-grade`, either followed by grading \
-     letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a range of the \
-     form `x..y` with `x` and `y` being a grading letter.\n\
-     Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo.\n\
-     \n\
-     Instead of showing the scores in a list, you can also __show a single score__ by \
-     specifying a number right after the command, e.g. `<topm2 badewanne3`."
+    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
+    There are also multiple options you can set by specifying `key=value`.\n\
+    These are the keys with their values:\n\
+    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
+    - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
+    - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
+    - `sort`: `acc`, `combo`, `date` (= `rb` command), `length`, or `position` (default)\n\
+    - `reverse`: `true` or `false` (default)\n\
+    \n\
+    Instead of showing the scores in a list, you can also __show a single score__ by \
+    specifying a number right after the command, e.g. `<top2 badewanne3`."
 )]
 #[usage(
-    "[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods] [--a/--c]"
+    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] \
+   [grade=grade[..grade]] [sort=acc/combo/date/length/position] [reverse=true/false]"
 )]
 #[example(
-    "badewanne3 -a 97.34..99.5 -grade A +hdhr --c",
-    "vaxei -c 1234 -dt! --a",
-    "peppy -c 200..500 -grade B..S"
+    "badewanne3 acc=97.34..99.5 grade=A +hdhr sort=combo",
+    "vaxei -dt! combo=1234 sort=length",
+    "peppy combo=200..500 grade=B..S reverse=true"
 )]
 #[aliases("topm")]
 async fn topmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
@@ -254,25 +255,26 @@ async fn topmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 #[short_desc("Display a user's top taiko plays")]
 #[long_desc(
     "Display a user's top taiko plays.\n\
-     Mods can be specified.\n\
-     A combo and accuracy range can be specified with `-c` and `-a`. \
-     After this keyword, you must specify either a number for min combo/acc, \
-     or two numbers of the form `x..y` for min and max combo/acc.\n\
-     The grade can be specified with `-grade`, either followed by grading \
-     letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a range of the \
-     form `x..y` with `x` and `y` being a grading letter.\n\
-     Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo.\n\
-     \n\
-     Instead of showing the scores in a list, you can also __show a single score__ by \
-     specifying a number right after the command, e.g. `<topt2 badewanne3`."
+    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
+    There are also multiple options you can set by specifying `key=value`.\n\
+    These are the keys with their values:\n\
+    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
+    - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
+    - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
+    - `sort`: `acc`, `combo`, `date` (= `rb` command), `length`, or `position` (default)\n\
+    - `reverse`: `true` or `false` (default)\n\
+    \n\
+    Instead of showing the scores in a list, you can also __show a single score__ by \
+    specifying a number right after the command, e.g. `<top2 badewanne3`."
 )]
 #[usage(
-    "[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods] [--a/--c]"
+    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] \
+   [grade=grade[..grade]] [sort=acc/combo/date/length/position] [reverse=true/false]"
 )]
 #[example(
-    "badewanne3 -a 97.34..99.5 -grade A +hdhr --c",
-    "vaxei -c 1234 -dt! --a",
-    "peppy -c 200..500 -grade B..S"
+    "badewanne3 acc=97.34..99.5 grade=A +hdhr sort=combo",
+    "vaxei -dt! combo=1234 sort=length",
+    "peppy combo=200..500 grade=B..S reverse=true"
 )]
 #[aliases("topt")]
 async fn toptaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
@@ -291,25 +293,26 @@ async fn toptaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 #[short_desc("Display a user's top ctb plays")]
 #[long_desc(
     "Display a user's top ctb plays.\n\
-     Mods can be specified.\n\
-     A combo and accuracy range can be specified with `-c` and `-a`. \
-     After this keyword, you must specify either a number for min combo/acc, \
-     or two numbers of the form `x..y` for min and max combo/acc.\n\
-     The grade can be specified with `-grade`, either followed by grading \
-     letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a range of the \
-     form `x..y` with `x` and `y` being a grading letter.\n\
-     Also, with `--a` I will sort by accuracy and with `--c` I will sort by combo.\n\
-     \n\
-     Instead of showing the scores in a list, you can also __show a single score__ by \
-     specifying a number right after the command, e.g. `<topc2 badewanne3`."
+    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
+    There are also multiple options you can set by specifying `key=value`.\n\
+    These are the keys with their values:\n\
+    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
+    - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
+    - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
+    - `sort`: `acc`, `combo`, `date` (= `rb` command), `length`, or `position` (default)\n\
+    - `reverse`: `true` or `false` (default)\n\
+    \n\
+    Instead of showing the scores in a list, you can also __show a single score__ by \
+    specifying a number right after the command, e.g. `<top2 badewanne3`."
 )]
 #[usage(
-    "[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods] [--a/--c]"
+    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] \
+   [grade=grade[..grade]] [sort=acc/combo/date/length/position] [reverse=true/false]"
 )]
 #[example(
-    "badewanne3 -a 97.34..99.5 -grade A +hdhr --c",
-    "vaxei -c 1234 -dt! --a",
-    "peppy -c 200..500 -grade B..S"
+    "badewanne3 acc=97.34..99.5 grade=A +hdhr sort=combo",
+    "vaxei -dt! combo=1234 sort=length",
+    "peppy combo=200..500 grade=B..S reverse=true"
 )]
 #[aliases("topc")]
 async fn topctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
@@ -328,22 +331,24 @@ async fn topctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 #[short_desc("Sort a user's top plays by date")]
 #[long_desc(
     "Display a user's most recent top plays.\n\
-    Mods can be specified.\n\
-    A combo and accuracy range can be specified with `-c` and `-a`. \
-    After this keyword, you must specify either a number for min combo/acc, \
-    or two numbers of the form `x..y` for min and max combo/acc.\n\
-    The grade can be specified with `-grade`, either followed by \
-    grading letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a \
-    range of the form `x..y` with `x` and `y` being a grading letter.\n\
+    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
+    There are also multiple options you can set by specifying `key=value`.\n\
+    These are the keys with their values:\n\
+    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
+    - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
+    - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
+    - `reverse`: `true` or `false` (default)\n\
     \n\
     Instead of showing the scores in a list, you can also __show a single score__ by \
-    specifying a number right after the command, e.g. `<rb1 badewanne3`."
+    specifying a number right after the command, e.g. `<top2 badewanne3`."
 )]
-#[usage("[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods]")]
+#[usage(
+   "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
+)]
 #[example(
-    "badewanne3 -a 97.34 -grade A +hdhr",
-    "vaxei -c 1234 -dt!",
-    "peppy -c 200..500 -grade B..S"
+    "badewanne3 acc=97.34..99.5 grade=A +hdhr",
+    "vaxei -dt! combo=1234",
+    "peppy combo=200..500 grade=B..S reverse=true"
 )]
 #[aliases("rb")]
 async fn recentbest(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
@@ -367,22 +372,24 @@ async fn recentbest(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 #[short_desc("Sort a user's top mania plays by date")]
 #[long_desc(
     "Display a user's most recent top mania plays.\n\
-    Mods can be specified.\n\
-    A combo and accuracy range can be specified with `-c` and `-a`. \
-    After this keyword, you must specify either a number for min combo/acc, \
-    or two numbers of the form `x..y` for min and max combo/acc.\n\
-    The grade can be specified with `-grade`, either followed by \
-    grading letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a \
-    range of the form `x..y` with `x` and `y` being a grading letter.\n\
+    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
+    There are also multiple options you can set by specifying `key=value`.\n\
+    These are the keys with their values:\n\
+    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
+    - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
+    - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
+    - `reverse`: `true` or `false` (default)\n\
     \n\
     Instead of showing the scores in a list, you can also __show a single score__ by \
-    specifying a number right after the command, e.g. `<rbm1 badewanne3`."
+    specifying a number right after the command, e.g. `<top2 badewanne3`."
 )]
-#[usage("[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods]")]
+#[usage(
+   "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
+)]
 #[example(
-    "badewanne3 -a 97.34 -grade A +hdhr",
-    "vaxei -c 1234 -dt!",
-    "peppy -c 200..500 -grade B..S"
+    "badewanne3 acc=97.34..99.5 grade=A +hdhr",
+    "vaxei -dt! combo=1234",
+    "peppy combo=200..500 grade=B..S reverse=true"
 )]
 #[aliases("rbm")]
 async fn recentbestmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
@@ -406,22 +413,24 @@ async fn recentbestmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
 #[short_desc("Sort a user's top taiko plays by date")]
 #[long_desc(
     "Display a user's most recent top taiko plays.\n\
-    Mods can be specified.\n\
-    A combo and accuracy range can be specified with `-c` and `-a`. \
-    After this keyword, you must specify either a number for min combo/acc, \
-    or two numbers of the form `x..y` for min and max combo/acc.\n\
-    The grade can be specified with `-grade`, either followed by \
-    grading letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a \
-    range of the form `x..y` with `x` and `y` being a grading letter.\n\
+    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
+    There are also multiple options you can set by specifying `key=value`.\n\
+    These are the keys with their values:\n\
+    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
+    - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
+    - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
+    - `reverse`: `true` or `false` (default)\n\
     \n\
     Instead of showing the scores in a list, you can also __show a single score__ by \
-    specifying a number right after the command, e.g. `<rbt1 badewanne3`."
+    specifying a number right after the command, e.g. `<top2 badewanne3`."
 )]
-#[usage("[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods]")]
+#[usage(
+   "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
+)]
 #[example(
-    "badewanne3 -a 97.34 -grade A +hdhr",
-    "vaxei -c 1234 -dt!",
-    "peppy -c 200..500 -grade B..S"
+    "badewanne3 acc=97.34..99.5 grade=A +hdhr",
+    "vaxei -dt! combo=1234",
+    "peppy combo=200..500 grade=B..S reverse=true"
 )]
 #[aliases("rbt")]
 async fn recentbesttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
@@ -445,22 +454,24 @@ async fn recentbesttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
 #[short_desc("Sort a user's top ctb plays by date")]
 #[long_desc(
     "Display a user's most recent top ctb plays.\n\
-    Mods can be specified.\n\
-    A combo and accuracy range can be specified with `-c` and `-a`. \
-    After this keyword, you must specify either a number for min combo/acc, \
-    or two numbers of the form `x..y` for min and max combo/acc.\n\
-    The grade can be specified with `-grade`, either followed by \
-    grading letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a \
-    range of the form `x..y` with `x` and `y` being a grading letter.\n\
+    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
+    There are also multiple options you can set by specifying `key=value`.\n\
+    These are the keys with their values:\n\
+    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
+    - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
+    - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
+    - `reverse`: `true` or `false` (default)\n\
     \n\
     Instead of showing the scores in a list, you can also __show a single score__ by \
-    specifying a number right after the command, e.g. `<rbc1 badewanne3`."
+    specifying a number right after the command, e.g. `<top2 badewanne3`."
 )]
-#[usage("[username] [-a number[..number]] [-c number[..number]] [-grade grade[..grade]] [mods]")]
+#[usage(
+   "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
+)]
 #[example(
-    "badewanne3 -a 97.34 -grade A +hdhr",
-    "vaxei -c 1234 -dt!",
-    "peppy -c 200..500 -grade B..S"
+    "badewanne3 acc=97.34..99.5 grade=A +hdhr",
+    "vaxei -dt! combo=1234",
+    "peppy combo=200..500 grade=B..S reverse=true"
 )]
 #[aliases("rbc")]
 async fn recentbestctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
@@ -599,7 +610,7 @@ async fn single_embed(
     // Prepare retrieval of the map's global top 50 and the user's top 100
     let globals = match map.status {
         Ranked | Loved | Qualified | Approved => {
-            // TODO: Add .limit(50)
+            // TODO: Add .limit(50) when supported by osu!api
             match ctx.osu().beatmap_scores(map.map_id).await {
                 Ok(scores) => Some(scores),
                 Err(why) => {
@@ -621,7 +632,7 @@ async fn single_embed(
     // TODO
     // ctx.store_msg(response.id);
 
-    let data: CommandDataCompact = data.into();
+    let data = data.compact();
 
     // Minimize embed after delay
     tokio::spawn(async move {
@@ -682,12 +693,6 @@ async fn paginated_embed(
     Ok(())
 }
 
-#[derive(Copy, Clone)]
-pub enum GradeArg {
-    Single(Grade),
-    Range { bot: Grade, top: Grade },
-}
-
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum TopOrder {
     Acc,
@@ -720,20 +725,20 @@ pub(super) struct TopArgs {
 }
 
 impl TopArgs {
-    const ERR_PARSE_MODS: &'static str = "Could not parse mods.\n\
+    const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
         If you want included mods, specify it e.g. as `+hrdt`.\n\
         If you want exact mods, specify it e.g. as `+hdhr!`.\n\
         And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
 
-    const ERR_PARSE_ACC: &'static str = "Could not parse accuracy.\n\
+    const ERR_PARSE_ACC: &'static str = "Failed to parse `accuracy`.\n\
         Must be either decimal number \
         or two decimal numbers of the form `a..b` e.g. `97.5..98.5`.";
 
-    const ERR_PARSE_COMBO: &'static str = "Could not parse combo.\n\
+    const ERR_PARSE_COMBO: &'static str = "Failed to parse `combo`.\n\
         Must be either a positive integer \
         or two positive integers of the form `a..b` e.g. `501..1234`.";
 
-    const ERR_PARSE_GRADE: &'static str = "Could not parse grade.\n\
+    const ERR_PARSE_GRADE: &'static str = "Failed to parse `grade`.\n\
         Must be either a single grade or two grades of the form `a..b` e.g. `C..S`.\n\
         Valid grades are: `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, or `D`";
 
@@ -849,7 +854,7 @@ impl TopArgs {
                         "length" | "len" | "l" => sort_by = Some(TopOrder::Length),
                         "position" | "p" => sort_by = Some(TopOrder::Position),
                         _ => {
-                            let content = "Could not parse sort.\n\
+                            let content = "Failed to parse `sort`.\n\
                             Must be either `acc`, `combo`, `date`, `length`, or `position`";
 
                             return Err(content.into());
@@ -864,7 +869,7 @@ impl TopArgs {
                         "false" | "0" => reverse = Some(false),
                         _ => {
                             let content =
-                                "Could not parse reverse. Must be either `true` or `false`.";
+                                "Failed to parse `reverse`. Must be either `true` or `false`.";
 
                             return Err(content.into());
                         }

@@ -1,18 +1,18 @@
 use crate::{
-    arguments::{Args, MapModArgs},
     bail,
     embeds::{EmbedData, MapEmbed},
     pagination::{MapPagination, Pagination},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         error::PPError,
+        matcher,
         osu::{
             cached_message_extract, map_id_from_history, map_id_from_msg, prepare_beatmap_file,
-            MapIdType,
+            MapIdType, ModSelection,
         },
-        MessageExt,
+        ApplicationCommandExt, MessageExt,
     },
-    BotResult, Context, Error,
+    Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
 use chrono::Duration;
@@ -22,7 +22,13 @@ use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError};
 use std::{cmp::Ordering, sync::Arc};
 use tokio::fs::File;
-use twilight_model::channel::{message::MessageType, Message};
+use twilight_model::{
+    application::{
+        command::{ChoiceCommandOptionData, Command, CommandOption},
+        interaction::{application_command::CommandDataOption, ApplicationCommand},
+    },
+    channel::message::MessageType,
+};
 
 const W: u32 = 590;
 const H: u32 = 150;
@@ -39,29 +45,44 @@ const H: u32 = 150;
 #[usage("[map(set) url / map(set) id] [+mods]")]
 #[example("2240404 +hddt", "https://osu.ppy.sh/beatmapsets/902425 +hr")]
 #[aliases("m", "beatmap", "maps", "beatmaps", "mapinfo")]
-async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    let args = MapModArgs::new(args);
+async fn map(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => match MapArgs::args(&mut args) {
+            Ok(mut map_args) => {
+                let reply = msg
+                    .referenced_message
+                    .as_ref()
+                    .filter(|msg| msg.kind == MessageType::Reply);
 
-    let map_id_opt = args
-        .map_id
-        .or_else(|| {
-            msg.referenced_message
-                .as_ref()
-                .filter(|_| msg.kind == MessageType::Reply)
-                .and_then(|msg| map_id_from_msg(msg))
-        })
-        .or_else(|| {
-            ctx.cache
-                .message_extract(msg.channel_id, cached_message_extract)
-        });
+                if let Some(id) = reply.and_then(|msg| map_id_from_msg(msg)) {
+                    map_args.map = Some(id);
+                }
+
+                _map(ctx, CommandData::Message { msg, args, num }, map_args).await
+            }
+            Err(content) => msg.error(&ctx, content).await,
+        },
+        CommandData::Interaction { command } => slash_map(ctx, command).await,
+    }
+}
+
+async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotResult<()> {
+    let MapArgs { map, mods } = args;
+    let author_id = data.author()?.id;
+    let channel_id = data.channel_id();
+
+    let map_id_opt = map.or_else(|| {
+        ctx.cache
+            .message_extract(channel_id, cached_message_extract)
+    });
 
     let map_id = if let Some(id) = map_id_opt {
         id
     } else {
-        let msgs = match ctx.retrieve_channel_history(msg.channel_id).await {
+        let msgs = match ctx.retrieve_channel_history(channel_id).await {
             Ok(msgs) => msgs,
             Err(why) => {
-                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+                let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
                 return Err(why);
             }
@@ -74,12 +95,12 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
                     Try specifying a map(set) either by url to the map, \
                     or just by map(set) id.";
 
-                return msg.error(&ctx, content).await;
+                return data.error(&ctx, content).await;
             }
         }
     };
 
-    let mods = match args.mods {
+    let mods = match mods {
         Some(selection) => selection.mods(),
         None => GameMods::NoMod,
     };
@@ -97,7 +118,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
                         Ok(map) => (map.mapset_id, Some(id)),
                         Err(OsuError::NotFound) => (id, None),
                         Err(why) => {
-                            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+                            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
                             return Err(why.into());
                         }
@@ -135,10 +156,10 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         Err(OsuError::NotFound) => {
             let content = format!("Could find neither map nor mapset with id {}", mapset_id);
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -147,7 +168,7 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
     let map_count = maps.len();
 
     let map_idx = if maps.is_empty() {
-        return msg.error(&ctx, "The mapset has no maps").await;
+        return data.error(&ctx, "The mapset has no maps").await;
     } else {
         map_id
             .and_then(|map_id| maps.iter().position(|map| map.map_id == map_id))
@@ -194,28 +215,24 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         (map_idx + 1, map_count),
     );
 
-    let data = match data_fut.await {
+    let embed_data = match data_fut.await {
         Ok(data) => data,
         Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
     };
 
     // Sending the embed
-    let embed = &[data.into_builder().build()];
-    let m = ctx.http.create_message(msg.channel_id).embeds(embed)?;
+    let embed = embed_data.into_builder().build();
+    let mut builder = MessageBuilder::new().embed(embed);
 
-    let response = if let Some(ref graph) = graph {
-        m.files(&[("map_graph.png", graph)])
-            .exec()
-            .await?
-            .model()
-            .await?
-    } else {
-        m.exec().await?.model().await?
-    };
+    if let Some(bytes) = graph.as_deref() {
+        builder = builder.file("map_graph.png", bytes);
+    }
+
+    let response_raw = data.create_message(&ctx, builder).await?;
 
     // Add mapset and maps to database
     let (mapset_result, maps_result) = tokio::join!(
@@ -236,9 +253,11 @@ async fn map(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
         return Ok(());
     }
 
+    let response = data.get_response(&ctx, response_raw).await?;
+
     // Pagination
     let pagination = MapPagination::new(response, mapset, maps, mods, map_idx, graph.is_none());
-    let owner = msg.author.id;
+    let owner = author_id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -369,5 +388,112 @@ trait TupleExt: Sized {
 impl TupleExt for (u64, u64, u64) {
     fn add(self, other: (u64, u64, u64)) -> Self {
         (self.0 + other.0, self.1 + other.1, self.2 + other.2)
+    }
+}
+
+struct MapArgs {
+    map: Option<MapIdType>,
+    mods: Option<ModSelection>,
+}
+
+impl MapArgs {
+    const ERR_PARSE_MAP: &'static str = "Failed to parse map url.\n\
+        Be sure you specify a valid map id or url to a map.";
+
+    const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
+        Be sure it's a valid mod abbreviation e.g. `hdhr`.";
+
+    fn args(args: &mut Args) -> Result<Self, String> {
+        let mut map = None;
+        let mut mods = None;
+
+        for arg in args.take(2) {
+            if let Some(id) =
+                matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg))
+            {
+                map = Some(id);
+            } else if let Some(mods_) = matcher::get_mods(arg) {
+                mods = Some(mods_);
+            } else {
+                let content = format!(
+                    "Failed to parse `{}`.\n\
+                    Be sure you specify either a valid map id, map url, or mod combination.",
+                    arg
+                );
+
+                return Err(content);
+            }
+        }
+
+        Ok(Self { map, mods })
+    }
+
+    fn slash(command: &mut ApplicationCommand) -> BotResult<Result<Self, &'static str>> {
+        let mut map = None;
+        let mut mods = None;
+
+        for option in command.yoink_options() {
+            match option {
+                CommandDataOption::String { name, value } => match name.as_str() {
+                    "map" => match matcher::get_osu_map_id(&value)
+                        .or_else(|| matcher::get_osu_mapset_id(&value))
+                    {
+                        Some(id) => map = Some(id),
+                        None => return Ok(Err(Self::ERR_PARSE_MAP)),
+                    },
+                    "mods" => match matcher::get_mods(&value) {
+                        Some(mods_) => mods = Some(mods_),
+                        None => match value.parse() {
+                            Ok(mods_) => mods = Some(ModSelection::Exact(mods_)),
+                            Err(_) => return Ok(Err(Self::ERR_PARSE_MODS)),
+                        },
+                    },
+                    _ => bail_cmd_option!("map", string, name),
+                },
+                CommandDataOption::Integer { name, .. } => {
+                    bail_cmd_option!("map", integer, name)
+                }
+                CommandDataOption::Boolean { name, .. } => {
+                    bail_cmd_option!("map", boolean, name)
+                }
+                CommandDataOption::SubCommand { name, .. } => {
+                    bail_cmd_option!("map", subcommand, name)
+                }
+            }
+        }
+
+        Ok(Ok(Self { map, mods }))
+    }
+}
+
+pub async fn slash_map(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    match MapArgs::slash(&mut command)? {
+        Ok(args) => _map(ctx, command.into(), args).await,
+        Err(content) => command.error(&ctx, content).await,
+    }
+}
+
+pub fn slash_map_command() -> Command {
+    Command {
+        application_id: None,
+        guild_id: None,
+        name: "map".to_owned(),
+        default_permission: None,
+        description: "Display a bunch of stats about a map(set)".to_owned(),
+        id: None,
+        options: vec![
+            CommandOption::String(ChoiceCommandOptionData {
+                choices: vec![],
+                description: "Specify a map url or map id".to_owned(),
+                name: "map".to_owned(),
+                required: false,
+            }),
+            CommandOption::String(ChoiceCommandOptionData {
+                choices: vec![],
+                description: "Specify mods".to_owned(),
+                name: "mods".to_owned(),
+                required: false,
+            }),
+        ],
     }
 }

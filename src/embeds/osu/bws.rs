@@ -2,7 +2,7 @@ use crate::{embeds::Author, util::numbers::with_comma_uint};
 
 use itertools::Itertools;
 use rosu_v2::model::user::User;
-use std::{collections::BTreeMap, fmt::Write, iter};
+use std::{collections::BTreeMap, fmt::Write, iter, mem};
 
 pub struct BWSEmbed {
     description: String,
@@ -12,24 +12,48 @@ pub struct BWSEmbed {
 }
 
 impl BWSEmbed {
-    pub fn new(user: User, badges: usize, rank: Option<(u32, u32)>) -> Self {
+    pub fn new(user: User, badges_min: usize, badges_max: usize, rank: Option<u32>) -> Self {
         let stats = user.statistics.as_ref().unwrap();
 
+        let dist_badges = badges_max - badges_min;
+        let step_dist = 2;
+
+        let badges: Vec<_> = (badges_min..badges_max)
+            .step_by(dist_badges / step_dist)
+            .take(step_dist)
+            .chain(iter::once(badges_max))
+            .map(|badges| (badges, with_comma_uint(badges).to_string().len()))
+            .collect();
+
         let description = match rank {
-            Some((min, max)) => {
+            Some(rank_arg) => {
+                let mut min = rank_arg;
+                let mut max = user
+                    .statistics
+                    .as_ref()
+                    .and_then(|stats| stats.global_rank)
+                    .unwrap_or(0);
+
+                if min > max {
+                    mem::swap(&mut min, &mut max);
+                }
+
                 let rank_len = max.to_string().len().max(6) + 1;
-                let dist = (max - min) as usize;
-                let step = 3;
+                let dist_rank = (max - min) as usize;
+                let step_rank = 3;
 
                 let bwss: BTreeMap<_, _> = (min..max)
-                    .step_by((dist / step).max(1))
-                    .take(step)
+                    .step_by((dist_rank / step_rank).max(1))
+                    .take(step_rank)
                     .chain(iter::once(max))
                     .unique()
                     .map(|rank| {
-                        let bwss = (badges..=badges + 2)
-                            .map(move |badges| with_comma_uint(bws(Some(rank), badges)).to_string())
-                            .collect::<Vec<_>>();
+                        let bwss: Vec<_> = badges
+                            .iter()
+                            .map(move |(badges, _)| {
+                                with_comma_uint(bws(Some(rank), *badges)).to_string()
+                            })
+                            .collect();
 
                         (rank, bwss)
                     })
@@ -42,6 +66,7 @@ impl BWSEmbed {
                             .map(|bwss| bwss.get(n).unwrap().len())
                             .fold(0, |max, next| max.max(next))
                             .max(2)
+                            .max(badges[n].1)
                     })
                     .collect();
 
@@ -52,9 +77,9 @@ impl BWSEmbed {
                     content,
                     " {:>rank_len$} | {:^len1$} | {:^len2$} | {:^len3$}",
                     "Badges>",
-                    badges,
-                    badges + 1,
-                    badges + 2,
+                    badges[0].0,
+                    badges[1].0,
+                    badges[2].0,
                     rank_len = rank_len,
                     len1 = max[0],
                     len2 = max[1],
@@ -94,21 +119,21 @@ impl BWSEmbed {
                 content
             }
             None => {
-                let bws1 = with_comma_uint(bws(stats.global_rank, badges)).to_string();
-                let bws2 = with_comma_uint(bws(stats.global_rank, badges + 1)).to_string();
-                let bws3 = with_comma_uint(bws(stats.global_rank, badges + 2)).to_string();
-                let len1 = bws1.len().max(2);
-                let len2 = bws2.len().max(2);
-                let len3 = bws3.len().max(2);
+                let bws1 = with_comma_uint(bws(stats.global_rank, badges[0].0)).to_string();
+                let bws2 = with_comma_uint(bws(stats.global_rank, badges[1].0)).to_string();
+                let bws3 = with_comma_uint(bws(stats.global_rank, badges[2].0)).to_string();
+                let len1 = bws1.len().max(2).max(badges[0].1);
+                let len2 = bws2.len().max(2).max(badges[1].1);
+                let len3 = bws3.len().max(2).max(badges[2].1);
                 let mut content = String::with_capacity(128);
                 content.push_str("```\n");
 
                 let _ = writeln!(
                     content,
                     "Badges | {:^len1$} | {:^len2$} | {:^len3$}",
-                    badges,
-                    badges + 1,
-                    badges + 2,
+                    badges[0].0,
+                    badges[1].0,
+                    badges[2].0,
                     len1 = len1,
                     len2 = len2,
                     len3 = len3,
@@ -142,11 +167,13 @@ impl BWSEmbed {
             }
         };
 
+        let curr_badges = user.badges.as_ref().map_or(0, Vec::len);
+
         let title = format!(
             "Current BWS for {} badge{}: {}",
-            badges,
-            if badges == 1 { "" } else { "s" },
-            with_comma_uint(bws(stats.global_rank, badges))
+            curr_badges,
+            if curr_badges == 1 { "" } else { "s" },
+            with_comma_uint(bws(stats.global_rank, curr_badges))
         );
 
         Self {

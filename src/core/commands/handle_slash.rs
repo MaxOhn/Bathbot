@@ -40,8 +40,10 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
 
             process_command(ctx, command, args, fun::slash_backgroundgame).await
         }
+        "bws" => process_command(ctx, command, args, osu::slash_bws).await,
         "commands" => process_command(ctx, command, args, utility::slash_commands).await,
         "compare" => process_command(ctx, command, args, osu::slash_compare).await,
+        "fix" => process_command(ctx, command, args, osu::slash_fix).await,
         "help" => {
             let is_authority = super::check_authority(&ctx, &command).transpose().is_none();
 
@@ -51,6 +53,7 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
         }
         "invite" => process_command(ctx, command, args, utility::slash_invite).await,
         "link" => process_command(ctx, command, args, osu::slash_link).await,
+        "map" => process_command(ctx, command, args, osu::slash_map).await,
         "matchcost" => process_command(ctx, command, args, osu::slash_matchcost).await,
         "matchlive" => {
             args.authority = true;
@@ -87,6 +90,7 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
         }
         "roll" => process_command(ctx, command, args, utility::slash_roll).await,
         "search" => process_command(ctx, command, args, osu::slash_mapsearch).await,
+        "simulate" => process_command(ctx, command, args, osu::slash_simulate).await,
         "snipe" => {
             args.bucket.replace(BucketName::Snipe);
 

@@ -1,21 +1,23 @@
-use super::ScoreArgs;
 use crate::{
     embeds::{CompareEmbed, EmbedData, NoScoresEmbed},
     tracking::process_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        matcher,
         osu::{
             cached_message_extract, map_id_from_history, map_id_from_msg, MapIdType, ModSelection,
         },
         MessageExt,
     },
-    BotResult, CommandData, CommandDataCompact, Context, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
 use rosu_v2::prelude::{GameMods, OsuError, RankStatus::Ranked};
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 use tokio::time::{sleep, Duration};
-use twilight_model::channel::message::MessageType;
+use twilight_model::{
+    application::interaction::application_command::CommandDataOption, channel::message::MessageType,
+};
 
 #[command]
 #[short_desc("Compare a player's score on a map")]
@@ -33,59 +35,24 @@ use twilight_model::channel::message::MessageType;
 )]
 #[aliases("c")]
 async fn compare(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    // let args = NameMapModArgs::new(&ctx, args);
+    match data {
+        CommandData::Message { msg, mut args, num } => match ScoreArgs::args(&ctx, &mut args) {
+            Ok(mut score_args) => {
+                let reply = msg
+                    .referenced_message
+                    .as_ref()
+                    .filter(|msg| msg.kind == MessageType::Reply);
 
-    // let map_id_opt = args
-    //     .map_id
-    //     .or_else(|| {
-    //         msg.referenced_message
-    //             .as_ref()
-    //             .filter(|_| msg.kind == MessageType::Reply)
-    //             .and_then(|msg| map_id_from_msg(msg))
-    //     })
-    //     .or_else(|| {
-    //         ctx.cache
-    //             .message_extract(msg.channel_id, cached_message_extract)
-    //     });
+                if let Some(id) = reply.and_then(|msg| map_id_from_msg(msg)) {
+                    score_args.map = Some(id);
+                }
 
-    // let map_id = if let Some(id) = map_id_opt {
-    //     id
-    // } else {
-    //     let msgs = match ctx.retrieve_channel_history(msg.channel_id).await {
-    //         Ok(msgs) => msgs,
-    //         Err(why) => {
-    //             let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-    //             return Err(why);
-    //         }
-    //     };
-
-    //     match map_id_from_history(&msgs) {
-    //         Some(id) => id,
-    //         None => {
-    //             let content = "No beatmap specified and none found in recent channel history. \
-    //                 Try specifying a map either by url to the map, or just by map id.";
-
-    //             return data.error(&ctx, content).await;
-    //         }
-    //     }
-    // };
-
-    // let map_id = match map_id {
-    //     MapIdType::Map(id) => id,
-    //     MapIdType::Set(_) => {
-    //         let content = "Looks like you gave me a mapset id, I need a map id though";
-
-    //         return data.error(&ctx, content).await;
-    //     }
-    // };
-
-    // let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
-    //     Some(name) => name,
-    //     None => return super::require_link(&ctx, &data).await,
-    // };
-
-    todo!()
+                _compare(ctx, CommandData::Message { msg, args, num }, score_args).await
+            }
+            Err(content) => msg.error(&ctx, content).await,
+        },
+        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+    }
 }
 
 pub(super) async fn _compare(
@@ -93,7 +60,7 @@ pub(super) async fn _compare(
     data: CommandData<'_>,
     args: ScoreArgs,
 ) -> BotResult<()> {
-    let ScoreArgs { name, mods, map_id } = args;
+    let ScoreArgs { name, mods, map } = args;
 
     let name = match name {
         Some(name) => name,
@@ -101,6 +68,45 @@ pub(super) async fn _compare(
             Some(name) => name,
             None => return super::require_link(&ctx, &data).await,
         },
+    };
+
+    let channel_id = data.channel_id();
+
+    let map_id_opt = map.or_else(|| {
+        ctx.cache
+            .message_extract(channel_id, cached_message_extract)
+    });
+
+    let map_id = if let Some(id) = map_id_opt {
+        id
+    } else {
+        let msgs = match ctx.retrieve_channel_history(channel_id).await {
+            Ok(msgs) => msgs,
+            Err(why) => {
+                let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(why);
+            }
+        };
+
+        match map_id_from_history(&msgs) {
+            Some(id) => id,
+            None => {
+                let content = "No beatmap specified and none found in recent channel history. \
+                    Try specifying a map either by url to the map, or just by map id.";
+
+                return data.error(&ctx, content).await;
+            }
+        }
+    };
+
+    let map_id = match map_id {
+        MapIdType::Map(id) => id,
+        MapIdType::Set(_) => {
+            let content = "Looks like you gave me a mapset id, I need a map id though";
+
+            return data.error(&ctx, content).await;
+        }
     };
 
     let arg_mods = match mods {
@@ -221,7 +227,7 @@ pub(super) async fn _compare(
         process_tracking(&ctx, mode, scores, Some(&user)).await;
     }
 
-    let data: CommandDataCompact = data.into();
+    let data = data.compact();
 
     // Wait for minimizing
     tokio::spawn(async move {
@@ -292,4 +298,84 @@ async fn no_scores(
     data.create_message(&ctx, builder).await?;
 
     Ok(())
+}
+
+pub(super) struct ScoreArgs {
+    name: Option<Name>,
+    mods: Option<ModSelection>,
+    map: Option<MapIdType>,
+}
+
+impl ScoreArgs {
+    const ERR_PARSE_MAP: &'static str = "Failed to parse map url.\n\
+        Be sure you specify a valid map id or url to a map.";
+
+    const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
+        Be sure it's a valid mod abbreviation e.g. `hdhr`.";
+
+    fn args(ctx: &Context, args: &mut Args) -> Result<Self, &'static str> {
+        let mut name = None;
+        let mut map = None;
+        let mut mods = None;
+
+        for arg in args.take(3) {
+            if let Some(mods_) = matcher::get_mods(arg) {
+                mods.replace(mods_);
+            } else if let Some(id) =
+                matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg))
+            {
+                map = Some(id);
+            } else {
+                name = Some(Args::try_link_name(ctx, arg)?);
+            }
+        }
+
+        Ok(Self { name, map, mods })
+    }
+
+    pub(super) fn slash(
+        ctx: &Context,
+        options: Vec<CommandDataOption>,
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let mut username = None;
+        let mut map = None;
+        let mut mods = None;
+
+        for option in options {
+            match option {
+                CommandDataOption::String { name, value } => match name.as_str() {
+                    "name" => username = Some(value.into()),
+                    "discord" => username = parse_discord_option!(ctx, value, "compare score"),
+                    "map" => match matcher::get_osu_map_id(&value)
+                        .or_else(|| matcher::get_osu_mapset_id(&value))
+                    {
+                        Some(id) => map = Some(id),
+                        None => return Ok(Err(Self::ERR_PARSE_MAP.into())),
+                    },
+                    "mods" => match value.parse() {
+                        Ok(mods_) => mods = Some(ModSelection::Include(mods_)),
+                        Err(_) => return Ok(Err(Self::ERR_PARSE_MODS.into())),
+                    },
+                    _ => bail_cmd_option!("compare score", string, name),
+                },
+                CommandDataOption::Integer { name, .. } => {
+                    bail_cmd_option!("compare score", integer, name)
+                }
+                CommandDataOption::Boolean { name, .. } => {
+                    bail_cmd_option!("compare score", boolean, name)
+                }
+                CommandDataOption::SubCommand { name, .. } => {
+                    bail_cmd_option!("compare score", subcommand, name)
+                }
+            }
+        }
+
+        let args = ScoreArgs {
+            name: username,
+            mods,
+            map,
+        };
+
+        Ok(Ok(args))
+    }
 }

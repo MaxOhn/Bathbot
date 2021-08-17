@@ -146,7 +146,7 @@ impl MapSearchArgs {
                     "2" | "ctb" | "fruits" | "catch" => GameMode::CTB,
                     "3" | "mna" | "mania" => GameMode::MNA,
                     _ => {
-                        let msg = "Could not parse mode. After `mode=` you must \
+                        let msg = "Failed to parse `mode`. After `mode=` you must \
                         specify the mode either by its name or by its number i.e. \
                         0=osu, 1=taiko, 2=ctb, 3=mania.";
 
@@ -178,7 +178,7 @@ impl MapSearchArgs {
                     "any" => Some(SearchRankStatus(None)),
                     "leaderboard" => None,
                     _ => {
-                        let msg = "Could not parse status. After `status=` you must \
+                        let msg = "Failed to parse `status`. After `status=` you must \
                         specify any of the following options: `ranked`, `loved`, `qualified`, \
                         `pending`, `graveyard`, `any`, or `leaderboard`";
 
@@ -217,7 +217,7 @@ impl MapSearchArgs {
                     "folk" => Genre::Folk,
                     "jazz" => Genre::Jazz,
                     _ => {
-                        let msg = "Could not parse genre. After `genre=` you must \
+                        let msg = "Failed to parse `genre`. After `genre=` you must \
                         specify any of the following options: `any`, `unspecified`, \
                         `videogame`, `anime`, `rock`, `pop`, `other`, `novelty`, `hiphop`, \
                         `electronic`, `metal`, `classical`, `folk`, or `jazz`.";
@@ -258,7 +258,7 @@ impl MapSearchArgs {
                     "unspecified" => Language::Unspecified,
                     "other" => Language::Other,
                     _ => {
-                        let msg = "Could not parse language. After `language=` you must \
+                        let msg = "Failed to parse `language`. After `language=` you must \
                         specify any of the following options: `any`, `english`, `chinese`, \
                         `french`, `german`, `italian`, `japanese`, `korean`, `spanish`, `swdish`, \
                         `russian`, `polish`, `instrumental`, `unspecified`, or `other`.";
@@ -285,7 +285,7 @@ impl MapSearchArgs {
                 let video = match query[start + "video=".len()..end].parse() {
                     Ok(video) => video,
                     Err(_) => {
-                        let msg = "Could not parse video boolean. After `video=` \
+                        let msg = "Failed to parse `video` boolean. After `video=` \
                         you must specify either `true` or `false`.";
 
                         return Err(msg);
@@ -310,7 +310,7 @@ impl MapSearchArgs {
                 let storyboard = match query[start + "storyboard=".len()..end].parse() {
                     Ok(storyboard) => storyboard,
                     Err(_) => {
-                        let msg = "Could not parse storyboard boolean. After `storyboard=` \
+                        let msg = "Failed to parse `storyboard` boolean. After `storyboard=` \
                         you must specify either `true` or `false`.";
 
                         return Err(msg);
@@ -335,7 +335,7 @@ impl MapSearchArgs {
                 let nsfw = match query[start + "nsfw=".len()..end].parse() {
                     Ok(nsfw) => nsfw,
                     Err(_) => {
-                        let msg = "Could not parse nsfw boolean. After `nsfw=` \
+                        let msg = "Failed to parse `nsfw` boolean. After `nsfw=` \
                         you must specify either `true` or `false`.";
 
                         return Err(msg);
@@ -367,7 +367,7 @@ impl MapSearchArgs {
                     "stars" | "difficulty" => BeatmapsetSearchSort::Stars,
                     "title" => BeatmapsetSearchSort::Title,
                     _ => {
-                        let msg = "Could not parse sort. After `sort=` you must \
+                        let msg = "Failed to parse `sort`. After `sort=` you must \
                         specify any of the following options: `artist`, `favourites`, `playcount`, \
                         `rankeddate`, `rating`, `relevance`, `difficulty`, or `title`.";
 

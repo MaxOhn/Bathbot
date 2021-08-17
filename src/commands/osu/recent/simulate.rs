@@ -6,7 +6,7 @@ use crate::{
         osu::ModSelection,
         MessageExt,
     },
-    Args, BotResult, CommandData, CommandDataCompact, Context, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -101,7 +101,7 @@ pub(super) async fn _recentsimulate(
     let mapset = score.mapset.take().unwrap();
 
     // Accumulate all necessary data
-    let embed_data = match SimulateEmbed::new(Some(score), &map, &mapset, args).await {
+    let embed_data = match SimulateEmbed::new(Some(score), &map, &mapset, args.into()).await {
         Ok(data) => data,
         Err(why) => {
             let _ = data.error(&ctx, GENERAL_ISSUE).await;
@@ -112,9 +112,8 @@ pub(super) async fn _recentsimulate(
 
     // Creating the embed
     let embed = embed_data.as_builder().build();
-    let builder = MessageBuilder::new()
-        .content("Simulated score:")
-        .embed(embed);
+    let content = "Simulated score:";
+    let builder = MessageBuilder::new().content(content).embed(embed);
     let response = data.create_message(&ctx, builder).await?;
 
     // TODO
@@ -129,7 +128,7 @@ pub(super) async fn _recentsimulate(
         )
     }
 
-    let data: CommandDataCompact = data.into();
+    let data = data.compact();
 
     // Set map on garbage collection list if unranked
     let gb = ctx.map_garbage_collector(&map);
@@ -258,9 +257,9 @@ pub async fn simulaterecentctb(ctx: Arc<Context>, data: CommandData) -> BotResul
 }
 
 pub struct RecentSimulateArgs {
-    pub name: Option<Name>,
-    pub index: Option<usize>,
-    pub mode: GameMode,
+    pub(super) name: Option<Name>,
+    pub(super) index: Option<usize>,
+    pub(super) mode: GameMode,
     pub mods: Option<ModSelection>,
     pub n300: Option<usize>,
     pub n100: Option<usize>,
@@ -343,8 +342,8 @@ impl RecentSimulateArgs {
                         return Err(content.into());
                     }
                 }
-            } else if let Some(m) = matcher::get_mods(arg) {
-                mods.replace(m);
+            } else if let Some(mods_) = matcher::get_mods(arg) {
+                mods.replace(mods_);
             } else {
                 name = Some(Args::try_link_name(ctx, arg)?);
             }
@@ -363,16 +362,5 @@ impl RecentSimulateArgs {
             combo,
             score,
         })
-    }
-
-    pub fn is_some(&self) -> bool {
-        self.acc.is_some()
-            || self.mods.is_some()
-            || self.combo.is_some()
-            || self.misses.is_some()
-            || self.score.is_some()
-            || self.n300.is_some()
-            || self.n100.is_some()
-            || self.n50.is_some()
     }
 }

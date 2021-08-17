@@ -117,20 +117,22 @@ pub(super) async fn _scores(
 #[short_desc("All scores of a player that are on a map's global leaderboard")]
 #[long_desc(
     "Show all scores of a player that are on a map's global leaderboard.\n\
-    Rank and accuracy range can be specified with `-r` and `-a`. \
-    After this keyword, you must specify either a number for max rank/acc, \
-    or two numbers of the form `a..b` for min and max rank/acc.\n\
-    There are several available orderings: Accuracy with `--a`, combo with `--c`, \
-    pp with `--p`, rank with `--r`, score with `--s`, misses with `--m`, \
-    and the default: date.\n\
-    By default the scores are sorted in descending order. To reverse, specify `--asc`.\n\
-    Mods can also be specified.\n\
+    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
+    There are also multiple options you can set by specifying `key=value`.\n\
+    These are the keys with their values:\n\
+    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
+    - `rank`: single integer or two integers of the form `a..b` e.g. `rank=2..45`\n\
+    - `sort`: `acc`, `combo`, `date` (default), `misses`, `pp`, `rank`, or `score`\n\
+    - `reverse`: `true` or `false` (default)\n\
     Check https://osustats.ppy.sh/ for more info."
 )]
-#[usage("[username] [mods] [-a [num..]num] [-r [num..]num] [--a/--c/--p/--r/--s/--m] [--asc]")]
+#[usage(
+    "[username] [mods] [acc=[number..]number] [rank=[integer..]integer] \
+    [sort=acc/combo/date/misses/pp/rank/score] [reverse=true/false]"
+)]
 #[example(
-    "badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc",
-    "vaxei +hdhr -r 1..5 --r"
+    "badewanne3 -dt! acc=97.5..99.5 rank=42 sort=pp reverse=true",
+    "vaxei sort=rank rank=1..5 +hdhr"
 )]
 #[aliases("osg", "osustatsglobal")]
 pub async fn osustatsglobals(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
@@ -149,20 +151,22 @@ pub async fn osustatsglobals(ctx: Arc<Context>, data: CommandData) -> BotResult<
 #[short_desc("All scores of a player that are on a map's global leaderboard")]
 #[long_desc(
     "Show all scores of a player that are on a mania map's global leaderboard.\n\
-    Rank and accuracy range can be specified with `-r` and `-a`. \
-    After this keyword, you must specify either a number for max rank/acc, \
-    or two numbers of the form `a..b` for min and max rank/acc.\n\
-    There are several available orderings: Accuracy with `--a`, combo with `--c`, \
-    pp with `--p`, rank with `--r`, score with `--s`, misses with `--m`, \
-    and the default: date.\n\
-    By default the scores are sorted in descending order. To reverse, specify `--asc`.\n\
-    Mods can also be specified.\n\
+    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
+    There are also multiple options you can set by specifying `key=value`.\n\
+    These are the keys with their values:\n\
+    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
+    - `rank`: single integer or two integers of the form `a..b` e.g. `rank=2..45`\n\
+    - `sort`: `acc`, `combo`, `date` (default), `misses`, `pp`, `rank`, or `score`\n\
+    - `reverse`: `true` or `false` (default)\n\
     Check https://osustats.ppy.sh/ for more info."
 )]
-#[usage("[username] [mods] [-a [num..]num] [-r [num..]num] [--a/--c/--p/--r/--s/--m] [--asc]")]
+#[usage(
+    "[username] [mods] [acc=[number..]number] [rank=[integer..]integer] \
+    [sort=acc/combo/date/misses/pp/rank/score] [reverse=true/false]"
+)]
 #[example(
-    "badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc",
-    "vaxei +hdhr -r 1..5 --r"
+    "badewanne3 -dt! acc=97.5..99.5 rank=42 sort=pp reverse=true",
+    "vaxei sort=rank rank=1..5 +hdhr"
 )]
 #[aliases("osgm", "osustatsglobalmania")]
 pub async fn osustatsglobalsmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
@@ -181,20 +185,22 @@ pub async fn osustatsglobalsmania(ctx: Arc<Context>, data: CommandData) -> BotRe
 #[short_desc("All scores of a player that are on a map's global leaderboard")]
 #[long_desc(
     "Show all scores of a player that are on a taiko map's global leaderboard.\n\
-    Rank and accuracy range can be specified with `-r` and `-a`. \
-    After this keyword, you must specify either a number for max rank/acc, \
-    or two numbers of the form `a..b` for min and max rank/acc.\n\
-    There are several available orderings: Accuracy with `--a`, combo with `--c`, \
-    pp with `--p`, rank with `--r`, score with `--s`, misses with `--m`, \
-    and the default: date.\n\
-    By default the scores are sorted in descending order. To reverse, specify `--asc`.\n\
-    Mods can also be specified.\n\
+    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
+    There are also multiple options you can set by specifying `key=value`.\n\
+    These are the keys with their values:\n\
+    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
+    - `rank`: single integer or two integers of the form `a..b` e.g. `rank=2..45`\n\
+    - `sort`: `acc`, `combo`, `date` (default), `misses`, `pp`, `rank`, or `score`\n\
+    - `reverse`: `true` or `false` (default)\n\
     Check https://osustats.ppy.sh/ for more info."
 )]
-#[usage("[username] [mods] [-a [num..]num] [-r [num..]num] [--a/--c/--p/--r/--s/--m] [--asc]")]
+#[usage(
+    "[username] [mods] [acc=[number..]number] [rank=[integer..]integer] \
+    [sort=acc/combo/date/misses/pp/rank/score] [reverse=true/false]"
+)]
 #[example(
-    "badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc",
-    "vaxei +hdhr -r 1..5 --r"
+    "badewanne3 -dt! acc=97.5..99.5 rank=42 sort=pp reverse=true",
+    "vaxei sort=rank rank=1..5 +hdhr"
 )]
 #[aliases("osgt", "osustatsglobaltaiko")]
 pub async fn osustatsglobalstaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
@@ -213,20 +219,22 @@ pub async fn osustatsglobalstaiko(ctx: Arc<Context>, data: CommandData) -> BotRe
 #[short_desc("All scores of a player that are on a map's global leaderboard")]
 #[long_desc(
     "Show all scores of a player that are on a ctb map's global leaderboard.\n\
-    Rank and accuracy range can be specified with `-r` and `-a`. \
-    After this keyword, you must specify either a number for max rank/acc, \
-    or two numbers of the form `a..b` for min and max rank/acc.\n\
-    There are several available orderings: Accuracy with `--a`, combo with `--c`, \
-    pp with `--p`, rank with `--r`, score with `--s`, misses with `--m`, \
-    and the default: date.\n\
-    By default the scores are sorted in descending order. To reverse, specify `--asc`.\n\
-    Mods can also be specified.\n\
+    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
+    There are also multiple options you can set by specifying `key=value`.\n\
+    These are the keys with their values:\n\
+    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
+    - `rank`: single integer or two integers of the form `a..b` e.g. `rank=2..45`\n\
+    - `sort`: `acc`, `combo`, `date` (default), `misses`, `pp`, `rank`, or `score`\n\
+    - `reverse`: `true` or `false` (default)\n\
     Check https://osustats.ppy.sh/ for more info."
 )]
-#[usage("[username] [mods] [-a [num..]num] [-r [num..]num] [--a/--c/--p/--r/--s/--m] [--asc]")]
+#[usage(
+    "[username] [mods] [acc=[number..]number] [rank=[integer..]integer] \
+    [sort=acc/combo/date/misses/pp/rank/score] [reverse=true/false]"
+)]
 #[example(
-    "badewanne3 -dt! -a 97.5..99.5 -r 42 --p --asc",
-    "vaxei +hdhr -r 1..5 --r"
+    "badewanne3 -dt! acc=97.5..99.5 rank=42 sort=pp reverse=true",
+    "vaxei sort=rank rank=1..5 +hdhr"
 )]
 #[aliases("osgc", "osustatsglobalctb")]
 pub async fn osustatsglobalsctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
@@ -257,15 +265,15 @@ impl ScoresArgs {
     const MIN_RANK: usize = 1;
     const MAX_RANK: usize = 100;
 
-    const ERR_PARSE_ACC: &'static str = "Could not parse accuracy.\n\
+    const ERR_PARSE_ACC: &'static str = "Failed to parse `accuracy`.\n\
         Must be either decimal number \
         or two decimal numbers of the form `a..b` e.g. `97.5..98.5`.";
 
-    const ERR_PARSE_RANK: &'static str = "Could not parse rank.\n\
+    const ERR_PARSE_RANK: &'static str = "Failed to parse `rank`.\n\
         Must be either a positive integer \
         or two positive integers of the form `a..b` e.g. `2..45`.";
 
-    const ERR_PARSE_MODS: &'static str = "Could not parse mods.\n\
+    const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
         If you want included mods, specify it e.g. as `+hrdt`.\n\
         If you want exact mods, specify it e.g. as `+hdhr!`.\n\
         And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
@@ -362,8 +370,8 @@ impl ScoresArgs {
                         "score" | "s" => order = Some(OsuStatsOrder::Score),
                         "misses" | "miss" | "m" => order = Some(OsuStatsOrder::Misses),
                         _ => {
-                            let content = "Could not parse sort.\n\
-                            Must be either `todo`, or `todo`";
+                            let content = "Failed to parse `sort`.\n\
+                                Must be either `acc`, `combo`, `date`, `misses`, `pp`, `rank`, or `score`.";
 
                             return Err(content.into());
                         }
@@ -373,7 +381,7 @@ impl ScoresArgs {
                         "false" | "0" => descending = Some(true),
                         _ => {
                             let content =
-                                "Could not parse reverse. Must be either `true` or `false`.";
+                                "Failed to parse `reverse`. Must be either `true` or `false`.";
 
                             return Err(content.into());
                         }

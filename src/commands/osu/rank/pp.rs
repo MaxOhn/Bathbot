@@ -317,7 +317,7 @@ impl PpArgs {
         }
 
         const COUNTRY_PARSE_ERROR: &str =
-            "Could not parse rank. Provide it either as positive number \
+            "Failed to parse `rank`. Provide it either as positive number \
             or as country acronym followed by a positive number e.g. `be10` \
             as one of the first two arguments.";
 

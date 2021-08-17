@@ -40,7 +40,7 @@ async fn addbg(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             "mna" | "mania" | "m" => GameMode::MNA,
             "osu" | "std" | "standard" | "o" => GameMode::STD,
             _ => {
-                let content = "Could not parse first argument as mode. \
+                let content = "Failed to parse first argument as mode. \
                     Provide either `mna`, or `std`";
                 return msg.error(&ctx, content).await;
             }

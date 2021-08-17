@@ -158,7 +158,7 @@ impl RoleAssignArgs {
                         Ok(num) => msg = Some(MessageId(num)),
                         Err(_) => {
                             let content =
-                                "Could not parse message id. Be sure its a valid integer.";
+                                "Failed to parse message id. Be sure its a valid integer.";
 
                             return Ok(Err(content));
                         }

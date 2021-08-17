@@ -141,7 +141,7 @@ impl<'s> MessageExt for (InteractionId, &'s str) {
             tts: None,
         });
 
-        // TODO: Use builder.file
+        // TODO: Use builder.file once discord supports it
 
         ctx.http
             .interaction_callback(self.0, self.1, &response)

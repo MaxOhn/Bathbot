@@ -5,12 +5,12 @@ macro_rules! map_id {
 }
 
 mod avatar;
-// mod bws;
+mod bws;
 mod compare;
-// mod fix_score;
-// mod leaderboard;
+mod fix_score;
+mod leaderboard;
 mod link;
-// mod map;
+mod map;
 mod map_search;
 mod match_costs;
 mod match_live;
@@ -23,18 +23,18 @@ mod rank;
 mod ranking;
 mod ratios;
 mod recent;
+mod simulate;
 mod snipe;
-// mod simulate;
 mod top;
 mod whatif;
 
 pub use avatar::*;
-// pub use bws::*;
+pub use bws::*;
 pub use compare::*;
-// pub use fix_score::*;
-// pub use leaderboard::*;
+pub use fix_score::*;
+pub use leaderboard::*;
 pub use link::*;
-// pub use map::*;
+pub use map::*;
 pub use map_search::*;
 pub use match_costs::*;
 pub use match_live::*;
@@ -47,8 +47,8 @@ pub use rank::*;
 pub use ranking::*;
 pub use ratios::*;
 pub use recent::*;
+pub use simulate::*;
 pub use snipe::*;
-// pub use simulate::*;
 pub use top::*;
 pub use whatif::*;
 
@@ -63,7 +63,7 @@ use futures::{
     future::FutureExt,
     stream::{FuturesUnordered, StreamExt},
 };
-use rosu_v2::prelude::{GameMode, OsuError, OsuResult, Score, User};
+use rosu_v2::prelude::{GameMode, Grade, OsuError, OsuResult, Score, User};
 use std::{
     borrow::Cow,
     cmp::PartialOrd,
@@ -294,6 +294,12 @@ async fn get_globals_count(
     }
 
     Ok(counts)
+}
+
+#[derive(Copy, Clone)]
+pub enum GradeArg {
+    Single(Grade),
+    Range { bot: Grade, top: Grade },
 }
 
 pub trait MinMaxAvgBasic {

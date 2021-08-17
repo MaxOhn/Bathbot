@@ -10,9 +10,7 @@ pub use pages::*;
 pub use recent::*;
 pub use simulate::*;
 
-use super::{
-    prepare_score, prepare_scores, request_user, require_link, require_link_msg, ErrorType,
-};
+use super::{prepare_score, prepare_scores, request_user, require_link, ErrorType, GradeArg};
 use crate::{
     util::{osu::ModSelection, ApplicationCommandExt, MessageExt},
     BotResult, Context, Error,
@@ -114,7 +112,7 @@ impl RecentCommandKind {
                                     "mods" => match value.parse() {
                                         Ok(m) => mods = Some(ModSelection::Include(m)),
                                         Err(_) => {
-                                            let content = "Could not parse mods. Be sure to specify a valid abbreviation e.g. hdhr.";
+                                            let content = "Failed to parse mods. Be sure to specify a valid abbreviation e.g. hdhr.";
 
                                             return Ok(Err(content.into()));
                                         }
@@ -232,7 +230,7 @@ impl RecentCommandKind {
                                     "mods" => match value.parse() {
                                         Ok(m) => mods = Some(ModSelection::Include(m)),
                                         Err(_) => {
-                                            let content = "Could not parse mods. Be sure to specify a valid abbreviation e.g. hdhr.";
+                                            let content = "Failed to parse mods. Be sure to specify a valid abbreviation e.g. `hdhr`.";
 
                                             return Ok(Err(content.into()));
                                         }

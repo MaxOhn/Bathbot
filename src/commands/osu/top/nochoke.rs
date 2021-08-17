@@ -389,7 +389,7 @@ impl NochokeArgs {
         let miss_limit = match args.next().map(str::parse) {
             Some(Ok(num)) => Some(num),
             Some(Err(_)) => {
-                let content = "Could not parse second argument as miss limit.\n\
+                let content = "Failed to parse second argument as miss limit.\n\
                     Be sure you specify it as a positive integer.";
 
                 return Err(content);

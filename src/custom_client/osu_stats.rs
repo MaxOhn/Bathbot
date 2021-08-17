@@ -179,15 +179,3 @@ pub struct OsuStatsListParams {
     pub rank_min: usize,
     pub rank_max: usize,
 }
-
-impl OsuStatsListParams {
-    pub fn new(country: Option<impl Into<CountryCode>>) -> Self {
-        Self {
-            country: country.map(|c| c.into()),
-            mode: GameMode::STD,
-            page: 1,
-            rank_min: 1,
-            rank_max: 100,
-        }
-    }
-}

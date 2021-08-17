@@ -129,8 +129,8 @@ fn parse_match_id(options: Vec<CommandDataOption>) -> BotResult<Result<u32, &'st
                 "match_url" => match matcher::get_osu_match_id(value.as_str()) {
                     Some(id) => match_id = Some(id),
                     None => {
-                        let content = "Could not parse match url. Be sure it's \
-                            a valid mp url or a match id";
+                        let content = "Failed to parse match url.\n\
+                            Be sure it's a valid mp url or a match id";
 
                         return Ok(Err(content));
                     }

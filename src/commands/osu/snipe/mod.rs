@@ -300,7 +300,7 @@ fn parse_player_list(
                     None => match value.parse() {
                         Ok(mods_) => mods = Some(ModSelection::Exact(mods_)),
                         Err(_) => {
-                            let content = "Could not parse mods.\n\
+                            let content = "Failed to parse mods.\n\
                             Be sure it's a valid mod abbreviation e.g. `hdhr`.";
 
                             return Ok(Err(content.into()));

@@ -50,23 +50,10 @@ macro_rules! parse_discord_option {
                     return Ok(Err(content.into()));
                 }
             },
-            Err(_) => {
-                bail_cmd_option!(concat!($location, " discord"), string, $value)
-            }
+            Err(_) => bail_cmd_option!(concat!($location, " discord"), string, $value),
         }
     };
 }
-
-/*
-    TODO:
-
-    _osu:_
-    bws
-    fix
-    lb
-    map
-    simulate
-*/
 
 pub mod fun;
 pub mod help;
@@ -97,16 +84,15 @@ pub fn command_groups() -> [CommandGroup; 11] {
             vec![
                 &LINK_CMD,
                 &COMPARE_CMD,
-                // &SIMULATE_CMD,
-                // &MAP_CMD,
-                // &FIX_CMD,
+                &SIMULATE_CMD,
+                &MAP_CMD,
+                &FIX_CMD,
                 &MATCHCOSTS_CMD,
-                // &BWS_CMD,
                 &AVATAR_CMD,
                 &MOSTPLAYED_CMD,
                 &MOSTPLAYEDCOMMON_CMD,
-                // &LEADERBOARD_CMD,
-                // &BELGIANLEADERBOARD_CMD,
+                &LEADERBOARD_CMD,
+                &BELGIANLEADERBOARD_CMD,
                 &MEDAL_CMD,
                 &MEDALSTATS_CMD,
                 &MEDALSMISSING_CMD,
@@ -128,6 +114,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &WHATIF_CMD,
                 &RANK_CMD,
                 &COMMON_CMD,
+                &BWS_CMD,
                 &RECENTLEADERBOARD_CMD,
                 &RECENTBELGIANLEADERBOARD_CMD,
                 &OSUSTATSGLOBALS_CMD,
@@ -323,9 +310,8 @@ pub fn command_groups() -> [CommandGroup; 11] {
     ]
 }
 
-// TODO: Make array when done
-pub fn slash_commands() -> Vec<Command> {
-    vec![
+pub fn slash_commands() -> [Command; 39] {
+    [
         help::slash_help_command(),
         slash_recent_command(),
         slash_compare_command(),
@@ -337,14 +323,19 @@ pub fn slash_commands() -> Vec<Command> {
         slash_snipe_command(),
         slash_matchcost_command(),
         slash_roll_command(),
+        slash_leaderboard_command(),
         slash_whatif_command(),
         slash_pp_command(),
+        slash_map_command(),
         slash_rank_command(),
+        slash_bws_command(),
         slash_medal_command(),
         slash_track_command(),
         slash_mostplayed_command(),
         slash_ranking_command(),
         slash_ping_command(),
+        slash_simulate_command(),
+        slash_fix_command(),
         slash_mapsearch_command(),
         slash_ratio_command(),
         slash_trackstream_command(),

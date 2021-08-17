@@ -226,8 +226,8 @@ impl PlayerListArgs {
                             "stars" | "s" => Some(SnipeScoreOrder::Stars),
                             "length" | "len" | "l" => Some(SnipeScoreOrder::Length),
                             _ => {
-                                let content = "Could not parse sort. \
-                                Must be either `acc`, `mapdate`, `misses`, `scoredate`, `stars`, or `length`.";
+                                let content = "Failed to parse `sort`. \
+                                Must be either `acc`, `length`, `mapdate`, `misses`, `scoredate`, or `stars`.";
 
                                 return Err(content.into());
                             }
@@ -238,7 +238,7 @@ impl PlayerListArgs {
                         "false" | "0" => descending = Some(true),
                         _ => {
                             let content =
-                                "Could not parse reverse. Must be either `true` or `false`.";
+                                "Failed to parse `reverse`. Must be either `true` or `false`.";
 
                             return Err(content.into());
                         }

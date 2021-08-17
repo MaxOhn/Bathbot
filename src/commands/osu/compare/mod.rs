@@ -13,7 +13,7 @@ use super::{
 };
 
 use crate::{
-    util::{matcher, osu::ModSelection, ApplicationCommandExt, MessageExt},
+    util::{matcher, ApplicationCommandExt, MessageExt},
     Args, BotResult, Context, Error, Name,
 };
 
@@ -29,12 +29,6 @@ use twilight_model::application::{
 
 const AT_LEAST_ONE: &str = "You need to specify at least one osu username. \
     If you're not linked, you must specify two names.";
-
-struct ScoreArgs {
-    name: Option<Name>,
-    mods: Option<ModSelection>,
-    map_id: u32,
-}
 
 struct ProfileArgs {
     name1: Option<Name>,
@@ -190,7 +184,10 @@ impl CompareCommandKind {
                     bail_cmd_option!("compare", boolean, name)
                 }
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "score" => todo!(),
+                    "score" => match ScoreArgs::slash(ctx, options)? {
+                        Ok(args) => kind = Some(Self::Score(args)),
+                        Err(content) => return Ok(Err(content)),
+                    },
                     "profile" => {
                         let mut name1 = None;
                         let mut name2 = None;
@@ -491,7 +488,25 @@ pub fn slash_compare_command() -> Command {
             CommandOption::SubCommand(OptionsCommandOptionData {
                 description: "Compare a score".to_owned(),
                 name: "score".to_owned(),
-                options: vec![],
+                options: vec![
+                    CommandOption::String(ChoiceCommandOptionData {
+                        choices: vec![],
+                        description: "Specify a username".to_owned(),
+                        name: "name".to_owned(),
+                        required: false,
+                    }),
+                    CommandOption::String(ChoiceCommandOptionData {
+                        choices: vec![],
+                        description: "Specify a map url or map id".to_owned(),
+                        name: "map".to_owned(),
+                        required: false,
+                    }),
+                    CommandOption::User(BaseCommandOptionData {
+                        description: "Specify a linked discord user".to_owned(),
+                        name: "discord".to_owned(),
+                        required: false,
+                    }),
+                ],
                 required: false,
             }),
             CommandOption::SubCommand(OptionsCommandOptionData {

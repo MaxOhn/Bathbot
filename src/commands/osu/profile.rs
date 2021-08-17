@@ -344,7 +344,7 @@ impl ProfileArgs {
                             "medium" => Some(ProfileSize::Medium),
                             "full" | "big" => Some(ProfileSize::Full),
                             _ => {
-                                let content = "Could not parse size. Must be either `compact`, `medium`, or `full`.";
+                                let content = "Failed to parse `size`. Must be either `compact`, `medium`, or `full`.";
 
                                 return Err(content.into());
                             }

@@ -1,7 +1,7 @@
 use super::Stream;
 use crate::{util::matcher, Context, Name};
 
-use std::{collections::VecDeque, error::Error, fmt, iter};
+use std::{error::Error, fmt};
 
 pub struct Args<'m> {
     msg: &'m str,
@@ -40,24 +40,6 @@ impl<'m> Args<'m> {
 
     pub fn rest(&self) -> &'m str {
         self.stream.rest()
-    }
-
-    pub fn take_n(mut self, n: usize) -> ArgsFull<'m> {
-        let limits = iter::from_fn(|| self.lex()).take(n).collect();
-
-        ArgsFull {
-            msg: self.msg,
-            limits,
-        }
-    }
-
-    pub fn take_all(mut self) -> ArgsFull<'m> {
-        let limits = iter::from_fn(|| self.lex()).collect();
-
-        ArgsFull {
-            msg: self.msg,
-            limits,
-        }
     }
 
     fn lex(&mut self) -> Option<(usize, usize)> {
@@ -101,53 +83,6 @@ impl<'m> Args<'m> {
             },
             None => Ok(arg.into()),
         }
-    }
-}
-
-pub struct ArgsFull<'m> {
-    msg: &'m str,
-    limits: VecDeque<(usize, usize)>,
-}
-
-impl<'m> Iterator for ArgsFull<'m> {
-    type Item = &'m str;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let (start, end) = self.limits.pop_front()?;
-
-        Some(&self.msg[start..end])
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let exact = self.limits.len();
-
-        (exact, Some(exact))
-    }
-
-    fn count(self) -> usize {
-        self.limits.len()
-    }
-
-    fn last(self) -> Option<Self::Item> {
-        let (start, end) = self.limits.back()?;
-
-        Some(&self.msg[*start..*end])
-    }
-}
-
-impl<'m> DoubleEndedIterator for ArgsFull<'m> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        let (start, end) = self.limits.pop_back()?;
-
-        Some(&self.msg[start..end])
-    }
-}
-
-impl<'m> ArgsFull<'m> {
-    pub fn current(&self) -> Option<&'m str> {
-        let (start, end) = self.limits.front()?;
-
-        Some(&self.msg[*start..*end])
     }
 }
 

@@ -12,7 +12,7 @@ pub use top::*;
 pub use top_if::*;
 pub use top_old::*;
 
-use super::{prepare_scores, request_user, require_link, ErrorType};
+use super::{prepare_scores, request_user, require_link, ErrorType, GradeArg};
 
 use crate::{
     util::{ApplicationCommandExt, MessageExt},

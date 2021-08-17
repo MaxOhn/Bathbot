@@ -1,6 +1,5 @@
-use super::ErrorType;
+use super::{ErrorType, GradeArg};
 use crate::{
-    arguments::{Args, GradeArg, NameGradePassArgs},
     embeds::{EmbedData, RecentEmbed},
     pagination::{Pagination, RecentPagination},
     tracking::process_tracking,
@@ -8,38 +7,41 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
-    BotResult, CommandData, CommandDataCompact, Context, MessageBuilder,
+    Args, BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
 use futures::future::TryFutureExt;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{
-    GameMode, OsuError,
+    GameMode, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
 };
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 use tokio::time::{sleep, Duration};
-use twilight_model::channel::Message;
 
-// TODO
-async fn recent_pages_main(
-    mode: GameMode,
+async fn _recentpages(
     ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-    num: Option<usize>,
+    data: CommandData<'_>,
+    args: RecentPagesArgs,
 ) -> BotResult<()> {
-    let args = match NameGradePassArgs::new(&ctx, args) {
-        Ok(args) => args,
-        Err(err_msg) => return msg.error(&ctx, err_msg).await,
-    };
+    let RecentPagesArgs {
+        name,
+        grade,
+        mode,
+        index,
+    } = args;
 
-    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+    let author_id = data.author()?.id;
+
+    let name = match name {
         Some(name) => name,
-        None => return super::require_link_msg(&ctx, msg).await,
+        None => match ctx.get_link(author_id.0) {
+            Some(name) => name,
+            None => return super::require_link(&ctx, &data).await,
+        },
     };
 
-    let num = num.unwrap_or(1).saturating_sub(1);
+    let num = index.unwrap_or(1).saturating_sub(1);
 
     // Retrieve the user and their recent scores
     let user_fut = super::request_user(&ctx, &name, Some(mode)).map_err(From::from);
@@ -67,27 +69,27 @@ async fn recent_pages_main(
                 name
             );
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Ok(tuple) => tuple,
         Err(ErrorType::Osu(OsuError::NotFound)) => {
             let content = format!("User `{}` was not found", name);
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Err(ErrorType::Osu(why)) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
         Err(ErrorType::Bot(why)) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
     };
 
-    if let Some(grades) = args.grade {
+    if let Some(grades) = grade {
         scores.retain(|s| match grades {
             GradeArg::Single(grade) => s.grade.eq_letter(grade),
             GradeArg::Range { bot, top } => s.grade >= bot && s.grade <= top,
@@ -102,7 +104,7 @@ async fn recent_pages_main(
             genitive = if name.ends_with('s') { "" } else { "s" }
         );
 
-        return msg.error(&ctx, content).await;
+        return data.error(&ctx, content).await;
     }
 
     let score = match scores.get(num) {
@@ -113,7 +115,7 @@ async fn recent_pages_main(
                 verb = if scores.len() != 1 { "are" } else { "is" },
                 num = scores.len(),
                 plural = if scores.len() != 1 { "s" } else { "" },
-                prop = if args.grade.is_some() {
+                prop = if grade.is_some() {
                     "with the given properties "
                 } else {
                     ""
@@ -122,7 +124,7 @@ async fn recent_pages_main(
                 genitive = if name.ends_with('s') { "" } else { "s" }
             );
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
     };
 
@@ -195,7 +197,7 @@ async fn recent_pages_main(
     let embed_data = match data_fut.await {
         Ok(data) => data,
         Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
@@ -205,7 +207,7 @@ async fn recent_pages_main(
     let content = format!("Try #{}", tries);
     let embed = embed_data.as_builder().build();
     let builder = MessageBuilder::new().content(content).embed(embed);
-    let response = msg.create_message(&ctx, builder).await?;
+    let response = data.create_message(&ctx, builder).await?;
 
     // TODO
     // ctx.store_msg(response.id);
@@ -217,7 +219,7 @@ async fn recent_pages_main(
 
     // Skip pagination if too few entries
     if scores.len() <= 1 {
-        let data: CommandDataCompact = msg.into();
+        let data = data.compact();
 
         tokio::spawn(async move {
             sleep(Duration::from_secs(60)).await;
@@ -252,7 +254,7 @@ async fn recent_pages_main(
         embed_data,
     );
 
-    let owner = msg.author.id;
+    let owner = author_id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -269,19 +271,27 @@ async fn recent_pages_main(
     "Display a user's most recent play.\n\
     To start with a previous recent score, you can add a number right after the command, \
     e.g. `rp42 badewanne3` to get the 42nd most recent score.\n\
-    If the argument `-pass` is given, all fails will be filtered out.\n\
-    Also, a grade can be specified with `-grade`, either followed by \
-    grading letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a \
-    range of the form `x..y` with `x` and `y` being a grading letter.\n\
-    If a grade is specified, all scores that don't fit will be filtered out."
+    To filter all fails, you can specify `pass=true`.\n\
+    To filter specific grades, you can specify `grade=...` where you can provide \
+    either a single grade or two grades of the form `a..b` e.g. `b..sh`.\n\
+    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
 )]
-#[usage("[username] [-pass] [-grade grade[..grade]]")]
-#[example("badewanne3 -pass", "badewanne3 -grade B", "badewanne3 -grade A..SS")]
+#[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
+#[example(
+    "badewanne3 pass=true grade=b",
+    "badewanne3 grade=B..SS",
+    "badewanne3 grade=a..sh"
+)]
 #[aliases("rp")]
 pub async fn recentpages(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
-        CommandData::Message { msg, args, num } => {
-            recent_pages_main(GameMode::STD, ctx, msg, args, num).await
+        CommandData::Message { msg, mut args, num } => {
+            match RecentPagesArgs::args(&ctx, &mut args, GameMode::STD, num) {
+                Ok(recent_args) => {
+                    _recentpages(ctx, CommandData::Message { msg, args, num }, recent_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
         }
         CommandData::Interaction { .. } => panic!(),
     }
@@ -293,19 +303,27 @@ pub async fn recentpages(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
     "Display a user's most recent mania play.\n\
     To start with a previous recent score, you can add a number right after the command, \
     e.g. `rpm42 badewanne3` to get the 42nd most recent score.\n\
-    If the argument `-pass` is given, all fails will be filtered out.\n\
-    Also, a grade can be specified with `-grade`, either followed by \
-    grading letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a \
-    range of the form `x..y` with `x` and `y` being a grading letter.\n\
-    If a grade is specified, all scores that don't fit will be filtered out."
+    To filter all fails, you can specify `pass=true`.\n\
+    To filter specific grades, you can specify `grade=...` where you can provide \
+    either a single grade or two grades of the form `a..b` e.g. `b..sh`.\n\
+    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
 )]
-#[usage("[username] [-pass] [-grade grade[..grade]]")]
-#[example("badewanne3 -pass", "badewanne3 -grade B", "badewanne3 -grade A..SS")]
+#[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
+#[example(
+    "badewanne3 pass=true grade=b",
+    "badewanne3 grade=B..SS",
+    "badewanne3 grade=a..sh"
+)]
 #[aliases("rpm")]
 pub async fn recentpagesmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
-        CommandData::Message { msg, args, num } => {
-            recent_pages_main(GameMode::MNA, ctx, msg, args, num).await
+        CommandData::Message { msg, mut args, num } => {
+            match RecentPagesArgs::args(&ctx, &mut args, GameMode::MNA, num) {
+                Ok(recent_args) => {
+                    _recentpages(ctx, CommandData::Message { msg, args, num }, recent_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
         }
         CommandData::Interaction { .. } => panic!(),
     }
@@ -317,19 +335,27 @@ pub async fn recentpagesmania(ctx: Arc<Context>, data: CommandData) -> BotResult
     "Display a user's most recent taiko play.\n\
     To start with a previous recent score, you can add a number right after the command, \
     e.g. `rpt42 badewanne3` to get the 42nd most recent score.\n\
-    If the argument `-pass` is given, all fails will be filtered out.\n\
-    Also, a grade can be specified with `-grade`, either followed by \
-    grading letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a \
-    range of the form `x..y` with `x` and `y` being a grading letter.\n\
-    If a grade is specified, all scores that don't fit will be filtered out."
+    To filter all fails, you can specify `pass=true`.\n\
+    To filter specific grades, you can specify `grade=...` where you can provide \
+    either a single grade or two grades of the form `a..b` e.g. `b..sh`.\n\
+    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
 )]
-#[usage("[username] [-pass] [-grade grade[..grade]]")]
-#[example("badewanne3 -pass", "badewanne3 -grade B", "badewanne3 -grade A..SS")]
+#[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
+#[example(
+    "badewanne3 pass=true grade=b",
+    "badewanne3 grade=B..SS",
+    "badewanne3 grade=a..sh"
+)]
 #[aliases("rpt")]
 pub async fn recentpagestaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
-        CommandData::Message { msg, args, num } => {
-            recent_pages_main(GameMode::TKO, ctx, msg, args, num).await
+        CommandData::Message { msg, mut args, num } => {
+            match RecentPagesArgs::args(&ctx, &mut args, GameMode::TKO, num) {
+                Ok(recent_args) => {
+                    _recentpages(ctx, CommandData::Message { msg, args, num }, recent_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
         }
         CommandData::Interaction { .. } => panic!(),
     }
@@ -341,20 +367,152 @@ pub async fn recentpagestaiko(ctx: Arc<Context>, data: CommandData) -> BotResult
     "Display a user's most recent ctb play.\n\
     To start with a previous recent score, you can add a number right after the command, \
     e.g. `rpc42 badewanne3` to get the 42nd most recent score.\n\
-    If the argument `-pass` is given, all fails will be filtered out.\n\
-    Also, a grade can be specified with `-grade`, either followed by \
-    grading letters `SS`, `S`, `A`, `B`, `C`, or `D`, or followed by a \
-    range of the form `x..y` with `x` and `y` being a grading letter.\n\
-    If a grade is specified, all scores that don't fit will be filtered out."
+    To filter all fails, you can specify `pass=true`.\n\
+    To filter specific grades, you can specify `grade=...` where you can provide \
+    either a single grade or two grades of the form `a..b` e.g. `b..sh`.\n\
+    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
 )]
-#[usage("[username] [-pass] [-grade grade[..grade]]")]
-#[example("badewanne3 -pass", "badewanne3 -grade B", "badewanne3 -grade A..SS")]
+#[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
+#[example(
+    "badewanne3 pass=true grade=b",
+    "badewanne3 grade=B..SS",
+    "badewanne3 grade=a..sh"
+)]
 #[aliases("rpc")]
 pub async fn recentpagesctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
-        CommandData::Message { msg, args, num } => {
-            recent_pages_main(GameMode::CTB, ctx, msg, args, num).await
+        CommandData::Message { msg, mut args, num } => {
+            match RecentPagesArgs::args(&ctx, &mut args, GameMode::CTB, num) {
+                Ok(recent_args) => {
+                    _recentpages(ctx, CommandData::Message { msg, args, num }, recent_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
         }
         CommandData::Interaction { .. } => panic!(),
+    }
+}
+
+struct RecentPagesArgs {
+    name: Option<Name>,
+    grade: Option<GradeArg>,
+    mode: GameMode,
+    index: Option<usize>,
+}
+
+impl RecentPagesArgs {
+    const ERR_PARSE_GRADE: &'static str = "Failed to parse `grade`.\n\
+        Must be either a single grade or two grades of the form `a..b` e.g. `C..S`.\n\
+        Valid grades are: `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`";
+
+    fn args(
+        ctx: &Context,
+        args: &mut Args,
+        mode: GameMode,
+        index: Option<usize>,
+    ) -> Result<Self, Cow<'static, str>> {
+        let mut name = None;
+        let mut grade = None;
+        let mut passes = None;
+
+        for arg in args.take(3) {
+            if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
+                let key = &arg[..idx];
+                let value = arg[idx + 1..].trim_end();
+
+                match key {
+                    "pass" | "p" | "passes" => match value {
+                        "true" | "1" => passes = Some(true),
+                        "false" | "0" => passes = Some(false),
+                        _ => {
+                            let content =
+                                "Failed to parse `pass`. Must be either `true` or `false`.";
+
+                            return Err(content.into());
+                        }
+                    },
+                    "fail" | "fails" | "f" => match value {
+                        "true" | "1" => passes = Some(false),
+                        "false" | "0" => passes = Some(true),
+                        _ => {
+                            let content =
+                                "Failed to parse `fail`. Must be either `true` or `false`.";
+
+                            return Err(content.into());
+                        }
+                    },
+                    "grade" | "g" => match value.find("..") {
+                        Some(idx) => {
+                            let bot = &value[..idx];
+                            let top = &value[idx + 2..];
+
+                            let min = if bot.is_empty() {
+                                Grade::XH
+                            } else if let Ok(grade) = bot.parse() {
+                                grade
+                            } else {
+                                return Err(Self::ERR_PARSE_GRADE.into());
+                            };
+
+                            let max = if top.is_empty() {
+                                Grade::D
+                            } else if let Ok(grade) = top.parse() {
+                                grade
+                            } else {
+                                return Err(Self::ERR_PARSE_GRADE.into());
+                            };
+
+                            let bot = if min < max { min } else { max };
+                            let top = if min > max { min } else { max };
+
+                            grade = Some(GradeArg::Range { bot, top })
+                        }
+                        None => match value.parse().map(GradeArg::Single) {
+                            Ok(grade_) => grade = Some(grade_),
+                            Err(_) => return Err(Self::ERR_PARSE_GRADE.into()),
+                        },
+                    },
+                    _ => {
+                        let content = format!(
+                            "Unrecognized option `{}`.\n\
+                            Available options are: `grade` or `pass`.",
+                            key
+                        );
+
+                        return Err(content.into());
+                    }
+                }
+            } else {
+                name = Some(Args::try_link_name(ctx, arg)?);
+            }
+        }
+
+        if passes == Some(true) {
+            grade = match grade {
+                Some(GradeArg::Single(_)) => None,
+                Some(GradeArg::Range { bot, top }) => match (bot, top) {
+                    (Grade::F, Grade::F) => None,
+                    (Grade::F, _) => Some(GradeArg::Range { bot: Grade::D, top }),
+                    (_, Grade::F) => Some(GradeArg::Range {
+                        bot: Grade::D,
+                        top: bot,
+                    }),
+                    _ => Some(GradeArg::Range { bot, top }),
+                },
+                None => Some(GradeArg::Range {
+                    bot: Grade::D,
+                    top: Grade::XH,
+                }),
+            };
+        }
+
+        let args = Self {
+            name,
+            grade,
+            mode,
+            index,
+        };
+
+        Ok(args)
     }
 }
