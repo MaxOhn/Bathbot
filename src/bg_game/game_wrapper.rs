@@ -177,8 +177,7 @@ impl GameWrapper {
                         }
 
                         // Then quit
-                        debug!("Game finished in channel {}", channel);
-
+                        info!("Game finished in channel {}", channel);
                         break;
                     }
                     LoopResult::Winner(user_id) => {
@@ -188,6 +187,7 @@ impl GameWrapper {
                     }
                 }
             }
+
             ctx.remove_game(channel);
         });
     }

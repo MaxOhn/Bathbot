@@ -12,27 +12,20 @@ mod compare;
 mod link;
 // mod map;
 mod map_search;
-// mod mapper;
 mod match_costs;
 mod match_live;
 mod medals;
 mod most_played;
-// mod nochoke;
-// mod osustats_counts;
-// mod osustats_globals;
-// mod osustats_list;
+mod osustats;
 mod pp;
 mod profile;
 mod rank;
 mod ranking;
 mod ratios;
-// mod rebalance;
 mod recent;
 mod snipe;
 // mod simulate;
-// mod top;
-// mod top_if;
-// mod top_old;
+mod top;
 mod whatif;
 
 pub use avatar::*;
@@ -43,27 +36,20 @@ pub use compare::*;
 pub use link::*;
 // pub use map::*;
 pub use map_search::*;
-pub use snipe::*;
-// pub use mapper::*;
 pub use match_costs::*;
 pub use match_live::*;
 pub use medals::*;
 pub use most_played::*;
-// pub use nochoke::*;
-// pub use osustats_counts::*;
-// pub use osustats_globals::*;
-// pub use osustats_list::*;
+pub use osustats::*;
 pub use pp::*;
 pub use profile::*;
 pub use rank::*;
 pub use ranking::*;
 pub use ratios::*;
-// pub use rebalance::*;
 pub use recent::*;
+pub use snipe::*;
 // pub use simulate::*;
-// pub use top::*;
-// pub use top_if::*;
-// pub use top_old::*;
+pub use top::*;
 pub use whatif::*;
 
 use crate::{
@@ -298,7 +284,7 @@ async fn get_globals_count(
             continue;
         }
 
-        params = params.rank_max(rank);
+        params.rank_max = rank;
         let (_, count) = ctx.clients.custom.get_global_scores(&params).await?;
         counts.insert(rank, Cow::Owned(with_comma_uint(count).to_string()));
 

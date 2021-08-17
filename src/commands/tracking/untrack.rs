@@ -37,7 +37,11 @@ async fn untrack(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     }
 }
 
-pub(super) async fn _untrack(ctx: Arc<Context>, data: CommandData<'_>, args: TrackArgs) -> BotResult<()> {
+pub(super) async fn _untrack(
+    ctx: Arc<Context>,
+    data: CommandData<'_>,
+    args: TrackArgs,
+) -> BotResult<()> {
     let mode = args.mode.unwrap_or(GameMode::STD);
 
     let mut names: HashSet<_> = args.more_names.into_iter().collect();

@@ -333,7 +333,7 @@ impl ProfileArgs {
         let mut kind = None;
 
         for arg in args.take(2).map(CowUtils::cow_to_ascii_lowercase) {
-            if let Some(idx) = arg.find(|c| c == '=').filter(|&i| i > 0) {
+            if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
                 let key = &arg[..idx];
                 let value = &arg[idx + 1..];
 
@@ -382,7 +382,7 @@ impl ProfileArgs {
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => parse_mode_option!(mode, value, "profile"),
+                    "mode" => mode = parse_mode_option!(value, "profile"),
                     "size" => match value.as_str() {
                         "compact" => kind = Some(ProfileSize::Compact),
                         "medium" => kind = Some(ProfileSize::Medium),
@@ -390,19 +390,7 @@ impl ProfileArgs {
                         _ => bail_cmd_option!("profile size", string, value),
                     },
                     "name" => username = Some(value.into()),
-                    "discord" => match value.parse() {
-                        Ok(id) => match ctx.get_link(id) {
-                            Some(name) => username = Some(name),
-                            None => {
-                                let content = format!("<@{}> is not linked to an osu profile", id);
-
-                                return Ok(Err(content));
-                            }
-                        },
-                        Err(_) => {
-                            bail_cmd_option!("profile discord", string, value)
-                        }
-                    },
+                    "discord" => username = parse_discord_option!(ctx, value, "profile"),
                     _ => bail_cmd_option!("profile", string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {

@@ -479,7 +479,7 @@ pub async fn slash_mapsearch(ctx: Arc<Context>, mut command: ApplicationCommand)
         match option {
             CommandDataOption::String { name, value } => match name.as_str() {
                 "query" => query = Some(value),
-                "mode" => parse_mode_option!(mode, value, "search"),
+                "mode" => mode = parse_mode_option!(value, "search"),
                 "status" => match value.as_str() {
                     "any" => status = Some(SearchRankStatus(None)),
                     "leaderboard" => status = None,

@@ -1,17 +1,16 @@
-use super::{prepare_scores, request_user, ErrorType};
+use super::ErrorType;
 use crate::{
-    arguments::NameModArgs,
     embeds::{EmbedData, TopIfEmbed},
     pagination::{Pagination, TopIfPagination},
     pp::{Calculations, PPCalculator},
     tracking::process_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        numbers,
+        matcher, numbers,
         osu::ModSelection,
         MessageExt,
     },
-    Args, BotResult, Context,
+    Args, BotResult, CommandData, Context, Error, MessageBuilder, Name,
 };
 
 use futures::{
@@ -19,8 +18,8 @@ use futures::{
     stream::{FuturesUnordered, TryStreamExt},
 };
 use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
-use std::{cmp::Ordering, fmt::Write, sync::Arc};
-use twilight_model::channel::Message;
+use std::{borrow::Cow, cmp::Ordering, fmt::Write, sync::Arc};
+use twilight_model::application::interaction::application_command::CommandDataOption;
 
 const NM: GameMods = GameMods::NoMod;
 const DT: GameMods = GameMods::DoubleTime;
@@ -31,20 +30,24 @@ const HR: GameMods = GameMods::HardRock;
 const PF: GameMods = GameMods::Perfect;
 const SD: GameMods = GameMods::SuddenDeath;
 
-async fn topif_main(
-    mode: GameMode,
+pub(super) async fn _topif(
     ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
+    data: CommandData<'_>,
+    args: IfArgs,
 ) -> BotResult<()> {
-    let args = NameModArgs::new(&ctx, args);
+    let IfArgs { name, mode, mods } = args;
 
-    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+    let author_id = data.author()?.id;
+
+    let name = match name {
         Some(name) => name,
-        None => return super::require_link(&ctx, msg).await,
+        None => match ctx.get_link(author_id.0) {
+            Some(name) => name,
+            None => return super::require_link(&ctx, &data).await,
+        },
     };
 
-    if let Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) = args.mods {
+    if let ModSelection::Exact(mods) | ModSelection::Include(mods) = mods {
         let mut content = None;
         let ezhr = EZ | HR;
         let dtht = DT | HT;
@@ -58,12 +61,12 @@ async fn topif_main(
         }
 
         if let Some(content) = content {
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
     }
 
     // Retrieve the user and their top scores
-    let user_fut = request_user(&ctx, &name, Some(mode)).map_err(From::from);
+    let user_fut = super::request_user(&ctx, &name, Some(mode)).map_err(From::from);
     let scores_fut = ctx
         .osu()
         .user_scores(name.as_str())
@@ -71,22 +74,22 @@ async fn topif_main(
         .mode(mode)
         .limit(100);
 
-    let scores_fut = prepare_scores(&ctx, scores_fut);
+    let scores_fut = super::prepare_scores(&ctx, scores_fut);
 
     let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
         Ok((user, scores)) => (user, scores),
         Err(ErrorType::Osu(OsuError::NotFound)) => {
             let content = format!("User `{}` was not found", name);
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Err(ErrorType::Osu(why)) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
         Err(ErrorType::Bot(why)) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
@@ -117,13 +120,13 @@ async fn topif_main(
             }
 
             let changed = match arg_mods {
-                Some(ModSelection::Exact(mods)) => {
+                ModSelection::Exact(mods) => {
                     let changed = score.mods != mods;
                     score.mods = mods;
 
                     changed
                 }
-                Some(ModSelection::Exclude(mut mods)) if mods != NM => {
+                ModSelection::Exclude(mut mods) if mods != NM => {
                     if mods.contains(DT) {
                         mods |= NC;
                     }
@@ -137,7 +140,7 @@ async fn topif_main(
 
                     changed
                 }
-                Some(ModSelection::Include(mods)) if mods != NM => {
+                ModSelection::Include(mods) if mods != NM => {
                     let mut changed = false;
 
                     if mods.contains(DT) && score.mods.contains(HT) {
@@ -200,7 +203,7 @@ async fn topif_main(
     let mut scores_data: Vec<_> = match scores_fut.await {
         Ok(scores) => scores,
         Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
@@ -221,14 +224,14 @@ async fn topif_main(
 
     // Accumulate all necessary data
     let content = match args.mods {
-        Some(ModSelection::Exact(mods)) => format!(
+        ModSelection::Exact(mods) => format!(
             "`{name}`{plural} {mode}top100 with only `{mods}` scores:",
             name = user.username,
             plural = plural(user.username.as_str()),
             mode = mode_str(mode),
             mods = mods
         ),
-        Some(ModSelection::Exclude(mods)) if mods != NM => {
+        ModSelection::Exclude(mods) if mods != NM => {
             let mods: Vec<_> = mods.iter().collect();
             let len = mods.len();
             let mut mod_iter = mods.into_iter();
@@ -257,7 +260,7 @@ async fn topif_main(
                 mods = mod_str
             )
         }
-        Some(ModSelection::Include(mods)) if mods != NM => format!(
+        ModSelection::Include(mods) if mods != NM => format!(
             "`{name}`{plural} {mode}top100 with `{mods}` inserted everywhere:",
             name = user.username,
             plural = plural(user.username.as_str()),
@@ -273,27 +276,14 @@ async fn topif_main(
     };
 
     let pages = numbers::div_euclid(5, scores_data.len());
-
-    let data = TopIfEmbed::new(
-        &user,
-        scores_data.iter().take(5),
-        mode,
-        user.statistics.as_ref().unwrap().pp,
-        adjusted_pp,
-        (1, pages),
-    )
-    .await;
+    let iter = scores_data.iter().take(5);
+    let pre_pp = user.statistics.as_ref().unwrap().pp;
+    let embed_data_fut = TopIfEmbed::new(&user, iter, mode, pre_pp, adjusted_pp, (1, pages));
 
     // Creating the embed
-    let embed = &[data.into_builder().build()];
-
-    let response_raw = ctx
-        .http
-        .create_message(msg.channel_id)
-        .content(&content)?
-        .embeds(embed)?
-        .exec()
-        .await?;
+    let embed = embed_data_fut.await.into_builder().build();
+    let builder = MessageBuilder::new().content(content).embed(embed);
+    let response_raw = data.create_message(&ctx, builder).await?;
 
     // * Don't add maps of scores to DB since their stars were potentially changed
 
@@ -302,12 +292,12 @@ async fn topif_main(
         return Ok(());
     }
 
-    let response = response_raw.model().await?;
+    let response = data.get_response(&ctx, response_raw).await?;
 
     // Pagination
     let pre_pp = user.statistics.as_ref().unwrap().pp;
     let pagination = TopIfPagination::new(response, user, scores_data, mode, pre_pp, adjusted_pp);
-    let owner = msg.author.id;
+    let owner = author_id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -330,8 +320,16 @@ async fn topif_main(
 #[usage("[username] [mods]")]
 #[example("badewanne3 -hd!", "+hdhr!", "whitecat +hddt")]
 #[aliases("ti")]
-pub async fn topif(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    topif_main(GameMode::STD, ctx, msg, args).await
+pub async fn topif(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match IfArgs::args(&ctx, &mut args, GameMode::STD) {
+                Ok(if_args) => _topif(ctx, CommandData::Message { msg, args, num }, if_args).await,
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+    }
 }
 
 #[command]
@@ -347,8 +345,16 @@ pub async fn topif(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()
 #[usage("[username] [mods] [-c]")]
 #[example("badewanne3 -hd!", "+hdhr! -c", "whitecat +hddt")]
 #[aliases("tit")]
-pub async fn topiftaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    topif_main(GameMode::TKO, ctx, msg, args).await
+pub async fn topiftaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match IfArgs::args(&ctx, &mut args, GameMode::TKO) {
+                Ok(if_args) => _topif(ctx, CommandData::Message { msg, args, num }, if_args).await,
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+    }
 }
 
 #[command]
@@ -364,8 +370,16 @@ pub async fn topiftaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResu
 #[usage("[username] [mods] [-c]")]
 #[example("badewanne3 -hd!", "+hdhr! -c", "whitecat +hddt")]
 #[aliases("tic")]
-pub async fn topifctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    topif_main(GameMode::CTB, ctx, msg, args).await
+pub async fn topifctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match IfArgs::args(&ctx, &mut args, GameMode::CTB) {
+                Ok(if_args) => _topif(ctx, CommandData::Message { msg, args, num }, if_args).await,
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+    }
 }
 
 fn plural(name: &str) -> &'static str {
@@ -381,5 +395,75 @@ fn mode_str(mode: GameMode) -> &'static str {
         GameMode::TKO => "taiko ",
         GameMode::CTB => "ctb ",
         GameMode::MNA => "mania ",
+    }
+}
+
+pub(super) struct IfArgs {
+    name: Option<Name>,
+    mode: GameMode,
+    mods: ModSelection,
+}
+
+impl IfArgs {
+    const ERR_PARSE_MODS: &'static str = "Could not parse mods.\n\
+        If you want to insert mods everywhere, specify it e.g. as `+hrdt`.\n\
+        If you want to replace mods everywhere, specify it e.g. as `+hdhr!`.\n\
+        And if you want to remote mods everywhere, specify it e.g. as `-hdnf!`.";
+
+    fn args(ctx: &Context, args: &mut Args, mode: GameMode) -> Result<Self, &'static str> {
+        let mut name = None;
+        let mut mods = None;
+
+        for arg in args.take(2) {
+            match matcher::get_mods(arg) {
+                Some(mods_) => mods = Some(mods_),
+                None => name = Some(Args::try_link_name(ctx, arg)?),
+            }
+        }
+
+        let mods = mods.ok_or(Self::ERR_PARSE_MODS)?;
+
+        Ok(Self { name, mode, mods })
+    }
+
+    pub(super) fn slash(
+        ctx: &Context,
+        options: Vec<CommandDataOption>,
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let mut username = None;
+        let mut mods = None;
+        let mut mode = None;
+
+        for option in options {
+            match option {
+                CommandDataOption::String { name, value } => match name.as_str() {
+                    "name" => username = Some(value.into()),
+                    "mods" => match matcher::get_mods(&value) {
+                        Some(mods_) => mods = Some(mods_),
+                        None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
+                    },
+                    "mode" => mode = parse_mode_option!(value, "top if"),
+                    "discord" => username = parse_discord_option!(ctx, value, "top if"),
+                    _ => bail_cmd_option!("top if", string, name),
+                },
+                CommandDataOption::Integer { name, .. } => {
+                    bail_cmd_option!("top if", integer, name)
+                }
+                CommandDataOption::Boolean { name, .. } => {
+                    bail_cmd_option!("top if", boolean, name)
+                }
+                CommandDataOption::SubCommand { name, .. } => {
+                    bail_cmd_option!("top if", subcommand, name)
+                }
+            }
+        }
+
+        let args = Self {
+            mods: mods.ok_or(Error::InvalidCommandOptions)?,
+            name: username,
+            mode: mode.unwrap_or(GameMode::STD),
+        };
+
+        Ok(Ok(args))
     }
 }

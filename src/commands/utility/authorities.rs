@@ -2,13 +2,20 @@ use crate::{
     bail,
     util::{
         constants::{GENERAL_ISSUE, OWNER_USER_ID},
-        matcher, MessageExt,
+        matcher, ApplicationCommandExt, MessageExt,
     },
-    Args, BotResult, Context,
+    Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
 use std::{fmt::Write, sync::Arc};
-use twilight_model::{channel::Message, guild::Permissions, id::RoleId};
+use twilight_model::{
+    application::{
+        command::{BaseCommandOptionData, Command, CommandOption, OptionsCommandOptionData},
+        interaction::{application_command::CommandDataOption, ApplicationCommand},
+    },
+    guild::{Permissions, Role},
+    id::RoleId,
+};
 
 #[command]
 #[only_guilds()]
@@ -25,79 +32,134 @@ use twilight_model::{channel::Message, guild::Permissions, id::RoleId};
 #[usage("[@role1] [id of role2] ...")]
 #[example("-show", "@Moderator @Mod 83794728403223 @BotCommander")]
 #[aliases("authority")]
-async fn authorities(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    let guild_id = msg.guild_id.unwrap();
-    let args = args.take_n(10);
+async fn authorities(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match AuthorityCommandKind::args(&ctx, &mut args) {
+                Ok(authority_args) => {
+                    _authorities(ctx, CommandData::Message { msg, args, num }, authority_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => slash_authorities(ctx, command).await,
+    }
+}
 
-    // Check if the user just wants to see the current authorities
-    match args.current().unwrap_or_default() {
-        "-show" | "show" => {
+async fn _authorities(
+    ctx: Arc<Context>,
+    data: CommandData<'_>,
+    args: AuthorityCommandKind,
+) -> BotResult<()> {
+    let guild_id = data.guild_id().unwrap();
+
+    let mut content = match args {
+        AuthorityCommandKind::Add(role_id) => {
             let roles = ctx.config_authorities(guild_id);
-            let mut content = "Current authority roles for this server: ".to_owned();
-            role_string(&roles, &mut content);
 
-            // Send the message
-            return msg.send_response(&ctx, content).await;
-        }
-        _ => {}
-    }
+            if roles.len() >= 10 {
+                let content = "You can have at most 10 roles per server setup as authorities.";
 
-    // Make sure arguments are roles of the guild
-    let mut new_auths = Vec::with_capacity(10);
-
-    for arg in args {
-        let role_id = match matcher::get_mention_role(arg) {
-            Some(id) => id,
-            None => {
-                let content = format!("Expected role mention or role id, got `{}`", arg);
-
-                return msg.error(&ctx, content).await;
+                return data.error(&ctx, content).await;
             }
-        };
-        match ctx.cache.role(RoleId(role_id)) {
-            Some(role) => new_auths.push(role),
-            None => {
-                let content = format!("No role with id {} found in this guild", role_id);
 
-                return msg.error(&ctx, content).await;
-            }
+            ctx.update_config(guild_id, move |config| {
+                config.authorities.push(role_id);
+            });
+
+            "Successfully added authority role. Authority roles now are: ".to_owned()
         }
-    }
+        AuthorityCommandKind::List => "Current authority roles for this server: ".to_owned(),
+        AuthorityCommandKind::Remove(role_id) => {
+            let author_id = data.author()?.id;
+            let roles = ctx.config_authorities(guild_id);
 
-    // Make sure the author is still an authority after applying new roles
-    if !(ctx.cache.is_guild_owner(guild_id, msg.author.id) || msg.author.id.0 == OWNER_USER_ID) {
-        match ctx.cache.member(guild_id, msg.author.id) {
-            Some(member) => {
-                let is_auth_with_roles = member
-                    .roles
-                    .iter()
-                    .filter_map(|&role_id| ctx.cache.role(role_id))
-                    .any(|role| role.permissions.contains(Permissions::ADMINISTRATOR));
+            if roles.iter().all(|&id| id != role_id) {
+                let content = "The role was no authority role anyway";
+                let builder = MessageBuilder::new().embed(content);
+                data.create_message(&ctx, builder).await?;
 
-                if !is_auth_with_roles {
-                    let content = "You cannot set authority roles to something \
-                        that would make you lose authority status.";
+                return Ok(());
+            }
 
-                    return msg.error(&ctx, content).await;
+            // Make sure the author is still an authority after applying new roles
+            if !(ctx.cache.is_guild_owner(guild_id, author_id) || author_id.0 == OWNER_USER_ID) {
+                match ctx.cache.member(guild_id, author_id) {
+                    Some(member) => {
+                        let still_authority = member
+                            .roles
+                            .iter()
+                            .filter_map(|&role_id| ctx.cache.role(role_id))
+                            .any(|role| {
+                                role.permissions.contains(Permissions::ADMINISTRATOR)
+                                    || roles.iter().any(|&new| new == role.id.0 && new != role_id)
+                            });
+
+                        if !still_authority {
+                            let content = "You cannot set authority roles to something \
+                                that would make you lose authority status.";
+
+                            return data.error(&ctx, content).await;
+                        }
+                    }
+                    None => {
+                        let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+                        bail!("member {} not cached for guild {}", author_id, guild_id);
+                    }
                 }
             }
-            None => {
-                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                bail!("member {} not cached for guild {}", msg.author.id, guild_id);
-            }
+            ctx.update_config(guild_id, move |config| {
+                config.authorities.retain(|id| *id != role_id);
+            });
+
+            "Successfully removed authority role. Authority roles now are: ".to_owned()
         }
-    }
+        AuthorityCommandKind::Replace(roles) => {
+            let author_id = data.author()?.id;
 
-    ctx.update_config(guild_id, move |config| {
-        config.authorities = new_auths.into_iter().map(|role| role.id.0).collect();
-    });
+            // Make sure the author is still an authority after applying new roles
+            if !(ctx.cache.is_guild_owner(guild_id, author_id) || author_id.0 == OWNER_USER_ID) {
+                match ctx.cache.member(guild_id, author_id) {
+                    Some(member) => {
+                        let still_authority = member
+                            .roles
+                            .iter()
+                            .filter_map(|&role_id| ctx.cache.role(role_id))
+                            .any(|role| {
+                                role.permissions.contains(Permissions::ADMINISTRATOR)
+                                    || roles.iter().any(|new| new.id == role.id)
+                            });
+
+                        if !still_authority {
+                            let content = "You cannot set authority roles to something \
+                                that would make you lose authority status.";
+
+                            return data.error(&ctx, content).await;
+                        }
+                    }
+                    None => {
+                        let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+                        bail!("member {} not cached for guild {}", author_id, guild_id);
+                    }
+                }
+            }
+
+            ctx.update_config(guild_id, move |config| {
+                config.authorities = roles.into_iter().map(|role| role.id.0).collect();
+            });
+
+            "Successfully changed the authority roles to: ".to_owned()
+        }
+    };
 
     // Send the message
-    let mut content = "Successfully changed the authority roles to: ".to_owned();
     let roles = ctx.config_authorities(guild_id);
     role_string(&roles, &mut content);
-    msg.send_response(&ctx, content).await?;
+    let builder = MessageBuilder::new().embed(content);
+    data.create_message(&ctx, builder).await?;
 
     Ok(())
 }
@@ -114,5 +176,174 @@ fn role_string(roles: &[u64], content: &mut String) {
         }
     } else {
         content.push_str("None");
+    }
+}
+
+enum AuthorityCommandKind {
+    Add(u64),
+    List,
+    Remove(u64),
+    Replace(Vec<Role>),
+}
+
+fn parse_role(ctx: &Context, arg: &str) -> Result<Role, String> {
+    let role_id = match matcher::get_mention_role(arg) {
+        Some(id) => RoleId(id),
+        None => return Err(format!("Expected role mention or role id, got `{}`", arg)),
+    };
+
+    match ctx.cache.role(role_id) {
+        Some(role) => Ok(role),
+        None => Err(format!("No role with id {} found in this guild", role_id)),
+    }
+}
+
+impl AuthorityCommandKind {
+    fn args(ctx: &Context, args: &mut Args) -> Result<Self, String> {
+        let mut roles = match args.next() {
+            Some("-show") | Some("show") => return Ok(Self::List),
+            Some(arg) => vec![parse_role(ctx, arg)?],
+            None => return Ok(Self::Replace(Vec::new())),
+        };
+
+        for arg in args.take(9) {
+            roles.push(parse_role(ctx, arg)?);
+        }
+
+        Ok(Self::Replace(roles))
+    }
+
+    fn slash(command: &mut ApplicationCommand) -> BotResult<Self> {
+        let mut kind = None;
+
+        for option in command.yoink_options() {
+            match option {
+                CommandDataOption::String { name, .. } => {
+                    bail_cmd_option!("authorites", string, name)
+                }
+                CommandDataOption::Integer { name, .. } => {
+                    bail_cmd_option!("authorites", integer, name)
+                }
+                CommandDataOption::Boolean { name, .. } => {
+                    bail_cmd_option!("authorites", boolean, name)
+                }
+                CommandDataOption::SubCommand { name, options } => match name.as_str() {
+                    "add" => {
+                        let mut role = None;
+
+                        for option in options {
+                            match option {
+                                CommandDataOption::String { name, value } => match name.as_str() {
+                                    "role" => match value.parse() {
+                                        Ok(num) => role = Some(num),
+                                        Err(_) => {
+                                            bail_cmd_option!("authorities add role", string, value)
+                                        }
+                                    },
+                                    _ => bail_cmd_option!("authorities add", string, name),
+                                },
+                                CommandDataOption::Integer { name, .. } => {
+                                    bail_cmd_option!("authorities add", integer, name)
+                                }
+                                CommandDataOption::Boolean { name, .. } => {
+                                    bail_cmd_option!("authorities add", boolean, name)
+                                }
+                                CommandDataOption::SubCommand { name, .. } => {
+                                    bail_cmd_option!("authorities add", subcommand, name)
+                                }
+                            }
+                        }
+
+                        let role = role.ok_or(Error::InvalidCommandOptions)?;
+                        kind = Some(AuthorityCommandKind::Add(role));
+                    }
+                    "list" => kind = Some(AuthorityCommandKind::List),
+                    "remove" => {
+                        let mut role = None;
+
+                        for option in options {
+                            match option {
+                                CommandDataOption::String { name, value } => match name.as_str() {
+                                    "role" => match value.parse() {
+                                        Ok(num) => role = Some(num),
+                                        Err(_) => {
+                                            bail_cmd_option!(
+                                                "authorities remove role",
+                                                string,
+                                                value
+                                            )
+                                        }
+                                    },
+                                    _ => bail_cmd_option!("authorities remove", string, name),
+                                },
+                                CommandDataOption::Integer { name, .. } => {
+                                    bail_cmd_option!("authorities remove", integer, name)
+                                }
+                                CommandDataOption::Boolean { name, .. } => {
+                                    bail_cmd_option!("authorities remove", boolean, name)
+                                }
+                                CommandDataOption::SubCommand { name, .. } => {
+                                    bail_cmd_option!("authorities remove", subcommand, name)
+                                }
+                            }
+                        }
+
+                        let role = role.ok_or(Error::InvalidCommandOptions)?;
+                        kind = Some(AuthorityCommandKind::Remove(role));
+                    }
+                    _ => bail_cmd_option!("authorites", subcommand, name),
+                },
+            }
+        }
+
+        kind.ok_or(Error::InvalidCommandOptions)
+    }
+}
+
+pub async fn slash_authorities(
+    ctx: Arc<Context>,
+    mut command: ApplicationCommand,
+) -> BotResult<()> {
+    let args = AuthorityCommandKind::slash(&mut command)?;
+
+    _authorities(ctx, command.into(), args).await
+}
+
+pub fn slash_authorities_command() -> Command {
+    Command {
+        application_id: None,
+        guild_id: None,
+        name: "authorities".to_owned(),
+        default_permission: None,
+        description: "".to_owned(),
+        id: None,
+        options: vec![
+            CommandOption::SubCommand(OptionsCommandOptionData {
+                description: "Add authority status to a role".to_owned(),
+                name: "add".to_owned(),
+                options: vec![CommandOption::Role(BaseCommandOptionData {
+                    description: "Specify the role that should gain authority status".to_owned(),
+                    name: "role".to_owned(),
+                    required: true,
+                })],
+                required: false,
+            }),
+            CommandOption::SubCommand(OptionsCommandOptionData {
+                description: "Display all current authority roles".to_owned(),
+                name: "list".to_owned(),
+                options: vec![],
+                required: false,
+            }),
+            CommandOption::SubCommand(OptionsCommandOptionData {
+                description: "Remove authority status for a role".to_owned(),
+                name: "remove".to_owned(),
+                options: vec![CommandOption::Role(BaseCommandOptionData {
+                    description: "Specify the role that should lose authority status".to_owned(),
+                    name: "role".to_owned(),
+                    required: true,
+                })],
+                required: false,
+            }),
+        ],
     }
 }

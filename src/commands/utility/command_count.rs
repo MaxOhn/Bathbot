@@ -2,17 +2,19 @@ use crate::{
     embeds::{CommandCounterEmbed, EmbedData},
     pagination::{CommandCountPagination, Pagination},
     util::{numbers, MessageExt},
-    Args, BotResult, Context,
+    BotResult, CommandData, Context,
 };
 
 use prometheus::core::Collector;
 use std::sync::Arc;
-use twilight_model::channel::Message;
+use twilight_model::application::{command::Command, interaction::ApplicationCommand};
 
 #[command]
 #[short_desc("List of popular commands")]
 #[long_desc("Let me show you my most popular commands since my last reboot")]
-async fn commands(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
+async fn commands(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    let owner = data.author()?.id;
+
     let mut cmds: Vec<_> = ctx.stats.command_counts.collect()[0]
         .get_metric()
         .iter()
@@ -36,16 +38,14 @@ async fn commands(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
 
     let pages = numbers::div_euclid(15, cmds.len());
 
-    let embed = CommandCounterEmbed::new(sub_vec, &boot_time, 1, (1, pages))
-        .into_builder()
-        .build();
-
     // Creating the embed
-    let response = msg.respond_embed(&ctx, embed).await?;
+    let embed_data = CommandCounterEmbed::new(sub_vec, &boot_time, 1, (1, pages));
+    let builder = embed_data.into_builder().build().into();
+    let response_raw = data.create_message(&ctx, builder).await?;
+    let response = data.get_response(&ctx, response_raw).await?;
 
     // Pagination
     let pagination = CommandCountPagination::new(&ctx, response, cmds);
-    let owner = msg.author.id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 90).await {
@@ -54,4 +54,20 @@ async fn commands(ctx: Arc<Context>, msg: &Message, _: Args) -> BotResult<()> {
     });
 
     Ok(())
+}
+
+pub async fn slash_commands(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
+    commands(ctx, command.into()).await
+}
+
+pub fn slash_commands_command() -> Command {
+    Command {
+        application_id: None,
+        guild_id: None,
+        name: "commands".to_owned(),
+        default_permission: None,
+        description: "Display a list of popular commands".to_owned(),
+        id: None,
+        options: vec![],
+    }
 }

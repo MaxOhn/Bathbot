@@ -212,7 +212,7 @@ impl PlayerListArgs {
         let mut descending = None;
 
         for arg in args.take(4).map(CowUtils::cow_to_ascii_lowercase) {
-            if let Some(idx) = arg.find(|c| c == '=').filter(|&i| i > 0) {
+            if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
                 let key = &arg[..idx];
                 let value = &arg[idx + 1..];
 
@@ -234,8 +234,8 @@ impl PlayerListArgs {
                         }
                     }
                     "reverse" => match value {
-                        "true" => descending = Some(false),
-                        "false" => descending = Some(true),
+                        "true" | "1" => descending = Some(false),
+                        "false" | "0" => descending = Some(true),
                         _ => {
                             let content =
                                 "Could not parse reverse. Must be either `true` or `false`.";

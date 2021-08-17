@@ -295,7 +295,7 @@ impl RecentSimulateArgs {
         let mut score = None;
 
         for arg in args {
-            if let Some(idx) = arg.find(|c| c == '=').filter(|&i| i > 0) {
+            if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
                 let key = &arg[..idx];
                 let value = &arg[idx + 1..];
 

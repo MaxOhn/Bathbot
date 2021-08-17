@@ -199,7 +199,7 @@ impl CompareCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "mode" => parse_mode_option!(mode, value, "compare profile"),
+                                    "mode" => mode = parse_mode_option!(value, "compare profile"),
                                     "name1" => name1 = Some(value.into()),
                                     "name2" => name2 = Some(value.into()),
                                     "discord1" => match value.parse() {
@@ -271,7 +271,7 @@ impl CompareCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "mode" => parse_mode_option!(mode, value, "compare top"),
+                                    "mode" => mode = parse_mode_option!(value, "compare top"),
                                     "name1" => name1 = Some(value.into()),
                                     "name2" => name2 = Some(value.into()),
                                     "name3" => name3 = Some(value.into()),
@@ -362,7 +362,9 @@ impl CompareCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "mode" => parse_mode_option!(mode, value, "compare mostplayed"),
+                                    "mode" => {
+                                        mode = parse_mode_option!(value, "compare mostplayed")
+                                    }
                                     "name1" => name1 = Some(value.into()),
                                     "name2" => name2 = Some(value.into()),
                                     "name3" => name3 = Some(value.into()),

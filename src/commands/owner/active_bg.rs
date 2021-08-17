@@ -15,7 +15,7 @@ use twilight_model::id::ChannelId;
 )]
 #[usage("[channel id]")]
 #[owner()]
-async fn activebg(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+pub(super) async fn activebg(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let (msg, mut args) = match data {
         CommandData::Message { msg, args, .. } => (msg, args),
         CommandData::Interaction { .. } => unreachable!(),

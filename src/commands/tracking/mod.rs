@@ -99,7 +99,7 @@ impl TrackArgs {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "mode" => parse_mode_option!(mode, value, "track add"),
+                                    "mode" => mode = parse_mode_option!(value, "track add"),
                                     "name" => username = Some(value.into()),
                                     _ if name.starts_with("name") => more_names.push(value.into()),
                                     _ => bail_cmd_option!("track add", string, name),
@@ -149,11 +149,12 @@ impl TrackArgs {
                                                 match option {
                                                     CommandDataOption::String { name, value } => {
                                                         match name.as_str() {
-                                                            "mode" => parse_mode_option!(
-                                                                mode,
-                                                                value,
-                                                                "track remove user"
-                                                            ),
+                                                            "mode" => {
+                                                                mode = parse_mode_option!(
+                                                                    value,
+                                                                    "track remove user"
+                                                                )
+                                                            }
                                                             "name" => username = Some(value.into()),
                                                             _ if name.starts_with("name") => {
                                                                 more_names.push(value.into())
@@ -208,11 +209,12 @@ impl TrackArgs {
                                                 match option {
                                                     CommandDataOption::String { name, value } => {
                                                         match name.as_str() {
-                                                            "mode" => parse_mode_option!(
-                                                                mode,
-                                                                value,
-                                                                "track remove all"
-                                                            ),
+                                                            "mode" => {
+                                                                mode = parse_mode_option!(
+                                                                    value,
+                                                                    "track remove all"
+                                                                )
+                                                            }
                                                             _ => bail_cmd_option!(
                                                                 "track remove all",
                                                                 string,

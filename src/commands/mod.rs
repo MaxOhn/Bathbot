@@ -27,13 +27,32 @@ macro_rules! bail_cmd_option {
 
 /// E.g: `parse_mode_option!(mode, value, "recent score")`
 macro_rules! parse_mode_option {
-    ($mode:ident, $value:ident, $origin:literal) => {
+    ($value:ident, $location:literal) => {
         match $value.as_str() {
-            "osu" => $mode = Some(GameMode::STD),
-            "taiko" => $mode = Some(GameMode::TKO),
-            "catch" => $mode = Some(GameMode::CTB),
-            "mania" => $mode = Some(GameMode::MNA),
-            _ => bail_cmd_option!(concat!($origin, " mode"), string, $value),
+            "osu" => Some(GameMode::STD),
+            "taiko" => Some(GameMode::TKO),
+            "catch" => Some(GameMode::CTB),
+            "mania" => Some(GameMode::MNA),
+            _ => bail_cmd_option!(concat!($location, " mode"), string, $value),
+        }
+    };
+}
+
+/// E.g: `parse_discord_option!(ctx, value, "top rebalance")`
+macro_rules! parse_discord_option {
+    ($ctx:ident, $value:ident, $location:literal) => {
+        match $value.parse() {
+            Ok(id) => match $ctx.get_link(id) {
+                Some(name) => Some(name),
+                None => {
+                    let content = format!("<@{}> is not linked to an osu profile", id);
+
+                    return Ok(Err(content.into()));
+                }
+            },
+            Err(_) => {
+                bail_cmd_option!(concat!($location, " discord"), string, $value)
+            }
         }
     };
 }
@@ -46,34 +65,7 @@ macro_rules! parse_mode_option {
     fix
     lb
     map
-    mapper
-    nc
-    osc
-    osg
-    osl
-    pp
-    rebalance
     simulate
-    topif
-    topold
-    top
-
-    _owner:_
-    activebg
-    addbg
-    addcountry
-    changegame
-    trackingcooldown
-    trackinginterval
-    trackingstats
-    trackingtoggle
-
-    _utility:_
-    authorities
-    commands
-    echo
-    prune
-    togglesongs
 */
 
 pub mod fun;
@@ -128,8 +120,8 @@ pub fn command_groups() -> [CommandGroup; 11] {
             Emote::Std,
             vec![
                 &RECENT_CMD,
-                // &TOP_CMD,
-                // &RECENTBEST_CMD,
+                &TOP_CMD,
+                &RECENTBEST_CMD,
                 &OSU_CMD,
                 &OSUCOMPARE_CMD,
                 &PP_CMD,
@@ -138,18 +130,18 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &COMMON_CMD,
                 &RECENTLEADERBOARD_CMD,
                 &RECENTBELGIANLEADERBOARD_CMD,
-                // &OSUSTATSGLOBALS_CMD,
-                // &OSUSTATSCOUNT_CMD,
-                // &OSUSTATSLIST_CMD,
+                &OSUSTATSGLOBALS_CMD,
+                &OSUSTATSCOUNT_CMD,
+                &OSUSTATSLIST_CMD,
                 &SIMULATERECENT_CMD,
                 &RECENTLIST_CMD,
                 &RECENTPAGES_CMD,
-                // &NOCHOKES_CMD,
-                // &SOTARKS_CMD,
-                // &MAPPER_CMD,
-                // &TOPIF_CMD,
-                // &TOPOLD_CMD,
-                // &REBALANCE_CMD,
+                &NOCHOKES_CMD,
+                &SOTARKS_CMD,
+                &MAPPER_CMD,
+                &TOPIF_CMD,
+                &TOPOLD_CMD,
+                &REBALANCE_CMD,
                 &SNIPED_CMD,
                 &SNIPEDGAIN_CMD,
                 &SNIPEDLOSS_CMD,
@@ -168,8 +160,8 @@ pub fn command_groups() -> [CommandGroup; 11] {
             Emote::Mna,
             vec![
                 &RECENTMANIA_CMD,
-                // &TOPMANIA_CMD,
-                // &RECENTBESTMANIA_CMD,
+                &TOPMANIA_CMD,
+                &RECENTBESTMANIA_CMD,
                 &MANIA_CMD,
                 &OSUCOMPAREMANIA_CMD,
                 &PPMANIA_CMD,
@@ -178,15 +170,15 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &COMMONMANIA_CMD,
                 &RECENTMANIALEADERBOARD_CMD,
                 &RECENTMANIABELGIANLEADERBOARD_CMD,
-                // &OSUSTATSGLOBALSMANIA_CMD,
-                // &OSUSTATSCOUNTMANIA_CMD,
-                // &OSUSTATSLISTMANIA_CMD,
+                &OSUSTATSGLOBALSMANIA_CMD,
+                &OSUSTATSCOUNTMANIA_CMD,
+                &OSUSTATSLISTMANIA_CMD,
                 &SIMULATERECENTMANIA_CMD,
                 &RECENTLISTMANIA_CMD,
                 &RECENTPAGESMANIA_CMD,
                 &RATIOS_CMD,
-                // &MAPPERMANIA_CMD,
-                // &TOPOLDMANIA_CMD,
+                &MAPPERMANIA_CMD,
+                &TOPOLDMANIA_CMD,
                 &RANKRANKEDSCOREMANIA_CMD,
                 &PPRANKINGMANIA_CMD,
                 &RANKEDSCORERANKINGMANIA_CMD,
@@ -198,8 +190,8 @@ pub fn command_groups() -> [CommandGroup; 11] {
             Emote::Tko,
             vec![
                 &RECENTTAIKO_CMD,
-                // &TOPTAIKO_CMD,
-                // &RECENTBESTTAIKO_CMD,
+                &TOPTAIKO_CMD,
+                &RECENTBESTTAIKO_CMD,
                 &TAIKO_CMD,
                 &OSUCOMPARETAIKO_CMD,
                 &PPTAIKO_CMD,
@@ -208,17 +200,17 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &COMMONTAIKO_CMD,
                 &RECENTTAIKOLEADERBOARD_CMD,
                 &RECENTTAIKOBELGIANLEADERBOARD_CMD,
-                // &OSUSTATSGLOBALSTAIKO_CMD,
-                // &OSUSTATSCOUNTTAIKO_CMD,
-                // &OSUSTATSLISTTAIKO_CMD,
+                &OSUSTATSGLOBALSTAIKO_CMD,
+                &OSUSTATSCOUNTTAIKO_CMD,
+                &OSUSTATSLISTTAIKO_CMD,
                 &SIMULATERECENTTAIKO_CMD,
                 &RECENTLISTTAIKO_CMD,
                 &RECENTPAGESTAIKO_CMD,
-                // &NOCHOKESTAIKO_CMD,
-                // &MAPPERTAIKO_CMD,
-                // &TOPIFTAIKO_CMD,
-                // &TOPOLDTAIKO_CMD,
-                // &RANKRANKEDSCORETAIKO_CMD,
+                &NOCHOKESTAIKO_CMD,
+                &MAPPERTAIKO_CMD,
+                &TOPIFTAIKO_CMD,
+                &TOPOLDTAIKO_CMD,
+                &RANKRANKEDSCORETAIKO_CMD,
                 &PPRANKINGTAIKO_CMD,
                 &RANKEDSCORERANKINGTAIKO_CMD,
                 &COUNTRYRANKINGTAIKO_CMD,
@@ -229,8 +221,8 @@ pub fn command_groups() -> [CommandGroup; 11] {
             Emote::Ctb,
             vec![
                 &RECENTCTB_CMD,
-                // &TOPCTB_CMD,
-                // &RECENTBESTCTB_CMD,
+                &TOPCTB_CMD,
+                &RECENTBESTCTB_CMD,
                 &CTB_CMD,
                 &OSUCOMPARECTB_CMD,
                 &PPCTB_CMD,
@@ -239,16 +231,16 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &COMMONCTB_CMD,
                 &RECENTCTBLEADERBOARD_CMD,
                 &RECENTCTBBELGIANLEADERBOARD_CMD,
-                // &OSUSTATSGLOBALSCTB_CMD,
-                // &OSUSTATSCOUNTCTB_CMD,
-                // &OSUSTATSLISTCTB_CMD,
+                &OSUSTATSGLOBALSCTB_CMD,
+                &OSUSTATSCOUNTCTB_CMD,
+                &OSUSTATSLISTCTB_CMD,
                 &SIMULATERECENTCTB_CMD,
                 &RECENTLISTCTB_CMD,
                 &RECENTPAGESCTB_CMD,
-                // &NOCHOKESCTB_CMD,
-                // &MAPPERCTB_CMD,
-                // &TOPIFCTB_CMD,
-                // &TOPOLDCTB_CMD,
+                &NOCHOKESCTB_CMD,
+                &MAPPERCTB_CMD,
+                &TOPIFCTB_CMD,
+                &TOPOLDCTB_CMD,
                 &RANKRANKEDSCORECTB_CMD,
                 &PPRANKINGCTB_CMD,
                 &RANKEDSCORERANKINGCTB_CMD,
@@ -285,14 +277,14 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &PING_CMD,
                 &ROLL_CMD,
                 &ABOUT_CMD,
-                // &COMMANDS_CMD,
+                &COMMANDS_CMD,
                 &INVITE_CMD,
-                // &PRUNE_CMD,
+                &PRUNE_CMD,
                 &PREFIX_CMD,
-                // &ECHO_CMD,
-                // &AUTHORITIES_CMD,
+                &ECHO_CMD,
+                &AUTHORITIES_CMD,
                 &ROLEASSIGN_CMD,
-                // &TOGGLESONGS_CMD,
+                &TOGGLESONGS_CMD,
             ],
         ),
         CommandGroup::new(
@@ -338,6 +330,8 @@ pub fn slash_commands() -> Vec<Command> {
         slash_recent_command(),
         slash_compare_command(),
         slash_link_command(),
+        slash_top_command(),
+        slash_osustats_command(),
         slash_backgroundgame_command(),
         slash_profile_command(),
         slash_snipe_command(),
@@ -357,10 +351,14 @@ pub fn slash_commands() -> Vec<Command> {
         slash_matchlive_command(),
         slash_invite_command(),
         slash_about_command(),
+        slash_commands_command(),
         slash_avatar_command(),
         slash_song_command(),
         slash_minesweeper_command(),
-        slash_cache_command(),
+        slash_prune_command(),
+        slash_authorities_command(),
+        slash_togglesongs_command(),
         slash_roleassign_command(),
+        slash_owner_command(),
     ]
 }

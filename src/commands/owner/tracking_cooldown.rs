@@ -9,26 +9,34 @@ use std::{str::FromStr, sync::Arc};
 #[short_desc("Adjust the tracking cooldown (in ms) - default 5000")]
 #[owner()]
 async fn trackingcooldown(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    let (msg, mut args) = match data {
-        CommandData::Message { msg, args, .. } => (msg, args),
-        CommandData::Interaction { .. } => unreachable!(),
-    };
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            let ms = match args.next().map(f32::from_str) {
+                Some(Ok(value)) => value,
+                Some(Err(_)) => return msg.error(&ctx, "Expected f32 as first argument").await,
+                None => *OSU_TRACKING_COOLDOWN,
+            };
 
-    let cooldown = match args.next().map(f32::from_str) {
-        Some(Ok(value)) => value,
-        Some(Err(_)) => return msg.error(&ctx, "Expected i64 as first argument").await,
-        None => *OSU_TRACKING_COOLDOWN,
-    };
+            _trackingcooldown(ctx, CommandData::Message { msg, args, num }, ms).await
+        }
+        CommandData::Interaction { command } => super::slash_owner(ctx, command).await,
+    }
+}
 
-    let previous = ctx.tracking().set_cooldown(cooldown).await;
+pub(super) async fn _trackingcooldown(
+    ctx: Arc<Context>,
+    data: CommandData<'_>,
+    ms: f32,
+) -> BotResult<()> {
+    let previous = ctx.tracking().set_cooldown(ms).await;
 
     let content = format!(
         "Tracking cooldown: {}ms -> {}ms",
-        previous as u32, cooldown as u32
+        previous as u32, ms as u32
     );
 
     let builder = MessageBuilder::new().embed(content);
-    msg.create_message(&ctx, builder).await?;
+    data.create_message(&ctx, builder).await?;
 
     Ok(())
 }

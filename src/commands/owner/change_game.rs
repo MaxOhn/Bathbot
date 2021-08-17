@@ -11,24 +11,34 @@ use twilight_model::gateway::presence::{ActivityType, Status};
 #[usage("[string for new game]")]
 #[owner()]
 async fn changegame(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    let (msg, args) = match data {
-        CommandData::Message { msg, args, .. } => (msg, args),
-        CommandData::Interaction { .. } => unreachable!(),
-    };
+    match data {
+        CommandData::Message { msg, args, num } => {
+            let game = args.rest().to_owned();
+            let data = CommandData::Message { msg, args, num };
 
-    let game = args.rest();
+            _changegame(ctx, data, game).await
+        }
+        CommandData::Interaction { command } => super::slash_owner(ctx, command).await,
+    }
+}
+
+pub(super) async fn _changegame(
+    ctx: Arc<Context>,
+    data: CommandData<'_>,
+    game: String,
+) -> BotResult<()> {
     let activity_fut = ctx.set_cluster_activity(Status::Online, ActivityType::Playing, game);
 
     match activity_fut.await {
         Ok(_) => {
             let content = "Successfully changed game";
             let builder = MessageBuilder::new().embed(content);
-            msg.create_message(&ctx, builder).await?;
+            data.create_message(&ctx, builder).await?;
 
             Ok(())
         }
         Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
             Err(why)
         }

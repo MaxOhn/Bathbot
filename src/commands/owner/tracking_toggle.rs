@@ -5,7 +5,7 @@ use std::sync::{atomic::Ordering, Arc};
 #[command]
 #[short_desc("Toggle osu!tracking")]
 #[owner()]
-async fn trackingtoggle(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+pub(super) async fn trackingtoggle(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     ctx.tracking()
         .stop_tracking
         .fetch_nand(true, Ordering::SeqCst);

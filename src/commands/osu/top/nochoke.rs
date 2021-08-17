@@ -1,6 +1,5 @@
-use super::{prepare_scores, request_user, ErrorType};
+use super::ErrorType;
 use crate::{
-    arguments::NameIntArgs,
     bail,
     embeds::{EmbedData, NoChokeEmbed},
     pagination::{NoChokePagination, Pagination},
@@ -12,7 +11,7 @@ use crate::{
         osu::prepare_beatmap_file,
         MessageExt,
     },
-    Args, BotResult, Context, Error,
+    Args, BotResult, CommandData, Context, Error, MessageBuilder, Name,
 };
 
 use futures::{
@@ -21,27 +20,33 @@ use futures::{
 };
 use rosu_pp::{Beatmap as Map, FruitsPP, OsuPP, StarResult, TaikoPP};
 use rosu_v2::prelude::{GameMode, OsuError};
-use std::{cmp::Ordering, sync::Arc};
+use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 use tokio::fs::File;
-use twilight_model::channel::Message;
+use twilight_model::application::interaction::application_command::CommandDataOption;
 
-async fn nochokes_main(
-    mode: GameMode,
+pub(super) async fn _nochokes(
     ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
+    data: CommandData<'_>,
+    args: NochokeArgs,
 ) -> BotResult<()> {
-    let args = NameIntArgs::new(&ctx, args);
+    let NochokeArgs {
+        name,
+        mode,
+        miss_limit,
+    } = args;
 
-    let name = match args.name.or_else(|| ctx.get_link(msg.author.id.0)) {
+    let author_id = data.author()?.id;
+
+    let name = match name {
         Some(name) => name,
-        None => return super::require_link(&ctx, msg).await,
+        None => match ctx.get_link(author_id.0) {
+            Some(name) => name,
+            None => return super::require_link(&ctx, &data).await,
+        },
     };
 
-    let miss_limit = args.number;
-
     // Retrieve the user and their top scores
-    let user_fut = request_user(&ctx, &name, Some(mode)).map_err(From::from);
+    let user_fut = super::request_user(&ctx, &name, Some(mode)).map_err(From::from);
     let scores_fut = ctx
         .osu()
         .user_scores(name.as_str())
@@ -49,22 +54,22 @@ async fn nochokes_main(
         .mode(mode)
         .limit(100);
 
-    let scores_fut = prepare_scores(&ctx, scores_fut);
+    let scores_fut = super::prepare_scores(&ctx, scores_fut);
 
     let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
         Ok((user, scores)) => (user, scores),
         Err(ErrorType::Osu(OsuError::NotFound)) => {
             let content = format!("User `{}` was not found", name);
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Err(ErrorType::Osu(why)) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
         Err(ErrorType::Bot(why)) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
@@ -218,7 +223,7 @@ async fn nochokes_main(
     let mut scores_data: Vec<_> = match unchoke_fut.await {
         Ok(scores_data) => scores_data,
         Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
@@ -249,8 +254,9 @@ async fn nochokes_main(
 
     // Accumulate all necessary data
     let pages = numbers::div_euclid(5, scores_data.len());
-    let data = NoChokeEmbed::new(&user, scores_data.iter().take(5), unchoked_pp, (1, pages)).await;
-    let embed = &[data.into_builder().build()];
+    let embed_data_fut =
+        NoChokeEmbed::new(&user, scores_data.iter().take(5), unchoked_pp, (1, pages));
+    let embed = embed_data_fut.await.into_builder().build();
 
     let content = format!(
         "No-choke top {}scores for `{}`:",
@@ -264,13 +270,8 @@ async fn nochokes_main(
     );
 
     // Creating the embed
-    let response_raw = ctx
-        .http
-        .create_message(msg.channel_id)
-        .content(&content)?
-        .embeds(embed)?
-        .exec()
-        .await?;
+    let builder = MessageBuilder::new().content(content).embed(embed);
+    let response_raw = data.create_message(&ctx, builder).await?;
 
     // Add maps of scores to DB
     let scores_iter = scores_data.iter().map(|(_, score, _)| score);
@@ -284,11 +285,11 @@ async fn nochokes_main(
         return Ok(());
     }
 
-    let response = response_raw.model().await?;
+    let response = data.get_response(&ctx, response_raw).await?;
 
     // Pagination
     let pagination = NoChokePagination::new(response, user, scores_data, unchoked_pp);
-    let owner = msg.author.id;
+    let owner = author_id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 90).await {
@@ -308,8 +309,18 @@ async fn nochokes_main(
 #[usage("[username] [number for miss limit]")]
 #[example("badewanne3", "vaxei 5")]
 #[aliases("nc", "nochoke")]
-async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    nochokes_main(GameMode::STD, ctx, msg, args).await
+async fn nochokes(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match NochokeArgs::args(&ctx, &mut args, GameMode::STD) {
+                Ok(nochoke_args) => {
+                    _nochokes(ctx, CommandData::Message { msg, args, num }, nochoke_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+    }
 }
 
 #[command]
@@ -323,8 +334,18 @@ async fn nochokes(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()>
 #[usage("[username] [number for miss limit]")]
 #[example("badewanne3", "vaxei 5")]
 #[aliases("nct", "nochoketaiko")]
-async fn nochokestaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    nochokes_main(GameMode::TKO, ctx, msg, args).await
+async fn nochokestaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match NochokeArgs::args(&ctx, &mut args, GameMode::TKO) {
+                Ok(nochoke_args) => {
+                    _nochokes(ctx, CommandData::Message { msg, args, num }, nochoke_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+    }
 }
 
 #[command]
@@ -338,6 +359,86 @@ async fn nochokestaiko(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResul
 #[usage("[username] [number for miss limit]")]
 #[example("badewanne3", "vaxei 5")]
 #[aliases("ncc", "nochokectb")]
-async fn nochokesctb(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    nochokes_main(GameMode::CTB, ctx, msg, args).await
+async fn nochokesctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match NochokeArgs::args(&ctx, &mut args, GameMode::CTB) {
+                Ok(nochoke_args) => {
+                    _nochokes(ctx, CommandData::Message { msg, args, num }, nochoke_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+    }
+}
+
+pub(super) struct NochokeArgs {
+    name: Option<Name>,
+    mode: GameMode,
+    miss_limit: Option<u32>,
+}
+
+impl NochokeArgs {
+    fn args(ctx: &Context, args: &mut Args, mode: GameMode) -> Result<Self, &'static str> {
+        let name = args
+            .next()
+            .map(|arg| Args::try_link_name(ctx, arg))
+            .transpose()?;
+
+        let miss_limit = match args.next().map(str::parse) {
+            Some(Ok(num)) => Some(num),
+            Some(Err(_)) => {
+                let content = "Could not parse second argument as miss limit.\n\
+                    Be sure you specify it as a positive integer.";
+
+                return Err(content);
+            }
+            None => None,
+        };
+
+        Ok(Self {
+            name,
+            mode,
+            miss_limit,
+        })
+    }
+
+    pub(super) fn slash(
+        ctx: &Context,
+        options: Vec<CommandDataOption>,
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let mut username = None;
+        let mut mode = None;
+        let mut miss_limit = None;
+
+        for option in options {
+            match option {
+                CommandDataOption::String { name, value } => match name.as_str() {
+                    "name" => username = Some(value.into()),
+                    "mode" => mode = parse_mode_option!(value, "top nochoke"),
+                    "discord" => username = parse_discord_option!(ctx, value, "top nochoke"),
+                    _ => bail_cmd_option!("top nochoke", string, name),
+                },
+                CommandDataOption::Integer { name, value } => match name.as_str() {
+                    "miss_limit" => miss_limit = Some(value.max(0) as u32),
+                    _ => bail_cmd_option!("top nochoke", integer, name),
+                },
+                CommandDataOption::Boolean { name, .. } => {
+                    bail_cmd_option!("top nochoke", boolean, name)
+                }
+                CommandDataOption::SubCommand { name, .. } => {
+                    bail_cmd_option!("top nochoke", subcommand, name)
+                }
+            }
+        }
+
+        let args = Self {
+            name: username,
+            mode: mode.unwrap_or(GameMode::STD),
+            miss_limit,
+        };
+
+        Ok(Ok(args))
+    }
 }

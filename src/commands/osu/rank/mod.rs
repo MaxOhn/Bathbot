@@ -48,7 +48,7 @@ impl RankCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "mode" => parse_mode_option!(mode, value, "rank pp"),
+                                    "mode" => mode = parse_mode_option!(value, "rank pp"),
                                     "name" => username = Some(value.into()),
                                     "discord" => match value.parse() {
                                         Ok(id) => match ctx.get_link(id) {
@@ -102,7 +102,7 @@ impl RankCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "mode" => parse_mode_option!(mode, value, "rank pp"),
+                                    "mode" => mode = parse_mode_option!(value, "rank pp"),
                                     "name" => username = Some(value.into()),
                                     "discord" => match value.parse() {
                                         Ok(id) => match ctx.get_link(id) {

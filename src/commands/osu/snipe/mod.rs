@@ -47,19 +47,7 @@ macro_rules! parse_username {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
                     "name" => username = Some(value.into()),
-                    "discord" => match value.parse() {
-                        Ok(id) => match $ctx.get_link(id) {
-                            Some(name) => username = Some(name),
-                            None => {
-                                let content = format!("<@{}> is not linked to an osu profile", id);
-
-                                return Ok(Err(content.into()));
-                            }
-                        },
-                        Err(_) => {
-                            bail_cmd_option!($location, string, value)
-                        }
-                    },
+                    "discord" => username = parse_discord_option!($ctx, value, $location),
                     _ => bail_cmd_option!($location, string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
@@ -297,19 +285,7 @@ fn parse_player_list(
         match option {
             CommandDataOption::String { name, value } => match name.as_str() {
                 "name" => username = Some(value.into()),
-                "discord" => match value.parse() {
-                    Ok(id) => match ctx.get_link(id) {
-                        Some(name) => username = Some(name),
-                        None => {
-                            let content = format!("<@{}> is not linked to an osu profile", id);
-
-                            return Ok(Err(content.into()));
-                        }
-                    },
-                    Err(_) => {
-                        bail_cmd_option!("snipe player list discord", string, value)
-                    }
-                },
+                "discord" => username = parse_discord_option!(ctx, value, "snipe player list"),
                 "sort" => match value.as_str() {
                     "acc" => order = Some(SnipeScoreOrder::Accuracy),
                     "len" => order = Some(SnipeScoreOrder::Length),

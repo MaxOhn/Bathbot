@@ -110,7 +110,7 @@ impl GameCommandKind {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
                                     "mode" => {
-                                        parse_mode_option!(mode, value, "backgroundgame start")
+                                        mode = parse_mode_option!(value, "backgroundgame start")
                                     }
                                     _ => bail_cmd_option!("backgroundgame start", string, name),
                                 },

@@ -106,7 +106,7 @@ pub async fn slash_mostplayed(ctx: Arc<Context>, mut command: ApplicationCommand
         match option {
             CommandDataOption::String { name, value } => match name.as_str() {
                 "name" => username = Some(value.into()),
-                "discord1" => match value.parse() {
+                "discord" => match value.parse() {
                     Ok(id) => match ctx.get_link(id) {
                         Some(name) => username = Some(name),
                         None => {

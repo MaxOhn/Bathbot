@@ -1,6 +1,6 @@
 use crate::{
-    util::{constants::GENERAL_ISSUE, MessageExt},
-    Args, BotResult, Context,
+    util::{constants::GENERAL_ISSUE, ApplicationCommandExt, MessageExt},
+    BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
 use std::{str::FromStr, sync::Arc};
@@ -9,7 +9,10 @@ use twilight_http::{
     api_error::{ApiError, ErrorCode::MessageTooOldToBulkDelete},
     error::ErrorType,
 };
-use twilight_model::channel::Message;
+use twilight_model::application::{
+    command::{ChoiceCommandOptionData, Command, CommandOption},
+    interaction::{application_command::CommandDataOption, ApplicationCommand},
+};
 
 #[command]
 #[only_guilds()]
@@ -24,23 +27,34 @@ use twilight_model::channel::Message;
 #[usage("[number]")]
 #[example("3")]
 #[aliases("purge")]
-async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()> {
-    let amount = match args.next().map(u64::from_str) {
-        Some(Ok(amount)) => {
-            if !(1..100).contains(&amount) {
-                let content = "First argument must be an integer between 1 and 99";
+async fn prune(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            let amount = match args.next().map(u64::from_str) {
+                Some(Ok(amount)) => {
+                    if !(1..100).contains(&amount) {
+                        let content = "First argument must be an integer between 1 and 99";
 
-                return msg.error(&ctx, content).await;
-            }
+                        return msg.error(&ctx, content).await;
+                    }
 
-            amount + 1
+                    amount + 1
+                }
+                None | Some(Err(_)) => 2,
+            };
+
+            _prune(ctx, CommandData::Message { msg, args, num }, amount).await
         }
-        None | Some(Err(_)) => 2,
-    };
+        CommandData::Interaction { command } => slash_prune(ctx, command).await,
+    }
+}
+
+async fn _prune(ctx: Arc<Context>, data: CommandData<'_>, amount: u64) -> BotResult<()> {
+    let channel_id = data.channel_id();
 
     let msgs_fut = ctx
         .http
-        .channel_messages(msg.channel_id)
+        .channel_messages(channel_id)
         .limit(amount)
         .unwrap()
         .exec();
@@ -54,7 +68,7 @@ async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
             .map(|msg| msg.id)
             .collect::<Vec<_>>(),
         Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why.into());
         }
@@ -62,21 +76,13 @@ async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
 
     if messages.len() < 2 {
         if let Some(msg_id) = messages.pop() {
-            ctx.http
-                .delete_message(msg.channel_id, msg_id)
-                .exec()
-                .await?;
+            ctx.http.delete_message(channel_id, msg_id).exec().await?;
         }
 
         return Ok(());
     }
 
-    match ctx
-        .http
-        .delete_messages(msg.channel_id, &messages)
-        .exec()
-        .await
-    {
+    match ctx.http.delete_messages(channel_id, &messages).exec().await {
         Ok(_) => {}
         Err(why) => {
             if matches!(why.kind(), ErrorType::Response {
@@ -86,25 +92,62 @@ async fn prune(ctx: Arc<Context>, msg: &Message, mut args: Args) -> BotResult<()
             {
                 let content = "Cannot delete messages that are older than two weeks \\:(";
 
-                return msg.error(&ctx, content).await;
+                return data.error(&ctx, content).await;
             } else {
-                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+                let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
                 return Err(why.into());
             }
         }
     }
 
-    let response = msg
-        .respond(&ctx, format!("Deleted the last {} messages", amount - 1))
-        .await?;
-
+    let content = format!("Deleted the last {} messages", amount - 1);
+    let builder = MessageBuilder::new().content(content);
+    let response_raw = data.create_message(&ctx, builder).await?;
+    let response = data.get_response(&ctx, response_raw).await?;
     time::sleep(Duration::from_secs(6)).await;
 
-    ctx.http
-        .delete_message(response.channel_id, response.id)
-        .exec()
-        .await?;
+    let delete_fut = ctx.http.delete_message(channel_id, response.id).exec();
+    delete_fut.await?;
 
     Ok(())
+}
+
+pub async fn slash_prune(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    let mut amount = None;
+
+    for option in command.yoink_options() {
+        match option {
+            CommandDataOption::String { name, .. } => bail_cmd_option!("prune", string, name),
+            CommandDataOption::Integer { name, value } => match name.as_str() {
+                "amount" => amount = Some(value.max(2).min(100) as u64 - 1),
+                _ => bail_cmd_option!("prune", integer, name),
+            },
+            CommandDataOption::Boolean { name, .. } => bail_cmd_option!("prune", boolean, name),
+            CommandDataOption::SubCommand { name, .. } => {
+                bail_cmd_option!("prune", subcommand, name)
+            }
+        }
+    }
+
+    let amount = amount.ok_or(Error::InvalidCommandOptions)?;
+
+    _prune(ctx, command.into(), amount).await
+}
+
+pub fn slash_prune_command() -> Command {
+    Command {
+        application_id: None,
+        guild_id: None,
+        name: "prune".to_owned(),
+        default_permission: None,
+        description: "Delete the last few messages in a channel".to_owned(),
+        id: None,
+        options: vec![CommandOption::Integer(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Choose the amount of messages to delete".to_owned(),
+            name: "amount".to_owned(),
+            required: true,
+        })],
+    }
 }

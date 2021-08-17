@@ -11,9 +11,9 @@ use twilight_model::{application::interaction::ApplicationCommand, guild::Permis
 
 #[derive(Default)]
 struct CommandArgs {
-    only_owner: bool,
     authority: bool,
     only_guilds: bool,
+    only_owner: bool,
     bucket: Option<BucketName>,
 }
 
@@ -28,24 +28,26 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
 
     let command_result = match cmd_name.as_str() {
         "about" => process_command(ctx, command, args, utility::slash_about).await,
+        "authorities" => {
+            args.authority = true;
+            args.only_guilds = true;
+
+            process_command(ctx, command, args, utility::slash_authorities).await
+        }
         "avatar" => process_command(ctx, command, args, osu::slash_avatar).await,
         "backgroundgame" => {
             args.bucket.replace(BucketName::BgStart);
 
             process_command(ctx, command, args, fun::slash_backgroundgame).await
         }
-        "cache" => {
-            args.only_owner = true;
-
-            process_command(ctx, command, args, owner::slash_cache).await
-        }
+        "commands" => process_command(ctx, command, args, utility::slash_commands).await,
         "compare" => process_command(ctx, command, args, osu::slash_compare).await,
         "help" => {
             let is_authority = super::check_authority(&ctx, &command).transpose().is_none();
 
             help::slash_help(ctx, command, is_authority)
                 .await
-                .map(ProcessResult::success)
+                .map(|_| ProcessResult::Success)
         }
         "invite" => process_command(ctx, command, args, utility::slash_invite).await,
         "link" => process_command(ctx, command, args, osu::slash_link).await,
@@ -58,9 +60,21 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
         "medal" => process_command(ctx, command, args, osu::slash_medal).await,
         "minesweeper" => process_command(ctx, command, args, fun::slash_minesweeper).await,
         "mostplayed" => process_command(ctx, command, args, osu::slash_mostplayed).await,
+        "osustats" => process_command(ctx, command, args, osu::slash_osustats).await,
+        "owner" => {
+            args.only_owner = true;
+
+            process_command(ctx, command, args, owner::slash_owner).await
+        }
         "ping" => process_command(ctx, command, args, utility::slash_ping).await,
         "pp" => process_command(ctx, command, args, osu::slash_pp).await,
         "profile" => process_command(ctx, command, args, osu::slash_profile).await,
+        "prune" => {
+            args.authority = true;
+            args.only_guilds = true;
+
+            process_command(ctx, command, args, utility::slash_prune).await
+        }
         "rank" => process_command(ctx, command, args, osu::slash_rank).await,
         "ranking" => process_command(ctx, command, args, osu::slash_ranking).await,
         "ratio" => process_command(ctx, command, args, osu::slash_ratio).await,
@@ -83,6 +97,13 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
 
             process_command(ctx, command, args, songs::slash_song).await
         }
+        "togglesongs" => {
+            args.authority = true;
+            args.only_guilds = true;
+
+            process_command(ctx, command, args, utility::slash_togglesongs).await
+        }
+        "top" => process_command(ctx, command, args, osu::slash_top).await,
         "track" => {
             args.authority = true;
             args.only_guilds = true;

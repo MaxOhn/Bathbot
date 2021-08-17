@@ -1,6 +1,5 @@
-use super::{prepare_scores, request_user, ErrorType};
+use super::ErrorType;
 use crate::{
-    arguments::try_link_name,
     embeds::{EmbedData, TopIfEmbed},
     pagination::{Pagination, TopIfPagination},
     tracking::process_tracking,
@@ -11,7 +10,7 @@ use crate::{
         osu::prepare_beatmap_file,
         CowUtils, MessageExt,
     },
-    Args, BotResult, Context,
+    Args, BotResult, CommandData, Context, Error, MessageBuilder, Name,
 };
 
 use futures::{
@@ -20,42 +19,118 @@ use futures::{
 };
 use rosu_pp_newer::{osu_delta, osu_sotarks, osu_xexxar};
 use rosu_v2::prelude::{GameMode, OsuError, Score};
-use std::{cmp::Ordering, sync::Arc};
+use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 use tokio::fs::File;
-use twilight_model::channel::Message;
+use twilight_model::application::interaction::application_command::CommandDataOption;
+
+pub(super) struct RebalanceArgs {
+    pub name: Option<Name>,
+    pub version: RebalanceVersion,
+    pub mode: GameMode,
+}
+
+impl RebalanceArgs {
+    fn args(ctx: &Context, args: &mut Args, mode: GameMode) -> Result<Self, &'static str> {
+        let version = match args.next().map(CowUtils::cow_to_ascii_lowercase).as_deref() {
+            Some("xexxar") => RebalanceVersion::Xexxar,
+            Some("delta") | Some("delta_t") | Some("deltat") => RebalanceVersion::Delta,
+            Some("sotarks") => RebalanceVersion::Sotarks,
+            _ => {
+                let content = "The first argument must be the version name so either \
+                    `xexxar`, `delta`, or `sotarks`.";
+
+                return Err(content);
+            }
+        };
+
+        let name = args
+            .next()
+            .map(|arg| Args::try_link_name(ctx, arg))
+            .transpose()?;
+
+        let args = Self {
+            name,
+            version,
+            mode,
+        };
+
+        Ok(args)
+    }
+
+    pub(super) fn slash(
+        ctx: &Context,
+        options: Vec<CommandDataOption>,
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let mut username = None;
+        let mut version = None;
+
+        for option in options {
+            match option {
+                CommandDataOption::String { name, value } => match name.as_str() {
+                    "name" => username = Some(value.into()),
+                    "discord" => username = parse_discord_option!(ctx, value, "top rebalance"),
+                    "version" => match value.as_str() {
+                        "delta_t" => version = Some(RebalanceVersion::Delta),
+                        "sotarks" => version = Some(RebalanceVersion::Sotarks),
+                        "xexxar" => version = Some(RebalanceVersion::Xexxar),
+                        _ => {
+                            bail_cmd_option!("top rebalance version", string, value)
+                        }
+                    },
+                    _ => bail_cmd_option!("top rebalance", string, name),
+                },
+                CommandDataOption::Integer { name, .. } => {
+                    bail_cmd_option!("top rebalance", integer, name)
+                }
+                CommandDataOption::Boolean { name, .. } => {
+                    bail_cmd_option!("top rebalance", boolean, name)
+                }
+                CommandDataOption::SubCommand { name, .. } => {
+                    bail_cmd_option!("top rebalance", subcommand, name)
+                }
+            }
+        }
+
+        let args = Self {
+            version: version.ok_or(Error::InvalidCommandOptions)?,
+            name: username,
+            mode: GameMode::STD,
+        };
+
+        Ok(Ok(args))
+    }
+}
 
 #[derive(Copy, Clone)]
-enum Version {
+pub(super) enum RebalanceVersion {
     Delta,
     Sotarks,
     Xexxar,
 }
 
-async fn rebalance_main(
-    mode: GameMode,
+pub(super) async fn _rebalance(
     ctx: Arc<Context>,
-    msg: &Message,
-    mut args: Args<'_>,
+    data: CommandData<'_>,
+    args: RebalanceArgs,
 ) -> BotResult<()> {
-    let version = match args.next().map(CowUtils::cow_to_ascii_lowercase).as_deref() {
-        Some("xexxar") => Version::Xexxar,
-        Some("delta") | Some("delta_t") | Some("deltat") => Version::Delta,
-        Some("sotarks") => Version::Sotarks,
-        _ => {
-            let content = "The first argument must be the version name so either \
-            `xexxar`, `delta`, or `sotarks`";
+    let RebalanceArgs {
+        name,
+        version,
+        mode,
+    } = args;
 
-            return msg.error(&ctx, content).await;
-        }
-    };
+    let author_id = data.author()?.id;
 
-    let name = match try_link_name(&ctx, args.next()).or_else(|| ctx.get_link(msg.author.id.0)) {
+    let name = match name {
         Some(name) => name,
-        None => return super::require_link(&ctx, msg).await,
+        None => match ctx.get_link(author_id.0) {
+            Some(name) => name,
+            None => return super::require_link(&ctx, &data).await,
+        },
     };
 
     // Retrieve the user and their top scores
-    let user_fut = request_user(&ctx, &name, Some(mode)).map_err(From::from);
+    let user_fut = super::request_user(&ctx, &name, Some(mode)).map_err(From::from);
     let scores_fut = ctx
         .osu()
         .user_scores(name.as_str())
@@ -63,22 +138,22 @@ async fn rebalance_main(
         .mode(mode)
         .limit(100);
 
-    let scores_fut = prepare_scores(&ctx, scores_fut);
+    let scores_fut = super::prepare_scores(&ctx, scores_fut);
 
     let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
         Ok((user, scores)) => (user, scores),
         Err(ErrorType::Osu(OsuError::NotFound)) => {
             let content = format!("User `{}` was not found", name);
 
-            return msg.error(&ctx, content).await;
+            return data.error(&ctx, content).await;
         }
         Err(ErrorType::Osu(why)) => {
-            let _ = msg.error(&ctx, OSU_API_ISSUE).await;
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
         Err(ErrorType::Bot(why)) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
@@ -109,9 +184,9 @@ async fn rebalance_main(
 
             // Calculate pp values
             let max_pp = match version {
-                Version::Delta => osu_delta(&mut score).await?,
-                Version::Sotarks => osu_sotarks(&mut score).await?,
-                Version::Xexxar => osu_xexxar(&mut score).await?,
+                RebalanceVersion::Delta => osu_delta(&mut score).await?,
+                RebalanceVersion::Sotarks => osu_sotarks(&mut score).await?,
+                RebalanceVersion::Xexxar => osu_xexxar(&mut score).await?,
             };
 
             Ok((i, score, Some(max_pp)))
@@ -122,7 +197,7 @@ async fn rebalance_main(
     let mut scores_data = match scores_fut.await {
         Ok(scores) => scores,
         Err(why) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
@@ -153,27 +228,13 @@ async fn rebalance_main(
 
     let pages = numbers::div_euclid(5, scores_data.len());
     let pre_pp = user.statistics.as_ref().unwrap().pp;
-
-    let data = TopIfEmbed::new(
-        &user,
-        scores_data.iter().take(5),
-        mode,
-        pre_pp,
-        post_pp,
-        (1, pages),
-    )
-    .await;
+    let iter = scores_data.iter().take(5);
+    let embed_data = TopIfEmbed::new(&user, iter, mode, pre_pp, post_pp, (1, pages)).await;
 
     // Creating the embed
-    let embed = &[data.into_builder().build()];
-
-    let response_raw = ctx
-        .http
-        .create_message(msg.channel_id)
-        .content(&content)?
-        .embeds(embed)?
-        .exec()
-        .await?;
+    let embed = embed_data.into_builder().build();
+    let builder = MessageBuilder::new().content(content).embed(embed);
+    let response_raw = data.create_message(&ctx, builder).await?;
 
     // * Don't add maps of scores to DB since their stars were potentially changed
 
@@ -182,11 +243,11 @@ async fn rebalance_main(
         return Ok(());
     }
 
-    let response = response_raw.model().await?;
+    let response = data.get_response(&ctx, response_raw).await?;
 
     // Pagination
     let pagination = TopIfPagination::new(response, user, scores_data, mode, pre_pp, post_pp);
-    let owner = msg.author.id;
+    let owner = author_id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -213,8 +274,18 @@ async fn rebalance_main(
 )]
 #[usage("[version name] [username]")]
 #[example("xexxar badewanne3", "delta \"freddie benson\"", "sotarks peppy")]
-pub async fn rebalance(ctx: Arc<Context>, msg: &Message, args: Args) -> BotResult<()> {
-    rebalance_main(GameMode::STD, ctx, msg, args).await
+pub async fn rebalance(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+    match data {
+        CommandData::Message { msg, mut args, num } => {
+            match RebalanceArgs::args(&ctx, &mut args, GameMode::STD) {
+                Ok(rebalance_args) => {
+                    _rebalance(ctx, CommandData::Message { msg, args, num }, rebalance_args).await
+                }
+                Err(content) => msg.error(&ctx, content).await,
+            }
+        }
+        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+    }
 }
 
 async fn osu_xexxar(score: &mut Score) -> BotResult<f32> {
@@ -315,10 +386,10 @@ fn mode_str(mode: GameMode) -> &'static str {
     }
 }
 
-fn content_version(version: Version) -> &'static str {
+fn content_version(version: RebalanceVersion) -> &'static str {
     match version {
-        Version::Delta => "on the delta_t version",
-        Version::Sotarks => "on the Sotarks rebalance",
-        Version::Xexxar => "on the Xexxar version",
+        RebalanceVersion::Delta => "on the delta_t version",
+        RebalanceVersion::Sotarks => "on the Sotarks rebalance",
+        RebalanceVersion::Xexxar => "on the Xexxar version",
     }
 }

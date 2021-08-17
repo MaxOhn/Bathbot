@@ -122,6 +122,12 @@ pub enum OsuStatsOrder {
     Misses = 6,
 }
 
+impl Default for OsuStatsOrder {
+    fn default() -> Self {
+        Self::PlayDate
+    }
+}
+
 impl fmt::Display for OsuStatsOrder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)
@@ -152,7 +158,7 @@ impl OsuStatsParams {
             rank_max: 100,
             acc_min: 0.0,
             acc_max: 100.0,
-            order: OsuStatsOrder::PlayDate,
+            order: OsuStatsOrder::default(),
             mods: None,
             descending: true,
         }
@@ -162,52 +168,6 @@ impl OsuStatsParams {
         self.mode = mode;
 
         self
-    }
-
-    pub fn rank_min(mut self, rank_min: usize) -> Self {
-        self.rank_min = rank_min;
-
-        self
-    }
-
-    pub fn rank_max(mut self, rank_max: usize) -> Self {
-        self.rank_max = rank_max.min(100);
-
-        self
-    }
-
-    pub fn acc_min(mut self, acc_min: f32) -> Self {
-        self.acc_min = acc_min;
-
-        self
-    }
-
-    pub fn acc_max(mut self, acc_max: f32) -> Self {
-        self.acc_max = acc_max.min(100.0);
-
-        self
-    }
-
-    pub fn order(mut self, order: OsuStatsOrder) -> Self {
-        self.order = order;
-
-        self
-    }
-
-    pub fn descending(mut self, descending: bool) -> Self {
-        self.descending = descending;
-
-        self
-    }
-
-    pub fn mods(mut self, selection: ModSelection) -> Self {
-        self.mods = Some(selection);
-
-        self
-    }
-
-    pub fn page(&mut self, page: usize) {
-        self.page = page;
     }
 }
 
@@ -229,23 +189,5 @@ impl OsuStatsListParams {
             rank_min: 1,
             rank_max: 100,
         }
-    }
-
-    pub fn mode(mut self, mode: GameMode) -> Self {
-        self.mode = mode;
-
-        self
-    }
-
-    pub fn rank_min(mut self, rank_min: usize) -> Self {
-        self.rank_min = rank_min;
-
-        self
-    }
-
-    pub fn rank_max(mut self, rank_max: usize) -> Self {
-        self.rank_max = rank_max.min(100);
-
-        self
     }
 }

@@ -49,7 +49,7 @@ impl RankingCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "mode" => parse_mode_option!(mode, value, "ranking pp"),
+                                    "mode" => mode = parse_mode_option!(value, "ranking pp"),
                                     "country" => country = Some(value),
                                     _ => bail_cmd_option!("ranking pp", string, name),
                                 },
@@ -74,7 +74,7 @@ impl RankingCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "mode" => parse_mode_option!(mode, value, "ranking score"),
+                                    "mode" => mode = parse_mode_option!(value, "ranking score"),
                                     _ => bail_cmd_option!("ranking score", string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
@@ -98,7 +98,7 @@ impl RankingCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "mode" => parse_mode_option!(mode, value, "ranking country"),
+                                    "mode" => mode = parse_mode_option!(value, "ranking country"),
                                     _ => bail_cmd_option!("ranking country", string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {

@@ -1,5 +1,5 @@
 mod bg_rankings;
-// mod command_count;
+mod command_count;
 mod common;
 mod country_snipe_list;
 mod leaderboard;
@@ -8,9 +8,9 @@ mod map_search;
 mod medals_missing;
 mod most_played;
 mod most_played_common;
-// mod nochoke;
-// mod osustats_globals;
-// mod osustats_list;
+mod nochoke;
+mod osustats_globals;
+mod osustats_list;
 mod player_snipe_list;
 mod profile;
 mod ranking;
@@ -18,11 +18,11 @@ mod ranking_countries;
 mod recent;
 mod recent_list;
 mod sniped_difference;
-// mod top;
-// mod top_if;
+mod top;
+mod top_if;
 
 pub use bg_rankings::BGRankingPagination;
-// pub use command_count::CommandCountPagination;
+pub use command_count::CommandCountPagination;
 pub use common::CommonPagination;
 pub use country_snipe_list::CountrySnipeListPagination;
 pub use leaderboard::LeaderboardPagination;
@@ -31,9 +31,9 @@ pub use map_search::MapSearchPagination;
 pub use medals_missing::MedalsMissingPagination;
 pub use most_played::MostPlayedPagination;
 pub use most_played_common::MostPlayedCommonPagination;
-// pub use nochoke::NoChokePagination;
-// pub use osustats_globals::OsuStatsGlobalsPagination;
-// pub use osustats_list::OsuStatsListPagination;
+pub use nochoke::NoChokePagination;
+pub use osustats_globals::OsuStatsGlobalsPagination;
+pub use osustats_list::OsuStatsListPagination;
 pub use player_snipe_list::PlayerSnipeListPagination;
 pub use profile::ProfilePagination;
 pub use ranking::RankingPagination;
@@ -41,8 +41,8 @@ pub use ranking_countries::RankingCountriesPagination;
 pub use recent::RecentPagination;
 pub use recent_list::RecentListPagination;
 pub use sniped_difference::SnipedDiffPagination;
-// pub use top::TopPagination;
-// pub use top_if::TopIfPagination;
+pub use top::TopPagination;
+pub use top_if::TopIfPagination;
 
 use crate::{
     embeds::EmbedData,

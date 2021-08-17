@@ -77,7 +77,7 @@ impl RecentCommandKind {
                                             bail_cmd_option!("recent score discord", string, value)
                                         }
                                     },
-                                    "mode" => parse_mode_option!(mode, value, "recent score"),
+                                    "mode" => mode = parse_mode_option!(value, "recent score"),
                                     _ => bail_cmd_option!("recent score", string, name),
                                 },
                                 CommandDataOption::Integer { name, value } => match name.as_str() {
@@ -139,7 +139,9 @@ impl RecentCommandKind {
                                             )
                                         }
                                     },
-                                    "mode" => parse_mode_option!(mode, value, "recent leaderboard"),
+                                    "mode" => {
+                                        mode = parse_mode_option!(value, "recent leaderboard")
+                                    }
                                     _ => bail_cmd_option!("recent leaderboard", string, name),
                                 },
                                 CommandDataOption::Integer { name, value } => match name.as_str() {
@@ -188,7 +190,7 @@ impl RecentCommandKind {
                                             bail_cmd_option!("recent list discord", string, value)
                                         }
                                     },
-                                    "mode" => parse_mode_option!(mode, value, "recent list"),
+                                    "mode" => mode = parse_mode_option!(value, "recent list"),
                                     _ => bail_cmd_option!("recent list", string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
@@ -255,7 +257,7 @@ impl RecentCommandKind {
                                             )
                                         }
                                     },
-                                    "mode" => parse_mode_option!(mode, value, "recent simulate"),
+                                    "mode" => mode = parse_mode_option!(value, "recent simulate"),
                                     _ => bail_cmd_option!("recent simulate", string, name),
                                 },
                                 CommandDataOption::Integer { name, value } => match name.as_str() {

@@ -57,6 +57,8 @@ async fn _roleassign(
         return data.error(&ctx, "Role not found in this guild").await;
     }
 
+    // TODO: Check if bot has sufficient permissions to assign the role
+
     if ctx.cache.guild_channel(channel_id).is_none() {
         return data.error(&ctx, "Channel not found in this guild").await;
     }

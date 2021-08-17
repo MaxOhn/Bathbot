@@ -78,7 +78,7 @@ impl Pagination for OsuStatsGlobalsPagination {
 
         if count < self.pages.per_page && self.total - self.pages.index > count {
             let osustats_page = (self.pages.index / 24) + 1;
-            self.params.page(osustats_page);
+            self.params.page = osustats_page;
 
             let (scores, _) = self
                 .ctx
