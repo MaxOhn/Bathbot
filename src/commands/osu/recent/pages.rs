@@ -207,10 +207,9 @@ async fn _recentpages(
     let content = format!("Try #{}", tries);
     let embed = embed_data.as_builder().build();
     let builder = MessageBuilder::new().content(content).embed(embed);
-    let response = data.create_message(&ctx, builder).await?;
+    let response = data.create_message(&ctx, builder).await?.model().await?;
 
-    // TODO
-    // ctx.store_msg(response.id);
+    ctx.store_msg(response.id);
 
     // Process user and their top scores for tracking
     if let Some(ref mut scores) = best {
@@ -224,23 +223,19 @@ async fn _recentpages(
         tokio::spawn(async move {
             sleep(Duration::from_secs(60)).await;
 
-            // TODO
-            // if !ctx.remove_msg(response.id) {
-            //     return;
-            // }
+            if !ctx.remove_msg(response.id) {
+                return;
+            }
 
             let builder = embed_data.into_builder().build().into();
 
-            if let Err(why) = data.update_message(&ctx, builder, response).await {
+            if let Err(why) = response.update_message(&ctx, builder).await {
                 unwind_error!(warn, why, "Error minimizing recent msg: {}");
             }
         });
 
         return Ok(());
     }
-
-    // Unwrapping valid since it's not a slash command
-    let response = response.unwrap().model().await?;
 
     // Pagination
     let pagination = RecentPagination::new(

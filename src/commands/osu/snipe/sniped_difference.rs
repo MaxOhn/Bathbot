@@ -112,7 +112,7 @@ pub(super) async fn _sniped_diff(
         return Ok(());
     }
 
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = response_raw.model().await?;
 
     // Pagination
     let pagination = SnipedDiffPagination::new(response, user, diff, scores, maps);

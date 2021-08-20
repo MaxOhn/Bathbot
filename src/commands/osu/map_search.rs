@@ -84,7 +84,7 @@ async fn _search(ctx: Arc<Context>, data: CommandData<'_>, args: MapSearchArgs) 
     }
 
     let owner = data.author()?.id;
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = response_raw.model().await?;
 
     // Pagination
     let pagination =

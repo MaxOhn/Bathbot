@@ -296,7 +296,7 @@ pub(super) async fn _topold(
         return Ok(());
     }
 
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = response_raw.model().await?;
 
     // Pagination
     let pagination = TopIfPagination::new(response, user, scores_data, mode, adjusted_pp, post_pp);

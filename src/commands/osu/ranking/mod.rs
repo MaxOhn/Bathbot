@@ -4,7 +4,10 @@ mod ranking_countries;
 pub use ranking::*;
 pub use ranking_countries::*;
 
-use crate::{util::ApplicationCommandExt, BotResult, Context, Error};
+use crate::{
+    util::{ApplicationCommandExt, CountryCode, MessageExt},
+    BotResult, Context, Error,
+};
 
 use rosu_v2::prelude::GameMode;
 use std::sync::Arc;
@@ -18,7 +21,7 @@ enum RankingCommandKind {
         mode: GameMode,
     },
     Performance {
-        country: Option<String>,
+        country: Option<CountryCode>,
         mode: GameMode,
     },
     RankedScore {
@@ -27,7 +30,7 @@ enum RankingCommandKind {
 }
 
 impl RankingCommandKind {
-    fn slash(command: &mut ApplicationCommand) -> BotResult<Self> {
+    fn slash(command: &mut ApplicationCommand) -> BotResult<Result<Self, String>> {
         let mut kind = None;
 
         for option in command.yoink_options() {
@@ -50,7 +53,23 @@ impl RankingCommandKind {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
                                     "mode" => mode = parse_mode_option!(value, "ranking pp"),
-                                    "country" => country = Some(value),
+                                    "country" => {
+                                        if value.len() == 2 && value.is_ascii() {
+                                            country = Some(value.into())
+                                        } else if let Some(code) =
+                                            CountryCode::from_name(value.as_str())
+                                        {
+                                            country = Some(code)
+                                        } else {
+                                            let content = format!(
+                                                "Failed to parse `{}` as country.\n\
+                                                Be sure to specify a valid country or two ASCII letter country code.",
+                                                value
+                                            );
+
+                                            return Ok(Err(content));
+                                        }
+                                    }
                                     _ => bail_cmd_option!("ranking pp", string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
@@ -121,17 +140,22 @@ impl RankingCommandKind {
             }
         }
 
-        kind.ok_or(Error::InvalidCommandOptions)
+        kind.ok_or(Error::InvalidCommandOptions).map(Ok)
     }
 }
 
 pub async fn slash_ranking(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
     match RankingCommandKind::slash(&mut command)? {
-        RankingCommandKind::Country { mode } => _countryranking(ctx, command.into(), mode).await,
-        RankingCommandKind::Performance { country, mode } => {
+        Ok(RankingCommandKind::Country { mode }) => {
+            _countryranking(ctx, command.into(), mode).await
+        }
+        Ok(RankingCommandKind::Performance { country, mode }) => {
             _performanceranking(ctx, command.into(), mode, country).await
         }
-        RankingCommandKind::RankedScore { mode } => _scoreranking(ctx, command.into(), mode).await,
+        Ok(RankingCommandKind::RankedScore { mode }) => {
+            _scoreranking(ctx, command.into(), mode).await
+        }
+        Err(content) => command.error(&ctx, content).await,
     }
 }
 

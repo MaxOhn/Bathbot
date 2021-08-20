@@ -1,5 +1,6 @@
 mod authored;
 pub mod constants;
+mod country_code;
 mod cow;
 pub mod datetime;
 mod emote;
@@ -14,6 +15,7 @@ mod safe_content;
 
 pub use authored::Authored;
 use constants::DISCORD_CDN;
+pub use country_code::CountryCode;
 pub use cow::CowUtils;
 pub use emote::Emote;
 pub use exts::*;

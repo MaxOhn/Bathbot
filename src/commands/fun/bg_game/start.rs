@@ -86,7 +86,7 @@ async fn get_mapsets(
         None => bail!("No CurrentUser in cache"),
     };
 
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = response_raw.model().await?;
     let response_id = response.id;
 
     let reaction_stream = ctx

@@ -66,7 +66,6 @@ pub enum Error {
     Interaction(InteractionError),
     InvalidCommandOptions,
     InvalidConfig(TomlError),
-    InvalidSession(u64),
     IO(IOError),
     MapDownload(MapDownloadError),
     MissingSlashAuthor,
@@ -109,7 +108,6 @@ impl StdError for Error {
             Self::Interaction(e) => Some(e),
             Self::InvalidCommandOptions => None,
             Self::InvalidConfig(e) => Some(e),
-            Self::InvalidSession(_) => None,
             Self::IO(e) => Some(e),
             Self::MapDownload(e) => Some(e),
             Self::MissingSlashAuthor => None,
@@ -150,11 +148,6 @@ impl Display for Error {
             Self::Interaction(_) => f.write_str("interaction error"),
             Self::InvalidCommandOptions => f.write_str("received invalid options for command"),
             Self::InvalidConfig(_) => f.write_str("config file was not in correct format"),
-            Self::InvalidSession(shard) => write!(
-                f,
-                "gateway invalidated session unrecoverably for shard {}",
-                shard
-            ),
             Self::IO(_) => f.write_str("io error"),
             Self::MapDownload(_) => f.write_str("error while downloading new map"),
             Self::MissingSlashAuthor => {

@@ -2,7 +2,7 @@ use crate::{
     custom_client::{OsuStatsListParams, OsuStatsPlayer},
     embeds::{EmbedData, OsuStatsListEmbed},
     pagination::{OsuStatsListPagination, Pagination},
-    util::{numbers, MessageExt},
+    util::{numbers, CountryCode, MessageExt},
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
@@ -29,7 +29,11 @@ pub(super) async fn _players(
         }
     };
 
-    let country = params.country.as_deref().unwrap_or("Global");
+    let country = params
+        .country
+        .as_ref()
+        .map(|code| code.as_str())
+        .unwrap_or("Global");
 
     if players.is_empty() {
         let content = format!(
@@ -64,7 +68,7 @@ pub(super) async fn _players(
         return Ok(());
     }
 
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = response_raw.model().await?;
 
     // Pagination
     let pagination =
@@ -362,6 +366,8 @@ impl OsuStatsListParams {
                 }
             } else if arg.len() == 2 && arg.is_ascii() {
                 country = Some(arg.into());
+            } else if let Some(code) = CountryCode::from_name(arg) {
+                country = Some(code);
             } else {
                 let content = format!(
                     "Failed to parse `{}` as either rank or country.\n\
@@ -398,9 +404,11 @@ impl OsuStatsListParams {
                     "country" => {
                         if value.len() == 2 && value.is_ascii() {
                             country = Some(value.into())
+                        } else if let Some(code) = CountryCode::from_name(value.as_str()) {
+                            country = Some(code);
                         } else {
                             let content = format!(
-                                "Failed to parse `{}` as country.\n\
+                                "Failed to parse `{}` as country or country code.\n\
                                 Be sure to specify a valid two ASCII letter country code.",
                                 value
                             );
@@ -411,11 +419,11 @@ impl OsuStatsListParams {
                     _ => bail_cmd_option!("osustats players", string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
-                    "min" => {
+                    "min_rank" => {
                         rank_min =
                             Some((value.max(Self::MIN_RANK as i64) as usize).min(Self::MAX_RANK))
                     }
-                    "max" => {
+                    "max_rank" => {
                         rank_max =
                             Some((value.max(Self::MIN_RANK as i64) as usize).min(Self::MAX_RANK))
                     }

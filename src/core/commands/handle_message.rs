@@ -39,14 +39,12 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) -> BotResult<()> {
 
     // Process invoke
     log_invoke(&ctx, &msg);
+    let name = invoke.name();
+    ctx.stats.increment_message_command(name.as_ref());
 
     let command_result = match &invoke {
-        Invoke::Command { cmd, num } => {
-            process_command(cmd, Arc::clone(&ctx), &msg, stream, *num).await
-        }
-        Invoke::SubCommand { sub, .. } => {
-            process_command(sub, Arc::clone(&ctx), &msg, stream, None).await
-        }
+        Invoke::Command { cmd, num } => process_command(cmd, ctx, &msg, stream, *num).await,
+        Invoke::SubCommand { sub, .. } => process_command(sub, ctx, &msg, stream, None).await,
         Invoke::Help(None) => {
             let is_authority = super::check_authority(&ctx, &msg).transpose().is_none();
             let args = Args::new(&msg.content, stream);
@@ -70,20 +68,11 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) -> BotResult<()> {
         Invoke::None => unreachable!(),
     };
 
-    let name = invoke.name();
-
     // Handle processing result
-    match invoke {
-        Invoke::None => {}
-        _ => {
-            ctx.stats.inc_command(name.as_ref());
-
-            match command_result {
-                Ok(ProcessResult::Success) => info!("Processed command `{}`", name),
-                Ok(result) => info!("Command `{}` was not processed: {:?}", name, result),
-                Err(why) => return Err(Error::Command(Box::new(why), name.into_owned())),
-            }
-        }
+    match command_result {
+        Ok(ProcessResult::Success) => info!("Processed command `{}`", name),
+        Ok(result) => info!("Command `{}` was not processed: {:?}", name, result),
+        Err(why) => return Err(Error::Command(Box::new(why), name.into_owned())),
     }
 
     Ok(())

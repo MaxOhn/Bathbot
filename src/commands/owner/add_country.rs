@@ -1,6 +1,6 @@
 use crate::{
-    util::{constants::GENERAL_ISSUE, MessageExt},
-    BotResult, CommandData, Context, CountryCode, MessageBuilder,
+    util::{constants::GENERAL_ISSUE, CountryCode, MessageExt},
+    BotResult, CommandData, Context, MessageBuilder,
 };
 
 use std::sync::Arc;

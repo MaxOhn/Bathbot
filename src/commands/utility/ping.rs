@@ -13,11 +13,12 @@ use twilight_model::application::{command::Command, interaction::ApplicationComm
 async fn ping(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let builder = MessageBuilder::new().content("Pong");
     let start = Instant::now();
-    let response = data.create_message(&ctx, builder).await?;
+    let response_raw = data.create_message(&ctx, builder).await?;
     let elapsed = (Instant::now() - start).as_millis();
+    let response = response_raw.model().await?;
     let content = format!(":ping_pong: Pong! ({}ms)", elapsed);
     let builder = MessageBuilder::new().content(content);
-    data.update_message(&ctx, builder, response).await?;
+    response.update_message(&ctx, builder).await?;
 
     Ok(())
 }

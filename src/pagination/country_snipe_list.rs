@@ -1,8 +1,11 @@
 use super::{Pages, Pagination, ReactionVec};
 
 use crate::{
-    commands::osu::SnipeOrder, custom_client::SnipeCountryPlayer, embeds::CountrySnipeListEmbed,
-    util::Emote, BotResult, CountryCode,
+    commands::osu::SnipeOrder,
+    custom_client::SnipeCountryPlayer,
+    embeds::CountrySnipeListEmbed,
+    util::{CountryCode, Emote},
+    BotResult,
 };
 
 use async_trait::async_trait;

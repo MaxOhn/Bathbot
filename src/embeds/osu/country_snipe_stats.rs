@@ -4,8 +4,8 @@ use crate::{
     util::{
         numbers::{round, with_comma_uint},
         osu::flag_url,
+        CountryCode,
     },
-    CountryCode,
 };
 
 pub struct CountrySnipeStatsEmbed {

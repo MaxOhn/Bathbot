@@ -1,7 +1,7 @@
 use crate::{
     commands::osu::UserValue,
     embeds::{Author, Footer},
-    util::osu::flag_url,
+    util::{osu::flag_url, CountryCode},
 };
 
 use rosu_v2::prelude::GameMode;
@@ -19,7 +19,7 @@ impl RankingEmbed {
         users: &BTreeMap<usize, (UserValue, String)>,
         title: &str,
         url_type: &'static str,
-        country_code: Option<&str>,
+        country_code: Option<&CountryCode>,
         pages: (usize, usize),
     ) -> Self {
         let index = (pages.0 - 1) * 20;

@@ -39,7 +39,7 @@ impl AboutEmbed {
         let guilds = ctx.stats.cache_metrics.guilds.get();
         let boot_time = ctx.stats.start_time;
 
-        let commands_used: usize = ctx.stats.command_counts.collect()[0]
+        let commands_used: usize = ctx.stats.command_counts.message_commands.collect()[0]
             .get_metric()
             .iter()
             .map(|metrics| metrics.get_counter().get_value() as usize)

@@ -6,8 +6,8 @@ use crate::{
         constants::OSU_BASE,
         numbers::{with_comma_float, with_comma_uint},
         osu::flag_url,
+        CountryCode,
     },
-    CountryCode,
 };
 
 use std::fmt::Write;

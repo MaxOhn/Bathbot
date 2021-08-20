@@ -6,8 +6,14 @@ use crate::{
     BotResult, Context, Error,
 };
 
-use std::{future::Future, sync::Arc};
-use twilight_model::{application::interaction::ApplicationCommand, guild::Permissions};
+use std::{future::Future, mem, sync::Arc};
+use twilight_model::{
+    application::{
+        callback::{CallbackData, InteractionResponse},
+        interaction::ApplicationCommand,
+    },
+    guild::Permissions,
+};
 
 #[derive(Default)]
 struct CommandArgs {
@@ -17,12 +23,13 @@ struct CommandArgs {
     bucket: Option<BucketName>,
 }
 
-pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
-    // TODO: Command count metric
-    // TODO: Extend 3s response time for long commands
-
-    let cmd_name = command.data.name.to_owned();
-    log_slash(&ctx, &command, cmd_name.as_str());
+pub async fn handle_interaction(
+    ctx: Arc<Context>,
+    mut command: ApplicationCommand,
+) -> BotResult<()> {
+    let cmd_name = mem::replace(&mut command.data.name, String::new());
+    log_slash(&ctx, &command, &cmd_name);
+    ctx.stats.increment_slash_command(&cmd_name);
 
     let mut args = CommandArgs::default();
 
@@ -36,15 +43,18 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
         }
         "avatar" => process_command(ctx, command, args, osu::slash_avatar).await,
         "backgroundgame" => {
-            args.bucket.replace(BucketName::BgStart);
+            args.bucket = Some(BucketName::BgStart);
 
             process_command(ctx, command, args, fun::slash_backgroundgame).await
         }
         "bws" => process_command(ctx, command, args, osu::slash_bws).await,
         "commands" => process_command(ctx, command, args, utility::slash_commands).await,
         "compare" => process_command(ctx, command, args, osu::slash_compare).await,
-        "fix" => process_command(ctx, command, args, osu::slash_fix).await,
+        "fix" => process_command(ctx, command, args, osu::slash_fix).await, // TODO
         "help" => {
+            // Necessary to be able to use data.create_message later on
+            start_thinking(&ctx, &command).await?;
+
             let is_authority = super::check_authority(&ctx, &command).transpose().is_none();
 
             help::slash_help(ctx, command, is_authority)
@@ -52,6 +62,7 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
                 .map(|_| ProcessResult::Success)
         }
         "invite" => process_command(ctx, command, args, utility::slash_invite).await,
+        "leaderboard" => process_command(ctx, command, args, osu::slash_leaderboard).await,
         "link" => process_command(ctx, command, args, osu::slash_link).await,
         "map" => process_command(ctx, command, args, osu::slash_map).await,
         "matchcost" => process_command(ctx, command, args, osu::slash_matchcost).await,
@@ -70,7 +81,6 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
             process_command(ctx, command, args, owner::slash_owner).await
         }
         "ping" => process_command(ctx, command, args, utility::slash_ping).await,
-        "pp" => process_command(ctx, command, args, osu::slash_pp).await,
         "profile" => process_command(ctx, command, args, osu::slash_profile).await,
         "prune" => {
             args.authority = true;
@@ -78,9 +88,9 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
 
             process_command(ctx, command, args, utility::slash_prune).await
         }
-        "rank" => process_command(ctx, command, args, osu::slash_rank).await,
         "ranking" => process_command(ctx, command, args, osu::slash_ranking).await,
-        "ratio" => process_command(ctx, command, args, osu::slash_ratio).await,
+        "ratios" => process_command(ctx, command, args, osu::slash_ratio).await,
+        "reach" => process_command(ctx, command, args, osu::slash_reach).await,
         "recent" => process_command(ctx, command, args, osu::slash_recent).await,
         "roleassign" => {
             args.authority = true;
@@ -92,12 +102,12 @@ pub async fn handle_interaction(ctx: Arc<Context>, command: ApplicationCommand) 
         "search" => process_command(ctx, command, args, osu::slash_mapsearch).await,
         "simulate" => process_command(ctx, command, args, osu::slash_simulate).await,
         "snipe" => {
-            args.bucket.replace(BucketName::Snipe);
+            args.bucket = Some(BucketName::Snipe);
 
             process_command(ctx, command, args, osu::slash_snipe).await
         }
         "song" => {
-            args.bucket.replace(BucketName::Songs);
+            args.bucket = Some(BucketName::Songs);
 
             process_command(ctx, command, args, songs::slash_song).await
         }
@@ -146,7 +156,8 @@ where
     match pre_process_command(&ctx, &command, args).await? {
         Some(result) => Ok(result),
         None => {
-            // TODO: Convey to discord that the command is now being processed, maybe already earlier?
+            // Let discord know the command is now being processed
+            start_thinking(&ctx, &command).await?;
 
             // Call command function
             (fun)(ctx, command).await?;
@@ -154,6 +165,23 @@ where
             Ok(ProcessResult::Success)
         }
     }
+}
+
+async fn start_thinking(ctx: &Context, command: &ApplicationCommand) -> BotResult<()> {
+    let response = InteractionResponse::DeferredChannelMessageWithSource(CallbackData {
+        allowed_mentions: None,
+        content: None,
+        embeds: Vec::new(),
+        flags: None,
+        tts: None,
+    });
+
+    ctx.http
+        .interaction_callback(command.id, &command.token, &response)
+        .exec()
+        .await?;
+
+    Ok(())
 }
 
 #[inline(never)]

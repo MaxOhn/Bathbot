@@ -47,7 +47,9 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         |p| format!("Server prefix: {}\nDM prefix: `<` or none at all", p),
     );
 
-    format!("{}\n__**General**__\n\
+    format!(":fire: **Slash commands now supported!** Type `/` to test them out :fire:\n\n\
+        {prefix_desc}\n\
+        __**General**__\n\
         - To find out more about a command like what arguments you can give or which shorter aliases it has, \
         use __**`{prefix}help [command]`**__, e.g. `{prefix}help simulate`.
         - If you want to specify an argument, e.g. a username, that contains \
@@ -58,7 +60,7 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         - ~~`Strikethrough`~~ commands indicate that either you can't use them in DMs or \
         you lack authority status in the server.\n\
         - If you have questions, complains, or suggestions for the bot, feel free to join its \
-        [discord server]({discord_url}) and let Badewanne3 know.
+        [discord server]({discord_url}) and let Badewanne3 know.\n\
         __**Mods for osu!**__
         Many commands allow you to specify mods. You can do so with `+mods` \
         for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods. For example:\n\
@@ -66,7 +68,7 @@ fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         `+hd!`: only HD scores\n\
         `-nm!`: scores that are not NoMod\n\
         `-nfsohdez!`: scores that have neither NF, SO, HD, or EZ\n\
-        \n__**All commands:**__\n", prefix_desc, prefix = first_prefix, discord_url = BATHBOT_WORKSHOP)
+        \n__**All commands:**__\n", prefix_desc = prefix_desc, prefix = first_prefix, discord_url = BATHBOT_WORKSHOP)
 }
 
 pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> BotResult<()> {

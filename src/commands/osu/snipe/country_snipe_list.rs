@@ -4,9 +4,9 @@ use crate::{
     pagination::{CountrySnipeListPagination, Pagination},
     util::{
         constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        numbers, CowUtils, MessageExt,
+        numbers, CountryCode, CowUtils, MessageExt,
     },
-    Args, BotResult, CommandData, Context, CountryCode,
+    Args, BotResult, CommandData, Context,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -145,8 +145,7 @@ pub(super) async fn _countrysnipelist(
 
     // Creating the embed
     let builder = embed_data.into_builder().build().into();
-    let response_raw = data.create_message(&ctx, builder).await?;
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = data.create_message(&ctx, builder).await?.model().await?;
 
     // Pagination
     let pagination = CountrySnipeListPagination::new(response, players, country, sort, author_idx);
@@ -227,10 +226,18 @@ impl CountryListArgs {
                 }
 
                 country = Some(code.into())
+            } else if let Some(code) = CountryCode::from_name(arg.as_ref()) {
+                if !code.snipe_supported(&ctx) {
+                    let content = format!("The country `{}` is not supported :(", code);
+
+                    return Err(content.into());
+                }
+
+                country = Some(code);
             } else {
                 let content = format!(
                     "Failed to parse `{}`.\n\
-                    It must be either a two ASCII character country code or \
+                    It must be either a valid country, a two ASCII character country code or \
                     `sort=count/pp/stars/weighted`",
                     arg
                 );

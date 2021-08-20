@@ -165,7 +165,7 @@ async fn _leaderboard(
         return Ok(());
     }
 
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = response_raw.model().await?;
 
     // Pagination
     let pagination =

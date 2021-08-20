@@ -15,7 +15,7 @@ use twilight_model::application::{command::Command, interaction::ApplicationComm
 async fn commands(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let owner = data.author()?.id;
 
-    let mut cmds: Vec<_> = ctx.stats.command_counts.collect()[0]
+    let mut cmds: Vec<_> = ctx.stats.command_counts.message_commands.collect()[0]
         .get_metric()
         .iter()
         .map(|metric| {
@@ -41,8 +41,7 @@ async fn commands(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     // Creating the embed
     let embed_data = CommandCounterEmbed::new(sub_vec, &boot_time, 1, (1, pages));
     let builder = embed_data.into_builder().build().into();
-    let response_raw = data.create_message(&ctx, builder).await?;
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = data.create_message(&ctx, builder).await?.model().await?;
 
     // Pagination
     let pagination = CommandCountPagination::new(&ctx, response, cmds);

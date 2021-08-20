@@ -211,7 +211,7 @@ pub fn slash_matchlive_command() -> Command {
                     name: "match_url".to_owned(),
                     required: true,
                 })],
-                required: true,
+                required: false,
             }),
             CommandOption::SubCommand(OptionsCommandOptionData {
                 description: "Untrack a match".to_owned(),
@@ -222,7 +222,7 @@ pub fn slash_matchlive_command() -> Command {
                     name: "match_url".to_owned(),
                     required: true,
                 })],
-                required: true,
+                required: false,
             }),
         ],
     }

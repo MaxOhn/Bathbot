@@ -292,7 +292,7 @@ pub(super) async fn _topif(
         return Ok(());
     }
 
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = response_raw.model().await?;
 
     // Pagination
     let pre_pp = user.statistics.as_ref().unwrap().pp;

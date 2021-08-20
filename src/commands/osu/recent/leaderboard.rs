@@ -164,7 +164,7 @@ pub(super) async fn _recentleaderboard(
         return Ok(());
     }
 
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = response_raw.model().await?;
 
     // Pagination
     let pagination = LeaderboardPagination::new(

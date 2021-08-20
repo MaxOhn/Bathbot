@@ -65,6 +65,15 @@ async fn fix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
 async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotResult<()> {
     let FixArgs { name, map, mods } = args;
+
+    let name = match name {
+        Some(name) => name,
+        None => match ctx.get_link(data.author()?.id.0) {
+            Some(name) => name,
+            None => return super::require_link(&ctx, &data).await,
+        },
+    };
+
     let channel_id = data.channel_id();
 
     let map_id_opt = map.or_else(|| {
@@ -104,14 +113,6 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
         }
     };
 
-    let name = match name {
-        Some(name) => name,
-        None => match ctx.get_link(data.author()?.id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
-    };
-
     let arg_mods = match mods {
         None | Some(ModSelection::Exclude(_)) => None,
         Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) => Some(mods),
@@ -128,17 +129,15 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
     let (user, map, mut scores) = match score_fut.await {
         Ok(mut score) => match super::prepare_score(&ctx, &mut score.score).await {
             Ok(_) => {
-                let mut score = score.score;
-                let mut map = score.map.take().unwrap();
-                let mapset_id = map.mapset_id;
+                let mut map = score.score.map.take().unwrap();
 
                 // First try to just get the mapset from the DB
-                let mapset_fut = ctx.psql().get_beatmapset(mapset_id);
-                let user_fut = ctx.osu().user(score.user_id).mode(score.mode);
+                let mapset_fut = ctx.psql().get_beatmapset(map.mapset_id);
+                let user_fut = ctx.osu().user(score.score.user_id).mode(score.score.mode);
                 let best_fut = ctx
                     .osu()
-                    .user_scores(score.user_id)
-                    .mode(score.mode)
+                    .user_scores(score.score.user_id)
+                    .mode(score.score.mode)
                     .limit(100)
                     .best();
 
@@ -154,7 +153,7 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
                         (user, best)
                     }
                     (Err(_), Ok(user), Ok(best)) => {
-                        let mapset = match ctx.osu().beatmapset(mapset_id).await {
+                        let mapset = match ctx.osu().beatmapset(map.mapset_id).await {
                             Ok(mapset) => mapset,
                             Err(why) => {
                                 let _ = data.error(&ctx, OSU_API_ISSUE).await;
@@ -169,7 +168,7 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
                     }
                 };
 
-                (user, map, Some((score, best)))
+                (user, map, Some((Box::new(score.score), best)))
             }
             Err(why) => {
                 let _ = data.error(&ctx, OSU_API_ISSUE).await;
@@ -226,9 +225,7 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
     };
 
     if map.mode == GameMode::MNA {
-        let content = "Can't fix mania scores \\:(";
-
-        return data.error(&ctx, content).await;
+        return data.error(&ctx, "Can't fix mania scores \\:(").await;
     }
 
     let unchoked_pp = match scores {

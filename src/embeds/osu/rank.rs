@@ -28,7 +28,7 @@ impl RankEmbed {
                 let user_pp = user.statistics.as_ref().unwrap().pp;
                 let rank_holder_pp = rank_holder.statistics.as_ref().unwrap().pp;
 
-                let country = country.as_deref().unwrap_or("#");
+                let country = country.as_ref().map(|code| code.as_str()).unwrap_or("#");
 
                 let title = format!(
                     "How many pp is {name} missing to reach rank {country}{rank}?",

@@ -59,14 +59,14 @@ async fn _prune(ctx: Arc<Context>, data: CommandData<'_>, amount: u64) -> BotRes
         .unwrap()
         .exec();
 
-    let mut messages = match msgs_fut.await {
+    let mut messages: Vec<_> = match msgs_fut.await {
         Ok(msgs) => msgs
             .models()
             .await?
             .into_iter()
             .take(amount as usize)
             .map(|msg| msg.id)
-            .collect::<Vec<_>>(),
+            .collect(),
         Err(why) => {
             let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
@@ -82,29 +82,25 @@ async fn _prune(ctx: Arc<Context>, data: CommandData<'_>, amount: u64) -> BotRes
         return Ok(());
     }
 
-    match ctx.http.delete_messages(channel_id, &messages).exec().await {
-        Ok(_) => {}
-        Err(why) => {
-            if matches!(why.kind(), ErrorType::Response {
-                error: ApiError::General(err),
-                ..
-            } if err.code == MessageTooOldToBulkDelete)
-            {
-                let content = "Cannot delete messages that are older than two weeks \\:(";
+    if let Err(why) = ctx.http.delete_messages(channel_id, &messages).exec().await {
+        if matches!(why.kind(), ErrorType::Response {
+            error: ApiError::General(err),
+            ..
+        } if err.code == MessageTooOldToBulkDelete)
+        {
+            let content = "Cannot delete messages that are older than two weeks \\:(";
 
-                return data.error(&ctx, content).await;
-            } else {
-                let _ = data.error(&ctx, GENERAL_ISSUE).await;
+            return data.error(&ctx, content).await;
+        } else {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(why.into());
-            }
+            return Err(why.into());
         }
     }
 
-    let content = format!("Deleted the last {} messages", amount - 1);
+    let content = format!("Deleted the last {} messages", amount);
     let builder = MessageBuilder::new().content(content);
-    let response_raw = data.create_message(&ctx, builder).await?;
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = data.create_message(&ctx, builder).await?.model().await?;
     time::sleep(Duration::from_secs(6)).await;
 
     let delete_fut = ctx.http.delete_message(channel_id, response.id).exec();
@@ -120,7 +116,7 @@ pub async fn slash_prune(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
         match option {
             CommandDataOption::String { name, .. } => bail_cmd_option!("prune", string, name),
             CommandDataOption::Integer { name, value } => match name.as_str() {
-                "amount" => amount = Some(value.max(2).min(100) as u64 - 1),
+                "amount" => amount = Some(value.max(1).min(100) as u64),
                 _ => bail_cmd_option!("prune", integer, name),
             },
             CommandDataOption::Boolean { name, .. } => bail_cmd_option!("prune", boolean, name),

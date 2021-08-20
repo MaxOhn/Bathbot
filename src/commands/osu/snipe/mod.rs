@@ -16,8 +16,8 @@ use super::{prepare_score, request_user, require_link};
 
 use crate::{
     custom_client::SnipeScoreOrder,
-    util::{matcher, osu::ModSelection, ApplicationCommandExt, MessageExt},
-    BotResult, Context, CountryCode, Error, Name,
+    util::{matcher, osu::ModSelection, ApplicationCommandExt, CountryCode, MessageExt},
+    BotResult, Context, Error, Name,
 };
 
 use std::sync::Arc;
@@ -31,7 +31,7 @@ use twilight_model::application::{
 
 enum SnipeCommandKind {
     CountryList(CountryListArgs),
-    CountryStats(CountryCode),
+    CountryStats(Option<CountryCode>),
     PlayerList(PlayerListArgs),
     PlayerStats(Option<Name>),
     Sniped(Option<Name>),
@@ -218,7 +218,7 @@ fn parse_country_list(
 fn parse_country_stats(
     ctx: &Context,
     options: Vec<CommandDataOption>,
-) -> BotResult<Result<CountryCode, String>> {
+) -> BotResult<Result<Option<CountryCode>, String>> {
     let mut country = None;
 
     for option in options {
@@ -242,32 +242,36 @@ fn parse_country_stats(
         }
     }
 
-    country.ok_or(Error::InvalidCommandOptions).map(Ok)
+    Ok(Ok(country))
 }
 
 fn parse_country_code(ctx: &Context, mut country: String) -> Result<CountryCode, String> {
     match country.as_str() {
         "global" | "world" => Ok("global".into()),
         _ => {
-            if country.len() != 2 || !country.is_ascii() {
+            let country = if country.len() == 2 && country.is_ascii() {
+                country.make_ascii_uppercase();
+
+                country.into()
+            } else if let Some(code) = CountryCode::from_name(&country) {
+                code
+            } else {
                 let content = format!(
-                    "`{}` is not a valid country code.\n\
-                    Be sure to specify a two ASCII character country code, e.g. `fr`",
+                    "Failed to parse `{}` as country or country code code.\n\
+                    Be sure to specify a valid two ASCII letter country code.",
                     country
                 );
 
                 return Err(content);
-            }
+            };
 
-            country.make_ascii_uppercase();
-
-            if !ctx.contains_country(country.as_str()) {
+            if !country.snipe_supported(ctx) {
                 let content = format!("The country acronym `{}` is not supported :(", country);
 
                 return Err(content);
             }
 
-            Ok(country.into())
+            Ok(country)
         }
     }
 }
@@ -298,7 +302,7 @@ fn parse_player_list(
                 "mods" => match matcher::get_mods(&value) {
                     Some(mods_) => mods = Some(mods_),
                     None => match value.parse() {
-                        Ok(mods_) => mods = Some(ModSelection::Exact(mods_)),
+                        Ok(mods_) => mods = Some(ModSelection::Include(mods_)),
                         Err(_) => {
                             let content = "Failed to parse mods.\n\
                             Be sure it's a valid mod abbreviation e.g. `hdhr`.";
@@ -376,7 +380,7 @@ pub fn slash_snipe_command() -> Command {
                                 choices: vec![],
                                 description: "Specify a country".to_owned(),
                                 name: "country".to_owned(),
-                                required: true,
+                                required: false,
                             }),
                             CommandOption::String(ChoiceCommandOptionData {
                                 choices: vec![
@@ -393,7 +397,7 @@ pub fn slash_snipe_command() -> Command {
                                         value: "stars".to_owned(),
                                     },
                                     CommandOptionChoice::String {
-                                        name: "weighted_pp".to_owned(),
+                                        name: "weighted pp".to_owned(),
                                         value: "weighted_pp".to_owned(),
                                     },
                                 ],

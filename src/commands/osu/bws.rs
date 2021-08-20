@@ -1,6 +1,6 @@
 use crate::{
     embeds::{BWSEmbed, EmbedData},
-    util::{constants::OSU_API_ISSUE, matcher::tourney_badge, ApplicationCommandExt, MessageExt},
+    util::{constants::OSU_API_ISSUE, matcher, ApplicationCommandExt, MessageExt},
     Args, BotResult, CommandData, Context, Name,
 };
 
@@ -62,30 +62,30 @@ async fn _bws(ctx: Arc<Context>, data: CommandData<'_>, args: BwsArgs) -> BotRes
         }
     };
 
-    let curr_badges = user
+    let badges_curr = user
         .badges
         .as_ref()
         .unwrap()
         .iter()
-        .filter(|badge| tourney_badge(badge.description.as_str()))
+        .filter(|badge| matcher::tourney_badge(badge.description.as_str()))
         .count();
 
     let (badges_min, badges_max) = match badges {
-        Some(num) => match num.cmp(&curr_badges) {
+        Some(num) => match num.cmp(&badges_curr) {
             Ordering::Less => {
-                if curr_badges >= MIN_BADGES_OFFSET {
-                    (num, curr_badges)
+                if badges_curr >= MIN_BADGES_OFFSET {
+                    (num, badges_curr)
                 } else {
                     (0, MIN_BADGES_OFFSET)
                 }
             }
-            Ordering::Equal => (curr_badges, curr_badges + MIN_BADGES_OFFSET),
-            Ordering::Greater => (curr_badges, num.max(curr_badges + MIN_BADGES_OFFSET)),
+            Ordering::Equal => (badges_curr, badges_curr + MIN_BADGES_OFFSET),
+            Ordering::Greater => (badges_curr, num.max(badges_curr + MIN_BADGES_OFFSET)),
         },
-        None => (curr_badges, curr_badges + MIN_BADGES_OFFSET),
+        None => (badges_curr, badges_curr + MIN_BADGES_OFFSET),
     };
 
-    let embed_data = BWSEmbed::new(user, badges_min, badges_max, rank);
+    let embed_data = BWSEmbed::new(user, badges_curr, badges_min, badges_max, rank);
     let builder = embed_data.into_builder().build().into();
     data.create_message(&ctx, builder).await?;
 

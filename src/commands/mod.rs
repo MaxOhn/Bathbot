@@ -310,7 +310,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
     ]
 }
 
-pub fn slash_commands() -> [Command; 39] {
+pub fn slash_commands() -> [Command; 38] {
     [
         help::slash_help_command(),
         slash_recent_command(),
@@ -324,10 +324,9 @@ pub fn slash_commands() -> [Command; 39] {
         slash_matchcost_command(),
         slash_roll_command(),
         slash_leaderboard_command(),
+        slash_reach_command(),
         slash_whatif_command(),
-        slash_pp_command(),
         slash_map_command(),
-        slash_rank_command(),
         slash_bws_command(),
         slash_medal_command(),
         slash_track_command(),

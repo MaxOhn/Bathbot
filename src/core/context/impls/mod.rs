@@ -1,5 +1,3 @@
-use crate::{BotResult, CountryCode};
-
 mod background_loop;
 mod bg_game;
 mod guilds;
@@ -11,7 +9,7 @@ mod twitch;
 pub use background_loop::GarbageCollectMap;
 pub use match_live::{MatchLiveChannels, MatchTrackResult};
 
-use crate::{Context, OsuTracking};
+use crate::{util::CountryCode, BotResult, Context, OsuTracking};
 
 use twilight_model::{
     channel::{Message, Reaction},

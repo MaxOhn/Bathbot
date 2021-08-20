@@ -2,16 +2,15 @@ mod impls;
 
 pub use impls::{MatchLiveChannels, MatchTrackResult};
 
-use super::BotStats;
-
 use crate::{
     bg_game::GameWrapper,
     core::{
         buckets::{buckets, Buckets},
-        Cache,
+        BotStats, Cache,
     },
     database::{Database, GuildConfig},
-    BotResult, CountryCode, CustomClient, Name, OsuTracking, Twitch,
+    util::CountryCode,
+    BotResult, CustomClient, Name, OsuTracking, Twitch,
 };
 
 use dashmap::{DashMap, DashSet};

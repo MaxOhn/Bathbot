@@ -43,12 +43,17 @@ pub struct OsuCounters {
     pub user_cached: IntCounter,
 }
 
+pub struct CommandCounters {
+    pub message_commands: IntCounterVec,
+    pub slash_commands: IntCounterVec,
+}
+
 pub struct BotStats {
     pub registry: Registry,
     pub start_time: DateTime<Utc>,
     pub event_counts: EventStats,
     pub message_counts: MessageCounters,
-    pub command_counts: IntCounterVec,
+    pub command_counts: CommandCounters,
     pub osu_metrics: OsuCounters,
     pub cache_metrics: Arc<Metrics>,
 }
@@ -67,7 +72,10 @@ impl BotStats {
     pub fn new(osu_metrics: IntCounterVec, cache_metrics: Arc<Metrics>) -> Self {
         let event_counter = metric_vec!(counter: "gateway_events", "Gateway events", "events");
         let msg_counter = metric_vec!(counter: "messages", "Received messages", "sender_type");
-        let command_counts = metric_vec!(counter: "commands", "Executed commands", "name");
+        let message_commands =
+            metric_vec!(counter: "message_commands", "Executed message commands", "name");
+        let slash_commands =
+            metric_vec!(counter: "slash_commands", "Executed slash commands", "name");
 
         let registry = Registry::new_custom(Some(String::from("bathbot")), None).unwrap();
         registry.register(Box::new(event_counter.clone())).unwrap();
@@ -75,7 +83,10 @@ impl BotStats {
         registry
             .register(Box::new(cache_metrics.metrics.clone()))
             .unwrap();
-        registry.register(Box::new(command_counts.clone())).unwrap();
+        registry
+            .register(Box::new(message_commands.clone()))
+            .unwrap();
+        registry.register(Box::new(slash_commands.clone())).unwrap();
         registry.register(Box::new(osu_metrics.clone())).unwrap();
 
         Self {
@@ -114,7 +125,10 @@ impl BotStats {
                 other_bot_messages: msg_counter.with_label_values(&["Bot"]),
                 own_messages: msg_counter.with_label_values(&["Own"]),
             },
-            command_counts,
+            command_counts: CommandCounters {
+                message_commands,
+                slash_commands,
+            },
             osu_metrics: OsuCounters {
                 user_cached: osu_metrics.with_label_values(&["User cached"]),
                 rosu: osu_metrics,
@@ -123,8 +137,18 @@ impl BotStats {
         }
     }
 
-    pub fn inc_command(&self, cmd: impl AsRef<str>) {
-        self.command_counts.with_label_values(&[cmd.as_ref()]).inc();
+    pub fn increment_message_command(&self, cmd: &str) {
+        self.command_counts
+            .message_commands
+            .with_label_values(&[cmd])
+            .inc();
+    }
+
+    pub fn increment_slash_command(&self, cmd: &str) {
+        self.command_counts
+            .slash_commands
+            .with_label_values(&[cmd])
+            .inc();
     }
 
     pub fn inc_cached_user(&self) {

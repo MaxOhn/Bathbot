@@ -1,20 +1,20 @@
 use crate::{
     embeds::{EmbedData, RankingEmbed},
     pagination::{Pagination, RankingPagination},
-    util::{constants::OSU_API_ISSUE, numbers, MessageExt},
+    util::{constants::OSU_API_ISSUE, numbers, CountryCode, CowUtils, MessageExt},
     BotResult, CommandData, Context,
 };
 
 use rosu_v2::prelude::{GameMode, OsuResult, Rankings};
 use std::{borrow::Cow, collections::BTreeMap, fmt, sync::Arc};
 
-fn check_country_code(mut code: String) -> Result<String, &'static str> {
-    if code.len() == 2 && code.chars().all(|c| c.is_ascii_alphabetic()) {
-        code.make_ascii_uppercase();
-
+fn country_code_(arg: &str) -> Result<CountryCode, &'static str> {
+    if arg.len() == 2 && arg.is_ascii() {
+        Ok(arg.to_ascii_uppercase().into())
+    } else if let Some(code) = CountryCode::from_name(arg) {
         Ok(code)
     } else {
-        Err("The given argument must be a country code of two ASCII letters")
+        Err("The given argument must be a valid country or country code of two ASCII letters")
     }
 }
 
@@ -22,15 +22,15 @@ pub(super) async fn _performanceranking(
     ctx: Arc<Context>,
     data: CommandData<'_>,
     mode: GameMode,
-    country: Option<String>,
+    country_code: Option<CountryCode>,
 ) -> BotResult<()> {
-    let country_code = match country.map(check_country_code).transpose() {
-        Ok(country) => country,
-        Err(content) => return data.error(&ctx, content).await,
-    };
-
-    let result = match country_code.as_ref() {
-        Some(country) => ctx.osu().performance_rankings(mode).country(country).await,
+    let result = match country_code {
+        Some(ref country) => {
+            ctx.osu()
+                .performance_rankings(mode)
+                .country(country.as_str())
+                .await
+        }
         None => ctx.osu().performance_rankings(mode).await,
     };
 
@@ -53,7 +53,7 @@ async fn _ranking(
     ctx: Arc<Context>,
     data: CommandData<'_>,
     mode: GameMode,
-    country_code: Option<String>,
+    country_code: Option<CountryCode>,
     kind: RankingKind,
     result: OsuResult<Rankings>,
 ) -> BotResult<()> {
@@ -84,7 +84,12 @@ async fn _ranking(
         .ranking
         .into_iter()
         .map(|user| {
-            let key = UserValue::Pp(user.statistics.as_ref().unwrap().pp.round() as u32);
+            let stats = user.statistics.as_ref().unwrap();
+
+            let key = match kind {
+                RankingKind::Performance => UserValue::Pp(stats.pp.round() as u32),
+                RankingKind::Score => UserValue::Score(stats.ranked_score),
+            };
 
             (key, user.username)
         })
@@ -96,14 +101,13 @@ async fn _ranking(
         &users,
         &title,
         url_type,
-        country_code.as_deref(),
+        country_code.as_ref(),
         (1, pages),
     );
 
     // Creating the embed
     let builder = embed_data.into_builder().build().into();
-    let response_raw = data.create_message(&ctx, builder).await?;
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = data.create_message(&ctx, builder).await?.model().await?;
 
     // Pagination
     let pagination = RankingPagination::new(
@@ -115,7 +119,7 @@ async fn _ranking(
         title,
         url_type,
         country_code,
-        RankingKind::Performance,
+        kind,
     );
 
     let owner = data.author()?.id;
@@ -142,7 +146,13 @@ async fn _ranking(
 pub async fn ppranking(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            let country = args.next().map(str::to_owned);
+            let arg = args.next().map(CowUtils::cow_to_ascii_lowercase);
+
+            let country = match arg.as_deref().map(country_code_).transpose() {
+                Ok(country) => country,
+                Err(content) => return msg.error(&ctx, content).await,
+            };
+
             let data = CommandData::Message { msg, args, num };
 
             _performanceranking(ctx, data, GameMode::STD, country).await
@@ -164,7 +174,11 @@ pub async fn ppranking(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 pub async fn pprankingmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            let country = args.next().map(str::to_owned);
+            let country = match args.next().map(country_code_).transpose() {
+                Ok(country) => country,
+                Err(content) => return msg.error(&ctx, content).await,
+            };
+
             let data = CommandData::Message { msg, args, num };
 
             _performanceranking(ctx, data, GameMode::MNA, country).await
@@ -186,7 +200,11 @@ pub async fn pprankingmania(ctx: Arc<Context>, data: CommandData) -> BotResult<(
 pub async fn pprankingtaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            let country = args.next().map(str::to_owned);
+            let country = match args.next().map(country_code_).transpose() {
+                Ok(country) => country,
+                Err(content) => return msg.error(&ctx, content).await,
+            };
+
             let data = CommandData::Message { msg, args, num };
 
             _performanceranking(ctx, data, GameMode::TKO, country).await
@@ -208,7 +226,11 @@ pub async fn pprankingtaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<(
 pub async fn pprankingctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            let country = args.next().map(str::to_owned);
+            let country = match args.next().map(country_code_).transpose() {
+                Ok(country) => country,
+                Err(content) => return msg.error(&ctx, content).await,
+            };
+
             let data = CommandData::Message { msg, args, num };
 
             _performanceranking(ctx, data, GameMode::CTB, country).await

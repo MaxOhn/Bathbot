@@ -69,7 +69,7 @@ use std::{
     time::Duration,
 };
 use tokio::{
-    runtime::Runtime,
+    runtime::Builder as RuntimeBuilder,
     signal,
     sync::{oneshot, Mutex},
     time,
@@ -86,12 +86,15 @@ use twilight_model::{
     },
 };
 
-type CountryCode = SmallString<[u8; 2]>;
 type Name = SmallString<[u8; 15]>;
 type BotResult<T> = std::result::Result<T, Error>;
 
 fn main() {
-    let runtime = Runtime::new().expect("Could not start runtime");
+    let runtime = RuntimeBuilder::new_multi_thread()
+        .enable_all()
+        .thread_stack_size(4 * 1024 * 1024)
+        .build()
+        .expect("Could not build runtime");
 
     if let Err(why) = runtime.block_on(async move { async_main().await }) {
         unwind_error!(error, why, "Critical error in main: {}");
@@ -219,6 +222,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         | EventTypeFlags::INVITE_DELETE
         | EventTypeFlags::PRESENCE_UPDATE
         | EventTypeFlags::PRESENCES_REPLACE
+        | EventTypeFlags::SHARD_PAYLOAD
         | EventTypeFlags::STAGE_INSTANCE_CREATE
         | EventTypeFlags::STAGE_INSTANCE_DELETE
         | EventTypeFlags::STAGE_INSTANCE_UPDATE
@@ -425,7 +429,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
                     shard_id
                 );
             } else {
-                return Err(Error::InvalidSession(shard_id));
+                warn!("Gateway has invalidated session for shard {}", shard_id);
             }
         }
         Event::GatewayReconnect => {

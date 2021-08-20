@@ -138,25 +138,25 @@ fn _slash_osustats_scores() -> Vec<CommandOption> {
         CommandOption::Integer(ChoiceCommandOptionData {
             choices: vec![],
             description: "Specify a min rank between 1 and 100".to_owned(),
-            name: "rank_min".to_owned(),
+            name: "min_rank".to_owned(),
             required: false,
         }),
         CommandOption::Integer(ChoiceCommandOptionData {
             choices: vec![],
             description: "Specify a max rank between 1 and 100".to_owned(),
-            name: "rank_max".to_owned(),
+            name: "max_rank".to_owned(),
             required: false,
         }),
         // CommandOption::Number(ChoiceCommandOptionData {
         //     choices: vec![],
         //     description: "Specify a min accuracy".to_owned(),
-        //     name: "acc_min".to_owned(),
+        //     name: "min_acc".to_owned(),
         //     required: false,
         // }),
         // CommandOption::Number(ChoiceCommandOptionData {
         //     choices: vec![],
         //     description: "Specify a max accuracy".to_owned(),
-        //     name: "acc_max".to_owned(),
+        //     name: "max_acc".to_owned(),
         //     required: false,
         // }),
         CommandOption::Boolean(BaseCommandOptionData {
@@ -225,13 +225,13 @@ pub fn slash_osustats_command() -> Command {
                     CommandOption::Integer(ChoiceCommandOptionData {
                         choices: vec![],
                         description: "Specify a min rank between 1 and 100".to_owned(),
-                        name: "min".to_owned(),
+                        name: "min_rank".to_owned(),
                         required: false,
                     }),
                     CommandOption::Integer(ChoiceCommandOptionData {
                         choices: vec![],
                         description: "Specify a max rank between 1 and 100".to_owned(),
-                        name: "max".to_owned(),
+                        name: "max_rank".to_owned(),
                         required: false,
                     }),
                 ],

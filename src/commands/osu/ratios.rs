@@ -2,7 +2,7 @@ use crate::{
     embeds::{EmbedData, RatioEmbed},
     tracking::process_tracking,
     util::{constants::OSU_API_ISSUE, ApplicationCommandExt, MessageExt},
-    Args, BotResult, CommandData, Context, Error, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -25,21 +25,29 @@ use twilight_model::application::{
 #[aliases("ratio")]
 async fn ratios(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
-        CommandData::Message { msg, mut args, num } => match args.next() {
-            Some(arg) => match Args::try_link_name(&ctx, arg) {
+        CommandData::Message { msg, mut args, num } => {
+            match args
+                .next()
+                .map(|arg| Args::try_link_name(&ctx, arg))
+                .transpose()
+            {
                 Ok(name) => _ratios(ctx, CommandData::Message { msg, args, num }, name).await,
                 Err(content) => msg.error(&ctx, content).await,
-            },
-            None => match ctx.get_link(msg.author.id.0) {
-                Some(name) => _ratios(ctx, CommandData::Message { msg, args, num }, name).await,
-                None => super::require_link_msg(&ctx, &msg).await,
-            },
-        },
+            }
+        }
         CommandData::Interaction { command } => slash_ratio(ctx, command).await,
     }
 }
 
-async fn _ratios(ctx: Arc<Context>, data: CommandData<'_>, name: Name) -> BotResult<()> {
+async fn _ratios(ctx: Arc<Context>, data: CommandData<'_>, name: Option<Name>) -> BotResult<()> {
+    let name = match name {
+        Some(name) => name,
+        None => match ctx.get_link(data.author()?.id.0) {
+            Some(name) => name,
+            None => return super::require_link(&ctx, &data).await,
+        },
+    };
+
     // Retrieve the user and their top scores
     let user_fut = super::request_user(&ctx, &name, Some(GameMode::MNA));
 
@@ -79,46 +87,42 @@ async fn _ratios(ctx: Arc<Context>, data: CommandData<'_>, name: Name) -> BotRes
     Ok(())
 }
 
-pub async fn slash_ratio(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+fn parse_username(
+    ctx: &Context,
+    command: &mut ApplicationCommand,
+) -> BotResult<Result<Option<Name>, String>> {
     let mut username = None;
 
     for option in command.yoink_options() {
         match option {
             CommandDataOption::String { name, value } => match name.as_str() {
                 "name" => username = Some(value.into()),
-                "discord" => {}
-                _ => bail_cmd_option!("ratio", string, name),
+                "discord" => username = parse_discord_option!(ctx, value, "ratios"),
+                _ => bail_cmd_option!("ratios", string, name),
             },
-            CommandDataOption::Integer { name, .. } => bail_cmd_option!("ratio", integer, name),
-            CommandDataOption::Boolean { name, .. } => bail_cmd_option!("ratio", boolean, name),
+            CommandDataOption::Integer { name, .. } => bail_cmd_option!("ratios", integer, name),
+            CommandDataOption::Boolean { name, .. } => bail_cmd_option!("ratios", boolean, name),
             CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!("ratio", subcommand, name)
+                bail_cmd_option!("ratios", subcommand, name)
             }
         }
     }
 
-    if let Some(resolved) = command.data.resolved.take().filter(|_| username.is_none()) {
-        if let Some(user) = resolved.users.first() {
-            if let Some(link) = ctx.get_link(user.id.0) {
-                username.insert(link);
-            } else {
-                let content = format!("<@{}> is not linked to an osu profile", user.id);
+    Ok(Ok(username))
+}
 
-                return command.error(&ctx, content).await;
-            }
-        }
+pub async fn slash_ratio(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    match parse_username(&ctx, &mut command)? {
+        Ok(name) => _ratios(ctx, command.into(), name).await,
+        Err(content) => return command.error(&ctx, content).await,
     }
-
-    let name = username.ok_or(Error::InvalidCommandOptions)?;
-
-    _ratios(ctx, command.into(), name).await
 }
 
 pub fn slash_ratio_command() -> Command {
     Command {
         application_id: None,
         guild_id: None,
-        name: "ratio".to_owned(),
+        name: "ratios".to_owned(),
         default_permission: None,
         description: "Ratio related stats about a user's mania top100".to_owned(),
         id: None,

@@ -215,7 +215,7 @@ pub(super) async fn _mostplayedcommon(
         return Ok(());
     }
 
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = response_raw.model().await?;
 
     // Pagination
     let pagination = MostPlayedCommonPagination::new(response, names, users_count, maps);

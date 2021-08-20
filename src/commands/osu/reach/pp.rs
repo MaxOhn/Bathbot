@@ -2,18 +2,15 @@ use crate::{
     custom_client::RankParam,
     embeds::{EmbedData, PPMissingEmbed},
     tracking::process_tracking,
-    util::{constants::OSU_API_ISSUE, ApplicationCommandExt, MessageExt},
+    util::{constants::OSU_API_ISSUE, MessageExt},
     Args, BotResult, CommandData, Context, Error, Name,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
-use twilight_model::application::{
-    command::{BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption},
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
-};
+use twilight_model::application::interaction::application_command::CommandDataOption;
 
-async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) -> BotResult<()> {
+pub(super) async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) -> BotResult<()> {
     let PpArgs { name, mode, pp } = args;
 
     let name = match name {
@@ -106,7 +103,7 @@ pub async fn pp(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 Err(content) => msg.error(&ctx, content).await,
             }
         }
-        CommandData::Interaction { command } => slash_pp(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
     }
 }
 
@@ -129,7 +126,7 @@ pub async fn ppmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 Err(content) => msg.error(&ctx, content).await,
             }
         }
-        CommandData::Interaction { command } => slash_pp(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
     }
 }
 
@@ -152,7 +149,7 @@ pub async fn pptaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 Err(content) => msg.error(&ctx, content).await,
             }
         }
-        CommandData::Interaction { command } => slash_pp(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
     }
 }
 
@@ -175,14 +172,14 @@ pub async fn ppctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 Err(content) => msg.error(&ctx, content).await,
             }
         }
-        CommandData::Interaction { command } => slash_pp(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
     }
 }
 
-struct PpArgs {
-    name: Option<Name>,
-    mode: GameMode,
-    pp: f32,
+pub(super) struct PpArgs {
+    pub name: Option<Name>,
+    pub mode: GameMode,
+    pub pp: f32,
 }
 
 impl PpArgs {
@@ -202,12 +199,15 @@ impl PpArgs {
         Ok(Self { name, pp, mode })
     }
 
-    fn slash(ctx: &Context, command: &mut ApplicationCommand) -> BotResult<Result<Self, String>> {
+    pub(super) fn slash(
+        ctx: &Context,
+        options: Vec<CommandDataOption>,
+    ) -> BotResult<Result<Self, String>> {
         let mut username = None;
         let mut mode = None;
         let mut pp = None;
 
-        for option in command.yoink_options() {
+        for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
                     "mode" => mode = parse_mode_option!(value, "pp"),
@@ -234,49 +234,5 @@ impl PpArgs {
         };
 
         Ok(Ok(args))
-    }
-}
-
-pub async fn slash_pp(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match PpArgs::slash(&ctx, &mut command)? {
-        Ok(args) => _pp(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
-pub fn slash_pp_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "pp".to_owned(),
-        default_permission: None,
-        description: "How many pp are missing to reach the given amount?".to_owned(),
-        id: None,
-        options: vec![
-            // TODO
-            // CommandOption::Number(ChoiceCommandOptionData {
-            //     choices: vec![],
-            //     description: "Specify a target pp amount".to_owned(),
-            //     name: "pp".to_owned(),
-            //     required: true,
-            // }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: super::mode_choices(),
-                description: "Specify the gamemode".to_owned(),
-                name: "mode".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a username".to_owned(),
-                name: "name".to_owned(),
-                required: false,
-            }),
-            CommandOption::User(BaseCommandOptionData {
-                description: "Specify a linked discord user".to_owned(),
-                name: "discord".to_owned(),
-                required: false,
-            }),
-        ],
     }
 }

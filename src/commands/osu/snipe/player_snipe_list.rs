@@ -173,7 +173,7 @@ pub(super) async fn _playersnipelist(
         return Ok(());
     }
 
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = response_raw.model().await?;
 
     // Pagination
     let pagination = PlayerSnipeListPagination::new(

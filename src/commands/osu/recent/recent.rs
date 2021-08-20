@@ -173,10 +173,9 @@ pub(super) async fn _recent(
     let content = format!("Try #{}", tries);
     let embed = embed_data.as_builder().build();
     let builder = MessageBuilder::new().content(content).embed(embed);
-    let response = data.create_message(&ctx, builder).await?;
+    let response = data.create_message(&ctx, builder).await?.model().await?;
 
-    // TODO
-    // ctx.store_msg(response.id);
+    ctx.store_msg(response.id);
 
     // Set map on garbage collection list if unranked
     let gb = ctx.map_garbage_collector(map);
@@ -199,15 +198,14 @@ pub(super) async fn _recent(
         gb.execute(&ctx).await;
         sleep(Duration::from_secs(45)).await;
 
-        // TODO
-        // if !ctx.remove_msg(response.id) {
-        //     return;
-        // }
+        if !ctx.remove_msg(response.id) {
+            return;
+        }
 
         let embed = embed_data.into_builder().build();
         let builder = MessageBuilder::new().embed(embed);
 
-        if let Err(why) = data.update_message(&ctx, builder, response).await {
+        if let Err(why) = response.update_message(&ctx, builder).await {
             unwind_error!(warn, why, "Error minimizing recent msg: {}");
         }
     });

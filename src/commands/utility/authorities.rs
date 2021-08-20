@@ -315,7 +315,7 @@ pub fn slash_authorities_command() -> Command {
         guild_id: None,
         name: "authorities".to_owned(),
         default_permission: None,
-        description: "".to_owned(),
+        description: "Adjust authority roles for a server".to_owned(),
         id: None,
         options: vec![
             CommandOption::SubCommand(OptionsCommandOptionData {

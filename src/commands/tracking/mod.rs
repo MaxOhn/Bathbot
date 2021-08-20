@@ -373,7 +373,7 @@ pub fn slash_track_command() -> Command {
                 ],
                 required: false,
             }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
+            CommandOption::SubCommandGroup(OptionsCommandOptionData {
                 description: "Untrack a player in a channel".to_owned(),
                 name: "remove".to_owned(),
                 options: vec![

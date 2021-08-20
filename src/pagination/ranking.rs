@@ -3,6 +3,7 @@ use super::{Pages, Pagination, ReactionVec};
 use crate::{
     commands::osu::{RankingKind, UserValue},
     embeds::RankingEmbed,
+    util::CountryCode,
     BotResult, Context,
 };
 
@@ -21,7 +22,7 @@ pub struct RankingPagination {
     users: Users,
     title: Cow<'static, str>,
     url_type: &'static str,
-    country_code: Option<String>,
+    country_code: Option<CountryCode>,
     total: usize,
     ranking_type: RankingKind,
 }
@@ -36,7 +37,7 @@ impl RankingPagination {
         users: Users,
         title: Cow<'static, str>,
         url_type: &'static str,
-        country_code: Option<String>,
+        country_code: Option<CountryCode>,
         ranking_type: RankingKind,
     ) -> Self {
         Self {
@@ -68,7 +69,7 @@ impl RankingPagination {
                     self.ctx
                         .osu()
                         .performance_rankings(self.mode)
-                        .country(country)
+                        .country(country.as_str())
                         .page(page)
                         .await?
                 }
@@ -152,7 +153,7 @@ impl Pagination for RankingPagination {
             &self.users,
             &self.title,
             self.url_type,
-            self.country_code.as_deref(),
+            self.country_code.as_ref(),
             (self.page(), self.pages.total_pages),
         ))
     }

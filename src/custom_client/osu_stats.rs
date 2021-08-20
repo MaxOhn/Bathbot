@@ -2,7 +2,10 @@ use super::deserialize::{
     adjust_mods, str_to_datetime, str_to_f32, str_to_maybe_datetime, str_to_maybe_f32,
 };
 
-use crate::{util::osu::ModSelection, CountryCode, Name};
+use crate::{
+    util::{osu::ModSelection, CountryCode},
+    Name,
+};
 
 use chrono::{DateTime, Utc};
 use rosu_v2::prelude::{GameMode, GameMods, Grade, RankStatus};

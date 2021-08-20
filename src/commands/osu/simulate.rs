@@ -143,10 +143,9 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
     let embed = embed_data.as_builder().build();
     let content = "Simulated score:";
     let builder = MessageBuilder::new().content(content).embed(embed);
-    let response_raw = data.create_message(&ctx, builder).await?;
+    let response = data.create_message(&ctx, builder).await?.model().await?;
 
-    // TODO
-    // ctx.store_msg(response.id);
+    ctx.store_msg(response.id);
 
     // Add map to database if its not in already
     if let Err(why) = ctx.psql().insert_beatmap(&map).await {
@@ -163,14 +162,13 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
         gb.execute(&ctx).await;
         time::sleep(Duration::from_secs(45)).await;
 
-        // TODO
-        // if !ctx.remove_msg(response.id) {
-        //     return;
-        // }
+        if !ctx.remove_msg(response.id) {
+            return;
+        }
 
         let builder = embed_data.into_builder().build().into();
 
-        if let Err(why) = data.update_message(&ctx, builder, response_raw).await {
+        if let Err(why) = response.update_message(&ctx, builder).await {
             unwind_error!(warn, why, "Error minimizing simulate msg: {}");
         }
     });

@@ -3,9 +3,9 @@ use crate::{
     embeds::{CountrySnipeStatsEmbed, EmbedData},
     util::{
         constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        MessageExt,
+        CountryCode, MessageExt,
     },
-    BotResult, CommandData, Context, CountryCode, MessageBuilder,
+    BotResult, CommandData, Context, MessageBuilder,
 };
 
 use image::{png::PngEncoder, ColorType};
@@ -29,17 +29,12 @@ use std::{cmp::Ordering::Equal, sync::Arc};
 async fn countrysnipestats(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            let country_code: CountryCode = match args.next() {
-                Some(arg) => match arg {
-                    "global" | "world" => "global".into(),
-                    _ => {
-                        if arg.len() != 2 || !arg.is_ascii() {
-                            let content =
-                                "The argument must be a country acronym of length two, e.g. `fr`";
-
-                            return msg.error(&ctx, content).await;
-                        }
-
+            let arg = args.next();
+            let country_code = match args.next() {
+                Some(arg) => {
+                    if arg == "global" || arg == "world" {
+                        Some("global".into())
+                    } else if arg.len() == 2 && arg.is_ascii() {
                         let code = arg.to_ascii_uppercase();
 
                         if !ctx.contains_country(code.as_str()) {
@@ -49,44 +44,23 @@ async fn countrysnipestats(ctx: Arc<Context>, data: CommandData) -> BotResult<()
                             return msg.error(&ctx, content).await;
                         }
 
-                        code.into()
-                    }
-                },
-                None => match ctx.get_link(msg.author.id.0) {
-                    Some(name) => {
-                        let user = match super::request_user(&ctx, &name, Some(GameMode::STD)).await
-                        {
-                            Ok(user) => user,
-                            Err(OsuError::NotFound) => {
-                                let content = format!("User `{}` was not found", name);
-
-                                return msg.error(&ctx, content).await;
-                            }
-                            Err(why) => {
-                                let _ = msg.error(&ctx, OSU_API_ISSUE).await;
-
-                                return Err(why.into());
-                            }
-                        };
-
-                        if ctx.contains_country(user.country_code.as_str()) {
-                            user.country_code.as_str().into()
-                        } else {
-                            let content = format!(
-                                "`{}`'s country {} is not supported :(",
-                                user.username, user.country_code
-                            );
+                        Some(code.into())
+                    } else if let Some(code) = CountryCode::from_name(arg) {
+                        if !code.snipe_supported(&ctx) {
+                            let content = format!("The country `{}` is not supported :(", arg);
 
                             return msg.error(&ctx, content).await;
                         }
-                    }
-                    None => {
+
+                        Some(code)
+                    } else {
                         let content =
-                        "Since you're not linked, you must specify a country acronym, e.g. `fr`";
+                            "The argument must be a country or country acronym of length two, e.g. `fr`";
 
                         return msg.error(&ctx, content).await;
                     }
-                },
+                }
+                None => None,
             };
 
             _countrysnipestats(ctx, CommandData::Message { msg, args, num }, country_code).await
@@ -98,8 +72,46 @@ async fn countrysnipestats(ctx: Arc<Context>, data: CommandData) -> BotResult<()
 pub(super) async fn _countrysnipestats(
     ctx: Arc<Context>,
     data: CommandData<'_>,
-    country_code: CountryCode,
+    country_code: Option<CountryCode>,
 ) -> BotResult<()> {
+    let country_code = match country_code {
+        Some(code) => code,
+        None => match ctx.get_link(data.author()?.id.0) {
+            Some(name) => {
+                let user = match super::request_user(&ctx, &name, Some(GameMode::STD)).await {
+                    Ok(user) => user,
+                    Err(OsuError::NotFound) => {
+                        let content = format!("User `{}` was not found", name);
+
+                        return data.error(&ctx, content).await;
+                    }
+                    Err(why) => {
+                        let _ = data.error(&ctx, OSU_API_ISSUE).await;
+
+                        return Err(why.into());
+                    }
+                };
+
+                if ctx.contains_country(user.country_code.as_str()) {
+                    user.country_code.as_str().into()
+                } else {
+                    let content = format!(
+                        "`{}`'s country {} is not supported :(",
+                        user.username, user.country_code
+                    );
+
+                    return data.error(&ctx, content).await;
+                }
+            }
+            None => {
+                let content =
+                    "Since you're not linked, you must specify a country acronym, e.g. `fr`";
+
+                return data.error(&ctx, content).await;
+            }
+        },
+    };
+
     let client = &ctx.clients.custom;
 
     let (players, statistics) = {

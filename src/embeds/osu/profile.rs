@@ -26,19 +26,26 @@ pub struct ProfileEmbed {
 impl ProfileEmbed {
     pub fn compact(user: &User, max_pp: f32) -> Self {
         let author = author!(user);
-
-        let mut footer_text = footer_text(user);
-        // TODO: Insert mode emote into footer start
-
+        let footer_text = footer_text(user);
         let stats = user.statistics.as_ref().unwrap();
         let level = stats.level.current as f32 + stats.level.progress as f32 / 100.0;
         let playtime = stats.playtime / 60 / 60;
 
         let description = format!(
-            "Accuracy: `{:.2}%` • Level: {:.2}\n\
+            "Accuracy: `{:.2}%` • Level: `{:.2}`\n\
             Playcount: `{}` (`{} hrs`)\n\
-            Max pp play: `{:.2}pp`",
-            stats.accuracy, level, stats.playcount, playtime, max_pp
+            Max pp play: `{:.2}pp` • Mode: `{}`",
+            stats.accuracy,
+            level,
+            with_comma_uint(stats.playcount),
+            playtime,
+            max_pp,
+            match user.mode {
+                GameMode::STD => "osu!",
+                GameMode::TKO => "taiko",
+                GameMode::CTB => "catch",
+                GameMode::MNA => "mania",
+            }
         );
 
         Self {

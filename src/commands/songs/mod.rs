@@ -25,7 +25,7 @@ use crate::{
     BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
-use std::sync::Arc;
+use std::{fmt::Write, sync::Arc};
 use tokio::time::{interval, Duration};
 use twilight_model::application::{
     command::{ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice},
@@ -42,23 +42,38 @@ async fn song_send(
         .guild_id()
         .map_or(true, |guild_id| ctx.config_lyrics(guild_id));
 
-    // let channel_id = data.channel_id();
-
     if allow {
         let mut interval = interval(Duration::from_millis(delay));
+        let len: usize = lyrics.iter().map(|line| line.len()).sum();
+        let mut content = String::with_capacity(len + lyrics.len() * 5);
 
-        for line in lyrics {
+        let _ = writeln!(content, "♫ {} ♫", lyrics[0]);
+        let builder = MessageBuilder::new().content(&content);
+        interval.tick().await;
+        let mut response = data.create_message(&ctx, builder).await?.model().await?;
+
+        let _ = writeln!(content, "♫ {} ♫", lyrics[1]);
+        let builder = MessageBuilder::new().content(&content);
+        interval.tick().await;
+
+        response = response
+            .update_message(&ctx, builder)
+            .await?
+            .model()
+            .await?;
+
+        for line in &lyrics[2..] {
             interval.tick().await;
-            let builder = MessageBuilder::new().content(format!("♫ {} ♫", line));
+            let _ = writeln!(content, "♫ {} ♫", line);
 
-            // TODO: Test
-            data.create_message(&ctx, builder).await?;
-
-            // ctx.http
-            //     .create_message(channel_id)
-            //     .content(&)?
-            //     .exec()
-            //     .await?;
+            response = ctx
+                .http
+                .update_message(response.channel_id, response.id)
+                .content(Some(&content))?
+                .exec()
+                .await?
+                .model()
+                .await?;
         }
     } else {
         let content = "The server's big boys disabled song commands. \

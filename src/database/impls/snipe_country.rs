@@ -1,4 +1,4 @@
-use crate::{BotResult, CountryCode, Database};
+use crate::{util::CountryCode, BotResult, Database};
 
 use dashmap::DashMap;
 use futures::stream::StreamExt;

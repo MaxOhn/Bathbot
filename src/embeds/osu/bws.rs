@@ -12,7 +12,13 @@ pub struct BWSEmbed {
 }
 
 impl BWSEmbed {
-    pub fn new(user: User, badges_min: usize, badges_max: usize, rank: Option<u32>) -> Self {
+    pub fn new(
+        user: User,
+        badges_curr: usize,
+        badges_min: usize,
+        badges_max: usize,
+        rank: Option<u32>,
+    ) -> Self {
         let stats = user.statistics.as_ref().unwrap();
 
         let dist_badges = badges_max - badges_min;
@@ -167,13 +173,11 @@ impl BWSEmbed {
             }
         };
 
-        let curr_badges = user.badges.as_ref().map_or(0, Vec::len);
-
         let title = format!(
             "Current BWS for {} badge{}: {}",
-            curr_badges,
-            if curr_badges == 1 { "" } else { "s" },
-            with_comma_uint(bws(stats.global_rank, curr_badges))
+            badges_curr,
+            if badges_curr == 1 { "" } else { "s" },
+            with_comma_uint(bws(stats.global_rank, badges_curr))
         );
 
         Self {

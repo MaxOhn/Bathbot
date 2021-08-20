@@ -144,9 +144,6 @@ impl RoleAssignArgs {
 
         let options = command.yoink_options();
 
-        // TODO
-        println!("{:#?}", options);
-
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {

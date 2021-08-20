@@ -97,7 +97,7 @@ pub(super) async fn _scores(
         return Ok(());
     }
 
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = response_raw.model().await?;
 
     // Pagination
     let pagination =
@@ -459,11 +459,11 @@ impl ScoresArgs {
                     _ => bail_cmd_option!("osustats scores", string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
-                    "rank_min" => {
+                    "min_rank" => {
                         rank_min =
                             Some((value.max(Self::MIN_RANK as i64) as usize).min(Self::MAX_RANK))
                     }
-                    "rank_max" => {
+                    "max_rank" => {
                         rank_max =
                             Some((value.max(Self::MIN_RANK as i64) as usize).min(Self::MAX_RANK))
                     }

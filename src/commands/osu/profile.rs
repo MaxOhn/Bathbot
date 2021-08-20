@@ -98,8 +98,7 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
         builder = builder.file("profile_graph.png", bytes);
     }
 
-    let response_raw = data.create_message(&ctx, builder).await?;
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = data.create_message(&ctx, builder).await?.model().await?;
 
     // Pagination
     let pagination = ProfilePagination::new(response, profile_data, kind);

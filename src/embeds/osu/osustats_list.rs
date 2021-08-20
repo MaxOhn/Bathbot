@@ -5,8 +5,8 @@ use crate::{
         constants::{AVATAR_URL, OSU_BASE},
         numbers::with_comma_uint,
         osu::flag_url,
+        CountryCode,
     },
-    CountryCode,
 };
 
 use std::fmt::Write;

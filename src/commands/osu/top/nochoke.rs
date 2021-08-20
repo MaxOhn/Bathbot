@@ -285,7 +285,7 @@ pub(super) async fn _nochokes(
         return Ok(());
     }
 
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = response_raw.model().await?;
 
     // Pagination
     let pagination = NoChokePagination::new(response, user, scores_data, unchoked_pp);

@@ -159,7 +159,7 @@ pub(super) async fn _mapper(
         return Ok(());
     }
 
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = response_raw.model().await?;
 
     // Pagination
     let pagination = TopPagination::new(response, user, scores);

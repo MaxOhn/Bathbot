@@ -29,8 +29,7 @@ pub(super) async fn _countryranking(
     let countries: BTreeMap<_, _> = ranking.ranking.drain(..).enumerate().collect();
     let embed_data = RankingCountriesEmbed::new(mode, &countries, (1, pages));
     let builder = embed_data.into_builder().build().into();
-    let response_raw = data.create_message(&ctx, builder).await?;
-    let response = data.get_response(&ctx, response_raw).await?;
+    let response = data.create_message(&ctx, builder).await?.model().await?;
 
     // Pagination
     let pagination = RankingCountriesPagination::new(

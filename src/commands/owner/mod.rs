@@ -18,7 +18,10 @@ pub use tracking_interval::*;
 pub use tracking_stats::*;
 pub use tracking_toggle::*;
 
-use crate::{util::ApplicationCommandExt, BotResult, Context, CountryCode, Error};
+use crate::{
+    util::{ApplicationCommandExt, CountryCode},
+    BotResult, Context, Error,
+};
 
 use std::sync::Arc;
 use twilight_model::application::{
