@@ -4,7 +4,7 @@ use crate::{
     pp::{Calculations, PPCalculator},
     util::{
         constants::OSU_BASE,
-        datetime::how_long_ago,
+        datetime::how_long_ago_dynamic,
         numbers::{round, with_comma_uint},
     },
 };
@@ -75,7 +75,7 @@ impl PlayerSnipeListEmbed {
                 n100 = score.count_100,
                 n50 = score.count_50,
                 nmiss = score.count_miss,
-                ago = how_long_ago(&score.score_date)
+                ago = how_long_ago_dynamic(&score.score_date)
             );
         }
 

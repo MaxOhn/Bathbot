@@ -1,7 +1,9 @@
 use crate::{
     embeds::{osu, Author, Footer},
     pp::{Calculations, PPCalculator},
-    util::{constants::OSU_BASE, datetime::how_long_ago, numbers::with_comma_uint, ScoreExt},
+    util::{
+        constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::with_comma_uint, ScoreExt,
+    },
 };
 
 use rosu_v2::prelude::{Score, User};
@@ -56,7 +58,7 @@ impl TopEmbed {
                 score = with_comma_uint(score.score),
                 combo = osu::get_combo(score, map),
                 hits = score.hits_string(score.mode),
-                ago = how_long_ago(&score.created_at)
+                ago = how_long_ago_dynamic(&score.created_at)
             );
         }
 

@@ -3,7 +3,7 @@ use crate::{
     custom_client::SnipeRecent,
     embeds::{osu, Author, Footer},
     util::{
-        constants::OSU_BASE, datetime::how_long_ago, error::PPError, numbers::round,
+        constants::OSU_BASE, datetime::how_long_ago_dynamic, error::PPError, numbers::round,
         osu::prepare_beatmap_file,
     },
     BotResult,
@@ -88,7 +88,7 @@ impl SnipedDiffEmbed {
                 ),
             };
 
-            let _ = write!(description, "{}", how_long_ago(&score.date));
+            let _ = write!(description, "{}", how_long_ago_dynamic(&score.date));
             description.push('\n');
         }
 

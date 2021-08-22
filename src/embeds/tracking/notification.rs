@@ -3,7 +3,7 @@ use crate::{
     pp::{Calculations, PPCalculator},
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
-        datetime::how_long_ago,
+        datetime::how_long_ago_text,
         numbers::{round, with_comma_uint},
         osu::{grade_completion_mods, mode_emote},
         ScoreExt,
@@ -82,7 +82,7 @@ impl TrackNotificationEmbed {
         let footer = Footer::new(format!(
             "Mapped by {}, played {}",
             mapset.creator_name,
-            how_long_ago(&score.created_at)
+            how_long_ago_text(&score.created_at)
         ))
         .icon_url(format!("{}{}", AVATAR_URL, mapset.creator_id));
 

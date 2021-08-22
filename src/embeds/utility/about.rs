@@ -3,7 +3,7 @@ use crate::{
     embeds::{EmbedFields, Footer},
     util::{
         constants::{BATHBOT_WORKSHOP, INVITE_LINK, OWNER_USER_ID},
-        datetime::how_long_ago,
+        datetime::how_long_ago_dynamic,
         discord_avatar,
         numbers::with_comma_uint,
     },
@@ -59,7 +59,11 @@ impl AboutEmbed {
         let fields = vec![
             field!("Guilds", with_comma_uint(guilds as u64).to_string(), true),
             field!("Shards", shards.to_string(), true),
-            field!("Boot-up", how_long_ago(&boot_time).to_string(), true),
+            field!(
+                "Boot-up",
+                how_long_ago_dynamic(&boot_time).to_string(),
+                true
+            ),
             field!(
                 "Commands used",
                 with_comma_uint(commands_used).to_string(),

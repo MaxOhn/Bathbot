@@ -1,6 +1,6 @@
 use crate::{
     embeds::{Author, Footer},
-    util::{constants::SYMBOLS, datetime::how_long_ago},
+    util::{constants::SYMBOLS, datetime::how_long_ago_text},
 };
 
 use chrono::{DateTime, Utc};
@@ -50,7 +50,7 @@ impl CommandCounterEmbed {
             "Page {}/{} ~ Started counting {}",
             pages.0,
             pages.1,
-            how_long_ago(booted_up)
+            how_long_ago_text(booted_up)
         );
 
         Self {

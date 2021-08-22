@@ -2,7 +2,7 @@ use crate::{
     embeds::{osu, Author, EmbedBuilder, EmbedData, Footer},
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
-        datetime::how_long_ago,
+        datetime::{how_long_ago_dynamic, HowLongAgoFormatterDynamic},
         error::PPError,
         matcher::highlight_funny_numeral,
         numbers::{round, with_comma_float, with_comma_uint},
@@ -34,7 +34,7 @@ pub struct CompareEmbed {
     grade_completion_mods: Cow<'static, str>,
     score: String,
     acc: f32,
-    ago: String,
+    ago: HowLongAgoFormatterDynamic,
     pp: String,
     combo: String,
     hits: String,
@@ -209,7 +209,7 @@ impl CompareEmbed {
         };
 
         let acc = round(score.accuracy);
-        let ago = how_long_ago(&score.created_at).to_string();
+        let ago = how_long_ago_dynamic(&score.created_at);
         let timestamp = score.created_at;
         let mods = score.mods;
         let score = with_comma_uint(score.score).to_string();

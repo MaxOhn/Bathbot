@@ -4,7 +4,7 @@ use crate::{
     pp::{Calculations, PPCalculator},
     util::{
         constants::OSU_BASE,
-        datetime::how_long_ago,
+        datetime::how_long_ago_dynamic,
         numbers::{with_comma_float, with_comma_uint},
         osu::grade_completion_mods,
         ScoreExt,
@@ -98,7 +98,7 @@ impl PlayerSnipeStatsEmbed {
                     pp = pp,
                     combo = osu::get_combo(&score, map),
                     hits = score.hits_string(GameMode::STD),
-                    ago = how_long_ago(&score.created_at)
+                    ago = how_long_ago_dynamic(&score.created_at)
                 );
 
                 fields.push(field!("Oldest national #1:", value, false));

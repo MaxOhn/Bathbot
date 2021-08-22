@@ -2,7 +2,7 @@ use crate::{
     commands::osu::{MinMaxAvgBasic, ProfileResult},
     embeds::{attachment, Author, EmbedBuilder, EmbedData, EmbedFields, Footer},
     util::{
-        datetime::{date_to_string, how_long_ago, sec_to_minsec},
+        datetime::{date_to_string, how_long_ago_text, sec_to_minsec},
         numbers::{round, with_comma_uint},
         osu::grade_emote,
     },
@@ -44,7 +44,7 @@ impl ProfileEmbed {
         let footer_text = format!(
             "Joined osu! {} ({})",
             date_to_string(&user.join_date),
-            how_long_ago(&user.join_date),
+            how_long_ago_text(&user.join_date),
         );
 
         let stats = user.statistics.as_ref().unwrap();

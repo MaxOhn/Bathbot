@@ -3,7 +3,7 @@ use crate::{
     embeds::{Author, Footer},
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
-        datetime::how_long_ago,
+        datetime::how_long_ago_dynamic,
         error::PPError,
         numbers::with_comma_uint,
         osu::prepare_beatmap_file,
@@ -109,7 +109,7 @@ impl LeaderboardEmbed {
                     },
                     pp = get_pp(&mut mod_map, score, &rosu_map).await,
                     acc = score.accuracy,
-                    ago = how_long_ago(&score.date),
+                    ago = how_long_ago_dynamic(&score.date),
                 );
             }
 

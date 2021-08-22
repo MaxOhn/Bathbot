@@ -1,7 +1,7 @@
 use crate::{
     embeds::{osu, Author, Footer},
     util::{
-        datetime::how_long_ago,
+        datetime::how_long_ago_dynamic,
         error::PPError,
         osu::{grade_completion_mods, prepare_beatmap_file},
         ScoreExt,
@@ -77,7 +77,7 @@ impl RecentListEmbed {
                 pp = pp,
                 combo = osu::get_combo(score, map),
                 acc = score.acc_string(map.mode),
-                ago = how_long_ago(&score.created_at)
+                ago = how_long_ago_dynamic(&score.created_at)
             );
         }
 
