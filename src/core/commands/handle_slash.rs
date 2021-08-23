@@ -2,7 +2,11 @@ use super::ProcessResult;
 use crate::{
     commands::{fun, help, osu, owner, songs, tracking, twitch, utility},
     core::buckets::BucketName,
-    util::{constants::OWNER_USER_ID, ApplicationCommandExt, Authored, MessageExt},
+    embeds::EmbedBuilder,
+    util::{
+        constants::{OWNER_USER_ID, RED},
+        ApplicationCommandExt, Authored,
+    },
     BotResult, Context, Error,
 };
 
@@ -184,6 +188,29 @@ async fn start_thinking(ctx: &Context, command: &ApplicationCommand) -> BotResul
     Ok(())
 }
 
+async fn premature_error(
+    ctx: &Context,
+    command: &ApplicationCommand,
+    content: impl Into<String>,
+) -> BotResult<()> {
+    let embed = EmbedBuilder::new().color(RED).description(content).build();
+
+    let response = InteractionResponse::ChannelMessageWithSource(CallbackData {
+        allowed_mentions: None,
+        content: None,
+        embeds: vec![embed],
+        flags: None,
+        tts: None,
+    });
+
+    ctx.http
+        .interaction_callback(command.id, &command.token, &response)
+        .exec()
+        .await?;
+
+    Ok(())
+}
+
 #[inline(never)]
 async fn pre_process_command(
     ctx: &Context,
@@ -195,7 +222,7 @@ async fn pre_process_command(
     // Only in guilds?
     if args.only_guilds && guild_id.is_none() {
         let content = "That command is only available in guilds";
-        command.error(&ctx, content).await?;
+        premature_error(ctx, command, content).await?;
 
         return Ok(Some(ProcessResult::NoDM));
     }
@@ -205,7 +232,7 @@ async fn pre_process_command(
     // Only for owner?
     if args.only_owner && author_id.0 != OWNER_USER_ID {
         let content = "That command can only be used by the bot owner";
-        command.error(&ctx, content).await?;
+        premature_error(ctx, command, content).await?;
 
         return Ok(Some(ProcessResult::NoOwner));
     }
@@ -220,8 +247,6 @@ async fn pre_process_command(
                     .get_channel_permissions_for(bot_user.id, channel_id, guild_id);
 
             if !permissions.contains(Permissions::SEND_MESSAGES) {
-                debug!("No SEND_MESSAGE permission, can not respond");
-
                 return Ok(Some(ProcessResult::NoSendPermission));
             }
         }
@@ -248,7 +273,7 @@ async fn pre_process_command(
         {
             if !matches!(bucket, BucketName::BgHint) {
                 let content = format!("Command on cooldown, try again in {} seconds", cooldown);
-                command.error(&ctx, content).await?;
+                premature_error(ctx, command, content).await?;
             }
 
             return Ok(Some(ProcessResult::Ratelimited(bucket)));
@@ -260,13 +285,13 @@ async fn pre_process_command(
         match super::_check_authority(&ctx, author_id, guild_id) {
             Ok(None) => {}
             Ok(Some(content)) => {
-                command.error(&ctx, content).await?;
+                premature_error(ctx, command, content).await?;
 
                 return Ok(Some(ProcessResult::NoAuthority));
             }
             Err(why) => {
                 let content = "Error while checking authority status";
-                let _ = command.error(&ctx, content).await;
+                let _ = premature_error(ctx, command, content).await;
 
                 return Err(Error::Authority(Box::new(why)));
             }

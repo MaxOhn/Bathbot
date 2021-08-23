@@ -83,35 +83,19 @@ fn _check_authority(
         return Ok(Some(content));
     } else if let Some(member) = ctx.cache.member(guild_id, author_id) {
         if !member.roles.iter().any(|role| auth_roles.contains(role)) {
-            let roles: Vec<_> = auth_roles
-                .iter()
-                .filter_map(|&role| {
-                    ctx.cache.role(role).map_or_else(
-                        || {
-                            warn!("Role {} not cached for guild {}", role, guild_id);
-
-                            None
-                        },
-                        |role| Some(role.name),
-                    )
-                })
-                .collect();
-
-            let role_len: usize = roles.iter().map(|role| role.len()).sum();
-
             let mut content = String::from(
                 "You need either admin permissions or \
                 any of these roles to use this command:\n",
             );
 
-            content.reserve_exact(role_len + roles.len().saturating_sub(1) * 4);
-            let mut roles = roles.into_iter();
+            content.reserve(auth_roles.len() * 5);
+            let mut roles = auth_roles.into_iter();
 
             if let Some(first) = roles.next() {
-                content.push_str(&first);
+                let _ = write!(content, "<@&{}>", first);
 
                 for role in roles {
-                    let _ = write!(content, ", `{}`", role);
+                    let _ = write!(content, ", <@&{}>", role);
                 }
             }
 
