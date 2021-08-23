@@ -288,6 +288,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &PRETENDER_CMD,
                 &ROCKEFELLER_CMD,
                 &SAYGOODBYE_CMD,
+                &STARTAGAIN_CMD,
                 &TIJDMACHINE_CMD,
             ],
         ),

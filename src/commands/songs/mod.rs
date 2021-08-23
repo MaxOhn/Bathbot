@@ -7,6 +7,7 @@ mod flamingo;
 mod pretender;
 mod rockefeller;
 mod saygoodbye;
+mod startagain;
 mod tijdmachine;
 
 pub use bombsaway::*;
@@ -18,6 +19,7 @@ pub use flamingo::*;
 pub use pretender::*;
 pub use rockefeller::*;
 pub use saygoodbye::*;
+pub use startagain::*;
 pub use tijdmachine::*;
 
 use crate::{
@@ -102,6 +104,7 @@ pub async fn slash_song(ctx: Arc<Context>, mut command: ApplicationCommand) -> B
                         "pretender" => Some(_pretender()),
                         "rockefeller" => Some(_rockefeller()),
                         "saygoodbye" => Some(_saygoodbye()),
+                        "startagain" => Some(_startagain()),
                         "tijdmachine" => Some(_tijdmachine()),
                         _ => bail_cmd_option!("song title", string, value),
                     };
@@ -162,6 +165,10 @@ pub fn slash_song_command() -> Command {
                 CommandOptionChoice::String {
                     name: "Say Goodbye".to_owned(),
                     value: "saygoodbye".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "Start Again".to_owned(),
+                    value: "startagain".to_owned(),
                 },
                 CommandOptionChoice::String {
                     name: "Tijdmachine".to_owned(),
