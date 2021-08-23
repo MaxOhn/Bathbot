@@ -1,6 +1,9 @@
 use crate::{
     embeds::{EmbedData, MedalEmbed},
-    util::{constants::GENERAL_ISSUE, levenshtein_similarity, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSEKAI_ISSUE},
+        levenshtein_similarity, MessageExt,
+    },
     BotResult, CommandData, Context,
 };
 
@@ -36,14 +39,14 @@ pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str)
         Ok(Some(medal)) => medal,
         Ok(None) => return no_medal(&ctx, &data, name).await,
         Err(why) => {
-            let content = "Some issue with the osekai api, blame bade";
-            let _ = data.error(&ctx, content).await;
+            let _ = data.error(&ctx, OSEKAI_ISSUE).await;
 
             return Err(why.into());
         }
     };
 
-    let builder = MedalEmbed::new(medal).into_builder().build().into();
+    let embed_data = MedalEmbed::new(medal, None, true);
+    let builder = embed_data.into_builder().build().into();
     data.create_message(&ctx, builder).await?;
 
     Ok(())

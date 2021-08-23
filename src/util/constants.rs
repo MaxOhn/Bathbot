@@ -26,6 +26,7 @@ pub const DISCORD_CDN: &str = "https://cdn.discordapp.com/";
 pub const GENERAL_ISSUE: &str = "Something went wrong, blame bade";
 pub const OSU_API_ISSUE: &str = "Some issue with the osu api, blame bade";
 pub const OSU_WEB_ISSUE: &str = "Some issue with the osu website, DDoS protection?";
+pub const OSEKAI_ISSUE: &str = "Some issue with the osekai api, blame bade";
 pub const HUISMETBENEN_ISSUE: &str = "Some issue with the huismetbenen api, blame bade";
 pub const OSU_DAILY_ISSUE: &str = "Some issue with the osudaily api, blame bade";
 

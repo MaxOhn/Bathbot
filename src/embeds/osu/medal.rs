@@ -1,24 +1,33 @@
 use crate::{
+    commands::osu::MedalAchieved,
     custom_client::OsekaiMedal,
-    embeds::EmbedFields,
+    embeds::{Author, EmbedBuilder, EmbedData, EmbedFields, Footer},
     util::{
         constants::{FIELD_VALUE_SIZE, OSU_BASE},
         numbers::round,
+        osu::flag_url,
         CowUtils,
     },
 };
 
+use chrono::{DateTime, Utc};
 use std::fmt::Write;
 
+#[derive(Clone)]
 pub struct MedalEmbed {
-    url: String,
+    achieved: Option<(Author, Footer, DateTime<Utc>)>,
+    fields: EmbedFields,
     thumbnail: String,
     title: String,
-    fields: EmbedFields,
+    url: String,
 }
 
 impl MedalEmbed {
-    pub fn new(medal: OsekaiMedal) -> Self {
+    pub fn new(
+        medal: OsekaiMedal,
+        achieved: Option<MedalAchieved<'_>>,
+        with_comments: bool,
+    ) -> Self {
         let mode = medal
             .mode
             .map_or_else(|| "Any".to_owned(), |mode| mode.to_string());
@@ -75,7 +84,7 @@ impl MedalEmbed {
             fields.push(field!(format!("Beatmaps: {}", len), map_value, false));
         }
 
-        if !medal.comments.is_empty() {
+        if with_comments && !medal.comments.is_empty() {
             let mut comment_value = String::with_capacity(256);
 
             let comment_iter = medal
@@ -112,18 +121,44 @@ impl MedalEmbed {
             title.cow_replace(' ', "+").cow_replace(',', "%2C")
         );
 
+        let achieved = achieved.map(|achieved| {
+            let user = achieved.user;
+
+            let author = Author::new(&user.username)
+                .url(format!("{}u/{}", OSU_BASE, user.user_id))
+                .icon_url(flag_url(user.country_code.as_str()));
+
+            let footer = Footer::new(format!(
+                "Medal {}/{} • Achieved",
+                achieved.index, achieved.medal_count
+            ));
+
+            (author, footer, achieved.achieved_at)
+        });
+
         Self {
-            url,
+            achieved,
+            fields,
             thumbnail,
             title,
-            fields,
+            url,
         }
     }
 }
 
-impl_builder!(MedalEmbed {
-    fields,
-    thumbnail,
-    title,
-    url,
-});
+impl EmbedData for MedalEmbed {
+    fn into_builder(self) -> EmbedBuilder {
+        let builder = EmbedBuilder::new()
+            .fields(self.fields)
+            .thumbnail(self.thumbnail)
+            .title(self.title)
+            .url(self.url);
+
+        match self.achieved {
+            Some((author, footer, timestamp)) => {
+                builder.author(author).footer(footer).timestamp(timestamp)
+            }
+            None => builder,
+        }
+    }
+}

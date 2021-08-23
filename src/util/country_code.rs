@@ -281,9 +281,10 @@ pub struct CountryCode(SmallString<[u8; 2]>);
 
 impl CountryCode {
     pub fn from_name(name: &str) -> Option<Self> {
-        let name = name.cow_to_ascii_lowercase().as_ref();
-
-        COUNTRIES.get(name).cloned().map(Self)
+        COUNTRIES
+            .get(name.cow_to_ascii_lowercase().as_ref())
+            .cloned()
+            .map(Self)
     }
 
     pub fn snipe_supported(&self, ctx: &Context) -> bool {

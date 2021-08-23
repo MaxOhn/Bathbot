@@ -95,6 +95,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &BELGIANLEADERBOARD_CMD,
                 &MEDAL_CMD,
                 &MEDALSTATS_CMD,
+                &MEDALRECENT_CMD,
                 &MEDALSMISSING_CMD,
                 &SEARCH_CMD,
                 &MATCHLIVE_CMD,

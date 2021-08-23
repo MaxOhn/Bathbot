@@ -64,10 +64,9 @@ pub(super) async fn _medalstats(
         }
     };
 
-    user.medals
-        .as_mut()
-        .unwrap()
-        .sort_unstable_by_key(|medal| medal.achieved_at);
+    if let Some(ref mut medals) = user.medals {
+        medals.sort_unstable_by_key(|medal| medal.achieved_at);
+    }
 
     let graph = match graph(user.medals.as_ref().unwrap()) {
         Ok(bytes_option) => bytes_option,

@@ -1,9 +1,11 @@
 mod medal;
 mod missing;
+mod recent;
 mod stats;
 
 pub use medal::*;
 pub use missing::*;
+pub use recent::*;
 pub use stats::*;
 
 use super::{request_user, require_link};
@@ -24,6 +26,7 @@ use twilight_model::application::{
 enum MedalCommandKind {
     Medal(String),
     Missing(Option<Name>),
+    Recent(RecentArgs),
     Stats(Option<Name>),
 }
 
@@ -68,22 +71,9 @@ impl MedalCommandKind {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
                                     "name" => username = Some(value.into()),
-                                    "discord" => match value.parse() {
-                                        Ok(id) => match ctx.get_link(id) {
-                                            Some(name) => username = Some(name),
-                                            None => {
-                                                let content = format!(
-                                                    "<@{}> is not linked to an osu profile",
-                                                    id
-                                                );
-
-                                                return Ok(Err(content.into()));
-                                            }
-                                        },
-                                        Err(_) => {
-                                            bail_cmd_option!("medal stats discord", string, value)
-                                        }
-                                    },
+                                    "discord" => {
+                                        username = parse_discord_option!(ctx, value, "medal stats")
+                                    }
                                     _ => bail_cmd_option!("medal stats", string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
@@ -107,22 +97,10 @@ impl MedalCommandKind {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
                                     "name" => username = Some(value.into()),
-                                    "discord" => match value.parse() {
-                                        Ok(id) => match ctx.get_link(id) {
-                                            Some(name) => username = Some(name),
-                                            None => {
-                                                let content = format!(
-                                                    "<@{}> is not linked to an osu profile",
-                                                    id
-                                                );
-
-                                                return Ok(Err(content.into()));
-                                            }
-                                        },
-                                        Err(_) => {
-                                            bail_cmd_option!("medal missing discord", string, value)
-                                        }
-                                    },
+                                    "discord" => {
+                                        username =
+                                            parse_discord_option!(ctx, value, "medal missing")
+                                    }
                                     _ => bail_cmd_option!("medal missing", string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
@@ -139,6 +117,39 @@ impl MedalCommandKind {
 
                         kind = Some(MedalCommandKind::Missing(username));
                     }
+                    "recent" => {
+                        let mut username = None;
+                        let mut index = None;
+
+                        for option in options {
+                            match option {
+                                CommandDataOption::String { name, value } => match name.as_str() {
+                                    "name" => username = Some(value.into()),
+                                    "discord" => {
+                                        username = parse_discord_option!(ctx, value, "medal recent")
+                                    }
+                                    _ => bail_cmd_option!("medal recent", string, name),
+                                },
+                                CommandDataOption::Integer { name, value } => match name.as_str() {
+                                    "index" => index = Some(value.max(1) as usize),
+                                    _ => bail_cmd_option!("medal recent", integer, name),
+                                },
+                                CommandDataOption::Boolean { name, .. } => {
+                                    bail_cmd_option!("medal recent", boolean, name)
+                                }
+                                CommandDataOption::SubCommand { name, .. } => {
+                                    bail_cmd_option!("medal recent", subcommand, name)
+                                }
+                            }
+                        }
+
+                        let args = RecentArgs {
+                            name: username,
+                            index,
+                        };
+
+                        kind = Some(MedalCommandKind::Recent(args));
+                    }
                     _ => bail_cmd_option!("medal", subcommand, name),
                 },
             }
@@ -152,6 +163,7 @@ pub async fn slash_medal(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
     match MedalCommandKind::slash(&ctx, &mut command)? {
         Ok(MedalCommandKind::Medal(name)) => _medal(ctx, command.into(), &name).await,
         Ok(MedalCommandKind::Missing(name)) => _medalsmissing(ctx, command.into(), name).await,
+        Ok(MedalCommandKind::Recent(args)) => _medalrecent(ctx, command.into(), args).await,
         Ok(MedalCommandKind::Stats(name)) => _medalstats(ctx, command.into(), name).await,
         Err(content) => command.error(&ctx, content).await,
     }
@@ -178,8 +190,8 @@ pub fn slash_medal_command() -> Command {
                 required: false,
             }),
             CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Display medal stats for a user".to_owned(),
-                name: "stats".to_owned(),
+                description: "Display info about an osu! medal".to_owned(),
+                name: "missing".to_owned(),
                 options: vec![
                     CommandOption::String(ChoiceCommandOptionData {
                         choices: vec![],
@@ -196,8 +208,32 @@ pub fn slash_medal_command() -> Command {
                 required: false,
             }),
             CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Display info about an osu! medal".to_owned(),
-                name: "missing".to_owned(),
+                description: "Display a recently acquired medal of a user".to_owned(),
+                name: "recent".to_owned(),
+                options: vec![
+                    CommandOption::String(ChoiceCommandOptionData {
+                        choices: vec![],
+                        description: "Specify a username".to_owned(),
+                        name: "name".to_owned(),
+                        required: false,
+                    }),
+                    CommandOption::Integer(ChoiceCommandOptionData {
+                        choices: vec![],
+                        description: "Specify an index e.g. 1 = most recent".to_owned(),
+                        name: "index".to_owned(),
+                        required: false,
+                    }),
+                    CommandOption::User(BaseCommandOptionData {
+                        description: "Specify a linked discord user".to_owned(),
+                        name: "discord".to_owned(),
+                        required: false,
+                    }),
+                ],
+                required: false,
+            }),
+            CommandOption::SubCommand(OptionsCommandOptionData {
+                description: "Display medal stats for a user".to_owned(),
+                name: "stats".to_owned(),
                 options: vec![
                     CommandOption::String(ChoiceCommandOptionData {
                         choices: vec![],
