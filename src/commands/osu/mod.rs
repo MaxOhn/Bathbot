@@ -300,6 +300,16 @@ pub enum GradeArg {
     Range { bot: Grade, top: Grade },
 }
 
+impl GradeArg {
+    pub fn include_fails(&self) -> bool {
+        matches!(self,
+            Self::Single(g)
+                | Self::Range { bot: g, .. }
+                | Self::Range { top: g, ..} if *g == Grade::F
+        )
+    }
+}
+
 pub trait MinMaxAvgBasic {
     type Value: PartialOrd + AddAssign + Inc + Div<Output = Self::Value> + Copy;
 

@@ -127,8 +127,6 @@ pub(super) async fn _recentsimulate(
         )
     }
 
-    let data = data.compact();
-
     // Set map on garbage collection list if unranked
     let gb = ctx.map_garbage_collector(&map);
 

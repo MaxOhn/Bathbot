@@ -7,7 +7,13 @@ use std::sync::Arc;
 #[aliases("end", "quit")]
 pub(super) async fn stop(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match ctx.stop_game(data.channel_id()).await {
-        Ok(true) => Ok(()),
+        Ok(true) => {
+            if let CommandData::Interaction { command } = data {
+                let _ = command.delete_message(&ctx).await;
+            }
+
+            Ok(())
+        }
         Ok(false) => {
             let content = "No running game in this channel.\nStart one with `bg start`.";
 

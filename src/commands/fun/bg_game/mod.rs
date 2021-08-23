@@ -43,8 +43,7 @@ pub async fn backgroundgame(ctx: Arc<Context>, data: CommandData) -> BotResult<(
     match data {
         CommandData::Message { msg, mut args, .. } => match args.next() {
             None | Some("help") => {
-                let prefix = ctx.config_first_prefix(msg.guild_id);
-                let builder = BGHelpEmbed::new(Some(prefix)).into_builder().build().into();
+                let builder = BGHelpEmbed::new().into_builder().build().into();
                 msg.create_message(&ctx, builder).await?;
 
                 Ok(())
@@ -186,7 +185,7 @@ pub async fn slash_backgroundgame(
         GameCommandKind::Hint => hint(ctx, command.into()).await,
         GameCommandKind::Stop => stop(ctx, command.into()).await,
         GameCommandKind::Help => {
-            let builder = BGHelpEmbed::new(None).into_builder().build().into();
+            let builder = BGHelpEmbed::new().into_builder().build().into();
             command.create_message(&ctx, builder).await?;
 
             Ok(())

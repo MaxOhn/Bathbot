@@ -26,6 +26,8 @@ pub trait MessageExt {
         builder: MessageBuilder<'c>,
     ) -> BotResult<Response<Message>>;
 
+    async fn delete_message(&self, ctx: &Context) -> BotResult<()>;
+
     // TODO: add boolean for ephemeral or not
     async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()>;
 
@@ -72,6 +74,12 @@ impl MessageExt for (MessageId, ChannelId) {
         Ok(req.exec().await?)
     }
 
+    async fn delete_message(&self, ctx: &Context) -> BotResult<()> {
+        ctx.http.delete_message(self.1, self.0).exec().await?;
+
+        Ok(())
+    }
+
     async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
         let embed = EmbedBuilder::new().color(RED).description(content).build();
 
@@ -111,9 +119,10 @@ impl<'s> MessageExt for (InteractionId, &'s str) {
             .content(builder.content.as_ref().map(Cow::as_ref))?
             .embeds(builder.embed.as_ref().map(slice::from_ref))?;
 
-        // TODO: Use builder.file once discord supports it
-
-        Ok(req.exec().await?)
+        match builder.file {
+            Some(tuple) => Ok(req.files(&[tuple]).exec().await?),
+            None => Ok(req.exec().await?),
+        }
     }
 
     async fn update_message<'c>(
@@ -128,6 +137,12 @@ impl<'s> MessageExt for (InteractionId, &'s str) {
             .embeds(builder.embed.as_ref().map(slice::from_ref))?;
 
         Ok(req.exec().await?)
+    }
+
+    async fn delete_message(&self, ctx: &Context) -> BotResult<()> {
+        ctx.http.delete_interaction_original(self.1)?.exec().await?;
+
+        Ok(())
     }
 
     async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
@@ -167,6 +182,10 @@ impl MessageExt for Message {
             .await
     }
 
+    async fn delete_message(&self, ctx: &Context) -> BotResult<()> {
+        (self.id, self.channel_id).delete_message(ctx).await
+    }
+
     async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
         (self.id, self.channel_id).error(ctx, content).await
     }
@@ -196,6 +215,10 @@ impl MessageExt for ApplicationCommand {
         (self.id, self.token.as_str())
             .update_message(ctx, builder)
             .await
+    }
+
+    async fn delete_message(&self, ctx: &Context) -> BotResult<()> {
+        (self.id, self.token.as_str()).delete_message(ctx).await
     }
 
     async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()> {
@@ -228,6 +251,13 @@ impl<'m> MessageExt for CommandData<'m> {
         match self {
             Self::Message { msg, .. } => msg.update_message(ctx, builder).await,
             Self::Interaction { command } => command.update_message(ctx, builder).await,
+        }
+    }
+
+    async fn delete_message(&self, ctx: &Context) -> BotResult<()> {
+        match self {
+            Self::Message { msg, .. } => msg.delete_message(ctx).await,
+            Self::Interaction { command } => command.delete_message(ctx).await,
         }
     }
 
@@ -285,6 +315,18 @@ impl MessageExt for CommandDataCompact {
                     .update_message(ctx, builder)
                     .await
             }
+        }
+    }
+
+    async fn delete_message(&self, ctx: &Context) -> BotResult<()> {
+        match self {
+            CommandDataCompact::Message { msg_id, channel_id } => {
+                (*msg_id, *channel_id).delete_message(ctx).await
+            }
+            CommandDataCompact::Interaction {
+                interaction_id,
+                token,
+            } => (*interaction_id, token.as_str()).delete_message(ctx).await,
         }
     }
 

@@ -1,3 +1,4 @@
+use super::GradeArg;
 use crate::{
     embeds::{EmbedData, RecentEmbed},
     tracking::process_tracking,
@@ -12,7 +13,7 @@ use rosu_v2::prelude::{
     GameMode, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
 };
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 use tokio::time::{sleep, Duration};
 
 pub(super) async fn _recent(
@@ -20,15 +21,20 @@ pub(super) async fn _recent(
     data: CommandData<'_>,
     args: RecentArgs,
 ) -> BotResult<()> {
-    let name = match args.name {
+    let RecentArgs {
+        name,
+        index,
+        mode,
+        grade,
+    } = args;
+
+    let name = match name {
         Some(name) => name,
         None => match ctx.get_link(data.author()?.id.0) {
             Some(name) => name,
             None => return super::require_link(&ctx, &data).await,
         },
     };
-
-    let mode = args.mode;
 
     // Retrieve the user and their recent scores
     let user_fut = super::request_user(&ctx, &name, Some(mode));
@@ -38,8 +44,8 @@ pub(super) async fn _recent(
         .user_scores(name.as_str())
         .recent()
         .mode(mode)
-        .limit(50)
-        .include_fails(true);
+        .limit(100)
+        .include_fails(grade.map_or(true, |g| g.include_fails()));
 
     let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
         Ok((_, scores)) if scores.is_empty() => {
@@ -69,7 +75,7 @@ pub(super) async fn _recent(
         }
     };
 
-    let num = args.index.unwrap_or(1).saturating_sub(1);
+    let num = index.unwrap_or(1).saturating_sub(1);
     let mut iter = scores.iter_mut().skip(num);
 
     let (score, tries) = match iter.next() {
@@ -191,8 +197,6 @@ pub(super) async fn _recent(
         process_tracking(&ctx, mode, scores, Some(&user)).await;
     }
 
-    let data = data.compact();
-
     // Wait for minimizing
     tokio::spawn(async move {
         gb.execute(&ctx).await;
@@ -218,10 +222,18 @@ pub(super) async fn _recent(
 #[long_desc(
     "Display a user's most recent play.\n\
     To get a previous recent score, you can add a number right after the command,\n\
-    e.g. `r42 badewanne3` to get the 42nd most recent score."
+    e.g. `r42 badewanne3` to get the 42nd most recent score.\n\
+    To filter all fails, you can specify `pass=true`.\n\
+    To filter specific grades, you can specify `grade=...` where you can provide \
+    either a single grade or a grade *range*.\n\
+    Ranges can be specified like\n\
+    - `a..b` e.g. `C..SH` to only keep scores with grades between C and SH\n\
+    - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
+    - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
+    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
 )]
-#[usage("[username]")]
-#[example("badewanne3")]
+#[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
+#[example("badewanne3 pass=true", "grade=a", "whitecat grade=B..sh")]
 #[aliases("r", "rs")]
 pub async fn recent(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
@@ -242,10 +254,18 @@ pub async fn recent(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 #[long_desc(
     "Display a user's most recent play.\n\
     To get a previous recent score, you can add a number right after the command,\n\
-    e.g. `rm42 badewanne3` to get the 42nd most recent score."
+    e.g. `rm42 badewanne3` to get the 42nd most recent score.\n\
+    To filter all fails, you can specify `pass=true`.\n\
+    To filter specific grades, you can specify `grade=...` where you can provide \
+    either a single grade or a grade *range*.\n\
+    Ranges can be specified like\n\
+    - `a..b` e.g. `C..SH` to only keep scores with grades between C and SH\n\
+    - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
+    - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
+    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
 )]
-#[usage("[username]")]
-#[example("badewanne3")]
+#[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
+#[example("badewanne3 pass=true", "grade=a", "whitecat grade=B..sh")]
 #[aliases("rm")]
 pub async fn recentmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
@@ -266,10 +286,18 @@ pub async fn recentmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
 #[long_desc(
     "Display a user's most recent play.\n\
     To get a previous recent score, you can add a number right after the command,\n\
-    e.g. `rt42 badewanne3` to get the 42nd most recent score."
+    e.g. `rt42 badewanne3` to get the 42nd most recent score.\n\
+    To filter all fails, you can specify `pass=true`.\n\
+    To filter specific grades, you can specify `grade=...` where you can provide \
+    either a single grade or a grade *range*.\n\
+    Ranges can be specified like\n\
+    - `a..b` e.g. `C..SH` to only keep scores with grades between C and SH\n\
+    - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
+    - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
+    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
 )]
-#[usage("[username]")]
-#[example("badewanne3")]
+#[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
+#[example("badewanne3 pass=true", "grade=a", "whitecat grade=B..sh")]
 #[aliases("rt")]
 pub async fn recenttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
@@ -290,10 +318,18 @@ pub async fn recenttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
 #[long_desc(
     "Display a user's most recent play.\n\
     To get a previous recent score, you can add a number right after the command,\n\
-    e.g. `rc42 badewanne3` to get the 42nd most recent score."
+    e.g. `rc42 badewanne3` to get the 42nd most recent score.\n\
+    To filter all fails, you can specify `pass=true`.\n\
+    To filter specific grades, you can specify `grade=...` where you can provide \
+    either a single grade or a grade *range*.\n\
+    Ranges can be specified like\n\
+    - `a..b` e.g. `C..SH` to only keep scores with grades between C and SH\n\
+    - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
+    - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
+    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
 )]
-#[usage("[username]")]
-#[example("badewanne3")]
+#[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
+#[example("badewanne3 pass=true", "grade=a", "whitecat grade=B..sh")]
 #[aliases("rc")]
 pub async fn recentctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
@@ -313,20 +349,123 @@ pub(super) struct RecentArgs {
     pub name: Option<Name>,
     pub index: Option<usize>,
     pub mode: GameMode,
+    pub grade: Option<GradeArg>,
 }
 
 impl RecentArgs {
+    const ERR_PARSE_GRADE: &'static str = "Failed to parse `grade`.\n\
+        Must be either a single grade or two grades of the form `a..b` e.g. `C..S`.\n\
+        Valid grades are: `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`";
+
     fn args(
         ctx: &Context,
         args: &mut Args,
         mode: GameMode,
         index: Option<usize>,
-    ) -> Result<Self, &'static str> {
-        let name = args
-            .next()
-            .map(|arg| Args::try_link_name(ctx, arg))
-            .transpose()?;
+    ) -> Result<Self, Cow<'static, str>> {
+        let mut name = None;
+        let mut grade = None;
+        let mut passes = None;
 
-        Ok(Self { name, index, mode })
+        for arg in args.take(3) {
+            if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
+                let key = &arg[..idx];
+                let value = arg[idx + 1..].trim_end();
+
+                match key {
+                    "pass" | "p" | "passes" => match value {
+                        "true" | "1" => passes = Some(true),
+                        "false" | "0" => passes = Some(false),
+                        _ => {
+                            let content =
+                                "Failed to parse `pass`. Must be either `true` or `false`.";
+
+                            return Err(content.into());
+                        }
+                    },
+                    "fail" | "fails" | "f" => match value {
+                        "true" | "1" => passes = Some(false),
+                        "false" | "0" => passes = Some(true),
+                        _ => {
+                            let content =
+                                "Failed to parse `fail`. Must be either `true` or `false`.";
+
+                            return Err(content.into());
+                        }
+                    },
+                    "grade" | "g" => match value.find("..") {
+                        Some(idx) => {
+                            let bot = &value[..idx];
+                            let top = &value[idx + 2..];
+
+                            let min = if bot.is_empty() {
+                                Grade::XH
+                            } else if let Ok(grade) = bot.parse() {
+                                grade
+                            } else {
+                                return Err(Self::ERR_PARSE_GRADE.into());
+                            };
+
+                            let max = if top.is_empty() {
+                                Grade::D
+                            } else if let Ok(grade) = top.parse() {
+                                grade
+                            } else {
+                                return Err(Self::ERR_PARSE_GRADE.into());
+                            };
+
+                            let bot = if min < max { min } else { max };
+                            let top = if min > max { min } else { max };
+
+                            grade = Some(GradeArg::Range { bot, top })
+                        }
+                        None => match value.parse().map(GradeArg::Single) {
+                            Ok(grade_) => grade = Some(grade_),
+                            Err(_) => return Err(Self::ERR_PARSE_GRADE.into()),
+                        },
+                    },
+                    _ => {
+                        let content = format!(
+                            "Unrecognized option `{}`.\n\
+                            Available options are: `grade` or `pass`.",
+                            key
+                        );
+
+                        return Err(content.into());
+                    }
+                }
+            } else {
+                name = Some(Args::try_link_name(ctx, arg)?);
+            }
+        }
+
+        grade = match passes {
+            Some(true) => match grade {
+                Some(GradeArg::Single(Grade::F)) => None,
+                Some(GradeArg::Single(_)) => grade,
+                Some(GradeArg::Range { bot, top }) => match (bot, top) {
+                    (Grade::F, Grade::F) => None,
+                    (Grade::F, _) => Some(GradeArg::Range { bot: Grade::D, top }),
+                    (_, Grade::F) => Some(GradeArg::Range {
+                        bot: Grade::D,
+                        top: bot,
+                    }),
+                    _ => Some(GradeArg::Range { bot, top }),
+                },
+                None => Some(GradeArg::Range {
+                    bot: Grade::D,
+                    top: Grade::XH,
+                }),
+            },
+            Some(false) => Some(GradeArg::Single(Grade::F)),
+            None => grade,
+        };
+
+        Ok(Self {
+            name,
+            mode,
+            index,
+            grade,
+        })
     }
 }

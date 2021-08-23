@@ -52,7 +52,7 @@ async fn _recentpages(
         .recent()
         .mode(mode)
         .limit(100)
-        .include_fails(true);
+        .include_fails(grade.map_or(true, |g| g.include_fails()));
 
     let scores_fut = super::prepare_scores(&ctx, scores_fut);
 
@@ -218,8 +218,6 @@ async fn _recentpages(
 
     // Skip pagination if too few entries
     if scores.len() <= 1 {
-        let data = data.compact();
-
         tokio::spawn(async move {
             sleep(Duration::from_secs(60)).await;
 
@@ -268,15 +266,15 @@ async fn _recentpages(
     e.g. `rp42 badewanne3` to get the 42nd most recent score.\n\
     To filter all fails, you can specify `pass=true`.\n\
     To filter specific grades, you can specify `grade=...` where you can provide \
-    either a single grade or two grades of the form `a..b` e.g. `b..sh`.\n\
+    either a single grade or a grade *range*.\n\
+    Ranges can be specified like\n\
+    - `a..b` e.g. `C..SH` to only keep scores with grades between C and SH\n\
+    - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
+    - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
     Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
 )]
 #[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
-#[example(
-    "badewanne3 pass=true grade=b",
-    "badewanne3 grade=B..SS",
-    "badewanne3 grade=a..sh"
-)]
+#[example("badewanne3 pass=true", "grade=a", "whitecat grade=B..sh")]
 #[aliases("rp")]
 pub async fn recentpages(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
@@ -300,7 +298,11 @@ pub async fn recentpages(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
     e.g. `rpm42 badewanne3` to get the 42nd most recent score.\n\
     To filter all fails, you can specify `pass=true`.\n\
     To filter specific grades, you can specify `grade=...` where you can provide \
-    either a single grade or two grades of the form `a..b` e.g. `b..sh`.\n\
+    either a single grade or a grade *range*.\n\
+    Ranges can be specified like\n\
+    - `a..b` e.g. `C..SH` to only keep scores with grades between C and SH\n\
+    - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
+    - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
     Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
 )]
 #[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
@@ -332,7 +334,11 @@ pub async fn recentpagesmania(ctx: Arc<Context>, data: CommandData) -> BotResult
     e.g. `rpt42 badewanne3` to get the 42nd most recent score.\n\
     To filter all fails, you can specify `pass=true`.\n\
     To filter specific grades, you can specify `grade=...` where you can provide \
-    either a single grade or two grades of the form `a..b` e.g. `b..sh`.\n\
+    either a single grade or a grade *range*.\n\
+    Ranges can be specified like\n\
+    - `a..b` e.g. `C..SH` to only keep scores with grades between C and SH\n\
+    - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
+    - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
     Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
 )]
 #[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
@@ -364,7 +370,11 @@ pub async fn recentpagestaiko(ctx: Arc<Context>, data: CommandData) -> BotResult
     e.g. `rpc42 badewanne3` to get the 42nd most recent score.\n\
     To filter all fails, you can specify `pass=true`.\n\
     To filter specific grades, you can specify `grade=...` where you can provide \
-    either a single grade or two grades of the form `a..b` e.g. `b..sh`.\n\
+    either a single grade or a grade *range*.\n\
+    Ranges can be specified like\n\
+    - `a..b` e.g. `C..SH` to only keep scores with grades between C and SH\n\
+    - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
+    - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
     Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
 )]
 #[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
@@ -482,9 +492,10 @@ impl RecentPagesArgs {
             }
         }
 
-        if passes == Some(true) {
-            grade = match grade {
-                Some(GradeArg::Single(_)) => None,
+        grade = match passes {
+            Some(true) => match grade {
+                Some(GradeArg::Single(Grade::F)) => None,
+                Some(GradeArg::Single(_)) => grade,
                 Some(GradeArg::Range { bot, top }) => match (bot, top) {
                     (Grade::F, Grade::F) => None,
                     (Grade::F, _) => Some(GradeArg::Range { bot: Grade::D, top }),
@@ -498,8 +509,10 @@ impl RecentPagesArgs {
                     bot: Grade::D,
                     top: Grade::XH,
                 }),
-            };
-        }
+            },
+            Some(false) => Some(GradeArg::Single(Grade::F)),
+            None => grade,
+        };
 
         let args = Self {
             name,

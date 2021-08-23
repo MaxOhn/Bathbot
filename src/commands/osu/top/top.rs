@@ -631,8 +631,6 @@ async fn single_embed(
 
     ctx.store_msg(response.id);
 
-    let data = data.compact();
-
     // Minimize embed after delay
     tokio::spawn(async move {
         sleep(Duration::from_secs(45)).await;

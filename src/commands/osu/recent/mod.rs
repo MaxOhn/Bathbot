@@ -1,13 +1,13 @@
 mod leaderboard;
 mod list;
 mod pages;
-mod recent;
+mod score;
 mod simulate;
 
 pub use leaderboard::*;
 pub use list::*;
 pub use pages::*;
-pub use recent::*;
+pub use score::*;
 pub use simulate::*;
 
 use super::{prepare_score, prepare_scores, request_user, require_link, ErrorType, GradeArg};
@@ -16,12 +16,12 @@ use crate::{
     BotResult, Context, Error,
 };
 
-use rosu_v2::prelude::GameMode;
+use rosu_v2::prelude::{GameMode, Grade};
 use std::{borrow::Cow, sync::Arc};
 use twilight_model::application::{
     command::{
         BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption,
-        OptionsCommandOptionData,
+        CommandOptionChoice, OptionsCommandOptionData,
     },
     interaction::{application_command::CommandDataOption, ApplicationCommand},
 };
@@ -54,6 +54,7 @@ impl RecentCommandKind {
                         let mut username = None;
                         let mut mode = None;
                         let mut index = None;
+                        let mut grade = None;
 
                         for option in options {
                             match option {
@@ -76,15 +77,50 @@ impl RecentCommandKind {
                                         }
                                     },
                                     "mode" => mode = parse_mode_option!(value, "recent score"),
+                                    "grade" => match value.as_str() {
+                                        "SS" => {
+                                            grade = Some(GradeArg::Range {
+                                                bot: Grade::X,
+                                                top: Grade::XH,
+                                            })
+                                        }
+                                        "S" => {
+                                            grade = Some(GradeArg::Range {
+                                                bot: Grade::S,
+                                                top: Grade::SH,
+                                            })
+                                        }
+                                        "A" => grade = Some(GradeArg::Single(Grade::A)),
+                                        "B" => grade = Some(GradeArg::Single(Grade::B)),
+                                        "C" => grade = Some(GradeArg::Single(Grade::C)),
+                                        "D" => grade = Some(GradeArg::Single(Grade::D)),
+                                        "F" => grade = Some(GradeArg::Single(Grade::F)),
+                                        _ => bail_cmd_option!("recent score grade", string, value),
+                                    },
                                     _ => bail_cmd_option!("recent score", string, name),
                                 },
                                 CommandDataOption::Integer { name, value } => match name.as_str() {
                                     "index" => index = Some(value.max(1).min(50) as usize),
                                     _ => bail_cmd_option!("recent score", integer, name),
                                 },
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("recent score", boolean, name)
-                                }
+                                CommandDataOption::Boolean { name, value } => match name.as_str() {
+                                    "passes" => {
+                                        if value {
+                                            grade = match grade {
+                                                Some(GradeArg::Single(Grade::F)) => None,
+                                                Some(GradeArg::Single(_)) => grade,
+                                                Some(GradeArg::Range { .. }) => grade,
+                                                None => Some(GradeArg::Range {
+                                                    bot: Grade::D,
+                                                    top: Grade::XH,
+                                                }),
+                                            }
+                                        } else {
+                                            grade = Some(GradeArg::Single(Grade::F));
+                                        }
+                                    }
+                                    _ => bail_cmd_option!("recent score", boolean, name),
+                                },
                                 CommandDataOption::SubCommand { name, .. } => {
                                     bail_cmd_option!("recent score", subcommand, name)
                                 }
@@ -95,6 +131,7 @@ impl RecentCommandKind {
                             name: username,
                             mode: mode.unwrap_or(GameMode::STD),
                             index,
+                            grade,
                         };
 
                         kind = Some(RecentCommandKind::Score(args));
@@ -167,6 +204,7 @@ impl RecentCommandKind {
                     "list" => {
                         let mut username = None;
                         let mut mode = None;
+                        let mut grade = None;
 
                         for option in options {
                             match option {
@@ -189,14 +227,49 @@ impl RecentCommandKind {
                                         }
                                     },
                                     "mode" => mode = parse_mode_option!(value, "recent list"),
+                                    "grade" => match value.as_str() {
+                                        "SS" => {
+                                            grade = Some(GradeArg::Range {
+                                                bot: Grade::X,
+                                                top: Grade::XH,
+                                            })
+                                        }
+                                        "S" => {
+                                            grade = Some(GradeArg::Range {
+                                                bot: Grade::S,
+                                                top: Grade::SH,
+                                            })
+                                        }
+                                        "A" => grade = Some(GradeArg::Single(Grade::A)),
+                                        "B" => grade = Some(GradeArg::Single(Grade::B)),
+                                        "C" => grade = Some(GradeArg::Single(Grade::C)),
+                                        "D" => grade = Some(GradeArg::Single(Grade::D)),
+                                        "F" => grade = Some(GradeArg::Single(Grade::F)),
+                                        _ => bail_cmd_option!("recent list grade", string, value),
+                                    },
                                     _ => bail_cmd_option!("recent list", string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
                                     bail_cmd_option!("recent list", integer, name)
                                 }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("recent list", boolean, name)
-                                }
+                                CommandDataOption::Boolean { name, value } => match name.as_str() {
+                                    "passes" => {
+                                        if value {
+                                            grade = match grade {
+                                                Some(GradeArg::Single(Grade::F)) => None,
+                                                Some(GradeArg::Single(_)) => grade,
+                                                Some(GradeArg::Range { .. }) => grade,
+                                                None => Some(GradeArg::Range {
+                                                    bot: Grade::D,
+                                                    top: Grade::XH,
+                                                }),
+                                            }
+                                        } else {
+                                            grade = Some(GradeArg::Single(Grade::F));
+                                        }
+                                    }
+                                    _ => bail_cmd_option!("recent list", boolean, name),
+                                },
                                 CommandDataOption::SubCommand { name, .. } => {
                                     bail_cmd_option!("recent list", subcommand, name)
                                 }
@@ -206,6 +279,7 @@ impl RecentCommandKind {
                         let args = RecentListArgs {
                             name: username,
                             mode: mode.unwrap_or(GameMode::STD),
+                            grade,
                         };
 
                         kind = Some(RecentCommandKind::List(args));
@@ -346,6 +420,46 @@ pub fn slash_recent_command() -> Command {
                         name: "index".to_owned(),
                         required: false,
                     }),
+                    CommandOption::String(ChoiceCommandOptionData {
+                        choices: vec![
+                            CommandOptionChoice::String {
+                                name: "SS".to_owned(),
+                                value: "SS".to_owned(),
+                            },
+                            CommandOptionChoice::String {
+                                name: "S".to_owned(),
+                                value: "S".to_owned(),
+                            },
+                            CommandOptionChoice::String {
+                                name: "A".to_owned(),
+                                value: "A".to_owned(),
+                            },
+                            CommandOptionChoice::String {
+                                name: "B".to_owned(),
+                                value: "B".to_owned(),
+                            },
+                            CommandOptionChoice::String {
+                                name: "C".to_owned(),
+                                value: "C".to_owned(),
+                            },
+                            CommandOptionChoice::String {
+                                name: "D".to_owned(),
+                                value: "D".to_owned(),
+                            },
+                            CommandOptionChoice::String {
+                                name: "F".to_owned(),
+                                value: "F".to_owned(),
+                            },
+                        ],
+                        description: "Consider only scores with this grade".to_owned(),
+                        name: "grade".to_owned(),
+                        required: false,
+                    }),
+                    CommandOption::Boolean(BaseCommandOptionData {
+                        description: "Specify whether only passes should be considered".to_owned(),
+                        name: "passes".to_owned(),
+                        required: false,
+                    }),
                     CommandOption::User(BaseCommandOptionData {
                         description: "Specify a linked discord user".to_owned(),
                         name: "discord".to_owned(),
@@ -405,6 +519,47 @@ pub fn slash_recent_command() -> Command {
                         choices: vec![],
                         description: "Specify a username".to_owned(),
                         name: "name".to_owned(),
+                        required: false,
+                    }),
+                    CommandOption::String(ChoiceCommandOptionData {
+                        choices: vec![
+                            CommandOptionChoice::String {
+                                name: "SS".to_owned(),
+                                value: "SS".to_owned(),
+                            },
+                            CommandOptionChoice::String {
+                                name: "S".to_owned(),
+                                value: "S".to_owned(),
+                            },
+                            CommandOptionChoice::String {
+                                name: "A".to_owned(),
+                                value: "A".to_owned(),
+                            },
+                            CommandOptionChoice::String {
+                                name: "B".to_owned(),
+                                value: "B".to_owned(),
+                            },
+                            CommandOptionChoice::String {
+                                name: "C".to_owned(),
+                                value: "C".to_owned(),
+                            },
+                            CommandOptionChoice::String {
+                                name: "D".to_owned(),
+                                value: "D".to_owned(),
+                            },
+                            CommandOptionChoice::String {
+                                name: "F".to_owned(),
+                                value: "F".to_owned(),
+                            },
+                        ],
+                        description: "Only scores with this grade".to_owned(),
+                        name: "grade".to_owned(),
+                        required: false,
+                    }),
+                    CommandOption::Boolean(BaseCommandOptionData {
+                        description: "Specify whether the list should include only passes"
+                            .to_owned(),
+                        name: "passes".to_owned(),
                         required: false,
                     }),
                     CommandOption::User(BaseCommandOptionData {

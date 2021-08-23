@@ -15,7 +15,13 @@ use twilight_model::{channel::ReactionType, gateway::event::Event};
 
 pub(super) async fn restart(ctx: &Context, data: &CommandData<'_>) -> BotResult<bool> {
     match ctx.restart_game(data.channel_id()).await {
-        Ok(restarted) => Ok(restarted),
+        Ok(restarted) => {
+            if let CommandData::Interaction { command } = data {
+                let _ = command.delete_message(&ctx).await;
+            }
+
+            Ok(restarted)
+        }
         Err(why) => {
             let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
@@ -29,10 +35,6 @@ pub(super) async fn restart(ctx: &Context, data: &CommandData<'_>) -> BotResult<
 #[short_desc("Start the bg game or skip the current background")]
 #[aliases("s", "resolve", "r", "skip")]
 async fn start(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    if restart(&ctx, &data).await? {
-        return Ok(());
-    }
-
     match data {
         CommandData::Message { msg, mut args, num } => {
             let mode = match args.next() {
@@ -47,8 +49,20 @@ async fn start(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 pub async fn _start(ctx: Arc<Context>, data: CommandData<'_>, mode: GameMode) -> BotResult<()> {
+    if restart(&ctx, &data).await? {
+        return Ok(());
+    }
+
     let mapsets = match get_mapsets(&ctx, &data, mode).await {
-        Ok(mapsets) => mapsets,
+        Ok(mapsets) => {
+            if mode == GameMode::MNA {
+                if let CommandData::Interaction { ref command } = data {
+                    let _ = command.delete_message(&ctx).await;
+                }
+            }
+
+            mapsets
+        }
         Err(why) => {
             let _ = data.error(&ctx, GENERAL_ISSUE).await;
 

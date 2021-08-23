@@ -62,8 +62,8 @@ impl Context {
 
         let mut count = 0;
 
-        let content = "I'm about to reboot, you can start a \
-            new game again in just a moment...";
+        let content = "I'll abort this game because I'm about to reboot, \
+            you can start a new game again in just a moment...";
 
         for channel in active_games {
             match self.stop_game(channel).await {

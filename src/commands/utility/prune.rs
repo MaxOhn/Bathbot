@@ -102,9 +102,7 @@ async fn _prune(ctx: Arc<Context>, data: CommandData<'_>, amount: u64) -> BotRes
     let builder = MessageBuilder::new().content(content);
     let response = data.create_message(&ctx, builder).await?.model().await?;
     time::sleep(Duration::from_secs(6)).await;
-
-    let delete_fut = ctx.http.delete_message(channel_id, response.id).exec();
-    delete_fut.await?;
+    response.delete_message(&ctx).await?;
 
     Ok(())
 }

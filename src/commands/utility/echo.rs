@@ -18,7 +18,7 @@ async fn echo(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     };
 
     let channel = msg.channel_id;
-    ctx.http.delete_message(channel, msg.id).exec().await?;
+    msg.delete_message(&ctx).await?;
     let mut content = args.rest().to_owned();
     content_safe(&ctx, &mut content, msg.guild_id);
     let builder = MessageBuilder::new().content(content);
