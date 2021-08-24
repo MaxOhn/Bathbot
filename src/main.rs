@@ -302,6 +302,9 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
             .stop_tracking
             .store(true, Ordering::SeqCst);
 
+        // Prevent non-minimized msgs to get minimized
+        shutdown_ctx.clear_msgs_to_process();
+
         shutdown_ctx.initiate_cold_resume().await;
 
         let count = shutdown_ctx.garbage_collect_all_maps().await;

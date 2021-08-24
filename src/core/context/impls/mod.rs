@@ -55,6 +55,10 @@ impl Context {
         self.data.msgs_to_process.remove(&msg).is_some()
     }
 
+    pub fn clear_msgs_to_process(&self) {
+        self.data.msgs_to_process.clear();
+    }
+
     pub fn add_country(&self, country: String, code: CountryCode) {
         self.data.snipe_countries.insert(code, country);
     }
