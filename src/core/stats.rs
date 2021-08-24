@@ -48,6 +48,11 @@ pub struct CommandCounters {
     pub slash_commands: IntCounterVec,
 }
 
+pub struct MessageRetrievals {
+    pub cached: IntCounter,
+    pub http: IntCounter,
+}
+
 pub struct BotStats {
     pub registry: Registry,
     pub start_time: DateTime<Utc>,
@@ -56,6 +61,7 @@ pub struct BotStats {
     pub command_counts: CommandCounters,
     pub osu_metrics: OsuCounters,
     pub cache_metrics: Arc<Metrics>,
+    pub message_retrievals: MessageRetrievals,
 }
 
 macro_rules! metric_vec {
@@ -76,6 +82,8 @@ impl BotStats {
             metric_vec!(counter: "message_commands", "Executed message commands", "name");
         let slash_commands =
             metric_vec!(counter: "slash_commands", "Executed slash commands", "name");
+        let message_retrievals =
+            metric_vec!(counter: "message_retrievals", "Retrieved messages", "name");
 
         let registry = Registry::new_custom(Some(String::from("bathbot")), None).unwrap();
         registry.register(Box::new(event_counter.clone())).unwrap();
@@ -134,6 +142,10 @@ impl BotStats {
                 rosu: osu_metrics,
             },
             cache_metrics,
+            message_retrievals: MessageRetrievals {
+                cached: message_retrievals.with_label_values(&["Cached"]),
+                http: message_retrievals.with_label_values(&["Http"]),
+            },
         }
     }
 

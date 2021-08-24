@@ -77,8 +77,15 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
     let channel_id = data.channel_id();
 
     let map_id_opt = map.or_else(|| {
-        ctx.cache
-            .message_extract(channel_id, cached_message_extract)
+        let result = ctx
+            .cache
+            .message_extract(channel_id, cached_message_extract);
+
+        if result.is_some() {
+            ctx.stats.message_retrievals.cached.inc();
+        }
+
+        result
     });
 
     let map_id = if let Some(id) = map_id_opt {

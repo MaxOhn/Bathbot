@@ -36,6 +36,8 @@ impl Context {
     }
 
     pub async fn retrieve_channel_history(&self, channel_id: ChannelId) -> BotResult<Vec<Message>> {
+        self.stats.message_retrievals.http.inc();
+
         let req = self.http.channel_messages(channel_id).limit(50).unwrap();
 
         let req_fut = if let Some(earliest_cached) = self.cache.oldest_message(channel_id) {

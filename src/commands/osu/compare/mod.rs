@@ -1,12 +1,12 @@
 mod common;
-mod compare;
 mod most_played;
 mod profile;
+mod score;
 
 pub use common::*;
-pub use compare::*;
 pub use most_played::*;
 pub use profile::*;
+pub use score::*;
 
 use super::{
     prepare_score, request_user, require_link, MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32,
