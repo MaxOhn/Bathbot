@@ -1,6 +1,6 @@
 use crate::{
     database::Prefix,
-    util::{matcher, MessageExt},
+    util::{constants::GENERAL_ISSUE, matcher, MessageExt},
     BotResult, CommandData, Context, MessageBuilder,
 };
 
@@ -15,7 +15,7 @@ use std::{cmp::Ordering, fmt::Write, sync::Arc};
     Otherwise, the first argument must be either `add` or `remove`.\n\
     Following that must be a space-separated list of \
     characters or strings you want to add or remove as prefix.\n\
-    Guilds must have between one and five prefixes."
+    Servers must have between one and five prefixes."
 )]
 #[only_guilds()]
 #[authority()]
@@ -43,7 +43,7 @@ async fn prefix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             return msg.error(&ctx, content).await;
         }
         None => {
-            let prefixes = ctx.config_prefixes(guild_id);
+            let prefixes = ctx.config_prefixes(guild_id).await;
             let mut content = String::new();
             current_prefixes(&mut content, &prefixes);
             let builder = MessageBuilder::new().embed(content);
@@ -67,7 +67,7 @@ async fn prefix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         return msg.error(&ctx, content).await;
     }
 
-    ctx.update_config(guild_id, |config| match action {
+    let update_fut = ctx.update_config(guild_id, |config| match action {
         Action::Add => {
             config.prefixes.extend(args);
 
@@ -97,8 +97,14 @@ async fn prefix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         }
     });
 
-    let mut content = String::from("Prefixes updated!\n");
-    let prefixes = ctx.config_prefixes(guild_id);
+    if let Err(why) = update_fut.await {
+        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+        return Err(why);
+    }
+
+    let mut content = "Prefixes updated!\n".to_owned();
+    let prefixes = ctx.config_prefixes(guild_id).await;
     current_prefixes(&mut content, &prefixes);
     let builder = MessageBuilder::new().embed(content);
     msg.create_message(&ctx, builder).await?;

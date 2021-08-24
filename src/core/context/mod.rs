@@ -51,6 +51,8 @@ pub struct Clients {
 }
 
 pub struct ContextData {
+    // ! CAREFUL: When entries are added or modified
+    // ! don't forget to update the DB entry aswell
     pub guilds: DashMap<GuildId, GuildConfig>,
     // Mapping twitch user ids to vec of discord channel ids
     pub tracked_streams: DashMap<u64, Vec<u64>>,

@@ -20,26 +20,17 @@ impl Database {
         Ok(guilds)
     }
 
-    pub async fn insert_guilds(&self, configs: &DashMap<GuildId, GuildConfig>) -> BotResult<usize> {
-        let mut counter = 0;
-        let mut result = Ok(());
+    pub async fn insert_guild(&self, guild_id: GuildId, config: &GuildConfig) -> BotResult<()> {
+        let query = sqlx::query!(
+            "INSERT INTO guild_configs VALUES ($1,$2) 
+            ON CONFLICT (guild_id) DO UPDATE SET config=$2",
+            guild_id.0 as i64,
+            serde_json::to_value(config)?
+        );
 
-        for guard in configs.iter().filter(|guard| guard.value().modified) {
-            result = sqlx::query!(
-                "INSERT INTO guild_configs VALUES ($1,$2) 
-                ON CONFLICT (guild_id) DO UPDATE SET config=$2",
-                guard.key().0 as i64,
-                serde_json::to_value(guard.value())?
-            )
-            .execute(&self.pool)
-            .await
-            .and(result);
+        query.execute(&self.pool).await?;
+        info!("Inserted GuildConfig for guild {} into DB", guild_id);
 
-            counter += 1;
-        }
-
-        result?;
-
-        Ok(counter)
+        Ok(())
     }
 }

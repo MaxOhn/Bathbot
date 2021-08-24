@@ -18,7 +18,7 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) -> BotResult<()> {
 
     // Get guild / default prefixes
     let prefixes = match msg.guild_id {
-        Some(guild_id) => ctx.config_prefixes(guild_id),
+        Some(guild_id) => ctx.config_prefixes(guild_id).await,
         None => smallvec!["<".into()],
     };
 
@@ -46,7 +46,11 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) -> BotResult<()> {
         Invoke::Command { cmd, num } => process_command(cmd, ctx, &msg, stream, *num).await,
         Invoke::SubCommand { sub, .. } => process_command(sub, ctx, &msg, stream, None).await,
         Invoke::Help(None) => {
-            let is_authority = super::check_authority(&ctx, &msg).transpose().is_none();
+            let is_authority = super::check_authority(&ctx, &msg)
+                .await
+                .transpose()
+                .is_none();
+
             let args = Args::new(&msg.content, stream);
 
             let data = CommandData::Message {
@@ -171,7 +175,7 @@ async fn process_command(
 
     // Only for authorities?
     if cmd.authority {
-        match super::check_authority(&ctx, msg) {
+        match super::check_authority(&ctx, msg).await {
             Ok(None) => {}
             Ok(Some(content)) => {
                 debug!(

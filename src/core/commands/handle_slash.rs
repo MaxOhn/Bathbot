@@ -59,7 +59,7 @@ pub async fn handle_interaction(
             // Necessary to be able to use data.create_message later on
             start_thinking(&ctx, &command).await?;
 
-            let is_authority = super::check_authority(&ctx, &command).transpose().is_none();
+            let is_authority = super::check_authority(&ctx, &command).await.transpose().is_none();
 
             help::slash_help(ctx, command, is_authority)
                 .await
@@ -282,7 +282,7 @@ async fn pre_process_command(
 
     // Only for authorities?
     if args.authority {
-        match super::_check_authority(&ctx, author_id, guild_id) {
+        match super::_check_authority(&ctx, author_id, guild_id).await {
             Ok(None) => {}
             Ok(Some(content)) => {
                 premature_error(ctx, command, content).await?;

@@ -41,7 +41,7 @@ pub(super) async fn _top(
 
     if args.sort_by == TopOrder::Position && args.has_dash_r {
         let mode_long = mode_long(mode);
-        let prefix = ctx.config_first_prefix(data.guild_id());
+        let prefix = ctx.config_first_prefix(data.guild_id()).await;
 
         let mode_short = match mode {
             GameMode::STD => "",
@@ -67,7 +67,7 @@ pub(super) async fn _top(
         };
 
         let mode_long = mode_long(mode);
-        let prefix = ctx.config_first_prefix(data.guild_id());
+        let prefix = ctx.config_first_prefix(data.guild_id()).await;
 
         let content = format!(
             "`{prefix}{cmd}{mode} -i / -p`? \

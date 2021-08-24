@@ -304,10 +304,6 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
 
         shutdown_ctx.initiate_cold_resume().await;
 
-        if let Err(why) = shutdown_ctx.store_configs().await {
-            error!("Error while storing configs: {}", why);
-        }
-
         let count = shutdown_ctx.garbage_collect_all_maps().await;
         info!("Garbage collected {} maps", count);
 

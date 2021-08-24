@@ -247,7 +247,7 @@ async fn require_link(ctx: &Context, data: &CommandData<'_>) -> BotResult<()> {
 }
 
 async fn require_link_msg(ctx: &Context, msg: &Message) -> BotResult<()> {
-    let prefix = ctx.config_first_prefix(msg.guild_id);
+    let prefix = ctx.config_first_prefix(msg.guild_id).await;
 
     let content = format!(
         "Either specify an osu name or link your discord \

@@ -226,8 +226,6 @@ pub(super) async fn _compare(
         process_tracking(&ctx, mode, scores, Some(&user)).await;
     }
 
-    let data = data.compact();
-
     // Wait for minimizing
     tokio::spawn(async move {
         sleep(Duration::from_secs(45)).await;

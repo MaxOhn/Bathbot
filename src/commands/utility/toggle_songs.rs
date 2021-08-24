@@ -1,14 +1,13 @@
-use twilight_model::application::{
-    command::{BaseCommandOptionData, Command, CommandOption},
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
-};
-
 use crate::{
-    util::{ApplicationCommandExt, MessageExt},
+    util::{constants::GENERAL_ISSUE, ApplicationCommandExt, MessageExt},
     BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
 use std::sync::Arc;
+use twilight_model::application::{
+    command::{BaseCommandOptionData, Command, CommandOption},
+    interaction::{application_command::CommandDataOption, ApplicationCommand},
+};
 
 #[command]
 #[only_guilds()]
@@ -31,10 +30,16 @@ async fn _togglesongs(
     let guild_id = data.guild_id().unwrap();
     let mut with_lyrics = false;
 
-    ctx.update_config(guild_id, |config| {
+    let update_fut = ctx.update_config(guild_id, |config| {
         config.with_lyrics = value.unwrap_or_else(|| !config.with_lyrics);
         with_lyrics = config.with_lyrics;
     });
+
+    if let Err(why) = update_fut.await {
+        let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+        return Err(why);
+    }
 
     let content = if with_lyrics {
         "Song commands can now be used in this server"

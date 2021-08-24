@@ -40,9 +40,10 @@ async fn song_send(
     ctx: Arc<Context>,
     data: CommandData<'_>,
 ) -> BotResult<()> {
-    let allow = data
-        .guild_id()
-        .map_or(true, |guild_id| ctx.config_lyrics(guild_id));
+    let allow = match data.guild_id() {
+        Some(id) => ctx.config_lyrics(id).await,
+        None => true,
+    };
 
     if allow {
         let mut interval = interval(Duration::from_millis(delay));
@@ -57,6 +58,8 @@ async fn song_send(
         let _ = writeln!(content, "♫ {} ♫", lyrics[1]);
         let builder = MessageBuilder::new().content(&content);
         interval.tick().await;
+
+        // TODO: Cleanup
 
         response = response
             .update_message(&ctx, builder)

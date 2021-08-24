@@ -17,7 +17,6 @@ async fn echo(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         CommandData::Interaction { .. } => unreachable!(),
     };
 
-    let channel = msg.channel_id;
     msg.delete_message(&ctx).await?;
     let mut content = args.rest().to_owned();
     content_safe(&ctx, &mut content, msg.guild_id);

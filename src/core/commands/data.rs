@@ -31,6 +31,7 @@ impl CommandData<'_> {
         util::Authored::author(self).ok_or(Error::MissingSlashAuthor)
     }
 
+    #[allow(dead_code)]
     pub fn compact(self) -> CommandDataCompact {
         self.into()
     }

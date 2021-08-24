@@ -12,8 +12,6 @@ pub struct GuildConfig {
     pub with_lyrics: bool,
     pub prefixes: Prefixes,
     pub authorities: Authorities,
-    #[serde(default, skip_serializing)]
-    pub modified: bool,
 }
 
 impl<'c> FromRow<'c, PgRow> for GuildConfig {
@@ -28,7 +26,6 @@ impl Default for GuildConfig {
             with_lyrics: true,
             prefixes: smallvec!["<".into()],
             authorities: smallvec![],
-            modified: true,
         }
     }
 }

@@ -72,9 +72,8 @@ impl Context {
         count
     }
 
-    // Multiple tasks:
+    // Current tasks per iteration:
     //   - Deleting .osu files of unranked maps
-    //   - Store modified guild configs in DB
     #[cold]
     pub async fn background_loop(ctx: Arc<Context>) {
         if cfg!(debug_assertions) {
@@ -89,14 +88,7 @@ impl Context {
 
         loop {
             interval.tick().await;
-
             debug!("[BG] Background iteration...");
-
-            match ctx.psql().insert_guilds(&ctx.data.guilds).await {
-                Ok(0) => debug!("[BG] No new or modified guilds to store in DB"),
-                Ok(n) => debug!("[BG] Stored {} guilds in DB", n),
-                Err(why) => warn!("[BG] Error while storing guilds in DB: {}", why),
-            }
 
             let count = ctx.garbage_collect_all_maps().await;
             debug!("[BG] Garbage collected {} maps", count);

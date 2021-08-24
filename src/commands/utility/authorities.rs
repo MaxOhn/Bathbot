@@ -55,7 +55,7 @@ async fn _authorities(
 
     let mut content = match args {
         AuthorityCommandKind::Add(role_id) => {
-            let roles = ctx.config_authorities(guild_id);
+            let roles = ctx.config_authorities(guild_id).await;
 
             if roles.len() >= 10 {
                 let content = "You can have at most 10 roles per server setup as authorities.";
@@ -63,16 +63,22 @@ async fn _authorities(
                 return data.error(&ctx, content).await;
             }
 
-            ctx.update_config(guild_id, move |config| {
+            let update_fut = ctx.update_config(guild_id, move |config| {
                 config.authorities.push(role_id);
             });
+
+            if let Err(why) = update_fut.await {
+                let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(why);
+            }
 
             "Successfully added authority role. Authority roles now are: ".to_owned()
         }
         AuthorityCommandKind::List => "Current authority roles for this server: ".to_owned(),
         AuthorityCommandKind::Remove(role_id) => {
             let author_id = data.author()?.id;
-            let roles = ctx.config_authorities(guild_id);
+            let roles = ctx.config_authorities(guild_id).await;
 
             if roles.iter().all(|&id| id != role_id) {
                 let content = "The role was no authority role anyway";
@@ -110,9 +116,15 @@ async fn _authorities(
                 }
             }
 
-            ctx.update_config(guild_id, move |config| {
+            let update_fut = ctx.update_config(guild_id, move |config| {
                 config.authorities.retain(|id| *id != role_id);
             });
+
+            if let Err(why) = update_fut.await {
+                let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(why);
+            }
 
             "Successfully removed authority role. Authority roles now are: ".to_owned()
         }
@@ -147,16 +159,22 @@ async fn _authorities(
                 }
             }
 
-            ctx.update_config(guild_id, move |config| {
+            let update_fut = ctx.update_config(guild_id, move |config| {
                 config.authorities = roles.into_iter().map(|role| role.id.0).collect();
             });
+
+            if let Err(why) = update_fut.await {
+                let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(why);
+            }
 
             "Successfully changed the authority roles to: ".to_owned()
         }
     };
 
     // Send the message
-    let roles = ctx.config_authorities(guild_id);
+    let roles = ctx.config_authorities(guild_id).await;
     role_string(&roles, &mut content);
     let builder = MessageBuilder::new().embed(content);
     data.create_message(&ctx, builder).await?;

@@ -48,14 +48,14 @@ impl Display for ProcessResult {
 // Is authority -> Ok(None)
 // No authority -> Ok(Some(message to user))
 // Couldn't figure out -> Err()
-fn check_authority(ctx: &Context, authored: &impl Authored) -> BotResult<Option<String>> {
+async fn check_authority(ctx: &Context, authored: &impl Authored) -> BotResult<Option<String>> {
     let author_id = authored.author().ok_or(Error::MissingSlashAuthor)?.id;
     let guild_id = authored.guild_id();
 
-    _check_authority(ctx, author_id, guild_id)
+    _check_authority(ctx, author_id, guild_id).await
 }
 
-fn _check_authority(
+async fn _check_authority(
     ctx: &Context,
     author_id: UserId,
     guild_id: Option<GuildId>,
@@ -69,10 +69,10 @@ fn _check_authority(
         return Ok(None);
     }
 
-    let auth_roles = ctx.config_authorities_collect(guild_id, RoleId);
+    let auth_roles = ctx.config_authorities_collect(guild_id, RoleId).await;
 
     if auth_roles.is_empty() {
-        let prefix = ctx.config_first_prefix(Some(guild_id));
+        let prefix = ctx.config_first_prefix(Some(guild_id)).await;
 
         let content = format!(
             "You need admin permissions to use this command.\n\
@@ -99,7 +99,7 @@ fn _check_authority(
                 }
             }
 
-            let prefix = ctx.config_first_prefix(Some(guild_id));
+            let prefix = ctx.config_first_prefix(Some(guild_id)).await;
 
             let _ = write!(
                 content,

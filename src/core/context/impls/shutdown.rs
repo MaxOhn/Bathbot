@@ -1,6 +1,5 @@
-use crate::{BotResult, Context};
+use crate::Context;
 
-use std::time::Instant;
 use twilight_model::gateway::presence::{ActivityType, Status};
 
 impl Context {
@@ -38,18 +37,6 @@ impl Context {
         if let Err(why) = cold_resume_fut.await {
             unwind_error!(error, why, "Failed to prepare cold resume: {}");
         }
-    }
-
-    #[cold]
-    pub async fn store_configs(&self) -> BotResult<()> {
-        let start = Instant::now();
-        let guilds = &self.data.guilds;
-        let count = self.clients.psql.insert_guilds(guilds).await?;
-        let elapsed = start.elapsed();
-
-        info!("Stored {} guild configs in {:?}", count, elapsed);
-
-        Ok(())
     }
 
     #[cold]

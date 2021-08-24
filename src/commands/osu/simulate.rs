@@ -152,8 +152,6 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
         unwind_error!(warn, why, "Could not add map to DB: {}");
     }
 
-    let data = data.compact();
-
     // Set map on garbage collection list if unranked
     let gb = ctx.map_garbage_collector(&map);
 

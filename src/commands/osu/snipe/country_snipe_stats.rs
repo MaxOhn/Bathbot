@@ -29,7 +29,6 @@ use std::{cmp::Ordering::Equal, sync::Arc};
 async fn countrysnipestats(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            let arg = args.next();
             let country_code = match args.next() {
                 Some(arg) => {
                     if arg == "global" || arg == "world" {
