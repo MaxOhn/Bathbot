@@ -1,12 +1,10 @@
 mod leaderboard;
 mod list;
-mod pages;
 mod score;
 mod simulate;
 
 pub use leaderboard::*;
 pub use list::*;
-pub use pages::*;
 pub use score::*;
 pub use simulate::*;
 
