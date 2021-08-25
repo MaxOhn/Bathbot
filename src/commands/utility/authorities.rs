@@ -63,7 +63,7 @@ async fn _authorities(
                 return data.error(&ctx, content).await;
             }
 
-            let update_fut = ctx.update_config(guild_id, move |config| {
+            let update_fut = ctx.update_guild_config(guild_id, move |config| {
                 config.authorities.push(role_id);
             });
 
@@ -116,7 +116,7 @@ async fn _authorities(
                 }
             }
 
-            let update_fut = ctx.update_config(guild_id, move |config| {
+            let update_fut = ctx.update_guild_config(guild_id, move |config| {
                 config.authorities.retain(|id| *id != role_id);
             });
 
@@ -159,7 +159,7 @@ async fn _authorities(
                 }
             }
 
-            let update_fut = ctx.update_config(guild_id, move |config| {
+            let update_fut = ctx.update_guild_config(guild_id, move |config| {
                 config.authorities = roles.into_iter().map(|role| role.id.0).collect();
             });
 

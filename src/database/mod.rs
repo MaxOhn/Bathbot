@@ -4,7 +4,7 @@ mod util;
 
 pub use models::{
     Authorities, DBBeatmap, DBBeatmapset, DBOsuMedal, GuildConfig, MapsetTagWrapper, MedalGroup,
-    OsuMedal, Prefix, Prefixes, TagRow, TrackingUser,
+    OsuMedal, Prefix, Prefixes, TagRow, TrackingUser, UserConfig,
 };
 
 use crate::BotResult;

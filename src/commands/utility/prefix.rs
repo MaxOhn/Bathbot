@@ -67,7 +67,7 @@ async fn prefix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         return msg.error(&ctx, content).await;
     }
 
-    let update_fut = ctx.update_config(guild_id, |config| match action {
+    let update_fut = ctx.update_guild_config(guild_id, |config| match action {
         Action::Add => {
             config.prefixes.extend(args);
 

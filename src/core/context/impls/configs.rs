@@ -1,19 +1,31 @@
 use crate::{
-    database::{Authorities, GuildConfig, Prefix, Prefixes},
+    database::{Authorities, GuildConfig, Prefix, Prefixes, UserConfig},
     BotResult, Context,
 };
 
 use dashmap::mapref::entry::Entry;
-use twilight_model::id::GuildId;
+use twilight_model::id::{GuildId, UserId};
 
 impl Context {
+    pub async fn user_config(&self, user_id: UserId) -> BotResult<UserConfig> {
+        match self.psql().get_user_config(user_id).await? {
+            Some(config) => Ok(config),
+            None => {
+                let config = UserConfig::default();
+                self.psql().insert_user_config(user_id, &config).await?;
+
+                Ok(config)
+            }
+        }
+    }
+
     pub async fn config_authorities(&self, guild_id: GuildId) -> Authorities {
         let config = match self.data.guilds.entry(guild_id) {
             Entry::Occupied(entry) => entry.into_ref(),
             Entry::Vacant(entry) => {
                 let config = GuildConfig::default();
 
-                if let Err(why) = self.psql().insert_guild(guild_id, &config).await {
+                if let Err(why) = self.psql().insert_guild_config(guild_id, &config).await {
                     unwind_error!(
                         warn,
                         why,
@@ -38,7 +50,7 @@ impl Context {
             Entry::Vacant(entry) => {
                 let config = GuildConfig::default();
 
-                if let Err(why) = self.psql().insert_guild(guild_id, &config).await {
+                if let Err(why) = self.psql().insert_guild_config(guild_id, &config).await {
                     unwind_error!(
                         warn,
                         why,
@@ -60,7 +72,7 @@ impl Context {
             Entry::Vacant(entry) => {
                 let config = GuildConfig::default();
 
-                if let Err(why) = self.psql().insert_guild(guild_id, &config).await {
+                if let Err(why) = self.psql().insert_guild_config(guild_id, &config).await {
                     unwind_error!(
                         warn,
                         why,
@@ -84,7 +96,7 @@ impl Context {
                     Entry::Vacant(entry) => {
                         let config = GuildConfig::default();
 
-                        if let Err(why) = self.psql().insert_guild(guild_id, &config).await {
+                        if let Err(why) = self.psql().insert_guild_config(guild_id, &config).await {
                             unwind_error!(
                                 warn,
                                 why,
@@ -109,7 +121,7 @@ impl Context {
             Entry::Vacant(entry) => {
                 let config = GuildConfig::default();
 
-                if let Err(why) = self.psql().insert_guild(guild_id, &config).await {
+                if let Err(why) = self.psql().insert_guild_config(guild_id, &config).await {
                     unwind_error!(
                         warn,
                         why,
@@ -125,13 +137,13 @@ impl Context {
         config.with_lyrics
     }
 
-    pub async fn update_config<F>(&self, guild_id: GuildId, f: F) -> BotResult<()>
+    pub async fn update_guild_config<F>(&self, guild_id: GuildId, f: F) -> BotResult<()>
     where
         F: FnOnce(&mut GuildConfig),
     {
         let mut config = self.data.guilds.entry(guild_id).or_default();
         f(config.value_mut());
 
-        self.psql().insert_guild(guild_id, &config).await
+        self.psql().insert_guild_config(guild_id, &config).await
     }
 }

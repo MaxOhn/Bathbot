@@ -1,6 +1,6 @@
 mod bggame;
+mod configs;
 mod discord_links;
-mod guilds;
 mod maps;
 mod medals;
 mod role_assign;

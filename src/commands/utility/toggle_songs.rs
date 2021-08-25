@@ -30,7 +30,7 @@ async fn _togglesongs(
     let guild_id = data.guild_id().unwrap();
     let mut with_lyrics = false;
 
-    let update_fut = ctx.update_config(guild_id, |config| {
+    let update_fut = ctx.update_guild_config(guild_id, |config| {
         config.with_lyrics = value.unwrap_or_else(|| !config.with_lyrics);
         with_lyrics = config.with_lyrics;
     });

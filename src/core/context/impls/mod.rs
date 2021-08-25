@@ -1,6 +1,6 @@
 mod background_loop;
 mod bg_game;
-mod guilds;
+mod configs;
 mod links;
 mod match_live;
 mod shutdown;

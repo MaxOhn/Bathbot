@@ -9,8 +9,11 @@ pub type Authorities = SmallVec<[u64; 4]>;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct GuildConfig {
+    #[serde(rename = "l", alias = "with_lyrics")]
     pub with_lyrics: bool,
+    #[serde(rename = "p", alias = "prefixes")]
     pub prefixes: Prefixes,
+    #[serde(rename = "a", alias = "authorities")]
     pub authorities: Authorities,
 }
 
