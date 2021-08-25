@@ -29,7 +29,11 @@ use twilight_model::application::{
 };
 
 async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -> BotResult<()> {
-    let ProfileArgs { name, mode, kind } = args;
+    let ProfileArgs {
+        name,
+        mut mode,
+        kind,
+    } = args;
 
     let author_id = data.author()?.id;
 
@@ -43,12 +47,7 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
     };
 
     let kind = kind.unwrap_or(config.profile_embed_size);
-
-    let mode = match (mode, config.mode) {
-        (GameMode::MNA | GameMode::TKO | GameMode::CTB, _) => mode,
-        (_, GameMode::MNA | GameMode::TKO | GameMode::CTB) => config.mode,
-        _ => GameMode::STD,
-    };
+    mode = config.mode(mode);
 
     let name = match name {
         Some(name) => name,

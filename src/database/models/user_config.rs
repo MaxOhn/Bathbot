@@ -16,6 +16,17 @@ pub struct UserConfig {
     pub recent_embed_maximize: bool,
 }
 
+impl UserConfig {
+    /// If given mode is not STD, overwrite it with config mode
+    pub fn mode(&self, mode: GameMode) -> GameMode {
+        if mode != GameMode::STD {
+            mode
+        } else {
+            self.mode
+        }
+    }
+}
+
 impl<'c> FromRow<'c, PgRow> for UserConfig {
     fn from_row(row: &PgRow) -> Result<Self, Error> {
         serde_json::from_value(row.get("config")).map_err(|why| Error::Decode(Box::new(why)))

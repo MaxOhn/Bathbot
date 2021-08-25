@@ -1,6 +1,7 @@
 mod about;
 mod authorities;
 mod command_count;
+mod config;
 mod echo;
 mod invite;
 mod ping;
@@ -13,6 +14,7 @@ mod toggle_songs;
 pub use about::*;
 pub use authorities::*;
 pub use command_count::*;
+pub use config::*;
 pub use echo::*;
 pub use invite::*;
 pub use ping::*;

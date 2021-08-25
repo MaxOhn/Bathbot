@@ -24,13 +24,26 @@ pub(super) async fn _recent(
     let RecentArgs {
         name,
         index,
-        mode,
+        mut mode,
         grade,
     } = args;
 
+    let author_id = data.author()?.id;
+
+    let config = match ctx.user_config(author_id).await {
+        Ok(config) => config,
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
+
+    mode = config.mode(mode);
+
     let name = match name {
         Some(name) => name,
-        None => match ctx.get_link(data.author()?.id.0) {
+        None => match ctx.get_link(author_id.0) {
             Some(name) => name,
             None => return super::require_link(&ctx, &data).await,
         },
@@ -177,42 +190,67 @@ pub(super) async fn _recent(
 
     // Creating the embed
     let content = format!("Try #{}", tries);
-    let embed = embed_data.as_builder().build();
-    let builder = MessageBuilder::new().content(content).embed(embed);
-    let response = data.create_message(&ctx, builder).await?.model().await?;
 
-    ctx.store_msg(response.id);
+    // Only maximize if config allows it
+    if config.recent_embed_maximize {
+        let embed = embed_data.as_builder().build();
+        let builder = MessageBuilder::new().content(content).embed(embed);
+        let response_raw = data.create_message(&ctx, builder).await?;
 
-    // Set map on garbage collection list if unranked
-    let gb = ctx.map_garbage_collector(map);
+        let response = response_raw.model().await?;
+        ctx.store_msg(response.id);
 
-    // * Note: Don't store maps in DB as their max combo isn't available
+        // Set map on garbage collection list if unranked
+        let gb = ctx.map_garbage_collector(map);
 
-    // Process user and their top scores for tracking
-    if let Some(ref mut scores) = best {
-        if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
-            unwind_error!(warn, why, "Error while storing best maps in DB: {}");
+        // * Note: Don't store maps in DB as their max combo isn't available
+
+        // Process user and their top scores for tracking
+        if let Some(ref mut scores) = best {
+            if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
+                unwind_error!(warn, why, "Error while storing best maps in DB: {}");
+            }
+
+            process_tracking(&ctx, mode, scores, Some(&user)).await;
         }
 
-        process_tracking(&ctx, mode, scores, Some(&user)).await;
-    }
+        // Wait for minimizing
+        tokio::spawn(async move {
+            gb.execute(&ctx).await;
+            sleep(Duration::from_secs(45)).await;
 
-    // Wait for minimizing
-    tokio::spawn(async move {
-        gb.execute(&ctx).await;
-        sleep(Duration::from_secs(45)).await;
+            if !ctx.remove_msg(response.id) {
+                return;
+            }
 
-        if !ctx.remove_msg(response.id) {
-            return;
-        }
+            let embed = embed_data.into_builder().build();
+            let builder = MessageBuilder::new().embed(embed);
 
+            if let Err(why) = response.update_message(&ctx, builder).await {
+                unwind_error!(warn, why, "Error minimizing recent msg: {}");
+            }
+        });
+    } else {
         let embed = embed_data.into_builder().build();
-        let builder = MessageBuilder::new().embed(embed);
 
-        if let Err(why) = response.update_message(&ctx, builder).await {
-            unwind_error!(warn, why, "Error minimizing recent msg: {}");
+        let builder = MessageBuilder::new().content(content).embed(embed);
+        data.create_message(&ctx, builder).await?;
+
+        // Set map on garbage collection list if unranked
+        let gb = ctx.map_garbage_collector(map);
+        gb.execute(&ctx).await;
+
+        // * Note: Don't store maps in DB as their max combo isn't available
+
+        // Process user and their top scores for tracking
+        if let Some(ref mut scores) = best {
+            if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
+                unwind_error!(warn, why, "Error while storing best maps in DB: {}");
+            }
+
+            process_tracking(&ctx, mode, scores, Some(&user)).await;
         }
-    });
+    }
 
     Ok(())
 }

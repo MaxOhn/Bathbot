@@ -1,5 +1,6 @@
 
 **[TODO]**
+- Adjust slash help to say country instead of country code
 - Use user avatar as author icon for `<r` & co
 - Fix background loop deadlock
 - Handle 401 response in rosu_v2 e.g. for secret mp matches

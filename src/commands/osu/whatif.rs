@@ -2,7 +2,10 @@ use crate::{
     custom_client::RankParam,
     embeds::{EmbedData, WhatIfEmbed},
     tracking::process_tracking,
-    util::{constants::OSU_API_ISSUE, ApplicationCommandExt, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        ApplicationCommandExt, MessageExt,
+    },
     Args, BotResult, CommandData, Context, Error, Name,
 };
 
@@ -14,11 +17,22 @@ use twilight_model::application::{
 };
 
 async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> BotResult<()> {
-    let WhatIfArgs { name, mode, pp } = args;
+    let WhatIfArgs { name, mut mode, pp } = args;
+
+    let author_id = data.author()?.id;
+
+    mode = match ctx.user_config(author_id).await {
+        Ok(config) => config.mode(mode),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
 
     let name = match name {
         Some(name) => name,
-        None => match ctx.get_link(data.author()?.id.0) {
+        None => match ctx.get_link(author_id.0) {
             Some(name) => name,
             None => return super::require_link(&ctx, &data).await,
         },

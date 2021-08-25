@@ -6,7 +6,7 @@ use std::{borrow::Borrow, fmt, ops::Deref};
 
 lazy_static! {
     static ref COUNTRIES: HashMap<&'static str, SmallString<[u8; 2]>> = {
-        let mut map = hashbrown::HashMap::with_capacity(300);
+        let mut map = HashMap::with_capacity(300);
 
         map.insert("afghanistan", "AF".into());
         map.insert("albania", "AL".into());
@@ -196,9 +196,11 @@ lazy_static! {
         map.insert("qatar", "QA".into());
         map.insert("north macedonia", "MK".into());
         map.insert("romania", "RO".into());
+        map.insert("russia", "RU".into());
         map.insert("russian federation", "RU".into());
         map.insert("rwanda", "RW".into());
         map.insert("réunion", "RE".into());
+        map.insert("reunion", "RE".into());
         map.insert("saint barthélemy", "BL".into());
         map.insert("saint helena", "SH".into());
         map.insert("saint kitts and nevis", "KN".into());

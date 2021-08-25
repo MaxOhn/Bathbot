@@ -54,12 +54,16 @@ pub async fn handle_interaction(
         "bws" => process_command(ctx, command, args, osu::slash_bws).await,
         "commands" => process_command(ctx, command, args, utility::slash_commands).await,
         "compare" => process_command(ctx, command, args, osu::slash_compare).await,
-        "fix" => process_command(ctx, command, args, osu::slash_fix).await, // TODO
+        "config" => process_command(ctx, command, args, utility::slash_config).await,
+        "fix" => process_command(ctx, command, args, osu::slash_fix).await,
         "help" => {
             // Necessary to be able to use data.create_message later on
             start_thinking(&ctx, &command).await?;
 
-            let is_authority = super::check_authority(&ctx, &command).await.transpose().is_none();
+            let is_authority = super::check_authority(&ctx, &command)
+                .await
+                .transpose()
+                .is_none();
 
             help::slash_help(ctx, command, is_authority)
                 .await

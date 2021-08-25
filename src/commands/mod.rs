@@ -25,7 +25,7 @@ macro_rules! bail_cmd_option {
     };
 }
 
-/// E.g: `parse_mode_option!(mode, value, "recent score")`
+/// E.g: `parse_mode_option!(value, "recent score")`
 macro_rules! parse_mode_option {
     ($value:ident, $location:literal) => {
         match $value.as_str() {
@@ -260,6 +260,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
             vec![
                 &PING_CMD,
                 &ROLL_CMD,
+                &CONFIG_CMD,
                 &ABOUT_CMD,
                 &COMMANDS_CMD,
                 &INVITE_CMD,
@@ -308,7 +309,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
     ]
 }
 
-pub fn slash_commands() -> [Command; 38] {
+pub fn slash_commands() -> [Command; 39] {
     [
         help::slash_help_command(),
         slash_recent_command(),
@@ -333,6 +334,7 @@ pub fn slash_commands() -> [Command; 38] {
         slash_ping_command(),
         slash_simulate_command(),
         slash_fix_command(),
+        slash_config_command(),
         slash_mapsearch_command(),
         slash_ratio_command(),
         slash_trackstream_command(),
