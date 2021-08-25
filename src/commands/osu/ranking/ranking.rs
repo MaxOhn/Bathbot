@@ -159,10 +159,10 @@ async fn _ranking(
 #[long_desc(
     "Display the osu! pp ranking.\n\
     For the global ranking, don't give any arguments.\n\
-    For a country specific ranking, provide its country code as first argument."
+    For a country specific ranking, provide its name or country code as first argument."
 )]
-#[usage("[country code]")]
-#[example("", "de")]
+#[usage("[country]")]
+#[example("", "de", "russia")]
 #[aliases("ppr", "pplb", "ppleaderboard")]
 pub async fn ppranking(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
@@ -187,10 +187,10 @@ pub async fn ppranking(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 #[long_desc(
     "Display the osu!mania pp ranking.\n\
     For the global ranking, don't give any arguments.\n\
-    For a country specific ranking, provide its country code as first argument."
+    For a country specific ranking, provide its name or country code as first argument."
 )]
-#[usage("[country code]")]
-#[example("", "de")]
+#[usage("[country]")]
+#[example("", "de", "russia")]
 #[aliases("pprm", "pplbm", "ppleaderboardmania")]
 pub async fn pprankingmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
@@ -213,10 +213,10 @@ pub async fn pprankingmania(ctx: Arc<Context>, data: CommandData) -> BotResult<(
 #[long_desc(
     "Display the osu!taiko pp ranking.\n\
     For the global ranking, don't give any arguments.\n\
-    For a country specific ranking, provide its country code as first argument."
+    For a country specific ranking, provide its name or country code as first argument."
 )]
-#[usage("[country code]")]
-#[example("", "de")]
+#[usage("[country]")]
+#[example("", "de", "russia")]
 #[aliases("pprt", "pplbt", "ppleaderboardtaiko")]
 pub async fn pprankingtaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
@@ -239,10 +239,10 @@ pub async fn pprankingtaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<(
 #[long_desc(
     "Display the osu!ctb pp ranking.\n\
     For the global ranking, don't give any arguments.\n\
-    For a country specific ranking, provide its country code as first argument."
+    For a country specific ranking, provide its name or country code as first argument."
 )]
-#[usage("[country code]")]
-#[example("", "de")]
+#[usage("[country]")]
+#[example("", "de", "russia")]
 #[aliases("pprc", "pplbc", "ppleaderboardctb")]
 pub async fn pprankingctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {

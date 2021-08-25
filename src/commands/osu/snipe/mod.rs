@@ -257,8 +257,8 @@ fn parse_country_code(ctx: &Context, mut country: String) -> Result<CountryCode,
                 code
             } else {
                 let content = format!(
-                    "Failed to parse `{}` as country or country code code.\n\
-                    Be sure to specify a valid two ASCII letter country code.",
+                    "Failed to parse `{}` as country or country code.\n\
+                    Be sure to specify a valid country or two ASCII letter country code.",
                     country
                 );
 
@@ -413,7 +413,7 @@ pub fn slash_snipe_command() -> Command {
                         name: "stats".to_owned(),
                         options: vec![CommandOption::String(ChoiceCommandOptionData {
                             choices: vec![],
-                            description: "Specify a country code".to_owned(),
+                            description: "Specify a country (code)".to_owned(),
                             name: "country".to_owned(),
                             required: false,
                         })],

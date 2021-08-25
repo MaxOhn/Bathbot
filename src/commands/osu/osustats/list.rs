@@ -382,7 +382,7 @@ impl OsuStatsListParams {
             } else {
                 let content = format!(
                     "Failed to parse `{}` as either rank or country.\n\
-                    Be sure the specified country is a valid two ASCII letter country code.\n\
+                    Be sure to specify valid country or two ASCII letter country code.\n\
                     A rank range can be specified like `rank=2..45`.",
                     arg
                 );
@@ -420,7 +420,7 @@ impl OsuStatsListParams {
                         } else {
                             let content = format!(
                                 "Failed to parse `{}` as country or country code.\n\
-                                Be sure to specify a valid two ASCII letter country code.",
+                                Be sure to specify valid country or two ASCII letter country code.",
                                 value
                             );
 

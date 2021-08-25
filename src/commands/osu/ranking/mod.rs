@@ -180,7 +180,7 @@ pub fn slash_ranking_command() -> Command {
                     }),
                     CommandOption::String(ChoiceCommandOptionData {
                         choices: vec![],
-                        description: "Specify a country code".to_owned(),
+                        description: "Specify a country (code)".to_owned(),
                         name: "country".to_owned(),
                         required: false,
                     }),
