@@ -2,7 +2,10 @@ use crate::{
     custom_client::RankParam,
     embeds::{EmbedData, PPMissingEmbed},
     tracking::process_tracking,
-    util::{constants::OSU_API_ISSUE, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        MessageExt,
+    },
     Args, BotResult, CommandData, Context, Error, Name,
 };
 
@@ -11,11 +14,22 @@ use std::sync::Arc;
 use twilight_model::application::interaction::application_command::CommandDataOption;
 
 pub(super) async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) -> BotResult<()> {
-    let PpArgs { name, mode, pp } = args;
+    let PpArgs { name, mut mode, pp } = args;
+
+    let author_id = data.author()?.id;
+
+    mode = match ctx.user_config(author_id).await {
+        Ok(config) => config.mode(mode),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
 
     let name = match name {
         Some(name) => name,
-        None => match ctx.get_link(data.author()?.id.0) {
+        None => match ctx.get_link(author_id.0) {
             Some(name) => name,
             None => return super::require_link(&ctx, &data).await,
         },

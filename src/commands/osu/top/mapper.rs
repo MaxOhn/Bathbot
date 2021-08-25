@@ -20,8 +20,22 @@ pub(super) async fn _mapper(
     data: CommandData<'_>,
     args: MapperArgs,
 ) -> BotResult<()> {
-    let MapperArgs { name, mapper, mode } = args;
+    let MapperArgs {
+        name,
+        mapper,
+        mut mode,
+    } = args;
+
     let author_id = data.author()?.id;
+
+    mode = match ctx.user_config(author_id).await {
+        Ok(config) => config.mode(mode),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
 
     let user = match name {
         Some(name) => name,

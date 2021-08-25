@@ -18,9 +18,20 @@ pub(super) async fn _recentsimulate(
     data: CommandData<'_>,
     mut args: RecentSimulateArgs,
 ) -> BotResult<()> {
+    let author_id = data.author()?.id;
+
+    let mode = match ctx.user_config(author_id).await {
+        Ok(config) => config.mode(args.mode),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
+
     let name = match args.name.take() {
         Some(name) => name,
-        None => match ctx.get_link(data.author()?.id.0) {
+        None => match ctx.get_link(author_id.0) {
             Some(name) => name,
             None => return super::require_link(&ctx, &data).await,
         },
@@ -33,8 +44,6 @@ pub(super) async fn _recentsimulate(
 
         return data.error(&ctx, content).await;
     }
-
-    let mode = args.mode;
 
     // Retrieve the recent score
     let scores_fut = ctx

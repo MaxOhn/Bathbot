@@ -3,7 +3,10 @@ use crate::{
     embeds::{CommonEmbed, EmbedData},
     pagination::{CommonPagination, Pagination},
     tracking::process_tracking,
-    util::{constants::OSU_API_ISSUE, get_combined_thumbnail, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        get_combined_thumbnail, MessageExt,
+    },
     BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
@@ -31,10 +34,19 @@ pub(super) async fn _common(
         name1,
         name2,
         name3,
-        mode,
+        mut mode,
     } = args;
 
     let author_id = data.author()?.id;
+
+    mode = match ctx.user_config(author_id).await {
+        Ok(config) => config.mode(mode),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
 
     let name1 = match name1 {
         Some(name) => name,

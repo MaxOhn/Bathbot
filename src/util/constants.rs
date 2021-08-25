@@ -29,6 +29,7 @@ pub const OSU_WEB_ISSUE: &str = "Some issue with the osu website, DDoS protectio
 pub const OSEKAI_ISSUE: &str = "Some issue with the osekai api, blame bade";
 pub const HUISMETBENEN_ISSUE: &str = "Some issue with the huismetbenen api, blame bade";
 pub const OSU_DAILY_ISSUE: &str = "Some issue with the osudaily api, blame bade";
+pub const OSUSTATS_API_ISSUE: &str = "Some issue with the osustats api, blame bade";
 
 // Misc
 pub const OWNER_USER_ID: u64 = 219905108316520448;

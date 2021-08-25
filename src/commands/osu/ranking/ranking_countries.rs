@@ -1,7 +1,10 @@
 use crate::{
     embeds::{EmbedData, RankingCountriesEmbed},
     pagination::{Pagination, RankingCountriesPagination},
-    util::{constants::OSU_API_ISSUE, numbers, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        numbers, MessageExt,
+    },
     BotResult, CommandData, Context,
 };
 
@@ -11,9 +14,18 @@ use std::{collections::BTreeMap, sync::Arc};
 pub(super) async fn _countryranking(
     ctx: Arc<Context>,
     data: CommandData<'_>,
-    mode: GameMode,
+    mut mode: GameMode,
 ) -> BotResult<()> {
     let author_id = data.author()?.id;
+
+    mode = match ctx.user_config(author_id).await {
+        Ok(config) => config.mode(mode),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
 
     let mut ranking = match ctx.osu().country_rankings(mode).await {
         Ok(ranking) => ranking,

@@ -37,7 +37,16 @@ pub(super) async fn _top(
         return data.error(&ctx, content).await;
     }
 
-    let mode = args.mode;
+    let author_id = data.author()?.id;
+
+    let mode = match ctx.user_config(author_id).await {
+        Ok(config) => config.mode(args.mode),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
 
     if args.sort_by == TopOrder::Position && args.has_dash_r {
         let mode_long = mode_long(mode);
@@ -82,7 +91,7 @@ pub(super) async fn _top(
 
     let name = match args.name.take() {
         Some(name) => name,
-        None => match ctx.get_link(data.author()?.id.0) {
+        None => match ctx.get_link(author_id.0) {
             Some(name) => name,
             None => return super::require_link(&ctx, &data).await,
         },

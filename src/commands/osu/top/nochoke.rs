@@ -31,11 +31,20 @@ pub(super) async fn _nochokes(
 ) -> BotResult<()> {
     let NochokeArgs {
         name,
-        mode,
+        mut mode,
         miss_limit,
     } = args;
 
     let author_id = data.author()?.id;
+
+    mode = match ctx.user_config(author_id).await {
+        Ok(config) => config.mode(mode),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
 
     let name = match name {
         Some(name) => name,

@@ -122,7 +122,7 @@ pub(super) async fn _topold(
     let OldArgs {
         name,
         version,
-        mode,
+        mut mode,
     } = args;
 
     let content = match (mode, version) {
@@ -154,6 +154,17 @@ pub(super) async fn _topold(
         _ => None,
     };
 
+    let author_id = data.author()?.id;
+
+    mode = match ctx.user_config(author_id).await {
+        Ok(config) => config.mode(mode),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
+
     let version = version.unwrap();
 
     if let Some(content) = content {
@@ -162,8 +173,6 @@ pub(super) async fn _topold(
 
         return Ok(());
     }
-
-    let author_id = data.author()?.id;
 
     let name = match name {
         Some(name) => name,

@@ -18,11 +18,26 @@ pub(super) async fn _recentlist(
     data: CommandData<'_>,
     args: RecentListArgs,
 ) -> BotResult<()> {
-    let RecentListArgs { name, mode, grade } = args;
+    let RecentListArgs {
+        name,
+        mut mode,
+        grade,
+    } = args;
+
+    let author_id = data.author()?.id;
+
+    mode = match ctx.user_config(author_id).await {
+        Ok(config) => config.mode(mode),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
 
     let name = match name {
         Some(name) => name,
-        None => match ctx.get_link(data.author()?.id.0) {
+        None => match ctx.get_link(author_id.0) {
             Some(name) => name,
             None => return super::require_link(&ctx, &data).await,
         },

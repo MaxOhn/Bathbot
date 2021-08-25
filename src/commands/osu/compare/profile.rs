@@ -2,7 +2,11 @@ use super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32, ProfileArgs};
 use crate::{
     embeds::{EmbedData, ProfileCompareEmbed},
     tracking::process_tracking,
-    util::{constants::OSU_API_ISSUE, osu::BonusPP, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        osu::BonusPP,
+        MessageExt,
+    },
     BotResult, CommandData, Context, MessageBuilder,
 };
 
@@ -20,11 +24,26 @@ pub(super) async fn _profilecompare(
     data: CommandData<'_>,
     args: ProfileArgs,
 ) -> BotResult<()> {
-    let ProfileArgs { name1, name2, mode } = args;
+    let ProfileArgs {
+        name1,
+        name2,
+        mut mode,
+    } = args;
+
+    let author_id = data.author()?.id;
+
+    mode = match ctx.user_config(author_id).await {
+        Ok(config) => config.mode(mode),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
 
     let name1 = match name1 {
         Some(name) => name,
-        None => match ctx.get_link(data.author()?.id.0) {
+        None => match ctx.get_link(author_id.0) {
             Some(name) => name,
             None => {
                 let content =

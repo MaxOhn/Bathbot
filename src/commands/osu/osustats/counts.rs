@@ -1,6 +1,9 @@
 use crate::{
     embeds::{EmbedData, OsuStatsCountsEmbed},
-    util::{constants::OSU_API_ISSUE, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE, OSU_API_ISSUE},
+        MessageExt,
+    },
     Args, BotResult, CommandData, Context, Name,
 };
 
@@ -13,11 +16,22 @@ pub(super) async fn _count(
     data: CommandData<'_>,
     args: CountArgs,
 ) -> BotResult<()> {
-    let CountArgs { name, mode } = args;
+    let CountArgs { name, mut mode } = args;
+
+    let author_id = data.author()?.id;
+
+    mode = match ctx.user_config(author_id).await {
+        Ok(config) => config.mode(mode),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
 
     let name = match name {
         Some(name) => name,
-        None => match ctx.get_link(data.author()?.id.0) {
+        None => match ctx.get_link(author_id.0) {
             Some(name) => name,
             None => return super::require_link(&ctx, &data).await,
         },
@@ -40,8 +54,7 @@ pub(super) async fn _count(
     let counts = match super::get_globals_count(&ctx, &user.username, mode).await {
         Ok(counts) => counts,
         Err(why) => {
-            let content = "Some issue with the osustats website, blame bade";
-            let _ = data.error(&ctx, content).await;
+            let _ = data.error(&ctx, OSUSTATS_API_ISSUE).await;
 
             return Err(why);
         }

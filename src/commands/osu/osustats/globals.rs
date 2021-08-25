@@ -2,7 +2,12 @@ use crate::{
     custom_client::{OsuStatsOrder, OsuStatsParams, OsuStatsScore},
     embeds::{EmbedData, OsuStatsGlobalsEmbed},
     pagination::{OsuStatsGlobalsPagination, Pagination},
-    util::{constants::OSU_API_ISSUE, matcher, numbers, osu::ModSelection, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE, OSU_API_ISSUE},
+        matcher, numbers,
+        osu::ModSelection,
+        MessageExt,
+    },
     Args, BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
@@ -16,6 +21,15 @@ pub(super) async fn _scores(
     mut args: ScoresArgs,
 ) -> BotResult<()> {
     let author_id = data.author()?.id;
+
+    args.mode = match ctx.user_config(author_id).await {
+        Ok(config) => config.mode(args.mode),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
 
     let name = match args.username.take() {
         Some(name) => name,
@@ -52,8 +66,7 @@ pub(super) async fn _scores(
             amount,
         ),
         Err(why) => {
-            let content = "Some issue with the osustats website, blame bade";
-            let _ = data.error(&ctx, content).await;
+            let _ = data.error(&ctx, OSUSTATS_API_ISSUE).await;
 
             return Err(why.into());
         }

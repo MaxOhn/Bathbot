@@ -1,7 +1,10 @@
 use crate::{
     embeds::{EmbedData, RankingEmbed},
     pagination::{Pagination, RankingPagination},
-    util::{constants::OSU_API_ISSUE, numbers, CountryCode, CowUtils, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        numbers, CountryCode, CowUtils, MessageExt,
+    },
     BotResult, CommandData, Context,
 };
 
@@ -21,9 +24,18 @@ fn country_code_(arg: &str) -> Result<CountryCode, &'static str> {
 pub(super) async fn _performanceranking(
     ctx: Arc<Context>,
     data: CommandData<'_>,
-    mode: GameMode,
+    mut mode: GameMode,
     country_code: Option<CountryCode>,
 ) -> BotResult<()> {
+    mode = match ctx.user_config(data.author()?.id).await {
+        Ok(config) => config.mode(mode),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
+
     let result = match country_code {
         Some(ref country) => {
             ctx.osu()
@@ -42,8 +54,17 @@ pub(super) async fn _performanceranking(
 pub(super) async fn _scoreranking(
     ctx: Arc<Context>,
     data: CommandData<'_>,
-    mode: GameMode,
+    mut mode: GameMode,
 ) -> BotResult<()> {
+    mode = match ctx.user_config(data.author()?.id).await {
+        Ok(config) => config.mode(mode),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
+
     let result = ctx.osu().score_rankings(mode).await;
 
     _ranking(ctx, data, mode, None, RankingKind::Score, result).await

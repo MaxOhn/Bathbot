@@ -39,7 +39,14 @@ pub(super) async fn _recentleaderboard(
         return data.error(&ctx, content).await;
     }
 
-    let mode = args.mode;
+    let mode = match ctx.user_config(author_id).await {
+        Ok(config) => config.mode(args.mode),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
 
     // Retrieve the recent scores
     let scores_fut = ctx

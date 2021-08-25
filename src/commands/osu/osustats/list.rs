@@ -2,7 +2,10 @@ use crate::{
     custom_client::{OsuStatsListParams, OsuStatsPlayer},
     embeds::{EmbedData, OsuStatsListEmbed},
     pagination::{OsuStatsListPagination, Pagination},
-    util::{numbers, CountryCode, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE},
+        numbers, CountryCode, MessageExt,
+    },
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
@@ -18,12 +21,20 @@ pub(super) async fn _players(
 ) -> BotResult<()> {
     let owner = data.author()?.id;
 
+    params.mode = match ctx.user_config(owner).await {
+        Ok(config) => config.mode(params.mode),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
+
     // Retrieve leaderboard
     let (amount, players) = match prepare_players(&ctx, &mut params).await {
         Ok(tuple) => tuple,
         Err(why) => {
-            let content = "Some issue with the osustats website, blame bade";
-            let _ = data.error(&ctx, content).await;
+            let _ = data.error(&ctx, OSUSTATS_API_ISSUE).await;
 
             return Err(why);
         }

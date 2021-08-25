@@ -35,9 +35,22 @@ pub(super) async fn _topif(
     data: CommandData<'_>,
     args: IfArgs,
 ) -> BotResult<()> {
-    let IfArgs { name, mode, mods } = args;
+    let IfArgs {
+        name,
+        mut mode,
+        mods,
+    } = args;
 
     let author_id = data.author()?.id;
+
+    mode = match ctx.user_config(author_id).await {
+        Ok(config) => config.mode(mode),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
 
     let name = match name {
         Some(name) => name,
