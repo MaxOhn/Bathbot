@@ -28,7 +28,6 @@ pub trait MessageExt {
 
     async fn delete_message(&self, ctx: &Context) -> BotResult<()>;
 
-    // TODO: add boolean for ephemeral or not
     async fn error<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()>;
 
     async fn reply<C: Into<String> + Send>(&self, ctx: &Context, content: C) -> BotResult<()>;

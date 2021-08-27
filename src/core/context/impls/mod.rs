@@ -1,7 +1,6 @@
 mod background_loop;
 mod bg_game;
 mod configs;
-// mod links; // TODO: Remove
 mod match_live;
 mod shutdown;
 mod twitch;

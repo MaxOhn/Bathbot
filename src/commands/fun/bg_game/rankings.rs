@@ -47,21 +47,7 @@ pub(super) async fn _rankings(
     if !global {
         let guild_id = guild_id.unwrap();
 
-        // let member_count = ctx
-        //     .cache
-        //     .guild(guild_id)
-        //     .and_then(|guild| guild.member_count)
-        //     .unwrap_or(0);
-
-        // TODO
-        // let wait_msg = if member_count > 6000 {
-        //     msg.respond(&ctx, "Lots of members, give me a moment...")
-        //         .await
-        //         .ok()
-        // } else {
-        //     None
-        // };
-
+        // TODO: Use MemberChunk event instead
         let members = match get_member_ids(&ctx, guild_id).await {
             Ok(members) => members,
             Err(why) => {
