@@ -62,7 +62,7 @@ impl ConfigEmbed {
         let mut fields = vec![
             field!("Mode".to_owned(), mode.to_owned(), true),
             field!("Profile embed size".to_owned(), profile.to_owned(), true),
-            field!("Initial recent embed".to_owned(), recent.to_owned(), false),
+            field!("Initial embed size".to_owned(), recent.to_owned(), false),
         ];
 
         if let Some(name) = config.name {

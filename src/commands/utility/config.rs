@@ -30,7 +30,8 @@ use twilight_model::application::{
     you can use the `recent` command instead of `recentmania` to show a recent mania score.\n\
     - `profile`: `compact`, `medium`, or `full`. Specify the initial size for the embed of profile commands.\n\
     - `recent`: `minimized` or `maximized`. When using the `recent` command, choose whether the embed should \
-    initially be maximized and get minimized after some delay, or if it should be minimized from the beginning.\n\n\
+    initially be maximized and get minimized after some delay, or if it should be minimized from the beginning. \
+    This will also apply to the `compare`, `simulaterecent`, and indexed `top` command.\n\n\
     **NOTE:** If the mode is configured to anything non-standard, \
     you will __NOT__ be able to use __any__ command for osu!standard anymore."
 )]

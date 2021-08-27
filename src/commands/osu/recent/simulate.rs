@@ -97,6 +97,7 @@ pub(super) async fn _recentsimulate(
 
     let map = score.map.take().unwrap();
     let mapset = score.mapset.take().unwrap();
+    let maximize = args.config.recent_embed_maximize;
 
     // Accumulate all necessary data
     let embed_data = match SimulateEmbed::new(Some(score), &map, &mapset, args.into()).await {
@@ -108,41 +109,60 @@ pub(super) async fn _recentsimulate(
         }
     };
 
-    // Creating the embed
-    let embed = embed_data.as_builder().build();
     let content = "Simulated score:";
-    let builder = MessageBuilder::new().content(content).embed(embed);
-    let response = data.create_message(&ctx, builder).await?.model().await?;
 
-    ctx.store_msg(response.id);
+    // Only maximize if config allows it
+    if maximize {
+        let embed = embed_data.as_builder().build();
+        let builder = MessageBuilder::new().content(content).embed(embed);
+        let response = data.create_message(&ctx, builder).await?.model().await?;
 
-    // Store map in DB
-    if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-        unwind_error!(
-            warn,
-            why,
-            "Error while storing simulate recent map in DB: {}"
-        )
+        ctx.store_msg(response.id);
+
+        // Store map in DB
+        if let Err(why) = ctx.psql().insert_beatmap(&map).await {
+            unwind_error!(
+                warn,
+                why,
+                "Error while storing simulate recent map in DB: {}"
+            )
+        }
+
+        // Set map on garbage collection list if unranked
+        let gb = ctx.map_garbage_collector(&map);
+
+        // Minimize embed after delay
+        tokio::spawn(async move {
+            gb.execute(&ctx).await;
+            sleep(Duration::from_secs(45)).await;
+
+            if !ctx.remove_msg(response.id) {
+                return;
+            }
+
+            let builder = embed_data.into_builder().build().into();
+
+            if let Err(why) = response.update_message(&ctx, builder).await {
+                unwind_error!(warn, why, "Error minimizing simulaterecent msg: {}");
+            }
+        });
+    } else {
+        let embed = embed_data.into_builder().build();
+        let builder = MessageBuilder::new().content(content).embed(embed);
+        data.create_message(&ctx, builder).await?;
+
+        // Store map in DB
+        if let Err(why) = ctx.psql().insert_beatmap(&map).await {
+            unwind_error!(
+                warn,
+                why,
+                "Error while storing simulate recent map in DB: {}"
+            )
+        }
+
+        // Set map on garbage collection list if unranked
+        ctx.map_garbage_collector(&map).execute(&ctx).await;
     }
-
-    // Set map on garbage collection list if unranked
-    let gb = ctx.map_garbage_collector(&map);
-
-    // Minimize embed after delay
-    tokio::spawn(async move {
-        gb.execute(&ctx).await;
-        sleep(Duration::from_secs(45)).await;
-
-        if !ctx.remove_msg(response.id) {
-            return;
-        }
-
-        let builder = embed_data.into_builder().build().into();
-
-        if let Err(why) = response.update_message(&ctx, builder).await {
-            unwind_error!(warn, why, "Error minimizing simulaterecent msg: {}");
-        }
-    });
 
     Ok(())
 }

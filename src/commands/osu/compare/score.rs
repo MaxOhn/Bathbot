@@ -224,35 +224,49 @@ pub(super) async fn _compare(
             }
         };
 
-    // Sending the embed
-    let builder = embed_data.as_builder().build().into();
-    let response = data.create_message(&ctx, builder).await?.model().await?;
+    // Only maximize if config allows it
+    if config.recent_embed_maximize {
+        let builder = embed_data.as_builder().build().into();
+        let response = data.create_message(&ctx, builder).await?.model().await?;
 
-    ctx.store_msg(response.id);
+        ctx.store_msg(response.id);
 
-    // Process user and their top scores for tracking
-    if let Some(ref mut scores) = best {
-        if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
-            unwind_error!(warn, why, "Error while storing best maps in DB: {}");
+        // Process user and their top scores for tracking
+        if let Some(ref mut scores) = best {
+            if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
+                unwind_error!(warn, why, "Error while storing best maps in DB: {}");
+            }
+
+            process_tracking(&ctx, mode, scores, Some(&user)).await;
         }
 
-        process_tracking(&ctx, mode, scores, Some(&user)).await;
-    }
+        // Wait for minimizing
+        tokio::spawn(async move {
+            sleep(Duration::from_secs(45)).await;
 
-    // Wait for minimizing
-    tokio::spawn(async move {
-        sleep(Duration::from_secs(45)).await;
+            if !ctx.remove_msg(response.id) {
+                return;
+            }
 
-        if !ctx.remove_msg(response.id) {
-            return;
-        }
+            let builder = embed_data.into_builder().build().into();
 
+            if let Err(why) = response.update_message(&ctx, builder).await {
+                unwind_error!(warn, why, "Error minimizing compare msg: {}");
+            }
+        });
+    } else {
         let builder = embed_data.into_builder().build().into();
+        data.create_message(&ctx, builder).await?;
 
-        if let Err(why) = response.update_message(&ctx, builder).await {
-            unwind_error!(warn, why, "Error minimizing compare msg: {}");
+        // Process user and their top scores for tracking
+        if let Some(ref mut scores) = best {
+            if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
+                unwind_error!(warn, why, "Error while storing best maps in DB: {}");
+            }
+
+            process_tracking(&ctx, mode, scores, Some(&user)).await;
         }
-    });
+    }
 
     Ok(())
 }

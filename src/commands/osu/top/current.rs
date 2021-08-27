@@ -136,7 +136,8 @@ pub(super) async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs
     }
 
     if let Some(num) = args.index {
-        single_embed(ctx, data, user, scores, num.saturating_sub(1)).await?;
+        let maximize = args.config.recent_embed_maximize;
+        single_embed(ctx, data, user, scores, num.saturating_sub(1), maximize).await?;
     } else {
         let content = write_content(name, &args, scores.len());
         paginated_embed(ctx, data, user, scores, content).await?;
@@ -282,7 +283,7 @@ async fn toptaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx,* command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
     }
 }
 
@@ -423,7 +424,7 @@ async fn recentbestmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx,* command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
     }
 }
 
@@ -470,7 +471,7 @@ async fn recentbesttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx,* command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
     }
 }
 
@@ -517,7 +518,7 @@ async fn recentbestctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx,* command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
     }
 }
 
@@ -633,6 +634,7 @@ async fn single_embed(
     user: User,
     scores: Vec<(usize, Score)>,
     idx: usize,
+    maximize: bool,
 ) -> BotResult<()> {
     let (idx, score) = scores.get(idx).unwrap();
     let map = score.map.as_ref().unwrap();
@@ -655,26 +657,31 @@ async fn single_embed(
 
     let embed_data = TopSingleEmbed::new(&user, score, *idx, globals.as_deref()).await?;
 
-    // Creating the embed
-    let builder = embed_data.as_builder().build().into();
-    let response = data.create_message(&ctx, builder).await?.model().await?;
+    // Only maximize if config allows it
+    if maximize {
+        let builder = embed_data.as_builder().build().into();
+        let response = data.create_message(&ctx, builder).await?.model().await?;
 
-    ctx.store_msg(response.id);
+        ctx.store_msg(response.id);
 
-    // Minimize embed after delay
-    tokio::spawn(async move {
-        sleep(Duration::from_secs(45)).await;
+        // Minimize embed after delay
+        tokio::spawn(async move {
+            sleep(Duration::from_secs(45)).await;
 
-        if !ctx.remove_msg(response.id) {
-            return;
-        }
+            if !ctx.remove_msg(response.id) {
+                return;
+            }
 
+            let builder = embed_data.into_builder().build().into();
+
+            if let Err(why) = response.update_message(&ctx, builder).await {
+                unwind_error!(warn, why, "Error minimizing top msg: {}");
+            }
+        });
+    } else {
         let builder = embed_data.into_builder().build().into();
-
-        if let Err(why) = response.update_message(&ctx, builder).await {
-            unwind_error!(warn, why, "Error minimizing top msg: {}");
-        }
-    });
+        data.create_message(&ctx, builder).await?;
+    }
 
     Ok(())
 }
