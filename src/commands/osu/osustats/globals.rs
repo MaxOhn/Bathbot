@@ -156,7 +156,7 @@ pub async fn osustatsglobals(ctx: Arc<Context>, data: CommandData) -> BotResult<
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
     }
 }
 
@@ -199,7 +199,7 @@ pub async fn osustatsglobalsmania(ctx: Arc<Context>, data: CommandData) -> BotRe
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
     }
 }
 
@@ -242,7 +242,7 @@ pub async fn osustatsglobalstaiko(ctx: Arc<Context>, data: CommandData) -> BotRe
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
     }
 }
 
@@ -285,7 +285,7 @@ pub async fn osustatsglobalsctb(ctx: Arc<Context>, data: CommandData) -> BotResu
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
     }
 }
 
@@ -435,7 +435,7 @@ impl ScoresArgs {
                             return Ok(Err(content.into()));
                         }
                     },
-                    "mods" => match matcher::get_mods(&value) {
+                    "mods" => match matcher::get_mods(value) {
                         Some(mods_) => mods = Some(mods_),
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
@@ -449,7 +449,7 @@ impl ScoresArgs {
                         return Ok(Err(content.into()));
                     }
                 }
-            } else if let Some(mods_) = matcher::get_mods(arg.as_ref()) {
+            } else if let Some(mods_) = matcher::get_mods(arg) {
                 mods = Some(mods_);
             } else {
                 match Args::check_user_mention(ctx, arg).await? {

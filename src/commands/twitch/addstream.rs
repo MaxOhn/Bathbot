@@ -21,10 +21,10 @@ async fn addstream(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 let builder = MessageBuilder::new().content(content);
                 msg.create_message(&ctx, builder).await?;
 
-                return Ok(());
+                Ok(())
             }
         },
-        CommandData::Interaction { command } => super::slash_trackstream(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_trackstream(ctx, *command).await,
     }
 }
 

@@ -158,7 +158,7 @@ pub async fn osucompare(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
     }
 }
 
@@ -189,7 +189,7 @@ pub async fn osucomparemania(ctx: Arc<Context>, data: CommandData) -> BotResult<
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
     }
 }
 
@@ -220,7 +220,7 @@ pub async fn osucomparetaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
     }
 }
 
@@ -251,7 +251,7 @@ pub async fn osucomparectb(ctx: Arc<Context>, data: CommandData) -> BotResult<()
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
     }
 }
 pub struct CompareResult {

@@ -54,7 +54,7 @@ async fn medalsmissing(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
             _medalsmissing(ctx, CommandData::Message { msg, args, num }, name).await
         }
-        CommandData::Interaction { command } => super::slash_medal(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_medal(ctx, *command).await,
     }
 }
 

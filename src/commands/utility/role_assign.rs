@@ -38,7 +38,7 @@ async fn roleassign(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             }
             Err(content) => msg.error(&ctx, content).await,
         },
-        CommandData::Interaction { command } => slash_roleassign(ctx, command).await,
+        CommandData::Interaction { command } => slash_roleassign(ctx, *command).await,
     }
 }
 

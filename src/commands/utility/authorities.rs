@@ -42,7 +42,7 @@ async fn authorities(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 Err(content) => msg.error(&ctx, content).await,
             }
         }
-        CommandData::Interaction { command } => slash_authorities(ctx, command).await,
+        CommandData::Interaction { command } => slash_authorities(ctx, *command).await,
     }
 }
 

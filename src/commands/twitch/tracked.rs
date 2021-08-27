@@ -11,7 +11,7 @@ use std::{fmt::Write, sync::Arc};
 async fn trackedstreams(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         data @ CommandData::Message { .. } => tracked(ctx, data).await,
-        CommandData::Interaction { command } => super::slash_trackstream(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_trackstream(ctx, *command).await,
     }
 }
 

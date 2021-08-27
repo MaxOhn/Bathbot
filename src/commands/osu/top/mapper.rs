@@ -201,7 +201,7 @@ pub async fn mapper(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
     }
 }
 
@@ -235,7 +235,7 @@ pub async fn mappermania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
     }
 }
 
@@ -269,7 +269,7 @@ pub async fn mappertaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
     }
 }
 
@@ -303,7 +303,7 @@ async fn mapperctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
     }
 }
 
@@ -333,7 +333,7 @@ pub async fn sotarks(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
     }
 }
 

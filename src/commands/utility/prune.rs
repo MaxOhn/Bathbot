@@ -45,7 +45,7 @@ async fn prune(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
             _prune(ctx, CommandData::Message { msg, args, num }, amount).await
         }
-        CommandData::Interaction { command } => slash_prune(ctx, command).await,
+        CommandData::Interaction { command } => slash_prune(ctx, *command).await,
     }
 }
 

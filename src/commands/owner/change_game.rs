@@ -18,7 +18,7 @@ async fn changegame(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
             _changegame(ctx, data, game).await
         }
-        CommandData::Interaction { command } => super::slash_owner(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_owner(ctx, *command).await,
     }
 }
 

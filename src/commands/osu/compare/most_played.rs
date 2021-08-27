@@ -41,7 +41,7 @@ async fn mostplayedcommon(ctx: Arc<Context>, data: CommandData) -> BotResult<()>
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
     }
 }
 

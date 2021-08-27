@@ -59,7 +59,7 @@ pub async fn backgroundgame(ctx: Arc<Context>, data: CommandData) -> BotResult<(
                 msg.error(&ctx, content).await
             }
         },
-        CommandData::Interaction { command } => slash_backgroundgame(ctx, command).await,
+        CommandData::Interaction { command } => slash_backgroundgame(ctx, *command).await,
     }
 }
 

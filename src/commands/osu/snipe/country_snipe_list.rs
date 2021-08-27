@@ -41,7 +41,7 @@ async fn countrysnipelist(ctx: Arc<Context>, data: CommandData) -> BotResult<()>
             }
             Err(content) => msg.error(&ctx, content).await,
         },
-        CommandData::Interaction { command } => super::slash_snipe(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_snipe(ctx, *command).await,
     }
 }
 
@@ -197,11 +197,11 @@ impl CountryListArgs {
         for arg in args.take(2).map(CowUtils::cow_to_ascii_lowercase) {
             if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
                 let key = &arg[..idx];
-                let value = &arg[idx + 1..];
+                let value = arg[idx + 1..].trim_end();
 
                 match key {
                     "sort" => {
-                        sort = match value.as_ref() {
+                        sort = match value {
                             "count" => Some(SnipeOrder::Count),
                             "pp" => Some(SnipeOrder::Pp),
                             "stars" => Some(SnipeOrder::Stars),
@@ -237,7 +237,7 @@ impl CountryListArgs {
 
                 country = Some(code.into())
             } else if let Some(code) = CountryCode::from_name(arg.as_ref()) {
-                if !code.snipe_supported(&ctx) {
+                if !code.snipe_supported(ctx) {
                     let content = format!("The country `{}` is not supported :(", code);
 
                     return Err(content.into());

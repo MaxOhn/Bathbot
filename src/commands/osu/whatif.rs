@@ -180,7 +180,7 @@ pub async fn whatif(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => slash_whatif(ctx, command).await,
+        CommandData::Interaction { command } => slash_whatif(ctx, *command).await,
     }
 }
 
@@ -210,7 +210,7 @@ pub async fn whatifmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
                 }
             }
         }
-        CommandData::Interaction { command } => slash_whatif(ctx, command).await,
+        CommandData::Interaction { command } => slash_whatif(ctx, *command).await,
     }
 }
 
@@ -240,7 +240,7 @@ pub async fn whatiftaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
                 }
             }
         }
-        CommandData::Interaction { command } => slash_whatif(ctx, command).await,
+        CommandData::Interaction { command } => slash_whatif(ctx, *command).await,
     }
 }
 
@@ -270,7 +270,7 @@ pub async fn whatifctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => slash_whatif(ctx, command).await,
+        CommandData::Interaction { command } => slash_whatif(ctx, *command).await,
     }
 }
 

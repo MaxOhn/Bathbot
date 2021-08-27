@@ -176,7 +176,7 @@ pub async fn simulaterecent(ctx: Arc<Context>, data: CommandData) -> BotResult<(
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
     }
 }
 
@@ -207,7 +207,7 @@ pub async fn simulaterecentmania(ctx: Arc<Context>, data: CommandData) -> BotRes
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
     }
 }
 
@@ -240,7 +240,7 @@ pub async fn simulaterecenttaiko(ctx: Arc<Context>, data: CommandData) -> BotRes
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
     }
 }
 
@@ -274,7 +274,7 @@ pub async fn simulaterecentctb(ctx: Arc<Context>, data: CommandData) -> BotResul
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
     }
 }
 

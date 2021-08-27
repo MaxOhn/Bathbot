@@ -288,7 +288,7 @@ pub async fn rebalance(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
     }
 }
 

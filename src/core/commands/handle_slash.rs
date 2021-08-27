@@ -31,7 +31,7 @@ pub async fn handle_interaction(
     ctx: Arc<Context>,
     mut command: ApplicationCommand,
 ) -> BotResult<()> {
-    let cmd_name = mem::replace(&mut command.data.name, String::new());
+    let cmd_name = mem::take(&mut command.data.name);
     log_slash(&ctx, &command, &cmd_name);
     ctx.stats.increment_slash_command(&cmd_name);
 
@@ -273,7 +273,7 @@ async fn pre_process_command(
 
     if let Some(bucket) = args.bucket {
         if let Some((cooldown, bucket)) =
-            super::_check_ratelimit(&ctx, author_id, guild_id, bucket).await
+            super::_check_ratelimit(ctx, author_id, guild_id, bucket).await
         {
             if !matches!(bucket, BucketName::BgHint) {
                 let content = format!("Command on cooldown, try again in {} seconds", cooldown);
@@ -286,7 +286,7 @@ async fn pre_process_command(
 
     // Only for authorities?
     if args.authority {
-        match super::_check_authority(&ctx, author_id, guild_id).await {
+        match super::_check_authority(ctx, author_id, guild_id).await {
             Ok(None) => {}
             Ok(Some(content)) => {
                 premature_error(ctx, command, content).await?;

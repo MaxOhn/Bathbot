@@ -61,7 +61,7 @@ async fn simulate(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             }
             Err(content) => msg.error(&ctx, content).await,
         },
-        CommandData::Interaction { command } => slash_simulate(ctx, command).await,
+        CommandData::Interaction { command } => slash_simulate(ctx, *command).await,
     }
 }
 

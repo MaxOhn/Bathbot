@@ -38,7 +38,7 @@ async fn matchcosts(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             }
             Err(content) => msg.error(&ctx, content).await,
         },
-        CommandData::Interaction { command } => slash_matchcost(ctx, command).await,
+        CommandData::Interaction { command } => slash_matchcost(ctx, *command).await,
     }
 }
 

@@ -55,9 +55,8 @@ impl TrackArgs {
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
         let mut name = None;
         let mut more_names = Vec::new();
-        let mut args = args.map(CowUtils::cow_to_ascii_lowercase);
 
-        while let Some(arg) = args.next() {
+        for arg in args.map(CowUtils::cow_to_ascii_lowercase) {
             if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
                 let key = &arg[..idx];
                 let value = arg[idx + 1..].trim_end();

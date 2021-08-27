@@ -147,7 +147,7 @@ pub async fn track(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
             _track(ctx, CommandData::Message { msg, args, num }, track_args).await
         }
-        CommandData::Interaction { command } => super::slash_track(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_track(ctx, *command).await,
     }
 }
 
@@ -187,7 +187,7 @@ pub async fn trackmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
             _track(ctx, CommandData::Message { msg, args, num }, track_args).await
         }
-        CommandData::Interaction { command } => super::slash_track(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_track(ctx, *command).await,
     }
 }
 
@@ -227,7 +227,7 @@ pub async fn tracktaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
             _track(ctx, CommandData::Message { msg, args, num }, track_args).await
         }
-        CommandData::Interaction { command } => super::slash_track(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_track(ctx, *command).await,
     }
 }
 
@@ -267,6 +267,6 @@ pub async fn trackctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
             _track(ctx, CommandData::Message { msg, args, num }, track_args).await
         }
-        CommandData::Interaction { command } => super::slash_track(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_track(ctx, *command).await,
     }
 }

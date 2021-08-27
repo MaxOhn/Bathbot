@@ -179,7 +179,7 @@ pub async fn rank(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_reach(ctx, *command).await,
     }
 }
 
@@ -209,7 +209,7 @@ pub async fn rankmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_reach(ctx, *command).await,
     }
 }
 
@@ -239,7 +239,7 @@ pub async fn ranktaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_reach(ctx, *command).await,
     }
 }
 
@@ -269,7 +269,7 @@ pub async fn rankctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_reach(ctx, *command).await,
     }
 }
 

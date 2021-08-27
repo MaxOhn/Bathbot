@@ -233,7 +233,7 @@ async fn leaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             }
             Err(content) => msg.error(&ctx, content).await,
         },
-        CommandData::Interaction { command } => slash_leaderboard(ctx, command).await,
+        CommandData::Interaction { command } => slash_leaderboard(ctx, *command).await,
     }
 }
 
@@ -267,7 +267,7 @@ async fn belgianleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<(
             }
             Err(content) => msg.error(&ctx, content).await,
         },
-        CommandData::Interaction { command } => slash_leaderboard(ctx, command).await,
+        CommandData::Interaction { command } => slash_leaderboard(ctx, *command).await,
     }
 }
 

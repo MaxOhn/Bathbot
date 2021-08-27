@@ -178,7 +178,7 @@ pub async fn ppranking(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
             _performanceranking(ctx, data, GameMode::STD, country).await
         }
-        CommandData::Interaction { command } => super::slash_ranking(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_ranking(ctx, *command).await,
     }
 }
 
@@ -204,7 +204,7 @@ pub async fn pprankingmania(ctx: Arc<Context>, data: CommandData) -> BotResult<(
 
             _performanceranking(ctx, data, GameMode::MNA, country).await
         }
-        CommandData::Interaction { command } => super::slash_ranking(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_ranking(ctx, *command).await,
     }
 }
 
@@ -230,7 +230,7 @@ pub async fn pprankingtaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<(
 
             _performanceranking(ctx, data, GameMode::TKO, country).await
         }
-        CommandData::Interaction { command } => super::slash_ranking(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_ranking(ctx, *command).await,
     }
 }
 
@@ -256,7 +256,7 @@ pub async fn pprankingctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()>
 
             _performanceranking(ctx, data, GameMode::CTB, country).await
         }
-        CommandData::Interaction { command } => super::slash_ranking(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_ranking(ctx, *command).await,
     }
 }
 
@@ -266,7 +266,7 @@ pub async fn pprankingctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()>
 pub async fn rankedscoreranking(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         data @ CommandData::Message { .. } => _scoreranking(ctx, data, GameMode::STD).await,
-        CommandData::Interaction { command } => super::slash_ranking(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_ranking(ctx, *command).await,
     }
 }
 
@@ -276,7 +276,7 @@ pub async fn rankedscoreranking(ctx: Arc<Context>, data: CommandData) -> BotResu
 pub async fn rankedscorerankingmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         data @ CommandData::Message { .. } => _scoreranking(ctx, data, GameMode::MNA).await,
-        CommandData::Interaction { command } => super::slash_ranking(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_ranking(ctx, *command).await,
     }
 }
 
@@ -286,7 +286,7 @@ pub async fn rankedscorerankingmania(ctx: Arc<Context>, data: CommandData) -> Bo
 pub async fn rankedscorerankingtaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         data @ CommandData::Message { .. } => _scoreranking(ctx, data, GameMode::TKO).await,
-        CommandData::Interaction { command } => super::slash_ranking(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_ranking(ctx, *command).await,
     }
 }
 
@@ -296,7 +296,7 @@ pub async fn rankedscorerankingtaiko(ctx: Arc<Context>, data: CommandData) -> Bo
 pub async fn rankedscorerankingctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         data @ CommandData::Message { .. } => _scoreranking(ctx, data, GameMode::CTB).await,
-        CommandData::Interaction { command } => super::slash_ranking(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_ranking(ctx, *command).await,
     }
 }
 

@@ -19,7 +19,7 @@ async fn trackingcooldown(ctx: Arc<Context>, data: CommandData) -> BotResult<()>
 
             _trackingcooldown(ctx, CommandData::Message { msg, args, num }, ms).await
         }
-        CommandData::Interaction { command } => super::slash_owner(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_owner(ctx, *command).await,
     }
 }
 

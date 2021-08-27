@@ -86,7 +86,7 @@ pub async fn osustatscount(ctx: Arc<Context>, data: CommandData) -> BotResult<()
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
     }
 }
 
@@ -118,7 +118,7 @@ pub async fn osustatscountmania(ctx: Arc<Context>, data: CommandData) -> BotResu
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
     }
 }
 
@@ -150,7 +150,7 @@ pub async fn osustatscounttaiko(ctx: Arc<Context>, data: CommandData) -> BotResu
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
     }
 }
 
@@ -182,7 +182,7 @@ pub async fn osustatscountctb(ctx: Arc<Context>, data: CommandData) -> BotResult
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
     }
 }
 

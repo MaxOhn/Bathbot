@@ -260,9 +260,9 @@ async fn require_link_msg(ctx: &Context, msg: &Message) -> BotResult<()> {
 
 async fn require_link_slash(ctx: &Context, command: &ApplicationCommand) -> BotResult<()> {
     let content = "Either specify an osu name or link your discord \
-    to an osu profile with the `/link` command";
+        to an osu profile with the `/link` command";
 
-    command.error(&ctx, content).await
+    command.error(ctx, content).await
 }
 
 /// Be sure the whitespaces in the given name are __not__ replaced

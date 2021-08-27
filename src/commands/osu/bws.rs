@@ -47,7 +47,7 @@ async fn bws(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => slash_bws(ctx, command).await,
+        CommandData::Interaction { command } => slash_bws(ctx, *command).await,
     }
 }
 

@@ -113,11 +113,12 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
 }
 
 impl ProfileEmbed {
-    pub async fn get_or_create<'map>(
+    #[allow(clippy::needless_lifetimes)]
+    pub async fn get_or_create<'d>(
         ctx: &Context,
         kind: ProfileSize,
-        profile_data: &'map mut ProfileData,
-    ) -> &'map Self {
+        profile_data: &'d mut ProfileData,
+    ) -> &'d Self {
         if profile_data.embeds.get(kind).is_none() {
             let user = &profile_data.user;
 
@@ -178,14 +179,14 @@ impl ProfileEmbed {
 
                     let profile_result = profile_data.profile_result.as_ref();
 
-                    ProfileEmbed::full(&user, profile_result, globals_count, own_top_scores)
+                    ProfileEmbed::full(user, profile_result, globals_count, own_top_scores)
                 }
             };
 
             profile_data.embeds.insert(kind, data);
         }
 
-        // Annoying NLL workaround
+        // Annoying NLL workaround; TODO: Fix when possible
         //   - https://github.com/rust-lang/rust/issues/43234
         //   - https://github.com/rust-lang/rust/issues/51826
         profile_data.embeds.get(kind).unwrap()
@@ -220,7 +221,7 @@ async fn osu(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => slash_profile(ctx, command).await,
+        CommandData::Interaction { command } => slash_profile(ctx, *command).await,
     }
 }
 
@@ -252,7 +253,7 @@ async fn mania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => slash_profile(ctx, command).await,
+        CommandData::Interaction { command } => slash_profile(ctx, *command).await,
     }
 }
 
@@ -284,7 +285,7 @@ async fn taiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => slash_profile(ctx, command).await,
+        CommandData::Interaction { command } => slash_profile(ctx, *command).await,
     }
 }
 
@@ -316,7 +317,7 @@ async fn ctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => slash_profile(ctx, command).await,
+        CommandData::Interaction { command } => slash_profile(ctx, *command).await,
     }
 }
 

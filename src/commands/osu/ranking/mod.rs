@@ -1,8 +1,8 @@
-mod ranking;
-mod ranking_countries;
+mod countries;
+mod players;
 
-pub use ranking::*;
-pub use ranking_countries::*;
+pub use countries::*;
+pub use players::*;
 
 use crate::{
     util::{ApplicationCommandExt, CountryCode, MessageExt},

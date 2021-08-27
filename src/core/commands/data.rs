@@ -14,7 +14,7 @@ pub enum CommandData<'m> {
         num: Option<usize>,
     },
     Interaction {
-        command: ApplicationCommand,
+        command: Box<ApplicationCommand>,
     },
 }
 
@@ -39,7 +39,9 @@ impl CommandData<'_> {
 
 impl From<ApplicationCommand> for CommandData<'_> {
     fn from(command: ApplicationCommand) -> Self {
-        Self::Interaction { command }
+        Self::Interaction {
+            command: Box::new(command),
+        }
     }
 }
 
@@ -58,7 +60,7 @@ impl From<CommandData<'_>> for CommandDataCompact {
     fn from(data: CommandData<'_>) -> Self {
         match data {
             CommandData::Message { msg, .. } => msg.into(),
-            CommandData::Interaction { command } => command.into(),
+            CommandData::Interaction { command } => (*command).into(),
         }
     }
 }

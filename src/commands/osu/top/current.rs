@@ -188,7 +188,7 @@ async fn top(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
     }
 }
 
@@ -235,7 +235,7 @@ async fn topmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
     }
 }
 
@@ -282,7 +282,7 @@ async fn toptaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx,* command).await,
     }
 }
 
@@ -329,7 +329,7 @@ async fn topctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
     }
 }
 
@@ -376,7 +376,7 @@ async fn recentbest(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
     }
 }
 
@@ -423,7 +423,7 @@ async fn recentbestmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx,* command).await,
     }
 }
 
@@ -470,7 +470,7 @@ async fn recentbesttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx,* command).await,
     }
 }
 
@@ -517,7 +517,7 @@ async fn recentbestctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx,* command).await,
     }
 }
 
@@ -902,7 +902,7 @@ impl TopArgs {
                             return Ok(Err(content.into()));
                         }
                     },
-                    "mods" => match matcher::get_mods(&value) {
+                    "mods" => match matcher::get_mods(value) {
                         Some(mods_) => mods = Some(mods_),
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },

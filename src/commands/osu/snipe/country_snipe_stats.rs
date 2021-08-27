@@ -64,7 +64,7 @@ async fn countrysnipestats(ctx: Arc<Context>, data: CommandData) -> BotResult<()
 
             _countrysnipestats(ctx, CommandData::Message { msg, args, num }, country_code).await
         }
-        CommandData::Interaction { command } => super::slash_snipe(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_snipe(ctx, *command).await,
     }
 }
 

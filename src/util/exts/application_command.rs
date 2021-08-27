@@ -1,3 +1,5 @@
+use std::mem;
+
 use crate::{BotResult, Error};
 
 use twilight_model::{
@@ -31,6 +33,6 @@ impl ApplicationCommandExt for ApplicationCommand {
     }
 
     fn yoink_options(&mut self) -> Vec<CommandDataOption> {
-        std::mem::replace(&mut self.data.options, Vec::new())
+        mem::take(&mut self.data.options)
     }
 }

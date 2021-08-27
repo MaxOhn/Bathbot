@@ -221,7 +221,7 @@ pub async fn recentbelgianleaderboard(ctx: Arc<Context>, data: CommandData) -> B
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
     }
 }
 
@@ -254,7 +254,7 @@ pub async fn recentmaniabelgianleaderboard(ctx: Arc<Context>, data: CommandData)
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
     }
 }
 
@@ -287,7 +287,7 @@ pub async fn recenttaikobelgianleaderboard(ctx: Arc<Context>, data: CommandData)
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
     }
 }
 
@@ -320,7 +320,7 @@ pub async fn recentctbbelgianleaderboard(ctx: Arc<Context>, data: CommandData) -
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
     }
 }
 
@@ -353,7 +353,7 @@ pub async fn recentleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResul
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
     }
 }
 
@@ -386,7 +386,7 @@ pub async fn recentmanialeaderboard(ctx: Arc<Context>, data: CommandData) -> Bot
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
     }
 }
 
@@ -419,7 +419,7 @@ pub async fn recenttaikoleaderboard(ctx: Arc<Context>, data: CommandData) -> Bot
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
     }
 }
 
@@ -452,7 +452,7 @@ pub async fn recentctbleaderboard(ctx: Arc<Context>, data: CommandData) -> BotRe
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
     }
 }
 

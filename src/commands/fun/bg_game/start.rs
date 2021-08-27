@@ -17,15 +17,15 @@ pub(super) async fn restart(ctx: &Context, data: &CommandData<'_>) -> BotResult<
     match ctx.restart_game(data.channel_id()).await {
         Ok(restarted) => {
             if let CommandData::Interaction { command } = data {
-                let _ = command.delete_message(&ctx).await;
+                let _ = command.delete_message(ctx).await;
             }
 
             Ok(restarted)
         }
         Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+            let _ = data.error(ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
+            Err(why)
         }
     }
 }
@@ -44,7 +44,7 @@ async fn start(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
             _start(ctx, CommandData::Message { msg, args, num }, mode).await
         }
-        CommandData::Interaction { command } => super::slash_backgroundgame(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_backgroundgame(ctx, *command).await,
     }
 }
 
@@ -92,7 +92,7 @@ async fn get_mapsets(
 
     // Send initial message
     let builder = BGStartEmbed::new(author_id).into_builder().build().into();
-    let response_raw = data.create_message(&ctx, builder).await?;
+    let response_raw = data.create_message(ctx, builder).await?;
 
     // Prepare the reaction stream
     let self_id = match ctx.cache.current_user() {
@@ -170,7 +170,7 @@ async fn get_mapsets(
                 "✅" if reaction.as_deref().user_id == author_id => break,
                 "❌" if reaction.as_deref().user_id == author_id => {
                     let builder = MessageBuilder::new().content("Game cancelled");
-                    response.create_message(&ctx, builder).await?;
+                    response.create_message(ctx, builder).await?;
 
                     return Ok(Vec::new());
                 }
@@ -211,7 +211,7 @@ async fn get_mapsets(
     let data = BGTagsEmbed::new(included, excluded, mapsets.len());
     let builder = data.into_builder().build().into();
 
-    response.create_message(&ctx, builder).await?;
+    response.create_message(ctx, builder).await?;
 
     if !mapsets.is_empty() {
         info!(

@@ -340,7 +340,7 @@ pub async fn common(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
     }
 }
 
@@ -370,7 +370,7 @@ pub async fn commonmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
     }
 }
 
@@ -400,7 +400,7 @@ pub async fn commontaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
     }
 }
 
@@ -430,7 +430,7 @@ pub async fn commonctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
     }
 }
 

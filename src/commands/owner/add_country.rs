@@ -37,7 +37,7 @@ async fn addcountry(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
             _addcountry(ctx, CommandData::Message { msg, args, num }, code, country).await
         }
-        CommandData::Interaction { command } => super::slash_owner(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_owner(ctx, *command).await,
     }
 }
 

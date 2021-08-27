@@ -45,7 +45,7 @@ async fn mostplayed(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
             _mostplayed(ctx, CommandData::Message { msg, args, num }, name).await
         }
-        CommandData::Interaction { command } => slash_mostplayed(ctx, command).await,
+        CommandData::Interaction { command } => slash_mostplayed(ctx, *command).await,
     }
 }
 

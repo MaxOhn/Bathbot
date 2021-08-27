@@ -48,7 +48,7 @@ async fn avatar(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
             _avatar(ctx, CommandData::Message { msg, args, num }, name).await
         }
-        CommandData::Interaction { command } => slash_avatar(ctx, command).await,
+        CommandData::Interaction { command } => slash_avatar(ctx, *command).await,
     }
 }
 

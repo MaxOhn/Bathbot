@@ -364,15 +364,15 @@ impl CompareCommandKind {
                         Ok(args) => kind = Some(Self::Score(args)),
                         Err(content) => return Ok(Err(content)),
                     },
-                    "profile" => match ProfileArgs::slash(&ctx, options, author_id).await? {
+                    "profile" => match ProfileArgs::slash(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(CompareCommandKind::Profile(args)),
                         Err(content) => return Ok(Err(content)),
                     },
-                    "top" => match TripleArgs::slash(&ctx, options, author_id).await? {
+                    "top" => match TripleArgs::slash(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(CompareCommandKind::Top(args)),
                         Err(content) => return Ok(Err(content)),
                     },
-                    "mostplayed" => match TripleArgs::slash(&ctx, options, author_id).await? {
+                    "mostplayed" => match TripleArgs::slash(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(CompareCommandKind::Mostplayed(args)),
                         Err(content) => return Ok(Err(content)),
                     },

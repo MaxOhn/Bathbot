@@ -48,7 +48,7 @@ async fn config(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             }
             Err(content) => msg.error(&ctx, content).await,
         },
-        CommandData::Interaction { command } => slash_config(ctx, command).await,
+        CommandData::Interaction { command } => slash_config(ctx, *command).await,
     }
 }
 

@@ -51,7 +51,7 @@ async fn ratios(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
             _ratios(ctx, CommandData::Message { msg, args, num }, name).await
         }
-        CommandData::Interaction { command } => slash_ratio(ctx, command).await,
+        CommandData::Interaction { command } => slash_ratio(ctx, *command).await,
     }
 }
 

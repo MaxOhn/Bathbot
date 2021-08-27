@@ -76,7 +76,7 @@ impl Difficulty {
             Some("medium") => Ok(Self::Medium),
             Some("hard") => Ok(Self::Hard),
             // Some("expert") => Ok(Self::Expert),
-            _ => return Err("The argument must be either `easy`, `medium`, or `hard`"),
+            _ => Err("The argument must be either `easy`, `medium`, or `hard`"),
         }
     }
 

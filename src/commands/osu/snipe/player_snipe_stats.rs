@@ -49,7 +49,7 @@ async fn playersnipestats(ctx: Arc<Context>, data: CommandData) -> BotResult<()>
 
             _playersnipestats(ctx, CommandData::Message { msg, args, num }, name).await
         }
-        CommandData::Interaction { command } => super::slash_snipe(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_snipe(ctx, *command).await,
     }
 }
 

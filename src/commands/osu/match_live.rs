@@ -42,7 +42,7 @@ async fn matchlive(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
             _matchlive(ctx, CommandData::Message { msg, args, num }, match_id).await
         }
-        CommandData::Interaction { command } => slash_matchlive(ctx, command).await,
+        CommandData::Interaction { command } => slash_matchlive(ctx, *command).await,
     }
 }
 
@@ -89,7 +89,7 @@ async fn matchliveremove(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
 
             _matchliveremove(ctx, CommandData::Message { msg, args, num }, match_id).await
         }
-        CommandData::Interaction { command } => slash_matchlive(ctx, command).await,
+        CommandData::Interaction { command } => slash_matchlive(ctx, *command).await,
     }
 }
 

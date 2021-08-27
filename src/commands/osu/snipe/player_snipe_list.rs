@@ -53,7 +53,7 @@ async fn playersnipelist(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_snipe(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_snipe(ctx, *command).await,
     }
 }
 

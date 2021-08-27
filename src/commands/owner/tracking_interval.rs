@@ -20,7 +20,7 @@ async fn trackinginterval(ctx: Arc<Context>, data: CommandData) -> BotResult<()>
 
             _trackinginterval(ctx, CommandData::Message { msg, args, num }, seconds).await
         }
-        CommandData::Interaction { command } => super::slash_owner(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_owner(ctx, *command).await,
     }
 }
 

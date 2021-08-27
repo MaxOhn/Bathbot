@@ -38,7 +38,7 @@ async fn medalrecent(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_medal(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_medal(ctx, *command).await,
     }
 }
 
@@ -178,7 +178,7 @@ impl RecentArgs {
         index: Option<usize>,
     ) -> BotResult<Result<Self, &'static str>> {
         let name = match args.next() {
-            Some(arg) => match Args::check_user_mention(&ctx, arg).await? {
+            Some(arg) => match Args::check_user_mention(ctx, arg).await? {
                 Ok(name) => Some(name),
                 Err(content) => return Ok(Err(content)),
             },

@@ -115,7 +115,7 @@ pub async fn pp(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_reach(ctx, *command).await,
     }
 }
 
@@ -145,7 +145,7 @@ pub async fn ppmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_reach(ctx, *command).await,
     }
 }
 
@@ -175,7 +175,7 @@ pub async fn pptaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_reach(ctx, *command).await,
     }
 }
 
@@ -205,7 +205,7 @@ pub async fn ppctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_reach(ctx, *command).await,
     }
 }
 

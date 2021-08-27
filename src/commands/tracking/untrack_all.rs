@@ -35,7 +35,7 @@ async fn untrackall(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
             _untrackall(ctx, CommandData::Message { msg, args, num }, mode).await
         }
-        CommandData::Interaction { command } => super::slash_track(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_track(ctx, *command).await,
     }
 }
 

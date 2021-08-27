@@ -235,7 +235,7 @@ pub async fn osustatslist(ctx: Arc<Context>, data: CommandData) -> BotResult<()>
                 Err(content) => msg.error(&ctx, content).await,
             }
         }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
     }
 }
 
@@ -262,7 +262,7 @@ pub async fn osustatslistmania(ctx: Arc<Context>, data: CommandData) -> BotResul
                 Err(content) => msg.error(&ctx, content).await,
             }
         }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
     }
 }
 
@@ -289,7 +289,7 @@ pub async fn osustatslisttaiko(ctx: Arc<Context>, data: CommandData) -> BotResul
                 Err(content) => msg.error(&ctx, content).await,
             }
         }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
     }
 }
 
@@ -316,7 +316,7 @@ pub async fn osustatslistctb(ctx: Arc<Context>, data: CommandData) -> BotResult<
                 Err(content) => msg.error(&ctx, content).await,
             }
         }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
     }
 }
 
@@ -372,7 +372,7 @@ impl OsuStatsListParams {
                             key
                         );
 
-                        return Err(content.into());
+                        return Err(content);
                     }
                 }
             } else if arg.len() == 2 && arg.is_ascii() {

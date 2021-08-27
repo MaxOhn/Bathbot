@@ -41,7 +41,7 @@ async fn untrack(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
             _untrack(ctx, CommandData::Message { msg, args, num }, track_args).await
         }
-        CommandData::Interaction { command } => super::slash_track(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_track(ctx, *command).await,
     }
 }
 

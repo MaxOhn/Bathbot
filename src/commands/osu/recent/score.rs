@@ -277,7 +277,7 @@ pub async fn recent(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
     }
 }
 
@@ -316,7 +316,7 @@ pub async fn recentmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_recent(ctx,* command).await,
     }
 }
 
@@ -355,7 +355,7 @@ pub async fn recenttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
     }
 }
 
@@ -394,7 +394,7 @@ pub async fn recentctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
+        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
     }
 }
 

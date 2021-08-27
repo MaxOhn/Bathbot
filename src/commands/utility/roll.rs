@@ -32,7 +32,7 @@ async fn roll(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
             _roll(ctx, CommandData::Message { msg, args, num }, limit).await
         }
-        CommandData::Interaction { command } => slash_roll(ctx, command).await,
+        CommandData::Interaction { command } => slash_roll(ctx, *command).await,
     }
 }
 
