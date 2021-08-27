@@ -42,8 +42,8 @@ pub struct UserConfig {
     pub mode: Option<GameMode>,
     #[serde(default, rename = "n", skip_serializing_if = "Option::is_none")]
     pub name: Option<Name>,
-    #[serde(rename = "p")]
-    pub profile_embed_size: ProfileSize,
+    #[serde(default, rename = "p", skip_serializing_if = "Option::is_none")]
+    pub profile_embed_size: Option<ProfileSize>,
     #[serde(rename = "r")]
     pub recent_embed_maximize: bool,
 }
@@ -70,7 +70,7 @@ impl Default for UserConfig {
         UserConfig {
             mode: None,
             name: None,
-            profile_embed_size: ProfileSize::Compact,
+            profile_embed_size: None,
             recent_embed_maximize: true,
         }
     }

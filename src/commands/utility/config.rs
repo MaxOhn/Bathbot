@@ -125,7 +125,7 @@ async fn _config(ctx: Arc<Context>, data: CommandData<'_>, args: ConfigArgs) -> 
         }
 
         if let Some(size) = profile_embed_size {
-            config.profile_embed_size = size;
+            config.profile_embed_size = Some(size);
         }
 
         if let Some(maximize) = recent_embed_maximize {

@@ -36,7 +36,7 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let kind = config.profile_embed_size;
+    let kind = config.profile_embed_size.unwrap_or_default();
     let mode = config.mode.unwrap_or(GameMode::STD);
 
     // Retrieve the user and their top scores

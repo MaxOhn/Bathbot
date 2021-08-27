@@ -48,7 +48,7 @@ impl ConfigEmbed {
             None => "None",
         };
 
-        let profile = match config.profile_embed_size {
+        let profile = match config.profile_embed_size.unwrap_or_default() {
             ProfileSize::Compact => "Compact",
             ProfileSize::Medium => "Medium",
             ProfileSize::Full => "Full",
