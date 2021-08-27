@@ -2,9 +2,7 @@
 **[TODO]**
 - Content for `<top` depending on order
 - Provide version name in `<rebalance` via `version=`
-- `-limit` argument for tracking should be `limit=`
 - Use user avatar as author icon for `<r` & co
-- Fix background loop deadlock
 - Handle 401 response in rosu_v2 e.g. for secret mp matches
 - For helpybot: don't only ignore $ msgs but #waifu altogether
 - `<recommend` command
@@ -28,10 +26,12 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~`-limit` argument for tracking should be `limit=`~~ (21.08.27)
 - ~~Use username from UserConfig instead of discord link~~ (21.08.27)
 - ~~Look into slash commands again to find arguments not to use them :^)~~ (21.08.25)
 - ~~Command for compact `<osu`~~ (21.08.25)
 - ~~Server setting to not send expanded `<r`~~ (21.08.25)
+- ~~Fix background loop deadlock~~ (21.08.24)
 - ~~No metrics server on debug~~ (21.08.05)
 - ~~Fix bonus pp rounding in `<osu`~~ (21.08.04)
 - ~~Suggest quotes when multiple arguments on `<link`~~ (21.08.01)

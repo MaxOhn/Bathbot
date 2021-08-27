@@ -8,10 +8,13 @@ pub use track_list::*;
 pub use untrack::*;
 pub use untrack_all::*;
 
-use crate::{util::ApplicationCommandExt, Args, BotResult, Context, Error, Name};
+use crate::{
+    util::{ApplicationCommandExt, CowUtils},
+    Args, BotResult, Context, Error, Name,
+};
 
 use rosu_v2::prelude::GameMode;
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 use twilight_model::application::{
     command::{
         ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice,
@@ -49,23 +52,39 @@ impl TrackArgs {
         args: &mut Args<'_>,
         mut limit: Option<usize>,
         mode: Option<GameMode>,
-    ) -> BotResult<Result<Self, &'static str>> {
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
         let mut name = None;
         let mut more_names = Vec::new();
+        let mut args = args.map(CowUtils::cow_to_ascii_lowercase);
 
         while let Some(arg) = args.next() {
-            if matches!(arg, "-limit" | "-l") {
-                match args.next().map(str::parse) {
-                    Some(Ok(num)) => limit = Some(num),
-                    None | Some(Err(_)) => {
-                        return Ok(Err("Could not parse given limit, \
-                            try specifying a positive number after `-limit`"));
+            if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
+                let key = &arg[..idx];
+                let value = arg[idx + 1..].trim_end();
+
+                match key {
+                    "limit" | "l" => match value.parse() {
+                        Ok(num) => limit = Some(num),
+                        Err(_) => {
+                            let content = "Failed to parse `limit`. Must be either an integer.";
+
+                            return Ok(Err(content.into()));
+                        }
+                    },
+                    _ => {
+                        let content = format!(
+                            "Unrecognized option `{}`.\n\
+                            Available options are: `limit`.",
+                            key
+                        );
+
+                        return Ok(Err(content.into()));
                     }
                 }
             } else {
-                let name_ = match Args::check_user_mention(ctx, arg).await? {
+                let name_ = match Args::check_user_mention(ctx, arg.as_ref()).await? {
                     Ok(name) => name,
-                    Err(content) => return Ok(Err(content)),
+                    Err(content) => return Ok(Err(content.into())),
                 };
 
                 if name.is_none() {
@@ -78,7 +97,7 @@ impl TrackArgs {
 
         let name = match name {
             Some(name) => name,
-            None => return Ok(Err("You must specify at least one username")),
+            None => return Ok(Err("You must specify at least one username".into())),
         };
 
         let args = Self {
