@@ -1,11 +1,10 @@
 
 **[TODO]**
-- Content for `<top` depending on order
-- Provide version name in `<rebalance` via `version=`
 - Use user avatar as author icon for `<r` & co
 - Handle 401 response in rosu_v2 e.g. for secret mp matches
 - For helpybot: don't only ignore $ msgs but #waifu altogether
 - `<recommend` command
+- ~~Provide version name in `<rebalance` via `version=`~~ unnecessary & less convenient to use
 - ~~Use tracing for logging~~ file rotation with flexi logger is just too convenient
 - ~~Use `https://osu.ppy.sh/assets/images/flags/{regional_indicator}-{regional_indicator}.svg` for country flags~~ discord doesnt like svgs
 - ~~Check on IRC for tracking~~ irc only provides username, not id
@@ -26,6 +25,7 @@
 - Add proper readme and make project public
 
 **[Done]**
+- ~~Content for `<top` depending on order~~ (21.08.27)
 - ~~`-limit` argument for tracking should be `limit=`~~ (21.08.27)
 - ~~Use username from UserConfig instead of discord link~~ (21.08.27)
 - ~~Look into slash commands again to find arguments not to use them :^)~~ (21.08.25)

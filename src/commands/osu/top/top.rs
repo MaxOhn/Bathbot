@@ -22,6 +22,8 @@ use rosu_v2::prelude::{
 use std::{
     borrow::Cow,
     cmp::{Ordering, Reverse},
+    fmt::Write,
+    mem,
     sync::Arc,
 };
 use tokio::time::{sleep, Duration};
@@ -136,30 +138,7 @@ pub(super) async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs
     if let Some(num) = args.index {
         single_embed(ctx, data, user, scores, num.saturating_sub(1)).await?;
     } else {
-        let content = match args.sort_by {
-            TopOrder::Date => Some(format!("Most recent scores in `{}`'s top100:", name)),
-            _ => {
-                let cond = args.mods.is_some()
-                    || args.acc_min.is_some()
-                    || args.combo_min.is_some()
-                    || args.grade.is_some();
-
-                if cond {
-                    let amount = scores.len();
-
-                    let content = format!(
-                        "Found {num} top score{plural} with the specified properties:",
-                        num = amount,
-                        plural = if amount != 1 { "s" } else { "" }
-                    );
-
-                    Some(content)
-                } else {
-                    None
-                }
-            }
-        };
-
+        let content = write_content(name, &args, scores.len());
         paginated_embed(ctx, data, user, scores, content).await?;
     }
 
@@ -821,7 +800,7 @@ impl TopArgs {
                             let bot = &value[..idx];
                             let top = &value[idx + 2..];
 
-                            let min = if bot.is_empty() {
+                            let mut min = if bot.is_empty() {
                                 0.0
                             } else if let Ok(num) = bot.parse::<f32>() {
                                 num.max(0.0).min(100.0)
@@ -829,7 +808,7 @@ impl TopArgs {
                                 return Ok(Err(Self::ERR_PARSE_ACC.into()));
                             };
 
-                            let max = if top.is_empty() {
+                            let mut max = if top.is_empty() {
                                 100.0
                             } else if let Ok(num) = top.parse::<f32>() {
                                 num.max(0.0).min(100.0)
@@ -837,8 +816,12 @@ impl TopArgs {
                                 return Ok(Err(Self::ERR_PARSE_ACC.into()));
                             };
 
-                            acc_min = Some(min.min(max));
-                            acc_max = Some(min.max(max));
+                            if min > max {
+                                mem::swap(&mut min, &mut max);
+                            }
+
+                            acc_min = Some(min);
+                            acc_max = Some(max);
                         }
                         None => match value.parse() {
                             Ok(num) => acc_min = Some(num),
@@ -850,7 +833,7 @@ impl TopArgs {
                             let bot = &value[..idx];
                             let top = &value[idx + 2..];
 
-                            let min = if bot.is_empty() {
+                            let mut min = if bot.is_empty() {
                                 0
                             } else if let Ok(num) = bot.parse() {
                                 num
@@ -858,13 +841,16 @@ impl TopArgs {
                                 return Ok(Err(Self::ERR_PARSE_COMBO.into()));
                             };
 
-                            let max = match top.parse() {
-                                Ok(num) => num,
-                                Err(_) => return Ok(Err(Self::ERR_PARSE_COMBO.into())),
-                            };
+                            let mut max = top.parse().ok();
 
-                            combo_min = Some(min.min(max));
-                            combo_max = Some(min.max(max));
+                            if let Some(ref mut max) = max {
+                                if min > *max {
+                                    mem::swap(&mut min, max);
+                                }
+                            }
+
+                            combo_min = Some(min);
+                            combo_max = max;
                         }
                         None => match value.parse() {
                             Ok(num) => combo_min = Some(num),
@@ -876,24 +862,25 @@ impl TopArgs {
                             let bot = &value[..idx];
                             let top = &value[idx + 2..];
 
-                            let min = if bot.is_empty() {
-                                Grade::XH
+                            let mut bot = if bot.is_empty() {
+                                Grade::D
                             } else if let Some(grade) = parse_grade(bot) {
                                 grade
                             } else {
                                 return Ok(Err(Self::ERR_PARSE_GRADE.into()));
                             };
 
-                            let max = if top.is_empty() {
-                                Grade::D
+                            let mut top = if top.is_empty() {
+                                Grade::XH
                             } else if let Some(grade) = parse_grade(top) {
                                 grade
                             } else {
                                 return Ok(Err(Self::ERR_PARSE_GRADE.into()));
                             };
 
-                            let bot = if min < max { min } else { max };
-                            let top = if min > max { min } else { max };
+                            if bot > top {
+                                mem::swap(&mut bot, &mut top);
+                            }
 
                             grade = Some(GradeArg::Range { bot, top })
                         }
@@ -1063,4 +1050,99 @@ fn parse_grade(arg: &str) -> Option<Grade> {
         "d" => Some(Grade::D),
         _ => None,
     }
+}
+
+fn write_content(name: &str, args: &TopArgs, amount: usize) -> Option<String> {
+    let condition = args.acc_min.is_some()
+        || args.acc_max.is_some()
+        || args.combo_min.is_some()
+        || args.combo_max.is_some()
+        || args.grade.is_some()
+        || args.mods.is_some();
+
+    if condition {
+        Some(content_with_condition(args, amount))
+    } else {
+        let genitive = if name.ends_with('s') { "" } else { "s" };
+
+        let content = match args.sort_by {
+            TopOrder::Acc => format!("`{}`'{} top100 sorted by accuracy:", name, genitive),
+            TopOrder::Combo => format!("`{}`'{} top100 sorted by combo:", name, genitive),
+            TopOrder::Date => format!("Most recent scores in `{}`'{} top100:", name, genitive),
+            TopOrder::Length => format!("`{}`'{} top100 sorted by length:", name, genitive),
+            TopOrder::Position => return None,
+        };
+
+        Some(content)
+    }
+}
+
+fn content_with_condition(args: &TopArgs, amount: usize) -> String {
+    let mut content = String::with_capacity(64);
+
+    match args.sort_by {
+        TopOrder::Acc => content.push_str("`Order: Accuracy"),
+        TopOrder::Combo => content.push_str("`Order: Combo"),
+        TopOrder::Date => content.push_str("`Order: Date"),
+        TopOrder::Length => content.push_str("`Order: Length"),
+        TopOrder::Position => content.push_str("`Order: Pp"),
+    }
+
+    if args.reverse {
+        content.push_str(" (reverse)`");
+    } else {
+        content.push('`');
+    }
+
+    match (args.acc_min, args.acc_max) {
+        (None, None) => {}
+        (None, Some(max)) => {
+            let _ = write!(content, " ~ `Acc: 0% - {}%`", max);
+        }
+        (Some(min), None) => {
+            let _ = write!(content, " ~ `Acc: {}% - 100%`", min);
+        }
+        (Some(min), Some(max)) => {
+            let _ = write!(content, " ~ `Acc: {}% - {}%`", min, max);
+        }
+    }
+
+    match (args.combo_min, args.combo_max) {
+        (None, None) => {}
+        (None, Some(max)) => {
+            let _ = write!(content, " ~ `Combo: 0 - {}`", max);
+        }
+        (Some(min), None) => {
+            let _ = write!(content, " ~ `Combo: {} - ∞`", min);
+        }
+        (Some(min), Some(max)) => {
+            let _ = write!(content, " ~ `Combo: {} - {}`", min, max);
+        }
+    }
+
+    match args.grade {
+        Some(GradeArg::Single(grade)) => {
+            let _ = write!(content, " ~ `Grade: {}`", grade);
+        }
+        Some(GradeArg::Range { bot, top }) => {
+            let _ = write!(content, " ~ `Grade: {} - {}`", bot, top);
+        }
+        None => {}
+    }
+
+    if let Some(selection) = args.mods {
+        let _ = write!(
+            content,
+            " ~ `Mods: {}`",
+            match selection {
+                ModSelection::Exact(mods) => mods.to_string(),
+                ModSelection::Exclude(mods) => format!("Exclude {}", mods),
+                ModSelection::Include(mods) => format!("Include {}", mods),
+            },
+        );
+    }
+
+    let _ = write!(content, "\nFound {} matching top scores:", amount);
+
+    content
 }
