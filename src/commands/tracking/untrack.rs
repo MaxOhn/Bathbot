@@ -1,7 +1,10 @@
 use super::TrackArgs;
 use crate::{
     embeds::{EmbedData, UntrackEmbed},
-    util::{constants::OSU_API_ISSUE, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        MessageExt,
+    },
     BotResult, CommandData, Context, MessageBuilder,
 };
 
@@ -26,9 +29,14 @@ use std::sync::Arc;
 async fn untrack(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            let track_args = match TrackArgs::args(&ctx, &mut args, num, None) {
-                Ok(args) => args,
-                Err(content) => return msg.error(&ctx, content).await,
+            let track_args = match TrackArgs::args(&ctx, &mut args, num, None).await {
+                Ok(Ok(args)) => args,
+                Ok(Err(content)) => return msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    return Err(why);
+                }
             };
 
             _untrack(ctx, CommandData::Message { msg, args, num }, track_args).await

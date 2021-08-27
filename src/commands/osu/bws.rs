@@ -1,14 +1,21 @@
 use crate::{
+    database::UserConfig,
     embeds::{BWSEmbed, EmbedData},
-    util::{constants::OSU_API_ISSUE, matcher, ApplicationCommandExt, MessageExt},
-    Args, BotResult, CommandData, Context, Name,
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        matcher, ApplicationCommandExt, MessageExt,
+    },
+    Args, BotResult, CommandData, Context,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{borrow::Cow, cmp::Ordering, sync::Arc};
-use twilight_model::application::{
-    command::{BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption},
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+use twilight_model::{
+    application::{
+        command::{BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption},
+        interaction::{application_command::CommandDataOption, ApplicationCommand},
+    },
+    id::UserId,
 };
 
 const MIN_BADGES_OFFSET: usize = 2;
@@ -27,26 +34,36 @@ const MIN_BADGES_OFFSET: usize = 2;
 #[example("badewanne3", "badewanne3 rank=1234 badges=10", "badewanne3 badges=3")]
 async fn bws(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
-        CommandData::Message { msg, mut args, num } => match BwsArgs::args(&ctx, &mut args) {
-            Ok(bws_args) => _bws(ctx, CommandData::Message { msg, args, num }, bws_args).await,
-            Err(content) => msg.error(&ctx, content).await,
-        },
+        CommandData::Message { msg, mut args, num } => {
+            match BwsArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(bws_args)) => {
+                    _bws(ctx, CommandData::Message { msg, args, num }, bws_args).await
+                }
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
+            }
+        }
         CommandData::Interaction { command } => slash_bws(ctx, command).await,
     }
 }
 
 async fn _bws(ctx: Arc<Context>, data: CommandData<'_>, args: BwsArgs) -> BotResult<()> {
-    let BwsArgs { name, rank, badges } = args;
+    let BwsArgs {
+        config,
+        rank,
+        badges,
+    } = args;
 
-    let name = match name {
+    let mode = config.mode(GameMode::STD);
+
+    let name = match config.name {
         Some(name) => name,
-        None => match ctx.get_link(data.author()?.id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
-
-    let mode = GameMode::STD;
 
     let user = match super::request_user(&ctx, &name, Some(mode)).await {
         Ok(user) => user,
@@ -93,14 +110,18 @@ async fn _bws(ctx: Arc<Context>, data: CommandData<'_>, args: BwsArgs) -> BotRes
 }
 
 struct BwsArgs {
-    name: Option<Name>,
+    config: UserConfig,
     rank: Option<u32>,
     badges: Option<usize>,
 }
 
 impl BwsArgs {
-    fn args(ctx: &Context, args: &mut Args) -> Result<Self, Cow<'static, str>> {
-        let mut name = None;
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let mut config = ctx.user_config(author_id).await?;
         let mut rank = None;
         let mut badges = None;
 
@@ -115,7 +136,7 @@ impl BwsArgs {
                         Err(_) => {
                             let content = "Failed to parse `rank`. Must be a positive integer.";
 
-                            return Err(content.into());
+                            return Ok(Err(content.into()));
                         }
                     },
                     "badges" | "badge" | "b" => match value.parse() {
@@ -123,7 +144,7 @@ impl BwsArgs {
                         Err(_) => {
                             let content = "Failed to parse `badges`. Must be a positive integer.";
 
-                            return Err(content.into());
+                            return Ok(Err(content.into()));
                         }
                     },
                     _ => {
@@ -133,27 +154,39 @@ impl BwsArgs {
                             key
                         );
 
-                        return Err(content.into());
+                        return Ok(Err(content.into()));
                     }
                 }
             } else {
-                name = Some(Args::try_link_name(ctx, arg)?);
+                match Args::check_user_mention(ctx, arg).await? {
+                    Ok(name) => config.name = Some(name),
+                    Err(content) => return Ok(Err(content.into())),
+                }
             }
         }
 
-        Ok(Self { name, rank, badges })
+        let args = Self {
+            config,
+            rank,
+            badges,
+        };
+
+        Ok(Ok(args))
     }
 
-    fn slash(ctx: &Context, command: &mut ApplicationCommand) -> BotResult<Result<Self, String>> {
-        let mut username = None;
+    async fn slash(
+        ctx: &Context,
+        command: &mut ApplicationCommand,
+    ) -> BotResult<Result<Self, String>> {
+        let mut config = ctx.user_config(command.user_id()?).await?;
         let mut rank = None;
         let mut badges = None;
 
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => username = Some(value.into()),
-                    "discord" => username = parse_discord_option!(ctx, value, "bws"),
+                    "name" => config.name = Some(value.into()),
+                    "discord" => config.name = parse_discord_option!(ctx, value, "bws"),
                     _ => bail_cmd_option!("bws", string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
@@ -171,7 +204,7 @@ impl BwsArgs {
         }
 
         let args = Self {
-            name: username,
+            config,
             rank,
             badges,
         };
@@ -181,7 +214,7 @@ impl BwsArgs {
 }
 
 pub async fn slash_bws(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match BwsArgs::slash(&ctx, &mut command)? {
+    match BwsArgs::slash(&ctx, &mut command).await? {
         Ok(args) => _bws(ctx, command.into(), args).await,
         Err(content) => command.error(&ctx, content).await,
     }

@@ -44,41 +44,51 @@ enum TrackCommandKind {
 }
 
 impl TrackArgs {
-    fn args(
+    async fn args(
         ctx: &Context,
-        args: &mut Args,
+        args: &mut Args<'_>,
         mut limit: Option<usize>,
         mode: Option<GameMode>,
-    ) -> Result<Self, &'static str> {
+    ) -> BotResult<Result<Self, &'static str>> {
         let mut name = None;
         let mut more_names = Vec::new();
 
-        while let Some(arg) = args
-            .next()
-            .map(|arg| Args::try_link_name(ctx, arg))
-            .transpose()?
-        {
-            if matches!(arg.as_str(), "-limit" | "-l") {
+        while let Some(arg) = args.next() {
+            if matches!(arg, "-limit" | "-l") {
                 match args.next().map(str::parse) {
                     Some(Ok(num)) => limit = Some(num),
                     None | Some(Err(_)) => {
-                        return Err("Could not parse given limit, \
-                            try specifying a positive number after `-limit`")
+                        return Ok(Err("Could not parse given limit, \
+                            try specifying a positive number after `-limit`"));
                     }
                 }
-            } else if name.is_none() {
-                name = Some(arg);
-            } else if more_names.len() < 9 {
-                more_names.push(arg);
+            } else {
+                let name_ = match Args::check_user_mention(ctx, arg).await? {
+                    Ok(name) => name,
+                    Err(content) => return Ok(Err(content)),
+                };
+
+                if name.is_none() {
+                    name = Some(name_);
+                } else if more_names.len() < 9 {
+                    more_names.push(name_);
+                }
             }
         }
 
-        Ok(Self {
-            name: name.ok_or("You must specify at least one username")?,
+        let name = match name {
+            Some(name) => name,
+            None => return Ok(Err("You must specify at least one username")),
+        };
+
+        let args = Self {
+            name,
             limit,
             more_names,
             mode,
-        })
+        };
+
+        Ok(Ok(args))
     }
 
     fn slash(command: &mut ApplicationCommand) -> BotResult<TrackCommandKind> {

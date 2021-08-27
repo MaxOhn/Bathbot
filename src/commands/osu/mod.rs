@@ -94,7 +94,7 @@ impl From<OsuError> for ErrorType {
 
 const USER_CACHE_SECONDS: usize = 600;
 
-async fn request_user(ctx: &Context, name: &str, mode: Option<GameMode>) -> OsuResult<User> {
+pub async fn request_user(ctx: &Context, name: &str, mode: Option<GameMode>) -> OsuResult<User> {
     let mut key = String::with_capacity(2 + name.len() + 2 * mode.is_some() as usize);
     let _ = write!(key, "__{}", name);
 

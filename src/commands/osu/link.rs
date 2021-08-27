@@ -1,4 +1,5 @@
 use crate::{
+    database::UserConfig,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher, ApplicationCommandExt, MessageBuilder, MessageExt,
@@ -116,7 +117,19 @@ async fn link(ctx: Arc<Context>, mut data: CommandData) -> BotResult<()> {
             None => arg,
         },
         Ok(LinkArgs { arg: None }) => {
-            if let Err(why) = ctx.remove_link(author.id.0).await {
+            let mut config = match ctx.psql().get_user_config(author.id).await {
+                Ok(Some(config)) => config,
+                Ok(None) => UserConfig::default(),
+                Err(why) => {
+                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+                    return Err(why);
+                }
+            };
+
+            config.name.take();
+
+            if let Err(why) = ctx.psql().insert_user_config(author.id, &config).await {
                 let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
                 return Err(why);
@@ -159,16 +172,28 @@ async fn link(ctx: Arc<Context>, mut data: CommandData) -> BotResult<()> {
         }
     };
 
-    let content = format!(
-        "I linked discord's `{}` with osu's `{}`",
-        author.name, user.username
-    );
+    let mut config = match ctx.psql().get_user_config(author.id).await {
+        Ok(Some(config)) => config,
+        Ok(None) => UserConfig::default(),
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
-    if let Err(why) = ctx.add_link(author.id.0, user.username).await {
+            return Err(why);
+        }
+    };
+
+    config.name = Some(user.username.as_str().into());
+
+    if let Err(why) = ctx.psql().insert_user_config(author.id, &config).await {
         let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
         return Err(why);
     }
+
+    let content = format!(
+        "I linked discord's `{}` with osu's `{}`",
+        author.name, user.username
+    );
 
     let builder = MessageBuilder::new().content(content);
     let _ = data.create_message(&ctx, builder).await?;

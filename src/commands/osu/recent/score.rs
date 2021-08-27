@@ -1,12 +1,13 @@
 use super::GradeArg;
 use crate::{
+    database::UserConfig,
     embeds::{EmbedData, RecentEmbed},
     tracking::process_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
 use rosu_v2::prelude::{
@@ -15,6 +16,7 @@ use rosu_v2::prelude::{
 };
 use std::{borrow::Cow, sync::Arc};
 use tokio::time::{sleep, Duration};
+use twilight_model::id::UserId;
 
 pub(super) async fn _recent(
     ctx: Arc<Context>,
@@ -22,39 +24,24 @@ pub(super) async fn _recent(
     args: RecentArgs,
 ) -> BotResult<()> {
     let RecentArgs {
-        name,
+        config,
         index,
-        mut mode,
         grade,
     } = args;
 
-    let author_id = data.author()?.id;
-
-    let config = match ctx.user_config(author_id).await {
-        Ok(config) => config,
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
+    let name = match config.name {
+        Some(ref name) => name.as_str(),
+        None => return super::require_link(&ctx, &data).await,
     };
 
-    mode = config.mode(mode);
-
-    let name = match name {
-        Some(name) => name,
-        None => match ctx.get_link(author_id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
-    };
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
     // Retrieve the user and their recent scores
-    let user_fut = super::request_user(&ctx, &name, Some(mode));
+    let user_fut = super::request_user(&ctx, name, Some(mode));
 
     let scores_fut = ctx
         .osu()
-        .user_scores(name.as_str())
+        .user_scores(name)
         .recent()
         .mode(mode)
         .limit(100)
@@ -276,11 +263,18 @@ pub(super) async fn _recent(
 pub async fn recent(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RecentArgs::args(&ctx, &mut args, GameMode::STD, num) {
-                Ok(recent_args) => {
+            match RecentArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut recent_args)) => {
+                    recent_args.config.mode = Some(recent_args.config.mode(GameMode::STD));
+
                     _recent(ctx, CommandData::Message { msg, args, num }, recent_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
@@ -308,11 +302,18 @@ pub async fn recent(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 pub async fn recentmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RecentArgs::args(&ctx, &mut args, GameMode::MNA, num) {
-                Ok(recent_args) => {
+            match RecentArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut recent_args)) => {
+                    recent_args.config.mode = Some(GameMode::MNA);
+
                     _recent(ctx, CommandData::Message { msg, args, num }, recent_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
@@ -340,11 +341,18 @@ pub async fn recentmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
 pub async fn recenttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RecentArgs::args(&ctx, &mut args, GameMode::TKO, num) {
-                Ok(recent_args) => {
+            match RecentArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut recent_args)) => {
+                    recent_args.config.mode = Some(GameMode::TKO);
+
                     _recent(ctx, CommandData::Message { msg, args, num }, recent_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
@@ -372,11 +380,18 @@ pub async fn recenttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
 pub async fn recentctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RecentArgs::args(&ctx, &mut args, GameMode::CTB, num) {
-                Ok(recent_args) => {
+            match RecentArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut recent_args)) => {
+                    recent_args.config.mode = Some(GameMode::CTB);
+
                     _recent(ctx, CommandData::Message { msg, args, num }, recent_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
@@ -384,9 +399,8 @@ pub async fn recentctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 pub(super) struct RecentArgs {
-    pub name: Option<Name>,
+    pub config: UserConfig,
     pub index: Option<usize>,
-    pub mode: GameMode,
     pub grade: Option<GradeArg>,
 }
 
@@ -395,13 +409,13 @@ impl RecentArgs {
         Must be either a single grade or two grades of the form `a..b` e.g. `C..S`.\n\
         Valid grades are: `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`";
 
-    fn args(
+    async fn args(
         ctx: &Context,
-        args: &mut Args,
-        mode: GameMode,
+        args: &mut Args<'_>,
+        author_id: UserId,
         index: Option<usize>,
-    ) -> Result<Self, Cow<'static, str>> {
-        let mut name = None;
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let mut config = ctx.user_config(author_id).await?;
         let mut grade = None;
         let mut passes = None;
 
@@ -418,7 +432,7 @@ impl RecentArgs {
                             let content =
                                 "Failed to parse `pass`. Must be either `true` or `false`.";
 
-                            return Err(content.into());
+                            return Ok(Err(content.into()));
                         }
                     },
                     "fail" | "fails" | "f" => match value {
@@ -428,7 +442,7 @@ impl RecentArgs {
                             let content =
                                 "Failed to parse `fail`. Must be either `true` or `false`.";
 
-                            return Err(content.into());
+                            return Ok(Err(content.into()));
                         }
                     },
                     "grade" | "g" => match value.find("..") {
@@ -441,7 +455,7 @@ impl RecentArgs {
                             } else if let Ok(grade) = bot.parse() {
                                 grade
                             } else {
-                                return Err(Self::ERR_PARSE_GRADE.into());
+                                return Ok(Err(Self::ERR_PARSE_GRADE.into()));
                             };
 
                             let max = if top.is_empty() {
@@ -449,7 +463,7 @@ impl RecentArgs {
                             } else if let Ok(grade) = top.parse() {
                                 grade
                             } else {
-                                return Err(Self::ERR_PARSE_GRADE.into());
+                                return Ok(Err(Self::ERR_PARSE_GRADE.into()));
                             };
 
                             let bot = if min < max { min } else { max };
@@ -459,7 +473,7 @@ impl RecentArgs {
                         }
                         None => match value.parse().map(GradeArg::Single) {
                             Ok(grade_) => grade = Some(grade_),
-                            Err(_) => return Err(Self::ERR_PARSE_GRADE.into()),
+                            Err(_) => return Ok(Err(Self::ERR_PARSE_GRADE.into())),
                         },
                     },
                     _ => {
@@ -469,11 +483,14 @@ impl RecentArgs {
                             key
                         );
 
-                        return Err(content.into());
+                        return Ok(Err(content.into()));
                     }
                 }
             } else {
-                name = Some(Args::try_link_name(ctx, arg)?);
+                match Args::check_user_mention(ctx, arg).await? {
+                    Ok(name) => config.name = Some(name),
+                    Err(content) => return Ok(Err(content.into())),
+                }
             }
         }
 
@@ -499,11 +516,12 @@ impl RecentArgs {
             None => grade,
         };
 
-        Ok(Self {
-            name,
-            mode,
+        let args = Self {
+            config,
             index,
             grade,
-        })
+        };
+
+        Ok(Ok(args))
     }
 }

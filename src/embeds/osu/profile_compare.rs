@@ -88,13 +88,16 @@ impl ProfileCompareEmbed {
             max_right,
         );
 
+        let level_left = stats1.level.current as f32 + (stats1.level.progress as f32 / 100.0);
+        let level_right = stats2.level.current as f32 + (stats2.level.progress as f32 / 100.0);
+
         write_line(
             &mut d,
             "Level",
-            left.level,
-            right.level,
-            stats1.level.current,
-            stats2.level.current,
+            level_left,
+            level_right,
+            level_left,
+            level_right,
             max_left,
             max_right,
         );

@@ -31,7 +31,11 @@ enum MedalCommandKind {
 }
 
 impl MedalCommandKind {
-    fn slash(ctx: &Context, command: &mut ApplicationCommand) -> BotResult<Result<Self, String>> {
+    async fn slash(
+        ctx: &Context,
+        command: &mut ApplicationCommand,
+    ) -> BotResult<Result<Self, String>> {
+        let author_id = command.user_id()?;
         let mut kind = None;
 
         for option in command.yoink_options() {
@@ -88,7 +92,12 @@ impl MedalCommandKind {
                             }
                         }
 
-                        kind = Some(MedalCommandKind::Stats(username));
+                        let name = match username {
+                            Some(name) => Some(name),
+                            None => ctx.user_config(author_id).await?.name,
+                        };
+
+                        kind = Some(MedalCommandKind::Stats(name));
                     }
                     "missing" => {
                         let mut username = None;
@@ -115,7 +124,12 @@ impl MedalCommandKind {
                             }
                         }
 
-                        kind = Some(MedalCommandKind::Missing(username));
+                        let name = match username {
+                            Some(name) => Some(name),
+                            None => ctx.user_config(author_id).await?.name,
+                        };
+
+                        kind = Some(MedalCommandKind::Missing(name));
                     }
                     "recent" => {
                         let mut username = None;
@@ -143,12 +157,12 @@ impl MedalCommandKind {
                             }
                         }
 
-                        let args = RecentArgs {
-                            name: username,
-                            index,
+                        let name = match username {
+                            Some(name) => Some(name),
+                            None => ctx.user_config(author_id).await?.name,
                         };
 
-                        kind = Some(MedalCommandKind::Recent(args));
+                        kind = Some(MedalCommandKind::Recent(RecentArgs { name, index }));
                     }
                     _ => bail_cmd_option!("medal", subcommand, name),
                 },
@@ -160,11 +174,11 @@ impl MedalCommandKind {
 }
 
 pub async fn slash_medal(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match MedalCommandKind::slash(&ctx, &mut command)? {
+    match MedalCommandKind::slash(&ctx, &mut command).await? {
         Ok(MedalCommandKind::Medal(name)) => _medal(ctx, command.into(), &name).await,
-        Ok(MedalCommandKind::Missing(name)) => _medalsmissing(ctx, command.into(), name).await,
+        Ok(MedalCommandKind::Missing(config)) => _medalsmissing(ctx, command.into(), config).await,
         Ok(MedalCommandKind::Recent(args)) => _medalrecent(ctx, command.into(), args).await,
-        Ok(MedalCommandKind::Stats(name)) => _medalstats(ctx, command.into(), name).await,
+        Ok(MedalCommandKind::Stats(config)) => _medalstats(ctx, command.into(), config).await,
         Err(content) => command.error(&ctx, content).await,
     }
 }

@@ -1,6 +1,7 @@
 use super::ErrorType;
 use crate::{
     bail,
+    database::UserConfig,
     embeds::{EmbedData, NoChokeEmbed},
     pagination::{NoChokePagination, Pagination},
     tracking::process_tracking,
@@ -11,7 +12,7 @@ use crate::{
         osu::prepare_beatmap_file,
         MessageExt,
     },
-    Args, BotResult, CommandData, Context, Error, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
 use futures::{
@@ -22,37 +23,23 @@ use rosu_pp::{Beatmap as Map, FruitsPP, OsuPP, StarResult, TaikoPP};
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 use tokio::fs::File;
-use twilight_model::application::interaction::application_command::CommandDataOption;
+use twilight_model::{
+    application::interaction::application_command::CommandDataOption, id::UserId,
+};
 
 pub(super) async fn _nochokes(
     ctx: Arc<Context>,
     data: CommandData<'_>,
     args: NochokeArgs,
 ) -> BotResult<()> {
-    let NochokeArgs {
-        name,
-        mut mode,
-        miss_limit,
-    } = args;
+    let NochokeArgs { config, miss_limit } = args;
 
-    let author_id = data.author()?.id;
-
-    mode = match ctx.user_config(author_id).await {
-        Ok(config) => config.mode(mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
-    };
-
-    let name = match name {
+    let name = match config.name {
         Some(name) => name,
-        None => match ctx.get_link(author_id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
+
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
     // Retrieve the user and their top scores
     let user_fut = super::request_user(&ctx, &name, Some(mode)).map_err(From::from);
@@ -298,7 +285,7 @@ pub(super) async fn _nochokes(
 
     // Pagination
     let pagination = NoChokePagination::new(response, user, scores_data, unchoked_pp);
-    let owner = author_id;
+    let owner = data.author()?.id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 90).await {
@@ -321,11 +308,18 @@ pub(super) async fn _nochokes(
 async fn nochokes(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match NochokeArgs::args(&ctx, &mut args, GameMode::STD) {
-                Ok(nochoke_args) => {
+            match NochokeArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut nochoke_args)) => {
+                    nochoke_args.config.mode = Some(nochoke_args.config.mode(GameMode::STD));
+
                     _nochokes(ctx, CommandData::Message { msg, args, num }, nochoke_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -346,11 +340,18 @@ async fn nochokes(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn nochokestaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match NochokeArgs::args(&ctx, &mut args, GameMode::TKO) {
-                Ok(nochoke_args) => {
+            match NochokeArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut nochoke_args)) => {
+                    nochoke_args.config.mode = Some(GameMode::TKO);
+
                     _nochokes(ctx, CommandData::Message { msg, args, num }, nochoke_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -371,11 +372,18 @@ async fn nochokestaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn nochokesctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match NochokeArgs::args(&ctx, &mut args, GameMode::CTB) {
-                Ok(nochoke_args) => {
+            match NochokeArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut nochoke_args)) => {
+                    nochoke_args.config.mode = Some(GameMode::CTB);
+
                     _nochokes(ctx, CommandData::Message { msg, args, num }, nochoke_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -383,17 +391,24 @@ async fn nochokesctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 pub(super) struct NochokeArgs {
-    name: Option<Name>,
-    mode: GameMode,
+    config: UserConfig,
     miss_limit: Option<u32>,
 }
 
 impl NochokeArgs {
-    fn args(ctx: &Context, args: &mut Args, mode: GameMode) -> Result<Self, &'static str> {
-        let name = args
-            .next()
-            .map(|arg| Args::try_link_name(ctx, arg))
-            .transpose()?;
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, &'static str>> {
+        let mut config = ctx.user_config(author_id).await?;
+
+        if let Some(arg) = args.next() {
+            match Args::check_user_mention(ctx, arg).await? {
+                Ok(name) => config.name = Some(name),
+                Err(content) => return Ok(Err(content)),
+            }
+        }
 
         let miss_limit = match args.next().map(str::parse) {
             Some(Ok(num)) => Some(num),
@@ -401,32 +416,28 @@ impl NochokeArgs {
                 let content = "Failed to parse second argument as miss limit.\n\
                     Be sure you specify it as a positive integer.";
 
-                return Err(content);
+                return Ok(Err(content));
             }
             None => None,
         };
 
-        Ok(Self {
-            name,
-            mode,
-            miss_limit,
-        })
+        Ok(Ok(Self { config, miss_limit }))
     }
 
-    pub(super) fn slash(
+    pub(super) async fn slash(
         ctx: &Context,
         options: Vec<CommandDataOption>,
+        author_id: UserId,
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut username = None;
-        let mut mode = None;
+        let mut config = ctx.user_config(author_id).await?;
         let mut miss_limit = None;
 
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => username = Some(value.into()),
-                    "mode" => mode = parse_mode_option!(value, "top nochoke"),
-                    "discord" => username = parse_discord_option!(ctx, value, "top nochoke"),
+                    "name" => config.name = Some(value.into()),
+                    "mode" => config.mode = parse_mode_option!(value, "top nochoke"),
+                    "discord" => config.name = parse_discord_option!(ctx, value, "top nochoke"),
                     _ => bail_cmd_option!("top nochoke", string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
@@ -442,12 +453,6 @@ impl NochokeArgs {
             }
         }
 
-        let args = Self {
-            name: username,
-            mode: mode.unwrap_or(GameMode::STD),
-            miss_limit,
-        };
-
-        Ok(Ok(args))
+        Ok(Ok(Self { config, miss_limit }))
     }
 }

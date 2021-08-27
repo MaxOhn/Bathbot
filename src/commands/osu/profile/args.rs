@@ -1,29 +1,28 @@
 use super::ProfileSize;
 use crate::{
+    database::UserConfig,
     util::{ApplicationCommandExt, CowUtils},
-    Args, BotResult, Context, Name,
+    Args, BotResult, Context,
 };
 
 use rosu_v2::prelude::GameMode;
 use std::borrow::Cow;
-use twilight_model::application::interaction::{
-    application_command::CommandDataOption, ApplicationCommand,
+use twilight_model::{
+    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
+    id::UserId,
 };
 
 pub(super) struct ProfileArgs {
-    pub name: Option<Name>,
-    pub mode: GameMode,
-    pub kind: Option<ProfileSize>,
+    pub config: UserConfig,
 }
 
 impl ProfileArgs {
-    pub(super) fn args(
+    pub(super) async fn args(
         ctx: &Context,
-        args: &mut Args,
-        mode: GameMode,
-    ) -> Result<Self, Cow<'static, str>> {
-        let mut name = None;
-        let mut kind = None;
+        args: &mut Args<'_>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let mut config = ctx.user_config(author_id).await?;
 
         for arg in args.take(2).map(CowUtils::cow_to_ascii_lowercase) {
             if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
@@ -32,14 +31,14 @@ impl ProfileArgs {
 
                 match key {
                     "size" => {
-                        kind = match value {
-                            "compact" | "small" => Some(ProfileSize::Compact),
-                            "medium" => Some(ProfileSize::Medium),
-                            "full" | "big" => Some(ProfileSize::Full),
+                        config.profile_embed_size = match value {
+                            "compact" | "small" => ProfileSize::Compact,
+                            "medium" => ProfileSize::Medium,
+                            "full" | "big" => ProfileSize::Full,
                             _ => {
                                 let content = "Failed to parse `size`. Must be either `compact`, `medium`, or `full`.";
 
-                                return Err(content.into());
+                                return Ok(Err(content.into()));
                             }
                         };
                     }
@@ -50,37 +49,38 @@ impl ProfileArgs {
                             key
                         );
 
-                        return Err(content.into());
+                        return Ok(Err(content.into()));
                     }
                 }
             } else {
-                name = Some(Args::try_link_name(ctx, arg.as_ref())?);
+                match Args::check_user_mention(ctx, arg.as_ref()).await? {
+                    Ok(name) => config.name = Some(name),
+                    Err(content) => return Ok(Err(content.into())),
+                }
             }
         }
 
-        Ok(Self { name, mode, kind })
+        Ok(Ok(Self { config }))
     }
 
-    pub(super) fn slash(
+    pub(super) async fn slash(
         ctx: &Context,
         command: &mut ApplicationCommand,
     ) -> BotResult<Result<Self, String>> {
-        let mut username = None;
-        let mut mode = None;
-        let mut kind = None;
+        let mut config = ctx.user_config(command.user_id()?).await?;
 
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => mode = parse_mode_option!(value, "profile"),
+                    "mode" => config.mode = parse_mode_option!(value, "profile"),
                     "size" => match value.as_str() {
-                        "compact" => kind = Some(ProfileSize::Compact),
-                        "medium" => kind = Some(ProfileSize::Medium),
-                        "full" => kind = Some(ProfileSize::Full),
+                        "compact" => config.profile_embed_size = ProfileSize::Compact,
+                        "medium" => config.profile_embed_size = ProfileSize::Medium,
+                        "full" => config.profile_embed_size = ProfileSize::Full,
                         _ => bail_cmd_option!("profile size", string, value),
                     },
-                    "name" => username = Some(value.into()),
-                    "discord" => username = parse_discord_option!(ctx, value, "profile"),
+                    "name" => config.name = Some(value.into()),
+                    "discord" => config.name = parse_discord_option!(ctx, value, "profile"),
                     _ => bail_cmd_option!("profile", string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
@@ -95,12 +95,6 @@ impl ProfileArgs {
             }
         }
 
-        let args = Self {
-            name: username,
-            mode: mode.unwrap_or(GameMode::STD),
-            kind,
-        };
-
-        Ok(Ok(args))
+        Ok(Ok(Self { config }))
     }
 }

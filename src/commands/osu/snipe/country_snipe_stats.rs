@@ -2,7 +2,7 @@ use crate::{
     custom_client::SnipeCountryPlayer,
     embeds::{CountrySnipeStatsEmbed, EmbedData},
     util::{
-        constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+        constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         CountryCode, MessageExt,
     },
     BotResult, CommandData, Context, MessageBuilder,
@@ -73,10 +73,12 @@ pub(super) async fn _countrysnipestats(
     data: CommandData<'_>,
     country_code: Option<CountryCode>,
 ) -> BotResult<()> {
+    let author_id = data.author()?.id;
+
     let country_code = match country_code {
         Some(code) => code,
-        None => match ctx.get_link(data.author()?.id.0) {
-            Some(name) => {
+        None => match ctx.user_config(author_id).await.map(|config| config.name) {
+            Ok(Some(name)) => {
                 let user = match super::request_user(&ctx, &name, Some(GameMode::STD)).await {
                     Ok(user) => user,
                     Err(OsuError::NotFound) => {
@@ -102,11 +104,16 @@ pub(super) async fn _countrysnipestats(
                     return data.error(&ctx, content).await;
                 }
             }
-            None => {
+            Ok(None) => {
                 let content =
                     "Since you're not linked, you must specify a country acronym, e.g. `fr`";
 
                 return data.error(&ctx, content).await;
+            }
+            Err(why) => {
+                let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(why);
             }
         },
     };

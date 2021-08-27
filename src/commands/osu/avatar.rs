@@ -1,15 +1,21 @@
 use crate::{
     arguments::Args,
     embeds::{AvatarEmbed, EmbedData},
-    util::{constants::OSU_API_ISSUE, ApplicationCommandExt, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        ApplicationCommandExt, MessageExt,
+    },
     BotResult, CommandData, Context, Name,
 };
 
 use rosu_v2::error::OsuError;
 use std::sync::Arc;
-use twilight_model::application::{
-    command::{BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption},
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+use twilight_model::{
+    application::{
+        command::{BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption},
+        interaction::{application_command::CommandDataOption, ApplicationCommand},
+    },
+    id::UserId,
 };
 
 #[command]
@@ -20,11 +26,24 @@ use twilight_model::application::{
 async fn avatar(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            let arg_res = args.next().map(|arg| Args::try_link_name(&ctx, arg));
+            let name = match args.next() {
+                Some(arg) => match Args::check_user_mention(&ctx, arg).await {
+                    Ok(Ok(name)) => Some(name),
+                    Ok(Err(content)) => return msg.error(&ctx, content).await,
+                    Err(why) => {
+                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-            let name = match arg_res.transpose() {
-                Ok(name) => name,
-                Err(content) => return msg.error(&ctx, content).await,
+                        return Err(why);
+                    }
+                },
+                None => match ctx.user_config(msg.author.id).await {
+                    Ok(config) => config.name,
+                    Err(why) => {
+                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(why);
+                    }
+                },
             };
 
             _avatar(ctx, CommandData::Message { msg, args, num }, name).await
@@ -34,9 +53,7 @@ async fn avatar(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 async fn _avatar(ctx: Arc<Context>, data: CommandData<'_>, name: Option<Name>) -> BotResult<()> {
-    let author_id = data.author()?.id;
-
-    let name = match name.or_else(|| ctx.get_link(author_id.0)) {
+    let name = match name {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -69,7 +86,7 @@ pub async fn slash_avatar(ctx: Arc<Context>, mut command: ApplicationCommand) ->
             CommandDataOption::String { name, value } => match name.as_str() {
                 "name" => username = Some(value.into()),
                 "discord" => match value.parse() {
-                    Ok(id) => match ctx.get_link(id) {
+                    Ok(id) => match ctx.user_config(UserId(id)).await?.name {
                         Some(name) => username = Some(name),
                         None => {
                             let content = format!("<@{}> is not linked to an osu profile", id);
@@ -90,7 +107,12 @@ pub async fn slash_avatar(ctx: Arc<Context>, mut command: ApplicationCommand) ->
         }
     }
 
-    _avatar(ctx, command.into(), username).await
+    let name = match username {
+        Some(name) => Some(name),
+        None => ctx.user_config(command.user_id()?).await?.name,
+    };
+
+    _avatar(ctx, command.into(), name).await
 }
 
 pub fn slash_avatar_command() -> Command {

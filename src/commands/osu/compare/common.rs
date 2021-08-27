@@ -34,31 +34,17 @@ pub(super) async fn _common(
         name1,
         name2,
         name3,
-        mut mode,
+        mode,
     } = args;
-
-    let author_id = data.author()?.id;
-
-    mode = match ctx.user_config(author_id).await {
-        Ok(config) => config.mode(mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
-    };
 
     let name1 = match name1 {
         Some(name) => name,
-        None => match ctx.get_link(author_id.0) {
-            Some(name) => name,
-            None => {
-                let content =
-                    "Since you're not linked with the `link` command, you must specify two names.";
+        None => {
+            let content =
+                "Since you're not linked with the `link` command, you must specify two names.";
 
-                return data.error(&ctx, content).await;
-            }
-        },
+            return data.error(&ctx, content).await;
+        }
     };
 
     let mut names = Vec::with_capacity(3);
@@ -318,7 +304,7 @@ pub(super) async fn _common(
 
     // Pagination
     let pagination = CommonPagination::new(response, users, scores_per_map);
-    let owner = author_id;
+    let owner = data.author()?.id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -340,13 +326,18 @@ pub(super) async fn _common(
 pub async fn common(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match TripleArgs::args(&ctx, &mut args, Some(GameMode::STD)) {
-                Ok(common_args) => {
+            match TripleArgs::args(&ctx, &mut args, msg.author.id, Some(GameMode::STD)).await {
+                Ok(Ok(common_args)) => {
                     let data = CommandData::Message { msg, args, num };
 
                     _common(ctx, data, common_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
@@ -365,13 +356,18 @@ pub async fn common(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 pub async fn commonmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match TripleArgs::args(&ctx, &mut args, Some(GameMode::MNA)) {
-                Ok(common_args) => {
+            match TripleArgs::args(&ctx, &mut args, msg.author.id, Some(GameMode::MNA)).await {
+                Ok(Ok(common_args)) => {
                     let data = CommandData::Message { msg, args, num };
 
                     _common(ctx, data, common_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
@@ -390,13 +386,18 @@ pub async fn commonmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
 pub async fn commontaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match TripleArgs::args(&ctx, &mut args, Some(GameMode::TKO)) {
-                Ok(common_args) => {
+            match TripleArgs::args(&ctx, &mut args, msg.author.id, Some(GameMode::TKO)).await {
+                Ok(Ok(common_args)) => {
                     let data = CommandData::Message { msg, args, num };
 
                     _common(ctx, data, common_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
@@ -415,13 +416,18 @@ pub async fn commontaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
 pub async fn commonctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match TripleArgs::args(&ctx, &mut args, Some(GameMode::CTB)) {
-                Ok(common_args) => {
+            match TripleArgs::args(&ctx, &mut args, msg.author.id, Some(GameMode::CTB)).await {
+                Ok(Ok(common_args)) => {
                     let data = CommandData::Message { msg, args, num };
 
                     _common(ctx, data, common_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_compare(ctx, command).await,

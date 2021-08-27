@@ -30,10 +30,11 @@ enum OsustatsCommandKind {
 }
 
 impl OsustatsCommandKind {
-    fn slash(
+    async fn slash(
         ctx: &Context,
         command: &mut ApplicationCommand,
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let author_id = command.user_id()?;
         let mut kind = None;
 
         for option in command.yoink_options() {
@@ -48,7 +49,7 @@ impl OsustatsCommandKind {
                     bail_cmd_option!("osustats", boolean, name)
                 }
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "count" => match CountArgs::slash(ctx, options)? {
+                    "count" => match CountArgs::slash(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(Self::Count(args)),
                         Err(content) => return Ok(Err(content.into())),
                     },
@@ -56,7 +57,7 @@ impl OsustatsCommandKind {
                         Ok(args) => kind = Some(Self::Players(args)),
                         Err(content) => return Ok(Err(content.into())),
                     },
-                    "scores" => match ScoresArgs::slash(ctx, options)? {
+                    "scores" => match ScoresArgs::slash(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(Self::Scores(args)),
                         Err(content) => return Ok(Err(content)),
                     },
@@ -70,7 +71,7 @@ impl OsustatsCommandKind {
 }
 
 pub async fn slash_osustats(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match OsustatsCommandKind::slash(&ctx, &mut command)? {
+    match OsustatsCommandKind::slash(&ctx, &mut command).await? {
         Ok(OsustatsCommandKind::Count(args)) => _count(ctx, command.into(), args).await,
         Ok(OsustatsCommandKind::Players(args)) => _players(ctx, command.into(), args).await,
         Ok(OsustatsCommandKind::Scores(args)) => _scores(ctx, command.into(), args).await,

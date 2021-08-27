@@ -38,10 +38,11 @@ enum TopCommandKind {
 }
 
 impl TopCommandKind {
-    fn slash(
+    async fn slash(
         ctx: &Context,
         command: &mut ApplicationCommand,
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let author_id = command.user_id()?;
         let mut kind = None;
 
         for option in command.yoink_options() {
@@ -54,27 +55,27 @@ impl TopCommandKind {
                     bail_cmd_option!("top", boolean, name)
                 }
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "current" => match TopArgs::slash(ctx, options)? {
+                    "current" => match TopArgs::slash(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(TopCommandKind::Top(args)),
                         Err(content) => return Ok(Err(content)),
                     },
-                    "if" => match IfArgs::slash(ctx, options)? {
+                    "if" => match IfArgs::slash(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(TopCommandKind::If(args)),
                         Err(content) => return Ok(Err(content)),
                     },
-                    "mapper" => match MapperArgs::slash(ctx, options)? {
+                    "mapper" => match MapperArgs::slash(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(TopCommandKind::Mapper(args)),
                         Err(content) => return Ok(Err(content)),
                     },
-                    "nochoke" => match NochokeArgs::slash(ctx, options)? {
+                    "nochoke" => match NochokeArgs::slash(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(TopCommandKind::Nochoke(args)),
                         Err(content) => return Ok(Err(content)),
                     },
-                    "old" => match OldArgs::slash(ctx, options)? {
+                    "old" => match OldArgs::slash(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(TopCommandKind::Old(args)),
                         Err(content) => return Ok(Err(content)),
                     },
-                    "rebalance" => match RebalanceArgs::slash(ctx, options)? {
+                    "rebalance" => match RebalanceArgs::slash(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(TopCommandKind::Rebalance(args)),
                         Err(content) => return Ok(Err(content)),
                     },
@@ -88,7 +89,7 @@ impl TopCommandKind {
 }
 
 pub async fn slash_top(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match TopCommandKind::slash(&ctx, &mut command)? {
+    match TopCommandKind::slash(&ctx, &mut command).await? {
         Ok(TopCommandKind::If(args)) => _topif(ctx, command.into(), args).await,
         Ok(TopCommandKind::Mapper(args)) => _mapper(ctx, command.into(), args).await,
         Ok(TopCommandKind::Nochoke(args)) => _nochokes(ctx, command.into(), args).await,

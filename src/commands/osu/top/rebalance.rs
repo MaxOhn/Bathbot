@@ -1,5 +1,6 @@
 use super::ErrorType;
 use crate::{
+    database::UserConfig,
     embeds::{EmbedData, TopIfEmbed},
     pagination::{Pagination, TopIfPagination},
     tracking::process_tracking,
@@ -10,7 +11,7 @@ use crate::{
         osu::prepare_beatmap_file,
         CowUtils, MessageExt,
     },
-    Args, BotResult, CommandData, Context, Error, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
 use futures::{
@@ -21,16 +22,23 @@ use rosu_pp_newer::{osu_delta, osu_sotarks, osu_xexxar};
 use rosu_v2::prelude::{GameMode, OsuError, Score};
 use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 use tokio::fs::File;
-use twilight_model::application::interaction::application_command::CommandDataOption;
+use twilight_model::{
+    application::interaction::application_command::CommandDataOption, id::UserId,
+};
 
 pub(super) struct RebalanceArgs {
-    pub name: Option<Name>,
+    pub config: UserConfig,
     pub version: RebalanceVersion,
-    pub mode: GameMode,
 }
 
 impl RebalanceArgs {
-    fn args(ctx: &Context, args: &mut Args, mode: GameMode) -> Result<Self, &'static str> {
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, &'static str>> {
+        let mut config = ctx.user_config(author_id).await?;
+
         let version = match args.next().map(CowUtils::cow_to_ascii_lowercase).as_deref() {
             Some("xexxar") => RebalanceVersion::Xexxar,
             Some("delta") | Some("delta_t") | Some("deltat") => RebalanceVersion::Delta,
@@ -39,36 +47,33 @@ impl RebalanceArgs {
                 let content = "The first argument must be the version name so either \
                     `xexxar`, `delta`, or `sotarks`.";
 
-                return Err(content);
+                return Ok(Err(content));
             }
         };
 
-        let name = args
-            .next()
-            .map(|arg| Args::try_link_name(ctx, arg))
-            .transpose()?;
+        if let Some(arg) = args.next() {
+            match Args::check_user_mention(ctx, arg).await? {
+                Ok(name) => config.name = Some(name),
+                Err(content) => return Ok(Err(content)),
+            }
+        }
 
-        let args = Self {
-            name,
-            version,
-            mode,
-        };
-
-        Ok(args)
+        Ok(Ok(Self { config, version }))
     }
 
-    pub(super) fn slash(
+    pub(super) async fn slash(
         ctx: &Context,
         options: Vec<CommandDataOption>,
+        author_id: UserId,
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut username = None;
+        let mut config = ctx.user_config(author_id).await?;
         let mut version = None;
 
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => username = Some(value.into()),
-                    "discord" => username = parse_discord_option!(ctx, value, "top rebalance"),
+                    "name" => config.name = Some(value.into()),
+                    "discord" => config.name = parse_discord_option!(ctx, value, "top rebalance"),
                     "version" => match value.as_str() {
                         "delta_t" => version = Some(RebalanceVersion::Delta),
                         "sotarks" => version = Some(RebalanceVersion::Sotarks),
@@ -93,8 +98,7 @@ impl RebalanceArgs {
 
         let args = Self {
             version: version.ok_or(Error::InvalidCommandOptions)?,
-            name: username,
-            mode: GameMode::STD,
+            config,
         };
 
         Ok(Ok(args))
@@ -113,30 +117,14 @@ pub(super) async fn _rebalance(
     data: CommandData<'_>,
     args: RebalanceArgs,
 ) -> BotResult<()> {
-    let RebalanceArgs {
-        name,
-        version,
-        mut mode,
-    } = args;
+    let RebalanceArgs { config, version } = args;
 
-    let author_id = data.author()?.id;
-
-    mode = match ctx.user_config(author_id).await {
-        Ok(config) => config.mode(mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
-    };
-
-    let name = match name {
+    let name = match config.name {
         Some(name) => name,
-        None => match ctx.get_link(author_id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
+
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
     // Retrieve the user and their top scores
     let user_fut = super::request_user(&ctx, &name, Some(mode)).map_err(From::from);
@@ -256,7 +244,7 @@ pub(super) async fn _rebalance(
 
     // Pagination
     let pagination = TopIfPagination::new(response, user, scores_data, mode, pre_pp, post_pp);
-    let owner = author_id;
+    let owner = data.author()?.id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -286,11 +274,18 @@ pub(super) async fn _rebalance(
 pub async fn rebalance(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RebalanceArgs::args(&ctx, &mut args, GameMode::STD) {
-                Ok(rebalance_args) => {
+            match RebalanceArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut rebalance_args)) => {
+                    rebalance_args.config.mode = Some(rebalance_args.config.mode(GameMode::STD));
+
                     _rebalance(ctx, CommandData::Message { msg, args, num }, rebalance_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,

@@ -30,11 +30,4 @@ impl Context {
 
         Ok(())
     }
-
-    #[cold]
-    pub fn add_role_assign(&self, channel_id: ChannelId, msg_id: MessageId, role_id: RoleId) {
-        self.data
-            .role_assigns
-            .insert((channel_id.0, msg_id.0), role_id.0);
-    }
 }

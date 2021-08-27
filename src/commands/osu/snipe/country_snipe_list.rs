@@ -53,8 +53,8 @@ pub(super) async fn _countrysnipelist(
     let author_id = data.author()?.id;
 
     // Retrieve author's osu user to check if they're in the list
-    let osu_user = match ctx.get_link(author_id.0) {
-        Some(name) => match super::request_user(&ctx, &name, Some(GameMode::STD)).await {
+    let osu_user = match ctx.user_config(author_id).await.map(|config| config.name) {
+        Ok(Some(name)) => match super::request_user(&ctx, &name, Some(GameMode::STD)).await {
             Ok(user) => Some(user),
             Err(OsuError::NotFound) => {
                 let content = format!("User `{}` was not found", name);
@@ -67,7 +67,17 @@ pub(super) async fn _countrysnipelist(
                 return Err(why.into());
             }
         },
-        None => None,
+        Ok(None) => None,
+        Err(why) => {
+            unwind_error!(
+                warn,
+                why,
+                "Failed to get UserConfig for user {}: {}",
+                author_id
+            );
+
+            None
+        }
     };
 
     let CountryListArgs { country, sort } = args;

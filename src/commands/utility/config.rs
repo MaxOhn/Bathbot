@@ -1,13 +1,16 @@
 use crate::{
-    commands::osu::ProfileSize,
+    commands::osu::{request_user, ProfileSize},
     database::UserConfig,
     embeds::{ConfigEmbed, EmbedData},
-    util::{constants::GENERAL_ISSUE, ApplicationCommandExt, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        ApplicationCommandExt, CowUtils, MessageExt,
+    },
     Args, BotResult, CommandData, Context, Name,
 };
 
-use rosu_v2::prelude::GameMode;
-use std::{borrow::Cow, sync::Arc};
+use rosu_v2::prelude::{GameMode, OsuError};
+use std::{borrow::Cow, fmt::Write, sync::Arc};
 use twilight_model::application::{
     command::{
         BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice,
@@ -22,7 +25,7 @@ use twilight_model::application::{
     All arguments must be of the form `key=value`.\n\n\
     These are all keys and their values:\n\
     - `name`: Specify an osu! username. Don't forget to encapsulate it with `\"` if it contains whitespace.\n\
-    - `mode`: `osu`, `taiko`, `ctb`, or `mania`. \
+    - `mode`: `osu`, `taiko`, `ctb`, `mania`, or `none`. \
     If configured, you won't need to specify the mode for commands anymore e.g. \
     you can use the `recent` command instead of `recentmania` to show a recent mania score.\n\
     - `profile`: `compact`, `medium`, or `full`. Specify the initial size for the embed of profile commands.\n\
@@ -69,13 +72,39 @@ async fn _config(ctx: Arc<Context>, data: CommandData<'_>, args: ConfigArgs) -> 
             recent_embed_maximize,
         } = args;
 
-        if let Some(ref name) = name {
-            if name.chars().count() > 15 {
-                let content = "That name is too long, must be at most 15 characters";
+        let name = match name.as_deref() {
+            Some(name) => {
+                if name.chars().count() > 15 {
+                    let content = "That name is too long, must be at most 15 characters";
 
-                return data.error(&ctx, content).await;
+                    return data.error(&ctx, content).await;
+                }
+
+                match request_user(&ctx, name, None).await {
+                    Ok(user) => Some(user.username.into()),
+                    Err(OsuError::NotFound) => {
+                        let mut content = format!("No user with the name `{}` was found.", name);
+
+                        if name.contains('_') {
+                            let _ = write!(
+                                content,
+                                "\nIf the name contains whitespace, be sure to encapsulate \
+                                it inbetween quotation marks, e.g `\"{}\"`.",
+                                name.replace('_', " "),
+                            );
+                        }
+
+                        return data.error(&ctx, content).await;
+                    }
+                    Err(why) => {
+                        let _ = data.error(&ctx, OSU_API_ISSUE).await;
+
+                        return Err(why.into());
+                    }
+                }
             }
-        }
+            None => None,
+        };
 
         let mut config = match ctx.psql().get_user_config(author.id).await {
             Ok(Some(config)) => config,
@@ -91,7 +120,9 @@ async fn _config(ctx: Arc<Context>, data: CommandData<'_>, args: ConfigArgs) -> 
             config.mode = mode;
         }
 
-        config.name = name;
+        if let Some(name) = name {
+            config.name = Some(name);
+        }
 
         if let Some(size) = profile_embed_size {
             config.profile_embed_size = size;
@@ -118,7 +149,7 @@ async fn _config(ctx: Arc<Context>, data: CommandData<'_>, args: ConfigArgs) -> 
 }
 
 struct ConfigArgs {
-    mode: Option<GameMode>,
+    mode: Option<Option<GameMode>>,
     name: Option<Name>,
     profile_embed_size: Option<ProfileSize>,
     recent_embed_maximize: Option<bool>,
@@ -138,17 +169,22 @@ impl ConfigArgs {
         let mut profile_embed_size = None;
         let mut recent_embed_maximize = None;
 
-        for arg in args {
+        for arg in args.map(CowUtils::cow_to_ascii_lowercase) {
             if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
                 let key = &arg[..idx];
                 let value = arg[idx + 1..].trim_end();
 
                 match key {
                     "mode" | "gamemode" | "m" => match value {
-                        "osu" | "osu!" | "0" | "standard" | "std" => mode = Some(GameMode::STD),
-                        "taiko" | "tko" | "1" => mode = Some(GameMode::TKO),
-                        "ctb" | "catch the beat" | "2" | "catch" => mode = Some(GameMode::CTB),
-                        "mania" | "mna" | "3" => mode = Some(GameMode::MNA),
+                        "none" => mode = Some(None),
+                        "osu" | "osu!" | "0" | "standard" | "std" => {
+                            mode = Some(Some(GameMode::STD))
+                        }
+                        "taiko" | "tko" | "1" => mode = Some(Some(GameMode::TKO)),
+                        "ctb" | "catch the beat" | "2" | "catch" => {
+                            mode = Some(Some(GameMode::CTB))
+                        }
+                        "mania" | "mna" | "3" => mode = Some(Some(GameMode::MNA)),
                         _ => {
                             let content = "Failed to parse `mode`. Must be either `osu`, `taiko`, `ctb`, or `mania`.";
 
@@ -217,12 +253,21 @@ impl ConfigArgs {
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => mode = parse_mode_option!(value, "config"),
+                    "mode" => {
+                        mode = match value.as_str() {
+                            "none" => Some(None),
+                            "osu" => Some(Some(GameMode::STD)),
+                            "taiko" => Some(Some(GameMode::TKO)),
+                            "catch" => Some(Some(GameMode::CTB)),
+                            "mania" => Some(Some(GameMode::MNA)),
+                            _ => bail_cmd_option!("config mode", string, value),
+                        }
+                    }
                     "profile" => match value.as_str() {
                         "compact" => profile_embed_size = Some(ProfileSize::Compact),
                         "medium" => profile_embed_size = Some(ProfileSize::Medium),
                         "full" => profile_embed_size = Some(ProfileSize::Full),
-                        _ => bail_cmd_option!("profile size", string, value),
+                        _ => bail_cmd_option!("config profile", string, value),
                     },
                     "name" => username = Some(value.into()),
                     _ => bail_cmd_option!("config", string, name),
@@ -274,6 +319,10 @@ pub fn slash_config_command() -> Command {
             }),
             CommandOption::String(ChoiceCommandOptionData {
                 choices: vec![
+                    CommandOptionChoice::String {
+                        name: "none".to_owned(),
+                        value: "none".to_owned(),
+                    },
                     CommandOptionChoice::String {
                         name: "osu".to_owned(),
                         value: "osu".to_owned(),

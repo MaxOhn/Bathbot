@@ -1,8 +1,11 @@
 use crate::{
     embeds::{EmbedData, MostPlayedEmbed},
     pagination::{MostPlayedPagination, Pagination},
-    util::{constants::OSU_API_ISSUE, numbers, ApplicationCommandExt, MessageExt},
-    BotResult, CommandData, Context, Name,
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        numbers, ApplicationCommandExt, MessageExt,
+    },
+    Args, BotResult, CommandData, Context, Name,
 };
 
 use rosu_v2::prelude::OsuError;
@@ -20,10 +23,27 @@ use twilight_model::application::{
 async fn mostplayed(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            let name = args.next().map(Name::from);
-            let data = CommandData::Message { msg, args, num };
+            let name = match args.next() {
+                Some(arg) => match Args::check_user_mention(&ctx, arg).await {
+                    Ok(Ok(name)) => Some(name),
+                    Ok(Err(content)) => return msg.error(&ctx, content).await,
+                    Err(why) => {
+                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-            _mostplayed(ctx, data, name).await
+                        return Err(why);
+                    }
+                },
+                None => match ctx.user_config(msg.author.id).await {
+                    Ok(config) => config.name,
+                    Err(why) => {
+                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(why);
+                    }
+                },
+            };
+
+            _mostplayed(ctx, CommandData::Message { msg, args, num }, name).await
         }
         CommandData::Interaction { command } => slash_mostplayed(ctx, command).await,
     }
@@ -34,14 +54,9 @@ async fn _mostplayed(
     data: CommandData<'_>,
     name: Option<Name>,
 ) -> BotResult<()> {
-    let author_id = data.author()?.id;
-
     let name = match name {
         Some(name) => name,
-        None => match ctx.get_link(author_id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
 
     // Retrieve the user and their most played maps
@@ -88,7 +103,7 @@ async fn _mostplayed(
 
     // Pagination
     let pagination = MostPlayedPagination::new(response, user, maps);
-    let owner = author_id;
+    let owner = data.author()?.id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -99,26 +114,17 @@ async fn _mostplayed(
     Ok(())
 }
 
-pub async fn slash_mostplayed(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+async fn parse_username(
+    ctx: &Context,
+    command: &mut ApplicationCommand,
+) -> BotResult<Result<Option<Name>, String>> {
     let mut username = None;
 
     for option in command.yoink_options() {
         match option {
             CommandDataOption::String { name, value } => match name.as_str() {
                 "name" => username = Some(value.into()),
-                "discord" => match value.parse() {
-                    Ok(id) => match ctx.get_link(id) {
-                        Some(name) => username = Some(name),
-                        None => {
-                            let content = format!("<@{}> is not linked to an osu profile", id);
-
-                            return command.error(&ctx, content).await;
-                        }
-                    },
-                    Err(_) => {
-                        bail_cmd_option!("mostplayed discord", string, value)
-                    }
-                },
+                "discord" => username = parse_discord_option!(ctx, value, "mostplayed"),
                 _ => bail_cmd_option!("mostplayed", string, name),
             },
             CommandDataOption::Integer { name, .. } => {
@@ -133,7 +139,24 @@ pub async fn slash_mostplayed(ctx: Arc<Context>, mut command: ApplicationCommand
         }
     }
 
-    _mostplayed(ctx, command.into(), username).await
+    let name = match username {
+        Some(name) => Some(name),
+        None => ctx.user_config(command.user_id()?).await?.name,
+    };
+
+    Ok(Ok(name))
+}
+
+pub async fn slash_mostplayed(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    match parse_username(&ctx, &mut command).await {
+        Ok(Ok(name)) => _mostplayed(ctx, command.into(), name).await,
+        Ok(Err(content)) => command.error(&ctx, content).await,
+        Err(why) => {
+            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+
+            Err(why)
+        }
+    }
 }
 
 pub fn slash_mostplayed_command() -> Command {

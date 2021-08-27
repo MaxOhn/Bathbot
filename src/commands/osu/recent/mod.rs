@@ -32,10 +32,11 @@ enum RecentCommandKind {
 }
 
 impl RecentCommandKind {
-    fn slash(
+    async fn slash(
         ctx: &Context,
         command: &mut ApplicationCommand,
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let author_id = command.user_id()?;
         let mut kind = None;
 
         for option in command.yoink_options() {
@@ -49,32 +50,21 @@ impl RecentCommandKind {
                 }
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
                     "score" => {
-                        let mut username = None;
-                        let mut mode = None;
+                        let mut config = ctx.user_config(author_id).await?;
                         let mut index = None;
                         let mut grade = None;
 
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => username = Some(value.into()),
-                                    "discord" => match value.parse() {
-                                        Ok(id) => match ctx.get_link(id) {
-                                            Some(name) => username = Some(name),
-                                            None => {
-                                                let content = format!(
-                                                    "<@{}> is not linked to an osu profile",
-                                                    id
-                                                );
-
-                                                return Ok(Err(content.into()));
-                                            }
-                                        },
-                                        Err(_) => {
-                                            bail_cmd_option!("recent score discord", string, value)
-                                        }
-                                    },
-                                    "mode" => mode = parse_mode_option!(value, "recent score"),
+                                    "name" => config.name = Some(value.into()),
+                                    "discord" => {
+                                        config.name =
+                                            parse_discord_option!(ctx, value, "recent score")
+                                    }
+                                    "mode" => {
+                                        config.mode = parse_mode_option!(value, "recent score")
+                                    }
                                     "grade" => match value.as_str() {
                                         "SS" => {
                                             grade = Some(GradeArg::Range {
@@ -126,8 +116,7 @@ impl RecentCommandKind {
                         }
 
                         let args = RecentArgs {
-                            name: username,
-                            mode: mode.unwrap_or(GameMode::STD),
+                            config,
                             index,
                             grade,
                         };
@@ -135,8 +124,8 @@ impl RecentCommandKind {
                         kind = Some(RecentCommandKind::Score(args));
                     }
                     "leaderboard" => {
+                        let mut config = ctx.user_config(author_id).await?;
                         let mut username = None;
-                        let mut mode = None;
                         let mut mods = None;
                         let mut index = None;
 
@@ -152,28 +141,13 @@ impl RecentCommandKind {
                                             return Ok(Err(content.into()));
                                         }
                                     },
-                                    "discord" => match value.parse() {
-                                        Ok(id) => match ctx.get_link(id) {
-                                            Some(name) => username = Some(name),
-                                            None => {
-                                                let content = format!(
-                                                    "<@{}> is not linked to an osu profile",
-                                                    id
-                                                );
-
-                                                return Ok(Err(content.into()));
-                                            }
-                                        },
-                                        Err(_) => {
-                                            bail_cmd_option!(
-                                                "recent leaderboard discord",
-                                                string,
-                                                value
-                                            )
-                                        }
-                                    },
+                                    "discord" => {
+                                        username =
+                                            parse_discord_option!(ctx, value, "recent leaderboard")
+                                    }
                                     "mode" => {
-                                        mode = parse_mode_option!(value, "recent leaderboard")
+                                        config.mode =
+                                            parse_mode_option!(value, "recent leaderboard")
                                     }
                                     _ => bail_cmd_option!("recent leaderboard", string, name),
                                 },
@@ -191,8 +165,8 @@ impl RecentCommandKind {
                         }
 
                         let args = RecentLeaderboardArgs {
+                            config,
                             name: username,
-                            mode: mode.unwrap_or(GameMode::STD),
                             mods,
                             index,
                         };
@@ -200,31 +174,20 @@ impl RecentCommandKind {
                         kind = Some(RecentCommandKind::Leaderboard(args));
                     }
                     "list" => {
-                        let mut username = None;
-                        let mut mode = None;
+                        let mut config = ctx.user_config(author_id).await?;
                         let mut grade = None;
 
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => username = Some(value.into()),
-                                    "discord" => match value.parse() {
-                                        Ok(id) => match ctx.get_link(id) {
-                                            Some(name) => username = Some(name),
-                                            None => {
-                                                let content = format!(
-                                                    "<@{}> is not linked to an osu profile",
-                                                    id
-                                                );
-
-                                                return Ok(Err(content.into()));
-                                            }
-                                        },
-                                        Err(_) => {
-                                            bail_cmd_option!("recent list discord", string, value)
-                                        }
-                                    },
-                                    "mode" => mode = parse_mode_option!(value, "recent list"),
+                                    "name" => config.name = Some(value.into()),
+                                    "discord" => {
+                                        config.name =
+                                            parse_discord_option!(ctx, value, "recent list")
+                                    }
+                                    "mode" => {
+                                        config.mode = parse_mode_option!(value, "recent list")
+                                    }
                                     "grade" => match value.as_str() {
                                         "SS" => {
                                             grade = Some(GradeArg::Range {
@@ -274,17 +237,10 @@ impl RecentCommandKind {
                             }
                         }
 
-                        let args = RecentListArgs {
-                            name: username,
-                            mode: mode.unwrap_or(GameMode::STD),
-                            grade,
-                        };
-
-                        kind = Some(RecentCommandKind::List(args));
+                        kind = Some(RecentCommandKind::List(RecentListArgs { config, grade }));
                     }
                     "simulate" => {
-                        let mut username = None;
-                        let mut mode = None;
+                        let mut config = ctx.user_config(author_id).await?;
                         let mut mods = None;
                         let mut index = None;
                         let mut n300 = None;
@@ -298,7 +254,7 @@ impl RecentCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => username = Some(value.into()),
+                                    "name" => config.name = Some(value.into()),
                                     "mods" => match value.parse() {
                                         Ok(m) => mods = Some(ModSelection::Include(m)),
                                         Err(_) => {
@@ -307,27 +263,13 @@ impl RecentCommandKind {
                                             return Ok(Err(content.into()));
                                         }
                                     },
-                                    "discord" => match value.parse() {
-                                        Ok(id) => match ctx.get_link(id) {
-                                            Some(name) => username = Some(name),
-                                            None => {
-                                                let content = format!(
-                                                    "<@{}> is not linked to an osu profile",
-                                                    id
-                                                );
-
-                                                return Ok(Err(content.into()));
-                                            }
-                                        },
-                                        Err(_) => {
-                                            bail_cmd_option!(
-                                                "recent simulate discord",
-                                                string,
-                                                value
-                                            )
-                                        }
-                                    },
-                                    "mode" => mode = parse_mode_option!(value, "recent simulate"),
+                                    "discord" => {
+                                        config.name =
+                                            parse_discord_option!(ctx, value, "recent simulate")
+                                    }
+                                    "mode" => {
+                                        config.mode = parse_mode_option!(value, "recent simulate")
+                                    }
                                     _ => bail_cmd_option!("recent simulate", string, name),
                                 },
                                 CommandDataOption::Integer { name, value } => match name.as_str() {
@@ -350,8 +292,7 @@ impl RecentCommandKind {
                         }
 
                         let args = RecentSimulateArgs {
-                            name: username,
-                            mode: mode.unwrap_or(GameMode::STD),
+                            config,
                             mods,
                             index,
                             n300,
@@ -375,7 +316,7 @@ impl RecentCommandKind {
 }
 
 pub async fn slash_recent(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match RecentCommandKind::slash(&ctx, &mut command)? {
+    match RecentCommandKind::slash(&ctx, &mut command).await? {
         Ok(RecentCommandKind::Score(args)) => _recent(ctx, command.into(), args).await,
         Ok(RecentCommandKind::Leaderboard(args)) => {
             _recentleaderboard(ctx, command.into(), args, false).await

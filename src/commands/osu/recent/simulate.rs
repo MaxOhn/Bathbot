@@ -1,4 +1,5 @@
 use crate::{
+    database::UserConfig,
     embeds::{EmbedData, SimulateEmbed},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -6,37 +7,25 @@ use crate::{
         osu::ModSelection,
         MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{borrow::Cow, sync::Arc};
 use tokio::time::{sleep, Duration};
+use twilight_model::id::UserId;
 
 pub(super) async fn _recentsimulate(
     ctx: Arc<Context>,
     data: CommandData<'_>,
-    mut args: RecentSimulateArgs,
+    args: RecentSimulateArgs,
 ) -> BotResult<()> {
-    let author_id = data.author()?.id;
-
-    let mode = match ctx.user_config(author_id).await {
-        Ok(config) => config.mode(args.mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
+    let name = match args.config.name {
+        Some(ref name) => name.as_str(),
+        None => return super::require_link(&ctx, &data).await,
     };
 
-    let name = match args.name.take() {
-        Some(name) => name,
-        None => match ctx.get_link(author_id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
-    };
-
+    let mode = args.config.mode.unwrap_or(GameMode::STD);
     let limit = args.index.map_or(1, |n| n + (n == 0) as usize);
 
     if limit > 50 {
@@ -48,7 +37,7 @@ pub(super) async fn _recentsimulate(
     // Retrieve the recent score
     let scores_fut = ctx
         .osu()
-        .user_scores(name.as_str())
+        .user_scores(name)
         .recent()
         .mode(mode)
         .include_fails(true)
@@ -173,11 +162,18 @@ pub(super) async fn _recentsimulate(
 pub async fn simulaterecent(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RecentSimulateArgs::args(&ctx, &mut args, GameMode::STD, num) {
-                Ok(recent_args) => {
+            match RecentSimulateArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut recent_args)) => {
+                    recent_args.config.mode = Some(recent_args.config.mode(GameMode::STD));
+
                     _recentsimulate(ctx, CommandData::Message { msg, args, num }, recent_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
@@ -197,11 +193,18 @@ pub async fn simulaterecent(ctx: Arc<Context>, data: CommandData) -> BotResult<(
 pub async fn simulaterecentmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RecentSimulateArgs::args(&ctx, &mut args, GameMode::MNA, num) {
-                Ok(recent_args) => {
+            match RecentSimulateArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut recent_args)) => {
+                    recent_args.config.mode = Some(GameMode::MNA);
+
                     _recentsimulate(ctx, CommandData::Message { msg, args, num }, recent_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
@@ -223,11 +226,18 @@ pub async fn simulaterecentmania(ctx: Arc<Context>, data: CommandData) -> BotRes
 pub async fn simulaterecenttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RecentSimulateArgs::args(&ctx, &mut args, GameMode::TKO, num) {
-                Ok(recent_args) => {
+            match RecentSimulateArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut recent_args)) => {
+                    recent_args.config.mode = Some(GameMode::TKO);
+
                     _recentsimulate(ctx, CommandData::Message { msg, args, num }, recent_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
@@ -250,11 +260,18 @@ pub async fn simulaterecenttaiko(ctx: Arc<Context>, data: CommandData) -> BotRes
 pub async fn simulaterecentctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RecentSimulateArgs::args(&ctx, &mut args, GameMode::CTB, num) {
-                Ok(recent_args) => {
+            match RecentSimulateArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut recent_args)) => {
+                    recent_args.config.mode = Some(GameMode::CTB);
+
                     _recentsimulate(ctx, CommandData::Message { msg, args, num }, recent_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
@@ -262,9 +279,8 @@ pub async fn simulaterecentctb(ctx: Arc<Context>, data: CommandData) -> BotResul
 }
 
 pub struct RecentSimulateArgs {
-    pub(super) name: Option<Name>,
+    pub(super) config: UserConfig,
     pub(super) index: Option<usize>,
-    pub(super) mode: GameMode,
     pub mods: Option<ModSelection>,
     pub n300: Option<usize>,
     pub n100: Option<usize>,
@@ -277,18 +293,22 @@ pub struct RecentSimulateArgs {
 
 macro_rules! parse_fail {
     ($key:ident, $ty:literal) => {
-        return Err(format!(concat!("Failed to parse `{}`. Must be ", $ty, "."), $key).into());
+        return Ok(Err(format!(
+            concat!("Failed to parse `{}`. Must be ", $ty, "."),
+            $key
+        )
+        .into()));
     };
 }
 
 impl RecentSimulateArgs {
-    fn args(
+    async fn args(
         ctx: &Context,
-        args: &mut Args,
-        mode: GameMode,
+        args: &mut Args<'_>,
+        author_id: UserId,
         index: Option<usize>,
-    ) -> Result<Self, Cow<'static, str>> {
-        let mut name = None;
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let mut config = ctx.user_config(author_id).await?;
         let mut mods = None;
         let mut n300 = None;
         let mut n100 = None;
@@ -344,20 +364,22 @@ impl RecentSimulateArgs {
                             key
                         );
 
-                        return Err(content.into());
+                        return Ok(Err(content.into()));
                     }
                 }
             } else if let Some(mods_) = matcher::get_mods(arg) {
                 mods.replace(mods_);
             } else {
-                name = Some(Args::try_link_name(ctx, arg)?);
+                match Args::check_user_mention(ctx, arg).await? {
+                    Ok(name) => config.name = Some(name),
+                    Err(content) => return Ok(Err(content.into())),
+                }
             }
         }
 
-        Ok(Self {
-            name,
+        let args = Self {
+            config,
             index,
-            mode,
             mods,
             n300,
             n100,
@@ -366,6 +388,8 @@ impl RecentSimulateArgs {
             acc,
             combo,
             score,
-        })
+        };
+
+        Ok(Ok(args))
     }
 }

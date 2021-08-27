@@ -1,4 +1,5 @@
 use crate::{
+    database::UserConfig,
     embeds::{CompareEmbed, EmbedData, NoScoresEmbed},
     tracking::process_tracking,
     util::{
@@ -16,7 +17,8 @@ use rosu_v2::prelude::{GameMods, OsuError, RankStatus::Ranked};
 use std::{borrow::Cow, sync::Arc};
 use tokio::time::{sleep, Duration};
 use twilight_model::{
-    application::interaction::application_command::CommandDataOption, channel::message::MessageType,
+    application::interaction::application_command::CommandDataOption,
+    channel::message::MessageType, id::UserId,
 };
 
 #[command]
@@ -36,21 +38,28 @@ use twilight_model::{
 #[aliases("c")]
 async fn compare(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
-        CommandData::Message { msg, mut args, num } => match ScoreArgs::args(&ctx, &mut args) {
-            Ok(mut score_args) => {
-                let reply = msg
-                    .referenced_message
-                    .as_ref()
-                    .filter(|msg| msg.kind == MessageType::Reply);
+        CommandData::Message { msg, mut args, num } => {
+            match ScoreArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut score_args)) => {
+                    let reply = msg
+                        .referenced_message
+                        .as_ref()
+                        .filter(|msg| msg.kind == MessageType::Reply);
 
-                if let Some(id) = reply.and_then(|msg| map_id_from_msg(msg)) {
-                    score_args.map = Some(id);
+                    if let Some(id) = reply.and_then(|msg| map_id_from_msg(msg)) {
+                        score_args.map = Some(id);
+                    }
+
+                    _compare(ctx, CommandData::Message { msg, args, num }, score_args).await
                 }
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                _compare(ctx, CommandData::Message { msg, args, num }, score_args).await
+                    Err(why)
+                }
             }
-            Err(content) => msg.error(&ctx, content).await,
-        },
+        }
         CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
     }
 }
@@ -60,14 +69,11 @@ pub(super) async fn _compare(
     data: CommandData<'_>,
     args: ScoreArgs,
 ) -> BotResult<()> {
-    let ScoreArgs { name, mods, map } = args;
+    let ScoreArgs { config, mods, map } = args;
 
-    let name = match name {
+    let name = match config.name {
         Some(name) => name,
-        None => match ctx.get_link(data.author()?.id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
 
     let channel_id = data.channel_id();
@@ -304,7 +310,7 @@ async fn no_scores(
 }
 
 pub(super) struct ScoreArgs {
-    name: Option<Name>,
+    config: UserConfig,
     mods: Option<ModSelection>,
     map: Option<MapIdType>,
 }
@@ -316,8 +322,12 @@ impl ScoreArgs {
     const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
         Be sure it's a valid mod abbreviation e.g. `hdhr`.";
 
-    fn args(ctx: &Context, args: &mut Args) -> Result<Self, &'static str> {
-        let mut name = None;
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, &'static str>> {
+        let mut config = ctx.user_config(author_id).await?;
         let mut map = None;
         let mut mods = None;
 
@@ -329,26 +339,30 @@ impl ScoreArgs {
             {
                 map = Some(id);
             } else {
-                name = Some(Args::try_link_name(ctx, arg)?);
+                match Args::check_user_mention(ctx, arg).await? {
+                    Ok(name) => config.name = Some(name),
+                    Err(content) => return Ok(Err(content)),
+                }
             }
         }
 
-        Ok(Self { name, map, mods })
+        Ok(Ok(Self { config, map, mods }))
     }
 
-    pub(super) fn slash(
+    pub(super) async fn slash(
         ctx: &Context,
         options: Vec<CommandDataOption>,
+        author_id: UserId,
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut username = None;
+        let mut config = ctx.user_config(author_id).await?;
         let mut map = None;
         let mut mods = None;
 
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => username = Some(value.into()),
-                    "discord" => username = parse_discord_option!(ctx, value, "compare score"),
+                    "name" => config.name = Some(value.into()),
+                    "discord" => config.name = parse_discord_option!(ctx, value, "compare score"),
                     "map" => match matcher::get_osu_map_id(&value)
                         .or_else(|| matcher::get_osu_mapset_id(&value))
                     {
@@ -373,12 +387,6 @@ impl ScoreArgs {
             }
         }
 
-        let args = ScoreArgs {
-            name: username,
-            mods,
-            map,
-        };
-
-        Ok(Ok(args))
+        Ok(Ok(ScoreArgs { config, mods, map }))
     }
 }

@@ -1,41 +1,32 @@
 use crate::{
+    database::UserConfig,
     embeds::{EmbedData, OsuStatsCountsEmbed},
     util::{
         constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
-    Args, BotResult, CommandData, Context, Name,
+    Args, BotResult, CommandData, Context,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
-use twilight_model::application::interaction::application_command::CommandDataOption;
+use twilight_model::{
+    application::interaction::application_command::CommandDataOption, id::UserId,
+};
 
 pub(super) async fn _count(
     ctx: Arc<Context>,
     data: CommandData<'_>,
     args: CountArgs,
 ) -> BotResult<()> {
-    let CountArgs { name, mut mode } = args;
+    let CountArgs { config } = args;
 
-    let author_id = data.author()?.id;
-
-    mode = match ctx.user_config(author_id).await {
-        Ok(config) => config.mode(mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
-    };
-
-    let name = match name {
+    let name = match config.name {
         Some(name) => name,
-        None => match ctx.get_link(author_id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
+
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
     let user = match super::request_user(&ctx, &name, Some(mode)).await {
         Ok(user) => user,
@@ -81,11 +72,18 @@ pub(super) async fn _count(
 pub async fn osustatscount(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match CountArgs::args(&ctx, &mut args, GameMode::STD) {
-                Ok(count_args) => {
+            match CountArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut count_args)) => {
+                    count_args.config.mode = Some(count_args.config.mode(GameMode::STD));
+
                     _count(ctx, CommandData::Message { msg, args, num }, count_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
@@ -106,11 +104,18 @@ pub async fn osustatscount(ctx: Arc<Context>, data: CommandData) -> BotResult<()
 pub async fn osustatscountmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match CountArgs::args(&ctx, &mut args, GameMode::MNA) {
-                Ok(count_args) => {
+            match CountArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut count_args)) => {
+                    count_args.config.mode = Some(GameMode::MNA);
+
                     _count(ctx, CommandData::Message { msg, args, num }, count_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
@@ -131,11 +136,18 @@ pub async fn osustatscountmania(ctx: Arc<Context>, data: CommandData) -> BotResu
 pub async fn osustatscounttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match CountArgs::args(&ctx, &mut args, GameMode::TKO) {
-                Ok(count_args) => {
+            match CountArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut count_args)) => {
+                    count_args.config.mode = Some(GameMode::TKO);
+
                     _count(ctx, CommandData::Message { msg, args, num }, count_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
@@ -156,11 +168,18 @@ pub async fn osustatscounttaiko(ctx: Arc<Context>, data: CommandData) -> BotResu
 pub async fn osustatscountctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match CountArgs::args(&ctx, &mut args, GameMode::CTB) {
-                Ok(count_args) => {
+            match CountArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut count_args)) => {
+                    count_args.config.mode = Some(GameMode::CTB);
+
                     _count(ctx, CommandData::Message { msg, args, num }, count_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
@@ -168,33 +187,40 @@ pub async fn osustatscountctb(ctx: Arc<Context>, data: CommandData) -> BotResult
 }
 
 pub(super) struct CountArgs {
-    name: Option<Name>,
-    mode: GameMode,
+    config: UserConfig,
 }
 
 impl CountArgs {
-    fn args(ctx: &Context, args: &mut Args, mode: GameMode) -> Result<Self, &'static str> {
-        let name = args
-            .next()
-            .map(|name| Args::try_link_name(ctx, name))
-            .transpose()?;
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, &'static str>> {
+        let mut config = ctx.user_config(author_id).await?;
 
-        Ok(Self { name, mode })
+        if let Some(arg) = args.next() {
+            match Args::check_user_mention(ctx, arg).await? {
+                Ok(name) => config.name = Some(name),
+                Err(content) => return Ok(Err(content)),
+            }
+        }
+
+        Ok(Ok(Self { config }))
     }
 
-    pub(super) fn slash(
+    pub(super) async fn slash(
         ctx: &Context,
         options: Vec<CommandDataOption>,
+        author_id: UserId,
     ) -> BotResult<Result<Self, String>> {
-        let mut username = None;
-        let mut mode = None;
+        let mut config = ctx.user_config(author_id).await?;
 
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => username = Some(value.into()),
-                    "discord" => username = parse_discord_option!(ctx, value, "osustats count"),
-                    "mode" => mode = parse_mode_option!(value, "osustats count"),
+                    "name" => config.name = Some(value.into()),
+                    "discord" => config.name = parse_discord_option!(ctx, value, "osustats count"),
+                    "mode" => config.mode = parse_mode_option!(value, "osustats count"),
                     _ => bail_cmd_option!("osustats count", string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
@@ -209,11 +235,6 @@ impl CountArgs {
             }
         }
 
-        let args = Self {
-            name: username,
-            mode: mode.unwrap_or(GameMode::STD),
-        };
-
-        Ok(Ok(args))
+        Ok(Ok(Self { config }))
     }
 }

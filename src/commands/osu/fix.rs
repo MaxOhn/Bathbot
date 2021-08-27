@@ -1,4 +1,5 @@
 use crate::{
+    database::UserConfig,
     embeds::{EmbedData, FixScoreEmbed},
     tracking::process_tracking,
     util::{
@@ -11,7 +12,7 @@ use crate::{
         },
         ApplicationCommandExt, MessageExt,
     },
-    Args, BotResult, CommandData, Context, Name,
+    Args, BotResult, CommandData, Context,
 };
 
 use rosu_pp::{fruits::stars, Beatmap as Map, FruitsPP, ManiaPP, OsuPP, StarResult, TaikoPP};
@@ -24,6 +25,7 @@ use twilight_model::{
         interaction::{application_command::CommandDataOption, ApplicationCommand},
     },
     channel::message::MessageType,
+    id::UserId,
 };
 
 #[command]
@@ -44,34 +46,38 @@ use twilight_model::{
 )]
 async fn fix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
-        CommandData::Message { msg, mut args, num } => match FixArgs::args(&ctx, &mut args) {
-            Ok(mut fix_args) => {
-                let reply = msg
-                    .referenced_message
-                    .as_ref()
-                    .filter(|msg| msg.kind == MessageType::Reply);
+        CommandData::Message { msg, mut args, num } => {
+            match FixArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut fix_args)) => {
+                    let reply = msg
+                        .referenced_message
+                        .as_ref()
+                        .filter(|msg| msg.kind == MessageType::Reply);
 
-                if let Some(id) = reply.and_then(|msg| map_id_from_msg(msg)) {
-                    fix_args.map = Some(id);
+                    if let Some(id) = reply.and_then(|msg| map_id_from_msg(msg)) {
+                        fix_args.map = Some(id);
+                    }
+
+                    _fix(ctx, CommandData::Message { msg, args, num }, fix_args).await
                 }
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                _fix(ctx, CommandData::Message { msg, args, num }, fix_args).await
+                    Err(why)
+                }
             }
-            Err(content) => msg.error(&ctx, content).await,
-        },
+        }
         CommandData::Interaction { command } => slash_fix(ctx, command).await,
     }
 }
 
 async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotResult<()> {
-    let FixArgs { name, map, mods } = args;
+    let FixArgs { config, map, mods } = args;
 
-    let name = match name {
+    let name = match config.name {
         Some(name) => name,
-        None => match ctx.get_link(data.author()?.id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
 
     let channel_id = data.channel_id();
@@ -428,7 +434,7 @@ fn needs_unchoking(score: &Score, map: &Beatmap) -> bool {
 }
 
 struct FixArgs {
-    name: Option<Name>,
+    config: UserConfig,
     map: Option<MapIdType>,
     mods: Option<ModSelection>,
 }
@@ -440,8 +446,12 @@ impl FixArgs {
     const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
             Be sure it's a valid mod abbreviation e.g. `hdhr`.";
 
-    fn args(ctx: &Context, args: &mut Args) -> Result<Self, &'static str> {
-        let mut name = None;
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, &'static str>> {
+        let mut config = ctx.user_config(author_id).await?;
         let mut map = None;
         let mut mods = None;
 
@@ -453,26 +463,29 @@ impl FixArgs {
             } else if let Some(mods_) = matcher::get_mods(arg) {
                 mods = Some(mods_);
             } else {
-                name = Some(Args::try_link_name(ctx, arg)?);
+                match Args::check_user_mention(ctx, arg).await? {
+                    Ok(name) => config.name = Some(name),
+                    Err(content) => return Ok(Err(content)),
+                }
             }
         }
 
-        Ok(Self { name, map, mods })
+        Ok(Ok(Self { config, map, mods }))
     }
 
-    fn slash(
+    async fn slash(
         ctx: &Context,
         command: &mut ApplicationCommand,
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut username = None;
+        let mut config = ctx.user_config(command.user_id()?).await?;
         let mut map = None;
         let mut mods = None;
 
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => username = Some(value.into()),
-                    "discord" => username = parse_discord_option!(ctx, value, "fix"),
+                    "name" => config.name = Some(value.into()),
+                    "discord" => config.name = parse_discord_option!(ctx, value, "fix"),
                     "map" => match matcher::get_osu_map_id(&value)
                         .or_else(|| matcher::get_osu_mapset_id(&value))
                     {
@@ -500,18 +513,12 @@ impl FixArgs {
             }
         }
 
-        let args = Self {
-            name: username,
-            map,
-            mods,
-        };
-
-        Ok(Ok(args))
+        Ok(Ok(Self { config, map, mods }))
     }
 }
 
 pub async fn slash_fix(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match FixArgs::slash(&ctx, &mut command)? {
+    match FixArgs::slash(&ctx, &mut command).await? {
         Ok(args) => _fix(ctx, command.into(), args).await,
         Err(content) => command.error(&ctx, content).await,
     }

@@ -24,34 +24,16 @@ pub(super) async fn _profilecompare(
     data: CommandData<'_>,
     args: ProfileArgs,
 ) -> BotResult<()> {
-    let ProfileArgs {
-        name1,
-        name2,
-        mut mode,
-    } = args;
-
-    let author_id = data.author()?.id;
-
-    mode = match ctx.user_config(author_id).await {
-        Ok(config) => config.mode(mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
-    };
+    let ProfileArgs { name1, name2, mode } = args;
 
     let name1 = match name1 {
         Some(name) => name,
-        None => match ctx.get_link(author_id.0) {
-            Some(name) => name,
-            None => {
-                let content =
-                    "Since you're not linked with the `link` command, you must specify two names.";
+        None => {
+            let content =
+                "Since you're not linked with the `link` command, you must specify two names.";
 
-                return data.error(&ctx, content).await;
-            }
-        },
+            return data.error(&ctx, content).await;
+        }
     };
 
     if name1 == name2 {
@@ -163,12 +145,17 @@ pub(super) async fn _profilecompare(
 pub async fn osucompare(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match ProfileArgs::args(&ctx, &mut args, GameMode::STD) {
-                Ok(profile_args) => {
+            match ProfileArgs::args(&ctx, &mut args, msg.author.id, GameMode::STD).await {
+                Ok(Ok(profile_args)) => {
                     _profilecompare(ctx, CommandData::Message { msg, args, num }, profile_args)
                         .await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
@@ -189,12 +176,17 @@ pub async fn osucompare(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 pub async fn osucomparemania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match ProfileArgs::args(&ctx, &mut args, GameMode::MNA) {
-                Ok(profile_args) => {
+            match ProfileArgs::args(&ctx, &mut args, msg.author.id, GameMode::MNA).await {
+                Ok(Ok(profile_args)) => {
                     _profilecompare(ctx, CommandData::Message { msg, args, num }, profile_args)
                         .await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
@@ -215,12 +207,17 @@ pub async fn osucomparemania(ctx: Arc<Context>, data: CommandData) -> BotResult<
 pub async fn osucomparetaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match ProfileArgs::args(&ctx, &mut args, GameMode::TKO) {
-                Ok(profile_args) => {
+            match ProfileArgs::args(&ctx, &mut args, msg.author.id, GameMode::TKO).await {
+                Ok(Ok(profile_args)) => {
                     _profilecompare(ctx, CommandData::Message { msg, args, num }, profile_args)
                         .await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
@@ -241,12 +238,17 @@ pub async fn osucomparetaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<
 pub async fn osucomparectb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match ProfileArgs::args(&ctx, &mut args, GameMode::CTB) {
-                Ok(profile_args) => {
+            match ProfileArgs::args(&ctx, &mut args, msg.author.id, GameMode::CTB).await {
+                Ok(Ok(profile_args)) => {
                     _profilecompare(ctx, CommandData::Message { msg, args, num }, profile_args)
                         .await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_compare(ctx, command).await,

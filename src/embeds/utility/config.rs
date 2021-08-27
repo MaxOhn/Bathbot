@@ -41,26 +41,28 @@ impl ConfigEmbed {
         let title = "Current user configuration:";
 
         let mode = match config.mode {
-            GameMode::STD => "osu!".to_owned(),
-            GameMode::TKO => "Taiko".to_owned(),
-            GameMode::CTB => "CtB".to_owned(),
-            GameMode::MNA => "Mania".to_owned(),
+            Some(GameMode::STD) => "osu!",
+            Some(GameMode::TKO) => "Taiko",
+            Some(GameMode::CTB) => "CtB",
+            Some(GameMode::MNA) => "Mania",
+            None => "None",
         };
 
         let profile = match config.profile_embed_size {
-            ProfileSize::Compact => "Compact".to_owned(),
-            ProfileSize::Medium => "Medium".to_owned(),
-            ProfileSize::Full => "Full".to_owned(),
+            ProfileSize::Compact => "Compact",
+            ProfileSize::Medium => "Medium",
+            ProfileSize::Full => "Full",
+        };
+
+        let recent = match config.recent_embed_maximize {
+            true => "Maximized",
+            false => "Minimized",
         };
 
         let mut fields = vec![
-            field!("Mode".to_owned(), mode, true),
-            field!("Profile embed size".to_owned(), profile, true),
-            field!(
-                "Recent embed maximized".to_owned(),
-                config.recent_embed_maximize.to_string(),
-                false
-            ),
+            field!("Mode".to_owned(), mode.to_owned(), true),
+            field!("Profile embed size".to_owned(), profile.to_owned(), true),
+            field!("Initial recent embed".to_owned(), recent.to_owned(), false),
         ];
 
         if let Some(name) = config.name {

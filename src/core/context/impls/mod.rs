@@ -1,7 +1,7 @@
 mod background_loop;
 mod bg_game;
 mod configs;
-mod links;
+// mod links; // TODO: Remove
 mod match_live;
 mod shutdown;
 mod twitch;
@@ -57,6 +57,7 @@ impl Context {
         self.data.msgs_to_process.remove(&msg).is_some()
     }
 
+    #[cold]
     pub fn clear_msgs_to_process(&self) {
         self.data.msgs_to_process.clear();
     }
@@ -74,5 +75,12 @@ impl Context {
             .snipe_countries
             .get(code)
             .map(|entry| entry.value().to_owned())
+    }
+
+    #[cold]
+    pub fn add_role_assign(&self, channel_id: ChannelId, msg_id: MessageId, role_id: RoleId) {
+        self.data
+            .role_assigns
+            .insert((channel_id.0, msg_id.0), role_id.0);
     }
 }

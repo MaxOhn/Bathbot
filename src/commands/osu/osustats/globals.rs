@@ -1,5 +1,6 @@
 use crate::{
     custom_client::{OsuStatsOrder, OsuStatsParams, OsuStatsScore},
+    database::UserConfig,
     embeds::{EmbedData, OsuStatsGlobalsEmbed},
     pagination::{OsuStatsGlobalsPagination, Pagination},
     util::{
@@ -13,34 +14,24 @@ use crate::{
 
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write, sync::Arc};
-use twilight_model::application::interaction::application_command::CommandDataOption;
+use twilight_model::{
+    application::interaction::application_command::CommandDataOption, id::UserId,
+};
 
 pub(super) async fn _scores(
     ctx: Arc<Context>,
     data: CommandData<'_>,
-    mut args: ScoresArgs,
+    args: ScoresArgs,
 ) -> BotResult<()> {
-    let author_id = data.author()?.id;
-
-    args.mode = match ctx.user_config(author_id).await {
-        Ok(config) => config.mode(args.mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
+    let name = match args.config.name {
+        Some(ref name) => name.as_str(),
+        None => return super::require_link(&ctx, &data).await,
     };
 
-    let name = match args.username.take() {
-        Some(name) => name,
-        None => match ctx.get_link(author_id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
-    };
+    let mode = args.config.mode.unwrap_or(GameMode::STD);
 
     // Retrieve user
-    let user = match super::request_user(&ctx, name.as_str(), Some(args.mode)).await {
+    let user = match super::request_user(&ctx, name, Some(mode)).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
@@ -54,7 +45,7 @@ pub(super) async fn _scores(
         }
     };
 
-    let params = args.into_params(user.username.as_str().into());
+    let params = args.into_params(user.username.as_str().into(), mode);
 
     // Retrieve their top global scores
     let (scores, amount) = match ctx.clients.custom.get_global_scores(&params).await {
@@ -115,7 +106,7 @@ pub(super) async fn _scores(
     // Pagination
     let pagination =
         OsuStatsGlobalsPagination::new(Arc::clone(&ctx), response, user, scores, amount, params);
-    let owner = author_id;
+    let owner = data.author()?.id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -151,9 +142,18 @@ pub(super) async fn _scores(
 pub async fn osustatsglobals(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match ScoresArgs::args(&ctx, &mut args, GameMode::STD) {
-                Ok(params) => _scores(ctx, CommandData::Message { msg, args, num }, params).await,
-                Err(content) => msg.error(&ctx, content).await,
+            match ScoresArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut params)) => {
+                    params.config.mode = Some(params.config.mode(GameMode::STD));
+
+                    _scores(ctx, CommandData::Message { msg, args, num }, params).await
+                }
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
@@ -185,9 +185,18 @@ pub async fn osustatsglobals(ctx: Arc<Context>, data: CommandData) -> BotResult<
 pub async fn osustatsglobalsmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match ScoresArgs::args(&ctx, &mut args, GameMode::MNA) {
-                Ok(params) => _scores(ctx, CommandData::Message { msg, args, num }, params).await,
-                Err(content) => msg.error(&ctx, content).await,
+            match ScoresArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut params)) => {
+                    params.config.mode = Some(GameMode::MNA);
+
+                    _scores(ctx, CommandData::Message { msg, args, num }, params).await
+                }
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
@@ -219,9 +228,18 @@ pub async fn osustatsglobalsmania(ctx: Arc<Context>, data: CommandData) -> BotRe
 pub async fn osustatsglobalstaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match ScoresArgs::args(&ctx, &mut args, GameMode::TKO) {
-                Ok(params) => _scores(ctx, CommandData::Message { msg, args, num }, params).await,
-                Err(content) => msg.error(&ctx, content).await,
+            match ScoresArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut params)) => {
+                    params.config.mode = Some(GameMode::TKO);
+
+                    _scores(ctx, CommandData::Message { msg, args, num }, params).await
+                }
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
@@ -253,9 +271,18 @@ pub async fn osustatsglobalstaiko(ctx: Arc<Context>, data: CommandData) -> BotRe
 pub async fn osustatsglobalsctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match ScoresArgs::args(&ctx, &mut args, GameMode::CTB) {
-                Ok(params) => _scores(ctx, CommandData::Message { msg, args, num }, params).await,
-                Err(content) => msg.error(&ctx, content).await,
+            match ScoresArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut params)) => {
+                    params.config.mode = Some(GameMode::CTB);
+
+                    _scores(ctx, CommandData::Message { msg, args, num }, params).await
+                }
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_osustats(ctx, command).await,
@@ -263,8 +290,7 @@ pub async fn osustatsglobalsctb(ctx: Arc<Context>, data: CommandData) -> BotResu
 }
 
 pub(super) struct ScoresArgs {
-    pub username: Option<Name>,
-    pub mode: GameMode,
+    pub config: UserConfig,
     pub rank_min: usize,
     pub rank_max: usize,
     pub acc_min: f32,
@@ -291,10 +317,10 @@ impl ScoresArgs {
         If you want exact mods, specify it e.g. as `+hdhr!`.\n\
         And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
 
-    fn into_params(self, username: Name) -> OsuStatsParams {
+    fn into_params(self, username: Name, mode: GameMode) -> OsuStatsParams {
         OsuStatsParams {
             username,
-            mode: self.mode,
+            mode,
             page: 1,
             rank_min: self.rank_min,
             rank_max: self.rank_max,
@@ -306,8 +332,12 @@ impl ScoresArgs {
         }
     }
 
-    fn args(ctx: &Context, args: &mut Args, mode: GameMode) -> Result<Self, Cow<'static, str>> {
-        let mut username = None;
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let mut config = ctx.user_config(author_id).await?;
         let mut rank_min = None;
         let mut rank_max = None;
         let mut acc_min = None;
@@ -332,7 +362,7 @@ impl ScoresArgs {
                             } else if let Ok(num) = bot.parse::<f32>() {
                                 num.max(0.0).min(100.0)
                             } else {
-                                return Err(Self::ERR_PARSE_ACC.into());
+                                return Ok(Err(Self::ERR_PARSE_ACC.into()));
                             };
 
                             let max = if top.is_empty() {
@@ -340,13 +370,16 @@ impl ScoresArgs {
                             } else if let Ok(num) = top.parse::<f32>() {
                                 num.max(0.0).min(100.0)
                             } else {
-                                return Err(Self::ERR_PARSE_ACC.into());
+                                return Ok(Err(Self::ERR_PARSE_ACC.into()));
                             };
 
                             acc_min = Some(min.min(max));
                             acc_max = Some(min.max(max));
                         }
-                        None => acc_min = Some(value.parse().map_err(|_| Self::ERR_PARSE_ACC)?),
+                        None => match value.parse() {
+                            Ok(num) => acc_min = Some(num),
+                            Err(_) => return Ok(Err(Self::ERR_PARSE_ACC.into())),
+                        },
                     },
                     "rank" | "r" => match value.find("..") {
                         Some(idx) => {
@@ -358,7 +391,7 @@ impl ScoresArgs {
                             } else if let Ok(num) = bot.parse::<usize>() {
                                 num.max(Self::MIN_RANK).min(Self::MAX_RANK)
                             } else {
-                                return Err(Self::ERR_PARSE_RANK.into());
+                                return Ok(Err(Self::ERR_PARSE_RANK.into()));
                             };
 
                             let max = if top.is_empty() {
@@ -366,13 +399,16 @@ impl ScoresArgs {
                             } else if let Ok(num) = top.parse::<usize>() {
                                 num.max(Self::MIN_RANK).min(Self::MAX_RANK)
                             } else {
-                                return Err(Self::ERR_PARSE_RANK.into());
+                                return Ok(Err(Self::ERR_PARSE_RANK.into()));
                             };
 
                             rank_min = Some(min.min(max));
                             rank_max = Some(min.max(max));
                         }
-                        None => rank_max = Some(value.parse().map_err(|_| Self::ERR_PARSE_RANK)?),
+                        None => match value.parse() {
+                            Ok(num) => rank_max = Some(num),
+                            Err(_) => return Ok(Err(Self::ERR_PARSE_RANK.into())),
+                        },
                     },
                     "sort" | "s" | "order" | "ordering" => match value {
                         "date" | "d" | "scoredate" => order = Some(OsuStatsOrder::PlayDate),
@@ -386,7 +422,7 @@ impl ScoresArgs {
                             let content = "Failed to parse `sort`.\n\
                                 Must be either `acc`, `combo`, `date`, `misses`, `pp`, `rank`, or `score`.";
 
-                            return Err(content.into());
+                            return Ok(Err(content.into()));
                         }
                     },
                     "reverse" => match value {
@@ -396,12 +432,12 @@ impl ScoresArgs {
                             let content =
                                 "Failed to parse `reverse`. Must be either `true` or `false`.";
 
-                            return Err(content.into());
+                            return Ok(Err(content.into()));
                         }
                     },
                     "mods" => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),
-                        None => return Err(Self::ERR_PARSE_MODS.into()),
+                        None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
                     _ => {
                         let content = format!(
@@ -410,19 +446,21 @@ impl ScoresArgs {
                             key
                         );
 
-                        return Err(content.into());
+                        return Ok(Err(content.into()));
                     }
                 }
             } else if let Some(mods_) = matcher::get_mods(arg.as_ref()) {
                 mods = Some(mods_);
             } else {
-                username = Some(Args::try_link_name(ctx, arg)?);
+                match Args::check_user_mention(ctx, arg).await? {
+                    Ok(name) => config.name = Some(name),
+                    Err(content) => return Ok(Err(content.into())),
+                }
             }
         }
 
         let args = Self {
-            username,
-            mode,
+            config,
             rank_min: rank_min.unwrap_or(Self::MIN_RANK),
             rank_max: rank_max.unwrap_or(Self::MAX_RANK),
             acc_min: acc_min.unwrap_or(0.0),
@@ -432,14 +470,15 @@ impl ScoresArgs {
             descending: descending.unwrap_or(true),
         };
 
-        Ok(args)
+        Ok(Ok(args))
     }
 
-    pub(super) fn slash(
+    pub(super) async fn slash(
         ctx: &Context,
         options: Vec<CommandDataOption>,
+        author_id: UserId,
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut username = None;
+        let mut config = ctx.user_config(author_id).await?;
         let mut rank_min = None;
         let mut rank_max = None;
         let mut acc_min = None;
@@ -447,12 +486,11 @@ impl ScoresArgs {
         let mut order = None;
         let mut mods = None;
         let mut descending = None;
-        let mut mode = None;
 
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => mode = parse_mode_option!(value, "osustats scores"),
+                    "mode" => config.mode = parse_mode_option!(value, "osustats scores"),
                     "mods" => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
@@ -467,8 +505,8 @@ impl ScoresArgs {
                         "date" => order = Some(OsuStatsOrder::PlayDate),
                         _ => bail_cmd_option!("osustats scores sort", string, value),
                     },
-                    "name" => username = Some(value.into()),
-                    "discord" => username = parse_discord_option!(ctx, value, "osustats scores"),
+                    "name" => config.name = Some(value.into()),
+                    "discord" => config.name = parse_discord_option!(ctx, value, "osustats scores"),
                     _ => bail_cmd_option!("osustats scores", string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
@@ -493,8 +531,7 @@ impl ScoresArgs {
         }
 
         let args = Self {
-            username,
-            mode: mode.unwrap_or(GameMode::STD),
+            config,
             rank_min: rank_min.unwrap_or(Self::MIN_RANK),
             rank_max: rank_max.unwrap_or(Self::MAX_RANK),
             acc_min: acc_min.unwrap_or(0.0),

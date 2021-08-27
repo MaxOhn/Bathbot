@@ -1,7 +1,10 @@
 use crate::{
     embeds::{EmbedData, RatioEmbed},
     tracking::process_tracking,
-    util::{constants::OSU_API_ISSUE, ApplicationCommandExt, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        ApplicationCommandExt, MessageExt,
+    },
     Args, BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
@@ -26,14 +29,27 @@ use twilight_model::application::{
 async fn ratios(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match args
-                .next()
-                .map(|arg| Args::try_link_name(&ctx, arg))
-                .transpose()
-            {
-                Ok(name) => _ratios(ctx, CommandData::Message { msg, args, num }, name).await,
-                Err(content) => msg.error(&ctx, content).await,
-            }
+            let name = match args.next() {
+                Some(arg) => match Args::check_user_mention(&ctx, arg).await {
+                    Ok(Ok(name)) => Some(name),
+                    Ok(Err(content)) => return msg.error(&ctx, content).await,
+                    Err(why) => {
+                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(why);
+                    }
+                },
+                None => match ctx.user_config(msg.author.id).await {
+                    Ok(config) => config.name,
+                    Err(why) => {
+                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(why);
+                    }
+                },
+            };
+
+            _ratios(ctx, CommandData::Message { msg, args, num }, name).await
         }
         CommandData::Interaction { command } => slash_ratio(ctx, command).await,
     }
@@ -42,10 +58,7 @@ async fn ratios(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn _ratios(ctx: Arc<Context>, data: CommandData<'_>, name: Option<Name>) -> BotResult<()> {
     let name = match name {
         Some(name) => name,
-        None => match ctx.get_link(data.author()?.id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
 
     // Retrieve the user and their top scores
@@ -87,7 +100,7 @@ async fn _ratios(ctx: Arc<Context>, data: CommandData<'_>, name: Option<Name>) -
     Ok(())
 }
 
-fn parse_username(
+async fn parse_username(
     ctx: &Context,
     command: &mut ApplicationCommand,
 ) -> BotResult<Result<Option<Name>, String>> {
@@ -108,11 +121,16 @@ fn parse_username(
         }
     }
 
-    Ok(Ok(username))
+    let name = match username {
+        Some(name) => Some(name),
+        None => ctx.user_config(command.user_id()?).await?.name,
+    };
+
+    Ok(Ok(name))
 }
 
 pub async fn slash_ratio(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match parse_username(&ctx, &mut command)? {
+    match parse_username(&ctx, &mut command).await? {
         Ok(name) => _ratios(ctx, command.into(), name).await,
         Err(content) => return command.error(&ctx, content).await,
     }

@@ -6,7 +6,7 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         numbers, MessageExt,
     },
-    BotResult, CommandData, Context, Name,
+    Args, BotResult, CommandData, Context, Name,
 };
 
 use hashbrown::HashSet;
@@ -32,7 +32,25 @@ const GROUPS: [MedalGroup; 8] = [
 async fn medalsmissing(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            let name = args.next().map(Name::from);
+            let name = match args.next() {
+                Some(arg) => match Args::check_user_mention(&ctx, arg).await {
+                    Ok(Ok(name)) => Some(name),
+                    Ok(Err(content)) => return msg.error(&ctx, content).await,
+                    Err(why) => {
+                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(why);
+                    }
+                },
+                None => match ctx.user_config(msg.author.id).await {
+                    Ok(config) => config.name,
+                    Err(why) => {
+                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(why);
+                    }
+                },
+            };
 
             _medalsmissing(ctx, CommandData::Message { msg, args, num }, name).await
         }
@@ -47,10 +65,7 @@ pub(super) async fn _medalsmissing(
 ) -> BotResult<()> {
     let name = match name {
         Some(name) => name,
-        None => match ctx.get_link(data.author()?.id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
 
     let user_fut = super::request_user(&ctx, &name, None);

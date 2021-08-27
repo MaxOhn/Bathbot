@@ -29,33 +29,15 @@ use twilight_model::application::{
 };
 
 async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -> BotResult<()> {
-    let ProfileArgs {
-        name,
-        mut mode,
-        kind,
-    } = args;
+    let ProfileArgs { config } = args;
 
-    let author_id = data.author()?.id;
-
-    let config = match ctx.user_config(author_id).await {
-        Ok(config) => config,
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
-    };
-
-    let kind = kind.unwrap_or(config.profile_embed_size);
-    mode = config.mode(mode);
-
-    let name = match name {
+    let name = match config.name {
         Some(name) => name,
-        None => match ctx.get_link(author_id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
+
+    let kind = config.profile_embed_size;
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
     // Retrieve the user and their top scores
     let user_fut = super::request_user(&ctx, &name, Some(mode));
@@ -119,7 +101,7 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
 
     // Pagination
     let pagination = ProfilePagination::new(response, profile_data, kind);
-    let owner = author_id;
+    let owner = data.author()?.id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -224,11 +206,18 @@ impl ProfileEmbed {
 async fn osu(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match ProfileArgs::args(&ctx, &mut args, GameMode::STD) {
-                Ok(profile_args) => {
+            match ProfileArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut profile_args)) => {
+                    profile_args.config.mode = Some(profile_args.config.mode(GameMode::STD));
+
                     _profile(ctx, CommandData::Message { msg, args, num }, profile_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => slash_profile(ctx, command).await,
@@ -249,11 +238,18 @@ async fn osu(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn mania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match ProfileArgs::args(&ctx, &mut args, GameMode::MNA) {
-                Ok(profile_args) => {
+            match ProfileArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut profile_args)) => {
+                    profile_args.config.mode = Some(GameMode::MNA);
+
                     _profile(ctx, CommandData::Message { msg, args, num }, profile_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => slash_profile(ctx, command).await,
@@ -274,11 +270,18 @@ async fn mania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn taiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match ProfileArgs::args(&ctx, &mut args, GameMode::TKO) {
-                Ok(profile_args) => {
+            match ProfileArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut profile_args)) => {
+                    profile_args.config.mode = Some(GameMode::TKO);
+
                     _profile(ctx, CommandData::Message { msg, args, num }, profile_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => slash_profile(ctx, command).await,
@@ -299,11 +302,18 @@ async fn taiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn ctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match ProfileArgs::args(&ctx, &mut args, GameMode::CTB) {
-                Ok(profile_args) => {
+            match ProfileArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut profile_args)) => {
+                    profile_args.config.mode = Some(GameMode::CTB);
+
                     _profile(ctx, CommandData::Message { msg, args, num }, profile_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => slash_profile(ctx, command).await,
@@ -311,7 +321,7 @@ async fn ctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 pub async fn slash_profile(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match ProfileArgs::slash(&ctx, &mut command)? {
+    match ProfileArgs::slash(&ctx, &mut command).await? {
         Ok(args) => _profile(ctx, command.into(), args).await,
         Err(content) => command.error(&ctx, content).await,
     }

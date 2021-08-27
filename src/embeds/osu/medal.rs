@@ -129,7 +129,7 @@ impl MedalEmbed {
                 .icon_url(flag_url(user.country_code.as_str()));
 
             let footer = Footer::new(format!(
-                "Medal {}/{} • Achieved",
+                "Medal {}/{} | Achieved",
                 achieved.index, achieved.medal_count
             ));
 

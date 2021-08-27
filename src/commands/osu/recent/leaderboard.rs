@@ -1,4 +1,5 @@
 use crate::{
+    database::UserConfig,
     embeds::{EmbedData, LeaderboardEmbed},
     pagination::{LeaderboardPagination, Pagination},
     util::{
@@ -12,6 +13,7 @@ use crate::{
 
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
+use twilight_model::id::UserId;
 
 pub(super) async fn _recentleaderboard(
     ctx: Arc<Context>,
@@ -19,19 +21,21 @@ pub(super) async fn _recentleaderboard(
     args: RecentLeaderboardArgs,
     national: bool,
 ) -> BotResult<()> {
-    let author_id = data.author()?.id;
-    let author_name = ctx.get_link(author_id.0);
-    let selection = args.mods;
+    let RecentLeaderboardArgs {
+        config,
+        name,
+        index,
+        mods,
+    } = args;
 
-    let name = match args.name {
-        Some(name) => name,
-        None => match author_name.clone() {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+    let author_name = config.name;
+
+    let name = match name.as_ref().or_else(|| author_name.as_ref()) {
+        Some(name) => name.as_str(),
+        None => return super::require_link(&ctx, &data).await,
     };
 
-    let limit = args.index.map_or(1, |n| n + (n == 0) as usize);
+    let limit = index.map_or(1, |n| n + (n == 0) as usize);
 
     if limit > 50 {
         let content = "Recent history goes only 50 scores back.";
@@ -39,19 +43,12 @@ pub(super) async fn _recentleaderboard(
         return data.error(&ctx, content).await;
     }
 
-    let mode = match ctx.user_config(author_id).await {
-        Ok(config) => config.mode(args.mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
-    };
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
     // Retrieve the recent scores
     let scores_fut = ctx
         .osu()
-        .user_scores(name.as_str())
+        .user_scores(name)
         .recent()
         .include_fails(true)
         .mode(mode)
@@ -107,7 +104,7 @@ pub(super) async fn _recentleaderboard(
     let scores_fut = ctx.clients.custom.get_leaderboard(
         map.map_id,
         national,
-        match selection {
+        match mods {
             Some(ModSelection::Exclude(_)) | None => None,
             Some(ModSelection::Include(m)) | Some(ModSelection::Exact(m)) => Some(m),
         },
@@ -184,9 +181,10 @@ pub(super) async fn _recentleaderboard(
     );
 
     gb.execute(&ctx).await;
+    let owner = data.author()?.id;
 
     tokio::spawn(async move {
-        if let Err(why) = pagination.start(&ctx, author_id, 60).await {
+        if let Err(why) = pagination.start(&ctx, owner, 60).await {
             unwind_error!(warn, why, "Pagination error (recentleaderboard): {}")
         }
     });
@@ -208,17 +206,19 @@ pub(super) async fn _recentleaderboard(
 pub async fn recentbelgianleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RecentLeaderboardArgs::args(&ctx, &mut args, GameMode::STD, num) {
-                Ok(recent_args) => {
-                    _recentleaderboard(
-                        ctx,
-                        CommandData::Message { msg, args, num },
-                        recent_args,
-                        true,
-                    )
-                    .await
+            match RecentLeaderboardArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut recent_args)) => {
+                    recent_args.config.mode = Some(recent_args.config.mode(GameMode::STD));
+                    let data = CommandData::Message { msg, args, num };
+
+                    _recentleaderboard(ctx, data, recent_args, true).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
@@ -239,17 +239,19 @@ pub async fn recentbelgianleaderboard(ctx: Arc<Context>, data: CommandData) -> B
 pub async fn recentmaniabelgianleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RecentLeaderboardArgs::args(&ctx, &mut args, GameMode::MNA, num) {
-                Ok(recent_args) => {
-                    _recentleaderboard(
-                        ctx,
-                        CommandData::Message { msg, args, num },
-                        recent_args,
-                        true,
-                    )
-                    .await
+            match RecentLeaderboardArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut recent_args)) => {
+                    recent_args.config.mode = Some(GameMode::MNA);
+                    let data = CommandData::Message { msg, args, num };
+
+                    _recentleaderboard(ctx, data, recent_args, true).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
@@ -270,17 +272,19 @@ pub async fn recentmaniabelgianleaderboard(ctx: Arc<Context>, data: CommandData)
 pub async fn recenttaikobelgianleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RecentLeaderboardArgs::args(&ctx, &mut args, GameMode::TKO, num) {
-                Ok(recent_args) => {
-                    _recentleaderboard(
-                        ctx,
-                        CommandData::Message { msg, args, num },
-                        recent_args,
-                        true,
-                    )
-                    .await
+            match RecentLeaderboardArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut recent_args)) => {
+                    recent_args.config.mode = Some(GameMode::TKO);
+                    let data = CommandData::Message { msg, args, num };
+
+                    _recentleaderboard(ctx, data, recent_args, true).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
@@ -301,17 +305,19 @@ pub async fn recenttaikobelgianleaderboard(ctx: Arc<Context>, data: CommandData)
 pub async fn recentctbbelgianleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RecentLeaderboardArgs::args(&ctx, &mut args, GameMode::CTB, num) {
-                Ok(recent_args) => {
-                    _recentleaderboard(
-                        ctx,
-                        CommandData::Message { msg, args, num },
-                        recent_args,
-                        true,
-                    )
-                    .await
+            match RecentLeaderboardArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut recent_args)) => {
+                    recent_args.config.mode = Some(GameMode::CTB);
+                    let data = CommandData::Message { msg, args, num };
+
+                    _recentleaderboard(ctx, data, recent_args, true).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
@@ -332,17 +338,19 @@ pub async fn recentctbbelgianleaderboard(ctx: Arc<Context>, data: CommandData) -
 pub async fn recentleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RecentLeaderboardArgs::args(&ctx, &mut args, GameMode::STD, num) {
-                Ok(recent_args) => {
-                    _recentleaderboard(
-                        ctx,
-                        CommandData::Message { msg, args, num },
-                        recent_args,
-                        false,
-                    )
-                    .await
+            match RecentLeaderboardArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut recent_args)) => {
+                    recent_args.config.mode = Some(recent_args.config.mode(GameMode::STD));
+                    let data = CommandData::Message { msg, args, num };
+
+                    _recentleaderboard(ctx, data, recent_args, false).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
@@ -363,17 +371,19 @@ pub async fn recentleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResul
 pub async fn recentmanialeaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RecentLeaderboardArgs::args(&ctx, &mut args, GameMode::MNA, num) {
-                Ok(recent_args) => {
-                    _recentleaderboard(
-                        ctx,
-                        CommandData::Message { msg, args, num },
-                        recent_args,
-                        false,
-                    )
-                    .await
+            match RecentLeaderboardArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut recent_args)) => {
+                    recent_args.config.mode = Some(GameMode::MNA);
+                    let data = CommandData::Message { msg, args, num };
+
+                    _recentleaderboard(ctx, data, recent_args, false).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
@@ -394,17 +404,19 @@ pub async fn recentmanialeaderboard(ctx: Arc<Context>, data: CommandData) -> Bot
 pub async fn recenttaikoleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RecentLeaderboardArgs::args(&ctx, &mut args, GameMode::TKO, num) {
-                Ok(recent_args) => {
-                    _recentleaderboard(
-                        ctx,
-                        CommandData::Message { msg, args, num },
-                        recent_args,
-                        false,
-                    )
-                    .await
+            match RecentLeaderboardArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut recent_args)) => {
+                    recent_args.config.mode = Some(GameMode::TKO);
+                    let data = CommandData::Message { msg, args, num };
+
+                    _recentleaderboard(ctx, data, recent_args, false).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
@@ -425,17 +437,19 @@ pub async fn recenttaikoleaderboard(ctx: Arc<Context>, data: CommandData) -> Bot
 pub async fn recentctbleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RecentLeaderboardArgs::args(&ctx, &mut args, GameMode::CTB, num) {
-                Ok(recent_args) => {
-                    _recentleaderboard(
-                        ctx,
-                        CommandData::Message { msg, args, num },
-                        recent_args,
-                        false,
-                    )
-                    .await
+            match RecentLeaderboardArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut recent_args)) => {
+                    recent_args.config.mode = Some(GameMode::CTB);
+                    let data = CommandData::Message { msg, args, num };
+
+                    _recentleaderboard(ctx, data, recent_args, false).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_recent(ctx, command).await,
@@ -443,35 +457,41 @@ pub async fn recentctbleaderboard(ctx: Arc<Context>, data: CommandData) -> BotRe
 }
 
 pub(super) struct RecentLeaderboardArgs {
+    pub config: UserConfig,
     pub name: Option<Name>,
     pub index: Option<usize>,
-    pub mode: GameMode,
     pub mods: Option<ModSelection>,
 }
 
 impl RecentLeaderboardArgs {
-    fn args(
+    async fn args(
         ctx: &Context,
-        args: &mut Args,
-        mode: GameMode,
+        args: &mut Args<'_>,
+        author_id: UserId,
         index: Option<usize>,
-    ) -> Result<Self, &'static str> {
+    ) -> BotResult<Result<Self, &'static str>> {
+        let config = ctx.user_config(author_id).await?;
         let mut name = None;
         let mut mods = None;
 
         for arg in args {
-            if let Some(m) = matcher::get_mods(arg) {
-                mods.replace(m);
+            if let Some(mods_) = matcher::get_mods(arg) {
+                mods.replace(mods_);
             } else {
-                name.replace(Args::try_link_name(ctx, arg)?);
+                match Args::check_user_mention(ctx, arg).await? {
+                    Ok(name_) => name = Some(name_),
+                    Err(content) => return Ok(Err(content)),
+                }
             }
         }
 
-        Ok(Self {
+        let args = Self {
+            config,
             name,
             index,
-            mode,
             mods,
-        })
+        };
+
+        Ok(Ok(args))
     }
 }

@@ -1,39 +1,30 @@
 use crate::{
     custom_client::RankParam,
+    database::UserConfig,
     embeds::{EmbedData, PPMissingEmbed},
     tracking::process_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
-    Args, BotResult, CommandData, Context, Error, Name,
+    Args, BotResult, CommandData, Context, Error,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
-use twilight_model::application::interaction::application_command::CommandDataOption;
+use twilight_model::{
+    application::interaction::application_command::CommandDataOption, id::UserId,
+};
 
 pub(super) async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) -> BotResult<()> {
-    let PpArgs { name, mut mode, pp } = args;
+    let PpArgs { config, pp } = args;
 
-    let author_id = data.author()?.id;
-
-    mode = match ctx.user_config(author_id).await {
-        Ok(config) => config.mode(mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
-    };
-
-    let name = match name {
+    let name = match config.name {
         Some(name) => name,
-        None => match ctx.get_link(author_id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
+
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
     if pp < 0.0 {
         return data.error(&ctx, "The pp number must be non-negative").await;
@@ -110,11 +101,18 @@ pub(super) async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) 
 pub async fn pp(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match PpArgs::args(&ctx, &mut args, GameMode::STD) {
-                Ok(whatif_args) => {
-                    _pp(ctx, CommandData::Message { msg, args, num }, whatif_args).await
+            match PpArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut pp_args)) => {
+                    pp_args.config.mode = Some(pp_args.config.mode(GameMode::STD));
+
+                    _pp(ctx, CommandData::Message { msg, args, num }, pp_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
@@ -133,11 +131,18 @@ pub async fn pp(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 pub async fn ppmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match PpArgs::args(&ctx, &mut args, GameMode::MNA) {
-                Ok(whatif_args) => {
-                    _pp(ctx, CommandData::Message { msg, args, num }, whatif_args).await
+            match PpArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut pp_args)) => {
+                    pp_args.config.mode = Some(GameMode::MNA);
+
+                    _pp(ctx, CommandData::Message { msg, args, num }, pp_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
@@ -156,11 +161,18 @@ pub async fn ppmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 pub async fn pptaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match PpArgs::args(&ctx, &mut args, GameMode::TKO) {
-                Ok(whatif_args) => {
-                    _pp(ctx, CommandData::Message { msg, args, num }, whatif_args).await
+            match PpArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut pp_args)) => {
+                    pp_args.config.mode = Some(GameMode::TKO);
+
+                    _pp(ctx, CommandData::Message { msg, args, num }, pp_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
@@ -179,11 +191,18 @@ pub async fn pptaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 pub async fn ppctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match PpArgs::args(&ctx, &mut args, GameMode::CTB) {
-                Ok(whatif_args) => {
-                    _pp(ctx, CommandData::Message { msg, args, num }, whatif_args).await
+            match PpArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut pp_args)) => {
+                    pp_args.config.mode = Some(GameMode::CTB);
+
+                    _pp(ctx, CommandData::Message { msg, args, num }, pp_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
@@ -191,42 +210,51 @@ pub async fn ppctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 pub(super) struct PpArgs {
-    pub name: Option<Name>,
-    pub mode: GameMode,
+    pub config: UserConfig,
     pub pp: f32,
 }
 
 impl PpArgs {
-    fn args(ctx: &Context, args: &mut Args, mode: GameMode) -> Result<Self, &'static str> {
-        let mut name = None;
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, &'static str>> {
+        let mut config = ctx.user_config(author_id).await?;
         let mut pp = None;
 
         for arg in args.take(2) {
             match arg.parse() {
                 Ok(num) => pp = Some(num),
-                Err(_) => name = Some(Args::try_link_name(ctx, arg)?),
+                Err(_) => match Args::check_user_mention(ctx, arg).await? {
+                    Ok(name) => config.name = Some(name),
+                    Err(content) => return Ok(Err(content)),
+                },
             }
         }
 
-        let pp = pp.ok_or("You need to provide a decimal number")?;
+        let pp = match pp {
+            Some(pp) => pp,
+            None => return Ok(Err("You need to provide a decimal number")),
+        };
 
-        Ok(Self { name, pp, mode })
+        Ok(Ok(Self { config, pp }))
     }
 
-    pub(super) fn slash(
+    pub(super) async fn slash(
         ctx: &Context,
         options: Vec<CommandDataOption>,
+        author_id: UserId,
     ) -> BotResult<Result<Self, String>> {
-        let mut username = None;
-        let mut mode = None;
+        let mut config = ctx.user_config(author_id).await?;
         let mut pp = None;
 
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => mode = parse_mode_option!(value, "pp"),
-                    "name" => username = Some(value.into()),
-                    "discord" => username = parse_discord_option!(ctx, value, "pp"),
+                    "mode" => config.mode = parse_mode_option!(value, "pp"),
+                    "name" => config.name = Some(value.into()),
+                    "discord" => config.name = parse_discord_option!(ctx, value, "pp"),
                     _ => bail_cmd_option!("pp", string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
@@ -243,8 +271,7 @@ impl PpArgs {
 
         let args = Self {
             pp: pp.ok_or(Error::InvalidCommandOptions)?,
-            name: username,
-            mode: mode.unwrap_or(GameMode::STD),
+            config,
         };
 
         Ok(Ok(args))

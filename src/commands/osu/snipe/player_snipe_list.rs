@@ -1,19 +1,21 @@
 use crate::{
     custom_client::{SnipeScoreOrder, SnipeScoreParams},
+    database::UserConfig,
     embeds::{EmbedData, PlayerSnipeListEmbed},
     pagination::{Pagination, PlayerSnipeListPagination},
     util::{
-        constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+        constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         matcher, numbers,
         osu::ModSelection,
         CowUtils, MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write, sync::Arc};
+use twilight_model::id::UserId;
 
 #[command]
 #[bucket("snipe")]
@@ -39,11 +41,16 @@ use std::{borrow::Cow, collections::BTreeMap, fmt::Write, sync::Arc};
 async fn playersnipelist(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match PlayerListArgs::args(&ctx, &mut args) {
-                Ok(list_args) => {
+            match PlayerListArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(list_args)) => {
                     _playersnipelist(ctx, CommandData::Message { msg, args, num }, list_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_snipe(ctx, command).await,
@@ -55,14 +62,16 @@ pub(super) async fn _playersnipelist(
     data: CommandData<'_>,
     args: PlayerListArgs,
 ) -> BotResult<()> {
-    let author_id = data.author()?.id;
+    let PlayerListArgs {
+        config,
+        order,
+        mods,
+        descending,
+    } = args;
 
-    let name = match args.name {
+    let name = match config.name {
         Some(name) => name,
-        None => match ctx.get_link(data.author()?.id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
 
     let user = match super::request_user(&ctx, &name, Some(GameMode::STD)).await {
@@ -91,9 +100,9 @@ pub(super) async fn _playersnipelist(
     };
 
     let params = SnipeScoreParams::new(user.user_id, country)
-        .order(args.order)
-        .descending(args.descending)
-        .mods(args.mods);
+        .order(order)
+        .descending(descending)
+        .mods(mods);
 
     let scores_fut = ctx.clients.custom.get_national_firsts(&params);
     let count_fut = ctx.clients.custom.get_national_firsts_count(&params);
@@ -186,7 +195,7 @@ pub(super) async fn _playersnipelist(
         params,
     );
 
-    let owner = author_id;
+    let owner = data.author()?.id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -198,15 +207,19 @@ pub(super) async fn _playersnipelist(
 }
 
 pub(super) struct PlayerListArgs {
-    pub name: Option<Name>,
+    pub config: UserConfig,
     pub order: SnipeScoreOrder,
     pub mods: Option<ModSelection>,
     pub descending: bool,
 }
 
 impl PlayerListArgs {
-    fn args(ctx: &Context, args: &mut Args) -> Result<Self, Cow<'static, str>> {
-        let mut name = None;
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let mut config = ctx.user_config(author_id).await?;
         let mut order = None;
         let mut mods = None;
         let mut descending = None;
@@ -214,7 +227,7 @@ impl PlayerListArgs {
         for arg in args.take(4).map(CowUtils::cow_to_ascii_lowercase) {
             if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
                 let key = &arg[..idx];
-                let value = &arg[idx + 1..];
+                let value = arg[idx + 1..].trim_end();
 
                 match key {
                     "sort" => {
@@ -229,7 +242,7 @@ impl PlayerListArgs {
                                 let content = "Failed to parse `sort`. \
                                 Must be either `acc`, `length`, `mapdate`, `misses`, `scoredate`, or `stars`.";
 
-                                return Err(content.into());
+                                return Ok(Err(content.into()));
                             }
                         }
                     }
@@ -240,7 +253,7 @@ impl PlayerListArgs {
                             let content =
                                 "Failed to parse `reverse`. Must be either `true` or `false`.";
 
-                            return Err(content.into());
+                            return Ok(Err(content.into()));
                         }
                     },
                     _ => {
@@ -250,23 +263,26 @@ impl PlayerListArgs {
                             key
                         );
 
-                        return Err(content.into());
+                        return Ok(Err(content.into()));
                     }
                 }
             } else if let Some(mods_) = matcher::get_mods(arg.as_ref()) {
                 mods = Some(mods_);
             } else {
-                name = Some(Args::try_link_name(ctx, arg.as_ref())?);
+                match Args::check_user_mention(ctx, arg.as_ref()).await? {
+                    Ok(name) => config.name = Some(name),
+                    Err(content) => return Ok(Err(content.into())),
+                }
             }
         }
 
         let args = Self {
-            name,
+            config,
             order: order.unwrap_or_default(),
             mods,
             descending: descending.unwrap_or(true),
         };
 
-        Ok(args)
+        Ok(Ok(args))
     }
 }

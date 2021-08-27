@@ -21,12 +21,15 @@ use crate::{
 };
 
 use std::sync::Arc;
-use twilight_model::application::{
-    command::{
-        BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption,
-        CommandOptionChoice, OptionsCommandOptionData,
+use twilight_model::{
+    application::{
+        command::{
+            BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption,
+            CommandOptionChoice, OptionsCommandOptionData,
+        },
+        interaction::{application_command::CommandDataOption, ApplicationCommand},
     },
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+    id::UserId,
 };
 
 enum SnipeCommandKind {
@@ -40,7 +43,7 @@ enum SnipeCommandKind {
 }
 
 macro_rules! parse_username {
-    ($location:literal, $variant:ident, $options:ident, $ctx:ident) => {{
+    ($location:literal, $variant:ident, $options:ident, $ctx:ident, $author_id:ident) => {{
         let mut username = None;
 
         for option in $options {
@@ -62,12 +65,21 @@ macro_rules! parse_username {
             }
         }
 
-        Some(SnipeCommandKind::$variant(username))
+        let name = match username {
+            Some(name) => Some(name),
+            None => $ctx.user_config($author_id).await?.name,
+        };
+
+        Some(SnipeCommandKind::$variant(name))
     }};
 }
 
 impl SnipeCommandKind {
-    fn slash(ctx: &Context, command: &mut ApplicationCommand) -> BotResult<Result<Self, String>> {
+    async fn slash(
+        ctx: &Context,
+        command: &mut ApplicationCommand,
+    ) -> BotResult<Result<Self, String>> {
+        let author_id = command.user_id()?;
         let mut kind = None;
 
         for option in command.yoink_options() {
@@ -86,7 +98,7 @@ impl SnipeCommandKind {
                         Ok(kind_) => kind = Some(kind_),
                         Err(content) => return Ok(Err(content)),
                     },
-                    "player" => match Self::parse_player(ctx, options)? {
+                    "player" => match Self::parse_player(ctx, options, author_id).await? {
                         Ok(kind_) => kind = Some(kind_),
                         Err(content) => return Ok(Err(content)),
                     },
@@ -132,9 +144,10 @@ impl SnipeCommandKind {
         kind.ok_or(Error::InvalidCommandOptions).map(Ok)
     }
 
-    fn parse_player(
+    async fn parse_player(
         ctx: &Context,
         options: Vec<CommandDataOption>,
+        author_id: UserId,
     ) -> BotResult<Result<Self, String>> {
         let mut kind = None;
 
@@ -151,20 +164,39 @@ impl SnipeCommandKind {
                 }
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
                     "gain" => {
-                        kind = parse_username!("snipe player gain", SnipeGain, options, ctx);
+                        kind = parse_username!(
+                            "snipe player gain",
+                            SnipeGain,
+                            options,
+                            ctx,
+                            author_id
+                        );
                     }
-                    "list" => match parse_player_list(ctx, options)? {
+                    "list" => match parse_player_list(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(Self::PlayerList(args)),
                         Err(content) => return Ok(Err(content)),
                     },
                     "loss" => {
-                        kind = parse_username!("snipe player loss", SnipeLoss, options, ctx);
+                        kind = parse_username!(
+                            "snipe player loss",
+                            SnipeLoss,
+                            options,
+                            ctx,
+                            author_id
+                        );
                     }
                     "stats" => {
-                        kind = parse_username!("snipe player stats", PlayerStats, options, ctx);
+                        kind = parse_username!(
+                            "snipe player stats",
+                            PlayerStats,
+                            options,
+                            ctx,
+                            author_id
+                        );
                     }
                     "targets" => {
-                        kind = parse_username!("snipe player targets", Sniped, options, ctx)
+                        kind =
+                            parse_username!("snipe player targets", Sniped, options, ctx, author_id)
                     }
                     _ => bail_cmd_option!("snipe player", subcommand, name),
                 },
@@ -276,11 +308,12 @@ fn parse_country_code(ctx: &Context, mut country: String) -> Result<CountryCode,
     }
 }
 
-fn parse_player_list(
+async fn parse_player_list(
     ctx: &Context,
     options: Vec<CommandDataOption>,
+    author_id: UserId,
 ) -> BotResult<Result<PlayerListArgs, String>> {
-    let mut username = None;
+    let mut config = ctx.user_config(author_id).await?;
     let mut order = None;
     let mut mods = None;
     let mut descending = None;
@@ -288,8 +321,8 @@ fn parse_player_list(
     for option in options {
         match option {
             CommandDataOption::String { name, value } => match name.as_str() {
-                "name" => username = Some(value.into()),
-                "discord" => username = parse_discord_option!(ctx, value, "snipe player list"),
+                "name" => config.name = Some(value.into()),
+                "discord" => config.name = parse_discord_option!(ctx, value, "snipe player list"),
                 "sort" => match value.as_str() {
                     "acc" => order = Some(SnipeScoreOrder::Accuracy),
                     "len" => order = Some(SnipeScoreOrder::Length),
@@ -327,7 +360,7 @@ fn parse_player_list(
     }
 
     let args = PlayerListArgs {
-        name: username,
+        config,
         order: order.unwrap_or_default(),
         mods,
         descending: descending.unwrap_or(true),
@@ -337,7 +370,7 @@ fn parse_player_list(
 }
 
 pub async fn slash_snipe(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match SnipeCommandKind::slash(&ctx, &mut command)? {
+    match SnipeCommandKind::slash(&ctx, &mut command).await? {
         Ok(SnipeCommandKind::CountryList(args)) => {
             _countrysnipelist(ctx, command.into(), args).await
         }

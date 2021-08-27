@@ -12,6 +12,7 @@ use crate::{
 use chrono::{DateTime, Utc};
 use rosu_v2::prelude::{OsuError, User};
 use std::{cmp::Reverse, sync::Arc};
+use twilight_model::id::UserId;
 
 #[command]
 #[short_desc("Display a recently acquired medal of a user")]
@@ -24,13 +25,19 @@ use std::{cmp::Reverse, sync::Arc};
 #[aliases("mr", "recentmedal")]
 async fn medalrecent(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
-        CommandData::Message { msg, mut args, num } => match RecentArgs::args(&ctx, &mut args, num)
-        {
-            Ok(recent_args) => {
-                _medalrecent(ctx, CommandData::Message { msg, args, num }, recent_args).await
+        CommandData::Message { msg, mut args, num } => {
+            match RecentArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(recent_args)) => {
+                    _medalrecent(ctx, CommandData::Message { msg, args, num }, recent_args).await
+                }
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
-            Err(content) => msg.error(&ctx, content).await,
-        },
+        }
         CommandData::Interaction { command } => super::slash_medal(ctx, command).await,
     }
 }
@@ -44,10 +51,7 @@ pub(super) async fn _medalrecent(
 
     let name = match name {
         Some(name) => name,
-        None => match ctx.get_link(data.author()?.id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
 
     let user_fut = super::request_user(&ctx, &name, None);
@@ -167,13 +171,21 @@ pub(super) struct RecentArgs {
 }
 
 impl RecentArgs {
-    fn args(ctx: &Context, args: &mut Args, index: Option<usize>) -> Result<Self, &'static str> {
-        let name = args
-            .next()
-            .map(|arg| Args::try_link_name(ctx, arg))
-            .transpose()?;
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: UserId,
+        index: Option<usize>,
+    ) -> BotResult<Result<Self, &'static str>> {
+        let name = match args.next() {
+            Some(arg) => match Args::check_user_mention(&ctx, arg).await? {
+                Ok(name) => Some(name),
+                Err(content) => return Ok(Err(content)),
+            },
+            None => ctx.user_config(author_id).await?.name,
+        };
 
-        Ok(Self { name, index })
+        Ok(Ok(Self { name, index }))
     }
 }
 

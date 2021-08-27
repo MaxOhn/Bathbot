@@ -1,5 +1,6 @@
 use super::ErrorType;
 use crate::{
+    database::UserConfig,
     embeds::{EmbedData, TopIfEmbed},
     pagination::{Pagination, TopIfPagination},
     pp::{Calculations, PPCalculator},
@@ -10,7 +11,7 @@ use crate::{
         osu::ModSelection,
         MessageExt,
     },
-    Args, BotResult, CommandData, Context, Error, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
 use futures::{
@@ -19,7 +20,9 @@ use futures::{
 };
 use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
 use std::{borrow::Cow, cmp::Ordering, fmt::Write, sync::Arc};
-use twilight_model::application::interaction::application_command::CommandDataOption;
+use twilight_model::{
+    application::interaction::application_command::CommandDataOption, id::UserId,
+};
 
 const NM: GameMods = GameMods::NoMod;
 const DT: GameMods = GameMods::DoubleTime;
@@ -35,30 +38,14 @@ pub(super) async fn _topif(
     data: CommandData<'_>,
     args: IfArgs,
 ) -> BotResult<()> {
-    let IfArgs {
-        name,
-        mut mode,
-        mods,
-    } = args;
+    let IfArgs { config, mods } = args;
 
-    let author_id = data.author()?.id;
-
-    mode = match ctx.user_config(author_id).await {
-        Ok(config) => config.mode(mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
-    };
-
-    let name = match name {
+    let name = match config.name {
         Some(name) => name,
-        None => match ctx.get_link(author_id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
+
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
     if let ModSelection::Exact(mods) | ModSelection::Include(mods) = mods {
         let mut content = None;
@@ -310,7 +297,7 @@ pub(super) async fn _topif(
     // Pagination
     let pre_pp = user.statistics.as_ref().unwrap().pp;
     let pagination = TopIfPagination::new(response, user, scores_data, mode, pre_pp, adjusted_pp);
-    let owner = author_id;
+    let owner = data.author()?.id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -330,15 +317,24 @@ pub(super) async fn _topif(
     - `+mods!` to make all scores have exactly those mods\n  \
     - `-mods!` to remove all these mods from all scores"
 )]
-#[usage("[username] [mods]")]
+#[usage("[username] [mods")]
 #[example("badewanne3 -hd!", "+hdhr!", "whitecat +hddt")]
 #[aliases("ti")]
 pub async fn topif(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match IfArgs::args(&ctx, &mut args, GameMode::STD) {
-                Ok(if_args) => _topif(ctx, CommandData::Message { msg, args, num }, if_args).await,
-                Err(content) => msg.error(&ctx, content).await,
+            match IfArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut if_args)) => {
+                    if_args.config.mode = Some(if_args.config.mode(GameMode::STD));
+
+                    _topif(ctx, CommandData::Message { msg, args, num }, if_args).await
+                }
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -352,18 +348,26 @@ pub async fn topif(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     As for all other commands with mods input, you can specify them as follows:\n  \
     - `+mods` to include the mod(s) into all scores\n  \
     - `+mods!` to make all scores have exactly those mods\n  \
-    - `-mods!` to remove all these mods from all scores\n\
-    To exclude converts, specify `-convert` / `-c` as last argument."
+    - `-mods!` to remove all these mods from all scores"
 )]
-#[usage("[username] [mods] [-c]")]
-#[example("badewanne3 -hd!", "+hdhr! -c", "whitecat +hddt")]
+#[usage("[username] [mods")]
+#[example("badewanne3 -hd!", "+hdhr!", "whitecat +hddt")]
 #[aliases("tit")]
 pub async fn topiftaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match IfArgs::args(&ctx, &mut args, GameMode::TKO) {
-                Ok(if_args) => _topif(ctx, CommandData::Message { msg, args, num }, if_args).await,
-                Err(content) => msg.error(&ctx, content).await,
+            match IfArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut if_args)) => {
+                    if_args.config.mode = Some(GameMode::TKO);
+
+                    _topif(ctx, CommandData::Message { msg, args, num }, if_args).await
+                }
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -377,18 +381,26 @@ pub async fn topiftaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     As for all other commands with mods input, you can specify them as follows:\n  \
     - `+mods` to include the mod(s) into all scores\n  \
     - `+mods!` to make all scores have exactly those mods\n  \
-    - `-mods!` to remove all these mods from all scores\n\
-    To exclude converts, specify `-convert` / `-c` as last argument."
+    - `-mods!` to remove all these mods from all scores"
 )]
-#[usage("[username] [mods] [-c]")]
-#[example("badewanne3 -hd!", "+hdhr! -c", "whitecat +hddt")]
+#[usage("[username] [mods")]
+#[example("badewanne3 -hd!", "+hdhr!", "whitecat +hddt")]
 #[aliases("tic")]
 pub async fn topifctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match IfArgs::args(&ctx, &mut args, GameMode::CTB) {
-                Ok(if_args) => _topif(ctx, CommandData::Message { msg, args, num }, if_args).await,
-                Err(content) => msg.error(&ctx, content).await,
+            match IfArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut if_args)) => {
+                    if_args.config.mode = Some(GameMode::CTB);
+
+                    _topif(ctx, CommandData::Message { msg, args, num }, if_args).await
+                }
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -412,8 +424,7 @@ fn mode_str(mode: GameMode) -> &'static str {
 }
 
 pub(super) struct IfArgs {
-    name: Option<Name>,
-    mode: GameMode,
+    config: UserConfig,
     mods: ModSelection,
 }
 
@@ -423,40 +434,50 @@ impl IfArgs {
         If you want to replace mods everywhere, specify it e.g. as `+hdhr!`.\n\
         And if you want to remote mods everywhere, specify it e.g. as `-hdnf!`.";
 
-    fn args(ctx: &Context, args: &mut Args, mode: GameMode) -> Result<Self, &'static str> {
-        let mut name = None;
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, &'static str>> {
+        let mut config = ctx.user_config(author_id).await?;
         let mut mods = None;
 
         for arg in args.take(2) {
             match matcher::get_mods(arg) {
                 Some(mods_) => mods = Some(mods_),
-                None => name = Some(Args::try_link_name(ctx, arg)?),
+                None => match Args::check_user_mention(ctx, arg).await? {
+                    Ok(name) => config.name = Some(name),
+                    Err(content) => return Ok(Err(content)),
+                },
             }
         }
 
-        let mods = mods.ok_or(Self::ERR_PARSE_MODS)?;
+        let mods = match mods {
+            Some(mods_) => mods_,
+            None => return Ok(Err(Self::ERR_PARSE_MODS)),
+        };
 
-        Ok(Self { name, mode, mods })
+        Ok(Ok(Self { config, mods }))
     }
 
-    pub(super) fn slash(
+    pub(super) async fn slash(
         ctx: &Context,
         options: Vec<CommandDataOption>,
+        author_id: UserId,
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut username = None;
+        let mut config = ctx.user_config(author_id).await?;
         let mut mods = None;
-        let mut mode = None;
 
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => username = Some(value.into()),
+                    "name" => config.name = Some(value.into()),
                     "mods" => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
-                    "mode" => mode = parse_mode_option!(value, "top if"),
-                    "discord" => username = parse_discord_option!(ctx, value, "top if"),
+                    "mode" => config.mode = parse_mode_option!(value, "top if"),
+                    "discord" => config.name = parse_discord_option!(ctx, value, "top if"),
                     _ => bail_cmd_option!("top if", string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
@@ -471,12 +492,8 @@ impl IfArgs {
             }
         }
 
-        let args = Self {
-            mods: mods.ok_or(Error::InvalidCommandOptions)?,
-            name: username,
-            mode: mode.unwrap_or(GameMode::STD),
-        };
+        let mods = mods.ok_or(Error::InvalidCommandOptions)?;
 
-        Ok(Ok(args))
+        Ok(Ok(Self { config, mods }))
     }
 }

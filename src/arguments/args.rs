@@ -1,7 +1,8 @@
 use super::Stream;
-use crate::{util::matcher, Context, Name};
+use crate::{util::matcher, BotResult, Context, Name};
 
 use std::{error::Error, fmt};
+use twilight_model::id::UserId;
 
 pub struct Args<'m> {
     msg: &'m str,
@@ -75,13 +76,16 @@ impl<'m> Args<'m> {
         Some((start, end))
     }
 
-    pub fn try_link_name(ctx: &Context, arg: &str) -> Result<Name, &'static str> {
+    pub async fn check_user_mention(
+        ctx: &Context,
+        arg: &str,
+    ) -> BotResult<Result<Name, &'static str>> {
         match matcher::get_mention_user(arg) {
-            Some(id) => match ctx.get_link(id) {
-                Some(name) => Ok(name),
-                None => Err("The specified user is not linked to an osu profile"),
+            Some(id) => match ctx.user_config(UserId(id)).await?.name {
+                Some(name) => Ok(Ok(name)),
+                None => Ok(Err("The specified user is not linked to an osu profile")),
             },
-            None => Ok(arg.into()),
+            None => Ok(Ok(arg.into())),
         }
     }
 }

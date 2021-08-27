@@ -1,5 +1,6 @@
 use super::ErrorType;
 use crate::{
+    database::UserConfig,
     embeds::{EmbedData, TopIfEmbed},
     pagination::{Pagination, TopIfPagination},
     tracking::process_tracking,
@@ -10,7 +11,7 @@ use crate::{
         osu::prepare_beatmap_file,
         MessageExt,
     },
-    Args, BotResult, CommandData, Context, Error, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
 use chrono::{Datelike, Utc};
@@ -23,7 +24,9 @@ use rosu_pp_older::*;
 use rosu_v2::prelude::{GameMode, OsuError, Score};
 use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 use tokio::fs::File;
-use twilight_model::application::interaction::application_command::CommandDataOption;
+use twilight_model::{
+    application::interaction::application_command::CommandDataOption, id::UserId,
+};
 
 macro_rules! pp_std {
     ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
@@ -119,11 +122,8 @@ pub(super) async fn _topold(
     data: CommandData<'_>,
     args: OldArgs,
 ) -> BotResult<()> {
-    let OldArgs {
-        name,
-        version,
-        mut mode,
-    } = args;
+    let OldArgs { config, version } = args;
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
     let content = match (mode, version) {
         (GameMode::STD, None) => Some("osu! was not a thing until september 2007."),
@@ -154,17 +154,6 @@ pub(super) async fn _topold(
         _ => None,
     };
 
-    let author_id = data.author()?.id;
-
-    mode = match ctx.user_config(author_id).await {
-        Ok(config) => config.mode(mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
-    };
-
     let version = version.unwrap();
 
     if let Some(content) = content {
@@ -174,12 +163,9 @@ pub(super) async fn _topold(
         return Ok(());
     }
 
-    let name = match name {
+    let name = match config.name {
         Some(name) => name,
-        None => match ctx.get_link(author_id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
 
     // Retrieve the user and their top scores
@@ -309,7 +295,7 @@ pub(super) async fn _topold(
 
     // Pagination
     let pagination = TopIfPagination::new(response, user, scores_data, mode, adjusted_pp, post_pp);
-    let owner = author_id;
+    let owner = data.author()?.id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -343,11 +329,16 @@ pub(super) async fn _topold(
 async fn topold(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match OldArgs::args(&ctx, &mut args, GameMode::STD) {
-                Ok(old_args) => {
+            match OldArgs::args(&ctx, &mut args, msg.author.id, GameMode::STD).await {
+                Ok(Ok(old_args)) => {
                     _topold(ctx, CommandData::Message { msg, args, num }, old_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -371,11 +362,16 @@ async fn topold(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn topoldmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match OldArgs::args(&ctx, &mut args, GameMode::MNA) {
-                Ok(old_args) => {
+            match OldArgs::args(&ctx, &mut args, msg.author.id, GameMode::MNA).await {
+                Ok(Ok(old_args)) => {
                     _topold(ctx, CommandData::Message { msg, args, num }, old_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -399,11 +395,16 @@ async fn topoldmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn topoldtaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match OldArgs::args(&ctx, &mut args, GameMode::TKO) {
-                Ok(old_args) => {
+            match OldArgs::args(&ctx, &mut args, msg.author.id, GameMode::TKO).await {
+                Ok(Ok(old_args)) => {
                     _topold(ctx, CommandData::Message { msg, args, num }, old_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -427,11 +428,16 @@ async fn topoldtaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn topoldctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match OldArgs::args(&ctx, &mut args, GameMode::CTB) {
-                Ok(old_args) => {
+            match OldArgs::args(&ctx, &mut args, msg.author.id, GameMode::CTB).await {
+                Ok(Ok(old_args)) => {
                     _topold(ctx, CommandData::Message { msg, args, num }, old_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -528,13 +534,19 @@ impl OldVersion {
 }
 
 pub(super) struct OldArgs {
-    name: Option<Name>,
+    config: UserConfig,
     version: Option<OldVersion>,
-    mode: GameMode,
 }
 
 impl OldArgs {
-    fn args(ctx: &Context, args: &mut Args, mode: GameMode) -> Result<Self, &'static str> {
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: UserId,
+        mode: GameMode,
+    ) -> BotResult<Result<Self, &'static str>> {
+        let mut config = ctx.user_config(author_id).await?;
+
         let first = args.next();
         let second = args.next();
 
@@ -543,7 +555,7 @@ impl OldArgs {
         let (name, year) = match second {
             Some(second) => match second.parse() {
                 Ok(num) => (first, num),
-                Err(_) => return Err(ERR_PARSE_YEAR),
+                Err(_) => return Ok(Err(ERR_PARSE_YEAR)),
             },
             None => match first {
                 Some(first) => match first.parse() {
@@ -554,26 +566,26 @@ impl OldArgs {
             },
         };
 
-        let name = name
-            .map(|name| Args::try_link_name(ctx, name))
-            .transpose()?;
+        if let Some(name) = name {
+            match Args::check_user_mention(ctx, name).await? {
+                Ok(name) => config.name = Some(name),
+                Err(content) => return Ok(Err(content)),
+            }
+        }
 
-        let args = Self {
-            name,
-            version: OldVersion::get(mode, year),
-            mode,
-        };
+        config.mode = Some(config.mode(mode));
+        let version = OldVersion::get(mode, year);
 
-        Ok(args)
+        Ok(Ok(Self { config, version }))
     }
 
-    pub(super) fn slash(
+    pub(super) async fn slash(
         ctx: &Context,
         options: Vec<CommandDataOption>,
+        author_id: UserId,
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut username = None;
+        let mut config = ctx.user_config(author_id).await?;
         let mut version = None;
-        let mut mode = None;
 
         for option in options {
             match option {
@@ -588,14 +600,15 @@ impl OldArgs {
                 }
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
                     "osu" => {
-                        mode = Some(GameMode::STD);
+                        config.mode = Some(GameMode::STD);
 
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => username = Some(value.into()),
+                                    "name" => config.name = Some(value.into()),
                                     "discord" => {
-                                        username = parse_discord_option!(ctx, value, "top old osu")
+                                        config.name =
+                                            parse_discord_option!(ctx, value, "top old osu")
                                     }
                                     "version" => match value.as_str() {
                                         "april15_may18" => {
@@ -627,14 +640,14 @@ impl OldArgs {
                         }
                     }
                     "taiko" => {
-                        mode = Some(GameMode::TKO);
+                        config.mode = Some(GameMode::TKO);
 
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => username = Some(value.into()),
+                                    "name" => config.name = Some(value.into()),
                                     "discord" => {
-                                        username =
+                                        config.name =
                                             parse_discord_option!(ctx, value, "top old taiko")
                                     }
                                     "version" => match value.as_str() {
@@ -660,14 +673,14 @@ impl OldArgs {
                         }
                     }
                     "catch" => {
-                        mode = Some(GameMode::CTB);
+                        config.mode = Some(GameMode::CTB);
 
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => username = Some(value.into()),
+                                    "name" => config.name = Some(value.into()),
                                     "discord" => {
-                                        username =
+                                        config.name =
                                             parse_discord_option!(ctx, value, "top old catch")
                                     }
                                     "version" => match value.as_str() {
@@ -693,14 +706,14 @@ impl OldArgs {
                         }
                     }
                     "mania" => {
-                        mode = Some(GameMode::MNA);
+                        config.mode = Some(GameMode::MNA);
 
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => username = Some(value.into()),
+                                    "name" => config.name = Some(value.into()),
                                     "discord" => {
-                                        username =
+                                        config.name =
                                             parse_discord_option!(ctx, value, "top old mania")
                                     }
                                     "version" => match value.as_str() {
@@ -730,12 +743,8 @@ impl OldArgs {
             }
         }
 
-        let args = Self {
-            version: Some(version.ok_or(Error::InvalidCommandOptions)?),
-            mode: mode.ok_or(Error::InvalidCommandOptions)?,
-            name: username,
-        };
+        let version = Some(version.ok_or(Error::InvalidCommandOptions)?);
 
-        Ok(Ok(args))
+        Ok(Ok(Self { config, version }))
     }
 }

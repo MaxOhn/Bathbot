@@ -181,9 +181,6 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     // Reaction-role-assign
     let role_assigns = clients.psql.get_role_assigns().await?;
 
-    // Discord-osu! links
-    let discord_links = clients.psql.get_discord_links().await?;
-
     // osu! top score tracking
     let osu_tracking = OsuTracking::new(&clients.psql).await?;
 
@@ -194,7 +191,6 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         guilds,
         tracked_streams,
         role_assigns,
-        discord_links,
         bg_games: DashMap::new(),
         osu_tracking,
         msgs_to_process: DashSet::new(),

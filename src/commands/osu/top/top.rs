@@ -1,5 +1,6 @@
 use super::{ErrorType, GradeArg};
 use crate::{
+    database::UserConfig,
     embeds::{EmbedData, TopEmbed, TopSingleEmbed},
     pagination::{Pagination, TopPagination},
     tracking::process_tracking,
@@ -9,7 +10,7 @@ use crate::{
         osu::ModSelection,
         CowUtils, MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
 use futures::future::TryFutureExt;
@@ -24,29 +25,18 @@ use std::{
     sync::Arc,
 };
 use tokio::time::{sleep, Duration};
-use twilight_model::application::interaction::application_command::CommandDataOption;
+use twilight_model::{
+    application::interaction::application_command::CommandDataOption, id::UserId,
+};
 
-pub(super) async fn _top(
-    ctx: Arc<Context>,
-    data: CommandData<'_>,
-    mut args: TopArgs,
-) -> BotResult<()> {
+pub(super) async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> BotResult<()> {
     if args.index.filter(|n| *n > 100).is_some() {
         let content = "Can't have more than 100 top scores.";
 
         return data.error(&ctx, content).await;
     }
 
-    let author_id = data.author()?.id;
-
-    let mode = match ctx.user_config(author_id).await {
-        Ok(config) => config.mode(args.mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
-    };
+    let mode = args.config.mode.unwrap_or(GameMode::STD);
 
     if args.sort_by == TopOrder::Position && args.has_dash_r {
         let mode_long = mode_long(mode);
@@ -89,23 +79,15 @@ pub(super) async fn _top(
         return data.error(&ctx, content).await;
     }
 
-    let name = match args.name.take() {
-        Some(name) => name,
-        None => match ctx.get_link(author_id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+    let name = match args.config.name {
+        Some(ref name) => name.as_str(),
+        None => return super::require_link(&ctx, &data).await,
     };
 
     // Retrieve the user and their top scores
-    let user_fut = super::request_user(&ctx, &name, Some(mode)).map_err(From::from);
+    let user_fut = super::request_user(&ctx, name, Some(mode)).map_err(From::from);
 
-    let scores_fut = ctx
-        .osu()
-        .user_scores(name.as_str())
-        .best()
-        .mode(mode)
-        .limit(100);
+    let scores_fut = ctx.osu().user_scores(name).best().mode(mode).limit(100);
 
     let scores_fut = super::prepare_scores(&ctx, scores_fut);
 
@@ -213,9 +195,18 @@ pub(super) async fn _top(
 async fn top(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match TopArgs::args(&ctx, &mut args, GameMode::STD, num) {
-                Ok(top_args) => _top(ctx, CommandData::Message { msg, args, num }, top_args).await,
-                Err(content) => msg.error(&ctx, content).await,
+            match TopArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut top_args)) => {
+                    top_args.config.mode = Some(top_args.config.mode(GameMode::STD));
+
+                    _top(ctx, CommandData::Message { msg, args, num }, top_args).await
+                }
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -251,9 +242,18 @@ async fn top(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn topmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match TopArgs::args(&ctx, &mut args, GameMode::MNA, num) {
-                Ok(top_args) => _top(ctx, CommandData::Message { msg, args, num }, top_args).await,
-                Err(content) => msg.error(&ctx, content).await,
+            match TopArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut top_args)) => {
+                    top_args.config.mode = Some(GameMode::MNA);
+
+                    _top(ctx, CommandData::Message { msg, args, num }, top_args).await
+                }
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -289,9 +289,18 @@ async fn topmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn toptaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match TopArgs::args(&ctx, &mut args, GameMode::TKO, num) {
-                Ok(top_args) => _top(ctx, CommandData::Message { msg, args, num }, top_args).await,
-                Err(content) => msg.error(&ctx, content).await,
+            match TopArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut top_args)) => {
+                    top_args.config.mode = Some(GameMode::TKO);
+
+                    _top(ctx, CommandData::Message { msg, args, num }, top_args).await
+                }
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -327,9 +336,18 @@ async fn toptaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn topctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match TopArgs::args(&ctx, &mut args, GameMode::CTB, num) {
-                Ok(top_args) => _top(ctx, CommandData::Message { msg, args, num }, top_args).await,
-                Err(content) => msg.error(&ctx, content).await,
+            match TopArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut top_args)) => {
+                    top_args.config.mode = Some(GameMode::CTB);
+
+                    _top(ctx, CommandData::Message { msg, args, num }, top_args).await
+                }
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -363,14 +381,20 @@ async fn topctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn recentbest(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match TopArgs::args(&ctx, &mut args, GameMode::STD, num) {
-                Ok(mut top_args) => {
+            match TopArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut top_args)) => {
                     let data = CommandData::Message { msg, args, num };
                     top_args.sort_by = TopOrder::Date;
+                    top_args.config.mode = Some(top_args.config.mode(GameMode::STD));
 
                     _top(ctx, data, top_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -404,14 +428,20 @@ async fn recentbest(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn recentbestmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match TopArgs::args(&ctx, &mut args, GameMode::MNA, num) {
-                Ok(mut top_args) => {
+            match TopArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut top_args)) => {
                     let data = CommandData::Message { msg, args, num };
                     top_args.sort_by = TopOrder::Date;
+                    top_args.config.mode = Some(GameMode::MNA);
 
                     _top(ctx, data, top_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -445,14 +475,20 @@ async fn recentbestmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
 async fn recentbesttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match TopArgs::args(&ctx, &mut args, GameMode::TKO, num) {
-                Ok(mut top_args) => {
+            match TopArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut top_args)) => {
                     let data = CommandData::Message { msg, args, num };
                     top_args.sort_by = TopOrder::Date;
+                    top_args.config.mode = Some(GameMode::TKO);
 
                     _top(ctx, data, top_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -486,14 +522,20 @@ async fn recentbesttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
 async fn recentbestctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match TopArgs::args(&ctx, &mut args, GameMode::CTB, num) {
-                Ok(mut top_args) => {
+            match TopArgs::args(&ctx, &mut args, msg.author.id, num).await {
+                Ok(Ok(mut top_args)) => {
                     let data = CommandData::Message { msg, args, num };
                     top_args.sort_by = TopOrder::Date;
+                    top_args.config.mode = Some(GameMode::CTB);
 
                     _top(ctx, data, top_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -714,7 +756,7 @@ impl Default for TopOrder {
 }
 
 pub(super) struct TopArgs {
-    name: Option<Name>,
+    config: UserConfig,
     mods: Option<ModSelection>,
     acc_min: Option<f32>,
     acc_max: Option<f32>,
@@ -723,7 +765,6 @@ pub(super) struct TopArgs {
     grade: Option<GradeArg>,
     sort_by: TopOrder,
     reverse: bool,
-    mode: GameMode,
     index: Option<usize>,
     has_dash_r: bool,
     has_dash_p_or_i: bool,
@@ -747,13 +788,13 @@ impl TopArgs {
         Must be either a single grade or two grades of the form `a..b` e.g. `C..S`.\n\
         Valid grades are: `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, or `D`";
 
-    fn args(
+    async fn args(
         ctx: &Context,
-        args: &mut Args,
-        mode: GameMode,
+        args: &mut Args<'_>,
+        author_id: UserId,
         index: Option<usize>,
-    ) -> Result<Self, Cow<'static, str>> {
-        let mut name = None;
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let mut config = ctx.user_config(author_id).await?;
         let mut mods = None;
         let mut acc_min = None;
         let mut acc_max = None;
@@ -785,7 +826,7 @@ impl TopArgs {
                             } else if let Ok(num) = bot.parse::<f32>() {
                                 num.max(0.0).min(100.0)
                             } else {
-                                return Err(Self::ERR_PARSE_ACC.into());
+                                return Ok(Err(Self::ERR_PARSE_ACC.into()));
                             };
 
                             let max = if top.is_empty() {
@@ -793,13 +834,16 @@ impl TopArgs {
                             } else if let Ok(num) = top.parse::<f32>() {
                                 num.max(0.0).min(100.0)
                             } else {
-                                return Err(Self::ERR_PARSE_ACC.into());
+                                return Ok(Err(Self::ERR_PARSE_ACC.into()));
                             };
 
                             acc_min = Some(min.min(max));
                             acc_max = Some(min.max(max));
                         }
-                        None => acc_min = Some(value.parse().map_err(|_| Self::ERR_PARSE_ACC)?),
+                        None => match value.parse() {
+                            Ok(num) => acc_min = Some(num),
+                            Err(_) => return Ok(Err(Self::ERR_PARSE_ACC.into())),
+                        },
                     },
                     "combo" | "c" => match value.find("..") {
                         Some(idx) => {
@@ -811,15 +855,21 @@ impl TopArgs {
                             } else if let Ok(num) = bot.parse() {
                                 num
                             } else {
-                                return Err(Self::ERR_PARSE_COMBO.into());
+                                return Ok(Err(Self::ERR_PARSE_COMBO.into()));
                             };
 
-                            let max = top.parse().map_err(|_| Self::ERR_PARSE_COMBO)?;
+                            let max = match top.parse() {
+                                Ok(num) => num,
+                                Err(_) => return Ok(Err(Self::ERR_PARSE_COMBO.into())),
+                            };
 
                             combo_min = Some(min.min(max));
                             combo_max = Some(min.max(max));
                         }
-                        None => combo_min = Some(value.parse().map_err(|_| Self::ERR_PARSE_COMBO)?),
+                        None => match value.parse() {
+                            Ok(num) => combo_min = Some(num),
+                            Err(_) => return Ok(Err(Self::ERR_PARSE_COMBO.into())),
+                        },
                     },
                     "grade" | "g" => match value.find("..") {
                         Some(idx) => {
@@ -831,7 +881,7 @@ impl TopArgs {
                             } else if let Some(grade) = parse_grade(bot) {
                                 grade
                             } else {
-                                return Err(Self::ERR_PARSE_GRADE.into());
+                                return Ok(Err(Self::ERR_PARSE_GRADE.into()));
                             };
 
                             let max = if top.is_empty() {
@@ -839,7 +889,7 @@ impl TopArgs {
                             } else if let Some(grade) = parse_grade(top) {
                                 grade
                             } else {
-                                return Err(Self::ERR_PARSE_GRADE.into());
+                                return Ok(Err(Self::ERR_PARSE_GRADE.into()));
                             };
 
                             let bot = if min < max { min } else { max };
@@ -849,7 +899,7 @@ impl TopArgs {
                         }
                         None => match parse_grade(value).map(GradeArg::Single) {
                             Some(grade_) => grade = Some(grade_),
-                            None => return Err(Self::ERR_PARSE_GRADE.into()),
+                            None => return Ok(Err(Self::ERR_PARSE_GRADE.into())),
                         },
                     },
                     "sort" | "s" | "order" | "ordering" => match value {
@@ -862,12 +912,12 @@ impl TopArgs {
                             let content = "Failed to parse `sort`.\n\
                             Must be either `acc`, `combo`, `date`, `length`, or `position`";
 
-                            return Err(content.into());
+                            return Ok(Err(content.into()));
                         }
                     },
                     "mods" => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),
-                        None => return Err(Self::ERR_PARSE_MODS.into()),
+                        None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
                     "reverse" | "r" => match value {
                         "true" | "1" => reverse = Some(true),
@@ -876,7 +926,7 @@ impl TopArgs {
                             let content =
                                 "Failed to parse `reverse`. Must be either `true` or `false`.";
 
-                            return Err(content.into());
+                            return Ok(Err(content.into()));
                         }
                     },
                     _ => {
@@ -886,18 +936,21 @@ impl TopArgs {
                             key
                         );
 
-                        return Err(content.into());
+                        return Ok(Err(content.into()));
                     }
                 }
             } else if let Some(mods_) = matcher::get_mods(arg.as_ref()) {
                 mods = Some(mods_);
             } else {
-                name = Some(Args::try_link_name(ctx, arg.as_ref())?);
+                match Args::check_user_mention(ctx, arg.as_ref()).await? {
+                    Ok(name) => config.name = Some(name),
+                    Err(content) => return Ok(Err(content.into())),
+                }
             }
         }
 
         let args = Self {
-            name,
+            config,
             mods,
             acc_min,
             acc_max,
@@ -906,21 +959,20 @@ impl TopArgs {
             grade,
             sort_by: sort_by.unwrap_or_default(),
             reverse: reverse.unwrap_or(false),
-            mode,
             index,
             has_dash_r: has_dash_r.unwrap_or(false),
             has_dash_p_or_i: has_dash_p_or_i.unwrap_or(false),
         };
 
-        Ok(args)
+        Ok(Ok(args))
     }
 
-    pub(super) fn slash(
+    pub(super) async fn slash(
         ctx: &Context,
         options: Vec<CommandDataOption>,
+        author_id: UserId,
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut username = None;
-        let mut mode = None;
+        let mut config = ctx.user_config(author_id).await?;
         let mut mods = None;
         let mut grade = None;
         let mut order = None;
@@ -930,9 +982,9 @@ impl TopArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => username = Some(value.into()),
-                    "discord" => username = parse_discord_option!(ctx, value, "top current"),
-                    "mode" => mode = parse_mode_option!(value, "top current"),
+                    "name" => config.name = Some(value.into()),
+                    "discord" => config.name = parse_discord_option!(ctx, value, "top current"),
+                    "mode" => config.mode = parse_mode_option!(value, "top current"),
                     "mods" => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
@@ -981,7 +1033,7 @@ impl TopArgs {
         }
 
         let args = Self {
-            name: username,
+            config,
             mods,
             acc_min: None,
             acc_max: None,
@@ -990,7 +1042,6 @@ impl TopArgs {
             grade,
             sort_by: order.unwrap_or_default(),
             reverse: reverse.unwrap_or(false),
-            mode: mode.unwrap_or(GameMode::STD),
             index,
             has_dash_r: false,
             has_dash_p_or_i: false,

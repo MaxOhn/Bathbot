@@ -29,7 +29,11 @@ enum ReachCommandKind {
 }
 
 impl ReachCommandKind {
-    fn slash(ctx: &Context, command: &mut ApplicationCommand) -> BotResult<Result<Self, String>> {
+    async fn slash(
+        ctx: &Context,
+        command: &mut ApplicationCommand,
+    ) -> BotResult<Result<Self, String>> {
+        let author_id = command.user_id()?;
         let mut kind = None;
 
         for option in command.yoink_options() {
@@ -38,7 +42,7 @@ impl ReachCommandKind {
                 CommandDataOption::Integer { name, .. } => bail_cmd_option!("reach", integer, name),
                 CommandDataOption::Boolean { name, .. } => bail_cmd_option!("reach", boolean, name),
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "pp" => match PpArgs::slash(ctx, options)? {
+                    "pp" => match PpArgs::slash(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(Self::Performance(args)),
                         Err(content) => return Ok(Err(content)),
                     },
@@ -56,14 +60,20 @@ impl ReachCommandKind {
                                 }
                                 CommandDataOption::SubCommand { name, options } => {
                                     match name.as_str() {
-                                        "pp" => match RankPpArgs::slash(ctx, options)? {
+                                        "pp" => match RankPpArgs::slash(ctx, options, author_id)
+                                            .await?
+                                        {
                                             Ok(args) => kind = Some(Self::RankPerformance(args)),
                                             Err(content) => return Ok(Err(content)),
                                         },
-                                        "score" => match RankScoreArgs::slash(ctx, options)? {
-                                            Ok(args) => kind = Some(Self::RankScore(args)),
-                                            Err(content) => return Ok(Err(content)),
-                                        },
+                                        "score" => {
+                                            match RankScoreArgs::slash(ctx, options, author_id)
+                                                .await?
+                                            {
+                                                Ok(args) => kind = Some(Self::RankScore(args)),
+                                                Err(content) => return Ok(Err(content)),
+                                            }
+                                        }
                                         _ => bail_cmd_option!("reach rank", subcommand, name),
                                     }
                                 }
@@ -80,7 +90,7 @@ impl ReachCommandKind {
 }
 
 pub async fn slash_reach(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match ReachCommandKind::slash(&ctx, &mut command)? {
+    match ReachCommandKind::slash(&ctx, &mut command).await? {
         Ok(ReachCommandKind::Performance(args)) => _pp(ctx, command.into(), args).await,
         Ok(ReachCommandKind::RankPerformance(args)) => _rank(ctx, command.into(), args).await,
         Ok(ReachCommandKind::RankScore(args)) => _rankscore(ctx, command.into(), args).await,

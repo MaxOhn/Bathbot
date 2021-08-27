@@ -1,6 +1,6 @@
 mod bggame;
 mod configs;
-mod discord_links;
+// mod discord_links; // TODO: Remove
 mod maps;
 mod medals;
 mod role_assign;

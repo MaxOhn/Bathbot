@@ -306,16 +306,7 @@ async fn pre_process_command(
 }
 
 fn log_slash(ctx: &Context, command: &ApplicationCommand, cmd_name: &str) {
-    let username = command
-        .username()
-        .or_else(|| {
-            command
-                .member
-                .as_ref()
-                .and_then(|member| member.nick.as_deref())
-        })
-        .unwrap_or("<unknown user>");
-
+    let username = command.username().unwrap_or("<unknown user>");
     let mut location = String::with_capacity(31);
 
     match command.guild_id.and_then(|id| ctx.cache.guild(id)) {

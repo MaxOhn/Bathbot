@@ -2,7 +2,10 @@ use super::TripleArgs;
 use crate::{
     embeds::{EmbedData, MostPlayedCommonEmbed},
     pagination::{MostPlayedCommonPagination, Pagination},
-    util::{constants::OSU_API_ISSUE, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        MessageExt,
+    },
     BotResult, CommandData, Context, MessageBuilder,
 };
 
@@ -24,16 +27,18 @@ use std::{cmp::Reverse, fmt::Write, sync::Arc};
 async fn mostplayedcommon(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match TripleArgs::args(&ctx, &mut args, None) {
-                Ok(mostplayed_args) => {
-                    _mostplayedcommon(
-                        ctx,
-                        CommandData::Message { msg, args, num },
-                        mostplayed_args,
-                    )
-                    .await
+            match TripleArgs::args(&ctx, &mut args, msg.author.id, None).await {
+                Ok(Ok(mostplayed_args)) => {
+                    let data = CommandData::Message { msg, args, num };
+
+                    _mostplayedcommon(ctx, data, mostplayed_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_compare(ctx, command).await,
@@ -56,15 +61,12 @@ pub(super) async fn _mostplayedcommon(
 
     let name1 = match name1 {
         Some(name) => name,
-        None => match ctx.get_link(author_id.0) {
-            Some(name) => name,
-            None => {
-                let content =
-                    "Since you're not linked with the `link` command, you must specify two names.";
+        None => {
+            let content =
+                "Since you're not linked with the `link` command, you must specify two names.";
 
-                return data.error(&ctx, content).await;
-            }
-        },
+            return data.error(&ctx, content).await;
+        }
     };
 
     let mut names = Vec::with_capacity(3);

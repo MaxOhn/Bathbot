@@ -1,5 +1,6 @@
 use super::ErrorType;
 use crate::{
+    database::UserConfig,
     embeds::{EmbedData, TopEmbed},
     pagination::{Pagination, TopPagination},
     tracking::process_tracking,
@@ -13,38 +14,23 @@ use crate::{
 use futures::future::TryFutureExt;
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{borrow::Cow, sync::Arc};
-use twilight_model::application::interaction::application_command::CommandDataOption;
+use twilight_model::{
+    application::interaction::application_command::CommandDataOption, id::UserId,
+};
 
 pub(super) async fn _mapper(
     ctx: Arc<Context>,
     data: CommandData<'_>,
     args: MapperArgs,
 ) -> BotResult<()> {
-    let MapperArgs {
-        name,
-        mapper,
-        mut mode,
-    } = args;
+    let MapperArgs { config, mapper } = args;
 
-    let author_id = data.author()?.id;
-
-    mode = match ctx.user_config(author_id).await {
-        Ok(config) => config.mode(mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
-    };
-
-    let user = match name {
+    let user = match config.name {
         Some(name) => name,
-        None => match ctx.get_link(author_id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
 
+    let mode = config.mode.unwrap_or(GameMode::STD);
     let mapper = mapper.cow_to_ascii_lowercase();
 
     // Retrieve the user and their top scores
@@ -177,7 +163,7 @@ pub(super) async fn _mapper(
 
     // Pagination
     let pagination = TopPagination::new(response, user, scores);
-    let owner = author_id;
+    let owner = data.author()?.id;
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
@@ -201,11 +187,18 @@ pub(super) async fn _mapper(
 pub async fn mapper(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match MapperArgs::args(&ctx, &mut args, GameMode::STD, None) {
-                Ok(mapper_args) => {
+            match MapperArgs::args(&ctx, &mut args, msg.author.id, None).await {
+                Ok(Ok(mut mapper_args)) => {
+                    mapper_args.config.mode = Some(mapper_args.config.mode(GameMode::STD));
+
                     _mapper(ctx, CommandData::Message { msg, args, num }, mapper_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -228,11 +221,18 @@ pub async fn mapper(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 pub async fn mappermania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match MapperArgs::args(&ctx, &mut args, GameMode::MNA, None) {
-                Ok(mapper_args) => {
+            match MapperArgs::args(&ctx, &mut args, msg.author.id, None).await {
+                Ok(Ok(mut mapper_args)) => {
+                    mapper_args.config.mode = Some(GameMode::MNA);
+
                     _mapper(ctx, CommandData::Message { msg, args, num }, mapper_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -255,11 +255,18 @@ pub async fn mappermania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
 pub async fn mappertaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match MapperArgs::args(&ctx, &mut args, GameMode::CTB, None) {
-                Ok(mapper_args) => {
+            match MapperArgs::args(&ctx, &mut args, msg.author.id, None).await {
+                Ok(Ok(mut mapper_args)) => {
+                    mapper_args.config.mode = Some(GameMode::TKO);
+
                     _mapper(ctx, CommandData::Message { msg, args, num }, mapper_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -282,11 +289,18 @@ pub async fn mappertaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
 async fn mapperctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match MapperArgs::args(&ctx, &mut args, GameMode::TKO, None) {
-                Ok(mapper_args) => {
+            match MapperArgs::args(&ctx, &mut args, msg.author.id, None).await {
+                Ok(Ok(mut mapper_args)) => {
+                    mapper_args.config.mode = Some(GameMode::CTB);
+
                     _mapper(ctx, CommandData::Message { msg, args, num }, mapper_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -305,11 +319,18 @@ async fn mapperctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 pub async fn sotarks(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match MapperArgs::args(&ctx, &mut args, GameMode::STD, Some("sotarks")) {
-                Ok(mapper_args) => {
+            match MapperArgs::args(&ctx, &mut args, msg.author.id, Some("sotarks")).await {
+                Ok(Ok(mut mapper_args)) => {
+                    mapper_args.config.mode = Some(mapper_args.config.mode(GameMode::STD));
+
                     _mapper(ctx, CommandData::Message { msg, args, num }, mapper_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_top(ctx, command).await,
@@ -317,18 +338,19 @@ pub async fn sotarks(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 pub(super) struct MapperArgs {
-    name: Option<Name>,
+    config: UserConfig,
     mapper: Name,
-    mode: GameMode,
 }
 
 impl MapperArgs {
-    fn args(
+    async fn args(
         ctx: &Context,
-        args: &mut Args,
-        mode: GameMode,
-        mapper: Option<&'static str>,
-    ) -> Result<Self, &'static str> {
+        args: &mut Args<'_>,
+        author_id: UserId,
+        mapper: Option<&str>,
+    ) -> BotResult<Result<Self, &'static str>> {
+        let mut config = ctx.user_config(author_id).await?;
+
         let (name, mapper) = match args.next() {
             Some(first) => match mapper {
                 Some(mapper) => (Some(first), mapper),
@@ -343,35 +365,41 @@ impl MapperArgs {
                     let content = "You need to specify at least one osu username for the mapper. \
                         If you're not linked, you must specify at least two names.";
 
-                    return Err(content);
+                    return Ok(Err(content));
                 }
             },
         };
 
-        let name = name
-            .map(|name| Args::try_link_name(ctx, name))
-            .transpose()?;
+        if let Some(name) = name {
+            match Args::check_user_mention(ctx, name).await? {
+                Ok(name) => config.name = Some(name),
+                Err(content) => return Ok(Err(content)),
+            }
+        }
 
-        let mapper = Args::try_link_name(ctx, mapper)?;
+        let mapper = match Args::check_user_mention(ctx, mapper).await? {
+            Ok(name_) => name_,
+            Err(content) => return Ok(Err(content)),
+        };
 
-        Ok(Self { name, mapper, mode })
+        Ok(Ok(Self { config, mapper }))
     }
 
-    pub(super) fn slash(
+    pub(super) async fn slash(
         ctx: &Context,
         options: Vec<CommandDataOption>,
+        author_id: UserId,
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut username = None;
+        let mut config = ctx.user_config(author_id).await?;
         let mut mapper = None;
-        let mut mode = None;
 
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => username = Some(value.into()),
+                    "name" => config.name = Some(value.into()),
                     "mapper" => mapper = Some(value.into()),
-                    "discord" => username = parse_discord_option!(ctx, value, "top mapper"),
-                    "mode" => mode = parse_mode_option!(value, "top mapper"),
+                    "discord" => config.name = parse_discord_option!(ctx, value, "top mapper"),
+                    "mode" => config.mode = parse_mode_option!(value, "top mapper"),
                     _ => bail_cmd_option!("top mapper", string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
@@ -388,8 +416,7 @@ impl MapperArgs {
 
         let args = Self {
             mapper: mapper.ok_or(Error::InvalidCommandOptions)?,
-            name: username,
-            mode: mode.unwrap_or(GameMode::STD),
+            config,
         };
 
         Ok(Ok(args))

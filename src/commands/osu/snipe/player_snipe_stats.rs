@@ -1,7 +1,10 @@
 use crate::{
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
-    util::{constants::OSU_API_ISSUE, MessageExt},
-    BotResult, CommandData, Context, MessageBuilder, Name,
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        MessageExt,
+    },
+    Args, BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
 use chrono::{Date, Datelike, Utc};
@@ -24,10 +27,27 @@ use std::{collections::BTreeMap, sync::Arc};
 async fn playersnipestats(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            let name = args.next().map(Name::from);
-            let data = CommandData::Message { msg, args, num };
+            let name = match args.next() {
+                Some(arg) => match Args::check_user_mention(&ctx, arg).await {
+                    Ok(Ok(name)) => Some(name),
+                    Ok(Err(content)) => return msg.error(&ctx, content).await,
+                    Err(why) => {
+                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-            _playersnipestats(ctx, data, name).await
+                        return Err(why);
+                    }
+                },
+                None => match ctx.user_config(msg.author.id).await {
+                    Ok(config) => config.name,
+                    Err(why) => {
+                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(why);
+                    }
+                },
+            };
+
+            _playersnipestats(ctx, CommandData::Message { msg, args, num }, name).await
         }
         CommandData::Interaction { command } => super::slash_snipe(ctx, command).await,
     }
@@ -40,10 +60,7 @@ pub(super) async fn _playersnipestats(
 ) -> BotResult<()> {
     let name = match name {
         Some(name) => name,
-        None => match ctx.get_link(data.author()?.id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
 
     let user = match super::request_user(&ctx, &name, Some(GameMode::STD)).await {

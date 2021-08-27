@@ -76,7 +76,19 @@ async fn _leaderboard(
         }
     };
 
-    let author_name = ctx.get_link(author_id.0);
+    let author_name = match ctx.user_config(author_id).await {
+        Ok(config) => config.name,
+        Err(why) => {
+            unwind_error!(
+                warn,
+                why,
+                "Failed to get UserConfig of user {}: {}",
+                author_id
+            );
+
+            None
+        }
+    };
 
     // Retrieving the beatmap
     let map = match ctx.psql().get_beatmap(map_id, true).await {

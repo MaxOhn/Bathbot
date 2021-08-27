@@ -1,42 +1,34 @@
 use crate::{
     custom_client::RankParam,
+    database::UserConfig,
     embeds::{EmbedData, WhatIfEmbed},
     tracking::process_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         ApplicationCommandExt, MessageExt,
     },
-    Args, BotResult, CommandData, Context, Error, Name,
+    Args, BotResult, CommandData, Context, Error,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
-use twilight_model::application::{
-    command::{BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption},
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+use twilight_model::{
+    application::{
+        command::{BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption},
+        interaction::{application_command::CommandDataOption, ApplicationCommand},
+    },
+    id::UserId,
 };
 
 async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> BotResult<()> {
-    let WhatIfArgs { name, mut mode, pp } = args;
+    let WhatIfArgs { config, pp } = args;
 
-    let author_id = data.author()?.id;
-
-    mode = match ctx.user_config(author_id).await {
-        Ok(config) => config.mode(mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
-    };
-
-    let name = match name {
+    let name = match config.name {
         Some(name) => name,
-        None => match ctx.get_link(author_id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
+
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
     if pp < 0.0 {
         return data.error(&ctx, "The pp number must be non-negative").await;
@@ -174,11 +166,18 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
 pub async fn whatif(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match WhatIfArgs::args(&ctx, &mut args, GameMode::STD) {
-                Ok(whatif_args) => {
+            match WhatIfArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut whatif_args)) => {
+                    whatif_args.config.mode = Some(whatif_args.config.mode(GameMode::STD));
+
                     _whatif(ctx, CommandData::Message { msg, args, num }, whatif_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => slash_whatif(ctx, command).await,
@@ -197,11 +196,18 @@ pub async fn whatif(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 pub async fn whatifmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match WhatIfArgs::args(&ctx, &mut args, GameMode::MNA) {
-                Ok(whatif_args) => {
+            match WhatIfArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut whatif_args)) => {
+                    whatif_args.config.mode = Some(GameMode::MNA);
+
                     _whatif(ctx, CommandData::Message { msg, args, num }, whatif_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => slash_whatif(ctx, command).await,
@@ -220,11 +226,18 @@ pub async fn whatifmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
 pub async fn whatiftaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match WhatIfArgs::args(&ctx, &mut args, GameMode::TKO) {
-                Ok(whatif_args) => {
+            match WhatIfArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut whatif_args)) => {
+                    whatif_args.config.mode = Some(GameMode::TKO);
+
                     _whatif(ctx, CommandData::Message { msg, args, num }, whatif_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => slash_whatif(ctx, command).await,
@@ -243,11 +256,18 @@ pub async fn whatiftaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
 pub async fn whatifctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match WhatIfArgs::args(&ctx, &mut args, GameMode::CTB) {
-                Ok(whatif_args) => {
+            match WhatIfArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut whatif_args)) => {
+                    whatif_args.config.mode = Some(GameMode::CTB);
+
                     _whatif(ctx, CommandData::Message { msg, args, num }, whatif_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => slash_whatif(ctx, command).await,
@@ -269,39 +289,50 @@ pub enum WhatIfData {
 }
 
 struct WhatIfArgs {
-    name: Option<Name>,
-    mode: GameMode,
+    config: UserConfig,
     pp: f32,
 }
 
 impl WhatIfArgs {
-    fn args(ctx: &Context, args: &mut Args, mode: GameMode) -> Result<Self, &'static str> {
-        let mut name = None;
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, &'static str>> {
+        let mut config = ctx.user_config(author_id).await?;
         let mut pp = None;
 
         for arg in args.take(2) {
             match arg.parse() {
                 Ok(num) => pp = Some(num),
-                Err(_) => name = Some(Args::try_link_name(ctx, arg)?),
+                Err(_) => match Args::check_user_mention(ctx, arg).await? {
+                    Ok(name) => config.name = Some(name),
+                    Err(content) => return Ok(Err(content)),
+                },
             }
         }
 
-        let pp = pp.ok_or("You need to provide a decimal number")?;
+        let pp = match pp {
+            Some(pp) => pp,
+            None => return Ok(Err("You need to provide a decimal number")),
+        };
 
-        Ok(Self { name, pp, mode })
+        Ok(Ok(Self { config, pp }))
     }
 
-    fn slash(ctx: &Context, command: &mut ApplicationCommand) -> BotResult<Result<Self, String>> {
-        let mut username = None;
-        let mut mode = None;
+    async fn slash(
+        ctx: &Context,
+        command: &mut ApplicationCommand,
+    ) -> BotResult<Result<Self, String>> {
+        let mut config = ctx.user_config(command.user_id()?).await?;
         let mut pp = None;
 
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => mode = parse_mode_option!(value, "whatif"),
-                    "name" => username = Some(value.into()),
-                    "discord" => username = parse_discord_option!(ctx, value, "whatif"),
+                    "mode" => config.mode = parse_mode_option!(value, "whatif"),
+                    "name" => config.name = Some(value.into()),
+                    "discord" => config.name = parse_discord_option!(ctx, value, "whatif"),
                     _ => bail_cmd_option!("whatif", string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
@@ -318,8 +349,7 @@ impl WhatIfArgs {
 
         let args = Self {
             pp: pp.ok_or(Error::InvalidCommandOptions)?,
-            name: username,
-            mode: mode.unwrap_or(GameMode::STD),
+            config,
         };
 
         Ok(Ok(args))
@@ -327,7 +357,7 @@ impl WhatIfArgs {
 }
 
 pub async fn slash_whatif(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match WhatIfArgs::slash(&ctx, &mut command)? {
+    match WhatIfArgs::slash(&ctx, &mut command).await? {
         Ok(args) => _whatif(ctx, command.into(), args).await,
         Err(content) => command.error(&ctx, content).await,
     }

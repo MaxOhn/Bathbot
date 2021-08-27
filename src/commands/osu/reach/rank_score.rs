@@ -1,45 +1,32 @@
 use crate::{
+    database::UserConfig,
     embeds::{EmbedData, RankRankedScoreEmbed},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
-    Args, BotResult, CommandData, Context, Error, Name,
+    Args, BotResult, CommandData, Context, Error,
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
-use twilight_model::application::interaction::application_command::CommandDataOption;
+use twilight_model::{
+    application::interaction::application_command::CommandDataOption, id::UserId,
+};
 
 pub(super) async fn _rankscore(
     ctx: Arc<Context>,
     data: CommandData<'_>,
     args: RankScoreArgs,
 ) -> BotResult<()> {
-    let RankScoreArgs {
-        name,
-        mut mode,
-        rank,
-    } = args;
+    let RankScoreArgs { config, rank } = args;
 
-    let author_id = data.author()?.id;
-
-    mode = match ctx.user_config(author_id).await {
-        Ok(config) => config.mode(mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
-    };
-
-    let name = match name {
+    let name = match config.name {
         Some(name) => name,
-        None => match ctx.get_link(author_id.0) {
-            Some(name) => name,
-            None => return super::require_link(&ctx, &data).await,
-        },
+        None => return super::require_link(&ctx, &data).await,
     };
+
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
     if rank == 0 {
         let content = "Rank number must be between 1 and 10,000";
@@ -97,11 +84,18 @@ pub(super) async fn _rankscore(
 pub async fn rankrankedscore(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RankScoreArgs::args(&ctx, &mut args, GameMode::STD) {
-                Ok(rank_args) => {
+            match RankScoreArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut rank_args)) => {
+                    rank_args.config.mode = Some(rank_args.config.mode(GameMode::STD));
+
                     _rankscore(ctx, CommandData::Message { msg, args, num }, rank_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
@@ -120,11 +114,18 @@ pub async fn rankrankedscore(ctx: Arc<Context>, data: CommandData) -> BotResult<
 pub async fn rankrankedscoremania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RankScoreArgs::args(&ctx, &mut args, GameMode::MNA) {
-                Ok(rank_args) => {
+            match RankScoreArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut rank_args)) => {
+                    rank_args.config.mode = Some(GameMode::MNA);
+
                     _rankscore(ctx, CommandData::Message { msg, args, num }, rank_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
@@ -143,11 +144,18 @@ pub async fn rankrankedscoremania(ctx: Arc<Context>, data: CommandData) -> BotRe
 pub async fn rankrankedscoretaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RankScoreArgs::args(&ctx, &mut args, GameMode::TKO) {
-                Ok(rank_args) => {
+            match RankScoreArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut rank_args)) => {
+                    rank_args.config.mode = Some(GameMode::TKO);
+
                     _rankscore(ctx, CommandData::Message { msg, args, num }, rank_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
@@ -166,11 +174,18 @@ pub async fn rankrankedscoretaiko(ctx: Arc<Context>, data: CommandData) -> BotRe
 pub async fn rankrankedscorectb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match RankScoreArgs::args(&ctx, &mut args, GameMode::CTB) {
-                Ok(rank_args) => {
+            match RankScoreArgs::args(&ctx, &mut args, msg.author.id).await {
+                Ok(Ok(mut rank_args)) => {
+                    rank_args.config.mode = Some(GameMode::CTB);
+
                     _rankscore(ctx, CommandData::Message { msg, args, num }, rank_args).await
                 }
-                Err(content) => msg.error(&ctx, content).await,
+                Ok(Err(content)) => msg.error(&ctx, content).await,
+                Err(why) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    Err(why)
+                }
             }
         }
         CommandData::Interaction { command } => super::slash_reach(ctx, command).await,
@@ -178,54 +193,51 @@ pub async fn rankrankedscorectb(ctx: Arc<Context>, data: CommandData) -> BotResu
 }
 
 pub(super) struct RankScoreArgs {
-    pub name: Option<Name>,
-    pub mode: GameMode,
+    pub config: UserConfig,
     pub rank: usize,
 }
 
 impl RankScoreArgs {
-    fn args(ctx: &Context, args: &mut Args<'_>, mode: GameMode) -> Result<Self, &'static str> {
-        let mut name = None;
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, &'static str>> {
+        let mut config = ctx.user_config(author_id).await?;
         let mut rank = None;
 
         for arg in args.take(2) {
             match arg.parse() {
                 Ok(num) => rank = Some(num),
-                Err(_) => name = Some(Args::try_link_name(ctx, arg)?),
+                Err(_) => match Args::check_user_mention(ctx, arg).await? {
+                    Ok(name) => config.name = Some(name),
+                    Err(content) => return Ok(Err(content)),
+                },
             }
         }
 
-        let rank = rank.ok_or("You must specify a target rank.")?;
+        let rank = match rank {
+            Some(rank) => rank,
+            None => return Ok(Err("You must specify a target rank")),
+        };
 
-        Ok(Self { name, mode, rank })
+        Ok(Ok(Self { config, rank }))
     }
 
-    pub(super) fn slash(
+    pub(super) async fn slash(
         ctx: &Context,
         options: Vec<CommandDataOption>,
+        author_id: UserId,
     ) -> BotResult<Result<Self, String>> {
-        let mut username = None;
-        let mut mode = None;
+        let mut config = ctx.user_config(author_id).await?;
         let mut rank = None;
 
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => mode = parse_mode_option!(value, "rank pp"),
-                    "name" => username = Some(value.into()),
-                    "discord" => match value.parse() {
-                        Ok(id) => match ctx.get_link(id) {
-                            Some(name) => username = Some(name),
-                            None => {
-                                let content = format!("<@{}> is not linked to an osu profile", id);
-
-                                return Ok(Err(content.into()));
-                            }
-                        },
-                        Err(_) => {
-                            bail_cmd_option!("rank pp discord", string, value)
-                        }
-                    },
+                    "mode" => config.mode = parse_mode_option!(value, "rank pp"),
+                    "name" => config.name = Some(value.into()),
+                    "discord" => config.name = parse_discord_option!(ctx, value, "rank pp"),
                     _ => bail_cmd_option!("rank pp", string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
@@ -242,14 +254,7 @@ impl RankScoreArgs {
         }
 
         let rank = rank.ok_or(Error::InvalidCommandOptions)?;
-        let mode = mode.unwrap_or(GameMode::STD);
 
-        let args = RankScoreArgs {
-            name: username,
-            mode,
-            rank,
-        };
-
-        Ok(Ok(args))
+        Ok(Ok(RankScoreArgs { config, rank }))
     }
 }
