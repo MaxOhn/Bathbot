@@ -148,18 +148,20 @@ fn _slash_osustats_scores() -> Vec<CommandOption> {
             name: "max_rank".to_owned(),
             required: false,
         }),
-        // CommandOption::Number(ChoiceCommandOptionData {
-        //     choices: vec![],
-        //     description: "Specify a min accuracy".to_owned(),
-        //     name: "min_acc".to_owned(),
-        //     required: false,
-        // }),
-        // CommandOption::Number(ChoiceCommandOptionData {
-        //     choices: vec![],
-        //     description: "Specify a max accuracy".to_owned(),
-        //     name: "max_acc".to_owned(),
-        //     required: false,
-        // }),
+        // TODO: Number
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a min accuracy".to_owned(),
+            name: "min_acc".to_owned(),
+            required: false,
+        }),
+        // TODO: Number
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a max accuracy".to_owned(),
+            name: "max_acc".to_owned(),
+            required: false,
+        }),
         CommandOption::Boolean(BaseCommandOptionData {
             description: "Reverse the resulting score list".to_owned(),
             name: "reverse".to_owned(),

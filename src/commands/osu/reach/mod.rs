@@ -13,7 +13,7 @@ use crate::{
     BotResult, Context, Error,
 };
 
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 use twilight_model::application::{
     command::{
         BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption,
@@ -32,7 +32,7 @@ impl ReachCommandKind {
     async fn slash(
         ctx: &Context,
         command: &mut ApplicationCommand,
-    ) -> BotResult<Result<Self, String>> {
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
         let author_id = command.user_id()?;
         let mut kind = None;
 
@@ -64,14 +64,14 @@ impl ReachCommandKind {
                                             .await?
                                         {
                                             Ok(args) => kind = Some(Self::RankPerformance(args)),
-                                            Err(content) => return Ok(Err(content)),
+                                            Err(content) => return Ok(Err(content.into())),
                                         },
                                         "score" => {
                                             match RankScoreArgs::slash(ctx, options, author_id)
                                                 .await?
                                             {
                                                 Ok(args) => kind = Some(Self::RankScore(args)),
-                                                Err(content) => return Ok(Err(content)),
+                                                Err(content) => return Ok(Err(content.into())),
                                             }
                                         }
                                         _ => bail_cmd_option!("reach rank", subcommand, name),
@@ -111,13 +111,13 @@ pub fn slash_reach_command() -> Command {
                 description: "How many pp is a user missing to reach the given amount?".to_owned(),
                 name: "pp".to_owned(),
                 options: vec![
-                    // TODO
-                    // CommandOption::Number(ChoiceCommandOptionData {
-                    //     choices: vec![],
-                    //     description: "Specify a target pp amount".to_owned(),
-                    //     name: "pp".to_owned(),
-                    //     required: true,
-                    // }),
+                    // TODO: Number
+                    CommandOption::String(ChoiceCommandOptionData {
+                        choices: vec![],
+                        description: "Specify a target pp amount".to_owned(),
+                        name: "pp".to_owned(),
+                        required: true,
+                    }),
                     CommandOption::String(ChoiceCommandOptionData {
                         choices: super::mode_choices(),
                         description: "Specify the gamemode".to_owned(),

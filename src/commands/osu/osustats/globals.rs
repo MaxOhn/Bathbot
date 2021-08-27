@@ -13,7 +13,7 @@ use crate::{
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
-use std::{borrow::Cow, collections::BTreeMap, fmt::Write, sync::Arc};
+use std::{borrow::Cow, collections::BTreeMap, fmt::Write, mem, sync::Arc};
 use twilight_model::{
     application::interaction::application_command::CommandDataOption, id::UserId,
 };
@@ -507,6 +507,22 @@ impl ScoresArgs {
                     },
                     "name" => config.name = Some(value.into()),
                     "discord" => config.name = parse_discord_option!(ctx, value, "osustats scores"),
+                    "min_acc" => match value.parse::<f32>() {
+                        Ok(num) => acc_min = Some(num.max(0.0).min(100.0)),
+                        Err(_) => {
+                            let content = "Failed to parse `min_acc`. Must be a number.";
+
+                            return Ok(Err(content.into()));
+                        }
+                    },
+                    "max_acc" => match value.parse::<f32>() {
+                        Ok(num) => acc_max = Some(num.max(0.0).min(100.0)),
+                        Err(_) => {
+                            let content = "Failed to parse `max_acc`. Must be a number.";
+
+                            return Ok(Err(content.into()));
+                        }
+                    },
                     _ => bail_cmd_option!("osustats scores", string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
@@ -530,12 +546,26 @@ impl ScoresArgs {
             }
         }
 
+        let mut rank_min = rank_min.unwrap_or(Self::MIN_RANK);
+        let mut rank_max = rank_max.unwrap_or(Self::MAX_RANK);
+
+        if rank_min > rank_max {
+            mem::swap(&mut rank_min, &mut rank_max);
+        }
+
+        let mut acc_min = acc_min.unwrap_or(0.0);
+        let mut acc_max = acc_max.unwrap_or(100.0);
+
+        if acc_min > acc_max {
+            mem::swap(&mut acc_min, &mut acc_max);
+        }
+
         let args = Self {
             config,
-            rank_min: rank_min.unwrap_or(Self::MIN_RANK),
-            rank_max: rank_max.unwrap_or(Self::MAX_RANK),
-            acc_min: acc_min.unwrap_or(0.0),
-            acc_max: acc_max.unwrap_or(100.0),
+            rank_min,
+            rank_max,
+            acc_min,
+            acc_max,
             order: order.unwrap_or_default(),
             mods,
             descending: descending.unwrap_or(true),

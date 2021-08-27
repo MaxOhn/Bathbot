@@ -11,7 +11,7 @@ use crate::{
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 use twilight_model::{
     application::{
         command::{BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption},
@@ -323,7 +323,7 @@ impl WhatIfArgs {
     async fn slash(
         ctx: &Context,
         command: &mut ApplicationCommand,
-    ) -> BotResult<Result<Self, String>> {
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
         let mut config = ctx.user_config(command.user_id()?).await?;
         let mut pp = None;
 
@@ -333,6 +333,14 @@ impl WhatIfArgs {
                     "mode" => config.mode = parse_mode_option!(value, "whatif"),
                     "name" => config.name = Some(value.into()),
                     "discord" => config.name = parse_discord_option!(ctx, value, "whatif"),
+                    "pp" => match value.parse() {
+                        Ok(num) => pp = Some(num),
+                        Err(_) => {
+                            let content = "Failed to parse `pp`. Must be a number.";
+
+                            return Ok(Err(content.into()));
+                        }
+                    },
                     _ => bail_cmd_option!("whatif", string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
@@ -372,13 +380,13 @@ pub fn slash_whatif_command() -> Command {
         description: "Display the impact of a new X pp score for a user".to_owned(),
         id: None,
         options: vec![
-            // TODO
-            // CommandOption::Number(ChoiceCommandOptionData {
-            //     choices: vec![],
-            //     description: "Specify a pp amount".to_owned(),
-            //     name: "pp".to_owned(),
-            //     required: true,
-            // }),
+            // TODO: Number
+            CommandOption::String(ChoiceCommandOptionData {
+                choices: vec![],
+                description: "Specify a pp amount".to_owned(),
+                name: "pp".to_owned(),
+                required: true,
+            }),
             CommandOption::String(ChoiceCommandOptionData {
                 choices: super::mode_choices(),
                 description: "Specify the gamemode".to_owned(),

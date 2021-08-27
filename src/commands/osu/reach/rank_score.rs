@@ -235,20 +235,20 @@ impl RankScoreArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => config.mode = parse_mode_option!(value, "rank pp"),
+                    "mode" => config.mode = parse_mode_option!(value, "reach rank score"),
                     "name" => config.name = Some(value.into()),
                     "discord" => config.name = parse_discord_option!(ctx, value, "rank pp"),
-                    _ => bail_cmd_option!("rank pp", string, name),
+                    _ => bail_cmd_option!("reach rank score", string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
                     "rank" => rank = Some(value.max(0) as usize),
-                    _ => bail_cmd_option!("rank pp", integer, name),
+                    _ => bail_cmd_option!("reach rank score", integer, name),
                 },
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("rank pp", boolean, name)
+                    bail_cmd_option!("reach rank score", boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("rank pp", subcommand, name)
+                    bail_cmd_option!("reach rank score", subcommand, name)
                 }
             }
         }

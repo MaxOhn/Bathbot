@@ -388,9 +388,9 @@ impl RankPpArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => config.mode = parse_mode_option!(value, "rank pp"),
+                    "mode" => config.mode = parse_mode_option!(value, "reach rank pp"),
                     "name" => config.name = Some(value.into()),
-                    "discord" => config.name = parse_discord_option!(ctx, value, "rank pp"),
+                    "discord" => config.name = parse_discord_option!(ctx, value, "reach rank pp"),
                     "country" => {
                         if value.len() == 2 && value.is_ascii() {
                             country = Some(value.into())
@@ -406,17 +406,17 @@ impl RankPpArgs {
                             return Ok(Err(content));
                         }
                     }
-                    _ => bail_cmd_option!("rank pp", string, name),
+                    _ => bail_cmd_option!("reach rank pp", string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
                     "rank" => rank = Some(value.max(0) as usize),
-                    _ => bail_cmd_option!("rank pp", integer, name),
+                    _ => bail_cmd_option!("reach rank pp", integer, name),
                 },
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("rank pp", boolean, name)
+                    bail_cmd_option!("reach rank pp", boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("rank pp", subcommand, name)
+                    bail_cmd_option!("reach rank pp", subcommand, name)
                 }
             }
         }

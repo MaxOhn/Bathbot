@@ -133,12 +133,15 @@ impl OwnerCommandKind {
 
                                             for option in options {
                                                 match option {
-                                                    CommandDataOption::String { name, .. } => {
-                                                        bail_cmd_option!(
-                                                            "owner tracking cooldown",
-                                                            string,
-                                                            name
-                                                        )
+                                                    CommandDataOption::String { name, value } => {
+                                                        match name.as_str() {
+                                                            "number" => number = value.parse().ok(),
+                                                            _ => bail_cmd_option!(
+                                                                "owner tracking cooldown",
+                                                                string,
+                                                                name
+                                                            ),
+                                                        }
                                                     }
                                                     CommandDataOption::Integer { name, .. } => {
                                                         bail_cmd_option!(
@@ -147,16 +150,6 @@ impl OwnerCommandKind {
                                                             name
                                                         )
                                                     }
-                                                    // CommandDataOption::Number { name, value } => {
-                                                    //     match name.as_str() {
-                                                    //         "number" => number = Some(value),
-                                                    //         _ => bail_cmd_option!(
-                                                    //             "owner tracking cooldown",
-                                                    //             number,
-                                                    //             name
-                                                    //         ),
-                                                    //     }
-                                                    // }
                                                     CommandDataOption::Boolean { name, .. } => {
                                                         bail_cmd_option!(
                                                             "owner tracking cooldown",
@@ -314,12 +307,15 @@ pub fn slash_owner_command() -> Command {
                         description: "Adjust the tracking cooldown".to_owned(),
                         name: "cooldown".to_owned(),
                         options: vec![
-                        //     CommandOption::Number(ChoiceCommandOptionData {
-                        //     choices: vec![],
-                        //     description: "Specify the cooldown milliseconds, defaults to 5000.0".to_owned(),
-                        //     name: "number".to_owned(),
-                        //     required: true,
-                        // })
+                            // TODO: Number
+                            CommandOption::String(ChoiceCommandOptionData {
+                                choices: vec![],
+                                description:
+                                    "Specify the cooldown milliseconds, defaults to 5000.0"
+                                        .to_owned(),
+                                name: "number".to_owned(),
+                                required: true,
+                            }),
                         ],
                         required: false,
                     }),

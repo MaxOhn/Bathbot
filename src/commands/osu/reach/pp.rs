@@ -11,7 +11,7 @@ use crate::{
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 use twilight_model::{
     application::interaction::application_command::CommandDataOption, id::UserId,
 };
@@ -245,26 +245,34 @@ impl PpArgs {
         ctx: &Context,
         options: Vec<CommandDataOption>,
         author_id: UserId,
-    ) -> BotResult<Result<Self, String>> {
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
         let mut config = ctx.user_config(author_id).await?;
         let mut pp = None;
 
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => config.mode = parse_mode_option!(value, "pp"),
+                    "mode" => config.mode = parse_mode_option!(value, "reach pp"),
                     "name" => config.name = Some(value.into()),
-                    "discord" => config.name = parse_discord_option!(ctx, value, "pp"),
-                    _ => bail_cmd_option!("pp", string, name),
+                    "discord" => config.name = parse_discord_option!(ctx, value, "reach pp"),
+                    "pp" => match value.parse() {
+                        Ok(num) => pp = Some(num),
+                        Err(_) => {
+                            let content = "Failed to parse `pp`. Must be a number.";
+
+                            return Ok(Err(content.into()));
+                        }
+                    },
+                    _ => bail_cmd_option!("reach pp", string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("pp", integer, name)
+                    bail_cmd_option!("reach pp", integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("pp", boolean, name)
+                    bail_cmd_option!("reach pp", boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("pp", subcommand, name)
+                    bail_cmd_option!("reach pp", subcommand, name)
                 }
             }
         }

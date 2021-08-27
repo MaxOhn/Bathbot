@@ -270,6 +270,15 @@ impl RecentCommandKind {
                                     "mode" => {
                                         config.mode = parse_mode_option!(value, "recent simulate")
                                     }
+                                    "acc" => match value.parse::<f32>() {
+                                        Ok(num) => acc = Some(num.max(0.0).min(100.0)),
+                                        Err(_) => {
+                                            let content =
+                                                "Failed to parse `acc`. Must be a number.";
+
+                                            return Ok(Err(content.into()));
+                                        }
+                                    },
                                     _ => bail_cmd_option!("recent simulate", string, name),
                                 },
                                 CommandDataOption::Integer { name, value } => match name.as_str() {
@@ -563,13 +572,13 @@ pub fn slash_recent_command() -> Command {
                         name: "misses".to_owned(),
                         required: false,
                     }),
-                    // TODO
-                    // CommandOption::Number(ChoiceCommandOptionData {
-                    //     choices: vec![],
-                    //     description: "Specify the accuracy".to_owned(),
-                    //     name: "acc".to_owned(),
-                    //     required: false,
-                    // }),
+                    // TODO: Number
+                    CommandOption::String(ChoiceCommandOptionData {
+                        choices: vec![],
+                        description: "Specify the accuracy".to_owned(),
+                        name: "acc".to_owned(),
+                        required: false,
+                    }),
                     CommandOption::Integer(ChoiceCommandOptionData {
                         choices: vec![],
                         description: "Specify the combo".to_owned(),

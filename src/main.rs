@@ -268,10 +268,12 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     let slash_commands = commands::slash_commands();
     info!("Setting {} slash commands...", slash_commands.len());
 
-    // TODO: Set to global
-    http.set_guild_commands(741040473476694159.into(), &slash_commands)?
-        .exec()
-        .await?;
+    // * Use to test new commands
+    // http.set_guild_commands(741040473476694159.into(), &[])?
+    //     .exec()
+    //     .await?;
+
+    http.set_global_commands(&slash_commands)?.exec().await?;
 
     // Final context
     let ctx = Arc::new(Context::new(cache, stats, http, clients, cluster, data).await);

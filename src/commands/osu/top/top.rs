@@ -1097,13 +1097,13 @@ fn content_with_condition(args: &TopArgs, amount: usize) -> String {
     match (args.acc_min, args.acc_max) {
         (None, None) => {}
         (None, Some(max)) => {
-            let _ = write!(content, " ~ `Acc: 0% - {}%`", max);
+            let _ = write!(content, " ~ `Acc: 0% - {:.2}%`", max);
         }
         (Some(min), None) => {
-            let _ = write!(content, " ~ `Acc: {}% - 100%`", min);
+            let _ = write!(content, " ~ `Acc: {:.2}% - 100%`", min);
         }
         (Some(min), Some(max)) => {
-            let _ = write!(content, " ~ `Acc: {}% - {}%`", min, max);
+            let _ = write!(content, " ~ `Acc: {:.2}% - {:.2}%`", min, max);
         }
     }
 
