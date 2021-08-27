@@ -18,7 +18,7 @@ pub struct Database {
 impl Database {
     #[cold]
     pub fn new(uri: &str) -> BotResult<Self> {
-        let pool = PgPoolOptions::new().max_connections(4).connect_lazy(uri)?;
+        let pool = PgPoolOptions::new().connect_lazy(uri)?;
 
         Ok(Self { pool })
     }
