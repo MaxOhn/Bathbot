@@ -51,7 +51,6 @@ pub struct CommandCounters {
 pub struct MessageRetrievals {
     pub cached: IntCounter,
     pub http: IntCounter,
-    counter_vec: IntCounterVec,
 }
 
 pub struct BotStats {
@@ -97,6 +96,7 @@ impl BotStats {
             .unwrap();
         registry.register(Box::new(slash_commands.clone())).unwrap();
         registry.register(Box::new(osu_metrics.clone())).unwrap();
+        registry.register(Box::new(message_retrievals.clone()));
 
         Self {
             registry,
@@ -146,7 +146,6 @@ impl BotStats {
             message_retrievals: MessageRetrievals {
                 cached: message_retrievals.with_label_values(&["Cached"]),
                 http: message_retrievals.with_label_values(&["Http"]),
-                counter_vec: message_retrievals,
             },
         }
     }
