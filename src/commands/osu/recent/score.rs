@@ -75,6 +75,14 @@ pub(super) async fn _recent(
         }
     };
 
+    match grade {
+        Some(GradeArg::Single(grade)) => scores.retain(|score| score.grade == grade),
+        Some(GradeArg::Range { bot, top }) => {
+            scores.retain(|score| (bot..=top).contains(&score.grade))
+        }
+        None => {}
+    }
+
     let num = index.unwrap_or(1).saturating_sub(1);
     let mut iter = scores.iter_mut().skip(num);
 
@@ -316,7 +324,7 @@ pub async fn recentmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_recent(ctx,* command).await,
+        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
     }
 }
 

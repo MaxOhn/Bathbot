@@ -42,7 +42,7 @@ pub(super) async fn _recentlist(
 
     let scores_fut = super::prepare_scores(&ctx, scores_fut);
 
-    let (user, scores) = match tokio::try_join!(user_fut, scores_fut) {
+    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
         Ok((_, scores)) if scores.is_empty() => {
             let content = format!(
                 "No recent {}plays found for user `{}`",
@@ -74,6 +74,14 @@ pub(super) async fn _recentlist(
             return Err(why);
         }
     };
+
+    match grade {
+        Some(GradeArg::Single(grade)) => scores.retain(|score| score.grade == grade),
+        Some(GradeArg::Range { bot, top }) => {
+            scores.retain(|score| (bot..=top).contains(&score.grade))
+        }
+        None => {}
+    }
 
     let pages = numbers::div_euclid(10, scores.len());
     let scores_iter = scores.iter().take(10);
