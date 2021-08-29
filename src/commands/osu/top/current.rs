@@ -88,12 +88,10 @@ pub(super) async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs
 
     // Retrieve the user and their top scores
     let user_fut = super::request_user(&ctx, name, Some(mode)).map_err(From::from);
-
     let scores_fut = ctx.osu().user_scores(name).best().mode(mode).limit(100);
-
     let scores_fut = super::prepare_scores(&ctx, scores_fut);
 
-    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
+    let (mut user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
         Ok((user, scores)) => (user, scores),
         Err(ErrorType::Osu(OsuError::NotFound)) => {
             let content = format!("User `{}` was not found", name);
@@ -111,6 +109,9 @@ pub(super) async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs
             return Err(why);
         }
     };
+
+    // Overwrite default mode
+    user.mode = mode;
 
     // Process user and their top scores for tracking
     process_tracking(&ctx, mode, &mut scores, Some(&user)).await;

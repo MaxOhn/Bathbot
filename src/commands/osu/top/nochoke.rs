@@ -52,7 +52,7 @@ pub(super) async fn _nochokes(
 
     let scores_fut = super::prepare_scores(&ctx, scores_fut);
 
-    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
+    let (mut user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
         Ok((user, scores)) => (user, scores),
         Err(ErrorType::Osu(OsuError::NotFound)) => {
             let content = format!("User `{}` was not found", name);
@@ -70,6 +70,9 @@ pub(super) async fn _nochokes(
             return Err(why);
         }
     };
+
+    // Overwrite default mode
+    user.mode = mode;
 
     // Process user and their top scores for tracking
     process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
@@ -354,7 +357,7 @@ async fn nochokestaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_top(ctx,* command).await,
+        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
     }
 }
 

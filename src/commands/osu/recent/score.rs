@@ -47,7 +47,7 @@ pub(super) async fn _recent(
         .limit(100)
         .include_fails(grade.map_or(true, |g| g.include_fails()));
 
-    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
+    let (mut user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
         Ok((_, scores)) if scores.is_empty() => {
             let content = format!(
                 "No recent {}plays found for user `{}`",
@@ -74,6 +74,9 @@ pub(super) async fn _recent(
             return Err(why.into());
         }
     };
+
+    // Overwrite default mode
+    user.mode = mode;
 
     match grade {
         Some(GradeArg::Single(grade)) => scores.retain(|score| score.grade == grade),

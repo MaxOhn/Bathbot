@@ -25,7 +25,7 @@ pub(super) async fn _sniped_diff(
     };
 
     // Request the user
-    let user = match super::request_user(&ctx, &name, Some(GameMode::STD)).await {
+    let mut user = match super::request_user(&ctx, &name, Some(GameMode::STD)).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{}`", name);
@@ -38,6 +38,9 @@ pub(super) async fn _sniped_diff(
             return Err(why.into());
         }
     };
+
+    // Overwrite default mode
+    user.mode = GameMode::STD;
 
     if !ctx.contains_country(user.country_code.as_str()) {
         let content = format!(

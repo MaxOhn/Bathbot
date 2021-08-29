@@ -31,7 +31,7 @@ pub(super) async fn _scores(
     let mode = args.config.mode.unwrap_or(GameMode::STD);
 
     // Retrieve user
-    let user = match super::request_user(&ctx, name, Some(mode)).await {
+    let mut user = match super::request_user(&ctx, name, Some(mode)).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
@@ -44,6 +44,9 @@ pub(super) async fn _scores(
             return Err(why.into());
         }
     };
+
+    // Overwrite default mode
+    user.mode = mode;
 
     let params = args.into_params(user.username.as_str().into(), mode);
 

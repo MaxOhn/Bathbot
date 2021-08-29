@@ -25,8 +25,6 @@ pub struct ProfileEmbed {
 
 impl ProfileEmbed {
     pub fn compact(user: &User, max_pp: f32) -> Self {
-        let author = author!(user);
-        let footer_text = footer_text(user);
         let stats = user.statistics.as_ref().unwrap();
         let level = stats.level.current as f32 + stats.level.progress as f32 / 100.0;
         let playtime = stats.playtime / 60 / 60;
@@ -49,10 +47,10 @@ impl ProfileEmbed {
         );
 
         Self {
-            author,
+            author: author!(user),
             description: Some(description),
             fields: Vec::new(),
-            footer: Footer::new(footer_text),
+            footer: Footer::new(footer_text(user)),
             image: attachment("profile_graph.png"),
             thumbnail: user.avatar_url.to_owned(),
             title: None,

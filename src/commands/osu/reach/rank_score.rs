@@ -43,7 +43,7 @@ pub(super) async fn _rankscore(
     let rank_holder_fut = ctx.osu().score_rankings(mode).page(page as u32);
     let user_fut = super::request_user(&ctx, &name, Some(mode));
 
-    let (user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
+    let (mut user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
         Ok((user, mut rankings)) => {
             let idx = (rank + 49) % 50;
             let rank_holder = rankings.ranking.swap_remove(idx);
@@ -61,6 +61,9 @@ pub(super) async fn _rankscore(
             return Err(why.into());
         }
     };
+
+    // Overwrite default mode
+    user.mode = mode;
 
     // Accumulate all necessary data
     let embed_data = RankRankedScoreEmbed::new(user, rank, rank_holder);

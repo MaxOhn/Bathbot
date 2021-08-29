@@ -74,7 +74,7 @@ pub(super) async fn _playersnipelist(
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let user = match super::request_user(&ctx, &name, Some(GameMode::STD)).await {
+    let mut user = match super::request_user(&ctx, &name, Some(GameMode::STD)).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
@@ -87,6 +87,9 @@ pub(super) async fn _playersnipelist(
             return Err(why.into());
         }
     };
+
+    // Overwrite default mode
+    user.mode = GameMode::STD;
 
     let country = if ctx.contains_country(user.country_code.as_str()) {
         user.country_code.to_owned()

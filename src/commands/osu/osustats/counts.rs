@@ -28,7 +28,7 @@ pub(super) async fn _count(
 
     let mode = config.mode.unwrap_or(GameMode::STD);
 
-    let user = match super::request_user(&ctx, &name, Some(mode)).await {
+    let mut user = match super::request_user(&ctx, &name, Some(mode)).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
@@ -41,6 +41,9 @@ pub(super) async fn _count(
             return Err(why.into());
         }
     };
+
+    // Overwrite default mode
+    user.mode = mode;
 
     let counts = match super::get_globals_count(&ctx, &user.username, mode).await {
         Ok(counts) => counts,

@@ -42,7 +42,7 @@ pub(super) async fn _recentlist(
 
     let scores_fut = super::prepare_scores(&ctx, scores_fut);
 
-    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
+    let (mut user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
         Ok((_, scores)) if scores.is_empty() => {
             let content = format!(
                 "No recent {}plays found for user `{}`",
@@ -74,6 +74,9 @@ pub(super) async fn _recentlist(
             return Err(why);
         }
     };
+
+    // Overwrite default mode
+    user.mode = mode;
 
     match grade {
         Some(GradeArg::Single(grade)) => scores.retain(|score| score.grade == grade),

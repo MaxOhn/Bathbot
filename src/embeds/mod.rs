@@ -11,13 +11,21 @@ macro_rules! author {
             national = stats.country_rank.unwrap_or(0)
         );
 
-        Author::new(text)
-            .url(format!(
-                "{}u/{}",
-                crate::util::constants::OSU_BASE,
-                $user.user_id
-            ))
-            .icon_url(crate::util::osu::flag_url($user.country_code.as_str()))
+        let url = format!(
+            "{}users/{}/{}",
+            crate::util::constants::OSU_BASE,
+            $user.user_id,
+            match $user.mode {
+                rosu_v2::prelude::GameMode::STD => "osu",
+                rosu_v2::prelude::GameMode::TKO => "taiko",
+                rosu_v2::prelude::GameMode::CTB => "fruits",
+                rosu_v2::prelude::GameMode::MNA => "mania",
+            }
+        );
+
+        let icon = crate::util::osu::flag_url($user.country_code.as_str());
+
+        Author::new(text).url(url).icon_url(icon)
     }};
 }
 

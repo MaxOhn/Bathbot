@@ -71,7 +71,7 @@ async fn _ratios(ctx: Arc<Context>, data: CommandData<'_>, name: Option<Name>) -
         .mode(GameMode::MNA)
         .limit(100);
 
-    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
+    let (mut user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
@@ -84,6 +84,9 @@ async fn _ratios(ctx: Arc<Context>, data: CommandData<'_>, name: Option<Name>) -
             return Err(why.into());
         }
     };
+
+    // Overwrite default mode
+    user.mode = GameMode::MNA;
 
     // Process user and their top scores for tracking
     process_tracking(&ctx, GameMode::MNA, &mut scores, Some(&user)).await;

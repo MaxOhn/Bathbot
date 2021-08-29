@@ -45,7 +45,7 @@ pub(super) async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) 
 
     let (user_result, scores_result, rank_result) = tokio::join!(user_fut, scores_fut, rank_fut);
 
-    let user = match user_result {
+    let mut user = match user_result {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
@@ -58,6 +58,9 @@ pub(super) async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) 
             return Err(why.into());
         }
     };
+
+    // Overwrite default mode
+    user.mode = mode;
 
     let mut scores = match scores_result {
         Ok(scores) => scores,

@@ -46,7 +46,7 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
         .mode(mode)
         .limit(100);
 
-    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
+    let (mut user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
@@ -59,6 +59,9 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
             return Err(why.into());
         }
     };
+
+    // Overwrite default mode
+    user.mode = mode;
 
     // Process user and their top scores for tracking
     process_tracking(&ctx, mode, &mut scores, Some(&user)).await;

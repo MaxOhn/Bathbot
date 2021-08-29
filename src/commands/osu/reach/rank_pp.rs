@@ -54,7 +54,7 @@ pub(super) async fn _rank(
 
         let user_fut = super::request_user(&ctx, &name, Some(mode));
 
-        let (user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
+        let (mut user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
             Ok((user, mut rankings)) => {
                 let idx = (args.rank + 49) % 50;
                 let rank_holder = rankings.ranking.swap_remove(idx);
@@ -72,6 +72,9 @@ pub(super) async fn _rank(
                 return Err(why.into());
             }
         };
+
+        // Overwrite default mode
+        user.mode = mode;
 
         RankData::Sub10k {
             user,
@@ -97,7 +100,7 @@ pub(super) async fn _rank(
             }
         };
 
-        let user = match user_result {
+        let mut user = match user_result {
             Ok(user) => user,
             Err(OsuError::NotFound) => {
                 let content = format!("User `{}` was not found", name);
@@ -110,6 +113,9 @@ pub(super) async fn _rank(
                 return Err(why.into());
             }
         };
+
+        // Overwrite default mode
+        user.mode = mode;
 
         RankData::Over10k {
             user,
