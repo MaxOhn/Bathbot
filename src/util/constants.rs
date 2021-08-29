@@ -38,3 +38,4 @@ pub const DATE_FORMAT: &str = "%F %T";
 pub const INVITE_LINK: &str = "https://discordapp.com/api/oauth2/authorize?scope=bot&\
     client_id=297073686916366336&permissions=268823616";
 pub const BATHBOT_WORKSHOP: &str = "https://discord.gg/n9fFstG";
+pub const BATHBOT_WORKSHOP_ID: u64 = 741040473476694159;

@@ -37,7 +37,7 @@ use crate::{
     database::Database,
     tracking::OsuTracking,
     twitch::Twitch,
-    util::{error::Error, MessageBuilder},
+    util::{constants::BATHBOT_WORKSHOP_ID, error::Error, MessageBuilder},
 };
 
 #[macro_use]
@@ -264,12 +264,13 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     let slash_commands = commands::slash_commands();
     info!("Setting {} slash commands...", slash_commands.len());
 
-    // * Use to test new commands
-    // http.set_guild_commands(741040473476694159.into(), &[])?
-    //     .exec()
-    //     .await?;
-
-    http.set_global_commands(&slash_commands)?.exec().await?;
+    if cfg!(debug_assertions) {
+        http.set_guild_commands(BATHBOT_WORKSHOP_ID.into(), &[])?
+            .exec()
+            .await?;
+    } else {
+        http.set_global_commands(&slash_commands)?.exec().await?;
+    }
 
     // Final context
     let ctx = Arc::new(Context::new(cache, stats, http, clients, cluster, data).await);

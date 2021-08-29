@@ -12,9 +12,7 @@ use crate::{
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{borrow::Cow, fmt::Write, sync::Arc};
 use twilight_model::application::{
-    command::{
-        BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice,
-    },
+    command::{ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice},
     interaction::{application_command::CommandDataOption, ApplicationCommand},
 };
 
@@ -270,16 +268,20 @@ impl ConfigArgs {
                         "full" => profile_embed_size = Some(ProfileSize::Full),
                         _ => bail_cmd_option!("config profile", string, value),
                     },
+                    "recent" => match value.as_str() {
+                        "maximized" => recent_embed_maximize = Some(true),
+                        "minimized" => recent_embed_maximize = Some(false),
+                        _ => bail_cmd_option!("config recent", string, value),
+                    },
                     "name" => username = Some(value.into()),
                     _ => bail_cmd_option!("config", string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
                     bail_cmd_option!("config", integer, name)
                 }
-                CommandDataOption::Boolean { name, value } => match name.as_str() {
-                    "recent" => recent_embed_maximize = Some(value),
-                    _ => bail_cmd_option!("config", boolean, name),
-                },
+                CommandDataOption::Boolean { name, .. } => {
+                    bail_cmd_option!("config", boolean, name)
+                }
                 CommandDataOption::SubCommand { name, .. } => {
                     bail_cmd_option!("config", subcommand, name)
                 }
@@ -364,9 +366,18 @@ pub fn slash_config_command() -> Command {
                 name: "profile".to_owned(),
                 required: false,
             }),
-            CommandOption::Boolean(BaseCommandOptionData {
-                description: "Should the recent command show a maximized embed at first?"
-                    .to_owned(),
+            CommandOption::String(ChoiceCommandOptionData {
+                choices: vec![
+                    CommandOptionChoice::String {
+                        name: "maximized".to_owned(),
+                        value: "maximized".to_owned(),
+                    },
+                    CommandOptionChoice::String {
+                        name: "minimized".to_owned(),
+                        value: "minimized".to_owned(),
+                    },
+                ],
+                description: "Should the recent command show a maximized embed at first?".to_owned(),
                 name: "recent".to_owned(),
                 required: false,
             }),
