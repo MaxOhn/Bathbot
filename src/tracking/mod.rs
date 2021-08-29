@@ -185,7 +185,16 @@ impl OsuTracking {
 
         // Pop users and return them
         let elems = {
-            let mut queue = self.queue.write().await;
+            let lock_fut = time::timeout(time::Duration::from_secs(5), self.queue.write());
+
+            let mut queue = match lock_fut.await {
+                Ok(queue) => queue,
+                Err(_) => {
+                    error!("Timeout while attempting to pop from tracking queue");
+
+                    return None;
+                }
+            };
 
             iter::repeat_with(|| queue.pop().map(|(key, _)| key))
                 .take(amount as usize)
