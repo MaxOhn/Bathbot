@@ -81,7 +81,7 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
                         mode
                     );
 
-                    ctx.tracking().reset(user_id, mode).await;
+                    ctx.tracking().reset(user_id, mode);
                 }
             }
         }
@@ -137,7 +137,7 @@ pub async fn process_tracking(
         Err(ErrorType::Osu(why)) => {
             unwind_error!(warn, why, "osu!api error while tracking: {}");
 
-            ctx.tracking().reset(user_id, mode).await;
+            ctx.tracking().reset(user_id, mode);
             debug!("[Tracking] Reset ({},{})", user_id, mode);
 
             return;
@@ -166,7 +166,7 @@ pub async fn process_tracking(
         }
     }
 
-    ctx.tracking().reset(user_id, mode).await;
+    ctx.tracking().reset(user_id, mode);
     debug!("[Tracking] Reset ({},{})", user_id, mode);
 }
 

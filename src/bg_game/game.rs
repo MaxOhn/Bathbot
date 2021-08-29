@@ -10,9 +10,10 @@ use crate::{
 
 use futures::future::TryFutureExt;
 use image::GenericImageView;
+use parking_lot::RwLock;
 use rosu_v2::model::GameMode;
 use std::{collections::VecDeque, sync::Arc};
-use tokio::{fs, sync::RwLock};
+use tokio::fs;
 use tokio_stream::StreamExt;
 use twilight_model::id::ChannelId;
 use twilight_standby::WaitForMessageStream;
@@ -34,11 +35,7 @@ impl Game {
         loop {
             match Game::_new(ctx, mapsets, previous_ids).await {
                 Ok(game) => {
-                    let sub_image_result = {
-                        let reveal = game.reveal.read().await;
-
-                        reveal.sub_image()
-                    };
+                    let sub_image_result = { game.reveal.read().sub_image() };
 
                     match sub_image_result {
                         Ok(img) => return (game, img),
@@ -102,25 +99,21 @@ impl Game {
         })
     }
 
-    pub async fn sub_image(&self) -> GameResult<Vec<u8>> {
-        let mut reveal = self.reveal.write().await;
+    pub fn sub_image(&self) -> GameResult<Vec<u8>> {
+        let mut reveal = self.reveal.write();
         reveal.increase_radius();
 
         reveal.sub_image()
     }
 
-    pub async fn hint(&self) -> String {
-        let mut hints = self.hints.write().await;
+    pub fn hint(&self) -> String {
+        let mut hints = self.hints.write();
 
         hints.get(&self.title, &self.artist)
     }
 
     pub async fn resolve(&self, ctx: &Context, channel: ChannelId, content: &str) -> BotResult<()> {
-        let reveal_result = {
-            let reveal = self.reveal.read().await;
-
-            reveal.full()
-        };
+        let reveal_result = { self.reveal.read().full() };
 
         match reveal_result {
             Ok(bytes) => {
@@ -150,7 +143,7 @@ impl Game {
         Ok(())
     }
 
-    async fn check_msg_content(&self, content: &str) -> ContentResult {
+    fn check_msg_content(&self, content: &str) -> ContentResult {
         // Guessed the title exactly?
         if content == self.title {
             return ContentResult::Title(true);
@@ -164,7 +157,7 @@ impl Game {
             return ContentResult::Title(false);
         }
 
-        if !self.hints.read().await.artist_guessed {
+        if !self.hints.read().artist_guessed {
             // Guessed the artist exactly?
             if content == self.artist {
                 return ContentResult::Artist(true);
@@ -193,12 +186,12 @@ pub async fn game_loop(
 ) -> LoopResult {
     // Collect and evaluate messages
     while let Some(msg) = msg_stream.next().await {
-        let game = game_lock.read().await;
+        let game = game_lock.read();
 
         if let Some(game) = game.as_ref() {
             let content = msg.content.cow_to_ascii_lowercase();
 
-            match game.check_msg_content(content.as_ref()).await {
+            match game.check_msg_content(content.as_ref()) {
                 // Title correct?
                 ContentResult::Title(exact) => {
                     let content = format!(
@@ -222,7 +215,7 @@ pub async fn game_loop(
                 // Artist correct?
                 ContentResult::Artist(exact) => {
                     {
-                        let mut hints = game.hints.write().await;
+                        let mut hints = game.hints.write();
                         hints.artist_guessed = true;
                     }
 

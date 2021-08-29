@@ -59,6 +59,11 @@ version = "0.23"
 default-features = false
 features = ["png", "gif"]
 
+[dependencies.parking_lot]
+version = "0.11"
+default-features = false
+features = ["send_guard"]
+
 [dependencies.plotters]
 version = "0.3"
 default-features = false

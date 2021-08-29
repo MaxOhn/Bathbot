@@ -138,7 +138,7 @@ async fn _check_ratelimit(
     let (ratelimit, bucket) = {
         let guard = ctx.buckets.get(&bucket).unwrap();
         let mutex = guard.value();
-        let mut bucket_elem = mutex.lock().await;
+        let mut bucket_elem = mutex.lock();
 
         match bucket {
             BucketName::Snipe => (bucket_elem.take(0), bucket), // same bucket for everyone

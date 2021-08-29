@@ -6,20 +6,17 @@ use crate::{
 };
 
 use hashbrown::HashMap;
+use parking_lot::{Mutex, RwLock};
 use std::{collections::VecDeque, sync::Arc};
 use tokio::{
-    sync::{
-        mpsc::{self, Receiver, Sender},
-        Mutex, RwLock,
-    },
-    time::{sleep, timeout, Duration},
+    sync::mpsc::{self, Receiver, Sender},
+    time::{sleep, Duration},
 };
 use twilight_model::{
     gateway::payload::MessageCreate,
     id::{ChannelId, MessageId},
 };
 
-const TIMEOUT: Duration = Duration::from_secs(10);
 const GAME_LEN: Duration = Duration::from_secs(180);
 
 pub struct GameWrapper {
@@ -40,7 +37,7 @@ impl GameWrapper {
     }
 
     pub async fn stop(&self) -> GameResult<()> {
-        let tx = self.tx.lock().await;
+        let tx = self.tx.lock();
 
         tx.send(LoopResult::Stop)
             .await
@@ -48,27 +45,23 @@ impl GameWrapper {
     }
 
     pub async fn restart(&self) -> GameResult<()> {
-        let tx = self.tx.lock().await;
+        let tx = self.tx.lock();
 
         tx.send(LoopResult::Restart)
             .await
             .map_err(|_| BgGameError::RestartToken)
     }
 
-    pub async fn sub_image(&self) -> GameResult<Option<Vec<u8>>> {
-        let game_option = timeout(TIMEOUT, self.game.read()).await?;
-
-        match game_option.as_ref() {
-            Some(game) => Some(game.sub_image().await).transpose(),
+    pub fn sub_image(&self) -> GameResult<Option<Vec<u8>>> {
+        match self.game.read().as_ref() {
+            Some(game) => Some(game.sub_image()).transpose(),
             None => Ok(None),
         }
     }
 
-    pub async fn hint(&self) -> GameResult<Option<String>> {
-        let game_option = timeout(TIMEOUT, self.game.read()).await?;
-
-        match game_option.as_ref() {
-            Some(game) => Ok(Some(game.hint().await)),
+    pub fn hint(&self) -> GameResult<Option<String>> {
+        match self.game.read().as_ref() {
+            Some(game) => Ok(Some(game.hint())),
             None => Ok(None),
         }
     }
@@ -93,7 +86,7 @@ impl GameWrapper {
                 // Initialize game
                 let (game, img) = Game::new(&ctx, &mapsets, &mut previous_ids).await;
                 {
-                    let mut arced_game = game_lock.write().await;
+                    let mut arced_game = game_lock.write();
                     *arced_game = Some(game);
                 }
 
@@ -106,7 +99,7 @@ impl GameWrapper {
                 }
 
                 let rx_fut = async {
-                    let mut rx = rx.lock().await;
+                    let mut rx = rx.lock();
 
                     rx.recv().await
                 };
@@ -123,10 +116,10 @@ impl GameWrapper {
                 // Process the result
                 match result {
                     LoopResult::Restart => {
-                        // Send message
-                        let game_option = game_lock.read().await;
+                        let game = game_lock.read();
 
-                        if let Some(game) = game_option.as_ref() {
+                        // Send message
+                        if let Some(game) = game.as_ref() {
                             let content = format!(
                                 "Full background: {}beatmapsets/{}",
                                 OSU_BASE, game.mapset_id
@@ -144,10 +137,10 @@ impl GameWrapper {
                         }
                     }
                     LoopResult::Stop => {
-                        // Send message
-                        let game_option = game_lock.read().await;
+                        let game = game_lock.read();
 
-                        if let Some(game) = game_option.as_ref() {
+                        // Send message
+                        if let Some(game) = game.as_ref() {
                             let content = format!(
                                 "Full background: {}beatmapsets/{}\n\
                                 End of game, see you next time o/",

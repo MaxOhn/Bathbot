@@ -19,15 +19,7 @@ impl Context {
     pub async fn garbage_collect_all_maps(&self) -> usize {
         let five_seconds = Duration::from_secs(5);
 
-        let mut garbage_collection =
-            match time::timeout(five_seconds, self.data.map_garbage_collection.lock()).await {
-                Ok(guard) => guard,
-                Err(_) => {
-                    warn!("Failed to acquire lock for garbage collection");
-
-                    return 0;
-                }
-            };
+        let mut garbage_collection = self.data.map_garbage_collection.lock();
 
         if garbage_collection.is_empty() {
             return 0;
@@ -108,7 +100,7 @@ impl GarbageCollectMap {
 
     pub async fn execute(self, ctx: &Context) {
         if let Some(map_id) = self.0 {
-            let mut lock = ctx.data.map_garbage_collection.lock().await;
+            let mut lock = ctx.data.map_garbage_collection.lock();
 
             lock.insert(map_id);
         }

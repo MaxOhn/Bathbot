@@ -28,7 +28,7 @@ pub(super) async fn _trackingcooldown(
     data: CommandData<'_>,
     ms: f32,
 ) -> BotResult<()> {
-    let previous = ctx.tracking().set_cooldown(ms).await;
+    let previous = ctx.tracking().set_cooldown(ms);
 
     let content = format!(
         "Tracking cooldown: {}ms -> {}ms",

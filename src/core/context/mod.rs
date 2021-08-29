@@ -16,9 +16,9 @@ use crate::{
 use dashmap::{DashMap, DashSet};
 use deadpool_redis::Pool as RedisPool;
 use hashbrown::HashSet;
+use parking_lot::Mutex;
 use rosu_v2::Osu;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use twilight_gateway::Cluster;
 use twilight_http::Client as HttpClient;
 use twilight_model::{

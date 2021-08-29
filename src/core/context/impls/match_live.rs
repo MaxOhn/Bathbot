@@ -4,13 +4,11 @@ use crate::{
 };
 
 use dashmap::{mapref::entry::Entry, DashMap};
+use parking_lot::Mutex;
 use rosu_v2::prelude::{MatchEvent, OsuMatch};
 use smallvec::SmallVec;
 use std::sync::Arc;
-use tokio::{
-    sync::Mutex,
-    time::{interval, sleep, Duration},
-};
+use tokio::time::{interval, sleep, Duration};
 use twilight_model::id::{ChannelId, MessageId};
 
 // Not a DashSet as the list is expected to be
@@ -96,7 +94,7 @@ impl Context {
                     return MatchTrackResult::Duplicate;
                 }
 
-                let locked_match = tracked_match.lock().await;
+                let locked_match = tracked_match.lock();
 
                 let msg = match send_match_messages(self, channel, &locked_match.embeds).await {
                     Some(msg) => Mutex::new(msg),
@@ -196,7 +194,7 @@ impl Context {
 
             for entry in ctx.data.match_live.match_channels.iter() {
                 let (locked_match, channels) = entry.value();
-                let mut tracked_match = locked_match.lock().await;
+                let mut tracked_match = locked_match.lock();
 
                 let next_match = match tracked_match.osu_match.get_next(ctx.osu()).await {
                     Ok(next_match) => next_match,
@@ -223,7 +221,7 @@ impl Context {
                     let data = tracked_match.embeds.last().unwrap();
 
                     for (channel, msg) in channels.iter() {
-                        let msg = *msg.lock().await;
+                        let msg = *msg.lock();
                         let embed = &[data.as_builder().build()];
                         let update_result = ctx.http.update_message(*channel, msg).embeds(embed);
 
@@ -249,7 +247,7 @@ impl Context {
                 if let Some(embeds) = new_embeds {
                     for (channel, msg_lock) in channels.iter() {
                         match send_match_messages(&ctx, *channel, &embeds).await {
-                            Some(msg) => *msg_lock.lock().await = msg,
+                            Some(msg) => *msg_lock.lock() = msg,
                             None => error!("Failed to send last match live message"),
                         }
                     }

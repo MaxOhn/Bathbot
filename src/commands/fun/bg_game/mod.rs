@@ -180,7 +180,7 @@ pub async fn slash_backgroundgame(
 ) -> BotResult<()> {
     match GameCommandKind::slash(&mut command)? {
         GameCommandKind::Start { mode } => _start(ctx, command.into(), mode).await,
-        GameCommandKind::Skip => restart(&ctx, &command.into()).await.map(|_| ()),
+        GameCommandKind::Skip => restart(&ctx, &command.into(), true).await.map(|_| ()),
         GameCommandKind::Bigger => bigger(ctx, command.into()).await,
         GameCommandKind::Hint => hint(ctx, command.into()).await,
         GameCommandKind::Stop => stop(ctx, command.into()).await,

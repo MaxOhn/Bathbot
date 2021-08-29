@@ -117,6 +117,7 @@ dependencies = [
  "log",
  "once_cell",
  "openssl",
+ "parking_lot",
  "plotters",
  "priority-queue",
  "proc_macros",

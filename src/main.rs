@@ -59,6 +59,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Response,
 };
+use parking_lot::Mutex;
 use prometheus::{Encoder, TextEncoder};
 use rosu_v2::Osu;
 use smallstr::SmallString;
@@ -68,12 +69,7 @@ use std::{
     sync::{atomic::Ordering, Arc},
     time::Duration,
 };
-use tokio::{
-    runtime::Builder as RuntimeBuilder,
-    signal,
-    sync::{oneshot, Mutex},
-    time,
-};
+use tokio::{runtime::Builder as RuntimeBuilder, signal, sync::oneshot, time};
 use tokio_stream::StreamExt;
 use twilight_gateway::{cluster::ShardScheme, Cluster, Event, EventTypeFlags};
 use twilight_http::Client as HttpClient;

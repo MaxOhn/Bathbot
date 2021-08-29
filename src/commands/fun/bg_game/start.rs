@@ -13,11 +13,17 @@ use std::{sync::Arc, time::Duration};
 use tokio_stream::StreamExt;
 use twilight_model::{channel::ReactionType, gateway::event::Event};
 
-pub(super) async fn restart(ctx: &Context, data: &CommandData<'_>) -> BotResult<bool> {
+pub(super) async fn restart(
+    ctx: &Context,
+    data: &CommandData<'_>,
+    delete: bool,
+) -> BotResult<bool> {
     match ctx.restart_game(data.channel_id()).await {
         Ok(restarted) => {
-            if let CommandData::Interaction { command } = data {
-                let _ = command.delete_message(ctx).await;
+            if delete {
+                if let CommandData::Interaction { command } = data {
+                    let _ = command.delete_message(ctx).await;
+                }
             }
 
             Ok(restarted)
@@ -49,7 +55,7 @@ async fn start(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 pub async fn _start(ctx: Arc<Context>, data: CommandData<'_>, mode: GameMode) -> BotResult<()> {
-    if restart(&ctx, &data).await? {
+    if restart(&ctx, &data, false).await? {
         return Ok(());
     }
 

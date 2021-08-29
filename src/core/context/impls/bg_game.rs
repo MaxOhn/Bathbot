@@ -60,9 +60,9 @@ impl Context {
         self.data.bg_games.remove(&channel);
     }
 
-    pub async fn game_hint(&self, channel: ChannelId) -> Result<String, BgGameError> {
+    pub fn game_hint(&self, channel: ChannelId) -> Result<String, BgGameError> {
         match self.data.bg_games.get(&channel) {
-            Some(game) => match game.hint().await? {
+            Some(game) => match game.hint()? {
                 Some(hint) => Ok(hint),
                 None => Err(BgGameError::NotStarted),
             },
@@ -70,9 +70,9 @@ impl Context {
         }
     }
 
-    pub async fn game_bigger(&self, channel: ChannelId) -> Result<Vec<u8>, BgGameError> {
+    pub fn game_bigger(&self, channel: ChannelId) -> Result<Vec<u8>, BgGameError> {
         match self.data.bg_games.get(&channel) {
-            Some(game) => match game.sub_image().await? {
+            Some(game) => match game.sub_image()? {
                 Some(img) => Ok(img),
                 None => Err(BgGameError::NotStarted),
             },

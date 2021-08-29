@@ -1,8 +1,8 @@
 use chrono::Utc;
 use dashmap::DashMap;
 use hashbrown::HashMap;
+use parking_lot::Mutex;
 use std::{hash::Hash, str::FromStr};
-use tokio::sync::Mutex;
 
 pub type Buckets = DashMap<BucketName, Mutex<Bucket>>;
 

@@ -10,7 +10,7 @@ use std::sync::Arc;
 #[aliases("h", "tip")]
 #[bucket("bg_hint")]
 pub(super) async fn hint(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match ctx.game_hint(data.channel_id()).await {
+    match ctx.game_hint(data.channel_id()) {
         Ok(hint) => {
             let builder = MessageBuilder::new().content(hint);
             data.create_message(&ctx, builder).await?;

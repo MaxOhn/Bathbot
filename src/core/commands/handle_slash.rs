@@ -261,7 +261,7 @@ async fn pre_process_command(
     {
         let guard = ctx.buckets.get(&BucketName::All).unwrap();
         let mutex = guard.value();
-        let mut bucket = mutex.lock().await;
+        let mut bucket = mutex.lock();
         let ratelimit = bucket.take(author_id.0);
 
         if ratelimit > 0 {

@@ -48,7 +48,10 @@ async fn matchlive(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
 async fn _matchlive(ctx: Arc<Context>, data: CommandData<'_>, match_id: u32) -> BotResult<()> {
     let content: &str = match ctx.add_match_track(data.channel_id(), match_id).await {
-        MatchTrackResult::Added => return Ok(()),
+        MatchTrackResult::Added => match data {
+            CommandData::Message { .. } => return Ok(()),
+            CommandData::Interaction { command } => return command.delete_message(&ctx).await,
+        },
         MatchTrackResult::Capped => "Channels can track at most three games at a time",
         MatchTrackResult::Duplicate => "That match is already being tracking in this channel",
         MatchTrackResult::Error => OSU_API_ISSUE,
