@@ -1,14 +1,14 @@
+mod current;
 mod mapper;
 mod nochoke;
 mod rebalance;
-mod current;
 mod top_if;
 mod top_old;
 
+pub use current::*;
 pub use mapper::*;
 pub use nochoke::*;
 pub use rebalance::*;
-pub use current::*;
 pub use top_if::*;
 pub use top_old::*;
 
@@ -495,7 +495,7 @@ pub fn slash_top_command() -> Command {
         id: None,
         options: vec![
             CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Count the top plays on maps of the given mapper".to_owned(),
+                description: "Display the user's current top100".to_owned(),
                 name: "current".to_owned(),
                 options: _slash_top_current(),
                 required: false,
@@ -513,7 +513,7 @@ pub fn slash_top_command() -> Command {
                 required: false,
             }),
             CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Count the top plays on maps of the given mapper".to_owned(),
+                description: "How the top plays would look like with only full combos".to_owned(),
                 name: "nochoke".to_owned(),
                 options: _slash_top_nochoke(),
                 required: false,
