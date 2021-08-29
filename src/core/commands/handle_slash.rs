@@ -178,6 +178,7 @@ where
 async fn start_thinking(ctx: &Context, command: &ApplicationCommand) -> BotResult<()> {
     let response = InteractionResponse::DeferredChannelMessageWithSource(CallbackData {
         allowed_mentions: None,
+        components: None,
         content: None,
         embeds: Vec::new(),
         flags: None,
@@ -201,6 +202,7 @@ async fn premature_error(
 
     let response = InteractionResponse::ChannelMessageWithSource(CallbackData {
         allowed_mentions: None,
+        components: None,
         content: None,
         embeds: vec![embed],
         flags: None,
