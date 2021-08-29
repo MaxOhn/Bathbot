@@ -96,7 +96,9 @@ impl BotStats {
             .unwrap();
         registry.register(Box::new(slash_commands.clone())).unwrap();
         registry.register(Box::new(osu_metrics.clone())).unwrap();
-        registry.register(Box::new(message_retrievals.clone()));
+        registry
+            .register(Box::new(message_retrievals.clone()))
+            .unwrap();
 
         Self {
             registry,

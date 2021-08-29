@@ -186,7 +186,26 @@ async fn snipedgain(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn snipedloss(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            let name = args.next().map(Name::from);
+            let name = match args.next() {
+                Some(arg) => match Args::check_user_mention(&ctx, arg).await {
+                    Ok(Ok(name)) => Some(name),
+                    Ok(Err(content)) => return msg.error(&ctx, content).await,
+                    Err(why) => {
+                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(why);
+                    }
+                },
+                None => match ctx.user_config(msg.author.id).await {
+                    Ok(config) => config.name,
+                    Err(why) => {
+                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(why);
+                    }
+                },
+            };
+
             let data = CommandData::Message { msg, args, num };
 
             _sniped_diff(ctx, data, Difference::Loss, name).await
