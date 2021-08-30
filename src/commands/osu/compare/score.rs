@@ -44,7 +44,7 @@ async fn compare(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                     let reply = msg
                         .referenced_message
                         .as_ref()
-                        .filter(|msg| msg.kind == MessageType::Reply);
+                        .filter(|_| msg.kind == MessageType::Reply);
 
                     if let Some(id) = reply.and_then(|msg| map_id_from_msg(msg)) {
                         score_args.map = Some(id);
