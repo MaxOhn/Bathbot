@@ -144,6 +144,16 @@ impl MedalEmbed {
             url,
         }
     }
+
+    pub fn minimized(mut self) -> EmbedBuilder {
+        self.fields.truncate(5);
+
+        self.into_builder()
+    }
+
+    pub fn maximized(self) -> EmbedBuilder {
+        self.into_builder()
+    }
 }
 
 impl EmbedData for MedalEmbed {

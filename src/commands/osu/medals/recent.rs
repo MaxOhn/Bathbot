@@ -1,7 +1,7 @@
 use crate::{
     bail,
-    embeds::{EmbedData, MedalEmbed},
-    pagination::{MedalRecentPagination, Pagination},
+    embeds::MedalEmbed,
+    pagination::MedalRecentPagination,
     util::{
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
         MessageExt,
@@ -85,6 +85,14 @@ pub(super) async fn _medalrecent(
         }
     };
 
+    if achieved_medals.is_empty() {
+        let content = format!("`{}` has not achieved any medals yet :(", user.username);
+        let builder = MessageBuilder::new().embed(content);
+        data.create_message(&ctx, builder).await?;
+
+        return Ok(());
+    }
+
     achieved_medals.sort_unstable_by_key(|medal| Reverse(medal.achieved_at));
     let index = index.unwrap_or(1);
 
@@ -141,8 +149,8 @@ pub(super) async fn _medalrecent(
     };
 
     let embed_data = MedalEmbed::new(medal, Some(achieved), false);
-    let embed = embed_data.clone().into_builder().build();
-    let builder = MessageBuilder::new().embed(embed.clone()).content(content);
+    let embed = embed_data.clone().minimized().build();
+    let builder = MessageBuilder::new().embed(embed).content(content);
     let response = data.create_message(&ctx, builder).await?.model().await?;
     let owner = data.author()?.id;
 
@@ -154,6 +162,7 @@ pub(super) async fn _medalrecent(
         achieved_medals,
         index,
         embed_data,
+        false,
     );
 
     tokio::spawn(async move {

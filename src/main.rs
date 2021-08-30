@@ -265,7 +265,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     info!("Setting {} slash commands...", slash_commands.len());
 
     if cfg!(debug_assertions) {
-        http.set_guild_commands(BATHBOT_WORKSHOP_ID.into(), &[])?
+        http.set_guild_commands(BATHBOT_WORKSHOP_ID.into(), &slash_commands)?
             .exec()
             .await?;
     } else {
