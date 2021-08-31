@@ -12,7 +12,9 @@ use crate::{
 use chrono::{DateTime, Utc};
 use rosu_v2::prelude::{OsuError, User};
 use std::{cmp::Reverse, sync::Arc};
-use twilight_model::id::UserId;
+use twilight_model::{
+    application::interaction::application_command::CommandDataOption, id::UserId,
+};
 
 #[command]
 #[short_desc("Display a recently acquired medal of a user")]
@@ -195,6 +197,42 @@ impl RecentArgs {
         };
 
         Ok(Ok(Self { name, index }))
+    }
+
+    pub(super) async fn slash(
+        ctx: &Context,
+        options: Vec<CommandDataOption>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, String>> {
+        let mut username = None;
+        let mut index = None;
+
+        for option in options {
+            match option {
+                CommandDataOption::String { name, value } => match name.as_str() {
+                    "name" => username = Some(value.into()),
+                    "discord" => username = parse_discord_option!(ctx, value, "medal recent"),
+                    _ => bail_cmd_option!("medal recent", string, name),
+                },
+                CommandDataOption::Integer { name, value } => match name.as_str() {
+                    "index" => index = Some(value.max(1) as usize),
+                    _ => bail_cmd_option!("medal recent", integer, name),
+                },
+                CommandDataOption::Boolean { name, .. } => {
+                    bail_cmd_option!("medal recent", boolean, name)
+                }
+                CommandDataOption::SubCommand { name, .. } => {
+                    bail_cmd_option!("medal recent", subcommand, name)
+                }
+            }
+        }
+
+        let name = match username {
+            Some(name) => Some(name),
+            None => ctx.user_config(author_id).await?.name,
+        };
+
+        Ok(Ok(RecentArgs { name, index }))
     }
 }
 

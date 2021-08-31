@@ -1,13 +1,14 @@
-use super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32, ProfileArgs};
+use super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32, AT_LEAST_ONE};
 use crate::{
     embeds::{EmbedData, ProfileCompareEmbed},
     tracking::process_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        matcher,
         osu::BonusPP,
         MessageExt,
     },
-    BotResult, CommandData, Context, MessageBuilder,
+    Args, BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
 use image::{
@@ -17,7 +18,10 @@ use image::{
     Rgba,
 };
 use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score, UserStatistics};
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
+use twilight_model::{
+    application::interaction::application_command::CommandDataOption, id::UserId,
+};
 
 pub(super) async fn _profilecompare(
     ctx: Arc<Context>,
@@ -75,7 +79,7 @@ pub(super) async fn _profilecompare(
     };
 
     if user1.user_id == user2.user_id {
-        let content = "Give at least two different users";
+        let content = "Give two different users";
 
         return data.error(&ctx, content).await;
     }
@@ -95,11 +99,6 @@ pub(super) async fn _profilecompare(
     // Process user and their top scores for tracking
     process_tracking(&ctx, mode, &mut scores1, Some(&user1)).await;
     process_tracking(&ctx, mode, &mut scores2, Some(&user2)).await;
-
-    debug!(
-        "Processed tracking for profile compare ({},{})",
-        user1.username, user2.username
-    );
 
     let profile_result1 = CompareResult::calc(mode, &scores1, user1.statistics.as_ref().unwrap());
     let profile_result2 = CompareResult::calc(mode, &scores2, user2.statistics.as_ref().unwrap());
@@ -306,8 +305,8 @@ async fn get_combined_thumbnail(
     let mut img = DynamicImage::ImageRgba8(ImageBuffer::from_pixel(720, 128, Rgba([0, 0, 0, 0])));
 
     let (pfp1, pfp2) = tokio::try_join!(
-        ctx.clients.custom.get_avatar_with_url(user1_url),
-        ctx.clients.custom.get_avatar_with_url(user2_url),
+        ctx.clients.custom.get_avatar(user1_url),
+        ctx.clients.custom.get_avatar(user2_url),
     )?;
 
     let pfp1 = image::load_from_memory(&pfp1)?.resize_exact(128, 128, FilterType::Lanczos3);
@@ -318,4 +317,133 @@ async fn get_combined_thumbnail(
     img.write_to(&mut png_bytes, Png)?;
 
     Ok(png_bytes)
+}
+
+pub(super) struct ProfileArgs {
+    name1: Option<Name>,
+    name2: Name,
+    mode: GameMode,
+}
+
+impl ProfileArgs {
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: UserId,
+        mut mode: GameMode,
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let config = ctx.user_config(author_id).await?;
+        mode = config.mode(mode);
+
+        let name2 = match args.next() {
+            Some(arg) => match matcher::get_mention_user(arg) {
+                Some(id) => match ctx.user_config(UserId(id)).await?.name {
+                    Some(name) => name,
+                    None => {
+                        let content = format!("<@{}> is not linked to an osu profile", id);
+
+                        return Ok(Err(content.into()));
+                    }
+                },
+                None => arg.into(),
+            },
+            None => return Ok(Err(AT_LEAST_ONE.into())),
+        };
+
+        let args = match args.next() {
+            Some(arg) => match matcher::get_mention_user(arg) {
+                Some(id) => match ctx.user_config(UserId(id)).await?.name {
+                    Some(name) => Self {
+                        name1: Some(name2),
+                        name2: name,
+                        mode,
+                    },
+                    None => {
+                        let content = format!("<@{}> is not linked to an osu profile", id);
+
+                        return Ok(Err(content.into()));
+                    }
+                },
+                None => Self {
+                    name1: Some(name2),
+                    name2: arg.into(),
+                    mode,
+                },
+            },
+            None => Self {
+                name1: config.name,
+                name2,
+                mode,
+            },
+        };
+
+        Ok(Ok(args))
+    }
+
+    pub(super) async fn slash(
+        ctx: &Context,
+        options: Vec<CommandDataOption>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let mut name1 = None;
+        let mut name2 = None;
+        let mut mode = None;
+
+        for option in options {
+            match option {
+                CommandDataOption::String { name, value } => match name.as_str() {
+                    "mode" => mode = parse_mode_option!(value, "compare profile"),
+                    "name1" => name1 = Some(value.into()),
+                    "name2" => name2 = Some(value.into()),
+                    "discord1" => match value.parse() {
+                        Ok(id) => match ctx.user_config(UserId(id)).await?.name {
+                            Some(name) => name1 = Some(name),
+                            None => {
+                                let content = format!("<@{}> is not linked to an osu profile", id);
+
+                                return Ok(Err(content.into()));
+                            }
+                        },
+                        Err(_) => bail_cmd_option!("compare profile discord1", string, value),
+                    },
+                    "discord2" => match value.parse() {
+                        Ok(id) => match ctx.user_config(UserId(id)).await?.name {
+                            Some(name) => name2 = Some(name),
+                            None => {
+                                let content = format!("<@{}> is not linked to an osu profile", id);
+
+                                return Ok(Err(content.into()));
+                            }
+                        },
+                        Err(_) => bail_cmd_option!("compare profile discord2", string, value),
+                    },
+                    _ => bail_cmd_option!("compare profile", string, name),
+                },
+                CommandDataOption::Integer { name, .. } => {
+                    bail_cmd_option!("compare profile", integer, name)
+                }
+                CommandDataOption::Boolean { name, .. } => {
+                    bail_cmd_option!("compare profile", boolean, name)
+                }
+                CommandDataOption::SubCommand { name, .. } => {
+                    bail_cmd_option!("compare profile", subcommand, name)
+                }
+            }
+        }
+
+        let (name1, name2) = match (name1, name2) {
+            (name1, Some(name)) => (name1, name),
+            (Some(name), None) => (None, name),
+            (None, None) => return Ok(Err(AT_LEAST_ONE.into())),
+        };
+
+        let name1 = match name1 {
+            Some(name) => Some(name),
+            None => ctx.user_config(author_id).await?.name,
+        };
+
+        let mode = mode.unwrap_or(GameMode::STD);
+
+        Ok(Ok(ProfileArgs { name1, name2, mode }))
+    }
 }

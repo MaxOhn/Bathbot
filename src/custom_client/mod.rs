@@ -485,13 +485,14 @@ impl CustomClient {
         Ok(scores.get())
     }
 
-    pub async fn get_avatar(&self, user_id: u32) -> ClientResult<Vec<u8>> {
+    #[allow(dead_code)]
+    pub async fn get_avatar_with_id(&self, user_id: u32) -> ClientResult<Vec<u8>> {
         let url = format!("{}{}", AVATAR_URL, user_id);
 
-        self.get_avatar_with_url(url).await
+        self.get_avatar(url).await
     }
 
-    pub async fn get_avatar_with_url(&self, url: impl AsRef<str>) -> ClientResult<Vec<u8>> {
+    pub async fn get_avatar(&self, url: impl AsRef<str>) -> ClientResult<Vec<u8>> {
         let response = self.make_request(url, Site::OsuAvatar).await?;
 
         Ok(response.bytes().await?.to_vec())

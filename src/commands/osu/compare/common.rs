@@ -72,7 +72,7 @@ pub(super) async fn _common(
     let count = names.len();
 
     // Retrieve each user's top scores
-    let mut scores_futs = names
+    let mut scores_futs: FuturesOrdered<_> = names
         .into_iter()
         .map(|name| async {
             let scores_fut = ctx
@@ -85,7 +85,7 @@ pub(super) async fn _common(
 
             (name, scores_fut)
         })
-        .collect::<FuturesOrdered<_>>();
+        .collect();
 
     let mut all_scores = Vec::<Vec<_>>::with_capacity(count);
     let mut users = CommonUsers::with_capacity(count);
@@ -93,10 +93,14 @@ pub(super) async fn _common(
     while let Some((mut name, result)) = scores_futs.next().await {
         match result {
             Ok(scores) => {
-                if let Some(user_id) = scores.first().map(|s| s.user_id) {
+                let opt = scores
+                    .first()
+                    .and_then(|s| Some((s.user_id, s.user.as_ref()?.avatar_url.clone())));
+
+                if let Some((user_id, avatar_url)) = opt {
                     name.make_ascii_lowercase();
 
-                    users.push(CommonUser::new(name, user_id));
+                    users.push(CommonUser::new(name, avatar_url, user_id));
                 } else {
                     let content = format!("User `{}` has no {} top scores", name, mode);
 
@@ -255,8 +259,8 @@ pub(super) async fn _common(
     }
 
     // Create the combined profile pictures
-    let thumbnail_fut =
-        async { get_combined_thumbnail(&ctx, users.iter().map(CommonUser::id)).await };
+    let urls = users.iter().map(CommonUser::avatar_url);
+    let thumbnail_fut = get_combined_thumbnail(&ctx, urls, users.len() as u32);
 
     let data_fut = async {
         let limit = scores_per_map.len().min(10);
@@ -436,14 +440,16 @@ pub async fn commonctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
 pub struct CommonUser {
     name: Name,
+    avatar_url: String,
     user_id: u32,
     pub first_count: usize,
 }
 
 impl CommonUser {
-    fn new(name: Name, user_id: u32) -> Self {
+    fn new(name: Name, avatar_url: String, user_id: u32) -> Self {
         Self {
             name,
+            avatar_url,
             user_id,
             first_count: 0,
         }
@@ -457,5 +463,9 @@ impl CommonUser {
 
     pub fn name(&self) -> &str {
         self.name.as_str()
+    }
+
+    fn avatar_url(&self) -> &str {
+        self.avatar_url.as_str()
     }
 }

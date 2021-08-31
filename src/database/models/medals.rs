@@ -24,6 +24,28 @@ pub struct OsuMedal {
     pub mode: Option<GameMode>,
 }
 
+impl PartialEq for OsuMedal {
+    fn eq(&self, other: &Self) -> bool {
+        self.medal_id == other.medal_id
+    }
+}
+
+impl Eq for OsuMedal {}
+
+impl PartialOrd for OsuMedal {
+    fn partial_cmp(&self, other: &OsuMedal) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for OsuMedal {
+    fn cmp(&self, other: &OsuMedal) -> Ordering {
+        (self.grouping)
+            .cmp(&other.grouping)
+            .then_with(|| self.medal_id.cmp(&other.medal_id))
+    }
+}
+
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub enum MedalGroup {
     Skill = 0,

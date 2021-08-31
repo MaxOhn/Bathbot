@@ -97,6 +97,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &MEDALSTATS_CMD,
                 &MEDALRECENT_CMD,
                 &MEDALSMISSING_CMD,
+                &MEDALSCOMMON_CMD,
                 &SEARCH_CMD,
                 &MATCHLIVE_CMD,
                 &MATCHLIVEREMOVE_CMD,

@@ -229,21 +229,19 @@ struct SubstringResult {
     len: usize,
 }
 
-pub async fn get_combined_thumbnail(
+pub async fn get_combined_thumbnail<'s>(
     ctx: &Context,
-    user_ids: impl Iterator<Item = u32>,
+    avatar_urls: impl IntoIterator<Item = &'s str>,
+    amount: u32,
 ) -> BotResult<Vec<u8>> {
     let mut combined = DynamicImage::new_rgba8(128, 128);
-
-    //  Careful here! Be sure the type implements size_hint accurately
-    let amount = user_ids.size_hint().0 as u32;
     let w = 128 / amount;
 
     // Future stream
-    let mut pfp_futs = user_ids
+    let mut pfp_futs: FuturesOrdered<_> = avatar_urls
         .into_iter()
-        .map(|id| ctx.clients.custom.get_avatar(id))
-        .collect::<FuturesOrdered<_>>();
+        .map(|url| ctx.clients.custom.get_avatar(url))
+        .collect();
 
     let mut next = pfp_futs.next().await;
     let mut i = 0;
