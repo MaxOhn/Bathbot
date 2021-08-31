@@ -17,14 +17,12 @@ impl Cache {
         let resource_types = ResourceType::CHANNEL
             | ResourceType::GUILD
             | ResourceType::MEMBER
-            | ResourceType::MESSAGE
             | ResourceType::REACTION
             | ResourceType::ROLE
             | ResourceType::USER_CURRENT
             | ResourceType::USER;
 
         let config = InMemoryCache::builder()
-            .message_cache_size(5)
             .resource_types(resource_types)
             .build()
             .config();

@@ -7,8 +7,7 @@ use crate::{
         error::PPError,
         matcher,
         osu::{
-            cached_message_extract, map_id_from_history, map_id_from_msg, prepare_beatmap_file,
-            MapIdType, ModSelection,
+            map_id_from_history, map_id_from_msg, prepare_beatmap_file, MapIdType, ModSelection,
         },
         ApplicationCommandExt, MessageExt,
     },
@@ -69,24 +68,11 @@ async fn map(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotResult<()> {
     let MapArgs { map, mods } = args;
     let author_id = data.author()?.id;
-    let channel_id = data.channel_id();
 
-    let map_id_opt = map.or_else(|| {
-        let result = ctx
-            .cache
-            .message_extract(channel_id, cached_message_extract);
-
-        if result.is_some() {
-            ctx.stats.message_retrievals.cached.inc();
-        }
-
-        result
-    });
-
-    let map_id = if let Some(id) = map_id_opt {
+    let map_id = if let Some(id) = map {
         id
     } else {
-        let msgs = match ctx.retrieve_channel_history(channel_id).await {
+        let msgs = match ctx.retrieve_channel_history(data.channel_id()).await {
             Ok(msgs) => msgs,
             Err(why) => {
                 let _ = data.error(&ctx, GENERAL_ISSUE).await;

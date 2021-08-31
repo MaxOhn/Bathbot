@@ -11,7 +11,6 @@ use bytes::Bytes;
 use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score, UserStatistics};
 use std::borrow::Cow;
 use tokio::{fs::File, io::AsyncWriteExt, time::sleep};
-use twilight_cache_inmemory::model::CachedMessage;
 use twilight_model::channel::{embed::Embed, Message};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -192,16 +191,6 @@ pub fn map_id_from_history(msgs: &[Message]) -> Option<MapIdType> {
 }
 
 pub fn map_id_from_msg(msg: &Message) -> Option<MapIdType> {
-    if msg.content.chars().all(|c| c.is_numeric()) {
-        return check_embeds_for_map_id(&msg.embeds);
-    }
-
-    matcher::get_osu_map_id(&msg.content)
-        .or_else(|| matcher::get_osu_mapset_id(&msg.content))
-        .or_else(|| check_embeds_for_map_id(&msg.embeds))
-}
-
-pub fn cached_message_extract(msg: &CachedMessage) -> Option<MapIdType> {
     if msg.content.chars().all(|c| c.is_numeric()) {
         return check_embeds_for_map_id(&msg.embeds);
     }
