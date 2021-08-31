@@ -310,7 +310,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
     ]
 }
 
-pub fn slash_commands() -> [Command; 39] {
+pub fn slash_commands() -> [Command; 38] {
     [
         help::slash_help_command(),
         slash_recent_command(),
@@ -318,7 +318,6 @@ pub fn slash_commands() -> [Command; 39] {
         slash_link_command(),
         slash_top_command(),
         slash_osustats_command(),
-        slash_backgroundgame_command(),
         slash_profile_command(),
         slash_snipe_command(),
         slash_matchcost_command(),

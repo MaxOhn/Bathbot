@@ -24,7 +24,7 @@ async fn rankings(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
             _rankings(ctx, CommandData::Message { msg, args, num }, global).await
         }
-        CommandData::Interaction { command } => super::slash_backgroundgame(ctx, *command).await,
+        CommandData::Interaction { .. } => unreachable!(),
     }
 }
 

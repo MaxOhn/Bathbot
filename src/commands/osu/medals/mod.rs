@@ -47,7 +47,7 @@ impl MedalCommandKind {
                 CommandDataOption::Integer { name, .. } => bail_cmd_option!("medal", integer, name),
                 CommandDataOption::Boolean { name, .. } => bail_cmd_option!("medal", boolean, name),
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "common" => match CommonArgs::slash(&ctx, options, author_id).await? {
+                    "common" => match CommonArgs::slash(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(Self::Common(args)),
                         Err(content) => return Ok(Err(content)),
                     },
@@ -138,7 +138,7 @@ impl MedalCommandKind {
 
                         kind = Some(MedalCommandKind::Missing(name));
                     }
-                    "recent" => match RecentArgs::slash(&ctx, options, author_id).await? {
+                    "recent" => match RecentArgs::slash(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(Self::Recent(args)),
                         Err(content) => return Ok(Err(content.into())),
                     },

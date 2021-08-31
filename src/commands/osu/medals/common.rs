@@ -83,7 +83,7 @@ pub(super) async fn _common(
     let mut medals = Vec::with_capacity(medals_map.len());
 
     for medal_id in medals1.keys() {
-        match medals_map.remove(&medal_id) {
+        match medals_map.remove(medal_id) {
             Some(medal) => medals.push(medal),
             None => warn!("Missing medal id {} in DB medals", medal_id),
         }
