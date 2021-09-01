@@ -127,8 +127,6 @@ pub trait Pagination: Sync + Sized {
 
     fn process_data(&mut self, _data: &Self::PageData) {}
 
-    // async fn change_mode(&mut self) {}
-
     async fn final_processing(mut self, _ctx: &Context) -> BotResult<()> {
         Ok(())
     }
@@ -187,33 +185,28 @@ pub trait Pagination: Sync + Sized {
         self.final_processing(ctx).await
     }
 
-    async fn next_page(&mut self, reaction: Reaction, ctx: &Context) -> BotResult<PageChange> {
-        let change = match self.process_reaction(&reaction.emoji).await {
-            PageChange::None => PageChange::None,
-            PageChange::Change => {
-                let data = self.build_page().await?;
-                self.process_data(&data);
-                let msg = self.msg();
-                let mut update = ctx.http.update_message(msg.channel_id, msg.id);
-                let content = self.content();
+    async fn next_page(&mut self, reaction: Reaction, ctx: &Context) -> BotResult<()> {
+        if self.process_reaction(&reaction.emoji).await == PageChange::Change {
+            let data = self.build_page().await?;
+            self.process_data(&data);
+            let msg = self.msg();
+            let mut update = ctx.http.update_message(msg.channel_id, msg.id);
+            let content = self.content();
 
-                if let Some(ref content) = content {
-                    update = update.content(Some(content.as_ref()))?;
-                }
-
-                let mut builder = data.into_builder();
-
-                if let Some(thumbnail) = self.thumbnail() {
-                    builder = builder.thumbnail(thumbnail);
-                }
-
-                update.embeds(&[builder.build()])?.exec().await?;
-
-                PageChange::Change
+            if let Some(ref content) = content {
+                update = update.content(Some(content.as_ref()))?;
             }
-        };
 
-        Ok(change)
+            let mut builder = data.into_builder();
+
+            if let Some(thumbnail) = self.thumbnail() {
+                builder = builder.thumbnail(thumbnail);
+            }
+
+            update.embeds(&[builder.build()])?.exec().await?;
+        }
+
+        Ok(())
     }
 
     async fn process_reaction(&mut self, reaction: &ReactionType) -> PageChange {
@@ -255,10 +248,6 @@ pub trait Pagination: Sync + Sized {
                     .then(|| self.last_index().min(self.index() + self.multi_step())),
                 // Move to end
                 "jump_end" => (self.index() != self.last_index()).then(|| self.last_index()),
-                "osu_std" => (self.index() != 0).then(|| 0),
-                "osu_taiko" => (self.index() != 1).then(|| 1),
-                "osu_ctb" => (self.index() != 2).then(|| 2),
-                "osu_mania" => (self.index() != 3).then(|| 3),
                 _ => None,
             },
             _ => None,
@@ -267,7 +256,7 @@ pub trait Pagination: Sync + Sized {
         match change_result {
             Some(index) => {
                 *self.index_mut() = index;
-                // self.change_mode().await;
+
                 PageChange::Change
             }
             None => PageChange::None,

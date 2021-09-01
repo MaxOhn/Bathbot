@@ -46,10 +46,14 @@ impl Context {
             .map_err(|e| e.into())
     }
 
+    /// Store a message id to register whether the message is not yet
+    /// deleted on a later point when calling `remove_msg`.
     pub fn store_msg(&self, msg: MessageId) {
         self.data.msgs_to_process.insert(msg);
     }
 
+    /// Returns false is either `store_msg` was not called for the message id
+    /// or if the message was deleted between the `store_msg` call and this call.
     pub fn remove_msg(&self, msg: MessageId) -> bool {
         self.data.msgs_to_process.remove(&msg).is_some()
     }
