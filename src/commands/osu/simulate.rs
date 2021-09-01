@@ -155,7 +155,8 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
             return;
         }
 
-        let builder = embed_data.into_builder().build().into();
+        let embed = embed_data.into_builder().build();
+        let builder = MessageBuilder::new().content(content).embed(embed);
 
         if let Err(why) = response.update_message(&ctx, builder).await {
             unwind_error!(warn, why, "Error minimizing simulate msg: {}");
