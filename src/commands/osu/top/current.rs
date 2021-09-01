@@ -204,11 +204,11 @@ async fn top(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
     - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
     - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
-    - `sort`: `acc`, `combo`, `date` (= `rb` command), `length`, or `position` (default)\n\
+    - `sort`: `acc`, `combo`, `date` (= `rbm` command), `length`, or `position` (default)\n\
     - `reverse`: `true` or `false` (default)\n\
     \n\
     Instead of showing the scores in a list, you can also __show a single score__ by \
-    specifying a number right after the command, e.g. `<top2 badewanne3`."
+    specifying a number right after the command, e.g. `<topm2 badewanne3`."
 )]
 #[usage(
     "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] \
@@ -251,11 +251,11 @@ async fn topmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
     - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
     - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
-    - `sort`: `acc`, `combo`, `date` (= `rb` command), `length`, or `position` (default)\n\
+    - `sort`: `acc`, `combo`, `date` (= `rbt` command), `length`, or `position` (default)\n\
     - `reverse`: `true` or `false` (default)\n\
     \n\
     Instead of showing the scores in a list, you can also __show a single score__ by \
-    specifying a number right after the command, e.g. `<top2 badewanne3`."
+    specifying a number right after the command, e.g. `<topt2 badewanne3`."
 )]
 #[usage(
     "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] \
@@ -298,11 +298,11 @@ async fn toptaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
     - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
     - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
-    - `sort`: `acc`, `combo`, `date` (= `rb` command), `length`, or `position` (default)\n\
+    - `sort`: `acc`, `combo`, `date` (= `rbc` command), `length`, or `position` (default)\n\
     - `reverse`: `true` or `false` (default)\n\
     \n\
     Instead of showing the scores in a list, you can also __show a single score__ by \
-    specifying a number right after the command, e.g. `<top2 badewanne3`."
+    specifying a number right after the command, e.g. `<topc2 badewanne3`."
 )]
 #[usage(
     "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] \
@@ -348,7 +348,7 @@ async fn topctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     - `reverse`: `true` or `false` (default)\n\
     \n\
     Instead of showing the scores in a list, you can also __show a single score__ by \
-    specifying a number right after the command, e.g. `<top2 badewanne3`."
+    specifying a number right after the command, e.g. `<rb2 badewanne3`."
 )]
 #[usage(
    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
@@ -395,7 +395,7 @@ async fn recentbest(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     - `reverse`: `true` or `false` (default)\n\
     \n\
     Instead of showing the scores in a list, you can also __show a single score__ by \
-    specifying a number right after the command, e.g. `<top2 badewanne3`."
+    specifying a number right after the command, e.g. `<rbm2 badewanne3`."
 )]
 #[usage(
    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
@@ -442,7 +442,7 @@ async fn recentbestmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
     - `reverse`: `true` or `false` (default)\n\
     \n\
     Instead of showing the scores in a list, you can also __show a single score__ by \
-    specifying a number right after the command, e.g. `<top2 badewanne3`."
+    specifying a number right after the command, e.g. `<rbt2 badewanne3`."
 )]
 #[usage(
    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
@@ -489,7 +489,7 @@ async fn recentbesttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
     - `reverse`: `true` or `false` (default)\n\
     \n\
     Instead of showing the scores in a list, you can also __show a single score__ by \
-    specifying a number right after the command, e.g. `<top2 badewanne3`."
+    specifying a number right after the command, e.g. `<rbc2 badewanne3`."
 )]
 #[usage(
    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
