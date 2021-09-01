@@ -156,7 +156,7 @@ impl ProfileEmbed {
 
                     let globals_count = match profile_data.globals_count.as_ref() {
                         Some(counts) => counts,
-                        None => match super::get_globals_count(ctx, &user.username, mode).await {
+                        None => match super::get_globals_count(ctx, &user, mode).await {
                             Ok(globals_count) => profile_data.globals_count.insert(globals_count),
                             Err(why) => {
                                 unwind_error!(

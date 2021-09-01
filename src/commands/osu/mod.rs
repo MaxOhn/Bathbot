@@ -268,14 +268,14 @@ async fn require_link_slash(ctx: &Context, command: &ApplicationCommand) -> BotR
 /// Be sure the whitespaces in the given name are __not__ replaced
 async fn get_globals_count(
     ctx: &Context,
-    name: &str,
+    user: &User,
     mode: GameMode,
 ) -> BotResult<BTreeMap<usize, Cow<'static, str>>> {
     let mut counts = BTreeMap::new();
-    let mut params = OsuStatsParams::new(name).mode(mode);
+    let mut params = OsuStatsParams::new(user.username.as_str()).mode(mode);
     let mut get_amount = true;
 
-    for &rank in [50, 25, 15, 8, 1].iter() {
+    for &rank in [50, 25, 15, 8].iter() {
         if !get_amount {
             counts.insert(rank, Cow::Borrowed("0"));
 
@@ -290,6 +290,19 @@ async fn get_globals_count(
             get_amount = false;
         }
     }
+
+    let firsts = if let Some(firsts) = user.scores_first_count {
+        Cow::Owned(with_comma_uint(firsts).to_string())
+    } else if get_amount {
+        params.rank_max = 1;
+        let (_, count) = ctx.clients.custom.get_global_scores(&params).await?;
+
+        Cow::Owned(with_comma_uint(count).to_string())
+    } else {
+        Cow::Borrowed("0")
+    };
+
+    counts.insert(1, firsts);
 
     Ok(counts)
 }

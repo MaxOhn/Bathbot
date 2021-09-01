@@ -45,7 +45,7 @@ pub(super) async fn _count(
     // Overwrite default mode
     user.mode = mode;
 
-    let counts = match super::get_globals_count(&ctx, &user.username, mode).await {
+    let counts = match super::get_globals_count(&ctx, &user, mode).await {
         Ok(counts) => counts,
         Err(why) => {
             let _ = data.error(&ctx, OSUSTATS_API_ISSUE).await;
