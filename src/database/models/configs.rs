@@ -38,14 +38,16 @@ impl Default for GuildConfig {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct UserConfig {
+    #[serde(default = "get_true", rename = "r", skip_serializing_if = "is_true")]
+    pub embeds_maximized: bool,
     #[serde(default, rename = "m", skip_serializing_if = "Option::is_none")]
     pub mode: Option<GameMode>,
     #[serde(default, rename = "n", skip_serializing_if = "Option::is_none")]
     pub name: Option<Name>,
     #[serde(default, rename = "p", skip_serializing_if = "Option::is_none")]
     pub profile_size: Option<ProfileSize>,
-    #[serde(rename = "r")]
-    pub embeds_maximized: bool,
+    #[serde(default = "get_true", rename = "s", skip_serializing_if = "is_true")]
+    pub show_retries: bool,
 }
 
 impl UserConfig {
@@ -68,10 +70,19 @@ impl<'c> FromRow<'c, PgRow> for UserConfig {
 impl Default for UserConfig {
     fn default() -> Self {
         UserConfig {
+            embeds_maximized: true,
             mode: None,
             name: None,
             profile_size: None,
-            embeds_maximized: true,
+            show_retries: true,
         }
     }
+}
+
+fn is_true(b: &bool) -> bool {
+    *b
+}
+
+fn get_true() -> bool {
+    true
 }

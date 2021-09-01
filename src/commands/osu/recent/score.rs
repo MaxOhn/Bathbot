@@ -14,7 +14,7 @@ use rosu_v2::prelude::{
     GameMode, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
 };
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, mem, sync::Arc};
 use tokio::time::{sleep, Duration};
 use twilight_model::id::UserId;
 
@@ -187,15 +187,18 @@ pub(super) async fn _recent(
     };
 
     // Creating the embed
-    let content = format!("Try #{}", tries);
+    let content = config.show_retries.then(|| format!("Try #{}", tries));
 
     // Only maximize if config allows it
     if config.embeds_maximized {
         let embed = embed_data.as_builder().build();
-        let builder = MessageBuilder::new().content(content).embed(embed);
-        let response_raw = data.create_message(&ctx, builder).await?;
+        let mut builder = MessageBuilder::new().embed(embed);
 
-        let response = response_raw.model().await?;
+        if let Some(content) = content {
+            builder = builder.content(content);
+        }
+
+        let mut response = data.create_message(&ctx, builder).await?.model().await?;
         ctx.store_msg(response.id);
 
         // Set map on garbage collection list if unranked
@@ -222,7 +225,11 @@ pub(super) async fn _recent(
             }
 
             let embed = embed_data.into_builder().build();
-            let builder = MessageBuilder::new().embed(embed);
+            let mut builder = MessageBuilder::new().embed(embed);
+
+            if !response.content.is_empty() {
+                builder = builder.content(mem::take(&mut response.content));
+            }
 
             if let Err(why) = response.update_message(&ctx, builder).await {
                 unwind_error!(warn, why, "Error minimizing recent msg: {}");
@@ -230,8 +237,12 @@ pub(super) async fn _recent(
         });
     } else {
         let embed = embed_data.into_builder().build();
+        let mut builder = MessageBuilder::new().embed(embed);
 
-        let builder = MessageBuilder::new().content(content).embed(embed);
+        if let Some(content) = content {
+            builder = builder.content(content);
+        }
+
         data.create_message(&ctx, builder).await?;
 
         // Set map on garbage collection list if unranked

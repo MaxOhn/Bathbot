@@ -27,17 +27,22 @@ use twilight_model::application::{
     If configured, you won't need to specify the mode for commands anymore e.g. \
     you can use the `recent` command instead of `recentmania` to show a recent mania score.\n\
     - `profile`: `compact`, `medium`, or `full`. Specify the initial size for the embed of profile commands.\n\
+    - `retries`: `show` or `hide`. Whether I should show how many retries it took you \
+    whenever you use the `recent` command.\n\
     - `embeds`: `minimized` or `maximized`. When using the `recent` command, choose whether the embed should \
     initially be maximized and get minimized after some delay, or if it should be minimized from the beginning. \
     This will also apply to the `compare`, `simulaterecent`, and indexed `top` command.\n\n\
     **NOTE:** If the mode is configured to anything non-standard, \
     you will __NOT__ be able to use __any__ command for osu!standard anymore."
 )]
-#[usage("[name=username] [mode=osu/taiko/ctb/mania] [profile=compact/medium/full] [embeds=maximized/minimized]")]
+#[usage(
+    "[name=username] [mode=osu/taiko/ctb/mania/none] [profile=compact/medium/full] \
+    [retries=show/hide] [embeds=maximized/minimized]"
+)]
 #[example(
     "mode=mania name=\"freddie benson\" embeds=minimized",
     "name=peppy profile=full",
-    "profile=medium mode=ctb"
+    "profile=medium retries=hide mode=ctb"
 )]
 async fn config(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
@@ -54,91 +59,83 @@ async fn config(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn _config(ctx: Arc<Context>, data: CommandData<'_>, args: ConfigArgs) -> BotResult<()> {
     let author = data.author()?;
 
-    let config = if args.is_empty() {
-        match ctx.user_config(author.id).await {
-            Ok(config) => config,
-            Err(why) => {
-                let _ = data.error(&ctx, GENERAL_ISSUE).await;
+    let ConfigArgs {
+        mode,
+        name,
+        profile_size,
+        embeds_maximized,
+        show_retries,
+    } = args;
 
-                return Err(why);
+    let name = match name.as_deref() {
+        Some(name) => {
+            if name.chars().count() > 15 {
+                let content = "That name is too long, must be at most 15 characters";
+
+                return data.error(&ctx, content).await;
             }
-        }
-    } else {
-        let ConfigArgs {
-            mode,
-            name,
-            profile_embed_size,
-            recent_embed_maximize,
-        } = args;
 
-        let name = match name.as_deref() {
-            Some(name) => {
-                if name.chars().count() > 15 {
-                    let content = "That name is too long, must be at most 15 characters";
+            match request_user(&ctx, name, None).await {
+                Ok(user) => Some(user.username.into()),
+                Err(OsuError::NotFound) => {
+                    let mut content = format!("No user with the name `{}` was found.", name);
+
+                    if name.contains('_') {
+                        let _ = write!(
+                            content,
+                            "\nIf the name contains whitespace, be sure to encapsulate \
+                                it inbetween quotation marks, e.g `\"{}\"`.",
+                            name.replace('_', " "),
+                        );
+                    }
 
                     return data.error(&ctx, content).await;
                 }
+                Err(why) => {
+                    let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
-                match request_user(&ctx, name, None).await {
-                    Ok(user) => Some(user.username.into()),
-                    Err(OsuError::NotFound) => {
-                        let mut content = format!("No user with the name `{}` was found.", name);
-
-                        if name.contains('_') {
-                            let _ = write!(
-                                content,
-                                "\nIf the name contains whitespace, be sure to encapsulate \
-                                it inbetween quotation marks, e.g `\"{}\"`.",
-                                name.replace('_', " "),
-                            );
-                        }
-
-                        return data.error(&ctx, content).await;
-                    }
-                    Err(why) => {
-                        let _ = data.error(&ctx, OSU_API_ISSUE).await;
-
-                        return Err(why.into());
-                    }
+                    return Err(why.into());
                 }
             }
-            None => None,
-        };
-
-        let mut config = match ctx.psql().get_user_config(author.id).await {
-            Ok(Some(config)) => config,
-            Ok(None) => UserConfig::default(),
-            Err(why) => {
-                let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-                return Err(why);
-            }
-        };
-
-        if let Some(mode) = mode {
-            config.mode = mode;
         }
+        None => None,
+    };
 
-        if let Some(name) = name {
-            config.name = Some(name);
-        }
-
-        if let Some(size) = profile_embed_size {
-            config.profile_size = Some(size);
-        }
-
-        if let Some(maximize) = recent_embed_maximize {
-            config.embeds_maximized = maximize;
-        }
-
-        if let Err(why) = ctx.psql().insert_user_config(author.id, &config).await {
+    let mut config = match ctx.psql().get_user_config(author.id).await {
+        Ok(Some(config)) => config,
+        Ok(None) => UserConfig::default(),
+        Err(why) => {
             let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
-
-        config
     };
+
+    if let Some(mode) = mode {
+        config.mode = mode;
+    }
+
+    if let Some(name) = name {
+        config.name = Some(name);
+    }
+
+    if let Some(size) = profile_size {
+        config.profile_size = Some(size);
+    }
+
+    if let Some(maximize) = embeds_maximized {
+        config.embeds_maximized = maximize;
+    }
+
+    if let Some(retries) = show_retries {
+        config.show_retries = retries;
+    }
+
+    if let Err(why) = ctx.psql().insert_user_config(author.id, &config).await {
+        let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+        return Err(why);
+    }
 
     let embed_data = ConfigEmbed::new(author, config);
     let builder = embed_data.into_builder().build().into();
@@ -148,25 +145,20 @@ async fn _config(ctx: Arc<Context>, data: CommandData<'_>, args: ConfigArgs) -> 
 }
 
 struct ConfigArgs {
+    embeds_maximized: Option<bool>,
     mode: Option<Option<GameMode>>,
     name: Option<Name>,
-    profile_embed_size: Option<ProfileSize>,
-    recent_embed_maximize: Option<bool>,
+    profile_size: Option<ProfileSize>,
+    show_retries: Option<bool>,
 }
 
 impl ConfigArgs {
-    fn is_empty(&self) -> bool {
-        self.mode.is_none()
-            && self.name.is_none()
-            && self.profile_embed_size.is_none()
-            && self.recent_embed_maximize.is_none()
-    }
-
     fn args(args: &mut Args) -> Result<Self, Cow<'static, str>> {
         let mut mode = None;
         let mut name = None;
-        let mut profile_embed_size = None;
-        let mut recent_embed_maximize = None;
+        let mut profile_size = None;
+        let mut embeds_maximized = None;
+        let mut show_retries = None;
 
         for arg in args.map(CowUtils::cow_to_ascii_lowercase) {
             if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
@@ -192,7 +184,7 @@ impl ConfigArgs {
                     },
                     "name" | "username" | "n" | "u" => name = Some(value.into()),
                     "embeds" | "recent" => {
-                        recent_embed_maximize = match value {
+                        embeds_maximized = match value {
                             "minimized" | "minimize" | "min" | "false" => Some(false),
                             "maximized" | "maximize" | "max" | "true" => Some(true),
                             _ => {
@@ -202,10 +194,20 @@ impl ConfigArgs {
                             }
                         }
                     }
+                    "retries" | "r" => match value {
+                        "show" => show_retries = Some(true),
+                        "hide" => show_retries = Some(false),
+                        _ => {
+                            let content =
+                                "Failed to parse `retries`. Must be either `show` or `hide`.";
+
+                            return Err(content.into());
+                        }
+                    },
                     "profile" => match value {
-                        "compact" | "small" => profile_embed_size = Some(ProfileSize::Compact),
-                        "medium" => profile_embed_size = Some(ProfileSize::Medium),
-                        "full" | "big" => profile_embed_size = Some(ProfileSize::Full),
+                        "compact" | "small" => profile_size = Some(ProfileSize::Compact),
+                        "medium" => profile_size = Some(ProfileSize::Medium),
+                        "full" | "big" => profile_size = Some(ProfileSize::Full),
                         _ => {
                             let content = "Failed to parse `profile`. Must be either `compact`, `medium`, or `full`.";
 
@@ -215,7 +217,7 @@ impl ConfigArgs {
                     _ => {
                         let content = format!(
                             "Unrecognized option `{}`.\n\
-                            Available options are: `mode`, `name`, `recent`, and `profile`.",
+                            Available options are: `embeds`, `mode`, `name`, `profile`, and `retries`.",
                             key
                         );
 
@@ -225,7 +227,7 @@ impl ConfigArgs {
             } else {
                 let content = format!(
                     "All arguments must be of the form `key=value` (`{}` wasn't).\n\
-                    Available keys are: `mode`, `name`, `recent`, and `profile`.",
+                    Available keys are: `embeds`, `mode`, `name`, `profile`, and `retries`.",
                     arg
                 );
 
@@ -236,8 +238,9 @@ impl ConfigArgs {
         let args = Self {
             name,
             mode,
-            profile_embed_size,
-            recent_embed_maximize,
+            profile_size,
+            embeds_maximized,
+            show_retries,
         };
 
         Ok(args)
@@ -246,8 +249,9 @@ impl ConfigArgs {
     fn slash(command: &mut ApplicationCommand) -> BotResult<Self> {
         let mut mode = None;
         let mut username = None;
-        let mut profile_embed_size = None;
-        let mut recent_embed_maximize = None;
+        let mut profile_size = None;
+        let mut embeds_maximized = None;
+        let mut show_retries = None;
 
         for option in command.yoink_options() {
             match option {
@@ -263,15 +267,20 @@ impl ConfigArgs {
                         }
                     }
                     "profile" => match value.as_str() {
-                        "compact" => profile_embed_size = Some(ProfileSize::Compact),
-                        "medium" => profile_embed_size = Some(ProfileSize::Medium),
-                        "full" => profile_embed_size = Some(ProfileSize::Full),
+                        "compact" => profile_size = Some(ProfileSize::Compact),
+                        "medium" => profile_size = Some(ProfileSize::Medium),
+                        "full" => profile_size = Some(ProfileSize::Full),
                         _ => bail_cmd_option!("config profile", string, value),
                     },
                     "embeds" => match value.as_str() {
-                        "maximized" => recent_embed_maximize = Some(true),
-                        "minimized" => recent_embed_maximize = Some(false),
-                        _ => bail_cmd_option!("config recent", string, value),
+                        "maximized" => embeds_maximized = Some(true),
+                        "minimized" => embeds_maximized = Some(false),
+                        _ => bail_cmd_option!("config embeds", string, value),
+                    },
+                    "retries" => match value.as_str() {
+                        "show" => show_retries = Some(true),
+                        "hide" => show_retries = Some(false),
+                        _ => bail_cmd_option!("config retries", string, value),
                     },
                     "name" => username = Some(value.into()),
                     _ => bail_cmd_option!("config", string, name),
@@ -291,8 +300,9 @@ impl ConfigArgs {
         let args = Self {
             mode,
             name: username,
-            profile_embed_size,
-            recent_embed_maximize,
+            profile_size,
+            embeds_maximized,
+            show_retries,
         };
 
         Ok(args)
@@ -379,6 +389,21 @@ pub fn slash_config_command() -> Command {
                 ],
                 description: "What initial size should the recent, compare, simulate, ... commands be?".to_owned(),
                 name: "embeds".to_owned(),
+                required: false,
+            }),
+            CommandOption::String(ChoiceCommandOptionData {
+                choices: vec![
+                    CommandOptionChoice::String {
+                        name: "show".to_owned(),
+                        value: "show".to_owned(),
+                    },
+                    CommandOptionChoice::String {
+                        name: "hide".to_owned(),
+                        value: "hide".to_owned(),
+                    },
+                ],
+                description: "Should the amount of retries be shown for the `recent` command?".to_owned(),
+                name: "retries".to_owned(),
                 required: false,
             }),
         ],

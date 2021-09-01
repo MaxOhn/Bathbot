@@ -111,7 +111,7 @@ impl ConfigEmbed {
             description.push(' ');
         }
 
-        description.push_str("full    |\n");
+        description.push_str("full    |-----------\n");
 
         if config.mode == Some(GameMode::CTB) {
             description.push('>');
@@ -119,7 +119,7 @@ impl ConfigEmbed {
             description.push(' ');
         }
 
-        description.push_str("ctb   |          |\n");
+        description.push_str("ctb   |          | Retries:\n");
 
         if config.mode == Some(GameMode::MNA) {
             description.push('>');
@@ -127,7 +127,23 @@ impl ConfigEmbed {
             description.push(' ');
         }
 
-        description.push_str("mania |          |\n```");
+        description.push_str("mania |          | ");
+
+        if config.show_retries {
+            description.push('>');
+        } else {
+            description.push(' ');
+        }
+
+        description.push_str("show\n       |          | ");
+
+        if config.show_retries {
+            description.push(' ');
+        } else {
+            description.push('>');
+        }
+
+        description.push_str("hide\n```");
 
         Self {
             author,
