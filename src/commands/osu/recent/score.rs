@@ -190,7 +190,7 @@ pub(super) async fn _recent(
     let content = format!("Try #{}", tries);
 
     // Only maximize if config allows it
-    if config.recent_embed_maximize {
+    if config.embeds_maximized {
         let embed = embed_data.as_builder().build();
         let builder = MessageBuilder::new().content(content).embed(embed);
         let response_raw = data.create_message(&ctx, builder).await?;

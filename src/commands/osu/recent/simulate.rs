@@ -97,7 +97,7 @@ pub(super) async fn _recentsimulate(
 
     let map = score.map.take().unwrap();
     let mapset = score.mapset.take().unwrap();
-    let maximize = args.config.recent_embed_maximize;
+    let maximize = args.config.embeds_maximized;
 
     // Accumulate all necessary data
     let embed_data = match SimulateEmbed::new(Some(score), &map, &mapset, args.into()).await {

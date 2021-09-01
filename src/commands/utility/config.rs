@@ -27,15 +27,15 @@ use twilight_model::application::{
     If configured, you won't need to specify the mode for commands anymore e.g. \
     you can use the `recent` command instead of `recentmania` to show a recent mania score.\n\
     - `profile`: `compact`, `medium`, or `full`. Specify the initial size for the embed of profile commands.\n\
-    - `recent`: `minimized` or `maximized`. When using the `recent` command, choose whether the embed should \
+    - `embeds`: `minimized` or `maximized`. When using the `recent` command, choose whether the embed should \
     initially be maximized and get minimized after some delay, or if it should be minimized from the beginning. \
     This will also apply to the `compare`, `simulaterecent`, and indexed `top` command.\n\n\
     **NOTE:** If the mode is configured to anything non-standard, \
     you will __NOT__ be able to use __any__ command for osu!standard anymore."
 )]
-#[usage("[name=username] [mode=osu/taiko/ctb/mania] [profile=compact/medium/full] [recent=maximized/minimized]")]
+#[usage("[name=username] [mode=osu/taiko/ctb/mania] [profile=compact/medium/full] [embeds=maximized/minimized]")]
 #[example(
-    "mode=mania name=\"freddie benson\" recent=minimized",
+    "mode=mania name=\"freddie benson\" embeds=minimized",
     "name=peppy profile=full",
     "profile=medium mode=ctb"
 )]
@@ -124,11 +124,11 @@ async fn _config(ctx: Arc<Context>, data: CommandData<'_>, args: ConfigArgs) -> 
         }
 
         if let Some(size) = profile_embed_size {
-            config.profile_embed_size = Some(size);
+            config.profile_size = Some(size);
         }
 
         if let Some(maximize) = recent_embed_maximize {
-            config.recent_embed_maximize = maximize;
+            config.embeds_maximized = maximize;
         }
 
         if let Err(why) = ctx.psql().insert_user_config(author.id, &config).await {
@@ -190,8 +190,8 @@ impl ConfigArgs {
                             return Err(content.into());
                         }
                     },
-                    "name" | "username" | "n" => name = Some(value.into()),
-                    "recent" => {
+                    "name" | "username" | "n" | "u" => name = Some(value.into()),
+                    "embeds" | "recent" => {
                         recent_embed_maximize = match value {
                             "minimized" | "minimize" | "min" | "false" => Some(false),
                             "maximized" | "maximize" | "max" | "true" => Some(true),
@@ -268,7 +268,7 @@ impl ConfigArgs {
                         "full" => profile_embed_size = Some(ProfileSize::Full),
                         _ => bail_cmd_option!("config profile", string, value),
                     },
-                    "recent" => match value.as_str() {
+                    "embeds" => match value.as_str() {
                         "maximized" => recent_embed_maximize = Some(true),
                         "minimized" => recent_embed_maximize = Some(false),
                         _ => bail_cmd_option!("config recent", string, value),
@@ -362,7 +362,7 @@ pub fn slash_config_command() -> Command {
                         value: "full".to_owned(),
                     },
                 ],
-                description: "What size should the profile command be?".to_owned(),
+                description: "What initial size should the profile command be?".to_owned(),
                 name: "profile".to_owned(),
                 required: false,
             }),
@@ -377,8 +377,8 @@ pub fn slash_config_command() -> Command {
                         value: "minimized".to_owned(),
                     },
                 ],
-                description: "Should the recent command show a maximized embed at first?".to_owned(),
-                name: "recent".to_owned(),
+                description: "What initial size should the recent, compare, simulate, ... commands be?".to_owned(),
+                name: "embeds".to_owned(),
                 required: false,
             }),
         ],

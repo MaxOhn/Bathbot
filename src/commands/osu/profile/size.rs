@@ -5,7 +5,7 @@ use serde::{
     ser::{Serialize, Serializer},
 };
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ProfileSize {
     Compact,
     Medium,

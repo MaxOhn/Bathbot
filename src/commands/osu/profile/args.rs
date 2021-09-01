@@ -31,7 +31,7 @@ impl ProfileArgs {
 
                 match key {
                     "size" => {
-                        config.profile_embed_size = match value {
+                        config.profile_size = match value {
                             "compact" | "small" => Some(ProfileSize::Compact),
                             "medium" => Some(ProfileSize::Medium),
                             "full" | "big" => Some(ProfileSize::Full),
@@ -74,9 +74,9 @@ impl ProfileArgs {
                 CommandDataOption::String { name, value } => match name.as_str() {
                     "mode" => config.mode = parse_mode_option!(value, "profile"),
                     "size" => match value.as_str() {
-                        "compact" => config.profile_embed_size = Some(ProfileSize::Compact),
-                        "medium" => config.profile_embed_size = Some(ProfileSize::Medium),
-                        "full" => config.profile_embed_size = Some(ProfileSize::Full),
+                        "compact" => config.profile_size = Some(ProfileSize::Compact),
+                        "medium" => config.profile_size = Some(ProfileSize::Medium),
+                        "full" => config.profile_size = Some(ProfileSize::Full),
                         _ => bail_cmd_option!("profile size", string, value),
                     },
                     "name" => config.name = Some(value.into()),

@@ -137,7 +137,7 @@ pub(super) async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs
     }
 
     if let Some(num) = args.index {
-        let maximize = args.config.recent_embed_maximize;
+        let maximize = args.config.embeds_maximized;
         single_embed(ctx, data, user, scores, num.saturating_sub(1), maximize).await?;
     } else {
         let content = write_content(name, &args, scores.len());

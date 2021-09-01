@@ -209,7 +209,7 @@ pub(super) async fn _compare(
         };
 
     // Only maximize if config allows it
-    if config.recent_embed_maximize {
+    if config.embeds_maximized {
         let builder = embed_data.as_builder().build().into();
         let response = data.create_message(&ctx, builder).await?.model().await?;
 

@@ -1,15 +1,12 @@
-use crate::{
-    commands::osu::ProfileSize,
-    database::UserConfig,
-    embeds::{Author, EmbedFields},
-};
+use crate::{commands::osu::ProfileSize, database::UserConfig, embeds::Author};
 
 use rosu_v2::prelude::GameMode;
+use std::fmt::Write;
 use twilight_model::user::User;
 
 pub struct ConfigEmbed {
     author: Author,
-    fields: EmbedFields,
+    description: String,
     title: &'static str,
 }
 
@@ -40,38 +37,101 @@ impl ConfigEmbed {
         let author = Author::new(&author.name).icon_url(author_img);
         let title = "Current user configuration:";
 
-        let mode = match config.mode {
-            Some(GameMode::STD) => "osu!",
-            Some(GameMode::TKO) => "Taiko",
-            Some(GameMode::CTB) => "CtB",
-            Some(GameMode::MNA) => "Mania",
-            None => "None",
-        };
+        let mut description = String::with_capacity(256);
 
-        let profile = match config.profile_embed_size.unwrap_or_default() {
-            ProfileSize::Compact => "Compact",
-            ProfileSize::Medium => "Medium",
-            ProfileSize::Full => "Full",
-        };
-
-        let recent = match config.recent_embed_maximize {
-            true => "Maximized",
-            false => "Minimized",
-        };
-
-        let mut fields = vec![
-            field!("Mode".to_owned(), mode.to_owned(), true),
-            field!("Profile embed size".to_owned(), profile.to_owned(), true),
-            field!("Initial embed size".to_owned(), recent.to_owned(), false),
-        ];
+        description.push_str("```\n");
 
         if let Some(name) = config.name {
-            fields.insert(0, field!("Username".to_owned(), name.into_string(), true));
+            let _ = write!(description, "Username: {}\n\n", name);
         }
+
+        let profile = config.profile_size.unwrap_or_default();
+
+        description.push_str("Mode:  | Profile: | Embeds:\n");
+
+        if config.mode.is_none() {
+            description.push('>');
+        } else {
+            description.push(' ');
+        }
+
+        description.push_str("none  | ");
+
+        if profile == ProfileSize::Compact {
+            description.push('>');
+        } else {
+            description.push(' ');
+        }
+
+        description.push_str("compact | ");
+
+        if config.embeds_maximized {
+            description.push(' ');
+        } else {
+            description.push('>');
+        }
+
+        description.push_str("minimized\n");
+
+        if config.mode == Some(GameMode::STD) {
+            description.push('>');
+        } else {
+            description.push(' ');
+        }
+
+        description.push_str("osu   | ");
+
+        if profile == ProfileSize::Medium {
+            description.push('>');
+        } else {
+            description.push(' ');
+        }
+
+        description.push_str("medium  | ");
+
+        if config.embeds_maximized {
+            description.push('>');
+        } else {
+            description.push(' ');
+        }
+
+        description.push_str("maximized\n");
+
+        if config.mode == Some(GameMode::TKO) {
+            description.push('>');
+        } else {
+            description.push(' ');
+        }
+
+        description.push_str("taiko | ");
+
+        if profile == ProfileSize::Full {
+            description.push('>');
+        } else {
+            description.push(' ');
+        }
+
+        description.push_str("full    |\n");
+
+        if config.mode == Some(GameMode::CTB) {
+            description.push('>');
+        } else {
+            description.push(' ');
+        }
+
+        description.push_str("ctb   |          |\n");
+
+        if config.mode == Some(GameMode::MNA) {
+            description.push('>');
+        } else {
+            description.push(' ');
+        }
+
+        description.push_str("mania |          |\n```");
 
         Self {
             author,
-            fields,
+            description,
             title,
         }
     }
@@ -79,6 +139,6 @@ impl ConfigEmbed {
 
 impl_builder!(ConfigEmbed {
     author,
-    fields,
+    description,
     title,
 });
