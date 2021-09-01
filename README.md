@@ -1,24 +1,30 @@
 ## [2020.08.01] This is the previous Bathbot version. The current version is not (yet?) public so this repo will serve as public interface.
 
 # Bathbot
-Fully fledged discord bot with functionalities all around [osu!](https://osu.ppy.sh/home), aswell as some general utility and stream tracking.
+Fully fledged discord bot with functionalities all around [osu!](https://osu.ppy.sh/home) including top score tracking and a background guessing game, aswell as twitch stream tracking and some general utility.
+All osu! gamemodes are supported and there are slash commands for almost all regular commands.
 
 With the bot's osu! commands you can
 - check recent plays (`<r`)
+- track top scores (`<track`, `<trackmania`, ...)
 - a background guessing game (`<bg`)
-- display the personal topscores (with specified min acc, combo, or grade) (`<top`)
-- show you best score with each mod combination on a map (`<scores`)
-- compare top scores between players (`<common`)
-- check the global or even belgian leaderboards of maps (`<glb`, `<lb`)
+- display the personal top scores with various filters and orderings (`<top`)
+- show your best score on a map (`<c`)
+- compare top scores among players (`<common`)
+- check a map's global leaderboards (`<lb`)
 - calculate a performance rating for players of a multiplayer match (`<mc`) credits to [dain98](https://github.com/dain98/Minccino)
+- live track an ongoing multiplayer match (`<matchlive`)
 - simulate scores with arbitrary acc, combo, amount 300s, ... (`<s`)
 - display a bunch of statistics all around a users osu profile (`<osu`, `<taiko`, ...)
-- recalculate the personal top 100 if all scores were unchoked (`<nochokes`, `<nc`)
-- and a bunch more
+- recalculate the personal top 100 if all scores were unchoked (`<nc`)
+- show all scores of a user that are in the top of a map's global leaderboard (`<osg`)
+- and a ton more
 
-Moreover, the majority of commands is accessible for **all** gamemodes.
-### To invite the bot to your server, use [this link](https://discordapp.com/api/oauth2/authorize?client_id=297073686916366336&permissions=268823616&scope=bot)
-~~A spreadsheet with all current commands can be found [here](http://bit.ly/badecoms) although I can't guarantee the sheet will stay up-to-date~~
+With the `<help` command the bot will DM you a list of all available commands.
+With `<help [command name]` (e.g. `<help osg`) the bot will explain the command, show how to use it and give examples.
+
+### To invite the bot to your server, use [this link](https://discord.com/api/oauth2/authorize?client_id=297073686916366336&permissions=36776045632&scope=bot%20applications.commands)
+You can also join its [discord server](https://discord.gg/n9fFstG) to keep up with updates, suggest things or report bugs
 
 ## Credits
 - [5joshi](https://osu.ppy.sh/users/4279650) for these CRAZY GOOD reaction emotes :)
@@ -26,7 +32,12 @@ Moreover, the majority of commands is accessible for **all** gamemodes.
 - Remaining reaction emotes from [Smashicons](https://www.flaticon.com/authors/smashicons)
 
 ## Setup
-In case you want to get the bot running yourself to either modify a custom instance for you, or just to contribute to the project, here's what you need to do:
+Trust me, you don't want to set this up, it will be a pain. Feel free to use the code in this repo as inspiration if you're working on something similar but I wouldn't even recommend that.
+If you're interested in the code you can join the [discord server](https://discord.gg/n9fFstG) and ask me directly about it. I'm generally happy to provide any help and current code pieces you need :)
+
+In case I didn't convince you and you still want to get the bot running yourself...
+
+Note that there were some changes prior to moving to the new bathbot version but these instructions were not modified accordingly so they're not completely right but should get you on the right track:
 - Clone this repo via `git clone --recurse-submodules https://github.com/MaxOhn/Bathbot.git`
 - Handling oppai:
   - PP calculation for osu! and taiko is done via C-binding of [oppai](https://github.com/Francesco149/oppai-ng) so you will need the [LLVM](http://releases.llvm.org/download.html) C compiler
@@ -46,12 +57,3 @@ In case you want to get the bot running yourself to either modify a custom insta
   - Build osu-tools via `dotnet build -c Release`
   - Assign the variable `PERF_CALC` in the `.env` file to `PerformanceCalculator.dll` e.g. `/path/to/osu-tools/PerformanceCalculator/bin/Release/netcoreapp3.1/PerformanceCalculator.dll`
 - Assign all other variables of the `.env.example` file into your `.env` file
-
-## Todos
-- ~~Allow username provision via discord user mention~~
-- ~~Update spreadsheet (`<mostplayed`, `pagination`, ...)~~
-- Automize the bot setup via docker
-- ~~Move from serenity to twilight~~
-- Update Readme regarding database migration (now using sqlx)
-  ### Commands
-  - None as of now
