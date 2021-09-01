@@ -34,13 +34,6 @@ impl CacheEmbed {
         let _ = writeln!(description, "Emojis: {}", with_comma_uint(stats.emojis()));
         let _ = writeln!(description, "Guilds: {}", with_comma_uint(stats.guilds()));
         let _ = writeln!(description, "Members: {}", with_comma_uint(stats.members()));
-
-        let _ = writeln!(
-            description,
-            "Messages: {}",
-            with_comma_uint(metrics.messages.get() as u64)
-        );
-
         let _ = writeln!(description, "Roles: {}", with_comma_uint(stats.roles()));
 
         let _ = writeln!(
