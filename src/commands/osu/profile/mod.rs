@@ -199,7 +199,7 @@ impl ProfileEmbed {
     "Display statistics of a user.\n\
     You can choose between `compact`, `medium`, and `full` embed \
     by specifying the argument `size=...`.\n\
-    Defaults to `compact` if not specified otherwise in the user config."
+    Defaults to `compact` if not specified otherwise with the `config` command."
 )]
 #[usage("[username] [size=compact/medium/full]")]
 #[example("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
@@ -231,7 +231,7 @@ async fn osu(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     "Display statistics of a mania user.\n\
     You can choose between `compact`, `medium`, and `full` embed \
     by specifying the argument `size=...`.\n\
-    Defaults to `compact` if not specified otherwise in the user config."
+    Defaults to `compact` if not specified otherwise with the `config` command."
 )]
 #[usage("[username] [size=compact/medium/full]")]
 #[example("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
@@ -263,7 +263,7 @@ async fn mania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     "Display statistics of a taiko user.\n\
     You can choose between `compact`, `medium`, and `full` embed \
     by specifying the argument `size=...`.\n\
-    Defaults to `compact` if not specified otherwise in the user config."
+    Defaults to `compact` if not specified otherwise with the `config` command."
 )]
 #[usage("[username] [size=compact/medium/full]")]
 #[example("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
@@ -295,7 +295,7 @@ async fn taiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     "Display statistics of a ctb user.\n\
     You can choose between `compact`, `medium`, and `full` embed \
     by specifying the argument `size=...`.\n\
-    Defaults to `compact` if not specified otherwise in the user config."
+    Defaults to `compact` if not specified otherwise with the `config` command."
 )]
 #[usage("[username] [size=compact/medium/full]")]
 #[example("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]

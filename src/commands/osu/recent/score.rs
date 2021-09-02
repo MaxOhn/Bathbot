@@ -277,7 +277,9 @@ pub(super) async fn _recent(
     - `a..b` e.g. `C..SH` to only keep scores with grades between C and SH\n\
     - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
     - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
-    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
+    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`.\n\n\
+    If you want the embed to be minimized immediately or if the retry count shouldn't be shown \
+    you can check out the `config` command."
 )]
 #[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
 #[example("badewanne3 pass=true", "grade=a", "whitecat grade=B..sh")]
@@ -316,7 +318,9 @@ pub async fn recent(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     - `a..b` e.g. `C..SH` to only keep scores with grades between C and SH\n\
     - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
     - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
-    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
+    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`.\n\n\
+    If you want the embed to be minimized immediately or if the retry count shouldn't be shown \
+    you can check out the `config` command."
 )]
 #[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
 #[example("badewanne3 pass=true", "grade=a", "whitecat grade=B..sh")]
@@ -355,7 +359,9 @@ pub async fn recentmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
     - `a..b` e.g. `C..SH` to only keep scores with grades between C and SH\n\
     - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
     - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
-    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
+    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`.\n\n\
+    If you want the embed to be minimized immediately or if the retry count shouldn't be shown \
+    you can check out the `config` command."
 )]
 #[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
 #[example("badewanne3 pass=true", "grade=a", "whitecat grade=B..sh")]
@@ -394,7 +400,9 @@ pub async fn recenttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
     - `a..b` e.g. `C..SH` to only keep scores with grades between C and SH\n\
     - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
     - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
-    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
+    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`.\n\n\
+    If you want the embed to be minimized immediately or if the retry count shouldn't be shown \
+    you can check out the `config` command."
 )]
 #[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
 #[example("badewanne3 pass=true", "grade=a", "whitecat grade=B..sh")]
