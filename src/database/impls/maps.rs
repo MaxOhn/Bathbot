@@ -22,6 +22,10 @@ macro_rules! invalid_status {
     };
 }
 
+fn should_not_be_stored(map: &Beatmap) -> bool {
+    invalid_status!(map) || map.convert
+}
+
 impl Database {
     pub async fn get_beatmap(&self, map_id: u32, with_mapset: bool) -> BotResult<Beatmap> {
         let mut conn = self.pool.acquire().await?;
@@ -142,7 +146,7 @@ impl Database {
     }
 
     pub async fn insert_beatmap(&self, map: &Beatmap) -> BotResult<bool> {
-        if invalid_status!(map) {
+        if should_not_be_stored(map) {
             return Ok(false);
         }
 
@@ -157,7 +161,7 @@ impl Database {
         let mut count = 0;
 
         for map in maps {
-            if invalid_status!(map) {
+            if should_not_be_stored(map) {
                 continue;
             }
 
@@ -180,7 +184,7 @@ impl Database {
 
         for score in scores {
             if let Some(ref map) = score.map {
-                if invalid_status!(map) {
+                if should_not_be_stored(map) {
                     continue;
                 }
 
