@@ -5,7 +5,9 @@ pub use models::*;
 pub use notif_loop::twitch_loop;
 
 use crate::util::{
-    constants::{TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT},
+    constants::{
+        TWITCH_OAUTH, TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT, TWITCH_VIDEOS_ENDPOINT,
+    },
     error::TwitchError,
 };
 
@@ -19,7 +21,7 @@ use reqwest::{
     Client, Response,
 };
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, fmt, num::NonZeroU32};
+use std::{borrow::Cow, convert::TryFrom, fmt, num::NonZeroU32};
 use tokio::time::{interval, Duration};
 
 type TwitchResult<T> = Result<T, TwitchError>;
@@ -37,19 +39,15 @@ impl Twitch {
         headers.insert(client_id_header, HeaderValue::from_str(client_id)?);
         let client = Client::builder().default_headers(headers).build()?;
 
-        let auth_response = client
-            .post("https://id.twitch.tv/oauth2/token")
-            .form(&[
-                ("grant_type", "client_credentials"),
-                ("client_id", client_id),
-                ("client_secret", token),
-            ])
-            .send()
-            .await?;
+        let form = &[
+            ("grant_type", "client_credentials"),
+            ("client_id", client_id),
+            ("client_secret", token),
+        ];
 
-        let auth_token = serde_json::from_slice(&auth_response.bytes().await?)
-            .map_err(TwitchError::InvalidAuth)?;
-
+        let auth_response = client.post(TWITCH_OAUTH).form(form).send().await?;
+        let bytes = auth_response.bytes().await?;
+        let auth_token = serde_json::from_slice(&bytes).map_err(TwitchError::InvalidAuth)?;
         let quota = Quota::per_second(NonZeroU32::new(5).unwrap());
         let ratelimiter = RateLimiter::direct(quota);
 
@@ -76,20 +74,18 @@ impl Twitch {
             .map_err(TwitchError::Reqwest)
     }
 
-    pub async fn get_user(&self, name: &str) -> TwitchResult<TwitchUser> {
-        let data = vec![("login", name)];
+    pub async fn get_user(&self, name: &str) -> TwitchResult<Option<TwitchUser>> {
+        let data = [("login", name)];
         let response = self.send_request(TWITCH_USERS_ENDPOINT, &data).await?;
         let bytes = response.bytes().await?;
 
-        let mut users: TwitchUsers = serde_json::from_slice(&bytes).map_err(|e| {
+        let mut users: TwitchData<TwitchUser> = serde_json::from_slice(&bytes).map_err(|e| {
             let content = String::from_utf8_lossy(&bytes).into_owned();
+
             TwitchError::SerdeUser(e, content)
         })?;
 
-        match users.data.pop() {
-            Some(user) => Ok(user),
-            None => Err(TwitchError::NoUserResult(name.to_string())),
-        }
+        Ok(users.data.pop())
     }
 
     pub async fn get_users(&self, user_ids: &[u64]) -> TwitchResult<Vec<TwitchUser>> {
@@ -104,10 +100,12 @@ impl Twitch {
             let response = self.send_request(TWITCH_USERS_ENDPOINT, &data).await?;
             let bytes = response.bytes().await?;
 
-            let parsed_response: TwitchUsers = serde_json::from_slice(&bytes).map_err(|e| {
-                let content = String::from_utf8_lossy(&bytes).into_owned();
-                TwitchError::SerdeUsers(e, content)
-            })?;
+            let parsed_response: TwitchData<TwitchUser> =
+                serde_json::from_slice(&bytes).map_err(|e| {
+                    let content = String::from_utf8_lossy(&bytes).into_owned();
+
+                    TwitchError::SerdeUsers(e, content)
+                })?;
 
             users.extend(parsed_response.data);
         }
@@ -130,15 +128,36 @@ impl Twitch {
             let response = self.send_request(TWITCH_STREAM_ENDPOINT, &data).await?;
             let bytes = response.bytes().await?;
 
-            let parsed_response: TwitchStreams = serde_json::from_slice(&bytes).map_err(|e| {
-                let content = String::from_utf8_lossy(&bytes).into_owned();
-                TwitchError::SerdeStreams(e, content)
-            })?;
+            let parsed_response: TwitchData<TwitchStream> = serde_json::from_slice(&bytes)
+                .map_err(|e| {
+                    let content = String::from_utf8_lossy(&bytes).into_owned();
+
+                    TwitchError::SerdeStreams(e, content)
+                })?;
 
             streams.extend(parsed_response.data);
         }
 
         Ok(streams)
+    }
+
+    pub async fn get_last_video(&self, user_id: u64) -> TwitchResult<Option<TwitchVideo>> {
+        let data = [
+            ("user_id", Cow::Owned(user_id.to_string())),
+            ("first", "2".into()),
+            ("sort", "time".into()),
+        ];
+
+        let response = self.send_request(TWITCH_VIDEOS_ENDPOINT, &data).await?;
+        let bytes = response.bytes().await?;
+
+        let mut videos: TwitchData<TwitchVideo> = serde_json::from_slice(&bytes).map_err(|e| {
+            let content = String::from_utf8_lossy(&bytes).into_owned();
+
+            TwitchError::SerdeVideos(e, content)
+        })?;
+
+        Ok(videos.data.pop())
     }
 }
 
@@ -148,7 +167,7 @@ struct OAuthToken {
 }
 
 impl fmt::Display for OAuthToken {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(&self.access_token)
     }
 }

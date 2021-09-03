@@ -16,8 +16,10 @@ pub const OSU_DAILY_API: &str = "https://osudaily.net/api/";
 
 // twitch
 pub const TWITCH_BASE: &str = "https://www.twitch.tv/";
+pub const TWITCH_OAUTH: &str = "https://id.twitch.tv/oauth2/token";
 pub const TWITCH_STREAM_ENDPOINT: &str = "https://api.twitch.tv/helix/streams";
 pub const TWITCH_USERS_ENDPOINT: &str = "https://api.twitch.tv/helix/users";
+pub const TWITCH_VIDEOS_ENDPOINT: &str = "https://api.twitch.tv/helix/videos";
 
 // discord
 pub const DISCORD_CDN: &str = "https://cdn.discordapp.com/";
@@ -30,6 +32,7 @@ pub const OSEKAI_ISSUE: &str = "Some issue with the osekai api, blame bade";
 pub const HUISMETBENEN_ISSUE: &str = "Some issue with the huismetbenen api, blame bade";
 pub const OSU_DAILY_ISSUE: &str = "Some issue with the osudaily api, blame bade";
 pub const OSUSTATS_API_ISSUE: &str = "Some issue with the osustats api, blame bade";
+pub const TWITCH_API_ISSUE: &str = "Some issue with the twitch api, blame bade";
 
 // Misc
 pub const OWNER_USER_ID: u64 = 219905108316520448;

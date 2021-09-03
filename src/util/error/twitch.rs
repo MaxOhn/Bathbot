@@ -6,11 +6,11 @@ use std::{error::Error as StdError, fmt};
 pub enum TwitchError {
     InvalidAuth(SerdeJsonError),
     InvalidHeader(InvalidHeaderValue),
-    NoUserResult(String),
     Reqwest(ReqwestError),
     SerdeStreams(SerdeJsonError, String),
     SerdeUser(SerdeJsonError, String),
     SerdeUsers(SerdeJsonError, String),
+    SerdeVideos(SerdeJsonError, String),
 }
 
 impl fmt::Display for TwitchError {
@@ -18,7 +18,6 @@ impl fmt::Display for TwitchError {
         match self {
             Self::InvalidAuth(_) => f.write_str("invalid auth response"),
             Self::InvalidHeader(_) => f.write_str("invalid client id"),
-            Self::NoUserResult(n) => write!(f, "no result for name `{}`", n),
             Self::Reqwest(_) => f.write_str("reqwest error"),
             Self::SerdeStreams(_, content) => {
                 write!(f, "could not deserialize response for streams: {}", content)
@@ -28,6 +27,9 @@ impl fmt::Display for TwitchError {
             }
             Self::SerdeUsers(_, content) => {
                 write!(f, "could not deserialize response for users: {}", content)
+            }
+            Self::SerdeVideos(_, content) => {
+                write!(f, "could not deserialize response for videos: {}", content)
             }
         }
     }
@@ -50,11 +52,11 @@ impl StdError for TwitchError {
         match self {
             Self::InvalidAuth(e) => Some(e),
             Self::InvalidHeader(e) => Some(e),
-            Self::NoUserResult(_) => None,
             Self::Reqwest(e) => Some(e),
             Self::SerdeStreams(e, _) => Some(e),
             Self::SerdeUser(e, _) => Some(e),
             Self::SerdeUsers(e, _) => Some(e),
+            Self::SerdeVideos(e, _) => Some(e),
         }
     }
 }
