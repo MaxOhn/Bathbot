@@ -251,8 +251,9 @@ impl MapEmbed {
             .unwrap_or_default();
 
         let description = format!(
-            ":musical_note: [Song preview](https://b.ppy.sh/preview/{}.mp3)",
-            mapset.mapset_id
+            ":musical_note: [Song preview](https://b.ppy.sh/preview/{mapset_id}.mp3) \
+            :frame_photo: [Full background](https://assets.ppy.sh/beatmaps/{mapset_id}/covers/raw.jpg)",
+            mapset_id = mapset.mapset_id
         );
 
         Ok(Self {
