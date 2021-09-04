@@ -11,24 +11,14 @@ use twilight_model::application::{command::Command, interaction::ApplicationComm
 )]
 #[aliases("p")]
 async fn ping(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    let user = ctx.clients.twitch.get_user("ludwig").await?.unwrap();
-    println!("{:#?}", user);
-
-    let video = ctx.clients.twitch.get_last_video(user.user_id).await?;
-    println!("---");
-    println!("{:#?}", video);
-
-    let builder = MessageBuilder::new().embed(":ok_hand:");
-    data.create_message(&ctx, builder).await?;
-
-    // let builder = MessageBuilder::new().content("Pong");
-    // let start = Instant::now();
-    // let response_raw = data.create_message(&ctx, builder).await?;
-    // let elapsed = (Instant::now() - start).as_millis();
-    // let response = response_raw.model().await?;
-    // let content = format!(":ping_pong: Pong! ({}ms)", elapsed);
-    // let builder = MessageBuilder::new().content(content);
-    // response.update_message(&ctx, builder).await?;
+    let builder = MessageBuilder::new().content("Pong");
+    let start = Instant::now();
+    let response_raw = data.create_message(&ctx, builder).await?;
+    let elapsed = (Instant::now() - start).as_millis();
+    let response = response_raw.model().await?;
+    let content = format!(":ping_pong: Pong! ({}ms)", elapsed);
+    let builder = MessageBuilder::new().content(content);
+    response.update_message(&ctx, builder).await?;
 
     Ok(())
 }
