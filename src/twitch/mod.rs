@@ -88,6 +88,20 @@ impl Twitch {
         Ok(users.data.pop())
     }
 
+    pub async fn get_user_by_id(&self, user_id: u64) -> TwitchResult<Option<TwitchUser>> {
+        let data = [("id", user_id)];
+        let response = self.send_request(TWITCH_USERS_ENDPOINT, &data).await?;
+        let bytes = response.bytes().await?;
+
+        let mut users: TwitchData<TwitchUser> = serde_json::from_slice(&bytes).map_err(|e| {
+            let content = String::from_utf8_lossy(&bytes).into_owned();
+
+            TwitchError::SerdeUser(e, content)
+        })?;
+
+        Ok(users.data.pop())
+    }
+
     pub async fn get_users(&self, user_ids: &[u64]) -> TwitchResult<Vec<TwitchUser>> {
         if user_ids.is_empty() {
             return Ok(Vec::new());

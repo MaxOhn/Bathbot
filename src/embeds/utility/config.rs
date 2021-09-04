@@ -11,7 +11,7 @@ pub struct ConfigEmbed {
 }
 
 impl ConfigEmbed {
-    pub fn new(author: &User, config: UserConfig) -> Self {
+    pub fn new(author: &User, config: UserConfig, twitch: Option<String>) -> Self {
         let author_img = match author.avatar {
             Some(ref hash) if hash.starts_with("a_") => format!(
                 "https://cdn.discordapp.com/avatars/{}/{}.gif",
@@ -42,7 +42,11 @@ impl ConfigEmbed {
         description.push_str("```\n");
 
         if let Some(name) = config.name {
-            let _ = write!(description, "Username: {}\n\n", name);
+            let _ = write!(description, "osu!: {}\n\n", name);
+        }
+
+        if let Some(name) = twitch {
+            let _ = write!(description, "Twitch: {}", name);
         }
 
         let profile = config.profile_size.unwrap_or_default();

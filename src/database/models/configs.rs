@@ -48,6 +48,8 @@ pub struct UserConfig {
     pub profile_size: Option<ProfileSize>,
     #[serde(default = "get_true", rename = "s", skip_serializing_if = "is_true")]
     pub show_retries: bool,
+    #[serde(default, rename = "t", skip_serializing_if = "Option::is_none")]
+    pub twitch: Option<u64>,
 }
 
 impl UserConfig {
@@ -75,6 +77,7 @@ impl Default for UserConfig {
             name: None,
             profile_size: None,
             show_retries: true,
+            twitch: None,
         }
     }
 }
