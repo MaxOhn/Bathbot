@@ -3,6 +3,7 @@ use crate::{
     database::UserConfig,
     embeds::{EmbedData, RecentEmbed},
     tracking::process_tracking,
+    twitch::TwitchVideo,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
@@ -10,11 +11,12 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
+use chrono::{DateTime, Utc};
 use rosu_v2::prelude::{
     GameMode, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
 };
-use std::{borrow::Cow, mem, sync::Arc};
+use std::{borrow::Cow, fmt::Write, mem, sync::Arc};
 use tokio::time::{sleep, Duration};
 use twilight_model::id::UserId;
 
@@ -152,8 +154,17 @@ pub(super) async fn _recent(
         }
     };
 
+    let twitch_fut = async {
+        if let Some(user_id) = config.twitch {
+            retrieve_vod(&ctx, user_id, map.seconds_drain, score.created_at).await
+        } else {
+            None
+        }
+    };
+
     // Retrieve and parse response
-    let (map_score_result, best_result) = tokio::join!(map_score_fut, best_fut);
+    let (map_score_result, best_result, twitch_vod) =
+        tokio::join!(map_score_fut, best_fut, twitch_fut);
 
     let map_score = match map_score_result {
         None | Some(Err(OsuError::NotFound)) => None,
@@ -175,7 +186,13 @@ pub(super) async fn _recent(
         }
     };
 
-    let data_fut = RecentEmbed::new(&user, score, best.as_deref(), map_score.as_ref(), false);
+    let data_fut = RecentEmbed::new(
+        &user,
+        score,
+        best.as_deref(),
+        map_score.as_ref(),
+        twitch_vod,
+    );
 
     let embed_data = match data_fut.await {
         Ok(data) => data,
@@ -262,6 +279,56 @@ pub(super) async fn _recent(
     }
 
     Ok(())
+}
+
+async fn retrieve_vod(
+    ctx: &Context,
+    user_id: u64,
+    map_length: u32,
+    score: DateTime<Utc>,
+) -> Option<TwitchVideo> {
+    match ctx.clients.twitch.get_last_video(user_id).await {
+        Ok(Some(mut vod)) => {
+            let vod_start = vod.created_at.timestamp();
+            let vod_end = vod_start + vod.duration as i64;
+            let map_start = score.timestamp() - map_length as i64 - 2;
+
+            if vod_end < map_start {
+                return None;
+            }
+
+            let mut offset = map_start - vod_start;
+
+            if offset <= 0 {
+                return Some(vod);
+            }
+
+            // Add timestamp
+            vod.url.push_str("?t=");
+
+            if offset >= 3600 {
+                let _ = write!(vod.url, "{}h", offset / 3600);
+                offset %= 3600;
+            }
+
+            if offset >= 60 {
+                let _ = write!(vod.url, "{}m", offset / 60);
+                offset %= 60;
+            }
+
+            if offset > 0 {
+                let _ = write!(vod.url, "{}s", offset);
+            }
+
+            Some(vod)
+        }
+        Ok(None) => None,
+        Err(why) => {
+            unwind_error!(warn, why, "Failed to get twitch vod: {}");
+
+            None
+        }
+    }
 }
 
 #[command]

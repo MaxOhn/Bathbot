@@ -17,7 +17,6 @@ fn str_to_maybe_u64<'de, D: Deserializer<'de>>(d: D) -> Result<Option<u64>, D::E
     }
 }
 
-// TODO: Serialize
 #[derive(Debug, Deserialize)]
 pub struct TwitchUser {
     #[serde(rename = "id", deserialize_with = "str_to_u64")]
@@ -60,18 +59,19 @@ pub struct TwitchData<T> {
     pub data: Vec<T>,
 }
 
-// TODO: Serialize
 #[derive(Debug, Deserialize)]
 pub struct TwitchVideo {
-    created_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
     /// video duration in seconds
     #[serde(deserialize_with = "duration_to_u32")]
-    duration: u32,
+    pub duration: u32,
     #[serde(deserialize_with = "str_to_u64")]
-    id: u64,
-    published_at: DateTime<Utc>,
-    title: String,
-    url: String,
+    pub id: u64,
+    pub published_at: DateTime<Utc>,
+    pub title: String,
+    pub url: String,
+    #[serde(rename = "user_name")]
+    pub username: String,
 }
 
 fn duration_to_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {

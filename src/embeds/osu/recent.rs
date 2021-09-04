@@ -1,7 +1,8 @@
 use crate::{
     embeds::{osu, Author, EmbedBuilder, EmbedData, Footer},
+    twitch::TwitchVideo,
     util::{
-        constants::AVATAR_URL,
+        constants::{AVATAR_URL, TWITCH_BASE},
         datetime::{how_long_ago_dynamic, HowLongAgoFormatterDynamic},
         error::PPError,
         matcher::highlight_funny_numeral,
@@ -18,7 +19,6 @@ use rosu_v2::prelude::{BeatmapUserScore, GameMode, Grade, Score, User};
 use std::{borrow::Cow, fmt::Write};
 use tokio::fs::File;
 
-#[derive(Clone)]
 pub struct RecentEmbed {
     description: String,
     title: String,
@@ -39,6 +39,7 @@ pub struct RecentEmbed {
     if_fc: Option<(String, f32, String)>,
     map_info: String,
     mapset_cover: String,
+    twitch_vod: Option<TwitchVideo>,
 }
 
 impl RecentEmbed {
@@ -47,7 +48,7 @@ impl RecentEmbed {
         score: &Score,
         personal: Option<&[Score]>,
         map_score: Option<&BeatmapUserScore>,
-        extend_desc: bool,
+        twitch_vod: Option<TwitchVideo>,
     ) -> BotResult<Self> {
         let map = score.map.as_ref().unwrap();
         let mapset = score.mapset.as_ref().unwrap();
@@ -227,10 +228,7 @@ impl RecentEmbed {
 
             description
         } else {
-            extend_desc
-                .then(|| score_cmp_description(score, map_score))
-                .flatten()
-                .unwrap_or_default()
+            String::new()
         };
 
         Ok(Self {
@@ -252,6 +250,7 @@ impl RecentEmbed {
             map_info: osu::get_map_info(map, score.mods, stars),
             if_fc,
             mapset_cover: mapset.covers.cover.to_owned(),
+            twitch_vod,
         })
     }
 }
@@ -273,7 +272,9 @@ impl EmbedData for RecentEmbed {
             field!("PP", pp, true),
         ];
 
-        fields.reserve(3 + (self.if_fc.is_some() as usize) * 3);
+        fields.reserve(
+            3 + (self.if_fc.is_some() as usize) * 3 + (self.twitch_vod.is_some()) as usize * 2,
+        );
 
         let mania = self.hits.chars().filter(|&c| c == '/').count() == 5;
 
@@ -292,6 +293,19 @@ impl EmbedData for RecentEmbed {
         }
 
         fields.push(field!("Map Info".to_owned(), self.map_info.clone(), false));
+
+        if let Some(ref vod) = self.twitch_vod {
+            let twitch_channel = format!(
+                "[**{name}**]({base}{name})",
+                base = TWITCH_BASE,
+                name = vod.username
+            );
+
+            fields.push(field!("Live on twitch", twitch_channel, true));
+
+            let vod_hyperlink = format!("[**VOD**]({})", vod.url);
+            fields.push(field!("Liveplay of this score", vod_hyperlink, true));
+        }
 
         EmbedBuilder::new()
             .author(&self.author)
@@ -456,30 +470,5 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
             })
         }
         _ => None,
-    }
-}
-
-fn score_cmp_description(score: &Score, map_score: Option<&BeatmapUserScore>) -> Option<String> {
-    let s = map_score.map(|s| &s.score)?;
-
-    if s == score {
-        Some("Personal best on the map".to_owned())
-    } else if score.score > s.score {
-        let msg = if s.grade == Grade::F {
-            "Would have been a personal best on the map"
-        } else {
-            "Personal best on the map"
-        };
-
-        Some(msg.to_owned())
-    } else if s.grade != Grade::F {
-        let msg = format!(
-            "Missing {} score for a personal best on the map",
-            with_comma_uint(s.score - score.score + 1)
-        );
-
-        Some(msg)
-    } else {
-        None
     }
 }
