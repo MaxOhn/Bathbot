@@ -39,7 +39,7 @@ use twilight_model::{
     whenever you use the `recent` command.\n\
     - `embeds`: `minimized` or `maximized`. When using the `recent` command, choose whether the embed should \
     initially be maximized and get minimized after some delay, or if it should be minimized from the beginning. \
-    This will also apply to the `compare`, `simulaterecent`, and indexed `top` command.\n\n\
+    This will also apply to the `compare`, `simulaterecent`, and indexed `top` command.\n\
     - `twitch`: Specify a twitch channel name to link to. When linked and using the `recent` command, \
     I'll try to include your twitch stream and timestamped VOD in the response. \
     To link to a twitch channel, I will need to DM you for a quick validation process. \
@@ -277,7 +277,7 @@ async fn validate_twitch(
         .model()
         .await?;
 
-    let (validated, reply, color) = match wait_for_bio(ctx, &name, msg.id, channel, author).await? {
+    let (validated, reply, color) = match wait_for_bio(ctx, name, msg.id, channel, author).await? {
         Some(bio) if bio.contains(&code) => (true, "Success".into(), DARK_GREEN),
         Some(bio) if bio.is_empty() => (
             false,
@@ -354,7 +354,7 @@ async fn wait_for_bio(
         Some(user) => Ok(Some(user.bio)),
         None => {
             let content = format!("No twitch user with the name `{}` was found", name);
-            let _ = (msg, channel).error(&ctx, content).await;
+            let _ = (msg, channel).error(ctx, content).await;
 
             Ok(None)
         }

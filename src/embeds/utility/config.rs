@@ -42,11 +42,11 @@ impl ConfigEmbed {
         description.push_str("```\n");
 
         if let Some(name) = config.name {
-            let _ = write!(description, "osu!: {}\n", name);
+            let _ = writeln!(description, "osu!: {}", name);
         }
 
         if let Some(name) = twitch {
-            let _ = write!(description, "Twitch: {}\n", name);
+            let _ = writeln!(description, "Twitch: {}", name);
         }
 
         let profile = config.profile_size.unwrap_or_default();
