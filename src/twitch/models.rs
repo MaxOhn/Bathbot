@@ -19,13 +19,14 @@ fn str_to_maybe_u64<'de, D: Deserializer<'de>>(d: D) -> Result<Option<u64>, D::E
 
 #[derive(Debug, Deserialize)]
 pub struct TwitchUser {
-    #[serde(rename = "id", deserialize_with = "str_to_u64")]
-    pub user_id: u64,
-    pub description: String,
+    #[serde(rename = "description")]
+    pub bio: String,
     #[serde(rename = "login")]
     pub display_name: String,
     #[serde(rename = "profile_image_url")]
     pub image_url: String,
+    #[serde(rename = "id", deserialize_with = "str_to_u64")]
+    pub user_id: u64,
 }
 
 #[derive(Deserialize, Debug)]

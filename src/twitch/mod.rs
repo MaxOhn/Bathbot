@@ -155,7 +155,7 @@ impl Twitch {
         Ok(streams)
     }
 
-    pub async fn get_last_video(&self, user_id: u64) -> TwitchResult<Option<TwitchVideo>> {
+    pub async fn get_last_vod(&self, user_id: u64) -> TwitchResult<Option<TwitchVideo>> {
         let data = [
             ("user_id", Cow::Owned(user_id.to_string())),
             ("first", "1".into()),

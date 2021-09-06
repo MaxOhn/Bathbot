@@ -42,16 +42,15 @@ impl ConfigEmbed {
         description.push_str("```\n");
 
         if let Some(name) = config.name {
-            let _ = write!(description, "osu!: {}\n\n", name);
+            let _ = write!(description, "osu!: {}\n", name);
         }
 
         if let Some(name) = twitch {
-            let _ = write!(description, "Twitch: {}", name);
+            let _ = write!(description, "Twitch: {}\n", name);
         }
 
         let profile = config.profile_size.unwrap_or_default();
-
-        description.push_str("Mode:  | Profile: | Embeds:\n");
+        description.push_str("\nMode:  | Profile: | Embeds:\n");
 
         if config.mode.is_none() {
             description.push('>');

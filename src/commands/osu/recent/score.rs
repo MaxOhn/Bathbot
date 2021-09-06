@@ -11,10 +11,10 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
-use chrono::{DateTime, Utc};
 use rosu_v2::prelude::{
-    GameMode, Grade, OsuError,
+    Beatmap, GameMode, GameMods, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
+    Score,
 };
 use std::{borrow::Cow, fmt::Write, mem, sync::Arc};
 use tokio::time::{sleep, Duration};
@@ -156,7 +156,7 @@ pub(super) async fn _recent(
 
     let twitch_fut = async {
         if let Some(user_id) = config.twitch {
-            retrieve_vod(&ctx, user_id, map.seconds_drain, score.created_at).await
+            retrieve_vod(&ctx, user_id, &*score, map).await
         } else {
             None
         }
@@ -284,24 +284,38 @@ pub(super) async fn _recent(
 async fn retrieve_vod(
     ctx: &Context,
     user_id: u64,
-    map_length: u32,
-    score: DateTime<Utc>,
+    score: &Score,
+    map: &Beatmap,
 ) -> Option<TwitchVideo> {
-    match ctx.clients.twitch.get_last_video(user_id).await {
+    match ctx.clients.twitch.get_last_vod(user_id).await {
         Ok(Some(mut vod)) => {
             let vod_start = vod.created_at.timestamp();
             let vod_end = vod_start + vod.duration as i64;
-            let map_start = score.timestamp() - map_length as i64 - 2;
 
-            if vod_end < map_start {
+            // Adjust map length with mods
+            let mut map_length = if score.mods.contains(GameMods::DoubleTime) {
+                map.seconds_drain as f32 * 2.0 / 3.0
+            } else if score.mods.contains(GameMods::HalfTime) {
+                map.seconds_drain as f32 * 4.0 / 3.0
+            } else {
+                map.seconds_drain as f32
+            };
+
+            // Adjust map length with passed objects in case of fail
+            if score.grade == Grade::F {
+                let passed = score.total_hits() as f32;
+                let total = map.count_objects() as f32;
+
+                map_length *= passed / total;
+            }
+
+            let map_start = score.created_at.timestamp() - map_length as i64 - 3;
+
+            if vod_start > map_start || vod_end < map_start {
                 return None;
             }
 
             let mut offset = map_start - vod_start;
-
-            if offset <= 0 {
-                return Some(vod);
-            }
 
             // Add timestamp
             vod.url.push_str("?t=");
@@ -345,8 +359,8 @@ async fn retrieve_vod(
     - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
     - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
     Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`.\n\n\
-    If you want the embed to be minimized immediately or if the retry count shouldn't be shown \
-    you can check out the `config` command."
+    With the `config` command you can set the embed as minimized immediately, \
+    hide the retry count, and show your twitch stream and live VOD."
 )]
 #[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
 #[example("badewanne3 pass=true", "grade=a", "whitecat grade=B..sh")]
@@ -386,8 +400,8 @@ pub async fn recent(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
     - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
     Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`.\n\n\
-    If you want the embed to be minimized immediately or if the retry count shouldn't be shown \
-    you can check out the `config` command."
+    With the `config` command you can set the embed as minimized immediately, \
+    hide the retry count, and show your twitch stream and live VOD."
 )]
 #[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
 #[example("badewanne3 pass=true", "grade=a", "whitecat grade=B..sh")]
@@ -427,8 +441,8 @@ pub async fn recentmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
     - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
     - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
     Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`.\n\n\
-    If you want the embed to be minimized immediately or if the retry count shouldn't be shown \
-    you can check out the `config` command."
+    With the `config` command you can set the embed as minimized immediately, \
+    hide the retry count, and show your twitch stream and live VOD."
 )]
 #[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
 #[example("badewanne3 pass=true", "grade=a", "whitecat grade=B..sh")]
@@ -468,8 +482,8 @@ pub async fn recenttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
     - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
     - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
     Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`.\n\n\
-    If you want the embed to be minimized immediately or if the retry count shouldn't be shown \
-    you can check out the `config` command."
+    With the `config` command you can set the embed as minimized immediately, \
+    hide the retry count, and show your twitch stream and live VOD."
 )]
 #[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
 #[example("badewanne3 pass=true", "grade=a", "whitecat grade=B..sh")]

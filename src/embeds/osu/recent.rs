@@ -8,7 +8,7 @@ use crate::{
         matcher::highlight_funny_numeral,
         numbers::{round, with_comma_uint},
         osu::{grade_completion_mods, prepare_beatmap_file},
-        ScoreExt,
+        Emote, ScoreExt,
     },
     BotResult,
 };
@@ -318,7 +318,7 @@ impl EmbedData for RecentEmbed {
             .url(&self.url)
     }
 
-    fn into_builder(self) -> EmbedBuilder {
+    fn into_builder(mut self) -> EmbedBuilder {
         let name = format!(
             "{}\t{}\t({}%)\t{}",
             self.grade_completion_mods, self.score, self.acc, self.ago
@@ -329,10 +329,21 @@ impl EmbedData for RecentEmbed {
         let mut title = self.title;
         let _ = write!(title, " [{}★]", self.stars);
 
+        let fields = vec![field!(name, value, false)];
+
+        if let Some(ref vod) = self.twitch_vod {
+            let _ = write!(
+                self.description,
+                " {} [Liveplay on twitch]({})",
+                Emote::Twitch.text(),
+                vod.url
+            );
+        }
+
         EmbedBuilder::new()
             .author(self.author)
             .description(self.description)
-            .fields(vec![field!(name, value, false)])
+            .fields(fields)
             .thumbnail(self.thumbnail)
             .title(title)
             .url(self.url)

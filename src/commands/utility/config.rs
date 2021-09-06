@@ -42,7 +42,8 @@ use twilight_model::{
     This will also apply to the `compare`, `simulaterecent`, and indexed `top` command.\n\n\
     - `twitch`: Specify a twitch channel name to link to. When linked and using the `recent` command, \
     I'll try to include your twitch stream and timestamped VOD in the response. \
-    To link to a twitch channel, I will need to DM you for a quick validation process.\n\
+    To link to a twitch channel, I will need to DM you for a quick validation process. \
+    To unlink from a twitch channel, specify `twitch=none`.\n\n\
     **NOTE:** If the mode is configured to anything non-standard, \
     you will __NOT__ be able to use __any__ command for osu!standard anymore."
 )]
@@ -145,62 +146,68 @@ async fn _config(ctx: Arc<Context>, data: CommandData<'_>, args: ConfigArgs) -> 
 
     let mut twitch_name = None;
 
-    if let Some(name) = twitch {
-        let user = match ctx.clients.twitch.get_user(&name).await {
-            Ok(Some(user)) => user,
-            Ok(None) => {
-                let content = format!("No twitch user with the name `{}` was found", name);
-
-                return data.error(&ctx, content).await;
-            }
-            Err(why) => {
-                let _ = data.error(&ctx, TWITCH_API_ISSUE).await;
-
-                return Err(why.into());
-            }
-        };
-
-        let channel = if let Some(channel) = ctx.cache.private_channel(author.id) {
-            channel.id
-        } else {
-            let channel = match ctx.http.create_private_channel(author.id).exec().await {
-                Ok(channel_res) => match channel_res.model().await {
-                    Ok(channel) => channel,
-                    Err(why) => {
-                        let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-                        return Err(why.into());
-                    }
-                },
-                Err(why) => {
-                    let content =
-                        "I need to DM you for twitch verification but they seem blocked :(\n\
-                        Did you disable messages from other server members?";
-                    debug!("Error while creating DM channel: {}", why);
+    match twitch {
+        Some(Some(name)) => {
+            let user = match ctx.clients.twitch.get_user(&name).await {
+                Ok(Some(user)) => user,
+                Ok(None) => {
+                    let content = format!("No twitch user with the name `{}` was found", name);
 
                     return data.error(&ctx, content).await;
                 }
+                Err(why) => {
+                    let _ = data.error(&ctx, TWITCH_API_ISSUE).await;
+
+                    return Err(why.into());
+                }
             };
 
-            let id = channel.id;
+            let channel = if let Some(channel) = ctx.cache.private_channel(author.id) {
+                channel.id
+            } else {
+                let channel = match ctx.http.create_private_channel(author.id).exec().await {
+                    Ok(channel_res) => match channel_res.model().await {
+                        Ok(channel) => channel,
+                        Err(why) => {
+                            let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
-            ctx.cache.cache_private_channel(channel);
+                            return Err(why.into());
+                        }
+                    },
+                    Err(why) => {
+                        let content =
+                            "I need to DM you for twitch verification but they seem blocked :(\n\
+                            Did you disable messages from other server members?";
+                        debug!("Error while creating DM channel: {}", why);
 
-            id
-        };
+                        return data.error(&ctx, content).await;
+                    }
+                };
 
-        match validate_twitch(&ctx, &name, channel, author.id).await {
-            Ok(true) => {
-                config.twitch = Some(user.user_id);
-                twitch_name = Some(user.display_name);
-            }
-            Ok(false) => {}
-            Err(why) => {
-                let _ = data.error(&ctx, GENERAL_ISSUE).await;
+                let id = channel.id;
 
-                return Err(why);
+                ctx.cache.cache_private_channel(channel);
+
+                id
+            };
+
+            match validate_twitch(&ctx, &name, channel, author.id).await {
+                Ok(true) => {
+                    config.twitch = Some(user.user_id);
+                    twitch_name = Some(user.display_name);
+                }
+                Ok(false) => {}
+                Err(why) => {
+                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+                    return Err(why);
+                }
             }
         }
+        Some(None) => {
+            config.twitch.take();
+        }
+        None => {}
     }
 
     if let Some(user_id) = config.twitch.filter(|_| twitch_name.is_none()) {
@@ -253,9 +260,9 @@ async fn validate_twitch(
     let code = generate_validation_code();
 
     let description = format!("I need to validate that the twitch channel `{}` is really yours.\n\
-    For that, you need to add the following code anywhere in your twitch channel description:\n\
+    For that, you need to add the following code anywhere in your twitch channel __bio__:\n\
     ```\n{}\n```\n\
-    Once you've done that, react to this message with :white_check_mark: so I'll verify that the channel's description contains the code.\n\
+    Once you've done that, react to this message with :white_check_mark: so I'll verify that the channel's bio contains the code.\n\
     After my validation you can remove the code again.\n\
     To abort the validation you can react with :x:.", name, code);
 
@@ -270,12 +277,27 @@ async fn validate_twitch(
         .model()
         .await?;
 
-    let (validated, reply, color) =
-        match wait_for_description(ctx, &name, msg.id, channel, author).await? {
-            Some(description) if description.contains(&code) => (true, "Success", DARK_GREEN),
-            Some(description) => (false, "Description did not contain the code", RED),
-            None => (false, "Aborted", DARK_GREEN),
-        };
+    let (validated, reply, color) = match wait_for_bio(ctx, &name, msg.id, channel, author).await? {
+        Some(bio) if bio.contains(&code) => (true, "Success".into(), DARK_GREEN),
+        Some(bio) if bio.is_empty() => (
+            false,
+            "The channel's bio is currently empty and does not contain the code".into(),
+            RED,
+        ),
+        Some(bio) => {
+            let reply = format!(
+                "The channel's bio is currently\n\
+                ```\n\
+                {}\n\
+                ```\n\
+                and does not contain the code",
+                bio
+            );
+
+            (false, Cow::Owned(reply), RED)
+        }
+        None => (false, "Aborted".into(), DARK_GREEN),
+    };
 
     let embed = &[EmbedBuilder::new().description(reply).color(color).build()];
     let response_fut = ctx.http.create_message(channel).embeds(embed)?;
@@ -290,14 +312,14 @@ async fn validate_twitch(
     Ok(validated)
 }
 
-async fn wait_for_description(
+async fn wait_for_bio(
     ctx: &Context,
     name: &str,
     msg: MessageId,
     channel: ChannelId,
     author: UserId,
 ) -> BotResult<Option<String>> {
-    for name in &["white_check_mark", "x"] {
+    for name in &["✅", "❌"] {
         let reaction = RequestReactionType::Unicode { name };
         let reaction_fut = ctx.http.create_reaction(channel, msg, &reaction).exec();
 
@@ -314,22 +336,22 @@ async fn wait_for_description(
             return false;
         }
 
-        matches!(&event.0.emoji, ReactionType::Unicode { name } if name == "white_check_mark" || name == "x")
+        matches!(&event.0.emoji, ReactionType::Unicode { name } if name == "✅" || name == "❌")
     };
 
     let deadline = Duration::from_secs(120);
 
     match timeout(deadline, ctx.standby.wait_for_reaction(msg, check)).await {
         Ok(Ok(ReactionAdd(reaction))) => match reaction.emoji {
-            ReactionType::Unicode { name } if name == "white_check_mark" => {}
-            ReactionType::Unicode { name } if name == "x" => return Ok(None),
+            ReactionType::Unicode { name } if name == "✅" => {}
+            ReactionType::Unicode { name } if name == "❌" => return Ok(None),
             _ => unreachable!(),
         },
         _ => return Ok(None),
     }
 
     match ctx.clients.twitch.get_user(name).await? {
-        Some(user) => Ok(Some(user.description)),
+        Some(user) => Ok(Some(user.bio)),
         None => {
             let content = format!("No twitch user with the name `{}` was found", name);
             let _ = (msg, channel).error(&ctx, content).await;
@@ -345,7 +367,7 @@ struct ConfigArgs {
     name: Option<Name>,
     profile_size: Option<ProfileSize>,
     show_retries: Option<bool>,
-    twitch: Option<String>,
+    twitch: Option<Option<String>>,
 }
 
 impl ConfigArgs {
@@ -380,7 +402,10 @@ impl ConfigArgs {
                         }
                     },
                     "name" | "username" | "n" | "u" => name = Some(value.into()),
-                    "twitch" | "t" => twitch = Some(value.to_owned()),
+                    "twitch" | "t" => match value {
+                        "none" => twitch = Some(None),
+                        _ => twitch = Some(Some(value.to_owned())),
+                    },
                     "embeds" | "recent" => {
                         embeds_maximized = match value {
                             "minimized" | "minimize" | "min" | "false" => Some(false),
@@ -483,7 +508,10 @@ impl ConfigArgs {
                         _ => bail_cmd_option!("config retries", string, value),
                     },
                     "name" => username = Some(value.into()),
-                    "twitch" => twitch = Some(value),
+                    "twitch" => match value.cow_to_ascii_lowercase().as_ref() {
+                        "none" => twitch = Some(None),
+                        _ => twitch = Some(Some(value)),
+                    },
                     _ => bail_cmd_option!("config", string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
