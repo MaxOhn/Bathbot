@@ -55,16 +55,10 @@ extern crate smallvec;
 use dashmap::{DashMap, DashSet};
 use deadpool_redis::{Config as RedisConfig, PoolConfig as RedisPoolConfig};
 use hashbrown::HashSet;
-use hyper::{
-    service::{make_service_fn, service_fn},
-    Body, Response,
-};
 use parking_lot::Mutex;
-use prometheus::{Encoder, TextEncoder};
 use rosu_v2::Osu;
 use smallstr::SmallString;
 use std::{
-    convert::Infallible,
     env, process,
     sync::{atomic::Ordering, Arc},
     time::Duration,
@@ -247,13 +241,6 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     // Provide stats to locale address
     let (tx, rx) = oneshot::channel();
 
-    if cfg!(debug_assertions) {
-        info!("Skip metrics server on debug");
-    } else {
-        let metrics_stats = Arc::clone(&stats);
-        tokio::spawn(run_metrics_server(metrics_stats, rx));
-    }
-
     // Build cluster
     let (cluster, mut event_stream) = cb
         .build()
@@ -315,6 +302,10 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         process::exit(0);
     });
 
+    // Spawn server worker
+    let server_ctx = Arc::clone(&ctx);
+    tokio::spawn(core::run_server(server_ctx, rx));
+
     // Spawn twitch worker
     let twitch_ctx = Arc::clone(&ctx);
     tokio::spawn(twitch::twitch_loop(twitch_ctx));
@@ -368,39 +359,6 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     time::sleep(Duration::from_secs(300)).await;
 
     Ok(())
-}
-
-async fn run_metrics_server(stats: Arc<BotStats>, shutdown_rx: oneshot::Receiver<()>) {
-    let metric_service = make_service_fn(move |_| {
-        let stats = Arc::clone(&stats);
-
-        async move {
-            Ok::<_, Infallible>(service_fn(move |_req| {
-                let mut buffer = Vec::new();
-                let encoder = TextEncoder::new();
-                let metric_families = stats.registry.gather();
-                encoder.encode(&metric_families, &mut buffer).unwrap();
-
-                async move { Ok::<_, Infallible>(Response::new(Body::from(buffer))) }
-            }))
-        }
-    });
-
-    let ip = CONFIG.get().unwrap().metric_server_ip;
-    let port = CONFIG.get().unwrap().metric_server_port;
-    let addr = std::net::SocketAddr::from((ip, port));
-
-    let server = hyper::Server::bind(&addr)
-        .serve(metric_service)
-        .with_graceful_shutdown(async {
-            let _ = shutdown_rx.await;
-        });
-
-    info!("Running metrics server...");
-
-    if let Err(why) = server.await {
-        unwind_error!(error, why, "Metrics server failed: {}");
-    }
 }
 
 async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResult<()> {

@@ -14,8 +14,8 @@ pub struct BotConfig {
     pub tokens: Tokens,
     pub bg_path: PathBuf,
     pub map_path: PathBuf,
-    pub metric_server_ip: [u8; 4],
-    pub metric_server_port: u16,
+    pub server_ip: [u8; 4],
+    pub server_port: u16,
     grades: HashMap<Grade, String>,
     pub emotes: HashMap<Emote, String>,
 }

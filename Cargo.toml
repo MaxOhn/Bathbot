@@ -53,6 +53,11 @@ version = "0.14"
 default_features = false
 features = ["server"]
 
+[dependencies.hyper-rustls]
+version = "0.22"
+default-features = false
+features = ["native-tokio"]
+
 [dependencies.image]
 version = "0.23"
 default-features = false
@@ -78,6 +83,9 @@ git = "https://github.com/MaxOhn/rosu-v2"
 branch = "next"
 # path = "../rosu-v2"
 features = ["cache", "metrics"]
+
+[dependencies.routerify]
+version = "2.2"
 
 [dependencies.rosu-pp]
 git = "https://github.com/MaxOhn/rosu-pp"

@@ -1,7 +1,6 @@
 
 **[TODO]**
 - Use user avatar as author icon for `<r` & co
-- Handle 401 response in rosu_v2 e.g. for secret mp matches
 - For helpybot: don't only ignore $ msgs but #waifu altogether
 - `<recommend` command
 - ~~Provide version name in `<rebalance` via `version=`~~ unnecessary & less convenient to use
