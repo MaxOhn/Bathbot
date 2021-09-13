@@ -1,124 +1,59 @@
 use crate::{
-    commands::osu::{request_user, ProfileSize},
+    commands::osu::ProfileSize,
+    core::{server::AuthenticationStandbyError, CONFIG},
     database::UserConfig,
     embeds::{ConfigEmbed, EmbedBuilder, EmbedData},
     util::{
-        constants::{DARK_GREEN, GENERAL_ISSUE, OSU_API_ISSUE, RED, TWITCH_API_ISSUE},
-        ApplicationCommandExt, CowUtils, MessageExt,
+        constants::{GENERAL_ISSUE, RED, TWITCH_API_ISSUE},
+        ApplicationCommandExt, Authored, Emote, MessageBuilder, MessageExt,
     },
-    Args, BotResult, CommandData, Context, Name,
+    BotResult, CommandData, Context, Error,
 };
 
-use rand::Rng;
-use rosu_v2::prelude::{GameMode, OsuError};
-use std::{borrow::Cow, fmt::Write, sync::Arc};
-use tokio::time::{timeout, Duration};
-use twilight_http::request::channel::reaction::RequestReactionType;
-use twilight_model::{
-    application::{
-        command::{ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice},
-        interaction::{application_command::CommandDataOption, ApplicationCommand},
+use rosu_v2::prelude::GameMode;
+use std::{future::Future, sync::Arc};
+use twilight_model::application::{
+    command::{
+        BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice,
     },
-    channel::ReactionType,
-    gateway::payload::ReactionAdd,
-    id::{ChannelId, MessageId, UserId},
+    interaction::{application_command::CommandDataOption, ApplicationCommand},
 };
 
 #[command]
-#[short_desc("Adjust your default configuration for commands")]
-#[long_desc(
-    "Adjust your default configuration for commands.\n\
-    All arguments must be of the form `key=value`.\n\n\
-    These are all keys and their values:\n\
-    - `name`: Specify an osu! username. Don't forget to encapsulate it with `\"` if it contains whitespace.\n\
-    - `mode`: `osu`, `taiko`, `ctb`, `mania`, or `none`. \
-    If configured, you won't need to specify the mode for commands anymore e.g. \
-    you can use the `recent` command instead of `recentmania` to show a recent mania score.\n\
-    - `profile`: `compact`, `medium`, or `full`. Specify the initial size for the embed of profile commands.\n\
-    - `retries`: `show` or `hide`. Whether I should show how many retries it took you \
-    whenever you use the `recent` command.\n\
-    - `embeds`: `minimized` or `maximized`. When using the `recent` command, choose whether the embed should \
-    initially be maximized and get minimized after some delay, or if it should be minimized from the beginning. \
-    This will also apply to the `compare`, `simulaterecent`, and indexed `top` command.\n\
-    - `twitch`: Specify a twitch channel name to link to. When linked and using the `recent` command, \
-    I'll try to include your twitch stream and timestamped VOD in the response. \
-    To link to a twitch channel, I will need to DM you for a quick validation process. \
-    To unlink from a twitch channel, specify `twitch=none`.\n\n\
-    **NOTE:** If the mode is configured to anything non-standard, \
-    you will __NOT__ be able to use __any__ command for osu!standard anymore."
-)]
-#[usage(
-    "[name=username] [mode=osu/taiko/ctb/mania/none] [profile=compact/medium/full] \
-    [retries=show/hide] [embeds=maximized/minimized] [twitch=channel name]"
-)]
-#[example(
-    "mode=mania name=\"freddie benson\" embeds=minimized",
-    "name=peppy profile=full twitch=ppy",
-    "profile=medium retries=hide mode=ctb"
-)]
+#[short_desc("Deprecated command, use the slash command `/config` instead")]
 async fn config(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
-        CommandData::Message { msg, mut args, num } => match ConfigArgs::args(&mut args) {
-            Ok(config_args) => {
-                _config(ctx, CommandData::Message { msg, args, num }, config_args).await
-            }
-            Err(content) => msg.error(&ctx, content).await,
-        },
+        CommandData::Message { msg, .. } => {
+            let content = "This command is deprecated and no longer works.\n\
+                Use the slash command `/config` instead.";
+
+            return msg.error(&ctx, content).await;
+        }
         CommandData::Interaction { command } => slash_config(ctx, *command).await,
     }
 }
 
-async fn _config(ctx: Arc<Context>, data: CommandData<'_>, args: ConfigArgs) -> BotResult<()> {
-    let author = data.author()?;
+pub async fn config_(
+    ctx: Arc<Context>,
+    command: ApplicationCommand,
+    args: ConfigArgs,
+) -> BotResult<()> {
+    let author = command.author().ok_or(Error::MissingSlashAuthor)?;
 
     let ConfigArgs {
         mode,
-        name,
         profile_size,
         embeds_maximized,
         show_retries,
+        osu,
         twitch,
     } = args;
-
-    let name = match name.as_deref() {
-        Some(name) => {
-            if name.chars().count() > 15 {
-                let content = "That name is too long, must be at most 15 characters";
-
-                return data.error(&ctx, content).await;
-            }
-
-            match request_user(&ctx, name, None).await {
-                Ok(user) => Some(user.username.into()),
-                Err(OsuError::NotFound) => {
-                    let mut content = format!("No user with the name `{}` was found.", name);
-
-                    if name.contains('_') {
-                        let _ = write!(
-                            content,
-                            "\nIf the name contains whitespace, be sure to encapsulate \
-                                it inbetween quotation marks, e.g `\"{}\"`.",
-                            name.replace('_', " "),
-                        );
-                    }
-
-                    return data.error(&ctx, content).await;
-                }
-                Err(why) => {
-                    let _ = data.error(&ctx, OSU_API_ISSUE).await;
-
-                    return Err(why.into());
-                }
-            }
-        }
-        None => None,
-    };
 
     let mut config = match ctx.psql().get_user_config(author.id).await {
         Ok(Some(config)) => config,
         Ok(None) => UserConfig::default(),
         Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
@@ -126,10 +61,6 @@ async fn _config(ctx: Arc<Context>, data: CommandData<'_>, args: ConfigArgs) -> 
 
     if let Some(mode) = mode {
         config.mode = mode;
-    }
-
-    if let Some(name) = name {
-        config.name = Some(name);
     }
 
     if let Some(size) = profile_size {
@@ -144,73 +75,144 @@ async fn _config(ctx: Arc<Context>, data: CommandData<'_>, args: ConfigArgs) -> 
         config.show_retries = retries;
     }
 
-    let mut twitch_name = None;
-
-    match twitch {
-        Some(Some(name)) => {
-            let user = match ctx.clients.twitch.get_user(&name).await {
-                Ok(Some(user)) => user,
-                Ok(None) => {
-                    let content = format!("No twitch user with the name `{}` was found", name);
-
-                    return data.error(&ctx, content).await;
-                }
-                Err(why) => {
-                    let _ = data.error(&ctx, TWITCH_API_ISSUE).await;
-
-                    return Err(why.into());
-                }
-            };
-
-            let channel = if let Some(channel) = ctx.cache.private_channel(author.id) {
-                channel.id
-            } else {
-                let channel = match ctx.http.create_private_channel(author.id).exec().await {
-                    Ok(channel_res) => match channel_res.model().await {
-                        Ok(channel) => channel,
-                        Err(why) => {
-                            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-                            return Err(why.into());
-                        }
-                    },
-                    Err(why) => {
-                        let content =
-                            "I need to DM you for twitch verification but they seem blocked :(\n\
-                            Did you disable messages from other server members?";
-                        debug!("Error while creating DM channel: {}", why);
-
-                        return data.error(&ctx, content).await;
-                    }
-                };
-
-                let id = channel.id;
-
-                ctx.cache.cache_private_channel(channel);
-
-                id
-            };
-
-            match validate_twitch(&ctx, &name, channel, author.id).await {
-                Ok(true) => {
-                    config.twitch = Some(user.user_id);
-                    twitch_name = Some(user.display_name);
-                }
-                Ok(false) => {}
-                Err(why) => {
-                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-                    return Err(why);
-                }
-            }
-        }
-        Some(None) => {
-            config.twitch.take();
-        }
-        None => {}
+    if let Some(false) = osu {
+        config.name.take();
     }
 
-    if let Some(user_id) = config.twitch.filter(|_| twitch_name.is_none()) {
+    if let Some(false) = twitch {
+        config.twitch.take();
+    }
+
+    match (osu.unwrap_or(false), twitch.unwrap_or(false)) {
+        (false, false) => handle_no_links(&ctx, command, config).await,
+        (true, false) => handle_osu_link(&ctx, command, config).await,
+        (false, true) => handle_twitch_link(&ctx, command, config).await,
+        (true, true) => handle_both_links(&ctx, command, config).await,
+    }
+}
+
+fn osu_content(state: u8) -> String {
+    let config = CONFIG.get().unwrap();
+
+    format!(
+        "{emote} [Click here](https://osu.ppy.sh/oauth/authorize?client_id={client_id}&\
+        response_type=code&scope=identify&redirect_uri={url}/auth/osu&state={state}) \
+        to authenticate your osu! profile",
+        emote = Emote::Osu.text(),
+        client_id = config.tokens.osu_client_id,
+        url = config.server.external_url,
+        state = state,
+    )
+}
+
+fn twitch_content(state: u8) -> String {
+    let config = CONFIG.get().unwrap();
+
+    format!(
+        "{emote} [Click here](https://id.twitch.tv/oauth2/authorize?client_id={client_id}\
+        &response_type=code&scope=user:read:email&redirect_uri={url}/auth/twitch\
+        &state={state}) to authenticate your twitch channel",
+        emote = Emote::Twitch.text(),
+        client_id = config.tokens.twitch_client_id,
+        url = config.server.external_url,
+        state = state,
+    )
+}
+
+async fn handle_both_links(
+    ctx: &Context,
+    command: ApplicationCommand,
+    mut config: UserConfig,
+) -> BotResult<()> {
+    let osu_fut = ctx.auth_standby.wait_for_osu();
+    let twitch_fut = ctx.auth_standby.wait_for_twitch();
+
+    let content = format!(
+        "{}\n{}",
+        osu_content(osu_fut.state),
+        twitch_content(twitch_fut.state)
+    );
+
+    let builder = MessageBuilder::new().embed(content);
+    let fut = async { tokio::try_join!(osu_fut, twitch_fut) };
+    let twitch_name;
+
+    match handle_ephemeral(&ctx, &command, builder, fut).await {
+        Some(Ok((osu, twitch))) => {
+            config.name = Some(osu.username.into());
+            config.twitch = Some(twitch.user_id);
+            twitch_name = Some(twitch.display_name);
+        }
+        Some(Err(why)) => return Err(why),
+        None => return Ok(()),
+    }
+
+    let author = command.author().ok_or(Error::MissingSlashAuthor)?;
+
+    if let Err(why) = ctx.psql().insert_user_config(author.id, &config).await {
+        let _ = command.error(ctx, GENERAL_ISSUE).await;
+
+        return Err(why);
+    }
+
+    let embed_data = ConfigEmbed::new(author, config, twitch_name);
+    let builder = embed_data.into_builder().build().into();
+    command.update_message(&ctx, builder).await?;
+
+    Ok(())
+}
+
+async fn handle_twitch_link(
+    ctx: &Context,
+    command: ApplicationCommand,
+    mut config: UserConfig,
+) -> BotResult<()> {
+    let fut = ctx.auth_standby.wait_for_twitch();
+    let builder = MessageBuilder::new().embed(twitch_content(fut.state));
+    let twitch_name;
+
+    match handle_ephemeral(&ctx, &command, builder, fut).await {
+        Some(Ok(user)) => {
+            config.twitch = Some(user.user_id);
+            twitch_name = Some(user.display_name);
+        }
+        Some(Err(why)) => return Err(why),
+        None => return Ok(()),
+    }
+
+    let author = command.author().ok_or(Error::MissingSlashAuthor)?;
+
+    if let Err(why) = ctx.psql().insert_user_config(author.id, &config).await {
+        let _ = command.error(ctx, GENERAL_ISSUE).await;
+
+        return Err(why);
+    }
+
+    let embed_data = ConfigEmbed::new(author, config, twitch_name);
+    let builder = embed_data.into_builder().build().into();
+    command.update_message(&ctx, builder).await?;
+
+    Ok(())
+}
+
+async fn handle_osu_link(
+    ctx: &Context,
+    command: ApplicationCommand,
+    mut config: UserConfig,
+) -> BotResult<()> {
+    let fut = ctx.auth_standby.wait_for_osu();
+    let builder = MessageBuilder::new().embed(osu_content(fut.state));
+
+    match handle_ephemeral(&ctx, &command, builder, fut).await {
+        Some(Ok(user)) => config.name = Some(user.username.into()),
+        Some(Err(why)) => return Err(why),
+        None => return Ok(()),
+    }
+
+    let author = command.author().ok_or(Error::MissingSlashAuthor)?;
+    let mut twitch_name = None;
+
+    if let Some(user_id) = config.twitch {
         match ctx.clients.twitch.get_user_by_id(user_id).await {
             Ok(Some(user)) => twitch_name = Some(user.display_name),
             Ok(None) => {
@@ -218,7 +220,7 @@ async fn _config(ctx: Arc<Context>, data: CommandData<'_>, args: ConfigArgs) -> 
                 config.twitch.take();
             }
             Err(why) => {
-                let _ = data.error(&ctx, TWITCH_API_ISSUE).await;
+                let _ = command.error(&ctx, TWITCH_API_ISSUE).await;
 
                 return Err(why.into());
             }
@@ -226,256 +228,97 @@ async fn _config(ctx: Arc<Context>, data: CommandData<'_>, args: ConfigArgs) -> 
     }
 
     if let Err(why) = ctx.psql().insert_user_config(author.id, &config).await {
-        let _ = data.error(&ctx, GENERAL_ISSUE).await;
+        let _ = command.error(ctx, GENERAL_ISSUE).await;
 
         return Err(why);
     }
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
     let builder = embed_data.into_builder().build().into();
-    data.create_message(&ctx, builder).await?;
+    command.update_message(&ctx, builder).await?;
 
     Ok(())
 }
 
-fn generate_validation_code() -> String {
-    let mut code = String::with_capacity(16);
-    code.push_str("Bathbot-");
-
-    let mut rng = rand::thread_rng();
-
-    for _ in 0..8 {
-        let _ = write!(code, "{}", rng.gen_range(0..10));
+async fn handle_ephemeral<T>(
+    ctx: &Context,
+    command: &ApplicationCommand,
+    builder: MessageBuilder<'_>,
+    fut: impl Future<Output = Result<T, AuthenticationStandbyError>>,
+) -> Option<BotResult<T>> {
+    if let Err(why) = command.create_message(ctx, builder).await {
+        return Some(Err(why));
     }
 
-    code
-}
-
-async fn validate_twitch(
-    ctx: &Context,
-    name: &str,
-    channel: ChannelId,
-    author: UserId,
-) -> BotResult<bool> {
-    let code = generate_validation_code();
-
-    let description = format!("I need to validate that the twitch channel `{}` is really yours.\n\
-    For that, you need to add the following code anywhere in your twitch channel __bio__:\n\
-    ```\n{}\n```\n\
-    Once you've done that, react to this message with :white_check_mark: so I'll verify that the channel's bio contains the code.\n\
-    After my validation you can remove the code again.\n\
-    To abort the validation you can react with :x:.", name, code);
-
-    let embed = EmbedBuilder::new().description(description).build();
-
-    let msg = ctx
-        .http
-        .create_message(channel)
-        .embeds(&[embed])?
-        .exec()
-        .await?
-        .model()
-        .await?;
-
-    let (validated, reply, color) = match wait_for_bio(ctx, name, msg.id, channel, author).await? {
-        Some(bio) if bio.contains(&code) => (true, "Success".into(), DARK_GREEN),
-        Some(bio) if bio.is_empty() => (
-            false,
-            "The channel's bio is currently empty and does not contain the code".into(),
-            RED,
-        ),
-        Some(bio) => {
-            let reply = format!(
-                "The channel's bio is currently\n\
-                ```\n\
-                {}\n\
-                ```\n\
-                and does not contain the code",
-                bio
-            );
-
-            (false, Cow::Owned(reply), RED)
-        }
-        None => (false, "Aborted".into(), DARK_GREEN),
+    let content = match fut.await {
+        Ok(res) => return Some(Ok(res)),
+        Err(AuthenticationStandbyError::Timeout) => "You did not authenticate in time",
+        Err(AuthenticationStandbyError::Canceled) => GENERAL_ISSUE,
     };
 
-    let embed = &[EmbedBuilder::new().description(reply).color(color).build()];
-    let response_fut = ctx.http.create_message(channel).embeds(embed)?;
+    let builder =
+        MessageBuilder::new().embed(EmbedBuilder::new().color(RED).description(content).build());
 
-    if let Err(why) = response_fut.reply(msg.id).exec().await {
-        warn!(
-            "Failed to send reply message for twitch validation: {}",
-            why
-        );
+    if let Err(why) = command.update_message(ctx, builder).await {
+        return Some(Err(why));
     }
 
-    Ok(validated)
+    None
 }
 
-async fn wait_for_bio(
+async fn handle_no_links(
     ctx: &Context,
-    name: &str,
-    msg: MessageId,
-    channel: ChannelId,
-    author: UserId,
-) -> BotResult<Option<String>> {
-    for name in &["✅", "❌"] {
-        let reaction = RequestReactionType::Unicode { name };
-        let reaction_fut = ctx.http.create_reaction(channel, msg, &reaction).exec();
+    command: ApplicationCommand,
+    mut config: UserConfig,
+) -> BotResult<()> {
+    let author = command.author().ok_or(Error::MissingSlashAuthor)?;
+    let mut twitch_name = None;
 
-        if let Err(why) = reaction_fut.await {
-            warn!(
-                "Failed to react with `{}` in twitch validation DM: {}",
-                name, why
-            );
+    if let Some(user_id) = config.twitch {
+        match ctx.clients.twitch.get_user_by_id(user_id).await {
+            Ok(Some(user)) => twitch_name = Some(user.display_name),
+            Ok(None) => {
+                debug!("No twitch user found for given id, remove from config");
+                config.twitch.take();
+            }
+            Err(why) => {
+                let _ = command.error(&ctx, TWITCH_API_ISSUE).await;
+
+                return Err(why.into());
+            }
         }
     }
 
-    let check = move |event: &ReactionAdd| {
-        if event.user_id != author {
-            return false;
-        }
+    if let Err(why) = ctx.psql().insert_user_config(author.id, &config).await {
+        let _ = command.error(ctx, GENERAL_ISSUE).await;
 
-        matches!(&event.0.emoji, ReactionType::Unicode { name } if name == "✅" || name == "❌")
-    };
-
-    let deadline = Duration::from_secs(120);
-
-    match timeout(deadline, ctx.standby.wait_for_reaction(msg, check)).await {
-        Ok(Ok(ReactionAdd(reaction))) => match reaction.emoji {
-            ReactionType::Unicode { name } if name == "✅" => {}
-            ReactionType::Unicode { name } if name == "❌" => return Ok(None),
-            _ => unreachable!(),
-        },
-        _ => return Ok(None),
+        return Err(why);
     }
 
-    match ctx.clients.twitch.get_user(name).await? {
-        Some(user) => Ok(Some(user.bio)),
-        None => {
-            let content = format!("No twitch user with the name `{}` was found", name);
-            let _ = (msg, channel).error(ctx, content).await;
+    let embed_data = ConfigEmbed::new(author, config, twitch_name);
+    let builder = embed_data.into_builder().build().into();
+    command.create_message(&ctx, builder).await?;
 
-            Ok(None)
-        }
-    }
+    Ok(())
 }
 
-struct ConfigArgs {
+#[derive(Default)]
+pub struct ConfigArgs {
     embeds_maximized: Option<bool>,
     mode: Option<Option<GameMode>>,
-    name: Option<Name>,
     profile_size: Option<ProfileSize>,
     show_retries: Option<bool>,
-    twitch: Option<Option<String>>,
+    pub osu: Option<bool>,
+    pub twitch: Option<bool>,
 }
 
 impl ConfigArgs {
-    fn args(args: &mut Args) -> Result<Self, Cow<'static, str>> {
-        let mut mode = None;
-        let mut name = None;
-        let mut profile_size = None;
-        let mut embeds_maximized = None;
-        let mut show_retries = None;
-        let mut twitch = None;
-
-        for arg in args.map(CowUtils::cow_to_ascii_lowercase) {
-            if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
-                let key = &arg[..idx];
-                let value = arg[idx + 1..].trim_end();
-
-                match key {
-                    "mode" | "gamemode" | "m" => match value {
-                        "none" => mode = Some(None),
-                        "osu" | "osu!" | "0" | "standard" | "std" => {
-                            mode = Some(Some(GameMode::STD))
-                        }
-                        "taiko" | "tko" | "1" => mode = Some(Some(GameMode::TKO)),
-                        "ctb" | "catch the beat" | "2" | "catch" => {
-                            mode = Some(Some(GameMode::CTB))
-                        }
-                        "mania" | "mna" | "3" => mode = Some(Some(GameMode::MNA)),
-                        _ => {
-                            let content = "Failed to parse `mode`. Must be either `osu`, `taiko`, `ctb`, or `mania`.";
-
-                            return Err(content.into());
-                        }
-                    },
-                    "name" | "username" | "n" | "u" => name = Some(value.into()),
-                    "twitch" | "t" => match value {
-                        "none" => twitch = Some(None),
-                        _ => twitch = Some(Some(value.to_owned())),
-                    },
-                    "embeds" | "recent" => {
-                        embeds_maximized = match value {
-                            "minimized" | "minimize" | "min" | "false" => Some(false),
-                            "maximized" | "maximize" | "max" | "true" => Some(true),
-                            _ => {
-                                let content = "Failed to parse `recent`. Must be either `minimized` or `maximized`.";
-
-                                return Err(content.into());
-                            }
-                        }
-                    }
-                    "retries" | "r" => match value {
-                        "show" => show_retries = Some(true),
-                        "hide" => show_retries = Some(false),
-                        _ => {
-                            let content =
-                                "Failed to parse `retries`. Must be either `show` or `hide`.";
-
-                            return Err(content.into());
-                        }
-                    },
-                    "profile" => match value {
-                        "compact" | "small" => profile_size = Some(ProfileSize::Compact),
-                        "medium" => profile_size = Some(ProfileSize::Medium),
-                        "full" | "big" => profile_size = Some(ProfileSize::Full),
-                        _ => {
-                            let content = "Failed to parse `profile`. Must be either `compact`, `medium`, or `full`.";
-
-                            return Err(content.into());
-                        }
-                    },
-                    _ => {
-                        let content = format!(
-                            "Unrecognized option `{}`.\n\
-                            Available options are: `embeds`, `mode`, `name`, `profile`, `retries`, and `twitch`.",
-                            key
-                        );
-
-                        return Err(content.into());
-                    }
-                }
-            } else {
-                let content = format!(
-                    "All arguments must be of the form `key=value` (`{}` wasn't).\n\
-                    Available keys are: `embeds`, `mode`, `name`, `profile`, `retries`, and `twitch`.",
-                    arg
-                );
-
-                return Err(content.into());
-            }
-        }
-
-        let args = Self {
-            name,
-            mode,
-            profile_size,
-            embeds_maximized,
-            show_retries,
-            twitch,
-        };
-
-        Ok(args)
-    }
-
     fn slash(command: &mut ApplicationCommand) -> BotResult<Self> {
         let mut mode = None;
-        let mut username = None;
         let mut profile_size = None;
         let mut embeds_maximized = None;
         let mut show_retries = None;
+        let mut osu = None;
         let mut twitch = None;
 
         for option in command.yoink_options() {
@@ -507,19 +350,16 @@ impl ConfigArgs {
                         "hide" => show_retries = Some(false),
                         _ => bail_cmd_option!("config retries", string, value),
                     },
-                    "name" => username = Some(value.into()),
-                    "twitch" => match value.cow_to_ascii_lowercase().as_ref() {
-                        "none" => twitch = Some(None),
-                        _ => twitch = Some(Some(value)),
-                    },
                     _ => bail_cmd_option!("config", string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
                     bail_cmd_option!("config", integer, name)
                 }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("config", boolean, name)
-                }
+                CommandDataOption::Boolean { name, value } => match name.as_str() {
+                    "osu" => osu = Some(value),
+                    "twitch" => twitch = Some(value),
+                    _ => bail_cmd_option!("config", boolean, name),
+                },
                 CommandDataOption::SubCommand { name, .. } => {
                     bail_cmd_option!("config", subcommand, name)
                 }
@@ -528,10 +368,10 @@ impl ConfigArgs {
 
         let args = Self {
             mode,
-            name: username,
             profile_size,
             embeds_maximized,
             show_retries,
+            osu,
             twitch,
         };
 
@@ -542,7 +382,7 @@ impl ConfigArgs {
 pub async fn slash_config(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
     let args = ConfigArgs::slash(&mut command)?;
 
-    _config(ctx, command.into(), args).await
+    config_(ctx, command, args).await
 }
 
 pub fn slash_config_command() -> Command {
@@ -554,10 +394,14 @@ pub fn slash_config_command() -> Command {
         description: "Adjust your default configuration for commands".to_owned(),
         id: None,
         options: vec![
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a username".to_owned(),
-                name: "name".to_owned(),
+            CommandOption::Boolean(BaseCommandOptionData {
+                description: "Specify whether you want to link to an osu! profile (choose `false` to unlink)".to_owned(),
+                name: "osu".to_owned(),
+                required: false,
+            }),
+            CommandOption::Boolean(BaseCommandOptionData {
+                description: "Specify whether you want to link to a twitch channel (choose `false` to unlink)".to_owned(),
+                name: "twitch".to_owned(),
                 required: false,
             }),
             CommandOption::String(ChoiceCommandOptionData {
@@ -634,12 +478,6 @@ pub fn slash_config_command() -> Command {
                 ],
                 description: "Should the amount of retries be shown for the `recent` command?".to_owned(),
                 name: "retries".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a twitch channel name to link to (will DM you for specifics)".to_owned(),
-                name: "twitch".to_owned(),
                 required: false,
             }),
         ],

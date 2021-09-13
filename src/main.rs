@@ -304,7 +304,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
 
     // Spawn server worker
     let server_ctx = Arc::clone(&ctx);
-    tokio::spawn(core::run_server(server_ctx, rx));
+    tokio::spawn(core::server::run_server(server_ctx, rx));
 
     // Spawn twitch worker
     let twitch_ctx = Arc::clone(&ctx);

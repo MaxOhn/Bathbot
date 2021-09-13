@@ -74,8 +74,8 @@ async fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
 pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> BotResult<()> {
     let owner = data.author()?.id;
 
-    let channel = if let Some(channel) = ctx.cache.private_channel(owner) {
-        channel
+    let channel_id = if let Some(channel) = ctx.cache.private_channel(owner) {
+        channel.id
     } else {
         let channel = match ctx.http.create_private_channel(owner).exec().await {
             Ok(channel_res) => match channel_res.model().await {
@@ -95,9 +95,10 @@ pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> B
             }
         };
 
-        ctx.cache.cache_private_channel(channel.clone());
+        let id = channel.id;
+        ctx.cache.cache_private_channel(channel);
 
-        channel
+        id
     };
 
     let guild_id = data.guild_id();
@@ -132,7 +133,7 @@ pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> B
 
         if size + next_size > DESCRIPTION_SIZE {
             let embed = &[EmbedBuilder::new().description(buf).build()];
-            let msg_fut = ctx.http.create_message(channel.id).embeds(embed)?;
+            let msg_fut = ctx.http.create_message(channel_id).embeds(embed)?;
 
             if let Err(why) = msg_fut.exec().await {
                 unwind_error!(warn, why, "Error while sending help chunk: {}");
@@ -155,7 +156,7 @@ pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> B
 
             if size + next_size > DESCRIPTION_SIZE {
                 let embed = &[EmbedBuilder::new().description(buf).build()];
-                let msg_fut = ctx.http.create_message(channel.id).embeds(embed)?;
+                let msg_fut = ctx.http.create_message(channel_id).embeds(embed)?;
 
                 if let Err(why) = msg_fut.exec().await {
                     unwind_error!(warn, why, "Error while sending help chunk: {}");
@@ -187,7 +188,7 @@ pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> B
 
     if !buf.is_empty() {
         let embed = &[EmbedBuilder::new().description(buf).build()];
-        let msg_fut = ctx.http.create_message(channel.id).embeds(embed)?;
+        let msg_fut = ctx.http.create_message(channel_id).embeds(embed)?;
 
         if let Err(why) = msg_fut.exec().await {
             unwind_error!(warn, why, "Error while sending help chunk: {}");

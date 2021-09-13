@@ -16,15 +16,17 @@ use twilight_model::{
         callback::{CallbackData, InteractionResponse},
         interaction::ApplicationCommand,
     },
+    channel::message::MessageFlags,
     guild::Permissions,
 };
 
 #[derive(Default)]
 struct CommandArgs {
     authority: bool,
+    bucket: Option<BucketName>,
+    ephemeral: bool,
     only_guilds: bool,
     only_owner: bool,
-    bucket: Option<BucketName>,
 }
 
 pub async fn handle_interaction(
@@ -49,7 +51,11 @@ pub async fn handle_interaction(
         "bws" => process_command(ctx, command, args, osu::slash_bws).await,
         "commands" => process_command(ctx, command, args, utility::slash_commands).await,
         "compare" => process_command(ctx, command, args, osu::slash_compare).await,
-        "config" => process_command(ctx, command, args, utility::slash_config).await,
+        "config" => {
+            args.ephemeral = true;
+
+            process_command(ctx, command, args, utility::slash_config).await
+        }
         "fix" => process_command(ctx, command, args, osu::slash_fix).await,
         "help" => {
             // Necessary to be able to use data.create_message later on
@@ -66,7 +72,11 @@ pub async fn handle_interaction(
         }
         "invite" => process_command(ctx, command, args, utility::slash_invite).await,
         "leaderboard" => process_command(ctx, command, args, osu::slash_leaderboard).await,
-        "link" => process_command(ctx, command, args, osu::slash_link).await,
+        "link" => {
+            args.ephemeral = true;
+
+            process_command(ctx, command, args, osu::slash_link).await
+        }
         "map" => process_command(ctx, command, args, osu::slash_map).await,
         "matchcost" => process_command(ctx, command, args, osu::slash_matchcost).await,
         "matchlive" => {
@@ -156,11 +166,17 @@ where
     F: Fn(Arc<Context>, ApplicationCommand) -> R,
     R: Future<Output = BotResult<()>>,
 {
+    let ephemeral = args.ephemeral;
+
     match pre_process_command(&ctx, &command, args).await? {
         Some(result) => Ok(result),
         None => {
             // Let discord know the command is now being processed
-            start_thinking(&ctx, &command).await?;
+            if ephemeral {
+                start_thinking_ephemeral(&ctx, &command).await?;
+            } else {
+                start_thinking(&ctx, &command).await?;
+            }
 
             // Call command function
             (fun)(ctx, command).await?;
@@ -177,6 +193,24 @@ async fn start_thinking(ctx: &Context, command: &ApplicationCommand) -> BotResul
         content: None,
         embeds: Vec::new(),
         flags: None,
+        tts: None,
+    });
+
+    ctx.http
+        .interaction_callback(command.id, &command.token, &response)
+        .exec()
+        .await?;
+
+    Ok(())
+}
+
+async fn start_thinking_ephemeral(ctx: &Context, command: &ApplicationCommand) -> BotResult<()> {
+    let response = InteractionResponse::DeferredChannelMessageWithSource(CallbackData {
+        allowed_mentions: None,
+        components: None,
+        content: None,
+        embeds: Vec::new(),
+        flags: Some(MessageFlags::EPHEMERAL),
         tts: None,
     });
 

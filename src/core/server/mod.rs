@@ -1,11 +1,18 @@
+mod auth;
 mod error;
 
+pub use auth::{
+    AuthenticationStandby, AuthenticationStandbyError, WaitForOsuAuth, WaitForTwitchAuth,
+};
 pub use error::ServerError;
 
 use crate::{
     twitch::{OAuthToken, TwitchData, TwitchUser},
-    util::error::TwitchError,
-    BotStats, Context, CONFIG,
+    util::{
+        constants::{TWITCH_OAUTH, TWITCH_USERS_ENDPOINT},
+        error::TwitchError,
+    },
+    Context, CONFIG,
 };
 
 use hyper::{
@@ -22,17 +29,16 @@ use std::{net::SocketAddr, sync::Arc};
 use tokio::sync::oneshot;
 
 pub async fn run_server(ctx: Arc<Context>, shutdown_rx: oneshot::Receiver<()>) {
-    // TODO: Uncomment
-    // if cfg!(debug_assertions) {
-    //     info!("Skip server on debug");
-    //
-    //     return;
-    // }
+    if cfg!(debug_assertions) {
+        info!("Skip server on debug");
 
-    let ip = CONFIG.get().unwrap().server_ip;
-    let port = CONFIG.get().unwrap().server_port;
-    let router = router(&ip, port, ctx);
+        return;
+    }
+
+    let ip = CONFIG.get().unwrap().server.internal_ip;
+    let port = CONFIG.get().unwrap().server.internal_port;
     let addr = SocketAddr::from((ip, port));
+    let router = router(ctx);
 
     let service = RouterService::new(router).expect("failed to create RouterService");
 
@@ -51,7 +57,7 @@ pub async fn run_server(ctx: Arc<Context>, shutdown_rx: oneshot::Receiver<()>) {
 
 struct Client(HyperClient<HttpsConnector<HttpConnector<GaiResolver>>, Body>);
 
-struct Stats(Arc<BotStats>);
+struct Context_(Arc<Context>);
 
 struct OsuClientId(u64);
 struct OsuClientSecret(String);
@@ -61,33 +67,24 @@ struct TwitchClientId(String);
 struct TwitchClientSecret(String);
 struct TwitchRedirect(String);
 
-fn router(ip: &[u8; 4], port: u16, ctx: Arc<Context>) -> Router<Body, ServerError> {
+fn router(ctx: Arc<Context>) -> Router<Body, ServerError> {
     let connector = HttpsConnector::with_native_roots();
     let client = HyperClient::builder().build(connector);
+    let config = CONFIG.get().unwrap();
 
-    let osu_client_id = CONFIG.get().unwrap().tokens.osu_client_id;
-    let osu_client_secret = CONFIG.get().unwrap().tokens.osu_client_secret.to_owned();
+    let osu_client_id = config.tokens.osu_client_id;
+    let osu_client_secret = config.tokens.osu_client_secret.to_owned();
 
-    let twitch_client_id = CONFIG.get().unwrap().tokens.twitch_client_id.to_owned();
-    let twitch_client_secret = CONFIG.get().unwrap().tokens.twitch_token.to_owned();
+    let twitch_client_id = config.tokens.twitch_client_id.to_owned();
+    let twitch_client_secret = config.tokens.twitch_token.to_owned();
 
-    let (osu_redirect, twitch_redirect) = if cfg!(debug_assertions) {
-        (
-            format!("http://localhost:{}/auth/osu", port),
-            format!("http://localhost:{}/auth/twitch", port),
-        )
-    } else {
-        let [a, b, c, d] = ip;
-
-        (
-            format!("https://{}.{}.{}.{}:{}/auth/osu", a, b, c, d, port),
-            format!("https://{}.{}.{}.{}:{}/auth/twitch", a, b, c, d, port),
-        )
-    };
+    let url = &config.server.external_url;
+    let osu_redirect = format!("{}/auth/osu", url);
+    let twitch_redirect = format!("{}/auth/twitch", url);
 
     Router::builder()
         .data(Client(client))
-        .data(Stats(Arc::clone(&ctx.stats)))
+        .data(Context_(ctx))
         .data(OsuClientId(osu_client_id))
         .data(OsuClientSecret(osu_client_secret))
         .data(OsuRedirect(osu_redirect))
@@ -105,7 +102,12 @@ fn router(ip: &[u8; 4], port: u16, ctx: Arc<Context>) -> Router<Body, ServerErro
 }
 
 async fn logger(req: Request<Body>) -> Result<Request<Body>, ServerError> {
-    debug!("{} {}", req.method(), req.uri().path());
+    debug!(
+        "{} {} {}",
+        req.remote_addr(),
+        req.method(),
+        req.uri().path()
+    );
 
     Ok(req)
 }
@@ -133,8 +135,8 @@ async fn handle_404(_req: Request<Body>) -> HandlerResult {
 async fn metrics_handler(req: Request<Body>) -> HandlerResult {
     let mut buffer = Vec::new();
     let encoder = TextEncoder::new();
-    let Stats(stats) = req.data().unwrap();
-    let metric_families = stats.registry.gather();
+    let Context_(ctx) = req.data().unwrap();
+    let metric_families = ctx.stats.registry.gather();
     encoder.encode(&metric_families, &mut buffer).unwrap();
 
     Ok(Response::new(Body::from(buffer)))
@@ -154,6 +156,23 @@ async fn auth_osu_handler(req: Request<Body>) -> HandlerResult {
         }
     };
 
+    let id_opt = query.and_then(|q| {
+        q.split('&')
+            .find(|q| q.starts_with("state="))
+            .map(|q| q[6..].parse())
+    });
+
+    let id = match id_opt {
+        Some(Ok(state)) => state,
+        None | Some(Err(_)) => {
+            let response = Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .body(Body::from("Require numeric 'state' parameter in query"))?;
+
+            return Ok(response);
+        }
+    };
+
     let OsuClientId(client_id) = req.data().unwrap();
     let OsuClientSecret(client_secret) = req.data().unwrap();
     let OsuRedirect(redirect) = req.data().unwrap();
@@ -166,8 +185,16 @@ async fn auth_osu_handler(req: Request<Body>) -> HandlerResult {
         .await?;
 
     let user = osu.own_data().await?;
-    let body = format!("osu! authorization successful, hi {} o/", user.username);
+
+    let body = format!(
+        "osu! authorization for bathbot was successful, hi {} o/",
+        user.username
+    );
+
     info!("Successful osu! authorization for `{}`", user.username);
+
+    let Context_(ctx) = req.data().unwrap();
+    ctx.auth_standby.process_osu(user, id);
 
     Ok(Response::new(Body::from(body)))
 }
@@ -186,15 +213,32 @@ async fn auth_twitch_handler(req: Request<Body>) -> HandlerResult {
         }
     };
 
+    let id_opt = query.and_then(|q| {
+        q.split('&')
+            .find(|q| q.starts_with("state="))
+            .map(|q| q[6..].parse())
+    });
+
+    let id = match id_opt {
+        Some(Ok(state)) => state,
+        None | Some(Err(_)) => {
+            let response = Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .body(Body::from("Require numeric 'state' parameter in query"))?;
+
+            return Ok(response);
+        }
+    };
+
     let TwitchClientId(client_id) = req.data().unwrap();
     let TwitchClientSecret(client_secret) = req.data().unwrap();
     let TwitchRedirect(redirect) = req.data().unwrap();
     let Client(client) = req.data().unwrap();
 
     let req_uri = format!(
-        "https://id.twitch.tv/oauth2/token?client_id={}&client_secret={}\
+        "{}?client_id={}&client_secret={}\
         &code={}&grant_type=authorization_code&redirect_uri={}",
-        client_id, client_secret, code, redirect
+        TWITCH_OAUTH, client_id, client_secret, code, redirect
     );
 
     let token_req = Request::post(req_uri).body(Body::empty())?;
@@ -216,7 +260,7 @@ async fn auth_twitch_handler(req: Request<Body>) -> HandlerResult {
         })
         .map(|token| format!("Bearer {}", token))?;
 
-    let user_req = Request::get("https://api.twitch.tv/helix/users")
+    let user_req = Request::get(TWITCH_USERS_ENDPOINT)
         .header(AUTHORIZATION, token)
         .header("Client-ID", client_id)
         .body(Body::empty())?;
@@ -237,7 +281,7 @@ async fn auth_twitch_handler(req: Request<Body>) -> HandlerResult {
         .ok_or(TwitchError::NoUser)?;
 
     let body = format!(
-        "twitch authorization successful, hi {} o/",
+        "twitch authorization for bathbot was successful, hi {} o/",
         user.display_name
     );
 
@@ -245,6 +289,9 @@ async fn auth_twitch_handler(req: Request<Body>) -> HandlerResult {
         "Successful twitch authorization for `{}`",
         user.display_name
     );
+
+    let Context_(ctx) = req.data().unwrap();
+    ctx.auth_standby.process_twitch(user, id);
 
     Ok(Response::new(Body::from(body)))
 }

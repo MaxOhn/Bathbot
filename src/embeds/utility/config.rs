@@ -39,14 +39,20 @@ impl ConfigEmbed {
 
         let mut description = String::with_capacity(256);
 
-        description.push_str("```\n");
+        description.push_str("```\nosu!: ");
 
         if let Some(name) = config.name {
-            let _ = writeln!(description, "osu!: {}", name);
+            let _ = writeln!(description, "{}", name);
+        } else {
+            description.push_str("-\n");
         }
 
+        description.push_str("Twitch: ");
+
         if let Some(name) = twitch {
-            let _ = writeln!(description, "Twitch: {}", name);
+            let _ = writeln!(description, "{}", name);
+        } else {
+            description.push_str("-\n");
         }
 
         let profile = config.profile_size.unwrap_or_default();

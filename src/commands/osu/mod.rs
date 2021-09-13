@@ -70,10 +70,7 @@ use std::{
     future::Future,
     ops::{AddAssign, Div},
 };
-use twilight_model::{
-    application::{command::CommandOptionChoice, interaction::ApplicationCommand},
-    channel::Message,
-};
+use twilight_model::application::command::CommandOptionChoice;
 
 enum ErrorType {
     Bot(Error),
@@ -240,29 +237,12 @@ where
 }
 
 async fn require_link(ctx: &Context, data: &CommandData<'_>) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, .. } => require_link_msg(ctx, msg).await,
-        CommandData::Interaction { command } => require_link_slash(ctx, command).await,
-    }
-}
+    // TODO: Remove temporary message again
+    // let content = "Either specify an osu! username or link yourself to an osu! profile via `/link`";
+    let content = "Due to a recent authorization update all links to osu! profiles were undone.\n\
+        Use the `/link` command to link yourself to an osu! profile.";
 
-async fn require_link_msg(ctx: &Context, msg: &Message) -> BotResult<()> {
-    let prefix = ctx.config_first_prefix(msg.guild_id).await;
-
-    let content = format!(
-        "Either specify an osu name or link your discord \
-        to an osu profile via `{}link \"osu! username\"`",
-        prefix
-    );
-
-    msg.error(ctx, content).await
-}
-
-async fn require_link_slash(ctx: &Context, command: &ApplicationCommand) -> BotResult<()> {
-    let content = "Either specify an osu name or link your discord \
-        to an osu profile with the `/link` command";
-
-    command.error(ctx, content).await
+    data.error(ctx, content).await
 }
 
 /// Be sure the whitespaces in the given name are __not__ replaced
