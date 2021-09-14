@@ -153,7 +153,7 @@ impl Game {
         let similarity = levenshtein_similarity(content, &self.title);
 
         // Then through longest common substrings (generally more lenient than levenshtein)
-        if similarity > 0.5 || gestalt_pattern_matching(content, &self.title) > 0.5 {
+        if similarity > 0.5 || gestalt_pattern_matching(content, &self.title) > 0.6 {
             return ContentResult::Title(false);
         }
 
