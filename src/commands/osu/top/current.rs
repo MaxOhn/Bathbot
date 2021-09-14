@@ -31,7 +31,7 @@ use twilight_model::{
     application::interaction::application_command::CommandDataOption, id::UserId,
 };
 
-pub(super) async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> BotResult<()> {
+pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> BotResult<()> {
     if args.index.filter(|n| *n > 100).is_some() {
         let content = "Can't have more than 100 top scores.";
 
@@ -742,7 +742,7 @@ impl Default for TopOrder {
     }
 }
 
-pub(super) struct TopArgs {
+pub struct TopArgs {
     config: UserConfig,
     mods: Option<ModSelection>,
     acc_min: Option<f32>,
@@ -750,7 +750,7 @@ pub(super) struct TopArgs {
     combo_min: Option<u32>,
     combo_max: Option<u32>,
     grade: Option<GradeArg>,
-    sort_by: TopOrder,
+    pub sort_by: TopOrder,
     reverse: bool,
     index: Option<usize>,
     has_dash_r: bool,
@@ -962,7 +962,7 @@ impl TopArgs {
         Ok(Ok(args))
     }
 
-    pub(super) async fn slash(
+    pub async fn slash(
         ctx: &Context,
         options: Vec<CommandDataOption>,
         author_id: UserId,
