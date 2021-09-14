@@ -137,7 +137,7 @@ async fn handle_both_links(
     let fut = async { tokio::try_join!(osu_fut, twitch_fut) };
     let twitch_name;
 
-    match handle_ephemeral(&ctx, &command, builder, fut).await {
+    match handle_ephemeral(ctx, &command, builder, fut).await {
         Some(Ok((osu, twitch))) => {
             config.name = Some(osu.username.into());
             config.twitch = Some(twitch.user_id);
@@ -157,7 +157,7 @@ async fn handle_both_links(
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
     let builder = embed_data.into_builder().build().into();
-    command.update_message(&ctx, builder).await?;
+    command.update_message(ctx, builder).await?;
 
     Ok(())
 }
@@ -171,7 +171,7 @@ async fn handle_twitch_link(
     let builder = MessageBuilder::new().embed(twitch_content(fut.state));
     let twitch_name;
 
-    match handle_ephemeral(&ctx, &command, builder, fut).await {
+    match handle_ephemeral(ctx, &command, builder, fut).await {
         Some(Ok(user)) => {
             config.twitch = Some(user.user_id);
             twitch_name = Some(user.display_name);
@@ -190,7 +190,7 @@ async fn handle_twitch_link(
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
     let builder = embed_data.into_builder().build().into();
-    command.update_message(&ctx, builder).await?;
+    command.update_message(ctx, builder).await?;
 
     Ok(())
 }
@@ -203,7 +203,7 @@ async fn handle_osu_link(
     let fut = ctx.auth_standby.wait_for_osu();
     let builder = MessageBuilder::new().embed(osu_content(fut.state));
 
-    match handle_ephemeral(&ctx, &command, builder, fut).await {
+    match handle_ephemeral(ctx, &command, builder, fut).await {
         Some(Ok(user)) => config.name = Some(user.username.into()),
         Some(Err(why)) => return Err(why),
         None => return Ok(()),
@@ -220,7 +220,7 @@ async fn handle_osu_link(
                 config.twitch.take();
             }
             Err(why) => {
-                let _ = command.error(&ctx, TWITCH_API_ISSUE).await;
+                let _ = command.error(ctx, TWITCH_API_ISSUE).await;
 
                 return Err(why.into());
             }
@@ -235,7 +235,7 @@ async fn handle_osu_link(
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
     let builder = embed_data.into_builder().build().into();
-    command.update_message(&ctx, builder).await?;
+    command.update_message(ctx, builder).await?;
 
     Ok(())
 }
@@ -282,7 +282,7 @@ async fn handle_no_links(
                 config.twitch.take();
             }
             Err(why) => {
-                let _ = command.error(&ctx, TWITCH_API_ISSUE).await;
+                let _ = command.error(ctx, TWITCH_API_ISSUE).await;
 
                 return Err(why.into());
             }
@@ -297,7 +297,7 @@ async fn handle_no_links(
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
     let builder = embed_data.into_builder().build().into();
-    command.create_message(&ctx, builder).await?;
+    command.create_message(ctx, builder).await?;
 
     Ok(())
 }

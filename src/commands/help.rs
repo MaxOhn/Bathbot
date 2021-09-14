@@ -47,14 +47,14 @@ async fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         |p| format!("Server prefix: {}\nDM prefix: `<` or none at all", p),
     );
 
-    format!(":fire: **Slash commands now supported!** Type `/` to test them out :fire:\n\n\
+    format!(":fire: **Slash commands now supported!** Type `/` to check them out :fire:\n\n\
         {prefix_desc}\n\
         __**General**__\n\
         - To find out more about a command like what arguments you can give or which shorter aliases it has, \
         use __**`{prefix}help [command]`**__, e.g. `{prefix}help simulate`.
         - If you want to specify an argument, e.g. a username, that contains \
         spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
-        - If you've used `{prefix}link \"osu! username\"`, you can omit the username for any command that needs one.\n\
+        - If you've used the `/link` command to connect to an osu! account, you can omit the username for any command that needs one.\n\
         - With the arrow reactions you can scroll through pages e.g. check an earlier play than the most recent one. \
         Note that generally only reactions of the response invoker (user who used command) will be processed.\n\
         - ~~`Strikethrough`~~ commands indicate that either you can't use them in DMs or \

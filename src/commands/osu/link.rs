@@ -51,7 +51,7 @@ pub async fn slash_link(ctx: Arc<Context>, mut command: ApplicationCommand) -> B
     args.osu = osu;
     args.twitch = twitch;
 
-    config_(ctx, command.into(), args).await
+    config_(ctx, command, args).await
 }
 
 pub fn slash_link_command() -> Command {
