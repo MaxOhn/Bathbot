@@ -40,7 +40,7 @@ features = ["rt_tokio_1"]
 version = "0.15"
 
 [dependencies.flexi_logger]
-version = "0.18"
+version = "0.19"
 default_features = false
 features = ["colors", "specfile", "compress"]
 
