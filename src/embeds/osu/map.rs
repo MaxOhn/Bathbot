@@ -1,5 +1,6 @@
 use super::calculate_od;
 use crate::{
+    core::CONFIG,
     embeds::{attachment, Author, EmbedFields, Footer},
     util::{
         constants::{AVATAR_URL, OSU_BASE},
@@ -46,10 +47,11 @@ impl MapEmbed {
         let _ = write!(title, "{} - {}", mapset.artist, mapset.title);
 
         let download_value = format!(
-            "[Mapset]({base}d/{mapset_id})\n\
+            "[osu!direct]({url}/osudirect/{mapset_id})\n\
+            [Mapset]({base}d/{mapset_id})\n\
             [No Video]({base}d/{mapset_id}n)\n\
-            [Beatconnect](https://beatconnect.io/b/{mapset_id})\n\
-            <osu://dl/{mapset_id}>",
+            [Beatconnect](https://beatconnect.io/b/{mapset_id})",
+            url = CONFIG.get().unwrap().server.external_url,
             base = OSU_BASE,
             mapset_id = map.mapset_id
         );

@@ -17,7 +17,7 @@ use crate::{
 
 use hyper::{
     client::{connect::dns::GaiResolver, HttpConnector},
-    header::AUTHORIZATION,
+    header::{AUTHORIZATION, LOCATION},
     server::Server,
     Body, Client as HyperClient, Request, Response, StatusCode,
 };
@@ -95,6 +95,7 @@ fn router(ctx: Arc<Context>) -> Router<Body, ServerError> {
         .get("/metrics", metrics_handler)
         .get("/auth/osu", auth_osu_handler)
         .get("/auth/twitch", auth_twitch_handler)
+        .get("/osudirect/:mapset_id", osudirect_handler)
         .any(handle_404)
         .err_handler(error_handler)
         .build()
@@ -294,4 +295,28 @@ async fn auth_twitch_handler(req: Request<Body>) -> HandlerResult {
     ctx.auth_standby.process_twitch(user, id);
 
     Ok(Response::new(Body::from(body)))
+}
+
+async fn osudirect_handler(req: Request<Body>) -> HandlerResult {
+    let mapset_id: u32 = match req.param("mapset_id").map(|id| id.parse()) {
+        Some(Ok(id)) => id,
+        Some(Err(_)) | None => {
+            let content = "The path following '/osudirect/' must be a numeric mapset id";
+
+            let response = Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .body(Body::from(content))?;
+
+            return Ok(response);
+        }
+    };
+
+    let location = format!("osu://dl/{}", mapset_id);
+
+    let response = Response::builder()
+        .status(StatusCode::PERMANENT_REDIRECT)
+        .header(LOCATION, location)
+        .body(Body::empty())?;
+
+    Ok(response)
 }
