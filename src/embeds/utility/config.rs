@@ -44,7 +44,7 @@ impl ConfigEmbed {
         if let Some(name) = config.name {
             let _ = writeln!(description, "{}", name);
         } else {
-            description.push_str("-\n");
+            description.push_str("- (set osu:True to link to your account)\n");
         }
 
         description.push_str("Twitch: ");
