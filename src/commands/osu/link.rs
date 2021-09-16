@@ -1,6 +1,6 @@
 use crate::{
     commands::utility::{config_, ConfigArgs},
-    util::{ApplicationCommandExt, MessageExt},
+    util::{constants::INVITE_LINK, ApplicationCommandExt, MessageExt},
     BotResult, CommandData, Context,
 };
 
@@ -15,8 +15,13 @@ use twilight_model::application::{
 async fn link(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, .. } => {
-            let content = "This command is deprecated and no longer works.\n\
-                Use the slash command `/link` instead.";
+            let content = format!(
+                "This command is deprecated and no longer works.\n\
+                Use the slash command `/link` instead.\n\
+                If slash commands are not available in your server, \
+                try [re-inviting the bot]({}).",
+                INVITE_LINK
+            );
 
             return msg.error(&ctx, content).await;
         }
