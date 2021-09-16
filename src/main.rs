@@ -149,33 +149,20 @@ async fn async_main() -> BotResult<()> {
     // Log custom client into osu!
     let custom = CustomClient::new().await?;
 
-    let clients = crate::core::Clients {
-        psql,
-        redis,
-        osu,
-        custom,
-        twitch,
-    };
-
-    // Boot everything up
-    run(http, clients).await
-}
-
-async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     // Guild configs
-    let guilds = clients.psql.get_guilds().await?;
+    let guilds = psql.get_guilds().await?;
 
     // Tracked streams
-    let tracked_streams = clients.psql.get_stream_tracks().await?;
+    let tracked_streams = psql.get_stream_tracks().await?;
 
     // Reaction-role-assign
-    let role_assigns = clients.psql.get_role_assigns().await?;
+    let role_assigns = psql.get_role_assigns().await?;
 
     // osu! top score tracking
-    let osu_tracking = OsuTracking::new(&clients.psql).await?;
+    let osu_tracking = OsuTracking::new(&psql).await?;
 
     // snipe countries
-    let snipe_countries = clients.psql.get_snipe_countries().await?;
+    let snipe_countries = psql.get_snipe_countries().await?;
 
     let data = crate::core::ContextData {
         guilds,
@@ -224,7 +211,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         .shard_scheme(ShardScheme::Auto);
 
     // Check for resume data, pass to builder if present
-    let (cache, resume_map) = Cache::new(&clients.redis).await;
+    let (cache, resume_map) = Cache::new(&redis).await;
     let resumed = if let Some(map) = resume_map {
         cb = cb.resume_sessions(map);
         info!("Cold resume successful");
@@ -236,10 +223,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         false
     };
 
-    let stats = Arc::new(BotStats::new(clients.osu.metrics(), cache.metrics()));
-
-    // Provide stats to locale address
-    let (tx, rx) = oneshot::channel();
+    let stats = Arc::new(BotStats::new(osu.metrics(), cache.metrics()));
 
     // Build cluster
     let (cluster, mut event_stream) = cb
@@ -259,10 +243,19 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         http.set_global_commands(&slash_commands)?.exec().await?;
     }
 
+    let clients = crate::core::Clients {
+        psql,
+        redis,
+        osu,
+        custom,
+        twitch,
+    };
+
     // Final context
     let ctx = Arc::new(Context::new(cache, stats, http, clients, cluster, data).await);
 
     // Setup graceful shutdown
+    let (tx, rx) = oneshot::channel();
     let shutdown_ctx = Arc::clone(&ctx);
 
     tokio::spawn(async move {
