@@ -1,3 +1,15 @@
+macro_rules! tracking_warn {
+    ($($arg:tt)+) => {
+        warn!(target: "{tracking}", $($arg)+)
+    }
+}
+
+macro_rules! tracking_debug {
+    ($($arg:tt)+) => {
+        debug!(target: "{tracking}", $($arg)+)
+    }
+}
+
 mod tracking_loop;
 
 pub use tracking_loop::{process_tracking, tracking_loop};
@@ -132,15 +144,19 @@ impl OsuTracking {
                 psql.update_osu_tracking(user_id, mode, new_date, &tracked_user.channels)
                     .await?;
             } else {
-                debug!(
+                tracking_debug!(
                     "[update_last_date] ({},{})'s date {} is already greater than {}",
-                    user_id, mode, tracked_user.last_top_score, new_date
+                    user_id,
+                    mode,
+                    tracked_user.last_top_score,
+                    new_date
                 );
             }
         } else {
-            debug!(
+            tracking_debug!(
                 "[update_last_date] ({},{}) not found in users",
-                user_id, mode
+                user_id,
+                mode
             );
         }
 
@@ -174,9 +190,12 @@ impl OsuTracking {
         let amount = (*self.cooldown.read() / ms_per_track).max(1.0);
         let delay = (ms_per_track * amount) as u64;
 
-        debug!(
+        tracking_debug!(
             "[Popping] All: {} ~ Last date: {:?} ~ Amount: {} ~ Delay: {}ms",
-            len, last_date, amount, delay
+            len,
+            last_date,
+            amount,
+            delay
         );
 
         time::sleep(time::Duration::from_millis(delay)).await;
@@ -205,7 +224,7 @@ impl OsuTracking {
         for mode in removed {
             let key = (user_id, mode);
 
-            debug!("Removing ({},{}) from tracking", user_id, mode);
+            tracking_debug!("Removing ({},{}) from tracking", user_id, mode);
             psql.remove_osu_tracking(user_id, mode).await?;
             self.queue.write().remove(&key);
             self.users.remove(&key);
@@ -238,7 +257,7 @@ impl OsuTracking {
 
             match entry.map(|guard| guard.value().channels.is_empty()) {
                 Some(true) => {
-                    debug!("Removing ({},{}) from tracking", user_id, mode);
+                    tracking_debug!("Removing ({},{}) from tracking", user_id, mode);
                     psql.remove_osu_tracking(user_id, mode).await?;
                     self.queue.write().remove(&key);
                     self.users.remove(&key);
@@ -251,7 +270,7 @@ impl OsuTracking {
                             .await?
                     }
                 }
-                None => warn!("Should not be reachable"),
+                None => tracking_warn!("Should not be reachable"),
             }
         }
 
@@ -288,7 +307,7 @@ impl OsuTracking {
             };
 
             if is_empty {
-                debug!("Removing {:?} from tracking (all)", key);
+                tracking_debug!("Removing {:?} from tracking (all)", key);
                 psql.remove_osu_tracking(key.0, key.1).await?;
                 self.queue.write().remove(&key);
                 self.users.remove(&key);
@@ -348,7 +367,7 @@ impl OsuTracking {
                 }
             },
             None => {
-                debug!("Inserting {:?} for tracking", key);
+                tracking_debug!("Inserting {:?} for tracking", key);
 
                 psql.insert_osu_tracking(user_id, mode, last_top_score, channel, limit)
                     .await?;

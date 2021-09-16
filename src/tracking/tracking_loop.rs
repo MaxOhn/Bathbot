@@ -63,18 +63,22 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
                     }
                 }
                 Err(OsuError::NotFound) => {
-                    warn!(
+                    tracking_warn!(
                         "404 response while retrieving user scores ({},{}) for tracking, don't reset entry",
                         user_id, mode
                     );
 
                     if let Err(why) = ctx.tracking().remove_user_all(user_id, ctx.psql()).await {
-                        unwind_error!(warn, why, "Failed to remove unknown user from tracking: {}");
+                        unwind_error!(
+                            tracking_warn,
+                            why,
+                            "Failed to remove unknown user from tracking: {}"
+                        );
                     }
                 }
                 Err(why) => {
                     unwind_error!(
-                        warn,
+                        tracking_warn,
                         why,
                         "API issue while retrieving user ({},{}) for tracking: {}",
                         user_id,
@@ -117,9 +121,12 @@ pub async fn process_tracking(
         None => return,
     };
 
-    debug!(
+    tracking_debug!(
         "[Tracking] ({},{}): last {} | curr {}",
-        user_id, mode, last, new_last
+        user_id,
+        mode,
+        last,
+        new_last
     );
 
     let mut user = TrackUser::new(user_id, mode, user);
@@ -129,16 +136,20 @@ pub async fn process_tracking(
         Ok(_) => {}
         Err(ErrorType::NotFound) => {
             if let Err(why) = ctx.tracking().remove_user_all(user_id, ctx.psql()).await {
-                unwind_error!(warn, why, "Failed to remove unknown user from tracking: {}");
+                unwind_error!(
+                    tracking_warn,
+                    why,
+                    "Failed to remove unknown user from tracking: {}"
+                );
             }
 
             return;
         }
         Err(ErrorType::Osu(why)) => {
-            unwind_error!(warn, why, "osu!api error while tracking: {}");
+            unwind_error!(tracking_warn, why, "osu!api error while tracking: {}");
 
             ctx.tracking().reset(user_id, mode);
-            debug!("[Tracking] Reset ({},{})", user_id, mode);
+            tracking_debug!("[Tracking] Reset ({},{})", user_id, mode);
 
             return;
         }
@@ -146,9 +157,12 @@ pub async fn process_tracking(
 
     // If new top score, update the date
     if new_last > last {
-        debug!(
+        tracking_debug!(
             "[Tracking] Updating for ({},{}): {} -> {}",
-            user_id, mode, last, new_last
+            user_id,
+            mode,
+            last,
+            new_last
         );
 
         let update_fut = ctx
@@ -157,7 +171,7 @@ pub async fn process_tracking(
 
         if let Err(why) = update_fut.await {
             unwind_error!(
-                warn,
+                tracking_warn,
                 why,
                 "Error while updating tracking date for user ({},{}): {}",
                 user_id,
@@ -167,7 +181,7 @@ pub async fn process_tracking(
     }
 
     ctx.tracking().reset(user_id, mode);
-    debug!("[Tracking] Reset ({},{})", user_id, mode);
+    tracking_debug!("[Tracking] Reset ({},{})", user_id, mode);
 }
 
 async fn score_loop(
@@ -190,15 +204,22 @@ async fn score_loop(
 
         if requires_combo {
             if let Err(why) = prepare_score(ctx, score).await {
-                unwind_error!(warn, why, "Failed to fill in max combo for tracking: {}");
+                unwind_error!(
+                    tracking_warn,
+                    why,
+                    "Failed to fill in max combo for tracking: {}"
+                );
 
                 continue;
             }
         }
 
-        debug!(
+        tracking_debug!(
             "[New top score] ({},{}): new {} | old {}",
-            user.user_id, user.mode, score.created_at, last
+            user.user_id,
+            user.mode,
+            score.created_at,
+            last
         );
 
         // Send the embed to each tracking channel
@@ -224,23 +245,27 @@ async fn score_loop(
 
                                 if let Err(why) = remove_fut.await {
                                     unwind_error!(
-                                        warn,
+                                        tracking_warn,
                                         why,
                                         "Could not remove osu tracks from unknown channel {}: {}",
                                         channel
                                     );
                                 } else {
-                                    debug!("Removed osu tracking of unknown channel {}", channel);
+                                    tracking_debug!(
+                                        "Removed osu tracking of unknown channel {}",
+                                        channel
+                                    );
                                 }
                             } else {
-                                warn!(
+                                tracking_warn!(
                                     "Error from API while sending osu notif (channel {}): {}",
-                                    channel, error
+                                    channel,
+                                    error
                                 )
                             }
                         } else {
                             unwind_error!(
-                                warn,
+                                tracking_warn,
                                 why,
                                 "Error while sending osu notif (channel {}): {}",
                                 channel
@@ -249,7 +274,11 @@ async fn score_loop(
                     }
                 }
                 Err(why) => {
-                    unwind_error!(warn, why, "Invalid embed for osu!tracking notification: {}")
+                    unwind_error!(
+                        tracking_warn,
+                        why,
+                        "Invalid embed for osu!tracking notification: {}"
+                    )
                 }
             }
 
