@@ -21,14 +21,16 @@ pub(super) async fn _players(
 ) -> BotResult<()> {
     let owner = data.author()?.id;
 
-    params.mode = match ctx.user_config(owner).await {
-        Ok(config) => config.mode(params.mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+    if params.mode == GameMode::STD {
+        params.mode = match ctx.user_config(owner).await {
+            Ok(config) => config.mode.unwrap_or(GameMode::STD),
+            Err(why) => {
+                let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
-        }
-    };
+                return Err(why);
+            }
+        };
+    }
 
     // Retrieve leaderboard
     let (amount, players) = match prepare_players(&ctx, &mut params).await {

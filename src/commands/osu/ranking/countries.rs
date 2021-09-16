@@ -18,14 +18,16 @@ pub(super) async fn _countryranking(
 ) -> BotResult<()> {
     let author_id = data.author()?.id;
 
-    mode = match ctx.user_config(author_id).await {
-        Ok(config) => config.mode(mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+    if mode == GameMode::STD {
+        mode = match ctx.user_config(author_id).await {
+            Ok(config) => config.mode.unwrap_or(GameMode::STD),
+            Err(why) => {
+                let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
-        }
-    };
+                return Err(why);
+            }
+        };
+    }
 
     let mut ranking = match ctx.osu().country_rankings(mode).await {
         Ok(ranking) => ranking,

@@ -69,7 +69,7 @@ pub(super) async fn _playersnipelist(
         descending,
     } = args;
 
-    let name = match config.name {
+    let name = match config.osu_username {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -273,7 +273,7 @@ impl PlayerListArgs {
                 mods = Some(mods_);
             } else {
                 match Args::check_user_mention(ctx, arg.as_ref()).await? {
-                    Ok(name) => config.name = Some(name),
+                    Ok(name) => config.osu_username = Some(name),
                     Err(content) => return Ok(Err(content.into())),
                 }
             }

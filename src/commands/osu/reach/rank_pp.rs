@@ -27,7 +27,7 @@ pub(super) async fn _rank(
         rank,
     } = args;
 
-    let name = match config.name {
+    let name = match config.osu_username {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -173,7 +173,7 @@ pub async fn rank(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         CommandData::Message { msg, mut args, num } => {
             match RankPpArgs::args(&ctx, &mut args, msg.author.id).await {
                 Ok(Ok(mut rank_args)) => {
-                    rank_args.config.mode = Some(rank_args.config.mode(GameMode::STD));
+                    rank_args.config.mode.get_or_insert(GameMode::STD);
 
                     _rank(ctx, CommandData::Message { msg, args, num }, rank_args).await
                 }
@@ -354,13 +354,13 @@ impl RankPpArgs {
                             rank = Some(num);
                         } else {
                             match Args::check_user_mention(ctx, arg).await? {
-                                Ok(name) => config.name = Some(name),
+                                Ok(name) => config.osu_username = Some(name),
                                 Err(content) => return Ok(Err(content)),
                             }
                         }
                     } else {
                         match Args::check_user_mention(ctx, arg).await? {
-                            Ok(name) => config.name = Some(name),
+                            Ok(name) => config.osu_username = Some(name),
                             Err(content) => return Ok(Err(content)),
                         }
                     }
@@ -395,8 +395,10 @@ impl RankPpArgs {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
                     "mode" => config.mode = parse_mode_option!(value, "reach rank pp"),
-                    "name" => config.name = Some(value.into()),
-                    "discord" => config.name = parse_discord_option!(ctx, value, "reach rank pp"),
+                    "name" => config.osu_username = Some(value.into()),
+                    "discord" => {
+                        config.osu_username = parse_discord_option!(ctx, value, "reach rank pp")
+                    }
                     "country" => {
                         if value.len() == 2 && value.is_ascii() {
                             country = Some(value.into())

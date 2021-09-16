@@ -101,7 +101,7 @@ impl MedalCommandKind {
 
                         let name = match username {
                             Some(name) => Some(name),
-                            None => ctx.user_config(author_id).await?.name,
+                            None => ctx.user_config(author_id).await?.osu_username,
                         };
 
                         kind = Some(MedalCommandKind::Stats(name));
@@ -133,7 +133,7 @@ impl MedalCommandKind {
 
                         let name = match username {
                             Some(name) => Some(name),
-                            None => ctx.user_config(author_id).await?.name,
+                            None => ctx.user_config(author_id).await?.osu_username,
                         };
 
                         kind = Some(MedalCommandKind::Missing(name));

@@ -74,7 +74,7 @@ async fn fix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotResult<()> {
     let FixArgs { config, map, mods } = args;
 
-    let name = match config.name {
+    let name = match config.osu_username {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -449,7 +449,7 @@ impl FixArgs {
                 mods = Some(mods_);
             } else {
                 match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.name = Some(name),
+                    Ok(name) => config.osu_username = Some(name),
                     Err(content) => return Ok(Err(content)),
                 }
             }
@@ -469,8 +469,8 @@ impl FixArgs {
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => config.name = Some(value.into()),
-                    "discord" => config.name = parse_discord_option!(ctx, value, "fix"),
+                    "name" => config.osu_username = Some(value.into()),
+                    "discord" => config.osu_username = parse_discord_option!(ctx, value, "fix"),
                     "map" => match matcher::get_osu_map_id(&value)
                         .or_else(|| matcher::get_osu_mapset_id(&value))
                     {

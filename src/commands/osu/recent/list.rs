@@ -22,7 +22,7 @@ pub(super) async fn _recentlist(
 ) -> BotResult<()> {
     let RecentListArgs { config, grade } = args;
 
-    let name = match config.name {
+    let name = match config.osu_username {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -143,7 +143,7 @@ pub async fn recentlist(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         CommandData::Message { msg, mut args, num } => {
             match RecentListArgs::args(&ctx, &mut args, msg.author.id).await {
                 Ok(Ok(mut recent_args)) => {
-                    recent_args.config.mode = Some(recent_args.config.mode(GameMode::STD));
+                    recent_args.config.mode.get_or_insert(GameMode::STD);
 
                     _recentlist(ctx, CommandData::Message { msg, args, num }, recent_args).await
                 }
@@ -358,7 +358,7 @@ impl RecentListArgs {
                 }
             } else {
                 match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.name = Some(name),
+                    Ok(name) => config.osu_username = Some(name),
                     Err(content) => return Ok(Err(content.into())),
                 }
             }

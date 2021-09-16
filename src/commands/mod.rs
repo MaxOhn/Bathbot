@@ -42,7 +42,11 @@ macro_rules! parse_mode_option {
 macro_rules! parse_discord_option {
     ($ctx:ident, $value:ident, $location:literal) => {
         match $value.parse() {
-            Ok(id) => match $ctx.user_config(twilight_model::id::UserId(id)).await?.name {
+            Ok(id) => match $ctx
+                .user_config(twilight_model::id::UserId(id))
+                .await?
+                .osu_username
+            {
                 Some(name) => Some(name),
                 None => {
                     let content = format!("<@{}> is not linked to an osu profile", id);

@@ -34,7 +34,7 @@ async fn mostplayed(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                     }
                 },
                 None => match ctx.user_config(msg.author.id).await {
-                    Ok(config) => config.name,
+                    Ok(config) => config.osu_username,
                     Err(why) => {
                         let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
@@ -141,7 +141,7 @@ async fn parse_username(
 
     let name = match username {
         Some(name) => Some(name),
-        None => ctx.user_config(command.user_id()?).await?.name,
+        None => ctx.user_config(command.user_id()?).await?.osu_username,
     };
 
     Ok(Ok(name))

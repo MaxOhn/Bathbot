@@ -81,7 +81,7 @@ impl<'m> Args<'m> {
         arg: &str,
     ) -> BotResult<Result<Name, &'static str>> {
         match matcher::get_mention_user(arg) {
-            Some(id) => match ctx.user_config(UserId(id)).await?.name {
+            Some(id) => match ctx.user_config(UserId(id)).await?.osu_username {
                 Some(name) => Ok(Ok(name)),
                 None => Ok(Err("The specified user is not linked to an osu profile")),
             },

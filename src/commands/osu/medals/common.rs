@@ -210,7 +210,7 @@ impl CommonArgs {
 
         let name2 = match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
-                Some(id) => match ctx.user_config(UserId(id)).await?.name {
+                Some(id) => match ctx.user_config(UserId(id)).await?.osu_username {
                     Some(name) => name,
                     None => {
                         let content = format!("<@{}> is not linked to an osu profile", id);
@@ -225,7 +225,7 @@ impl CommonArgs {
 
         let args = match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
-                Some(id) => match ctx.user_config(UserId(id)).await?.name {
+                Some(id) => match ctx.user_config(UserId(id)).await?.osu_username {
                     Some(name) => Self {
                         name1: Some(name2),
                         name2: name,
@@ -242,7 +242,7 @@ impl CommonArgs {
                 },
             },
             None => Self {
-                name1: config.name,
+                name1: config.osu_username,
                 name2,
             },
         };
@@ -264,7 +264,7 @@ impl CommonArgs {
                     "name1" => name1 = Some(value.into()),
                     "name2" => name2 = Some(value.into()),
                     "discord1" => match value.parse() {
-                        Ok(id) => match ctx.user_config(UserId(id)).await?.name {
+                        Ok(id) => match ctx.user_config(UserId(id)).await?.osu_username {
                             Some(name) => name1 = Some(name),
                             None => {
                                 let content = format!("<@{}> is not linked to an osu profile", id);
@@ -275,7 +275,7 @@ impl CommonArgs {
                         Err(_) => bail_cmd_option!("medal common discord1", string, value),
                     },
                     "discord2" => match value.parse() {
-                        Ok(id) => match ctx.user_config(UserId(id)).await?.name {
+                        Ok(id) => match ctx.user_config(UserId(id)).await?.osu_username {
                             Some(name) => name2 = Some(name),
                             None => {
                                 let content = format!("<@{}> is not linked to an osu profile", id);
@@ -307,7 +307,7 @@ impl CommonArgs {
 
         let name1 = match name1 {
             Some(name) => Some(name),
-            None => ctx.user_config(author_id).await?.name,
+            None => ctx.user_config(author_id).await?.osu_username,
         };
 
         Ok(Ok(CommonArgs { name1, name2 }))

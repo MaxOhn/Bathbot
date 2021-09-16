@@ -32,7 +32,7 @@ async fn medalstats(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                     }
                 },
                 None => match ctx.user_config(msg.author.id).await {
-                    Ok(config) => config.name,
+                    Ok(config) => config.osu_username,
                     Err(why) => {
                         let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 

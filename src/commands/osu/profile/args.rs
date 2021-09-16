@@ -54,7 +54,7 @@ impl ProfileArgs {
                 }
             } else {
                 match Args::check_user_mention(ctx, arg.as_ref()).await? {
-                    Ok(name) => config.name = Some(name),
+                    Ok(name) => config.osu_username = Some(name),
                     Err(content) => return Ok(Err(content.into())),
                 }
             }
@@ -79,8 +79,8 @@ impl ProfileArgs {
                         "full" => config.profile_size = Some(ProfileSize::Full),
                         _ => bail_cmd_option!("profile size", string, value),
                     },
-                    "name" => config.name = Some(value.into()),
-                    "discord" => config.name = parse_discord_option!(ctx, value, "profile"),
+                    "name" => config.osu_username = Some(value.into()),
+                    "discord" => config.osu_username = parse_discord_option!(ctx, value, "profile"),
                     _ => bail_cmd_option!("profile", string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {

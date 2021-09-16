@@ -1,4 +1,4 @@
-CREATE TABLE user_configs (
+CREATE TABLE IF NOT EXISTS user_configs (
     user_id INT8 NOT NULL,
     config   JSON NOT NULL,
 

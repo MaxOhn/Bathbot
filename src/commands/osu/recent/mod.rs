@@ -59,9 +59,9 @@ impl RecentCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => config.name = Some(value.into()),
+                                    "name" => config.osu_username = Some(value.into()),
                                     "discord" => {
-                                        config.name =
+                                        config.osu_username =
                                             parse_discord_option!(ctx, value, "recent score")
                                     }
                                     "mode" => {
@@ -189,9 +189,9 @@ impl RecentCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => config.name = Some(value.into()),
+                                    "name" => config.osu_username = Some(value.into()),
                                     "discord" => {
-                                        config.name =
+                                        config.osu_username =
                                             parse_discord_option!(ctx, value, "recent list")
                                     }
                                     "mode" => {
@@ -263,7 +263,7 @@ impl RecentCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => config.name = Some(value.into()),
+                                    "name" => config.osu_username = Some(value.into()),
                                     "mods" => match value.parse() {
                                         Ok(m) => mods = Some(ModSelection::Include(m)),
                                         Err(_) => {
@@ -273,7 +273,7 @@ impl RecentCommandKind {
                                         }
                                     },
                                     "discord" => {
-                                        config.name =
+                                        config.osu_username =
                                             parse_discord_option!(ctx, value, "recent simulate")
                                     }
                                     "mode" => {

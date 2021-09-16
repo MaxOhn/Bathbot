@@ -67,7 +67,7 @@ macro_rules! parse_username {
 
         let name = match username {
             Some(name) => Some(name),
-            None => $ctx.user_config($author_id).await?.name,
+            None => $ctx.user_config($author_id).await?.osu_username,
         };
 
         Some(SnipeCommandKind::$variant(name))
@@ -321,8 +321,10 @@ async fn parse_player_list(
     for option in options {
         match option {
             CommandDataOption::String { name, value } => match name.as_str() {
-                "name" => config.name = Some(value.into()),
-                "discord" => config.name = parse_discord_option!(ctx, value, "snipe player list"),
+                "name" => config.osu_username = Some(value.into()),
+                "discord" => {
+                    config.osu_username = parse_discord_option!(ctx, value, "snipe player list")
+                }
                 "sort" => match value.as_str() {
                     "acc" => order = Some(SnipeScoreOrder::Accuracy),
                     "len" => order = Some(SnipeScoreOrder::Length),

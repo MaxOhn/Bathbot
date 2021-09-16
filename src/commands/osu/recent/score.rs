@@ -31,7 +31,7 @@ pub(super) async fn _recent(
         grade,
     } = args;
 
-    let name = match config.name {
+    let name = match config.osu_username {
         Some(ref name) => name.as_str(),
         None => return super::require_link(&ctx, &data).await,
     };
@@ -155,7 +155,7 @@ pub(super) async fn _recent(
     };
 
     let twitch_fut = async {
-        if let Some(user_id) = config.twitch {
+        if let Some(user_id) = config.twitch_id {
             retrieve_vod(&ctx, user_id, &*score, map).await
         } else {
             None
@@ -371,7 +371,7 @@ pub async fn recent(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         CommandData::Message { msg, mut args, num } => {
             match RecentArgs::args(&ctx, &mut args, msg.author.id, num).await {
                 Ok(Ok(mut recent_args)) => {
-                    recent_args.config.mode = Some(recent_args.config.mode(GameMode::STD));
+                    recent_args.config.mode.get_or_insert(GameMode::STD);
 
                     _recent(ctx, CommandData::Message { msg, args, num }, recent_args).await
                 }
@@ -600,7 +600,7 @@ impl RecentArgs {
                 }
             } else {
                 match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.name = Some(name),
+                    Ok(name) => config.osu_username = Some(name),
                     Err(content) => return Ok(Err(content.into())),
                 }
             }

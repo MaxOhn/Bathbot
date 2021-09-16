@@ -62,7 +62,7 @@ async fn _leaderboard(
     };
 
     let author_name = match ctx.user_config(author_id).await {
-        Ok(config) => config.name,
+        Ok(config) => config.osu_username,
         Err(why) => {
             unwind_error!(
                 warn,

@@ -41,7 +41,7 @@ impl ConfigEmbed {
 
         description.push_str("```\nosu!: ");
 
-        if let Some(name) = config.name {
+        if let Some(name) = config.osu_username {
             let _ = writeln!(description, "{}", name);
         } else {
             description.push_str("- (set osu:True to link to your account)\n");

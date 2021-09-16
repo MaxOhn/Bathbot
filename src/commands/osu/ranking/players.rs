@@ -27,14 +27,16 @@ pub(super) async fn _performanceranking(
     mut mode: GameMode,
     country_code: Option<CountryCode>,
 ) -> BotResult<()> {
-    mode = match ctx.user_config(data.author()?.id).await {
-        Ok(config) => config.mode(mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+    if mode == GameMode::STD {
+        mode = match ctx.user_config(data.author()?.id).await {
+            Ok(config) => config.mode.unwrap_or(GameMode::STD),
+            Err(why) => {
+                let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
-        }
-    };
+                return Err(why);
+            }
+        };
+    }
 
     let result = match country_code {
         Some(ref country) => {
@@ -56,14 +58,16 @@ pub(super) async fn _scoreranking(
     data: CommandData<'_>,
     mut mode: GameMode,
 ) -> BotResult<()> {
-    mode = match ctx.user_config(data.author()?.id).await {
-        Ok(config) => config.mode(mode),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+    if mode == GameMode::STD {
+        mode = match ctx.user_config(data.author()?.id).await {
+            Ok(config) => config.mode.unwrap_or(GameMode::STD),
+            Err(why) => {
+                let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
-        }
-    };
+                return Err(why);
+            }
+        };
+    }
 
     let result = ctx.osu().score_rankings(mode).await;
 

@@ -23,7 +23,7 @@ pub(super) async fn _scores(
     data: CommandData<'_>,
     args: ScoresArgs,
 ) -> BotResult<()> {
-    let name = match args.config.name {
+    let name = match args.config.osu_username {
         Some(ref name) => name.as_str(),
         None => return super::require_link(&ctx, &data).await,
     };
@@ -147,7 +147,7 @@ pub async fn osustatsglobals(ctx: Arc<Context>, data: CommandData) -> BotResult<
         CommandData::Message { msg, mut args, num } => {
             match ScoresArgs::args(&ctx, &mut args, msg.author.id).await {
                 Ok(Ok(mut params)) => {
-                    params.config.mode = Some(params.config.mode(GameMode::STD));
+                    params.config.mode.get_or_insert(GameMode::STD);
 
                     _scores(ctx, CommandData::Message { msg, args, num }, params).await
                 }
@@ -456,7 +456,7 @@ impl ScoresArgs {
                 mods = Some(mods_);
             } else {
                 match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.name = Some(name),
+                    Ok(name) => config.osu_username = Some(name),
                     Err(content) => return Ok(Err(content.into())),
                 }
             }
@@ -508,8 +508,10 @@ impl ScoresArgs {
                         "date" => order = Some(OsuStatsOrder::PlayDate),
                         _ => bail_cmd_option!("osustats scores sort", string, value),
                     },
-                    "name" => config.name = Some(value.into()),
-                    "discord" => config.name = parse_discord_option!(ctx, value, "osustats scores"),
+                    "name" => config.osu_username = Some(value.into()),
+                    "discord" => {
+                        config.osu_username = parse_discord_option!(ctx, value, "osustats scores")
+                    }
                     "min_acc" => match value.parse::<f32>() {
                         Ok(num) => acc_min = Some(num.max(0.0).min(100.0)),
                         Err(_) => {

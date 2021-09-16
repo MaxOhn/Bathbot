@@ -1,18 +1,19 @@
 use crate::{
+    commands::osu::ProfileSize,
     database::{GuildConfig, UserConfig},
-    BotResult, Database,
+    BotResult, Database, Name,
 };
 
 use dashmap::DashMap;
 use futures::stream::StreamExt;
-use sqlx::Error;
+use rosu_v2::prelude::GameMode;
 use twilight_model::id::{GuildId, UserId};
 
 impl Database {
     #[cold]
     pub async fn get_guilds(&self) -> BotResult<DashMap<GuildId, GuildConfig>> {
         let mut stream = sqlx::query!("SELECT * FROM guild_configs").fetch(&self.pool);
-        let guilds = DashMap::with_capacity(3000);
+        let guilds = DashMap::with_capacity(10_000);
 
         while let Some(entry) = stream.next().await.transpose()? {
             let guild_id: i64 = entry.guild_id;
@@ -44,23 +45,39 @@ impl Database {
 
     pub async fn get_user_config(&self, user_id: UserId) -> BotResult<Option<UserConfig>> {
         let query = sqlx::query!(
-            "SELECT config FROM user_configs WHERE user_id=$1",
+            "SELECT * FROM user_config WHERE discord_id=$1",
             user_id.0 as i64
         );
 
-        match query.fetch_one(&self.pool).await {
-            Ok(entry) => Ok(serde_json::from_value(entry.config)?).map(Some),
-            Err(Error::RowNotFound) => Ok(None),
-            Err(err) => Err(err.into()),
+        match query.fetch_optional(&self.pool).await? {
+            Some(entry) => {
+                let config = UserConfig {
+                    embeds_maximized: entry.embeds_maximized,
+                    mode: entry.mode.map(|mode| mode as u8).map(GameMode::from),
+                    osu_username: entry.osu_username.map(Name::from),
+                    profile_size: entry.profile_size.map(ProfileSize::from),
+                    show_retries: entry.show_retries,
+                    twitch_id: entry.twitch_id.map(|id| id as u64),
+                };
+
+                Ok(Some(config))
+            }
+            None => Ok(None),
         }
     }
 
     pub async fn insert_user_config(&self, user_id: UserId, config: &UserConfig) -> BotResult<()> {
         let query = sqlx::query!(
-            "INSERT INTO user_configs VALUES ($1,$2) 
-            ON CONFLICT (user_id) DO UPDATE SET config=$2",
+            "INSERT INTO user_config (discord_id,embeds_maximized,mode,osu_username,profile_size,show_retries,twitch_id)
+            VALUES ($1,$2,$3,$4,$5,$6,$7)
+            ON CONFLICT (discord_id) DO UPDATE SET embeds_maximized=$2,mode=$3,osu_username=$4,profile_size=$5,show_retries=$6,twitch_id=$7",
             user_id.0 as i64,
-            serde_json::to_value(config)?
+            config.embeds_maximized,
+            config.mode.map(|m| m as i16),
+            config.osu_username.as_deref(),
+            config.profile_size.map(|size| size as i16),
+            config.show_retries,
+            config.twitch_id.map(|id| id as i64)
         );
 
         query.execute(&self.pool).await?;

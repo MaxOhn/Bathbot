@@ -28,7 +28,7 @@ pub(super) async fn _recentleaderboard(
         mods,
     } = args;
 
-    let author_name = config.name;
+    let author_name = config.osu_username;
 
     let name = match name.as_ref().or_else(|| author_name.as_ref()) {
         Some(name) => name.as_str(),
@@ -208,7 +208,7 @@ pub async fn recentbelgianleaderboard(ctx: Arc<Context>, data: CommandData) -> B
         CommandData::Message { msg, mut args, num } => {
             match RecentLeaderboardArgs::args(&ctx, &mut args, msg.author.id, num).await {
                 Ok(Ok(mut recent_args)) => {
-                    recent_args.config.mode = Some(recent_args.config.mode(GameMode::STD));
+                    recent_args.config.mode.get_or_insert(GameMode::STD);
                     let data = CommandData::Message { msg, args, num };
 
                     _recentleaderboard(ctx, data, recent_args, true).await
@@ -340,7 +340,7 @@ pub async fn recentleaderboard(ctx: Arc<Context>, data: CommandData) -> BotResul
         CommandData::Message { msg, mut args, num } => {
             match RecentLeaderboardArgs::args(&ctx, &mut args, msg.author.id, num).await {
                 Ok(Ok(mut recent_args)) => {
-                    recent_args.config.mode = Some(recent_args.config.mode(GameMode::STD));
+                    recent_args.config.mode.get_or_insert(GameMode::STD);
                     let data = CommandData::Message { msg, args, num };
 
                     _recentleaderboard(ctx, data, recent_args, false).await

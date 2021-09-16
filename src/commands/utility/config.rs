@@ -76,11 +76,11 @@ pub async fn config_(
     }
 
     if let Some(false) = osu {
-        config.name.take();
+        config.osu_username.take();
     }
 
     if let Some(false) = twitch {
-        config.twitch.take();
+        config.twitch_id.take();
     }
 
     match (osu.unwrap_or(false), twitch.unwrap_or(false)) {
@@ -139,8 +139,8 @@ async fn handle_both_links(
 
     match handle_ephemeral(ctx, &command, builder, fut).await {
         Some(Ok((osu, twitch))) => {
-            config.name = Some(osu.username.into());
-            config.twitch = Some(twitch.user_id);
+            config.osu_username = Some(osu.username.into());
+            config.twitch_id = Some(twitch.user_id);
             twitch_name = Some(twitch.display_name);
         }
         Some(Err(why)) => return Err(why),
@@ -173,7 +173,7 @@ async fn handle_twitch_link(
 
     match handle_ephemeral(ctx, &command, builder, fut).await {
         Some(Ok(user)) => {
-            config.twitch = Some(user.user_id);
+            config.twitch_id = Some(user.user_id);
             twitch_name = Some(user.display_name);
         }
         Some(Err(why)) => return Err(why),
@@ -204,7 +204,7 @@ async fn handle_osu_link(
     let builder = MessageBuilder::new().embed(osu_content(fut.state));
 
     match handle_ephemeral(ctx, &command, builder, fut).await {
-        Some(Ok(user)) => config.name = Some(user.username.into()),
+        Some(Ok(user)) => config.osu_username = Some(user.username.into()),
         Some(Err(why)) => return Err(why),
         None => return Ok(()),
     }
@@ -212,12 +212,12 @@ async fn handle_osu_link(
     let author = command.author().ok_or(Error::MissingSlashAuthor)?;
     let mut twitch_name = None;
 
-    if let Some(user_id) = config.twitch {
+    if let Some(user_id) = config.twitch_id {
         match ctx.clients.twitch.get_user_by_id(user_id).await {
             Ok(Some(user)) => twitch_name = Some(user.display_name),
             Ok(None) => {
                 debug!("No twitch user found for given id, remove from config");
-                config.twitch.take();
+                config.twitch_id.take();
             }
             Err(why) => {
                 let _ = command.error(ctx, TWITCH_API_ISSUE).await;
@@ -274,12 +274,12 @@ async fn handle_no_links(
     let author = command.author().ok_or(Error::MissingSlashAuthor)?;
     let mut twitch_name = None;
 
-    if let Some(user_id) = config.twitch {
+    if let Some(user_id) = config.twitch_id {
         match ctx.clients.twitch.get_user_by_id(user_id).await {
             Ok(Some(user)) => twitch_name = Some(user.display_name),
             Ok(None) => {
                 debug!("No twitch user found for given id, remove from config");
-                config.twitch.take();
+                config.twitch_id.take();
             }
             Err(why) => {
                 let _ = command.error(ctx, TWITCH_API_ISSUE).await;

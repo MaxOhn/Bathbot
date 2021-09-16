@@ -37,7 +37,7 @@ async fn avatar(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                     }
                 },
                 None => match ctx.user_config(msg.author.id).await {
-                    Ok(config) => config.name,
+                    Ok(config) => config.osu_username,
                     Err(why) => {
                         let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
@@ -86,7 +86,7 @@ pub async fn slash_avatar(ctx: Arc<Context>, mut command: ApplicationCommand) ->
             CommandDataOption::String { name, value } => match name.as_str() {
                 "name" => username = Some(value.into()),
                 "discord" => match value.parse() {
-                    Ok(id) => match ctx.user_config(UserId(id)).await?.name {
+                    Ok(id) => match ctx.user_config(UserId(id)).await?.osu_username {
                         Some(name) => username = Some(name),
                         None => {
                             let content = format!("<@{}> is not linked to an osu profile", id);
@@ -109,7 +109,7 @@ pub async fn slash_avatar(ctx: Arc<Context>, mut command: ApplicationCommand) ->
 
     let name = match username {
         Some(name) => Some(name),
-        None => ctx.user_config(command.user_id()?).await?.name,
+        None => ctx.user_config(command.user_id()?).await?.osu_username,
     };
 
     _avatar(ctx, command.into(), name).await

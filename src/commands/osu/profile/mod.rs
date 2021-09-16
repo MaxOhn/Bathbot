@@ -31,7 +31,7 @@ use twilight_model::application::{
 async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -> BotResult<()> {
     let ProfileArgs { config } = args;
 
-    let name = match config.name {
+    let name = match config.osu_username {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -209,7 +209,7 @@ async fn osu(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         CommandData::Message { msg, mut args, num } => {
             match ProfileArgs::args(&ctx, &mut args, msg.author.id).await {
                 Ok(Ok(mut profile_args)) => {
-                    profile_args.config.mode = Some(profile_args.config.mode(GameMode::STD));
+                    profile_args.config.mode.get_or_insert(GameMode::STD);
 
                     _profile(ctx, CommandData::Message { msg, args, num }, profile_args).await
                 }

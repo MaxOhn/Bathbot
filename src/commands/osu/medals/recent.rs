@@ -193,7 +193,7 @@ impl RecentArgs {
                 Ok(name) => Some(name),
                 Err(content) => return Ok(Err(content)),
             },
-            None => ctx.user_config(author_id).await?.name,
+            None => ctx.user_config(author_id).await?.osu_username,
         };
 
         Ok(Ok(Self { name, index }))
@@ -229,7 +229,7 @@ impl RecentArgs {
 
         let name = match username {
             Some(name) => Some(name),
-            None => ctx.user_config(author_id).await?.name,
+            None => ctx.user_config(author_id).await?.osu_username,
         };
 
         Ok(Ok(RecentArgs { name, index }))
