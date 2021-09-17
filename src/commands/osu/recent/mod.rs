@@ -51,7 +51,7 @@ impl RecentCommandKind {
                     bail_cmd_option!("recent", boolean, name)
                 }
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "scores" => match RecentArgs::slash(ctx, options, author_id).await? {
+                    "score" => match RecentArgs::slash(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(RecentCommandKind::Score(args)),
                         Err(content) => return Ok(Err(content)),
                     },

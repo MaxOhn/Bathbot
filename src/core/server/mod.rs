@@ -115,7 +115,7 @@ async fn logger(req: Request<Body>) -> Result<Request<Body>, ServerError> {
 
 async fn error_handler(err: RouteError) -> Response<Body> {
     let err = &*err;
-    unwind_error!(error, err, "Error while handling request: {}");
+    unwind_error!(error, err, "Error while handling server request: {}");
 
     Response::builder()
         .status(StatusCode::INTERNAL_SERVER_ERROR)

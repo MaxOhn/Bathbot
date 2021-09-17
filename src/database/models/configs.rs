@@ -1,6 +1,6 @@
-use crate::{commands::osu::ProfileSize, Name};
+use crate::{commands::osu::ProfileSize, Context, Name};
 
-use rosu_v2::prelude::GameMode;
+use rosu_v2::prelude::{GameMode, User};
 use serde::{Deserialize, Serialize};
 use smallstr::SmallString;
 use smallvec::SmallVec;
@@ -44,6 +44,27 @@ pub struct UserConfig {
     pub profile_size: Option<ProfileSize>,
     pub show_retries: bool,
     pub twitch_id: Option<u64>,
+}
+
+impl UserConfig {
+    // * TODO: Use this wherever an osu!user was retrieved based on a config's osu_username.
+    // *       Currently only done for `/recent score`
+    /// Update the `UserConfig`'s DB entry's osu_username to fit `user.username`.
+    ///
+    /// Note that the `self.osu_username` won't be updated.
+    pub async fn update_osu(&self, ctx: &Context, user: &User) {
+        if let Some(ref name) = self.osu_username {
+            if name.as_str() == user.username.as_str() {
+                return;
+            }
+
+            let update_fut = ctx.psql().update_user_config_osu(&name, &user.username);
+
+            if let Err(why) = update_fut.await {
+                return unwind_error!(warn, why, "Failed to update username of UserConfig: {}");
+            }
+        }
+    }
 }
 
 impl<'c> FromRow<'c, PgRow> for UserConfig {

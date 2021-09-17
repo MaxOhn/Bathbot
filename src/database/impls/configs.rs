@@ -105,4 +105,17 @@ impl Database {
 
         Ok(())
     }
+
+    pub async fn update_user_config_osu(&self, old: &str, new: &str) -> BotResult<()> {
+        let query = sqlx::query!(
+            "UPDATE user_config SET osu_username=$1 WHERE osu_username=$2",
+            new,
+            old
+        );
+
+        query.execute(&self.pool).await?;
+        debug!("Replaced osu_username `{}` with `{}` in DB", old, new);
+
+        Ok(())
+    }
 }
