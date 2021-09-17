@@ -6,9 +6,9 @@ use crate::{
     twitch::TwitchVideo,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        MessageExt,
+        CowUtils, MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder,
+    Args, BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
 use rosu_v2::prelude::{
@@ -18,7 +18,9 @@ use rosu_v2::prelude::{
 };
 use std::{borrow::Cow, fmt::Write, mem, sync::Arc};
 use tokio::time::{sleep, Duration};
-use twilight_model::id::UserId;
+use twilight_model::{
+    application::interaction::application_command::CommandDataOption, id::UserId,
+};
 
 pub(super) async fn _recent(
     ctx: Arc<Context>,
@@ -27,13 +29,33 @@ pub(super) async fn _recent(
 ) -> BotResult<()> {
     let RecentArgs {
         config,
+        input_name,
         index,
         grade,
     } = args;
 
-    let name = match config.osu_username {
-        Some(ref name) => name.as_str(),
-        None => return super::require_link(&ctx, &data).await,
+    let mut twitch_id = None;
+
+    let name = match (&config.osu_username, &input_name) {
+        (Some(name), None) => {
+            twitch_id = Some(config.twitch_id);
+
+            name.as_str()
+        }
+        (Some(name_config), Some(name_input)) => {
+            let name_config_lower = name_config.cow_to_ascii_lowercase();
+            let name_input_lower = name_input.cow_to_ascii_lowercase();
+
+            if name_config_lower == name_input_lower {
+                twitch_id = Some(config.twitch_id);
+
+                name_config.as_str()
+            } else {
+                name_input.as_str()
+            }
+        }
+        (None, Some(name)) => name.as_str(),
+        (None, None) => return super::require_link(&ctx, &data).await,
     };
 
     let mode = config.mode.unwrap_or(GameMode::STD);
@@ -155,7 +177,21 @@ pub(super) async fn _recent(
     };
 
     let twitch_fut = async {
-        if let Some(user_id) = config.twitch_id {
+        let twitch_id = if let Some(id) = twitch_id {
+            id
+        } else {
+            match ctx.psql().get_user_config_by_osu(&user.username).await {
+                Ok(Some(config)) => config.twitch_id,
+                Ok(None) => None,
+                Err(why) => {
+                    unwind_error!(warn, why, "Failed to get config of input name: {}");
+
+                    None
+                }
+            }
+        };
+
+        if let Some(user_id) = twitch_id {
             retrieve_vod(&ctx, user_id, &*score, map).await
         } else {
             None
@@ -511,9 +547,10 @@ pub async fn recentctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 pub(super) struct RecentArgs {
-    pub config: UserConfig,
-    pub index: Option<usize>,
-    pub grade: Option<GradeArg>,
+    config: UserConfig,
+    input_name: Option<Name>,
+    index: Option<usize>,
+    grade: Option<GradeArg>,
 }
 
 impl RecentArgs {
@@ -527,7 +564,8 @@ impl RecentArgs {
         author_id: UserId,
         index: Option<usize>,
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut config = ctx.user_config(author_id).await?;
+        let config = ctx.user_config(author_id).await?;
+        let mut input_name = None;
         let mut grade = None;
         let mut passes = None;
 
@@ -600,7 +638,7 @@ impl RecentArgs {
                 }
             } else {
                 match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.osu_username = Some(name),
+                    Ok(name) => input_name = Some(name),
                     Err(content) => return Ok(Err(content.into())),
                 }
             }
@@ -630,6 +668,83 @@ impl RecentArgs {
 
         let args = Self {
             config,
+            input_name,
+            index,
+            grade,
+        };
+
+        Ok(Ok(args))
+    }
+
+    pub(super) async fn slash(
+        ctx: &Context,
+        options: Vec<CommandDataOption>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let mut config = ctx.user_config(author_id).await?;
+        let mut input_name = None;
+        let mut index = None;
+        let mut grade = None;
+
+        for option in options {
+            match option {
+                CommandDataOption::String { name, value } => match name.as_str() {
+                    "name" => input_name = Some(value.into()),
+                    "discord" => input_name = parse_discord_option!(ctx, value, "recent score"),
+                    "mode" => config.mode = parse_mode_option!(value, "recent score"),
+                    "grade" => match value.as_str() {
+                        "SS" => {
+                            grade = Some(GradeArg::Range {
+                                bot: Grade::X,
+                                top: Grade::XH,
+                            })
+                        }
+                        "S" => {
+                            grade = Some(GradeArg::Range {
+                                bot: Grade::S,
+                                top: Grade::SH,
+                            })
+                        }
+                        "A" => grade = Some(GradeArg::Single(Grade::A)),
+                        "B" => grade = Some(GradeArg::Single(Grade::B)),
+                        "C" => grade = Some(GradeArg::Single(Grade::C)),
+                        "D" => grade = Some(GradeArg::Single(Grade::D)),
+                        "F" => grade = Some(GradeArg::Single(Grade::F)),
+                        _ => bail_cmd_option!("recent score grade", string, value),
+                    },
+                    _ => bail_cmd_option!("recent score", string, name),
+                },
+                CommandDataOption::Integer { name, value } => match name.as_str() {
+                    "index" => index = Some(value.max(1).min(50) as usize),
+                    _ => bail_cmd_option!("recent score", integer, name),
+                },
+                CommandDataOption::Boolean { name, value } => match name.as_str() {
+                    "passes" => {
+                        if value {
+                            grade = match grade {
+                                Some(GradeArg::Single(Grade::F)) => None,
+                                Some(GradeArg::Single(_)) => grade,
+                                Some(GradeArg::Range { .. }) => grade,
+                                None => Some(GradeArg::Range {
+                                    bot: Grade::D,
+                                    top: Grade::XH,
+                                }),
+                            }
+                        } else {
+                            grade = Some(GradeArg::Single(Grade::F));
+                        }
+                    }
+                    _ => bail_cmd_option!("recent score", boolean, name),
+                },
+                CommandDataOption::SubCommand { name, .. } => {
+                    bail_cmd_option!("recent score", subcommand, name)
+                }
+            }
+        }
+
+        let args = Self {
+            config,
+            input_name,
             index,
             grade,
         };

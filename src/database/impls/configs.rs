@@ -66,6 +66,26 @@ impl Database {
         }
     }
 
+    pub async fn get_user_config_by_osu(&self, username: &str) -> BotResult<Option<UserConfig>> {
+        let query = sqlx::query!("SELECT * FROM user_config WHERE osu_username=$1", username);
+
+        match query.fetch_optional(&self.pool).await? {
+            Some(entry) => {
+                let config = UserConfig {
+                    embeds_maximized: entry.embeds_maximized,
+                    mode: entry.mode.map(|mode| mode as u8).map(GameMode::from),
+                    osu_username: entry.osu_username.map(Name::from),
+                    profile_size: entry.profile_size.map(ProfileSize::from),
+                    show_retries: entry.show_retries,
+                    twitch_id: entry.twitch_id.map(|id| id as u64),
+                };
+
+                Ok(Some(config))
+            }
+            None => Ok(None),
+        }
+    }
+
     pub async fn insert_user_config(&self, user_id: UserId, config: &UserConfig) -> BotResult<()> {
         let query = sqlx::query!(
             "INSERT INTO user_config (discord_id,embeds_maximized,mode,osu_username,profile_size,show_retries,twitch_id)

@@ -51,80 +51,10 @@ impl RecentCommandKind {
                     bail_cmd_option!("recent", boolean, name)
                 }
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "score" => {
-                        let mut config = ctx.user_config(author_id).await?;
-                        let mut index = None;
-                        let mut grade = None;
-
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => config.osu_username = Some(value.into()),
-                                    "discord" => {
-                                        config.osu_username =
-                                            parse_discord_option!(ctx, value, "recent score")
-                                    }
-                                    "mode" => {
-                                        config.mode = parse_mode_option!(value, "recent score")
-                                    }
-                                    "grade" => match value.as_str() {
-                                        "SS" => {
-                                            grade = Some(GradeArg::Range {
-                                                bot: Grade::X,
-                                                top: Grade::XH,
-                                            })
-                                        }
-                                        "S" => {
-                                            grade = Some(GradeArg::Range {
-                                                bot: Grade::S,
-                                                top: Grade::SH,
-                                            })
-                                        }
-                                        "A" => grade = Some(GradeArg::Single(Grade::A)),
-                                        "B" => grade = Some(GradeArg::Single(Grade::B)),
-                                        "C" => grade = Some(GradeArg::Single(Grade::C)),
-                                        "D" => grade = Some(GradeArg::Single(Grade::D)),
-                                        "F" => grade = Some(GradeArg::Single(Grade::F)),
-                                        _ => bail_cmd_option!("recent score grade", string, value),
-                                    },
-                                    _ => bail_cmd_option!("recent score", string, name),
-                                },
-                                CommandDataOption::Integer { name, value } => match name.as_str() {
-                                    "index" => index = Some(value.max(1).min(50) as usize),
-                                    _ => bail_cmd_option!("recent score", integer, name),
-                                },
-                                CommandDataOption::Boolean { name, value } => match name.as_str() {
-                                    "passes" => {
-                                        if value {
-                                            grade = match grade {
-                                                Some(GradeArg::Single(Grade::F)) => None,
-                                                Some(GradeArg::Single(_)) => grade,
-                                                Some(GradeArg::Range { .. }) => grade,
-                                                None => Some(GradeArg::Range {
-                                                    bot: Grade::D,
-                                                    top: Grade::XH,
-                                                }),
-                                            }
-                                        } else {
-                                            grade = Some(GradeArg::Single(Grade::F));
-                                        }
-                                    }
-                                    _ => bail_cmd_option!("recent score", boolean, name),
-                                },
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("recent score", subcommand, name)
-                                }
-                            }
-                        }
-
-                        let args = RecentArgs {
-                            config,
-                            index,
-                            grade,
-                        };
-
-                        kind = Some(RecentCommandKind::Score(args));
-                    }
+                    "scores" => match RecentArgs::slash(ctx, options, author_id).await? {
+                        Ok(args) => kind = Some(RecentCommandKind::Score(args)),
+                        Err(content) => return Ok(Err(content)),
+                    },
                     "best" => match TopArgs::slash(ctx, options, author_id).await? {
                         Ok(mut args) => {
                             args.sort_by = TopOrder::Date;
