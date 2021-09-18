@@ -13,6 +13,7 @@ use super::{
 };
 
 use crate::{
+    commands::SlashCommandBuilder,
     util::{matcher, ApplicationCommandExt, MessageExt},
     Args, BotResult, Context, Error, Name,
 };
@@ -269,165 +270,163 @@ pub async fn slash_compare(ctx: Arc<Context>, mut command: ApplicationCommand) -
 }
 
 pub fn slash_compare_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "compare".to_owned(),
-        default_permission: None,
-        description: "Compare a score, top scores, or profiles".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Compare a score".to_owned(),
-                name: "score".to_owned(),
-                options: vec![
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a map url or map id".to_owned(),
-                        name: "map".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord".to_owned(),
-                        required: false,
-                    }),
-                ],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Compare two profiles".to_owned(),
-                name: "profile".to_owned(),
-                options: vec![
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: super::mode_choices(),
-                        description: "Specify the gamemode".to_owned(),
-                        name: "mode".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name1".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name2".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord1".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord2".to_owned(),
-                        required: false,
-                    }),
-                ],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Compare common top scores".to_owned(),
-                name: "top".to_owned(),
-                options: vec![
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: super::mode_choices(),
-                        description: "Specify the gamemode".to_owned(),
-                        name: "mode".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name1".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name2".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name3".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord1".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord2".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord3".to_owned(),
-                        required: false,
-                    }),
-                ],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Compare most played maps".to_owned(),
-                name: "mostplayed".to_owned(),
-                options: vec![
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: super::mode_choices(),
-                        description: "Specify the gamemode".to_owned(),
-                        name: "mode".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name1".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name2".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name3".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord1".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord2".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord3".to_owned(),
-                        required: false,
-                    }),
-                ],
-                required: false,
-            }),
-        ],
-    }
+    let description = "Compare a score, top scores, or profiles";
+
+    let options = vec![
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Compare a score".to_owned(),
+            name: "score".to_owned(),
+            options: vec![
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a username".to_owned(),
+                    name: "name".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a map url or map id".to_owned(),
+                    name: "map".to_owned(),
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord".to_owned(),
+                    required: false,
+                }),
+            ],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Compare two profiles".to_owned(),
+            name: "profile".to_owned(),
+            options: vec![
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: super::mode_choices(),
+                    description: "Specify the gamemode".to_owned(),
+                    name: "mode".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a username".to_owned(),
+                    name: "name1".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a username".to_owned(),
+                    name: "name2".to_owned(),
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord1".to_owned(),
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord2".to_owned(),
+                    required: false,
+                }),
+            ],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Compare common top scores".to_owned(),
+            name: "top".to_owned(),
+            options: vec![
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: super::mode_choices(),
+                    description: "Specify the gamemode".to_owned(),
+                    name: "mode".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a username".to_owned(),
+                    name: "name1".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a username".to_owned(),
+                    name: "name2".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a username".to_owned(),
+                    name: "name3".to_owned(),
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord1".to_owned(),
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord2".to_owned(),
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord3".to_owned(),
+                    required: false,
+                }),
+            ],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Compare most played maps".to_owned(),
+            name: "mostplayed".to_owned(),
+            options: vec![
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: super::mode_choices(),
+                    description: "Specify the gamemode".to_owned(),
+                    name: "mode".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a username".to_owned(),
+                    name: "name1".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a username".to_owned(),
+                    name: "name2".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a username".to_owned(),
+                    name: "name3".to_owned(),
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord1".to_owned(),
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord2".to_owned(),
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord3".to_owned(),
+                    required: false,
+                }),
+            ],
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("compare", description)
+        .options(options)
+        .build()
 }

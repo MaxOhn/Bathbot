@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     embeds::{EmbedData, InviteEmbed},
     util::{constants::BATHBOT_WORKSHOP, MessageExt},
     BotResult, CommandData, Context, MessageBuilder,
@@ -23,13 +24,5 @@ pub async fn slash_invite(ctx: Arc<Context>, command: ApplicationCommand) -> Bot
 }
 
 pub fn slash_invite_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "invite".to_owned(),
-        default_permission: None,
-        description: "Invite me to your server".to_owned(),
-        id: None,
-        options: Vec::new(),
-    }
+    SlashCommandBuilder::new("invite", "Invite me to your server").build()
 }

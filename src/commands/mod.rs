@@ -78,7 +78,42 @@ use utility::*;
 
 use crate::{core::CommandGroup, util::Emote};
 
-use twilight_model::application::command::Command;
+use twilight_model::application::command::{Command, CommandOption, CommandType};
+
+struct SlashCommandBuilder {
+    name: String,
+    description: String,
+    options: Option<Vec<CommandOption>>,
+}
+
+impl SlashCommandBuilder {
+    fn new(name: &str, description: &str) -> Self {
+        Self {
+            name: name.to_owned(),
+            description: description.to_owned(),
+            options: None,
+        }
+    }
+
+    fn options(mut self, options: Vec<CommandOption>) -> Self {
+        self.options = Some(options);
+
+        self
+    }
+
+    fn build(self) -> Command {
+        Command {
+            application_id: None,
+            guild_id: None,
+            name: self.name,
+            default_permission: None,
+            description: self.description,
+            id: None,
+            kind: CommandType::ChatInput,
+            options: self.options.unwrap_or_default(),
+        }
+    }
+}
 
 pub fn command_groups() -> [CommandGroup; 11] {
     [

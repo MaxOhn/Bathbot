@@ -1,5 +1,8 @@
 use crate::{
-    commands::utility::{config_, ConfigArgs},
+    commands::{
+        utility::{config_, ConfigArgs},
+        SlashCommandBuilder,
+    },
     util::{constants::INVITE_LINK, ApplicationCommandExt, MessageExt},
     BotResult, CommandData, Context,
 };
@@ -60,24 +63,26 @@ pub async fn slash_link(ctx: Arc<Context>, mut command: ApplicationCommand) -> B
 }
 
 pub fn slash_link_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "link".to_owned(),
-        default_permission: None,
-        description: "(Un)Link your discord to an osu! or twitch account".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::Boolean(BaseCommandOptionData {
-                description: "Specify whether you want to link to an osu! profile (choose `false` to unlink)".to_owned(),
-                name: "osu".to_owned(),
-                required: false,
-            }),
-            CommandOption::Boolean(BaseCommandOptionData {
-                description: "Specify whether you want to link to a twitch channel (choose `false` to unlink)".to_owned(),
-                name: "twitch".to_owned(),
-                required: false,
-            }),
-        ],
-    }
+    let description = "(Un)link your discord to an osu! or twitch account";
+
+    let options = vec![
+        CommandOption::Boolean(BaseCommandOptionData {
+            description:
+                "Specify whether you want to link to an osu! profile (choose `false` to unlink)"
+                    .to_owned(),
+            name: "osu".to_owned(),
+            required: false,
+        }),
+        CommandOption::Boolean(BaseCommandOptionData {
+            description:
+                "Specify whether you want to link to a twitch channel (choose `false` to unlink)"
+                    .to_owned(),
+            name: "twitch".to_owned(),
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("link", description)
+        .options(options)
+        .build()
 }

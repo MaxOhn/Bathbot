@@ -166,9 +166,9 @@ dependencies = [
 
 [[package]]
 name = "bumpalo"
-version = "3.7.0"
+version = "3.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c59e7af012c713f529e7a3ee57ce9b31ddd858d4b512923602f74608b009631"
+checksum = "d9df67f7bf9ef8498769f994239c45613ef0c5899415fb58e9add412d2c1a538"
 
 [[package]]
 name = "bytemuck"
@@ -599,9 +599,9 @@ dependencies = [
 
 [[package]]
 name = "flexi_logger"
-version = "0.19.3"
+version = "0.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b395737a58a1f2c6958aeb9c55dec28b7145abe9d087f71325e2c1293377fdc4"
+checksum = "35627d78fcea84d52181369fe48fcfce56a2a18e29443dba23d4c24b650fb107"
 dependencies = [
  "ansi_term",
  "atty",
@@ -1025,9 +1025,9 @@ checksum = "6456b8a6c8f33fee7d958fcd1b60d55b11940a79e63ae87013e6d22e26034440"
 
 [[package]]
 name = "hyper"
-version = "0.14.12"
+version = "0.14.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13f67199e765030fa08fe0bd581af683f0d5bc04ea09c2b1102012c5fb90e7fd"
+checksum = "15d1cfb9e4f68655fa04c01f59edb405b6074a0f7118ea881e5026e4a1cd8593"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -2014,7 +2014,7 @@ dependencies = [
 [[package]]
 name = "rosu-v2"
 version = "0.2.0"
-source = "git+https://github.com/MaxOhn/rosu-v2?branch=next#6741f9dc271b95ee650444be086df78613edb182"
+source = "git+https://github.com/MaxOhn/rosu-v2?branch=next#e7e19d3822f9d0d3450e5d2cee60b7456ff2bf6d"
 dependencies = [
  "bitflags",
  "bytes",
@@ -2771,9 +2771,9 @@ checksum = "360dfd1d6d30e05fda32ace2c8c70e9c0a9da713275777f5a4dbb8a1893930c6"
 
 [[package]]
 name = "tracing"
-version = "0.1.27"
+version = "0.1.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2ba9ab62b7d6497a8638dfda5e5c4fb3b2d5a7fca4118f2b96151c8ef1a437e"
+checksum = "84f96e095c0c82419687c20ddf5cb3eadb61f4e1405923c9dc8e53a1adacbda8"
 dependencies = [
  "cfg-if 1.0.0",
  "pin-project-lite",
@@ -2838,8 +2838,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-cache-inmemory"
-version = "0.6.1"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#defbedd183bc5cf1db81a07991964c477cbc2fb6"
+version = "0.6.3"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#0e3e03f7d4e298703cdc628f2c7ca4e89f891d82"
 dependencies = [
  "bitflags",
  "dashmap",
@@ -2854,8 +2854,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-gateway"
-version = "0.6.2"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#defbedd183bc5cf1db81a07991964c477cbc2fb6"
+version = "0.6.4"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#0e3e03f7d4e298703cdc628f2c7ca4e89f891d82"
 dependencies = [
  "bitflags",
  "flate2",
@@ -2875,7 +2875,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway-queue"
 version = "0.6.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#defbedd183bc5cf1db81a07991964c477cbc2fb6"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#0e3e03f7d4e298703cdc628f2c7ca4e89f891d82"
 dependencies = [
  "tokio",
  "tracing",
@@ -2884,8 +2884,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-http"
-version = "0.6.3"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#defbedd183bc5cf1db81a07991964c477cbc2fb6"
+version = "0.6.5"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#0e3e03f7d4e298703cdc628f2c7ca4e89f891d82"
 dependencies = [
  "hyper",
  "hyper-rustls",
@@ -2899,8 +2899,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-model"
-version = "0.6.2"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#defbedd183bc5cf1db81a07991964c477cbc2fb6"
+version = "0.6.4"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#0e3e03f7d4e298703cdc628f2c7ca4e89f891d82"
 dependencies = [
  "bitflags",
  "serde",
@@ -2911,8 +2911,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-standby"
-version = "0.6.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#defbedd183bc5cf1db81a07991964c477cbc2fb6"
+version = "0.6.2"
+source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#0e3e03f7d4e298703cdc628f2c7ca4e89f891d82"
 dependencies = [
  "dashmap",
  "futures-util",

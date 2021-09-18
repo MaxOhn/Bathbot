@@ -1,5 +1,6 @@
 use crate::{
     bail,
+    commands::SlashCommandBuilder,
     util::{
         constants::{GENERAL_ISSUE, OWNER_USER_ID},
         matcher, ApplicationCommandExt, MessageExt,
@@ -328,40 +329,38 @@ pub async fn slash_authorities(
 }
 
 pub fn slash_authorities_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "authorities".to_owned(),
-        default_permission: None,
-        description: "Adjust authority roles for a server".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Add authority status to a role".to_owned(),
-                name: "add".to_owned(),
-                options: vec![CommandOption::Role(BaseCommandOptionData {
-                    description: "Specify the role that should gain authority status".to_owned(),
-                    name: "role".to_owned(),
-                    required: true,
-                })],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Display all current authority roles".to_owned(),
-                name: "list".to_owned(),
-                options: vec![],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Remove authority status for a role".to_owned(),
-                name: "remove".to_owned(),
-                options: vec![CommandOption::Role(BaseCommandOptionData {
-                    description: "Specify the role that should lose authority status".to_owned(),
-                    name: "role".to_owned(),
-                    required: true,
-                })],
-                required: false,
-            }),
-        ],
-    }
+    let description = "Adjust authority roles for a server";
+
+    let options = vec![
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Add authority status to a role".to_owned(),
+            name: "add".to_owned(),
+            options: vec![CommandOption::Role(BaseCommandOptionData {
+                description: "Specify the role that should gain authority status".to_owned(),
+                name: "role".to_owned(),
+                required: true,
+            })],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Display all current authority roles".to_owned(),
+            name: "list".to_owned(),
+            options: vec![],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Remove authority status for a role".to_owned(),
+            name: "remove".to_owned(),
+            options: vec![CommandOption::Role(BaseCommandOptionData {
+                description: "Specify the role that should lose authority status".to_owned(),
+                name: "role".to_owned(),
+                required: true,
+            })],
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("authorities", description)
+        .options(options)
+        .build()
 }

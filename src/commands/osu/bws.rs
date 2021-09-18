@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     database::UserConfig,
     embeds::{BWSEmbed, EmbedData},
     util::{
@@ -221,37 +222,35 @@ pub async fn slash_bws(ctx: Arc<Context>, mut command: ApplicationCommand) -> Bo
 }
 
 pub fn slash_bws_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "bws".to_owned(),
-        default_permission: None,
-        description: "Show the badge weighted seeding for an osu!standard player".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a username".to_owned(),
-                name: "name".to_owned(),
-                required: false,
-            }),
-            CommandOption::Integer(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a target rank to reach".to_owned(),
-                name: "rank".to_owned(),
-                required: false,
-            }),
-            CommandOption::Integer(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify an amount of badges to reach".to_owned(),
-                name: "badges".to_owned(),
-                required: false,
-            }),
-            CommandOption::User(BaseCommandOptionData {
-                description: "Specify a linked discord user".to_owned(),
-                name: "discord".to_owned(),
-                required: false,
-            }),
-        ],
-    }
+    let description = "Show the badge weighted seeding for an osu!standard player";
+
+    let options = vec![
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a username".to_owned(),
+            name: "name".to_owned(),
+            required: false,
+        }),
+        CommandOption::Integer(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a target rank to reach".to_owned(),
+            name: "rank".to_owned(),
+            required: false,
+        }),
+        CommandOption::Integer(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify an amount of badges to reach".to_owned(),
+            name: "badges".to_owned(),
+            required: false,
+        }),
+        CommandOption::User(BaseCommandOptionData {
+            description: "Specify a linked discord user".to_owned(),
+            name: "discord".to_owned(),
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("bws", description)
+        .options(options)
+        .build()
 }

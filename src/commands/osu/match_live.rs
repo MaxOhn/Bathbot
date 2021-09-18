@@ -4,6 +4,7 @@ use twilight_model::application::{
 };
 
 use crate::{
+    commands::SlashCommandBuilder,
     core::MatchTrackResult,
     util::{
         constants::{OSU_API_ISSUE, OSU_BASE},
@@ -197,36 +198,32 @@ pub async fn slash_matchlive(ctx: Arc<Context>, mut command: ApplicationCommand)
 }
 
 pub fn slash_matchlive_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "matchlive".to_owned(),
-        default_permission: None,
-        description: "Live track a multiplayer match".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Start tracking a match".to_owned(),
-                name: "track".to_owned(),
-                options: vec![CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Specify a match url or match id".to_owned(),
-                    name: "match_url".to_owned(),
-                    required: true,
-                })],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Untrack a match".to_owned(),
-                name: "untrack".to_owned(),
-                options: vec![CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Specify a match url or match id".to_owned(),
-                    name: "match_url".to_owned(),
-                    required: true,
-                })],
-                required: false,
-            }),
-        ],
-    }
+    let options = vec![
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Start tracking a match".to_owned(),
+            name: "track".to_owned(),
+            options: vec![CommandOption::String(ChoiceCommandOptionData {
+                choices: vec![],
+                description: "Specify a match url or match id".to_owned(),
+                name: "match_url".to_owned(),
+                required: true,
+            })],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Untrack a match".to_owned(),
+            name: "untrack".to_owned(),
+            options: vec![CommandOption::String(ChoiceCommandOptionData {
+                choices: vec![],
+                description: "Specify a match url or match id".to_owned(),
+                name: "match_url".to_owned(),
+                required: true,
+            })],
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("matchlive", "Live track a multiplayer match")
+        .options(options)
+        .build()
 }

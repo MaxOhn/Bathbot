@@ -1,5 +1,6 @@
 use crate::{
     arguments::Args,
+    commands::SlashCommandBuilder,
     embeds::{AvatarEmbed, EmbedData},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -116,25 +117,21 @@ pub async fn slash_avatar(ctx: Arc<Context>, mut command: ApplicationCommand) ->
 }
 
 pub fn slash_avatar_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "avatar".to_owned(),
-        default_permission: None,
-        description: "Display someone's osu! profile picture".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a username".to_owned(),
-                name: "name".to_owned(),
-                required: false,
-            }),
-            CommandOption::User(BaseCommandOptionData {
-                description: "Specify a linked discord user".to_owned(),
-                name: "discord".to_owned(),
-                required: false,
-            }),
-        ],
-    }
+    let options = vec![
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a username".to_owned(),
+            name: "name".to_owned(),
+            required: false,
+        }),
+        CommandOption::User(BaseCommandOptionData {
+            description: "Specify a linked discord user".to_owned(),
+            name: "discord".to_owned(),
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("avatar", "Display someone's osu! profile picture")
+        .options(options)
+        .build()
 }

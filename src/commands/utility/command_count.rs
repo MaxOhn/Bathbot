@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     embeds::{CommandCounterEmbed, EmbedData},
     pagination::{CommandCountPagination, Pagination},
     util::{numbers, MessageExt},
@@ -60,13 +61,7 @@ pub async fn slash_commands(ctx: Arc<Context>, command: ApplicationCommand) -> B
 }
 
 pub fn slash_commands_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "commands".to_owned(),
-        default_permission: None,
-        description: "Display a list of popular commands".to_owned(),
-        id: None,
-        options: vec![],
-    }
+    let description = "Display a list of popular commands";
+
+    SlashCommandBuilder::new("commands", description).build()
 }

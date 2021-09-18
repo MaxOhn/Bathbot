@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     util::{ApplicationCommandExt, CowUtils, Matrix, MessageExt},
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
@@ -197,31 +198,27 @@ pub async fn slash_minesweeper(ctx: Arc<Context>, command: ApplicationCommand) -
 }
 
 pub fn slash_minesweeper_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "minesweeper".to_owned(),
-        default_permission: None,
-        description: "Play a game of minesweeper".to_owned(),
-        id: None,
-        options: vec![CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![
-                CommandOptionChoice::String {
-                    name: "Easy".to_owned(),
-                    value: "Easy".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "Medium".to_owned(),
-                    value: "Medium".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "Hard".to_owned(),
-                    value: "Hard".to_owned(),
-                },
-            ],
-            description: "Choose a difficulty".to_owned(),
-            name: "difficulty".to_owned(),
-            required: true,
-        })],
-    }
+    let options = vec![CommandOption::String(ChoiceCommandOptionData {
+        choices: vec![
+            CommandOptionChoice::String {
+                name: "Easy".to_owned(),
+                value: "Easy".to_owned(),
+            },
+            CommandOptionChoice::String {
+                name: "Medium".to_owned(),
+                value: "Medium".to_owned(),
+            },
+            CommandOptionChoice::String {
+                name: "Hard".to_owned(),
+                value: "Hard".to_owned(),
+            },
+        ],
+        description: "Choose a difficulty".to_owned(),
+        name: "difficulty".to_owned(),
+        required: true,
+    })];
+
+    SlashCommandBuilder::new("minesweeper", "Play a game of minesweeper")
+        .options(options)
+        .build()
 }

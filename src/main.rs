@@ -495,6 +495,12 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         Event::StageInstanceCreate(_) => {}
         Event::StageInstanceDelete(_) => {}
         Event::StageInstanceUpdate(_) => {}
+        Event::ThreadCreate(_) => {}
+        Event::ThreadDelete(_) => {}
+        Event::ThreadListSync(_) => {}
+        Event::ThreadMemberUpdate(_) => {}
+        Event::ThreadMembersUpdate(_) => {}
+        Event::ThreadUpdate(_) => {}
         Event::TypingStart(_) => {}
         Event::UnavailableGuild(_) => ctx.stats.event_counts.unavailable_guild.inc(),
         Event::UserUpdate(_) => ctx.stats.event_counts.user_update.inc(),

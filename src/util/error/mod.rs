@@ -27,7 +27,9 @@ use toml::de::Error as TomlError;
 use twilight_gateway::cluster::ClusterCommandError;
 use twilight_http::{
     request::{
-        application::{InteractionError, UpdateOriginalResponseError},
+        application::{
+            interaction::update_original_response::UpdateOriginalResponseError, InteractionError,
+        },
         channel::message::{
             create_message::CreateMessageError, update_message::UpdateMessageError,
         },

@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     embeds::{EmbedData, MatchCostEmbed},
     util::{constants::OSU_API_ISSUE, matcher, ApplicationCommandExt, MessageExt},
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
@@ -470,26 +471,24 @@ pub async fn slash_matchcost(ctx: Arc<Context>, mut command: ApplicationCommand)
 }
 
 pub fn slash_matchcost_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "matchcost".to_owned(),
-        default_permission: None,
-        description: "Display performance ratings for a multiplayer match".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a match url or match id".to_owned(),
-                name: "match_url".to_owned(),
-                required: true,
-            }),
-            CommandOption::Integer(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify the amount of warmups to ignore".to_owned(),
-                name: "warmups".to_owned(),
-                required: false,
-            }),
-        ],
-    }
+    let description = "Display performance ratings for a multiplayer match";
+
+    let options = vec![
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a match url or match id".to_owned(),
+            name: "match_url".to_owned(),
+            required: true,
+        }),
+        CommandOption::Integer(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify the amount of warmups to ignore".to_owned(),
+            name: "warmups".to_owned(),
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("matchcost", description)
+        .options(options)
+        .build()
 }

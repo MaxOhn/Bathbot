@@ -12,6 +12,7 @@ pub use stats::*;
 
 use super::{request_user, require_link};
 use crate::{
+    commands::SlashCommandBuilder,
     util::{ApplicationCommandExt, MessageExt},
     BotResult, Context, Error, Name,
 };
@@ -163,114 +164,112 @@ pub async fn slash_medal(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
 }
 
 pub fn slash_medal_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "medal".to_owned(),
-        default_permission: None,
-        description: "Info about a medal or users' medal progress".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Compare which of the given users achieved medals first".to_owned(),
-                name: "common".to_owned(),
-                options: vec![
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name1".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name2".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord1".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord2".to_owned(),
-                        required: false,
-                    }),
-                ],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Display info about an osu! medal".to_owned(),
-                name: "info".to_owned(),
-                options: vec![CommandOption::String(ChoiceCommandOptionData {
+    let description = "Info about a medal or users' medal progress";
+
+    let options = vec![
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Compare which of the given users achieved medals first".to_owned(),
+            name: "common".to_owned(),
+            options: vec![
+                CommandOption::String(ChoiceCommandOptionData {
                     choices: vec![],
-                    description: "Specify the name of the medal".to_owned(),
+                    description: "Specify a username".to_owned(),
+                    name: "name1".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a username".to_owned(),
+                    name: "name2".to_owned(),
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord1".to_owned(),
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord2".to_owned(),
+                    required: false,
+                }),
+            ],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Display info about an osu! medal".to_owned(),
+            name: "info".to_owned(),
+            options: vec![CommandOption::String(ChoiceCommandOptionData {
+                choices: vec![],
+                description: "Specify the name of the medal".to_owned(),
+                name: "name".to_owned(),
+                required: true,
+            })],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Display info about an osu! medal".to_owned(),
+            name: "missing".to_owned(),
+            options: vec![
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a username".to_owned(),
                     name: "name".to_owned(),
-                    required: true,
-                })],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Display info about an osu! medal".to_owned(),
-                name: "missing".to_owned(),
-                options: vec![
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord".to_owned(),
-                        required: false,
-                    }),
-                ],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Display a recently acquired medal of a user".to_owned(),
-                name: "recent".to_owned(),
-                options: vec![
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::Integer(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify an index e.g. 1 = most recent".to_owned(),
-                        name: "index".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord".to_owned(),
-                        required: false,
-                    }),
-                ],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Display medal stats for a user".to_owned(),
-                name: "stats".to_owned(),
-                options: vec![
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord".to_owned(),
-                        required: false,
-                    }),
-                ],
-                required: false,
-            }),
-        ],
-    }
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord".to_owned(),
+                    required: false,
+                }),
+            ],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Display a recently acquired medal of a user".to_owned(),
+            name: "recent".to_owned(),
+            options: vec![
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a username".to_owned(),
+                    name: "name".to_owned(),
+                    required: false,
+                }),
+                CommandOption::Integer(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify an index e.g. 1 = most recent".to_owned(),
+                    name: "index".to_owned(),
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord".to_owned(),
+                    required: false,
+                }),
+            ],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Display medal stats for a user".to_owned(),
+            name: "stats".to_owned(),
+            options: vec![
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a username".to_owned(),
+                    name: "name".to_owned(),
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord".to_owned(),
+                    required: false,
+                }),
+            ],
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("medal", description)
+        .options(options)
+        .build()
 }

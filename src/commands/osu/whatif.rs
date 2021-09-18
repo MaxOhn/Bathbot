@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     custom_client::RankParam,
     database::UserConfig,
     embeds::{EmbedData, WhatIfEmbed},
@@ -375,38 +376,36 @@ pub async fn slash_whatif(ctx: Arc<Context>, mut command: ApplicationCommand) ->
 }
 
 pub fn slash_whatif_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "whatif".to_owned(),
-        default_permission: None,
-        description: "Display the impact of a new X pp score for a user".to_owned(),
-        id: None,
-        options: vec![
-            // TODO: Number
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a pp amount".to_owned(),
-                name: "pp".to_owned(),
-                required: true,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: super::mode_choices(),
-                description: "Specify the gamemode".to_owned(),
-                name: "mode".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a username".to_owned(),
-                name: "name".to_owned(),
-                required: false,
-            }),
-            CommandOption::User(BaseCommandOptionData {
-                description: "Specify a linked discord user".to_owned(),
-                name: "discord".to_owned(),
-                required: false,
-            }),
-        ],
-    }
+    let description = "Display the impact of a new X pp score for a user";
+
+    let options = vec![
+        // TODO: Number
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a pp amount".to_owned(),
+            name: "pp".to_owned(),
+            required: true,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: super::mode_choices(),
+            description: "Specify the gamemode".to_owned(),
+            name: "mode".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a username".to_owned(),
+            name: "name".to_owned(),
+            required: false,
+        }),
+        CommandOption::User(BaseCommandOptionData {
+            description: "Specify a linked discord user".to_owned(),
+            name: "discord".to_owned(),
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("whatif", description)
+        .options(options)
+        .build()
 }

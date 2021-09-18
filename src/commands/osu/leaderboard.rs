@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     embeds::{EmbedData, LeaderboardEmbed},
     pagination::{LeaderboardPagination, Pagination},
     util::{
@@ -344,26 +345,22 @@ pub async fn slash_leaderboard(
 }
 
 pub fn slash_leaderboard_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "leaderboard".to_owned(),
-        default_permission: None,
-        description: "Display the global leaderboard of a map".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a map url or map id".to_owned(),
-                name: "map".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify mods".to_owned(),
-                name: "mods".to_owned(),
-                required: false,
-            }),
-        ],
-    }
+    let options = vec![
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a map url or map id".to_owned(),
+            name: "map".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify mods".to_owned(),
+            name: "mods".to_owned(),
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("leaderboard", "Display the global leaderboard of a map")
+        .options(options)
+        .build()
 }

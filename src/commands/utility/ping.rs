@@ -1,4 +1,7 @@
-use crate::{util::MessageExt, BotResult, CommandData, Context, MessageBuilder};
+use crate::{
+    commands::SlashCommandBuilder, util::MessageExt, BotResult, CommandData, Context,
+    MessageBuilder,
+};
 
 use std::{sync::Arc, time::Instant};
 use twilight_model::application::{command::Command, interaction::ApplicationCommand};
@@ -28,13 +31,5 @@ pub async fn slash_ping(ctx: Arc<Context>, command: ApplicationCommand) -> BotRe
 }
 
 pub fn slash_ping_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "ping".to_owned(),
-        default_permission: None,
-        description: "Check if I'm online".to_owned(),
-        id: None,
-        options: vec![],
-    }
+    SlashCommandBuilder::new("ping", "Check if I'm online").build()
 }

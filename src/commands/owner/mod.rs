@@ -19,6 +19,7 @@ pub use tracking_stats::*;
 pub use tracking_toggle::*;
 
 use crate::{
+    commands::SlashCommandBuilder,
     util::{ApplicationCommandExt, CountryCode},
     BotResult, Context, Error,
 };
@@ -249,103 +250,97 @@ pub async fn slash_owner(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
 }
 
 pub fn slash_owner_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "owner".to_owned(),
-        default_permission: None,
-        description: "You won't be able to use this :^)".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Display which channels are currently playing the bg game".to_owned(),
-                name: "active_bg".to_owned(),
-                options: vec![],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Add a country for snipe commands".to_owned(),
-                name: "add_country".to_owned(),
-                options: vec![
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify the country code".to_owned(),
-                        name: "code".to_owned(),
-                        required: true,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify the country name".to_owned(),
-                        name: "name".to_owned(),
-                        required: true,
-                    }),
-                ],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Display stats about the internal cache".to_owned(),
-                name: "cache".to_owned(),
-                options: vec![],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Change the game the bot is playing".to_owned(),
-                name: "change_game".to_owned(),
-                options: vec![CommandOption::String(ChoiceCommandOptionData {
+    let options = vec![
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Display which channels are currently playing the bg game".to_owned(),
+            name: "active_bg".to_owned(),
+            options: vec![],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Add a country for snipe commands".to_owned(),
+            name: "add_country".to_owned(),
+            options: vec![
+                CommandOption::String(ChoiceCommandOptionData {
                     choices: vec![],
-                    description: "Specify the game name, defaults to osu!".to_owned(),
-                    name: "game".to_owned(),
+                    description: "Specify the country code".to_owned(),
+                    name: "code".to_owned(),
                     required: true,
-                })],
-                required: false,
-            }),
-            CommandOption::SubCommandGroup(OptionsCommandOptionData {
-                description: "Stuff about osu! tracking".to_owned(),
-                name: "tracking".to_owned(),
-                options: vec![
-                    CommandOption::SubCommand(OptionsCommandOptionData {
-                        description: "Adjust the tracking cooldown".to_owned(),
-                        name: "cooldown".to_owned(),
-                        options: vec![
-                            // TODO: Number
-                            CommandOption::String(ChoiceCommandOptionData {
-                                choices: vec![],
-                                description:
-                                    "Specify the cooldown milliseconds, defaults to 5000.0"
-                                        .to_owned(),
-                                name: "number".to_owned(),
-                                required: true,
-                            }),
-                        ],
-                        required: false,
-                    }),
-                    CommandOption::SubCommand(OptionsCommandOptionData {
-                        description: "Adjust the tracking interval".to_owned(),
-                        name: "interval".to_owned(),
-                        options: vec![CommandOption::Integer(ChoiceCommandOptionData {
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify the country name".to_owned(),
+                    name: "name".to_owned(),
+                    required: true,
+                }),
+            ],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Display stats about the internal cache".to_owned(),
+            name: "cache".to_owned(),
+            options: vec![],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Change the game the bot is playing".to_owned(),
+            name: "change_game".to_owned(),
+            options: vec![CommandOption::String(ChoiceCommandOptionData {
+                choices: vec![],
+                description: "Specify the game name, defaults to osu!".to_owned(),
+                name: "game".to_owned(),
+                required: true,
+            })],
+            required: false,
+        }),
+        CommandOption::SubCommandGroup(OptionsCommandOptionData {
+            description: "Stuff about osu! tracking".to_owned(),
+            name: "tracking".to_owned(),
+            options: vec![
+                CommandOption::SubCommand(OptionsCommandOptionData {
+                    description: "Adjust the tracking cooldown".to_owned(),
+                    name: "cooldown".to_owned(),
+                    options: vec![
+                        // TODO: Number
+                        CommandOption::String(ChoiceCommandOptionData {
                             choices: vec![],
-                            description: "Specify the interval seconds, defaults to 7200"
+                            description: "Specify the cooldown milliseconds, defaults to 5000.0"
                                 .to_owned(),
                             name: "number".to_owned(),
                             required: true,
-                        })],
-                        required: false,
-                    }),
-                    CommandOption::SubCommand(OptionsCommandOptionData {
-                        description: "Display tracking stats".to_owned(),
-                        name: "stats".to_owned(),
-                        options: vec![],
-                        required: false,
-                    }),
-                    CommandOption::SubCommand(OptionsCommandOptionData {
-                        description: "Enable or disable tracking".to_owned(),
-                        name: "toggle".to_owned(),
-                        options: vec![],
-                        required: false,
-                    }),
-                ],
-                required: false,
-            }),
-        ],
-    }
+                        }),
+                    ],
+                    required: false,
+                }),
+                CommandOption::SubCommand(OptionsCommandOptionData {
+                    description: "Adjust the tracking interval".to_owned(),
+                    name: "interval".to_owned(),
+                    options: vec![CommandOption::Integer(ChoiceCommandOptionData {
+                        choices: vec![],
+                        description: "Specify the interval seconds, defaults to 7200".to_owned(),
+                        name: "number".to_owned(),
+                        required: true,
+                    })],
+                    required: false,
+                }),
+                CommandOption::SubCommand(OptionsCommandOptionData {
+                    description: "Display tracking stats".to_owned(),
+                    name: "stats".to_owned(),
+                    options: vec![],
+                    required: false,
+                }),
+                CommandOption::SubCommand(OptionsCommandOptionData {
+                    description: "Enable or disable tracking".to_owned(),
+                    name: "toggle".to_owned(),
+                    options: vec![],
+                    required: false,
+                }),
+            ],
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("owner", "You won't be able to use this :^)")
+        .options(options)
+        .build()
 }

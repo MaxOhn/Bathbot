@@ -58,7 +58,7 @@ impl UserConfig {
                 return;
             }
 
-            let update_fut = ctx.psql().update_user_config_osu(&name, &user.username);
+            let update_fut = ctx.psql().update_user_config_osu(name, &user.username);
 
             if let Err(why) = update_fut.await {
                 return unwind_error!(warn, why, "Failed to update username of UserConfig: {}");

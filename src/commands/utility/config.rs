@@ -1,5 +1,5 @@
 use crate::{
-    commands::osu::ProfileSize,
+    commands::{osu::ProfileSize, SlashCommandBuilder},
     core::{server::AuthenticationStandbyError, CONFIG},
     database::UserConfig,
     embeds::{ConfigEmbed, EmbedBuilder, EmbedData},
@@ -386,100 +386,98 @@ pub async fn slash_config(ctx: Arc<Context>, mut command: ApplicationCommand) ->
 }
 
 pub fn slash_config_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "config".to_owned(),
-        default_permission: None,
-        description: "Adjust your default configuration for commands".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::Boolean(BaseCommandOptionData {
-                description: "Specify whether you want to link to an osu! profile (choose `false` to unlink)".to_owned(),
-                name: "osu".to_owned(),
-                required: false,
-            }),
-            CommandOption::Boolean(BaseCommandOptionData {
-                description: "Specify whether you want to link to a twitch channel (choose `false` to unlink)".to_owned(),
-                name: "twitch".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![
-                    CommandOptionChoice::String {
-                        name: "none".to_owned(),
-                        value: "none".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "osu".to_owned(),
-                        value: "osu".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "taiko".to_owned(),
-                        value: "taiko".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "catch".to_owned(),
-                        value: "catch".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "mania".to_owned(),
-                        value: "mania".to_owned(),
-                    },
-                ],
-                description: "Specify a gamemode (NOTE: Only use for non-std modes if you NEVER use std commands)".to_owned(),
-                name: "mode".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![
-                    CommandOptionChoice::String {
-                        name: "compact".to_owned(),
-                        value: "compact".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "medium".to_owned(),
-                        value: "medium".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "full".to_owned(),
-                        value: "full".to_owned(),
-                    },
-                ],
-                description: "What initial size should the profile command be?".to_owned(),
-                name: "profile".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![
-                    CommandOptionChoice::String {
-                        name: "maximized".to_owned(),
-                        value: "maximized".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "minimized".to_owned(),
-                        value: "minimized".to_owned(),
-                    },
-                ],
-                description: "What initial size should the recent, compare, simulate, ... commands be?".to_owned(),
-                name: "embeds".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![
-                    CommandOptionChoice::String {
-                        name: "show".to_owned(),
-                        value: "show".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "hide".to_owned(),
-                        value: "hide".to_owned(),
-                    },
-                ],
-                description: "Should the amount of retries be shown for the `recent` command?".to_owned(),
-                name: "retries".to_owned(),
-                required: false,
-            }),
-        ],
-    }
+    let description = "Adjust your default configuration for commands";
+
+    let options = vec![
+        CommandOption::Boolean(BaseCommandOptionData {
+            description: "Specify whether you want to link to an osu! profile (choose `false` to unlink)".to_owned(),
+            name: "osu".to_owned(),
+            required: false,
+        }),
+        CommandOption::Boolean(BaseCommandOptionData {
+            description: "Specify whether you want to link to a twitch channel (choose `false` to unlink)".to_owned(),
+            name: "twitch".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![
+                CommandOptionChoice::String {
+                    name: "none".to_owned(),
+                    value: "none".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "osu".to_owned(),
+                    value: "osu".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "taiko".to_owned(),
+                    value: "taiko".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "catch".to_owned(),
+                    value: "catch".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "mania".to_owned(),
+                    value: "mania".to_owned(),
+                },
+            ],
+            description: "Specify a gamemode (NOTE: Only use for non-std modes if you NEVER use std commands)".to_owned(),
+            name: "mode".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![
+                CommandOptionChoice::String {
+                    name: "compact".to_owned(),
+                    value: "compact".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "medium".to_owned(),
+                    value: "medium".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "full".to_owned(),
+                    value: "full".to_owned(),
+                },
+            ],
+            description: "What initial size should the profile command be?".to_owned(),
+            name: "profile".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![
+                CommandOptionChoice::String {
+                    name: "maximized".to_owned(),
+                    value: "maximized".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "minimized".to_owned(),
+                    value: "minimized".to_owned(),
+                },
+            ],
+            description: "What initial size should the recent, compare, simulate, ... commands be?".to_owned(),
+            name: "embeds".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![
+                CommandOptionChoice::String {
+                    name: "show".to_owned(),
+                    value: "show".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "hide".to_owned(),
+                    value: "hide".to_owned(),
+                },
+            ],
+            description: "Should the amount of retries be shown for the `recent` command?".to_owned(),
+            name: "retries".to_owned(),
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("config", description)
+        .options(options)
+        .build()
 }

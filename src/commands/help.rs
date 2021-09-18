@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     core::{commands::CommandDataCompact, Command, CMD_GROUPS},
     embeds::{Author, EmbedBuilder, Footer},
     util::{
@@ -400,18 +401,16 @@ pub async fn slash_help(
 }
 
 pub fn slash_help_command() -> SlashCommand {
-    SlashCommand {
-        application_id: None,
-        guild_id: None,
-        name: "help".to_owned(),
-        default_permission: None,
-        description: "Display general help or help for a specific command".to_owned(),
-        id: None,
-        options: vec![CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a command name".to_owned(),
-            name: "command".to_owned(),
-            required: false,
-        })],
-    }
+    let description = "Display general help or help for a specific command";
+
+    let options = vec![CommandOption::String(ChoiceCommandOptionData {
+        choices: vec![],
+        description: "Specify a command name".to_owned(),
+        name: "command".to_owned(),
+        required: false,
+    })];
+
+    SlashCommandBuilder::new("help", description)
+        .options(options)
+        .build()
 }

@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     database::UserConfig,
     embeds::{EmbedData, FixScoreEmbed},
     tracking::process_tracking,
@@ -510,37 +511,35 @@ pub async fn slash_fix(ctx: Arc<Context>, mut command: ApplicationCommand) -> Bo
 }
 
 pub fn slash_fix_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "fix".to_owned(),
-        default_permission: None,
-        description: "Display a user's pp after unchoking their score on a map".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a username".to_owned(),
-                name: "name".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a map url or map id".to_owned(),
-                name: "map".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify mods".to_owned(),
-                name: "mods".to_owned(),
-                required: false,
-            }),
-            CommandOption::User(BaseCommandOptionData {
-                description: "Specify a linked discord user".to_owned(),
-                name: "discord".to_owned(),
-                required: false,
-            }),
-        ],
-    }
+    let description = "Display a user's pp after unchoking their score on a map";
+
+    let options = vec![
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a username".to_owned(),
+            name: "name".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a map url or map id".to_owned(),
+            name: "map".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify mods".to_owned(),
+            name: "mods".to_owned(),
+            required: false,
+        }),
+        CommandOption::User(BaseCommandOptionData {
+            description: "Specify a linked discord user".to_owned(),
+            name: "discord".to_owned(),
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("fix", description)
+        .options(options)
+        .build()
 }

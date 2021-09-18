@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     embeds::{EmbedData, RatioEmbed},
     tracking::process_tracking,
     util::{
@@ -140,25 +141,21 @@ pub async fn slash_ratio(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
 }
 
 pub fn slash_ratio_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "ratios".to_owned(),
-        default_permission: None,
-        description: "Ratio related stats about a user's mania top100".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a username".to_owned(),
-                name: "name".to_owned(),
-                required: false,
-            }),
-            CommandOption::User(BaseCommandOptionData {
-                description: "Specify a linked discord user".to_owned(),
-                name: "discord".to_owned(),
-                required: false,
-            }),
-        ],
-    }
+    let options = vec![
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a username".to_owned(),
+            name: "name".to_owned(),
+            required: false,
+        }),
+        CommandOption::User(BaseCommandOptionData {
+            description: "Specify a linked discord user".to_owned(),
+            name: "discord".to_owned(),
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("ratios", "Ratio related stats about a user's mania top100")
+        .options(options)
+        .build()
 }

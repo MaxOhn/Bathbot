@@ -10,7 +10,10 @@ pub use simulate::*;
 
 use super::{ErrorType, GradeArg, _top, prepare_score, prepare_scores, request_user, require_link};
 use crate::{
-    commands::osu::{TopArgs, TopOrder},
+    commands::{
+        osu::{TopArgs, TopOrder},
+        SlashCommandBuilder,
+    },
     util::{osu::ModSelection, ApplicationCommandExt, MessageExt},
     BotResult, Context, Error,
 };
@@ -277,342 +280,338 @@ pub async fn slash_recent(ctx: Arc<Context>, mut command: ApplicationCommand) ->
 }
 
 pub fn slash_recent_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "recent".to_owned(),
-        default_permission: None,
-        description: "Display info about a user's recent play".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Show a user's recent score".to_owned(),
-                name: "score".to_owned(),
-                options: vec![
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: super::mode_choices(),
-                        description: "Specify the gamemode".to_owned(),
-                        name: "mode".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::Integer(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Choose the recent score's index e.g. 1 for most recent"
+    let options = vec![
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Show a user's recent score".to_owned(),
+            name: "score".to_owned(),
+            options: vec![
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: super::mode_choices(),
+                    description: "Specify the gamemode".to_owned(),
+                    name: "mode".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a username".to_owned(),
+                    name: "name".to_owned(),
+                    required: false,
+                }),
+                CommandOption::Integer(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Choose the recent score's index e.g. 1 for most recent"
+                        .to_owned(),
+                    name: "index".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![
+                        CommandOptionChoice::String {
+                            name: "SS".to_owned(),
+                            value: "SS".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "S".to_owned(),
+                            value: "S".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "A".to_owned(),
+                            value: "A".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "B".to_owned(),
+                            value: "B".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "C".to_owned(),
+                            value: "C".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "D".to_owned(),
+                            value: "D".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "F".to_owned(),
+                            value: "F".to_owned(),
+                        },
+                    ],
+                    description: "Consider only scores with this grade".to_owned(),
+                    name: "grade".to_owned(),
+                    required: false,
+                }),
+                CommandOption::Boolean(BaseCommandOptionData {
+                    description: "Specify whether only passes should be considered".to_owned(),
+                    name: "passes".to_owned(),
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord".to_owned(),
+                    required: false,
+                }),
+            ],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Display the user's current top100 sorted by date".to_owned(),
+            name: "best".to_owned(),
+            options: vec![
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: super::mode_choices(),
+                    description: "Specify a mode".to_owned(),
+                    name: "mode".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a username".to_owned(),
+                    name: "name".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description:
+                        "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)"
                             .to_owned(),
-                        name: "index".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![
-                            CommandOptionChoice::String {
-                                name: "SS".to_owned(),
-                                value: "SS".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "S".to_owned(),
-                                value: "S".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "A".to_owned(),
-                                value: "A".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "B".to_owned(),
-                                value: "B".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "C".to_owned(),
-                                value: "C".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "D".to_owned(),
-                                value: "D".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "F".to_owned(),
-                                value: "F".to_owned(),
-                            },
-                        ],
-                        description: "Consider only scores with this grade".to_owned(),
-                        name: "grade".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::Boolean(BaseCommandOptionData {
-                        description: "Specify whether only passes should be considered".to_owned(),
-                        name: "passes".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord".to_owned(),
-                        required: false,
-                    }),
-                ],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Display the user's current top100 sorted by date".to_owned(),
-                name: "best".to_owned(),
-                options: vec![
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: super::mode_choices(),
-                        description: "Specify a mode".to_owned(),
-                        name: "mode".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description:
-                            "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)"
-                                .to_owned(),
-                        name: "mods".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::Integer(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Choose a specific score index between 1 and 100".to_owned(),
-                        name: "index".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::Boolean(BaseCommandOptionData {
-                        description: "Reverse the resulting score list".to_owned(),
-                        name: "reverse".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![
-                            CommandOptionChoice::String {
-                                name: "SS".to_owned(),
-                                value: "SS".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "S".to_owned(),
-                                value: "S".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "A".to_owned(),
-                                value: "A".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "B".to_owned(),
-                                value: "B".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "C".to_owned(),
-                                value: "C".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "D".to_owned(),
-                                value: "D".to_owned(),
-                            },
-                        ],
-                        description: "Only scores with this grade".to_owned(),
-                        name: "grade".to_owned(),
-                        required: false,
-                    }),
-                ],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Show the leaderboard of a user's recently played map".to_owned(),
-                name: "leaderboard".to_owned(),
-                options: vec![
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: super::mode_choices(),
-                        description: "Specify the gamemode".to_owned(),
-                        name: "mode".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify mods e.g. hdhr or nm".to_owned(),
-                        name: "mods".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::Integer(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Choose the recent score's index e.g. 1 for most recent"
-                            .to_owned(),
-                        name: "index".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord".to_owned(),
-                        required: false,
-                    }),
-                ],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Show all recent plays of a user".to_owned(),
-                name: "list".to_owned(),
-                options: vec![
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: super::mode_choices(),
-                        description: "Specify the gamemode".to_owned(),
-                        name: "mode".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![
-                            CommandOptionChoice::String {
-                                name: "SS".to_owned(),
-                                value: "SS".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "S".to_owned(),
-                                value: "S".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "A".to_owned(),
-                                value: "A".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "B".to_owned(),
-                                value: "B".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "C".to_owned(),
-                                value: "C".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "D".to_owned(),
-                                value: "D".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "F".to_owned(),
-                                value: "F".to_owned(),
-                            },
-                        ],
-                        description: "Only scores with this grade".to_owned(),
-                        name: "grade".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::Boolean(BaseCommandOptionData {
-                        description: "Specify whether the list should include only passes"
-                            .to_owned(),
-                        name: "passes".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord".to_owned(),
-                        required: false,
-                    }),
-                ],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Unchoke a user's recent score or simulate a play on its map"
-                    .to_owned(),
-                name: "simulate".to_owned(),
-                options: vec![
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: super::mode_choices(),
-                        description: "Specify the gamemode".to_owned(),
-                        name: "mode".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a username".to_owned(),
-                        name: "name".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify mods e.g. hdhr or nm".to_owned(),
-                        name: "mods".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::Integer(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Choose the recent score's index e.g. 1 for most recent"
-                            .to_owned(),
-                        name: "index".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::Integer(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify the amount of 300s".to_owned(),
-                        name: "n300".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::Integer(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify the amount of 100s".to_owned(),
-                        name: "n100".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::Integer(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify the amount of 50s".to_owned(),
-                        name: "n50".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::Integer(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify the amount of misses".to_owned(),
-                        name: "misses".to_owned(),
-                        required: false,
-                    }),
-                    // TODO: Number
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify the accuracy".to_owned(),
-                        name: "acc".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::Integer(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify the combo".to_owned(),
-                        name: "combo".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::Integer(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify the score (only relevant for mania)".to_owned(),
-                        name: "score".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::User(BaseCommandOptionData {
-                        description: "Specify a linked discord user".to_owned(),
-                        name: "discord".to_owned(),
-                        required: false,
-                    }),
-                ],
-                required: false,
-            }),
-        ],
-    }
+                    name: "mods".to_owned(),
+                    required: false,
+                }),
+                CommandOption::Integer(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Choose a specific score index between 1 and 100".to_owned(),
+                    name: "index".to_owned(),
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord".to_owned(),
+                    required: false,
+                }),
+                CommandOption::Boolean(BaseCommandOptionData {
+                    description: "Reverse the resulting score list".to_owned(),
+                    name: "reverse".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![
+                        CommandOptionChoice::String {
+                            name: "SS".to_owned(),
+                            value: "SS".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "S".to_owned(),
+                            value: "S".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "A".to_owned(),
+                            value: "A".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "B".to_owned(),
+                            value: "B".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "C".to_owned(),
+                            value: "C".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "D".to_owned(),
+                            value: "D".to_owned(),
+                        },
+                    ],
+                    description: "Only scores with this grade".to_owned(),
+                    name: "grade".to_owned(),
+                    required: false,
+                }),
+            ],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Show the leaderboard of a user's recently played map".to_owned(),
+            name: "leaderboard".to_owned(),
+            options: vec![
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: super::mode_choices(),
+                    description: "Specify the gamemode".to_owned(),
+                    name: "mode".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a username".to_owned(),
+                    name: "name".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify mods e.g. hdhr or nm".to_owned(),
+                    name: "mods".to_owned(),
+                    required: false,
+                }),
+                CommandOption::Integer(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Choose the recent score's index e.g. 1 for most recent"
+                        .to_owned(),
+                    name: "index".to_owned(),
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord".to_owned(),
+                    required: false,
+                }),
+            ],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Show all recent plays of a user".to_owned(),
+            name: "list".to_owned(),
+            options: vec![
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: super::mode_choices(),
+                    description: "Specify the gamemode".to_owned(),
+                    name: "mode".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a username".to_owned(),
+                    name: "name".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![
+                        CommandOptionChoice::String {
+                            name: "SS".to_owned(),
+                            value: "SS".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "S".to_owned(),
+                            value: "S".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "A".to_owned(),
+                            value: "A".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "B".to_owned(),
+                            value: "B".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "C".to_owned(),
+                            value: "C".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "D".to_owned(),
+                            value: "D".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "F".to_owned(),
+                            value: "F".to_owned(),
+                        },
+                    ],
+                    description: "Only scores with this grade".to_owned(),
+                    name: "grade".to_owned(),
+                    required: false,
+                }),
+                CommandOption::Boolean(BaseCommandOptionData {
+                    description: "Specify whether the list should include only passes"
+                        .to_owned(),
+                    name: "passes".to_owned(),
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord".to_owned(),
+                    required: false,
+                }),
+            ],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Unchoke a user's recent score or simulate a play on its map"
+                .to_owned(),
+            name: "simulate".to_owned(),
+            options: vec![
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: super::mode_choices(),
+                    description: "Specify the gamemode".to_owned(),
+                    name: "mode".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a username".to_owned(),
+                    name: "name".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify mods e.g. hdhr or nm".to_owned(),
+                    name: "mods".to_owned(),
+                    required: false,
+                }),
+                CommandOption::Integer(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Choose the recent score's index e.g. 1 for most recent"
+                        .to_owned(),
+                    name: "index".to_owned(),
+                    required: false,
+                }),
+                CommandOption::Integer(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify the amount of 300s".to_owned(),
+                    name: "n300".to_owned(),
+                    required: false,
+                }),
+                CommandOption::Integer(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify the amount of 100s".to_owned(),
+                    name: "n100".to_owned(),
+                    required: false,
+                }),
+                CommandOption::Integer(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify the amount of 50s".to_owned(),
+                    name: "n50".to_owned(),
+                    required: false,
+                }),
+                CommandOption::Integer(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify the amount of misses".to_owned(),
+                    name: "misses".to_owned(),
+                    required: false,
+                }),
+                // TODO: Number
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify the accuracy".to_owned(),
+                    name: "acc".to_owned(),
+                    required: false,
+                }),
+                CommandOption::Integer(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify the combo".to_owned(),
+                    name: "combo".to_owned(),
+                    required: false,
+                }),
+                CommandOption::Integer(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify the score (only relevant for mania)".to_owned(),
+                    name: "score".to_owned(),
+                    required: false,
+                }),
+                CommandOption::User(BaseCommandOptionData {
+                    description: "Specify a linked discord user".to_owned(),
+                    name: "discord".to_owned(),
+                    required: false,
+                }),
+            ],
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("recent", "Display info about a user's recent play")
+        .options(options)
+        .build()
 }

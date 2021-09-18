@@ -201,9 +201,7 @@ pub(super) async fn _recent(
     let config_update_fut = async {
         if twitch_id.is_some() {
             // `user` corresponds to the config instead of the input name
-            Some(config.update_osu(&ctx, &user).await)
-        } else {
-            None
+            config.update_osu(&ctx, &user).await
         }
     };
 

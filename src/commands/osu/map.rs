@@ -1,5 +1,6 @@
 use crate::{
     bail,
+    commands::SlashCommandBuilder,
     embeds::{EmbedData, MapEmbed},
     pagination::{MapPagination, Pagination},
     util::{
@@ -467,26 +468,22 @@ pub async fn slash_map(ctx: Arc<Context>, mut command: ApplicationCommand) -> Bo
 }
 
 pub fn slash_map_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "map".to_owned(),
-        default_permission: None,
-        description: "Display a bunch of stats about a map(set)".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a map url or map id".to_owned(),
-                name: "map".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify mods".to_owned(),
-                name: "mods".to_owned(),
-                required: false,
-            }),
-        ],
-    }
+    let options = vec![
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a map url or map id".to_owned(),
+            name: "map".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify mods".to_owned(),
+            name: "mods".to_owned(),
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("map", "Display a bunch of stats about a map(set)")
+        .options(options)
+        .build()
 }
