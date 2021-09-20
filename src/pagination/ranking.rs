@@ -7,7 +7,6 @@ use crate::{
     BotResult, Context,
 };
 
-use async_trait::async_trait;
 use rosu_v2::prelude::GameMode;
 use std::{borrow::Cow, collections::BTreeMap, sync::Arc};
 use twilight_model::channel::Message;

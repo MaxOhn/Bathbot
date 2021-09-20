@@ -2,7 +2,6 @@ use super::{Pages, Pagination};
 
 use crate::{embeds::RecentListEmbed, BotResult, Context};
 
-use async_trait::async_trait;
 use rosu_v2::prelude::{Score, User};
 use std::sync::Arc;
 use twilight_model::channel::Message;

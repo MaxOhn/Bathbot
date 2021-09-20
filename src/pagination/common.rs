@@ -2,7 +2,6 @@ use super::{Pages, Pagination};
 
 use crate::{commands::osu::CommonUser, embeds::CommonEmbed, BotResult};
 
-use async_trait::async_trait;
 use rosu_v2::model::score::Score;
 use smallvec::SmallVec;
 use twilight_model::channel::Message;

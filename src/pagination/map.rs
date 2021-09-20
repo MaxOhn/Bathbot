@@ -2,7 +2,6 @@ use super::{Context, Pages, Pagination};
 
 use crate::{embeds::MapEmbed, BotResult};
 
-use async_trait::async_trait;
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMods};
 use twilight_model::channel::Message;
 

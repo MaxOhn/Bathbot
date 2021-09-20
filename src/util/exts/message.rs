@@ -3,7 +3,6 @@ use crate::{
     Context, MessageBuilder,
 };
 
-use async_trait::async_trait;
 use std::{borrow::Cow, slice};
 use twilight_http::Response;
 use twilight_model::{

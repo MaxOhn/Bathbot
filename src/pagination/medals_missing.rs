@@ -2,7 +2,6 @@ use super::{Pages, Pagination};
 
 use crate::{commands::osu::MedalType, embeds::MedalsMissingEmbed, BotResult};
 
-use async_trait::async_trait;
 use rosu_v2::model::user::User;
 use twilight_model::channel::Message;
 

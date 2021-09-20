@@ -52,7 +52,6 @@ use crate::{
     BotResult, Context,
 };
 
-use async_trait::async_trait;
 use smallvec::SmallVec;
 use std::{borrow::Cow, time::Duration};
 use tokio::time::sleep;

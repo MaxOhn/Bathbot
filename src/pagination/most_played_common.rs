@@ -1,7 +1,6 @@
 use super::{Pages, Pagination};
 use crate::{embeds::MostPlayedCommonEmbed, BotResult, Name};
 
-use async_trait::async_trait;
 use hashbrown::HashMap;
 use rosu_v2::prelude::MostPlayedMap;
 use smallvec::SmallVec;

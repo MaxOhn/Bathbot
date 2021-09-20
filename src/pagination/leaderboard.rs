@@ -1,7 +1,6 @@
 use super::{Pages, Pagination};
 use crate::{custom_client::ScraperScore, embeds::LeaderboardEmbed, BotResult, Name};
 
-use async_trait::async_trait;
 use rosu_v2::model::beatmap::{Beatmap, BeatmapsetCompact};
 use twilight_model::channel::Message;
 
