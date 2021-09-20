@@ -10,7 +10,7 @@ use crate::{
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
-use std::{borrow::Cow, cmp::Ordering, sync::Arc};
+use std::{borrow::Cow, mem, sync::Arc};
 use twilight_model::{
     application::{
         command::{BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption},
@@ -89,17 +89,18 @@ async fn _bws(ctx: Arc<Context>, data: CommandData<'_>, args: BwsArgs) -> BotRes
         .count();
 
     let (badges_min, badges_max) = match badges {
-        Some(num) => match num.cmp(&badges_curr) {
-            Ordering::Less => {
-                if badges_curr >= MIN_BADGES_OFFSET {
-                    (num, badges_curr)
-                } else {
-                    (0, MIN_BADGES_OFFSET)
-                }
+        Some(num) => {
+            let mut min = num;
+            let mut max = badges_curr;
+
+            if min > max {
+                mem::swap(&mut min, &mut max);
             }
-            Ordering::Equal => (badges_curr, badges_curr + MIN_BADGES_OFFSET),
-            Ordering::Greater => (badges_curr, num.max(badges_curr + MIN_BADGES_OFFSET)),
-        },
+
+            max += MIN_BADGES_OFFSET.saturating_sub(max - min);
+
+            (min, max)
+        }
         None => (badges_curr, badges_curr + MIN_BADGES_OFFSET),
     };
 
