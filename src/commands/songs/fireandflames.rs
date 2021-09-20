@@ -5,6 +5,7 @@ use std::sync::Arc;
 #[command]
 #[short_desc("https://youtu.be/0jgrCKhxE1s?t=77")]
 #[bucket("songs")]
+#[no_typing()]
 async fn fireandflames(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let (lyrics, delay) = _fireandflames();
 

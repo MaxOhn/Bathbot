@@ -13,6 +13,7 @@ use twilight_model::application::{command::Command, interaction::ApplicationComm
     The latency indicates how fast I receive messages from Discord."
 )]
 #[aliases("p")]
+#[no_typing()]
 async fn ping(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let builder = MessageBuilder::new().content("Pong");
     let start = Instant::now();

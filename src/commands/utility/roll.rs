@@ -20,6 +20,7 @@ const DEFAULT_LIMIT: u64 = 100;
     If no upper limit is specified, it defaults to 100."
 )]
 #[usage("[upper limit]")]
+#[no_typing()]
 async fn roll(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {

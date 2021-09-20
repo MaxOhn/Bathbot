@@ -9,6 +9,7 @@ use std::sync::Arc;
 #[short_desc("Get a hint for the current background")]
 #[aliases("h", "tip")]
 #[bucket("bg_hint")]
+#[no_typing()]
 pub(super) async fn hint(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match ctx.game_hint(data.channel_id()) {
         Ok(hint) => {

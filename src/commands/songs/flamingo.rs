@@ -5,6 +5,7 @@ use std::sync::Arc;
 #[command]
 #[short_desc("https://youtu.be/la9C0n7jSsI")]
 #[bucket("songs")]
+#[no_typing()]
 async fn flamingo(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let (lyrics, delay) = _flamingo();
 

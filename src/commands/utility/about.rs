@@ -11,6 +11,7 @@ use twilight_model::application::{command::Command, interaction::ApplicationComm
 #[command]
 #[short_desc("Displaying some information about this bot")]
 #[aliases("info")]
+#[no_typing()]
 async fn about(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let embed_data = match AboutEmbed::new(&ctx).await {
         Ok(data) => data,

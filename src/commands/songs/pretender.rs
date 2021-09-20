@@ -5,6 +5,7 @@ use std::sync::Arc;
 #[command]
 #[short_desc("https://youtu.be/SBjQ9tuuTJQ?t=83")]
 #[bucket("songs")]
+#[no_typing()]
 async fn pretender(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let (lyrics, delay) = _pretender();
 

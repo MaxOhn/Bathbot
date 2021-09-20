@@ -5,6 +5,7 @@ use std::sync::Arc;
 #[command]
 #[short_desc("https://youtu.be/g7VNvg_QTMw&t=29")]
 #[bucket("songs")]
+#[no_typing()]
 async fn startagain(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let (lyrics, delay) = _startagain();
 

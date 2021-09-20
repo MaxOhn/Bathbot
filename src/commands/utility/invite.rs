@@ -11,6 +11,7 @@ use twilight_model::application::{command::Command, interaction::ApplicationComm
 #[command]
 #[short_desc("Invite me to your server")]
 #[aliases("inv")]
+#[no_typing()]
 async fn invite(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let embed = InviteEmbed::new().into_builder().build();
     let builder = MessageBuilder::new().content(BATHBOT_WORKSHOP).embed(embed);

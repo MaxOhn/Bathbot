@@ -24,6 +24,7 @@ use twilight_model::application::{
     - `hard`: 9x11 grid"
 )]
 #[usage("[easy / medium / hard]")]
+#[no_typing()]
 async fn minesweeper(ctx: Arc<Context>, mut data: CommandData) -> BotResult<()> {
     let difficulty = match &mut data {
         CommandData::Message { args, msg, .. } => match Difficulty::args(args) {

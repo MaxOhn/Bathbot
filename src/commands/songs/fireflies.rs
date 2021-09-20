@@ -5,6 +5,7 @@ use std::sync::Arc;
 #[command]
 #[short_desc("https://youtu.be/psuRGfAaju4?t=25")]
 #[bucket("songs")]
+#[no_typing()]
 async fn fireflies(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let (lyrics, delay) = _fireflies();
 

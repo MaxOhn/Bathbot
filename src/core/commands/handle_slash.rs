@@ -20,13 +20,26 @@ use twilight_model::{
     guild::Permissions,
 };
 
-#[derive(Default)]
 struct CommandArgs {
     authority: bool,
     bucket: Option<BucketName>,
+    // defer_msg: bool,
     ephemeral: bool,
     only_guilds: bool,
     only_owner: bool,
+}
+
+impl Default for CommandArgs {
+    fn default() -> Self {
+        Self {
+            authority: false,
+            bucket: None,
+            // defer_msg: true,
+            ephemeral: false,
+            only_guilds: false,
+            only_owner: false,
+        }
+    }
 }
 
 pub async fn handle_interaction(

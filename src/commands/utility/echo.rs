@@ -11,6 +11,7 @@ use std::sync::Arc;
 #[short_desc("Let me repeat your message")]
 #[long_desc("Let me repeat your message but without any mentions")]
 #[usage("[sentence]")]
+#[no_typing()]
 async fn echo(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let (msg, args) = match data {
         CommandData::Message { msg, args, .. } => (msg, args),

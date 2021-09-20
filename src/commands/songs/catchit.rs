@@ -5,6 +5,7 @@ use std::sync::Arc;
 #[command]
 #[short_desc("https://youtu.be/BjFWk0ncr70?t=12")]
 #[bucket("songs")]
+#[no_typing()]
 async fn catchit(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let (lyrics, delay) = _catchit();
 
