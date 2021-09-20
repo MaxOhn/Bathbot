@@ -170,7 +170,7 @@ pub trait Pagination: Sync + Sized {
                 sleep(Duration::from_millis(100)).await;
 
                 for emote in &reactions {
-                    let request_reaction = emote.request_reaction();
+                    let request_reaction = emote.request_reaction_type();
 
                     ctx.http
                         .delete_current_user_reaction(msg.channel_id, msg.id, &request_reaction)

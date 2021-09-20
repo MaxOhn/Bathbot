@@ -33,13 +33,13 @@ pub async fn handle_interaction(
     ctx: Arc<Context>,
     mut command: ApplicationCommand,
 ) -> BotResult<()> {
-    let cmd_name = mem::take(&mut command.data.name);
-    log_slash(&ctx, &command, &cmd_name);
-    ctx.stats.increment_slash_command(&cmd_name);
+    let name = mem::take(&mut command.data.name);
+    log_slash(&ctx, &command, &name);
+    ctx.stats.increment_slash_command(&name);
 
     let mut args = CommandArgs::default();
 
-    let command_result = match cmd_name.as_str() {
+    let command_result = match name.as_str() {
         "about" => process_command(ctx, command, args, utility::slash_about).await,
         "authorities" => {
             args.authority = true;
@@ -144,13 +144,18 @@ pub async fn handle_interaction(
             process_command(ctx, command, args, twitch::slash_trackstream).await
         }
         "whatif" => process_command(ctx, command, args, osu::slash_whatif).await,
-        _ => return Err(Error::UnknownSlashCommand(cmd_name)),
+        _ => {
+            return Err(Error::UnknownSlashCommand {
+                name,
+                command: Box::new(command),
+            })
+        }
     };
 
     match command_result {
-        Ok(ProcessResult::Success) => info!("Processed slash command `{}`", cmd_name),
-        Ok(result) => info!("Command `/{}` was not processed: {:?}", cmd_name, result),
-        Err(why) => return Err(Error::Command(Box::new(why), cmd_name)),
+        Ok(ProcessResult::Success) => info!("Processed slash command `{}`", name),
+        Ok(result) => info!("Command `/{}` was not processed: {:?}", name, result),
+        Err(why) => return Err(Error::Command(Box::new(why), name)),
     }
 
     Ok(())

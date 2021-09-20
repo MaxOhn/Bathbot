@@ -319,7 +319,7 @@ pub async fn get_member_ids(ctx: &Context, guild_id: GuildId) -> BotResult<HashS
 pub async fn send_reaction(ctx: &Context, msg: &Message, emote: Emote) -> BotResult<()> {
     let channel = msg.channel_id;
     let msg = msg.id;
-    let emoji = &emote.request_reaction();
+    let emoji = &emote.request_reaction_type();
 
     // Initial attempt, return if it's not a 429
     let mut err = match ctx.http.create_reaction(channel, msg, emoji).exec().await {
@@ -334,7 +334,7 @@ pub async fn send_reaction(ctx: &Context, msg: &Message, emote: Emote) -> BotRes
     for (i, duration) in ExponentialBackoff::new(4).factor(25).take(3).enumerate() {
         debug!("Retry attempt #{} | Backoff {:?}", i + 1, duration);
         sleep(duration).await;
-        let emoji = emote.request_reaction();
+        let emoji = emote.request_reaction_type();
 
         err = match ctx.http.create_reaction(channel, msg, &emoji).exec().await {
             Ok(_) => return Ok(()),

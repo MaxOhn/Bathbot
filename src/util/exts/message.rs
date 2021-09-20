@@ -50,6 +50,10 @@ impl MessageExt for (MessageId, ChannelId) {
             req = req.embeds(slice::from_ref(embed))?;
         }
 
+        if let Some(components) = builder.components {
+            req = req.components(components)?;
+        }
+
         match builder.file {
             Some(tuple) => Ok(req.files(&[tuple]).exec().await?),
             None => Ok(req.exec().await?),
@@ -116,7 +120,8 @@ impl<'s> MessageExt for (InteractionId, &'s str) {
             .http
             .update_interaction_original(self.1)?
             .content(builder.content.as_ref().map(Cow::as_ref))?
-            .embeds(builder.embed.as_ref().map(slice::from_ref))?;
+            .embeds(builder.embed.as_ref().map(slice::from_ref))?
+            .components(builder.components)?;
 
         match builder.file {
             Some(tuple) => Ok(req.files(&[tuple]).exec().await?),

@@ -86,7 +86,7 @@ fn main() {
         .build()
         .expect("Could not build runtime");
 
-    if let Err(why) = runtime.block_on(async move { async_main().await }) {
+    if let Err(why) = runtime.block_on(async_main()) {
         unwind_error!(error, why, "Critical error in main: {}");
     }
 }

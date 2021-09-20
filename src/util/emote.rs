@@ -6,7 +6,7 @@ use serde::{
 };
 use std::{borrow::Cow, str::FromStr};
 use twilight_http::request::channel::reaction::RequestReactionType;
-use twilight_model::id::EmojiId;
+use twilight_model::{channel::ReactionType, id::EmojiId};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub enum Emote {
@@ -42,7 +42,7 @@ impl Emote {
         }
     }
 
-    pub fn request_reaction(&self) -> RequestReactionType {
+    pub fn request_reaction_type(&self) -> RequestReactionType {
         let emotes = &CONFIG.get().unwrap().emotes;
 
         let emote = if let Self::Custom(name) = self {
@@ -58,6 +58,29 @@ impl Emote {
         RequestReactionType::Custom {
             id: EmojiId(id),
             name: Some(name),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn reaction_type(&self) -> ReactionType {
+        let emotes = &CONFIG.get().unwrap().emotes;
+
+        let emote = if let Self::Custom(name) = self {
+            return ReactionType::Unicode {
+                name: name.to_string(),
+            };
+        } else {
+            emotes.get(self)
+        };
+
+        let (id, name) = emote
+            .unwrap_or_else(|| panic!("No {:?} emote in config", self))
+            .split_emote();
+
+        ReactionType::Custom {
+            animated: false,
+            id: EmojiId(id),
+            name: Some(name.to_owned()),
         }
     }
 }
