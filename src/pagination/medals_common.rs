@@ -1,7 +1,7 @@
 use super::{Pages, Pagination};
 
 use crate::{
-    database::OsuMedal,
+    custom_client::OsekaiMedal,
     embeds::{MedalsCommonEmbed, MedalsCommonUser},
     BotResult,
 };
@@ -13,7 +13,7 @@ pub struct MedalsCommonPagination {
     pages: Pages,
     user1: MedalsCommonUser,
     user2: MedalsCommonUser,
-    medals: Vec<OsuMedal>,
+    medals: Vec<OsekaiMedal>,
 }
 
 impl MedalsCommonPagination {
@@ -21,7 +21,7 @@ impl MedalsCommonPagination {
         msg: Message,
         user1: MedalsCommonUser,
         user2: MedalsCommonUser,
-        medals: Vec<OsuMedal>,
+        medals: Vec<OsekaiMedal>,
     ) -> Self {
         Self {
             pages: Pages::new(10, medals.len()),

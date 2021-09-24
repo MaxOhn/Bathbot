@@ -1,5 +1,5 @@
 use crate::{
-    database::{MedalGroup, OsuMedal},
+    custom_client::{OsekaiGrouping, OsekaiMedal, MEDAL_GROUPS},
     embeds::{EmbedData, MedalsMissingEmbed},
     pagination::{MedalsMissingPagination, Pagination},
     util::{
@@ -12,17 +12,6 @@ use crate::{
 use hashbrown::HashSet;
 use rosu_v2::prelude::OsuError;
 use std::{cmp::Ordering, sync::Arc};
-
-const GROUPS: [MedalGroup; 8] = [
-    MedalGroup::Skill,
-    MedalGroup::Dedication,
-    MedalGroup::HushHush,
-    MedalGroup::BeatmapPacks,
-    MedalGroup::BeatmapChallengePacks,
-    MedalGroup::SeasonalSpotlights,
-    MedalGroup::BeatmapSpotlights,
-    MedalGroup::ModIntroduction,
-];
 
 #[command]
 #[short_desc("Display a list of medals that a user is missing")]
@@ -100,7 +89,7 @@ pub(super) async fn _medalsmissing(
         .map(|(_, medal)| MedalType::Medal(medal))
         .collect();
 
-    medals.extend(GROUPS.iter().copied().map(MedalType::Group));
+    medals.extend(MEDAL_GROUPS.iter().copied().map(MedalType::Group));
     medals.sort_unstable();
 
     let limit = medals.len().min(15);
@@ -139,15 +128,15 @@ pub(super) async fn _medalsmissing(
 }
 
 pub enum MedalType {
-    Group(MedalGroup),
-    Medal(OsuMedal),
+    Group(OsekaiGrouping<'static>),
+    Medal(OsekaiMedal),
 }
 
 impl MedalType {
-    fn group(&self) -> &MedalGroup {
+    fn group(&self) -> OsekaiGrouping {
         match self {
-            Self::Group(g) => g,
-            Self::Medal(m) => &m.grouping,
+            Self::Group(g) => *g,
+            Self::Medal(m) => OsekaiGrouping(&m.grouping),
         }
     }
 }
@@ -173,7 +162,7 @@ impl PartialOrd for MedalType {
 impl Ord for MedalType {
     fn cmp(&self, other: &MedalType) -> Ordering {
         self.group()
-            .cmp(other.group())
+            .cmp(&other.group())
             .then_with(|| match (self, other) {
                 (MedalType::Medal(a), MedalType::Medal(b)) => a.medal_id.cmp(&b.medal_id),
                 (MedalType::Group(_), MedalType::Medal(_)) => Ordering::Less,

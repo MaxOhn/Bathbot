@@ -1,5 +1,5 @@
 use crate::{
-    database::OsuMedal,
+    custom_client::OsekaiMedal,
     embeds::{EmbedData, MedalsCommonEmbed, MedalsCommonUser},
     pagination::{MedalsCommonPagination, Pagination},
     util::{
@@ -100,7 +100,7 @@ pub(super) async fn _common(
     let mut winner1 = 0;
     let mut winner2 = 0;
 
-    for OsuMedal { medal_id, .. } in &medals {
+    for OsekaiMedal { medal_id, .. } in &medals {
         match (medals1.get(medal_id), medals2.get(medal_id)) {
             (Some(date1), Some(date2)) => match date1 < date2 {
                 true => winner1 += 1,

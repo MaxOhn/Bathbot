@@ -1,10 +1,9 @@
 use crate::{
     commands::osu::MedalAchieved,
-    custom_client::OsekaiMedal,
+    custom_client::{OsekaiComment, OsekaiMap, OsekaiMedal},
     embeds::{Author, EmbedBuilder, EmbedData, EmbedFields, Footer},
     util::{
         constants::{FIELD_VALUE_SIZE, OSU_BASE},
-        numbers::round,
         osu::flag_url,
         CowUtils,
     },
@@ -26,10 +25,11 @@ impl MedalEmbed {
     pub fn new(
         medal: OsekaiMedal,
         achieved: Option<MedalAchieved<'_>>,
-        with_comments: bool,
+        maps: Vec<OsekaiMap>,
+        comments: Vec<OsekaiComment>,
     ) -> Self {
         let mode = medal
-            .mode
+            .restriction
             .map_or_else(|| "Any".to_owned(), |mode| mode.to_string());
 
         let mods = medal
@@ -45,30 +45,16 @@ impl MedalEmbed {
 
         fields.push(field!("Mode", mode, true));
         fields.push(field!("Mods", mods, true));
-        fields.push(field!("Group", medal.group, true));
+        fields.push(field!("Group", medal.grouping, true));
 
-        if let Some(diff) = medal.difficulty {
-            let diff_name = format!("Voted difficulty [ {} / 10 ]", diff.total);
-
-            let diff_value = format!(
-                "`Dedication: {}` • `Tapping: {}` • `Reading: {}` • `Patterns: {}`",
-                round(diff.dedication),
-                round(diff.tapping),
-                round(diff.reading),
-                round(diff.patterns),
-            );
-
-            fields.push(field!(diff_name, diff_value, false));
-        }
-
-        if !medal.beatmaps.is_empty() {
-            let len = medal.beatmaps.len();
+        if !maps.is_empty() {
+            let len = maps.len();
             let mut map_value = String::with_capacity(256);
 
-            for map in medal.beatmaps {
+            for map in maps {
                 let m = format!(
                     " - [{} [{}]]({}b/{})\n",
-                    map.title, map.version, OSU_BASE, map.beatmap_id
+                    map.title, map.version, OSU_BASE, map.map_id
                 );
 
                 if m.len() + map_value.len() + 7 >= FIELD_VALUE_SIZE {
@@ -84,11 +70,10 @@ impl MedalEmbed {
             fields.push(field!(format!("Beatmaps: {}", len), map_value, false));
         }
 
-        if with_comments && !medal.comments.is_empty() {
+        if !comments.is_empty() {
             let mut comment_value = String::with_capacity(256);
 
-            let comment_iter = medal
-                .comments
+            let comment_iter = comments
                 .into_iter()
                 .filter(|comment| comment.parent_id.is_none());
 
@@ -114,7 +99,7 @@ impl MedalEmbed {
         }
 
         let title = medal.name;
-        let thumbnail = medal.url;
+        let thumbnail = medal.icon_url;
 
         let url = format!(
             "https://osekai.net/medals/?medal={}",

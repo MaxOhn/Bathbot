@@ -11,7 +11,6 @@ pub const OSU_BASE: &str = "https://osu.ppy.sh/";
 pub const MAP_THUMB_URL: &str = "https://b.ppy.sh/thumb/";
 pub const AVATAR_URL: &str = "https://a.ppy.sh/";
 pub const HUISMETBENEN: &str = "https://api.huismetbenen.nl/";
-pub const OSEKAI_MEDAL_API: &str = "https://osekai.net/medals/apiv2/";
 pub const OSU_DAILY_API: &str = "https://osudaily.net/api/";
 
 // twitch

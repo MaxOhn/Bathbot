@@ -3,7 +3,7 @@ use crate::{
     embeds::MedalEmbed,
     pagination::MedalRecentPagination,
     util::{
-        constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder, Name,
@@ -57,35 +57,22 @@ pub(super) async fn _medalrecent(
     };
 
     let user_fut = super::request_user(&ctx, &name, None);
-    let medals_fut = ctx.psql().get_medals();
 
-    let (mut user, all_medals) = match tokio::join!(user_fut, medals_fut) {
-        (Ok(user), Ok(medals)) => (user, medals),
-        (Err(OsuError::NotFound), _) => {
+    let mut user = match user_fut.await {
+        Ok(user) => user,
+        Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
 
             return data.error(&ctx, content).await;
         }
-        (_, Err(why)) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
-        (Err(why), _) => {
+        Err(why) => {
             let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
     };
 
-    let mut achieved_medals = match user.medals.take() {
-        Some(medals) => medals,
-        None => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            bail!("Empty medals option on user");
-        }
-    };
+    let mut achieved_medals = user.medals.take().unwrap_or_default();
 
     if achieved_medals.is_empty() {
         let content = format!("`{}` has not achieved any medals yet :(", user.username);
@@ -99,30 +86,19 @@ pub(super) async fn _medalrecent(
     let index = index.unwrap_or(1);
 
     let (medal, achieved_at) = match achieved_medals.get(index - 1) {
-        Some(achieved) => {
-            let medal = match all_medals.get(&achieved.medal_id) {
-                Some(medal) => medal,
-                None => {
-                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
+        Some(achieved) => match ctx.psql().get_medal_by_id(achieved.medal_id).await {
+            Ok(Some(medal)) => (medal, achieved.achieved_at),
+            Ok(None) => {
+                let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
-                    bail!("Missing medal id {} in DB medals", achieved.medal_id);
-                }
-            };
-
-            match ctx.clients.custom.get_osekai_medal(&medal.name).await {
-                Ok(Some(medal)) => (medal, achieved.achieved_at),
-                Ok(None) => {
-                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-                    bail!("No osekai medal for DB medal `{}`", medal.name);
-                }
-                Err(why) => {
-                    let _ = data.error(&ctx, OSEKAI_ISSUE).await;
-
-                    return Err(why.into());
-                }
+                bail!("No medal with id `{}` in DB", achieved.medal_id);
             }
-        }
+            Err(why) => {
+                let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(why.into());
+            }
+        },
         None => {
             let content = format!(
                 "`{}` only has {} medals, cannot show medal #{}",
@@ -150,7 +126,7 @@ pub(super) async fn _medalrecent(
         medal_count: achieved_medals.len(),
     };
 
-    let embed_data = MedalEmbed::new(medal, Some(achieved), false);
+    let embed_data = MedalEmbed::new(medal.clone(), Some(achieved), Vec::new(), Vec::new());
     let embed = embed_data.clone().minimized().build();
     let builder = MessageBuilder::new().embed(embed).content(content);
     let response = data.create_message(&ctx, builder).await?.model().await?;
@@ -160,11 +136,10 @@ pub(super) async fn _medalrecent(
         Arc::clone(&ctx),
         response,
         user,
-        all_medals,
+        medal,
         achieved_medals,
         index,
         embed_data,
-        false,
     );
 
     tokio::spawn(async move {
