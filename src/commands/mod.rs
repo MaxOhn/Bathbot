@@ -367,6 +367,7 @@ pub fn slash_commands() -> [Command; 38] {
         slash_map_command(),
         slash_bws_command(),
         slash_medal_command(),
+        slash_osekai_command(),
         slash_track_command(),
         slash_mostplayed_command(),
         slash_ranking_command(),

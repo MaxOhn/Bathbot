@@ -100,6 +100,7 @@ pub async fn handle_interaction(
         "medal" => process_command(ctx, command, args, osu::slash_medal).await,
         "minesweeper" => process_command(ctx, command, args, fun::slash_minesweeper).await,
         "mostplayed" => process_command(ctx, command, args, osu::slash_mostplayed).await,
+        "osekai" => process_command(ctx, command, args, osu::slash_osekai).await,
         "osustats" => process_command(ctx, command, args, osu::slash_osustats).await,
         "owner" => {
             args.only_owner = true;
