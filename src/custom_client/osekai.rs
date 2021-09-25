@@ -1,13 +1,13 @@
 use groups::*;
 
-use super::deserialize::str_to_u32;
+use super::deserialize::{str_to_f32, str_to_u32};
 
 use rosu_v2::model::{GameMode, GameMods};
 use serde::{
     de::{Error, MapAccess, Unexpected, Visitor},
     Deserialize, Deserializer,
 };
-use std::{cmp::Ordering, fmt};
+use std::{cmp::Ordering, fmt, marker::PhantomData, str::FromStr};
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct OsekaiMap {
@@ -101,14 +101,14 @@ pub struct OsekaiMedal {
 }
 
 pub mod groups {
-    pub const SKILL: &'static str = "Skill";
-    pub const DEDICATION: &'static str = "Dedication";
-    pub const HUSH_HUSH: &'static str = "Hush-Hush";
-    pub const BEATMAP_PACKS: &'static str = "Beatmap Packs";
-    pub const BEATMAP_CHALLENGE_PACKS: &'static str = "Beatmap Challenge Packs";
-    pub const SEASONAL_SPOTLIGHTS: &'static str = "Seasonal Spotlights";
-    pub const BEATMAP_SPOTLIGHTS: &'static str = "Beatmap Spotlights";
-    pub const MOD_INTRODUCTION: &'static str = "Mod Introduction";
+    pub const SKILL: &'str = "Skill";
+    pub const DEDICATION: &'str = "Dedication";
+    pub const HUSH_HUSH: &'str = "Hush-Hush";
+    pub const BEATMAP_PACKS: &'str = "Beatmap Packs";
+    pub const BEATMAP_CHALLENGE_PACKS: &'str = "Beatmap Challenge Packs";
+    pub const SEASONAL_SPOTLIGHTS: &'str = "Seasonal Spotlights";
+    pub const BEATMAP_SPOTLIGHTS: &'str = "Beatmap Spotlights";
+    pub const MOD_INTRODUCTION: &'str = "Mod Introduction";
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -290,4 +290,152 @@ impl<'de> Visitor<'de> for OsekaiModsVisitor {
     fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
         Ok(None)
     }
+}
+
+#[derive(Debug)]
+struct OsekaiRankingEntry<T> {
+    pub country: String,
+    pub country_code: String,
+    pub rank: u32,
+    pub user_id: u32,
+    pub username: String,
+    pub value: ValueWrapper<T>,
+}
+
+impl<T: Copy> OsekaiRankingEntry<T> {
+    fn value(&self) -> T {
+        self.value.0
+    }
+}
+
+struct ValueWrapper<T>(T);
+
+impl<T: fmt::Debug> fmt::Debug for ValueWrapper<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.0)
+    }
+}
+
+impl<T: fmt::Display> fmt::Display for ValueWrapper<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl<'de, T: Deserialize<'de> + FromStr> Deserialize<'de> for ValueWrapper<T> {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s: &str = Deserialize::deserialize(d)?;
+
+        let value = s
+            .parse()
+            .map_err(|_| Error::custom(format!("failed to parse `{}` into ranking value", s)))?;
+
+        Ok(Self(value))
+    }
+}
+
+impl<'de, T: Deserialize<'de> + FromStr> Deserialize<'de> for OsekaiRankingEntry<T> {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        d.deserialize_map(OsekaiRankingEntryVisitor::new())
+    }
+}
+
+struct OsekaiRankingEntryVisitor<T> {
+    data: PhantomData<T>,
+}
+
+impl<T> OsekaiRankingEntryVisitor<T> {
+    fn new() -> Self {
+        Self { data: PhantomData }
+    }
+}
+
+impl<'de, T: Deserialize<'de> + FromStr> Visitor<'de> for OsekaiRankingEntryVisitor<T> {
+    type Value = OsekaiRankingEntry<T>;
+
+    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("an osekai ranking entry")
+    }
+
+    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+        let mut rank: Option<&str> = None;
+        let mut country_code = None;
+        let mut country = None;
+        let mut username = None;
+        let mut user_id: Option<&str> = None;
+        let mut value = None;
+
+        while let Some(key) = map.next_key()? {
+            match key {
+                "rank" => rank = Some(map.next_value()?),
+                "countrycode" => country_code = Some(map.next_value()?),
+                "country" => country = Some(map.next_value()?),
+                "username" => username = Some(map.next_value()?),
+                "userid" => user_id = Some(map.next_value()?),
+                _ => value = Some(map.next_value()?),
+            }
+        }
+
+        let rank: &str = rank.ok_or_else(|| Error::missing_field("rank"))?;
+        let rank = rank.parse().map_err(|_| {
+            Error::invalid_value(Unexpected::Str(rank), &"a string containing a u32")
+        })?;
+
+        let country_code = country_code.ok_or_else(|| Error::missing_field("countrycode"))?;
+        let country = country.ok_or_else(|| Error::missing_field("country"))?;
+        let username = username.ok_or_else(|| Error::missing_field("username"))?;
+
+        let user_id: &str = user_id.ok_or_else(|| Error::missing_field("userid"))?;
+        let user_id = user_id.parse().map_err(|_| {
+            Error::invalid_value(Unexpected::Str(user_id), &"a string containing a u32")
+        })?;
+
+        let value = value.ok_or_else(|| Error::custom("missing field for ranking value"))?;
+
+        Ok(Self::Value {
+            rank,
+            country_code,
+            country,
+            username,
+            user_id,
+            value,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct UserEntry {
+    #[serde(deserialize_with = "str_to_u32")]
+    rank: u32,
+    #[serde(rename = "countrycode")]
+    country_code: String,
+    country: String,
+    username: String,
+    #[serde(rename = "medalCount", deserialize_with = "str_to_u32")]
+    medal_count: u32,
+    #[serde(rename = "rarestmedal")]
+    rarest_medal: String,
+    #[serde(rename = "link")]
+    rarest_icon_url: String,
+    #[serde(rename = "userid", deserialize_with = "str_to_u32")]
+    user_id: u32,
+    #[serde(deserialize_with = "str_to_f32")]
+    completion: f32,
+}
+
+#[derive(Debug, Deserialize)]
+struct RarityEntry {
+    #[serde(deserialize_with = "str_to_u32")]
+    rank: u32,
+    #[serde(rename = "link")]
+    icon_url: String,
+    #[serde(rename = "medalname")]
+    medal_name: String,
+    #[serde(rename = "medalid", deserialize_with = "str_to_u32")]
+    medal_id: u32,
+    description: String,
+    #[serde(rename = "possessionRate", deserialize_with = "str_to_f32")]
+    possession_percent: f32,
+    #[serde(rename = "gameMode", deserialize_with = "osekai_mode")]
+    mode: Option<GameMode>,
 }
