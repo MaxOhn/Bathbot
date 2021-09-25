@@ -157,6 +157,23 @@ impl CustomClient {
         Ok(comments.0.unwrap_or_default())
     }
 
+    pub async fn get_osekai_ranking<R: OsekaiRanking>(&self, _: R) -> ClientResult<Vec<R::Entry>> {
+        let url = "https://osekai.net/rankings/api/api.php";
+        let form = &[("App", R::FORM)];
+
+        let response = self.make_post_request(url, Site::Osekai, form).await?;
+        let bytes = response.bytes().await?;
+
+        let ranking =
+            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&bytes).into_owned(),
+                source,
+                request: R::REQUEST,
+            })?;
+
+        Ok(ranking)
+    }
+
     pub async fn get_snipe_player(&self, country: &str, user_id: u32) -> ClientResult<SnipePlayer> {
         let url = format!(
             "{}player/{}/{}?type=id",

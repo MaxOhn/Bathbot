@@ -9,6 +9,68 @@ use serde::{
 };
 use std::{cmp::Ordering, fmt, marker::PhantomData, str::FromStr};
 
+pub trait OsekaiRanking {
+    const FORM: &'static str;
+    const REQUEST: &'static str;
+    type Entry: for<'de> Deserialize<'de>;
+}
+
+pub struct Rarity;
+pub struct Users;
+pub struct Replays;
+pub struct TotalPp;
+pub struct StandardDeviation;
+pub struct Badges;
+pub struct RankedMapsets;
+pub struct LovedMapsets;
+
+impl OsekaiRanking for Rarity {
+    const FORM: &'static str = "Rarity";
+    const REQUEST: &'static str = "osekai rarity";
+    type Entry = OsekaiRarityEntry;
+}
+
+impl OsekaiRanking for Users {
+    const FORM: &'static str = "Users";
+    const REQUEST: &'static str = "osekai users";
+    type Entry = OsekaiUserEntry;
+}
+
+impl OsekaiRanking for Replays {
+    const FORM: &'static str = "Replays";
+    const REQUEST: &'static str = "osekai replays";
+    type Entry = OsekaiRankingEntry<u32>;
+}
+
+impl OsekaiRanking for TotalPp {
+    const FORM: &'static str = "Total pp";
+    const REQUEST: &'static str = "osekai total pp";
+    type Entry = OsekaiRankingEntry<u32>;
+}
+
+impl OsekaiRanking for StandardDeviation {
+    const FORM: &'static str = "Standard Deviation";
+    const REQUEST: &'static str = "osekai standard deviation";
+    type Entry = OsekaiRankingEntry<u32>;
+}
+
+impl OsekaiRanking for Badges {
+    const FORM: &'static str = "Badges";
+    const REQUEST: &'static str = "osekai badges";
+    type Entry = OsekaiRankingEntry<u32>;
+}
+
+impl OsekaiRanking for RankedMapsets {
+    const FORM: &'static str = "Ranked Mapsets";
+    const REQUEST: &'static str = "osekai ranked mapsets";
+    type Entry = OsekaiRankingEntry<u32>;
+}
+
+impl OsekaiRanking for LovedMapsets {
+    const FORM: &'static str = "Loved Mapsets";
+    const REQUEST: &'static str = "osekai loved mapsets";
+    type Entry = OsekaiRankingEntry<u32>;
+}
 #[derive(Clone, Debug, Deserialize)]
 pub struct OsekaiMap {
     #[serde(rename = "Artist")]
@@ -101,14 +163,14 @@ pub struct OsekaiMedal {
 }
 
 pub mod groups {
-    pub const SKILL: &'str = "Skill";
-    pub const DEDICATION: &'str = "Dedication";
-    pub const HUSH_HUSH: &'str = "Hush-Hush";
-    pub const BEATMAP_PACKS: &'str = "Beatmap Packs";
-    pub const BEATMAP_CHALLENGE_PACKS: &'str = "Beatmap Challenge Packs";
-    pub const SEASONAL_SPOTLIGHTS: &'str = "Seasonal Spotlights";
-    pub const BEATMAP_SPOTLIGHTS: &'str = "Beatmap Spotlights";
-    pub const MOD_INTRODUCTION: &'str = "Mod Introduction";
+    pub const SKILL: &str = "Skill";
+    pub const DEDICATION: &str = "Dedication";
+    pub const HUSH_HUSH: &str = "Hush-Hush";
+    pub const BEATMAP_PACKS: &str = "Beatmap Packs";
+    pub const BEATMAP_CHALLENGE_PACKS: &str = "Beatmap Challenge Packs";
+    pub const SEASONAL_SPOTLIGHTS: &str = "Seasonal Spotlights";
+    pub const BEATMAP_SPOTLIGHTS: &str = "Beatmap Spotlights";
+    pub const MOD_INTRODUCTION: &str = "Mod Introduction";
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -293,7 +355,7 @@ impl<'de> Visitor<'de> for OsekaiModsVisitor {
 }
 
 #[derive(Debug)]
-struct OsekaiRankingEntry<T> {
+pub struct OsekaiRankingEntry<T> {
     pub country: String,
     pub country_code: String,
     pub rank: u32,
@@ -404,38 +466,38 @@ impl<'de, T: Deserialize<'de> + FromStr> Visitor<'de> for OsekaiRankingEntryVisi
 }
 
 #[derive(Debug, Deserialize)]
-struct UserEntry {
+pub struct OsekaiUserEntry {
     #[serde(deserialize_with = "str_to_u32")]
-    rank: u32,
+    pub rank: u32,
     #[serde(rename = "countrycode")]
-    country_code: String,
-    country: String,
-    username: String,
+    pub country_code: String,
+    pub country: String,
+    pub username: String,
     #[serde(rename = "medalCount", deserialize_with = "str_to_u32")]
-    medal_count: u32,
+    pub medal_count: u32,
     #[serde(rename = "rarestmedal")]
-    rarest_medal: String,
+    pub rarest_medal: String,
     #[serde(rename = "link")]
-    rarest_icon_url: String,
+    pub rarest_icon_url: String,
     #[serde(rename = "userid", deserialize_with = "str_to_u32")]
-    user_id: u32,
+    pub user_id: u32,
     #[serde(deserialize_with = "str_to_f32")]
-    completion: f32,
+    pub completion: f32,
 }
 
 #[derive(Debug, Deserialize)]
-struct RarityEntry {
+pub struct OsekaiRarityEntry {
     #[serde(deserialize_with = "str_to_u32")]
-    rank: u32,
+    pub rank: u32,
     #[serde(rename = "link")]
-    icon_url: String,
+    pub icon_url: String,
     #[serde(rename = "medalname")]
-    medal_name: String,
+    pub medal_name: String,
     #[serde(rename = "medalid", deserialize_with = "str_to_u32")]
-    medal_id: u32,
-    description: String,
+    pub medal_id: u32,
+    pub description: String,
     #[serde(rename = "possessionRate", deserialize_with = "str_to_f32")]
-    possession_percent: f32,
+    pub possession_percent: f32,
     #[serde(rename = "gameMode", deserialize_with = "osekai_mode")]
-    mode: Option<GameMode>,
+    pub mode: Option<GameMode>,
 }
