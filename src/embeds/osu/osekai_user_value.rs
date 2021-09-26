@@ -4,24 +4,16 @@ use crate::{
     util::{osu::flag_url, CountryCode},
 };
 
-use rosu_v2::prelude::GameMode;
 use std::{collections::BTreeMap, fmt::Write};
 
-pub struct RankingEmbed {
+pub struct OsekaiUserValueEmbed {
     description: String,
-    author: Author,
     footer: Footer,
+    title: &'static str,
 }
 
-impl RankingEmbed {
-    pub fn new(
-        mode: GameMode,
-        users: &BTreeMap<usize, (UserValue, String)>,
-        title: &str,
-        url_type: &'static str,
-        country_code: Option<&CountryCode>,
-        pages: (usize, usize),
-    ) -> Self {
+impl OsekaiUserValueEmbed {
+    pub fn new(users: &BTreeMap<usize, (UserValue, String)>, pages: (usize, usize)) -> Self {
         let index = (pages.0 - 1) * 20;
 
         let mut buf = String::new();
@@ -29,9 +21,7 @@ impl RankingEmbed {
         let left_lengths = lengths(&mut buf, users.range(index..index + 10));
         let right_lengths = lengths(&mut buf, users.range(index + 10..index + 20));
 
-        let mut description = String::with_capacity(600);
-
-        description.push_str("```\n");
+        let mut description = String::with_capacity(1024);
 
         // Ensuring the right side has ten elements for the zip
         let user_iter = users
@@ -46,9 +36,10 @@ impl RankingEmbed {
 
             let _ = write!(
                 description,
-                "#{idx:<idx_len$} {name:<name_len$} {value:>value_len$}",
+                "`#{idx:<idx_len$}`:flag_{country}:`{name:<name_len$}``{value:>value_len$}`",
                 idx = idx,
                 idx_len = left_lengths.idx,
+                country = "TODO",
                 name = left_name,
                 name_len = left_lengths.name,
                 value = buf,
@@ -61,7 +52,7 @@ impl RankingEmbed {
 
                 let _ = write!(
                     description,
-                    " | #{idx:<idx_len$} {name:<name_len$} {value:>value_len$}",
+                    " | `#{idx:<idx_len$}`:flag_{country}:`{name:<name_len$}``{value:>value_len$}`",
                     idx = idx + 10,
                     idx_len = right_lengths.idx,
                     name = right_name,
@@ -74,43 +65,37 @@ impl RankingEmbed {
             description.push('\n');
         }
 
-        description.push_str("```");
+        // let mut author = Author::new(format!("{} Ranking for osu!{}", title, mode_str(mode)));
 
-        let mut author = Author::new(format!("{} Ranking for osu!{}", title, mode_str(mode)));
+        // author = if let Some(code) = country_code {
+        //     let url = format!(
+        //         "https://osu.ppy.sh/rankings/{}/{}?country={}",
+        //         mode, url_type, code
+        //     );
 
-        author = if let Some(code) = country_code {
-            let url = format!(
-                "https://osu.ppy.sh/rankings/{}/{}?country={}",
-                mode, url_type, code
-            );
+        //     author.url(url).icon_url(flag_url(code))
+        // } else {
+        //     author.url(format!("https://osu.ppy.sh/rankings/{}/{}", mode, url_type))
+        // };
 
-            author.url(url).icon_url(flag_url(code))
-        } else {
-            author.url(format!("https://osu.ppy.sh/rankings/{}/{}", mode, url_type))
-        };
+        let footer_text = format!(
+            "Page {}/{} | Check out osekai.net for more info",
+            pages.0, pages.1
+        );
 
         Self {
-            author,
             description,
-            footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
+            footer: Footer::new(footer_text),
+            title: "TODO",
         }
     }
 }
 
-impl_builder!(RankingEmbed {
+impl_builder!(OsekaiUserValueEmbed {
     description,
     footer,
-    author,
+    title,
 });
-
-fn mode_str(mode: GameMode) -> &'static str {
-    match mode {
-        GameMode::STD => "",
-        GameMode::TKO => "taiko",
-        GameMode::CTB => "ctb",
-        GameMode::MNA => "mania",
-    }
-}
 
 fn lengths<'i>(
     buf: &mut String,

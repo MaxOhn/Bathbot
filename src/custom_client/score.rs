@@ -1,3 +1,5 @@
+use crate::util::CountryCode;
+
 use chrono::{DateTime, Utc};
 use rosu_v2::prelude::{GameMode, GameMods, Grade, RankStatus};
 use serde::{de, Deserialize, Deserializer};
@@ -17,7 +19,7 @@ pub struct ScraperScore {
     pub id: u64,
     pub user_id: u32,
     pub username: String,
-    pub country_code: String,
+    pub country_code: CountryCode,
     pub accuracy: f32,
     pub mods: GameMods,
     pub score: u32,

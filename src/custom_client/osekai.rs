@@ -1,6 +1,7 @@
 use groups::*;
 
 use super::deserialize::{str_to_f32, str_to_u32};
+use crate::{util::CountryCode, Name};
 
 use rosu_v2::model::{GameMode, GameMods};
 use serde::{
@@ -16,7 +17,7 @@ pub trait OsekaiRanking {
 }
 
 pub struct Rarity;
-pub struct Users;
+pub struct MedalCount;
 pub struct Replays;
 pub struct TotalPp;
 pub struct StandardDeviation;
@@ -30,7 +31,7 @@ impl OsekaiRanking for Rarity {
     type Entry = OsekaiRarityEntry;
 }
 
-impl OsekaiRanking for Users {
+impl OsekaiRanking for MedalCount {
     const FORM: &'static str = "Users";
     const REQUEST: &'static str = "osekai users";
     type Entry = OsekaiUserEntry;
@@ -39,7 +40,7 @@ impl OsekaiRanking for Users {
 impl OsekaiRanking for Replays {
     const FORM: &'static str = "Replays";
     const REQUEST: &'static str = "osekai replays";
-    type Entry = OsekaiRankingEntry<u32>;
+    type Entry = OsekaiRankingEntry<usize>;
 }
 
 impl OsekaiRanking for TotalPp {
@@ -57,20 +58,21 @@ impl OsekaiRanking for StandardDeviation {
 impl OsekaiRanking for Badges {
     const FORM: &'static str = "Badges";
     const REQUEST: &'static str = "osekai badges";
-    type Entry = OsekaiRankingEntry<u32>;
+    type Entry = OsekaiRankingEntry<usize>;
 }
 
 impl OsekaiRanking for RankedMapsets {
     const FORM: &'static str = "Ranked Mapsets";
     const REQUEST: &'static str = "osekai ranked mapsets";
-    type Entry = OsekaiRankingEntry<u32>;
+    type Entry = OsekaiRankingEntry<usize>;
 }
 
 impl OsekaiRanking for LovedMapsets {
     const FORM: &'static str = "Loved Mapsets";
     const REQUEST: &'static str = "osekai loved mapsets";
-    type Entry = OsekaiRankingEntry<u32>;
+    type Entry = OsekaiRankingEntry<usize>;
 }
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct OsekaiMap {
     #[serde(rename = "Artist")]
@@ -357,19 +359,20 @@ impl<'de> Visitor<'de> for OsekaiModsVisitor {
 #[derive(Debug)]
 pub struct OsekaiRankingEntry<T> {
     pub country: String,
-    pub country_code: String,
+    pub country_code: CountryCode,
     pub rank: u32,
     pub user_id: u32,
-    pub username: String,
-    pub value: ValueWrapper<T>,
+    pub username: Name,
+    value: ValueWrapper<T>,
 }
 
 impl<T: Copy> OsekaiRankingEntry<T> {
-    fn value(&self) -> T {
+    pub fn value(&self) -> T {
         self.value.0
     }
 }
 
+#[derive(Copy, Clone)]
 struct ValueWrapper<T>(T);
 
 impl<T: fmt::Debug> fmt::Debug for ValueWrapper<T> {
@@ -470,9 +473,9 @@ pub struct OsekaiUserEntry {
     #[serde(deserialize_with = "str_to_u32")]
     pub rank: u32,
     #[serde(rename = "countrycode")]
-    pub country_code: String,
+    pub country_code: CountryCode,
     pub country: String,
-    pub username: String,
+    pub username: Name,
     #[serde(rename = "medalCount", deserialize_with = "str_to_u32")]
     pub medal_count: u32,
     #[serde(rename = "rarestmedal")]

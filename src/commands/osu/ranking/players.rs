@@ -136,7 +136,6 @@ async fn _ranking(
 
     // Pagination
     let pagination = RankingPagination::new(
-        response,
         mode,
         Arc::clone(&ctx),
         total,

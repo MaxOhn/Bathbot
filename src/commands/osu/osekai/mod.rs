@@ -1,5 +1,17 @@
+mod medal_count;
+mod rarity;
+mod user_value;
+
+use medal_count::medal_count;
+use rarity::rarity;
+use user_value::{count, pp};
+
+use super::UserValue;
 use crate::{
-    commands::SlashCommandBuilder, util::ApplicationCommandExt, BotResult, Context, Error,
+    commands::SlashCommandBuilder,
+    custom_client::{Badges, LovedMapsets, RankedMapsets, Replays, StandardDeviation, TotalPp},
+    util::ApplicationCommandExt,
+    BotResult, Context, Error,
 };
 
 use std::sync::Arc;
@@ -9,14 +21,14 @@ use twilight_model::application::{
 };
 
 enum OsekaiCommandKind {
-    Badges,
-    LovedMapsets,
+    Badges,       // country - user - count
+    LovedMapsets, // country - user - count
     MedalCount,
-    RankedMapsets,
+    RankedMapsets, // country - user - count
     Rarity,
-    Replays,
-    StandardDeviation,
-    TotalPp,
+    Replays,           // country - user - count
+    StandardDeviation, // country - user - value
+    TotalPp,           // country - user - value
 }
 
 impl OsekaiCommandKind {
@@ -54,14 +66,14 @@ impl OsekaiCommandKind {
 
 pub async fn slash_osekai(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
     match OsekaiCommandKind::slash(&mut command).await? {
-        OsekaiCommandKind::Badges => todo!(),
-        OsekaiCommandKind::LovedMapsets => todo!(),
-        OsekaiCommandKind::MedalCount => todo!(),
-        OsekaiCommandKind::RankedMapsets => todo!(),
-        OsekaiCommandKind::Rarity => todo!(),
-        OsekaiCommandKind::Replays => todo!(),
-        OsekaiCommandKind::StandardDeviation => todo!(),
-        OsekaiCommandKind::TotalPp => todo!(),
+        OsekaiCommandKind::Badges => count(ctx, command, Badges).await,
+        OsekaiCommandKind::LovedMapsets => count(ctx, command, LovedMapsets).await,
+        OsekaiCommandKind::MedalCount => medal_count(ctx, command).await,
+        OsekaiCommandKind::RankedMapsets => count(ctx, command, RankedMapsets).await,
+        OsekaiCommandKind::Rarity => rarity(ctx, command).await,
+        OsekaiCommandKind::Replays => count(ctx, command, Replays).await,
+        OsekaiCommandKind::StandardDeviation => pp(ctx, command, StandardDeviation).await,
+        OsekaiCommandKind::TotalPp => pp(ctx, command, TotalPp).await,
     }
 }
 
