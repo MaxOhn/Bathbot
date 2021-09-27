@@ -154,14 +154,14 @@ pub(super) async fn _topold(
         _ => None,
     };
 
-    let version = version.unwrap();
-
     if let Some(content) = content {
         let builder = MessageBuilder::new().embed(content);
         data.create_message(&ctx, builder).await?;
 
         return Ok(());
     }
+
+    let version = version.unwrap();
 
     let name = match config.osu_username {
         Some(name) => name,
