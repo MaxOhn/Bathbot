@@ -27,9 +27,8 @@ With `<help [command name]` (e.g. `<help osg`) the bot will explain the command,
 You can also join its [discord server](https://discord.gg/n9fFstG) to keep up with updates, suggest things or report bugs
 
 ## Credits
+- [Hubz](https://osu.ppy.sh/users/10379965) for the main icon and slick webpages
 - [5joshi](https://osu.ppy.sh/users/4279650) for these CRAZY GOOD reaction emotes :)
-- Main icon from [syedhassan](https://pngtree.com/syedhassan_564486)
-- Remaining reaction emotes from [Smashicons](https://www.flaticon.com/authors/smashicons)
 
 ## Setup
 Trust me, you don't want to set this up, it will be a pain. Feel free to use the code in this repo as inspiration if you're working on something similar but I wouldn't even recommend that.
