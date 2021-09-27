@@ -1,3 +1,21 @@
+macro_rules! server_error {
+    ($($arg:tt)+) => {
+        error!(target: "{server}", $($arg)+)
+    }
+}
+
+macro_rules! server_warn {
+    ($($arg:tt)+) => {
+        warn!(target: "{server}", $($arg)+)
+    }
+}
+
+macro_rules! server_info {
+    ($($arg:tt)+) => {
+        info!(target: "{server}", $($arg)+)
+    }
+}
+
 mod auth;
 mod error;
 
@@ -5,11 +23,12 @@ pub use auth::{
     AuthenticationStandby, AuthenticationStandbyError, WaitForOsuAuth, WaitForTwitchAuth,
 };
 pub use error::ServerError;
+use handlebars::Handlebars;
 
 use crate::{
     twitch::{OAuthToken, TwitchData, TwitchUser},
     util::{
-        constants::{TWITCH_OAUTH, TWITCH_USERS_ENDPOINT},
+        constants::{GENERAL_ISSUE, TWITCH_OAUTH, TWITCH_USERS_ENDPOINT},
         error::TwitchError,
     },
     Context, CONFIG,
@@ -17,7 +36,7 @@ use crate::{
 
 use hyper::{
     client::{connect::dns::GaiResolver, HttpConnector},
-    header::{AUTHORIZATION, LOCATION},
+    header::{AUTHORIZATION, CONTENT_TYPE, LOCATION},
     server::Server,
     Body, Client as HyperClient, Request, Response, StatusCode,
 };
@@ -25,8 +44,9 @@ use hyper_rustls::HttpsConnector;
 use prometheus::{Encoder, TextEncoder};
 use rosu_v2::Osu;
 use routerify::{ext::RequestExt, Middleware, RouteError, Router, RouterService};
-use std::{net::SocketAddr, sync::Arc};
-use tokio::sync::oneshot;
+use serde_json::json;
+use std::{env, net::SocketAddr, path::PathBuf, sync::Arc};
+use tokio::{fs::File, io::AsyncReadExt, sync::oneshot};
 
 pub async fn run_server(ctx: Arc<Context>, shutdown_rx: oneshot::Receiver<()>) {
     if cfg!(debug_assertions) {
@@ -58,6 +78,7 @@ pub async fn run_server(ctx: Arc<Context>, shutdown_rx: oneshot::Receiver<()>) {
 struct Client(HyperClient<HttpsConnector<HttpConnector<GaiResolver>>, Body>);
 
 struct Context_(Arc<Context>);
+struct Handlebars_(Handlebars<'static>);
 
 struct OsuClientId(u64);
 struct OsuClientSecret(String);
@@ -82,9 +103,19 @@ fn router(ctx: Arc<Context>) -> Router<Body, ServerError> {
     let osu_redirect = format!("{}/auth/osu", url);
     let twitch_redirect = format!("{}/auth/twitch", url);
 
+    let mut handlebars = Handlebars::new();
+    let env_var = env::var("WEBSITE_PATH").expect("missing env variable `WEBSITE_PATH`");
+    let mut path = PathBuf::from(env_var);
+    path.push("auth.hbs");
+
+    handlebars
+        .register_template_file("auth", path)
+        .expect("failed to register auth template to handlebars");
+
     Router::builder()
         .data(Client(client))
         .data(Context_(ctx))
+        .data(Handlebars_(handlebars))
         .data(OsuClientId(osu_client_id))
         .data(OsuClientSecret(osu_client_secret))
         .data(OsuRedirect(osu_redirect))
@@ -95,6 +126,8 @@ fn router(ctx: Arc<Context>) -> Router<Body, ServerError> {
         .get("/metrics", metrics_handler)
         .get("/auth/osu", auth_osu_handler)
         .get("/auth/twitch", auth_twitch_handler)
+        .get("/auth/auth.css", auth_css_handler)
+        .get("/auth/icon.svg", auth_icon_handler)
         .get("/osudirect/:mapset_id", osudirect_handler)
         .any(handle_404)
         .err_handler(error_handler)
@@ -103,7 +136,7 @@ fn router(ctx: Arc<Context>) -> Router<Body, ServerError> {
 }
 
 async fn logger(req: Request<Body>) -> Result<Request<Body>, ServerError> {
-    debug!(
+    server_info!(
         "{} {} {}",
         req.remote_addr(),
         req.method(),
@@ -115,11 +148,11 @@ async fn logger(req: Request<Body>) -> Result<Request<Body>, ServerError> {
 
 async fn error_handler(err: RouteError) -> Response<Body> {
     let err = &*err;
-    unwind_error!(error, err, "Error while handling server request: {}");
+    unwind_error!(server_error, err, "Error while handling server request: {}");
 
     Response::builder()
         .status(StatusCode::INTERNAL_SERVER_ERROR)
-        .body(Body::from(format!("Something went wrong: {}", err)))
+        .body(Body::from(GENERAL_ISSUE))
         .unwrap()
 }
 
@@ -134,27 +167,44 @@ async fn handle_404(_req: Request<Body>) -> HandlerResult {
 }
 
 async fn metrics_handler(req: Request<Body>) -> HandlerResult {
-    let mut buffer = Vec::new();
+    let mut buf = Vec::new();
     let encoder = TextEncoder::new();
     let Context_(ctx) = req.data().unwrap();
     let metric_families = ctx.stats.registry.gather();
-    encoder.encode(&metric_families, &mut buffer).unwrap();
+    encoder.encode(&metric_families, &mut buf).unwrap();
 
-    Ok(Response::new(Body::from(buffer)))
+    Ok(Response::new(Body::from(buf)))
 }
 
 async fn auth_osu_handler(req: Request<Body>) -> HandlerResult {
+    match auth_osu_handler_(&req).await {
+        Ok(response) => Ok(response),
+        Err(why) => {
+            unwind_error!(server_warn, why, "osu! authentication failed: {}");
+
+            let render_data = json!({
+                "body_id": "error",
+                "error": GENERAL_ISSUE,
+            });
+
+            let Handlebars_(handlebars) = req.data().unwrap();
+            let page = handlebars.render("auth", &render_data)?;
+
+            let response = Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(Body::from(page))?;
+
+            Ok(response)
+        }
+    }
+}
+
+async fn auth_osu_handler_(req: &Request<Body>) -> HandlerResult {
     let query = req.uri().query();
 
     let code = match query.and_then(|q| q.split('&').find(|q| q.starts_with("code="))) {
         Some(query) => &query[5..],
-        None => {
-            let response = Response::builder()
-                .status(StatusCode::BAD_REQUEST)
-                .body(Body::from("Require 'code' parameter in query"))?;
-
-            return Ok(response);
-        }
+        None => return invalid_auth_query(req),
     };
 
     let id_opt = query.and_then(|q| {
@@ -165,13 +215,7 @@ async fn auth_osu_handler(req: Request<Body>) -> HandlerResult {
 
     let id = match id_opt {
         Some(Ok(state)) => state,
-        None | Some(Err(_)) => {
-            let response = Response::builder()
-                .status(StatusCode::BAD_REQUEST)
-                .body(Body::from("Require numeric 'state' parameter in query"))?;
-
-            return Ok(response);
-        }
+        None | Some(Err(_)) => return invalid_auth_query(req),
     };
 
     let OsuClientId(client_id) = req.data().unwrap();
@@ -187,31 +231,52 @@ async fn auth_osu_handler(req: Request<Body>) -> HandlerResult {
 
     let user = osu.own_data().await?;
 
-    let body = format!(
-        "osu! authorization for bathbot was successful, hi {} o/",
-        user.username
-    );
+    let render_data = json!({
+        "body_id": "success",
+        "kind": "osu!",
+        "name": user.username,
+    });
 
-    info!("Successful osu! authorization for `{}`", user.username);
+    let Handlebars_(handlebars) = req.data().unwrap();
+    let page = handlebars.render("auth", &render_data)?;
+
+    info!(target: "{server,_Default}", "Successful osu! authorization for `{}`", user.username);
 
     let Context_(ctx) = req.data().unwrap();
     ctx.auth_standby.process_osu(user, id);
 
-    Ok(Response::new(Body::from(body)))
+    Ok(Response::new(Body::from(page)))
 }
 
 async fn auth_twitch_handler(req: Request<Body>) -> HandlerResult {
+    match auth_twitch_handler_(&req).await {
+        Ok(response) => Ok(response),
+        Err(why) => {
+            unwind_error!(server_warn, why, "twitch authentication failed: {}");
+
+            let render_data = json!({
+                "body_id": "error",
+                "error": GENERAL_ISSUE,
+            });
+
+            let Handlebars_(handlebars) = req.data().unwrap();
+            let page = handlebars.render("auth", &render_data)?;
+
+            let response = Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(Body::from(page))?;
+
+            Ok(response)
+        }
+    }
+}
+
+async fn auth_twitch_handler_(req: &Request<Body>) -> HandlerResult {
     let query = req.uri().query();
 
     let code = match query.and_then(|q| q.split('&').find(|q| q.starts_with("code="))) {
         Some(query) => &query[5..],
-        None => {
-            let response = Response::builder()
-                .status(StatusCode::BAD_REQUEST)
-                .body(Body::from("Require 'code' parameter in query"))?;
-
-            return Ok(response);
-        }
+        None => return invalid_auth_query(req),
     };
 
     let id_opt = query.and_then(|q| {
@@ -222,13 +287,7 @@ async fn auth_twitch_handler(req: Request<Body>) -> HandlerResult {
 
     let id = match id_opt {
         Some(Ok(state)) => state,
-        None | Some(Err(_)) => {
-            let response = Response::builder()
-                .status(StatusCode::BAD_REQUEST)
-                .body(Body::from("Require numeric 'state' parameter in query"))?;
-
-            return Ok(response);
-        }
+        None | Some(Err(_)) => return invalid_auth_query(req),
     };
 
     let TwitchClientId(client_id) = req.data().unwrap();
@@ -281,12 +340,17 @@ async fn auth_twitch_handler(req: Request<Body>) -> HandlerResult {
         .map(|mut data| data.data.pop())?
         .ok_or(TwitchError::NoUser)?;
 
-    let body = format!(
-        "twitch authorization for bathbot was successful, hi {} o/",
-        user.display_name
-    );
+    let render_data = json!({
+        "body_id": "success",
+        "kind": "twitch",
+        "name": user.display_name,
+    });
+
+    let Handlebars_(handlebars) = req.data().unwrap();
+    let page = handlebars.render("auth", &render_data)?;
 
     info!(
+        target: "{server,_Default}",
         "Successful twitch authorization for `{}`",
         user.display_name
     );
@@ -294,7 +358,29 @@ async fn auth_twitch_handler(req: Request<Body>) -> HandlerResult {
     let Context_(ctx) = req.data().unwrap();
     ctx.auth_standby.process_twitch(user, id);
 
-    Ok(Response::new(Body::from(body)))
+    Ok(Response::new(Body::from(page)))
+}
+
+async fn auth_css_handler(_: Request<Body>) -> HandlerResult {
+    let mut path = PathBuf::from(env::var("WEBSITE_PATH")?);
+    path.push("auth.css");
+    let mut buf = Vec::with_capacity(1824);
+    File::open(path).await?.read_to_end(&mut buf).await?;
+
+    Ok(Response::new(Body::from(buf)))
+}
+
+async fn auth_icon_handler(_: Request<Body>) -> HandlerResult {
+    let mut path = PathBuf::from(env::var("WEBSITE_PATH")?);
+    path.push("icon.svg");
+    let mut buf = Vec::with_capacity(11_198);
+    File::open(path).await?.read_to_end(&mut buf).await?;
+
+    let response = Response::builder()
+        .header(CONTENT_TYPE, "image/svg+xml")
+        .body(Body::from(buf))?;
+
+    Ok(response)
 }
 
 async fn osudirect_handler(req: Request<Body>) -> HandlerResult {
@@ -317,6 +403,22 @@ async fn osudirect_handler(req: Request<Body>) -> HandlerResult {
         .status(StatusCode::PERMANENT_REDIRECT)
         .header(LOCATION, location)
         .body(Body::empty())?;
+
+    Ok(response)
+}
+
+fn invalid_auth_query(req: &Request<Body>) -> HandlerResult {
+    let render_data = json!({
+        "body_id": "error",
+        "error": "Invalid query",
+    });
+
+    let Handlebars_(handlebars) = req.data().unwrap();
+    let page = handlebars.render("auth", &render_data)?;
+
+    let response = Response::builder()
+        .status(StatusCode::BAD_REQUEST)
+        .body(Body::from(page))?;
 
     Ok(response)
 }

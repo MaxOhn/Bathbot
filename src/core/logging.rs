@@ -13,6 +13,7 @@ static LOGGER: OnceCell<LoggerHandle> = OnceCell::new();
 pub fn initialize() -> BotResult<()> {
     let file_spec = FileSpec::default().directory("logs");
     let tracking_file_spec = FileSpec::default().directory("logs/tracking/");
+    let server_file_spec = FileSpec::default().directory("logs/server/");
 
     let tracking_log_writer = FileLogWriter::builder(tracking_file_spec)
         .format(log_format_files)
@@ -24,10 +25,21 @@ pub fn initialize() -> BotResult<()> {
         .try_build()
         .expect("failed to build tracking_log_writer");
 
+    let server_log_writer = FileLogWriter::builder(server_file_spec)
+        .format(log_format_files)
+        .rotate(
+            Criterion::Age(Age::Day),
+            Naming::Timestamps,
+            Cleanup::KeepLogAndCompressedFiles(5, 20),
+        )
+        .try_build()
+        .expect("failed to build server_log_writer");
+
     let logger_handle = Logger::try_with_str("bathbot_twilight")
         .unwrap()
         .log_to_file(file_spec)
         .add_writer("tracking", Box::new(tracking_log_writer))
+        .add_writer("server", Box::new(server_log_writer))
         .format(log_format)
         .format_for_files(log_format_files)
         .rotate(
