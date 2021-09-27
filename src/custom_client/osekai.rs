@@ -82,6 +82,9 @@ impl OsekaiRanking for LovedMapsets {
     type Entry = OsekaiRankingEntry<usize>;
 }
 
+#[derive(Deserialize)]
+pub(super) struct OsekaiMaps(pub(super) Option<Vec<OsekaiMap>>);
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct OsekaiMap {
     #[serde(rename = "Artist")]
